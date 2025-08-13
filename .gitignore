@@ -83,3 +83,5 @@ Desktop.ini
 
 # Crash reports
 crashlytics-build.properties
+# Sentry Config File
+sentry.properties
