@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Vivid</string>
+    <string name="welcome_message">Welcome to %s, your live streaming companion!</string>
+    <string name="stream_button">Start Stream</string>
+    <string name="settings_title">Settings</string>
+    <string name="language_setting">Language</string>
+</resources>
