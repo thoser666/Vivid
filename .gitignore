@@ -1,15 +1,85 @@
-*.iml
-.gradle
-/local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
-.DS_Store
-/build
-/captures
-.externalNativeBuild
-.cxx
+# built application files
+*.apk
+*.ap_
+*.aab
+*.aar
+
+# files for the art/sass build system
+.sass-cache/
+.compass/
+/tmp/
+/out/
+
+# files for the dex VM
+*.dex
+
+# Java class files
+*.class
+
+# generated files
+bin/
+gen/
+
+# Gradle files
+.gradle/
+build/
+*.log
 local.properties
+.DS_Store
+.idea/
+.cxx/
+*.iml
+.externalNativeBuild/
+.navigation/
+
+# Android Studio and IntelliJ IDEA files
+.idea/
+.idea/workspace.xml
+.idea/libraries/
+.idea/modules.xml
+.idea/codeStyles/
+.idea/dictionaries/
+.idea/scopes/
+.idea/misc.xml
+.idea/vcs.xml
+
+# Keystore files
+*.jks
+*.keystore
+
+# External native build files
+/.externalNativeBuild/
+
+# Local Android Studio files
+/captures/
+.external_build_id
+.gradle-tooling-api-generated-models/
+
+# Crashlytics or Fabric
+fabric/
+
+# Per-user config files
+proguard-rules.pro
+# Keep this one if you want to explicitly commit your ProGuard rules,
+# but it's often generated/local. If you are committing, remove this line.
+
+# Windows trash files
+Thumbs.db
+Desktop.ini
+
+# Linux/macOS hidden files
+.DS_Store
+.localized
+.idea_modules
+.buildlog/
+.gradle/
+
+# Log files
+*.log
+
+# NDK
+.ndk/
+.ndk-modules/
+
+# Crash reports
+crashlytics-build.properties
