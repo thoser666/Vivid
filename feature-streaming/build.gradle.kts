@@ -33,7 +33,7 @@ android {
 dependencies {
     // Project dependencies
     implementation(project(":domain")) // Feature depends on domain for business logic/models
-    implementation(project(":core"))   // Feature might use common core utilities
+    implementation(project(":core")) // Feature might use common core utilities
 
     // Android KTX
     implementation("androidx.core:core-ktx:1.9.0")
