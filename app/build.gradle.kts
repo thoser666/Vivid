@@ -6,15 +6,15 @@ plugins {
 
 android {
     namespace = "com.vivid.irlbroadcaster"
-    compileSdk = 36
-
+    compileSdk = 33
     defaultConfig {
         applicationId = "com.vivid.irlbroadcaster"
-        minSdk = 34
-        targetSdk = 36
+        minSdk = 24
+        targetSdk = 33
         versionCode = 1
         versionName = "1.0"
-
+        // Only package these locales
+        resConfigs("en", "fr")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
