@@ -9,11 +9,11 @@ plugins {
 
 android {
     namespace = "com.vivid.irlbroadcaster"
-    compileSdk = 33
+    compileSdk = rootProject.extra["compileSdkVersion"] as Int
     defaultConfig {
         applicationId = "com.vivid.irlbroadcaster"
-        minSdk = 24
-        targetSdk = 33
+        minSdk = rootProject.extra["minSdkVersion"] as Int
+        targetSdk = rootProject.extra["targetSdkVersion"] as Int
         versionCode = 1
         versionName = "1.0"
         // Only package these locales

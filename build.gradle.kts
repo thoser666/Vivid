@@ -1,4 +1,8 @@
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
+val compileSdkVersion by extra(36)
+val minSdkVersion by extra(24)
+val targetSdkVersion by extra(36)
+
 plugins {
     alias(libs.plugins.android.application) apply false
     alias(libs.plugins.kotlin.android) apply false

@@ -8,10 +8,10 @@ plugins {
 
 android {
     namespace = "com.vivid.feature.streaming" // Updated namespace
-    compileSdk = 33
+    compileSdk = rootProject.extra["compileSdkVersion"] as Int
 
     defaultConfig {
-        minSdk = 24
+        minSdk = rootProject.extra["minSdkVersion"] as Int
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
