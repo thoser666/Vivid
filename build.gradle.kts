@@ -1,6 +1,6 @@
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 val compileSdkVersion by extra(36)
-val minSdkVersion by extra(24)
+val minSdkVersion by extra(26)
 val targetSdkVersion by extra(36)
 
 plugins {
