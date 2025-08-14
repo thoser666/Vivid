@@ -8,11 +8,10 @@ plugins {
     alias(libs.plugins.kotlin.android) apply false
     alias(libs.plugins.kotlin.compose) apply false
     id("com.google.dagger.hilt.android") version "2.44" apply false // Corrected Hilt plugin ID
-    //id("io.sentry.android.gradle") version "5.9.0" // This was moved from your original plugins block
+    // id("io.sentry.android.gradle") version "5.9.0" // This was moved from your original plugins block
     // Ensure it's correctly managed if needed.
     // Usually, you would have an alias or the full ID here.
 }
-
 
 // It's good practice to declare repositories that host your plugins
 // within a pluginManagement block in settings.gradle.kts,
