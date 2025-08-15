@@ -5,6 +5,8 @@ plugins {
 
     id("kotlin-kapt") // Add this for annotation processing
     id("com.google.dagger.hilt.android")
+
+    id("io.sentry.android.gradle") version "5.9.0"
 }
 
 android {
@@ -52,7 +54,7 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
-    implementation("androidx.navigation:navigation-compose:2.7.7") // Or the latest version
+    implementation("androidx.navigation:navigation-compose:2.9.3") // Or the latest version
 
     dependencies {
         implementation("com.google.dagger:hilt-android:2.44")
@@ -66,4 +68,14 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
+}
+
+
+sentry {
+    org.set("privat-jb")
+    projectName.set("vivid")
+
+    // this will upload your source code to Sentry to show it as part of the stack traces
+    // disable if you don't want to expose your sources
+    includeSourceContext.set(true)
 }
