@@ -9,10 +9,7 @@ plugins {
     alias(libs.plugins.kotlin.compose) apply false
     id("com.google.dagger.hilt.android") version "2.44" apply false
     alias(libs.plugins.jetbrains.kotlin.jvm) apply false // Corrected Hilt plugin ID
-    // id("io.sentry.android.gradle") version "5.9.0" // This was moved from your original plugins block
-    // Ensure it's correctly managed if needed.
-    // Usually, you would have an alias or the full ID here.
-}
+ }
 
 // It's good practice to declare repositories that host your plugins
 // within a pluginManagement block in settings.gradle.kts,
@@ -39,13 +36,3 @@ kapt {
 }
  */
 
-/*
-sentry {
-    org.set("privat-jb")
-    projectName.set("vivid")
-
-    // this will upload your source code to Sentry to show it as part of the stack traces
-    // disable if you don't want to expose your sources
-    includeSourceContext.set(true)
-}
-*/
