@@ -1,4 +1,3 @@
 package com.vivid.domain
 
-class MyClass {
-}
+class MyClass
