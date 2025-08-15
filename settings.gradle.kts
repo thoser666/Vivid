@@ -21,3 +21,6 @@ dependencyResolutionManagement {
 
 rootProject.name = "Vivid"
 include(":app")
+include(":feature-streaming")
+include(":domain")
+include(":core")
