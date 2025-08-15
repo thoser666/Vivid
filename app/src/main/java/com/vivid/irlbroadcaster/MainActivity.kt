@@ -12,7 +12,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.vivid.feature.streaming.StreamingScreen // Import the streaming screen
-import com.vivid.irlbroadcaster.ui.theme.VividThemeimport io.sentry.Sentry
+import com.vivid.irlbroadcaster.ui.theme.VividTheme
+import io.sentry.Sentry
 
 
 class MainActivity : ComponentActivity() {
@@ -31,7 +32,7 @@ class MainActivity : ComponentActivity() {
             VividTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
+                    color = MaterialTheme.colorScheme.background,
                 ) {
                     VividAppNavigation()
                 }
