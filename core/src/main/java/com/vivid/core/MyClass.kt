@@ -1,4 +1,3 @@
 package com.vivid.core
 
-class MyClass {
-}
+class MyClass
