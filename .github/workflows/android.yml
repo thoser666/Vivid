@@ -39,7 +39,7 @@ jobs:
       - name: Download dependencies & Build Release
         run: ./gradlew assembleRelease
       - name: Upload ProGuard Mapping to Sentry
-        uses: getsentry/action-github-sentry@v1
+        uses: getsentry/action-release@v3
         with:
           sentry-org: ${{ secrets.SENTRY_ORG }}
           sentry-project: ${{ secrets.SENTRY_PROJECT }}
