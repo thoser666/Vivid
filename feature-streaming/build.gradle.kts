@@ -4,6 +4,7 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("dagger.hilt.android.plugin")
     kotlin("kapt")
+    id("org.jetbrains.kotlin.plugin.compose") // Add this line
 }
 
 android {
