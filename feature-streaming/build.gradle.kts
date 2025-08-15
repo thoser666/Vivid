@@ -8,10 +8,10 @@ plugins {
 
 android {
     namespace = "com.vivid.feature.streaming" // Updated namespace
-    compileSdk = rootProject.extra["compileSdkVersion"] as Int
+    compileSdk = 33
 
     defaultConfig {
-        minSdk = rootProject.extra["minSdkVersion"] as Int
+        minSdk = 24
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -33,7 +33,7 @@ android {
 dependencies {
     // Project dependencies
     implementation(project(":domain")) // Feature depends on domain for business logic/models
-    implementation(project(":core")) // Feature might use common core utilities
+    implementation(project(":core"))   // Feature might use common core utilities
 
     // Android KTX
     implementation("androidx.core:core-ktx:1.9.0")

@@ -1,6 +1,10 @@
 package com.vivid.feature.streaming
 
+package com.vivid.feature.streaming
+
 import android.Manifest
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -21,20 +25,20 @@ fun StreamingScreen(navController: NavController) {
 
     // Request CAMERA and RECORD_AUDIO permissions
     val permissionsState = rememberMultiplePermissionsState(
-        permissions = listOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO),
+        permissions = listOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO)
     )
 
     Scaffold(
         topBar = {
             TopAppBar(title = { Text(stringResource(R.string.streaming_screen_title)) })
-        },
+        }
     ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
+            verticalArrangement = Arrangement.Center
         ) {
             when {
                 permissionsState.allPermissionsGranted -> {
