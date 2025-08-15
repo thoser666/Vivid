@@ -9,7 +9,7 @@ plugins {
     alias(libs.plugins.kotlin.compose) apply false
     id("com.google.dagger.hilt.android") version "2.44" apply false
     alias(libs.plugins.jetbrains.kotlin.jvm) apply false // Corrected Hilt plugin ID
- }
+}
 
 // It's good practice to declare repositories that host your plugins
 // within a pluginManagement block in settings.gradle.kts,
@@ -35,4 +35,3 @@ kapt {
     correctErrorTypes = true
 }
  */
-
