@@ -3,6 +3,8 @@ name: Android CI
 on:
   push:
     branches: [ "develop" ]
+    tags:
+      - 'v*.*.*'
   pull_request:
     branches: [ "develop" ]
 
@@ -24,3 +26,23 @@ jobs:
       run: chmod +x gradlew
     - name: Build with Gradle
       run: ./gradlew build
+
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up JDK
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      - name: Download dependencies & Build Release
+        run: ./gradlew assembleRelease
+      - name: Upload ProGuard Mapping to Sentry
+        uses: getsentry/action-android@v2
+        with:
+          sentry-org: ${{ secrets.SENTRY_ORG }}
+          sentry-project: ${{ secrets.SENTRY_PROJECT }}
+          auth-token: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          release: ${{ github.ref_name }}  # z.B. v1.2.3
+          mapping: app/build/outputs/mapping/release/mapping.txt
