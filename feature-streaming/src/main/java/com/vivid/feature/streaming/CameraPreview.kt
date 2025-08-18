@@ -9,7 +9,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 @Composable
 fun CameraPreview(
     modifier: Modifier = Modifier,
-    preview: Preview
+    preview: Preview,
 ) {
     AndroidView(
         factory = { context ->
@@ -22,6 +22,6 @@ fun CameraPreview(
         update = { previewView ->
             // Die PreviewView wird mit dem Preview Use Case von CameraX verbunden
             preview.setSurfaceProvider(previewView.surfaceProvider)
-        }
+        },
     )
 }
