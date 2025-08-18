@@ -3,7 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
 
- //   id("kotlin-kapt") // Add this for annotation processing
+    //   id("kotlin-kapt") // Add this for annotation processing
     id("com.google.devtools.ksp") version "1.9.10-1.0.13" // Statt kapt
     id("com.google.dagger.hilt.android")
 
