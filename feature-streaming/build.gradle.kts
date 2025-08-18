@@ -45,6 +45,26 @@ dependencies {
     implementation("com.google.dagger:hilt-android:2.44")
     kapt("com.google.dagger:hilt-compiler:2.44")
 
+    // CameraX für Video-Streaming
+    implementation("androidx.camera:camera-camera2:1.4.0")
+    implementation("androidx.camera:camera-lifecycle:1.4.0")
+    implementation("androidx.camera:camera-view:1.4.0")
+    implementation("androidx.camera:camera-video:1.4.0") // Für Recording
+
+    // Hilt Navigation Compose
+    implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
+
+    // Permissions (Accompanist)
+    implementation("com.google.accompanist:accompanist-permissions:0.32.0")
+
+    // Network für RTMP/SRT Streaming
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+
+    // Für WebSocket (OBS Control)
+    implementation("com.squareup.okhttp3:okhttp-ws:4.12.0") // Falls noch verfügbar
+    // oder
+    implementation("org.java-websocket:Java-WebSocket:1.5.4")
+
     // Compose (for UI within the feature module)
     implementation("androidx.compose.ui:ui:1.4.3")
     implementation("androidx.compose.material3:material3:1.1.0")

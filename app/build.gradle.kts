@@ -3,7 +3,8 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
 
-    id("kotlin-kapt") // Add this for annotation processing
+ //   id("kotlin-kapt") // Add this for annotation processing
+    id("com.google.devtools.ksp") version "1.9.10-1.0.13" // Statt kapt
     id("com.google.dagger.hilt.android")
 
     id("io.sentry.android.gradle") version "5.9.0"
@@ -19,11 +20,22 @@ android {
         versionCode = 1
         versionName = "1.0"
         // Only package these locales
-        resConfigs("en", "fr")
+        resConfigs("en", "fr", "de")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
+        debug {
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+            isDebuggable = true
+        }
+        // Eventuell eine Beta-Variante
+        create("beta") {
+            initWith(getByName("release"))
+            applicationIdSuffix = ".beta"
+            versionNameSuffix = "-beta"
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(
@@ -57,8 +69,8 @@ dependencies {
     implementation(project(":feature-streaming")) // Add this line
     implementation("androidx.navigation:navigation-compose:2.9.3") // Or the latest version
 
-    implementation("com.google.dagger:hilt-android:2.44")
-    kapt("com.google.dagger:hilt-compiler:2.44")
+//    implementation("com.google.dagger:hilt-android:2.44")
+//    kapt("com.google.dagger:hilt-compiler:2.44")
 
     // CameraX für Video-Streaming
     implementation("androidx.camera:camera-camera2:1.4.0")
