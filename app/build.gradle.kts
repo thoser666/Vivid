@@ -70,7 +70,7 @@ dependencies {
     implementation("androidx.navigation:navigation-compose:2.9.3") // Or the latest version
 
 //    implementation("com.google.dagger:hilt-android:2.44")
-//    kapt("com.google.dagger:hilt-compiler:2.44")
+    ksp("com.google.dagger:hilt-compiler:2.44")
 
     // CameraX für Video-Streaming
     implementation("androidx.camera:camera-camera2:1.4.0")
