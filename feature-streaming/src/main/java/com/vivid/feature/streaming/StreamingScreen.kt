@@ -7,57 +7,100 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
-import com.vivid.core.R // Assuming core module will have common strings like permissions
+import com.vivid.core.R
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
-fun StreamingScreen(navController: NavController) {
+fun StreamingScreen(
+    navController: NavController,
+    viewModel: StreamingViewModel = hiltViewModel() // ViewModel per Hilt injizieren
+) {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
 
-    // Request CAMERA and RECORD_AUDIO permissions
+    // Kameravorschau und -auswahl aus dem ViewModel holen
+    val preview by viewModel.preview.collectAsState()
+    val cameraSelector by viewModel.cameraSelector.collectAsState()
+
     val permissionsState = rememberMultiplePermissionsState(
         permissions = listOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO),
+        onPermissionsResult = {
+            if (it.values.all { isGranted -> isGranted }) {
+                // Berechtigungen wurden erteilt, starte die Kamera
+                viewModel.startCamera(context, lifecycleOwner)
+            }
+        }
     )
+
+    // Wenn sich die Kameraauswahl ändert, starte die Kamera neu
+    LaunchedEffect(cameraSelector) {
+        viewModel.startCamera(context, lifecycleOwner)
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(title = { Text(stringResource(R.string.streaming_screen_title)) })
         },
     ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-        ) {
+        Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
             when {
                 permissionsState.allPermissionsGranted -> {
-                    Text(text = "Permissions granted! Camera preview will go here.")
-                    Spacer(modifier = Modifier.height(16.dp))
-                    // TODO: Implement CameraX preview and stream control here
-                    Button(onClick = { /* Start stream logic */ }) {
-                        Text(stringResource(R.string.start_stream_button))
+                    // Wenn die Vorschau bereit ist, zeige sie an
+                    preview?.let {
+                        CameraPreview(
+                            modifier = Modifier.fillMaxSize(),
+                            preview = it
+                        )
+                    }
+
+                    // Steuerungselemente über der Vorschau
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Bottom
+                    ) {
+                        Button(onClick = { /* TODO: viewModel.startStopStream() */ }) {
+                            Text(stringResource(R.string.start_stream_button))
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Button(onClick = { viewModel.switchCamera() }) {
+                            Text("Switch Camera") // TODO: Ressource verwenden
+                        }
                     }
                 }
                 permissionsState.shouldShowRationale -> {
-                    Text(text = stringResource(R.string.permissions_rationale))
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Button(onClick = { permissionsState.launchMultiplePermissionRequest() }) {
-                        Text(stringResource(R.string.grant_permissions_button))
+                    // UI, um Berechtigungen anzufordern
+                    Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(text = stringResource(R.string.permissions_rationale))
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Button(onClick = { permissionsState.launchMultiplePermissionRequest() }) {
+                            Text(stringResource(R.string.grant_permissions_button))
+                        }
                     }
                 }
-                !permissionsState.allPermissionsGranted && !permissionsState.shouldShowRationale -> {
-                    Text(text = stringResource(R.string.permissions_denied_permanently))
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Button(onClick = { /* Navigate to app settings or show dialog */ }) {
-                        Text(stringResource(R.string.open_settings_button))
+                else -> {
+                    // UI für permanent verweigerte Berechtigungen
+                    Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(text = stringResource(R.string.permissions_denied_permanently))
                     }
+                }
+            }
+
+            // Starte die Berechtigungsanfrage und die Kamera beim ersten Laden
+            LaunchedEffect(Unit) {
+                if (!permissionsState.allPermissionsGranted) {
+                    permissionsState.launchMultiplePermissionRequest()
+                } else {
+                    viewModel.startCamera(context, lifecycleOwner)
                 }
             }
         }
