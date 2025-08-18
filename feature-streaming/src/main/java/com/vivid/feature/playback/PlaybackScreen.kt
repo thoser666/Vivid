@@ -12,7 +12,7 @@ import androidx.navigation.NavController
 fun PlaybackScreen(
     navController: NavController,
     streamUrl: String? = null,
-    viewModel: PlaybackViewModel = hiltViewModel()
+    viewModel: PlaybackViewModel = hiltViewModel(),
 ) {
     val currentStreamUrl by viewModel.currentStreamUrl.collectAsState()
 
@@ -27,7 +27,7 @@ fun PlaybackScreen(
                 streamUrl = url,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .aspectRatio(16f / 9f)
+                    .aspectRatio(16f / 9f),
             )
         }
 
@@ -36,7 +36,7 @@ fun PlaybackScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly
+            horizontalArrangement = Arrangement.SpaceEvenly,
         ) {
             Button(onClick = { /* Previous stream */ }) {
                 Text("Previous")
