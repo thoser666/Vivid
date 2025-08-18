@@ -13,7 +13,7 @@ import androidx.media3.ui.PlayerView
 fun StreamPlayer(
     modifier: Modifier = Modifier,
     streamUrl: String,
-    autoPlay: Boolean = true
+    autoPlay: Boolean = true,
 ) {
     val context = LocalContext.current
 
@@ -38,6 +38,6 @@ fun StreamPlayer(
                 useController = true
             }
         },
-        modifier = modifier.fillMaxSize()
+        modifier = modifier.fillMaxSize(),
     )
 }
