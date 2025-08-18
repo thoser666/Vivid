@@ -57,8 +57,8 @@ dependencies {
     implementation("androidx.camera:camera-view:1.2.3")
 
     // ExoPlayer (for RTMP/SRT streaming output)
-    implementation("com.google.android.exoplayer:exoplayer-core:2.18.7")
-    implementation("com.google.android.exoplayer:exoplayer-rtmp:2.18.7") // For RTMP streaming
+    implementation("com.google.android.exoplayer:exoplayer-core:2.19.1")
+    implementation("com.google.android.exoplayer:exoplayer-rtmp:2.19.1") // For RTMP streaming
 
     // Kotlin Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.1")
