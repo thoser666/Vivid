@@ -20,7 +20,7 @@ import com.vivid.core.R
 @Composable
 fun StreamingScreen(
     navController: NavController,
-    viewModel: StreamingViewModel = hiltViewModel() // ViewModel per Hilt injizieren
+    viewModel: StreamingViewModel = hiltViewModel(), // ViewModel per Hilt injizieren
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -36,7 +36,7 @@ fun StreamingScreen(
                 // Berechtigungen wurden erteilt, starte die Kamera
                 viewModel.startCamera(context, lifecycleOwner)
             }
-        }
+        },
     )
 
     // Wenn sich die Kameraauswahl ändert, starte die Kamera neu
@@ -56,7 +56,7 @@ fun StreamingScreen(
                     preview?.let {
                         CameraPreview(
                             modifier = Modifier.fillMaxSize(),
-                            preview = it
+                            preview = it,
                         )
                     }
 
@@ -66,7 +66,7 @@ fun StreamingScreen(
                             .fillMaxSize()
                             .padding(16.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Bottom
+                        verticalArrangement = Arrangement.Bottom,
                     ) {
                         Button(onClick = { /* TODO: viewModel.startStopStream() */ }) {
                             Text(stringResource(R.string.start_stream_button))

@@ -11,7 +11,6 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import java.util.concurrent.Executor
 import javax.inject.Inject
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
@@ -42,7 +41,7 @@ class StreamingViewModel @Inject constructor() : ViewModel() {
                 cameraProvider.bindToLifecycle(
                     lifecycleOwner,
                     _cameraSelector.value,
-                    previewUseCase
+                    previewUseCase,
                 )
                 _preview.value = previewUseCase
             } catch (exc: Exception) {
