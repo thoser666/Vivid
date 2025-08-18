@@ -4,7 +4,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 
     //   id("kotlin-kapt") // Add this for annotation processing
-    id("com.google.devtools.ksp") version "1.9.10-1.0.13" // Statt kapt
+    id("com.google.devtools.ksp") version "2.2.0-1.0.17" // Updated KSP version
     id("com.google.dagger.hilt.android")
 
     id("io.sentry.android.gradle") version "5.9.0"
