@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.vivid.feature.playback.PlaybackScreen
 import com.vivid.feature.streaming.StreamingScreen // Import the streaming screen
 import com.vivid.irlbroadcaster.ui.theme.VividTheme
 import io.sentry.Sentry
@@ -46,6 +47,10 @@ fun VividAppNavigation() {
     NavHost(navController = navController, startDestination = "streaming_route") {
         composable("streaming_route") {
             StreamingScreen(navController = navController) // Pass navController
+        }
+        composable("playback/{streamUrl}") { backStackEntry ->
+            val streamUrl = backStackEntry.arguments?.getString("streamUrl")
+            PlaybackScreen(navController, streamUrl)
         }
         // TODO: Add more navigation routes for other feature modules (chat, settings, widgets)
         // composable("chat_route") { ChatScreen(navController = navController) }

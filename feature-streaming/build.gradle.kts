@@ -56,9 +56,31 @@ dependencies {
     implementation("androidx.camera:camera-lifecycle:1.2.3")
     implementation("androidx.camera:camera-view:1.2.3")
 
-    // ExoPlayer (for RTMP/SRT streaming output)
-    implementation("com.google.android.exoplayer:exoplayer-core:2.19.1")
-    implementation("com.google.android.exoplayer:exoplayer-rtmp:2.19.1") // For RTMP streaming
+// Core Media3 (ExoPlayer Nachfolger)
+    implementation("androidx.media3:media3-exoplayer:1.4.1")
+    implementation("androidx.media3:media3-ui:1.4.1")
+    implementation("androidx.media3:media3-common:1.4.1")
+
+    // Protocol Support für IRL-Streaming
+    implementation("androidx.media3:media3-exoplayer-hls:1.4.1")      // HLS Streams
+    implementation("androidx.media3:media3-exoplayer-rtsp:1.4.1")     // RTSP Streams
+    implementation("androidx.media3:media3-exoplayer-dash:1.4.1")     // DASH Streams
+
+    // Für lokale Dateien & verschiedene Formate
+    implementation("androidx.media3:media3-decoder:1.4.1")
+    implementation("androidx.media3:media3-datasource:1.4.1")
+
+    // Compose Integration
+    implementation("androidx.media3:media3-ui-compose:1.4.1")         // Neu!
+
+    // Pedro's RTMP für Live-Streaming Output
+    implementation("com.github.pedroSG94:RootEncoder:2.4.8")
+
+    // Für SRT Streaming (falls verfügbar)
+    implementation("org.mobdro:srtplayer:1.0.0") // Beispiel
+
+    // Network & WebSocket
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
     // Kotlin Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.1")
