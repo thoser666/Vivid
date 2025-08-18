@@ -54,12 +54,11 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
+    implementation(project(":feature-streaming")) // Add this line
     implementation("androidx.navigation:navigation-compose:2.9.3") // Or the latest version
 
-    dependencies {
-        implementation("com.google.dagger:hilt-android:2.44")
-        kapt("com.google.dagger:hilt-compiler:2.44")
-    }
+    implementation("com.google.dagger:hilt-android:2.44")
+    kapt("com.google.dagger:hilt-compiler:2.44")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
