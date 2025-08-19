@@ -29,12 +29,12 @@ android {
             isDebuggable = true
         }
         // Eventuell eine Beta-Variante
-        create("beta") {
+/*        create("beta") {
             initWith(getByName("release"))
             applicationIdSuffix = ".beta"
             versionNameSuffix = "-beta"
         }
-        release {
+*/        release {
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
