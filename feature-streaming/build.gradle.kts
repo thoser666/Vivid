@@ -96,8 +96,6 @@ dependencies {
     // Pedro's RTMP für Live-Streaming Output
     implementation(libs.rootencoder)
 
-
-
     // Network & WebSocket
     implementation(libs.okhttp3.okhttp)
 
