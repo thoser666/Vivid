@@ -79,9 +79,9 @@ dependencies {
     implementation("androidx.camera:camera-view:1.2.3")
 
 // Core Media3 (ExoPlayer Nachfolger)
-    implementation("androidx.media3:media3-exoplayer:1.4.1")
-    implementation("androidx.media3:media3-ui:1.4.1")
-    implementation("androidx.media3:media3-common:1.4.1")
+    implementation("androidx.media3:media3-exoplayer:1.8.0")
+    implementation("androidx.media3:media3-ui:1.8.0")
+    implementation("androidx.media3:media3-common:1.8.0")
 
     // Protocol Support für IRL-Streaming
     implementation("androidx.media3:media3-exoplayer-hls:1.4.1") // HLS Streams
