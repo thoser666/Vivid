@@ -1,6 +1,6 @@
 [versions]
 agp = "8.12.1"
-kotlin = "2.2.0"
+kotlin = "2.2.10"
 coreKtx = "1.10.1"
 junit = "4.13.2"
 junitVersion = "1.1.5"
@@ -10,7 +10,7 @@ activityCompose = "1.8.0"
 composeBom = "2024.09.00"
 jetbrainsKotlinJvm = "2.2.0"
 hilt-version = "2.44"
-ksp-version = "2.2.0-2.0.2"
+ksp-version = "2.2.10-2.0.2"
 okhttpVersion = "4.12.0"
 rootencoder = "2.4.8"
 
