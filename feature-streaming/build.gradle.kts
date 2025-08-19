@@ -94,12 +94,12 @@ dependencies {
     implementation("androidx.media3:media3-ui-compose:1.4.1") // Neu!
 
     // Pedro's RTMP für Live-Streaming Output
-    implementation("com.github.pedroSG94:RootEncoder:2.4.8")
+    implementation(libs.rootencoder)
 
 
 
     // Network & WebSocket
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation(libs.okhttp3.okhttp)
 
     // Kotlin Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.1")
