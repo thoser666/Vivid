@@ -96,8 +96,6 @@ dependencies {
     // Pedro's RTMP für Live-Streaming Output
     implementation("com.github.pedroSG94:RootEncoder:2.4.8")
 
-
-
     // Network & WebSocket
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
