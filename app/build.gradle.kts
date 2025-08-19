@@ -3,7 +3,6 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
 
-
     id("io.sentry.android.gradle") version "5.9.0"
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
