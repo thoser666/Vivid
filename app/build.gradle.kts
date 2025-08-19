@@ -91,7 +91,7 @@ dependencies {
     // Für WebSocket (OBS Control)
     implementation("com.squareup.okhttp3:okhttp-ws:4.12.0") // Falls noch verfügbar
     // oder
-  //  implementation("org.java-websocket:Java-WebSocket:1.5.4")
+    //  implementation("org.java-websocket:Java-WebSocket:1.5.4")
 
     // compose
     implementation("androidx.compose.ui:ui")
