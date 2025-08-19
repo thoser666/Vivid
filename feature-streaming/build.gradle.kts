@@ -60,11 +60,12 @@ dependencies {
     implementation("com.google.accompanist:accompanist-permissions:0.32.0")
 
     // Network für RTMP/SRT Streaming
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation(libs.okhttp3.okhttp)
+
+    // Optional: Logging für Debug
+    implementation(libs.logging.interceptor)
 
     // Für WebSocket (OBS Control)
-    implementation("com.squareup.okhttp3:okhttp-ws:4.12.0") // Falls noch verfügbar
-    // oder
     implementation("org.java-websocket:Java-WebSocket:1.5.4")
 
     // Compose (for UI within the feature module)
