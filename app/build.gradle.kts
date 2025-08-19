@@ -91,7 +91,18 @@ dependencies {
     // Für WebSocket (OBS Control)
     implementation("com.squareup.okhttp3:okhttp-ws:4.12.0") // Falls noch verfügbar
     // oder
-    implementation("org.java-websocket:Java-WebSocket:1.5.4")
+  //  implementation("org.java-websocket:Java-WebSocket:1.5.4")
+
+    // compose
+    implementation("androidx.compose.ui:ui")
+    implementation("androidx.compose.ui:ui-graphics")
+    implementation("androidx.compose.ui:ui-tooling-preview")
+    implementation("androidx.compose.material3:material3")
+
+    // Diese werden durch die BOM automatisch versioniert
+    implementation("androidx.activity:activity-compose")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose")
+    implementation("androidx.navigation:navigation-compose")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
