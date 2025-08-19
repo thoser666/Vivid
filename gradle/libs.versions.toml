@@ -10,7 +10,8 @@ activityCompose = "1.8.0"
 composeBom = "2024.09.00"
 jetbrainsKotlinJvm = "2.2.0"
 hilt-version = "2.44"
-ksp-version = "2.2.0-2.0.2"versions are now in libs.verokhttpVersion = "4.12.0"
+ksp-version = "2.2.0-2.0.2"
+okhttpVersion = "4.12.0"
 rootencoder = "2.4.8"
 
 [libraries]
