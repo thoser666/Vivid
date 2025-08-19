@@ -18,7 +18,9 @@ android {
         versionCode = 1
         versionName = "1.0"
         // Only package these locales
-        resConfigs("en", "fr", "de")
+        androidResources {
+            localeFilters.addAll(listOf("en", "fr", "de"))
+        }
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -47,8 +49,12 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions {
-        jvmTarget = "17"
+
+    // Replace the old kotlinOptions block with this
+    kotlin {
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+        }
     }
     buildFeatures {
         compose = true
