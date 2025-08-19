@@ -3,11 +3,10 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
 
-    //   id("kotlin-kapt") // Add this for annotation processing
-    id("com.google.devtools.ksp") version "2.2.0-1.0.17" // Updated KSP version
-    id("com.google.dagger.hilt.android")
 
     id("io.sentry.android.gradle") version "5.9.0"
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.hilt)
 }
 
 android {
@@ -70,7 +69,10 @@ dependencies {
     implementation("androidx.navigation:navigation-compose:2.9.3") // Or the latest version
 
 //    implementation("com.google.dagger:hilt-android:2.44")
-    ksp("com.google.dagger:hilt-compiler:2.44")
+//    ksp("com.google.dagger:hilt-compiler:2.44")
+
+    implementation(libs.hilt.android)
+    ksp(libs.hilt.compiler)
 
     // CameraX für Video-Streaming
     implementation("androidx.camera:camera-camera2:1.4.0")
