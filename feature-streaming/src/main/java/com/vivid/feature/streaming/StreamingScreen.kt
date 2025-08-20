@@ -25,6 +25,22 @@ fun StreamingScreen(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
+    val isStreaming by streamingEngine.isStreaming.collectAsState()
+    val streamingError by streamingEngine.streamingError.collectAsState()
+
+    // Button-Text dynamisch
+    Button(onClick = {
+        if (isStreaming) viewModel.stopStream()
+        else viewModel.startStream("rtmp://live.twitch.tv/live/YOUR_KEY")
+    }) {
+        Text(if (isStreaming) "Stop Stream" else "Start Stream")
+    }
+
+// Error anzeigen
+    streamingError?.let { error ->
+        Text(text = error, color = MaterialTheme.colorScheme.error)
+    }
+
     // Kameravorschau und -auswahl aus dem ViewModel holen
     val preview by viewModel.preview.collectAsState()
     val cameraSelector by viewModel.cameraSelector.collectAsState()

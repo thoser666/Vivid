@@ -7,6 +7,7 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.vivid.feature.streaming.StreamingEngine
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -15,9 +16,12 @@ import javax.inject.Inject
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 
+@Inject
+lateinit var streamingEngine: StreamingEngine
+
 // Hilt für die automatische Bereitstellung des ViewModels
 @HiltViewModel
-class StreamingViewModel @Inject constructor() : ViewModel() {
+class StreamingViewModel @Inject constructor(private val streamingEngine: StreamingEngine ) : ViewModel() {
 
     // Zustand für die Kamera-Vorschau
     private val _preview = MutableStateFlow<Preview?>(null)
@@ -68,5 +72,14 @@ class StreamingViewModel @Inject constructor() : ViewModel() {
                 continuation.resume(future.get())
             }, ContextCompat.getMainExecutor(context))
         }
+    }
+
+    fun startStream(rtmpUrl: String) {
+        streamingEngine.addOutputStream(rtmpUrl)
+        streamingEngine.startStreaming()
+    }
+
+    fun stopStream() {
+        streamingEngine.stopStreaming()
     }
 }
