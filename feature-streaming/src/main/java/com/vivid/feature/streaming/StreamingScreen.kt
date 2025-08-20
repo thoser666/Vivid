@@ -30,8 +30,11 @@ fun StreamingScreen(
 
     // Button-Text dynamisch
     Button(onClick = {
-        if (isStreaming) viewModel.stopStream()
-        else viewModel.startStream("rtmp://live.twitch.tv/live/YOUR_KEY")
+        if (isStreaming) {
+            viewModel.stopStream()
+        } else {
+            viewModel.startStream("rtmp://live.twitch.tv/live/YOUR_KEY")
+        }
     }) {
         Text(if (isStreaming) "Stop Stream" else "Start Stream")
     }
