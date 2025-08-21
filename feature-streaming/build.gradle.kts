@@ -3,7 +3,8 @@ plugins {
     id("com.android.library")
     id("org.jetbrains.kotlin.android")
     id("dagger.hilt.android.plugin")
-    kotlin("kapt")
+//    kotlin("kapt")
+    id("com.google.devtools.ksp")
     id("org.jetbrains.kotlin.plugin.compose") // Add this line
 }
 
@@ -45,7 +46,7 @@ dependencies {
 
     // Hilt
     implementation("com.google.dagger:hilt-android:2.44")
-    kapt("com.google.dagger:hilt-compiler:2.44")
+    ksp("com.google.dagger:hilt-compiler:2.44")
 
     // CameraX für Video-Streaming
     implementation("androidx.camera:camera-camera2:1.4.0")
