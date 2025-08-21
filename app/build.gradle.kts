@@ -72,28 +72,28 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
     implementation(project(":feature-streaming")) // Add this line
-    implementation("androidx.navigation:navigation-compose:2.9.3") // Or the latest version
+    implementation(libs.androidx.navigation.compose) // Or the latest version
 
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
 
     // CameraX für Video-Streaming
-    implementation("androidx.camera:camera-camera2:1.4.0")
-    implementation("androidx.camera:camera-lifecycle:1.4.0")
-    implementation("androidx.camera:camera-view:1.4.0")
-    implementation("androidx.camera:camera-video:1.4.0") // Für Recording
+    implementation(libs.androidx.camera.camera2)
+    implementation(libs.androidx.camera.lifecycle)
+    implementation(libs.androidx.camera.view)
+    implementation(libs.androidx.camera.video) // Für Recording
 
     // Hilt Navigation Compose
-    implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
+    implementation(libs.androidx.hilt.navigation.compose)
 
     // Permissions (Accompanist)
-    implementation("com.google.accompanist:accompanist-permissions:0.32.0")
+    implementation(libs.accompanist.permissions)
 
     // Network für RTMP/SRT Streaming
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation(libs.okhttp3.okhttp)
 
     // Für WebSocket (OBS Control)
-    implementation("org.java-websocket:Java-WebSocket:1.5.4")
+    implementation(libs.java.websocket)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
