@@ -46,7 +46,7 @@ dependencies {
 
     // Hilt
     implementation("com.google.dagger:hilt-android:2.44")
-    ksp("com.google.dagger:hilt-compiler:2.44")
+    ksp(libs.dagger.hilt.compiler)
 
     // CameraX für Video-Streaming
     implementation("androidx.camera:camera-camera2:1.4.0")
