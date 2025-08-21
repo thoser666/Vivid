@@ -86,16 +86,16 @@ dependencies {
     implementation("androidx.media3:media3-common:1.8.0")
 
     // Protocol Support für IRL-Streaming
-    implementation("androidx.media3:media3-exoplayer-hls:1.4.1") // HLS Streams
-    implementation("androidx.media3:media3-exoplayer-rtsp:1.4.1") // RTSP Streams
-    implementation("androidx.media3:media3-exoplayer-dash:1.4.1") // DASH Streams
+    implementation(libs.androidx.media3.exoplayer.hls) // HLS Streams
+    implementation(libs.androidx.media3.exoplayer.rtsp) // RTSP Streams
+    implementation(libs.androidx.media3.exoplayer.dash) // DASH Streams
 
     // Für lokale Dateien & verschiedene Formate
-    implementation("androidx.media3:media3-decoder:1.4.1")
-    implementation("androidx.media3:media3-datasource:1.4.1")
+    implementation(libs.androidx.media3.decoder)
+    implementation(libs.androidx.media3.datasource)
 
     // Compose Integration
-    implementation("androidx.media3:media3-ui-compose:1.4.1") // Neu!
+    implementation(libs.androidx.media3.ui.compose) // Neu!
 
     // Pedro's RTMP für Live-Streaming Output
     implementation(libs.rootencoder)

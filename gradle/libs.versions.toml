@@ -12,11 +12,19 @@ jetbrainsKotlinJvm = "2.2.0"
 hilt-version = "2.52"
 ksp-version = "2.2.10-2.0.2"
 loggingInterceptor = "4.12.0"
+media3Decoder = "1.8.0"
+media3ExoplayerHls = "1.8.0"
 okhttpVersion = "4.12.0"
 rootencoder = "2.4.8"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
+androidx-media3-datasource = { module = "androidx.media3:media3-datasource", version.ref = "media3Decoder" }
+androidx-media3-decoder = { module = "androidx.media3:media3-decoder", version.ref = "media3Decoder" }
+androidx-media3-exoplayer-dash = { module = "androidx.media3:media3-exoplayer-dash", version.ref = "media3ExoplayerHls" }
+androidx-media3-exoplayer-hls = { module = "androidx.media3:media3-exoplayer-hls", version.ref = "media3ExoplayerHls" }
+androidx-media3-exoplayer-rtsp = { module = "androidx.media3:media3-exoplayer-rtsp", version.ref = "media3ExoplayerHls" }
+androidx-media3-ui-compose = { module = "androidx.media3:media3-ui-compose", version.ref = "media3Decoder" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
