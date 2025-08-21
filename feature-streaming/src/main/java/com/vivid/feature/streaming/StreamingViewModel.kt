@@ -15,7 +15,6 @@ import javax.inject.Inject
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 
-
 // Hilt für die automatische Bereitstellung des ViewModels
 @HiltViewModel
 class StreamingViewModel @Inject constructor(private val streamingEngine: StreamingEngine) : ViewModel() {
