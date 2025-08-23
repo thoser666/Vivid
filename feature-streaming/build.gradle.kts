@@ -5,7 +5,7 @@ plugins {
     id("dagger.hilt.android.plugin")
 //    kotlin("kapt")
     id("com.google.devtools.ksp")
-    id("org.jetbrains.kotlin.plugin.compose") // Add this line
+//    id("org.jetbrains.kotlin.plugin.compose") // Add this line
 }
 
 android {
