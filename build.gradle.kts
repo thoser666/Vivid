@@ -31,9 +31,4 @@ buildscript {
     }
 }
 
-/*
-// If you are using Kotlin Kapt
-kapt {
-    correctErrorTypes = true
-}
- */
+
