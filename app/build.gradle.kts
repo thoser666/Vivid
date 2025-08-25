@@ -59,6 +59,16 @@ android {
     buildFeatures {
         compose = true
     }
+
+
+    // Add this block if it's not already present and you're not solely relying on the BOM
+    // to set the compiler version, or if the BOM isn't aligning correctly.
+    composeOptions {
+        // Replace "1.5.12" with the actual compatible version you found
+        // from the Compose to Kotlin Compatibility Map for Kotlin 1.9.24.
+        // THIS VERSION MUST BE THE SAME AS IN YOUR :feature-streaming MODULE.
+        kotlinCompilerExtensionVersion = "1.5.14" // Example version, please verify!
+    }
 }
 
 dependencies {

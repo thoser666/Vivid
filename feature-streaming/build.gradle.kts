@@ -29,6 +29,7 @@ android {
     buildFeatures {
         compose = true // Enable Compose for UI elements within the feature module
     }
+
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.14" // Ensure version matches app module
     }
