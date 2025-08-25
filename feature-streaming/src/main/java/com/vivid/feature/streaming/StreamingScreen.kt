@@ -64,7 +64,8 @@ fun StreamingScreen(
     }
 
     Scaffold(
-        topBar = {TopAppBar(title = { Text(stringResource(R.string.streaming_screen_title)) })
+        topBar = {
+            TopAppBar(title = { Text(stringResource(R.string.streaming_screen_title)) })
         },
     ) { paddingValues ->
         Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
