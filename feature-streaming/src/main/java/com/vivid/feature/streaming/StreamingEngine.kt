@@ -2,7 +2,6 @@ package com.vivid.feature.streaming
 
 import android.content.Context
 import android.hardware.camera2.CameraAccessException
-import androidx.media3.common.util.Log
 import androidx.media3.exoplayer.ExoPlayer
 import com.pedro.common.ConnectChecker // <-- Potentially this import, verify based on your library version
 import com.pedro.encoder.input.video.CameraOpenException
