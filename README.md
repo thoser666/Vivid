@@ -1,68 +1,210 @@
-Vivid
-License: MIT
-Android
+# 📱 Vivid
+### Android version of the open-source Moblin IRL streaming app
 
-Vivid is an Android rebuild of the acclaimed open-source Moblin IRL streaming app. It brings professional-grade mobile broadcasting to Android devices, offering:
+<div align="center">
 
-Multi-Platform Streaming: RTMP/RTMPS, SRT (incl. SRTLA), RIST, WebRTC
-Adaptive Bonding: Combine cellular, Wi-Fi, and Ethernet for rock-solid connections
-High-Quality Video: H.264/H.265 support, up to 4K @ 60 FPS
-OBS Integration: Remote control via OBS WebSocket—scene switching, audio levels, snapshots
-Customizable Overlays & Widgets: Alerts, chat, weather, timers, maps, QR codes and more
-Deep Linking: vivid:// URL schemes for preconfigured streams and settings
-Local Recording: Save MP4 captures alongside your live broadcast
-I18n & RTL: Full localization (English, French, German, Spanish, Polish, Chinese, Swedish, etc.)
-Secure & Extensible: Hilt DI, Kotlin Coroutines, Room, Retrofit, and Jetpack Compose architecture
-Tech Stack
-Kotlin · Jetpack Compose · Hilt · Coroutines & Flow
-ExoPlayer · CameraX · Retrofit · Room · DataStore
-Accompanist (Insets, Permissions, Pager, System UI)
-Coil · Material 3 · Navigation-Compose
-CI via GitHub Actions (lint, tests, assemble)
-Table of Contents
-Getting Started
-Features
-Architecture
-Customization & Deep Linking
-Localization
-Contributing
-License
-Getting Started
-git clone https://github.com/your-username/vivid.git
-cd vivid
-./gradlew build
-Open in Android Studio, run on an emulator or device (minSdk 24), and enjoy.
+![Android](https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white)
+![API](https://img.shields.io/badge/API-26%2B-brightgreen.svg?style=for-the-badge)
+![License](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)
+![GitHub release](https://img.shields.io/github/v/release/thoser666/Vivid?style=for-the-badge)
+![GitHub stars](https://img.shields.io/github/stars/thoser666/Vivid?style=for-the-badge)
 
-Features
-Stream Anywhere: Broadcast to Twitch, YouTube, Kick, Facebook or any RTMP/SRT ingest.
-Network Bonding: Aggregate multiple connections for maximum uptime.
-OBS Remote: Use OBS WebSocket to manage scenes, start/stop streams, monitor audio.
-Overlay Widgets: Chat, alerts, weather, map, QR code—fully customizable via JSON URLs.
-Recording & Effects: Keep an MP4 backup, apply video filters (grayscale, letterbox, etc.).
-Deep Links: Preload stream settings via vivid://?{...} for instant setup.
-Localization: Switch languages on-the-fly; RTL support built-in.
-Architecture
-Modular Gradle Setup: app, core, data, domain, and feature modules
-Single-Activity Compose: MainActivity hosts NavHost, screens are composables
-MVVM + Hilt: ViewModels expose StateFlow, injected via Hilt
-Repo Pattern: data module implements domain interfaces
-Clean UI Layer: Material 3 theming, dynamic layouts, portrait & landscape modes
-Customization & Deep Linking
-Leverage deep links to automate your workflow:
+**Professional IRL streaming for Android with all the power of Moblin**
 
-vivid://?{"streams":[{"name":"Test","url":"srtla://...","video":{"codec":"H.265"},"obs":{"webSocketUrl":"ws://...","webSocketPassword":"secret"}}]}
-Embed custom overlay widgets by supplying JSON definitions in your deep link.
+[📱 Download APK](../../releases) • [📚 Documentation](../../wiki) • [🐛 Report Bug](../../issues) • [💬 Discussions](../../discussions)
 
-Localization
-All user-facing text is resource-driven. Add new locales by creating values-<lang>/strings.xml.
-Switch device language or override at runtime via AppCompatDelegate.setApplicationLocales().
+</div>
 
-Contributing
-We welcome contributions! Please follow these guidelines:
+---
 
-Fork the repo and create a topic branch (feature/…, bugfix/…).
-Write clear, atomic commits.
-Submit a Pull Request with a descriptive title and detailed description.
-Ensure CI passes: ./gradlew spotlessApply check assemble.
-Review code for security, performance, and accessibility.
-See CONTRIBUTING.md for more details.
+## ✨ Features
+
+- 🌐 **Multi-Platform Streaming** - Stream to Twitch, YouTube, Facebook, Kick, or your own SRT server
+- 📡 **Multi-Network Bonding** - Combine WiFi and mobile data using SRTLA technology for rock-solid streams
+- 🎛️ **OBS WebSocket Control** - Control OBS Studio directly from your phone
+- 🎨 **Configurable Overlays** - Customize your stream with chat, followers, donations, and more
+- 🌍 **Full I18n Support** - Use Vivid in your language
+- 📹 **High-Quality Streaming** - Up to 4K resolution at 60fps with H.264/AVC and H.265/HEVC support
+- 🔒 **Secure Protocols** - RTMP, RTMPS, SRT, and SRTLA support
+- 🔓 **Open Source** - Completely free and open source
+
+## 🚀 Quick Start
+
+### Requirements
+- Android 8.0 (API level 26) or higher
+- Camera and microphone permissions
+- Stable internet connection (WiFi + mobile data recommended)
+
+### Installation
+
+1. **Download the APK** from the [Releases](../../releases) page
+2. **Enable Unknown Sources** in your Android settings
+3. **Install the APK** and grant necessary permissions
+4. **Launch Vivid** and start streaming!
+
+### Basic Setup
+
+1. Open Vivid and tap **"Add Stream"**
+2. Choose your platform (Twitch, YouTube, etc.)
+3. Enter your stream key/credentials
+4. Configure video quality and settings
+5. Hit **"Go Live"** and start streaming!
+
+## 📋 Platform Setup Guides
+
+<details>
+<summary><strong>🟣 Twitch Setup</strong></summary>
+
+1. Go to [Twitch Creator Dashboard](https://dashboard.twitch.tv/)
+2. Navigate to **Settings** → **Stream**
+3. Copy your **Stream Key**
+4. In Vivid:
+   - Server: `rtmp://live.twitch.tv/live/`
+   - Stream Key: *[paste your key]*
+
+</details>
+
+<details>
+<summary><strong>🔴 YouTube Setup</strong></summary>
+
+1. Open [YouTube Studio](https://studio.youtube.com/)
+2. Click **"Go Live"** → **"Stream"**
+3. Copy the **Stream URL** and **Stream Key**
+4. In Vivid:
+   - Server: *[paste stream URL]*
+   - Stream Key: *[paste stream key]*
+
+</details>
+
+<details>
+<summary><strong>🟢 Kick Setup</strong></summary>
+
+1. Go to [Kick Creator Dashboard](https://kick.com/dashboard)
+2. Navigate to **Settings** → **Stream Settings**
+3. Copy your **Stream Key**
+4. In Vivid:
+   - Server: `rtmp://ingest.kick.com/live/`
+   - Stream Key: *[paste your key]*
+
+</details>
+
+<details>
+<summary><strong>📡 SRT Server Setup</strong></summary>
+
+1. Set up your SRT server or use a service provider
+2. Get your server IP, port, and stream ID
+3. In Vivid:
+   - Protocol: **SRT**
+   - Server: `srt://[server-ip]:[port]`
+   - Stream ID: *[your stream ID]*
+   - Configure latency and encryption as needed
+
+</details>
+
+## 🔧 Advanced Features
+
+### Multi-Network Bonding (SRTLA)
+Combine multiple internet connections for ultra-stable streams:
+- Enable both WiFi and mobile data
+- Configure SRTLA server settings
+- Adjust network weight distribution
+- Monitor connection health in real-time
+
+### OBS WebSocket Integration
+Control your OBS Studio setup remotely:
+- Switch scenes during your stream
+- Start/stop recordings
+- Adjust audio levels
+- Trigger hotkeys and filters
+
+### Custom Overlays
+Personalize your stream with:
+- Real-time chat integration
+- Follower/subscriber alerts
+- Donation notifications
+- Custom graphics and branding
+
+## 📊 Comparison
+
+| Feature | Vivid | Other Android Apps |
+|---------|-------|--------------------|
+| Multi-Network Bonding | ✅ | ❌ |
+| OBS WebSocket Control | ✅ | ❌ |
+| 4K/60fps Streaming | ✅ | ⚠️ Limited |
+| H.265/HEVC Support | ✅ | ❌ |
+| Configurable Overlays | ✅ | ⚠️ Basic |
+| Open Source | ✅ | ❌ |
+| Multi-Protocol (RTMP/SRT) | ✅ | ⚠️ RTMP only |
+| I18n Support | ✅ | ❌ |
+
+## 🛠️ Development
+
+### Building from Source
+
+```bash
+# Clone the repository
+git clone https://github.com/thoser666/Vivid.git
+cd Vivid
+
+# Open in Android Studio
+# OR build with Gradle
+./gradlew assembleDebug
+```
+
+### Contributing
+
+We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 📱 Screenshots
+
+<div align="center">
+
+| Main Interface | Streaming Setup | Advanced Settings |
+|----------------|-----------------|-------------------|
+| ![Main](screenshots/main.png) | ![Setup](screenshots/setup.png) | ![Settings](screenshots/settings.png) |
+
+*Screenshots will be added with the next release*
+
+</div>
+
+## 🆘 Support & Community
+
+- 📚 **Documentation**: Check our [Wiki](../../wiki) for detailed guides
+- 🐛 **Bug Reports**: Found an issue? [Report it here](../../issues)
+- 💬 **Discussions**: Join our [community discussions](../../discussions)
+- 💡 **Feature Requests**: Have an idea? [Share it with us](../../issues/new?template=feature_request.md)
+
+## 🙏 Acknowledgments
+
+- **[Moblin](https://github.com/eerimoq/moblin)** - The original iOS app that inspired this project
+- **Erik Moqvist** - Creator of the original Moblin
+- The entire open-source streaming community
+- All contributors and beta testers
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## ⭐ Show Your Support
+
+If Vivid helps you with your streaming, please consider:
+- ⭐ **Starring** this repository
+- 🍴 **Forking** and contributing
+- 📢 **Sharing** with other streamers
+- 💝 **Supporting** the original Moblin project
+
+---
+
+<div align="center">
+
+**Made with ❤️ for the IRL streaming community**
+
+[⬆ Back to Top](#-vivid)
+
+</div>
