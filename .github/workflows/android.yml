@@ -19,7 +19,7 @@ jobs:
         with:
           version: latest # optional if 'latest'
    #       url: https://sentry.yourcompany.com # optional if you are using https://sentry.io
-          token: ${{ SECRETS.AUTH_TOKEN }} # from GitHub secrets
+          token: ${{ SECRETS.SENTRY_AUTH_TOKEN }} # from GitHub secrets
           organization: private-jb
           project: vivid
 
