@@ -1,12 +1,15 @@
 package com.vivid.feature.streaming
 
 import android.content.Context
+import android.hardware.camera2.CameraAccessException
+import androidx.media3.common.util.Log
 import androidx.media3.exoplayer.ExoPlayer
 import com.pedro.common.ConnectChecker // <-- Potentially this import, verify based on your library version
 import com.pedro.encoder.input.video.CameraOpenException
 import com.pedro.library.rtmp.RtmpCamera1
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
 @Singleton
@@ -178,7 +181,14 @@ class StreamingEngine @Inject constructor() : ConnectChecker {
             rtmpCamera?.switchCamera()
         } catch (e: CameraOpenException) {
             _streamingError.value = "Failed to switch camera: ${e.message}"
-        } catch (e: Exception) {
+        } catch (e: CameraAccessException) {
+            Log.e("CameraSwitcher", "Camera access error", e)
+            _streamingError.value = "Error accessing the camera: ${e.message}"
+        } catch (e: IOException) {
+            Log.e("CameraSwitcher", "I/O error during camera switch", e)
+            _streamingError.value = "A problem occurred with camera input/output: ${e.message}"
+        } catch (e: Exception) { // Fallback for truly unexpected errors
+            Log.e("CameraSwitcher", "Unexpected error switching camera", e)
             _streamingError.value = "An unexpected error occurred while switching camera: ${e.message}"
         }
     }
