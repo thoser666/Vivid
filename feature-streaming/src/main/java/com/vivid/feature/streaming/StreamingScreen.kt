@@ -14,7 +14,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
-import com.vivid.core.R
+//import com.vivid.core.R
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable

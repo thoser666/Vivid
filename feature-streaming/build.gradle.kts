@@ -30,7 +30,7 @@ android {
         compose = true // Enable Compose for UI elements within the feature module
     }
     composeOptions {
-        kotlinCompilerExtensionVersion = "1.4.7" // Ensure version matches app module
+        kotlinCompilerExtensionVersion = "1.5.14" // Ensure version matches app module
     }
 }
 
@@ -45,8 +45,10 @@ dependencies {
     implementation(libs.androidx.activity.compose)
 
     // Hilt
+ //   implementation(libs.hilt.android)
+//    ksp(libs.dagger.hilt.compiler)
     implementation(libs.hilt.android)
-    ksp(libs.dagger.hilt.compiler)
+    ksp(libs.hilt.compiler)
 
     // CameraX für Video-Streaming
     implementation(libs.androidx.camera.camera2)
@@ -106,6 +108,10 @@ dependencies {
     // Kotlin Coroutines
     implementation(libs.kotlinx.coroutines.android)
 
+    // Stream-client
+    implementation(libs.rtmp.rtsp.stream.client.java) // Add this line
+
+
     // Testing
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
@@ -113,4 +119,6 @@ dependencies {
     androidTestImplementation(libs.ui.test.junit4)
     debugImplementation(libs.ui.tooling)
     debugImplementation(libs.ui.test.manifest)
+
+
 }
