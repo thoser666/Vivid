@@ -9,6 +9,21 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest # Runner-Umgebung
+    env: # Umgebungsvariablen für diesen Job
+      SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+      # Optional, aber oft nützlich für Sentry:
+      SENTRY_ORG: privat-jb
+      SENTRY_PROJECT: vivid
+    permissions:
+      # required for all workflows
+      security-events: write
+
+      # required to fetch internal or private CodeQL packs
+      packages: read
+
+      # only required for workflows in private repositories
+      actions: read
+      contents: read
 
     steps:
       - name: Checkout code
