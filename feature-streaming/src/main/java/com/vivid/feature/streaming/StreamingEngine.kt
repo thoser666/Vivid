@@ -182,13 +182,13 @@ class StreamingEngine @Inject constructor() : ConnectChecker {
         } catch (e: CameraOpenException) {
             _streamingError.value = "Failed to switch camera: ${e.message}"
         } catch (e: CameraAccessException) {
-            Log.e("CameraSwitcher", "Camera access error", e)
+//            Log.e("CameraSwitcher", "Camera access error", e)
             _streamingError.value = "Error accessing the camera: ${e.message}"
         } catch (e: IOException) {
-            Log.e("CameraSwitcher", "I/O error during camera switch", e)
+//            Log.e("CameraSwitcher", "I/O error during camera switch", e)
             _streamingError.value = "A problem occurred with camera input/output: ${e.message}"
         } catch (e: Exception) { // Fallback for truly unexpected errors
-            Log.e("CameraSwitcher", "Unexpected error switching camera", e)
+//            Log.e("CameraSwitcher", "Unexpected error switching camera", e)
             _streamingError.value = "An unexpected error occurred while switching camera: ${e.message}"
         }
     }
