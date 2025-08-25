@@ -14,8 +14,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4 # Standard-Action zum Auschecken
 
-      - name: sentry login
-        run: sentry-cli login --auth-token $GITHUB_TOKEN
+      - name: Setup Sentry CLI
+        uses: matbour/setup-sentry-cli@v1
+        with:
+          version: latest # optional if 'latest'
+   #       url: https://sentry.yourcompany.com # optional if you are using https://sentry.io
+          token: ${{ SECRETS.SENTRY_TOKEN }} # from GitHub secrets
+          organization: private-jb
+          project: vivid
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
