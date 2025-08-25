@@ -45,7 +45,7 @@ dependencies {
     implementation(libs.androidx.activity.compose)
 
     // Hilt
- //   implementation(libs.hilt.android)
+    //   implementation(libs.hilt.android)
 //    ksp(libs.dagger.hilt.compiler)
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
@@ -111,7 +111,6 @@ dependencies {
     // Stream-client
     implementation(libs.rtmp.rtsp.stream.client.java) // Add this line
 
-
     // Testing
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
@@ -119,6 +118,4 @@ dependencies {
     androidTestImplementation(libs.ui.test.junit4)
     debugImplementation(libs.ui.tooling)
     debugImplementation(libs.ui.test.manifest)
-
-
 }
