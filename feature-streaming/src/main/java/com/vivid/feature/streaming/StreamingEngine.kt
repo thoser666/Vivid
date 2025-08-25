@@ -1,15 +1,14 @@
 package com.vivid.feature.streaming
 
-
 import android.content.Context
 import androidx.media3.exoplayer.ExoPlayer
 import com.pedro.common.ConnectChecker // <-- Potentially this import, verify based on your library version
 import com.pedro.encoder.input.video.CameraOpenException
 import com.pedro.library.rtmp.RtmpCamera1
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlinx.coroutines.flow.asStateFlow
 @Singleton
 class StreamingEngine @Inject constructor() : ConnectChecker {
 
@@ -119,7 +118,6 @@ class StreamingEngine @Inject constructor() : ConnectChecker {
             }
             // Pass the context and the connectChecker instance
             rtmpCamera = RtmpCamera1(context, connectChecker)
-
         } catch (e: CameraOpenException) {
             _streamingError.value = "Camera initialization failed: ${e.message}"
         } catch (e: Exception) { // Catch more general exceptions during initialization
@@ -274,8 +272,6 @@ class StreamingEngine @Inject constructor() : ConnectChecker {
         inputPlayer?.release()
         inputPlayer = null
     }
-
-
 
     // These seem like placeholder methods, ensure they are implemented or removed if not needed.
     fun start() { /* ... */ }
