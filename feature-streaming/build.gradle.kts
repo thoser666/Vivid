@@ -32,6 +32,8 @@ android {
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.14" // Ensure version matches app module
     }
+
+
 }
 
 dependencies {
@@ -109,7 +111,7 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
 
     // Stream-client
-    implementation(libs.rtmp.rtsp.stream.client.java) // Add this line
+    //implementation(libs.rtmp.rtsp.stream.client.java) // Add this line
 
 
     // Testing

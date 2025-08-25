@@ -104,6 +104,7 @@ dependencies {
     debugImplementation(libs.androidx.ui.test.manifest)
 }
 
+
 sentry {
     org.set("privat-jb")
     projectName.set("vivid")
@@ -112,3 +113,4 @@ sentry {
     // disable if you don't want to expose your sources
     includeSourceContext.set(true)
 }
+

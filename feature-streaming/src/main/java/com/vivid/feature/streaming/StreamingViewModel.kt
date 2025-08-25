@@ -17,7 +17,7 @@ import kotlin.coroutines.suspendCoroutine
 
 // Hilt für die automatische Bereitstellung des ViewModels
 @HiltViewModel
-class StreamingViewModel @Inject constructor(private val streamingEngine: StreamingEngine) : ViewModel() {
+class StreamingViewModel @Inject constructor(val streamingEngine: StreamingEngine) : ViewModel() {
 
     // Zustand für die Kamera-Vorschau
     private val _preview = MutableStateFlow<Preview?>(null)

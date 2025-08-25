@@ -16,7 +16,7 @@ import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 //import com.vivid.core.R
 
-@OptIn(ExperimentalPermissionsApi::class)
+@OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class) // Add ExperimentalMaterial3Api::class
 @Composable
 fun StreamingScreen(
     navController: NavController,
@@ -25,8 +25,8 @@ fun StreamingScreen(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    val isStreaming by streamingEngine.isStreaming.collectAsState()
-    val streamingError by streamingEngine.streamingError.collectAsState()
+    val isStreaming by viewModel.streamingEngine.isStreaming.collectAsState()
+    val streamingError by viewModel.streamingEngine.streamingError.collectAsState()
 
     // Button-Text dynamisch
     Button(onClick = {
@@ -64,8 +64,7 @@ fun StreamingScreen(
     }
 
     Scaffold(
-        topBar = {
-            TopAppBar(title = { Text(stringResource(R.string.streaming_screen_title)) })
+        topBar = {TopAppBar(title = { Text(stringResource(R.string.streaming_screen_title)) })
         },
     ) { paddingValues ->
         Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
