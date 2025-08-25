@@ -60,7 +60,6 @@ android {
         compose = true
     }
 
-
     // Add this block if it's not already present and you're not solely relying on the BOM
     // to set the compiler version, or if the BOM isn't aligning correctly.
     composeOptions {
