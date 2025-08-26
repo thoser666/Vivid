@@ -156,23 +156,28 @@ class StreamingEngine @Inject constructor() : ConnectChecker {
 
     fun stopStreaming() {
         try {
-            rtmpCamera?.let { camera ->
-                if (camera.isStreaming) {
-                    camera.stopStream()
-                }
-            }
-            // It's usually good practice to set _isStreaming.value to false
-            // immediately after calling stopStream or if an error occurs.
-            _isStreaming.value = false
-            outputStreams.clear() // Consider if you want to clear streams on every stop
-            inputPlayer?.stop()
-            _streamingError.value = null
+            rtmpCamera?.takeIf { it.isStreaming }?.stopStream()
+            // _streamingError.value = null // Set this early if stopStream succeeded
         } catch (e: Exception) {
             _streamingError.value = "Stop streaming failed: ${e.message}"
-            _isStreaming.value = false // Ensure state is updated on error
+            // Log the exception here for debugging
+            Log.e("Streaming", "Error stopping stream", e)
+        } finally {
+            // These actions should happen regardless of success or failure of the above
+            _isStreaming.value = false
+            outputStreams.clear() // Still consider if this is always desired
+            inputPlayer?.stop()
+            // Consider clearing the error only if the stop was successful OR if you want to clear it on every stop attempt
+            // If you want to clear it only on successful stop, move it inside the try block (after stopStream)
+            // If you want to clear it always (even if stop failed but we are resetting state), keep it here or outside.
+            // For now, let's assume we clear it if the try block completes OR after an error is handled.
+            // If an error occurred, _streamingError will be set in the catch block.
+            // If no error, we want to clear any previous error.
+            if (_streamingError.value?.startsWith("Stop streaming failed:") != true) {
+                _streamingError.value = null
+            }
         }
     }
-
     fun switchCamera() {
         try {
             rtmpCamera?.switchCamera()
