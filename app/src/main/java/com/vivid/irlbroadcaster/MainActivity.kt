@@ -6,24 +6,35 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.tooling.preview.Preview
-import com.vivid.irlbroadcaster.ui.theme.VividTheme // Make sure this path is correct
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import com.vivid.feature.playback.PlaybackScreen
+import com.vivid.feature.streaming.StreamingScreen // Import the streaming screen
+import com.vivid.irlbroadcaster.ui.theme.VividTheme
+import io.sentry.Sentry
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // waiting for view to draw to better represent a captured error with a screenshot
+        findViewById<android.view.View>(android.R.id.content).viewTreeObserver.addOnGlobalLayoutListener {
+            try {
+                throw Exception("This app uses Sentry! :)")
+            } catch (e: Exception) {
+                Sentry.captureException(e)
+            }
+        }
+
         setContent {
             VividTheme {
-                // A surface container using the 'background' color from the theme
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background,
                 ) {
-                    Greeting(name = stringResource(R.string.app_name))
+                    VividAppNavigation()
                 }
             }
         }
@@ -31,17 +42,18 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = stringResource(R.string.welcome_message, name),
-        modifier = modifier,
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun DefaultPreview() {
-    VividTheme {
-        Greeting(name = stringResource(R.string.app_name))
+fun VividAppNavigation() {
+    val navController = rememberNavController()
+    NavHost(navController = navController, startDestination = "streaming_route") {
+        composable("streaming_route") {
+            StreamingScreen(navController = navController) // Pass navController
+        }
+        composable("playback/{streamUrl}") { backStackEntry ->
+            val streamUrl = backStackEntry.arguments?.getString("streamUrl")
+            PlaybackScreen(navController, streamUrl)
+        }
+        // TODO: Add more navigation routes for other feature modules (chat, settings, widgets)
+        // composable("chat_route") { ChatScreen(navController = navController) }
+        // composable("settings_route") { SettingsScreen(navController = navController) }
     }
 }
