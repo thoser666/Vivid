@@ -73,6 +73,8 @@ android {
 dependencies {
 
     implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.constraintlayout) // Or the latest version
+
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))
@@ -103,6 +105,10 @@ dependencies {
 
     // Für WebSocket (OBS Control)
     implementation(libs.java.websocket)
+
+    // Guava
+    implementation(libs.guava) // Or the latest compatible version
+
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
