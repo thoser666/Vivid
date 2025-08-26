@@ -12,8 +12,12 @@
             <option value="$PROJECT_DIR$" />
             <option value="$PROJECT_DIR$/app" />
             <option value="$PROJECT_DIR$/core" />
+            <option value="$PROJECT_DIR$/data" />
             <option value="$PROJECT_DIR$/domain" />
+            <option value="$PROJECT_DIR$/feature-chat" />
+            <option value="$PROJECT_DIR$/feature-settings" />
             <option value="$PROJECT_DIR$/feature-streaming" />
+            <option value="$PROJECT_DIR$/feature-widgets" />
           </set>
         </option>
       </GradleProjectSettings>
