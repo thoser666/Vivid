@@ -8,6 +8,7 @@ import com.pedro.encoder.input.video.CameraOpenException
 import com.pedro.library.rtmp.RtmpCamera1
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
 @Singleton
@@ -223,8 +224,20 @@ class StreamingEngine @Inject constructor() : ConnectChecker {
             if (rtmpCamera?.prepareVideo(width, height, fps, bitrate, 0) == false) { // Assuming 0 for rotation
                 _streamingError.value = "Prepare video failed. Check parameters."
             }
-        } catch (e: Exception) {
-            _streamingError.value = "Setting video settings failed: ${e.message}"
+        } catch (e: IllegalArgumentException) {
+            // Specific exception for bad parameters
+            val errorMsg = "Invalid parameters for video settings: ${e.message}. Values: w=$width, h=$height, fps=$fps, br=$bitrate"
+            Log.e("StreamingService", errorMsg, e)
+            _streamingError.value = "Invalid video settings: ${e.localizedMessage}"
+        } catch (e: IOException) {
+            // Specific exception for I/O issues during preparation (if applicable)
+            val errorMsg = "I/O error preparing video: ${e.message}"
+            Log.e("StreamingService", errorMsg, e)
+            _streamingError.value = "Error preparing video: ${e.localizedMessage}"
+        } catch (e: Exception) { // Catch-all for unexpected issues
+            val errorMsg =
+                "Unexpected error setting video settings: ${e.message}. Parameters: w=$width, h=$height, fps=$fps, br=$bitrate"
+            Log.e("StreamingService", errorMsg, e) // Log the full stack trace
         }
     }
 
