@@ -104,3 +104,12 @@ jobs:
       uses: github/codeql-action/analyze@v3
       with:
         category: "/language:${{matrix.language}}"
+
+    # Nach dem 'Perform CodeQL Analysis' Schritt
+    - name: Upload SARIF file
+      uses: actions/upload-artifact@v4
+      with:
+        name: sarif-report
+        path: ../results/java-kotlin.sarif # Der Pfad kann variieren, schaue in die CodeQL Logs, wo die Datei gespeichert wird.
+        # Oft ist es im Arbeitsverzeichnis des Analyze-Schritts.
+        # Der Name ist oft <language>.sarif oder ähnlich.
