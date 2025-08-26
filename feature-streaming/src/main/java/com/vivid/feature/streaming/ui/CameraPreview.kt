@@ -1,4 +1,4 @@
-package com.vivid.feature.streaming
+package com.vivid.feature.streaming.ui
 
 import androidx.camera.core.Preview
 import androidx.camera.view.PreviewView
