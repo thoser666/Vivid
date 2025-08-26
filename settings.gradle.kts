@@ -16,8 +16,13 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        gradlePluginPortal() // <-- Make sure this is present
+        maven { url = uri("https://jitpack.io") }
     }
 }
 
 rootProject.name = "Vivid"
 include(":app")
+include(":feature-streaming")
+include(":domain")
+include(":core")
