@@ -1,6 +1,7 @@
 package com.vivid.feature.streaming
 
 import android.content.Context
+import android.util.Log
 import androidx.media3.exoplayer.ExoPlayer
 import com.pedro.common.ConnectChecker // <-- Potentially this import, verify based on your library version
 import com.pedro.encoder.input.video.CameraOpenException
@@ -235,8 +236,14 @@ class StreamingEngine @Inject constructor() : ConnectChecker {
             if (rtmpCamera?.prepareAudio(bitrate, sampleRate, isStereo, true, true) == false) { // Added echoCanceler and noiseSuppressor defaults
                 _streamingError.value = "Prepare audio failed. Check parameters."
             }
+        } catch (iae: IllegalArgumentException) {
+            // Catch specific exceptions if known
+            _streamingError.value = "Invalid audio parameters: ${iae.message}. Please check your inputs."
+            Log.e("StreamingError", "IllegalArgumentException during audio prep: ${iae.message}", iae)
         } catch (e: Exception) {
-            _streamingError.value = "Setting audio settings failed: ${e.message}"
+            // Catch-all for other unexpected issues
+            _streamingError.value = "An unexpected error occurred while configuring audio. Please try again."
+            Log.e("StreamingError", "Exception during audio prep: ${e.message}", e) // Log the technical error for debugging
         }
     }
 

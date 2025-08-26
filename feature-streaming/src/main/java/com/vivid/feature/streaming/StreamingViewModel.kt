@@ -1,6 +1,7 @@
 package com.vivid.feature.streaming
 
 import android.content.Context
+import android.util.Log
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
@@ -44,8 +45,15 @@ class StreamingViewModel @Inject constructor(val streamingEngine: StreamingEngin
                     previewUseCase,
                 )
                 _preview.value = previewUseCase
-            } catch (exc: Exception) {
-                // Log error
+            } catch (exc: IllegalStateException) {
+                Log.e("CameraBinding", "Failed to bind camera: ${exc.message}", exc)
+                // Handle the specific error, e.g., show a user-friendly message
+            } catch (exc: IllegalArgumentException) {
+                Log.e("CameraBinding", "Invalid argument for camera binding: ${exc.message}", exc)
+                // Handle this specific error
+            } catch (exc: Exception) { // Fallback for unexpected errors
+                Log.e("CameraBinding", "An unexpected error occurred during camera binding: ${exc.message}", exc)
+                // Generic error handling
             }
         }
     }
