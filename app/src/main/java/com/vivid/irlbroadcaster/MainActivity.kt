@@ -1,10 +1,13 @@
 package com.vivid.irlbroadcaster
 
+import android.content.ContentValues.TAG
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.CameraUnavailableException
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
@@ -79,8 +82,15 @@ class MainActivity : ComponentActivity() {
                     cameraSelector,
                     preview,
                 )
-            } catch (exc: Exception) {
-                // Fehler behandeln, z.B. wenn keine Kamera verfügbar ist
+            } catch (e: CameraUnavailableException) {
+                // Handle camera unavailable error
+                Log.e(TAG, "Camera unavailable: ${e.message}")
+            } catch (e: IllegalArgumentException) {
+                // Handle invalid arguments error
+                Log.e(TAG, "Invalid arguments: ${e.message}")
+            } catch (e: Exception) {
+                // Handle other unexpected errors
+                Log.e(TAG, "Error binding camera: ${e.message}")
             }
         }, ContextCompat.getMainExecutor(this))
     }
