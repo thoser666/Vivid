@@ -111,7 +111,6 @@ dependencies {
 
     implementation(project(":feature-streaming"))
 
-
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -128,6 +127,4 @@ sentry {
     // this will upload your source code to Sentry to show it as part of the stack traces
     // disable if you don't want to expose your sources
     includeSourceContext.set(true)
-
 }
-

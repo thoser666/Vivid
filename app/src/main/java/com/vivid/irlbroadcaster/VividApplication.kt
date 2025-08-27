@@ -10,6 +10,6 @@ class VividApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         // Initialize Sentry or other global services here if you wish
-        //io.sentry.Sentry.init(...)
+        // io.sentry.Sentry.init(...)
     }
 }

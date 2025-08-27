@@ -18,9 +18,8 @@ import com.vivid.feature.streaming.StreamingViewModel
 fun StreamingScreen(
     navController: NavController,
     streamUrl: String? = null,
-    viewModel: StreamingViewModel = hiltViewModel()
+    viewModel: StreamingViewModel = hiltViewModel(),
 ) {
-
     val isStreaming by viewModel.isStreaming.collectAsState()
     var rtmpUrl by remember { mutableStateOf("rtmp://a.rtmp.youtube.com/live2/") }
 
@@ -36,7 +35,7 @@ fun StreamingScreen(
                 // Geben Sie die View zur Anzeige zurück
                 openGlView
             },
-            // Der 'update'-Block wird nicht benötigt, da die View von der 
+            // Der 'update'-Block wird nicht benötigt, da die View von der
             // 'factory' nur einmal erstellt und verbunden wird.
         )
 
@@ -45,7 +44,7 @@ fun StreamingScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .align(Alignment.BottomCenter)
-                .padding(16.dp)
+                .padding(16.dp),
         ) {
             OutlinedTextField(
                 value = rtmpUrl,
@@ -53,12 +52,12 @@ fun StreamingScreen(
                 label = { Text("RTMP Stream URL") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                enabled = !isStreaming
+                enabled = !isStreaming,
             )
             Spacer(modifier = Modifier.height(8.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Button(
                     onClick = {
@@ -68,7 +67,7 @@ fun StreamingScreen(
                             viewModel.startStream(rtmpUrl)
                         }
                     },
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
                 ) {
                     Text(if (isStreaming) "Stop Streaming" else "Start Streaming")
                 }
@@ -76,7 +75,7 @@ fun StreamingScreen(
                 Button(
                     onClick = { viewModel.switchCamera() },
                     modifier = Modifier.weight(1f),
-                    enabled = !isStreaming
+                    enabled = !isStreaming,
                 ) {
                     Text("Switch Camera")
                 }

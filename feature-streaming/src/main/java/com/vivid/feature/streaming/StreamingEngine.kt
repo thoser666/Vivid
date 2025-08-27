@@ -1,12 +1,9 @@
 package com.vivid.feature.streaming
 
-import android.content.Context
 import android.util.Log
-import androidx.camera.view.PreviewView
 import androidx.media3.exoplayer.ExoPlayer
 import com.pedro.common.ConnectChecker // <-- Potentially this import, verify based on your library version
 import com.pedro.encoder.input.video.CameraOpenException
-import com.pedro.library.rtmp.RtmpCamera1
 import com.pedro.library.rtmp.RtmpCamera2
 import com.pedro.library.view.OpenGlView
 import kotlinx.coroutines.flow.MutableStateFlow

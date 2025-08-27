@@ -1,7 +1,5 @@
 package com.vivid.irlbroadcaster
 
-import android.Manifest
-import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -28,7 +26,6 @@ import io.sentry.Sentry
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
-
     private lateinit var viewFinder: PreviewView
 
     // ActivityResultLauncher für die Berechtigungsanfrage
@@ -40,6 +37,7 @@ class MainActivity : ComponentActivity() {
                 // Erkläre dem Nutzer, warum die Berechtigung benötigt wird
             }
         }
+
 /*
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -77,9 +75,11 @@ class MainActivity : ComponentActivity() {
                 // 3. Use Cases an den Lebenszyklus der Kamera binden
                 // Das ist die Magie von CameraX! ✨
                 cameraProvider.bindToLifecycle(
-                    this, cameraSelector, preview)
-
-            } catch(exc: Exception) {
+                    this,
+                    cameraSelector,
+                    preview,
+                )
+            } catch (exc: Exception) {
                 // Fehler behandeln, z.B. wenn keine Kamera verfügbar ist
             }
         }, ContextCompat.getMainExecutor(this))
@@ -124,6 +124,4 @@ fun VividAppNavigation() {
         // composable("chat_route") { ChatScreen(navController = navController) }
         // composable("settings_route") { SettingsScreen(navController = navController) }
     }
-
-
 }
