@@ -1,13 +1,13 @@
 package com.vivid.feature.streaming
 
-import com.pedro.library.view.OpenGlView
 import androidx.lifecycle.ViewModel
+import com.pedro.library.view.OpenGlView
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 
 @HiltViewModel
 class StreamingViewModel @Inject constructor(
-    private val streamingEngine: StreamingEngine
+    private val streamingEngine: StreamingEngine,
 ) : ViewModel() {
 
     // Diese Zustände bleiben:

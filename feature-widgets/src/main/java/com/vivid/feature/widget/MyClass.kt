@@ -1,4 +1,3 @@
 package com.vivid.feature.widget
 
-class MyClass {
-}
+class MyClass

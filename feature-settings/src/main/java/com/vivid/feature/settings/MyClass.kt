@@ -1,4 +1,3 @@
 package com.vivid.feature.settings
 
-class MyClass {
-}
+class MyClass

@@ -1,4 +1,3 @@
 package com.vivid.data
 
-class MyClass {
-}
+class MyClass
