@@ -22,8 +22,10 @@ import androidx.navigation.compose.rememberNavController
 import com.vivid.feature.playback.PlaybackScreen
 import com.vivid.feature.streaming.ui.StreamingScreen // Import the streaming screen
 import com.vivid.irlbroadcaster.ui.theme.VividTheme
+import dagger.hilt.android.AndroidEntryPoint
 import io.sentry.Sentry
 
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
 
