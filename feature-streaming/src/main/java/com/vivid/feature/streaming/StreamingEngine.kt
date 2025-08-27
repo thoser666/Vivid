@@ -1,5 +1,6 @@
 package com.vivid.feature.streaming
 
+import android.hardware.camera2.CameraAccessException
 import android.util.Log
 import androidx.media3.exoplayer.ExoPlayer
 import com.pedro.common.ConnectChecker // <-- Potentially this import, verify based on your library version
@@ -84,8 +85,16 @@ class StreamingEngine @Inject constructor() : ConnectChecker {
             // of the constructor. The ConnectChecker interface methods (onConnectionSuccess, onConnectionFailed, etc.)
             // will be called on 'this' (StreamingEngine) instance.
             rtmpCamera?.startPreview()
-        } catch (e: Exception) {
+        } catch (e: CameraAccessException) { // Or whatever specific exception RtmpCamera2 might throw
+            _streamingError.value = "Camera access denied or unavailable: ${e.message}"
+            // Potentially request permissions or inform the user
+        } catch (e: IOException) {
+            _streamingError.value = "Camera I/O error during initialization: ${e.message}"
+            // Handle network or file system issues
+        } catch (e: RuntimeException) { // Catch other potential runtime issues from the library
             _streamingError.value = "Camera initialization failed: ${e.message}"
+            // Log this with more details for debugging
+            Log.e("StreamingEngine", "Unexpected error during camera init", e)
         }
     }
     fun startStreaming(rtmpUrl: String) {
