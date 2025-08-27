@@ -2,10 +2,13 @@ package com.vivid.feature.streaming
 
 import android.content.Context
 import android.util.Log
+import androidx.camera.view.PreviewView
 import androidx.media3.exoplayer.ExoPlayer
 import com.pedro.common.ConnectChecker // <-- Potentially this import, verify based on your library version
 import com.pedro.encoder.input.video.CameraOpenException
 import com.pedro.library.rtmp.RtmpCamera1
+import com.pedro.library.rtmp.RtmpCamera2
+import com.pedro.library.view.OpenGlView
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.io.IOException
@@ -16,7 +19,7 @@ class StreamingEngine @Inject constructor() : ConnectChecker {
 
     private var outputStreams = mutableListOf<String>()
     private var inputPlayer: ExoPlayer? = null
-    private var rtmpCamera: RtmpCamera1? = null
+    private var rtmpCamera: RtmpCamera2? = null
 
     // Streaming State
     private val _isStreaming = MutableStateFlow(false)
@@ -74,110 +77,52 @@ class StreamingEngine @Inject constructor() : ConnectChecker {
         // Log.d("StreamingEngine", "Authentication successful")
     }
 
-    fun initializeCamera(context: Context) {
+    fun initializeCamera(openGlView: OpenGlView) { // Changed parameter type
+        if (rtmpCamera != null) {
+            release()
+        }
         try {
-            // Create an instance of the generic ConnectChecker
-            val connectChecker = object : ConnectChecker { // <-- This is the object causing the error
-                // Add the missing method here
-                override fun onConnectionStarted(url: String) {
-                    // Implement what should happen when a connection starts for this specific checker
-                    // For example, you might log it or update a specific UI element if this
-                    // checker instance had its own state to manage.
-                    // If it should behave the same as the StreamingEngine's main onConnectionStarted,
-                    // you can call that, or simply replicate the logic.
-                    // Log.d("StreamingEngine.initializeCamera", "Connection started to: $url")
-                    _streamingError.value = null // Example: Clear previous errors
-                }
-
-                override fun onConnectionSuccess() {
-                    _streamingError.value = null
-                    // Potentially update _isStreaming if connection implies streaming has started
-                    // or is ready to start. However, RtmpCamera usually manages this with its own state.
-                }
-
-                override fun onConnectionFailed(reason: String) {
-                    _streamingError.value = "Connection failed: $reason"
-                    _isStreaming.value = false
-                }
-
-                override fun onNewBitrate(bitrate: Long) {
-                    // Handle new bitrate if necessary
-                }
-
-                override fun onDisconnect() {
-                    _streamingError.value = "Disconnected" // Or null if this is an expected state
-                    _isStreaming.value = false
-                }
-
-                override fun onAuthError() {
-                    _streamingError.value = "Authentication error"
-                    _isStreaming.value = false
-                }
-
-                override fun onAuthSuccess() {
-                    // Handle successful authentication if necessary
-                }
-            }
-            // Pass the context and the connectChecker instance
-            rtmpCamera = RtmpCamera1(context, connectChecker)
-        } catch (e: CameraOpenException) {
+            rtmpCamera = RtmpCamera2(openGlView, this) // Pass 'this' as the ConnectChecker
+            // The lambda you had was likely intended for a different callback or was a misunderstanding
+            // of the constructor. The ConnectChecker interface methods (onConnectionSuccess, onConnectionFailed, etc.)
+            // will be called on 'this' (StreamingEngine) instance.
+            rtmpCamera?.startPreview()
+        } catch (e: Exception) {
             _streamingError.value = "Camera initialization failed: ${e.message}"
         }
     }
-
-    fun startStreaming() {
-        if (outputStreams.isEmpty()) {
-            _streamingError.value = "No output streams configured"
+    fun startStreaming(rtmpUrl: String) {
+        if (rtmpUrl.isBlank()) {
+            _streamingError.value = "No output stream URL configured"
             return
         }
-
         try {
-            outputStreams.forEach { rtmpUrl ->
-                rtmpCamera?.let { camera ->
-                    if (!camera.isStreaming) {
-                        // Ensure video and audio are prepared before starting stream
-                        // You might need to call prepareAudio and prepareVideo here
-                        // if they haven't been called, or if settings can change.
-                        // For example:
-                        // if (!camera.isAudioPrepared || !camera.isVideoPrepared) {
-                        //    camera.prepareAudio() // Default or configured settings
-                        //    camera.prepareVideo() // Default or configured settings
-                        // }
-                        camera.startStream(rtmpUrl)
-                        _isStreaming.value = true
-                    }
+            rtmpCamera?.let { camera ->
+                if (!camera.isStreaming) {
+                    // Die URL wird hier gesetzt, nicht in einer separaten Liste
+                    camera.startStream(rtmpUrl)
+                    _isStreaming.value = true
                 }
             }
         } catch (e: Exception) {
             _streamingError.value = "Streaming start failed: ${e.message}"
-            _isStreaming.value = false
         }
     }
 
     fun stopStreaming() {
         try {
-            rtmpCamera?.takeIf { it.isStreaming }?.stopStream()
-            // _streamingError.value = null // Set this early if stopStream succeeded
+            rtmpCamera?.let { camera ->
+                if (camera.isStreaming) {
+                    camera.stopStream()
+                    _isStreaming.value = false
+                }
+            }
+            _streamingError.value = null
         } catch (e: Exception) {
             _streamingError.value = "Stop streaming failed: ${e.message}"
-            // Log the exception here for debugging
-            Log.e("Streaming", "Error stopping stream", e)
-        } finally {
-            // These actions should happen regardless of success or failure of the above
-            _isStreaming.value = false
-            outputStreams.clear() // Still consider if this is always desired
-            inputPlayer?.stop()
-            // Consider clearing the error only if the stop was successful OR if you want to clear it on every stop attempt
-            // If you want to clear it only on successful stop, move it inside the try block (after stopStream)
-            // If you want to clear it always (even if stop failed but we are resetting state), keep it here or outside.
-            // For now, let's assume we clear it if the try block completes OR after an error is handled.
-            // If an error occurred, _streamingError will be set in the catch block.
-            // If no error, we want to clear any previous error.
-            if (_streamingError.value?.startsWith("Stop streaming failed:") != true) {
-                _streamingError.value = null
-            }
         }
     }
+
     fun switchCamera() {
         try {
             rtmpCamera?.switchCamera()
@@ -287,11 +232,11 @@ class StreamingEngine @Inject constructor() : ConnectChecker {
     }
 
     fun release() {
-        stopStreaming() // Ensure stream is stopped first
-//        rtmpCamera?.release()
+        if (rtmpCamera?.isStreaming == true) {
+            stopStreaming()
+        }
+        rtmpCamera?.stopPreview()
         rtmpCamera = null
-        inputPlayer?.release()
-        inputPlayer = null
     }
 
     // These seem like placeholder methods, ensure they are implemented or removed if not needed.
