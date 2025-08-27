@@ -10,15 +10,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavController
 import com.pedro.library.view.OpenGlView // Der Import ist korrekt
 import com.vivid.feature.streaming.StreamingViewModel
 
 @Composable
 fun StreamingScreen(
+    navController: NavController,
+    streamUrl: String? = null,
     viewModel: StreamingViewModel = hiltViewModel()
 ) {
-    // Diese Zeile wird entfernt, da der ViewModel sie nicht mehr bereitstellt
-    // val cameraSelector by viewModel.cameraSelector.collectAsState() 
 
     val isStreaming by viewModel.isStreaming.collectAsState()
     var rtmpUrl by remember { mutableStateOf("rtmp://a.rtmp.youtube.com/live2/") }
