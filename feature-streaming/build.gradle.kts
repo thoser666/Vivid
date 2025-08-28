@@ -60,9 +60,6 @@ dependencies {
     // Hilt Navigation Compose
     implementation(libs.androidx.hilt.navigation.compose)
 
-    // Permissions (Accompanist)
-    implementation(libs.accompanist.permissions)
-
     // Network für RTMP/SRT Streaming
     implementation(libs.okhttp3.okhttp)
 

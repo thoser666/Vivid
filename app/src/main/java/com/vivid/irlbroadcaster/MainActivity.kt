@@ -24,7 +24,6 @@ import com.vivid.feature.playback.PlaybackScreen
 import com.vivid.feature.streaming.ui.StreamingScreen // Import the streaming screen
 import com.vivid.irlbroadcaster.ui.theme.VividTheme
 import dagger.hilt.android.AndroidEntryPoint
-import io.sentry.Sentry
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -99,11 +98,11 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         // waiting for view to draw to better represent a captured error with a screenshot
         findViewById<android.view.View>(android.R.id.content).viewTreeObserver.addOnGlobalLayoutListener {
-            try {
-                throw Exception("This app uses Sentry! :)")
-            } catch (e: Exception) {
-                Sentry.captureException(e)
-            }
+//            try {
+//                throw Exception("This app uses Sentry! :)")
+//            } catch (e: Exception) {
+//                Sentry.captureException(e)
+//            }
         }
 
         setContent {
