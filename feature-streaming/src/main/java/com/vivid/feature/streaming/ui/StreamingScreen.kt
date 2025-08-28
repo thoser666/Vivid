@@ -27,14 +27,14 @@ import com.vivid.feature.streaming.StreamingViewModel
 @Composable
 fun StreamingScreen(
     navController: NavController,
-    viewModel: StreamingViewModel = hiltViewModel()
+    viewModel: StreamingViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
 
     // 1. Liste der benötigten Berechtigungen definieren.
     val permissionsToRequest = arrayOf(
         Manifest.permission.CAMERA,
-        Manifest.permission.RECORD_AUDIO
+        Manifest.permission.RECORD_AUDIO,
     )
 
     // 2. Ein State, der speichert, ob die Berechtigungen erteilt wurden.
@@ -48,7 +48,7 @@ fun StreamingScreen(
         onResult = { permissions ->
             // Prüfen, ob ALLE angeforderten Berechtigungen erteilt wurden.
             hasPermissions = permissions.values.all { it }
-        }
+        },
     )
 
     // 4. Die UI, die basierend auf dem `hasPermissions`-Status wechselt.
@@ -64,7 +64,7 @@ fun StreamingScreen(
         PermissionsRequiredScreen(
             onPermissionsRequested = {
                 permissionLauncher.launch(permissionsToRequest)
-            }
+            },
         )
     }
 }
@@ -74,7 +74,6 @@ private fun hasPermissions(context: Context, permissions: Array<String>): Boolea
     permissions.all {
         ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
     }
-
 
 @Composable
 private fun StreamingContent(viewModel: StreamingViewModel) {
@@ -98,7 +97,7 @@ private fun StreamingContent(viewModel: StreamingViewModel) {
                 OpenGlView(context).also {
                     openGlView.value = it
                 }
-            }
+            },
         )
         // UI-Steuerelemente (jetzt in einer separaten Funktion für die Übersicht)
         StreamingControls(
@@ -108,7 +107,7 @@ private fun StreamingContent(viewModel: StreamingViewModel) {
             onStartStopClick = {
                 if (isStreaming) viewModel.stopStream() else viewModel.startStream(rtmpUrl)
             },
-            onSwitchCameraClick = { viewModel.switchCamera() }
+            onSwitchCameraClick = { viewModel.switchCamera() },
         )
         // NEU: Zeigt eine Fehlerüberlagerung an, wenn ein Fehler auftritt
         streamingError?.let { error ->
@@ -116,13 +115,13 @@ private fun StreamingContent(viewModel: StreamingViewModel) {
                 modifier = Modifier
                     .fillMaxSize()
                     .background(Color.Black.copy(alpha = 0.7f)),
-                contentAlignment = Alignment.Center
+                contentAlignment = Alignment.Center,
             ) {
                 Text(
                     text = "Ein Fehler ist aufgetreten:\n$error",
                     color = Color.White,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(16.dp)
+                    modifier = Modifier.padding(16.dp),
                 )
             }
         }
@@ -136,13 +135,13 @@ fun BoxScope.StreamingControls(
     rtmpUrl: String,
     onRtmpUrlChange: (String) -> Unit,
     onStartStopClick: () -> Unit,
-    onSwitchCameraClick: () -> Unit
+    onSwitchCameraClick: () -> Unit,
 ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .align(Alignment.BottomCenter)
-            .padding(16.dp)
+            .padding(16.dp),
     ) {
         OutlinedTextField(
             value = rtmpUrl,
@@ -150,12 +149,12 @@ fun BoxScope.StreamingControls(
             label = { Text("RTMP Stream URL") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
-            enabled = !isStreaming
+            enabled = !isStreaming,
         )
         Spacer(modifier = Modifier.height(8.dp))
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
+            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Button(onClick = onStartStopClick, modifier = Modifier.weight(1f)) {
                 Text(if (isStreaming) "Stop Streaming" else "Start Streaming")
@@ -168,24 +167,23 @@ fun BoxScope.StreamingControls(
     }
 }
 
-
 @Composable
 private fun PermissionsRequiredScreen(onPermissionsRequested: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp),
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 text = "Kamera- und Mikrofonberechtigung erforderlich",
-                textAlign = TextAlign.Center
+                textAlign = TextAlign.Center,
             )
             Spacer(modifier = Modifier.height(16.dp))
             Text(
                 text = "Um live streamen zu können, benötigt diese App Zugriff auf Ihre Kamera und Ihr Mikrofon.",
-                textAlign = TextAlign.Center
+                textAlign = TextAlign.Center,
             )
             Spacer(modifier = Modifier.height(16.dp))
             Button(onClick = onPermissionsRequested) {
