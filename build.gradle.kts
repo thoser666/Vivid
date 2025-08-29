@@ -11,6 +11,9 @@ plugins {
     alias(libs.plugins.jetbrains.kotlin.jvm) apply false // Corrected Hilt plugin ID
     alias(libs.plugins.ksp) apply false
     alias(libs.plugins.hilt) apply false
+    alias(libs.plugins.compose.compiler) apply false
+    //noinspection NewerVersionAvailable
+
 }
 
 // It's good practice to declare repositories that host your plugins

@@ -4,11 +4,13 @@ import java.io.FileInputStream
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
-//    alias(libs.plugins.kotlin.compose)
+ //   id("org.jetbrains.kotlin.plugin.compose") version "2.2.10" // Or the latest compatible version
+
 
     id("io.sentry.android.gradle") version "5.9.0"
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
+    alias(libs.plugins.compose.compiler)
 }
 
 android {
@@ -82,18 +84,18 @@ android {
             jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
         }
     }
-    buildFeatures {
-        compose = true
-    }
-
-    // Add this block if it's not already present and you're not solely relying on the BOM
-    // to set the compiler version, or if the BOM isn't aligning correctly.
-    composeOptions {
-        // Replace "1.5.12" with the actual compatible version you found
-        // from the Compose to Kotlin Compatibility Map for Kotlin 1.9.24.
-        // THIS VERSION MUST BE THE SAME AS IN YOUR :feature-streaming MODULE.
-        kotlinCompilerExtensionVersion = "1.5.14" // Example version, please verify!
-    }
+//    buildFeatures {
+//        compose = true
+//    }
+//
+//    // Add this block if it's not already present and you're not solely relying on the BOM
+//    // to set the compiler version, or if the BOM isn't aligning correctly.
+//    composeOptions {
+//        // Replace "1.5.12" with the actual compatible version you found
+//        // from the Compose to Kotlin Compatibility Map for Kotlin 1.9.24.
+//        // THIS VERSION MUST BE THE SAME AS IN YOUR :feature-streaming MODULE.
+//        kotlinCompilerExtensionVersion = "1.5.14" // Example version, please verify!
+//    }
 }
 
 dependencies {
