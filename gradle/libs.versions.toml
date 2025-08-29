@@ -31,11 +31,11 @@ navigationCompose = "2.9.3"
 okhttpVersion = "4.12.0"
 rootencoder = "2.4.8"
 rtmpRtspStreamClientJava = "2.4.8"
-ui = "1.4.3"
-uiTestJunit4 = "1.4.3"
-uiTestManifest = "1.4.3"
-uiTooling = "1.4.3"
-uiToolingPreview = "1.4.3"
+ui = "1.9.0"
+uiTestJunit4 = "1.9.0"
+uiTestManifest = "1.9.0"
+uiTooling = "1.9.0"
+uiToolingPreview = "1.9.0"
 
 [libraries]
 androidx-camera-camera2 = { module = "androidx.camera:camera-camera2", version.ref = "cameraCamera2" }
