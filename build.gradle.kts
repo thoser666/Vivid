@@ -10,7 +10,6 @@ plugins {
     alias(libs.plugins.ksp) apply false
     alias(libs.plugins.hilt) apply false
     alias(libs.plugins.compose.compiler) apply false
-
 }
 
 // It's good practice to declare repositories that host your plugins
