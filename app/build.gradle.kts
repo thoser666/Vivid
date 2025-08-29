@@ -1,3 +1,6 @@
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -11,6 +14,28 @@ plugins {
 android {
     namespace = "com.vivid.irlbroadcaster"
     compileSdk = rootProject.extra["compileSdkVersion"] as Int
+
+    val keystorePropertiesFile = rootProject.file("keystore.properties")
+    val keystoreProperties = Properties()
+    if (keystorePropertiesFile.exists()) {
+        keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+    }
+
+    signingConfigs {
+        create("release") {
+            // You can still check if the file exists for robustness,
+            // but the properties object should be populated if it does.
+            if (keystorePropertiesFile.exists()) {
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+                storeFile = file(keystoreProperties.getProperty("storeFile")) // Ensure this path is correct
+                storePassword = keystoreProperties.getProperty("storePassword")
+            } else {
+                println("Warning: keystore.properties not found for release signingConfig. Release build will not be signed with custom key.")
+            }
+        }
+    }
+
     defaultConfig {
         applicationId = "com.vivid.irlbroadcaster"
         minSdk = rootProject.extra["minSdkVersion"] as Int
@@ -39,6 +64,7 @@ android {
 */
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
