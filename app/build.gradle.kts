@@ -15,8 +15,8 @@ android {
         applicationId = "com.vivid.irlbroadcaster"
         minSdk = rootProject.extra["minSdkVersion"] as Int
         targetSdk = rootProject.extra["targetSdkVersion"] as Int
-        versionCode = 1                         // An integer that increases with each version.
-        versionName = "0.0.1"                   // The string that is displayed to the user.
+        versionCode = 1 // An integer that increases with each version.
+        versionName = "0.0.1" // The string that is displayed to the user.
         // Only package these locales
         androidResources {
             localeFilters.addAll(listOf("en", "fr", "de"))
