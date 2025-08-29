@@ -9,9 +9,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest # Runner-Umgebung
-    env: # Umgebungsvariablen für diesen Job
+    env: # Environment variables for this job
       SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-      # Optional, aber oft nützlich für Sentry:
+      # Optional,but often useful for Sentry:
       SENTRY_ORG: privat-jb
       SENTRY_PROJECT: vivid
     permissions:
