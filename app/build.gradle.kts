@@ -25,15 +25,31 @@ android {
 
     signingConfigs {
         create("release") {
-            // You can still check if the file exists for robustness,
-            // but the properties object should be populated if it does.
-            if (keystorePropertiesFile.exists()) {
-                keyAlias = keystoreProperties.getProperty("keyAlias")
-                keyPassword = keystoreProperties.getProperty("keyPassword")
-                storeFile = file(keystoreProperties.getProperty("storeFile")) // Ensure this path is correct
-                storePassword = keystoreProperties.getProperty("storePassword")
+            // Zuerst versuchen, aus Umgebungsvariablen zu laden (für CI/CD-Systeme wie GitHub Actions)
+            val keyStoreFile = System.getenv("SIGNING_KEY_STORE_FILE")
+            val keyStorePassword = System.getenv("SIGNING_KEY_STORE_PASSWORD")
+            val keyAlias = System.getenv("SIGNING_KEY_ALIAS")
+            val keyPassword = System.getenv("SIGNING_KEY_PASSWORD")
+            if (keyStoreFile != null && File(keyStoreFile).exists()) {
+                // CI/CD-Umgebung erkannt
+                storeFile = file(keyStoreFile)
+                storePassword = keyStorePassword
+                this.keyAlias = keyAlias
+                this.keyPassword = keyPassword
             } else {
-                println("Warning: keystore.properties not found for release signingConfig. Release build will not be signed with custom key.")
+                // Lokale Entwicklungsumgebung: Lade aus keystore.properties
+                val keystorePropertiesFile = rootProject.file("keystore.properties")
+                if (keystorePropertiesFile.exists()) {
+                    val keystoreProperties = java.util.Properties()
+                    keystoreProperties.load(java.io.FileInputStream(keystorePropertiesFile))
+                    storeFile = file(keystoreProperties.getProperty("storeFile"))
+                    storePassword = keystoreProperties.getProperty("storePassword")
+                    this.keyAlias = keystoreProperties.getProperty("keyAlias")
+                    this.keyPassword = keystoreProperties.getProperty("keyPassword")
+                } else {
+                    // Wenn weder CI noch lokale Properties gefunden werden, wird der Build fehlschlagen.
+                    // Dies ist besser als eine unsignierte Release-APK zu erstellen.
+                }
             }
         }
     }
