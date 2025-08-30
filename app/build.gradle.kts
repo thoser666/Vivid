@@ -1,16 +1,58 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
-//    alias(libs.plugins.kotlin.compose)
+    //   id("org.jetbrains.kotlin.plugin.compose") version "2.2.10" // Or the latest compatible version
 
     id("io.sentry.android.gradle") version "5.9.0"
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
+    alias(libs.plugins.compose.compiler)
 }
 
 android {
     namespace = "com.vivid.irlbroadcaster"
     compileSdk = rootProject.extra["compileSdkVersion"] as Int
+
+    val keystorePropertiesFile = rootProject.file("keystore.properties")
+    val keystoreProperties = Properties()
+    if (keystorePropertiesFile.exists()) {
+        keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+    }
+
+    signingConfigs {
+        create("release") {
+            // Zuerst versuchen, aus Umgebungsvariablen zu laden (für CI/CD-Systeme wie GitHub Actions)
+            val keyStoreFile = System.getenv("SIGNING_KEY_STORE_FILE")
+            val keyStorePassword = System.getenv("SIGNING_KEY_STORE_PASSWORD")
+            val keyAlias = System.getenv("SIGNING_KEY_ALIAS")
+            val keyPassword = System.getenv("SIGNING_KEY_PASSWORD")
+            if (keyStoreFile != null && File(keyStoreFile).exists()) {
+                // CI/CD-Umgebung erkannt
+                storeFile = file(keyStoreFile)
+                storePassword = keyStorePassword
+                this.keyAlias = keyAlias
+                this.keyPassword = keyPassword
+            } else {
+                // Lokale Entwicklungsumgebung: Lade aus keystore.properties
+                val keystorePropertiesFile = rootProject.file("keystore.properties")
+                if (keystorePropertiesFile.exists()) {
+                    val keystoreProperties = Properties()
+                    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+                    storeFile = file(keystoreProperties.getProperty("storeFile"))
+                    storePassword = keystoreProperties.getProperty("storePassword")
+                    this.keyAlias = keystoreProperties.getProperty("keyAlias")
+                    this.keyPassword = keystoreProperties.getProperty("keyPassword")
+                } else {
+                    // Wenn weder CI noch lokale Properties gefunden werden, wird der Build fehlschlagen.
+                    // Dies ist besser als eine unsignierte Release-APK zu erstellen.
+                }
+            }
+        }
+    }
+
     defaultConfig {
         applicationId = "com.vivid.irlbroadcaster"
         minSdk = rootProject.extra["minSdkVersion"] as Int
@@ -39,6 +81,7 @@ android {
 */
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
@@ -56,18 +99,18 @@ android {
             jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
         }
     }
-    buildFeatures {
-        compose = true
-    }
-
-    // Add this block if it's not already present and you're not solely relying on the BOM
-    // to set the compiler version, or if the BOM isn't aligning correctly.
-    composeOptions {
-        // Replace "1.5.12" with the actual compatible version you found
-        // from the Compose to Kotlin Compatibility Map for Kotlin 1.9.24.
-        // THIS VERSION MUST BE THE SAME AS IN YOUR :feature-streaming MODULE.
-        kotlinCompilerExtensionVersion = "1.5.14" // Example version, please verify!
-    }
+//    buildFeatures {
+//        compose = true
+//    }
+//
+//    // Add this block if it's not already present and you're not solely relying on the BOM
+//    // to set the compiler version, or if the BOM isn't aligning correctly.
+//    composeOptions {
+//        // Replace "1.5.12" with the actual compatible version you found
+//        // from the Compose to Kotlin Compatibility Map for Kotlin 1.9.24.
+//        // THIS VERSION MUST BE THE SAME AS IN YOUR :feature-streaming MODULE.
+//        kotlinCompilerExtensionVersion = "1.5.14" // Example version, please verify!
+//    }
 }
 
 dependencies {

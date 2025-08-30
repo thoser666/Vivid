@@ -9,9 +9,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest # Runner-Umgebung
-    env: # Umgebungsvariablen für diesen Job
+    env: # Environment variables for this job
       SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-      # Optional, aber oft nützlich für Sentry:
+      # Optional,but often useful for Sentry:
       SENTRY_ORG: privat-jb
       SENTRY_PROJECT: vivid
     permissions:
@@ -45,6 +45,26 @@ jobs:
           distribution: 'temurin' # Oder eine andere Distribution
           cache: gradle # Abhängigkeiten zwischenspeichern
 
+      - name: Decode and Install Keystore
+        # Führt diesen Schritt nur aus, wenn das Secret vorhanden ist
+        if: secrets.SIGNING_KEY_STORE_BASE64 != ''
+        env:
+          # Die Umgebungsvariable für den Dateipfad setzen
+          SIGNING_KEY_STORE_FILE: ${{ runner.temp }}/keystore.jks
+          # Secrets in Umgebungsvariablen für den nächsten Schritt verfügbar machen
+          SIGNING_KEY_STORE_BASE64: ${{ secrets.SIGNING_KEY_STORE_BASE64 }}
+        run: |
+          echo "Decoding keystore from secret..."
+          echo $SIGNING_KEY_STORE_BASE64 | base64 --decode > $SIGNING_KEY_STORE_FILE
+          echo "Keystore decoded to $SIGNING_KEY_STORE_FILE"
+          - name: Build with Gradle
+            env:
+              # Die Secrets als Umgebungsvariablen für Gradle bereitstellen
+              SIGNING_KEY_STORE_FILE: ${{ runner.temp }}/keystore.jks
+              SIGNING_KEY_STORE_PASSWORD: ${{ secrets.SIGNING_KEY_STORE_PASSWORD }}
+              SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
+              SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
+            run: ./gradlew assembleRelease
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew # Sicherstellen, dass gradlew ausführbar ist
 
