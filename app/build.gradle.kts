@@ -39,8 +39,8 @@ android {
                 // Lokale Entwicklungsumgebung: Lade aus keystore.properties
                 val keystorePropertiesFile = rootProject.file("keystore.properties")
                 if (keystorePropertiesFile.exists()) {
-                    val keystoreProperties = java.util.Properties()
-                    keystoreProperties.load(java.io.FileInputStream(keystorePropertiesFile))
+                    val keystoreProperties = Properties()
+                    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
                     storeFile = file(keystoreProperties.getProperty("storeFile"))
                     storePassword = keystoreProperties.getProperty("storePassword")
                     this.keyAlias = keystoreProperties.getProperty("keyAlias")
