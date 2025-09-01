@@ -91,11 +91,11 @@ jobs:
 
       # ── Decodieren & Signieren des Keystores ──
       - name: Decode and install keystore
-        if: secrets.SIGNING_KEY_STORE_BASE64 != ''
+        if: SECRETS.SIGNING_KEY_STORE_BASE64 != ''
         env:
           KEYSTORE_PATH: ${{ github.workspace }}/signing-keystore.jks
         run: |
-          echo "${{ secrets.SIGNING_KEY_STORE_BASE64 }}" | base64 -d > "$KEYSTORE_PATH"
+          echo "${{ SECRETS.SIGNING_KEY_STORE_BASE64 }}" | base64 -d > "$KEYSTORE_PATH"
 
       # ── Release Build (signiert) ──
       - name: Assemble signed release APK
