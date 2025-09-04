@@ -11,3 +11,9 @@ kotlin {
         jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
     }
 }
+dependencies {
+    implementation(project(":data"))
+    implementation(libs.kotlinx.coroutines.core) // Or the latest version
+    implementation(libs.javax.inject)
+
+}
