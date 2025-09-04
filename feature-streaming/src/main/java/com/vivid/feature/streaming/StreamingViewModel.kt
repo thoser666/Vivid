@@ -1,39 +1,38 @@
 package com.vivid.feature.streaming
 
 import androidx.lifecycle.ViewModel
-import com.pedro.library.view.OpenGlView
+import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
-class StreamingViewModel @Inject constructor(
-    private val streamingEngine: StreamingEngine,
-) : ViewModel() {
+class StreamingViewModel @Inject constructor() : ViewModel() {
 
-    // Diese Zustände bleiben:
-    val isStreaming = streamingEngine.isStreaming
-    val streamingError = streamingEngine.streamingError
+    // Privater, veränderlicher StateFlow, der den aktuellen Streaming-Zustand hält.
+    private val _isStreaming = MutableStateFlow(false)
+    // Öffentlicher, unveränderlicher StateFlow, den die UI beobachten kann.
+    val isStreaming = _isStreaming.asStateFlow()
 
-    // Diese Funktion wird von der UI aufgerufen, um alles zu verbinden
-    fun initialize(openGlView: OpenGlView) { // <-- Change the parameter type here
-        streamingEngine.initializeCamera(openGlView) // <-- Now this should work
-    }
-
-    fun switchCamera() {
-        streamingEngine.switchCamera()
-    }
-
-    fun startStream(rtmpUrl: String) {
-        streamingEngine.startStreaming(rtmpUrl)
-    }
-
-    fun stopStream() {
-        streamingEngine.stopStreaming()
-    }
-
-    // ViewModel freigeben
-    override fun onCleared() {
-        super.onCleared()
-        streamingEngine.release()
+    /**
+     * Schaltet den Streaming-Zustand um.
+     * Hier wird später die eigentliche Logik zum Verbinden/Trennen des Streams eingefügt.
+     */
+    fun toggleStreaming() {
+        viewModelScope.launch {
+            if (_isStreaming.value) {
+                // TODO: Logik zum Stoppen des Streams hier einfügen
+                // (z.B. Verbindung zum Server trennen)
+                _isStreaming.value = false
+                println("STREAMING: Stopped")
+            } else {
+                // TODO: Logik zum Starten des Streams hier einfügen
+                // (z.B. Verbindung zum RTMP/SRT-Server aufbauen)
+                _isStreaming.value = true
+                println("STREAMING: Started")
+            }
+        }
     }
 }
