@@ -128,6 +128,8 @@ dependencies {
     implementation(project(":feature-streaming")) // Add this line
     implementation(libs.androidx.navigation.compose) // Or the latest version
 
+
+
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
 
@@ -158,6 +160,16 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
+
+    // Core Test-Bibliotheken
+    testImplementation(libs.junit)
+    testImplementation(libs.androidx.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
+    // Turbine zum Testen von Kotlin Flows
+    testImplementation(libs.turbine)
+    // Mockito zum Erstellen von Mock-Objekten (optional, aber nützlich)
+    testImplementation(libs.mockito.core)
+    testImplementation(libs.mockito.kotlin)
 }
 
 sentry {
