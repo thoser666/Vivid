@@ -33,13 +33,13 @@ fun StreamingScreen(
         // "LIVE"-Indikator, sichtbar nur im Streaming-Zustand
         AnimatedVisibility(
             visible = streamingState is StreamingState.Streaming,
-            modifier = Modifier.align(Alignment.TopStart)
+            modifier = Modifier.align(Alignment.TopStart),
         ) {
             Box(
                 modifier = Modifier
                     .padding(16.dp)
                     .background(Color.Red, CircleShape)
-                    .padding(horizontal = 12.dp, vertical = 4.dp)
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
             ) {
                 Text(text = "LIVE", color = Color.White)
             }
@@ -49,18 +49,18 @@ fun StreamingScreen(
         Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(32.dp)
+                .padding(32.dp),
         ) {
             Button(
                 onClick = { viewModel.toggleStreaming() },
                 // Deaktiviere den Button, während eine Zustandsänderung läuft
-                enabled = streamingState is StreamingState.Idle || streamingState is StreamingState.Streaming
+                enabled = streamingState is StreamingState.Idle || streamingState is StreamingState.Streaming,
             ) {
                 Text(
                     text = when (streamingState) {
                         is StreamingState.Streaming -> "Stream stoppen"
                         else -> "Stream starten"
-                    }
+                    },
                 )
             }
             // Zeige einen Ladeindikator, wenn verbunden oder getrennt wird

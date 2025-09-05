@@ -12,7 +12,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class StreamingViewModel @Inject constructor(
-    private val streamingRepository: StreamingRepository
+    private val streamingRepository: StreamingRepository,
 ) : ViewModel() {
 
     // Das ViewModel gibt den Zustand vom Repository direkt an die UI weiter
@@ -20,7 +20,7 @@ class StreamingViewModel @Inject constructor(
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.Companion.WhileSubscribed(5000),
-            initialValue = StreamingState.Idle
+            initialValue = StreamingState.Idle,
         )
 
     fun toggleStreaming() {

@@ -15,5 +15,4 @@ dependencies {
     implementation(project(":data"))
     implementation(libs.kotlinx.coroutines.core) // Or the latest version
     implementation(libs.javax.inject)
-
 }
