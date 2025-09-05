@@ -1,18 +1,12 @@
-package com.vivid.feature.streaming.ui
+package com.vivid.feature.streaming.domain.repository
 
-import app.cash.turbine.test
-import com.vivid.feature.streaming.data.model.StreamingState
+import com.vivid.data.model.StreamingState
 import com.vivid.feature.streaming.data.repository.StreamingViewModel
-import com.vivid.feature.streaming.domain.repository.FakeStreamingRepository
+import junit.framework.Assert.assertEquals
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.test.StandardTestDispatcher
-import kotlinx.coroutines.test.resetMain
-import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
 import org.junit.After
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
+import org.junit.Assert
 import org.junit.Before
 import org.junit.Test
 
@@ -48,13 +42,13 @@ class StreamingViewModelTest {
     @Test
     fun `toggleStreaming calls startStream when state is Idle`() = runTest {
         // Ensure state is Idle
-        assertEquals(StreamingState.Idle, viewModel.streamingState.value)
+        Assert.assertEquals(StreamingState.Idle, viewModel.streamingState.value)
 
         // Trigger action
         viewModel.toggleStreaming()
 
         // Verify that the correct method was called on the repository
-        assertTrue(fakeRepository.startStreamCalled)
+        Assert.assertTrue(fakeRepository.startStreamCalled)
     }
 
     // ... andere Tests entsprechend anpassen ...

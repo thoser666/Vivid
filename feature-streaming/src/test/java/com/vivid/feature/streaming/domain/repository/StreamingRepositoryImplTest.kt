@@ -1,7 +1,8 @@
-package com.vivid.feature.streaming.data.repository
+package com.vivid.feature.streaming.domain.repository
 
 import com.vivid.data.model.StreamingState
-import org.junit.Assert.assertEquals
+import com.vivid.feature.streaming.data.repository.StreamingRepositoryImpl
+import org.junit.Assert
 import org.junit.Before
 import org.junit.Test
 
@@ -19,13 +20,13 @@ class StreamingRepositoryImplTest {
     fun `startStream should transition from Idle to Connecting to Streaming`() = runTest {
         repository.streamingState.test {
             // 1. Initial state should be Idle
-            assertEquals(StreamingState.Idle, awaitItem())
+            Assert.assertEquals(StreamingState.Idle, awaitItem())
             // 2. Start the stream
             repository.startStream()
             // 3. State should transition to Connecting
-            assertEquals(StreamingState.Connecting, awaitItem())
+            Assert.assertEquals(StreamingState.Connecting, awaitItem())
             // 4. After delay, state should be Streaming
-            assertEquals(StreamingState.Streaming, awaitItem())
+            Assert.assertEquals(StreamingState.Streaming, awaitItem())
             // Ensure no more events are coming
             cancelAndConsumeRemainingEvents()
         }
