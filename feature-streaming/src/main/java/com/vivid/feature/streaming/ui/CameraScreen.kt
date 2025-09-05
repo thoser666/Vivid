@@ -32,15 +32,15 @@ fun CameraScreen() {
         mutableStateOf(
             ContextCompat.checkSelfPermission(
                 context,
-                Manifest.permission.CAMERA
-            ) == PackageManager.PERMISSION_GRANTED
+                Manifest.permission.CAMERA,
+            ) == PackageManager.PERMISSION_GRANTED,
         )
     }
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
         onResult = { granted ->
             hasCamPermission = granted
-        }
+        },
     )
 
     LaunchedEffect(key1 = true) {
@@ -55,7 +55,7 @@ fun CameraScreen() {
         } else {
             Box(
                 contentAlignment = Alignment.Center,
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
             ) {
                 Text(text = "Bitte Kamera-Berechtigung erteilen.")
             }
@@ -65,7 +65,7 @@ fun CameraScreen() {
 
 @Composable
 fun CameraPreview(
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
     val context = LocalContext.current
@@ -93,7 +93,7 @@ fun CameraPreview(
                 cameraProvider.bindToLifecycle(
                     lifecycleOwner,
                     cameraSelector,
-                    preview
+                    preview,
                 )
             } catch (e: Exception) {
                 // Fehlerbehandlung, falls die Bindung fehlschlägt

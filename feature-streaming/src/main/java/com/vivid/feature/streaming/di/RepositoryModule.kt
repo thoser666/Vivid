@@ -1,7 +1,7 @@
 package com.vivid.feature.streaming.di
 
-import com.vivid.feature.streaming.data.repository.StreamingRepositoryImpl
 import com.vivid.feature.streaming.data.repository.StreamingRepository
+import com.vivid.feature.streaming.data.repository.StreamingRepositoryImpl
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -15,6 +15,6 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindStreamingRepository(
-        streamingRepositoryImpl: StreamingRepositoryImpl
+        streamingRepositoryImpl: StreamingRepositoryImpl,
     ): StreamingRepository
 }
