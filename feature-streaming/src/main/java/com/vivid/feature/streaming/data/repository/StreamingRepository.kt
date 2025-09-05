@@ -1,4 +1,4 @@
-package com.vivid.domain.repository
+package com.vivid.feature.streaming.data.repository
 
 
 import com.vivid.data.model.StreamingState

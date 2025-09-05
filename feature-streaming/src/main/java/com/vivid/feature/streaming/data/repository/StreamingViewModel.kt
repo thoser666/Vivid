@@ -1,9 +1,8 @@
-package com.vivid.feature.streaming
+package com.vivid.feature.streaming.data.repository
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vivid.data.model.StreamingState
-import com.vivid.domain.repository.StreamingRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -20,7 +19,7 @@ class StreamingViewModel @Inject constructor(
     val streamingState: StateFlow<StreamingState> = streamingRepository.streamingState
         .stateIn(
             scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
+            started = SharingStarted.Companion.WhileSubscribed(5000),
             initialValue = StreamingState.Idle
         )
 

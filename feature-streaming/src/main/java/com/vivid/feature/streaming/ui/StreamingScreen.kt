@@ -17,7 +17,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.vivid.data.model.StreamingState
-import com.vivid.feature.streaming.StreamingViewModel
+import com.vivid.feature.streaming.data.repository.StreamingViewModel
 
 @Composable
 fun StreamingScreen(

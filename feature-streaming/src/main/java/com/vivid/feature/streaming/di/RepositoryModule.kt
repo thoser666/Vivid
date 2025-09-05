@@ -1,7 +1,7 @@
 package com.vivid.feature.streaming.di
 
-import com.vivid.domain.repository.StreamingRepositoryImpl
-import com.vivid.domain.repository.StreamingRepository
+import com.vivid.feature.streaming.data.repository.StreamingRepositoryImpl
+import com.vivid.feature.streaming.data.repository.StreamingRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
