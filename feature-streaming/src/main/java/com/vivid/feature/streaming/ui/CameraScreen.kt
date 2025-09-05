@@ -87,17 +87,22 @@ fun CameraPreview(
             val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
 
             try {
-                // Bestehende Bindungen aufheben, bevor neue erstellt werden
                 cameraProvider.unbindAll()
-                // Kamera an den Lebenszyklus binden
                 cameraProvider.bindToLifecycle(
                     lifecycleOwner,
                     cameraSelector,
-                    preview,
+                    preview
                 )
-            } catch (e: Exception) {
-                // Fehlerbehandlung, falls die Bindung fehlschlägt
-                Log.e("CameraPreview", "Use case binding failed", e)
+            } catch (ise: IllegalStateException) {
+                // Likely a configuration or state issue with CameraX
+                Log.e("CameraPreview", "Illegal state during camera binding. Check configuration or lifecycle.", ise)
+                // Potentially show a user-friendly error message
+            } catch (iae: IllegalArgumentException) {
+                // Could be an issue with one of the provided arguments (selector, use cases)
+                Log.e("CameraPreview", "Invalid argument provided for camera binding.", iae)
+            } catch (e: Exception) { // Fallback for other unexpected errors
+                Log.e("CameraPreview", "Use case binding failed unexpectedly.", e)
+                // Generic error handling
             }
         }, ContextCompat.getMainExecutor(context))
     }
