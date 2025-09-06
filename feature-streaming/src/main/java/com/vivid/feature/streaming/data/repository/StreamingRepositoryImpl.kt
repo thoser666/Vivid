@@ -99,6 +99,7 @@ class StreamingRepositoryImpl : StreamingRepository, ConnectChecker {
             Log.e("StreamingEngine", "Unexpected error during camera init", e)
         }
     }
+
     fun startStreaming(rtmpUrl: String) {
         if (rtmpUrl.isBlank()) {
             _streamingError.value = "No output stream URL configured"
@@ -179,12 +180,20 @@ class StreamingRepositoryImpl : StreamingRepository, ConnectChecker {
             // Your current call `rtmpCamera?.prepareVideo(width, height, fps, bitrate, 0)`
             // seems to intend to use `prepareVideo(width, height, fps, bitrate, rotation)`
             // where the last 0 is for rotation.
-            if (rtmpCamera?.prepareVideo(width, height, fps, bitrate, 0) == false) { // Assuming 0 for rotation
+            if (rtmpCamera?.prepareVideo(
+                    width,
+                    height,
+                    fps,
+                    bitrate,
+                    0
+                ) == false
+            ) { // Assuming 0 for rotation
                 _streamingError.value = "Prepare video failed. Check parameters."
             }
         } catch (e: IllegalArgumentException) {
             // Specific exception for bad parameters
-            val errorMsg = "Invalid parameters for video settings: ${e.message}. Values: w=$width, h=$height, fps=$fps, br=$bitrate"
+            val errorMsg =
+                "Invalid parameters for video settings: ${e.message}. Values: w=$width, h=$height, fps=$fps, br=$bitrate"
             Log.e("StreamingService", errorMsg, e)
             _streamingError.value = "Invalid video settings: ${e.localizedMessage}"
         } catch (e: IOException) {
@@ -204,17 +213,34 @@ class StreamingRepositoryImpl : StreamingRepository, ConnectChecker {
             // prepareAudio(int bitRate, int sampleRate, boolean isStereo, boolean echoCanceler, boolean noiseSuppressor)
             // Your call: rtmpCamera?.prepareAudio(sampleRate, isStereo, bitrate) is incorrect based on the common signature.
             // It should likely be:
-            if (rtmpCamera?.prepareAudio(bitrate, sampleRate, isStereo, true, true) == false) { // Added echoCanceler and noiseSuppressor defaults
+            if (rtmpCamera?.prepareAudio(
+                    bitrate,
+                    sampleRate,
+                    isStereo,
+                    true,
+                    true
+                ) == false
+            ) { // Added echoCanceler and noiseSuppressor defaults
                 _streamingError.value = "Prepare audio failed. Check parameters."
             }
         } catch (iae: IllegalArgumentException) {
             // Catch specific exceptions if known
-            _streamingError.value = "Invalid audio parameters: ${iae.message}. Please check your inputs."
-            Log.e("StreamingError", "IllegalArgumentException during audio prep: ${iae.message}", iae)
+            _streamingError.value =
+                "Invalid audio parameters: ${iae.message}. Please check your inputs."
+            Log.e(
+                "StreamingError",
+                "IllegalArgumentException during audio prep: ${iae.message}",
+                iae
+            )
         } catch (e: Exception) {
             // Catch-all for other unexpected issues
-            _streamingError.value = "An unexpected error occurred while configuring audio. Please try again."
-            Log.e("StreamingError", "Exception during audio prep: ${e.message}", e) // Log the technical error for debugging
+            _streamingError.value =
+                "An unexpected error occurred while configuring audio. Please try again."
+            Log.e(
+                "StreamingError",
+                "Exception during audio prep: ${e.message}",
+                e
+            ) // Log the technical error for debugging
         }
     }
 
@@ -248,8 +274,20 @@ class StreamingRepositoryImpl : StreamingRepository, ConnectChecker {
     }
 
     // These seem like placeholder methods, ensure they are implemented or removed if not needed.
-    fun start() { /* ... */ }
-    fun stop() { /* ... */ }
+    fun start() { /* ... */
+    }
+
+    fun stop() { /* ... */
+    }
+
+    override fun startStream(endpointUrl: String) {
+        TODO("Not yet implemented")
+    }
+
+    override fun stopStream() {
+        TODO("Not yet implemented")
+    }
+}
 
 // Define the interface for the repository
 interface StreamingRepository {
