@@ -90,7 +90,7 @@ fun CameraPreview(
                 cameraProvider.bindToLifecycle(
                     lifecycleOwner,
                     cameraSelector,
-                    preview
+                    preview,
                 )
             } catch (ise: IllegalStateException) {
                 // Likely a configuration or state issue with CameraX
