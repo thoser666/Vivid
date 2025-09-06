@@ -7,14 +7,9 @@ import com.pedro.common.ConnectChecker
 import com.pedro.encoder.input.video.CameraOpenException
 import com.pedro.library.rtmp.RtmpCamera2
 import com.pedro.library.view.OpenGlView
-import com.pedro.rtmp.rtmp.RtmpClient
-import com.vivid.data.model.StreamingState
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.io.IOException
-import javax.inject.Inject
-import javax.inject.Singleton
 
 class StreamingRepositoryImpl : StreamingRepository, ConnectChecker {
     private var outputStreams = mutableListOf<String>()
@@ -185,7 +180,7 @@ class StreamingRepositoryImpl : StreamingRepository, ConnectChecker {
                     height,
                     fps,
                     bitrate,
-                    0
+                    0,
                 ) == false
             ) { // Assuming 0 for rotation
                 _streamingError.value = "Prepare video failed. Check parameters."
@@ -218,7 +213,7 @@ class StreamingRepositoryImpl : StreamingRepository, ConnectChecker {
                     sampleRate,
                     isStereo,
                     true,
-                    true
+                    true,
                 ) == false
             ) { // Added echoCanceler and noiseSuppressor defaults
                 _streamingError.value = "Prepare audio failed. Check parameters."
@@ -230,7 +225,7 @@ class StreamingRepositoryImpl : StreamingRepository, ConnectChecker {
             Log.e(
                 "StreamingError",
                 "IllegalArgumentException during audio prep: ${iae.message}",
-                iae
+                iae,
             )
         } catch (e: Exception) {
             // Catch-all for other unexpected issues
@@ -239,7 +234,7 @@ class StreamingRepositoryImpl : StreamingRepository, ConnectChecker {
             Log.e(
                 "StreamingError",
                 "Exception during audio prep: ${e.message}",
-                e
+                e,
             ) // Log the technical error for debugging
         }
     }
@@ -274,10 +269,12 @@ class StreamingRepositoryImpl : StreamingRepository, ConnectChecker {
     }
 
     // These seem like placeholder methods, ensure they are implemented or removed if not needed.
-    fun start() { /* ... */
+    fun start() {
+        /* ... */
     }
 
-    fun stop() { /* ... */
+    fun stop() {
+        /* ... */
     }
 
     override fun startStream(endpointUrl: String) {
