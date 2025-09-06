@@ -8,9 +8,13 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
+// Assuming StreamingRepository and StreamingRepositoryImpl are defined elsewhere
+// interface StreamingRepository
+// class StreamingRepositoryImpl @Inject constructor() : StreamingRepository
+
 @Module
-@InstallIn(SingletonComponent::class)
-abstract class RepositoryModule {
+@InstallIn(SingletonComponent::class) // CRITICAL: Tells Hilt where to install this module
+internal abstract class RepositoryModule { // `internal` for better encapsulation
 
     @Binds
     @Singleton
