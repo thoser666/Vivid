@@ -91,7 +91,7 @@ jobs:
 
       # ── Decodieren & Signieren des Keystores ──
       - name: Decode and install keystore
-        if: SECRETS.SIGNING_KEY_STORE_BASE64 != ''
+        if: secrets.SIGNING_KEY_STORE_BASE64 != ''
         env:
           KEYSTORE_PATH: ${{ github.workspace }}/signing-keystore.jks
         run: |
