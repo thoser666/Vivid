@@ -137,82 +137,35 @@ class StreamingEngine @Inject constructor() : ConnectChecker {
         }
     }
 
-    fun setVideoSettings(width: Int, height: Int, bitrate: Int, fps: Int) {
-        // The RtmpCamera1 prepareVideo method also takes rotation, iFrameInterval (deprecated),
-        // and force (deprecated) parameters.
-        // Assuming default rotation (0) and handling potential exceptions.
+    fun setVideoSettings(width: Int, height: Int, bitrate: Int, fps: Int, rotation: Int) {
         try {
-            // prepareVideo(int width, int height, int fps, int bitRate, int rotation,
-            // int iFrameInterval, FormatVideoEncoder formatVideoEncoder, int avcProfile, int avcProfileLevel)
-            // Simpler version: prepareVideo(int width, int height, int fps, int bitRate, int rotation)
-            // Or the one you were likely using: prepareVideo(int width, int height, int fps, int bitRate, int iFrameInterval, int rotation)
-            // The method signature from the library version you are using (2.4.8) is:
-            // prepareVideo(int width, int height, int fps, int bitRate, int rotation, int iFrameInterval, FormatVideoEncoder formatVideoEncoder)
-            // Or with profile and level:
-            // prepareVideo(int width, int height, int fps, int bitRate, int rotation, int iFrameInterval, FormatVideoEncoder formatVideoEncoder, int avcProfile, int avcProfileLevel)
-
-            // For simplicity, let's assume you want to use the basic prepareVideo.
-            // Check the exact signature in your version of the library.
-            // The library `com.github.pedroSG94:RootEncoder:2.4.8` for RtmpCamera1 has:
-            // fun prepareVideo(width: Int, height: Int, fps: Int, bitRate: Int, rotation: Int, iFrameInterval: Int, formatVideoEncoder: FormatVideoEncoder)
-            // You are missing rotation, iFrameInterval and formatVideoEncoder.
-            // Let's use sensible defaults or allow them to be configured.
-            // For now, I'll use a common default for rotation (0) and iFrameInterval (e.g., 2 seconds).
-            // You'll need to decide on the FormatVideoEncoder (e.g., FormatVideoEncoder.SURFACE or FormatVideoEncoder.YUV).
-            // This needs a View to render the preview, which you are not passing to RtmpCamera1.
-            // If you are not showing a preview, you might need a different setup or RtmpCamera (e.g. RtmpCamera2 with GlInterface).
-
-            // Given you are using RtmpCamera1(context, connectChecker), it implies you are not using a SurfaceView/TextureView directly with it.
-            // This usually means you want to stream the camera without a visible preview directly tied to the RtmpCamera1 instance,
-            // or you handle the preview separately.
-
-            // The `prepareVideo` without a `FormatVideoEncoder` often defaults, but it's better to be explicit or ensure your
-            // library version has an overload that matches.
-            // The version 2.4.8 of RootEncoder has:
-            // prepareVideo(int width, int height, int fps, int bitRate, int rotation)
-            // prepareVideo(int width, int height, int fps, int bitRate, int rotation, int iFrameInterval)
-            // prepareVideo(int width, int height, int fps, int bitRate, int rotation, int iFrameInterval, FormatVideoEncoder formatVideoEncoder)
-            // etc.
-
-            // Your current call `rtmpCamera?.prepareVideo(width, height, fps, bitrate, 0)`
-            // seems to intend to use `prepareVideo(width, height, fps, bitrate, rotation)`
-            // where the last 0 is for rotation.
-            if (rtmpCamera?.prepareVideo(width, height, fps, bitrate, 0) == false) { // Assuming 0 for rotation
+            if (rtmpCamera?.prepareVideo(width, height, fps, bitrate, rotation) == false) {
                 _streamingError.value = "Prepare video failed. Check parameters."
             }
         } catch (e: IllegalArgumentException) {
-            // Specific exception for bad parameters
             val errorMsg = "Invalid parameters for video settings: ${e.message}. Values: w=$width, h=$height, fps=$fps, br=$bitrate"
-            Log.e("StreamingService", errorMsg, e)
+            Log.e("StreamingEngine", errorMsg, e)
             _streamingError.value = "Invalid video settings: ${e.localizedMessage}"
-        } catch (e: IOException) {
-            // Specific exception for I/O issues during preparation (if applicable)
-            val errorMsg = "I/O error preparing video: ${e.message}"
-            Log.e("StreamingService", errorMsg, e)
-            _streamingError.value = "Error preparing video: ${e.localizedMessage}"
         } catch (e: Exception) { // Catch-all for unexpected issues
             val errorMsg =
                 "Unexpected error setting video settings: ${e.message}. Parameters: w=$width, h=$height, fps=$fps, br=$bitrate"
-            Log.e("StreamingService", errorMsg, e) // Log the full stack trace
+            Log.e("StreamingEngine", errorMsg, e) // Log the full stack trace
+            _streamingError.value = "An unexpected error occurred while setting video settings."
         }
     }
 
     fun setAudioSettings(sampleRate: Int, isStereo: Boolean, bitrate: Int) {
         try {
-            // prepareAudio(int bitRate, int sampleRate, boolean isStereo, boolean echoCanceler, boolean noiseSuppressor)
-            // Your call: rtmpCamera?.prepareAudio(sampleRate, isStereo, bitrate) is incorrect based on the common signature.
-            // It should likely be:
-            if (rtmpCamera?.prepareAudio(bitrate, sampleRate, isStereo, true, true) == false) { // Added echoCanceler and noiseSuppressor defaults
+            // Correct signature: prepareAudio(bitRate: Int, sampleRate: Int, isStereo: Boolean, echoCanceler: Boolean, noiseSuppressor: Boolean)
+            if (rtmpCamera?.prepareAudio(bitrate, sampleRate, isStereo, true, true) == false) {
                 _streamingError.value = "Prepare audio failed. Check parameters."
             }
         } catch (iae: IllegalArgumentException) {
-            // Catch specific exceptions if known
             _streamingError.value = "Invalid audio parameters: ${iae.message}. Please check your inputs."
-            Log.e("StreamingError", "IllegalArgumentException during audio prep: ${iae.message}", iae)
+            Log.e("StreamingEngine", "IllegalArgumentException during audio prep: ${iae.message}", iae)
         } catch (e: Exception) {
-            // Catch-all for other unexpected issues
             _streamingError.value = "An unexpected error occurred while configuring audio. Please try again."
-            Log.e("StreamingError", "Exception during audio prep: ${e.message}", e) // Log the technical error for debugging
+            Log.e("StreamingEngine", "Exception during audio prep: ${e.message}", e)
         }
     }
 
