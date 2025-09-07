@@ -48,6 +48,7 @@ dependencies {
     //   implementation(libs.hilt.android)
 //    ksp(libs.dagger.hilt.compiler)
     implementation(libs.hilt.android)
+    implementation(project(":data"))
     ksp(libs.hilt.compiler)
 
     // CameraX für Video-Streaming

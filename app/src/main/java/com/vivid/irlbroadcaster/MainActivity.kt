@@ -64,7 +64,7 @@ class MainActivity : ComponentActivity() {
 
             // 1. Preview Use Case erstellen
             val preview = Preview.Builder().build().also {
-                it.setSurfaceProvider(viewFinder.surfaceProvider)
+                it.surfaceProvider = viewFinder.surfaceProvider
             }
 
             // 2. Kamera auswählen (hier: Rückkamera)
