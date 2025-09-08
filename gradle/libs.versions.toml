@@ -1,5 +1,6 @@
 [versions]
 agp = "8.13.0"
+accompanist = "0.32.0"
 cameraCamera2 = "1.4.2"
 cameraCore = "1.4.2"
 constraintlayout = "2.2.1"
@@ -43,6 +44,7 @@ uiTooling = "1.9.0"
 uiToolingPreview = "1.9.0"
 
 [libraries]
+accompanist-permissions = { group = "com.google.accompanist", name = "accompanist-permissions", version.ref = "accompanist" }
 androidx-camera-camera2 = { module = "androidx.camera:camera-camera2", version.ref = "cameraCamera2" }
 androidx-camera-core = { module = "androidx.camera:camera-core", version.ref = "cameraCore" }
 androidx-camera-lifecycle = { module = "androidx.camera:camera-lifecycle", version.ref = "cameraCamera2" }
@@ -108,4 +110,5 @@ ksp = { id = "com.google.devtools.ksp", version.ref = "ksp-version" }
 hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt-version" }
 #org-jetbrains-kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+
 

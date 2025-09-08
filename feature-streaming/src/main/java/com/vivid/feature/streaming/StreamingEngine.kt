@@ -198,6 +198,23 @@ class StreamingEngine @Inject constructor() : ConnectChecker {
         rtmpCamera = null
     }
 
+    fun startPreview() {
+        try {
+            rtmpCamera?.startPreview()
+        } catch (e: Exception) {
+            _streamingError.value = "Failed to start camera preview: ${e.message}"
+        }
+    }
+    fun stopPreview() {
+        try {
+            rtmpCamera?.stopPreview()
+        } catch (e: Exception) {
+            // Dies kann fehlschlagen, wenn die Kamera bereits freigegeben ist,
+            // daher ist es oft sicher, diesen Fehler zu ignorieren oder nur zu protokollieren.
+            Log.w("StreamingEngine", "Exception while stopping preview: ${e.message}")
+        }
+    }
+
     // These seem like placeholder methods, ensure they are implemented or removed if not needed.
     fun start() { /* ... */ }
     fun stop() { /* ... */ }

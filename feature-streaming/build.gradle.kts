@@ -57,6 +57,9 @@ dependencies {
     implementation(libs.androidx.camera.view)
     implementation(libs.androidx.camera.video) // Für Recording
 
+    // Accompanist Permissions  <-- ADD THIS LINE
+    implementation(libs.accompanist.permissions)
+
     // Hilt Navigation Compose
     implementation(libs.androidx.hilt.navigation.compose)
 
