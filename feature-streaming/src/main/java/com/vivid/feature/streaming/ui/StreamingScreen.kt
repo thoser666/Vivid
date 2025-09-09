@@ -24,7 +24,7 @@ import com.pedro.library.view.OpenGlView
 @Composable
 fun StreamingScreen(
     navController: NavController,
-    viewModel: StreamingViewModel = hiltViewModel()
+    viewModel: StreamingViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -36,7 +36,7 @@ fun StreamingScreen(
     val rtmpUrl = "rtmp://your_rtmp_server/your_app/your_stream_key"
 
     val permissionsState = rememberMultiplePermissionsState(
-        permissions = listOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO)
+        permissions = listOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO),
     )
 
     // Wir erstellen hier eine Referenz auf die OpenGlView, die wir später füllen.
@@ -85,7 +85,7 @@ fun StreamingScreen(
                         openGlView.value = it
                     }
                 },
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
             )
         }
 
@@ -94,7 +94,7 @@ fun StreamingScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             error?.let {
                 Toast.makeText(context, "Error: $it", Toast.LENGTH_SHORT).show()
@@ -118,7 +118,7 @@ fun StreamingScreen(
         // Berechtigungs-UI (unverändert)
         if (!permissionsState.allPermissionsGranted) {
             Column(
-                modifier = Modifier.align(Alignment.Center)
+                modifier = Modifier.align(Alignment.Center),
             ) {
                 Text("Camera and Microphone permissions are required to stream.")
                 Spacer(modifier = Modifier.height(8.dp))
