@@ -7,7 +7,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class StreamingViewModel @Inject constructor(
-    val streamingEngine: StreamingEngine
+    val streamingEngine: StreamingEngine,
 ) : ViewModel() {
 
     override fun onCleared() {
