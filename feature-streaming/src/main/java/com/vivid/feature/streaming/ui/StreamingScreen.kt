@@ -19,7 +19,7 @@ import androidx.navigation.NavController
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import com.pedro.library.view.OpenGlView
-import com.vivid.feature.streacming.data.repository.StreamingViewModel
+import com.vivid.feature.streaming.data.repository.StreamingViewModel
 
 
 @OptIn(ExperimentalPermissionsApi::class)

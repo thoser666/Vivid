@@ -1,4 +1,4 @@
-package com.vivid.feature.streacming.data.repository
+package com.vivid.feature.streaming.data.repository
 
 import androidx.lifecycle.ViewModel
 import com.vivid.feature.streaming.StreamingEngine
