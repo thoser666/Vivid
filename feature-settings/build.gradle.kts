@@ -1,16 +1,16 @@
 import org.gradle.kotlin.dsl.extra
 
-// Stellen Sie sicher, dass am Anfang der Datei "com.android.library" als Plugin steht.
+// Make sure "com.android.library" is set as plugin at the beginning of the file
 plugins {
     id("com.android.library")
     kotlin("android")
-    id("com.google.devtools.ksp")
+    id("com.google.devtools.ksp")  // KSP instead of kapt
     id("dagger.hilt.android.plugin")
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
 android {
-    namespace = "com.vivid.feature.settings" // Eindeutiger Namespace für dieses Modul
+    namespace = "com.vivid.feature.settings" // Unique namespace for this module
     compileSdk = rootProject.extra["compileSdkVersion"] as Int
 
     defaultConfig {
@@ -34,39 +34,38 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions {
-        jvmTarget="17"
+        jvmTarget = "17"  // Should match compileOptions
     }
-    // WICHTIG: Aktivieren Sie Compose für dieses Modul
+    // IMPORTANT: Enable Compose for this module
     buildFeatures {
         compose = true
     }
-
 }
 
 dependencies {
-    // Abhängigkeit zum 'core'-Modul
+    // Dependency to 'core' module
     implementation(project(":core"))
 
-    // Compose-Abhängigkeiten
+    // Compose dependencies
     implementation(libs.androidx.compose.bom)
     implementation(libs.ui)
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.ui.tooling.preview)
     implementation(libs.material3)
 
-    // Hilt für ViewModel-Injection
+    // Hilt for ViewModel injection - CHANGED: ksp instead of kapt
     implementation(libs.hilt.android)
-    ksp(libs.dagger.hilt.compiler)
+    ksp(libs.dagger.hilt.compiler)  // KSP instead of kapt
     implementation(libs.androidx.hilt.navigation.compose)
 
     // Navigation
     implementation(libs.androidx.navigation.compose)
 
-    // Andere notwendige AndroidX-Bibliotheken
+    // Other necessary AndroidX libraries
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
 
-    // Test-Abhängigkeiten
+    // Test dependencies
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
