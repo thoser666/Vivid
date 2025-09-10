@@ -114,6 +114,9 @@ fun StreamingScreen(
             Button(onClick = { streamingEngine.switchCamera() }) {
                 Text("Switch Camera")
             }
+            Button(onClick = { navController.navigate("settings_route") }) {
+                Text("Settings")
+            }
         }
 
         // Berechtigungs-UI (unverändert)

@@ -129,6 +129,7 @@ dependencies {
     implementation(libs.androidx.navigation.compose) // Or the latest version
 
     implementation(libs.hilt.android)
+    implementation(project(":feature-settings"))
     ksp(libs.hilt.compiler)
 
     // CameraX für Video-Streaming

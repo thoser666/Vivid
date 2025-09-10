@@ -1,12 +1,14 @@
 [versions]
 agp = "8.13.0"
 accompanist = "0.37.3"
+appcompat = "1.6.1"
 cameraCamera2 = "1.4.2"
 cameraCore = "1.4.2"
 constraintlayout = "2.2.1"
+datastorePreferences = "1.1.7"
 guava = "33.4.8-android"
 #hiltAndroid = "2.57.1"
-#hiltCompiler = "2.57.1"
+hiltCompiler = "2.57.1"
 hilt-version = "2.57.1"
 hiltNavigationCompose = "1.2.0"
 javaWebsocket = "1.6.0"
@@ -45,13 +47,16 @@ uiToolingPreview = "1.9.0"
 
 [libraries]
 accompanist-permissions = { group = "com.google.accompanist", name = "accompanist-permissions", version.ref = "accompanist" }
+androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "appcompat" }
 androidx-camera-camera2 = { module = "androidx.camera:camera-camera2", version.ref = "cameraCamera2" }
 androidx-camera-core = { module = "androidx.camera:camera-core", version.ref = "cameraCore" }
 androidx-camera-lifecycle = { module = "androidx.camera:camera-lifecycle", version.ref = "cameraCamera2" }
 androidx-camera-video = { module = "androidx.camera:camera-video", version.ref = "cameraCamera2" }
 androidx-camera-view = { module = "androidx.camera:camera-view", version.ref = "cameraCamera2" }
+androidx-compose-ui-graphics = { module = "androidx.compose.ui:ui-graphics" }
 androidx-constraintlayout = { module = "androidx.constraintlayout:constraintlayout", version.ref = "constraintlayout" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
+androidx-datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastorePreferences" }
 androidx-hilt-navigation-compose = { module = "androidx.hilt:hilt-navigation-compose", version.ref = "hiltNavigationCompose" }
 androidx-media3-common = { module = "androidx.media3:media3-common", version.ref = "media3Common" }
 androidx-media3-datasource = { module = "androidx.media3:media3-datasource", version.ref = "media3Decoder" }
@@ -64,6 +69,7 @@ androidx-media3-ui = { module = "androidx.media3:media3-ui", version.ref = "medi
 androidx-media3-ui-compose = { module = "androidx.media3:media3-ui-compose", version.ref = "media3Decoder" }
 androidx-navigation-compose = { module = "androidx.navigation:navigation-compose", version.ref = "navigationCompose" }
 #dagger-hilt-compiler = { module = "com.google.dagger:hilt-compiler", version.ref = "hiltCompiler" }
+dagger-hilt-compiler = { module = "com.google.dagger:hilt-compiler", version.ref = "hiltCompiler" }
 guava = { module = "com.google.guava:guava", version.ref = "guava" }
 #hilt-android-v244 = { module = "com.google.dagger:hilt-android", version.ref = "hiltAndroid" }
 java-websocket = { module = "org.java-websocket:Java-WebSocket", version.ref = "javaWebsocket" }

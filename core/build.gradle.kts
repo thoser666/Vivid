@@ -1,13 +1,56 @@
+// Stellen Sie sicher, dass am Anfang der Datei "com.android.library" als Plugin steht.
 plugins {
-    id("java-library")
-    alias(libs.plugins.jetbrains.kotlin.jvm)
+    id("com.android.library")
+    kotlin("android") // Verwenden Sie kotlin("android") anstelle von kotlin("jvm")
+    id("kotlin-kapt") // Falls Sie Hilt oder andere Annotation Processors hier verwenden
+    id("dagger.hilt.android.plugin") // Hilt-Plugin
 }
-java {
-    sourceCompatibility = JavaVersion.VERSION_17
-    targetCompatibility = JavaVersion.VERSION_17
-}
-kotlin {
-    compilerOptions {
-        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
+
+android {
+    // Definieren Sie einen Namespace, dies ist für Android-Bibliotheken erforderlich
+    namespace = "com.vivid.core"
+
+    compileSdk = 34 // Verwenden Sie dieselbe SDK-Version wie Ihr App-Modul
+
+    defaultConfig {
+        minSdk = 24 // Verwenden Sie dieselbe minSdk wie Ihr App-Modul
+
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        consumerProguardFiles("consumer-rules.pro")
     }
+
+    buildTypes {
+        release {
+            isMinifyEnabled = false
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+        }
+    }
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+}
+
+dependencies {
+    // Fügen Sie Abhängigkeiten hinzu, die in diesem Modul benötigt werden
+    implementation(libs.androidx.core.ktx) // Gute Praxis für Android-Bibliotheken
+    implementation(libs.androidx.appcompat)
+
+    // Hilt für Dependency Injection
+    implementation(libs.hilt.android)
+    kapt(libs.dagger.hilt.compiler)
+
+    // DataStore-Abhängigkeit, die `Context` benötigt
+    implementation(libs.androidx.datastore.preferences)
+
+    // Test-Abhängigkeiten
+    testImplementation(libs.junit)
+    androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.espresso.core)
 }
