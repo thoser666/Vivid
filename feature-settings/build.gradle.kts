@@ -4,8 +4,9 @@ import org.gradle.kotlin.dsl.extra
 plugins {
     id("com.android.library")
     kotlin("android")
-    id("kotlin-kapt")
+    id("com.google.devtools.ksp")
     id("dagger.hilt.android.plugin")
+    id("org.jetbrains.kotlin.plugin.compose")
 }
 
 android {
@@ -33,15 +34,13 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions {
-        jvmTarget = "17"
+        jvmTarget="17"
     }
     // WICHTIG: Aktivieren Sie Compose für dieses Modul
     buildFeatures {
         compose = true
     }
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.3" // Stellen Sie sicher, dass diese Version mit Ihrer Kotlin-Version kompatibel ist
-    }
+
 }
 
 dependencies {
@@ -57,7 +56,7 @@ dependencies {
 
     // Hilt für ViewModel-Injection
     implementation(libs.hilt.android)
-    kapt(libs.dagger.hilt.compiler)
+    ksp(libs.dagger.hilt.compiler)
     implementation(libs.androidx.hilt.navigation.compose)
 
     // Navigation
