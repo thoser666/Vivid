@@ -1,6 +1,6 @@
 [versions]
 agp = "8.13.0"
-accompanist = "0.32.0"
+accompanist = "0.37.3"
 cameraCamera2 = "1.4.2"
 cameraCore = "1.4.2"
 constraintlayout = "2.2.1"
