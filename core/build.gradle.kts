@@ -49,8 +49,22 @@ dependencies {
     // DataStore-Abhängigkeit, die `Context` benötigt
     implementation(libs.androidx.datastore.preferences)
 
-    // Test-Abhängigkeiten
-    testImplementation(libs.junit)
+    // Standard JUnit5 für Unit-Tests
+    testImplementation(libs.junit.jupiter.api)
+    testRuntimeOnly(libs.junit.jupiter.engine)
+    testImplementation(libs.junit.jupiter.params) // Für parametrisierte Tests
+
+    // Mockito zum Mocken von Abhängigkeiten (wie z.B. Context)
+    testImplementation(libs.mockito.core)
+    testImplementation(libs.mockito.kotlin)
+
+    // Turbine für das Testen von Kotlin Flows
+    testImplementation(libs.turbine)
+
+    // Coroutines-Testbibliothek
+    testImplementation(libs.kotlinx.coroutines.test)
+
+    // --- Android-spezifische Test-Abhängigkeiten (bleiben für instrumentierte Tests) ---
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
 }
