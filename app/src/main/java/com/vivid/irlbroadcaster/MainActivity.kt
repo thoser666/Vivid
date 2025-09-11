@@ -12,6 +12,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.vivid.feature.playback.PlaybackScreen
+import com.vivid.feature.settings.ui.SettingsScreen
 import com.vivid.feature.streaming.ui.StreamingScreen
 import com.vivid.irlbroadcaster.ui.theme.VividTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -45,6 +46,8 @@ fun VividAppNavigation() {
             val streamUrl = backStackEntry.arguments?.getString("streamUrl")
             PlaybackScreen(navController, streamUrl)
         }
-        // Weitere Routen hier...
+        composable("settings_route") {
+            SettingsScreen(navController = navController)
+        }
     }
 }
