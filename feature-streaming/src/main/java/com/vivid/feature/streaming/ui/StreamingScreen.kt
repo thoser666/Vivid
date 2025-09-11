@@ -29,10 +29,10 @@ fun StreamingScreen(
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    val streamingEngine = viewModel.streamingEngine
+    //val streamingEngine = viewModel.streamingEngine
 
-    val isStreaming by streamingEngine.isStreaming.collectAsState()
-    val error by streamingEngine.streamingError.collectAsState()
+   // val isStreaming by streamingEngine.isStreaming.collectAsState()
+   // val error by streamingEngine.streamingError.collectAsState()
 
     val rtmpUrl = "rtmp://your_rtmp_server/your_app/your_stream_key"
 
@@ -48,10 +48,10 @@ fun StreamingScreen(
     LaunchedEffect(permissionsState.allPermissionsGranted) {
         if (permissionsState.allPermissionsGranted && openGlView.value != null) {
             // Initialisieren und Vorschau starten.
-            streamingEngine.initializeCamera(openGlView.value!!)
-            streamingEngine.setVideoSettings(1280, 720, 2500 * 1024, 30, 90)
-            streamingEngine.setAudioSettings(44100, true, 128 * 1024)
-            streamingEngine.startPreview()
+//            streamingEngine.initializeCamera(openGlView.value!!)
+//            streamingEngine.setVideoSettings(1280, 720, 2500 * 1024, 30, 90)
+//            streamingEngine.setAudioSettings(44100, true, 128 * 1024)
+//            streamingEngine.startPreview()
         }
     }
 
@@ -59,14 +59,14 @@ fun StreamingScreen(
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_PAUSE) {
-                if (streamingEngine.isStreaming.value) {
-                    streamingEngine.stopStreaming()
-                }
-                streamingEngine.stopPreview()
-            } else if (event == Lifecycle.Event.ON_RESUME) {
+//                if (streamingEngine.isStreaming.value) {
+//                    streamingEngine.stopStreaming()
+//                }
+//                streamingEngine.stopPreview()
+//            } else if (event == Lifecycle.Event.ON_RESUME) {
                 // Die Vorschau wird nur neu gestartet, wenn die Berechtigungen noch erteilt sind.
                 if (permissionsState.allPermissionsGranted) {
-                    streamingEngine.startPreview()
+//                    streamingEngine.startPreview()
                 }
             }
         }
@@ -102,16 +102,16 @@ fun StreamingScreen(
             }
             Spacer(modifier = Modifier.weight(1f))
             Button(onClick = {
-                if (isStreaming) {
-                    streamingEngine.stopStreaming()
-                } else {
-                    streamingEngine.startStreaming(rtmpUrl)
-                }
+//                if (isStreaming) {
+//                    streamingEngine.stopStreaming()
+//                } else {
+//                    streamingEngine.startStreaming(rtmpUrl)
+//                }
             }) {
-                Text(if (isStreaming) "Stop Stream" else "Start Stream")
+//                Text(if (isStreaming) "Stop Stream" else "Start Stream")
             }
             Spacer(modifier = Modifier.height(16.dp))
-            Button(onClick = { streamingEngine.switchCamera() }) {
+//            Button(onClick = { streamingEngine.switchCamera() }) {
                 Text("Switch Camera")
             }
             Button(onClick = { navController.navigate("settings_route") }) {
@@ -122,7 +122,7 @@ fun StreamingScreen(
         // Berechtigungs-UI (unverändert)
         if (!permissionsState.allPermissionsGranted) {
             Column(
-                modifier = Modifier.align(Alignment.Center),
+  //              modifier = Modifier.align(Alignment.Center),
             ) {
                 Text("Camera and Microphone permissions are required to stream.")
                 Spacer(modifier = Modifier.height(8.dp))
