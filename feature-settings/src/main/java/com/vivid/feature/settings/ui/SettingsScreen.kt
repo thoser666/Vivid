@@ -18,7 +18,7 @@ import androidx.navigation.NavController
 @Composable
 fun SettingsScreen(
     navController: NavController,
-    viewModel: SettingsViewModel = hiltViewModel()
+    viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val settings by viewModel.settings.collectAsState()
     val context = LocalContext.current
@@ -30,18 +30,18 @@ fun SettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(title = { Text("Stream Settings") })
-        }
+        },
     ) { paddingValues ->
         Column(
             modifier = Modifier
                 .padding(paddingValues)
-                .padding(16.dp)
+                .padding(16.dp),
         ) {
             OutlinedTextField(
                 value = url,
                 onValueChange = { url = it },
                 label = { Text("Stream URL") },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -50,7 +50,7 @@ fun SettingsScreen(
                 value = key,
                 onValueChange = { key = it },
                 label = { Text("Stream Key") },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
             )
 
             Spacer(modifier = Modifier.height(32.dp))
@@ -61,7 +61,7 @@ fun SettingsScreen(
                     Toast.makeText(context, "Settings Saved!", Toast.LENGTH_SHORT).show()
                     navController.popBackStack()
                 },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
             ) {
                 Text("Save")
             }

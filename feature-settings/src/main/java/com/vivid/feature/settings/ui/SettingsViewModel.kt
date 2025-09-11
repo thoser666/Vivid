@@ -13,7 +13,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    private val settingsRepository: SettingsRepository
+    private val settingsRepository: SettingsRepository,
 ) : ViewModel() {
 
     // Wandelt den kalten Flow aus dem Repository in einen heißen StateFlow um,
@@ -22,7 +22,7 @@ class SettingsViewModel @Inject constructor(
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
-            initialValue = StreamSettings() // Startwert
+            initialValue = StreamSettings(), // Startwert
         )
 
     fun saveSettings(url: String, key: String) {

@@ -48,7 +48,7 @@ class SettingsRepositoryTest {
         // Erstellen einer In-Memory-DataStore-Instanz für diesen Test
         testDataStore = PreferenceDataStoreFactory.create(
             scope = CoroutineScope(testDispatcher + Job()),
-            produceFile = { tempFile.resolve("test_settings.preferences_pb") }
+            produceFile = { tempFile.resolve("test_settings.preferences_pb") },
         )
         // Erstellen Sie die Repository-Instanz mit der Test-DataStore
         settingsRepository = SettingsRepository(testDataStore)

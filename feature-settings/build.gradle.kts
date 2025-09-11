@@ -4,7 +4,7 @@ import org.gradle.kotlin.dsl.extra
 plugins {
     id("com.android.library")
     kotlin("android")
-    id("com.google.devtools.ksp")  // KSP instead of kapt
+    id("com.google.devtools.ksp") // KSP instead of kapt
     id("dagger.hilt.android.plugin")
     id("org.jetbrains.kotlin.plugin.compose")
 }
@@ -25,7 +25,7 @@ android {
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
+                "proguard-rules.pro",
             )
         }
     }
@@ -62,7 +62,7 @@ dependencies {
 
     // Hilt for ViewModel injection - CHANGED: ksp instead of kapt
     implementation(libs.hilt.android)
-    ksp(libs.dagger.hilt.compiler)  // KSP instead of kapt
+    ksp(libs.dagger.hilt.compiler) // KSP instead of kapt
     implementation(libs.androidx.hilt.navigation.compose)
 
     // Navigation

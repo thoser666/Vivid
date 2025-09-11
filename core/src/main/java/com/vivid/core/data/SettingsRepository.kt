@@ -7,7 +7,6 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.Module
-import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
@@ -22,13 +21,13 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
 
 data class StreamSettings(
     val url: String = "",
-    val key: String = ""
+    val key: String = "",
 )
 
 @Singleton
 class SettingsRepository @Inject constructor(
     // Wir injizieren den ApplicationContext, um Zugriff auf die dataStore-Erweiterung zu erhalten.
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
 ) {
 
     // Das 'companion object' ist besser für Konstanten geeignet als 'private object'.
