@@ -34,6 +34,14 @@ android {
     }
 }
 
+ksp {
+    arg("ksp.debug", "true") // Example, check specific processor for its args
+    // For Hilt, sometimes more specific error messages can be enabled if the processor supports it.
+    // For example (this might vary or not be applicable to all Hilt errors):
+    // arg("dagger.hilt.verboseLogging", "true")
+    // arg("dagger.validateTransitiveComponentDependencies", "true")
+}
+
 dependencies {
     // Project dependencies
     implementation(project(":domain")) // Feature depends on domain for business logic/models

@@ -1,9 +1,8 @@
-// OBSWebSocketClient.kt
+package com.vivid.core.network.obs
+
 import androidx.lifecycle.ViewModel
-import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import okhttp3.*
-import okio.ByteString
 import org.json.JSONObject
 import javax.inject.Inject
 import javax.inject.Singleton
