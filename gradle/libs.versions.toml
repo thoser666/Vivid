@@ -6,6 +6,7 @@ cameraCamera2 = "1.5.0"
 cameraCore = "1.5.0"
 constraintlayout = "2.2.1"
 datastorePreferences = "1.1.7"
+gson = "2.13.2"
 guava = "33.4.8-android"
 #hiltAndroid = "2.57.1"
 hiltCompiler = "2.57.1"
@@ -75,6 +76,7 @@ androidx-media3-ui-compose = { module = "androidx.media3:media3-ui-compose", ver
 androidx-navigation-compose = { module = "androidx.navigation:navigation-compose", version.ref = "navigationCompose" }
 #dagger-hilt-compiler = { module = "com.google.dagger:hilt-compiler", version.ref = "hiltCompiler" }
 dagger-hilt-compiler = { module = "com.google.dagger:hilt-compiler", version.ref = "hiltCompiler" }
+gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 guava = { module = "com.google.guava:guava", version.ref = "guava" }
 #hilt-android-v244 = { module = "com.google.dagger:hilt-android", version.ref = "hiltAndroid" }
 java-websocket = { module = "org.java-websocket:Java-WebSocket", version.ref = "javaWebsocket" }

@@ -60,7 +60,7 @@ dependencies {
     implementation(libs.okhttp3.okhttp)  //
 
     // JSON handling (bereits definiert in Ihrer toml)
-    implementation(libs.json)
+    implementation(libs.gson)
 
     // Optional: Für WebSocket debugging
     implementation(libs.logging.interceptor)

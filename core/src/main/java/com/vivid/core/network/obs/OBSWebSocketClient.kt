@@ -1,8 +1,10 @@
 package com.vivid.core.network.obs
 
 import androidx.lifecycle.ViewModel
+import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import okhttp3.*
+import okio.ByteString
 import org.json.JSONObject
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -246,37 +248,5 @@ class OBSWebSocketClient @Inject constructor() {
         val digest = MessageDigest.getInstance("SHA-256")
         val hash = digest.digest(input.toByteArray())
         return Base64.getEncoder().encodeToString(hash)
-    }
-}
-
-// Usage example in a ViewModel
-class StreamingViewModel @Inject constructor(
-    private val obsClient: OBSWebSocketClient
-) : ViewModel() {
-
-    val connectionState = obsClient.connectionState
-    val streamState = obsClient.streamState
-    val errorState = obsClient.errorState
-
-    fun connectToOBS(host: String, port: Int, password: String?) {
-        val config = OBSWebSocketClient.OBSConfig(host, port, password)
-        obsClient.connect(config)
-    }
-
-    fun startStreaming() {
-        obsClient.startStream()
-    }
-
-    fun stopStreaming() {
-        obsClient.stopStream()
-    }
-
-    fun disconnect() {
-        obsClient.disconnect()
-    }
-
-    override fun onCleared() {
-        super.onCleared()
-        obsClient.disconnect()
     }
 }
