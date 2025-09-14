@@ -13,7 +13,7 @@ import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
 @Singleton
-class StreamingEngine @Inject constructor() : ConnectChecker {
+class StreamingEngine @Inject constructor(private val cameraFactory: (OpenGlView, ConnectChecker) -> RtmpCamera2) : ConnectChecker {
 
     private var outputStreams = mutableListOf<String>()
     private var inputPlayer: ExoPlayer? = null
@@ -80,7 +80,8 @@ class StreamingEngine @Inject constructor() : ConnectChecker {
             release()
         }
         try {
-            rtmpCamera = RtmpCamera2(openGlView, this) // Pass 'this' as the ConnectChecker
+//            rtmpCamera = RtmpCamera2(openGlView, this) // Pass 'this' as the ConnectChecker
+            rtmpCamera = cameraFactory(openGlView, this)
             // The lambda you had was likely intended for a different callback or was a misunderstanding
             // of the constructor. The ConnectChecker interface methods (onConnectionSuccess, onConnectionFailed, etc.)
             // will be called on 'this' (StreamingEngine) instance.

@@ -5,6 +5,7 @@ appcompat = "1.7.1"
 cameraCamera2 = "1.5.0"
 cameraCore = "1.5.0"
 constraintlayout = "2.2.1"
+coreTesting = "2.2.0"
 datastorePreferences = "1.1.7"
 gson = "2.13.2"
 guava = "33.4.8-android"
@@ -40,6 +41,7 @@ media3ExoplayerHls = "1.8.0"
 media3Ui = "1.8.0"
 mockitoCore = "5.19.0"
 mockitoKotlin = "6.0.0"
+mockk = "1.13.7"
 navigationCompose = "2.9.4"
 okhttpVersion = "5.1.0"
 okhttp = "5.1.0"
@@ -62,6 +64,7 @@ androidx-camera-view = { module = "androidx.camera:camera-view", version.ref = "
 androidx-compose-ui-graphics = { module = "androidx.compose.ui:ui-graphics" }
 androidx-constraintlayout = { module = "androidx.constraintlayout:constraintlayout", version.ref = "constraintlayout" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
+androidx-core-testing = { module = "androidx.arch.core:core-testing", version.ref = "coreTesting" }
 androidx-datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastorePreferences" }
 androidx-hilt-navigation-compose = { module = "androidx.hilt:hilt-navigation-compose", version.ref = "hiltNavigationCompose" }
 androidx-media3-common = { module = "androidx.media3:media3-common", version.ref = "media3Common" }
@@ -107,6 +110,7 @@ logging-interceptor = { module = "com.squareup.okhttp3:logging-interceptor", ver
 material3 = { module = "androidx.compose.material3:material3", version.ref = "material3" }
 mockito-core = { module = "org.mockito:mockito-core", version.ref = "mockitoCore" }
 mockito-kotlin = { module = "org.mockito.kotlin:mockito-kotlin", version.ref = "mockitoKotlin" }
+mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
 okhttp3-okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttpVersion" }
 okhttp3 = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttpVersion" }
 okhttp-websocket = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
