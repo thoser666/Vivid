@@ -98,7 +98,7 @@ class StreamingEngine @Inject constructor(private val cameraFactory: (OpenGlView
             Log.e("StreamingEngine", "Unexpected error during camera init", e)
         }
     }
-    fun startStreaming(rtmpUrl: String) {
+    fun startStream(rtmpUrl: String) {
         if (rtmpUrl.isBlank()) {
             _streamingError.value = "No output stream URL configured"
             return
@@ -116,7 +116,7 @@ class StreamingEngine @Inject constructor(private val cameraFactory: (OpenGlView
         }
     }
 
-    fun stopStreaming() {
+    fun stopStream() {
         try {
             rtmpCamera?.let { camera ->
                 if (camera.isStreaming) {
@@ -174,7 +174,7 @@ class StreamingEngine @Inject constructor(private val cameraFactory: (OpenGlView
 // fun re // This was the incomplete line
 
     fun releaseResources() { // Or a more descriptive name like cleanup, dispose, etc.
-        stopStreaming() // Good practice to stop streaming before releasing
+        stopStream() // Good practice to stop streaming before releasing
 
         rtmpCamera?.stopPreview() // If you start a preview, stop it
         // Depending on the RtmpCamera library version and how you've used it,
@@ -193,7 +193,7 @@ class StreamingEngine @Inject constructor(private val cameraFactory: (OpenGlView
 
     fun release() {
         if (rtmpCamera?.isStreaming == true) {
-            stopStreaming()
+            stopStream()
         }
         rtmpCamera?.stopPreview()
         rtmpCamera = null
