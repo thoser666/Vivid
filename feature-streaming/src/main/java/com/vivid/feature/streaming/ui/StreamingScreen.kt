@@ -1,7 +1,6 @@
 package com.vivid.feature.streaming.ui
 
-import android.view.SurfaceHolder
-import android.view.SurfaceView
+
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Button
@@ -11,21 +10,36 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.navigation.NavController
+import com.pedro.library.view.OpenGlView
 import com.vivid.feature.streaming.StreamingEngine
-
+import com.vivid.feature.streaming.data.repository.StreamingViewModel
 
 @Composable
-fun StreamingScreen(streamingEngine: StreamingEngine) {
+fun StreamingScreen( navController: NavController) {
+    val streamingEngine: StreamingEngine = hiltViewModel<StreamingViewModel>().streamingEngine
     val lifecycleOwner = LocalLifecycleOwner.current
     var isStreaming by remember { mutableStateOf(false) }
+    // Wir benötigen eine Referenz zur OpenGlView, um sie zu steuern
+    var openGlView: OpenGlView? by remember { mutableStateOf(null) }
 
-    // Manages the lifecycle of the camera and stream
-    DisposableEffect(lifecycleOwner) {
+    // Managt den Lebenszyklus der Kamera, des Streams und der OpenGlView
+    DisposableEffect(lifecycleOwner, openGlView) {
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
+//                Lifecycle.Event.ON_RESUME -> openGlView?.onResume() // Wichtig für GLSurfaceView
+                Lifecycle.Event.ON_RESUME -> {
+                    // If you need to re-initialize or prepare something in your streamingEngine
+                    // when the screen resumes (that isn't already handled by camera initialization),
+                    // you can do it here.
+                    // For example, if you stopped camera preview in ON_PAUSE and need to restart it.
+                    // streamingEngine.startPreview() // Assuming StreamingEngine has such a method
+                }
                 Lifecycle.Event.ON_PAUSE -> {
+     //               openGlView?.onPause() // Wichtig für GLSurfaceView
                     if (isStreaming) {
                         streamingEngine.stopStream()
                         isStreaming = false
@@ -38,34 +52,19 @@ fun StreamingScreen(streamingEngine: StreamingEngine) {
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
+            // stelle sicher, dass beim Verlassen des Screens alles freigegeben wird
+            streamingEngine.release()
         }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // Embeds the Android View (SurfaceView) in Compose
+        // AndroidView, um die OpenGlView in Compose einzubetten
         AndroidView(
             factory = { context ->
-                SurfaceView(context).apply {
-                    holder.addCallback(object : SurfaceHolder.Callback {
-                        override fun surfaceCreated(holder: SurfaceHolder) {
-                            // Initialize camera only when the surface is ready
-                            streamingEngine.initializeCamera(holder.surface)
-                        }
-
-                        override fun surfaceChanged(
-                            holder: SurfaceHolder,
-                            format: Int,
-                            width: Int,
-                            height: Int
-                        ) {
-                            // Handle surface changes if necessary (e.g., rotation)
-                        }
-
-                        override fun surfaceDestroyed(holder: SurfaceHolder) {
-                            // Release resources when the surface is destroyed
-                            streamingEngine.release()
-                        }
-                    })
+                OpenGlView(context).also { view ->
+                    // Initialisiere die Kamera mit der View-Instanz
+                    streamingEngine.initializeCamera(view)
+                    openGlView = view
                 }
             },
             modifier = Modifier.fillMaxSize()
@@ -76,7 +75,7 @@ fun StreamingScreen(streamingEngine: StreamingEngine) {
                 if (isStreaming) {
                     streamingEngine.stopStream()
                 } else {
-                    // Make sure to replace this with your actual stream key and endpoint
+                    // Ersetze dies mit deinem Stream-Schlüssel und Endpunkt
                     streamingEngine.startStream("rtmp://a.rtmp.youtube.com/live2")
                 }
                 isStreaming = !isStreaming
