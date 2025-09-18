@@ -7,8 +7,11 @@ import com.vivid.core.data.SettingsRepository // Importieren Sie Ihr SettingsRep
 import com.vivid.core.network.obs.OBSWebSocketClient
 import com.vivid.feature.streaming.StreamingEngine // Stellen Sie sicher, dass der Import korrekt ist
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
@@ -23,8 +26,13 @@ class StreamingViewModel @Inject constructor(
 
     // --- Lokale Kamera-Zustände (von der StreamingEngine) ---
     // Diese sind für die Kameravorschau und das direkte Streaming vom Gerät.
-    val isStreaming: StateFlow<Boolean> = streamingEngine.isStreaming
-    val streamingError: StateFlow<String?> = streamingEngine.streamingError
+
+    private val _isStreaming = MutableStateFlow(false)
+    val isStreaming: StateFlow<Boolean> = _isStreaming.asStateFlow()
+
+    private val _streamingError = MutableStateFlow<String?>(null)
+    val streamingError: StateFlow<String?> = _streamingError.asStateFlow()
+
 
     // --- RTMP-URL aus den Einstellungen ---
     // Holt die URL aus dem DataStore und stellt sie der UI zur Verfügung.
