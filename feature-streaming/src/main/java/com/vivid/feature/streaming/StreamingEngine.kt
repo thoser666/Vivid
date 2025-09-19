@@ -89,6 +89,6 @@ class StreamingEngine @Inject constructor() {
         rtmpCamera = null
     }
 
-    val isStreaming: Boolean
-        get() = rtmpCamera?.isStreaming ?: false
+//    val isStreaming: Boolean
+//        get() = rtmpCamera?.isStreaming ?: false
 }

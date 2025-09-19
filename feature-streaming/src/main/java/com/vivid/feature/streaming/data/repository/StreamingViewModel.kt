@@ -1,77 +1,20 @@
-// feature-streaming/src/main/java/com/vivid/feature/streaming/data/repository/StreamingViewModel.kt
-package com.vivid.feature.streaming.data.repository
+package com.vivid.feature.streaming.ui // Lege sie neben dem Screen ab
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
-import com.vivid.core.data.SettingsRepository // Importieren Sie Ihr SettingsRepository
-import com.vivid.core.network.obs.OBSWebSocketClient
-import com.vivid.feature.streaming.StreamingEngine // Stellen Sie sicher, dass der Import korrekt ist
+import com.vivid.feature.streaming.StreamingEngine
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.SharingStarted
-
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
 
 @HiltViewModel
 class StreamingViewModel @Inject constructor(
-    // KORREKTUR 1: Injizieren Sie sowohl die StreamingEngine als auch das SettingsRepository
-    val streamingEngine: StreamingEngine,
-    private val settingsRepository: SettingsRepository,
-    private val obsClient: OBSWebSocketClient
+    // Hilt injiziert hier automatisch die Singleton-Instanz der StreamingEngine
+    val streamingEngine: StreamingEngine
 ) : ViewModel() {
 
-    // --- Lokale Kamera-Zustände (von der StreamingEngine) ---
-    // Diese sind für die Kameravorschau und das direkte Streaming vom Gerät.
-
-    private val _isStreaming = MutableStateFlow(false)
-    val isStreaming: StateFlow<Boolean> = _isStreaming.asStateFlow()
-
-    private val _streamingError = MutableStateFlow<String?>(null)
-    val streamingError: StateFlow<String?> = _streamingError.asStateFlow()
-
-
-    // --- RTMP-URL aus den Einstellungen ---
-    // Holt die URL aus dem DataStore und stellt sie der UI zur Verfügung.
-    val rtmpUrl: StateFlow<String> = settingsRepository.streamSettingsFlow
-        .map { it.url } // Wir benötigen nur die URL für den Start-Button
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = ""
-        )
-
-    // --- OBS WebSocket Zustände (vom OBSWebSocketClient) ---
-    // Diese sind NUR für die Fernsteuerung von OBS Studio relevant.
-    val obsConnectionState: StateFlow<OBSWebSocketClient.ConnectionState> = obsClient.connectionState
-
-    // HINWEIS: Es gibt keine 'streamState' oder 'errorState' im OBSWebSocketClient.
-    // Diese Zustände kamen fälschlicherweise aus der Annahme, der Client würde den Stream-Status verwalten.
-    // Der tatsächliche lokale Stream-Status kommt von der StreamingEngine (siehe oben).
-
-    // --- OBS Verbindungs-Management ---
-    fun connectToOBS(host: String, port: Int, password: String) {
-      //  obsClient.connect(host, port, password)
-        val config = OBSWebSocketClient.OBSConfig(host = host, port = port, password = password)
-        obsClient.connect(config)
-    }
-
-    fun disconnectFromOBS() {
-        obsClient.disconnect()
-    }
-
-    // --- OBS Stream-Steuerung (Beispiele) ---
-    fun startOBSStream() {
- //       obsClient.setCurrentScene("Live Scene") // Beispiel: Szene wechseln
-    }
-
+    // Wenn das ViewModel zerstört wird (z.B. weil der Benutzer wegnavigiert),
+    // geben wir die Ressourcen der Engine frei.
     override fun onCleared() {
         super.onCleared()
-        // Räumt sowohl die Engine-Ressourcen als auch die OBS-Verbindung auf
         streamingEngine.release()
-        obsClient.disconnect()
     }
 }

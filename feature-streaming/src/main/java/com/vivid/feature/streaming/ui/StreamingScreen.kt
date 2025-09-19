@@ -9,37 +9,39 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.hilt.navigation.compose.hiltViewModel // Oder wie auch immer du die Engine bekommst
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+// WICHTIGER IMPORT: Füge diesen hinzu
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.pedro.library.view.OpenGlView
 import com.vivid.feature.streaming.StreamingEngine
-//import com.vivid.feature.streaming.opengles.OpenGlView // Deine benutzerdefinierte View
 
 @Composable
 fun StreamingScreen(
     navController: NavController,
-    streamingEngine: StreamingEngine = hiltViewModel() // Beispiel: Engine über ViewModel holen
+    viewModel: StreamingViewModel = hiltViewModel()
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
-    // Zustand direkt von der Engine abfragen
-    val isStreaming by remember(streamingEngine.isStreaming) {
-        mutableStateOf(streamingEngine.isStreaming)
-    }
+    val streamingEngine = viewModel.streamingEngine
+
+    // KORREKTUR: So sammelst du den StateFlow ein.
+    // Die UI wird sich automatisch neu zeichnen, wenn sich der Wert in der Engine ändert.
+    val isStreaming by streamingEngine.isStreamingFlow.collectAsStateWithLifecycle()
 
     // Diese Referenz hält die View-Instanz
     var openGlView: OpenGlView? by remember { mutableStateOf(null) }
 
     DisposableEffect(lifecycleOwner, streamingEngine) {
         val observer = LifecycleEventObserver { _, event ->
-            // The library might handle these internally or through the StreamingEngine
-            // No direct calls to openGlView.onResume() or openGlView.onPause() are usually needed.
+            // In der Regel nicht mehr nötig, da die Bibliothek und die Engine den Lebenszyklus verwalten.
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
-            streamingEngine.release() // Ensure resources are released
+            // Wenn der Screen verlassen wird, MUSS die Engine die Kamera freigeben
+            streamingEngine.release()
         }
     }
 
@@ -47,25 +49,23 @@ fun StreamingScreen(
         AndroidView(
             factory = { context ->
                 OpenGlView(context).also { view ->
-                    // Initialisiere die Engine mit der View-Instanz
                     streamingEngine.initializeCamera(view)
                     openGlView = view
                 }
             },
             modifier = Modifier.fillMaxSize()
         )
-
         Button(
             onClick = {
-                if (streamingEngine.isStreaming) {
+                if (isStreaming) { // Jetzt wird hier der korrekte, beobachtete Zustand verwendet
                     streamingEngine.stopStream()
                 } else {
                     streamingEngine.startStream("rtmp://a.rtmp.youtube.com/live2")
                 }
-                // UI neu zeichnen lassen (ggf. ist hier ein besserer State-Flow nötig)
             },
             modifier = Modifier.align(Alignment.BottomCenter)
         ) {
+            // Der Text wird sich auch automatisch aktualisieren
             Text(if (isStreaming) "Stop Streaming" else "Start Streaming")
         }
     }
