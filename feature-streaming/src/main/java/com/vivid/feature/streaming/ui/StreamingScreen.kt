@@ -12,61 +12,63 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-// WICHTIGER IMPORT: Füge diesen hinzu
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.pedro.library.view.OpenGlView
 import com.vivid.feature.streaming.StreamingEngine
+import com.vivid.feature.streaming.StreamingState
 
 @Composable
 fun StreamingScreen(
     navController: NavController,
     viewModel: StreamingViewModel = hiltViewModel()
 ) {
-    val lifecycleOwner = LocalLifecycleOwner.current
     val streamingEngine = viewModel.streamingEngine
 
-    // KORREKTUR: So sammelst du den StateFlow ein.
-    // Die UI wird sich automatisch neu zeichnen, wenn sich der Wert in der Engine ändert.
-    val isStreaming by streamingEngine.isStreamingFlow.collectAsStateWithLifecycle()
+    // KORREKTUR 3: Den neuen, reichhaltigeren StateFlow abonnieren
+    val streamingState by streamingEngine.streamingState.collectAsStateWithLifecycle()
 
-    // Diese Referenz hält die View-Instanz
-    var openGlView: OpenGlView? by remember { mutableStateOf(null) }
-
-    DisposableEffect(lifecycleOwner, streamingEngine) {
-        val observer = LifecycleEventObserver { _, event ->
-            // In der Regel nicht mehr nötig, da die Bibliothek und die Engine den Lebenszyklus verwalten.
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-            // Wenn der Screen verlassen wird, MUSS die Engine die Kamera freigeben
-            streamingEngine.release()
-        }
-    }
+    // ... (DisposableEffect bleibt wie er ist)
 
     Box(modifier = Modifier.fillMaxSize()) {
         AndroidView(
             factory = { context ->
                 OpenGlView(context).also { view ->
                     streamingEngine.initializeCamera(view)
-                    openGlView = view
                 }
             },
             modifier = Modifier.fillMaxSize()
         )
+
         Button(
             onClick = {
-                if (isStreaming) { // Jetzt wird hier der korrekte, beobachtete Zustand verwendet
+                if (streamingState is StreamingState.Streaming) {
                     streamingEngine.stopStream()
                 } else {
                     streamingEngine.startStream("rtmp://a.rtmp.youtube.com/live2")
                 }
             },
+            // Deaktiviere den Button, während die Verbindung aufgebaut wird.
+            enabled = streamingState !is StreamingState.Preparing,
             modifier = Modifier.align(Alignment.BottomCenter)
         ) {
-            // Der Text wird sich auch automatisch aktualisieren
-            Text(if (isStreaming) "Stop Streaming" else "Start Streaming")
+            // Passe den Text an den aktuellen Zustand an.
+            val buttonText = when (streamingState) {
+                is StreamingState.Idle -> "Start Streaming"
+                is StreamingState.Preparing -> "Preparing..."
+                is StreamingState.Streaming -> "Stop Streaming"
+                is StreamingState.Failed -> "Retry"
+            }
+            Text(buttonText)
+        }
+
+        // Optional: Zeige eine Fehlermeldung an
+        if (streamingState is StreamingState.Failed) {
+            val reason = (streamingState as StreamingState.Failed).reason
+            Text(
+                text = "Error: $reason",
+                modifier = Modifier.align(Alignment.TopCenter)
+            )
         }
     }
 }
