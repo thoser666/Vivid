@@ -6,6 +6,7 @@ import app.cash.turbine.test
 import com.vivid.core.data.SettingsRepository
 import com.vivid.core.network.obs.OBSWebSocketClient
 import com.vivid.feature.streaming.StreamingEngine
+import com.vivid.feature.streaming.ui.StreamingViewModel
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk

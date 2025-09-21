@@ -14,9 +14,9 @@ class ObsControlViewModel @Inject constructor(
     // Die Konfigurationsdaten könnten aus den SharedPreferences oder einer Einstellungs-UI kommen.
     // Hier als Beispiel hartcodiert.
     private val obsConfig = OBSWebSocketClient.OBSConfig(
-        host = "192.168.1.100", // ERSETZE DIES durch die IP deines OBS-Computers
+        host = "10.0.0.244",
         port = 4455,
-        password = "DEIN_OBS_PASSWORT" // ERSETZE DIES oder lasse es null
+        password = "y5TYnQxz3zaRpR5e"
     )
 
     fun connectToObs() {

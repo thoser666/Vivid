@@ -1,20 +1,13 @@
 package com.vivid.feature.streaming.ui
 
-// WICHTIGE IMPORTE HINZUFÜGEN
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.TopAppBar
-// -- Ende der neuen Importe --
-
+// 1. Importiere ein passendes Icon für die OBS-Steuerung
+import androidx.compose.material.icons.filled.Podcasts // (Ein gutes Icon für "Broadcasting")
+import androidx.compose.material3.*
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -26,7 +19,6 @@ import com.pedro.library.view.OpenGlView
 import com.vivid.feature.streaming.StreamingState
 
 
-// Füge die Annotation hinzu, um Scaffold/TopAppBar zu verwenden
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StreamingScreen(
@@ -36,15 +28,24 @@ fun StreamingScreen(
     val streamingEngine = viewModel.streamingEngine
     val streamingState by streamingEngine.streamingState.collectAsStateWithLifecycle()
 
-    // 1. Umhülle alles mit einem Scaffold
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Live Stream") },
-                // 2. Füge eine "actions"-Sektion mit einem Icon-Button hinzu
                 actions = {
+                    // Button für OBS-Steuerung
                     IconButton(onClick = {
-                        // 3. HIER IST DIE NAVIGATIONSAKTION
+                        // 2. HIER IST DIE NAVIGATIONSAKTION ZUM OBS-SCREEN
+                        navController.navigate("obs_control")
+                    }) {
+                        Icon(
+                            imageVector = Icons.Default.Podcasts,
+                            contentDescription = "Open OBS Control"
+                        )
+                    }
+
+                    // Bestehender Button für die Einstellungen
+                    IconButton(onClick = {
                         navController.navigate("settings_route")
                     }) {
                         Icon(
@@ -56,14 +57,12 @@ fun StreamingScreen(
             )
         }
     ) { paddingValues ->
-        // Der ursprüngliche Box-Inhalt kommt hier rein
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                // Wichtig: Wende das Padding vom Scaffold an, damit dein Inhalt
-                // nicht von der TopAppBar überdeckt wird.
                 .padding(paddingValues)
         ) {
+            // ... der restliche Inhalt des Screens bleibt unverändert
             AndroidView(
                 factory = { context ->
                     OpenGlView(context).also { view ->
@@ -78,7 +77,6 @@ fun StreamingScreen(
                     if (streamingState is StreamingState.Streaming) {
                         streamingEngine.stopStream()
                     } else {
-                        // TODO: Hier die URL aus den Settings verwenden
                         streamingEngine.startStream("rtmp://a.rtmp.youtube.com/live2")
                     }
                 },

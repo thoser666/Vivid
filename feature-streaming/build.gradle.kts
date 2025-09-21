@@ -84,6 +84,7 @@ dependencies {
     implementation(libs.ui)
     implementation(libs.material3)
     implementation(libs.ui.tooling.preview) // For @Preview
+    implementation(libs.androidx.compose.material.icons.extended)
 
     // CameraX (core streaming functionality)
     implementation(libs.androidx.camera.core)
