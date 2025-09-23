@@ -16,7 +16,7 @@ class ObsControlViewModel @Inject constructor(
     private val obsConfig = OBSWebSocketClient.OBSConfig(
         host = "",
         port = 4455,
-        password = ""
+        password = "",
     )
 
     fun connectToObs() {
