@@ -1,4 +1,4 @@
-package com.vivid.feature.streaming.data.repository // Oder wo auch immer deine UI-Logik liegt
+package com.vivid.feature.streaming.data.repository
 
 import androidx.lifecycle.ViewModel
 import com.vivid.core.network.obs.OBSWebSocketClient

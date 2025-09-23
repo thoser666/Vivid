@@ -1,4 +1,4 @@
-package com.vivid.features.settings
+package com.vivid.feature.settings.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope

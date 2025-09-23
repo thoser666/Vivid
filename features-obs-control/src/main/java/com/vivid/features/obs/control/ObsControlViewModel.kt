@@ -1,4 +1,4 @@
-package com.vivid.features.obscontrol
+package com.vivid.features.obs.control
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
