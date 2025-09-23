@@ -1,134 +1,102 @@
 package com.vivid.feature.streaming.ui
 
-import android.Manifest
-import android.widget.Toast
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.Button
-import androidx.compose.material3.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
+// 1. Importiere ein passendes Icon für die OBS-Steuerung
+import androidx.compose.material.icons.filled.Podcasts // (Ein gutes Icon für "Broadcasting")
+import androidx.compose.material3.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
-import com.google.accompanist.permissions.ExperimentalPermissionsApi
-import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import com.pedro.library.view.OpenGlView
-import com.vivid.feature.streaming.data.repository.StreamingViewModel
+import com.vivid.feature.streaming.StreamingState
 
-@OptIn(ExperimentalPermissionsApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StreamingScreen(
     navController: NavController,
     viewModel: StreamingViewModel = hiltViewModel(),
 ) {
-    val context = LocalContext.current
-    val lifecycleOwner = LocalLifecycleOwner.current
     val streamingEngine = viewModel.streamingEngine
+    val streamingState by streamingEngine.streamingState.collectAsStateWithLifecycle()
 
-    val isStreaming by streamingEngine.isStreaming.collectAsState()
-    val error by streamingEngine.streamingError.collectAsState()
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Live Stream") },
+                actions = {
+                    // Button für OBS-Steuerung
+                    IconButton(onClick = {
+                        // 2. HIER IST DIE NAVIGATIONSAKTION ZUM OBS-SCREEN
+                        navController.navigate("obs_control")
+                    }) {
+                        Icon(
+                            imageVector = Icons.Default.Podcasts,
+                            contentDescription = "Open OBS Control",
+                        )
+                    }
 
-    val rtmpUrl = "rtmp://your_rtmp_server/your_app/your_stream_key"
-
-    val permissionsState = rememberMultiplePermissionsState(
-        permissions = listOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO),
-    )
-
-    // Wir erstellen hier eine Referenz auf die OpenGlView, die wir später füllen.
-    val openGlView = remember { mutableStateOf<OpenGlView?>(null) }
-
-    // LaunchedEffect wird ausgeführt, wenn die Berechtigungen erteilt werden.
-    // Wenn die Berechtigungen widerrufen werden, wird die Coroutine abgebrochen.
-    LaunchedEffect(permissionsState.allPermissionsGranted) {
-        if (permissionsState.allPermissionsGranted && openGlView.value != null) {
-            // Initialisieren und Vorschau starten.
-            streamingEngine.initializeCamera(openGlView.value!!)
-            streamingEngine.setVideoSettings(1280, 720, 2500 * 1024, 30, 90)
-            streamingEngine.setAudioSettings(44100, true, 128 * 1024)
-            streamingEngine.startPreview()
-        }
-    }
-
-    // Lebenszyklus-Management
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_PAUSE) {
-                if (streamingEngine.isStreaming.value) {
-                    streamingEngine.stopStreaming()
-                }
-                streamingEngine.stopPreview()
-            } else if (event == Lifecycle.Event.ON_RESUME) {
-                // Die Vorschau wird nur neu gestartet, wenn die Berechtigungen noch erteilt sind.
-                if (permissionsState.allPermissionsGranted) {
-                    streamingEngine.startPreview()
-                }
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-        }
-    }
-
-    Box(modifier = Modifier.fillMaxSize()) {
-        if (permissionsState.allPermissionsGranted) {
+                    // Bestehender Button für die Einstellungen
+                    IconButton(onClick = {
+                        navController.navigate("settings_route")
+                    }) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "Open Settings",
+                        )
+                    }
+                },
+            )
+        },
+    ) { paddingValues ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues),
+        ) {
+            // ... der restliche Inhalt des Screens bleibt unverändert
             AndroidView(
-                factory = { ctx ->
-                    // Erstellen der Ansicht und Zuweisen zur Referenz.
-                    OpenGlView(ctx).also {
-                        openGlView.value = it
+                factory = { context ->
+                    OpenGlView(context).also { view ->
+                        streamingEngine.initializeCamera(view)
                     }
                 },
                 modifier = Modifier.fillMaxSize(),
             )
-        }
 
-        // Steuerelemente (unverändert)
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            error?.let {
-                Toast.makeText(context, "Error: $it", Toast.LENGTH_SHORT).show()
-            }
-            Spacer(modifier = Modifier.weight(1f))
-            Button(onClick = {
-                if (isStreaming) {
-                    streamingEngine.stopStreaming()
-                } else {
-                    streamingEngine.startStreaming(rtmpUrl)
-                }
-            }) {
-                Text(if (isStreaming) "Stop Stream" else "Start Stream")
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-            Button(onClick = { streamingEngine.switchCamera() }) {
-                Text("Switch Camera")
-            }
-            Button(onClick = { navController.navigate("settings_route") }) {
-                Text("Settings")
-            }
-        }
-
-        // Berechtigungs-UI (unverändert)
-        if (!permissionsState.allPermissionsGranted) {
-            Column(
-                modifier = Modifier.align(Alignment.Center),
+            Button(
+                onClick = {
+                    if (streamingState is StreamingState.Streaming) {
+                        streamingEngine.stopStream()
+                    } else {
+                        streamingEngine.startStream("rtmp://a.rtmp.youtube.com/live2")
+                    }
+                },
+                enabled = streamingState !is StreamingState.Preparing,
+                modifier = Modifier.align(Alignment.BottomCenter),
             ) {
-                Text("Camera and Microphone permissions are required to stream.")
-                Spacer(modifier = Modifier.height(8.dp))
-                Button(onClick = { permissionsState.launchMultiplePermissionRequest() }) {
-                    Text("Request Permissions")
+                val buttonText = when (streamingState) {
+                    is StreamingState.Idle -> "Start Streaming"
+                    is StreamingState.Preparing -> "Preparing..."
+                    is StreamingState.Streaming -> "Stop Streaming"
+                    is StreamingState.Failed -> "Retry"
                 }
+                Text(buttonText)
+            }
+
+            if (streamingState is StreamingState.Failed) {
+                val reason = (streamingState as StreamingState.Failed).reason
+                Text(
+                    text = "Error: $reason",
+                    modifier = Modifier.align(Alignment.TopCenter),
+                )
             }
         }
     }

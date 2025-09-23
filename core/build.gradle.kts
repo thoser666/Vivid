@@ -2,8 +2,9 @@
 plugins {
     id("com.android.library")
     kotlin("android") // Verwenden Sie kotlin("android") anstelle von kotlin("jvm")
-    id("kotlin-kapt") // Falls Sie Hilt oder andere Annotation Processors hier verwenden
+//    id("kotlin-kapt") // Falls Sie Hilt oder andere Annotation Processors hier verwenden
     id("dagger.hilt.android.plugin") // Hilt-Plugin
+    id("com.google.devtools.ksp")
 }
 
 android {
@@ -32,8 +33,13 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions {
-        jvmTarget = "17"
+//    kotlinOptions {
+//        jvmTarget = "17"
+//    }
+    kotlin {
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+        }
     }
 }
 
@@ -44,10 +50,19 @@ dependencies {
 
     // Hilt für Dependency Injection
     implementation(libs.hilt.android)
-    kapt(libs.dagger.hilt.compiler)
+//    kapt(libs.dagger.hilt.compiler)
+    ksp(libs.dagger.hilt.compiler)
 
     // DataStore-Abhängigkeit, die `Context` benötigt
     implementation(libs.androidx.datastore.preferences)
+
+    implementation(libs.okhttp3.okhttp) //
+
+    // JSON handling (bereits definiert in Ihrer toml)
+    implementation(libs.gson)
+
+    // Optional: Für WebSocket debugging
+    implementation(libs.logging.interceptor)
 
     // Standard JUnit5 für Unit-Tests
     testImplementation(libs.junit.jupiter.api)

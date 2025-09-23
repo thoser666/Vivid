@@ -1,7 +1,7 @@
 package com.vivid.feature.streaming.domain.repository
 
+import com.vivid.core.network.obs.StreamingViewModel
 import com.vivid.data.model.StreamingState
-import com.vivid.feature.streaming.data.repository.StreamingViewModel
 import junit.framework.Assert.assertEquals
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi

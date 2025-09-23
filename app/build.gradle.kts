@@ -140,6 +140,10 @@ dependencies {
 
     // Hilt Navigation Compose
     implementation(libs.androidx.hilt.navigation.compose)
+    implementation(libs.ui)
+    implementation(libs.androidx.compose.ui.ui.graphics2)
+    implementation(libs.ui.tooling.preview)
+    implementation(libs.material3)
 
     // Network für RTMP/SRT Streaming
     implementation(libs.okhttp3.okhttp)
@@ -169,6 +173,14 @@ dependencies {
     // Mockito zum Erstellen von Mock-Objekten (optional, aber nützlich)
     testImplementation(libs.mockito.core)
     testImplementation(libs.mockito.kotlin)
+
+    // MockK für Mocking in Unit-Tests
+    testImplementation(libs.mockk)
+    // Coroutines-Test-Helfer
+    testImplementation(libs.kotlinx.coroutines.test)
+
+    // (Optional) AndroidX Core für InstantTaskExecutorRule, falls LiveData verwendet wird
+    testImplementation(libs.androidx.core.testing)
 }
 
 sentry {

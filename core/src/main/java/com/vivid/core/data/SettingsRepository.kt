@@ -6,63 +6,73 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
-import dagger.Module
-import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
-import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
-// Diese Erweiterungseigenschaft ist der "Single Point of Truth" für die Erstellung von DataStore.
-// Sie ist privat für diese Datei, was gut ist.
+// Private Erweiterungseigenschaft, um eine einzige Instanz von DataStore zu gewährleisten.
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 
-data class StreamSettings(
-    val url: String = "",
-    val key: String = "",
+/**
+ * Datenklasse zur Kapselung aller Stream- und OBS-Einstellungen.
+ */
+data class AppSettings(
+    val streamUrl: String = "",
+    val streamKey: String = "",
+    val obsHost: String = "localhost",
+    val obsPort: String = "4455",
+    val obsPassword: String = "",
 )
 
 @Singleton
 class SettingsRepository @Inject constructor(
-    // Wir injizieren den ApplicationContext, um Zugriff auf die dataStore-Erweiterung zu erhalten.
     @ApplicationContext private val context: Context,
 ) {
 
-    // Das 'companion object' ist besser für Konstanten geeignet als 'private object'.
     private companion object {
+        // Schlüssel für Stream-Einstellungen
         val STREAM_URL = stringPreferencesKey("stream_url")
         val STREAM_KEY = stringPreferencesKey("stream_key")
+
+        // Schlüssel für OBS-Einstellungen
+        val OBS_HOST = stringPreferencesKey("obs_host")
+        val OBS_PORT = stringPreferencesKey("obs_port")
+        val OBS_PASSWORD = stringPreferencesKey("obs_password")
     }
 
-    // Ein Flow, der bei jeder Einstellungsänderung die neuen Werte ausgibt.
-    // Wir verwenden direkt context.dataStore.
-    val streamSettingsFlow: Flow<StreamSettings> = context.dataStore.data.map { preferences ->
-        val url = preferences[STREAM_URL] ?: "rtmp://a.rtmp.youtube.com/live2" // Standardwert
-        val key = preferences[STREAM_KEY] ?: "" // Standardwert
-        StreamSettings(url, key)
+    /**
+     * Ein Flow, der bei jeder Änderung die gesamten App-Einstellungen ausgibt.
+     */
+    val appSettingsFlow: Flow<AppSettings> = context.dataStore.data.map { preferences ->
+        AppSettings(
+            streamUrl = preferences[STREAM_URL] ?: "rtmp://a.rtmp.youtube.com/live2",
+            streamKey = preferences[STREAM_KEY] ?: "",
+            obsHost = preferences[OBS_HOST] ?: "localhost",
+            obsPort = preferences[OBS_PORT] ?: "4455",
+            obsPassword = preferences[OBS_PASSWORD] ?: "",
+        )
     }
 
-    // Eine Suspend-Funktion zum sicheren Speichern der Einstellungen.
-    // Auch hier verwenden wir direkt context.dataStore.
+    /**
+     * Speichert die Stream-URL und den Stream-Schlüssel sicher.
+     */
     suspend fun updateStreamSettings(url: String, key: String) {
         context.dataStore.edit { preferences ->
             preferences[STREAM_URL] = url
             preferences[STREAM_KEY] = key
         }
     }
-}
 
-// Das Hilt-Modul war innerhalb der Klasse, was nicht ideal ist.
-// Es sollte auf Top-Ebene stehen, um die Verantwortlichkeiten klar zu trennen.
-// Dieses Modul ist hier jetzt redundant, da wir Hilt nicht mehr benötigen,
-// um DataStore zu injizieren, aber es ist eine gute Praxis, es für zukünftige
-// 'core'-Abhängigkeiten beizubehalten.
-@Module
-@InstallIn(SingletonComponent::class)
-object CoreDataModule {
-    // Diese @Provides-Funktion ist nicht mehr notwendig, da SettingsRepository
-    // jetzt direkt Context injiziert und DataStore selbst auflöst.
-    // Wir lassen das Modul für zukünftige Erweiterungen stehen.
+    /**
+     * Speichert die OBS-Verbindungseinstellungen sicher.
+     */
+    suspend fun updateObsSettings(host: String, port: String, password: String) {
+        context.dataStore.edit { preferences ->
+            preferences[OBS_HOST] = host
+            preferences[OBS_PORT] = port
+            preferences[OBS_PASSWORD] = password
+        }
+    }
 }

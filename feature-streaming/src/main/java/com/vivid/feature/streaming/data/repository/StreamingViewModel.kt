@@ -1,4 +1,4 @@
-package com.vivid.feature.streaming.data.repository
+package com.vivid.feature.streaming.ui // Lege sie neben dem Screen ab
 
 import androidx.lifecycle.ViewModel
 import com.vivid.feature.streaming.StreamingEngine
@@ -7,12 +7,14 @@ import javax.inject.Inject
 
 @HiltViewModel
 class StreamingViewModel @Inject constructor(
+    // Hilt injiziert hier automatisch die Singleton-Instanz der StreamingEngine
     val streamingEngine: StreamingEngine,
 ) : ViewModel() {
 
+    // Wenn das ViewModel zerstört wird (z.B. weil der Benutzer wegnavigiert),
+    // geben wir die Ressourcen der Engine frei.
     override fun onCleared() {
         super.onCleared()
-        // Geben Sie die Ressourcen frei, wenn das ViewModel zerstört wird
-        streamingEngine.releaseResources()
+        streamingEngine.release()
     }
 }
