@@ -73,12 +73,12 @@ android {
             isDebuggable = true
         }
         // Eventuell eine Beta-Variante
-/*        create("beta") {
+        create("beta") {
             initWith(getByName("release"))
             applicationIdSuffix = ".beta"
             versionNameSuffix = "-beta"
         }
-*/
+
         release {
             isMinifyEnabled = false
             signingConfig = signingConfigs.getByName("release")
