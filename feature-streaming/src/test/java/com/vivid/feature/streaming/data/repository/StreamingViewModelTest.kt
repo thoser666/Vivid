@@ -102,7 +102,6 @@ class StreamingViewModelTest {
         }
     }
 
-
     @Test
     fun `connectToOBS should call obsClient with correct config`() {
         // Arrange

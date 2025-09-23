@@ -8,7 +8,7 @@ import javax.inject.Inject
 @HiltViewModel
 class StreamingViewModel @Inject constructor(
     // Hilt injiziert hier automatisch die Singleton-Instanz der StreamingEngine
-    val streamingEngine: StreamingEngine
+    val streamingEngine: StreamingEngine,
 ) : ViewModel() {
 
     // Wenn das ViewModel zerstört wird (z.B. weil der Benutzer wegnavigiert),

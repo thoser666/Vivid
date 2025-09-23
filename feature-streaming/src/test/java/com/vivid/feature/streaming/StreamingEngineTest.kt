@@ -50,7 +50,7 @@ class StreamingEngineTest {
         // Stattdessen testen wir den Zustand.
 
         streamingEngine.isStreaming.test {
-            assertEquals(false, awaitItem()) //Anfangszustand
+            assertEquals(false, awaitItem()) // Anfangszustand
 
             // Simulieren, dass die `startStream`-Methode der Kamera aufgerufen wird und erfolgreich ist.
             // Dies ist schwer, da die Kamera intern erstellt wird.

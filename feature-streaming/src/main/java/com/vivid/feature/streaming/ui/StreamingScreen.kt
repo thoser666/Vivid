@@ -18,12 +18,11 @@ import androidx.navigation.NavController
 import com.pedro.library.view.OpenGlView
 import com.vivid.feature.streaming.StreamingState
 
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StreamingScreen(
     navController: NavController,
-    viewModel: StreamingViewModel = hiltViewModel()
+    viewModel: StreamingViewModel = hiltViewModel(),
 ) {
     val streamingEngine = viewModel.streamingEngine
     val streamingState by streamingEngine.streamingState.collectAsStateWithLifecycle()
@@ -40,7 +39,7 @@ fun StreamingScreen(
                     }) {
                         Icon(
                             imageVector = Icons.Default.Podcasts,
-                            contentDescription = "Open OBS Control"
+                            contentDescription = "Open OBS Control",
                         )
                     }
 
@@ -50,17 +49,17 @@ fun StreamingScreen(
                     }) {
                         Icon(
                             imageVector = Icons.Default.Settings,
-                            contentDescription = "Open Settings"
+                            contentDescription = "Open Settings",
                         )
                     }
-                }
+                },
             )
-        }
+        },
     ) { paddingValues ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
+                .padding(paddingValues),
         ) {
             // ... der restliche Inhalt des Screens bleibt unverändert
             AndroidView(
@@ -69,7 +68,7 @@ fun StreamingScreen(
                         streamingEngine.initializeCamera(view)
                     }
                 },
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
             )
 
             Button(
@@ -81,7 +80,7 @@ fun StreamingScreen(
                     }
                 },
                 enabled = streamingState !is StreamingState.Preparing,
-                modifier = Modifier.align(Alignment.BottomCenter)
+                modifier = Modifier.align(Alignment.BottomCenter),
             ) {
                 val buttonText = when (streamingState) {
                     is StreamingState.Idle -> "Start Streaming"
@@ -96,7 +95,7 @@ fun StreamingScreen(
                 val reason = (streamingState as StreamingState.Failed).reason
                 Text(
                     text = "Error: $reason",
-                    modifier = Modifier.align(Alignment.TopCenter)
+                    modifier = Modifier.align(Alignment.TopCenter),
                 )
             }
         }

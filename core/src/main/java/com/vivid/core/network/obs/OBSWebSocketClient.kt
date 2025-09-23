@@ -1,16 +1,14 @@
 package com.vivid.core.network.obs
 
-import androidx.lifecycle.ViewModel
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import okhttp3.*
-import okio.ByteString
 import org.json.JSONObject
-import javax.inject.Inject
-import javax.inject.Singleton
 import java.security.MessageDigest
 import java.util.*
 import java.util.concurrent.atomic.AtomicInteger
+import javax.inject.Inject
+import javax.inject.Singleton
 
 @Singleton
 class OBSWebSocketClient @Inject constructor() {
@@ -33,7 +31,7 @@ class OBSWebSocketClient @Inject constructor() {
     data class OBSConfig(
         val host: String = "localhost",
         val port: Int = 4455,
-        val password: String? = null
+        val password: String? = null,
     )
 
     enum class ConnectionState {
@@ -56,25 +54,28 @@ class OBSWebSocketClient @Inject constructor() {
             .url(url)
             .build()
 
-        webSocket = client.newWebSocket(request, object : WebSocketListener() {
-            override fun onOpen(webSocket: WebSocket, response: Response) {
-                // OBS WebSocket v5 sends Hello message on connection
-                // We'll handle authentication in onMessage
-            }
+        webSocket = client.newWebSocket(
+            request,
+            object : WebSocketListener() {
+                override fun onOpen(webSocket: WebSocket, response: Response) {
+                    // OBS WebSocket v5 sends Hello message on connection
+                    // We'll handle authentication in onMessage
+                }
 
-            override fun onMessage(webSocket: WebSocket, text: String) {
-                handleMessage(text, config.password)
-            }
+                override fun onMessage(webSocket: WebSocket, text: String) {
+                    handleMessage(text, config.password)
+                }
 
-            override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
-                _connectionState.value = ConnectionState.DISCONNECTED
-            }
+                override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                    _connectionState.value = ConnectionState.DISCONNECTED
+                }
 
-            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                _connectionState.value = ConnectionState.ERROR
-                _errorState.value = "Connection failed: ${t.message}"
-            }
-        })
+                override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                    _connectionState.value = ConnectionState.ERROR
+                    _errorState.value = "Connection failed: ${t.message}"
+                }
+            },
+        )
     }
 
     // Disconnect from OBS
@@ -205,13 +206,16 @@ class OBSWebSocketClient @Inject constructor() {
     private fun sendIdentify(authentication: String?) {
         val identify = JSONObject().apply {
             put("op", 1)
-            put("d", JSONObject().apply {
-                put("rpcVersion", 1)
-                if (authentication != null) {
-                    put("authentication", authentication)
-                }
-                put("eventSubscriptions", 33) // Subscribe to stream events
-            })
+            put(
+                "d",
+                JSONObject().apply {
+                    put("rpcVersion", 1)
+                    if (authentication != null) {
+                        put("authentication", authentication)
+                    }
+                    put("eventSubscriptions", 33) // Subscribe to stream events
+                },
+            )
         }
         webSocket?.send(identify.toString())
     }
@@ -220,13 +224,16 @@ class OBSWebSocketClient @Inject constructor() {
     private fun sendRequest(requestType: String, requestData: JSONObject? = null) {
         val request = JSONObject().apply {
             put("op", 6)
-            put("d", JSONObject().apply {
-                put("requestType", requestType)
-                put("requestId", requestId.getAndIncrement().toString())
-                if (requestData != null) {
-                    put("requestData", requestData)
-                }
-            })
+            put(
+                "d",
+                JSONObject().apply {
+                    put("requestType", requestType)
+                    put("requestId", requestId.getAndIncrement().toString())
+                    if (requestData != null) {
+                        put("requestData", requestData)
+                    }
+                },
+            )
         }
         webSocket?.send(request.toString())
     }

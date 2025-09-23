@@ -145,7 +145,6 @@ dependencies {
     implementation(libs.ui.tooling.preview)
     implementation(libs.material3)
 
-
     // Network für RTMP/SRT Streaming
     implementation(libs.okhttp3.okhttp)
 
@@ -180,7 +179,7 @@ dependencies {
     // Coroutines-Test-Helfer
     testImplementation(libs.kotlinx.coroutines.test)
 
-     // (Optional) AndroidX Core für InstantTaskExecutorRule, falls LiveData verwendet wird
+    // (Optional) AndroidX Core für InstantTaskExecutorRule, falls LiveData verwendet wird
     testImplementation(libs.androidx.core.testing)
 }
 
