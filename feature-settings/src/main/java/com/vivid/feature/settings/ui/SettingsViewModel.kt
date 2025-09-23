@@ -14,7 +14,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    private val settingsRepository: SettingsRepository
+    private val settingsRepository: SettingsRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AppSettings())
@@ -53,12 +53,12 @@ class SettingsViewModel @Inject constructor(
             val currentSettings = _uiState.value
             settingsRepository.updateStreamSettings(
                 url = currentSettings.streamUrl,
-                key = currentSettings.streamKey
+                key = currentSettings.streamKey,
             )
             settingsRepository.updateObsSettings(
                 host = currentSettings.obsHost,
                 port = currentSettings.obsPort,
-                password = currentSettings.obsPassword
+                password = currentSettings.obsPassword,
             )
         }
     }

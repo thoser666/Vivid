@@ -12,7 +12,7 @@ import com.vivid.features.settings.SettingsViewModel
 @Composable
 fun SettingsScreen(
     navController: NavHostController? = null,
-    viewModel: SettingsViewModel = hiltViewModel()
+    viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -20,7 +20,7 @@ fun SettingsScreen(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         // Stream-Einstellungen
         Text("Stream-Einstellungen", style = MaterialTheme.typography.titleLarge)
@@ -28,13 +28,13 @@ fun SettingsScreen(
             value = uiState.streamUrl,
             onValueChange = viewModel::onStreamUrlChange,
             label = { Text("Stream-URL") },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
         )
         OutlinedTextField(
             value = uiState.streamKey,
             onValueChange = viewModel::onStreamKeyChange,
             label = { Text("Stream-Schlüssel") },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
         )
 
         // OBS-Einstellungen
@@ -43,26 +43,26 @@ fun SettingsScreen(
             value = uiState.obsHost,
             onValueChange = viewModel::onObsHostChange,
             label = { Text("OBS Host") },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
         )
         OutlinedTextField(
             value = uiState.obsPort,
             onValueChange = viewModel::onObsPortChange,
             label = { Text("OBS Port") },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
         )
         OutlinedTextField(
             value = uiState.obsPassword,
             onValueChange = viewModel::onObsPasswordChange,
             label = { Text("OBS Passwort") },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
         )
 
         Spacer(modifier = Modifier.weight(1f))
 
         Button(
             onClick = viewModel::saveSettings,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
         ) {
             Text("Speichern")
         }

@@ -22,37 +22,40 @@ class StreamingEngine @Inject constructor() {
     fun initializeCamera(openGlView: OpenGlView) {
         if (rtmpCamera != null) return // Verhindert mehrfache Initialisierung
 
-        rtmpCamera = RtmpCamera2(openGlView, object : ConnectChecker {
-            override fun onConnectionStarted(url: String) {
-                _streamingState.value = StreamingState.Preparing
-            }
+        rtmpCamera = RtmpCamera2(
+            openGlView,
+            object : ConnectChecker {
+                override fun onConnectionStarted(url: String) {
+                    _streamingState.value = StreamingState.Preparing
+                }
 
-            override fun onConnectionSuccess() {
-                _streamingState.value = StreamingState.Streaming
-            }
+                override fun onConnectionSuccess() {
+                    _streamingState.value = StreamingState.Streaming
+                }
 
-            override fun onConnectionFailed(reason: String) {
-                rtmpCamera?.stopStream() // Encoder stoppen und zurücksetzen
-                _streamingState.value = StreamingState.Failed(reason)
-            }
+                override fun onConnectionFailed(reason: String) {
+                    rtmpCamera?.stopStream() // Encoder stoppen und zurücksetzen
+                    _streamingState.value = StreamingState.Failed(reason)
+                }
 
-            override fun onDisconnect() {
-                _streamingState.value = StreamingState.Idle
-            }
+                override fun onDisconnect() {
+                    _streamingState.value = StreamingState.Idle
+                }
 
-            override fun onAuthError() {
-                rtmpCamera?.stopStream()
-                _streamingState.value = StreamingState.Failed("Authentication error")
-            }
+                override fun onAuthError() {
+                    rtmpCamera?.stopStream()
+                    _streamingState.value = StreamingState.Failed("Authentication error")
+                }
 
-            override fun onAuthSuccess() {
-                // Wird vor onConnectionSuccess aufgerufen
-            }
+                override fun onAuthSuccess() {
+                    // Wird vor onConnectionSuccess aufgerufen
+                }
 
-            override fun onNewBitrate(bitrate: Long) {
-                // Optional: Für UI-Anzeigen der Bitrate
-            }
-        })
+                override fun onNewBitrate(bitrate: Long) {
+                    // Optional: Für UI-Anzeigen der Bitrate
+                }
+            },
+        )
     }
 
     // KORREKTUR 2: Überarbeitete startStream-Methode

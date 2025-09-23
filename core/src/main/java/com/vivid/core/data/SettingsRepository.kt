@@ -23,7 +23,7 @@ data class AppSettings(
     val streamKey: String = "",
     val obsHost: String = "localhost",
     val obsPort: String = "4455",
-    val obsPassword: String = ""
+    val obsPassword: String = "",
 )
 
 @Singleton
@@ -51,7 +51,7 @@ class SettingsRepository @Inject constructor(
             streamKey = preferences[STREAM_KEY] ?: "",
             obsHost = preferences[OBS_HOST] ?: "localhost",
             obsPort = preferences[OBS_PORT] ?: "4455",
-            obsPassword = preferences[OBS_PASSWORD] ?: ""
+            obsPassword = preferences[OBS_PASSWORD] ?: "",
         )
     }
 

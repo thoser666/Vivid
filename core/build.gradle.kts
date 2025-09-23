@@ -53,11 +53,10 @@ dependencies {
 //    kapt(libs.dagger.hilt.compiler)
     ksp(libs.dagger.hilt.compiler)
 
-
     // DataStore-Abhängigkeit, die `Context` benötigt
     implementation(libs.androidx.datastore.preferences)
 
-    implementation(libs.okhttp3.okhttp)  //
+    implementation(libs.okhttp3.okhttp) //
 
     // JSON handling (bereits definiert in Ihrer toml)
     implementation(libs.gson)

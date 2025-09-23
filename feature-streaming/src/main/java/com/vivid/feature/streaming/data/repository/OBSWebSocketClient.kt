@@ -8,7 +8,7 @@ import javax.inject.Inject
 @HiltViewModel
 class ObsControlViewModel @Inject constructor(
     // Hilt injiziert hier automatisch die Singleton-Instanz von OBSWebSocketClient
-    val obsClient: OBSWebSocketClient
+    val obsClient: OBSWebSocketClient,
 ) : ViewModel() {
 
     // Die Konfigurationsdaten könnten aus den SharedPreferences oder einer Einstellungs-UI kommen.

@@ -10,7 +10,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class ObsControlViewModel @Inject constructor(
-    private val settingsRepository: SettingsRepository
+    private val settingsRepository: SettingsRepository,
     // Fügen Sie hier Ihre OBSWebSocketClient-Abhängigkeit hinzu
 ) : ViewModel() {
 

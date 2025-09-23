@@ -18,7 +18,7 @@ import com.vivid.feature.streaming.data.repository.ObsControlViewModel
 
 @Composable
 fun ObsControlScreen(
-    viewModel: ObsControlViewModel = hiltViewModel()
+    viewModel: ObsControlViewModel = hiltViewModel(),
 ) {
     // Abonniere die StateFlows aus dem OBSWebSocketClient
     val connectionState by viewModel.obsClient.connectionState.collectAsStateWithLifecycle()
@@ -30,7 +30,7 @@ fun ObsControlScreen(
             .fillMaxSize()
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        verticalArrangement = Arrangement.Center,
     ) {
         // Verbindungsstatus anzeigen
         Text("OBS Connection: ${connectionState.name}")
@@ -48,7 +48,7 @@ fun ObsControlScreen(
                     viewModel.disconnectFromObs()
                 }
             },
-            enabled = connectionState != OBSWebSocketClient.ConnectionState.CONNECTING
+            enabled = connectionState != OBSWebSocketClient.ConnectionState.CONNECTING,
         ) {
             when (connectionState) {
                 OBSWebSocketClient.ConnectionState.CONNECTING -> CircularProgressIndicator()
@@ -63,11 +63,11 @@ fun ObsControlScreen(
         Button(
             onClick = { viewModel.toggleObsStream() },
             enabled = connectionState == OBSWebSocketClient.ConnectionState.CONNECTED &&
-                    streamState != OBSWebSocketClient.StreamState.STARTING &&
-                    streamState != OBSWebSocketClient.StreamState.STOPPING,
+                streamState != OBSWebSocketClient.StreamState.STARTING &&
+                streamState != OBSWebSocketClient.StreamState.STOPPING,
             colors = ButtonDefaults.buttonColors(
-                containerColor = if (streamState == OBSWebSocketClient.StreamState.STREAMING) Color.Red else Color.Green
-            )
+                containerColor = if (streamState == OBSWebSocketClient.StreamState.STREAMING) Color.Red else Color.Green,
+            ),
         ) {
             val streamButtonText = when (streamState) {
                 OBSWebSocketClient.StreamState.STOPPED -> "Start OBS Stream"
