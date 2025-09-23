@@ -18,6 +18,7 @@
             <option value="$PROJECT_DIR$/feature-settings" />
             <option value="$PROJECT_DIR$/feature-streaming" />
             <option value="$PROJECT_DIR$/feature-widgets" />
+            <option value="$PROJECT_DIR$/features-obs-control" />
           </set>
         </option>
       </GradleProjectSettings>

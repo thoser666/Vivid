@@ -140,6 +140,11 @@ dependencies {
 
     // Hilt Navigation Compose
     implementation(libs.androidx.hilt.navigation.compose)
+    implementation(libs.ui)
+    implementation(libs.androidx.compose.ui.ui.graphics2)
+    implementation(libs.ui.tooling.preview)
+    implementation(libs.material3)
+
 
     // Network für RTMP/SRT Streaming
     implementation(libs.okhttp3.okhttp)

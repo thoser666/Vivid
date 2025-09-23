@@ -1,70 +1,67 @@
-package com.vivid.feature.settings.ui
+package com.vivid.features.settings
 
-import android.widget.Toast
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.navigation.NavController
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-    navController: NavController,
-    viewModel: SettingsViewModel = hiltViewModel(),
+    viewModel: SettingsViewModel = hiltViewModel()
 ) {
-    val settings by viewModel.settings.collectAsState()
-    val context = LocalContext.current
+    val uiState by viewModel.uiState.collectAsState()
 
-    // Zustände für die Textfelder, die mit den DataStore-Werten initialisiert werden.
-    var url by remember(settings.url) { mutableStateOf(settings.url) }
-    var key by remember(settings.key) { mutableStateOf(settings.key) }
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // Stream-Einstellungen
+        Text("Stream-Einstellungen", style = MaterialTheme.typography.titleLarge)
+        OutlinedTextField(
+            value = uiState.streamUrl,
+            onValueChange = viewModel::onStreamUrlChange,
+            label = { Text("Stream-URL") },
+            modifier = Modifier.fillMaxWidth()
+        )
+        OutlinedTextField(
+            value = uiState.streamKey,
+            onValueChange = viewModel::onStreamKeyChange,
+            label = { Text("Stream-Schlüssel") },
+            modifier = Modifier.fillMaxWidth()
+        )
 
-    Scaffold(
-        topBar = {
-            TopAppBar(title = { Text("Stream Settings") })
-        },
-    ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .padding(paddingValues)
-                .padding(16.dp),
+        // OBS-Einstellungen
+        Text("OBS-Einstellungen", style = MaterialTheme.typography.titleLarge)
+        OutlinedTextField(
+            value = uiState.obsHost,
+            onValueChange = viewModel::onObsHostChange,
+            label = { Text("OBS Host") },
+            modifier = Modifier.fillMaxWidth()
+        )
+        OutlinedTextField(
+            value = uiState.obsPort,
+            onValueChange = viewModel::onObsPortChange,
+            label = { Text("OBS Port") },
+            modifier = Modifier.fillMaxWidth()
+        )
+        OutlinedTextField(
+            value = uiState.obsPassword,
+            onValueChange = viewModel::onObsPasswordChange,
+            label = { Text("OBS Passwort") },
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(modifier = Modifier.weight(1f))
+
+        Button(
+            onClick = viewModel::saveSettings,
+            modifier = Modifier.fillMaxWidth()
         ) {
-            OutlinedTextField(
-                value = url,
-                onValueChange = { url = it },
-                label = { Text("Stream URL") },
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            OutlinedTextField(
-                value = key,
-                onValueChange = { key = it },
-                label = { Text("Stream Key") },
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            Button(
-                onClick = {
-                    viewModel.saveSettings(url, key)
-                    Toast.makeText(context, "Settings Saved!", Toast.LENGTH_SHORT).show()
-                    navController.popBackStack()
-                },
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text("Save")
-            }
+            Text("Speichern")
         }
     }
 }
