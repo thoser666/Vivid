@@ -14,7 +14,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    private val settingsRepository: SettingsRepository
+    private val settingsRepository: SettingsRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AppSettings())
@@ -39,18 +39,17 @@ class SettingsViewModel @Inject constructor(
     fun onObsPortChange(newPort: String) { _uiState.value = _uiState.value.copy(obsPort = newPort) }
     fun onObsPasswordChange(newPassword: String) { _uiState.value = _uiState.value.copy(obsPassword = newPassword) }
 
-
     fun saveSettings() {
         viewModelScope.launch {
             val currentSettings = _uiState.value
             settingsRepository.updateStreamSettings(
                 url = currentSettings.streamUrl,
-                key = currentSettings.streamKey
+                key = currentSettings.streamKey,
             )
             settingsRepository.updateObsSettings(
                 host = currentSettings.obsHost,
                 port = currentSettings.obsPort,
-                password = currentSettings.obsPassword
+                password = currentSettings.obsPassword,
             )
             // Event auslösen, nachdem das Speichern abgeschlossen ist
             _saveEvent.emit(Unit)
