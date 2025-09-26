@@ -1,14 +1,14 @@
-// feature-streaming/build.gradle.kts
 plugins {
-    id("com.android.library")
-    id("org.jetbrains.kotlin.android")
-    id("dagger.hilt.android.plugin")
-    id("com.google.devtools.ksp")
-    id("org.jetbrains.kotlin.plugin.compose")
+    // Verwendung von Aliasen aus libs.versions.toml für Konsistenz
+    alias(libs.plugins.android.library)
+    alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.hilt) // KORREKT: Der Alias für das Hilt-Plugin
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.compose.compiler)
 }
 
 android {
-    namespace = "com.vivid.feature.streaming" // Updated namespace
+    namespace = "com.vivid.feature.streaming"
     compileSdk = rootProject.extra["compileSdkVersion"] as Int
 
     defaultConfig {
@@ -16,119 +16,82 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    buildFeatures {
+        compose = true
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+
     kotlin {
         compilerOptions {
             jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
         }
     }
-    buildFeatures {
-        compose = true // Enable Compose for UI elements within the feature module
-    }
 
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.14" // Ensure version matches app module
-    }
+    // ENTFERNT: Dieser Block ist bei Verwendung der Compose BOM nicht mehr nötig
+    // und kann zu Versionskonflikten führen.
+    // composeOptions { ... }
 }
 
-ksp {
-    arg("ksp.debug", "true") // Example, check specific processor for its args
-    // For Hilt, sometimes more specific error messages can be enabled if the processor supports it.
-    // For example (this might vary or not be applicable to all Hilt errors):
-    // arg("dagger.hilt.verboseLogging", "true")
-    // arg("dagger.validateTransitiveComponentDependencies", "true")
-}
+// ENTFERNT: Unnötige ksp-Argumente entfernt für eine sauberere Datei.
+// ksp { ... }
 
 dependencies {
-    // Project dependencies
-    implementation(project(":domain")) // Feature depends on domain for business logic/models
-    implementation(project(":core")) // Feature might use common core utilities
+    // 1. Logische Gruppierung: Projekt-Module
+    implementation(project(":core"))
+    implementation(project(":data"))
+    implementation(project(":domain"))
+    implementation(project(":features-obs-control"))
 
-    // Android KTX
+    // 2. Android & Lifecycle KTX
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
-
-    // Hilt
-    //   implementation(libs.hilt.android)
-//    ksp(libs.dagger.hilt.compiler)
-    implementation(libs.hilt.android)
-    implementation(project(":data"))
-    ksp(libs.hilt.compiler)
-
-    // CameraX für Video-Streaming
-    implementation(libs.androidx.camera.camera2)
-    implementation(libs.androidx.camera.lifecycle)
-    implementation(libs.androidx.camera.view)
-    implementation(libs.androidx.camera.video) // Für Recording
-
-    // Accompanist Permissions  <-- ADD THIS LINE
     implementation(libs.accompanist.permissions)
 
-    // Hilt Navigation Compose
+    // 3. Dependency Injection (Hilt) - Keine Duplikate
+    implementation(libs.hilt.android)
+    ksp(libs.hilt.compiler) // Beachten Sie, dass Ihr Alias "hilt.compiler" lautet
     implementation(libs.androidx.hilt.navigation.compose)
 
-    // Network für RTMP/SRT Streaming
-    implementation(libs.okhttp3.okhttp)
-
-    // Optional: Logging für Debug
-    implementation(libs.logging.interceptor)
-
-    // Für WebSocket (OBS Control)
-    implementation(libs.java.websocket)
-
-    // Compose (for UI within the feature module)
-    implementation(libs.ui)
-    implementation(libs.material3)
-    implementation(libs.ui.tooling.preview) // For @Preview
+    // 4. Jetpack Compose - Verwendung der Bill of Materials (BOM)
+    implementation(platform(libs.androidx.compose.bom)) // WICHTIG: Verwaltet alle Compose-Versionen
+    implementation(libs.androidx.ui)
+    implementation(libs.androidx.material3)
+    implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.compose.material.icons.extended)
 
-    // CameraX (core streaming functionality)
+    // 5. CameraX Streaming-Input - Keine Duplikate
     implementation(libs.androidx.camera.core)
     implementation(libs.androidx.camera.camera2)
     implementation(libs.androidx.camera.lifecycle)
+    implementation(libs.androidx.camera.video)
     implementation(libs.androidx.camera.view)
 
-// Core Media3 (ExoPlayer Nachfolger)
+    // 6. Media3 (ExoPlayer) für die Wiedergabe
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.ui)
-    implementation(libs.androidx.media3.common)
+    implementation(libs.androidx.media3.exoplayer.hls)
+    implementation(libs.androidx.media3.exoplayer.rtsp)
+    implementation(libs.androidx.media3.exoplayer.dash)
+    implementation(libs.androidx.media3.ui.compose)
 
-    // Protocol Support für IRL-Streaming
-    implementation(libs.androidx.media3.exoplayer.hls) // HLS Streams
-    implementation(libs.androidx.media3.exoplayer.rtsp) // RTSP Streams
-    implementation(libs.androidx.media3.exoplayer.dash) // DASH Streams
-
-    // Für lokale Dateien & verschiedene Formate
-    implementation(libs.androidx.media3.decoder)
-    implementation(libs.androidx.media3.datasource)
-
-    // Compose Integration
-    implementation(libs.androidx.media3.ui.compose) // Neu!
-
-    // Pedro's RTMP für Live-Streaming Output
-    implementation(libs.rootencoder)
-
-    // Network & WebSocket
+    // 7. Streaming-Output & Netzwerk - Keine Duplikate
+    implementation(libs.rootencoder) // Pedro's RTMP Lib
     implementation(libs.okhttp3.okhttp)
-
-    // Kotlin Coroutines
+    implementation(libs.logging.interceptor)
+    implementation(libs.java.websocket) // Für OBS Control
     implementation(libs.kotlinx.coroutines.android)
 
-    // Stream-client
-    // implementation(libs.rtmp.rtsp.stream.client.java) // Add this line
-
-    // Testing
+    // 8. Testing
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
-    androidTestImplementation(libs.ui.test.junit4)
-    debugImplementation(libs.ui.tooling)
-    debugImplementation(libs.ui.test.manifest)
-
-    // Add dependency to core module
-    implementation(project(":core"))
+    androidTestImplementation(platform(libs.androidx.compose.bom)) // BOM auch für Tests
+    androidTestImplementation(libs.androidx.ui.test.junit4)
+    debugImplementation(libs.androidx.ui.tooling) // UI-Tooling für Debug-Builds
+    debugImplementation(libs.androidx.ui.test.manifest)
 }
