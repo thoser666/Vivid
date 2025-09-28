@@ -9,7 +9,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-import androidx.compose.foundation.text.KeyboardOptions // Make sure this is imported if you use it
 
 
 // State-Klasse bleibt unverändert
