@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- OBS Settings Screen -->
+    <string name="obs_settings_host_label">OBS Host</string>
+    <string name="obs_settings_port_label">OBS Port</string>
+    <string name="obs_settings_password_label">OBS Password</string>
+    <string name="obs_settings_save_button">Save</string>
+</resources>
