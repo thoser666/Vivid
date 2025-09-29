@@ -52,7 +52,7 @@ ui = "1.9.1"
 uiTestJunit4 = "1.9.1"
 uiTestManifest = "1.9.1"
 uiTooling = "1.9.1"
-uiToolingPreview = "1.9.1"
+uiToolingPreview = "1.9.2"
 material = "1.10.0"
 
 [libraries]
