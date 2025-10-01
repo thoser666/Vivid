@@ -3,9 +3,13 @@ name: Android Build & Test
 # Workflow wird bei Push oder Pull Request auf den main-Branch getriggert
 on:
   push:
-    branches: [ "main" ]
+#    branches: [ "main" ]
+    branches: [ develop" ]    # for release delete this
   pull_request:
-    branches: [ "main" ]
+#    branches: [ "main" ]
+    branches: [ develop" ]   # for release delete this
+
+
 
 jobs:
   build:
