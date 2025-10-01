@@ -1,0 +1,18 @@
+default_platform(:android)
+
+platform :android do
+  desc "Builds a debug version of the app"
+  lane :build_debug do
+    # Gradle-Task zum Erstellen des Debug-Builds ausführen
+    gradle(
+      task: "assembleDebug"
+    )
+  end
+
+  desc "Runs all unit tests"
+  lane :test do
+    gradle(
+      task: "testDebugUnitTest"
+    )
+  end
+end
