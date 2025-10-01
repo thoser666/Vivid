@@ -1,0 +1,43 @@
+name: Android Build & Test
+
+# Workflow wird bei Push oder Pull Request auf den main-Branch getriggert
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest # Runner-Umgebung
+
+    steps:
+      # 1. Code aus dem Repository auschecken
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. Java Development Kit (JDK) einrichten
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17' # Passen Sie die Java-Version an Ihr Projekt an
+
+      # 3. Gradle-Cache einrichten, um Builds zu beschleunigen
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      # 4. Ruby und Bundler einrichten
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3' # Verwenden Sie eine aktuelle Ruby-Version
+          bundler-cache: true # Installiert Gems aus Gemfile.lock und speichert sie im Cache
+
+      # 5. Fastlane zum Ausführen der Tests ausführen
+      - name: Run Unit Tests
+        run: bundle exec fastlane test
+
+      # 6. Fastlane zum Erstellen der App ausführen
+      - name: Build Debug APK
+        run: bundle exec fastlane build_debug
