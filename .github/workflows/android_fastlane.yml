@@ -4,10 +4,10 @@ name: Android Build & Test
 on:
   push:
 #    branches: [ "main" ]
-    branches: [ develop" ]    # for release delete this
+    branches: [ develop" , "50-preparations-for-release"  ]    # for release delete this
   pull_request:
 #    branches: [ "main" ]
-    branches: [ develop" ]   # for release delete this
+    branches: [ develop" , "50-preparations-for-release" ]   # for release delete this
 
 
 
