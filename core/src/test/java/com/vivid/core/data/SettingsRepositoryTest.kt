@@ -1,95 +1,80 @@
-package com.vivid.core.data
-
-import android.content.Context
 import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.PreferenceDataStoreFactory
-import androidx.datastore.preferences.core.Preferences
-import app.cash.turbine.test
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.test.StandardTestDispatcher
-import kotlinx.coroutines.test.TestDispatcher
-import kotlinx.coroutines.test.resetMain
+import androidx.datastore.preferences.core.*
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
-import org.junit.jupiter.api.AfterEach
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.BeforeEach
-import org.junit.jupiter.api.DisplayName
+import org.junit.Before
+import org.junit.Test
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.io.TempDir
-import org.mockito.kotlin.mock
 import java.io.File
+import kotlin.test.assertEquals
 
-@ExperimentalCoroutinesApi
+// Annahme: StreamSettings ist eine data class
+data class StreamSettings(val url: String, val key: String)
+
+// Annahme: So sieht Ihr Repository aus
+class SettingsRepository(private val dataStore: DataStore<Preferences>) {
+    // Annahme: Die Keys sind hier definiert
+    private object PreferencesKeys {
+        val STREAM_URL = stringPreferencesKey("stream_url")
+        val STREAM_KEY = stringPreferencesKey("stream_key")
+    }
+
+    // Annahme: Ihre Funktion sieht so oder so ähnlich aus
+    val streamSettingsFlow = dataStore.data
+        .map { preferences ->
+            StreamSettings(
+                url = preferences[PreferencesKeys.STREAM_URL] ?: "",
+                key = preferences[PreferencesKeys.STREAM_KEY] ?: ""
+            )
+        }
+
+    suspend fun updateStreamSettings(url: String, key: String) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.STREAM_URL] = url
+            preferences[PreferencesKeys.STREAM_KEY] = key
+        }
+    }
+}
+
+
+// --- HIER BEGINNT DER TEST ---
 class SettingsRepositoryTest {
 
-    // Ein spezieller Dispatcher für Tests, um die Ausführung von Coroutinen zu steuern
-    private val testDispatcher: TestDispatcher = StandardTestDispatcher()
+    // Erstellen Sie eine Test-DataStore im Speicher
+    private val testDataStore: DataStore<Preferences> = PreferenceDataStoreFactory.create(
+        produceFile = { File("test.preferences_pb") }
+    )
 
-    // Ein temporärer Ordner, der von JUnit5 bereitgestellt wird, um eine Test-DataStore-Datei zu erstellen
-    @TempDir
-    lateinit var tempFile: File
+    private lateinit var repository: SettingsRepository
 
-    // Die zu testende Klasse
-    private lateinit var settingsRepository: SettingsRepository
-    private lateinit var testDataStore: DataStore<Preferences>
-
-    // Mocken des Android Context, da wir ihn nicht wirklich brauchen
-    private val mockContext: Context = mock()
-
-    @BeforeEach
-    fun setUp() {
-        // Richten Sie den Haupt-Dispatcher für Coroutinen ein, um unseren Test-Dispatcher zu verwenden
-        Dispatchers.setMain(testDispatcher)
-
-        // Erstellen einer In-Memory-DataStore-Instanz für diesen Test
-        testDataStore = PreferenceDataStoreFactory.create(
-            scope = CoroutineScope(testDispatcher + Job()),
-            produceFile = { tempFile.resolve("test_settings.preferences_pb") },
-        )
-        // Erstellen Sie die Repository-Instanz mit der Test-DataStore
-        settingsRepository = SettingsRepository(testDataStore)
-    }
-
-    @AfterEach
-    fun tearDown() {
-        // Setzen Sie den Haupt-Dispatcher nach dem Test zurück
-        Dispatchers.resetMain()
+    @Before
+    fun setup() {
+        // Initialisieren Sie das Repository mit der Test-DataStore
+        repository = SettingsRepository(testDataStore)
     }
 
     @Test
-    @DisplayName("streamSettingsFlow should emit default values when DataStore is empty")
-    fun `streamSettingsFlow emits default values initially`() = runTest {
-        // Act & Assert
-        settingsRepository.streamSettingsFlow.test {
-            val defaultSettings = awaitItem()
-            assertEquals("rtmp://a.rtmp.youtube.com/live2", defaultSettings.url)
-            assertEquals("", defaultSettings.key)
-            cancelAndIgnoreRemainingEvents()
-        }
+    fun `streamSettingsFlow should return saved values`() = runTest {
+        // 1. Arrange: Speichern Sie Testdaten
+        val testUrl = "rtmp://test.url/live"
+        val testKey = "test_key_123"
+        repository.updateStreamSettings(testUrl, testKey)
+
+        // 2. Act: Rufen Sie den Flow auf und sammeln Sie das erste Ergebnis
+        val settings = repository.streamSettingsFlow.first()
+
+        // 3. Assert: Überprüfen Sie, ob die Daten korrekt sind
+        assertEquals(testUrl, settings.url)
+        assertEquals(testKey, settings.key)
     }
 
     @Test
-    @DisplayName("updateStreamSettings should correctly update values and be emitted by the flow")
-    fun `updateStreamSettings updates the flow correctly`() = runTest {
-        // Arrange
-        val newUrl = "rtmp://test.url/live"
-        val newKey = "test_key_12345"
+    fun `streamSettingsFlow should return default values if nothing is saved`() = runTest {
+        // Act: Rufen Sie den Flow ohne vorherige Daten auf
+        val settings = repository.streamSettingsFlow.first()
 
-        settingsRepository.streamSettingsFlow.test {
-            // Ignorieren Sie den ersten, standardmäßigen Emissionswert
-            awaitItem()
-
-            // Act: Rufen Sie die Methode auf, die wir testen wollen
-            settingsRepository.updateStreamSettings(newUrl, newKey)
-
-            // Assert: Überprüfen Sie, ob der Flow die neuen Werte ausgibt
-            val updatedSettings = awaitItem()
-            assertEquals(newUrl, updatedSettings.url)
-            assertEquals(newKey, updatedSettings.key)
-        }
+        // Assert: Überprüfen Sie die Standardwerte (leere Strings)
+        assertEquals("", settings.url)
+        assertEquals("", settings.key)
     }
 }

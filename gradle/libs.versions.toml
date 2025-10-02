@@ -7,6 +7,7 @@ cameraCore = "1.5.0"
 constraintlayout = "2.2.1"
 coreTesting = "2.2.0"
 datastorePreferences = "1.1.7"
+datastorePreferencesCore = "1.1.7"
 gson = "2.13.2"
 guava = "33.5.0-android"
 #hiltAndroid = "2.57.1"
@@ -65,6 +66,7 @@ androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", versi
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
 androidx-compose-material-icons-extended = { module = "androidx.compose.material:material-icons-extended", version.ref = "materialIconsExtended" }
 androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3" }
+androidx-datastore-preferences-core = { module = "androidx.datastore:datastore-preferences-core", version.ref = "datastorePreferencesCore" }
 androidx-ui = { group = "androidx.compose.ui", name = "ui" }
 androidx-ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics" }
 androidx-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }

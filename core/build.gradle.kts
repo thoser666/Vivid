@@ -79,6 +79,9 @@ dependencies {
     // Coroutines-Testbibliothek
     testImplementation(libs.kotlinx.coroutines.test)
 
+    // For DataStore-Tests
+    testImplementation(libs.androidx.datastore.preferences.core)
+
     // --- Android-spezifische Test-Abhängigkeiten (bleiben für instrumentierte Tests) ---
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
