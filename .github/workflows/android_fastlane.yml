@@ -20,6 +20,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # Adding permissions
+      - name: Grant execute permission to gradlew
+        run: chmod +x ./gradlew  
+
       # 2. Java Development Kit (JDK) einrichten
       - name: Set up JDK
         uses: actions/setup-java@v4
