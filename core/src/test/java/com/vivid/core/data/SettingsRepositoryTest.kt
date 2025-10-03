@@ -1,25 +1,26 @@
+// SettingsRepositoryTest.kt
+
+package com.vivid.core.data
+
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map // Wichtig für .map auf einem Flow
 import kotlinx.coroutines.test.runTest
-import org.junit.Before
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.BeforeEach // Modernes JUnit 5 (ersetzt @Before)
 import org.junit.jupiter.api.Test
 import java.io.File
-import kotlin.test.assertEquals
 
-// Annahme: StreamSettings ist eine data class
+
 data class StreamSettings(val url: String, val key: String)
 
-// Annahme: So sieht Ihr Repository aus
 class SettingsRepository(private val dataStore: DataStore<Preferences>) {
-    // Annahme: Die Keys sind hier definiert
     private object PreferencesKeys {
         val STREAM_URL = stringPreferencesKey("stream_url")
         val STREAM_KEY = stringPreferencesKey("stream_key")
     }
 
-    // Annahme: Ihre Funktion sieht so oder so ähnlich aus
     val streamSettingsFlow = dataStore.data
         .map { preferences ->
             StreamSettings(
@@ -47,7 +48,7 @@ class SettingsRepositoryTest {
 
     private lateinit var repository: SettingsRepository
 
-    @Before
+    @BeforeEach // KORREKTUR: @BeforeEach für JUnit 5
     fun setup() {
         // Initialisieren Sie das Repository mit der Test-DataStore
         repository = SettingsRepository(testDataStore)
