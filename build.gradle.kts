@@ -11,6 +11,7 @@ plugins {
     alias(libs.plugins.hilt) apply false
     alias(libs.plugins.compose.compiler) apply false
     alias(libs.plugins.android.library) apply false
+    id("org.jetbrains.kotlin.plugin.serialization") version "2.2.20" apply false
 }
 
 // It's good practice to declare repositories that host your plugins

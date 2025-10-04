@@ -7,6 +7,8 @@ plugins {
     //   id("org.jetbrains.kotlin.plugin.compose") version "2.2.10" // Or the latest compatible version
 
     id("io.sentry.android.gradle") version "5.11.0"
+    id("kotlinx-serialization")  version "2.2.20"
+
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
     alias(libs.plugins.compose.compiler)
@@ -145,14 +147,19 @@ dependencies {
     implementation(libs.ui.tooling.preview)
     implementation(libs.material3)
 
+    implementation(libs.kotlinx.serialization.json)
+
     // Network für RTMP/SRT Streaming
     implementation(libs.okhttp3.okhttp)
 
-    // Für WebSocket (OBS Control)
-    implementation(libs.java.websocket)
+    // For WebSocket (OBS Control)
+    implementation(libs.obs.ws.kotlin)
+
+    // For QR Code Scanning
+    implementation(libs.google.mlkit.barcode.scanning)
 
     // Guava
-    implementation(libs.guava) // Or the latest compatible version
+    implementation(libs.guava)
 
     implementation(project(":feature-streaming"))
 
