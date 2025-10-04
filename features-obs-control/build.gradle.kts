@@ -68,6 +68,14 @@ dependencies {
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
 
+    implementation(libs.ktor.client.core)
+    implementation(libs.ktor.client.cio) // Oder eine andere Engine wie OkHttp
+    implementation(libs.ktor.client.websockets)
+    implementation(libs.ktor.client.content.negotiation)
+
+    // Wenn du JSON mit Ktor serialisieren willst (was sehr wahrscheinlich ist):
+    implementation(libs.ktor.serialization.kotlinx.json)
+
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

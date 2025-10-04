@@ -5,6 +5,8 @@ plugins {
 //    id("kotlin-kapt") // Falls Sie Hilt oder andere Annotation Processors hier verwenden
     id("dagger.hilt.android.plugin") // Hilt-Plugin
     id("com.google.devtools.ksp")
+
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -64,6 +66,8 @@ dependencies {
     // Optional: Für WebSocket debugging
     implementation(libs.logging.interceptor)
 
+    implementation(libs.kotlinx.serialization.json) // serialization
+
     // Standard JUnit5 für Unit-Tests
     testImplementation(libs.junit.jupiter.api)
     testRuntimeOnly(libs.junit.jupiter.engine)
@@ -85,4 +89,6 @@ dependencies {
     // --- Android-spezifische Test-Abhängigkeiten (bleiben für instrumentierte Tests) ---
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+
+
 }

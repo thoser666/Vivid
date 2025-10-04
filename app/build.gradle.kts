@@ -7,7 +7,7 @@ plugins {
     //   id("org.jetbrains.kotlin.plugin.compose") version "2.2.10" // Or the latest compatible version
 
     id("io.sentry.android.gradle") version "5.11.0"
-    id("kotlinx-serialization")  version "2.2.20"
+    alias(libs.plugins.kotlin.serialization)
 
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
