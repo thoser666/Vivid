@@ -76,6 +76,13 @@ dependencies {
     // Wenn du JSON mit Ktor serialisieren willst (was sehr wahrscheinlich ist):
     implementation(libs.ktor.serialization.kotlinx.json)
 
+    implementation(libs.timberkt)
+
+    // You should also have the base Timber library here
+    implementation(libs.timber)
+
+    implementation(libs.obs.ws.kotlin)
+    implementation(libs.obs.ws.client)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
