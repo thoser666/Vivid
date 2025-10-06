@@ -53,7 +53,7 @@ uiTestJunit4 = "1.9.1"
 uiTestManifest = "1.9.1"
 uiTooling = "1.9.2"
 uiToolingPreview = "1.9.2"
-material = "1.10.0"
+material = "1.13.0"
 
 [libraries]
 accompanist-permissions = { group = "com.google.accompanist", name = "accompanist-permissions", version.ref = "accompanist" }
