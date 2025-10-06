@@ -81,8 +81,8 @@ dependencies {
     // You should also have the base Timber library here
     implementation(libs.timber)
 
-    implementation(libs.obs.ws.kotlin)
-    implementation(libs.obs.ws.client)
+    //implementation(libs.obs.websocket.client)
+    //implementation(libs.obs.ws.client)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

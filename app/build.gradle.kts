@@ -6,7 +6,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     //   id("org.jetbrains.kotlin.plugin.compose") version "2.2.10" // Or the latest compatible version
 
-    id("io.sentry.android.gradle") version "5.11.0"
+    alias(libs.plugins.sentry.android.gradle)
     alias(libs.plugins.kotlin.serialization)
 
     alias(libs.plugins.ksp)
@@ -18,39 +18,29 @@ android {
     namespace = "com.vivid.irlbroadcaster"
     compileSdk = rootProject.extra["compileSdkVersion"] as Int
 
-    val keystorePropertiesFile = rootProject.file("keystore.properties")
-    val keystoreProperties = Properties()
-    if (keystorePropertiesFile.exists()) {
-        keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+    // Lade die Properties nur EINMAL am Anfang
+    val keystoreProperties = Properties().apply {
+        val keystoreFile = rootProject.file("keystore.properties")
+        if (keystoreFile.exists()) {
+            load(FileInputStream(keystoreFile))
+        }
     }
 
     signingConfigs {
         create("release") {
-            // Zuerst versuchen, aus Umgebungsvariablen zu laden (für CI/CD-Systeme wie GitHub Actions)
-            val keyStoreFile = System.getenv("SIGNING_KEY_STORE_FILE")
-            val keyStorePassword = System.getenv("SIGNING_KEY_STORE_PASSWORD")
-            val keyAlias = System.getenv("SIGNING_KEY_ALIAS")
-            val keyPassword = System.getenv("SIGNING_KEY_PASSWORD")
-            if (keyStoreFile != null && File(keyStoreFile).exists()) {
-                // CI/CD-Umgebung erkannt
-                storeFile = file(keyStoreFile)
-                storePassword = keyStorePassword
-                this.keyAlias = keyAlias
-                this.keyPassword = keyPassword
+            // Zuerst CI/CD-Umgebungsvariablen prüfen
+            val keyStoreFileFromEnv = System.getenv("SIGNING_KEY_STORE_FILE")
+            if (keyStoreFileFromEnv != null && File(keyStoreFileFromEnv).exists()) {
+                storeFile = file(keyStoreFileFromEnv)
+                storePassword = System.getenv("SIGNING_KEY_STORE_PASSWORD")
+                keyAlias = System.getenv("SIGNING_KEY_ALIAS")
+                keyPassword = System.getenv("SIGNING_KEY_PASSWORD")
             } else {
-                // Lokale Entwicklungsumgebung: Lade aus keystore.properties
-                val keystorePropertiesFile = rootProject.file("keystore.properties")
-                if (keystorePropertiesFile.exists()) {
-                    val keystoreProperties = Properties()
-                    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
-                    storeFile = file(keystoreProperties.getProperty("storeFile"))
-                    storePassword = keystoreProperties.getProperty("storePassword")
-                    this.keyAlias = keystoreProperties.getProperty("keyAlias")
-                    this.keyPassword = keystoreProperties.getProperty("keyPassword")
-                } else {
-                    // Wenn weder CI noch lokale Properties gefunden werden, wird der Build fehlschlagen.
-                    // Dies ist besser als eine unsignierte Release-APK zu erstellen.
-                }
+                // Ansonsten lokale Properties aus der bereits geladenen Datei verwenden
+                storeFile = file(keystoreProperties.getProperty("storeFile", ""))
+                storePassword = keystoreProperties.getProperty("storePassword", "")
+                keyAlias = keystoreProperties.getProperty("keyAlias", "")
+                keyPassword = keystoreProperties.getProperty("keyPassword", "")
             }
         }
     }
@@ -82,7 +72,7 @@ android {
         }
 
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true // <-- KORREKTUR
             signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -153,15 +143,14 @@ dependencies {
     implementation(libs.okhttp3.okhttp)
 
     // For WebSocket (OBS Control)
-    implementation(libs.obs.ws.kotlin)
+    //implementation(libs.obs.ws.kotlin)
+    //implementation(libs.obs.websocket.client)
 
     // For QR Code Scanning
     implementation(libs.google.mlkit.barcode.scanning)
 
     // Guava
     implementation(libs.guava)
-
-    implementation(project(":feature-streaming"))
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
