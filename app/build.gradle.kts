@@ -152,6 +152,8 @@ dependencies {
     // Guava
     implementation(libs.guava)
 
+    implementation("io.obs-websocket.community:client:2.0.0")
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

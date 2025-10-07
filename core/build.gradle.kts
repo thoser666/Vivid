@@ -69,7 +69,7 @@ dependencies {
     implementation(libs.kotlinx.serialization.json) // serialization
 
     implementation(libs.timber) // Für das Logging (behebt 'Unresolved reference timber')
-    implementation(libs.obs.websocket.client) // Für die OBS-Verbindung (behebt alle anderen
+    //implementation(libs.obs.ws.kotlin)
 
     // Standard JUnit5 für Unit-Tests
     testImplementation(libs.junit.jupiter.api)
