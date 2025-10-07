@@ -32,7 +32,7 @@ kotlinxSerializationJson = "1.6.0"
 lifecycleRuntimeKtx = "2.9.4"
 mlkitBarcodeScanning = "17.2.0"
 #obsWsKotlin = "0.7.0"
-#obsWsClient = "2.3.1"
+obsWsClient = "2.3.1"
 activityCompose = "1.11.0"
 composeBom = "2025.09.00"
 jetbrainsKotlinJvm = "2.2.20"
@@ -166,7 +166,7 @@ ui-tooling = { module = "androidx.compose.ui:ui-tooling", version.ref = "uiTooli
 ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview", version.ref = "uiToolingPreview" }
 material = { group = "com.google.android.material", name = "material", version.ref = "material" }
 #obs-ws-kotlin = { group = "com.github.aj-alt", name = "obs-ws-kotlin", version.ref = "obsWsKotlin" }
-#obs-ws-client = { group = "com.github.ajalt", name = "obs-ws-client", version.ref = "obsWsClient" }
+obs-ws-client = { group = "com.github.ajalt", name = "obs-ws-client", version.ref = "obsWsClient" }
 google-mlkit-barcode-scanning = { module = "com.google.mlkit:barcode-scanning", version.ref = "mlkitBarcodeScanning" }
 
 ktor-client-core = { group = "io.ktor", name = "ktor-client-core", version.ref = "ktor" }

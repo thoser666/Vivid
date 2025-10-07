@@ -2,8 +2,12 @@
 
 package com.vivid.core.network.obs
 
-// KORREKTUR: Fehlende Importe hinzugefügt
-import io.github.ajalt.obs.websocket.client.ObsWebSocketClient
+import androidx.compose.ui.graphics.colorspace.connect
+import androidx.compose.ui.semantics.password
+import androidx.privacysandbox.tools.core.generator.build
+import io.obswebsocket.community.client.OBSRemoteController
+import io.obswebsocket.community.client.listener.lifecycle.controller.ConnectionLifecycleListener
+
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -35,7 +39,7 @@ class OBSWebSocketClient @Inject constructor() {
     )
 
     // KORREKTUR: Der Typ muss der der importierten Bibliothek sein
-    private var client: ObsWebSocketClient? = null
+    private var client: OBSRemoteController? = null
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private val _connectionState = MutableStateFlow<ConnectionState>(ConnectionState.Disconnected)
@@ -53,22 +57,47 @@ class OBSWebSocketClient @Inject constructor() {
         scope.launch {
             try {
                 _connectionState.value = ConnectionState.Connecting
-                // KORREKTUR: Der Klassenname muss der der importierten Bibliothek sein
-                client = ObsWebSocketClient.builder()
+
+                // KORREKTUR: Use OBSRemoteController.builder()
+                client = OBSRemoteController.builder() // <--- FIX THIS LINE
                     .host(config.host)
                     .port(config.port)
                     .password(config.password)
                     .build()
 
+                // Add listeners for connection events
+                client?.addConnectionListener(object : ConnectionLifecycleListener {
+                    override fun onConnect(controller: OBSRemoteController) {
+                        scope.launch {
+                            _connectionState.value = ConnectionState.Connected
+                            Timber.i("Successfully connected to OBS.")
+                        }
+                    }
+
+                    override fun onDisconnect(controller: OBSRemoteController) {
+                        scope.launch {
+                            _connectionState.value = ConnectionState.Disconnected
+                            Timber.i("Disconnected from OBS.")
+                        }
+                    }
+
+                    override fun onError(controller: OBSRemoteController, throwable: Throwable) {
+                        scope.launch {
+                            Timber.e(throwable, "OBS Connection Error")
+                            _connectionState.value = ConnectionState.Error("Verbindung fehlgeschlagen: ${throwable.message}")
+                        }
+                    }
+                })
+
                 client?.connect()
-                _connectionState.value = ConnectionState.Connected
-                Timber.i("Successfully connected to OBS.")
+
             } catch (e: Exception) {
-                Timber.e(e, "Failed to connect to OBS")
-                _connectionState.value = ConnectionState.Error("Verbindung fehlgeschlagen: ${e.message}")
+                Timber.e(e, "Failed to initialize connection to OBS")
+                _connectionState.value = ConnectionState.Error("Initialisierung fehlgeschlagen: ${e.message}")
             }
         }
     }
+
 
     fun disconnect() {
         scope.launch {
