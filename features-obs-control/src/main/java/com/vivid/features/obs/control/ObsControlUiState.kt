@@ -8,8 +8,8 @@ package com.vivid.features.obs.control
  * zu prüfen, ob alle Fälle abgedeckt sind.
  */
 sealed interface ObsControlUiState {
-    object Idle : ObsControlUiState
-    object Connecting : ObsControlUiState
-    object Connected : ObsControlUiState
+    data object Idle : ObsControlUiState
+    data object Connecting : ObsControlUiState
+    data object Connected : ObsControlUiState
     data class Error(val message: String) : ObsControlUiState
 }

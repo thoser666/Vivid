@@ -1,20 +1,14 @@
-// Datei: core/src/.../com/vivid/core/network/obs/OBSWebSocketClient.kt
-
 package com.vivid.core.network.obs
 
-import androidx.compose.ui.graphics.colorspace.connect
-import androidx.compose.ui.semantics.password
-import androidx.privacysandbox.tools.core.generator.build
-import io.obswebsocket.community.client.OBSRemoteController
-import io.obswebsocket.community.client.listener.lifecycle.controller.ConnectionLifecycleListener
-
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
+import com.google.gson.Gson
+import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
-import timber.log.Timber // <-- Import für Timber
+import okhttp3.*
+import timber.log.Timber
+import java.security.MessageDigest
+import java.util.*
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -34,12 +28,16 @@ class OBSWebSocketClient @Inject constructor() {
 
     data class OBSConfig(
         val host: String,
-        val port: Int,
-        val password: String?
+        val port: Int = 4455,
+        val password: String? = null
     )
 
-    // KORREKTUR: Der Typ muss der der importierten Bibliothek sein
-    private var client: OBSRemoteController? = null
+    private var webSocket: WebSocket? = null
+    private val client = OkHttpClient.Builder()
+        .readTimeout(0, TimeUnit.MILLISECONDS)
+        .build()
+
+    private val gson = Gson()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private val _connectionState = MutableStateFlow<ConnectionState>(ConnectionState.Disconnected)
@@ -49,7 +47,8 @@ class OBSWebSocketClient @Inject constructor() {
     val streamState = _streamState.asStateFlow()
 
     fun connect(config: OBSConfig) {
-        if (_connectionState.value is ConnectionState.Connecting || _connectionState.value is ConnectionState.Connected) {
+        if (_connectionState.value is ConnectionState.Connecting ||
+            _connectionState.value is ConnectionState.Connected) {
             Timber.w("Already connected or connecting.")
             return
         }
@@ -58,53 +57,110 @@ class OBSWebSocketClient @Inject constructor() {
             try {
                 _connectionState.value = ConnectionState.Connecting
 
-                // KORREKTUR: Use OBSRemoteController.builder()
-                client = OBSRemoteController.builder() // <--- FIX THIS LINE
-                    .host(config.host)
-                    .port(config.port)
-                    .password(config.password)
-                    .build()
+                val url = "ws://${config.host}:${config.port}"
+                val request = Request.Builder().url(url).build()
 
-                // Add listeners for connection events
-                client?.addConnectionListener(object : ConnectionLifecycleListener {
-                    override fun onConnect(controller: OBSRemoteController) {
+                webSocket = client.newWebSocket(request, object : WebSocketListener() {
+                    override fun onOpen(webSocket: WebSocket, response: Response) {
+                        Timber.i("WebSocket opened")
                         scope.launch {
-                            _connectionState.value = ConnectionState.Connected
-                            Timber.i("Successfully connected to OBS.")
+                            // OBS v5 Protocol: Send Identify message
+                            val identifyMsg = mapOf(
+                                "op" to 1,
+                                "d" to mapOf(
+                                    "rpcVersion" to 1,
+                                    "authentication" to config.password,
+                                    "eventSubscriptions" to 33 // Subscribe to events
+                                )
+                            )
+                            webSocket.send(gson.toJson(identifyMsg))
                         }
                     }
 
-                    override fun onDisconnect(controller: OBSRemoteController) {
-                        scope.launch {
-                            _connectionState.value = ConnectionState.Disconnected
-                            Timber.i("Disconnected from OBS.")
-                        }
+                    override fun onMessage(webSocket: WebSocket, text: String) {
+                        Timber.d("Message received: $text")
+                        handleMessage(text)
                     }
 
-                    override fun onError(controller: OBSRemoteController, throwable: Throwable) {
-                        scope.launch {
-                            Timber.e(throwable, "OBS Connection Error")
-                            _connectionState.value = ConnectionState.Error("Verbindung fehlgeschlagen: ${throwable.message}")
-                        }
+                    override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+                        Timber.i("WebSocket closing: $code $reason")
+                        webSocket.close(1000, null)
+                        _connectionState.value = ConnectionState.Disconnected
+                    }
+
+                    override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                        Timber.e(t, "WebSocket error")
+                        _connectionState.value = ConnectionState.Error(
+                            "Verbindung fehlgeschlagen: ${t.message}"
+                        )
                     }
                 })
 
-                client?.connect()
-
             } catch (e: Exception) {
-                Timber.e(e, "Failed to initialize connection to OBS")
-                _connectionState.value = ConnectionState.Error("Initialisierung fehlgeschlagen: ${e.message}")
+                Timber.e(e, "Failed to connect to OBS")
+                _connectionState.value = ConnectionState.Error(
+                    "Initialisierung fehlgeschlagen: ${e.message}"
+                )
             }
         }
     }
 
+    private fun handleMessage(text: String) {
+        try {
+            val message = gson.fromJson(text, Map::class.java)
+            val op = (message["op"] as? Double)?.toInt()
+
+            when (op) {
+                0 -> { // Hello
+                    Timber.d("Received Hello from OBS")
+                }
+                2 -> { // Identified
+                    _connectionState.value = ConnectionState.Connected
+                    Timber.i("Successfully connected to OBS")
+                }
+                5 -> { // Event
+                    handleEvent(message)
+                }
+                7 -> { // RequestResponse
+                    handleResponse(message)
+                }
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Error handling message")
+        }
+    }
+
+    private fun handleEvent(message: Map<*, *>) {
+        val eventData = message["d"] as? Map<*, *>
+        val eventType = eventData?.get("eventType") as? String
+
+        when (eventType) {
+            "StreamStateChanged" -> {
+                val outputActive = eventData["eventData"] as? Map<*, *>
+                val active = outputActive?.get("outputActive") as? Boolean
+                _streamState.value = if (active == true) {
+                    StreamState.STREAMING
+                } else {
+                    StreamState.STOPPED
+                }
+            }
+        }
+    }
+
+    private fun handleResponse(message: Map<*, *>) {
+        Timber.d("Response received: $message")
+    }
 
     fun disconnect() {
         scope.launch {
-            client?.disconnect()
-            client = null
-            _connectionState.value = ConnectionState.Disconnected
-            Timber.i("Disconnected from OBS.")
+            try {
+                webSocket?.close(1000, "Client disconnect")
+                webSocket = null
+                _connectionState.value = ConnectionState.Disconnected
+                Timber.i("Disconnected from OBS")
+            } catch (e: Exception) {
+                Timber.e(e, "Error during disconnect")
+            }
         }
     }
 
@@ -112,9 +168,10 @@ class OBSWebSocketClient @Inject constructor() {
         scope.launch {
             try {
                 _streamState.value = StreamState.STARTING
-                client?.api?.startStream() // API kann sich je nach Lib-Version ändern
+                sendRequest("StartStream")
+                delay(1000) // Wait for confirmation
                 _streamState.value = StreamState.STREAMING
-            } catch(e: Exception) {
+            } catch (e: Exception) {
                 Timber.e(e, "Failed to start stream")
                 _streamState.value = StreamState.STOPPED
             }
@@ -125,11 +182,28 @@ class OBSWebSocketClient @Inject constructor() {
         scope.launch {
             try {
                 _streamState.value = StreamState.STOPPING
-                client?.api?.stopStream() // API kann sich je nach Lib-Version ändern
+                sendRequest("StopStream")
+                delay(1000) // Wait for confirmation
                 _streamState.value = StreamState.STOPPED
-            } catch(e: Exception) {
+            } catch (e: Exception) {
                 Timber.e(e, "Failed to stop stream")
             }
         }
+    }
+
+    private fun sendRequest(requestType: String, requestData: Map<String, Any>? = null) {
+        val request = mutableMapOf(
+            "op" to 6,
+            "d" to mutableMapOf(
+                "requestType" to requestType,
+                "requestId" to UUID.randomUUID().toString()
+            )
+        )
+
+        requestData?.let {
+            (request["d"] as MutableMap<String, Any>)["requestData"] = it
+        }
+
+        webSocket?.send(gson.toJson(request))
     }
 }

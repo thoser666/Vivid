@@ -179,6 +179,8 @@ dependencies {
 
     // (Optional) AndroidX Core für InstantTaskExecutorRule, falls LiveData verwendet wird
     testImplementation(libs.androidx.core.testing)
+
+    implementation(project(":features-obs-control"))
 }
 
 sentry {

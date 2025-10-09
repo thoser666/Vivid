@@ -70,7 +70,10 @@ dependencies {
 
     implementation(libs.timber) // Für das Logging (behebt 'Unresolved reference timber')
     //implementation(libs.obs.ws.kotlin)
-    implementation(libs.obs.ws.client)
+    //implementation(libs.obs.ws.client)
+
+    implementation(libs.okhttp)
+    implementation(libs.gson)
 
     // Standard JUnit5 für Unit-Tests
     testImplementation(libs.junit.jupiter.api)
