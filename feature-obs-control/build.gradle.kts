@@ -8,12 +8,23 @@ plugins {
 }
 
 android {
-    namespace = "com.vivid.feature.obscontrol"
+    namespace = "com.vivid.feature.obscontrol"  // ← Beachten Sie: ohne "s"
     compileSdk = 34
 
     defaultConfig {
         minSdk = 24
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        consumerProguardFiles("consumer-rules.pro")
+    }
+
+    buildTypes {
+        release {
+            isMinifyEnabled = false
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+        }
     }
 
     buildFeatures {
@@ -34,6 +45,9 @@ dependencies {
     // Modules
     implementation(project(":core"))
     implementation(project(":domain"))
+
+    // AndroidX Core
+    implementation(libs.androidx.core.ktx)
 
     // Compose
     implementation(platform(libs.androidx.compose.bom))
@@ -62,6 +76,10 @@ dependencies {
     // Serialization
     implementation(libs.kotlinx.serialization.json)
 
+    // ✅ DataStore - WICHTIG!
+    implementation(libs.androidx.datastore.preferences)
+    implementation(libs.androidx.datastore.preferences.core)
+
     // Network (für OBS WebSocket)
     implementation(libs.okhttp)
     implementation(libs.okhttp.logging.interceptor)
@@ -72,11 +90,14 @@ dependencies {
     implementation(libs.ktor.serialization.kotlinx.json)
     implementation(libs.ktor.client.logging)
 
-    // Java-WebSocket (Alternative zu Ktor)
+    // Java-WebSocket
     implementation(libs.java.websocket)
 
     // Logging
     implementation(libs.timber)
+
+    // Material Icons Extended
+    implementation(libs.androidx.compose.material.icons.extended)
 
     // Testing
     testImplementation(libs.junit)

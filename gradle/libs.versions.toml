@@ -1,4 +1,10 @@
 [versions]
+# SDK Versionen
+compileSdk = "36"
+minSdk = "24"
+targetSdk = "34"
+jvmTarget = "17"
+
 agp = "8.13.0"
 accompanist = "0.37.3"
 appcompat = "1.7.1"

@@ -1,4 +1,4 @@
-package com.vivid.features.obs.control
+package com.vivid.feature.obscontrol
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions

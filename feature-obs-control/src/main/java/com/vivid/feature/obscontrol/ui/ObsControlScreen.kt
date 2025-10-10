@@ -1,8 +1,7 @@
-package com.vivid.features.obs.control.ui
+package com.vivid.feature.obscontrol.ui
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -18,8 +17,10 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.vivid.core.network.obs.OBSWebSocketClient
-import com.vivid.features.obs.control.ObsControlUiState
-import com.vivid.features.obs.control.ObsControlViewModel
+import com.vivid.feature.obscontrol.ObsControlViewModel
+import com.vivid.feature.obscontrol.ObsControlUiState
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.Computer
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -60,7 +61,7 @@ fun ObsControlScreen(
             // Connection Status Card
             ConnectionStatusCard(connectionState, streamState)
 
-            // Main Content based on state
+            // ✅ KORRIGIERT: Lokale Variable 'state' verwenden
             when (val state = uiState) {
                 is ObsControlUiState.Idle -> {
                     IdleContent(
@@ -83,7 +84,7 @@ fun ObsControlScreen(
 
                 is ObsControlUiState.Error -> {
                     ErrorContent(
-                        errorMessage = state.message,
+                        errorMessage = state.message,  // ← 'state' verwenden
                         onRetry = viewModel::connectToObs,
                         onDismiss = viewModel::dismissError
                     )
@@ -147,7 +148,7 @@ fun ConnectedContent(
 
             // Stream Control Buttons
             when (streamState) {
-                OBSWebSocketClient.StreamState.STOPPED -> {
+                OBSWebSocketClient.StreamState.Inactive -> {
                     Button(
                         onClick = onStartStream,
                         modifier = Modifier.fillMaxWidth(),
@@ -161,7 +162,7 @@ fun ConnectedContent(
                     }
                 }
 
-                OBSWebSocketClient.StreamState.STARTING -> {
+                OBSWebSocketClient.StreamState.Starting -> {
                     Button(
                         onClick = { },
                         modifier = Modifier.fillMaxWidth(),
@@ -176,7 +177,7 @@ fun ConnectedContent(
                     }
                 }
 
-                OBSWebSocketClient.StreamState.STREAMING -> {
+                OBSWebSocketClient.StreamState.Active -> {
                     Button(
                         onClick = onStopStream,
                         modifier = Modifier.fillMaxWidth(),
@@ -190,7 +191,7 @@ fun ConnectedContent(
                     }
                 }
 
-                OBSWebSocketClient.StreamState.STOPPING -> {
+                OBSWebSocketClient.StreamState.Stopping -> {
                     Button(
                         onClick = { },
                         modifier = Modifier.fillMaxWidth(),
@@ -361,13 +362,13 @@ fun ConnectionStatusCard(
                 ) {
                     Icon(
                         imageVector = when (streamState) {
-                            OBSWebSocketClient.StreamState.STREAMING -> Icons.Default.PlayArrow
-                            OBSWebSocketClient.StreamState.STARTING -> Icons.Default.Refresh
-                            OBSWebSocketClient.StreamState.STOPPING -> Icons.Default.Refresh
-                            OBSWebSocketClient.StreamState.STOPPED -> Icons.Default.Stop
+                            OBSWebSocketClient.StreamState.Active -> Icons.Default.PlayArrow
+                            OBSWebSocketClient.StreamState.Starting -> Icons.Default.Refresh
+                            OBSWebSocketClient.StreamState.Stopping -> Icons.Default.Refresh
+                            OBSWebSocketClient.StreamState.Inactive -> Icons.Default.Stop
                         },
                         contentDescription = null,
-                        tint = if (streamState == OBSWebSocketClient.StreamState.STREAMING) {
+                        tint = if (streamState == OBSWebSocketClient.StreamState.Active) {
                             MaterialTheme.colorScheme.error // Red for live
                         } else {
                             MaterialTheme.colorScheme.onSurfaceVariant
@@ -376,10 +377,10 @@ fun ConnectionStatusCard(
 
                     Text(
                         text = when (streamState) {
-                            OBSWebSocketClient.StreamState.STREAMING -> "🔴 LIVE"
-                            OBSWebSocketClient.StreamState.STARTING -> "Stream startet..."
-                            OBSWebSocketClient.StreamState.STOPPING -> "Stream stoppt..."
-                            OBSWebSocketClient.StreamState.STOPPED -> "Stream gestoppt"
+                            OBSWebSocketClient.StreamState.Active -> "🔴 LIVE"
+                            OBSWebSocketClient.StreamState.Starting -> "Stream startet..."
+                            OBSWebSocketClient.StreamState.Stopping -> "Stream stoppt..."
+                            OBSWebSocketClient.StreamState.Inactive -> "Stream gestoppt"
                         },
                         style = MaterialTheme.typography.bodyLarge
                     )
@@ -416,65 +417,78 @@ fun IdleContent(
                 style = MaterialTheme.typography.titleLarge
             )
 
-            // Host Input
+            // Host Input - ✅ KORRIGIERT
             OutlinedTextField(
                 value = host,
                 onValueChange = { host = it },
                 label = { Text("Host / IP-Adresse") },
                 placeholder = { Text("z.B. 192.168.1.100") },
                 leadingIcon = {
-                    Icon(Icons.Default.Computer, contentDescription = null)
+                    Icon(
+                        imageVector = Icons.Default.Dns,
+                        contentDescription = "Host"
+                    )
                 },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
             )
 
-            // Port Input
+            // Port Input - ✅ KORRIGIERT
             OutlinedTextField(
                 value = port,
                 onValueChange = { port = it.filter { char -> char.isDigit() } },
                 label = { Text("Port") },
                 placeholder = { Text("4455") },
                 leadingIcon = {
-                    Icon(Icons.Default.Settings, contentDescription = null)
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = "Port"
+                    )
                 },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
             )
 
-            // Password Input
+            // Password Input - ✅ KORRIGIERT
             OutlinedTextField(
                 value = password,
                 onValueChange = { password = it },
                 label = { Text("Passwort (optional)") },
                 placeholder = { Text("Leer lassen wenn kein Passwort") },
                 leadingIcon = {
-                    Icon(Icons.Default.Lock, contentDescription = null)
+                    Icon(
+                        imageVector = Icons.Default.Lock,
+                        contentDescription = "Passwort"
+                    )
                 },
                 trailingIcon = {
                     IconButton(onClick = { passwordVisible = !passwordVisible }) {
                         Icon(
-                            imageVector = if (passwordVisible)
+                            imageVector = if (passwordVisible) {
                                 Icons.Default.Visibility
-                            else
-                                Icons.Default.VisibilityOff,
-                            contentDescription = if (passwordVisible)
+                            } else {
+                                Icons.Default.VisibilityOff
+                            },
+                            contentDescription = if (passwordVisible) {
                                 "Passwort verbergen"
-                            else
+                            } else {
                                 "Passwort anzeigen"
+                            }
                         )
                     }
                 },
-                visualTransformation = if (passwordVisible)
+                visualTransformation = if (passwordVisible) {
                     VisualTransformation.None
-                else
-                    PasswordVisualTransformation(),
+                } else {
+                    PasswordVisualTransformation()
+                },
                 modifier = Modifier.fillMaxWidth(),
-                singleLine = true
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
             )
 
-            // Connect Button
+            // Connect Button - ✅ KORRIGIERT
             Button(
                 onClick = {
                     val portInt = port.toIntOrNull() ?: 4455
@@ -484,12 +498,13 @@ fun IdleContent(
                 modifier = Modifier.fillMaxWidth(),
                 enabled = host.isNotBlank()
             ) {
-                Icon(Icons.Default.Link, contentDescription = null)
+                Icon(
+                    imageVector = Icons.Default.Link,
+                    contentDescription = null
+                )
                 Spacer(Modifier.width(8.dp))
                 Text("Verbinden")
             }
         }
     }
 }
-
-// ============================================================================
