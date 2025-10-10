@@ -1,18 +1,40 @@
+# Fastfile
 default_platform(:android)
 
 platform :android do
-  desc "Builds a debug version of the app"
-  lane :build_debug do
-    # Gradle-Task zum Erstellen des Debug-Builds ausführen
+  desc "Run all unit tests"
+  lane :test do
     gradle(
-      task: "assembleDebug"
+      task: "testDebugUnitTest",
+      flags: "--stacktrace --no-daemon"
     )
   end
 
-  desc "Runs all unit tests"
-  lane :test do
+  desc "Build debug APK"
+  lane :build_debug do
     gradle(
-      task: "testDebugUnitTest"
+      task: "assembleDebug",
+      flags: "--stacktrace --no-daemon"
     )
+  end
+
+  desc "Build release APK"
+  lane :build_release do
+    gradle(
+      task: "assembleRelease",
+      flags: "--stacktrace --no-daemon"
+    )
+  end
+
+  desc "Run tests and build debug"
+  lane :ci_debug do
+    test
+    build_debug
+  end
+
+  desc "Run tests and build release"
+  lane :ci_release do
+    test
+    build_release
   end
 end

@@ -15,21 +15,45 @@ For _fastlane_ installation instructions, see [Installing _fastlane_](https://do
 
 ## Android
 
-### android build_debug
-
-```sh
-[bundle exec] fastlane android build_debug
-```
-
-Builds a debug version of the app
-
 ### android test
 
 ```sh
 [bundle exec] fastlane android test
 ```
 
-Runs all unit tests
+Run all unit tests
+
+### android build_debug
+
+```sh
+[bundle exec] fastlane android build_debug
+```
+
+Build debug APK
+
+### android build_release
+
+```sh
+[bundle exec] fastlane android build_release
+```
+
+Build release APK
+
+### android ci_debug
+
+```sh
+[bundle exec] fastlane android ci_debug
+```
+
+Run tests and build debug
+
+### android ci_release
+
+```sh
+[bundle exec] fastlane android ci_release
+```
+
+Run tests and build release
 
 ----
 
