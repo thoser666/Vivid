@@ -187,6 +187,8 @@ timber = { group = "com.jakewharton.timber", name = "timber", version = "5.0.1" 
 
 
 
+
+
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }

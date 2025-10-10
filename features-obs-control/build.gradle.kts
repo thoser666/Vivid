@@ -4,97 +4,84 @@ plugins {
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
     alias(libs.plugins.compose.compiler)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
-    namespace = "com.vivid.features.obs.control"
-    compileSdk = rootProject.extra["compileSdkVersion"] as Int
+    namespace = "com.vivid.feature.obscontrol"
+    compileSdk = 34
 
     defaultConfig {
-        minSdk =  rootProject.extra["minSdkVersion"] as Int
-
+        minSdk = 24
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        consumerProguardFiles("consumer-rules.pro")
     }
 
     buildFeatures {
         compose = true
     }
 
-    buildTypes {
-        release {
-            isMinifyEnabled = false
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro",
-            )
-        }
-    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlin {
-        compilerOptions {
-            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
-        }
-    }
 
+    kotlinOptions {
+        jvmTarget = "17"
+    }
 }
 
 dependencies {
+    // Modules
+    implementation(project(":core"))
+    implementation(project(":domain"))
 
-    implementation(libs.androidx.core.ktx)
-    implementation(libs.androidx.appcompat)
-    implementation(libs.material)
-    // Preferences DataStore
-    implementation(libs.androidx.datastore.preferences)
-
-    // Jetpack Compose dependencies
-    implementation(platform(libs.androidx.compose.bom)) // BOM
+    // Compose
+    implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.ui)
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
-    implementation(libs.androidx.material3) // Using Material 3 as per your SettingsScreen
-    implementation(libs.androidx.activity.compose)
-
-
-    // Hilt Navigation Compose (already in your SettingsScreen.kt imports)
-    implementation(libs.androidx.hilt.navigation.compose)
-
-    implementation(libs.androidx.lifecycle.viewmodel.ktx) // Or use libs.androidx.lifecycle.viewmodel.ktx if defined in libs.versions.toml
-
-    // Hilt dependencies (if you added the Hilt plugin)
-    implementation(libs.hilt.android)
-    ksp(libs.hilt.compiler)
-
-    implementation(libs.ktor.client.core)
-    implementation(libs.ktor.client.cio) // Oder eine andere Engine wie OkHttp
-    implementation(libs.ktor.client.websockets)
-    implementation(libs.ktor.client.content.negotiation)
-
-    // Wenn du JSON mit Ktor serialisieren willst (was sehr wahrscheinlich ist):
-    implementation(libs.ktor.serialization.kotlinx.json)
-
-    implementation(libs.timberkt)
-
-    // You should also have the base Timber library here
-    implementation(libs.timber)
-
     implementation(libs.androidx.compose.material.icons.extended)
 
-    //implementation(libs.obs.websocket.client)
-    //implementation(libs.obs.ws.client)
+    // Navigation
+    implementation(libs.androidx.navigation.compose)
 
+    // Hilt
+    implementation(libs.hilt.android)
+    ksp(libs.hilt.compiler.ksp)
+    implementation(libs.androidx.hilt.navigation.compose)
+
+    // Lifecycle
+    implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.lifecycle.viewmodel.ktx)
+
+    // Coroutines
+    implementation(libs.kotlinx.coroutines.core)
+    implementation(libs.kotlinx.coroutines.android)
+
+    // Serialization
+    implementation(libs.kotlinx.serialization.json)
+
+    // Network (für OBS WebSocket)
+    implementation(libs.okhttp)
+    implementation(libs.okhttp.logging.interceptor)
+    implementation(libs.ktor.client.core)
+    implementation(libs.ktor.client.cio)
+    implementation(libs.ktor.client.websockets)
+    implementation(libs.ktor.client.content.negotiation)
+    implementation(libs.ktor.serialization.kotlinx.json)
+    implementation(libs.ktor.client.logging)
+
+    // Java-WebSocket (Alternative zu Ktor)
+    implementation(libs.java.websocket)
+
+    // Logging
+    implementation(libs.timber)
+
+    // Testing
     testImplementation(libs.junit)
-    androidTestImplementation(libs.androidx.junit)
-    androidTestImplementation(libs.androidx.espresso.core)
-
-    // ... test dependencies
-    androidTestImplementation(platform(libs.androidx.compose.bom))
-    androidTestImplementation(libs.androidx.ui.test.junit4)
+    testImplementation(libs.mockk)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.turbine)
     debugImplementation(libs.androidx.ui.tooling)
-    debugImplementation(libs.androidx.ui.test.manifest)
-
-    implementation(project(":core"))
 }
