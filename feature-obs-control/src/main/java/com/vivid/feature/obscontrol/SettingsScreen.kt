@@ -38,7 +38,7 @@ fun SettingsScreen(
             label = { Text(stringResource(id = R.string.obs_settings_host_label)) },
             modifier = Modifier.fillMaxWidth(),
             readOnly = uiState.isSaving,
-            singleLine = true
+            singleLine = true,
         )
 
         OutlinedTextField(
@@ -48,7 +48,7 @@ fun SettingsScreen(
             modifier = Modifier.fillMaxWidth(),
             readOnly = uiState.isSaving,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            singleLine = true
+            singleLine = true,
         )
 
         OutlinedTextField(
@@ -60,7 +60,7 @@ fun SettingsScreen(
             singleLine = true,
             // Hide password characters from the user.
             visualTransformation = PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
         )
 
         // Spacer to push the save button to the bottom.
@@ -70,7 +70,7 @@ fun SettingsScreen(
             onClick = viewModel::saveObsSettings,
             modifier = Modifier.fillMaxWidth(),
             // The button is disabled while the save operation is in progress.
-            enabled = !uiState.isSaving
+            enabled = !uiState.isSaving,
         ) {
             if (uiState.isSaving) {
                 // Show a progress indicator during the save operation.

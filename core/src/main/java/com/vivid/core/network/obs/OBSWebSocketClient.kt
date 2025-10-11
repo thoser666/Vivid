@@ -40,7 +40,7 @@ class OBSWebSocketClient @Inject constructor() {
     data class OBSConfig(
         val host: String,
         val port: Int = 4455,
-        val password: String? = null
+        val password: String? = null,
     )
 
     // ========================================================================
@@ -80,51 +80,53 @@ class OBSWebSocketClient @Inject constructor() {
                 val url = "ws://${config.host}:${config.port}"
                 val request = Request.Builder().url(url).build()
 
-                webSocket = client.newWebSocket(request, object : WebSocketListener() {
-                    override fun onOpen(webSocket: WebSocket, response: Response) {
-                        Timber.i("WebSocket opened")
-                        scope.launch {
-                            // OBS v5 Protocol: Send Identify message
-                            val identifyMsg = mapOf(
-                                "op" to 1,
-                                "d" to mapOf(
-                                    "rpcVersion" to 1,
-                                    "authentication" to config.password,
-                                    "eventSubscriptions" to 33 // Subscribe to events
+                webSocket = client.newWebSocket(
+                    request,
+                    object : WebSocketListener() {
+                        override fun onOpen(webSocket: WebSocket, response: Response) {
+                            Timber.i("WebSocket opened")
+                            scope.launch {
+                                // OBS v5 Protocol: Send Identify message
+                                val identifyMsg = mapOf(
+                                    "op" to 1,
+                                    "d" to mapOf(
+                                        "rpcVersion" to 1,
+                                        "authentication" to config.password,
+                                        "eventSubscriptions" to 33, // Subscribe to events
+                                    ),
                                 )
-                            )
-                            webSocket.send(gson.toJson(identifyMsg))
+                                webSocket.send(gson.toJson(identifyMsg))
+                            }
                         }
-                    }
 
-                    override fun onMessage(webSocket: WebSocket, text: String) {
-                        Timber.d("Message received: $text")
-                        handleMessage(text)
-                    }
+                        override fun onMessage(webSocket: WebSocket, text: String) {
+                            Timber.d("Message received: $text")
+                            handleMessage(text)
+                        }
 
-                    override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
-                        Timber.i("WebSocket closing: $code $reason")
-                        webSocket.close(1000, null)
-                        _connectionState.value = ConnectionState.Disconnected
-                        _streamState.value = StreamState.Inactive
-                    }
+                        override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+                            Timber.i("WebSocket closing: $code $reason")
+                            webSocket.close(1000, null)
+                            _connectionState.value = ConnectionState.Disconnected
+                            _streamState.value = StreamState.Inactive
+                        }
 
-                    override fun onFailure(
-                        webSocket: WebSocket,
-                        t: Throwable,
-                        response: Response?
-                    ) {
-                        Timber.e(t, "WebSocket error")
-                        _connectionState.value = ConnectionState.Error(
-                            "Verbindung fehlgeschlagen: ${t.message}"
-                        )
-                    }
-                })
-
+                        override fun onFailure(
+                            webSocket: WebSocket,
+                            t: Throwable,
+                            response: Response?,
+                        ) {
+                            Timber.e(t, "WebSocket error")
+                            _connectionState.value = ConnectionState.Error(
+                                "Verbindung fehlgeschlagen: ${t.message}",
+                            )
+                        }
+                    },
+                )
             } catch (e: Exception) {
                 Timber.e(e, "Failed to connect to OBS")
                 _connectionState.value = ConnectionState.Error(
-                    "Initialisierung fehlgeschlagen: ${e.message}"
+                    "Initialisierung fehlgeschlagen: ${e.message}",
                 )
             }
         }
@@ -258,8 +260,8 @@ class OBSWebSocketClient @Inject constructor() {
                 "op" to 6,
                 "d" to mutableMapOf<String, Any>(
                     "requestType" to requestType,
-                    "requestId" to UUID.randomUUID().toString()
-                )
+                    "requestId" to UUID.randomUUID().toString(),
+                ),
             )
 
             requestData?.let {

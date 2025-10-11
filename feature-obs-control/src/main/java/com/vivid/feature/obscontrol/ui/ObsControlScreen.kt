@@ -17,16 +17,14 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.vivid.core.network.obs.OBSWebSocketClient
-import com.vivid.feature.obscontrol.ObsControlViewModel
 import com.vivid.feature.obscontrol.ObsControlUiState
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.filled.Computer
+import com.vivid.feature.obscontrol.ObsControlViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ObsControlScreen(
     navController: NavHostController? = null,
-    viewModel: ObsControlViewModel = hiltViewModel()
+    viewModel: ObsControlViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val connectionState by viewModel.connectionState.collectAsState()
@@ -45,10 +43,10 @@ fun ObsControlScreen(
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                )
+                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                ),
             )
-        }
+        },
     ) { paddingValues ->
         Column(
             modifier = Modifier
@@ -56,7 +54,7 @@ fun ObsControlScreen(
                 .padding(paddingValues)
                 .padding(16.dp)
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             // Connection Status Card
             ConnectionStatusCard(connectionState, streamState)
@@ -65,7 +63,7 @@ fun ObsControlScreen(
             when (val state = uiState) {
                 is ObsControlUiState.Idle -> {
                     IdleContent(
-                        onConnect = viewModel::connectToObs
+                        onConnect = viewModel::connectToObs,
                     )
                 }
 
@@ -78,15 +76,15 @@ fun ObsControlScreen(
                         streamState = streamState,
                         onStartStream = viewModel::startStream,
                         onStopStream = viewModel::stopStream,
-                        onDisconnect = viewModel::disconnect
+                        onDisconnect = viewModel::disconnect,
                     )
                 }
 
                 is ObsControlUiState.Error -> {
                     ErrorContent(
-                        errorMessage = state.message,  // ← 'state' verwenden
+                        errorMessage = state.message, // ← 'state' verwenden
                         onRetry = viewModel::connectToObs,
-                        onDismiss = viewModel::dismissError
+                        onDismiss = viewModel::dismissError,
                     )
                 }
             }
@@ -101,21 +99,21 @@ fun ObsControlScreen(
 @Composable
 fun ConnectingContent() {
     Card(
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(32.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             CircularProgressIndicator(
-                modifier = Modifier.size(48.dp)
+                modifier = Modifier.size(48.dp),
             )
             Text(
                 text = "Verbinde mit OBS...",
-                style = MaterialTheme.typography.titleMedium
+                style = MaterialTheme.typography.titleMedium,
             )
         }
     }
@@ -130,20 +128,20 @@ fun ConnectedContent(
     streamState: OBSWebSocketClient.StreamState,
     onStartStream: () -> Unit,
     onStopStream: () -> Unit,
-    onDisconnect: () -> Unit
+    onDisconnect: () -> Unit,
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Text(
                 text = "Stream Steuerung",
-                style = MaterialTheme.typography.titleLarge
+                style = MaterialTheme.typography.titleLarge,
             )
 
             // Stream Control Buttons
@@ -153,8 +151,8 @@ fun ConnectedContent(
                         onClick = onStartStream,
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary
-                        )
+                            containerColor = MaterialTheme.colorScheme.primary,
+                        ),
                     ) {
                         Icon(Icons.Default.PlayArrow, contentDescription = null)
                         Spacer(Modifier.width(8.dp))
@@ -166,11 +164,11 @@ fun ConnectedContent(
                     Button(
                         onClick = { },
                         modifier = Modifier.fillMaxWidth(),
-                        enabled = false
+                        enabled = false,
                     ) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(16.dp),
-                            strokeWidth = 2.dp
+                            strokeWidth = 2.dp,
                         )
                         Spacer(Modifier.width(8.dp))
                         Text("Startet...")
@@ -182,8 +180,8 @@ fun ConnectedContent(
                         onClick = onStopStream,
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.error
-                        )
+                            containerColor = MaterialTheme.colorScheme.error,
+                        ),
                     ) {
                         Icon(Icons.Default.Stop, contentDescription = null)
                         Spacer(Modifier.width(8.dp))
@@ -195,11 +193,11 @@ fun ConnectedContent(
                     Button(
                         onClick = { },
                         modifier = Modifier.fillMaxWidth(),
-                        enabled = false
+                        enabled = false,
                     ) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(16.dp),
-                            strokeWidth = 2.dp
+                            strokeWidth = 2.dp,
                         )
                         Spacer(Modifier.width(8.dp))
                         Text("Stoppt...")
@@ -212,7 +210,7 @@ fun ConnectedContent(
             // Disconnect Button
             OutlinedButton(
                 onClick = onDisconnect,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
             ) {
                 Icon(Icons.Default.LinkOff, contentDescription = null)
                 Spacer(Modifier.width(8.dp))
@@ -230,56 +228,56 @@ fun ConnectedContent(
 fun ErrorContent(
     errorMessage: String,
     onRetry: (String, Int, String?) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.errorContainer
-        )
+            containerColor = MaterialTheme.colorScheme.errorContainer,
+        ),
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Icon(
                     Icons.Default.Error,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.error
+                    tint = MaterialTheme.colorScheme.error,
                 )
                 Text(
                     text = "Verbindungsfehler",
                     style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onErrorContainer
+                    color = MaterialTheme.colorScheme.onErrorContainer,
                 )
             }
 
             Text(
                 text = errorMessage,
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onErrorContainer
+                color = MaterialTheme.colorScheme.onErrorContainer,
             )
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 OutlinedButton(
                     onClick = onDismiss,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
                 ) {
                     Text("Zurück")
                 }
 
                 Button(
                     onClick = onDismiss,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
                 ) {
                     Icon(Icons.Default.Refresh, contentDescription = null)
                     Spacer(Modifier.width(4.dp))
@@ -297,7 +295,7 @@ fun ErrorContent(
 @Composable
 fun ConnectionStatusCard(
     connectionState: OBSWebSocketClient.ConnectionState,
-    streamState: OBSWebSocketClient.StreamState
+    streamState: OBSWebSocketClient.StreamState,
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -310,19 +308,19 @@ fun ConnectionStatusCard(
                 is OBSWebSocketClient.ConnectionState.Error ->
                     MaterialTheme.colorScheme.errorContainer
                 else -> MaterialTheme.colorScheme.surfaceVariant
-            }
-        )
+            },
+        ),
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             // Connection Status
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Icon(
                     imageVector = when (connectionState) {
@@ -338,7 +336,7 @@ fun ConnectionStatusCard(
                         is OBSWebSocketClient.ConnectionState.Error ->
                             MaterialTheme.colorScheme.error
                         else -> MaterialTheme.colorScheme.onSurfaceVariant
-                    }
+                    },
                 )
 
                 Text(
@@ -348,7 +346,7 @@ fun ConnectionStatusCard(
                         is OBSWebSocketClient.ConnectionState.Disconnected -> "Getrennt"
                         is OBSWebSocketClient.ConnectionState.Error -> "Fehler"
                     },
-                    style = MaterialTheme.typography.titleMedium
+                    style = MaterialTheme.typography.titleMedium,
                 )
             }
 
@@ -358,7 +356,7 @@ fun ConnectionStatusCard(
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Icon(
                         imageVector = when (streamState) {
@@ -372,7 +370,7 @@ fun ConnectionStatusCard(
                             MaterialTheme.colorScheme.error // Red for live
                         } else {
                             MaterialTheme.colorScheme.onSurfaceVariant
-                        }
+                        },
                     )
 
                     Text(
@@ -382,7 +380,7 @@ fun ConnectionStatusCard(
                             OBSWebSocketClient.StreamState.Stopping -> "Stream stoppt..."
                             OBSWebSocketClient.StreamState.Inactive -> "Stream gestoppt"
                         },
-                        style = MaterialTheme.typography.bodyLarge
+                        style = MaterialTheme.typography.bodyLarge,
                     )
                 }
             }
@@ -396,7 +394,7 @@ fun ConnectionStatusCard(
 
 @Composable
 fun IdleContent(
-    onConnect: (String, Int, String?) -> Unit
+    onConnect: (String, Int, String?) -> Unit,
 ) {
     var host by remember { mutableStateOf("192.168.1.100") }
     var port by remember { mutableStateOf("4455") }
@@ -404,17 +402,17 @@ fun IdleContent(
     var passwordVisible by remember { mutableStateOf(false) }
 
     Card(
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Text(
                 text = "OBS WebSocket Einstellungen",
-                style = MaterialTheme.typography.titleLarge
+                style = MaterialTheme.typography.titleLarge,
             )
 
             // Host Input - ✅ KORRIGIERT
@@ -426,11 +424,11 @@ fun IdleContent(
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Default.Dns,
-                        contentDescription = "Host"
+                        contentDescription = "Host",
                     )
                 },
                 modifier = Modifier.fillMaxWidth(),
-                singleLine = true
+                singleLine = true,
             )
 
             // Port Input - ✅ KORRIGIERT
@@ -442,12 +440,12 @@ fun IdleContent(
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Default.Settings,
-                        contentDescription = "Port"
+                        contentDescription = "Port",
                     )
                 },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             )
 
             // Password Input - ✅ KORRIGIERT
@@ -459,7 +457,7 @@ fun IdleContent(
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Default.Lock,
-                        contentDescription = "Passwort"
+                        contentDescription = "Passwort",
                     )
                 },
                 trailingIcon = {
@@ -474,7 +472,7 @@ fun IdleContent(
                                 "Passwort verbergen"
                             } else {
                                 "Passwort anzeigen"
-                            }
+                            },
                         )
                     }
                 },
@@ -485,7 +483,7 @@ fun IdleContent(
                 },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
             )
 
             // Connect Button - ✅ KORRIGIERT
@@ -496,11 +494,11 @@ fun IdleContent(
                     onConnect(host, portInt, pwd)
                 },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = host.isNotBlank()
+                enabled = host.isNotBlank(),
             ) {
                 Icon(
                     imageVector = Icons.Default.Link,
-                    contentDescription = null
+                    contentDescription = null,
                 )
                 Spacer(Modifier.width(8.dp))
                 Text("Verbinden")
