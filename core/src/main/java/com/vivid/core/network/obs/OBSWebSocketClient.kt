@@ -123,11 +123,12 @@ class OBSWebSocketClient @Inject constructor() {
                         }
                     },
                 )
-            } catch (e: Exception) {
-                Timber.e(e, "Failed to connect to OBS")
-                _connectionState.value = ConnectionState.Error(
-                    "Initialisierung fehlgeschlagen: ${e.message}",
-                )
+            } 
+//            catch (e: Exception) {
+//                Timber.e(e, "Failed to connect to OBS")
+//                _connectionState.value = ConnectionState.Error(
+//                    "Initialisierung fehlgeschlagen: ${e.message}",
+//                )
             }
         }
     }
@@ -140,9 +141,10 @@ class OBSWebSocketClient @Inject constructor() {
                 _connectionState.value = ConnectionState.Disconnected
                 _streamState.value = StreamState.Inactive
                 Timber.i("Disconnected from OBS")
-            } catch (e: Exception) {
-                Timber.e(e, "Error during disconnect")
-            }
+            } 
+//            catch (e: Exception) {
+//                Timber.e(e, "Error during disconnect")
+//            }
         }
     }
 
@@ -153,10 +155,11 @@ class OBSWebSocketClient @Inject constructor() {
                 sendRequest("StartStream")
                 delay(1000) // Wait for confirmation
                 _streamState.value = StreamState.Active
-            } catch (e: Exception) {
-                Timber.e(e, "Failed to start stream")
-                _streamState.value = StreamState.Inactive
-            }
+            } 
+//            catch (e: Exception) {
+//                Timber.e(e, "Failed to start stream")
+//                _streamState.value = StreamState.Inactive
+//            }
         }
     }
 
@@ -167,9 +170,10 @@ class OBSWebSocketClient @Inject constructor() {
                 sendRequest("StopStream")
                 delay(1000) // Wait for confirmation
                 _streamState.value = StreamState.Inactive
-            } catch (e: Exception) {
-                Timber.e(e, "Failed to stop stream")
-            }
+            } 
+//            catch (e: Exception) {
+//                Timber.e(e, "Failed to stop stream")
+//            }
         }
     }
 
@@ -209,9 +213,10 @@ class OBSWebSocketClient @Inject constructor() {
                     Timber.w("Unknown opcode: $op")
                 }
             }
-        } catch (e: Exception) {
-            Timber.e(e, "Error handling message")
-        }
+        } 
+//        catch (e: Exception) {
+//            Timber.e(e, "Error handling message")
+//        }
     }
 
     @Suppress("UNCHECKED_CAST")
@@ -235,9 +240,10 @@ class OBSWebSocketClient @Inject constructor() {
                     Timber.d("Unhandled event: $eventType")
                 }
             }
-        } catch (e: Exception) {
-            Timber.e(e, "Error handling event")
-        }
+        } 
+//        catch (e: Exception) {
+//            Timber.e(e, "Error handling event")
+//        }
     }
 
     private fun handleResponse(message: Map<String, Any>) {
@@ -249,9 +255,10 @@ class OBSWebSocketClient @Inject constructor() {
             val result = requestStatus?.get("result") as? Boolean
 
             Timber.d("Response: requestType=$requestType, result=$result")
-        } catch (e: Exception) {
-            Timber.e(e, "Error handling response")
-        }
+        } 
+//        catch (e: Exception) {
+//            Timber.e(e, "Error handling response")
+//        }
     }
 
     private fun sendRequest(requestType: String, requestData: Map<String, Any>? = null) {
@@ -272,8 +279,9 @@ class OBSWebSocketClient @Inject constructor() {
             val json = gson.toJson(request)
             webSocket?.send(json)
             Timber.d("Sent request: $requestType")
-        } catch (e: Exception) {
-            Timber.e(e, "Error sending request: $requestType")
-        }
+        } 
+//        catch (e: Exception) {
+//            Timber.e(e, "Error sending request: $requestType")
+//        }
     }
 }
