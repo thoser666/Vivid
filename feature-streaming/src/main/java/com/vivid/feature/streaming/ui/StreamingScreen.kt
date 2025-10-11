@@ -98,6 +98,12 @@ fun StreamingScreen(
                     modifier = Modifier.align(Alignment.TopCenter),
                 )
             }
+            // In StreamingScreen.kt:
+            Button(
+                onClick = { navController.navigate("obs_control") },
+            ) {
+                Text("OBS Steuerung öffnen")
+            }
         }
     }
 }

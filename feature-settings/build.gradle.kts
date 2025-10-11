@@ -1,83 +1,69 @@
-import org.gradle.kotlin.dsl.extra
-
-// Make sure "com.android.library" is set as plugin at the beginning of the file
 plugins {
-    id("com.android.library")
-    kotlin("android")
-    id("com.google.devtools.ksp") // KSP instead of kapt
-    id("dagger.hilt.android.plugin")
-    id("org.jetbrains.kotlin.plugin.compose")
+    alias(libs.plugins.android.library)
+    alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.hilt)
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.compose.compiler)
 }
 
 android {
-    namespace = "com.vivid.feature.settings" // Unique namespace for this module
-    compileSdk = rootProject.extra["compileSdkVersion"] as Int
+    namespace = "com.vivid.feature.settings"
+    compileSdk = 34
 
     defaultConfig {
-        minSdk = rootProject.extra["minSdkVersion"] as Int
-
+        minSdk = 24
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        consumerProguardFiles("consumer-rules.pro")
     }
 
-    buildTypes {
-        release {
-            isMinifyEnabled = false
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro",
-            )
-        }
-    }
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
-    }
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
-    }
-
-    kotlin {
-        compilerOptions {
-            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
-        }
-    }
-    // IMPORTANT: Enable Compose for this module
     buildFeatures {
         compose = true
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = "17"
     }
 }
 
 dependencies {
-    // Dependency to 'core' module
+    // Modules
     implementation(project(":core"))
+    implementation(project(":domain"))
 
-    // Compose dependencies
-    implementation(libs.androidx.compose.bom)
-    implementation(libs.ui)
-    implementation(libs.androidx.compose.ui.graphics)
-    implementation(libs.ui.tooling.preview)
-    implementation(libs.material3)
-
-    // Hilt for ViewModel injection - CHANGED: ksp instead of kapt
-    implementation(libs.hilt.android)
-    ksp(libs.dagger.hilt.compiler) // KSP instead of kapt
-    implementation(libs.androidx.hilt.navigation.compose)
+    // Compose
+    implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.ui)
+    implementation(libs.androidx.ui.graphics)
+    implementation(libs.androidx.ui.tooling.preview)
+    implementation(libs.androidx.compose.material.icons.extended)
 
     // Navigation
     implementation(libs.androidx.navigation.compose)
 
-    // Other necessary AndroidX libraries
-    implementation(libs.androidx.core.ktx)
-    implementation(libs.androidx.appcompat)
+    // Hilt
+    implementation(libs.hilt.android)
+    ksp(libs.hilt.compiler.ksp)
+    implementation(libs.androidx.hilt.navigation.compose)
 
-    // Test dependencies
+    // Lifecycle
+    implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.lifecycle.viewmodel.ktx)
+
+    // Coroutines
+    implementation(libs.kotlinx.coroutines.core)
+    implementation(libs.kotlinx.coroutines.android)
+
+    // DataStore (für Settings)
+    implementation(libs.androidx.datastore.preferences)
+
+    // Testing
     testImplementation(libs.junit)
-    androidTestImplementation(libs.androidx.junit)
-    androidTestImplementation(libs.androidx.espresso.core)
-    androidTestImplementation(libs.androidx.compose.bom)
-    androidTestImplementation(libs.ui.test.junit4)
-    debugImplementation(libs.ui.tooling)
-    debugImplementation(libs.ui.test.manifest)
+    testImplementation(libs.mockk)
+    testImplementation(libs.kotlinx.coroutines.test)
+    debugImplementation(libs.androidx.ui.tooling)
 }

@@ -33,8 +33,8 @@ class StreamingEngineTest {
     @Test
     fun `startStreaming should update isStreaming state to true on success`() = runTest {
         // Arrange
-        val openGlView: OpenGlView = mockk(relaxed = true)
-        val rtmpUrl = "rtmp://test.com/app"
+        mockk(relaxed = true)
+        "rtmp://test.com/app"
 
         // WICHTIG: Erstellen Sie eine `RtmpCamera2`-Instanz, die von der `StreamingEngine` verwendet wird
         // indem wir den Konstruktor der StreamingEngine anpassen, um eine Factory-Lambda zu akzeptieren

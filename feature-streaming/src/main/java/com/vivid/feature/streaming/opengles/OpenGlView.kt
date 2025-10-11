@@ -9,21 +9,5 @@ class OpenGlView(context: Context, attrs: AttributeSet? = null) : GLSurfaceView(
 
     // ... your existing renderer setup and other code ...
 
-    /**
-     * Exposes the onResume method from the parent GLSurfaceView.
-     * This MUST be called from the Activity/Fragment's onResume().
-     */
-    override fun onResume() {
-        super.onResume()
-    }
-
-    /**
-     * Exposes the onPause method from the parent GLSurfaceView.
-     * This MUST be called from the Activity/Fragment's onPause().
-     */
-    override fun onPause() {
-        super.onPause()
-    }
-
     // ... any other methods you have ...
 }
