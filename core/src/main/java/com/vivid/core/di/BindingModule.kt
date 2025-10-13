@@ -18,13 +18,13 @@ abstract class BindingModule {
     @Binds
     @Singleton
     abstract fun bindStreamingRepository(
-        impl: StreamingRepositoryImpl
+        impl: StreamingRepositoryImpl,
     ): StreamingRepository
 
     @Binds
     @Singleton
     abstract fun bindVividApi(
-        impl: VividApiImpl
+        impl: VividApiImpl,
     ): VividApi
 
 

@@ -9,8 +9,8 @@ interface Request {
             d = RequestData(
                 requestType = this::class.simpleName ?: "UnknownRequest",
                 requestId = requestId,
-                requestData = this
-            )
+                requestData = this,
+            ),
         )
     }
 }

@@ -17,7 +17,7 @@ import io.ktor.http.contentType
 import javax.inject.Inject // <-- WICHTIGER IMPORT
 
 class VividApiImpl @Inject constructor( // <-- HIER ist die Änderung
-    private val client: HttpClient
+    private val client: HttpClient,
 ) : VividApi {
 
     companion object {

@@ -13,11 +13,13 @@ object KtorClientFactory { // <-- Einzige Änderung: class -> object
     fun create(): HttpClient {
         return HttpClient(CIO) {
             install(ContentNegotiation) {
-                json(Json {
-                    prettyPrint = true
-                    isLenient = true
-                    ignoreUnknownKeys = true
-                })
+                json(
+                    Json {
+                        prettyPrint = true
+                        isLenient = true
+                        ignoreUnknownKeys = true
+                    },
+                )
             }
             install(Logging) {
                 level = LogLevel.ALL
