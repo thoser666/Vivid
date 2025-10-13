@@ -1,19 +1,18 @@
 package com.vivid.core.repository
 
+import com.vivid.core.domain.model.LoginRequest
 import com.vivid.core.domain.model.LoginResult
+import com.vivid.core.domain.model.RegistrationRequest
 import com.vivid.core.domain.model.RegistrationResult
 import com.vivid.core.domain.model.User
 import com.vivid.core.network.VividApi
 import com.vivid.core.network.obs.OBSWebSocketClient
-import com.vivid.core.domain.model.LoginRequest
-import com.vivid.core.domain.model.RegistrationRequest
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import javax.inject.Inject // <-- DIESEN IMPORT HINZUFÜGEN
 
 class StreamingRepositoryImpl @Inject constructor( // <-- DIESE ANNOTATION HINZUFÜGEN
     private val obsWebSocketClient: OBSWebSocketClient,
-    private val vividApi: VividApi
+    private val vividApi: VividApi,
 ) : StreamingRepository {
 
     override val isConnectedToObs: StateFlow<Boolean>

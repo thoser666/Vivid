@@ -8,19 +8,19 @@ interface Request {
             d = RequestData(
                 requestType = this::class.java.simpleName,
                 requestId = requestId,
-                requestData = this
-            )
+                requestData = this,
+            ),
         )
     }
 }
 
 data class RequestWithId(
     val op: Int,
-    val d: RequestData
+    val d: RequestData,
 )
 
 data class RequestData(
     val requestType: String,
     val requestId: String,
-    val requestData: Request?
+    val requestData: Request?,
 )

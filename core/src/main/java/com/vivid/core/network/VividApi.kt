@@ -6,7 +6,6 @@ import com.vivid.core.domain.model.RegistrationRequest
 import com.vivid.core.domain.model.RegistrationResult
 import com.vivid.core.domain.model.User
 
-
 interface VividApi {
     suspend fun login(loginRequest: LoginRequest): LoginResult
     suspend fun register(registrationRequest: RegistrationRequest): RegistrationResult
