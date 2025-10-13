@@ -8,7 +8,7 @@ plugins {
 }
 
 android {
-    namespace = "com.vivid.feature.obscontrol"  // ← Beachten Sie: ohne "s"
+    namespace = "com.vivid.feature.obscontrol" // ← Beachten Sie: ohne "s"
     compileSdk = 34
 
     defaultConfig {
@@ -22,7 +22,7 @@ android {
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
+                "proguard-rules.pro",
             )
         }
     }

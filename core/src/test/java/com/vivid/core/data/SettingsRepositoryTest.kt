@@ -12,7 +12,6 @@ import org.junit.jupiter.api.BeforeEach // Modernes JUnit 5 (ersetzt @Before)
 import org.junit.jupiter.api.Test
 import java.io.File
 
-
 data class StreamSettings(val url: String, val key: String)
 
 class SettingsRepository(private val dataStore: DataStore<Preferences>) {
@@ -25,7 +24,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         .map { preferences ->
             StreamSettings(
                 url = preferences[PreferencesKeys.STREAM_URL] ?: "",
-                key = preferences[PreferencesKeys.STREAM_KEY] ?: ""
+                key = preferences[PreferencesKeys.STREAM_KEY] ?: "",
             )
         }
 
@@ -37,13 +36,12 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
     }
 }
 
-
 // --- HIER BEGINNT DER TEST ---
 class SettingsRepositoryTest {
 
     // Erstellen Sie eine Test-DataStore im Speicher
     private val testDataStore: DataStore<Preferences> = PreferenceDataStoreFactory.create(
-        produceFile = { File("test.preferences_pb") }
+        produceFile = { File("test.preferences_pb") },
     )
 
     private lateinit var repository: SettingsRepository

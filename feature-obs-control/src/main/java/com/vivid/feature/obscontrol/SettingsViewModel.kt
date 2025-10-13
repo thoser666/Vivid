@@ -13,7 +13,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    private val settingsRepository: SettingsRepository
+    private val settingsRepository: SettingsRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -31,7 +31,7 @@ class SettingsViewModel @Inject constructor(
                         host = appSettings.obsHost,
                         port = appSettings.obsPort,
                         password = appSettings.obsPassword,
-                        isSaving = false
+                        isSaving = false,
                     )
                 }
             }
@@ -59,7 +59,7 @@ class SettingsViewModel @Inject constructor(
                 settingsRepository.updateObsSettings(
                     host = currentState.host,
                     port = currentState.port,
-                    password = currentState.password
+                    password = currentState.password,
                 )
             } finally {
                 _uiState.update { it.copy(isSaving = false) }
@@ -72,5 +72,5 @@ data class SettingsUiState(
     val host: String = "localhost",
     val port: String = "4455",
     val password: String = "",
-    val isSaving: Boolean = false
+    val isSaving: Boolean = false,
 )

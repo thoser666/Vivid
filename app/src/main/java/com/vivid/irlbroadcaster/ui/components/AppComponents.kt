@@ -17,7 +17,7 @@ fun AppThumbnail(modifier: Modifier = Modifier) {
     Image(
         painter = painterResource(id = R.drawable.vivid_logo),
         contentDescription = "Vivid Streaming App Logo",
-        modifier = modifier.size(128.dp) // Sie können die Grösse von aussen überschreiben
+        modifier = modifier.size(128.dp), // Sie können die Grösse von aussen überschreiben
     )
 }
 

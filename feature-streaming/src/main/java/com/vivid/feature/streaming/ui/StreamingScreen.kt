@@ -100,7 +100,7 @@ fun StreamingScreen(
             }
             // In StreamingScreen.kt:
             Button(
-                onClick = { navController.navigate("obs_control") }
+                onClick = { navController.navigate("obs_control") },
             ) {
                 Text("OBS Steuerung öffnen")
             }

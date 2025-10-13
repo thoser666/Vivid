@@ -13,7 +13,7 @@ import javax.inject.Inject
 @HiltViewModel
 class ObsControlViewModel @Inject constructor(
     private val obsClient: OBSWebSocketClient,
-    private val settingsRepository: SettingsRepository
+    private val settingsRepository: SettingsRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<ObsControlUiState>(ObsControlUiState.Idle)
@@ -60,7 +60,7 @@ class ObsControlViewModel @Inject constructor(
             settingsRepository.updateObsSettings(
                 host = host,
                 port = port.toString(),
-                password = password ?: ""
+                password = password ?: "",
             )
         }
 
