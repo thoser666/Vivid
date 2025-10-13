@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -25,8 +26,6 @@ android {
 }
 
 dependencies {
-    // Core module
-    implementation(project(":core"))
 
     // Coroutines
     implementation(libs.kotlinx.coroutines.core)
@@ -38,6 +37,8 @@ dependencies {
 
     // Javax Inject
     implementation(libs.javax.inject)
+
+    implementation(libs.kotlinx.serialization.json)
 
     // Testing
     testImplementation(libs.junit)

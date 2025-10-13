@@ -9,10 +9,10 @@ plugins {
 
 android {
     namespace = "com.vivid.core"
-    compileSdk = 34
+    compileSdk = libs.versions.compileSdk.get().toInt()
 
     defaultConfig {
-        minSdk = 24
+        minSdk = libs.versions.minSdk.get().toInt()
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles("consumer-rules.pro")
     }
@@ -60,10 +60,20 @@ dependencies {
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.coroutines.android)
 
+    // --- Ktor Client ---
+    implementation(libs.ktor.client.core)
+    implementation(libs.ktor.client.cio) // Oder eine andere Engine wie OkHttp
+    implementation(libs.ktor.client.websockets)
+    implementation(libs.ktor.client.content.negotiation)
+    implementation(libs.ktor.serialization.kotlinx.json)
+    implementation(libs.ktor.client.logging)
+
     // Hilt
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler.ksp)
 
     // Logging
     implementation(libs.timber)
+
+    implementation(project(":domain"))
 }
