@@ -17,11 +17,11 @@ interface Request {
 
 data class RequestWithId(
     @SerializedName("op") val op: Int,
-    @SerializedName("d") val d: RequestData
+    @SerializedName("d") val d: RequestData,
 )
 
 data class RequestData(
     @SerializedName("requestType") val requestType: String,
     @SerializedName("requestId") val requestId: String,
-    @SerializedName("requestData") val requestData: Any? // Any? ist flexibler für Gson
+    @SerializedName("requestData") val requestData: Any?, // Any? ist flexibler für Gson
 )

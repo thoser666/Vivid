@@ -13,7 +13,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class ObsControlViewModel @Inject constructor(
-    private val streamingRepository: StreamingRepository
+    private val streamingRepository: StreamingRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<ConnectionState>(ConnectionState.Disconnected)

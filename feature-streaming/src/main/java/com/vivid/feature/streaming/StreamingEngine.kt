@@ -24,10 +24,9 @@ class RtmpCamera2Factory @Inject constructor(@ApplicationContext private val con
     }
 }
 
-
 @Singleton // Die Engine sollte ein Singleton sein, da sie die Kamera steuert
 class StreamingEngine @Inject constructor(
-    private val cameraFactory: CameraFactory // <-- WIR INJIZIEREN EINE FACTORY
+    private val cameraFactory: CameraFactory, // <-- WIR INJIZIEREN EINE FACTORY
 ) {
     private var rtmpCamera: RtmpCamera2? = null
 

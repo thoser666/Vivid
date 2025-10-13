@@ -22,7 +22,7 @@ import javax.inject.Singleton
 @Singleton
 class OBSWebSocketClient @Inject constructor(
     private val okHttpClient: OkHttpClient,
-    private val gson: Gson
+    private val gson: Gson,
 ) {
     private var webSocket: WebSocket? = null
     private val requestIdCounter = AtomicInteger(1)
@@ -88,8 +88,8 @@ class OBSWebSocketClient @Inject constructor(
                 d = AuthenticationResponse.Data(
                     rpcVersion = challenge.d.rpcVersion,
                     authentication = authString,
-                    eventSubscriptions = 0
-                )
+                    eventSubscriptions = 0,
+                ),
             )
             send(response)
         }
