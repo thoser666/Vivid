@@ -161,7 +161,6 @@ mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
 okhttp3-okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttpVersion" }
 #okhttp3 = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttpVersion" }
 #okhttp-websocket = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
-rootencoder = { module = "com.github.pedroSG94:RootEncoder", version.ref = "rootencoder" }
 #rtmp-rtsp-stream-client-java = { module = "com.github.pedroSG94:rtmp-rtsp-stream-client-java", version.ref = "rtmpRtspStreamClientJava" }
 turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
 ui = { module = "androidx.compose.ui:ui", version.ref = "ui" }
@@ -189,6 +188,10 @@ timberkt = { group = "com.github.ajalt", name = "timberkt", version.ref = "timbe
 # Note: TimberKt requires the original Timber library as well.
 # You probably already have this, but make sure it's there.
 timber = { group = "com.jakewharton.timber", name = "timber", version = "5.0.1" }
+
+rootencoder-encoder = { module = "com.github.pedroSG94.RootEncoder:encoder", version.ref = "rootencoder" }
+rootencoder-library = { module = "com.github.pedroSG94.RootEncoder:library", version.ref = "rootencoder" }
+rootencoder-rtmp = { module = "com.github.pedroSG94.RootEncoder:rtmp", version.ref = "rootencoder" }
 
 
 

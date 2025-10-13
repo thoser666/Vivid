@@ -1,103 +1,88 @@
 package com.vivid.feature.streaming
 
-import com.pedro.common.ConnectChecker
+import android.content.Context
 import com.pedro.library.rtmp.RtmpCamera2
 import com.pedro.library.view.OpenGlView
+import com.pedro.rtmp.utils.ConnectCheckerRtmp
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import javax.inject.Inject
 import javax.inject.Singleton
 
-@Singleton
-class StreamingEngine @Inject constructor() {
+// Ein Interface, das es uns erlaubt, die Kameraerstellung zu mocken
+interface CameraFactory {
+    fun create(openGlView: OpenGlView, connectCheckerRtmp: ConnectCheckerRtmp): RtmpCamera2
+}
 
+// Die echte Implementierung für die App
+class RtmpCamera2Factory @Inject constructor(@ApplicationContext private val context: Context) : CameraFactory {
+    override fun create(openGlView: OpenGlView, connectCheckerRtmp: ConnectCheckerRtmp): RtmpCamera2 {
+        // Der Kontext wird jetzt hier korrekt von Hilt bereitgestellt
+        return RtmpCamera2(openGlView, connectCheckerRtmp)
+    }
+}
+
+
+@Singleton // Die Engine sollte ein Singleton sein, da sie die Kamera steuert
+class StreamingEngine @Inject constructor(
+    private val cameraFactory: CameraFactory // <-- WIR INJIZIEREN EINE FACTORY
+) {
     private var rtmpCamera: RtmpCamera2? = null
-    private var currentUrl: String? = null
 
-    // KORREKTUR 1: Den neuen StateFlow verwenden
     private val _streamingState = MutableStateFlow<StreamingState>(StreamingState.Idle)
     val streamingState: StateFlow<StreamingState> = _streamingState.asStateFlow()
 
-    fun initializeCamera(openGlView: OpenGlView) {
-        if (rtmpCamera != null) return // Verhindert mehrfache Initialisierung
+    private val connectChecker = object : ConnectCheckerRtmp {
+        override fun onConnectionSuccessRtmp() {
+            _streamingState.value = StreamingState.Streaming
+        }
 
-        rtmpCamera = RtmpCamera2(
-            openGlView,
-            object : ConnectChecker {
-                override fun onConnectionStarted(url: String) {
-                    _streamingState.value = StreamingState.Preparing
-                }
+        override fun onConnectionFailedRtmp(reason: String) {
+            _streamingState.value = StreamingState.Failed(reason)
+            rtmpCamera?.stopStream()
+        }
 
-                override fun onConnectionSuccess() {
-                    _streamingState.value = StreamingState.Streaming
-                }
+        override fun onNewBitrateRtmp(bitrate: Long) {
+            // Optional: Handle bitrate changes
+        }
 
-                override fun onConnectionFailed(reason: String) {
-                    rtmpCamera?.stopStream() // Encoder stoppen und zurücksetzen
-                    _streamingState.value = StreamingState.Failed(reason)
-                }
+        override fun onDisconnectRtmp() {
+            _streamingState.value = StreamingState.Idle
+        }
 
-                override fun onDisconnect() {
-                    _streamingState.value = StreamingState.Idle
-                }
+        override fun onAuthErrorRtmp() {
+            _streamingState.value = StreamingState.Failed("RTMP Auth Error")
+        }
 
-                override fun onAuthError() {
-                    rtmpCamera?.stopStream()
-                    _streamingState.value = StreamingState.Failed("Authentication error")
-                }
-
-                override fun onAuthSuccess() {
-                    // Wird vor onConnectionSuccess aufgerufen
-                }
-
-                override fun onNewBitrate(bitrate: Long) {
-                    // Optional: Für UI-Anzeigen der Bitrate
-                }
-            },
-        )
+        override fun onAuthSuccessRtmp() {
+            // Optional: Handle auth success
+        }
     }
 
-    // KORREKTUR 2: Überarbeitete startStream-Methode
+    fun initializeCamera(openGlView: OpenGlView) {
+        // Wir verwenden jetzt die Factory, um die Kamera zu erstellen
+        rtmpCamera = cameraFactory.create(openGlView, connectChecker)
+    }
+
     fun startStream(url: String) {
-        if (rtmpCamera == null) {
-            _streamingState.value = StreamingState.Failed("Camera not initialized")
-            return
-        }
-        if (streamingState.value is StreamingState.Streaming || streamingState.value is StreamingState.Preparing) {
-            return // Verhindert mehrfaches Starten
-        }
+        if (url.isBlank()) return
 
-        currentUrl = url
-        try {
-            // Dies ist der entscheidende asynchrone Schritt!
-            // Wir bereiten den Encoder mit Standardwerten vor.
-            val videoPrepared = rtmpCamera!!.prepareVideo(1920, 1080, 30, 2 * 1024 * 1024, 0)
-            val audioPrepared = rtmpCamera!!.prepareAudio(128 * 1024, 44100, true)
-
-            if (videoPrepared && audioPrepared) {
-                _streamingState.value = StreamingState.Preparing
-                // Die Bibliothek ruft jetzt intern `onConnectionStarted` auf,
-                // und wenn die Verbindung steht, wird `onConnectionSuccess` getriggert.
+        if (rtmpCamera?.isStreaming == false) {
+            _streamingState.value = StreamingState.Preparing
+            if (rtmpCamera?.prepareAudio() == true && rtmpCamera?.prepareVideo() == true) {
                 rtmpCamera?.startStream(url)
             } else {
-                _streamingState.value = StreamingState.Failed("Failed to prepare encoders.")
+                _streamingState.value = StreamingState.Failed("Failed to prepare audio/video")
             }
-        } catch (e: Exception) {
-            _streamingState.value = StreamingState.Failed(e.message ?: "Unknown error during preparation")
         }
     }
 
     fun stopStream() {
         if (rtmpCamera?.isStreaming == true) {
             rtmpCamera?.stopStream()
+            _streamingState.value = StreamingState.Idle
         }
-        _streamingState.value = StreamingState.Idle
-    }
-
-    fun release() {
-        stopStream()
-        rtmpCamera = null
-        _streamingState.value = StreamingState.Idle
     }
 }

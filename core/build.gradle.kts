@@ -41,39 +41,47 @@ android {
     }
 }
 
-dependencies {
-    // AndroidX Core
-    implementation(libs.androidx.core.ktx)
+// In core/build.gradle.kts
 
-    // Compose
+dependencies {
+    // --- App-Abhängigkeiten (Implementation) ---
+    implementation(libs.androidx.core.ktx)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)
-
-    // DataStore
     implementation(libs.androidx.datastore.preferences)
-
-    // Network
     implementation(libs.okhttp)
     implementation(libs.gson)
-
-    // Coroutines
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.coroutines.android)
-
-    // --- Ktor Client ---
+    implementation(libs.hilt.android)
+    ksp(libs.hilt.compiler)
+    implementation(libs.timber)
     implementation(libs.ktor.client.core)
-    implementation(libs.ktor.client.cio) // Oder eine andere Engine wie OkHttp
+    implementation(libs.ktor.client.cio)
     implementation(libs.ktor.client.websockets)
     implementation(libs.ktor.client.content.negotiation)
     implementation(libs.ktor.serialization.kotlinx.json)
     implementation(libs.ktor.client.logging)
 
-    // Hilt
-    implementation(libs.hilt.android)
-    ksp(libs.hilt.compiler.ksp)
+    // --- Unit-Test-Abhängigkeiten (testImplementation) ---
+    // Für Coroutine-Tests wie runTest
+    testImplementation(libs.kotlinx.coroutines.test)
 
-    // Logging
-    implementation(libs.timber)
+    // Für JUnit 5 (ersetzt das alte JUnit 4)
+    testImplementation(libs.junit.jupiter.api)
+    testRuntimeOnly(libs.junit.jupiter.engine)
+    testImplementation(libs.junit.jupiter.params)
+
+    // Für das Mocken von Klassen in Tests (optional, aber sehr nützlich)
+    testImplementation(libs.mockk)
+    testImplementation(libs.mockito.core)
+    testImplementation(libs.mockito.kotlin)
+
+    // Für das Testen von Flows (optional, aber sehr nützlich)
+    testImplementation(libs.turbine)
+
+    // Für LiveData/Architektur-Komponenten-Tests
+    testImplementation(libs.androidx.core.testing)
 
     implementation(project(":domain"))
 }

@@ -17,6 +17,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.pedro.library.view.OpenGlView
 import com.vivid.feature.streaming.StreamingState
+import com.vivid.feature.streaming.StreamingViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

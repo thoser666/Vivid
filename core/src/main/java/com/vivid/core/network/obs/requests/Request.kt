@@ -1,12 +1,13 @@
 package com.vivid.core.network.obs.requests
 
+import com.google.gson.annotations.SerializedName
+
 interface Request {
     fun toRequestWithId(requestId: String): RequestWithId {
-        // This is a placeholder implementation. Specific requests should override this.
         return RequestWithId(
-            op = 6, // Default OpCode for requests
+            op = 6,
             d = RequestData(
-                requestType = this::class.java.simpleName,
+                requestType = this::class.simpleName ?: "UnknownRequest",
                 requestId = requestId,
                 requestData = this
             )
@@ -15,12 +16,12 @@ interface Request {
 }
 
 data class RequestWithId(
-    val op: Int,
-    val d: RequestData
+    @SerializedName("op") val op: Int,
+    @SerializedName("d") val d: RequestData
 )
 
 data class RequestData(
-    val requestType: String,
-    val requestId: String,
-    val requestData: Request?
+    @SerializedName("requestType") val requestType: String,
+    @SerializedName("requestId") val requestId: String,
+    @SerializedName("requestData") val requestData: Any? // Any? ist flexibler für Gson
 )
