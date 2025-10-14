@@ -3,14 +3,15 @@ package com.vivid.core.network.obs.requests
 import com.google.gson.annotations.SerializedName
 
 interface Request {
-    fun toRequestWithId(requestId: String): RequestWithId {
+    // Die toRequestWithId-Methode erwartet jetzt den RequestType
+    fun toRequestWithId(requestId: String, requestType: RequestType): RequestWithId {
         return RequestWithId(
-            op = 6,
+            op = 6, // OpCode 6 für Request
             d = RequestData(
-                requestType = this::class.simpleName ?: "UnknownRequest",
+                requestType = requestType.name, // <-- WIR BENUTZEN JETZT DEN NAMEN DES ENUMS
                 requestId = requestId,
-                requestData = this,
-            ),
+                requestData = this
+            )
         )
     }
 }
@@ -21,7 +22,7 @@ data class RequestWithId(
 )
 
 data class RequestData(
-    @SerializedName("requestType") val requestType: String,
+    @SerializedName("requestType") val requestType: String, // <-- WICHTIG: Typ ist jetzt String
     @SerializedName("requestId") val requestId: String,
-    @SerializedName("requestData") val requestData: Any? // Any? ist flexibler für Gson
+    @SerializedName("requestData") val requestData: Any?
 )

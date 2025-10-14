@@ -27,6 +27,9 @@ class OBSWebSocketClient @Inject constructor(
     private var webSocket: WebSocket? = null
     private val requestIdCounter = AtomicInteger(1)
 
+    // Variable zum Speichern des Passworts
+    private var obsPassword = ""
+
     private val _isConnected = MutableStateFlow(false)
     val isConnected: StateFlow<Boolean> = _isConnected.asStateFlow()
 
@@ -52,6 +55,9 @@ class OBSWebSocketClient @Inject constructor(
     }
 
     fun connect(password: String, ip: String, port: Int) {
+        // Passwort in der Klassenvariable speichern
+        this.obsPassword = password
+
         val request = okhttp3.Request.Builder()
             .url("ws://$ip:$port")
             .build()
@@ -62,6 +68,7 @@ class OBSWebSocketClient @Inject constructor(
         webSocket?.close(1000, "User disconnected")
         webSocket = null
         _isConnected.value = false
+        this.obsPassword = "" // Passwort beim Trennen zurücksetzen
     }
 
     private fun handleMessage(message: String) {
@@ -77,12 +84,16 @@ class OBSWebSocketClient @Inject constructor(
     }
 
     private fun handleHello(message: String) {
-        // HINWEIS: Hier musst du den Passwort-Parameter noch korrekt übergeben!
-        val password = "YOUR_PASSWORD" // PLATZHALTER!
+        // Das gespeicherte Passwort verwenden
+        if (this.obsPassword.isBlank()) {
+            Timber.e("OBS Password is not set, cannot authenticate.")
+            disconnect()
+            return
+        }
 
         val challenge = gson.fromJson(message, AuthenticationChallenge::class.java)
         challenge.d.authentication?.let {
-            val authString = generateAuthenticationString(password, it.salt, it.challenge)
+            val authString = generateAuthenticationString(this.obsPassword, it.salt, it.challenge)
             val response = AuthenticationResponse(
                 op = 1,
                 d = AuthenticationResponse.Data(
@@ -102,7 +113,11 @@ class OBSWebSocketClient @Inject constructor(
     }
 
     fun sendRequest(request: Request, requestType: RequestType) {
-        val requestWithId = request.toRequestWithId(requestIdCounter.getAndIncrement().toString())
+        // requestType wird jetzt korrekt an die Helfer-Funktion übergeben
+        val requestWithId = request.toRequestWithId(
+            requestId = requestIdCounter.getAndIncrement().toString(),
+            requestType = requestType
+        )
         send(requestWithId)
     }
 
