@@ -15,6 +15,6 @@ abstract class StreamingFeatureBindingModule {
     @Binds
     @Singleton
     abstract fun bindCameraFactory(
-        factoryImpl: RtmpCamera2Factory
+        factoryImpl: RtmpCamera2Factory,
     ): CameraFactory
 }

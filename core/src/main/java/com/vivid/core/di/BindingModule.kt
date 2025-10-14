@@ -4,7 +4,6 @@ import com.vivid.core.network.VividApi
 import com.vivid.core.network.VividApiImpl
 import com.vivid.core.repository.StreamingRepository
 import com.vivid.core.repository.StreamingRepositoryImpl
-
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -26,6 +25,4 @@ abstract class BindingModule {
     abstract fun bindVividApi(
         impl: VividApiImpl,
     ): VividApi
-
-
 }

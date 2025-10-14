@@ -18,7 +18,7 @@ interface Request {
 
 data class RequestWithId(
     @SerializedName("op") val op: Int,
-    @SerializedName("d") val d: RequestData
+    @SerializedName("d") val d: RequestData,
 )
 
 data class RequestData(

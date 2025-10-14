@@ -20,12 +20,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.vivid.feature.obscontrol.ObsControlViewModel
 import com.vivid.feature.obscontrol.ConnectionState // <-- WICHTIGER IMPORT für deinen UI-Zustand
+import com.vivid.feature.obscontrol.ObsControlViewModel
 
 @Composable
 fun ObsControlScreen(
-    viewModel: ObsControlViewModel = hiltViewModel()
+    viewModel: ObsControlViewModel = hiltViewModel(),
 ) {
     // State für die Eingabefelder
     var ip by remember { mutableStateOf("192.168.1.100") } // Beispiel-IP
@@ -40,7 +40,7 @@ fun ObsControlScreen(
             .fillMaxSize()
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        verticalArrangement = Arrangement.Center,
     ) {
         // UI basierend auf dem ConnectionState rendern
         when (val state = uiState) {

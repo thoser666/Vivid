@@ -8,7 +8,7 @@ import javax.inject.Inject
 class StreamingViewModel @Inject constructor(
     // Hilt weiß, wie man einen StreamingEngine erstellt (dank @Inject constructor)
     // und wird ihn hier automatisch für uns bereitstellen.
-    val streamingEngine: StreamingEngine
+    val streamingEngine: StreamingEngine,
 ) : ViewModel() {
     // Das ViewModel ist im Moment nur ein Halter für die StreamingEngine.
     // Hier könnte später mehr Logik hinzukommen, z.B. das Laden von User-Daten.
