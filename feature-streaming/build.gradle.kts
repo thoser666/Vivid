@@ -39,15 +39,20 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.hilt.navigation.compose)
-    implementation(libs.androidx.lifecycle.runtime.ktx) // Für collectAsStateWithLifecycle
+    implementation(libs.androidx.lifecycle.runtime.ktx)
 
     // Hilt für das ViewModel
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
 
+    // =============================================================
+    // HIER SIND DIE KORREKTEN, AUFGETEILTEN ABHÄNGIGKEITEN
+    // WIE IM GITHUB-ISSUE BESCHRIEBEN.
+    // 'ConnectCheckerRtmp' ist im ':rtmp'-Modul.
     implementation(libs.rootencoder.encoder)
     implementation(libs.rootencoder.library)
     implementation(libs.rootencoder.rtmp)
+    // =============================================================
 
     // Media3 / ExoPlayer für die Wiedergabe
     implementation(libs.androidx.media3.exoplayer)

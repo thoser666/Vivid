@@ -1,6 +1,10 @@
 package com.vivid.core.repository
 
-import com.vivid.core.domain.model.*
+import com.vivid.domain.model.LoginRequest
+import com.vivid.domain.model.LoginResult
+import com.vivid.domain.model.RegistrationRequest
+import com.vivid.domain.model.RegistrationResult
+import com.vivid.domain.model.User
 import kotlinx.coroutines.flow.StateFlow
 
 interface StreamingRepository {

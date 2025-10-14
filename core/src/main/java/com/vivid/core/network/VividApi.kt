@@ -1,10 +1,10 @@
 package com.vivid.core.network
 
-import com.vivid.core.domain.model.LoginRequest
-import com.vivid.core.domain.model.LoginResult
-import com.vivid.core.domain.model.RegistrationRequest
-import com.vivid.core.domain.model.RegistrationResult
-import com.vivid.core.domain.model.User
+import com.vivid.domain.model.LoginRequest
+import com.vivid.domain.model.LoginResult
+import com.vivid.domain.model.RegistrationRequest
+import com.vivid.domain.model.RegistrationResult
+import com.vivid.domain.model.User
 
 interface VividApi {
     suspend fun login(loginRequest: LoginRequest): LoginResult

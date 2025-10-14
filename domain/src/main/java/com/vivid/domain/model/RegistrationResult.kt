@@ -1,4 +1,4 @@
-package com.vivid.core.domain.model
+package com.vivid.domain.model
 
 sealed class RegistrationResult {
     data object Success : RegistrationResult()

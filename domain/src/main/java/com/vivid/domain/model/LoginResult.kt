@@ -1,4 +1,4 @@
-package com.vivid.core.domain.model
+package com.vivid.domain.model
 
 sealed class LoginResult {
     data class Success(val user: User) : LoginResult()

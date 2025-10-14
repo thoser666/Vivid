@@ -1,4 +1,4 @@
-package com.vivid.core.domain.model
+package com.vivid.domain.model
 
 import kotlinx.serialization.Serializable
 
