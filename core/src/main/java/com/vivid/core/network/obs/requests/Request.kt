@@ -10,8 +10,8 @@ interface Request {
             d = RequestData(
                 requestType = requestType.name, // <-- WIR BENUTZEN JETZT DEN NAMEN DES ENUMS
                 requestId = requestId,
-                requestData = this
-            )
+                requestData = this,
+            ),
         )
     }
 }
@@ -24,5 +24,5 @@ data class RequestWithId(
 data class RequestData(
     @SerializedName("requestType") val requestType: String, // <-- WICHTIG: Typ ist jetzt String
     @SerializedName("requestId") val requestId: String,
-    @SerializedName("requestData") val requestData: Any?
+    @SerializedName("requestData") val requestData: Any?,
 )

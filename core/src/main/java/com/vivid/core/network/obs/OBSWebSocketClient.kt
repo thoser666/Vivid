@@ -116,7 +116,7 @@ class OBSWebSocketClient @Inject constructor(
         // requestType wird jetzt korrekt an die Helfer-Funktion übergeben
         val requestWithId = request.toRequestWithId(
             requestId = requestIdCounter.getAndIncrement().toString(),
-            requestType = requestType
+            requestType = requestType,
         )
         send(requestWithId)
     }
