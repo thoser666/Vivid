@@ -14,19 +14,25 @@ import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
-import javax.inject.Inject // <-- WICHTIGER IMPORT
+import javax.inject.Inject
 
-class VividApiImpl @Inject constructor( // <-- HIER ist die Änderung
-    private val client: HttpClient,
+class VividApiImpl @Inject constructor(
+    private val client: HttpClient
 ) : VividApi {
 
-    companion object {
+    // HIER IST DIE WICHTIGE ÄNDERUNG
+    private companion object {
         private const val BASE_URL = "http://10.0.2.2:8080"
+
+        // Endpunkte als Konstanten definieren
+        private const val ENDPOINT_LOGIN = "/login"
+        private const val ENDPOINT_REGISTER = "/register"
+        private const val ENDPOINT_USERS = "/users"
     }
 
     override suspend fun login(loginRequest: LoginRequest): LoginResult {
         return try {
-            val response: User = client.post("$BASE_URL/login") {
+            val response: User = client.post("$BASE_URL$ENDPOINT_LOGIN") {
                 contentType(ContentType.Application.Json)
                 setBody(loginRequest)
             }.body()
@@ -38,10 +44,10 @@ class VividApiImpl @Inject constructor( // <-- HIER ist die Änderung
 
     override suspend fun register(registrationRequest: RegistrationRequest): RegistrationResult {
         return try {
-            val response: User = client.post("$BASE_URL/register") {
+            client.post("$BASE_URL$ENDPOINT_REGISTER") {
                 contentType(ContentType.Application.Json)
                 setBody(registrationRequest)
-            }.body()
+            }.body<Unit>() // Wenn die Antwort leer ist, body<Unit>() verwenden
             RegistrationResult.Success
         } catch (e: Exception) {
             RegistrationResult.Error(e.message ?: "Unknown error")
@@ -49,37 +55,37 @@ class VividApiImpl @Inject constructor( // <-- HIER ist die Änderung
     }
 
     override suspend fun getAccount(userId: Int): User {
-        return client.get("$BASE_URL/users/$userId").body()
+        return client.get("$BASE_URL$ENDPOINT_USERS/$userId").body()
     }
 
     override suspend fun updateAccount(userId: Int, user: User): User {
-        return client.put("$BASE_URL/users/$userId") {
+        return client.put("$BASE_URL$ENDPOINT_USERS/$userId") {
             contentType(ContentType.Application.Json)
             setBody(user)
         }.body()
     }
 
     override suspend fun deleteAccount(userId: Int) {
-        client.delete("$BASE_URL/users/$userId")
+        client.delete("$BASE_URL$ENDPOINT_USERS/$userId")
     }
 
     override suspend fun getFollowers(userId: Int): List<User> {
-        return client.get("$BASE_URL/users/$userId/followers").body()
+        return client.get("$BASE_URL$ENDPOINT_USERS/$userId/followers").body()
     }
 
     override suspend fun getFollowing(userId: Int): List<User> {
-        return client.get("$BASE_URL/users/$userId/following").body()
+        return client.get("$BASE_URL$ENDPOINT_USERS/$userId/following").body()
     }
 
     override suspend fun followUser(userId: Int, followId: Int) {
-        client.post("$BASE_URL/users/$userId/follow/$followId")
+        client.post("$BASE_URL$ENDPOINT_USERS/$userId/follow/$followId")
     }
 
     override suspend fun unfollowUser(userId: Int, unfollowId: Int) {
-        client.post("$BASE_URL/users/$userId/unfollow/$unfollowId")
+        client.post("$BASE_URL$ENDPOINT_USERS/$userId/unfollow/$unfollowId")
     }
 
     override suspend fun getStreamKey(userId: Int): String {
-        return client.get("$BASE_URL/users/$userId/stream-key").body()
+        return client.get("$BASE_URL$ENDPOINT_USERS/$userId/stream-key").body()
     }
 }
