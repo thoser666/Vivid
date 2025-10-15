@@ -1,12 +1,12 @@
 package com.vivid.core.repository
 
+import com.vivid.core.network.VividApi
+import com.vivid.core.network.obs.OBSWebSocketClient
 import com.vivid.domain.model.LoginRequest
 import com.vivid.domain.model.LoginResult
 import com.vivid.domain.model.RegistrationRequest
 import com.vivid.domain.model.RegistrationResult
 import com.vivid.domain.model.User
-import com.vivid.core.network.VividApi
-import com.vivid.core.network.obs.OBSWebSocketClient
 import kotlinx.coroutines.flow.StateFlow
 import javax.inject.Inject // <-- DIESEN IMPORT HINZUFÜGEN
 
