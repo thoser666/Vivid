@@ -17,10 +17,10 @@ import io.ktor.http.contentType
 import javax.inject.Inject
 
 class VividApiImpl @Inject constructor(
-    private val client: HttpClient,
+    private val client: HttpClient
 ) : VividApi {
 
-    // HIER IST DIE WICHTIGE ÄNDERUNG
+    // HIER IST DIE WICHTIGE ÄNDERUNG: Alle URL-Strings an einem Ort
     private companion object {
         private const val BASE_URL = "http://10.0.2.2:8080"
 
@@ -47,7 +47,7 @@ class VividApiImpl @Inject constructor(
             client.post("$BASE_URL$ENDPOINT_REGISTER") {
                 contentType(ContentType.Application.Json)
                 setBody(registrationRequest)
-            }.body<Unit>() // Wenn die Antwort leer ist, body<Unit>() verwenden
+            }.body<Unit>() // Korrektur: Wir erwarten hier keinen User-Body zurück
             RegistrationResult.Success
         } catch (e: Exception) {
             RegistrationResult.Error(e.message ?: "Unknown error")
