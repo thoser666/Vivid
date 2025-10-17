@@ -1,10 +1,13 @@
 package com.vivid.core.network
 
+// =============================================================
+// HIER IST DIE WICHTIGE ÄNDERUNG: DER IMPORT-PFAD IST KORRIGIERT
 import com.vivid.domain.model.LoginRequest
 import com.vivid.domain.model.LoginResult
 import com.vivid.domain.model.RegistrationRequest
 import com.vivid.domain.model.RegistrationResult
 import com.vivid.domain.model.User
+// =============================================================
 
 interface VividApi {
     suspend fun login(loginRequest: LoginRequest): LoginResult

@@ -1,8 +1,7 @@
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.hilt)
-    alias(libs.plugins.ksp)
+    // Das Serialization-Plugin ist das einzige, das hier wirklich gebraucht wird
     alias(libs.plugins.kotlin.serialization)
 }
 
@@ -12,7 +11,6 @@ android {
 
     defaultConfig {
         minSdk = 24
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     compileOptions {
@@ -26,23 +24,13 @@ android {
 }
 
 dependencies {
-
-    // Coroutines
-    implementation(libs.kotlinx.coroutines.core)
-    implementation(libs.kotlinx.coroutines.android)
-
-    // Hilt
-    implementation(libs.hilt.android)
-    ksp(libs.hilt.compiler.ksp)
-
-    // Javax Inject
-    implementation(libs.javax.inject)
-
+    // Dieses Modul braucht NUR die Serialization-Bibliothek, um @Serializable zu kennen.
     implementation(libs.kotlinx.serialization.json)
 
-    // Testing
+    // Alle anderen Abhängigkeiten (Hilt, Coroutines etc.) wurden entfernt.
+
+    // Test-Abhängigkeiten sind in Ordnung
     testImplementation(libs.junit)
     testImplementation(libs.mockk)
-    testImplementation(libs.kotlinx.coroutines.test)
-    testImplementation(libs.turbine)
+    // kotlinx.coroutines.test kann hier auch weg, da Models keine Coroutinen testen
 }

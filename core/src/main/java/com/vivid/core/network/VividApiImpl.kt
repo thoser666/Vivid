@@ -1,5 +1,6 @@
 package com.vivid.core.network
 
+import com.vivid.core.BuildConfig
 import com.vivid.domain.model.LoginRequest
 import com.vivid.domain.model.LoginResult
 import com.vivid.domain.model.RegistrationRequest
@@ -20,9 +21,9 @@ class VividApiImpl @Inject constructor(
     private val client: HttpClient
 ) : VividApi {
 
-    // HIER IST DIE WICHTIGE ÄNDERUNG: Alle URL-Strings an einem Ort
     private companion object {
-        private const val BASE_URL = "http://10.0.2.2:8080"
+        // Die hartcodierte IP wird durch die BuildConfig-Variable ersetzt
+        private const val BASE_URL = BuildConfig.API_BASE_URL
 
         // Endpunkte als Konstanten definieren
         private const val ENDPOINT_LOGIN = "/login"

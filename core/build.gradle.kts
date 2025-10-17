@@ -9,20 +9,24 @@ plugins {
 
 android {
     namespace = "com.vivid.core"
-    compileSdk = libs.versions.compileSdk.get().toInt()
+    compileSdk = 34
 
     defaultConfig {
-        minSdk = libs.versions.minSdk.get().toInt()
+        minSdk = 24
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles("consumer-rules.pro")
     }
 
     buildTypes {
-        release {
+        getByName("debug") {
+            buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:8080\"")
+        }
+        getByName("release") {
+            buildConfigField("String", "API_BASE_URL", "\"https://api.your-production-domain.com\"")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro",
+                "proguard-rules.pro"
             )
         }
     }
@@ -36,12 +40,14 @@ android {
         jvmTarget = "17"
     }
 
+    // =============================================================
+    // HIER IST DIE WICHTIGE ÄNDERUNG
     buildFeatures {
         compose = true
+        buildConfig = true // <-- DIESE ZEILE AKTIVIERT DIE BuildConfig-GENERIERUNG
     }
+    // =============================================================
 }
-
-// In core/build.gradle.kts
 
 dependencies {
     // --- App-Abhängigkeiten (Implementation) ---
@@ -64,23 +70,14 @@ dependencies {
     implementation(libs.ktor.client.logging)
 
     // --- Unit-Test-Abhängigkeiten (testImplementation) ---
-    // Für Coroutine-Tests wie runTest
     testImplementation(libs.kotlinx.coroutines.test)
-
-    // Für JUnit 5 (ersetzt das alte JUnit 4)
     testImplementation(libs.junit.jupiter.api)
     testRuntimeOnly(libs.junit.jupiter.engine)
     testImplementation(libs.junit.jupiter.params)
-
-    // Für das Mocken von Klassen in Tests (optional, aber sehr nützlich)
     testImplementation(libs.mockk)
     testImplementation(libs.mockito.core)
     testImplementation(libs.mockito.kotlin)
-
-    // Für das Testen von Flows (optional, aber sehr nützlich)
     testImplementation(libs.turbine)
-
-    // Für LiveData/Architektur-Komponenten-Tests
     testImplementation(libs.androidx.core.testing)
 
     implementation(project(":domain"))
