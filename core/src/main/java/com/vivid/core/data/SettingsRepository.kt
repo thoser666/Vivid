@@ -11,12 +11,12 @@ import javax.inject.Singleton
 data class AppSettings(
     val obsHost: String,
     val obsPort: String, // Wir verwenden String, um konsistent mit dem UI-State zu sein
-    val obsPassword: String
+    val obsPassword: String,
 )
 
 @Singleton
 class SettingsRepository @Inject constructor(
-    private val dataStore: DataStore<Preferences>
+    private val dataStore: DataStore<Preferences>,
 ) {
     private object PreferencesKeys {
         // Wir benennen die Keys um, damit sie zur AppSettings-Klasse passen
@@ -32,7 +32,7 @@ class SettingsRepository @Inject constructor(
                 // Properties umbenennen (ip -> obsHost)
                 obsHost = preferences[PreferencesKeys.OBS_HOST] ?: "localhost",
                 obsPort = preferences[PreferencesKeys.OBS_PORT] ?: "4455",
-                obsPassword = preferences[PreferencesKeys.OBS_PASSWORD] ?: ""
+                obsPassword = preferences[PreferencesKeys.OBS_PASSWORD] ?: "",
             )
         }
 
