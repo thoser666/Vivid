@@ -6,5 +6,5 @@ data class AppSettings(
     val streamKey: String = "",
     val obsHost: String = "",
     val obsPort: String = "",
-    val obsPassword: String = ""
+    val obsPassword: String = "",
 )
