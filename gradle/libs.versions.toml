@@ -55,8 +55,6 @@ media3Ui = "1.8.0"
 mockitoCore = "5.20.0"
 mockitoKotlin = "6.1.0"
 mockk = "1.14.6"
-mockitoKotlin = "6.0.0"
-mockk = "1.14.6"
 navigationCompose = "2.9.5"
 okhttpVersion = "5.2.1"
 okhttp = "5.1.0"
@@ -71,13 +69,6 @@ material = "1.13.0"
 ktor = "3.3.1"
 timberkt = "1.5.1"
 sentryGradlePlugin = "5.12.1"
-
-ui = "1.9.2"
-uiTestJunit4 = "1.9.1"
-uiTestManifest = "1.9.2"
-uiTooling = "1.9.2"
-uiToolingPreview = "1.9.2"
-material = "1.13.0"
 
 [libraries]
 accompanist-permissions = { group = "com.google.accompanist", name = "accompanist-permissions", version.ref = "accompanist" }

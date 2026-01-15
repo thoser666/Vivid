@@ -47,13 +47,15 @@ class SettingsRepository @Inject constructor(
         },
     ) { streamData, obsData ->
         // Baue das komplette AppSettings-Objekt zusammen
-        AppSettings(
-            streamUrl = streamData.first,
-            streamKey = streamData.second,
-            obsHost = obsData.first,
-            obsPort = obsData.second,
-            obsPassword = obsData.third,
-        )
+//        AppSettings(
+//            streamUrl = streamData.first,
+//            streamKey = streamData.second,
+//            obsHost = obsData.first,
+//            obsPort = obsData.second,
+//            obsPassword = obsData.third,
+
+
+//        )
     }
 
     // Update-Funktionen bleiben getrennt, das ist in Ordnung.
