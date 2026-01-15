@@ -34,7 +34,7 @@ class SettingsRepository @Inject constructor(
         dataStore.data.map { prefs ->
             Pair(
                 prefs[PrefKeys.STREAM_URL] ?: "",
-                prefs[PrefKeys.STREAM_KEY] ?: ""
+                prefs[PrefKeys.STREAM_KEY] ?: "",
             )
         },
         // Flow für OBS-Daten
@@ -42,9 +42,9 @@ class SettingsRepository @Inject constructor(
             Triple(
                 prefs[PrefKeys.OBS_HOST] ?: "localhost",
                 prefs[PrefKeys.OBS_PORT] ?: "4455",
-                prefs[PrefKeys.OBS_PASSWORD] ?: ""
+                prefs[PrefKeys.OBS_PASSWORD] ?: "",
             )
-        }
+        },
     ) { streamData, obsData ->
         // Baue das komplette AppSettings-Objekt zusammen
         AppSettings(
@@ -52,7 +52,7 @@ class SettingsRepository @Inject constructor(
             streamKey = streamData.second,
             obsHost = obsData.first,
             obsPort = obsData.second,
-            obsPassword = obsData.third
+            obsPassword = obsData.third,
         )
     }
 
