@@ -10,9 +10,11 @@ import javax.inject.Singleton
 
 // Umbenannt für Konsistenz mit dem ViewModel
 data class AppSettings(
-    val obsHost: String,
-    val obsPort: String, // Wir verwenden String, um konsistent mit dem UI-State zu sein
-    val obsPassword: String,
+    val streamUrl: String = "",
+    val streamKey: String = "",
+    val obsHost: String = "localhost",
+    val obsPort: String = "4455",
+    val obsPassword: String = "",
 )
 
 @Singleton
@@ -47,15 +49,13 @@ class SettingsRepository @Inject constructor(
         },
     ) { streamData, obsData ->
         // Baue das komplette AppSettings-Objekt zusammen
-//        AppSettings(
-//            streamUrl = streamData.first,
-//            streamKey = streamData.second,
-//            obsHost = obsData.first,
-//            obsPort = obsData.second,
-//            obsPassword = obsData.third,
-
-
-//        )
+        AppSettings(
+            streamUrl = streamData.first,
+            streamKey = streamData.second,
+            obsHost = obsData.first,
+            obsPort = obsData.second,
+            obsPassword = obsData.third,
+        )
     }
 
     // Update-Funktionen bleiben getrennt, das ist in Ordnung.

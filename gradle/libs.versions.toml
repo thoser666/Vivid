@@ -2,10 +2,11 @@
 # SDK Versionen
 compileSdk = "36"
 minSdk = "24"
+rtmpRtspStreamClientJava = "2.4.8"
 targetSdk = "36"
 jvmTarget = "17"
 
-agp = "8.13.2"
+agp = "9.0.0"
 accompanist = "0.37.3"
 appcompat = "1.7.1"
 cameraCamera2 = "1.5.1"
@@ -42,7 +43,7 @@ mlkitBarcodeScanning = "17.3.0"
 activityCompose = "1.11.0"
 composeBom = "2025.10.00"
 jetbrainsKotlinJvm = "2.2.20"
-ksp-version = "2.2.20-2.0.3"
+ksp-version = "2.3.2"
 lifecycleViewmodelKtx = "2.9.4"
 loggingInterceptor = "5.2.1"
 material3 = "1.4.0"
@@ -161,6 +162,7 @@ okhttp3-okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp
 #okhttp3 = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttpVersion" }
 #okhttp-websocket = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
 #rtmp-rtsp-stream-client-java = { module = "com.github.pedroSG94:rtmp-rtsp-stream-client-java", version.ref = "rtmpRtspStreamClientJava" }
+rtmp-rtsp-stream-client-java = { module = "com.github.pedroSG94:rtmp-rtsp-stream-client-java", version.ref = "rtmpRtspStreamClientJava" }
 turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
 ui = { module = "androidx.compose.ui:ui", version.ref = "ui" }
 #ui-graphics = { module = "androidx.compose.ui:ui-graphics" }
