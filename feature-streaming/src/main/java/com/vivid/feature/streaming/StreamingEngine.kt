@@ -1,10 +1,8 @@
 package com.vivid.feature.streaming
 
-import android.content.Context
 import com.pedro.encoder.input.gl.render.OpenGlView
 import com.pedro.rtmp.flv.RtmpCamera2
 import com.pedro.rtmp.utils.ConnectCheckerRtmp
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
