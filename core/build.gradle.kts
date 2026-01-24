@@ -9,12 +9,11 @@ plugins {
 
 android {
     namespace = "com.vivid.core"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         minSdk = 24
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        consumerProguardFiles("consumer-rules.pro")
     }
 
     buildTypes {

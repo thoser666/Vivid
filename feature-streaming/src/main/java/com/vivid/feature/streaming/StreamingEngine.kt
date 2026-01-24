@@ -1,8 +1,8 @@
 package com.vivid.feature.streaming
 
 import android.content.Context
-import com.pedro.library.rtmp.RtmpCamera2
-import com.pedro.library.view.OpenGlView
+import com.pedro.encoder.input.gl.render.OpenGlView
+import com.pedro.rtmp.flv.RtmpCamera2
 import com.pedro.rtmp.utils.ConnectCheckerRtmp
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -11,15 +11,21 @@ import kotlinx.coroutines.flow.asStateFlow
 import javax.inject.Inject
 import javax.inject.Singleton
 
+sealed class StreamingState {
+    object Idle : StreamingState()
+    object Streaming : StreamingState()
+    data class Failed(val reason: String) : StreamingState()
+    object Preparing : StreamingState()
+}
+
 // Ein Interface, das es uns erlaubt, die Kameraerstellung zu mocken
 interface CameraFactory {
     fun create(openGlView: OpenGlView, connectCheckerRtmp: ConnectCheckerRtmp): RtmpCamera2
 }
 
 // Die echte Implementierung für die App
-class RtmpCamera2Factory @Inject constructor(@ApplicationContext private val context: Context) : CameraFactory {
+class RtmpCamera2Factory @Inject constructor() : CameraFactory {
     override fun create(openGlView: OpenGlView, connectCheckerRtmp: ConnectCheckerRtmp): RtmpCamera2 {
-        // Der Kontext wird jetzt hier korrekt von Hilt bereitgestellt
         return RtmpCamera2(openGlView, connectCheckerRtmp)
     }
 }

@@ -9,7 +9,7 @@ plugins {
 
 android {
     namespace = "com.vivid.feature.chat"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         minSdk = 24

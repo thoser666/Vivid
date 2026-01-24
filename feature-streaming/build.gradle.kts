@@ -8,7 +8,7 @@ plugins {
 
 android {
     namespace = "com.vivid.feature.streaming"
-    compileSdk = libs.versions.compileSdk.get().toInt()
+    compileSdk = 36
 
     defaultConfig {
         minSdk = libs.versions.minSdk.get().toInt()
@@ -49,9 +49,9 @@ dependencies {
     // HIER SIND DIE KORREKTEN, AUFGETEILTEN ABHÄNGIGKEITEN
     // WIE IM GITHUB-ISSUE BESCHRIEBEN.
     // 'ConnectCheckerRtmp' ist im ':rtmp'-Modul.
-    implementation(libs.rootencoder.encoder)
-    implementation(libs.rootencoder.library)
-    implementation(libs.rootencoder.rtmp)
+    implementation("com.github.pedroSG94.RootEncoder:encoder:2.6.4")
+    implementation("com.github.pedroSG94.RootEncoder:library:2.6.4")
+    implementation("com.github.pedroSG94.RootEncoder:rtmp:2.6.4")
     // =============================================================
 
     // Media3 / ExoPlayer für die Wiedergabe

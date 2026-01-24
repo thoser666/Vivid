@@ -9,10 +9,3 @@ plugins {
     alias(libs.plugins.compose.compiler) apply false
     alias(libs.plugins.kotlin.serialization) apply false
 }
-
-// Shared configuration
-extra.apply {
-    set("compileSdkVersion", 34)
-    set("minSdkVersion", 24)
-    set("targetSdkVersion", 34)
-}
