@@ -49,9 +49,10 @@ dependencies {
     // HIER SIND DIE KORREKTEN, AUFGETEILTEN ABHÄNGIGKEITEN
     // WIE IM GITHUB-ISSUE BESCHRIEBEN.
     // 'ConnectCheckerRtmp' ist im ':rtmp'-Modul.
-    implementation("com.github.pedroSG94.RootEncoder:encoder:2.6.4")
-    implementation("com.github.pedroSG94.RootEncoder:library:2.6.4")
-    implementation("com.github.pedroSG94.RootEncoder:rtmp:2.6.4")
+    implementation("com.github.pedroSG94:encoder:2.6.4")
+    implementation("com.github.pedroSG94:library:2.6.4")
+    implementation("com.github.pedroSG94:rtmp:2.6.4")
+    implementation("com.github.pedroSG94:gl:2.6.4")
     // =============================================================
 
     // Media3 / ExoPlayer für die Wiedergabe
