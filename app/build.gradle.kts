@@ -1,6 +1,10 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
+    //   id("org.jetbrains.kotlin.plugin.compose") version "2.2.10" // Or the latest compatible version
+
+    id("io.sentry.android.gradle") version "5.12.2"
+    alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
     alias(libs.plugins.compose.compiler)
