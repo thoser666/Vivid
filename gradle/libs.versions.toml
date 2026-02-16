@@ -47,6 +47,7 @@ navigationCompose = "2.9.5"
 okhttpVersion = "5.1.0"
 okhttp = "5.1.0"
 rootencoder = "2.6.4"
+sentry = "6.0.0"
 turbine = "1.2.1"
 ui = "1.9.2"
 uiTestJunit4 = "1.9.4"
@@ -133,11 +134,11 @@ material = { group = "com.google.android.material", name = "material", version.r
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
-kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 #kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 jetbrains-kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "jetbrainsKotlinJvm" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp-version" }
 hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt-version" }
+sentry-gradle-plugin = { id = "io.sentry.android.gradle", version.ref = "sentry" }
 #org-jetbrains-kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 android-library = { id = "com.android.library", version.ref = "agp" }

@@ -1,8 +1,6 @@
 // Stellen Sie sicher, dass am Anfang der Datei "com.android.library" als Plugin steht.
 plugins {
     id("com.android.library")
-    kotlin("android") // Verwenden Sie kotlin("android") anstelle von kotlin("jvm")
-//    id("kotlin-kapt") // Falls Sie Hilt oder andere Annotation Processors hier verwenden
     id("dagger.hilt.android.plugin") // Hilt-Plugin
     id("com.google.devtools.ksp")
 }

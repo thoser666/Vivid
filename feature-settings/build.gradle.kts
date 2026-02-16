@@ -3,7 +3,6 @@ import org.gradle.kotlin.dsl.extra
 // Make sure "com.android.library" is set as plugin at the beginning of the file
 plugins {
     id("com.android.library")
-    kotlin("android")
     id("com.google.devtools.ksp") // KSP instead of kapt
     id("dagger.hilt.android.plugin")
     id("org.jetbrains.kotlin.plugin.compose")
