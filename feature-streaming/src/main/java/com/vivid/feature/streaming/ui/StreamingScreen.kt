@@ -17,6 +17,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.pedro.library.view.OpenGlView
 import com.vivid.feature.streaming.StreamingState
+import com.vivid.feature.streaming.StreamingViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -97,6 +98,12 @@ fun StreamingScreen(
                     text = "Error: $reason",
                     modifier = Modifier.align(Alignment.TopCenter),
                 )
+            }
+            // In StreamingScreen.kt:
+            Button(
+                onClick = { navController.navigate("obs_control") },
+            ) {
+                Text("OBS Steuerung öffnen")
             }
         }
     }
