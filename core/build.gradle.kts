@@ -46,6 +46,12 @@ android {
         buildConfig = true // <-- DIESE ZEILE AKTIVIERT DIE BuildConfig-GENERIERUNG
     }
     // =============================================================
+
+    testOptions {
+        unitTests.all {
+            it.useJUnitPlatform()
+        }
+    }
 }
 
 dependencies {
