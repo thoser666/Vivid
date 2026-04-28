@@ -1,79 +1,53 @@
-// SettingsRepositoryTest.kt
-
 package com.vivid.core.data
 
-import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.*
+import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map // Wichtig für .map auf einem Flow
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.BeforeEach // Modernes JUnit 5 (ersetzt @Before)
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 import java.io.File
+import java.nio.file.Path
 
-data class StreamSettings(val url: String, val key: String)
-
-class SettingsRepository(private val dataStore: DataStore<Preferences>) {
-    private object PreferencesKeys {
-        val STREAM_URL = stringPreferencesKey("stream_url")
-        val STREAM_KEY = stringPreferencesKey("stream_key")
-    }
-
-    val streamSettingsFlow = dataStore.data
-        .map { preferences ->
-            StreamSettings(
-                url = preferences[PreferencesKeys.STREAM_URL] ?: "",
-                key = preferences[PreferencesKeys.STREAM_KEY] ?: "",
-            )
-        }
-
-    suspend fun updateStreamSettings(url: String, key: String) {
-        dataStore.edit { preferences ->
-            preferences[PreferencesKeys.STREAM_URL] = url
-            preferences[PreferencesKeys.STREAM_KEY] = key
-        }
-    }
-}
-
-// --- HIER BEGINNT DER TEST ---
 class SettingsRepositoryTest {
 
-    // Erstellen Sie eine Test-DataStore im Speicher
-    private val testDataStore: DataStore<Preferences> = PreferenceDataStoreFactory.create(
-        produceFile = { File("test.preferences_pb") },
-    )
-
-    private lateinit var repository: SettingsRepository
-
-    @BeforeEach // KORREKTUR: @BeforeEach für JUnit 5
-    fun setup() {
-        // Initialisieren Sie das Repository mit der Test-DataStore
-        repository = SettingsRepository(testDataStore)
-    }
+    @TempDir
+    lateinit var tempDir: Path
 
     @Test
-    fun `streamSettingsFlow should return saved values`() = runTest {
-        // 1. Arrange: Speichern Sie Testdaten
+    fun `appSettingsFlow should return saved values`() = runTest {
+        val testDataStore = PreferenceDataStoreFactory.create(
+            scope = this,
+            produceFile = { File(tempDir.toFile(), "test.preferences_pb") }
+        )
+        val repository = SettingsRepository(testDataStore)
+
+        // Arrange
         val testUrl = "rtmp://test.url/live"
         val testKey = "test_key_123"
+        
+        // Act
         repository.updateStreamSettings(testUrl, testKey)
+        val settings = repository.appSettingsFlow.first()
 
-        // 2. Act: Rufen Sie den Flow auf und sammeln Sie das erste Ergebnis
-        val settings = repository.streamSettingsFlow.first()
-
-        // 3. Assert: Überprüfen Sie, ob die Daten korrekt sind
-        assertEquals(testUrl, settings.url)
-        assertEquals(testKey, settings.key)
+        // Assert
+        assertEquals(testUrl, settings.streamUrl)
+        assertEquals(testKey, settings.streamKey)
     }
 
     @Test
-    fun `streamSettingsFlow should return default values if nothing is saved`() = runTest {
-        // Act: Rufen Sie den Flow ohne vorherige Daten auf
-        val settings = repository.streamSettingsFlow.first()
+    fun `appSettingsFlow should return default values if nothing is saved`() = runTest {
+        val testDataStore = PreferenceDataStoreFactory.create(
+            scope = this,
+            produceFile = { File(tempDir.toFile(), "test_default.preferences_pb") }
+        )
+        val repository = SettingsRepository(testDataStore)
 
-        // Assert: Überprüfen Sie die Standardwerte (leere Strings)
-        assertEquals("", settings.url)
-        assertEquals("", settings.key)
+        // Act
+        val settings = repository.appSettingsFlow.first()
+
+        // Assert
+        assertEquals("", settings.streamUrl)
+        assertEquals("localhost", settings.obsHost)
     }
 }

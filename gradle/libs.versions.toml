@@ -25,7 +25,8 @@ javaxInject = "1"
 json = "20250517"
 junitJupiterApi = "6.0.2"
 junitJupiterEngine = "6.0.0"
-junitJupiterParams = "6.0.0"
+junitJupiterParams = "6.0.3"
+junitPlatformLauncher = "6.0.3"
 kotlin = "2.2.20"
 coreKtx = "1.17.0"
 junit = "4.13.2"
@@ -134,6 +135,7 @@ hilt-compiler = { group = "com.google.dagger", name = "hilt-android-compiler", v
 junit-jupiter-api = { module = "org.junit.jupiter:junit-jupiter-api", version.ref = "junitJupiterApi" }
 junit-jupiter-engine = { module = "org.junit.jupiter:junit-jupiter-engine", version.ref = "junitJupiterEngine" }
 junit-jupiter-params = { module = "org.junit.jupiter:junit-jupiter-params", version.ref = "junitJupiterParams" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher", version.ref = "junitPlatformLauncher" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinxCoroutinesAndroid" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinxCoroutinesCore" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinxCoroutinesTest" }
