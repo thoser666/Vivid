@@ -4,7 +4,7 @@ package com.vivid.core.data
 data class AppSettings(
     val streamUrl: String = "",
     val streamKey: String = "",
-    val obsHost: String = "",
-    val obsPort: String = "",
+    val obsHost: String = "localhost",
+    val obsPort: String = "4455",
     val obsPassword: String = "",
 )

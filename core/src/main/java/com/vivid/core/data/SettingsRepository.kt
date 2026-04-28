@@ -8,15 +8,7 @@ import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
-// Umbenannt für Konsistenz mit dem ViewModel
-data class AppSettings(
-    val streamUrl: String = "",
-    val streamKey: String = "",
-    val obsHost: String = "localhost",
-    val obsPort: String = "4455",
-    val obsPassword: String = "",
-)
-
+// SettingsRepository.kt
 @Singleton
 class SettingsRepository @Inject constructor(
     private val dataStore: DataStore<Preferences>,

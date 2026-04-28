@@ -7,7 +7,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.vivid.irlbroadcaster.R
+import com.vivid.R
 
 /**
  * A reusable Composable to display the app's thumbnail or logo.
