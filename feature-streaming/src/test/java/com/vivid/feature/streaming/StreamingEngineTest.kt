@@ -1,64 +1,67 @@
-import com.pedro.library.rtmp.RtmpCamera2
-import com.vivid.feature.streaming.StreamingEngine
-import com.vivid.feature.streaming.opengles.OpenGlView
+package com.vivid.feature.streaming
 
-// In app/src/test/java/com/vivid/feature/streaming/StreamingEngineTest.kt
+import com.pedro.common.ConnectChecker
+import com.pedro.library.rtmp.RtmpCamera2
+import com.pedro.library.view.OpenGlView
+import io.mockk.coVerify
+import io.mockk.every
+import io.mockk.mockk
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
 
 class StreamingEngineTest {
 
-    private lateinit var rtmpCamera: RtmpCamera2 // Diesmal wird die Abhängigkeit gemockt
+    private lateinit var rtmpCamera: RtmpCamera2
+    private lateinit var cameraFactory: CameraFactory
     private lateinit var streamingEngine: StreamingEngine
 
-    @Before
+    @BeforeEach
     fun setUp() {
-        // Mocken Sie die eigentliche Kamera-Klasse
         rtmpCamera = mockk(relaxed = true)
-        streamingEngine = StreamingEngine() // Erstellen Sie die echte Engine
-
-        // Hier könnten Sie Reflection verwenden, um die private `rtmpCamera`-Instanz zu setzen,
-        // oder (besser) die Engine so umgestalten, dass die Kamera injiziert werden kann.
-        // Fürs Erste gehen wir davon aus, dass `initializeCamera` sie setzt.
+        cameraFactory = object : CameraFactory {
+            override fun create(openGlView: OpenGlView, connectChecker: ConnectChecker): RtmpCamera2 {
+                return rtmpCamera
+            }
+        }
+        streamingEngine = StreamingEngine(cameraFactory)
     }
 
     @Test
-    fun `startStreaming should not do anything if url is blank`() {
+    fun `startStream should not do anything if url is blank`() = runTest {
         // Arrange
         val openGlView: OpenGlView = mockk(relaxed = true)
-        streamingEngine.initializeCamera(openGlView) // Initialisieren, um eine Kamera-Instanz zu haben
+        streamingEngine.initializeCamera(openGlView)
 
         // Act
-        streamingEngine.startStreaming("")
+        streamingEngine.startStream("")
 
         // Assert
-        // Verifizieren, dass startStream auf dem Mock-Objekt NIE aufgerufen wurde
         coVerify(exactly = 0) { rtmpCamera.startStream(any()) }
     }
 
     @Test
-    fun `startStreaming should update isStreaming state to true on success`() = runTest {
+    fun `streamingState should be Idle initially`() = runTest {
+        val state = streamingEngine.streamingState.first()
+        assertEquals(StreamingState.Idle, state)
+    }
+
+    @Test
+    fun `startStream should call startStream on camera if url is valid`() = runTest {
         // Arrange
-        mockk(relaxed = true)
-        "rtmp://test.com/app"
-
-        // WICHTIG: Erstellen Sie eine `RtmpCamera2`-Instanz, die von der `StreamingEngine` verwendet wird
-        // indem wir den Konstruktor der StreamingEngine anpassen, um eine Factory-Lambda zu akzeptieren
-        // ODER indem wir den Konstruktor von RtmpCamera2 mocken.
-        // Für dieses Beispiel simulieren wir, dass die Kamera intern erstellt und `isStreaming` false ist.
+        val openGlView: OpenGlView = mockk(relaxed = true)
+        streamingEngine.initializeCamera(openGlView)
         every { rtmpCamera.isStreaming } returns false
+        every { rtmpCamera.prepareAudio() } returns true
+        every { rtmpCamera.prepareVideo() } returns true
+        val testUrl = "rtmp://test.com/app"
 
-        // Wir müssen der Engine unsere gemockte Kamera-Instanz "unterschieben".
-        // Dies ist der knifflige Teil beim Testen von Klassen, die ihre Abhängigkeiten selbst erstellen.
-        // Eine bessere Architektur wäre, eine Kamera-Factory zu injizieren.
+        // Act
+        streamingEngine.startStream(testUrl)
 
-        // Vereinfachter Ansatz: Wir können das Ergebnis nicht direkt testen, ohne die Architektur zu ändern.
-        // Stattdessen testen wir den Zustand.
-
-        streamingEngine.isStreaming.test {
-            assertEquals(false, awaitItem()) // Anfangszustand
-
-            // Simulieren, dass die `startStream`-Methode der Kamera aufgerufen wird und erfolgreich ist.
-            // Dies ist schwer, da die Kamera intern erstellt wird.
-            // Der Test zeigt die Grenzen des aktuellen Designs auf.
-        }
+        // Assert
+        coVerify { rtmpCamera.startStream(testUrl) }
     }
 }
