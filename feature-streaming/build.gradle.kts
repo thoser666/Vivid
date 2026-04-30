@@ -8,7 +8,7 @@ plugins {
 
 android {
     namespace = "com.vivid.feature.streaming"
-    compileSdk = 36
+    compileSdk = libs.versions.compileSdk.get().toInt()
 
     defaultConfig {
         minSdk = libs.versions.minSdk.get().toInt()

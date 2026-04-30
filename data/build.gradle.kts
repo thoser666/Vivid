@@ -8,7 +8,7 @@ plugins {
 
 android {
     namespace = "com.vivid.data"
-    compileSdk = 36
+    compileSdk = libs.versions.compileSdk.get().toInt()
 
     defaultConfig {
         minSdk = 24
