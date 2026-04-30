@@ -52,7 +52,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: test-results
           path: app/build/reports
@@ -116,7 +116,7 @@ jobs:
       # ── Artifact‑Upload ──
       - name: Upload APK as artifact
         if: env.SIGNING_KEY_STORE_BASE64 != ''
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: release-apk
           path: app/build/outputs/apk/release/app-release.apk
