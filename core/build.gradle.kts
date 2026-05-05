@@ -34,7 +34,6 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-
     // =============================================================
     // HIER IST DIE WICHTIGE ÄNDERUNG
     buildFeatures {
