@@ -85,3 +85,14 @@ Desktop.ini
 crashlytics-build.properties
 # Sentry Config File
 sentry.properties
+
+# Fastlane
+fastlane/.env.release
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots
+fastlane/test_output
+
+# Keystore files
+*.keystore
+*.jks

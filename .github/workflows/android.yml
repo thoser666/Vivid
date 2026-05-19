@@ -2,9 +2,9 @@ name: Android CI
 
 on:
   push:
-    branches: ["main", "develop"]
+    branches: ["master", "develop"]
   pull_request:
-    branches: ["main", "develop"]
+    branches: ["master", "develop"]
 
 jobs:
   # 1️⃣ Build & Test
@@ -52,7 +52,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: test-results
           path: app/build/reports
@@ -71,6 +71,7 @@ jobs:
     env:
       SENTRY_ORG: private-jb
       SENTRY_PROJECT: vivid
+      SIGNING_KEY_STORE_BASE64: ${{ secrets.SIGNING_KEY_STORE_BASE64 }}
 
     steps:
       - name: Checkout
@@ -91,14 +92,15 @@ jobs:
 
       # ── Decodieren & Signieren des Keystores ──
       - name: Decode and install keystore
-        if: secrets.SIGNING_KEY_STORE_BASE64 != ''
+        if: env.SIGNING_KEY_STORE_BASE64 != ''
         env:
           KEYSTORE_PATH: ${{ github.workspace }}/signing-keystore.jks
         run: |
-          echo "${{ SECRETS.SIGNING_KEY_STORE_BASE64 }}" | base64 -d > "$KEYSTORE_PATH"
+          echo "${{ secrets.SIGNING_KEY_STORE_BASE64 }}" | base64 -d > "$KEYSTORE_PATH"
 
       # ── Release Build (signiert) ──
       - name: Assemble signed release APK
+        if: env.SIGNING_KEY_STORE_BASE64 != ''
         env:
           KEYSTORE_PATH: ${{ github.workspace }}/signing-keystore.jks
           KEYSTORE_PASSWORD: ${{ secrets.SIGNING_KEYSTORE_PASSWORD }}
@@ -113,7 +115,8 @@ jobs:
 
       # ── Artifact‑Upload ──
       - name: Upload APK as artifact
-        uses: actions/upload-artifact@v3
+        if: env.SIGNING_KEY_STORE_BASE64 != ''
+        uses: actions/upload-artifact@v4
         with:
           name: release-apk
           path: app/build/outputs/apk/release/app-release.apk

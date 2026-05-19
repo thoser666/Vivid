@@ -6,7 +6,6 @@
       <GradleProjectSettings>
         <option name="testRunner" value="CHOOSE_PER_TEST" />
         <option name="externalProjectPath" value="$PROJECT_DIR$" />
-        <option name="gradleJvm" value="22" />
         <option name="modules">
           <set>
             <option value="$PROJECT_DIR$" />
@@ -15,10 +14,10 @@
             <option value="$PROJECT_DIR$/data" />
             <option value="$PROJECT_DIR$/domain" />
             <option value="$PROJECT_DIR$/feature-chat" />
+            <option value="$PROJECT_DIR$/feature-obs-control" />
             <option value="$PROJECT_DIR$/feature-settings" />
             <option value="$PROJECT_DIR$/feature-streaming" />
             <option value="$PROJECT_DIR$/feature-widgets" />
-            <option value="$PROJECT_DIR$/features-obs-control" />
           </set>
         </option>
       </GradleProjectSettings>
