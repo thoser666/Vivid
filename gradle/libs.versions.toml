@@ -1,5 +1,11 @@
 [versions]
-agp = "9.0.0"
+agp = "9.2.0"
+# SDK Versionen
+compileSdk = "36"
+minSdk = "24"
+targetSdk = "36"
+jvmTarget = "17"
+
 accompanist = "0.37.3"
 appcompat = "1.7.1"
 cameraCamera2 = "1.5.2"
@@ -7,18 +13,20 @@ cameraCore = "1.5.1"
 constraintlayout = "2.2.1"
 coreTesting = "2.2.0"
 datastorePreferences = "1.1.7"
+datastorePreferencesCore = "1.1.7"
 gson = "2.13.2"
 guava = "33.5.0-android"
 #hiltAndroid = "2.57.1"
 hiltCompiler = "2.59"
-hilt-version = "2.57.2"
+hilt-version = "2.59.2"
 hiltNavigationCompose = "1.3.0"
 javaWebsocket = "1.6.0"
 javaxInject = "1"
 json = "20250517"
 junitJupiterApi = "6.0.2"
 junitJupiterEngine = "6.0.0"
-junitJupiterParams = "6.0.0"
+junitJupiterParams = "6.0.3"
+junitPlatformLauncher = "6.0.3"
 kotlin = "2.2.20"
 coreKtx = "1.17.0"
 junit = "4.13.2"
@@ -27,11 +35,16 @@ espressoCore = "3.7.0"
 kotlinxCoroutinesAndroid = "1.10.2"
 kotlinxCoroutinesCore = "1.10.2"
 kotlinxCoroutinesTest = "1.10.2"
-lifecycleRuntimeKtx = "2.10.0"
+kotlinxSerializationJson = "1.9.0"
+lifecycleRuntimeKtx = "2.9.4"
 activityCompose = "1.12.2"
 composeBom = "2025.09.00"
+mlkitBarcodeScanning = "17.3.0"
+#obsWsKotlin = "0.7.0"
+#obsWsClient = "2.3.1"
 jetbrainsKotlinJvm = "2.2.20"
-ksp-version = "2.3.0"
+ksp-version = "2.3.2"
+lifecycleViewmodelKtx = "2.9.4"
 loggingInterceptor = "5.2.1"
 material3 = "1.4.0"
 materialIconsExtended = "1.7.8"
@@ -41,37 +54,62 @@ media3Exoplayer = "1.8.0"
 media3ExoplayerHls = "1.8.0"
 media3Ui = "1.8.0"
 mockitoCore = "5.20.0"
-mockitoKotlin = "6.0.0"
+mockitoKotlin = "6.1.0"
 mockk = "1.14.9"
 navigationCompose = "2.9.5"
-okhttpVersion = "5.1.0"
+okhttpVersion = "5.2.1"
 okhttp = "5.1.0"
 rootencoder = "2.6.4"
+sentry = "6.0.0"
 turbine = "1.2.1"
-ui = "1.9.2"
-uiTestJunit4 = "1.9.4"
-uiTestManifest = "1.9.2"
-uiTooling = "1.9.2"
-uiToolingPreview = "1.9.2"
+ui = "1.9.3"
+uiTestJunit4 = "1.9.3"
+uiTestManifest = "1.9.3"
+uiTooling = "1.9.3"
+uiToolingPreview = "1.9.3"
 material = "1.13.0"
+ktor = "3.3.1"
+timberkt = "1.5.1"
+sentryGradlePlugin = "6.6.0"
 
 [libraries]
 accompanist-permissions = { group = "com.google.accompanist", name = "accompanist-permissions", version.ref = "accompanist" }
 androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "appcompat" }
+
+# --- Compose ---
+androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
+androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
+androidx-compose-material-icons-extended = { module = "androidx.compose.material:material-icons-extended", version.ref = "materialIconsExtended" }
+androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3" }
+androidx-datastore-preferences-core = { module = "androidx.datastore:datastore-preferences-core", version.ref = "datastorePreferencesCore" }
+androidx-ui = { group = "androidx.compose.ui", name = "ui" }
+androidx-ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics" }
+androidx-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
+androidx-ui-tooling-debug = { group = "androidx.compose.ui", name = "ui-tooling" } # For debug builds
+androidx-navigation-compose = { module = "androidx.navigation:navigation-compose", version.ref = "navigationCompose" }
+# --- Lifecycle & ViewModel ---
+androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycleRuntimeKtx" }
+androidx-lifecycle-viewmodel-ktx = { module = "androidx.lifecycle:lifecycle-viewmodel-ktx", version.ref = "lifecycleViewmodelKtx" }
+# --- Hilt ---
+hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt-version" }
+hilt-compiler-ksp = { group = "com.google.dagger", name = "hilt-compiler", version.ref = "hilt-version" } # Using the correct artifact for KSP
+androidx-hilt-navigation-compose = { module = "androidx.hilt:hilt-navigation-compose", version.ref = "hiltNavigationCompose" }
+# --- OkHttp ---
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerializationJson" }
+okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttpVersion" }
+okhttp-logging-interceptor = { module = "com.squareup.okhttp3:logging-interceptor", version.ref = "loggingInterceptor" }
+
+
 androidx-camera-camera2 = { module = "androidx.camera:camera-camera2", version.ref = "cameraCamera2" }
 androidx-camera-core = { module = "androidx.camera:camera-core", version.ref = "cameraCore" }
 androidx-camera-lifecycle = { module = "androidx.camera:camera-lifecycle", version.ref = "cameraCamera2" }
 androidx-camera-video = { module = "androidx.camera:camera-video", version.ref = "cameraCamera2" }
 androidx-camera-view = { module = "androidx.camera:camera-view", version.ref = "cameraCamera2" }
-androidx-compose-material-icons-extended = { module = "androidx.compose.material:material-icons-extended", version.ref = "materialIconsExtended" }
-androidx-compose-ui-graphics = { module = "androidx.compose.ui:ui-graphics" }
-androidx-compose-ui-ui-graphics = { module = "androidx.compose.ui:ui-graphics" }
-androidx-compose-ui-ui-graphics2 = { module = "androidx.compose.ui:ui-graphics" }
+androidx-compose-ui-graphics2 = { module = "androidx.compose.ui:ui-graphics" }
 androidx-constraintlayout = { module = "androidx.constraintlayout:constraintlayout", version.ref = "constraintlayout" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-core-testing = { module = "androidx.arch.core:core-testing", version.ref = "coreTesting" }
 androidx-datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastorePreferences" }
-androidx-hilt-navigation-compose = { module = "androidx.hilt:hilt-navigation-compose", version.ref = "hiltNavigationCompose" }
 androidx-media3-common = { module = "androidx.media3:media3-common", version.ref = "media3Common" }
 androidx-media3-datasource = { module = "androidx.media3:media3-datasource", version.ref = "media3Decoder" }
 androidx-media3-decoder = { module = "androidx.media3:media3-decoder", version.ref = "media3Decoder" }
@@ -81,33 +119,23 @@ androidx-media3-exoplayer-hls = { module = "androidx.media3:media3-exoplayer-hls
 androidx-media3-exoplayer-rtsp = { module = "androidx.media3:media3-exoplayer-rtsp", version.ref = "media3ExoplayerHls" }
 androidx-media3-ui = { module = "androidx.media3:media3-ui", version.ref = "media3Ui" }
 androidx-media3-ui-compose = { module = "androidx.media3:media3-ui-compose", version.ref = "media3Decoder" }
-androidx-navigation-compose = { module = "androidx.navigation:navigation-compose", version.ref = "navigationCompose" }
-#dagger-hilt-compiler = { module = "com.google.dagger:hilt-compiler", version.ref = "hiltCompiler" }
 dagger-hilt-compiler = { module = "com.google.dagger:hilt-compiler", version.ref = "hiltCompiler" }
 gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 guava = { module = "com.google.guava:guava", version.ref = "guava" }
-#hilt-android-v244 = { module = "com.google.dagger:hilt-android", version.ref = "hiltAndroid" }
 java-websocket = { module = "org.java-websocket:Java-WebSocket", version.ref = "javaWebsocket" }
 javax-inject = { module = "javax.inject:javax.inject", version.ref = "javaxInject" }
-json = { module = "org.json:json", version.ref = "json" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
-androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycleRuntimeKtx" }
-androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
-androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
-androidx-ui = { group = "androidx.compose.ui", name = "ui" }
-androidx-ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics" }
 androidx-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling" }
-androidx-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
 androidx-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
 androidx-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
 androidx-material3 = { group = "androidx.compose.material3", name = "material3" }
-hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt-version" }
 hilt-compiler = { group = "com.google.dagger", name = "hilt-android-compiler", version.ref = "hilt-version" }
 junit-jupiter-api = { module = "org.junit.jupiter:junit-jupiter-api", version.ref = "junitJupiterApi" }
 junit-jupiter-engine = { module = "org.junit.jupiter:junit-jupiter-engine", version.ref = "junitJupiterEngine" }
 junit-jupiter-params = { module = "org.junit.jupiter:junit-jupiter-params", version.ref = "junitJupiterParams" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher", version.ref = "junitPlatformLauncher" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinxCoroutinesAndroid" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinxCoroutinesCore" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinxCoroutinesTest" }
@@ -117,29 +145,40 @@ mockito-core = { module = "org.mockito:mockito-core", version.ref = "mockitoCore
 mockito-kotlin = { module = "org.mockito.kotlin:mockito-kotlin", version.ref = "mockitoKotlin" }
 mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
 okhttp3-okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttpVersion" }
-okhttp3 = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttpVersion" }
-okhttp-websocket = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
-rootencoder = { module = "com.github.pedroSG94:RootEncoder", version.ref = "rootencoder" }
-#rtmp-rtsp-stream-client-java = { module = "com.github.pedroSG94:rtmp-rtsp-stream-client-java", version.ref = "rtmpRtspStreamClientJava" }
 turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
 ui = { module = "androidx.compose.ui:ui", version.ref = "ui" }
-ui-graphics = { module = "androidx.compose.ui:ui-graphics" }
 ui-test-junit4 = { module = "androidx.compose.ui:ui-test-junit4", version.ref = "uiTestJunit4" }
 ui-test-manifest = { module = "androidx.compose.ui:ui-test-manifest", version.ref = "uiTestManifest" }
 ui-tooling = { module = "androidx.compose.ui:ui-tooling", version.ref = "uiTooling" }
 ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview", version.ref = "uiToolingPreview" }
 material = { group = "com.google.android.material", name = "material", version.ref = "material" }
+google-mlkit-barcode-scanning = { module = "com.google.mlkit:barcode-scanning", version.ref = "mlkitBarcodeScanning" }
 
+ktor-client-core = { group = "io.ktor", name = "ktor-client-core", version.ref = "ktor" }
+ktor-client-cio = { group = "io.ktor", name = "ktor-client-cio", version.ref = "ktor" }
+ktor-client-websockets = { group = "io.ktor", name = "ktor-client-websockets", version.ref = "ktor" }
+ktor-client-content-negotiation = { group = "io.ktor", name = "ktor-client-content-negotiation", version.ref = "ktor" }
+ktor-serialization-kotlinx-json = { group = "io.ktor", name = "ktor-serialization-kotlinx-json", version.ref = "ktor" }
+
+# Optional, aber oft nützlich für das Logging von Netzwerk-Anfragen
+ktor-client-logging = { group = "io.ktor", name = "ktor-client-logging", version.ref = "ktor"}
+
+timberkt = { group = "com.github.ajalt", name = "timberkt", version.ref = "timberkt" }
+# Note: TimberKt requires the original Timber library as well.
+# You probably already have this, but make sure it's there.
+timber = { group = "com.jakewharton.timber", name = "timber", version = "5.0.1" }
+
+rootencoder-encoder = { module = "com.github.pedroSG94.RootEncoder:encoder", version.ref = "rootencoder" }
+rootencoder-library = { module = "com.github.pedroSG94.RootEncoder:library", version.ref = "rootencoder" }
+rootencoder-rtmp = { module = "com.github.pedroSG94.RootEncoder:rtmp", version.ref = "rootencoder" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
-#kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 jetbrains-kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "jetbrainsKotlinJvm" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp-version" }
 hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt-version" }
-#org-jetbrains-kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 android-library = { id = "com.android.library", version.ref = "agp" }
-
-
+sentry-android-gradle = { id = "io.sentry.android.gradle", version.ref = "sentryGradlePlugin" }

@@ -1,95 +1,53 @@
 package com.vivid.core.data
 
-import android.content.Context
-import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
-import androidx.datastore.preferences.core.Preferences
-import app.cash.turbine.test
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.test.StandardTestDispatcher
-import kotlinx.coroutines.test.TestDispatcher
-import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
-import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.BeforeEach
-import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
-import org.mockito.kotlin.mock
 import java.io.File
+import java.nio.file.Path
 
-@ExperimentalCoroutinesApi
 class SettingsRepositoryTest {
 
-    // Ein spezieller Dispatcher für Tests, um die Ausführung von Coroutinen zu steuern
-    private val testDispatcher: TestDispatcher = StandardTestDispatcher()
-
-    // Ein temporärer Ordner, der von JUnit5 bereitgestellt wird, um eine Test-DataStore-Datei zu erstellen
     @TempDir
-    lateinit var tempFile: File
+    lateinit var tempDir: Path
 
-    // Die zu testende Klasse
-    private lateinit var settingsRepository: SettingsRepository
-    private lateinit var testDataStore: DataStore<Preferences>
-
-    // Mocken des Android Context, da wir ihn nicht wirklich brauchen
-    private val mockContext: Context = mock()
-
-    @BeforeEach
-    fun setUp() {
-        // Richten Sie den Haupt-Dispatcher für Coroutinen ein, um unseren Test-Dispatcher zu verwenden
-        Dispatchers.setMain(testDispatcher)
-
-        // Erstellen einer In-Memory-DataStore-Instanz für diesen Test
-        testDataStore = PreferenceDataStoreFactory.create(
-            scope = CoroutineScope(testDispatcher + Job()),
-            produceFile = { tempFile.resolve("test_settings.preferences_pb") },
+    @Test
+    fun `appSettingsFlow should return saved values`() = runTest {
+        val testDataStore = PreferenceDataStoreFactory.create(
+            scope = this,
+            produceFile = { File(tempDir.toFile(), "test.preferences_pb") }
         )
-        // Erstellen Sie die Repository-Instanz mit der Test-DataStore
-        settingsRepository = SettingsRepository(testDataStore)
-    }
+        val repository = SettingsRepository(testDataStore)
 
-    @AfterEach
-    fun tearDown() {
-        // Setzen Sie den Haupt-Dispatcher nach dem Test zurück
-        Dispatchers.resetMain()
-    }
-
-    @Test
-    @DisplayName("streamSettingsFlow should emit default values when DataStore is empty")
-    fun `streamSettingsFlow emits default values initially`() = runTest {
-        // Act & Assert
-        settingsRepository.streamSettingsFlow.test {
-            val defaultSettings = awaitItem()
-            assertEquals("rtmp://a.rtmp.youtube.com/live2", defaultSettings.url)
-            assertEquals("", defaultSettings.key)
-            cancelAndIgnoreRemainingEvents()
-        }
-    }
-
-    @Test
-    @DisplayName("updateStreamSettings should correctly update values and be emitted by the flow")
-    fun `updateStreamSettings updates the flow correctly`() = runTest {
         // Arrange
-        val newUrl = "rtmp://test.url/live"
-        val newKey = "test_key_12345"
+        val testUrl = "rtmp://test.url/live"
+        val testKey = "test_key_123"
+        
+        // Act
+        repository.updateStreamSettings(testUrl, testKey)
+        val settings = repository.appSettingsFlow.first()
 
-        settingsRepository.streamSettingsFlow.test {
-            // Ignorieren Sie den ersten, standardmäßigen Emissionswert
-            awaitItem()
+        // Assert
+        assertEquals(testUrl, settings.streamUrl)
+        assertEquals(testKey, settings.streamKey)
+    }
 
-            // Act: Rufen Sie die Methode auf, die wir testen wollen
-            settingsRepository.updateStreamSettings(newUrl, newKey)
+    @Test
+    fun `appSettingsFlow should return default values if nothing is saved`() = runTest {
+        val testDataStore = PreferenceDataStoreFactory.create(
+            scope = this,
+            produceFile = { File(tempDir.toFile(), "test_default.preferences_pb") }
+        )
+        val repository = SettingsRepository(testDataStore)
 
-            // Assert: Überprüfen Sie, ob der Flow die neuen Werte ausgibt
-            val updatedSettings = awaitItem()
-            assertEquals(newUrl, updatedSettings.url)
-            assertEquals(newKey, updatedSettings.key)
-        }
+        // Act
+        val settings = repository.appSettingsFlow.first()
+
+        // Assert
+        assertEquals("", settings.streamUrl)
+        assertEquals("localhost", settings.obsHost)
     }
 }

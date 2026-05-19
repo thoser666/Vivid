@@ -1,27 +1,26 @@
-// Stellen Sie sicher, dass am Anfang der Datei "com.android.library" als Plugin steht.
 plugins {
-    id("com.android.library")
-    kotlin("android") // Verwenden Sie kotlin("android") anstelle von kotlin("jvm")
-//    id("kotlin-kapt") // Falls Sie Hilt oder andere Annotation Processors hier verwenden
-    id("dagger.hilt.android.plugin") // Hilt-Plugin
-    id("com.google.devtools.ksp")
+    alias(libs.plugins.android.library)
+    alias(libs.plugins.hilt)
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.compose.compiler)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
-    // Definieren Sie einen Namespace, dies ist für Android-Bibliotheken erforderlich
     namespace = "com.vivid.core"
-
-    compileSdk = 34 // Verwenden Sie dieselbe SDK-Version wie Ihr App-Modul
+    compileSdk = libs.versions.compileSdk.get().toInt()
 
     defaultConfig {
-        minSdk = 24 // Verwenden Sie dieselbe minSdk wie Ihr App-Modul
-
+        minSdk = 24
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        consumerProguardFiles("consumer-rules.pro")
     }
 
     buildTypes {
-        release {
+        getByName("debug") {
+            buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:8080\"")
+        }
+        getByName("release") {
+            buildConfigField("String", "API_BASE_URL", "\"https://api.your-production-domain.com\"")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -29,57 +28,58 @@ android {
             )
         }
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-//    kotlinOptions {
-//        jvmTarget = "17"
-//    }
-    kotlin {
-        compilerOptions {
-            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+
+    // =============================================================
+    // HIER IST DIE WICHTIGE ÄNDERUNG
+    buildFeatures {
+        compose = true
+        buildConfig = true // <-- DIESE ZEILE AKTIVIERT DIE BuildConfig-GENERIERUNG
+    }
+    // =============================================================
+
+    testOptions {
+        unitTests.all {
+            it.useJUnitPlatform()
         }
     }
 }
 
 dependencies {
-    // Fügen Sie Abhängigkeiten hinzu, die in diesem Modul benötigt werden
-    implementation(libs.androidx.core.ktx) // Gute Praxis für Android-Bibliotheken
-    implementation(libs.androidx.appcompat)
-
-    // Hilt für Dependency Injection
-    implementation(libs.hilt.android)
-//    kapt(libs.dagger.hilt.compiler)
-    ksp(libs.dagger.hilt.compiler)
-
-    // DataStore-Abhängigkeit, die `Context` benötigt
+    // --- App-Abhängigkeiten (Implementation) ---
+    implementation(libs.androidx.core.ktx)
+    implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.ui)
     implementation(libs.androidx.datastore.preferences)
-
-    implementation(libs.okhttp3.okhttp) //
-
-    // JSON handling (bereits definiert in Ihrer toml)
+    implementation(libs.okhttp)
     implementation(libs.gson)
+    implementation(libs.kotlinx.coroutines.core)
+    implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.hilt.android)
+    ksp(libs.hilt.compiler)
+    implementation(libs.timber)
+    implementation(libs.ktor.client.core)
+    implementation(libs.ktor.client.cio)
+    implementation(libs.ktor.client.websockets)
+    implementation(libs.ktor.client.content.negotiation)
+    implementation(libs.ktor.serialization.kotlinx.json)
+    implementation(libs.ktor.client.logging)
 
-    // Optional: Für WebSocket debugging
-    implementation(libs.logging.interceptor)
-
-    // Standard JUnit5 für Unit-Tests
+    // --- Unit-Test-Abhängigkeiten (testImplementation) ---
+    testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.junit.jupiter.api)
     testRuntimeOnly(libs.junit.jupiter.engine)
-    testImplementation(libs.junit.jupiter.params) // Für parametrisierte Tests
-
-    // Mockito zum Mocken von Abhängigkeiten (wie z.B. Context)
+    testRuntimeOnly(libs.junit.platform.launcher)
+    testImplementation(libs.junit.jupiter.params)
+    testImplementation(libs.mockk)
     testImplementation(libs.mockito.core)
     testImplementation(libs.mockito.kotlin)
-
-    // Turbine für das Testen von Kotlin Flows
     testImplementation(libs.turbine)
+    testImplementation(libs.androidx.core.testing)
 
-    // Coroutines-Testbibliothek
-    testImplementation(libs.kotlinx.coroutines.test)
-
-    // --- Android-spezifische Test-Abhängigkeiten (bleiben für instrumentierte Tests) ---
-    androidTestImplementation(libs.androidx.junit)
-    androidTestImplementation(libs.androidx.espresso.core)
+    implementation(project(":domain"))
 }
