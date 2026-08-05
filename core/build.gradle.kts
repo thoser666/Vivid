@@ -71,6 +71,7 @@ dependencies {
 
     // --- Unit-Test-Abhängigkeiten (testImplementation) ---
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.ktor.client.mock)
     testImplementation(libs.junit.jupiter.api)
     testRuntimeOnly(libs.junit.jupiter.engine)
     testRuntimeOnly(libs.junit.platform.launcher)
