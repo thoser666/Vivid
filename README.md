@@ -4,7 +4,7 @@
 <div align="center">
 
 ![Android](https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white)
-![API](https://img.shields.io/badge/API-26%2B-brightgreen.svg?style=for-the-badge)
+![API](https://img.shields.io/badge/API-24%2B-brightgreen.svg?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)
 ![GitHub release](https://img.shields.io/github/v/release/thoser666/Vivid?style=for-the-badge)
 ![GitHub stars](https://img.shields.io/github/stars/thoser666/Vivid?style=for-the-badge)
@@ -31,7 +31,7 @@
 ## 🚀 Quick Start
 
 ### Requirements
-- Android 8.0 (API level 26) or higher
+- Android 7.0 (API level 24) or higher
 - Camera and microphone permissions
 - Stable internet connection (WiFi + mobile data recommended)
 
