@@ -38,8 +38,10 @@ jobs:
       - name: Grant executable permission to gradlew
         run: chmod +x ./gradlew
 
-      - name: Run tests
-        run: ./gradlew test
+      # Debug-Variante deckt alle Module ab (app, core, data, domain, feature-*);
+      # Tests liegen in src/test — keine Release-Varianten-Tests im Projekt.
+      - name: Run unit tests (all modules)
+        run: ./gradlew testDebugUnitTest
 
       - name: Run lint & static analysis
         run: ./gradlew lintDebug
@@ -55,7 +57,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: test-results
-          path: app/build/reports
+          path: |
+            **/build/test-results/**/*.xml
+            **/build/reports/tests/**
 
   # 2️⃣ Release (nur auf `main` bzw. wenn der PR auf `main` gemergt wird)
   release:

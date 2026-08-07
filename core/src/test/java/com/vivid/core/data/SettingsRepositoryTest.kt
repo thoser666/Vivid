@@ -50,4 +50,22 @@ class SettingsRepositoryTest {
         assertEquals("", settings.streamUrl)
         assertEquals("localhost", settings.obsHost)
     }
+
+    @Test
+    fun `appSettingsFlow should return saved obs settings`() = runTest {
+        val testDataStore = PreferenceDataStoreFactory.create(
+            scope = this,
+            produceFile = { File(tempDir.toFile(), "test_obs.preferences_pb") }
+        )
+        val repository = SettingsRepository(testDataStore)
+
+        // Act
+        repository.updateObsSettings("192.168.1.100", "4456", "obs-secret")
+        val settings = repository.appSettingsFlow.first()
+
+        // Assert
+        assertEquals("192.168.1.100", settings.obsHost)
+        assertEquals("4456", settings.obsPort)
+        assertEquals("obs-secret", settings.obsPassword)
+    }
 }
