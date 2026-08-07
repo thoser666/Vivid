@@ -40,15 +40,16 @@ class OBSWebSocketClientTest {
     }
 
     @Test
-    fun `connect opens a websocket to the given address`() {
+    fun `connect opens a wss websocket to the given address`() {
         val requestSlot = slot<Request>()
 
         client.connect("secret", "127.0.0.1", 4455)
 
         verify { okHttpClient.newWebSocket(capture(requestSlot), any()) }
-        // OkHttp normalizes the URL (scheme ws->http, trailing slash); check host and port.
+        // OkHttp normalizes the URL (scheme ws->http / wss->https, trailing slash); check host, port and TLS scheme.
         assertEquals("127.0.0.1", requestSlot.captured.url.host)
         assertEquals(4455, requestSlot.captured.url.port)
+        assertEquals("https", requestSlot.captured.url.scheme)
     }
 
     @Test
@@ -72,6 +73,26 @@ class OBSWebSocketClientTest {
             generateAuthenticationString("mypassword", salt, challenge),
             response.d.authentication,
         )
+    }
+
+    @Test
+    fun `password is not retained on the client after connect`() {
+        client.connect("secret", "127.0.0.1", 4455)
+        client.disconnect()
+
+        // Das Passwort darf nirgends als Klartext-Feld weiterleben: eine neue
+        // Verbindung ohne Passwort muss den Auth-Pfad über den lokalen Listener
+        // dieser Verbindung (leer) laufen lassen und darf kein altes Passwort verwenden.
+        client.connect("", "127.0.0.1", 4455)
+        val salt = "A1B2C3D4E5F6A7B8C9D0E1F2A3B4C5D6"
+        val challenge = "A1B2C3D4E5F6A7B8C9D0E1F2A3B4C5D6"
+        listenerSlot.captured.onMessage(
+            webSocket,
+            """{"op":0,"d":{"rpcVersion":1,"authentication":{"challenge":"$challenge","salt":"$salt"}}}""",
+        )
+
+        verify { webSocket.close(1000, "User disconnected") }
+        verify(exactly = 0) { webSocket.send(match<String> { it.contains("\"op\":1") }) }
     }
 
     @Test
