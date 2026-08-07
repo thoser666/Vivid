@@ -4,10 +4,12 @@
 <div align="center">
 
 ![Android](https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white)
+![Kotlin](https://img.shields.io/badge/Kotlin-2.2.20-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white)
 ![API](https://img.shields.io/badge/API-24%2B-brightgreen.svg?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)
 ![GitHub release](https://img.shields.io/github/v/release/thoser666/Vivid?style=for-the-badge)
 ![GitHub stars](https://img.shields.io/github/stars/thoser666/Vivid?style=for-the-badge)
+![CI](https://img.shields.io/github/actions/workflow/status/thoser666/Vivid/android.yml?branch=develop&style=for-the-badge&label=CI)
 
 **Professional IRL streaming for Android with all the power of Moblin**
 
@@ -27,6 +29,23 @@
 - 📹 **High-Quality Streaming** - Up to 4K resolution at 60fps with H.264/AVC and H.265/HEVC support
 - 🔒 **Secure Protocols** - RTMP, RTMPS, SRT, and SRTLA support
 - 🔓 **Open Source** - Completely free and open source
+
+## 🧱 Tech Stack
+
+| Area | Technology | Version |
+|------|-----------|---------|
+| Language | Kotlin | 2.2.20 |
+| Build | Android Gradle Plugin | 9.2.1 |
+| SDK | minSdk / compile+target | 24 / 36 |
+| UI | Jetpack Compose (BOM) | 2025.09.00 |
+| DI | Hilt + KSP | 2.59.2 / 2.3.11 |
+| Networking | OkHttp / Ktor | 5.3.2 / 3.5.0 |
+| Camera | CameraX | 1.6.1 |
+| Media | Media3 (ExoPlayer) | 1.9.0 |
+| Serialization | kotlinx.serialization | 1.9.0 |
+| Code Analysis | Sentry Gradle Plugin | 6.6.0 |
+
+All versions are centrally defined in [`gradle/libs.versions.toml`](gradle/libs.versions.toml).
 
 ## 🚀 Quick Start
 
@@ -139,6 +158,20 @@ Personalize your stream with:
 
 ## 🛠️ Development
 
+### Project Structure
+
+| Module | Purpose |
+|--------|---------|
+| `app` | Application entry point, navigation, DI wiring |
+| `core` | Shared utilities and base classes |
+| `domain` | Business logic, models, use cases |
+| `data` | Repositories and data sources |
+| `feature-streaming` | Streaming pipeline (CameraX, encoding) |
+| `feature-chat` | Live chat integration |
+| `feature-settings` | App settings |
+| `feature-widgets` | Stream overlays and widgets |
+| `feature-obs-control` | OBS Studio WebSocket control |
+
 ### Building from Source
 
 ```bash
@@ -151,9 +184,21 @@ cd Vivid
 ./gradlew assembleDebug
 ```
 
+### Running Tests & Lint
+
+```bash
+# Unit tests for all modules (63 tests across core, domain, feature-*)
+./gradlew testDebugUnitTest
+
+# Lint & static analysis
+./gradlew lintDebug
+```
+
+Both run automatically in CI (`.github/workflows/android.yml`) on every push and pull request to `develop`/`master`. Fastlane-based release builds (`.github/workflows/android_fastlane.yml`) run tests, debug, and signed release builds.
+
 ### Contributing
 
-We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
+We welcome contributions! Join our [Discussions](../../discussions) to pitch an idea, then fork and submit a Pull Request:
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
