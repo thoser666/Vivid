@@ -194,7 +194,23 @@ cd Vivid
 ./gradlew lintDebug
 ```
 
-Both run automatically in CI (`.github/workflows/android.yml`) on every push and pull request to `develop`/`master`. Fastlane-based release builds (`.github/workflows/android_fastlane.yml`) run tests, debug, and signed release builds.
+Both run automatically in CI (`.github/workflows/android.yml`) on every push and pull request to `develop`/`master`.
+
+### Release Builds (Fastlane)
+
+Release builds use [Fastlane](https://fastlane.tools) (see [`Gemfile`](Gemfile)); dependencies are pinned in `Gemfile.lock`:
+
+```bash
+# Install the Ruby toolchain and pinned gems (fastlane 2.237.0 and friends)
+bundle install
+
+# Run the same lanes as CI
+bundle exec fastlane test
+bundle exec fastlane build_debug
+bundle exec fastlane build_release   # requires the signing secrets from CI
+```
+
+The `android_fastlane.yml` workflow runs these lanes in CI. If a lockfile update is needed (e.g. a security bump), run `bundle update <gem>` and commit the new `Gemfile.lock`.
 
 ### Contributing
 
@@ -208,15 +224,7 @@ We welcome contributions! Join our [Discussions](../../discussions) to pitch an 
 
 ## 📱 Screenshots
 
-<div align="center">
-
-| Main Interface | Streaming Setup | Advanced Settings |
-|----------------|-----------------|-------------------|
-| ![Main](screenshots/main.png) | ![Setup](screenshots/setup.png) | ![Settings](screenshots/settings.png) |
-
-*Screenshots will be added with the next release*
-
-</div>
+*Screenshots will be added with the next release.*
 
 ## 🆘 Support & Community
 
