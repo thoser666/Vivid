@@ -82,6 +82,8 @@ All versions are centrally defined in [`gradle/libs.versions.toml`](gradle/libs.
 3. **Install the APK** and grant necessary permissions
 4. **Launch Vivid** and start streaming!
 
+> 🔄 **Automatic updates:** APKs are published as [GitHub Releases](../../releases). To receive them automatically, install the [Obtainium](https://obtainium.imranr.dev/) app, add this repository's GitHub releases as a source, and Vivid will update itself whenever a new release is published.
+
 ### Basic Setup
 
 1. Open Vivid and tap **"Add Stream"**
@@ -230,9 +232,13 @@ bundle install
 bundle exec fastlane test
 bundle exec fastlane build_debug
 bundle exec fastlane build_release   # requires the signing secrets from CI
+
+# Build the release APK and publish it as a GitHub release
+# (requires the gh CLI and GH_TOKEN; tag defaults to the nearest git tag)
+bundle exec fastlane release_github
 ```
 
-The `android_fastlane.yml` workflow runs these lanes in CI. If a lockfile update is needed (e.g. a security bump), run `bundle update <gem>` and commit the new `Gemfile.lock`.
+The `android_fastlane.yml` workflow runs these lanes in CI. Pushing a `v*` tag (e.g. `git tag v0.0.2 && git push origin v0.0.2`) triggers a release build that publishes the signed APK as a GitHub release with auto-generated notes. If a lockfile update is needed (e.g. a security bump), run `bundle update <gem>` and commit the new `Gemfile.lock`.
 
 ### Contributing
 

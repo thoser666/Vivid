@@ -37,4 +37,28 @@ platform :android do
     test
     build_release
   end
+
+  desc "Build release APK and publish it as a GitHub release (requires gh + GH_TOKEN)"
+  lane :release_github do |options|
+    gradle(
+      task: "assembleRelease",
+      flags: "--stacktrace --no-daemon"
+    )
+
+    apk = "app/build/outputs/apk/release/app-release.apk"
+    # Tag from option, CI tag ref (vX.Y.Z) or nearest git tag
+    tag = options[:tag] || ENV["GITHUB_REF_NAME"] || `git describe --tags --abbrev=0 2>/dev/null`.strip
+    UI.user_error!("Could not determine release tag - pass tag: or push a v* tag") if tag.empty?
+
+    # Skip if the release already exists (gh release create has no --clobber)
+    begin
+      sh("gh", "release", "view", tag, "--json", "tagName")
+      UI.important("Release #{tag} already exists - skipping")
+    rescue
+      UI.message("Publishing GitHub release #{tag} with #{apk}")
+      sh("gh", "release", "create", tag, apk,
+         "--title", "Vivid #{tag}",
+         "--generate-notes")
+    end
+  end
 end

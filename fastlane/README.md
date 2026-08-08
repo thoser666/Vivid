@@ -55,6 +55,14 @@ Run tests and build debug
 
 Run tests and build release
 
+### android release_github
+
+```sh
+[bundle exec] fastlane android release_github
+```
+
+Build release APK and publish it as a GitHub release (requires gh + GH_TOKEN)
+
 ----
 
 This README.md is auto-generated and will be re-generated every time [_fastlane_](https://fastlane.tools) is run.
