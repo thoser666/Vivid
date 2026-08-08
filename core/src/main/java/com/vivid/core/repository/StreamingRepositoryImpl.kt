@@ -18,8 +18,8 @@ class StreamingRepositoryImpl @Inject constructor( // <-- DIESE ANNOTATION HINZU
     override val isConnectedToObs: StateFlow<Boolean>
         get() = obsWebSocketClient.isConnected
 
-    override fun connectToObs(password: String, ip: String, port: Int) {
-        obsWebSocketClient.connect(password, ip, port)
+    override fun connectToObs(password: String, ip: String, port: Int, useTls: Boolean) {
+        obsWebSocketClient.connect(password, ip, port, useTls)
     }
 
     override fun disconnectFromObs() {

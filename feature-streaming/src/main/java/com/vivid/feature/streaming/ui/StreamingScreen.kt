@@ -27,6 +27,7 @@ fun StreamingScreen(
 ) {
     val streamingEngine = viewModel.streamingEngine
     val streamingState by streamingEngine.streamingState.collectAsStateWithLifecycle()
+    val errorMessage by viewModel.errorMessage.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
@@ -75,9 +76,9 @@ fun StreamingScreen(
             Button(
                 onClick = {
                     if (streamingState is StreamingState.Streaming) {
-                        streamingEngine.stopStream()
+                        viewModel.stopStream()
                     } else {
-                        streamingEngine.startStream("rtmp://a.rtmp.youtube.com/live2")
+                        viewModel.startStream()
                     }
                 },
                 enabled = streamingState !is StreamingState.Preparing,
@@ -98,12 +99,11 @@ fun StreamingScreen(
                     text = "Error: $reason",
                     modifier = Modifier.align(Alignment.TopCenter),
                 )
-            }
-            // In StreamingScreen.kt:
-            Button(
-                onClick = { navController.navigate("obs_control") },
-            ) {
-                Text("OBS Steuerung öffnen")
+            } else if (errorMessage != null) {
+                Text(
+                    text = errorMessage.orEmpty(),
+                    modifier = Modifier.align(Alignment.TopCenter),
+                )
             }
         }
     }

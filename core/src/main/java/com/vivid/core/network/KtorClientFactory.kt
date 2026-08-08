@@ -1,5 +1,6 @@
 package com.vivid.core.network
 
+import com.vivid.core.BuildConfig
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
@@ -8,7 +9,7 @@ import io.ktor.client.plugins.logging.Logging
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
 
-object KtorClientFactory { // <-- Einzige Änderung: class -> object
+object KtorClientFactory {
 
     fun create(): HttpClient {
         return HttpClient(CIO) {
@@ -21,8 +22,13 @@ object KtorClientFactory { // <-- Einzige Änderung: class -> object
                     },
                 )
             }
-            install(Logging) {
-                level = LogLevel.ALL
+            // HTTP-Logging nur im Debug-Build und ohne Bodies (HEADERS):
+            // Request-/Response-Bodies können Credentials enthalten (z. B. Login-Passwörter)
+            // und dürfen niemals in Logs landen — auch nicht im Release-Build.
+            if (BuildConfig.DEBUG) {
+                install(Logging) {
+                    level = LogLevel.HEADERS
+                }
             }
         }
     }

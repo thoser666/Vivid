@@ -4,12 +4,14 @@
 <div align="center">
 
 ![Android](https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white)
-![API](https://img.shields.io/badge/API-26%2B-brightgreen.svg?style=for-the-badge)
+![Kotlin](https://img.shields.io/badge/Kotlin-2.2.20-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white)
+![API](https://img.shields.io/badge/API-24%2B-brightgreen.svg?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)
 ![GitHub release](https://img.shields.io/github/v/release/thoser666/Vivid?style=for-the-badge)
 ![GitHub stars](https://img.shields.io/github/stars/thoser666/Vivid?style=for-the-badge)
+![CI](https://img.shields.io/github/actions/workflow/status/thoser666/Vivid/android.yml?branch=develop&style=for-the-badge&label=CI)
 
-**Professional IRL streaming for Android with all the power of Moblin**
+**Professional IRL streaming for Android — aiming for full feature parity with Moblin**
 
 [📱 Download APK](../../releases) • [📚 Documentation](../../wiki) • [🐛 Report Bug](../../issues) • [💬 Discussions](../../discussions)
 
@@ -17,21 +19,59 @@
 
 ---
 
+## 🎯 Goal: Feature Parity with Moblin
+
+Vivid is an Android implementation of the open-source [Moblin](https://github.com/eerimoq/moblin) IRL streaming app. The **end goal** is to be **at least functionally equivalent to Moblin** — every feature Moblin offers should work in Vivid, adapted to the Android platform.
+
+This README tracks that progress honestly: the [Features](#-features) section marks what is already implemented, what is in progress, and what is still planned. The [Parity Status](#-parity-status) table gives the per-feature status at a glance.
+
+> ⚠️ **Note:** Features marked as *planned* are not shipped yet — don't rely on them for production streaming until they land.
+
+---
+
 ## ✨ Features
 
-- 🌐 **Multi-Platform Streaming** - Stream to Twitch, YouTube, Facebook, Kick, or your own SRT server
-- 📡 **Multi-Network Bonding** - Combine WiFi and mobile data using SRTLA technology for rock-solid streams
-- 🎛️ **OBS WebSocket Control** - Control OBS Studio directly from your phone
-- 🎨 **Configurable Overlays** - Customize your stream with chat, followers, donations, and more
-- 🌍 **Full I18n Support** - Use Vivid in your language
-- 📹 **High-Quality Streaming** - Up to 4K resolution at 60fps with H.264/AVC and H.265/HEVC support
-- 🔒 **Secure Protocols** - RTMP, RTMPS, SRT, and SRTLA support
+### ✅ Implemented
+
+- 🎛️ **OBS WebSocket Control** - Control OBS Studio directly from your phone (switch scenes, start/stop recording and streaming)
+- 🌐 **Streaming Pipeline** - CameraX-based live streaming to your configured RTMP/SRT ingest (Twitch, YouTube, Kick, or your own server)
+- ⚙️ **Persisted Stream Settings** - Stream URL/key and OBS connection details are stored and reused across sessions
 - 🔓 **Open Source** - Completely free and open source
+
+### 🚧 In Progress
+
+- 🌍 **I18n Support** - Localization groundwork is in place; translations are being added
+
+### 📋 Planned (Roadmap to Moblin parity)
+
+- 📡 **Multi-Network Bonding (SRTLA)** - Combine WiFi and mobile data for rock-solid streams
+- 💬 **Chat Integration** - Twitch/YouTube/Kick chat with emotes and moderation
+- 🎨 **Configurable Overlays** - Chat, follower/donation alerts, custom graphics and branding
+- 📹 **High-Quality Streaming** - Up to 4K resolution at 60fps with H.264/AVC and H.265/HEVC
+- 🔒 **Extended Protocols** - RTMPS, SRTLA, RIST, and WHIP (WebRTC)
+- 🕹️ **Remote & Companion Features** - Web remote control, game controller support, deep linking
+
+## 🧱 Tech Stack
+
+| Area | Technology | Version |
+|------|-----------|---------|
+| Language | Kotlin | 2.2.20 |
+| Build | Android Gradle Plugin | 9.2.1 |
+| SDK | minSdk / compile+target | 24 / 36 |
+| UI | Jetpack Compose (BOM) | 2025.09.00 |
+| DI | Hilt + KSP | 2.59.2 / 2.3.11 |
+| Networking | OkHttp / Ktor | 5.3.2 / 3.5.0 |
+| Camera | CameraX | 1.6.1 |
+| Media | Media3 (ExoPlayer) | 1.9.0 |
+| Serialization | kotlinx.serialization | 1.9.0 |
+| Code Analysis | Sentry Gradle Plugin | 6.6.0 |
+
+All versions are centrally defined in [`gradle/libs.versions.toml`](gradle/libs.versions.toml).
 
 ## 🚀 Quick Start
 
 ### Requirements
-- Android 8.0 (API level 26) or higher
+- Android 7.0 (API level 24) or higher
 - Camera and microphone permissions
 - Stable internet connection (WiFi + mobile data recommended)
 
@@ -103,41 +143,54 @@
 
 ## 🔧 Advanced Features
 
-### Multi-Network Bonding (SRTLA)
-Combine multiple internet connections for ultra-stable streams:
-- Enable both WiFi and mobile data
-- Configure SRTLA server settings
-- Adjust network weight distribution
-- Monitor connection health in real-time
+### Multi-Network Bonding (SRTLA) 📋 Planned
+Combine multiple internet connections for ultra-stable streams — the SRTLA algorithm will be ported as part of the [Moblin parity goal](#-goal-feature-parity-with-moblin).
 
-### OBS WebSocket Integration
+### OBS WebSocket Integration ✅ Implemented
 Control your OBS Studio setup remotely:
 - Switch scenes during your stream
 - Start/stop recordings
 - Adjust audio levels
 - Trigger hotkeys and filters
 
-### Custom Overlays
-Personalize your stream with:
-- Real-time chat integration
-- Follower/subscriber alerts
-- Donation notifications
-- Custom graphics and branding
+### Custom Overlays 📋 Planned
+Chat overlays, follower/subscriber alerts, donation notifications, and custom graphics will be built on top of the `feature-widgets` module.
 
-## 📊 Comparison
+## 📊 Parity Status
 
-| Feature | Vivid | Other Android Apps |
-|---------|-------|--------------------|
-| Multi-Network Bonding | ✅ | ❌ |
-| OBS WebSocket Control | ✅ | ❌ |
-| 4K/60fps Streaming | ✅ | ⚠️ Limited |
-| H.265/HEVC Support | ✅ | ❌ |
-| Configurable Overlays | ✅ | ⚠️ Basic |
-| Open Source | ✅ | ❌ |
-| Multi-Protocol (RTMP/SRT) | ✅ | ⚠️ RTMP only |
-| I18n Support | ✅ | ❌ |
+Status: ✅ implemented · 🚧 in progress · 📋 planned
+
+| Moblin Feature | Vivid | Notes |
+|----------------|-------|-------|
+| OBS WebSocket Control | ✅ | Scenes, recording, stream start/stop |
+| Streaming (RTMP / SRT) | ✅ | Configurable URL/key via settings |
+| Persisted Stream Settings | ✅ | Stream & OBS config across sessions |
+| I18n Support | 🚧 | Groundwork in place, translations pending |
+| H.264/H.265, up to 4K/60fps | 📋 | Pipeline in place, quality targets planned |
+| Multi-Network Bonding (SRTLA) | 📋 | SRTLA algorithm to be ported |
+| Chat + Emotes + Moderation | 📋 | `feature-chat` module scaffolded |
+| Overlays & Widgets | 📋 | `feature-widgets` module scaffolded |
+| Audio Tools (levels, muting, talk-back) | 📋 | |
+| Extended Protocols (RTMPS, RIST, WHIP) | 📋 | |
+| Web Remote Control | 📋 | |
+| Game Controller Support | 📋 | |
+| Deep Linking (`moblin://`) | 📋 | |
 
 ## 🛠️ Development
+
+### Project Structure
+
+| Module | Purpose |
+|--------|---------|
+| `app` | Application entry point, navigation, DI wiring |
+| `core` | Shared utilities and base classes |
+| `domain` | Business logic, models, use cases |
+| `data` | Repositories and data sources |
+| `feature-streaming` | Streaming pipeline (CameraX, encoding) |
+| `feature-chat` | Live chat integration |
+| `feature-settings` | App settings |
+| `feature-widgets` | Stream overlays and widgets |
+| `feature-obs-control` | OBS Studio WebSocket control |
 
 ### Building from Source
 
@@ -151,9 +204,37 @@ cd Vivid
 ./gradlew assembleDebug
 ```
 
+### Running Tests & Lint
+
+```bash
+# Unit tests for all modules (69 tests across core, domain, feature-*)
+./gradlew testDebugUnitTest
+
+# Lint & static analysis
+./gradlew lintDebug
+```
+
+Both run automatically in CI (`.github/workflows/android.yml`) on every push and pull request to `develop`/`master`.
+
+### Release Builds (Fastlane)
+
+Release builds use [Fastlane](https://fastlane.tools) (see [`Gemfile`](Gemfile)); dependencies are pinned in `Gemfile.lock`:
+
+```bash
+# Install the Ruby toolchain and pinned gems (fastlane 2.237.0 and friends)
+bundle install
+
+# Run the same lanes as CI
+bundle exec fastlane test
+bundle exec fastlane build_debug
+bundle exec fastlane build_release   # requires the signing secrets from CI
+```
+
+The `android_fastlane.yml` workflow runs these lanes in CI. If a lockfile update is needed (e.g. a security bump), run `bundle update <gem>` and commit the new `Gemfile.lock`.
+
 ### Contributing
 
-We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
+We welcome contributions! Join our [Discussions](../../discussions) to pitch an idea, then fork and submit a Pull Request:
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
@@ -163,15 +244,7 @@ We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.
 
 ## 📱 Screenshots
 
-<div align="center">
-
-| Main Interface | Streaming Setup | Advanced Settings |
-|----------------|-----------------|-------------------|
-| ![Main](screenshots/main.png) | ![Setup](screenshots/setup.png) | ![Settings](screenshots/settings.png) |
-
-*Screenshots will be added with the next release*
-
-</div>
+*Screenshots will be added with the next release.*
 
 ## 🆘 Support & Community
 

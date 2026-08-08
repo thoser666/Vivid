@@ -33,6 +33,8 @@ android {
 dependencies {
     // Abhängigkeit zum Core-Modul, das die Repositories etc. bereitstellt
     implementation(project(":core"))
+    // Domain-Modell (AppSettings) für die Stream-Einstellungen
+    implementation(project(":domain"))
 
     // UI und Navigation für dieses Feature
     implementation(platform(libs.androidx.compose.bom))
