@@ -238,7 +238,12 @@ bundle exec fastlane build_release   # requires the signing secrets from CI
 bundle exec fastlane release_github
 ```
 
-The `android_fastlane.yml` workflow runs these lanes in CI. Pushing a `v*` tag (e.g. `git tag v0.0.2 && git push origin v0.0.2`) triggers a release build that publishes the signed APK as a GitHub release with auto-generated notes. If a lockfile update is needed (e.g. a security bump), run `bundle update <gem>` and commit the new `Gemfile.lock`.
+The `android_fastlane.yml` workflow runs these lanes in CI. Two release paths are automated:
+
+- **Every push to `develop`** (i.e. every newly implemented feature) builds the signed release APK and publishes it as a rolling **`nightly` prerelease** with a version derived from the git tag + CI run number. The nightly release is replaced on each build, so it always contains the latest feature build.
+- **Pushing a `v*` tag** (e.g. `git tag v0.0.2 && git push origin v0.0.2`) publishes a **stable GitHub release** with auto-generated notes.
+
+Both release the same signed APK; Obtainium users can track the latest release for stable versions or enable *pre-releases* to follow the nightly builds. If a lockfile update is needed (e.g. a security bump), run `bundle update <gem>` and commit the new `Gemfile.lock`.
 
 ### Contributing
 

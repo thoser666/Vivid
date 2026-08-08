@@ -61,7 +61,7 @@ Run tests and build release
 [bundle exec] fastlane android release_github
 ```
 
-Build release APK and publish it as a GitHub release (requires gh + GH_TOKEN)
+Build release APK and publish it as a GitHub release (requires gh + GH_TOKEN). Stable for v*-tags, rolling nightly prerelease for branch pushes
 
 ----
 

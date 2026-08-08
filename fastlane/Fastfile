@@ -40,25 +40,63 @@ platform :android do
 
   desc "Build release APK and publish it as a GitHub release (requires gh + GH_TOKEN)"
   lane :release_github do |options|
+    ref_type = ENV["GITHUB_REF_TYPE"].to_s # "tag" oder "branch"
+    ref_name = ENV["GITHUB_REF_NAME"].to_s
+
+    # Stabiles Release bei expliziter tag:-Option ODER gepushtem v*-Tag, sonst Nightly
+    stable = options[:tag] || (ref_type == "tag" && ref_name.start_with?("v"))
+
+    if stable
+      tag = options[:tag] || ref_name
+      version_name = tag.sub(/^v/, "")
+      version_code = ENV["GITHUB_RUN_NUMBER"] || "1"
+    else
+      base = `git describe --tags --abbrev=0 2>/dev/null`.strip.sub(/^v/, "")
+      base = "1.0" if base.empty?
+      run = ENV["GITHUB_RUN_NUMBER"] || "0"
+      tag = "nightly"
+      version_name = "#{base}-nightly.#{run}"
+      version_code = run
+    end
+
     gradle(
       task: "assembleRelease",
-      flags: "--stacktrace --no-daemon"
+      flags: "--stacktrace --no-daemon",
+      properties: {
+        "versionName" => version_name,
+        "versionCode" => version_code
+      }
     )
 
     apk = "app/build/outputs/apk/release/app-release.apk"
-    # Tag from option, CI tag ref (vX.Y.Z) or nearest git tag
-    tag = options[:tag] || ENV["GITHUB_REF_NAME"] || `git describe --tags --abbrev=0 2>/dev/null`.strip
-    UI.user_error!("Could not determine release tag - pass tag: or push a v* tag") if tag.empty?
 
-    # Skip if the release already exists (gh release create has no --clobber)
-    begin
-      sh("gh", "release", "view", tag, "--json", "tagName")
-      UI.important("Release #{tag} already exists - skipping")
-    rescue
-      UI.message("Publishing GitHub release #{tag} with #{apk}")
+    if stable
+      # Skip if the release already exists (gh release create has no --clobber)
+      begin
+        sh("gh", "release", "view", tag, "--json", "tagName")
+        UI.important("Release #{tag} already exists - skipping")
+      rescue
+        UI.message("Publishing GitHub release #{tag} with #{apk}")
+        sh("gh", "release", "create", tag, apk,
+           "--title", "Vivid #{tag}",
+           "--generate-notes")
+      end
+    else
+      # Nightly: vorheriges Release inkl. Tag entfernen, dann frisch erstellen
+      begin
+        sh("gh", "release", "delete", tag, "--yes", "--cleanup-tag")
+        UI.important("Removed previous nightly release")
+      rescue
+        UI.important("No previous nightly release to remove")
+      end
+      UI.message("Publishing nightly prerelease #{version_name} with #{apk}")
+      # Statische kurze Notiz: --generate-notes würde seit dem letzten Tag
+      # (nur 0.0.1-alpha) einen unbegrenzt wachsenden Changelog erzeugen
       sh("gh", "release", "create", tag, apk,
-         "--title", "Vivid #{tag}",
-         "--generate-notes")
+         "--title", "Vivid nightly (#{version_name})",
+         "--notes", "Nightly feature build - installable via Obtainium (enable pre-releases).",
+         "--prerelease",
+         "--latest=false")
     end
   end
 end
