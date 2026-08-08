@@ -23,7 +23,7 @@
 
 Vivid is an Android implementation of the open-source [Moblin](https://github.com/eerimoq/moblin) IRL streaming app. The **end goal** is to be **at least functionally equivalent to Moblin** — every feature Moblin offers should work in Vivid, adapted to the Android platform.
 
-This README tracks that progress honestly: the [Features](#-features) section marks what is already implemented, what is in progress, and what is still planned. The [Parity Status](#-parity-status) table gives the per-feature status at a glance.
+This README tracks that progress honestly: the [Features](#-features) section marks what is already implemented, what is in progress, and what is still planned. The [Parity Status](#-parity-status) table gives the per-feature status at a glance — the detailed work list lives in [PARITY.md](PARITY.md).
 
 > ⚠️ **Note:** Features marked as *planned* are not shipped yet — don't rely on them for production streaming until they land.
 
@@ -159,6 +159,8 @@ Chat overlays, follower/subscriber alerts, donation notifications, and custom gr
 ## 📊 Parity Status
 
 Status: ✅ implemented · 🚧 in progress · 📋 planned
+
+> 📋 Full per-feature tracking (responsible module + open tasks) lives in [PARITY.md](PARITY.md).
 
 | Moblin Feature | Vivid | Notes |
 |----------------|-------|-------|
