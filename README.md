@@ -11,7 +11,7 @@
 ![GitHub stars](https://img.shields.io/github/stars/thoser666/Vivid?style=for-the-badge)
 ![CI](https://img.shields.io/github/actions/workflow/status/thoser666/Vivid/android.yml?branch=develop&style=for-the-badge&label=CI)
 
-**Professional IRL streaming for Android with all the power of Moblin**
+**Professional IRL streaming for Android — aiming for full feature parity with Moblin**
 
 [📱 Download APK](../../releases) • [📚 Documentation](../../wiki) • [🐛 Report Bug](../../issues) • [💬 Discussions](../../discussions)
 
@@ -19,16 +19,37 @@
 
 ---
 
+## 🎯 Goal: Feature Parity with Moblin
+
+Vivid is an Android implementation of the open-source [Moblin](https://github.com/eerimoq/moblin) IRL streaming app. The **end goal** is to be **at least functionally equivalent to Moblin** — every feature Moblin offers should work in Vivid, adapted to the Android platform.
+
+This README tracks that progress honestly: the [Features](#-features) section marks what is already implemented, what is in progress, and what is still planned. The [Parity Status](#-parity-status) table gives the per-feature status at a glance.
+
+> ⚠️ **Note:** Features marked as *planned* are not shipped yet — don't rely on them for production streaming until they land.
+
+---
+
 ## ✨ Features
 
-- 🌐 **Multi-Platform Streaming** - Stream to Twitch, YouTube, Facebook, Kick, or your own SRT server
-- 📡 **Multi-Network Bonding** - Combine WiFi and mobile data using SRTLA technology for rock-solid streams
-- 🎛️ **OBS WebSocket Control** - Control OBS Studio directly from your phone
-- 🎨 **Configurable Overlays** - Customize your stream with chat, followers, donations, and more
-- 🌍 **Full I18n Support** - Use Vivid in your language
-- 📹 **High-Quality Streaming** - Up to 4K resolution at 60fps with H.264/AVC and H.265/HEVC support
-- 🔒 **Secure Protocols** - RTMP, RTMPS, SRT, and SRTLA support
+### ✅ Implemented
+
+- 🎛️ **OBS WebSocket Control** - Control OBS Studio directly from your phone (switch scenes, start/stop recording and streaming)
+- 🌐 **Streaming Pipeline** - CameraX-based live streaming to your configured RTMP/SRT ingest (Twitch, YouTube, Kick, or your own server)
+- ⚙️ **Persisted Stream Settings** - Stream URL/key and OBS connection details are stored and reused across sessions
 - 🔓 **Open Source** - Completely free and open source
+
+### 🚧 In Progress
+
+- 🌍 **I18n Support** - Localization groundwork is in place; translations are being added
+
+### 📋 Planned (Roadmap to Moblin parity)
+
+- 📡 **Multi-Network Bonding (SRTLA)** - Combine WiFi and mobile data for rock-solid streams
+- 💬 **Chat Integration** - Twitch/YouTube/Kick chat with emotes and moderation
+- 🎨 **Configurable Overlays** - Chat, follower/donation alerts, custom graphics and branding
+- 📹 **High-Quality Streaming** - Up to 4K resolution at 60fps with H.264/AVC and H.265/HEVC
+- 🔒 **Extended Protocols** - RTMPS, SRTLA, RIST, and WHIP (WebRTC)
+- 🕹️ **Remote & Companion Features** - Web remote control, game controller support, deep linking
 
 ## 🧱 Tech Stack
 
@@ -122,39 +143,38 @@ All versions are centrally defined in [`gradle/libs.versions.toml`](gradle/libs.
 
 ## 🔧 Advanced Features
 
-### Multi-Network Bonding (SRTLA)
-Combine multiple internet connections for ultra-stable streams:
-- Enable both WiFi and mobile data
-- Configure SRTLA server settings
-- Adjust network weight distribution
-- Monitor connection health in real-time
+### Multi-Network Bonding (SRTLA) 📋 Planned
+Combine multiple internet connections for ultra-stable streams — the SRTLA algorithm will be ported as part of the [Moblin parity goal](#-goal-feature-parity-with-moblin).
 
-### OBS WebSocket Integration
+### OBS WebSocket Integration ✅ Implemented
 Control your OBS Studio setup remotely:
 - Switch scenes during your stream
 - Start/stop recordings
 - Adjust audio levels
 - Trigger hotkeys and filters
 
-### Custom Overlays
-Personalize your stream with:
-- Real-time chat integration
-- Follower/subscriber alerts
-- Donation notifications
-- Custom graphics and branding
+### Custom Overlays 📋 Planned
+Chat overlays, follower/subscriber alerts, donation notifications, and custom graphics will be built on top of the `feature-widgets` module.
 
-## 📊 Comparison
+## 📊 Parity Status
 
-| Feature | Vivid | Other Android Apps |
-|---------|-------|--------------------|
-| Multi-Network Bonding | ✅ | ❌ |
-| OBS WebSocket Control | ✅ | ❌ |
-| 4K/60fps Streaming | ✅ | ⚠️ Limited |
-| H.265/HEVC Support | ✅ | ❌ |
-| Configurable Overlays | ✅ | ⚠️ Basic |
-| Open Source | ✅ | ❌ |
-| Multi-Protocol (RTMP/SRT) | ✅ | ⚠️ RTMP only |
-| I18n Support | ✅ | ❌ |
+Status: ✅ implemented · 🚧 in progress · 📋 planned
+
+| Moblin Feature | Vivid | Notes |
+|----------------|-------|-------|
+| OBS WebSocket Control | ✅ | Scenes, recording, stream start/stop |
+| Streaming (RTMP / SRT) | ✅ | Configurable URL/key via settings |
+| Persisted Stream Settings | ✅ | Stream & OBS config across sessions |
+| I18n Support | 🚧 | Groundwork in place, translations pending |
+| H.264/H.265, up to 4K/60fps | 📋 | Pipeline in place, quality targets planned |
+| Multi-Network Bonding (SRTLA) | 📋 | SRTLA algorithm to be ported |
+| Chat + Emotes + Moderation | 📋 | `feature-chat` module scaffolded |
+| Overlays & Widgets | 📋 | `feature-widgets` module scaffolded |
+| Audio Tools (levels, muting, talk-back) | 📋 | |
+| Extended Protocols (RTMPS, RIST, WHIP) | 📋 | |
+| Web Remote Control | 📋 | |
+| Game Controller Support | 📋 | |
+| Deep Linking (`moblin://`) | 📋 | |
 
 ## 🛠️ Development
 
@@ -187,7 +207,7 @@ cd Vivid
 ### Running Tests & Lint
 
 ```bash
-# Unit tests for all modules (63 tests across core, domain, feature-*)
+# Unit tests for all modules (69 tests across core, domain, feature-*)
 ./gradlew testDebugUnitTest
 
 # Lint & static analysis
