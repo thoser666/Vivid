@@ -40,15 +40,25 @@ class OBSWebSocketClientTest {
     }
 
     @Test
-    fun `connect opens a wss websocket to the given address`() {
+    fun `connect opens a plain ws websocket by default for standard OBS setups`() {
         val requestSlot = slot<Request>()
 
         client.connect("secret", "127.0.0.1", 4455)
 
         verify { okHttpClient.newWebSocket(capture(requestSlot), any()) }
-        // OkHttp normalizes the URL (scheme ws->http / wss->https, trailing slash); check host, port and TLS scheme.
+        // OkHttp normalizes the URL (scheme ws->http / wss->https, trailing slash); check host, port and scheme.
         assertEquals("127.0.0.1", requestSlot.captured.url.host)
         assertEquals(4455, requestSlot.captured.url.port)
+        assertEquals("http", requestSlot.captured.url.scheme)
+    }
+
+    @Test
+    fun `connect uses wss when tls is enabled`() {
+        val requestSlot = slot<Request>()
+
+        client.connect("secret", "127.0.0.1", 4455, useTls = true)
+
+        verify { okHttpClient.newWebSocket(capture(requestSlot), any()) }
         assertEquals("https", requestSlot.captured.url.scheme)
     }
 

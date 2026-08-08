@@ -1,5 +1,7 @@
 package com.vivid.feature.obscontrol
 
+import com.vivid.core.data.AppSettings
+import com.vivid.core.data.SettingsRepository
 import com.vivid.core.repository.StreamingRepository
 import io.mockk.every
 import io.mockk.just
@@ -13,16 +15,23 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class ObsControlViewModelTest {
 
     @After
     fun tearDown() {
         Dispatchers.resetMain()
     }
+
+    private fun settingsRepository(settings: AppSettings = AppSettings()): SettingsRepository =
+        mockk<SettingsRepository> {
+            every { appSettingsFlow } returns MutableStateFlow(settings)
+        }
 
     @Test
     fun `initial state is Disconnected`() = runTest {
@@ -31,7 +40,7 @@ class ObsControlViewModelTest {
             every { isConnectedToObs } returns MutableStateFlow(false)
         }
 
-        val viewModel = ObsControlViewModel(repository)
+        val viewModel = ObsControlViewModel(repository, settingsRepository())
 
         assertEquals(ConnectionState.Disconnected, viewModel.uiState.value)
     }
@@ -41,14 +50,29 @@ class ObsControlViewModelTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val repository = mockk<StreamingRepository> {
             every { isConnectedToObs } returns MutableStateFlow(false)
-            every { connectToObs("secret", "127.0.0.1", 4455) } just runs
+            every { connectToObs("secret", "127.0.0.1", 4455, false) } just runs
         }
 
-        val viewModel = ObsControlViewModel(repository)
+        val viewModel = ObsControlViewModel(repository, settingsRepository())
         viewModel.connect("secret", "127.0.0.1", "4455")
 
         assertEquals(ConnectionState.Connecting, viewModel.uiState.value)
-        verify { repository.connectToObs("secret", "127.0.0.1", 4455) }
+        verify { repository.connectToObs("secret", "127.0.0.1", 4455, false) }
+    }
+
+    @Test
+    fun `connect forwards the tls flag to the repository`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repository = mockk<StreamingRepository> {
+            every { isConnectedToObs } returns MutableStateFlow(false)
+            every { connectToObs("secret", "127.0.0.1", 4455, true) } just runs
+        }
+
+        val viewModel = ObsControlViewModel(repository, settingsRepository())
+        viewModel.connect("secret", "127.0.0.1", "4455", useTls = true)
+
+        assertEquals(ConnectionState.Connecting, viewModel.uiState.value)
+        verify { repository.connectToObs("secret", "127.0.0.1", 4455, true) }
     }
 
     @Test
@@ -58,11 +82,11 @@ class ObsControlViewModelTest {
             every { isConnectedToObs } returns MutableStateFlow(false)
         }
 
-        val viewModel = ObsControlViewModel(repository)
+        val viewModel = ObsControlViewModel(repository, settingsRepository())
         viewModel.connect("secret", "127.0.0.1", "not-a-port")
 
         assertEquals(ConnectionState.Error("Invalid port number"), viewModel.uiState.value)
-        verify(exactly = 0) { repository.connectToObs(any(), any(), any()) }
+        verify(exactly = 0) { repository.connectToObs(any(), any(), any(), any()) }
     }
 
     @Test
@@ -70,10 +94,10 @@ class ObsControlViewModelTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val repository = mockk<StreamingRepository> {
             every { isConnectedToObs } returns MutableStateFlow(false)
-            every { connectToObs("secret", "127.0.0.1", 4455) } throws RuntimeException("connection refused")
+            every { connectToObs("secret", "127.0.0.1", 4455, false) } throws RuntimeException("connection refused")
         }
 
-        val viewModel = ObsControlViewModel(repository)
+        val viewModel = ObsControlViewModel(repository, settingsRepository())
         viewModel.connect("secret", "127.0.0.1", "4455")
 
         assertEquals(ConnectionState.Error("connection refused"), viewModel.uiState.value)
@@ -87,7 +111,7 @@ class ObsControlViewModelTest {
             every { isConnectedToObs } returns connectedFlow
         }
 
-        val viewModel = ObsControlViewModel(repository)
+        val viewModel = ObsControlViewModel(repository, settingsRepository())
         connectedFlow.value = true
         advanceUntilIdle()
 
@@ -102,9 +126,22 @@ class ObsControlViewModelTest {
             every { disconnectFromObs() } just runs
         }
 
-        val viewModel = ObsControlViewModel(repository)
+        val viewModel = ObsControlViewModel(repository, settingsRepository())
         viewModel.disconnect()
 
         verify { repository.disconnectFromObs() }
+    }
+
+    @Test
+    fun `savedUseTls follows the persisted settings`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repository = mockk<StreamingRepository> {
+            every { isConnectedToObs } returns MutableStateFlow(false)
+        }
+
+        val viewModel = ObsControlViewModel(repository, settingsRepository(AppSettings(obsUseTls = true)))
+        advanceUntilIdle()
+
+        assertEquals(true, viewModel.savedUseTls.value)
     }
 }

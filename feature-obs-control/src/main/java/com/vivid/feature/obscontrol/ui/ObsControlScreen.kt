@@ -2,15 +2,19 @@ package com.vivid.feature.obscontrol.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue // <-- WICHTIGER IMPORT für den 'by'-Delegaten
 import androidx.compose.runtime.mutableStateOf
@@ -31,9 +35,14 @@ fun ObsControlScreen(
     var ip by remember { mutableStateOf("192.168.1.100") } // Beispiel-IP
     var port by remember { mutableStateOf("4455") }
     var password by remember { mutableStateOf("") }
-
     // UI-Zustand aus dem ViewModel abonnieren
     val uiState by viewModel.uiState.collectAsState()
+    val savedUseTls by viewModel.savedUseTls.collectAsState()
+
+    // false = ws:// (Standard-OBS-LAN), true = wss:// (Remote mit TLS)
+    // Startet mit dem gespeicherten Wert aus den Einstellungen.
+    var useTls by remember { mutableStateOf(false) }
+    LaunchedEffect(savedUseTls) { useTls = savedUseTls }
 
     Column(
         modifier = Modifier
@@ -61,8 +70,19 @@ fun ObsControlScreen(
                 TextField(value = ip, onValueChange = { ip = it }, label = { Text("IP Address") })
                 TextField(value = port, onValueChange = { port = it }, label = { Text("Port") })
                 TextField(value = password, onValueChange = { password = it }, label = { Text("Password") })
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = if (useTls) "Secure connection (wss://)" else "Plain connection (ws://)",
+                        modifier = Modifier.weight(1f),
+                    )
+                    Switch(checked = useTls, onCheckedChange = { useTls = it })
+                }
                 Spacer(modifier = Modifier.height(16.dp))
-                Button(onClick = { viewModel.connect(password, ip, port) }) {
+                Button(onClick = { viewModel.connect(password, ip, port, useTls) }) {
                     Text("Connect")
                 }
             }

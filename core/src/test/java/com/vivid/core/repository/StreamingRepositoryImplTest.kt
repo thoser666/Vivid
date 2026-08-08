@@ -28,11 +28,20 @@ class StreamingRepositoryImplTest {
 
     @Test
     fun `connectToObs delegates to the websocket client`() {
-        every { obsClient.connect("secret", "192.168.0.10", 4455) } just runs
+        every { obsClient.connect("secret", "192.168.0.10", 4455, false) } just runs
 
         repository.connectToObs("secret", "192.168.0.10", 4455)
 
-        verify { obsClient.connect("secret", "192.168.0.10", 4455) }
+        verify { obsClient.connect("secret", "192.168.0.10", 4455, false) }
+    }
+
+    @Test
+    fun `connectToObs forwards the tls flag to the websocket client`() {
+        every { obsClient.connect("secret", "192.168.0.10", 4455, true) } just runs
+
+        repository.connectToObs("secret", "192.168.0.10", 4455, useTls = true)
+
+        verify { obsClient.connect("secret", "192.168.0.10", 4455, true) }
     }
 
     @Test

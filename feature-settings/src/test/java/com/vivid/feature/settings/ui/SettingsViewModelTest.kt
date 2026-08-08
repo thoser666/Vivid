@@ -39,6 +39,7 @@ class SettingsViewModelTest {
                     obsHost = "192.168.1.5",
                     obsPort = "4456",
                     obsPassword = "obs-secret",
+                    obsUseTls = true,
                 ),
             )
         }
@@ -51,6 +52,7 @@ class SettingsViewModelTest {
         assertEquals("192.168.1.5", viewModel.uiState.value.obsHost)
         assertEquals("4456", viewModel.uiState.value.obsPort)
         assertEquals("obs-secret", viewModel.uiState.value.obsPassword)
+        assertEquals(true, viewModel.uiState.value.obsUseTls)
     }
 
     @Test
@@ -68,12 +70,14 @@ class SettingsViewModelTest {
         viewModel.onObsHostChange("obs.example.com")
         viewModel.onObsPortChange("4455")
         viewModel.onObsPasswordChange("pw")
+        viewModel.onObsUseTlsChange(true)
 
         assertEquals("rtmp://new/app", viewModel.uiState.value.streamUrl)
         assertEquals("new-key", viewModel.uiState.value.streamKey)
         assertEquals("obs.example.com", viewModel.uiState.value.obsHost)
         assertEquals("4455", viewModel.uiState.value.obsPort)
         assertEquals("pw", viewModel.uiState.value.obsPassword)
+        assertEquals(true, viewModel.uiState.value.obsUseTls)
     }
 
     @Test
@@ -82,7 +86,7 @@ class SettingsViewModelTest {
         val repository = mockk<SettingsRepository> {
             every { appSettingsFlow } returns MutableStateFlow(AppSettings())
             coEvery { updateStreamSettings(any(), any()) } just runs
-            coEvery { updateObsSettings(any(), any(), any()) } just runs
+            coEvery { updateObsSettings(any(), any(), any(), any()) } just runs
         }
 
         val viewModel = SettingsViewModel(repository)
@@ -103,7 +107,7 @@ class SettingsViewModelTest {
         advanceUntilIdle()
 
         coVerify { repository.updateStreamSettings("rtmp://live/app", "key-9") }
-        coVerify { repository.updateObsSettings("obs.example.com", "4455", "pw") }
+        coVerify { repository.updateObsSettings("obs.example.com", "4455", "pw", false) }
         assertEquals(1, events.size)
         collector.cancel()
     }

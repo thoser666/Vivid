@@ -30,11 +30,17 @@ class OBSWebSocketClient @Inject constructor(
     private val _isConnected = MutableStateFlow(false)
     val isConnected: StateFlow<Boolean> = _isConnected.asStateFlow()
 
-    fun connect(password: String, ip: String, port: Int) {
+    /**
+     * Verbindet mit OBS. Standard ist [useTls] = false → `ws://` (OBS Studio
+     * liefert ohne TLS-Konfiguration nur Klartext-WebSockets auf Port 4455).
+     * Für Remote-Verbindungen mit TLS kann [useTls] auf true gesetzt werden → `wss://`.
+     */
+    fun connect(password: String, ip: String, port: Int, useTls: Boolean = false) {
         // Das Passwort wird NICHT als Klartext-Feld gespeichert, sondern nur
         // lokal an den Listener dieser Verbindung übergeben.
+        val scheme = if (useTls) "wss" else "ws"
         val request = okhttp3.Request.Builder()
-            .url("wss://$ip:$port")
+            .url("$scheme://$ip:$port")
             .build()
 
         val connectionPassword = password

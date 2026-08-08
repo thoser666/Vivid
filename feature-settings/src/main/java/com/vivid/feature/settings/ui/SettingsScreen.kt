@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -78,6 +79,16 @@ fun SettingsScreen(
                 label = { Text("OBS Passwort") },
                 modifier = Modifier.fillMaxWidth(),
             )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Sichere Verbindung (wss://)", modifier = Modifier.weight(1f))
+                Switch(
+                    checked = uiState.obsUseTls,
+                    onCheckedChange = viewModel::onObsUseTlsChange,
+                )
+            }
 
             Spacer(modifier = Modifier.weight(1f))
 

@@ -31,7 +31,7 @@ class SettingsViewModelTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val repository = mockk<SettingsRepository> {
             every { appSettingsFlow } returns MutableStateFlow(
-                AppSettings(obsHost = "192.168.1.5", obsPort = "4456", obsPassword = "obs-secret"),
+                AppSettings(obsHost = "192.168.1.5", obsPort = "4456", obsPassword = "obs-secret", obsUseTls = true),
             )
         }
 
@@ -41,6 +41,7 @@ class SettingsViewModelTest {
         assertEquals("192.168.1.5", viewModel.uiState.value.host)
         assertEquals("4456", viewModel.uiState.value.port)
         assertEquals("obs-secret", viewModel.uiState.value.password)
+        assertEquals(true, viewModel.uiState.value.useTls)
     }
 
     @Test
@@ -67,7 +68,7 @@ class SettingsViewModelTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val repository = mockk<SettingsRepository> {
             every { appSettingsFlow } returns MutableStateFlow(AppSettings())
-            coEvery { updateObsSettings(any(), any(), any()) } just runs
+            coEvery { updateObsSettings(any(), any(), any(), any()) } just runs
         }
 
         val viewModel = SettingsViewModel(repository)
@@ -76,11 +77,12 @@ class SettingsViewModelTest {
         viewModel.onHostChanged("obs.example.com")
         viewModel.onPortChanged("4460")
         viewModel.onPasswordChanged("new-secret")
+        viewModel.onUseTlsChanged(true)
 
         viewModel.saveObsSettings()
         advanceUntilIdle()
 
-        coVerify { repository.updateObsSettings("obs.example.com", "4460", "new-secret") }
+        coVerify { repository.updateObsSettings("obs.example.com", "4460", "new-secret", true) }
     }
 
     @Test
@@ -91,7 +93,7 @@ class SettingsViewModelTest {
             every { appSettingsFlow } returns settingsFlow
             // Note: use literals instead of firstArg()/secondArg()/thirdArg() here —
             // mockk 1.14.9 throws inside `coEvery { } answers { }` for those matchers.
-            coEvery { updateObsSettings(any(), any(), any()) } answers {
+            coEvery { updateObsSettings(any(), any(), any(), any()) } answers {
                 // Simulate the DataStore re-emitting the freshly saved settings.
                 settingsFlow.value = AppSettings(obsHost = "saved-host", obsPort = "4456", obsPassword = "saved-pw")
             }

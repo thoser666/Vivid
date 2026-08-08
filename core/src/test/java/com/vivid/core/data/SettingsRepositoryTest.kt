@@ -68,4 +68,35 @@ class SettingsRepositoryTest {
         assertEquals("4456", settings.obsPort)
         assertEquals("obs-secret", settings.obsPassword)
     }
+
+    @Test
+    fun `appSettingsFlow should default obsUseTls to false (plain ws)`() = runTest {
+        val testDataStore = PreferenceDataStoreFactory.create(
+            scope = this,
+            produceFile = { File(tempDir.toFile(), "test_tls_default.preferences_pb") }
+        )
+        val repository = SettingsRepository(testDataStore)
+
+        // Act
+        val settings = repository.appSettingsFlow.first()
+
+        // Assert
+        assertEquals(false, settings.obsUseTls)
+    }
+
+    @Test
+    fun `appSettingsFlow should return the saved obs tls flag`() = runTest {
+        val testDataStore = PreferenceDataStoreFactory.create(
+            scope = this,
+            produceFile = { File(tempDir.toFile(), "test_tls.preferences_pb") }
+        )
+        val repository = SettingsRepository(testDataStore)
+
+        // Act
+        repository.updateObsSettings("192.168.1.100", "4455", "obs-secret", useTls = true)
+        val settings = repository.appSettingsFlow.first()
+
+        // Assert
+        assertEquals(true, settings.obsUseTls)
+    }
 }

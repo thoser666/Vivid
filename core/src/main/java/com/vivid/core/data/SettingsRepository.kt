@@ -19,6 +19,7 @@ class SettingsRepository @Inject constructor(
         val OBS_HOST = stringPreferencesKey("obs_host")
         val OBS_PORT = stringPreferencesKey("obs_port")
         val OBS_PASSWORD = stringPreferencesKey("obs_password")
+        val OBS_USE_TLS = booleanPreferencesKey("obs_use_tls")
     }
 
     // WICHTIG: Dies ist jetzt der EINZIGE Flow, den das ViewModel braucht.
@@ -33,10 +34,11 @@ class SettingsRepository @Inject constructor(
         },
         // Flow für OBS-Daten
         dataStore.data.map { prefs ->
-            Triple(
-                prefs[PrefKeys.OBS_HOST] ?: "localhost",
-                prefs[PrefKeys.OBS_PORT] ?: "4455",
-                prefs[PrefKeys.OBS_PASSWORD] ?: "",
+            ObsPrefs(
+                host = prefs[PrefKeys.OBS_HOST] ?: "localhost",
+                port = prefs[PrefKeys.OBS_PORT] ?: "4455",
+                password = prefs[PrefKeys.OBS_PASSWORD] ?: "",
+                useTls = prefs[PrefKeys.OBS_USE_TLS] ?: false,
             )
         },
     ) { streamData, obsData ->
@@ -44,9 +46,10 @@ class SettingsRepository @Inject constructor(
         AppSettings(
             streamUrl = streamData.first,
             streamKey = streamData.second,
-            obsHost = obsData.first,
-            obsPort = obsData.second,
-            obsPassword = obsData.third,
+            obsHost = obsData.host,
+            obsPort = obsData.port,
+            obsPassword = obsData.password,
+            obsUseTls = obsData.useTls,
         )
     }
 
@@ -58,11 +61,22 @@ class SettingsRepository @Inject constructor(
         }
     }
 
-    suspend fun updateObsSettings(host: String, port: String, password: String) {
+    // useTls: false = ws:// (Standard-OBS-LAN), true = wss:// (Remote mit TLS).
+    // WICHTIG: immer explizit übergeben, sonst wird ein gespeichertes wss://
+    // still auf ws:// zurückgesetzt.
+    suspend fun updateObsSettings(host: String, port: String, password: String, useTls: Boolean = false) {
         dataStore.edit { prefs ->
             prefs[PrefKeys.OBS_HOST] = host
             prefs[PrefKeys.OBS_PORT] = port
             prefs[PrefKeys.OBS_PASSWORD] = password
+            prefs[PrefKeys.OBS_USE_TLS] = useTls
         }
     }
+
+    private data class ObsPrefs(
+        val host: String,
+        val port: String,
+        val password: String,
+        val useTls: Boolean,
+    )
 }

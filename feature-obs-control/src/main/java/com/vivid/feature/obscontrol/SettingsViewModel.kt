@@ -33,6 +33,7 @@ class SettingsViewModel @Inject constructor(
                         host = appSettings.obsHost,
                         port = appSettings.obsPort,
                         password = appSettings.obsPassword,
+                        useTls = appSettings.obsUseTls,
                         isSaving = false, // Beim Laden ist der Speichervorgang beendet
                     )
                 }
@@ -52,6 +53,10 @@ class SettingsViewModel @Inject constructor(
         _uiState.update { it.copy(password = newPassword) }
     }
 
+    fun onUseTlsChanged(newUseTls: Boolean) {
+        _uiState.update { it.copy(useTls = newUseTls) }
+    }
+
     fun saveObsSettings() {
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true) }
@@ -63,6 +68,7 @@ class SettingsViewModel @Inject constructor(
                 host = currentState.host,
                 port = currentState.port, // Ist jetzt String, kein Typfehler mehr
                 password = currentState.password,
+                useTls = currentState.useTls,
             )
 
             // Du kannst isSaving hier direkt nach dem Aufruf wieder auf false setzen,
@@ -78,5 +84,6 @@ data class SettingsUiState(
     val host: String = "localhost",
     val port: String = "4455",
     val password: String = "",
+    val useTls: Boolean = false,
     val isSaving: Boolean = false,
 )

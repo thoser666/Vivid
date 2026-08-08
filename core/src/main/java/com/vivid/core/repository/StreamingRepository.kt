@@ -11,7 +11,7 @@ interface StreamingRepository {
 
     val isConnectedToObs: StateFlow<Boolean>
 
-    fun connectToObs(password: String, ip: String, port: Int)
+    fun connectToObs(password: String, ip: String, port: Int, useTls: Boolean = false)
 
     fun disconnectFromObs()
 

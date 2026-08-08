@@ -7,4 +7,6 @@ data class AppSettings(
     val obsHost: String = "localhost",
     val obsPort: String = "4455",
     val obsPassword: String = "",
+    // false = ws:// (Standard-OBS-LAN ohne TLS), true = wss:// (Remote mit TLS)
+    val obsUseTls: Boolean = false,
 )

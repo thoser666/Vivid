@@ -36,6 +36,7 @@ class SettingsViewModel @Inject constructor(
     fun onObsHostChange(newHost: String) { _uiState.value = _uiState.value.copy(obsHost = newHost) }
     fun onObsPortChange(newPort: String) { _uiState.value = _uiState.value.copy(obsPort = newPort) }
     fun onObsPasswordChange(newPassword: String) { _uiState.value = _uiState.value.copy(obsPassword = newPassword) }
+    fun onObsUseTlsChange(newUseTls: Boolean) { _uiState.value = _uiState.value.copy(obsUseTls = newUseTls) }
 
     fun saveSettings() {
         viewModelScope.launch {
@@ -49,6 +50,7 @@ class SettingsViewModel @Inject constructor(
                 host = currentSettings.obsHost,
                 port = currentSettings.obsPort,
                 password = currentSettings.obsPassword,
+                useTls = currentSettings.obsUseTls,
             )
             _saveEvent.emit(Unit)
         }
