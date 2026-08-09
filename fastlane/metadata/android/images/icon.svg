@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#7C3AED"/>
+      <stop offset="100%" stop-color="#4F46E5"/>
+    </linearGradient>
+    <linearGradient id="play" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#E0E7FF"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background rounded square -->
+  <rect x="0" y="0" width="512" height="512" rx="128" ry="128" fill="url(#bg)"/>
+
+  <!-- Subtle inner glow ring -->
+  <rect x="24" y="24" width="464" height="464" rx="112" ry="112" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="4"/>
+
+  <!-- Play/pulse icon: circle + play triangle -->
+  <!-- Outer ring -->
+  <circle cx="256" cy="240" r="100" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="6"/>
+
+  <!-- Play triangle -->
+  <polygon points="230,190 230,290 310,240" fill="url(#play)" stroke="rgba(255,255,255,0.3)" stroke-width="2" stroke-linejoin="round"/>
+
+  <!-- Signal waves (streaming indicator) -->
+  <path d="M180 340 Q220 300 256 300 Q292 300 332 340" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="5" stroke-linecap="round"/>
+  <path d="M200 360 Q228 325 256 325 Q284 325 312 360" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="4" stroke-linecap="round"/>
+  <path d="M220 380 Q238 355 256 355 Q274 355 292 380" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="3" stroke-linecap="round"/>
+</svg>
