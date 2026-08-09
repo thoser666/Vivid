@@ -282,6 +282,10 @@ We welcome contributions! Join our [Discussions](../../discussions) to pitch an 
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
+## 🔒 Privacy
+
+Vivid does not collect, sell, or share your personal data. Crash reports are sent to Sentry only if you enable them in Settings. See [PRIVACY.md](PRIVACY.md) for the full privacy policy.
+
 ## ⭐ Show Your Support
 
 If Vivid helps you with your streaming, please consider:

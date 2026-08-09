@@ -20,3 +20,4 @@ We're actively building toward full Moblin feature parity. See PARITY.md in the 
 📥 Download the latest APK from GitHub Releases or install via Obtainium for automatic updates.
 🐛 Report bugs on GitHub Issues.
 💡 Feature requests and discussions welcome.
+🔒 Privacy Policy: https://github.com/thoser666/Vivid/blob/develop/PRIVACY.md

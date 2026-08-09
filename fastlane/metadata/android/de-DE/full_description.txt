@@ -20,3 +20,4 @@ Wir arbeiten aktiv an vollständiger Moblin-Feature-Parität. Der aktuelle Stand
 📥 Lade die neueste APK von GitHub Releases herunter oder installiere sie über Obtainium für automatische Updates.
 🐛 Fehler bitte auf GitHub Issues melden.
 💡 Feature-Wünsche und Diskussionen sind willkommen.
+🔒 Datenschutzerklärung: https://github.com/thoser666/Vivid/blob/develop/PRIVACY.md

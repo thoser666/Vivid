@@ -39,15 +39,14 @@ bundle exec fastlane release_alpha
 > **📋 Google Play: Vor dem ersten Beta-Release benötigst du:**
 > - Google Play Developer Account ($25 einmalig)
 > - App-Signing-Key (bereits vorhanden: `release.keystore` im CI)
-> - Privacy Policy (URL oder Markdown)
+> - ~~Privacy Policy~~ → **erledigt:** [PRIVACY.md](PRIVACY.md)
 > - App-Icon (512×512, PNG)
 > - Screenshots (mind. 2, 16:9 oder 9:16)
 > - Store Listing (Kurzbeschreibung, Langbeschreibung)
 > - Content Rating Questionnaire
 > - Data Safety Section (welche Daten sammelt die App?)
 >
-> → **Vorlagen bereit:** `fastlane/metadata/android/en-US/` und `de-DE/` mit Titel, Kurz-/Langbeschreibung und Changelogs. Nur noch ausfüllen:
->   - Privacy Policy (URL oder Markdown)
+> → **Vorlagen bereit:** `fastlane/metadata/android/en-US/` und `de-DE/` mit Titel, Kurz-/Langbeschreibung und Changelogs. Privacy Policy fertig ([PRIVACY.md](PRIVACY.md)). Noch ausfüllen:
 >   - App-Icon (512×512, PNG) → `fastlane/metadata/android/images/icon.png`
 >   - Screenshots (mind. 2, 16:9 oder 9:16) → `fastlane/metadata/android/images/phoneScreenshots/`
 >   - Content Rating Questionnaire (wird in der Play Console ausgefüllt)
