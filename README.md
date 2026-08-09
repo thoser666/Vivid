@@ -236,6 +236,9 @@ bundle exec fastlane build_release   # requires the signing secrets from CI
 # Build the release APK and publish it as a GitHub release
 # (requires the gh CLI and GH_TOKEN; tag defaults to the nearest git tag)
 bundle exec fastlane release_github
+
+# Create and push an alpha release tag (runs tests, auto-versions)
+bundle exec fastlane release_alpha
 ```
 
 The `android_fastlane.yml` workflow runs these lanes in CI. Two release paths are automated:
@@ -244,6 +247,8 @@ The `android_fastlane.yml` workflow runs these lanes in CI. Two release paths ar
 - **Pushing a `v*` tag** (e.g. `git tag v0.0.2 && git push origin v0.0.2`) publishes a **stable GitHub release** with auto-generated notes.
 
 Both release the same signed APK; Obtainium users can track the latest release for stable versions or enable *pre-releases* to follow the nightly builds. If a lockfile update is needed (e.g. a security bump), run `bundle update <gem>` and commit the new `Gemfile.lock`.
+
+> 📋 **Release stages & criteria** (nightly → alpha → beta → stable) are documented in [RELEASE.md](RELEASE.md). The [PARITY.md](PARITY.md) tracker determines which stage is active.
 
 ### Contributing
 

@@ -16,6 +16,8 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 > **Stand:** 2026-08-08 · Letzter Eintrag: `4d8362e` (README: Moblin-Parität als Projektziel)
 >
 > **Pflege:** Nach jedem Feature-Commit den Status in der jeweiligen Zeile aktualisieren und das Datum oben anpassen.
+>
+> 🚦 **Nächster Meilenstein:** Wenn die ✅-Spalte in der Tabelle ≥17 erreicht → Zeit für [Beta](RELEASE.md#beta--nächster-meilenstein). Siehe [RELEASE.md](RELEASE.md) für alle Stage Gates.
 
 ---
 
