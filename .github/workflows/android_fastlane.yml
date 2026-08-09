@@ -206,6 +206,9 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: private-jb
+          SENTRY_PROJECT: vivid
         run: bundle exec fastlane build_release
 
       # ✅ APK als GitHub-Release veröffentlichen (stable oder nightly)

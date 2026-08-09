@@ -7,6 +7,12 @@ plugins {
     alias(libs.plugins.sentry.android.gradle)
 }
 
+sentry {
+    // Skip ProGuard mapping upload when token is missing (e.g. nightly CI builds).
+    // Token is provided by android_fastlane.yml and android.yml workflows.
+    autoUploadProguardMapping.set(System.getenv("SENTRY_AUTH_TOKEN") != null)
+}
+
 android {
     namespace = "com.vivid"
     compileSdk = libs.versions.compileSdk.get().toInt()
