@@ -46,7 +46,12 @@ bundle exec fastlane release_alpha
 > - Content Rating Questionnaire
 > - Data Safety Section (welche Daten sammelt die App?)
 >
-> → **Vorlage-Verzeichnis anlegen:** `fastlane/metadata/android/` für Play-Store-Texte und -Bilder
+> → **Vorlagen bereit:** `fastlane/metadata/android/en-US/` und `de-DE/` mit Titel, Kurz-/Langbeschreibung und Changelogs. Nur noch ausfüllen:
+>   - Privacy Policy (URL oder Markdown)
+>   - App-Icon (512×512, PNG) → `fastlane/metadata/android/images/icon.png`
+>   - Screenshots (mind. 2, 16:9 oder 9:16) → `fastlane/metadata/android/images/phoneScreenshots/`
+>   - Content Rating Questionnaire (wird in der Play Console ausgefüllt)
+>   - Data Safety Section (welche Daten sammelt die App?)
 
 **Kriterien (alle müssen erfüllt sein):**
 - [ ] ≥50 % Feature-Parität (aktuell 7/33 ≈ 21 %, Ziel: ≥17 Features)

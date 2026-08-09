@@ -1,0 +1,22 @@
+Vivid ist eine kostenlose, quelloffene Live-Streaming-App für Android — entwickelt als funktionsgleiche Alternative zu Moblin, dem professionellen iOS-Streaming-Tool.
+
+🎥 STREAMING FÜR ALLE PROTOKOLLE
+RTMP- und SRT-Streaming mit konfigurierbaren Server-URLs und Stream-Keys. Multi-Streaming in Planung.
+
+🎛️ OBS-WEBSOCKET-STEUERUNG
+Verbinde dich per WebSocket mit OBS Studio, um Streams zu starten/stoppen, Szenen zu wechseln und Quellen zu steuern — alles vom Handy aus.
+
+💬 CHAT & MODERATION
+Integriertes Chat-Overlay mit Moderations-Tools — bleib mit deinen Zuschauern in Kontakt, ohne die App zu verlassen.
+
+📱 OPEN SOURCE
+Vivid ist freie Software. Keine Werbung, keine Telemetrie (außer opt-in Crash-Reporting), keine Paywalls. Der vollständige Quellcode ist auf GitHub verfügbar.
+
+🔧 AKTIVE ENTWICKLUNG
+Wir arbeiten aktiv an vollständiger Moblin-Feature-Parität. Der aktuelle Stand und die Roadmap sind in PARITY.md im Repository dokumentiert.
+
+---
+
+📥 Lade die neueste APK von GitHub Releases herunter oder installiere sie über Obtainium für automatische Updates.
+🐛 Fehler bitte auf GitHub Issues melden.
+💡 Feature-Wünsche und Diskussionen sind willkommen.
