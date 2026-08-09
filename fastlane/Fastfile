@@ -132,51 +132,38 @@ platform :android do
       base = "1.0" if base.empty?
       run_raw = ENV["GITHUB_RUN_NUMBER"] || "0"
       version_name = options[:version_name] || "#{base}-nightly.#{run_raw}"
-      tag = "nightly-rolling"
 
+      # Immutable Releases: every release gets a unique, date-based tag.
+      # gh release create handles draft → upload → publish atomically.
+      tag = "nightly-#{Time.now.utc.strftime('%Y%m%d-%H%M')}"
       notes = "Nightly feature build — installable via Obtainium (enable pre-releases)."
       UI.message("Publishing nightly prerelease #{version_name} → tag #{tag}")
 
-      # Check if a nightly release already exists (immutable releases can't be deleted).
-      # Use sh() for proper GH_TOKEN propagation; fall back gracefully.
-      exists = begin
-        sh("gh", "release", "view", tag, "--json", "tagName")
-        true
-      rescue
-        UI.message("Release #{tag} not found — will create fresh")
-        false
-      end
+      # Push the tag first (repo rules may block creation by gh release create alone)
+      sh("git", "tag", tag)
+      sh("git", "push", "origin", tag)
 
-      if exists
-        # Update the existing release: replace APK asset, refresh metadata.
-        UI.message("Updating existing nightly release…")
-        sh("gh", "release", "upload", tag, apk, "--clobber")
-        sh("gh", "release", "edit", tag,
-           "--title", "Vivid nightly (#{version_name})",
-           "--notes", notes,
-           "--prerelease",
-           "--latest=false")
-        UI.success("✅ Nightly updated: #{tag}")
-      else
-        # First nightly release: create from scratch.
-        # IMPORTANT: the tag must already exist on the remote (repo rules may block ref creation).
-        # Create it once manually:  git tag nightly-rolling && git push origin nightly-rolling
-        UI.message("Creating first nightly release…")
-        begin
-          sh("gh", "release", "create", tag, apk,
-             "--title", "Vivid nightly (#{version_name})",
-             "--notes", notes,
-             "--target", "develop",
-             "--prerelease",
-             "--latest=false")
-        rescue => e
-          UI.error("Could not create release: #{e.message}")
-          UI.error("Tag #{tag} may not exist on remote. Run manually:")
-          UI.error("  git tag #{tag} && git push origin #{tag}")
-          UI.error("  gh release create #{tag} --title 'Vivid nightly' --target develop --prerelease --latest=false")
-          raise
-        end
+      # Create the release with the APK — gh internally does draft→upload→publish,
+      # which is the only workflow compatible with immutable releases.
+      UI.message("Creating nightly release with APK…")
+      sh("gh", "release", "create", tag, apk,
+         "--title", "Vivid nightly (#{version_name})",
+         "--notes", notes,
+         "--target", "develop",
+         "--prerelease",
+         "--latest=false")
+
+      # Keep only the last 3 nightly releases to avoid clutter.
+      # (Old tags will be orphaned but tag names are permanently burned anyway.)
+      UI.message("Cleaning old nightlys…")
+      old_tags = `gh release list --limit 100 --json tagName,isPrerelease,createdAt --jq '[.[] | select(.isPrerelease and (.tagName | startswith("nightly-")))] | sort_by(.createdAt) | reverse | .[3:] | .[].tagName' 2>/dev/null`.strip.lines
+      old_tags.each do |old_tag|
+        old_tag = old_tag.strip
+        next if old_tag.empty? || old_tag == tag
+        UI.message("  Deleting old release: #{old_tag}")
+        sh("gh", "release", "delete", old_tag, "--yes") rescue UI.message("  (cleanup skipped)")
       end
+      UI.success("✅ Nightly published: #{tag}")
     end
   end
 end
