@@ -42,21 +42,17 @@ platform :android do
   lane :release_github do |options|
     ref_type = ENV["GITHUB_REF_TYPE"].to_s # "tag" oder "branch"
     ref_name = ENV["GITHUB_REF_NAME"].to_s
-
-    # Stabiles Release bei expliziter tag:-Option ODER gepushtem v*-Tag, sonst Nightly
     stable = options[:tag] || (ref_type == "tag" && ref_name.start_with?("v"))
 
     if stable
-      tag = options[:tag] || ref_name
-      version_name = tag.sub(/^v/, "")
+      version_name = (options[:tag] || ref_name).sub(/^v/, "")
       version_code = ENV["GITHUB_RUN_NUMBER"] || "1"
     else
       base = `git describe --tags --abbrev=0 2>/dev/null`.strip.sub(/^v/, "")
       base = "1.0" if base.empty?
-      run = ENV["GITHUB_RUN_NUMBER"] || "0"
-      tag = "nightly"
-      version_name = "#{base}-nightly.#{run}"
-      version_code = run
+      run_raw = ENV["GITHUB_RUN_NUMBER"] || "0"
+      version_name = "#{base}-nightly.#{run_raw}"
+      version_code = (run_raw.to_i % 100000).to_s
     end
 
     gradle(
@@ -69,32 +65,51 @@ platform :android do
     )
 
     apk = "app/build/outputs/apk/release/app-release.apk"
+    UI.message("APK path: #{apk}, exists: #{File.exist?(apk)}")
+    publish_release(options.merge(apk: apk, version_name: version_name))
+  end
+
+  desc "Publish a pre-built release APK as a GitHub release (requires gh + GH_TOKEN, pre-built APK)"
+  lane :publish_release do |options|
+    apk = options[:apk] || "app/build/outputs/apk/release/app-release.apk"
+    ref_type = ENV["GITHUB_REF_TYPE"].to_s
+    ref_name = ENV["GITHUB_REF_NAME"].to_s
+    stable = options[:tag] || (ref_type == "tag" && ref_name.start_with?("v"))
+
+    UI.user_error!("APK not found: #{apk}") unless File.exist?(apk)
+    UI.message("APK: #{apk} (#{File.size(apk)} bytes)")
 
     if stable
-      # Skip if the release already exists (gh release create has no --clobber)
+      tag = options[:tag] || ref_name
       begin
         sh("gh", "release", "view", tag, "--json", "tagName")
         UI.important("Release #{tag} already exists - skipping")
       rescue
-        UI.message("Publishing GitHub release #{tag} with #{apk}")
+        UI.message("Publishing GitHub release #{tag}")
         sh("gh", "release", "create", tag, apk,
            "--title", "Vivid #{tag}",
            "--generate-notes")
       end
     else
-      # Nightly: vorheriges Release inkl. Tag entfernen, dann frisch erstellen
+      base = `git describe --tags --abbrev=0 2>/dev/null`.strip.sub(/^v/, "")
+      base = "1.0" if base.empty?
+      run_raw = ENV["GITHUB_RUN_NUMBER"] || "0"
+      version_name = options[:version_name] || "#{base}-nightly.#{run_raw}"
+      tag = "nightly"
+
       begin
         sh("gh", "release", "delete", tag, "--yes", "--cleanup-tag")
+        sh("git", "push", "origin", ":refs/tags/#{tag}") rescue nil
+        sh("git", "tag", "-d", tag) rescue nil
         UI.important("Removed previous nightly release")
       rescue
         UI.important("No previous nightly release to remove")
       end
-      UI.message("Publishing nightly prerelease #{version_name} with #{apk}")
-      # Statische kurze Notiz: --generate-notes würde seit dem letzten Tag
-      # (nur 0.0.1-alpha) einen unbegrenzt wachsenden Changelog erzeugen
+      UI.message("Publishing nightly prerelease #{version_name}")
       sh("gh", "release", "create", tag, apk,
          "--title", "Vivid nightly (#{version_name})",
-         "--notes", "Nightly feature build - installable via Obtainium (enable pre-releases).",
+         "--notes", "Nightly feature build — installable via Obtainium (enable pre-releases).",
+         "--target", "develop",
          "--prerelease",
          "--latest=false")
     end

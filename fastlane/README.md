@@ -63,6 +63,14 @@ Run tests and build release
 
 Build release APK and publish it as a GitHub release (requires gh + GH_TOKEN). Stable for v*-tags, rolling nightly prerelease for branch pushes
 
+### android publish_release
+
+```sh
+[bundle exec] fastlane android publish_release
+```
+
+Publish a pre-built release APK as a GitHub release (requires gh + GH_TOKEN). Used by CI after `build_release` for error isolation.
+
 ----
 
 This README.md is auto-generated and will be re-generated every time [_fastlane_](https://fastlane.tools) is run.

@@ -199,12 +199,17 @@ jobs:
             echo "⚠️ No keystore found, will use debug signing"
           fi
 
-      # ✅ assembleRelease + gh release create (Tag aus GITHUB_REF_NAME, z. B. v1.0.0)
-      - name: Build and publish release
+      # ✅ Signiertes APK bauen
+      - name: Build release APK
         env:
           KEYSTORE_PATH: ${{ env.KEYSTORE_PATH }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: bundle exec fastlane build_release
+
+      # ✅ APK als GitHub-Release veröffentlichen (stable oder nightly)
+      - name: Publish GitHub release
+        env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: bundle exec fastlane release_github
+        run: bundle exec fastlane publish_release
