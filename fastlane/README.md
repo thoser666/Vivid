@@ -55,6 +55,17 @@ Run tests and build debug
 
 Run tests and build release
 
+### android release_alpha
+
+```sh
+[bundle exec] fastlane android release_alpha
+```
+
+Create and push an alpha release tag. Runs all unit tests, verifies you're on `develop`, auto-detects the next version (e.g. `v0.2.0-alpha` → `v0.3.0-alpha`), then pushes the tag. The CI `android_fastlane.yml` workflow picks up `v*`-tags and builds + publishes a stable prerelease.
+
+Options:
+- `version:` — override auto-detection (e.g. `version:"v0.5.0-alpha"`)
+
 ### android release_github
 
 ```sh

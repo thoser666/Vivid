@@ -38,6 +38,43 @@ platform :android do
     build_release
   end
 
+  desc "Create and push an alpha release tag — runs tests, auto-versions, triggers CI"
+  lane :release_alpha do |options|
+    UI.header "Step 1/4: Running unit tests"
+    test
+
+    UI.header "Step 2/4: Checking branch"
+    branch = `git rev-parse --abbrev-ref HEAD`.strip
+    UI.user_error!("Must be on develop branch, current: #{branch}") unless branch == "develop"
+
+    UI.header "Step 3/4: Determining version"
+    tag = options[:version]
+    unless tag
+      latest = `git tag -l 'v*-alpha' --sort=-v:refname 2>/dev/null`.strip.lines.first&.strip
+      if latest && !latest.empty?
+        base = latest.sub(/^v/, "").sub(/-alpha$/, "")
+        parts = base.split(".").map(&:to_i)
+        tag = "v#{parts[0]}.#{parts[1] + 1}.0-alpha"
+      else
+        tag = "v0.2.0-alpha"
+      end
+    end
+    tag = "v#{tag}" unless tag.start_with?("v")
+    UI.message("Next alpha tag: #{tag}")
+
+    # Safety: refuse to overwrite an existing tag
+    if `git tag -l '#{tag}'`.strip != ""
+      UI.user_error!("Tag #{tag} already exists — use version: to pick a different one")
+    end
+
+    UI.header "Step 4/4: Creating and pushing tag"
+    sh("git", "tag", "-a", tag, "-m", "Alpha release #{tag}")
+    sh("git", "push", "origin", tag)
+
+    UI.success("✅ Pushed #{tag} — CI will build and publish the alpha release")
+    UI.message("Monitor: https://github.com/thoser666/Vivid/actions")
+  end
+
   desc "Build release APK and publish it as a GitHub release (requires gh + GH_TOKEN)"
   lane :release_github do |options|
     ref_type = ENV["GITHUB_REF_TYPE"].to_s # "tag" oder "branch"
