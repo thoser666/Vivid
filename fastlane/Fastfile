@@ -132,7 +132,7 @@ platform :android do
       base = "1.0" if base.empty?
       run_raw = ENV["GITHUB_RUN_NUMBER"] || "0"
       version_name = options[:version_name] || "#{base}-nightly.#{run_raw}"
-      tag = "nightly"
+      tag = "nightly-rolling"
 
       notes = "Nightly feature build — installable via Obtainium (enable pre-releases)."
       UI.message("Publishing nightly prerelease #{version_name}")
