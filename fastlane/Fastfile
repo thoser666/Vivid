@@ -64,14 +64,14 @@ platform :android do
       }
     )
 
-    apk = "app/build/outputs/apk/release/app-release.apk"
+    apk = lane_context[SharedValues::GRADLE_APK_OUTPUT_PATH] || "app/build/outputs/apk/release/app-release.apk"
     UI.message("APK path: #{apk}, exists: #{File.exist?(apk)}")
     publish_release(options.merge(apk: apk, version_name: version_name))
   end
 
   desc "Publish a pre-built release APK as a GitHub release (requires gh + GH_TOKEN, pre-built APK)"
   lane :publish_release do |options|
-    apk = options[:apk] || "app/build/outputs/apk/release/app-release.apk"
+    apk = options[:apk] || lane_context[SharedValues::GRADLE_APK_OUTPUT_PATH] || "app/build/outputs/apk/release/app-release.apk"
     ref_type = ENV["GITHUB_REF_TYPE"].to_s
     ref_name = ENV["GITHUB_REF_NAME"].to_s
     stable = options[:tag] || (ref_type == "tag" && ref_name.start_with?("v"))
