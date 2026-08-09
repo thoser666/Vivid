@@ -134,21 +134,28 @@ platform :android do
       version_name = options[:version_name] || "#{base}-nightly.#{run_raw}"
       tag = "nightly"
 
-      begin
-        sh("gh", "release", "delete", tag, "--yes", "--cleanup-tag")
-        sh("git", "push", "origin", ":refs/tags/#{tag}") rescue nil
-        sh("git", "tag", "-d", tag) rescue nil
-        UI.important("Removed previous nightly release")
-      rescue
-        UI.important("No previous nightly release to remove")
-      end
+      notes = "Nightly feature build — installable via Obtainium (enable pre-releases)."
       UI.message("Publishing nightly prerelease #{version_name}")
-      sh("gh", "release", "create", tag, apk,
-         "--title", "Vivid nightly (#{version_name})",
-         "--notes", "Nightly feature build — installable via Obtainium (enable pre-releases).",
-         "--target", "develop",
-         "--prerelease",
-         "--latest=false")
+
+      # Try create first — preserves existing nightly if creation fails
+      begin
+        sh("gh", "release", "create", tag, apk,
+           "--title", "Vivid nightly (#{version_name})",
+           "--notes", notes,
+           "--target", "develop",
+           "--prerelease",
+           "--latest=false")
+      rescue
+        # Release already exists — delete and recreate (only after confirming APK is valid)
+        UI.important("Release #{tag} already exists — recreating…")
+        sh("gh", "release", "delete", tag, "--yes", "--cleanup-tag")
+        sh("gh", "release", "create", tag, apk,
+           "--title", "Vivid nightly (#{version_name})",
+           "--notes", notes,
+           "--target", "develop",
+           "--prerelease",
+           "--latest=false")
+      end
     end
   end
 end
