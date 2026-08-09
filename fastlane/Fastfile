@@ -135,13 +135,20 @@ platform :android do
       tag = "nightly-rolling"
 
       notes = "Nightly feature build — installable via Obtainium (enable pre-releases)."
-      UI.message("Publishing nightly prerelease #{version_name}")
+      UI.message("Publishing nightly prerelease #{version_name} → tag #{tag}")
 
-      # Check if a nightly release already exists (immutable releases can't be deleted)
-      exists = `gh release view #{tag} --json tagName 2>/dev/null`.strip != ""
+      # Check if a nightly release already exists (immutable releases can't be deleted).
+      # Use sh() for proper GH_TOKEN propagation; fall back gracefully.
+      exists = begin
+        sh("gh", "release", "view", tag, "--json", "tagName")
+        true
+      rescue
+        UI.message("Release #{tag} not found — will create fresh")
+        false
+      end
 
       if exists
-        # Update the existing release: upload new APK over the old one, refresh metadata
+        # Update the existing release: replace APK asset, refresh metadata.
         UI.message("Updating existing nightly release…")
         sh("gh", "release", "upload", tag, apk, "--clobber")
         sh("gh", "release", "edit", tag,
@@ -149,15 +156,26 @@ platform :android do
            "--notes", notes,
            "--prerelease",
            "--latest=false")
+        UI.success("✅ Nightly updated: #{tag}")
       else
-        # First nightly release: create from scratch
+        # First nightly release: create from scratch.
+        # IMPORTANT: the tag must already exist on the remote (repo rules may block ref creation).
+        # Create it once manually:  git tag nightly-rolling && git push origin nightly-rolling
         UI.message("Creating first nightly release…")
-        sh("gh", "release", "create", tag, apk,
-           "--title", "Vivid nightly (#{version_name})",
-           "--notes", notes,
-           "--target", "develop",
-           "--prerelease",
-           "--latest=false")
+        begin
+          sh("gh", "release", "create", tag, apk,
+             "--title", "Vivid nightly (#{version_name})",
+             "--notes", notes,
+             "--target", "develop",
+             "--prerelease",
+             "--latest=false")
+        rescue => e
+          UI.error("Could not create release: #{e.message}")
+          UI.error("Tag #{tag} may not exist on remote. Run manually:")
+          UI.error("  git tag #{tag} && git push origin #{tag}")
+          UI.error("  gh release create #{tag} --title 'Vivid nightly' --target develop --prerelease --latest=false")
+          raise
+        end
       end
     end
   end
