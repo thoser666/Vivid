@@ -199,8 +199,8 @@ jobs:
             echo "⚠️ No keystore found, will use debug signing"
           fi
 
-      # ✅ Signiertes APK bauen
-      - name: Build release APK
+      # ✅ Signiertes APK bauen und als GitHub-Release veröffentlichen (stable oder nightly)
+      - name: Build and publish release
         env:
           KEYSTORE_PATH: ${{ env.KEYSTORE_PATH }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -209,10 +209,5 @@ jobs:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: private-jb
           SENTRY_PROJECT: vivid
-        run: bundle exec fastlane build_release
-
-      # ✅ APK als GitHub-Release veröffentlichen (stable oder nightly)
-      - name: Publish GitHub release
-        env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: bundle exec fastlane publish_release
+        run: bundle exec fastlane release_github
