@@ -46,6 +46,21 @@ fun SettingsScreen(
         ) {
             // Stream-Einstellungen
             Text("Stream-Einstellungen", style = MaterialTheme.typography.titleLarge)
+
+            // Plattform-Vorlagen: füllen die Ingest-URL und aktivieren RTMPS
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                StreamPlatform.entries.forEach { platform ->
+                    FilterChip(
+                        selected = uiState.streamUrl == platform.ingestUrl,
+                        onClick = { viewModel.applyPlatformPreset(platform) },
+                        label = { Text(platform.label) },
+                    )
+                }
+            }
+
             OutlinedTextField(
                 value = uiState.streamUrl,
                 onValueChange = viewModel::onStreamUrlChange,
@@ -58,6 +73,16 @@ fun SettingsScreen(
                 label = { Text("Stream-Schlüssel") },
                 modifier = Modifier.fillMaxWidth(),
             )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Sichere Verbindung (RTMPS)", modifier = Modifier.weight(1f))
+                Switch(
+                    checked = uiState.streamUseTls,
+                    onCheckedChange = viewModel::onStreamUseTlsChange,
+                )
+            }
 
             // OBS-Einstellungen
             Text("OBS-Einstellungen", style = MaterialTheme.typography.titleLarge)

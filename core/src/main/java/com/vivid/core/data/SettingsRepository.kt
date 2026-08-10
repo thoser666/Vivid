@@ -16,6 +16,7 @@ class SettingsRepository @Inject constructor(
     private object PrefKeys {
         val STREAM_URL = stringPreferencesKey("stream_url")
         val STREAM_KEY = stringPreferencesKey("stream_key")
+        val STREAM_USE_TLS = booleanPreferencesKey("stream_use_tls")
         val OBS_HOST = stringPreferencesKey("obs_host")
         val OBS_PORT = stringPreferencesKey("obs_port")
         val OBS_PASSWORD = stringPreferencesKey("obs_password")
@@ -27,9 +28,10 @@ class SettingsRepository @Inject constructor(
     val appSettingsFlow: Flow<AppSettings> = combine(
         // Flow für Stream-Daten
         dataStore.data.map { prefs ->
-            Pair(
+            Triple(
                 prefs[PrefKeys.STREAM_URL] ?: "",
                 prefs[PrefKeys.STREAM_KEY] ?: "",
+                prefs[PrefKeys.STREAM_USE_TLS] ?: false,
             )
         },
         // Flow für OBS-Daten
@@ -46,6 +48,7 @@ class SettingsRepository @Inject constructor(
         AppSettings(
             streamUrl = streamData.first,
             streamKey = streamData.second,
+            streamUseTls = streamData.third,
             obsHost = obsData.host,
             obsPort = obsData.port,
             obsPassword = obsData.password,
@@ -54,10 +57,12 @@ class SettingsRepository @Inject constructor(
     }
 
     // Update-Funktionen bleiben getrennt, das ist in Ordnung.
-    suspend fun updateStreamSettings(url: String, key: String) {
+    // useTls: false = rtmp:// (Klartext), true = rtmps:// (RTMP über TLS).
+    suspend fun updateStreamSettings(url: String, key: String, useTls: Boolean = false) {
         dataStore.edit { prefs ->
             prefs[PrefKeys.STREAM_URL] = url
             prefs[PrefKeys.STREAM_KEY] = key
+            prefs[PrefKeys.STREAM_USE_TLS] = useTls
         }
     }
 

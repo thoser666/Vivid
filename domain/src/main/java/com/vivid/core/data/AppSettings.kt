@@ -4,6 +4,8 @@ package com.vivid.core.data
 data class AppSettings(
     val streamUrl: String = "",
     val streamKey: String = "",
+    // false = rtmp:// (Klartext), true = rtmps:// (RTMP über TLS)
+    val streamUseTls: Boolean = false,
     val obsHost: String = "localhost",
     val obsPort: String = "4455",
     val obsPassword: String = "",

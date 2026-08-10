@@ -28,7 +28,7 @@ class StreamingViewModel @Inject constructor(
         viewModelScope.launch {
             _errorMessage.value = null
             val settings = settingsRepository.appSettingsFlow.first()
-            val url = buildStreamUrl(settings.streamUrl, settings.streamKey)
+            val url = buildStreamUrl(settings.streamUrl, settings.streamKey, settings.streamUseTls)
             if (url == null) {
                 _errorMessage.value = "Keine Stream-URL konfiguriert. Bitte in den Einstellungen hinterlegen."
                 return@launch
@@ -48,10 +48,19 @@ class StreamingViewModel @Inject constructor(
  * Der Key wird nur angehängt, wenn er nicht bereits das letzte Pfadsegment der
  * URL ist (manche Plattformen liefern die komplette URL inkl. Key). Eine leere
  * URL ergibt `null`, damit der Aufrufer einen Fehler anzeigen kann.
+ *
+ * Bei [useTls] = true wird `rtmp://` automatisch auf `rtmps://` umgeschrieben
+ * (RTMP über TLS, Port 443). Das funktioniert für YouTube und Twitch offiziell;
+ * die RootEncoder-Library erkennt `rtmps://` am Scheme und aktiviert TLS selbst.
+ * URLs, die bereits ein sicheres Scheme haben (`rtmps`/`rtmpt`/`rtmpts`/`srt`),
+ * bleiben unverändert.
  */
-internal fun buildStreamUrl(streamUrl: String, streamKey: String): String? {
-    val url = streamUrl.trim()
+internal fun buildStreamUrl(streamUrl: String, streamKey: String, useTls: Boolean = false): String? {
+    var url = streamUrl.trim()
     if (url.isEmpty()) return null
+    if (useTls && url.startsWith("rtmp://")) {
+        url = "rtmps://" + url.removePrefix("rtmp://")
+    }
     val key = streamKey.trim()
     if (key.isEmpty() || url.endsWith(key) || url.endsWith("/$key")) return url
     val separator = if (url.endsWith("/")) "" else "/"

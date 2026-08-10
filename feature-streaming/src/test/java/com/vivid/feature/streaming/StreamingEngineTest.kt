@@ -69,6 +69,24 @@ class StreamingEngineTest {
     }
 
     @Test
+    fun `startStream should pass an rtmps url through to the camera unchanged`() = runTest {
+        // Arrange: RootEncoder erkennt rtmps:// am Scheme und aktiviert TLS selbst,
+        // die Engine darf die URL also nicht umschreiben oder verwerfen.
+        val openGlView: OpenGlView = mockk(relaxed = true)
+        streamingEngine.initializeCamera(openGlView)
+        every { rtmpCamera.isStreaming } returns false
+        every { rtmpCamera.prepareAudio() } returns true
+        every { rtmpCamera.prepareVideo() } returns true
+        val testUrl = "rtmps://live.kick.com/app/live_12345_secret"
+
+        // Act
+        streamingEngine.startStream(testUrl)
+
+        // Assert
+        coVerify { rtmpCamera.startStream(testUrl) }
+    }
+
+    @Test
     fun `startStream should set Preparing while starting`() = runTest {
         val openGlView: OpenGlView = mockk(relaxed = true)
         streamingEngine.initializeCamera(openGlView)

@@ -52,6 +52,39 @@ class SettingsRepositoryTest {
     }
 
     @Test
+    fun `appSettingsFlow should default streamUseTls to false (plain rtmp)`() = runTest {
+        val testDataStore = PreferenceDataStoreFactory.create(
+            scope = this,
+            produceFile = { File(tempDir.toFile(), "test_stream_tls_default.preferences_pb") }
+        )
+        val repository = SettingsRepository(testDataStore)
+
+        // Act
+        val settings = repository.appSettingsFlow.first()
+
+        // Assert
+        assertEquals(false, settings.streamUseTls)
+    }
+
+    @Test
+    fun `appSettingsFlow should return the saved stream tls flag`() = runTest {
+        val testDataStore = PreferenceDataStoreFactory.create(
+            scope = this,
+            produceFile = { File(tempDir.toFile(), "test_stream_tls.preferences_pb") }
+        )
+        val repository = SettingsRepository(testDataStore)
+
+        // Act
+        repository.updateStreamSettings("rtmp://live.example/app", "key-1", useTls = true)
+        val settings = repository.appSettingsFlow.first()
+
+        // Assert
+        assertEquals(true, settings.streamUseTls)
+        assertEquals("rtmp://live.example/app", settings.streamUrl)
+        assertEquals("key-1", settings.streamKey)
+    }
+
+    @Test
     fun `appSettingsFlow should return saved obs settings`() = runTest {
         val testDataStore = PreferenceDataStoreFactory.create(
             scope = this,

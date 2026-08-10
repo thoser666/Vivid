@@ -49,6 +49,44 @@ class StreamingViewModelTest {
     }
 
     @Test
+    fun `startStream upgrades rtmp to rtmps when tls is enabled`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repository = repositoryWith(
+            AppSettings(
+                streamUrl = "rtmp://live.twitch.tv/app",
+                streamKey = "key-1",
+                streamUseTls = true,
+            ),
+        )
+        val viewModel = StreamingViewModel(engine, repository)
+
+        viewModel.startStream()
+        advanceUntilIdle()
+
+        coVerify { engine.startStream("rtmps://live.twitch.tv/app/key-1") }
+        assertNull(viewModel.errorMessage.value)
+    }
+
+    @Test
+    fun `startStream secures youtube ingest url when tls is enabled`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repository = repositoryWith(
+            AppSettings(
+                streamUrl = "rtmp://a.rtmp.youtube.com/live2",
+                streamKey = "key-1",
+                streamUseTls = true,
+            ),
+        )
+        val viewModel = StreamingViewModel(engine, repository)
+
+        viewModel.startStream()
+        advanceUntilIdle()
+
+        coVerify { engine.startStream("rtmps://a.rtmp.youtube.com/live2/key-1") }
+        assertNull(viewModel.errorMessage.value)
+    }
+
+    @Test
     fun `startStream uses url as-is when key is already the trailing segment`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val repository = repositoryWith(
@@ -136,6 +174,38 @@ class StreamingViewModelTest {
         assertEquals(
             "rtmp://live.example/app/key-1",
             buildStreamUrl("rtmp://live.example/app/key-1", "key-1"),
+        )
+    }
+
+    @Test
+    fun `buildStreamUrl leaves plain rtmp url unchanged when tls is off`() {
+        assertEquals(
+            "rtmp://live.example/app/key-1",
+            buildStreamUrl("rtmp://live.example/app", "key-1", useTls = false),
+        )
+    }
+
+    @Test
+    fun `buildStreamUrl upgrades rtmp scheme to rtmps when tls is on`() {
+        assertEquals(
+            "rtmps://live.example/app/key-1",
+            buildStreamUrl("rtmp://live.example/app", "key-1", useTls = true),
+        )
+    }
+
+    @Test
+    fun `buildStreamUrl does not duplicate rtmps scheme when tls is on`() {
+        assertEquals(
+            "rtmps://live.example/app/key-1",
+            buildStreamUrl("rtmps://live.example/app", "key-1", useTls = true),
+        )
+    }
+
+    @Test
+    fun `buildStreamUrl leaves non-rtmp schemes untouched when tls is on`() {
+        assertEquals(
+            "srt://live.example:9000?streamid=key-1",
+            buildStreamUrl("srt://live.example:9000?streamid=key-1", "key-1", useTls = true),
         )
     }
 }

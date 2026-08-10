@@ -33,6 +33,18 @@ class SettingsViewModel @Inject constructor(
     // Diese Funktionen aktualisieren den State. Sie funktionieren dank .copy() perfekt.
     fun onStreamUrlChange(newUrl: String) { _uiState.value = _uiState.value.copy(streamUrl = newUrl) }
     fun onStreamKeyChange(newKey: String) { _uiState.value = _uiState.value.copy(streamKey = newKey) }
+    fun onStreamUseTlsChange(newUseTls: Boolean) { _uiState.value = _uiState.value.copy(streamUseTls = newUseTls) }
+
+    /**
+     * Übernimmt eine Plattform-Vorlage: setzt die Ingest-URL und aktiviert
+     * automatisch die sichere Verbindung (rtmps://).
+     */
+    fun applyPlatformPreset(platform: StreamPlatform) {
+        _uiState.value = _uiState.value.copy(
+            streamUrl = platform.ingestUrl,
+            streamUseTls = true,
+        )
+    }
     fun onObsHostChange(newHost: String) { _uiState.value = _uiState.value.copy(obsHost = newHost) }
     fun onObsPortChange(newPort: String) { _uiState.value = _uiState.value.copy(obsPort = newPort) }
     fun onObsPasswordChange(newPassword: String) { _uiState.value = _uiState.value.copy(obsPassword = newPassword) }
@@ -45,6 +57,7 @@ class SettingsViewModel @Inject constructor(
             settingsRepository.updateStreamSettings(
                 url = currentSettings.streamUrl,
                 key = currentSettings.streamKey,
+                useTls = currentSettings.streamUseTls,
             )
             settingsRepository.updateObsSettings(
                 host = currentSettings.obsHost,
