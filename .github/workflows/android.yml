@@ -20,7 +20,7 @@ jobs:
 
     env:
       # ── Sentry‑Konfiguration (nur die wichtigsten) ──
-      SENTRY_ORG: private-jb
+      SENTRY_ORG: privat-jb
       SENTRY_PROJECT: vivid
       SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
 
@@ -73,7 +73,7 @@ jobs:
       id-token: write
 
     env:
-      SENTRY_ORG: private-jb
+      SENTRY_ORG: privat-jb
       SENTRY_PROJECT: vivid
       SIGNING_KEY_STORE_BASE64: ${{ secrets.SIGNING_KEY_STORE_BASE64 }}
 

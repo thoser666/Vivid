@@ -125,6 +125,31 @@ platform :android do
       }
     )
 
+    # Sentry: veröffentlichte mapping.txt explizit hochladen (Deobfuskation).
+    # Das Gradle-Plugin (autoUploadProguardMapping) lädt das Mapping bereits beim
+    # Build hoch — dieser Schritt macht die Verdrahtung explizit und robust und
+    # nutzt exakt die veröffentlichte Datei + Release-Version. Idempotent:
+    # sentry-cli meldet "Nothing to upload", wenn die Datei schon auf dem Server liegt.
+    if ENV["SENTRY_AUTH_TOKEN"] && !ENV["SENTRY_AUTH_TOKEN"].empty?
+      mapping = lane_context[SharedValues::GRADLE_MAPPING_TXT_OUTPUT_PATH] || "app/build/outputs/mapping/release/mapping.txt"
+      if File.exist?(mapping)
+        project = ENV["SENTRY_PROJECT"] || "vivid"
+        UI.message("Uploading ProGuard mapping to Sentry (release=#{version_name}, dist=#{version_code})…")
+        begin
+          sh("sentry-cli", "releases", "new", "-p", project, version_name)
+        rescue
+          UI.message("Sentry release #{version_name} already exists — reusing")
+        end
+        sh("sentry-cli", "releases", "files", version_name, "upload-proguard", "--dist", version_code.to_s, mapping)
+        sh("sentry-cli", "releases", "finalize", version_name)
+        UI.success("✅ Sentry mapping uploaded for #{version_name}")
+      else
+        UI.important("Sentry: mapping not found at #{mapping} — skipping upload")
+      end
+    else
+      UI.message("SENTRY_AUTH_TOKEN not set — skipping explicit Sentry upload")
+    end
+
     apk = lane_context[SharedValues::GRADLE_APK_OUTPUT_PATH] || "app/build/outputs/apk/release/app-release.apk"
     UI.message("APK path: #{apk}, exists: #{File.exist?(apk)}")
     publish_release(options.merge(apk: apk, version_name: version_name))

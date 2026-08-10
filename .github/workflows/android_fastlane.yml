@@ -199,6 +199,12 @@ jobs:
             echo "⚠️ No keystore found, will use debug signing"
           fi
 
+      # ✅ Sentry CLI für den expliziten Mapping-Upload (release_github-Lane)
+      - name: Setup Sentry CLI
+        uses: matbour/setup-sentry-cli@v1
+        with:
+          token: ${{ secrets.SENTRY_AUTH_TOKEN }}
+
       # ✅ Signiertes APK bauen und als GitHub-Release veröffentlichen (stable oder nightly)
       - name: Build and publish release
         env:
@@ -207,7 +213,7 @@ jobs:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-          SENTRY_ORG: private-jb
+          SENTRY_ORG: privat-jb
           SENTRY_PROJECT: vivid
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: bundle exec fastlane release_github
