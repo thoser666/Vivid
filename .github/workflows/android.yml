@@ -75,7 +75,8 @@ jobs:
     env:
       SENTRY_ORG: privat-jb
       SENTRY_PROJECT: vivid
-      SIGNING_KEY_STORE_BASE64: ${{ secrets.SIGNING_KEY_STORE_BASE64 }}
+      SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+      KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
 
     steps:
       - name: Checkout
@@ -88,38 +89,26 @@ jobs:
           java-version: 17
           cache: gradle
 
-      # ── Sentry CLI (nur für Release) ──
-      - name: Setup Sentry CLI
-        uses: matbour/setup-sentry-cli@v1
-        with:
-          token: ${{ secrets.SENTRY_AUTH_TOKEN }}
-
-      # ── Decodieren & Signieren des Keystores ──
-      - name: Decode and install keystore
-        if: env.SIGNING_KEY_STORE_BASE64 != ''
-        env:
-          KEYSTORE_PATH: ${{ github.workspace }}/signing-keystore.jks
+      # ── Keystore dekodieren (KEYSTORE_* Secrets, identisch zum fastlane-Workflow) ──
+      - name: Decode keystore
+        if: env.KEYSTORE_BASE64 != ''
         run: |
-          echo "${{ secrets.SIGNING_KEY_STORE_BASE64 }}" | base64 -d > "$KEYSTORE_PATH"
+          echo "$KEYSTORE_BASE64" | base64 -di > ${{ github.workspace }}/release.keystore
+          echo "KEYSTORE_PATH=${{ github.workspace }}/release.keystore" >> "$GITHUB_ENV"
 
-      # ── Release Build (signiert) ──
+      # ── Release Build (signiert) — Signing-Env-Vars liest app/build.gradle.kts ──
       - name: Assemble signed release APK
-        if: env.SIGNING_KEY_STORE_BASE64 != ''
+        if: env.KEYSTORE_BASE64 != ''
         env:
-          KEYSTORE_PATH: ${{ github.workspace }}/signing-keystore.jks
-          KEYSTORE_PASSWORD: ${{ secrets.SIGNING_KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
-        run: |
-          ./gradlew assembleRelease \
-            -Pandroid.injected.signing.store.file="$KEYSTORE_PATH" \
-            -Pandroid.injected.signing.store.password="$KEYSTORE_PASSWORD" \
-            -Pandroid.injected.signing.key.alias="$KEY_ALIAS" \
-            -Pandroid.injected.signing.key.password="$KEY_PASSWORD"
+          KEYSTORE_PATH: ${{ env.KEYSTORE_PATH }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: ./gradlew assembleRelease --stacktrace --no-daemon
 
       # ── Artifact‑Upload ──
       - name: Upload APK as artifact
-        if: env.SIGNING_KEY_STORE_BASE64 != ''
+        if: env.KEYSTORE_BASE64 != ''
         uses: actions/upload-artifact@v6
         with:
           name: release-apk
