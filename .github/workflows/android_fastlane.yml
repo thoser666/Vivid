@@ -272,9 +272,9 @@ jobs:
           echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
           echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
           BASE="https://github.com/${{ github.repository }}/releases/download/$TAG"
-          curl -sL -o published.apk "$BASE/app-release.apk"
-          curl -sL -o published-mapping.txt "$BASE/mapping.txt" || true
-          curl -sL -o published-output-metadata.json "$BASE/output-metadata.json" || true
+          curl -sfL -o published.apk "$BASE/app-release.apk" || { echo "::error::app-release.apk fehlt im Release"; exit 1; }
+          curl -sfL -o published-mapping.txt "$BASE/mapping.txt" || { echo "::error::mapping.txt fehlt im Release"; exit 1; }
+          curl -sfL -o published-output-metadata.json "$BASE/output-metadata.json" || { echo "::error::output-metadata.json fehlt im Release"; exit 1; }
           REV=$(unzip -p published.apk META-INF/version-control-info.textproto 2>/dev/null | grep revision | sed 's/.*: "//;s/".*//')
           echo "embedded_revision=$REV (checkout=${{ github.sha }})"
           if [ -z "$VERSION_CODE" ] || [ "$REV" != "${{ github.sha }}" ]; then
@@ -301,10 +301,6 @@ jobs:
           fail=0
           compare() {
             local name="$1" local_published="$2" local_rebuilt="$3"
-            if [ ! -f "$local_published" ]; then
-              echo "⚠️ $name: nicht im Release vorhanden (übersprungen)"
-              return
-            fi
             if cmp -s "$local_published" "$local_rebuilt"; then
               echo "✅ $name: BIT-IDENTISCH"
             else

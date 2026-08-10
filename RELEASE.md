@@ -77,21 +77,43 @@ Weitere Deterministismus-Quellen (bereits abgedeckt):
 - `local_root_path` wird portabel als `$PROJECT_DIR` geschrieben (CI == lokal)
 - JDK/OS-unabhängig (verifiziert: temurin 17/Ubuntu vs. Oracle 22/Windows)
 
-### Verifikation (manuell)
+### Verifikation (manuell — jederzeit wiederholbar)
+
+Die Prozedur ist identisch mit dem automatischen CI-Check (`verify-reproducibility`) und lässt sich für jedes beliebige Release nachvollziehen:
 
 ```sh
-# 1) Commit auschecken (frischer Clone — NICHT `git worktree`, dort erkennt AGP kein VCS)
-git clone file:///pfad/zum/repo repo-check && cd repo-check
-git checkout <commit>
-# 2) lokale Artefakte kopieren: local.properties, keystore.properties, vivid-streaming-app.jks,
-#    gradle/gradle-daemon-jvm.properties
-# 3) versionName/versionCode aus dem veröffentlichten APK lesen (aapt dump badging)
-# 4) bauen mit exakt diesen Parametern + Keystore-Env:
+# 1) Commit auschecken — frischer Clone, NICHT `git worktree`
+#    (AGP erkennt in einem Worktree kein VCS → version-control-info weicht ab)
+git clone <repo-url> repo-check && cd repo-check
+git checkout <commit-sha>          # aus dem Release-Titel / version-control-info
+
+# 2) Lokale Build-Artefakte kopieren (nie committet):
+#    - local.properties (SDK-Pfad)
+#    - keystore.properties + vivid-streaming-app.jks (Signing, falls nicht CI)
+#    - gradle/gradle-daemon-jvm.properties (JVM-Pinning, sonst anderer JDK-Fallback)
+
+# 3) versionName/versionCode aus dem veröffentlichten Release lesen:
+#    - aus dem Release-Titel:  "Vivid nightly (0.2.0-nightly.78)" → name=0.2.0-nightly.78
+#    - versionCode aus output-metadata.json des Releases ("versionCode": 78)
+#      oder: aapt dump badging app-release.apk | grep version
+
+# 4) Bauen mit exakt diesen Parametern + Keystore-Env:
 KEYSTORE_PATH=... KEYSTORE_PASSWORD=... KEY_ALIAS=... KEY_PASSWORD=... \
-  ./gradlew :app:assembleRelease -PversionName=<name> -PversionCode=<code>
-# 5) Hash-Vergleich:
-sha256sum app/build/outputs/apk/release/app-release.apk <veröffentlichtes.apk>
+  ./gradlew :app:assembleRelease -PversionName=<name> -PversionCode=<code> \
+    --stacktrace --no-daemon
+
+# 5) Hash-Vergleich — alle drei Artefakte müssen bit-identisch sein:
+sha256sum app/build/outputs/apk/release/app-release.apk        <veröffentlichtes>/app-release.apk
+sha256sum app/build/outputs/mapping/release/mapping.txt        <veröffentlichtes>/mapping.txt
+sha256sum app/build/outputs/apk/release/output-metadata.json  <veröffentlichtes>/output-metadata.json
+
+# Erwartetes Ergebnis: identische Hashes für alle drei Dateien.
 ```
+
+**Wichtige Fallstricke** (alle in der Praxis gefunden):
+- **`git worktree` statt Clone** → `version-control-info.textproto` weicht ab (einziger Unterschied, alles andere identisch). Immer frisch klonen.
+- **Anderer Keystore** → andere Signatur → anderer Hash. Der Release-Key (`release.keystore` als CI-Secret) muss verwendet werden.
+- **Andere `-PversionName`/`-PversionCode`** → andere APK und anderes `output-metadata.json`. Werte exakt aus dem Release übernehmen.
 
 ### Automatischer CI-Check
 

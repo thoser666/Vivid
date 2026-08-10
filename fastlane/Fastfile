@@ -172,12 +172,18 @@ platform :android do
       # Create the release with the APK (plus mapping & metadata for
       # reproducibility checks) — gh internally does draft→upload→publish,
       # which is the only workflow compatible with immutable releases.
-      UI.message("Creating nightly release with APK…")
-      mapping = "app/build/outputs/mapping/release/mapping.txt"
-      metadata = "app/build/outputs/apk/release/output-metadata.json"
+      # Absolute Pfade aus der gradle-Action bevorzugen (wie beim APK) —
+      # relative Pfade scheitern in der CI, weil fastlane dort nicht aus
+      # dem Repo-Root läuft (File.exist? lieferte false, Assets fehlten).
+      UI.message("Creating nightly release…")
+      mapping = lane_context[SharedValues::GRADLE_MAPPING_TXT_OUTPUT_PATH] || ENV["GRADLE_MAPPING_TXT_OUTPUT_PATH"] || "app/build/outputs/mapping/release/mapping.txt"
+      metadata = lane_context[SharedValues::GRADLE_OUTPUT_JSON_OUTPUT_PATH] || ENV["GRADLE_OUTPUT_JSON_OUTPUT_PATH"] || "app/build/outputs/apk/release/output-metadata.json"
       assets = [apk]
       assets << mapping if File.exist?(mapping)
       assets << metadata if File.exist?(metadata)
+      UI.message("  assets: #{assets.map { |a| File.basename(a) }.join(', ')}")
+      UI.message("  mapping: #{mapping} exists=#{File.exist?(mapping)}") if mapping
+      UI.message("  metadata: #{metadata} exists=#{File.exist?(metadata)}") if metadata
       sh("gh", "release", "create", tag, *assets,
          "--title", "Vivid nightly (#{version_name})",
          "--notes", notes,
