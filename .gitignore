@@ -96,3 +96,5 @@ fastlane/test_output
 # Keystore files
 *.keystore
 *.jks
+# Keystore credentials (Klartext-Passwörter — niemals committen)
+keystore.properties
