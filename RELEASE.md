@@ -11,6 +11,54 @@ Jeder Release durchläuft eine von vier Stufen. Welche Stufe aktiv ist, bestimmt
 | `beta` | `vX.Y.0-beta` | Manuell via `fastlane release_beta` (TODO) | Feldtester · Hunde essen ihr eigenes Futter |
 | `stable` | `vX.Y.Z` | Manuell via `fastlane release_stable` (TODO) | Play Store · F-Droid · Allgemeinverfügbarkeit |
 
+## 📐 Versionsstrategie (versionName & versionCode)
+
+### versionName
+
+| Release | versionName | Beispiel |
+|---------|-------------|----------|
+| nightly | `<letzter-v*-Tag>-nightly.<Run>` | `1.0-nightly.74` → nach `v0.2.0-alpha`: `0.2.0-nightly.75` |
+| alpha / beta / rc | `<Version>-<Stufe>` | `0.2.0-alpha`, `0.2.0-beta` |
+| stable | `<Version>` | `0.2.0`, `1.0.0` |
+
+Die nightly-Basis kommt aus `git describe --tags --match 'v*'` — **nur Version-Tags** (`v*`), nie die rollierenden nightly-Tags. Ohne `v*`-Tag fällt sie auf `1.0` zurück.
+
+### versionCode
+
+**Versionierte Releases (alpha/beta/rc/stable)** — deterministisch aus dem Tag abgeleitet:
+
+```
+versionCode = major·1.000.000 + minor·1.000 + patch·10 + Stufe
+Stufe: alpha=1, beta=2, rc=3, stable=4
+```
+
+| Tag | versionCode |
+|-----|-------------|
+| `v0.2.0-alpha` | 2001 |
+| `v0.2.0-beta` | 2002 |
+| `v0.2.0` | 2004 |
+| `v0.3.0-alpha` | 3001 |
+| `v1.0.0` | 1.000.004 |
+
+Warum **nicht** `GITHUB_RUN_NUMBER`: Der gleiche Tag müsste immer dieselbe APK erzeugen (reproducible builds, siehe `android.includeDependencyInfoInApks=false`). Eine Run-Nummer wäre bei jedem Rebuild anders → andere APK → Reproduzierbarkeit kaputt. Der Tag-abgeleitete Code ist monoton für jede realistische Release-Reihenfolge (aufsteigendes SemVer).
+
+**Nightly** — monoton steigende CI-Run-Nummer (kein `% 100000`-Wrap mehr):
+
+```
+versionCode = GITHUB_RUN_NUMBER
+```
+
+### ⚠️ Cross-Track-Verhalten
+
+| Update-Pfad | Ergebnis |
+|-------------|----------|
+| nightly → nightly | ✅ immer installierbar (Run-Nummer steigt) |
+| nightly → alpha/beta/stable | ✅ installierbar (Version-Code ist größer) |
+| alpha → nächste alpha / beta / stable | ✅ installierbar (Version-Code steigt) |
+| alpha/beta/stable → nightly | ❌ **Downgrade** — vorher deinstallieren |
+
+Der letzte Fall ist Absicht: Ein „älteres" Nightly darf ein veröffentlichtes Release nicht still überschreiben. Wer vom Release zurück auf nightly will, deinstalliert und installiert neu.
+
 ## ⚠️ Stage Gates
 
 ### `nightly` → laufend

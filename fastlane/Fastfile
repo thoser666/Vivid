@@ -1,6 +1,26 @@
 # Fastfile
 default_platform(:android)
 
+# Deterministischer versionCode aus einem Version-Tag (vX.Y.Z[-alpha|beta|rc]).
+# Schema: major*1_000_000 + minor*1_000 + patch*10 + Stufe
+# Stufe: alpha=1, beta=2, rc=3, stable=4 → wächst mit jeder Veröffentlichung.
+# Bewusst NICHT von GITHUB_RUN_NUMBER abgeleitet: gleicher Tag ⇒ gleicher versionCode
+# ⇒ gleiche APK (reproducible builds). Liefert nil bei unpassendem Format (Fallback).
+def version_code_for(version_name)
+  m = version_name.match(/^(\d+)\.(\d+)(?:\.(\d+))?(?:[-.]?(alpha|beta|rc))?/)
+  return nil unless m
+  major = m[1].to_i
+  minor = m[2].to_i
+  patch = (m[3] || "0").to_i
+  stage = case m[4]
+          when "alpha" then 1
+          when "beta"  then 2
+          when "rc"    then 3
+          else 4
+          end
+  major * 1_000_000 + minor * 1_000 + patch * 10 + stage
+end
+
 platform :android do
   desc "Run all unit tests"
   lane :test do
@@ -83,14 +103,16 @@ platform :android do
 
     if stable
       version_name = (options[:tag] || ref_name).sub(/^v/, "")
-      version_code = ENV["GITHUB_RUN_NUMBER"] || "1"
+      # Deterministisch aus dem Tag — NICHT aus GITHUB_RUN_NUMBER (bricht reproducible builds).
+      version_code = version_code_for(version_name) || ENV["GITHUB_RUN_NUMBER"] || "1"
     else
       # Nur Version-Tags (v*) als Basis — nicht nightly-Tags, die täglich wandern.
       base = `git describe --tags --abbrev=0 --match 'v*' 2>/dev/null`.strip.sub(/^v/, "")
       base = "1.0" if base.empty?
       run_raw = ENV["GITHUB_RUN_NUMBER"] || "0"
       version_name = "#{base}-nightly.#{run_raw}"
-      version_code = (run_raw.to_i % 100000).to_s
+      # Monoton steigend, kein Wrap nach 100.000 Runs (alt: % 100000).
+      version_code = run_raw
     end
 
     gradle(
