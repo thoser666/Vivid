@@ -95,7 +95,7 @@ sha256sum app/build/outputs/apk/release/app-release.apk <veröffentlichtes.apk>
 
 ### Automatischer CI-Check
 
-Der Job **`verify-reproducibility`** in `android_fastlane.yml` vergleicht nach jedem nightly-Publish das veröffentlichte APK automatisch mit einem frischen Build desselben Commits (liest versionName/versionCode aus dem Release, prüft die eingebettete Git-Revision, Hash-Vergleich). Schlägt der Vergleich fehl, wird der Workflow rot.
+Der Job **`verify-reproducibility`** in `android_fastlane.yml` vergleicht nach jedem nightly-Publish die veröffentlichten Artefakte automatisch mit einem frischen Build desselben Commits (liest versionName/versionCode aus dem Release, prüft die eingebettete Git-Revision, Hash-Vergleich). **Alle drei Artefakte sind deterministisch und werden verglichen:** `app-release.apk`, `mapping.txt` (ProGuard/R8) und `output-metadata.json` — die Nightly-Releases enthalten daher neben dem APK auch Mapping und Metadaten (für Deobfuskation und Reproduzierbarkeits-Check). Schlägt ein Vergleich fehl, wird der Workflow rot.
 
 ## ⚠️ Stage Gates
 

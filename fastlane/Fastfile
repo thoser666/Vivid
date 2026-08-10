@@ -169,10 +169,16 @@ platform :android do
       sh("git", "tag", tag)
       sh("git", "push", "origin", tag)
 
-      # Create the release with the APK — gh internally does draft→upload→publish,
+      # Create the release with the APK (plus mapping & metadata for
+      # reproducibility checks) — gh internally does draft→upload→publish,
       # which is the only workflow compatible with immutable releases.
       UI.message("Creating nightly release with APK…")
-      sh("gh", "release", "create", tag, apk,
+      mapping = "app/build/outputs/mapping/release/mapping.txt"
+      metadata = "app/build/outputs/apk/release/output-metadata.json"
+      assets = [apk]
+      assets << mapping if File.exist?(mapping)
+      assets << metadata if File.exist?(metadata)
+      sh("gh", "release", "create", tag, *assets,
          "--title", "Vivid nightly (#{version_name})",
          "--notes", notes,
          "--target", "develop",

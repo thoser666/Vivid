@@ -271,7 +271,10 @@ jobs:
           echo "version_name=$VERSION_NAME version_code=$VERSION_CODE"
           echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
           echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
-          curl -sL -o published.apk "https://github.com/${{ github.repository }}/releases/download/$TAG/app-release.apk"
+          BASE="https://github.com/${{ github.repository }}/releases/download/$TAG"
+          curl -sL -o published.apk "$BASE/app-release.apk"
+          curl -sL -o published-mapping.txt "$BASE/mapping.txt" || true
+          curl -sL -o published-output-metadata.json "$BASE/output-metadata.json" || true
           REV=$(unzip -p published.apk META-INF/version-control-info.textproto 2>/dev/null | grep revision | sed 's/.*: "//;s/".*//')
           echo "embedded_revision=$REV (checkout=${{ github.sha }})"
           if [ -z "$VERSION_CODE" ] || [ "$REV" != "${{ github.sha }}" ]; then
@@ -292,16 +295,28 @@ jobs:
             -PversionCode="${{ steps.nightly.outputs.version_code }}" \
             --stacktrace --no-daemon
 
-      # ✅ Hash-Vergleich: CI-Artefakt vs. frischer Build
+      # ✅ Hash-Vergleich: CI-Artefakte vs. frischer Build
       - name: Compare hashes
         run: |
-          echo "=== Veröffentlichtes APK ==="
-          sha256sum published.apk
-          echo "=== Frischer Build ==="
-          sha256sum app/build/outputs/apk/release/app-release.apk
-          if cmp -s published.apk app/build/outputs/apk/release/app-release.apk; then
-            echo "✅ BIT-IDENTISCH — Reproduzierbarkeit bestätigt"
-          else
-            echo "::error::APKs unterscheiden sich — Reproduzierbarkeit verletzt!"
+          fail=0
+          compare() {
+            local name="$1" local_published="$2" local_rebuilt="$3"
+            if [ ! -f "$local_published" ]; then
+              echo "⚠️ $name: nicht im Release vorhanden (übersprungen)"
+              return
+            fi
+            if cmp -s "$local_published" "$local_rebuilt"; then
+              echo "✅ $name: BIT-IDENTISCH"
+            else
+              echo "::error::$name unterscheidet sich — Reproduzierbarkeit verletzt!"
+              sha256sum "$local_published" "$local_rebuilt"
+              fail=1
+            fi
+          }
+          compare "app-release.apk" published.apk app/build/outputs/apk/release/app-release.apk
+          compare "mapping.txt" published-mapping.txt app/build/outputs/mapping/release/mapping.txt
+          compare "output-metadata.json" published-output-metadata.json app/build/outputs/apk/release/output-metadata.json
+          if [ "$fail" -eq 1 ]; then
             exit 1
           fi
+          echo "🎉 Alle Artefakte reproduzierbar"
