@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="640" viewBox="0 0 1000 640" font-family="Segoe UI, Arial, sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1a1a2e"/>
+      <stop offset="1" stop-color="#16213e"/>
+    </linearGradient>
+    <linearGradient id="header" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#3DDC84"/>
+      <stop offset="1" stop-color="#2bb673"/>
+    </linearGradient>
+    <linearGradient id="step" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#243056"/>
+      <stop offset="1" stop-color="#1d2847"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1000" height="640" rx="24" fill="url(#bg)"/>
+
+  <!-- Header -->
+  <rect x="0" y="0" width="1000" height="92" rx="24" fill="url(#header)"/>
+  <rect x="0" y="60" width="1000" height="32" fill="url(#header)"/>
+  <text x="500" y="46" text-anchor="middle" font-size="34" font-weight="bold" fill="#0b3d24">📱 Vivid — APK installieren in 4 Schritten</text>
+  <text x="500" y="78" text-anchor="middle" font-size="17" fill="#0b3d24" font-weight="600">Kostenlos · kein Google Play nötig · GitHub Releases → dein Android-Gerät</text>
+
+  <!-- Step 1 -->
+  <rect x="30" y="112" width="455" height="120" rx="14" fill="url(#step)" stroke="#3DDC84" stroke-width="2"/>
+  <circle cx="66" cy="142" r="17" fill="#3DDC84"/>
+  <text x="66" y="148" text-anchor="middle" font-size="18" font-weight="bold" fill="#0b3d24">1</text>
+  <text x="94" y="139" font-size="19" font-weight="bold" fill="#fff">Release-Kanal wählen</text>
+  <text x="94" y="162" font-size="14" fill="#cfd6ea">github.com/thoser666/Vivid → Releases</text>
+  <text x="50" y="186" font-size="14" fill="#cfd6ea">🚀 Latest (v*)  → getestet, für den Alltag</text>
+  <text x="50" y="207" font-size="14" fill="#cfd6ea">🌙 Nightly (Pre-Release) → neueste Features, täglich</text>
+  <text x="50" y="228" font-size="14" fill="#cfd6ea">🧪 Alpha (v*-alpha) → Vorschau auf kommende Versionen</text>
+
+  <!-- Arrow 1 -->
+  <text x="500" y="172" text-anchor="middle" font-size="30" fill="#3DDC84">➜</text>
+
+  <!-- Step 2 -->
+  <rect x="515" y="112" width="455" height="120" rx="14" fill="url(#step)" stroke="#3DDC84" stroke-width="2"/>
+  <circle cx="551" cy="142" r="17" fill="#3DDC84"/>
+  <text x="551" y="148" text-anchor="middle" font-size="18" font-weight="bold" fill="#0b3d24">2</text>
+  <text x="579" y="139" font-size="19" font-weight="bold" fill="#fff">APK herunterladen</text>
+  <text x="579" y="162" font-size="14" fill="#cfd6ea">Auf der Release-Seite auf den Release klicken</text>
+  <text x="535" y="186" font-size="14" fill="#cfd6ea">→ ⬇️ <tspan font-family="Consolas, monospace">app-release.apk</tspan> herunterladen</text>
+  <text x="535" y="207" font-size="14" fill="#cfd6ea">→ <tspan font-family="Consolas, monospace">mapping.txt</tspan> &amp; <tspan font-family="Consolas, monospace">output-metadata.json</tspan> ignorieren</text>
+  <text x="535" y="228" font-size="14" fill="#cfd6ea">→ Dateigröße ~7 MB (kleiner = fehlgeschlagen)</text>
+
+  <!-- Arrow 2 -->
+  <text x="500" y="302" text-anchor="middle" font-size="30" fill="#3DDC84">➜</text>
+
+  <!-- Step 3 -->
+  <rect x="30" y="252" width="455" height="140" rx="14" fill="url(#step)" stroke="#3DDC84" stroke-width="2"/>
+  <circle cx="66" cy="282" r="17" fill="#3DDC84"/>
+  <text x="66" y="288" text-anchor="middle" font-size="18" font-weight="bold" fill="#0b3d24">3</text>
+  <text x="94" y="279" font-size="19" font-weight="bold" fill="#fff">Unbekannte Quellen erlauben</text>
+  <text x="50" y="308" font-size="14" fill="#cfd6ea">1. APK öffnen → Android fragt nach Erlaubnis</text>
+  <text x="50" y="329" font-size="14" fill="#cfd6ea">2. Auf „Einstellungen“ tippen → Browser erlauben</text>
+  <text x="50" y="350" font-size="14" fill="#cfd6ea">3. Zurück → „Installieren“ antippen</text>
+  <text x="50" y="371" font-size="14" fill="#ffd166">⚠️ „App not installed“? → APK neu laden</text>
+
+  <!-- Arrow 3 -->
+  <text x="500" y="372" text-anchor="middle" font-size="30" fill="#3DDC84">➜</text>
+
+  <!-- Step 4 -->
+  <rect x="515" y="252" width="455" height="140" rx="14" fill="url(#step)" stroke="#3DDC84" stroke-width="2"/>
+  <circle cx="551" cy="282" r="17" fill="#3DDC84"/>
+  <text x="551" y="279" font-size="19" font-weight="bold" fill="#fff">Berechtigen &amp; loslegen</text>
+  <text x="535" y="308" font-size="14" fill="#cfd6ea">1. Kamera &amp; Mikrofon erlauben (fürs Streamen)</text>
+  <text x="535" y="329" font-size="14" fill="#cfd6ea">2. Stream-Ziel wählen: Twitch · YouTube · Kick · SRT</text>
+  <text x="535" y="350" font-size="14" fill="#cfd6ea">3. Server-URL + Stream-Key eintragen</text>
+  <text x="535" y="371" font-size="14" fill="#cfd6ea">4. „Go Live“ → 🎥 du bist on air</text>
+
+  <!-- Obtainium banner -->
+  <rect x="30" y="420" width="940" height="92" rx="14" fill="#2d2d44" stroke="#ffd166" stroke-width="2"/>
+  <text x="60" y="452" font-size="19" font-weight="bold" fill="#ffd166">🔄 Automatische Updates (empfohlen)</text>
+  <text x="60" y="478" font-size="14.5" fill="#e6e9f5">Obtainium-App installieren (obtainium.imranr.dev) → „+“ → <tspan font-family="Consolas, monospace">github.com/thoser666/Vivid</tspan></text>
+  <text x="60" y="498" font-size="14.5" fill="#e6e9f5">Stable: Pre-Releases aus · Nightly: Pre-Releases ein → Vivid aktualisiert sich selbst, nahtlos signiert.</text>
+
+  <!-- Footer -->
+  <rect x="30" y="536" width="940" height="76" rx="14" fill="#1d2847" stroke="#3DDC84" stroke-width="1.5"/>
+  <text x="60" y="566" font-size="15" font-weight="bold" fill="#3DDC84">🔒 Sicher &amp; transparent</text>
+  <text x="60" y="590" font-size="14" fill="#cfd6ea">Alle APKs sind mit demselben Schlüssel signiert → Updates installieren nahtlos.</text>
+  <text x="60" y="606" font-size="14" fill="#cfd6ea">Vivid sammelt keine persönlichen Daten · Crash-Reports nur mit deiner Zustimmung (PRIVACY.md).</text>
+</svg>

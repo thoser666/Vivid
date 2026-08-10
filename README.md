@@ -33,6 +33,14 @@ This README tracks that progress honestly: the [Features](#-features) section ma
 
 > Vivid is not on Google Play (yet) — APKs are published as **GitHub Releases**. Everything below is free and takes about 2 minutes.
 
+<p align="center">
+  <a href="docs/install-quickstart.svg">
+    <img src="docs/install-quickstart.svg" alt="Vivid install quickstart" width="720">
+  </a>
+  <br>
+  <em>📄 One-page quickstart: <a href="docs/install-quickstart.svg">Installations-Infografik (SVG)</a></em>
+</p>
+
 ### Step 1: Pick your release channel
 
 | Channel | What you get | Best for |
