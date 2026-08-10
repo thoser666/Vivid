@@ -155,6 +155,80 @@ Because every APK is signed with the same key, updates (including nightly → st
 
 ---
 
+## ❓ FAQ — Häufige Probleme
+
+<details>
+<summary><strong>🔧 „App not installed“ beim Installieren</strong></summary>
+
+Meistens ist der Download beschädigt oder unvollständig:
+
+1. Lösche die heruntergeladene `app-release.apk` aus deinem Download-Ordner
+2. Lade sie **neu** von der [Releases-Seite](../../releases) herunter
+3. Prüfe, dass die Datei **~7 MB** groß ist (eine deutlich kleinere Datei ist ein fehlgeschlagener Download)
+4. Versuche es erneut — wenn der Fehler bleibt, installiere über Obtainium (unten), das die Datei verifiziert herunterlädt
+
+> Falls du Vivid von einer **älteren Version** aktualisierst und der Fehler weiterhin auftritt: Deinstalliere zuerst die alte Version (Achtung: Stream-Einstellungen gehen dabei verloren) und installiere dann neu.
+
+</details>
+
+<details>
+<summary><strong>📥 „Unbekannte Quelle nicht erlaubt“ / Installations-Button ist grau</strong></summary>
+
+Android blockiert APKs außerhalb des Play Stores standardmäßig:
+
+1. Beim ersten Installationsversuch erscheint ein Hinweis → tippe auf **Einstellungen**
+2. Erlaube dem verwendeten Browser / Dateimanager, **unbekannte Apps zu installieren**
+3. Gehe zurück und tippe erneut auf **Installieren**
+4. Falls kein Hinweis erscheint: **Einstellungen → Apps → [Browser/Dateimanager] → Unbekannte Apps installieren** → erlauben
+
+</details>
+
+<details>
+<summary><strong>🎥 „Kein Bild“ / Kamera bleibt schwarz beim Streaming</strong></summary>
+
+1. Prüfe die **Kamera-Berechtigung**: Einstellungen → Apps → Vivid → Berechtigungen → Kamera = **Erlauben** (nicht „Nur während der Nutzung“ kann bei Hintergrund-Streaming Probleme machen)
+2. Teste die Kamera in einer anderen App (z. B. der Standard-Kamera-App) — wenn sie dort auch schwarz ist, liegt es am Gerät
+3. Falls du mehrere Kameras hast: Wähle in Vivid die **richtige Kamera** (Front-/Rückkamera) aus
+4. Starte den Stream neu (Stop → Go Live)
+
+> ⚠️ Android schließt die Kamera, wenn eine andere App sie belegt (z. B. eine offene Kamera-App oder ein Video-Call). Schließe solche Apps vor dem Streamen.
+
+</details>
+
+<details>
+<summary><strong>📶 Verbindungsabbrüche / Stream bricht regelmäßig ab</strong></summary>
+
+1. **Signal prüfen:** Mobiles Internet + WiFi — wechsle notfalls den Netzwerktyp und teste erneut
+2. **Ingest-Server wechseln:** Wähle in Vivid einen anderen RTMP/SRT-Server deiner Plattform (z. B. einen näher gelegenen)
+3. **Stream-Key prüfen:** Ein falscher oder abgelaufener Stream-Key führt zum Abbruch nach wenigen Sekunden — neu kopieren (auf Twitch wird der Key bei jedem Zurücksetzen ungültig)
+4. **OBS-Steuerung deaktivieren:** Wenn du OBS nicht benutzt, entferne die OBS-Verbindungsdaten in den Einstellungen — eine fehlgeschlagene OBS-Verbindung kann den Stream-Start blockieren
+5. **Latenz erhöhen:** Bei SRT kann eine höhere Latenz (200–500 ms) instabile Verbindungen glätten
+
+> 📡 **Tipp für unterwegs:** Ein stabilerer Upload als der nötige ist wichtiger als die maximale Auflösung — senke Qualität/Auflösung bei schwachem Signal, statt den Stream abreißen zu lassen.
+
+</details>
+
+<details>
+<summary><strong>🔑 Stream startet, aber Plattform zeigt „Kein Signal“ / Fehler im Dashboard</strong></summary>
+
+1. Prüfe, ob **Server-URL und Stream-Key** in Vivid exakt den Werten aus dem Plattform-Dashboard entsprechen (kein Leerzeichen, keine zusätzlichen Zeichen)
+2. Vergleiche mit den [Platform Setup Guides](#-platform-setup-guides) oben
+3. Twitch: Der Server ist `rtmp://live.twitch.tv/live/` — den **Key** nie mit dem Server verwechseln
+4. Teste den Key zuerst im Plattform-Dashboard („Test stream“), bevor du Vivid startest
+
+</details>
+
+<details>
+<summary><strong>🔄 Updates kommen nicht an (Obtainium)</strong></summary>
+
+1. Prüfe, ob du in Obtainium **Pre-Releases** aktiviert hast (für Nightly-Builds) — Stable-Nutzer bekommen nur `v*`-Releases
+2. Tippe in Obtainium auf „Aktualisieren“ (manueller Check), um den letzten Stand abzurufen
+3. Alle offiziellen APKs sind mit demselben Schlüssel signiert — ein Update sollte immer installierbar sein; falls „App not installed“ erscheint, siehe FAQ oben
+
+</details>
+
+---
+
 ## 🧱 Tech Stack
 
 | Area | Technology | Version |
