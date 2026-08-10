@@ -211,3 +211,97 @@ jobs:
           SENTRY_PROJECT: vivid
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: bundle exec fastlane release_github
+
+  # ✅ Reproduzierbarkeits-Check: veröffentlichtes nightly-APK gegen einen frischen
+  # Build desselben Commits vergleichen (Hash-Vergleich). Gleiche Parameter
+  # (-PversionName/-PversionCode) + gleicher Keystore ⇒ bit-identische APK.
+  verify-reproducibility:
+    name: Verify Reproducibility (nightly)
+    runs-on: ubuntu-latest
+    needs: publish-release
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop' && github.actor != 'dependabot[bot]' && !contains(github.event.commits.*.author.username, 'dependabot[bot]')
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      # ✅ Keystore dekodieren — gleicher Key ⇒ gleiche Signatur
+      - name: Decode Keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo $KEYSTORE_BASE64 | base64 -di > ${{ github.workspace }}/release.keystore
+            echo "KEYSTORE_PATH=${{ github.workspace }}/release.keystore" >> $GITHUB_ENV
+          else
+            echo "⚠️ No keystore found, will use debug signing"
+          fi
+
+      # ✅ versionName/versionCode aus dem soeben veröffentlichten nightly-Release lesen
+      # und das Artefakt herunterladen (Revision-Sanity gegen das Checkout).
+      - name: Read published nightly and download APK
+        id: nightly
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          LIST=$(gh release list --limit 5 --json tagName,name,isPrerelease --jq '.[] | select(.isPrerelease and (.tagName | startswith("nightly-")))')
+          TAG=$(echo "$LIST" | head -1 | jq -r .tagName)
+          TITLE=$(echo "$LIST" | head -1 | jq -r .name)
+          if [ -z "$TAG" ] || [ -z "$TITLE" ]; then
+            echo "::error::Kein nightly-Release gefunden"
+            exit 1
+          fi
+          VERSION_NAME=$(echo "$TITLE" | sed -n 's/.*(\(.*\)).*/\1/p')
+          VERSION_CODE=$(echo "$VERSION_NAME" | sed -n 's/.*nightly\.\([0-9]*\).*/\1/p')
+          echo "release=$TITLE (tag=$TAG)"
+          echo "version_name=$VERSION_NAME version_code=$VERSION_CODE"
+          echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+          echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
+          curl -sL -o published.apk "https://github.com/${{ github.repository }}/releases/download/$TAG/app-release.apk"
+          REV=$(unzip -p published.apk META-INF/version-control-info.textproto 2>/dev/null | grep revision | sed 's/.*: "//;s/".*//')
+          echo "embedded_revision=$REV (checkout=${{ github.sha }})"
+          if [ -z "$VERSION_CODE" ] || [ "$REV" != "${{ github.sha }}" ]; then
+            echo "::error::Version/Revision mismatch — falsches Release heruntergeladen?"
+            exit 1
+          fi
+
+      # ✅ Frischer Build mit exakt den veröffentlichten Parametern
+      - name: Rebuild APK with published version params
+        env:
+          KEYSTORE_PATH: ${{ env.KEYSTORE_PATH }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          ./gradlew :app:assembleRelease \
+            -PversionName="${{ steps.nightly.outputs.version_name }}" \
+            -PversionCode="${{ steps.nightly.outputs.version_code }}" \
+            --stacktrace --no-daemon
+
+      # ✅ Hash-Vergleich: CI-Artefakt vs. frischer Build
+      - name: Compare hashes
+        run: |
+          echo "=== Veröffentlichtes APK ==="
+          sha256sum published.apk
+          echo "=== Frischer Build ==="
+          sha256sum app/build/outputs/apk/release/app-release.apk
+          if cmp -s published.apk app/build/outputs/apk/release/app-release.apk; then
+            echo "✅ BIT-IDENTISCH — Reproduzierbarkeit bestätigt"
+          else
+            echo "::error::APKs unterscheiden sich — Reproduzierbarkeit verletzt!"
+            exit 1
+          fi

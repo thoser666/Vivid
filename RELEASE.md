@@ -59,6 +59,44 @@ versionCode = GITHUB_RUN_NUMBER
 
 Der letzte Fall ist Absicht: Ein „älteres" Nightly darf ein veröffentlichtes Release nicht still überschreiben. Wer vom Release zurück auf nightly will, deinstalliert und installiert neu.
 
+## 🔁 Reproducible Builds
+
+**Status: ✅ aktiv & verifiziert** — derselbe Commit + dieselben Versionsparameter + derselbe Keystore ergeben eine **bit-identische APK** (SHA-256 bestätigt, z. B. `82fe7538…` für CI vs. lokalen Rebuild von `0431d67`). Grundlage für F-Droid-Kompatibilität ([F-Droid Reproducible Builds](https://f-droid.org/en/docs/Reproducible_Builds/)).
+
+### Flag & Root Cause
+
+`gradle.properties`:
+```properties
+android.includeDependencyInfoInApks=false
+```
+AGP 9.2.1 bettet standardmäßig einen „SDK-Dependency-Data"-Block (ID `0x504B4453` „SDKP") in den APK-Signing-Block ein — ein Protobuf, der deflate-komprimiert und **pro Build mit einem Zufallsschlüssel verschlüsselt** wird. Dadurch war jede APK anders (ca. 12 KB Zufallsbytes im Signing-Block). Das Flag deaktiviert den Block. Trade-off: Play Console verliert die automatische Dependency-Insights-Anzeige.
+
+Weitere Deterministismus-Quellen (bereits abgedeckt):
+- Fixe Zip-Timestamps (1981) und deterministische Eintrags-Reihenfolge durch AGP
+- Deterministische Signatur: RSA-PKCS1v1.5 (gleicher Key ⇒ gleiche Signatur; `apksigner` zweimal auf derselben APK → identisch)
+- `local_root_path` wird portabel als `$PROJECT_DIR` geschrieben (CI == lokal)
+- JDK/OS-unabhängig (verifiziert: temurin 17/Ubuntu vs. Oracle 22/Windows)
+
+### Verifikation (manuell)
+
+```sh
+# 1) Commit auschecken (frischer Clone — NICHT `git worktree`, dort erkennt AGP kein VCS)
+git clone file:///pfad/zum/repo repo-check && cd repo-check
+git checkout <commit>
+# 2) lokale Artefakte kopieren: local.properties, keystore.properties, vivid-streaming-app.jks,
+#    gradle/gradle-daemon-jvm.properties
+# 3) versionName/versionCode aus dem veröffentlichten APK lesen (aapt dump badging)
+# 4) bauen mit exakt diesen Parametern + Keystore-Env:
+KEYSTORE_PATH=... KEYSTORE_PASSWORD=... KEY_ALIAS=... KEY_PASSWORD=... \
+  ./gradlew :app:assembleRelease -PversionName=<name> -PversionCode=<code>
+# 5) Hash-Vergleich:
+sha256sum app/build/outputs/apk/release/app-release.apk <veröffentlichtes.apk>
+```
+
+### Automatischer CI-Check
+
+Der Job **`verify-reproducibility`** in `android_fastlane.yml` vergleicht nach jedem nightly-Publish das veröffentlichte APK automatisch mit einem frischen Build desselben Commits (liest versionName/versionCode aus dem Release, prüft die eingebettete Git-Revision, Hash-Vergleich). Schlägt der Vergleich fehl, wird der Workflow rot.
+
 ## ⚠️ Stage Gates
 
 ### `nightly` → laufend
