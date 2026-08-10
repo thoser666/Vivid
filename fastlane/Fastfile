@@ -107,7 +107,8 @@ platform :android do
       version_code = version_code_for(version_name) || ENV["GITHUB_RUN_NUMBER"] || "1"
     else
       # Nur Version-Tags (v*) als Basis — nicht nightly-Tags, die täglich wandern.
-      base = `git describe --tags --abbrev=0 --match 'v*' 2>/dev/null`.strip.sub(/^v/, "")
+      # Stufen-Suffix (-alpha/-beta/-rc) entfernen: v0.2.0-alpha → 0.2.0.
+      base = `git describe --tags --abbrev=0 --match 'v*' 2>/dev/null`.strip.sub(/^v/, "").sub(/-(alpha|beta|rc)$/, "")
       base = "1.0" if base.empty?
       run_raw = ENV["GITHUB_RUN_NUMBER"] || "0"
       version_name = "#{base}-nightly.#{run_raw}"
@@ -152,7 +153,8 @@ platform :android do
       end
     else
       # Nur Version-Tags (v*) als Basis — nicht nightly-Tags, die täglich wandern.
-      base = `git describe --tags --abbrev=0 --match 'v*' 2>/dev/null`.strip.sub(/^v/, "")
+      # Stufen-Suffix (-alpha/-beta/-rc) entfernen: v0.2.0-alpha → 0.2.0.
+      base = `git describe --tags --abbrev=0 --match 'v*' 2>/dev/null`.strip.sub(/^v/, "").sub(/-(alpha|beta|rc)$/, "")
       base = "1.0" if base.empty?
       run_raw = ENV["GITHUB_RUN_NUMBER"] || "0"
       version_name = options[:version_name] || "#{base}-nightly.#{run_raw}"
