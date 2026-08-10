@@ -154,14 +154,17 @@ platform :android do
          "--latest=false")
 
       # Keep only the last 3 nightly releases to avoid clutter.
-      # (Old tags will be orphaned but tag names are permanently burned anyway.)
+      # Delete release first, then the tag — immutable releases block tag
+      # deletion while a release is still attached.
       UI.message("Cleaning old nightlys…")
       old_tags = `gh release list --limit 100 --json tagName,isPrerelease,createdAt --jq '[.[] | select(.isPrerelease and (.tagName | startswith("nightly-")))] | sort_by(.createdAt) | reverse | .[3:] | .[].tagName' 2>/dev/null`.strip.lines
       old_tags.each do |old_tag|
         old_tag = old_tag.strip
         next if old_tag.empty? || old_tag == tag
         UI.message("  Deleting old release: #{old_tag}")
-        sh("gh", "release", "delete", old_tag, "--yes") rescue UI.message("  (cleanup skipped)")
+        sh("gh", "release", "delete", old_tag, "--yes") rescue UI.message("  (release delete skipped)")
+        UI.message("  Deleting old tag: #{old_tag}")
+        sh("git", "push", "origin", ":refs/tags/#{old_tag}") rescue UI.message("  (tag delete skipped)")
       end
       UI.success("✅ Nightly published: #{tag}")
     end
