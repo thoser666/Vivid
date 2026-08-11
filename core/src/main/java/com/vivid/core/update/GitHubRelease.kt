@@ -13,6 +13,7 @@ data class GitHubRelease(
     @SerialName("tag_name") val tagName: String = "",
     val name: String = "",
     @SerialName("html_url") val htmlUrl: String = "",
+    val body: String = "",
     val draft: Boolean = false,
     val prerelease: Boolean = false,
     @SerialName("published_at") val publishedAt: String? = null,

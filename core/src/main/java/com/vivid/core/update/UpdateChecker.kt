@@ -7,8 +7,13 @@ sealed interface UpdateCheckResult {
     /** Installierte Version ist die neueste (oder neuer). */
     data class UpToDate(val latestVersion: String) : UpdateCheckResult
 
-    /** Es gibt eine neuere Version im selben oder höheren Kanal. */
-    data class UpdateAvailable(val latestVersion: String, val releaseUrl: String) : UpdateCheckResult
+    /** Es gibt eine neuere Version im selben oder höheren Kanal. [releaseNotes] sind die
+     *  Release-Notes (GitHub-API body) des neuesten Builds — Markdown, im UI leicht bereinigt. */
+    data class UpdateAvailable(
+        val latestVersion: String,
+        val releaseUrl: String,
+        val releaseNotes: String = "",
+    ) : UpdateCheckResult
 
     /** Kein Update-Check möglich (Netzwerkfehler, keine Releases, unbekannte Version). */
     data class Error(val message: String) : UpdateCheckResult
@@ -77,10 +82,14 @@ class UpdateChecker @Inject constructor(
             ?: return UpdateCheckResult.Error("Keine Releases gefunden")
 
         return if (latest > installed) {
-            val url = releases.firstOrNull { release ->
+            val matchingRelease = releases.firstOrNull { release ->
                 (AppVersion.parse(release.name) ?: AppVersion.parse(release.tagName)) == latest
-            }?.htmlUrl ?: "https://github.com/thoser666/Vivid/releases"
-            UpdateCheckResult.UpdateAvailable(latest.toString(), url)
+            }
+            UpdateCheckResult.UpdateAvailable(
+                latestVersion = latest.toString(),
+                releaseUrl = matchingRelease?.htmlUrl ?: "https://github.com/thoser666/Vivid/releases",
+                releaseNotes = matchingRelease?.body.orEmpty(),
+            )
         } else {
             UpdateCheckResult.UpToDate(latest.toString())
         }

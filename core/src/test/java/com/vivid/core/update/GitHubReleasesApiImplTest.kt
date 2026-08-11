@@ -37,6 +37,7 @@ class GitHubReleasesApiImplTest {
                       "tag_name": "nightly-20260811-0428",
                       "name": "Vivid nightly (0.2.0-nightly.93)",
                       "html_url": "https://github.com/thoser666/Vivid/releases/tag/nightly-20260811-0428",
+                      "body": "Nightly feature build — installable via Obtainium.",
                       "draft": false,
                       "prerelease": true,
                       "published_at": "2026-08-11T04:28:00Z"
@@ -54,6 +55,7 @@ class GitHubReleasesApiImplTest {
         assertEquals("nightly-20260811-0428", releases[0].tagName)
         assertEquals("Vivid nightly (0.2.0-nightly.93)", releases[0].name)
         assertEquals("https://github.com/thoser666/Vivid/releases/tag/nightly-20260811-0428", releases[0].htmlUrl)
+        assertEquals("Nightly feature build — installable via Obtainium.", releases[0].body)
         assertEquals(true, releases[0].prerelease)
         assertEquals(false, releases[0].draft)
     }

@@ -6,9 +6,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
@@ -203,6 +206,31 @@ private fun UpdateResultRow(result: UpdateCheckResult, onOpenRelease: (String) -
                     )
                     Text("Update verfügbar: ${result.latestVersion}", fontWeight = FontWeight.SemiBold)
                 }
+                val notes = cleanReleaseNotes(result.releaseNotes)
+                if (notes.isNotBlank()) {
+                    Surface(
+                        shape = MaterialTheme.shapes.small,
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            Text(
+                                text = "Was gibt's Neues",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            Text(
+                                text = notes,
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.heightIn(max = 160.dp).verticalScroll(rememberScrollState()),
+                            )
+                        }
+                    }
+                }
                 OutlinedButton(onClick = { onOpenRelease(result.releaseUrl) }) {
                     Text("Zur Release-Seite")
                     Spacer(modifier = Modifier.width(4.dp))
@@ -237,6 +265,16 @@ private fun LinksCard(onOpenUri: (String) -> Unit) {
         }
     }
 }
+
+@Composable
+/** Reduziert GitHub-Markdown auf lesbaren Klartext (Header, Links, Fett, Code, Bullets). */
+private fun cleanReleaseNotes(notes: String): String =
+    notes
+        .replace(Regex("\\[([^]]+)]\\([^)]*\\)"), "\$1") // [text](url) → text
+        .replace(Regex("^#{1,6}\\s*", RegexOption.MULTILINE), "") // ###-Header raus
+        .replace(Regex("^[-*+]\\s+", RegexOption.MULTILINE), "• ") // Bullets → •
+        .replace(Regex("\\*\\*|__|`"), "") // **bold**, __bold__, `code` raus
+        .trim()
 
 @Composable
 private fun LinkRow(label: String, url: String, onOpenUri: (String) -> Unit) {

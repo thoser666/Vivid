@@ -36,7 +36,8 @@ class UpdateCheckerTest {
         tag: String = "tag",
         url: String = "https://github.com/thoser666/Vivid/releases/tag/$tag",
         draft: Boolean = false,
-    ) = GitHubRelease(tagName = tag, name = name, htmlUrl = url, draft = draft)
+        body: String = "",
+    ) = GitHubRelease(tagName = tag, name = name, htmlUrl = url, body = body, draft = draft)
 
     // --- Update verfügbar ---
 
@@ -56,6 +57,28 @@ class UpdateCheckerTest {
             UpdateCheckResult.UpdateAvailable(
                 latestVersion = "0.2.0-nightly.95",
                 releaseUrl = "https://github.com/thoser666/Vivid/releases/tag/nightly-20260811-0510",
+            ),
+            result,
+        )
+    }
+
+    @Test
+    fun `carries the release notes of the newest release`() = runTest {
+        val checker = UpdateChecker(
+            apiReturning(
+                release("Vivid nightly (0.2.0-nightly.95)", tag = "nightly-20260811-0510", body = "Nightly feature build."),
+                release("Vivid nightly (0.2.0-nightly.93)", tag = "nightly-20260811-0428", body = "old build"),
+            ),
+            noCache(),
+        )
+
+        val result = checker.check("0.2.0-nightly.93")
+
+        assertEquals(
+            UpdateCheckResult.UpdateAvailable(
+                latestVersion = "0.2.0-nightly.95",
+                releaseUrl = "https://github.com/thoser666/Vivid/releases/tag/nightly-20260811-0510",
+                releaseNotes = "Nightly feature build.",
             ),
             result,
         )

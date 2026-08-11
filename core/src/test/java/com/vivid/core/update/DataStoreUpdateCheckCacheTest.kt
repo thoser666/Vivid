@@ -43,6 +43,7 @@ class DataStoreUpdateCheckCacheTest {
             result = UpdateCheckResult.UpdateAvailable(
                 latestVersion = "0.2.0-nightly.97",
                 releaseUrl = "https://github.com/thoser666/Vivid/releases/tag/nightly-20260811-1118",
+                releaseNotes = "Nightly feature build.",
             ),
             timestampMillis = 1234L,
         )
@@ -51,7 +52,11 @@ class DataStoreUpdateCheckCacheTest {
         assertEquals("0.2.0-nightly.93", loaded?.installedVersion)
         assertEquals(1234L, loaded?.timestampMillis)
         assertEquals(
-            UpdateCheckResult.UpdateAvailable("0.2.0-nightly.97", "https://github.com/thoser666/Vivid/releases/tag/nightly-20260811-1118"),
+            UpdateCheckResult.UpdateAvailable(
+                latestVersion = "0.2.0-nightly.97",
+                releaseUrl = "https://github.com/thoser666/Vivid/releases/tag/nightly-20260811-1118",
+                releaseNotes = "Nightly feature build.",
+            ),
             loaded?.result,
         )
     }

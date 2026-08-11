@@ -23,6 +23,7 @@ class DataStoreUpdateCheckCache @Inject constructor(
         val VERSION = stringPreferencesKey("update_check_version")
         val LATEST_VERSION = stringPreferencesKey("update_check_latest_version")
         val RELEASE_URL = stringPreferencesKey("update_check_release_url")
+        val RELEASE_NOTES = stringPreferencesKey("update_check_release_notes")
         val TIMESTAMP = longPreferencesKey("update_check_timestamp")
     }
 
@@ -31,7 +32,11 @@ class DataStoreUpdateCheckCache @Inject constructor(
         val version = prefs[PrefKeys.VERSION] ?: return null
         val latestVersion = prefs[PrefKeys.LATEST_VERSION] ?: return null
         val result = prefs[PrefKeys.RELEASE_URL]?.let { url ->
-            UpdateCheckResult.UpdateAvailable(latestVersion = latestVersion, releaseUrl = url)
+            UpdateCheckResult.UpdateAvailable(
+                latestVersion = latestVersion,
+                releaseUrl = url,
+                releaseNotes = prefs[PrefKeys.RELEASE_NOTES].orEmpty(),
+            )
         } ?: UpdateCheckResult.UpToDate(latestVersion = latestVersion)
         return UpdateCheckCache.CachedCheck(
             installedVersion = version,
@@ -52,10 +57,12 @@ class DataStoreUpdateCheckCache @Inject constructor(
                 is UpdateCheckResult.UpdateAvailable -> {
                     prefs[PrefKeys.LATEST_VERSION] = result.latestVersion
                     prefs[PrefKeys.RELEASE_URL] = result.releaseUrl
+                    prefs[PrefKeys.RELEASE_NOTES] = result.releaseNotes
                 }
                 is UpdateCheckResult.UpToDate -> {
                     prefs[PrefKeys.LATEST_VERSION] = result.latestVersion
                     prefs.remove(PrefKeys.RELEASE_URL) // UpToDate ⇒ kein Release-Link mehr
+                    prefs.remove(PrefKeys.RELEASE_NOTES)
                 }
                 is UpdateCheckResult.Error -> Unit // Fehler nie cachen
             }
