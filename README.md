@@ -406,8 +406,12 @@ cd Vivid
 ### Running Tests & Lint
 
 ```bash
-# Unit tests for all modules (69 tests across core, domain, feature-*)
+# Unit tests for all modules (147 tests across core, app, feature-*)
 ./gradlew testDebugUnitTest
+
+# Live check: run the in-app UpdateChecker against the real GitHub releases
+# (disabled in the normal test run; CI runs it with GITHUB_TOKEN)
+./gradlew :core:testDebugUnitTest --tests "com.vivid.core.update.LiveUpdateCheckTest" -PliveUpdateCheck=true
 
 # Lint & static analysis
 ./gradlew lintDebug

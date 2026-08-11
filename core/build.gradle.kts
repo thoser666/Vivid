@@ -45,6 +45,11 @@ android {
     testOptions {
         unitTests.all {
             it.useJUnitPlatform()
+            // Live-API-Test (LiveUpdateCheckTest) nur bei explizitem Aufruf aktivieren:
+            // ./gradlew :core:testDebugUnitTest -PliveUpdateCheck=true
+            if (providers.gradleProperty("liveUpdateCheck").orNull == "true") {
+                it.systemProperty("liveUpdateCheck", "true")
+            }
         }
     }
 }

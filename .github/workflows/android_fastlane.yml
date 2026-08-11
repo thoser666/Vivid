@@ -55,6 +55,17 @@ jobs:
       - name: Run unit tests
         run: bundle exec fastlane test
 
+      # ✅ Live-Check des UpdateCheckers gegen die ECHTEN GitHub-Releases des Repos
+      # (kein Mock): parsebare Versions-Antwort, konsistente Cross-Track-Logik.
+      # Bewusst als eigener Schritt, damit GH_TOKEN (authentifiziert, hohes
+      # Rate-Limit) genutzt wird — unauthentifiziert teilen sich Runner-IPs die
+      # 60 Requests/h. Der Test selbst ist per @EnabledIfSystemProperty deaktiviert
+      # und wird NUR hier mit -PliveUpdateCheck=true aktiviert.
+      - name: Live update check against GitHub releases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./gradlew :core:testDebugUnitTest --tests "com.vivid.core.update.LiveUpdateCheckTest" -PliveUpdateCheck=true
+
       - name: Upload test reports
         if: always()
         uses: actions/upload-artifact@v6

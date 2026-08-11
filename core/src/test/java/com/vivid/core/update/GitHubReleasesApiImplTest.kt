@@ -102,6 +102,28 @@ class GitHubReleasesApiImplTest {
     }
 
     @Test
+    fun `adds a bearer token header when an auth token is provided`() = runTest {
+        val engine = MockEngine { request ->
+            assertEquals("Bearer test-token", request.headers[HttpHeaders.Authorization])
+            respond(content = "[]", status = HttpStatusCode.OK, headers = jsonHeaders())
+        }
+        val api = GitHubReleasesApiImpl(clientWith(engine), authToken = "test-token")
+
+        api.getReleases()
+    }
+
+    @Test
+    fun `omits the authorization header without a token`() = runTest {
+        val engine = MockEngine { request ->
+            assertEquals(null, request.headers[HttpHeaders.Authorization])
+            respond(content = "[]", status = HttpStatusCode.OK, headers = jsonHeaders())
+        }
+        val api = GitHubReleasesApiImpl(clientWith(engine))
+
+        api.getReleases()
+    }
+
+    @Test
     fun `propagates network failures`() = runTest {
         val engine = MockEngine { throw IOException("network down") }
         val api = GitHubReleasesApiImpl(clientWith(engine))
