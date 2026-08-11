@@ -13,7 +13,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 | 📋 | Geplant (Roadmap) |
 | — | Nicht zutreffend auf Android |
 
-> **Stand:** 2026-08-11 · Aktualisierung: OBS-/Audio-Troubleshooting-Tasks ergänzt (README-FAQ, uncommitted)
+> **Stand:** 2026-08-11 · Aktualisierung: About-Screen (In-App-Version & Update-Check) ergänzt
 >
 > **Pflege:** Nach jedem Feature-Commit den Status in der jeweiligen Zeile aktualisieren und das Datum oben anpassen.
 >
@@ -33,10 +33,10 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 | Kamera & Video | 0 | 1 | 3 | 4 |
 | Audio | 0 | 0 | 3 | 3 |
 | Remote & Companion | 0 | 0 | 3 | 3 |
-| Plattform & Grundlagen | 3 | 1 | 0 | 4 |
-| **Gesamt** | **7** | **2** | **25** | **34**† |
+| Plattform & Grundlagen | 4 | 1 | 0 | 5 |
+| **Gesamt** | **8** | **2** | **25** | **35**† |
 
-† Inkl. 1 n/a-Zeile (Apple-Watch-Companion); anwendbare Features: **33**.
+† Inkl. 1 n/a-Zeile (Apple-Watch-Companion); anwendbare Features: **34**.
 
 ---
 
@@ -118,6 +118,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 | Persistierte Stream-Einstellungen (URL/Key) | ✅ | `feature-streaming`, `feature-settings`, `core` (`SettingsRepository`) | `streamUrl`/`streamKey` via DataStore; in `startStream()` verdrahtet |
 | Persistierte OBS-Einstellungen (Host, Port, Passwort, TLS) | ✅ | `core`, `feature-obs-control`, `feature-settings` | DataStore-Key `obs_use_tls` etc.; beide Settings-Screens |
 | Auth-/API-Basis (Login, Register) | ✅ | `core` (`VividApi`), `domain` | Ktor-Client mit MockEngine-Tests |
+| In-App-Version & Update-Check (About-Screen) | ✅ | `app` (`AboutScreen`), `core` (`UpdateChecker`) | Zeigt installierte Version (versionName/versionCode) + prüft GitHub-Releases; folgt den Cross-Track-Regeln aus RELEASE.md (kein Downgrade); Basis für den Obtainium-Update-Test |
 | I18n (lokalisierte Strings) | 🚧 | `feature-*` | `strings.xml`-Grundgerüst vorhanden; Übersetzungen laufen über |
 
 ---
@@ -126,6 +127,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 
 | Datum | Commit | Änderung |
 |-------|--------|----------|
+| 2026-08-11 | — | About-Screen (In-App-Version + Update-Check gegen GitHub-Releases) ergänzt |
 | 2026-08-11 | — | Offene Tasks für OBS- & Audio-Troubleshooting ergänzt (README-FAQ) |
 | 2026-08-08 | — | Erstversion erstellt (Stand nach `4d8362e`) |
 
