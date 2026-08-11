@@ -173,8 +173,16 @@ platform :android do
       notes = "Nightly feature build — installable via Obtainium (enable pre-releases)."
       UI.message("Publishing nightly prerelease #{version_name} → tag #{tag}")
 
-      # Push the tag first (repo rules may block creation by gh release create alone)
-      sh("git", "tag", tag)
+      # Push the tag first (repo rules may block creation by gh release create alone).
+      # WICHTIG: Der Tag zeigt auf den AKTUELLEN develop-HEAD (frisch gefetch), nicht
+      # auf den möglicherweise veralteten Checkout-Commit. Ein Tag auf einem älteren
+      # Commit, dessen Baum sich in .github/workflows vom develop unterscheidet, wird
+      # vom GITHUB_TOKEN ohne "workflows"-Berechtigung abgelehnt ("refusing to allow
+      # a GitHub App to create or update workflow"). Diese Berechtigung darf der
+      # Workflow aber NICHT deklarieren (Push-getriggerte Runs scheitern dann an der
+      # Validierung) — mit dem aktuellen develop-HEAD gibt es keinen Workflow-Diff.
+      sh("git", "fetch", "origin", "develop")
+      sh("git", "tag", tag, "origin/develop")
       sh("git", "push", "origin", tag)
 
       # Create the release with the APK (plus mapping & metadata for

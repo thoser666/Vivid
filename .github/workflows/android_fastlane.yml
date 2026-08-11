@@ -164,12 +164,14 @@ jobs:
     # Changelog-Bot-Commits (Loop-Schutz: docs: Update CHANGELOG … darf
     # kein neues Nightly auslösen — Tests/Build laufen trotzdem).
     if: github.event_name == 'push' && (startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/develop') && github.actor != 'dependabot[bot]' && github.actor != 'github-actions[bot]' && !contains(github.event.commits.*.author.username, 'dependabot[bot]')
+    # Bewusst KEIN `workflows: write`: Push-getriggerte Workflows, die dem
+    # GITHUB_TOKEN diese Berechtigung geben, scheitern bei der Validierung
+    # ("This run likely failed because of a workflow file issue" — Schutz vor
+    # Token-Eskalation). Der nightly-Tag zeigt stattdessen immer auf den
+    # aktuellen develop-HEAD (siehe Fastfile) → kein Workflow-Diff → keine
+    # workflows-Berechtigung nötig.
     permissions:
       contents: write
-      # Tag-Push: Der GITHUB_TOKEN darf Tags auf Commits legen, deren Baum
-      # Workflow-Dateien enthält (sonst: "refusing to allow a GitHub App to
-      # create or update workflow ... without workflows permission").
-      workflows: write
 
     steps:
       - name: Checkout code
