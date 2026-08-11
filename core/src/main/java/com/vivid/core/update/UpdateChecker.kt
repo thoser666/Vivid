@@ -22,12 +22,41 @@ sealed interface UpdateCheckResult {
  *   (nightly → nightly/alpha/beta/rc/stable; alpha → alpha/beta/rc/stable; stable → stable).
  *   Damit wird ein Downgrade (alpha → nightly) nie als Update gemeldet.
  * - Unter den Kandidaten gewinnt die höchste (major, minor, patch, Kanal, Build-Nummer).
+ *
+ * Caching: Erfolgreiche Ergebnisse werden in [UpdateCheckCache] gespeichert und innerhalb
+ * von [DEFAULT_CACHE_TTL_MILLIS] wiederverwendet — die GitHub-API erlaubt unauthentifiziert
+ * nur 60 Requests/h, und der Settings-Screen prüft bei jeder Öffnung. [forceRefresh]
+ * umgeht den Cache (manueller „Nach Updates suchen“-Knopf im About-Screen).
  */
 class UpdateChecker @Inject constructor(
     private val api: GitHubReleasesApi,
+    private val cache: UpdateCheckCache,
 ) {
 
-    suspend fun check(installedVersionName: String): UpdateCheckResult {
+    companion object {
+        /** Ablaufzeit des gecachten Update-Checks (1 Stunde). */
+        const val DEFAULT_CACHE_TTL_MILLIS = 60 * 60 * 1000L
+    }
+
+    suspend fun check(installedVersionName: String, forceRefresh: Boolean = false): UpdateCheckResult {
+        if (!forceRefresh) {
+            val cached = cache.load()
+            if (cached != null &&
+                cached.installedVersion == installedVersionName &&
+                System.currentTimeMillis() - cached.timestampMillis < DEFAULT_CACHE_TTL_MILLIS
+            ) {
+                return cached.result
+            }
+        }
+
+        val result = performCheck(installedVersionName)
+        if (result is UpdateCheckResult.UpToDate || result is UpdateCheckResult.UpdateAvailable) {
+            cache.save(installedVersionName, result)
+        }
+        return result
+    }
+
+    private suspend fun performCheck(installedVersionName: String): UpdateCheckResult {
         val installed = AppVersion.parse(installedVersionName)
             ?: return UpdateCheckResult.Error("Unbekannte Version: $installedVersionName")
 

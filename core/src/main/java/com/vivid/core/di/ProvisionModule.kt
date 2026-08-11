@@ -1,9 +1,13 @@
 package com.vivid.core.di
 
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
 import com.google.gson.Gson
 import com.vivid.core.network.KtorClientFactory
+import com.vivid.core.update.DataStoreUpdateCheckCache
 import com.vivid.core.update.GitHubReleasesApi
 import com.vivid.core.update.GitHubReleasesApiImpl
+import com.vivid.core.update.UpdateCheckCache
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -38,5 +42,11 @@ object ProvisionModule {
     @Singleton
     fun provideGitHubReleasesApi(client: HttpClient): GitHubReleasesApi {
         return GitHubReleasesApiImpl(client)
+    }
+
+    @Provides
+    @Singleton
+    fun provideUpdateCheckCache(dataStore: DataStore<Preferences>): UpdateCheckCache {
+        return DataStoreUpdateCheckCache(dataStore)
     }
 }

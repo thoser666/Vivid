@@ -33,7 +33,9 @@ class AboutViewModel @Inject constructor(
         if (_uiState.value.checking) return
         viewModelScope.launch {
             _uiState.value = AboutUiState(checking = true)
-            val result = updateChecker.check(installedVersionName)
+            // Manueller Check: immer frisch (forceRefresh) — umgeht den DataStore-Cache
+            // und aktualisiert ihn nebenbei für den Settings-Badge.
+            val result = updateChecker.check(installedVersionName, forceRefresh = true)
             _uiState.value = AboutUiState(checking = false, result = result)
         }
     }

@@ -44,7 +44,7 @@ class AboutViewModelTest {
     @Test
     fun `checkForUpdates maps an available update into the state`() {
         val checker = mockk<UpdateChecker>()
-        coEvery { checker.check(any()) } returns UpdateCheckResult.UpdateAvailable(
+        coEvery { checker.check(any(), any()) } returns UpdateCheckResult.UpdateAvailable(
             latestVersion = "0.2.0-nightly.95",
             releaseUrl = "https://github.com/thoser666/Vivid/releases/tag/nightly-20260811-0510",
         )
@@ -63,7 +63,7 @@ class AboutViewModelTest {
     @Test
     fun `checkForUpdates maps an up-to-date result into the state`() {
         val checker = mockk<UpdateChecker>()
-        coEvery { checker.check(any()) } returns UpdateCheckResult.UpToDate(latestVersion = "0.2.0-nightly.95")
+        coEvery { checker.check(any(), any()) } returns UpdateCheckResult.UpToDate(latestVersion = "0.2.0-nightly.95")
         val viewModel = AboutViewModel(checker)
 
         viewModel.checkForUpdates()
@@ -74,7 +74,7 @@ class AboutViewModelTest {
     @Test
     fun `checkForUpdates maps an error into the state`() {
         val checker = mockk<UpdateChecker>()
-        coEvery { checker.check(any()) } returns UpdateCheckResult.Error("Update-Check fehlgeschlagen: network down")
+        coEvery { checker.check(any(), any()) } returns UpdateCheckResult.Error("Update-Check fehlgeschlagen: network down")
         val viewModel = AboutViewModel(checker)
 
         viewModel.checkForUpdates()
@@ -86,7 +86,7 @@ class AboutViewModelTest {
     fun `checkForUpdates is ignored while a check is running`() {
         val gate = CompletableDeferred<UpdateCheckResult>()
         val checker = mockk<UpdateChecker>()
-        coEvery { checker.check(any()) } coAnswers { gate.await() }
+        coEvery { checker.check(any(), any()) } coAnswers { gate.await() }
         val viewModel = AboutViewModel(checker)
 
         viewModel.checkForUpdates() // startet und blockiert am gate
