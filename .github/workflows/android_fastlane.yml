@@ -217,6 +217,29 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: bundle exec fastlane release_github
 
+      # ✅ CHANGELOG.md aus den GitHub-Releases spiegeln — bewusst im selben Job:
+      # Releases, die per `gh release create` mit GITHUB_TOKEN erstellt werden,
+      # feuern KEIN `release: published`-Event (dokumentierte GITHUB_TOKEN-
+      # Limitation gegen rekursive Workflow-Läufe). Der Update läuft deshalb hier
+      # direkt nach der Veröffentlichung. Der Bot-Commit (github-actions[bot])
+      # wird vom Job-Guard oben übersprungen → keine Endlosschleife.
+      - name: Update CHANGELOG.md from GitHub releases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git fetch origin develop
+          git checkout -B changelog-update origin/develop
+          bash scripts/update_changelog.sh
+          if git diff --quiet CHANGELOG.md; then
+            echo "CHANGELOG.md unverändert — nichts zu committen"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md
+          git commit -m "docs: Update CHANGELOG from GitHub releases"
+          git push origin HEAD:develop
+
   # ✅ Reproduzierbarkeits-Check: veröffentlichtes nightly-APK gegen einen frischen
   # Build desselben Commits vergleichen (Hash-Vergleich). Gleiche Parameter
   # (-PversionName/-PversionCode) + gleicher Keystore ⇒ bit-identische APK.

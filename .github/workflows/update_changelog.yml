@@ -1,9 +1,11 @@
 name: Update Changelog
 
 on:
-  # Wird bei JEDEM veröffentlichten Release gefeuert: stable (v*), alpha
-  # (v*-alpha) und nightly (rollierend, jeder develop-Push) → der Changelog
-  # spiegelt die GitHub-Releases automatisch.
+  # ⚠️ Limitation: Releases, die die Pipeline per `gh release create` mit
+  # GITHUB_TOKEN erstellt, feuern KEIN `release: published`-Event. Die nightly-
+  # Pflege passiert deshalb direkt im publish-release-Job von
+  # android_fastlane.yml (Schritt "Update CHANGELOG.md from GitHub releases").
+  # Dieser Workflow greift hier nur für manuelle/UI-Releases + manuellen Refresh.
   release:
     types: [published]
   workflow_dispatch:
