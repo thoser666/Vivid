@@ -13,7 +13,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 | 📋 | Geplant (Roadmap) |
 | — | Nicht zutreffend auf Android |
 
-> **Stand:** 2026-08-08 · Letzter Eintrag: `4d8362e` (README: Moblin-Parität als Projektziel)
+> **Stand:** 2026-08-11 · Aktualisierung: OBS-/Audio-Troubleshooting-Tasks ergänzt (README-FAQ, uncommitted)
 >
 > **Pflege:** Nach jedem Feature-Commit den Status in der jeweiligen Zeile aktualisieren und das Datum oben anpassen.
 >
@@ -62,7 +62,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 
 | Moblin-Feature | Status | Modul | Offene Tasks / Notizen |
 |----------------|--------|-------|------------------------|
-| OBS WebSocket-Connect (ws:// LAN / wss:// Remote, Passwort-Auth) | ✅ | `core` (`OBSWebSocketClient`), `feature-obs-control` | Scheme über `obsUseTls`-Setting; Auth-Handshake getestet |
+| OBS WebSocket-Connect (ws:// LAN / wss:// Remote, Passwort-Auth) | ✅ | `core` (`OBSWebSocketClient`), `feature-obs-control` | Scheme über `obsUseTls`-Setting; Auth-Handshake getestet. **Offene Tasks (Troubleshooting):** Verbindungsfehler-Ursache im UI anzeigen (OBS nicht erreichbar, Port/Firewall, Netzwerk); Auth-Fehler (falsches/leeres Passwort) als eigener UI-Zustand + Passwort-Reset-Hinweis; ws/wss-Fehlkonfiguration gezielt melden — Doku: [README-FAQ](README.md#-faq--häufige-probleme) |
 | Szenen wechseln, Recording/Stream-Start/-Stop | ✅ | `feature-obs-control` | Request-Batch + Typen vorhanden |
 | Snapshot / Audio-Levels / Audio-Sync auslesen | 📋 | `feature-obs-control` | Weitere Request-Typen ergänzen |
 | OBS-Konfiguration per QR-Code importieren | 📋 | `core` | `ObsQrCodeData`-Modell existiert; QR-Scan + Connect-Flow verdrahten |
@@ -98,8 +98,8 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 
 | Moblin-Feature | Status | Modul | Offene Tasks / Notizen |
 |----------------|--------|-------|------------------------|
-| Mic-Verwaltung + Auto-Switch bei externem Mic | 📋 | `feature-streaming` | AudioCapture-Quellen steuern |
-| Level-Meter, Muting, Sync-Offset | 📋 | `feature-streaming` | DSP/UI |
+| Mic-Verwaltung + Auto-Switch bei externem Mic | 📋 | `feature-streaming` | AudioCapture-Quellen steuern. **Offene Tasks (Troubleshooting):** `RECORD_AUDIO`-Berechtigung vor Stream-Start prüfen + klare Meldung; Mic-Exklusivität erkennen (Android gibt das Mikrofon nur an eine App gleichzeitig) und hinweisen; Bluetooth-Mikrofon-Routing behandeln — Doku: [README-FAQ](README.md#-faq--häufige-probleme) |
+| Level-Meter, Muting, Sync-Offset | 📋 | `feature-streaming` | DSP/UI. **Offen:** Fehlgeschlagenes `prepareAudio()`/`prepareVideo()` („Failed to prepare audio/video“) im UI anzeigen statt nur internem State |
 | Talk Back (Monitor-Feed) | 📋 | `feature-streaming` | Rückkanal-Routing |
 
 ## 🕹️ Remote & Companion
@@ -126,6 +126,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 
 | Datum | Commit | Änderung |
 |-------|--------|----------|
+| 2026-08-11 | — | Offene Tasks für OBS- & Audio-Troubleshooting ergänzt (README-FAQ) |
 | 2026-08-08 | — | Erstversion erstellt (Stand nach `4d8362e`) |
 
 ---
