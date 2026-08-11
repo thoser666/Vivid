@@ -196,4 +196,31 @@ bundle exec fastlane release_stable
 
 ---
 
+## 🩺 Pipeline-Historie & Run-Cleanup
+
+### Störfall 2026-08-11: `workflows: write` legte die Pipeline lahm
+
+| Zeit (UTC) | Commit | Run | Ergebnis |
+|------------|--------|-----|----------|
+| 04:10 | `89e0e0e` | `31457612856` | ❌ Tag-Push-Race („refusing to allow a GitHub App to create or update workflow … without workflows permission“) — Auslöser der Kette |
+| 04:14 | `f94f2a9` | `31457872240` | ✅ success (nightly.93) |
+| 04:34 | `5e3e81a` | ~~`31458910287`~~ | ❌ **0s-Validierungsfehler** („This run likely failed because of a workflow file issue“) — `workflows: write` eingeführt, **Run gelöscht** |
+| 05:10 | `87c6562` | ~~`31460799068`~~ | ❌ 0s-Validierungsfehler (gleiche Ursache), **Run gelöscht** |
+| 10:58 | `c4857e7` | ~~`31484583065`~~ | ❌ 0s-Validierungsfehler (gleiche Ursache), **Run gelöscht** |
+| 11:12 | `2456457` | `31485577814` | ✅ success (nightly.97) — Fix: `workflows: write` entfernt, nightly-Tag zeigt auf `origin/develop` |
+
+**Auswirkung:** Zwischen 04:34 und 11:12 UTC wurden **keine Nightlies veröffentlicht** (Run-Nummern 94–96 existieren nicht; Sprung 93 → 97). Die drei 0s-Failures enthalten keinerlei Jobs oder Logs und wurden per `gh run delete` entfernt. Der `89e0e0e`-Lauf blieb bewusst erhalten — sein Log dokumentiert den ursprünglichen Tag-Push-Fehler.
+
+**Lehre (wichtig!):** Push-getriggerte Workflows dürfen dem `GITHUB_TOKEN` **niemals `workflows: write`** geben — GitHub lehnt solche Runs bei der Validierung ab (Schutz vor Token-Eskalation). Tag-Pushes auf Commits, deren Baum sich in `.github/workflows` von `develop` unterscheidet, brauchen diese Berechtigung daher nicht: Der nightly-Tag zeigt stattdessen immer auf den frisch gefetchten `origin/develop` (siehe `Fastfile`, `publish_release`-Lane) — so entsteht nie ein Workflow-Diff.
+
+### Aufräumen fehlgeschlagener Runs
+
+```sh
+# Run-IDs ermitteln (nur die gewünschte Workflow-Datei)
+gh run list --workflow=android_fastlane.yml --limit 20
+
+# Einzelnen Run löschen (irreversibel — Logs & Artefakte gehen verloren)
+gh run delete <run-id>
+```
+
 > **Pflege:** Dieses Dokument bei jeder Änderung an PARITY.md prüfen — wenn ein Gate erreicht ist, die entsprechende Lane implementieren und taggen.
