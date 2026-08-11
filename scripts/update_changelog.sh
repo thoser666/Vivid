@@ -39,8 +39,10 @@ releases_json="$(gh release list --repo "$REPO" --limit 100 \
   --jq '[ .[] | select(.isDraft | not) ] | sort_by(.publishedAt) | reverse')"
 
 # --- 2) Bereits dokumentierte Tags aus dem generierten Block lesen ---
+# `|| true`: bei leerem Block liefert grep Exit 1 (keine Treffer) — das darf
+# das Skript nicht abbrechen lassen (set -e).
 existing="$(sed -n "/$START_MARKER/,/$END_MARKER/p" "$FILE" \
-  | grep -oE 'releases/tag/[^)]+' | sed 's#releases/tag/##' | sort -u)"
+  | grep -oE 'releases/tag/[^)]+' | sed 's#releases/tag/##' | sort -u || true)"
 
 # --- 3) Neue Releases als Markdown formen (neueste zuerst) ---
 new_entries=""
