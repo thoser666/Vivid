@@ -227,6 +227,71 @@ Android blockiert APKs außerhalb des Play Stores standardmäßig:
 </details>
 
 <details>
+<summary><strong>🎛️ OBS-Steuerung: Verbindung schlägt fehl</strong></summary>
+
+Vivid kann OBS Studio nur steuern, wenn der **WebSocket-Server in OBS aktiv** und Vivid im selben Netzwerk erreichbar ist:
+
+1. **WebSocket-Server aktivieren:** In OBS unter **Extras → WebSocket-Server-Einstellungen** → Haken bei *„WebSocket-Server aktivieren“* setzen. Erst dann lauscht OBS auf Verbindungen.
+2. **Host prüfen:** In Vivid die **IP-Adresse des OBS-Rechners** eintragen (z. B. `192.168.1.50`) — `localhost` funktioniert nur, wenn OBS auf demselben Gerät läuft. IP unter Windows mit `ipconfig`, unter macOS/Linux mit `ip addr` herausfinden.
+3. **Port prüfen:** Standard ist **4455** — in OBS (WebSocket-Server-Einstellungen) nachsehen, ob ein anderer Port konfiguriert ist, und denselben in Vivid eintragen.
+4. **Gleiches Netzwerk:** Handy und OBS-Rechner müssen im **selben WLAN/LAN** sein (bzw. über VPN verbunden) — prüfe, ob z. B. das Handy im Mobilfunknetz hängt.
+5. **Firewall:** Die Windows-Firewall muss eingehende Verbindungen auf Port 4455 erlauben (der OBS-Installer legt meist eine Regel an — nach Updates prüfen).
+6. **Passwort & TLS:** Stimmen Passwort und die Option *„Secure connection (wss://)“* mit den OBS-Einstellungen überein? Siehe die nächsten beiden FAQ-Einträge.
+
+> 🧪 **Schnelltest:** Öffne im Browser auf dem Handy `ws://<OBS-IP>:4455` — erscheint eine Meldung, dass die Verbindung hergestellt wurde (auch wenn sie danach geschlossen wird), ist OBS erreichbar und das Problem liegt an Passwort/TLS.
+
+</details>
+
+<details>
+<summary><strong>🔑 OBS: Passwort vergessen / „Authentifizierung fehlgeschlagen“</strong></summary>
+
+OBS zeigt das WebSocket-Passwort **nie wieder an** — du kannst es nur neu setzen:
+
+1. In OBS: **Extras → WebSocket-Server-Einstellungen** öffnen
+2. Haken bei **„Passwort aktivieren“** setzen (falls noch nicht geschehen) und ein **neues Passwort** eingeben
+3. **OK** klicken — das neue Passwort gilt sofort
+4. In Vivid unter **OBS-Einstellungen** das neue Passwort eintragen und erneut verbinden
+
+> ⚠️ **Kein Passwort in OBS gesetzt?** Dann lasse das Passwort-Feld in Vivid **leer** — ein eingegebenes, falsches Passwort führt zum Abbruch der Verbindung. Umgekehrt: Verlangt OBS ein Passwort und Vivid hat keins, bricht die Verbindung ebenfalls ab (Vivid bricht die Verbindung bewusst ab, statt unauthentifiziert weiterzumachen).
+
+**Tipp gegen vergessene Passwörter:** Verwende einen Passwort-Manager oder ein einheitliches LAN-Passwort — OBS selbst bietet keine „Passwort anzeigen“-Funktion.
+
+</details>
+
+<details>
+<summary><strong>🔐 OBS: ws:// oder wss://? (Secure connection)</strong></summary>
+
+Die Option **„Secure connection (wss://)“** in den OBS-Einstellungen von Vivid muss zum OBS-Setup passen:
+
+| Verbindung | Wann verwenden | OBS-Voraussetzung |
+|------------|----------------|-------------------|
+| **ws://** (Standard, Schalter aus) | OBS im **eigenen LAN/WLAN** | Keine — OBS liefert standardmäßig Klartext-WebSockets auf Port 4455 |
+| **wss://** (Schalter an) | OBS **remote über das Internet** | OBS muss TLS konfiguriert haben (Zertifikat) oder ein TLS-Reverse-Proxy (z. B. Caddy/nginx) davor laufen |
+
+1. **Standard-OBS-Setup im LAN = ws://** — also den Schalter **aus** lassen
+2. Für Remote-Zugriff (z. B. von unterwegs über Port-Forwarding/VPN) **wss://** aktivieren — **nur** wenn OBS tatsächlich TLS anbietet, sonst schlägt die Verbindung fehl
+3. Zeigt OBS im Log „WebSocket server started on ws://…“ bzw. „wss://…“, siehst du direkt, welches Protokoll aktiv ist
+
+> 🔒 **Sicherheit:** Über öffentliches Internet wird **immer wss://** empfohlen — unverschlüsseltes ws:// macht das OBS-Passwort (und damit die Steuerung) für jeden im Netz lesbar. Im heimischen WLAN ist ws:// vertretbar.
+
+</details>
+
+<details>
+<summary><strong>🔇 Kein Ton beim Streaming (Audio fehlt)</strong></summary>
+
+Bild läuft, aber Zuschauer hören nichts? Das sind die häufigsten Ursachen:
+
+1. **Mikrofon-Berechtigung prüfen:** Einstellungen → Apps → Vivid → Berechtigungen → **Mikrofon = Erlauben** — ohne sie startet der Audio-Encoder nicht (Vivid zeigt „Failed to prepare audio/video“)
+2. **Mikrofon ist belegt:** Android gibt das Mikrofon nur an **eine** App gleichzeitig — schließe andere Apps, die es nutzen (Anrufe, Sprachassistent, andere Streaming-/Aufnahme-Apps), und starte den Stream neu
+3. **Bluetooth trennen:** Ist ein BT-Headset/Headset verbunden, nutzt Android dessen Mikrofon — für IRL-Streaming das Bluetooth-Gerät trennen oder in den Bluetooth-Einstellungen aufs Handy-Mikrofon umstellen
+4. **Lautstärke:** Prüfe die **Media-Lautstärke** (nicht nur Klingelton) — bei 0 ist auch das Streaming stumm
+5. **Neu starten:** Nach Berechtigungs-/Bluetooth-Änderungen hilft ein kompletter App-Neustart (Stream stoppen → App beenden → neu starten)
+
+> 🎧 **Plattformseitig:** Auch im Plattform-Dashboard prüfen, ob der Audiopegel ankommt (z. B. Twitch Stream Manager) — so unterscheidest du ein Handy- von einem Plattform-Problem.
+
+</details>
+
+<details>
 <summary><strong>🔄 Updates kommen nicht an (Obtainium)</strong></summary>
 
 1. Prüfe, ob du in Obtainium **Pre-Releases** aktiviert hast (für Nightly-Builds) — Stable-Nutzer bekommen nur `v*`-Releases
