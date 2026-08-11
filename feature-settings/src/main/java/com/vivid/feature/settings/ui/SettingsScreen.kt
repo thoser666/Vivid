@@ -117,6 +117,13 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.weight(1f))
 
+            OutlinedButton(
+                onClick = { navController.navigate("about_route") },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Über Vivid & Updates")
+            }
+
             Button(
                 onClick = viewModel::saveSettings,
                 modifier = Modifier.fillMaxWidth(),

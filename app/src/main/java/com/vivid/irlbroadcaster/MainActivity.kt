@@ -15,6 +15,7 @@ import com.vivid.feature.obscontrol.ui.ObsControlScreen
 import com.vivid.feature.playback.PlaybackScreen
 import com.vivid.feature.settings.ui.SettingsScreen
 import com.vivid.feature.streaming.ui.StreamingScreen
+import com.vivid.irlbroadcaster.ui.about.AboutScreen
 import com.vivid.irlbroadcaster.ui.theme.VividTheme
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -52,6 +53,9 @@ fun VividAppNavigation() {
         }
         composable("obs_control") {
             ObsControlScreen()
+        }
+        composable("about_route") {
+            AboutScreen(navController = navController)
         }
     }
 }

@@ -2,6 +2,8 @@ package com.vivid.core.di
 
 import com.google.gson.Gson
 import com.vivid.core.network.KtorClientFactory
+import com.vivid.core.update.GitHubReleasesApi
+import com.vivid.core.update.GitHubReleasesApiImpl
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -30,5 +32,11 @@ object ProvisionModule {
     @Singleton
     fun provideKtorHttpClient(): HttpClient {
         return KtorClientFactory.create()
+    }
+
+    @Provides
+    @Singleton
+    fun provideGitHubReleasesApi(client: HttpClient): GitHubReleasesApi {
+        return GitHubReleasesApiImpl(client)
     }
 }
