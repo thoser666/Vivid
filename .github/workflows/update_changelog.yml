@@ -1,0 +1,53 @@
+name: Update Changelog
+
+on:
+  # Wird bei JEDEM veröffentlichten Release gefeuert: stable (v*), alpha
+  # (v*-alpha) und nightly (rollierend, jeder develop-Push) → der Changelog
+  # spiegelt die GitHub-Releases automatisch.
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# Serialisiert: zwei gleichzeitige Release-Events dürfen nicht um denselben
+# Commit auf develop kämpfen.
+concurrency:
+  group: changelog
+  cancel-in-progress: false
+
+jobs:
+  update:
+    name: Mirror GitHub Releases → CHANGELOG.md
+    runs-on: ubuntu-latest
+    # Gleiche Guard-Philosophie wie in android_fastlane.yml: Dependabot
+    # (auch per manuellem Merge) stößt keine Automatik an.
+    if: github.actor != 'dependabot[bot]'
+
+    steps:
+      - name: Checkout develop
+        uses: actions/checkout@v5
+        with:
+          ref: develop
+          fetch-depth: 0
+
+      - name: Update CHANGELOG.md from GitHub releases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: scripts/update_changelog.sh
+
+      # Der Commit läuft als github-actions[bot] → android_fastlane.yml
+      # überspringt dafür publish-release/verify (Guard unten), sonst gäbe
+      # es eine Endlosschleife: Changelog-Commit → Nightly → Release → Changelog.
+      - name: Commit and push if changed
+        run: |
+          if git diff --quiet CHANGELOG.md; then
+            echo "CHANGELOG.md unverändert — nichts zu committen"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md
+          git commit -m "docs: Update CHANGELOG from GitHub releases"
+          git push origin HEAD:develop

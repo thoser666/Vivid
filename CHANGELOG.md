@@ -1,0 +1,65 @@
+# 📝 Changelog
+
+Alle Änderungen an Vivid — **automatisch aus den GitHub-Releases gespiegelt**.
+
+> ⚠️ **Nicht von Hand bearbeiten.** Der generierte Abschnitt (unten, zwischen den beiden Marker-Kommentaren) wird von [`scripts/update_changelog.sh`](scripts/update_changelog.sh) gepflegt — Workflow: [`.github/workflows/update_changelog.yml`](.github/workflows/update_changelog.yml), Trigger: `release: published` + manuell.
+
+- 🔗 Aktuelle Releases: <https://github.com/thoser666/Vivid/releases>
+- 📦 Release-Kanäle & Versionsstrategie (nightly → alpha → beta → stable): [RELEASE.md](RELEASE.md)
+- 🎯 Feature-Tracking: [PARITY.md](PARITY.md)
+
+<!-- CHANGELOG-START -->
+## 🌙 **Nightly** 0.2.0-nightly.87 — 2026-08-10
+
+[GitHub-Release](https://github.com/thoser666/Vivid/releases/tag/nightly-20260810-1614)
+
+Nightly feature build — installable via Obtainium (enable pre-releases).
+
+**Artefakte:** `app-release.apk` · `mapping.txt` · `output-metadata.json`
+
+## 🌙 **Nightly** 0.2.0-nightly.86 — 2026-08-10
+
+[GitHub-Release](https://github.com/thoser666/Vivid/releases/tag/nightly-20260810-1602)
+
+Nightly feature build — installable via Obtainium (enable pre-releases).
+
+**Artefakte:** `app-release.apk` · `mapping.txt` · `output-metadata.json`
+
+## 🌙 **Nightly** 0.2.0-nightly.85 — 2026-08-10
+
+[GitHub-Release](https://github.com/thoser666/Vivid/releases/tag/nightly-20260810-1540)
+
+Nightly feature build — installable via Obtainium (enable pre-releases).
+
+**Artefakte:** `app-release.apk` · `mapping.txt` · `output-metadata.json`
+
+## 🧪 **Alpha** v0.2.0-alpha — 2026-08-10
+
+[GitHub-Release](https://github.com/thoser666/Vivid/releases/tag/v0.2.0-alpha)
+
+**Full Changelog**: https://github.com/thoser666/Vivid/compare/nightly-20260810-1048...v0.2.0-alpha
+
+## 🧪 **Alpha** 0.0.1-alpha — 2025-08-29
+
+[GitHub-Release](https://github.com/thoser666/Vivid/releases/tag/0.0.1-alpha)
+
+- Camera is displayed Button to switch the camera
+- Button to start the stream (should display errors)
+- Errors are transmitted via sentry.io
+
+## What's Changed
+
+- Thoser666 patch 1 by @thoser666 in https://github.com/thoser666/Vivid/pull/1
+- Create SECURITY.md by @thoser666 in https://github.com/thoser666/Vivid/pull/2
+- Create dependabot.yml by @thoser666 in https://github.com/thoser666/Vivid/pull/3
+- adding sentry.io by @thoser666 in https://github.com/thoser666/Vivid/pull/9
+- style: format code with Ktlint by @deepsource-autofix[bot] in https://github.com/thoser666/Vivid/pull/10
+- Bump kotlin from 2.0.21 to 2.2.0 by @dependabot[bot] in https://github.com/thoser666/Vivid/pull/5
+- Create android.yml by @thoser666 in https://github.com/thoser666/Vivid/pull/13
+- Bump androidx.activity:activity-compose from 1.8.0 to 1.10.1 by @dependabot[bot] in https://github.com/thoser666/Vivid/pull/4
+- Bump androidx.lifecycle:lifecycle-runtime-ktx from 2.6.1 to 2.9.2 by @dependabot[bot] in https://github.com/thoser666/Vivid/pull/8
+- Bump androidx.test.espresso:espresso-core from 3.5.1 to 3.7.0 by @dependabot[bot] in https://github.com/thoser666/Vivid/pull/7
+- Bump androidx.core:core-ktx from 1.10.1 to 1.16.0 by @dependabot[bot] in https://github.com/thoser666/Vivid/pull/6
+- Create codeql.yml by @thoser666 in https://github.com/thoser666/Vivid/pull/16
+- coreFunctions-AndUI by @thoser666 in https://github.com/thoser666/Vivid/pull/12
+<!-- CHANGELOG-END -->
