@@ -166,6 +166,10 @@ jobs:
     if: github.event_name == 'push' && (startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/develop') && github.actor != 'dependabot[bot]' && github.actor != 'github-actions[bot]' && !contains(github.event.commits.*.author.username, 'dependabot[bot]')
     permissions:
       contents: write
+      # Tag-Push: Der GITHUB_TOKEN darf Tags auf Commits legen, deren Baum
+      # Workflow-Dateien enthält (sonst: "refusing to allow a GitHub App to
+      # create or update workflow ... without workflows permission").
+      workflows: write
 
     steps:
       - name: Checkout code
