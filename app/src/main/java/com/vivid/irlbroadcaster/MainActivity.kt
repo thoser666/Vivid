@@ -8,9 +8,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import com.vivid.BuildConfig
 import com.vivid.feature.obscontrol.ui.ObsControlScreen
 import com.vivid.feature.playback.PlaybackScreen
 import com.vivid.feature.settings.ui.SettingsScreen
@@ -48,8 +51,19 @@ fun VividAppNavigation() {
             val streamUrl = backStackEntry.arguments?.getString("streamUrl")
             PlaybackScreen(navController, streamUrl)
         }
-        composable("settings_route") {
-            SettingsScreen(navController = navController)
+        composable(
+            route = "settings_route?versionName={versionName}",
+            arguments = listOf(
+                navArgument("versionName") {
+                    type = NavType.StringType
+                    defaultValue = BuildConfig.VERSION_NAME
+                },
+            ),
+        ) { backStackEntry ->
+            SettingsScreen(
+                navController = navController,
+                installedVersionName = backStackEntry.arguments?.getString("versionName") ?: BuildConfig.VERSION_NAME,
+            )
         }
         composable("obs_control") {
             ObsControlScreen()

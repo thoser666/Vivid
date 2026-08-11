@@ -2,12 +2,15 @@ package com.vivid.feature.settings.ui
 
 import com.vivid.core.data.AppSettings
 import com.vivid.core.data.SettingsRepository
+import com.vivid.core.update.UpdateCheckResult
+import com.vivid.core.update.UpdateChecker
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
 import io.mockk.runs
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
@@ -19,9 +22,20 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SettingsViewModelTest {
+
+    private fun repository() = mockk<SettingsRepository> {
+        every { appSettingsFlow } returns MutableStateFlow(AppSettings())
+    }
+
+    private fun createViewModel(
+        repository: SettingsRepository = repository(),
+        checker: UpdateChecker = mockk(relaxed = true),
+    ) = SettingsViewModel(repository, checker)
 
     @After
     fun tearDown() {
@@ -45,7 +59,7 @@ class SettingsViewModelTest {
             )
         }
 
-        val viewModel = SettingsViewModel(repository)
+        val viewModel = createViewModel(repository)
         advanceUntilIdle()
 
         assertEquals("rtmp://live.example/app", viewModel.uiState.value.streamUrl)
@@ -64,7 +78,7 @@ class SettingsViewModelTest {
             every { appSettingsFlow } returns MutableStateFlow(AppSettings())
         }
 
-        val viewModel = SettingsViewModel(repository)
+        val viewModel = createViewModel(repository)
         advanceUntilIdle() // initial load drained so edits are not overwritten
 
         viewModel.onStreamUrlChange("rtmp://new/app")
@@ -91,7 +105,7 @@ class SettingsViewModelTest {
             every { appSettingsFlow } returns MutableStateFlow(AppSettings())
         }
 
-        val viewModel = SettingsViewModel(repository)
+        val viewModel = createViewModel(repository)
         advanceUntilIdle() // initial load drained so edits are not overwritten
 
         viewModel.applyPlatformPreset(StreamPlatform.Kick)
@@ -107,7 +121,7 @@ class SettingsViewModelTest {
             every { appSettingsFlow } returns MutableStateFlow(AppSettings())
         }
 
-        val viewModel = SettingsViewModel(repository)
+        val viewModel = createViewModel(repository)
         advanceUntilIdle()
 
         viewModel.applyPlatformPreset(StreamPlatform.YouTube)
@@ -123,7 +137,7 @@ class SettingsViewModelTest {
             every { appSettingsFlow } returns MutableStateFlow(AppSettings())
         }
 
-        val viewModel = SettingsViewModel(repository)
+        val viewModel = createViewModel(repository)
         advanceUntilIdle()
 
         viewModel.applyPlatformPreset(StreamPlatform.Twitch)
@@ -139,7 +153,7 @@ class SettingsViewModelTest {
             every { appSettingsFlow } returns MutableStateFlow(AppSettings())
         }
 
-        val viewModel = SettingsViewModel(repository)
+        val viewModel = createViewModel(repository)
         advanceUntilIdle()
 
         viewModel.onStreamKeyChange("live_12345_secret")
@@ -159,7 +173,7 @@ class SettingsViewModelTest {
             coEvery { updateObsSettings(any(), any(), any(), any()) } just runs
         }
 
-        val viewModel = SettingsViewModel(repository)
+        val viewModel = createViewModel(repository)
         advanceUntilIdle() // initial load drained so edits are not overwritten
 
         viewModel.onStreamUrlChange("rtmp://live/app")
@@ -181,5 +195,100 @@ class SettingsViewModelTest {
         coVerify { repository.updateObsSettings("obs.example.com", "4455", "pw", false) }
         assertEquals(1, events.size)
         collector.cancel()
+    }
+
+    // --- Update-Indikator (Obtainium-Test) ---
+
+    @Test
+    fun `checkForUpdates reports an available update`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val checker = mockk<UpdateChecker>()
+        coEvery { checker.check("0.2.0-nightly.93") } returns UpdateCheckResult.UpdateAvailable(
+            latestVersion = "0.2.0-nightly.97",
+            releaseUrl = "https://github.com/thoser666/Vivid/releases/tag/nightly-20260811-1118",
+        )
+        val viewModel = createViewModel(checker = checker)
+
+        viewModel.checkForUpdates("0.2.0-nightly.93")
+        advanceUntilIdle()
+
+        assertFalse(viewModel.updateState.value.checking)
+        assertEquals(
+            UpdateCheckResult.UpdateAvailable("0.2.0-nightly.97", "https://github.com/thoser666/Vivid/releases/tag/nightly-20260811-1118"),
+            viewModel.updateState.value.result,
+        )
+    }
+
+    @Test
+    fun `checkForUpdates reports up to date`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val checker = mockk<UpdateChecker>()
+        coEvery { checker.check(any()) } returns UpdateCheckResult.UpToDate(latestVersion = "0.2.0-nightly.97")
+        val viewModel = createViewModel(checker = checker)
+
+        viewModel.checkForUpdates("0.2.0-nightly.97")
+        advanceUntilIdle()
+
+        assertEquals(UpdateCheckResult.UpToDate("0.2.0-nightly.97"), viewModel.updateState.value.result)
+    }
+
+    @Test
+    fun `checkForUpdates maps errors without touching the settings state`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val checker = mockk<UpdateChecker>()
+        coEvery { checker.check(any()) } returns UpdateCheckResult.Error("Update-Check fehlgeschlagen: network down")
+        val viewModel = createViewModel(checker = checker)
+
+        viewModel.checkForUpdates("0.2.0-nightly.93")
+        advanceUntilIdle()
+
+        assertEquals(UpdateCheckResult.Error("Update-Check fehlgeschlagen: network down"), viewModel.updateState.value.result)
+    }
+
+    @Test
+    fun `checkForUpdates ignores a blank version`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val checker = mockk<UpdateChecker>()
+        val viewModel = createViewModel(checker = checker)
+
+        viewModel.checkForUpdates("")
+        advanceUntilIdle()
+
+        coVerify(exactly = 0) { checker.check(any()) }
+        assertEquals(null, viewModel.updateState.value.result)
+    }
+
+    @Test
+    fun `checkForUpdates only runs once per version`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val checker = mockk<UpdateChecker>()
+        coEvery { checker.check(any()) } returns UpdateCheckResult.UpToDate("0.2.0-nightly.97")
+        val viewModel = createViewModel(checker = checker)
+
+        viewModel.checkForUpdates("0.2.0-nightly.93")
+        viewModel.checkForUpdates("0.2.0-nightly.93")
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { checker.check("0.2.0-nightly.93") }
+    }
+
+    @Test
+    fun `checkForUpdates is ignored while a check is running`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val gate = CompletableDeferred<UpdateCheckResult>()
+        val checker = mockk<UpdateChecker>()
+        coEvery { checker.check(any()) } coAnswers { gate.await() }
+        val viewModel = createViewModel(checker = checker)
+
+        viewModel.checkForUpdates("0.2.0-nightly.93")
+        advanceUntilIdle() // läuft bis zum gate
+        assertTrue(viewModel.updateState.value.checking)
+
+        viewModel.checkForUpdates("0.2.0-nightly.93") // muss ignoriert werden
+
+        gate.complete(UpdateCheckResult.UpToDate("0.2.0-nightly.97"))
+        advanceUntilIdle()
+        assertFalse(viewModel.updateState.value.checking)
+        assertEquals(UpdateCheckResult.UpToDate("0.2.0-nightly.97"), viewModel.updateState.value.result)
     }
 }

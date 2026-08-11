@@ -89,11 +89,11 @@ Because every APK is signed with the same key, updates (including nightly → st
 **🧪 Testing the update flow**
 
 1. Install an **older nightly** APK from the [Releases](../../releases) page (e.g. the previous build)
-2. Open **Settings → „Über Vivid & Updates“** — the installed version is shown at the top
+2. Open **Settings** — the installed version is shown at the bottom, and an „⬆ Update verfügbar: …“ badge appears automatically if a newer build exists
 3. Add the app in Obtainium as described above (**Include pre-releases** on for nightly)
-4. In the About screen tap **„Nach Updates suchen“** — it compares your version against the GitHub releases
+4. (Optional) In **Settings → „Über Vivid & Updates“** tap **„Nach Updates suchen“** to see the latest GitHub release
 5. In Obtainium tap **Update** — the newer APK installs over the old one (same signing key)
-6. Reopen **„Über Vivid & Updates“** — the version number has increased ✅
+6. Reopen **Settings** — the version number has increased and the badge is gone ✅
 
 The About-screen check follows the same rules as [RELEASE.md](RELEASE.md): it only suggests **newer** versions (nightly → nightly/alpha/beta/stable, never a downgrade).
 
@@ -106,7 +106,7 @@ The About-screen check follows the same rules as [RELEASE.md](RELEASE.md): it on
 - 🎛️ **OBS WebSocket Control** - Control OBS Studio directly from your phone (switch scenes, start/stop recording and streaming)
 - 🌐 **Streaming Pipeline** - CameraX-based live streaming to your configured RTMP/SRT ingest (Twitch, YouTube, Kick, or your own server)
 - ⚙️ **Persisted Stream Settings** - Stream URL/key and OBS connection details are stored and reused across sessions
-- 🔄 **In-App Update Check** - About screen (Settings → „Über Vivid & Updates“) shows the installed version and checks GitHub Releases for newer builds — ideal for verifying Obtainium updates
+- 🔄 **In-App Update Check** - Settings shows the installed version + an „Update verfügbar“ badge; the About screen (Settings → „Über Vivid & Updates“) adds a manual check against GitHub Releases — ideal for verifying Obtainium updates
 - 🔓 **Open Source** - Completely free and open source
 
 ### 🚧 In Progress

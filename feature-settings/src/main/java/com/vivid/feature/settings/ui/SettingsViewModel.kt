@@ -4,14 +4,23 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vivid.core.data.AppSettings // Importiert die vollständige Klasse
 import com.vivid.core.data.SettingsRepository
+import com.vivid.core.update.UpdateCheckResult
+import com.vivid.core.update.UpdateChecker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+/** Zustand des Update-Indikators auf dem Settings-Screen (für den Obtainium-Test). */
+data class SettingsUpdateState(
+    val checking: Boolean = false,
+    val result: UpdateCheckResult? = null,
+)
+
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
+    private val updateChecker: UpdateChecker,
 ) : ViewModel() {
 
     // Der StateFlow verwendet jetzt die vollständige AppSettings-Klasse.
@@ -20,6 +29,28 @@ class SettingsViewModel @Inject constructor(
 
     private val _saveEvent = MutableSharedFlow<Unit>()
     val saveEvent = _saveEvent.asSharedFlow()
+
+    private val _updateState = MutableStateFlow(SettingsUpdateState())
+    val updateState = _updateState.asStateFlow()
+
+    /** Version, für die der letzte Check lief — verhindert Mehrfach-Checks pro Screen-Öffnung. */
+    private var lastCheckedVersion: String? = null
+
+    /**
+     * Prüft einmalig gegen die GitHub-Releases, ob ein neueres Build existiert.
+     * Aufgerufen vom Settings-Screen (LaunchedEffect); das Ergebnis zeigt die UI
+     * als „Update verfügbar“-Badge — direkt im Einstieg für den Obtainium-Update-Test.
+     */
+    fun checkForUpdates(installedVersionName: String) {
+        if (installedVersionName.isBlank() || lastCheckedVersion == installedVersionName || _updateState.value.checking) {
+            return
+        }
+        lastCheckedVersion = installedVersionName
+        viewModelScope.launch {
+            _updateState.value = SettingsUpdateState(checking = true)
+            _updateState.value = SettingsUpdateState(checking = false, result = updateChecker.check(installedVersionName))
+        }
+    }
 
     init {
         viewModelScope.launch {

@@ -9,6 +9,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
+import com.vivid.core.update.UpdateCheckResult
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
@@ -16,11 +17,18 @@ import kotlinx.coroutines.launch
 @Composable
 fun SettingsScreen(
     navController: NavHostController, // Nicht mehr optional, da wir ihn brauchen
+    installedVersionName: String = "", // aus der Nav-Route (App-BuildConfig), für den Update-Indikator
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val updateState by viewModel.updateState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+
+    // Einmaliger Update-Check beim Öffnen der Einstellungen (für den Obtainium-Test).
+    LaunchedEffect(key1 = installedVersionName) {
+        viewModel.checkForUpdates(installedVersionName)
+    }
 
     // Lauscht auf das saveEvent vom ViewModel
     LaunchedEffect(key1 = Unit) {
@@ -116,6 +124,44 @@ fun SettingsScreen(
             }
 
             Spacer(modifier = Modifier.weight(1f))
+
+            // Version + Update-Status — direkt sichtbar, ohne in den About-Screen zu gehen
+            if (installedVersionName.isNotBlank()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        text = "Version $installedVersionName",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    when (val result = updateState.result) {
+                        is UpdateCheckResult.UpdateAvailable -> {
+                            Surface(
+                                shape = MaterialTheme.shapes.small,
+                                color = MaterialTheme.colorScheme.tertiaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                            ) {
+                                Text(
+                                    text = "⬆ Update verfügbar: ${result.latestVersion}",
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    style = MaterialTheme.typography.labelMedium,
+                                )
+                            }
+                        }
+                        is UpdateCheckResult.UpToDate -> {
+                            Text(
+                                text = "· aktuell",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                        else -> Unit // Checking / Fehler: still bleiben
+                    }
+                }
+            }
 
             OutlinedButton(
                 onClick = { navController.navigate("about_route") },
