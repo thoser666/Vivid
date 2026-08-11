@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="640" viewBox="0 0 1000 640" font-family="Segoe UI, Arial, sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1a1a2e"/>
+      <stop offset="1" stop-color="#16213e"/>
+    </linearGradient>
+    <linearGradient id="header" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#3DDC84"/>
+      <stop offset="1" stop-color="#2bb673"/>
+    </linearGradient>
+    <linearGradient id="step" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#243056"/>
+      <stop offset="1" stop-color="#1d2847"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1000" height="640" rx="24" fill="url(#bg)"/>
+
+  <!-- Header -->
+  <rect x="0" y="0" width="1000" height="92" rx="24" fill="url(#header)"/>
+  <rect x="0" y="60" width="1000" height="32" fill="url(#header)"/>
+  <text x="500" y="46" text-anchor="middle" font-size="34" font-weight="bold" fill="#0b3d24">🎛️ Vivid — OBS-Steuerung einrichten in 4 Schritten</text>
+  <text x="500" y="78" text-anchor="middle" font-size="17" fill="#0b3d24" font-weight="600">OBS Studio vom Handy steuern · WebSocket-Server + Vivid verbinden</text>
+
+  <!-- Step 1 -->
+  <rect x="30" y="112" width="455" height="120" rx="14" fill="url(#step)" stroke="#3DDC84" stroke-width="2"/>
+  <circle cx="66" cy="142" r="17" fill="#3DDC84"/>
+  <text x="66" y="148" text-anchor="middle" font-size="18" font-weight="bold" fill="#0b3d24">1</text>
+  <text x="94" y="139" font-size="19" font-weight="bold" fill="#fff">WebSocket-Server aktivieren</text>
+  <text x="94" y="162" font-size="14" fill="#cfd6ea">Auf dem OBS-PC: OBS Studio öffnen</text>
+  <text x="50" y="186" font-size="14" fill="#cfd6ea">→ Extras → <tspan font-weight="bold" fill="#fff">WebSocket-Server-Einstellungen</tspan></text>
+  <text x="50" y="207" font-size="14" fill="#cfd6ea">→ „WebSocket-Server aktivieren“ anhaken</text>
+  <text x="50" y="228" font-size="14" fill="#cfd6ea">→ erst jetzt lauscht OBS auf Verbindungen</text>
+
+  <!-- Arrow 1 -->
+  <text x="500" y="172" text-anchor="middle" font-size="30" fill="#3DDC84">➜</text>
+
+  <!-- Step 2 -->
+  <rect x="515" y="112" width="455" height="120" rx="14" fill="url(#step)" stroke="#3DDC84" stroke-width="2"/>
+  <circle cx="551" cy="142" r="17" fill="#3DDC84"/>
+  <text x="551" y="148" text-anchor="middle" font-size="18" font-weight="bold" fill="#0b3d24">2</text>
+  <text x="579" y="139" font-size="19" font-weight="bold" fill="#fff">Port &amp; Passwort setzen</text>
+  <text x="579" y="162" font-size="14" fill="#cfd6ea">Port <tspan font-family="Consolas, monospace">4455</tspan> beibehalten (Standard)</text>
+  <text x="535" y="186" font-size="14" fill="#cfd6ea">→ „Passwort aktivieren“ + eigenes Passwort</text>
+  <text x="535" y="207" font-size="14" fill="#cfd6ea">→ <tspan font-weight="bold" fill="#fff">OK</tspan> — gilt sofort</text>
+  <text x="535" y="228" font-size="14" fill="#ffd166">⚠️ Kein Passwort? Dann in Vivid leer lassen</text>
+
+  <!-- Arrow 2 -->
+  <text x="500" y="302" text-anchor="middle" font-size="30" fill="#3DDC84">➜</text>
+
+  <!-- Step 3 -->
+  <rect x="30" y="252" width="455" height="140" rx="14" fill="url(#step)" stroke="#3DDC84" stroke-width="2"/>
+  <circle cx="66" cy="282" r="17" fill="#3DDC84"/>
+  <text x="66" y="288" text-anchor="middle" font-size="18" font-weight="bold" fill="#0b3d24">3</text>
+  <text x="94" y="279" font-size="19" font-weight="bold" fill="#fff">IP des OBS-Rechners finden</text>
+  <text x="50" y="308" font-size="14" fill="#cfd6ea">1. Windows: <tspan font-family="Consolas, monospace">ipconfig</tspan> · Mac/Linux: <tspan font-family="Consolas, monospace">ip addr</tspan></text>
+  <text x="50" y="329" font-size="14" fill="#cfd6ea">2. LAN-IP notieren (z. B. <tspan font-family="Consolas, monospace">192.168.1.50</tspan>)</text>
+  <text x="50" y="350" font-size="14" fill="#cfd6ea">3. Handy &amp; OBS-PC im <tspan font-weight="bold" fill="#fff">selben WLAN</tspan></text>
+  <text x="50" y="371" font-size="14" fill="#ffd166">⚠️ Windows-Firewall: Port 4455 freigeben</text>
+
+  <!-- Arrow 3 -->
+  <text x="500" y="372" text-anchor="middle" font-size="30" fill="#3DDC84">➜</text>
+
+  <!-- Step 4 -->
+  <rect x="515" y="252" width="455" height="140" rx="14" fill="url(#step)" stroke="#3DDC84" stroke-width="2"/>
+  <circle cx="551" cy="282" r="17" fill="#3DDC84"/>
+  <text x="551" y="279" font-size="19" font-weight="bold" fill="#fff">In Vivid verbinden</text>
+  <text x="535" y="308" font-size="14" fill="#cfd6ea">1. Vivid → OBS-Steuerung → ⚙️ Einstellungen</text>
+  <text x="535" y="329" font-size="14" fill="#cfd6ea">2. Host = IP · Port = <tspan font-family="Consolas, monospace">4455</tspan> · Passwort</text>
+  <text x="535" y="350" font-size="14" fill="#cfd6ea">3. TLS-Schalter: ws:// (LAN) / wss:// (Remote)</text>
+  <text x="535" y="371" font-size="14" fill="#3DDC84">4. „Verbinden“ → 🎛️ Szenen &amp; Aufnahme steuern</text>
+
+  <!-- ws vs wss banner -->
+  <rect x="30" y="420" width="940" height="92" rx="14" fill="#2d2d44" stroke="#ffd166" stroke-width="2"/>
+  <text x="60" y="452" font-size="19" font-weight="bold" fill="#ffd166">🔐 ws:// oder wss://? (Secure connection)</text>
+  <text x="60" y="478" font-size="14.5" fill="#e6e9f5"><tspan font-weight="bold" fill="#fff">LAN/WLAN:</tspan> ws:// — Schalter AUS (Standard-OBS, kein TLS nötig)</text>
+  <text x="60" y="498" font-size="14.5" fill="#e6e9f5"><tspan font-weight="bold" fill="#fff">Übers Internet:</tspan> wss:// — Schalter AN (nur wenn OBS TLS / Reverse-Proxy hat — sonst Verbindungsfehler)</text>
+  <text x="60" y="516" font-size="14" fill="#ffd166">🔒 Im öffentlichen Netz ist wss:// Pflicht — ws:// macht das Passwort für andere lesbar.</text>
+
+  <!-- Footer -->
+  <rect x="30" y="536" width="940" height="76" rx="14" fill="#1d2847" stroke="#3DDC84" stroke-width="1.5"/>
+  <text x="60" y="566" font-size="15" font-weight="bold" fill="#3DDC84">🔑 Passwort vergessen? Tipp vergessen?</text>
+  <text x="60" y="590" font-size="14" fill="#cfd6ea">OBS zeigt das Passwort nie wieder an — einfach neu setzen (Extras → WebSocket-Server-Einstellungen) und in Vivid aktualisieren.</text>
+  <text x="60" y="606" font-size="14" fill="#cfd6ea">Vivid speichert das Passwort nur lokal · Übertragung verschlüsselt über wss:// · ausführliche Hilfe im FAQ der README.</text>
+</svg>

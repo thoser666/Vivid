@@ -13,7 +13,7 @@
 
 **Professional IRL streaming for Android — aiming for full feature parity with Moblin**
 
-[📲 Install](#-installation) • [📥 Download APK](../../releases) • [📚 Documentation](../../wiki) • [🐛 Report Bug](../../issues) • [💬 Discussions](../../discussions)
+[📲 Install](#-installation) • [📥 Download APK](../../releases) • [📝 Changelog](CHANGELOG.md) • [📚 Documentation](../../wiki) • [🐛 Report Bug](../../issues) • [💬 Discussions](../../discussions)
 
 </div>
 
@@ -49,7 +49,7 @@ This README tracks that progress honestly: the [Features](#-features) section ma
 | 🌙 **Nightly** (prerelease) | Fresh build of every new feature, updated daily | Testers, early adopters |
 | 🧪 **Alpha** (`v*-alpha`) | First stage of versioned releases | Previewing upcoming features |
 
-📄 The full versioning strategy (versionName/versionCode, stage criteria) is documented in [RELEASE.md](RELEASE.md).
+📄 The full versioning strategy (versionName/versionCode, stage criteria) is documented in [RELEASE.md](RELEASE.md). The complete release history (stable, alpha, nightly — automatically mirrored from GitHub Releases) lives in [CHANGELOG.md](CHANGELOG.md).
 
 ### Step 2: Download the APK
 
@@ -145,6 +145,26 @@ Because every APK is signed with the same key, updates (including nightly → st
 4. In Vivid:
    - Server: `rtmp://ingest.kick.com/live/`
    - Stream Key: *[paste your key]*
+
+</details>
+
+<details>
+<summary><strong>🎛️ OBS Studio Setup (WebSocket-Steuerung)</strong></summary>
+
+<p align="center">
+  <a href="docs/obs-setup-quickstart.svg">
+    <img src="docs/obs-setup-quickstart.svg" alt="Vivid OBS setup quickstart" width="720">
+  </a>
+  <br>
+  <em>📄 One-page quickstart: <a href="docs/obs-setup-quickstart.svg">OBS-Setup-Infografik (SVG)</a></em>
+</p>
+
+1. **In OBS aktivieren:** Extras → **WebSocket-Server-Einstellungen** → *„WebSocket-Server aktivieren“* anhaken
+2. **Port & Passwort:** Standard-Port `4455` behalten, optional ein **Passwort** setzen (wenn keins gesetzt ist, das Feld in Vivid leer lassen)
+3. **IP ermitteln:** LAN-IP des OBS-Rechners (Windows: `ipconfig`, Mac/Linux: `ip addr`) — Handy und PC müssen im **selben WLAN** sein
+4. **In Vivid verbinden:** OBS-Steuerung → ⚙️ Einstellungen → Host = IP, Port = `4455`, Passwort + *„Secure connection (wss://)“* passend zum Setup (LAN = ws://, Remote = wss://)
+
+> 🧪 Probleme beim Verbinden? Siehe die [OBS-FAQ-Einträge](#-faq--häufige-probleme) (Verbindung schlägt fehl, Passwort, ws:// vs. wss://).
 
 </details>
 
