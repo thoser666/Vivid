@@ -183,8 +183,12 @@ class StreamingService : Service() {
             PowerManager.PARTIAL_WAKE_LOCK,
             "Vivid:Streaming",
         ).apply {
+            // Kein künstliches Timeout: Die Freigabe ist an den Stream-Lifecycle
+            // gebunden (teardown()/onDestroy()), und das OS gibt den WakeLock
+            // automatisch frei, wenn der Prozess stirbt. Ein Timeout würde bei
+            // Streams über 6h mitten im Stream verfallen → CPU-Schlaf → Aussetzer.
             setReferenceCounted(false)
-            acquire(6 * 60 * 60 * 1000L) // max. 6h, danach muss neu gestartet werden
+            acquire()
         }
     }
 
