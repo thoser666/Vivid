@@ -1,5 +1,10 @@
 package com.vivid.feature.streaming.ui
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
 // 1. Importiere ein passendes Icon für die OBS-Steuerung
@@ -21,8 +26,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -45,6 +52,41 @@ fun StreamingScreen(
     val streamingState by streamingEngine.streamingState.collectAsStateWithLifecycle()
     val errorMessage by viewModel.errorMessage.collectAsStateWithLifecycle()
     val configIssues by viewModel.configIssues.collectAsStateWithLifecycle()
+
+    // Runtime-Permissions (Kamera/Mikro + Notifications) werden beim Go-Live
+    // angefordert — der Foreground-Service braucht sie auf Android 13+.
+    val context = LocalContext.current
+    var permissionDenied by remember { mutableStateOf(false) }
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions(),
+    ) { grants ->
+        if (grants.values.all { it }) {
+            permissionDenied = false
+            viewModel.startStream()
+        } else {
+            permissionDenied = true
+        }
+    }
+
+    fun requestPermissionsAndStart() {
+        val needed = buildList {
+            add(Manifest.permission.CAMERA)
+            add(Manifest.permission.RECORD_AUDIO)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                add(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+        val missing = needed.filter {
+            ContextCompat.checkSelfPermission(context, it) != PackageManager.PERMISSION_GRANTED
+        }
+        if (missing.isEmpty()) {
+            permissionDenied = false
+            viewModel.startStream()
+        } else {
+            permissionDenied = false
+            permissionLauncher.launch(missing.toTypedArray())
+        }
+    }
 
     // Re-validiert die Konfiguration, sobald der Screen wieder sichtbar wird
     // (z. B. nach der Rückkehr aus den Einstellungen).
@@ -108,7 +150,7 @@ fun StreamingScreen(
                     if (streamingState is StreamingState.Streaming) {
                         viewModel.stopStream()
                     } else {
-                        viewModel.startStream()
+                        requestPermissionsAndStart()
                     }
                 },
                 enabled = streamingState !is StreamingState.Preparing,
@@ -127,6 +169,11 @@ fun StreamingScreen(
                 val reason = (streamingState as StreamingState.Failed).reason
                 Text(
                     text = "Error: $reason",
+                    modifier = Modifier.align(Alignment.TopCenter),
+                )
+            } else if (permissionDenied) {
+                Text(
+                    text = "Kamera-, Mikrofon- und Benachrichtigungs-Berechtigung werden für Streaming benötigt. Bitte erneut auf Go Live tippen und erlauben.",
                     modifier = Modifier.align(Alignment.TopCenter),
                 )
             } else if (errorMessage != null) {

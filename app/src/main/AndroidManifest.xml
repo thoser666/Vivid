@@ -8,6 +8,13 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
+    <!-- Foreground-Service: Stream läuft im Hintergrund weiter -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <application
         android:name=".irlbroadcaster.VividApplication"
         android:allowBackup="true"
@@ -18,6 +25,11 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.Vivid"> <!-- Make sure this theme name matches your app's theme -->
+        <service
+            android:name=".irlbroadcaster.StreamingService"
+            android:exported="false"
+            android:foregroundServiceType="microphone|camera" />
+
         <activity
             android:name=".irlbroadcaster.MainActivity"
             android:exported="true"

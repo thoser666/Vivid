@@ -15,6 +15,7 @@ import javax.inject.Inject
 class StreamingViewModel @Inject constructor(
     val streamingEngine: StreamingEngine,
     private val settingsRepository: SettingsRepository,
+    private val streamingServiceLauncher: StreamingServiceLauncher,
 ) : ViewModel() {
 
     private val _errorMessage = MutableStateFlow<String?>(null)
@@ -68,12 +69,15 @@ class StreamingViewModel @Inject constructor(
                 _errorMessage.value = "Keine Stream-URL konfiguriert. Bitte in den Einstellungen hinterlegen."
                 return@launch
             }
-            streamingEngine.startStream(url)
+            // Der Stream läuft im Foreground-Service weiter, wenn die App in den
+            // Hintergrund geht (Prozess-Priorität + WakeLock). Der Service ruft
+            // seinerseits streamingEngine.startStream(url) auf.
+            streamingServiceLauncher.startStreaming(url)
         }
     }
 
     fun stopStream() {
-        streamingEngine.stopStream()
+        streamingServiceLauncher.stopStreaming()
     }
 }
 

@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Test
 class StreamingViewModelTest {
 
     private val engine = mockk<StreamingEngine>(relaxed = true)
+    private val launcher = mockk<StreamingServiceLauncher>(relaxed = true)
 
     @AfterEach
     fun tearDown() {
@@ -40,12 +41,12 @@ class StreamingViewModelTest {
         val repository = repositoryWith(
             AppSettings(streamUrl = "rtmp://live.example/app", streamKey = "key-1"),
         )
-        val viewModel = StreamingViewModel(engine, repository)
+        val viewModel = StreamingViewModel(engine, repository, launcher)
 
         viewModel.startStream()
         advanceUntilIdle()
 
-        coVerify { engine.startStream("rtmp://live.example/app/key-1") }
+        coVerify { launcher.startStreaming("rtmp://live.example/app/key-1") }
         assertNull(viewModel.errorMessage.value)
     }
 
@@ -59,12 +60,12 @@ class StreamingViewModelTest {
                 streamUseTls = true,
             ),
         )
-        val viewModel = StreamingViewModel(engine, repository)
+        val viewModel = StreamingViewModel(engine, repository, launcher)
 
         viewModel.startStream()
         advanceUntilIdle()
 
-        coVerify { engine.startStream("rtmps://live.twitch.tv/app/key-1") }
+        coVerify { launcher.startStreaming("rtmps://live.twitch.tv/app/key-1") }
         assertNull(viewModel.errorMessage.value)
     }
 
@@ -78,12 +79,12 @@ class StreamingViewModelTest {
                 streamUseTls = true,
             ),
         )
-        val viewModel = StreamingViewModel(engine, repository)
+        val viewModel = StreamingViewModel(engine, repository, launcher)
 
         viewModel.startStream()
         advanceUntilIdle()
 
-        coVerify { engine.startStream("rtmps://a.rtmp.youtube.com/live2/key-1") }
+        coVerify { launcher.startStreaming("rtmps://a.rtmp.youtube.com/live2/key-1") }
         assertNull(viewModel.errorMessage.value)
     }
 
@@ -93,12 +94,12 @@ class StreamingViewModelTest {
         val repository = repositoryWith(
             AppSettings(streamUrl = "rtmp://live.example/app/key-1", streamKey = "key-1"),
         )
-        val viewModel = StreamingViewModel(engine, repository)
+        val viewModel = StreamingViewModel(engine, repository, launcher)
 
         viewModel.startStream()
         advanceUntilIdle()
 
-        coVerify { engine.startStream("rtmp://live.example/app/key-1") }
+        coVerify { launcher.startStreaming("rtmp://live.example/app/key-1") }
     }
 
     @Test
@@ -108,12 +109,12 @@ class StreamingViewModelTest {
         val repository = repositoryWith(
             AppSettings(streamUrl = "rtmp://live.example/app", streamKey = "live-key"),
         )
-        val viewModel = StreamingViewModel(engine, repository)
+        val viewModel = StreamingViewModel(engine, repository, launcher)
 
         viewModel.startStream()
         advanceUntilIdle()
 
-        coVerify { engine.startStream("rtmp://live.example/app/live-key") }
+        coVerify { launcher.startStreaming("rtmp://live.example/app/live-key") }
     }
 
     @Test
@@ -122,24 +123,24 @@ class StreamingViewModelTest {
         val repository = repositoryWith(
             AppSettings(streamUrl = "rtmp://live.example/app", streamKey = ""),
         )
-        val viewModel = StreamingViewModel(engine, repository)
+        val viewModel = StreamingViewModel(engine, repository, launcher)
 
         viewModel.startStream()
         advanceUntilIdle()
 
-        coVerify { engine.startStream("rtmp://live.example/app") }
+        coVerify { launcher.startStreaming("rtmp://live.example/app") }
     }
 
     @Test
     fun `startStream with blank url sets error message and does not start`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val repository = repositoryWith(AppSettings())
-        val viewModel = StreamingViewModel(engine, repository)
+        val viewModel = StreamingViewModel(engine, repository, launcher)
 
         viewModel.startStream()
         advanceUntilIdle()
 
-        coVerify(exactly = 0) { engine.startStream(any()) }
+        coVerify(exactly = 0) { launcher.startStreaming(any()) }
         assertEquals("Keine Stream-URL konfiguriert. Bitte in den Einstellungen hinterlegen.", viewModel.errorMessage.value)
     }
 
@@ -149,12 +150,12 @@ class StreamingViewModelTest {
         val repository = repositoryWith(
             AppSettings(streamUrl = "http://live.example/app", streamKey = "key-1"),
         )
-        val viewModel = StreamingViewModel(engine, repository)
+        val viewModel = StreamingViewModel(engine, repository, launcher)
 
         viewModel.startStream()
         advanceUntilIdle()
 
-        coVerify(exactly = 0) { engine.startStream(any()) }
+        coVerify(exactly = 0) { launcher.startStreaming(any()) }
         assertEquals(
             "Nicht unterstütztes Protokoll \"http\". Erlaubt sind rtmp, rtmps und srt.",
             viewModel.errorMessage.value,
@@ -167,12 +168,12 @@ class StreamingViewModelTest {
         val repository = repositoryWith(
             AppSettings(streamUrl = "rtmp:///app", streamKey = "key-1"),
         )
-        val viewModel = StreamingViewModel(engine, repository)
+        val viewModel = StreamingViewModel(engine, repository, launcher)
 
         viewModel.startStream()
         advanceUntilIdle()
 
-        coVerify(exactly = 0) { engine.startStream(any()) }
+        coVerify(exactly = 0) { launcher.startStreaming(any()) }
         assertTrue(viewModel.errorMessage.value?.contains("Server-Host") == true)
     }
 
@@ -182,12 +183,12 @@ class StreamingViewModelTest {
         val repository = repositoryWith(
             AppSettings(streamUrl = "rtmp://live.twitch.tv/app", streamKey = ""),
         )
-        val viewModel = StreamingViewModel(engine, repository)
+        val viewModel = StreamingViewModel(engine, repository, launcher)
 
         viewModel.startStream()
         advanceUntilIdle()
 
-        coVerify { engine.startStream("rtmp://live.twitch.tv/app") }
+        coVerify { launcher.startStreaming("rtmp://live.twitch.tv/app") }
         assertTrue(viewModel.configIssues.value.any { it.severity == ConfigIssueSeverity.WARNING })
         assertTrue(viewModel.configIssues.value.none { it.severity == ConfigIssueSeverity.ERROR })
     }
@@ -196,7 +197,7 @@ class StreamingViewModelTest {
     fun `configIssues is populated on init`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val repository = repositoryWith(AppSettings())
-        val viewModel = StreamingViewModel(engine, repository)
+        val viewModel = StreamingViewModel(engine, repository, launcher)
 
         advanceUntilIdle()
 
@@ -210,7 +211,7 @@ class StreamingViewModelTest {
         val repository = mockk<SettingsRepository> {
             every { appSettingsFlow } returns settingsFlow
         }
-        val viewModel = StreamingViewModel(engine, repository)
+        val viewModel = StreamingViewModel(engine, repository, launcher)
         advanceUntilIdle()
         assertTrue(viewModel.configIssues.value.any { it.severity == ConfigIssueSeverity.ERROR })
 
@@ -225,11 +226,11 @@ class StreamingViewModelTest {
     fun `stopStream delegates to the engine`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val repository = repositoryWith(AppSettings())
-        val viewModel = StreamingViewModel(engine, repository)
+        val viewModel = StreamingViewModel(engine, repository, launcher)
 
         viewModel.stopStream()
 
-        verify { engine.stopStream() }
+        verify { launcher.stopStreaming() }
     }
 
     @Test

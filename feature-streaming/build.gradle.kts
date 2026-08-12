@@ -36,6 +36,9 @@ dependencies {
     // Domain-Modell (AppSettings) für die Stream-Einstellungen
     implementation(project(":domain"))
 
+    // AndroidX Core (ContextCompat u. a. für Runtime-Permissions)
+    implementation(libs.androidx.core.ktx)
+
     // UI und Navigation für dieses Feature
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)
