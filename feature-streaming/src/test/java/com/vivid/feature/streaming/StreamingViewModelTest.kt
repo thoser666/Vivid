@@ -17,6 +17,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -140,6 +141,84 @@ class StreamingViewModelTest {
 
         coVerify(exactly = 0) { engine.startStream(any()) }
         assertEquals("Keine Stream-URL konfiguriert. Bitte in den Einstellungen hinterlegen.", viewModel.errorMessage.value)
+    }
+
+    @Test
+    fun `startStream with unsupported scheme shows error and does not start`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repository = repositoryWith(
+            AppSettings(streamUrl = "http://live.example/app", streamKey = "key-1"),
+        )
+        val viewModel = StreamingViewModel(engine, repository)
+
+        viewModel.startStream()
+        advanceUntilIdle()
+
+        coVerify(exactly = 0) { engine.startStream(any()) }
+        assertEquals(
+            "Nicht unterstütztes Protokoll \"http\". Erlaubt sind rtmp, rtmps und srt.",
+            viewModel.errorMessage.value,
+        )
+    }
+
+    @Test
+    fun `startStream with missing host shows error and does not start`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repository = repositoryWith(
+            AppSettings(streamUrl = "rtmp:///app", streamKey = "key-1"),
+        )
+        val viewModel = StreamingViewModel(engine, repository)
+
+        viewModel.startStream()
+        advanceUntilIdle()
+
+        coVerify(exactly = 0) { engine.startStream(any()) }
+        assertTrue(viewModel.errorMessage.value?.contains("Server-Host") == true)
+    }
+
+    @Test
+    fun `configIssues exposes warning for missing key but stream still starts`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repository = repositoryWith(
+            AppSettings(streamUrl = "rtmp://live.twitch.tv/app", streamKey = ""),
+        )
+        val viewModel = StreamingViewModel(engine, repository)
+
+        viewModel.startStream()
+        advanceUntilIdle()
+
+        coVerify { engine.startStream("rtmp://live.twitch.tv/app") }
+        assertTrue(viewModel.configIssues.value.any { it.severity == ConfigIssueSeverity.WARNING })
+        assertTrue(viewModel.configIssues.value.none { it.severity == ConfigIssueSeverity.ERROR })
+    }
+
+    @Test
+    fun `configIssues is populated on init`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repository = repositoryWith(AppSettings())
+        val viewModel = StreamingViewModel(engine, repository)
+
+        advanceUntilIdle()
+
+        assertTrue(viewModel.configIssues.value.any { it.severity == ConfigIssueSeverity.ERROR })
+    }
+
+    @Test
+    fun `runConfigCheck revalidates after settings change`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val settingsFlow = MutableStateFlow(AppSettings())
+        val repository = mockk<SettingsRepository> {
+            every { appSettingsFlow } returns settingsFlow
+        }
+        val viewModel = StreamingViewModel(engine, repository)
+        advanceUntilIdle()
+        assertTrue(viewModel.configIssues.value.any { it.severity == ConfigIssueSeverity.ERROR })
+
+        settingsFlow.value = AppSettings(streamUrl = "rtmp://live.twitch.tv/app", streamKey = "key-1")
+        viewModel.runConfigCheck()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.configIssues.value.isEmpty())
     }
 
     @Test

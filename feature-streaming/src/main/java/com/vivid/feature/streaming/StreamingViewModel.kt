@@ -20,14 +20,49 @@ class StreamingViewModel @Inject constructor(
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
+    private val _configIssues = MutableStateFlow<List<StreamConfigIssue>>(emptyList())
+
+    /** Befunde des Stream-Selbst-Checks (werden vor dem Go-Live im UI angezeigt). */
+    val configIssues: StateFlow<List<StreamConfigIssue>> = _configIssues.asStateFlow()
+
+    init {
+        runConfigCheck()
+    }
+
+    /** Führt den Selbst-Check mit den aktuell gespeicherten Einstellungen aus. */
+    fun runConfigCheck() {
+        viewModelScope.launch {
+            val settings = settingsRepository.appSettingsFlow.first()
+            _configIssues.value = StreamConfigValidator.validate(
+                streamUrl = settings.streamUrl,
+                streamKey = settings.streamKey,
+                streamUseTls = settings.streamUseTls,
+            )
+        }
+    }
+
     /**
-     * Liest die gespeicherten Stream-Einstellungen und startet den Stream
-     * mit der konfigurierten URL (inkl. Stream-Key).
+     * Liest die gespeicherten Stream-Einstellungen, validiert sie per Selbst-Check
+     * und startet den Stream nur, wenn keine Fehler vorliegen.
      */
     fun startStream() {
         viewModelScope.launch {
             _errorMessage.value = null
             val settings = settingsRepository.appSettingsFlow.first()
+
+            val issues = StreamConfigValidator.validate(
+                streamUrl = settings.streamUrl,
+                streamKey = settings.streamKey,
+                streamUseTls = settings.streamUseTls,
+            )
+            _configIssues.value = issues
+
+            val errors = issues.filter { it.severity == ConfigIssueSeverity.ERROR }
+            if (errors.isNotEmpty()) {
+                _errorMessage.value = errors.joinToString("\n") { it.message }
+                return@launch
+            }
+
             val url = buildStreamUrl(settings.streamUrl, settings.streamKey, settings.streamUseTls)
             if (url == null) {
                 _errorMessage.value = "Keine Stream-URL konfiguriert. Bitte in den Einstellungen hinterlegen."
