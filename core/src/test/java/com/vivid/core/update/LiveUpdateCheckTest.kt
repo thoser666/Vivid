@@ -56,6 +56,30 @@ class LiveUpdateCheckTest {
 
     private fun checker(): UpdateChecker = UpdateChecker(api(), InMemoryCache())
 
+    /**
+     * Holt ALLE Releases über alle Seiten (GitHub paginiert bei per_page=100).
+     * Beendet die Schleife, sobald eine Seite leer ist.
+     */
+    private suspend fun allReleases(): List<GitHubRelease> {
+        val api = api()
+        val all = mutableListOf<GitHubRelease>()
+        var page = 1
+        while (true) {
+            val batch = api.getReleases(perPage = 100, page = page)
+            if (batch.isEmpty()) break
+            all += batch
+            if (batch.size < 100) break
+            page++
+        }
+        return all
+    }
+
+    /** Alle parsebaren Versionen aus den Releases (Name oder Tag), Drafts ignoriert. */
+    private fun parseableVersions(releases: List<GitHubRelease>): List<AppVersion> =
+        releases
+            .filterNot { it.draft }
+            .mapNotNull { AppVersion.parse(it.name) ?: AppVersion.parse(it.tagName) }
+
     @Test
     fun `reports an update for an ancient nightly and returns a parseable latest`() = runBlocking {
         val result = checker().check("0.0.1-nightly.1")
@@ -82,5 +106,43 @@ class LiveUpdateCheckTest {
         val result = checker().check("99.99.99-nightly.1")
 
         assertTrue(result is UpdateCheckResult.UpToDate, "erwartet UpToDate, war: $result")
+    }
+
+    /**
+     * Konsistenztest: Der [UpdateChecker] muss über ALLE echten Releases hinweg
+     * das Maximum als „latest“ melden — kein einzelnes Release darf neuer sein
+     * als das gemeldete latest.
+     */
+    @Test
+    fun `no release is newer than the reported latest`() = runBlocking {
+        val releases = allReleases()
+        assertTrue(releases.isNotEmpty(), "Keine Releases von der GitHub-API geliefert")
+
+        val versions = parseableVersions(releases)
+        assertTrue(
+            versions.isNotEmpty(),
+            "Keine parsebaren Versionen in den Releases — Tag/Name-Format unerwartet",
+        )
+
+        // Maximum über ALLE Releases (unabhängig vom Kanal) = erwartetes latest.
+        val expectedLatest = versions.maxOrNull()!!
+
+        // Der Checker mit einer sehr alten Version muss genau dieses Maximum melden.
+        val result = checker().check("0.0.1-nightly.1")
+        assertTrue(result is UpdateCheckResult.UpdateAvailable, "erwartet UpdateAvailable, war: $result")
+        val reported = AppVersion.parse((result as UpdateCheckResult.UpdateAvailable).latestVersion)
+            ?: throw AssertionError("gemeldetes latest nicht parsebar: ${result.latestVersion}")
+
+        // Kern-Assertion: kein Release ist neuer als das gemeldete latest,
+        // und das gemeldete latest ist exakt das Maximum aller Releases.
+        assertTrue(
+            versions.all { it <= reported },
+            "Release neuer als gemeldetes latest gefunden! latest=$reported, alle=$versions",
+        )
+        org.junit.jupiter.api.Assertions.assertEquals(
+            expectedLatest,
+            reported,
+            "Gemeldetes latest ($reported) != Maximum aller Releases ($expectedLatest)",
+        )
     }
 }

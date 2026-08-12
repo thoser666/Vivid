@@ -28,9 +28,9 @@ class GitHubReleasesApiImplTest {
     private fun jsonHeaders() = headersOf(HttpHeaders.ContentType, "application/json")
 
     @Test
-    fun `requests releases with per_page parameter and parses the list`() = runTest {
+    fun `requests releases with per_page and page parameters and parses the list`() = runTest {
         val engine = MockEngine { request ->
-            assertEquals("$baseUrl?per_page=10", request.url.toString())
+            assertEquals("$baseUrl?per_page=10&page=1", request.url.toString())
             respond(
                 content = """
                     [{
@@ -63,12 +63,25 @@ class GitHubReleasesApiImplTest {
     @Test
     fun `honours a custom per_page value`() = runTest {
         val engine = MockEngine { request ->
-            assertEquals("$baseUrl?per_page=3", request.url.toString())
+            assertEquals("$baseUrl?per_page=3&page=1", request.url.toString())
             respond(content = "[]", status = HttpStatusCode.OK, headers = jsonHeaders())
         }
         val api = GitHubReleasesApiImpl(clientWith(engine))
 
         val releases = api.getReleases(perPage = 3)
+
+        assertEquals(0, releases.size)
+    }
+
+    @Test
+    fun `honours the page parameter for pagination`() = runTest {
+        val engine = MockEngine { request ->
+            assertEquals("$baseUrl?per_page=10&page=2", request.url.toString())
+            respond(content = "[]", status = HttpStatusCode.OK, headers = jsonHeaders())
+        }
+        val api = GitHubReleasesApiImpl(clientWith(engine))
+
+        val releases = api.getReleases(page = 2)
 
         assertEquals(0, releases.size)
     }

@@ -16,8 +16,8 @@ class GitHubReleasesApiImpl @Inject constructor(
         const val API_URL = "https://api.github.com/repos/thoser666/Vivid/releases"
     }
 
-    override suspend fun getReleases(perPage: Int): List<GitHubRelease> {
-        return client.get("$API_URL?per_page=$perPage") {
+    override suspend fun getReleases(perPage: Int, page: Int): List<GitHubRelease> {
+        return client.get("$API_URL?per_page=$perPage&page=$page") {
             // Authentifizierter Zugriff (z. B. GITHUB_TOKEN im CI-Live-Check):
             // deutlich höheres Rate-Limit als 60 Requests/h unauthentifiziert.
             if (!authToken.isNullOrEmpty()) {
