@@ -73,7 +73,7 @@ Android blocks APKs from outside the Play Store by default. On first launch of t
 
 After installation, Vivid asks for **camera** and **microphone** permissions when you tap **Go Live** (notifications are requested too on Android 13+ — they power the streaming status notification). Then follow the [Platform Setup Guides](#-platform-setup-guides) to connect Twitch, YouTube, Kick, or your own server.
 
-> 🔋 **Background streaming:** While streaming, a persistent notification („Vivid sendet live“) with a **Stop** action keeps the stream alive when you leave the app or turn the screen off. Tap the notification's Stop button (or the Stop button in the app) to end the stream. Note: swiping Vivid away from the recents list destroys the camera preview and therefore stops the stream.
+> 🔋 **Background streaming:** While streaming, a persistent notification („Vivid sendet live“) with a **Stop** action keeps the stream alive when you leave the app or turn the screen off. The encoder runs **independent of the camera preview surface** (GL-free pipeline), so the stream also continues if you swipe Vivid away from the recents list or rotate the device — the preview simply reappears when you reopen the app. Tap the notification's Stop button (or the Stop button in the app) to end the stream.
 
 > ✅ **Go-Live Self-Check:** Before starting, Vivid validates the configured URL and stream key on the streaming screen and shows clear messages (e.g. *"Keine Stream-URL konfiguriert"*, *"Nicht unterstütztes Protokoll"*, missing stream key). Blocking problems prevent the start; warnings are shown but don't block.
 
@@ -114,7 +114,7 @@ The About-screen check follows the same rules as [RELEASE.md](RELEASE.md): it on
 - ⚙️ **Persisted Stream Settings** - Stream URL/key and OBS connection details are stored and reused across sessions
 - 🔄 **In-App Update Check** - Settings shows the installed version + an „Update verfügbar“ badge; the About screen (Settings → „Über Vivid & Updates“) adds a manual check against GitHub Releases — ideal for verifying Obtainium updates. Results are cached for 1 hour (DataStore), so opening Settings does not hammer the GitHub API rate limit; the manual check in About always refreshes and shows the **release notes** of the newest build
 - 🕹️ **Web Remote Control** - A small LAN server (port 8080, token-protected) exposes the streaming status via `http://<phone-ip>:8080/status` and allows starting/stopping the stream from any browser in the same network — see [Usage](#-usage)
-- 🔋 **Background Streaming (Foreground Service)** - The stream keeps running when the app is in the background (home button, screen off): a foreground service with a persistent notification (live status + stop action) and a partial wake lock keeps the encoder and camera alive, and runtime permissions (camera/microphone/notifications) are requested right before going live
+- 🔋 **Background Streaming (Foreground Service)** - The stream keeps running when the app is in the background (home button, screen off) **and even if the Activity is destroyed** (recents swipe, rotation): a foreground service with a persistent notification (live status + stop action) and a partial wake lock keeps the encoder and camera alive, and the encoder runs on a view-independent GL pipeline (RootEncoder Context-constructor) so it never depends on the camera preview surface
 - 🔓 **Open Source** - Completely free and open source
 
 ### 🚧 In Progress
