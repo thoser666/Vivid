@@ -3,6 +3,8 @@ package com.vivid.feature.streaming.ui
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
+import android.view.SurfaceHolder
+import android.view.SurfaceView
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material.icons.Icons
@@ -36,7 +38,6 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
-import com.pedro.library.view.OpenGlView
 import com.vivid.feature.streaming.ConfigIssueSeverity
 import com.vivid.feature.streaming.StreamConfigIssue
 import com.vivid.feature.streaming.StreamingState
@@ -135,11 +136,39 @@ fun StreamingScreen(
                 .fillMaxSize()
                 .padding(paddingValues),
         ) {
-            // ... der restliche Inhalt des Screens bleibt unverändert
+            // Kamera-Vorschau als SurfaceView: Die Preview-Surface wird an die
+            // interne GL-Pipeline der Engine angehängt (attachPreview). Der
+            // Encoder selbst hängt NICHT an dieser Surface — der Stream läuft
+            // deshalb weiter, wenn die Activity (und damit die Vorschau) zerstört
+            // wird (Recents-Wischen, Rotation).
             AndroidView(
                 factory = { context ->
-                    OpenGlView(context).also { view ->
-                        streamingEngine.initializeCamera(view)
+                    SurfaceView(context).also { view ->
+                        streamingEngine.initializeCamera()
+                        view.holder.addCallback(
+                            object : SurfaceHolder.Callback {
+                                override fun surfaceCreated(holder: SurfaceHolder) {
+                                    streamingEngine.attachPreview(
+                                        holder.surface,
+                                        view.width,
+                                        view.height,
+                                    )
+                                }
+
+                                override fun surfaceChanged(
+                                    holder: SurfaceHolder,
+                                    format: Int,
+                                    width: Int,
+                                    height: Int,
+                                ) {
+                                    streamingEngine.attachPreview(holder.surface, width, height)
+                                }
+
+                                override fun surfaceDestroyed(holder: SurfaceHolder) {
+                                    streamingEngine.detachPreview()
+                                }
+                            },
+                        )
                     }
                 },
                 modifier = Modifier.fillMaxSize(),

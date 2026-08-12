@@ -1,8 +1,9 @@
 package com.vivid.feature.streaming
 
+import android.view.Surface
 import com.pedro.common.ConnectChecker
 import com.pedro.library.rtmp.RtmpCamera2
-import com.pedro.library.view.OpenGlView
+import com.pedro.library.view.GlStreamInterface
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.just
@@ -18,14 +19,17 @@ import org.junit.jupiter.api.Test
 class StreamingEngineTest {
 
     private lateinit var rtmpCamera: RtmpCamera2
+    private lateinit var glStreamInterface: GlStreamInterface
     private lateinit var cameraFactory: CameraFactory
     private lateinit var streamingEngine: StreamingEngine
 
     @BeforeEach
     fun setUp() {
         rtmpCamera = mockk(relaxed = true)
+        glStreamInterface = mockk(relaxed = true)
+        every { rtmpCamera.glInterface } returns glStreamInterface
         cameraFactory = object : CameraFactory {
-            override fun create(openGlView: OpenGlView, connectChecker: ConnectChecker): RtmpCamera2 {
+            override fun create(connectChecker: ConnectChecker): RtmpCamera2 {
                 return rtmpCamera
             }
         }
@@ -35,8 +39,7 @@ class StreamingEngineTest {
     @Test
     fun `startStream should not do anything if url is blank`() = runTest {
         // Arrange
-        val openGlView: OpenGlView = mockk(relaxed = true)
-        streamingEngine.initializeCamera(openGlView)
+        streamingEngine.initializeCamera()
 
         // Act
         streamingEngine.startStream("")
@@ -52,10 +55,27 @@ class StreamingEngineTest {
     }
 
     @Test
+    fun `initializeCamera should only create the camera once`() = runTest {
+        var createCount = 0
+        streamingEngine = StreamingEngine(
+            object : CameraFactory {
+                override fun create(connectChecker: ConnectChecker): RtmpCamera2 {
+                    createCount++
+                    return rtmpCamera
+                }
+            },
+        )
+
+        streamingEngine.initializeCamera()
+        streamingEngine.initializeCamera()
+
+        assertEquals(1, createCount)
+    }
+
+    @Test
     fun `startStream should call startStream on camera if url is valid`() = runTest {
         // Arrange
-        val openGlView: OpenGlView = mockk(relaxed = true)
-        streamingEngine.initializeCamera(openGlView)
+        streamingEngine.initializeCamera()
         every { rtmpCamera.isStreaming } returns false
         every { rtmpCamera.prepareAudio() } returns true
         every { rtmpCamera.prepareVideo() } returns true
@@ -72,8 +92,7 @@ class StreamingEngineTest {
     fun `startStream should pass an rtmps url through to the camera unchanged`() = runTest {
         // Arrange: RootEncoder erkennt rtmps:// am Scheme und aktiviert TLS selbst,
         // die Engine darf die URL also nicht umschreiben oder verwerfen.
-        val openGlView: OpenGlView = mockk(relaxed = true)
-        streamingEngine.initializeCamera(openGlView)
+        streamingEngine.initializeCamera()
         every { rtmpCamera.isStreaming } returns false
         every { rtmpCamera.prepareAudio() } returns true
         every { rtmpCamera.prepareVideo() } returns true
@@ -88,8 +107,7 @@ class StreamingEngineTest {
 
     @Test
     fun `startStream should set Preparing while starting`() = runTest {
-        val openGlView: OpenGlView = mockk(relaxed = true)
-        streamingEngine.initializeCamera(openGlView)
+        streamingEngine.initializeCamera()
         every { rtmpCamera.isStreaming } returns false
         every { rtmpCamera.prepareAudio() } returns true
         every { rtmpCamera.prepareVideo() } returns true
@@ -101,8 +119,7 @@ class StreamingEngineTest {
 
     @Test
     fun `startStream should fail when audio preparation fails`() = runTest {
-        val openGlView: OpenGlView = mockk(relaxed = true)
-        streamingEngine.initializeCamera(openGlView)
+        streamingEngine.initializeCamera()
         every { rtmpCamera.isStreaming } returns false
         every { rtmpCamera.prepareAudio() } returns false
 
@@ -114,8 +131,7 @@ class StreamingEngineTest {
 
     @Test
     fun `startStream should not restart when already streaming`() = runTest {
-        val openGlView: OpenGlView = mockk(relaxed = true)
-        streamingEngine.initializeCamera(openGlView)
+        streamingEngine.initializeCamera()
         every { rtmpCamera.isStreaming } returns true
 
         streamingEngine.startStream("rtmp://test.com/app")
@@ -126,8 +142,7 @@ class StreamingEngineTest {
 
     @Test
     fun `stopStream should stop the camera and reset the state to Idle`() = runTest {
-        val openGlView: OpenGlView = mockk(relaxed = true)
-        streamingEngine.initializeCamera(openGlView)
+        streamingEngine.initializeCamera()
         var isStreaming = false
         every { rtmpCamera.isStreaming } answers { isStreaming }
         every { rtmpCamera.prepareAudio() } returns true
@@ -144,8 +159,7 @@ class StreamingEngineTest {
 
     @Test
     fun `stopStream should do nothing when not streaming`() = runTest {
-        val openGlView: OpenGlView = mockk(relaxed = true)
-        streamingEngine.initializeCamera(openGlView)
+        streamingEngine.initializeCamera()
         every { rtmpCamera.isStreaming } returns false
 
         streamingEngine.stopStream()
@@ -156,16 +170,15 @@ class StreamingEngineTest {
     @Test
     fun `connect checker callbacks should update the streaming state`() = runTest {
         var capturedChecker: ConnectChecker? = null
-        val openGlView: OpenGlView = mockk(relaxed = true)
         streamingEngine = StreamingEngine(
             object : CameraFactory {
-                override fun create(openGlView: OpenGlView, connectChecker: ConnectChecker): RtmpCamera2 {
+                override fun create(connectChecker: ConnectChecker): RtmpCamera2 {
                     capturedChecker = connectChecker
                     return rtmpCamera
                 }
             },
         )
-        streamingEngine.initializeCamera(openGlView)
+        streamingEngine.initializeCamera()
         val checker = requireNotNull(capturedChecker)
 
         checker.onConnectionStarted("rtmp://test.com/app")
@@ -183,5 +196,85 @@ class StreamingEngineTest {
 
         checker.onAuthError()
         assertEquals(StreamingState.Failed("RTMP Auth Error"), streamingEngine.streamingState.value)
+    }
+
+    // --- Preview (GL-freier Pfad): attach/detach unabhängig vom Encoder ---
+
+    @Test
+    fun `attachPreview is deferred until the gl pipeline runs and attaches on start`() = runTest {
+        streamingEngine.initializeCamera()
+        var glRunning = false
+        every { glStreamInterface.isRunning } answers { glRunning }
+        every { rtmpCamera.isStreaming } returns false
+        every { rtmpCamera.prepareAudio() } returns true
+        // prepareVideo startet die GL-Pipeline (real: prepareGlView -> glInterface.start())
+        every { rtmpCamera.prepareVideo() } answers { glRunning = true; true }
+        val surface: Surface = mockk(relaxed = true)
+
+        // Vorschau kommt vor dem Stream-Start an -> GL läuft noch nicht.
+        streamingEngine.attachPreview(surface, 640, 480)
+        verify(exactly = 0) { glStreamInterface.attachPreview(any()) }
+
+        // Beim Stream-Start (nach prepareVideo) wird die gemerkte Surface angehängt.
+        streamingEngine.startStream("rtmp://test.com/app")
+
+        verify(exactly = 1) { glStreamInterface.attachPreview(surface) }
+        verify(exactly = 1) { glStreamInterface.setPreviewResolution(640, 480) }
+    }
+
+    @Test
+    fun `attachPreview attaches immediately when the gl pipeline is already running`() = runTest {
+        streamingEngine.initializeCamera()
+        every { glStreamInterface.isRunning } returns true
+        val surface: Surface = mockk(relaxed = true)
+
+        streamingEngine.attachPreview(surface, 1280, 720)
+
+        verify(exactly = 1) { glStreamInterface.attachPreview(surface) }
+        verify(exactly = 1) { glStreamInterface.setPreviewResolution(1280, 720) }
+    }
+
+    @Test
+    fun `detachPreview releases only the preview surface`() = runTest {
+        streamingEngine.initializeCamera()
+        val surface: Surface = mockk(relaxed = true)
+        streamingEngine.attachPreview(surface, 640, 480)
+
+        streamingEngine.detachPreview()
+
+        verify(exactly = 1) { glStreamInterface.deAttachPreview() }
+        // Der Stream selbst wird durch das Ablösen der Vorschau nicht gestoppt.
+        verify(exactly = 0) { rtmpCamera.stopStream() }
+    }
+
+    @Test
+    fun `re-attaching a new preview surface after activity recreate keeps the stream`() = runTest {
+        streamingEngine.initializeCamera()
+        every { glStreamInterface.isRunning } returns true
+        val firstSurface: Surface = mockk(relaxed = true)
+        val secondSurface: Surface = mockk(relaxed = true)
+
+        streamingEngine.attachPreview(firstSurface, 640, 480)
+        streamingEngine.detachPreview()
+        streamingEngine.attachPreview(secondSurface, 640, 480)
+
+        verify { glStreamInterface.attachPreview(firstSurface) }
+        verify { glStreamInterface.attachPreview(secondSurface) }
+        verify(exactly = 1) { glStreamInterface.deAttachPreview() }
+    }
+
+    @Test
+    fun `startStream without a preview surface streams view-less`() = runTest {
+        streamingEngine.initializeCamera()
+        every { glStreamInterface.isRunning } returns true
+        every { rtmpCamera.isStreaming } returns false
+        every { rtmpCamera.prepareAudio() } returns true
+        every { rtmpCamera.prepareVideo() } returns true
+
+        streamingEngine.startStream("rtmp://test.com/app")
+
+        // Ohne gemerkte Surface wird nichts angehängt — der Stream läuft trotzdem.
+        verify(exactly = 0) { glStreamInterface.attachPreview(any()) }
+        coVerify { rtmpCamera.startStream("rtmp://test.com/app") }
     }
 }
