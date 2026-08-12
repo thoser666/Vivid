@@ -2,7 +2,7 @@
 
 Das **Endziel** von Vivid ist es, **zumindest funktionsgleich zu [Moblin](https://github.com/eerimoq/moblin)** zu sein — jedes Moblin-Feature soll in Vivid, adaptiert an die Android-Plattform, funktionieren.
 
-Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](README.md#-parity-status): Es verfolgt **jedes** Moblin-Feature (33 anwendbare) mit Implementierungsstand, verantwortlichem Modul und offenen Tasks.
+Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](README.md#-parity-status): Es verfolgt **jedes** Moblin-Feature (35 anwendbare) mit Implementierungsstand, verantwortlichem Modul und offenen Tasks.
 
 ## Status-Legende
 
@@ -13,7 +13,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 | 📋 | Geplant (Roadmap) |
 | — | Nicht zutreffend auf Android |
 
-> **Stand:** 2026-08-11 · Aktualisierung: Web-Remote-Control (LAN-Server) ergänzt
+> **Stand:** 2026-08-12 · Aktualisierung: Go-Live-Selbst-Check (Stream-Config-Validierung) ergänzt
 >
 > **Pflege:** Nach jedem Feature-Commit den Status in der jeweiligen Zeile aktualisieren und das Datum oben anpassen.
 >
@@ -33,10 +33,10 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 | Kamera & Video | 0 | 1 | 3 | 4 |
 | Audio | 0 | 0 | 3 | 3 |
 | Remote & Companion | 1 | 0 | 2 | 3 |
-| Plattform & Grundlagen | 4 | 1 | 0 | 5 |
-| **Gesamt** | **9** | **2** | **24** | **35**† |
+| Plattform & Grundlagen | 5 | 1 | 0 | 6 |
+| **Gesamt** | **10** | **2** | **24** | **36**† |
 
-† Inkl. 1 n/a-Zeile (Apple-Watch-Companion); anwendbare Features: **34**.
+† Inkl. 1 n/a-Zeile (Apple-Watch-Companion); anwendbare Features: **35**.
 
 ---
 
@@ -116,6 +116,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 | Feature | Status | Modul | Offene Tasks / Notizen |
 |---------|--------|-------|------------------------|
 | Persistierte Stream-Einstellungen (URL/Key) | ✅ | `feature-streaming`, `feature-settings`, `core` (`SettingsRepository`) | `streamUrl`/`streamKey` via DataStore; in `startStream()` verdrahtet |
+| Go-Live-Selbst-Check (Stream-Config-Validierung) | ✅ | `feature-streaming` (`StreamConfigValidator`), UI (`StreamingScreen`) | Validierung von URL/Scheme/Host/Key vor dem Start; ERROR blockiert, WARNING zeigt Hinweis; Re-Validierung bei Screen-Resume |
 | Persistierte OBS-Einstellungen (Host, Port, Passwort, TLS) | ✅ | `core`, `feature-obs-control`, `feature-settings` | DataStore-Key `obs_use_tls` etc.; beide Settings-Screens |
 | Auth-/API-Basis (Login, Register) | ✅ | `core` (`VividApi`), `domain` | Ktor-Client mit MockEngine-Tests |
 | In-App-Version & Update-Check (About-Screen) | ✅ | `app` (`AboutScreen`), `feature-settings` (Update-Badge), `core` (`UpdateChecker`) | Zeigt installierte Version (versionName/versionCode) in Settings + About, Update-Badge direkt auf dem Settings-Screen, manueller Check in About; folgt den Cross-Track-Regeln aus RELEASE.md (kein Downgrade); Basis für den Obtainium-Update-Test |
@@ -127,6 +128,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 
 | Datum | Commit | Änderung |
 |-------|--------|----------|
+| 2026-08-12 | — | Go-Live-Selbst-Check (Stream-Config-Validierung, blockierende Fehler + Warnungen) ergänzt |
 | 2026-08-11 | — | Web-Remote-Control (LAN-Server mit Token-Auth, Status/Start/Stop) ergänzt |
 | 2026-08-11 | — | About-Screen (In-App-Version + Update-Check gegen GitHub-Releases) ergänzt |
 | 2026-08-11 | — | Offene Tasks für OBS- & Audio-Troubleshooting ergänzt (README-FAQ) |

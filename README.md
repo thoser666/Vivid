@@ -73,6 +73,8 @@ Android blocks APKs from outside the Play Store by default. On first launch of t
 
 After installation, Vivid asks for **camera** and **microphone** permissions (needed for streaming). Then follow the [Platform Setup Guides](#-platform-setup-guides) to connect Twitch, YouTube, Kick, or your own server.
 
+> ✅ **Go-Live Self-Check:** Before starting, Vivid validates the configured URL and stream key on the streaming screen and shows clear messages (e.g. *"Keine Stream-URL konfiguriert"*, *"Nicht unterstütztes Protokoll"*, missing stream key). Blocking problems prevent the start; warnings are shown but don't block.
+
 ### 🔄 Automatic updates (Obtainium)
 
 To keep Vivid up to date automatically, use [**Obtainium**](https://obtainium.imranr.dev/):
@@ -105,6 +107,7 @@ The About-screen check follows the same rules as [RELEASE.md](RELEASE.md): it on
 
 - 🎛️ **OBS WebSocket Control** - Control OBS Studio directly from your phone (switch scenes, start/stop recording and streaming)
 - 🌐 **Streaming Pipeline** - CameraX-based live streaming to your configured RTMP/SRT ingest (Twitch, YouTube, Kick, or your own server)
+- ✅ **Go-Live Self-Check** - Before starting the stream, Vivid validates the configured URL and stream key (missing/invalid URL, unsupported protocol, missing key) and shows clear, actionable German messages directly on the streaming screen — blocking errors prevent starting, warnings (e.g. missing key) are shown but don't block
 - ⚙️ **Persisted Stream Settings** - Stream URL/key and OBS connection details are stored and reused across sessions
 - 🔄 **In-App Update Check** - Settings shows the installed version + an „Update verfügbar“ badge; the About screen (Settings → „Über Vivid & Updates“) adds a manual check against GitHub Releases — ideal for verifying Obtainium updates. Results are cached for 1 hour (DataStore), so opening Settings does not hammer the GitHub API rate limit; the manual check in About always refreshes and shows the **release notes** of the newest build
 - 🕹️ **Web Remote Control** - A small LAN server (port 8080, token-protected) exposes the streaming status via `http://<phone-ip>:8080/status` and allows starting/stopping the stream from any browser in the same network — see [Usage](#-usage)
@@ -388,6 +391,7 @@ Status: ✅ implemented · 🚧 in progress · 📋 planned
 |----------------|-------|-------|
 | OBS WebSocket Control | ✅ | Scenes, recording, stream start/stop |
 | Streaming (RTMP / SRT) | ✅ | Configurable URL/key via settings |
+| Go-Live Self-Check | ✅ | Validates URL/key before starting, clear error messages |
 | Persisted Stream Settings | ✅ | Stream & OBS config across sessions |
 | I18n Support | 🚧 | Groundwork in place, translations pending |
 | H.264/H.265, up to 4K/60fps | 📋 | Pipeline in place, quality targets planned |
@@ -396,7 +400,7 @@ Status: ✅ implemented · 🚧 in progress · 📋 planned
 | Overlays & Widgets | 📋 | `feature-widgets` module scaffolded |
 | Audio Tools (levels, muting, talk-back) | 📋 | |
 | Extended Protocols (RTMPS, RIST, WHIP) | 📋 | |
-| Web Remote Control | 📋 | |
+| Web Remote Control | ✅ | LAN server (port 8080) with token auth: status, start/stop |
 | Game Controller Support | 📋 | |
 | Deep Linking (`moblin://`) | 📋 | |
 
