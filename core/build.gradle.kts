@@ -8,6 +8,10 @@ plugins {
 
 android {
     namespace = "com.vivid.core"
+
+    lint {
+        disable += setOf("GradleDependency", "NewerVersionAvailable", "OldTargetApi")
+    }
     compileSdk = libs.versions.compileSdk.get().toInt()
 
     defaultConfig {

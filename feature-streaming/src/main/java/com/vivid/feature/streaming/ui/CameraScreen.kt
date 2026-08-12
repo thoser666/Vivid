@@ -2,7 +2,6 @@ package com.vivid.feature.streaming.ui
 
 import android.Manifest
 import android.content.pm.PackageManager
-import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
@@ -23,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import timber.log.Timber
 
 @Composable
 fun CameraScreen() {
@@ -94,7 +94,7 @@ fun CameraPreview(
                 )
             } catch (ise: IllegalStateException) {
                 // Likely a configuration or state issue with CameraX
-                Log.e("CameraPreview", "Illegal state during camera binding. Check configuration or lifecycle.", ise)
+                Timber.e(ise, "Illegal state during camera binding. Check configuration or lifecycle.")
                 // Potentially show a user-friendly error message
             }
         }, ContextCompat.getMainExecutor(context))

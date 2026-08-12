@@ -15,6 +15,12 @@ sentry {
 
 android {
     namespace = "com.vivid"
+
+    lint {
+        // Versionshinweise (GradleDependency/NewerVersionAvailable) sind informativ —
+        // Dependency-Updates laufen über Dependabot. OldTargetApi: SDK-Upgrade bewusst.
+        disable += setOf("GradleDependency", "NewerVersionAvailable", "OldTargetApi")
+    }
     compileSdk = libs.versions.compileSdk.get().toInt()
 
     defaultConfig {

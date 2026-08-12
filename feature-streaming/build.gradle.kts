@@ -7,6 +7,10 @@ plugins {
 
 android {
     namespace = "com.vivid.feature.streaming"
+
+    lint {
+        disable += setOf("GradleDependency", "NewerVersionAvailable", "OldTargetApi")
+    }
     compileSdk = libs.versions.compileSdk.get().toInt()
 
     defaultConfig {
@@ -70,6 +74,9 @@ dependencies {
     // Media3 / ExoPlayer für die Wiedergabe
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.ui)
+
+    // Logging (Timber, statt android.util.Log)
+    implementation(libs.timber)
 
     // Test-Abhängigkeiten
     testImplementation(libs.junit.jupiter.api)

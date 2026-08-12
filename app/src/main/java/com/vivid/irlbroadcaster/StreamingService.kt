@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -188,6 +189,11 @@ class StreamingService : Service() {
         super.onDestroy()
     }
 
+    // Bewusst KEIN Timeout: Die Freigabe ist an den Stream-Lifecycle gebunden
+    // (teardown()/onDestroy()); ein künstliches Timeout würde bei Langzeit-Streams
+    // mitten im Stream verfallen → CPU-Schlaf → Aussetzer. Das OS gibt den
+    // WakeLock bei Prozess-Tod automatisch frei.
+    @SuppressLint("WakelockTimeout")
     private fun acquireWakeLock() {
         if (wakeLock?.isHeld == true) return
         val powerManager = getSystemService(Context.POWER_SERVICE) as? PowerManager ?: return
