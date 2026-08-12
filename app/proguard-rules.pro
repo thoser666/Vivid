@@ -19,3 +19,9 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# --- Ktor-Server (Web-Remote-Control) auf Android ---
+# io.ktor.util.debug.IntellijIdeaDebugDetector referenziert java.lang.management,
+# das auf Android nicht existiert — die Referenzen werden nur vom JVM-Debugger genutzt.
+-dontwarn java.lang.management.ManagementFactory
+-dontwarn java.lang.management.RuntimeMXBean

@@ -22,6 +22,7 @@ fun SettingsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val updateState by viewModel.updateState.collectAsState()
+    val remoteControl by viewModel.remoteControl.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
@@ -120,6 +121,29 @@ fun SettingsScreen(
                 Switch(
                     checked = uiState.obsUseTls,
                     onCheckedChange = viewModel::onObsUseTlsChange,
+                )
+            }
+
+            // Web-Remote-Control: Zugangsdaten für den LAN-Server
+            Text("Web-Remote-Control", style = MaterialTheme.typography.titleLarge)
+            if (remoteControl.token.isNotBlank()) {
+                Text(
+                    text = "Im gleichen WLAN erreichbar unter http://<GERÄTE-IP>:${remoteControl.port}/status — Aktionen via Authorization: Bearer <token>.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                OutlinedTextField(
+                    value = remoteControl.token,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Remote-Token") },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            } else {
+                Text(
+                    text = "Token wird geladen…",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
 

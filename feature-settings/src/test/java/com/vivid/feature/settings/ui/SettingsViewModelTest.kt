@@ -2,6 +2,8 @@ package com.vivid.feature.settings.ui
 
 import com.vivid.core.data.AppSettings
 import com.vivid.core.data.SettingsRepository
+import com.vivid.core.remote.RemoteControlServer
+import com.vivid.core.remote.RemoteControlTokenStore
 import com.vivid.core.update.UpdateCheckResult
 import com.vivid.core.update.UpdateChecker
 import io.mockk.coEvery
@@ -32,10 +34,15 @@ class SettingsViewModelTest {
         every { appSettingsFlow } returns MutableStateFlow(AppSettings())
     }
 
+    private fun tokenStore(token: String = "test-token"): RemoteControlTokenStore = mockk {
+        coEvery { getOrCreateToken() } returns token
+    }
+
     private fun createViewModel(
         repository: SettingsRepository = repository(),
         checker: UpdateChecker = mockk(relaxed = true),
-    ) = SettingsViewModel(repository, checker)
+        tokenStore: RemoteControlTokenStore = tokenStore(),
+    ) = SettingsViewModel(repository, checker, tokenStore)
 
     @After
     fun tearDown() {
@@ -195,6 +202,18 @@ class SettingsViewModelTest {
         coVerify { repository.updateObsSettings("obs.example.com", "4455", "pw", false) }
         assertEquals(1, events.size)
         collector.cancel()
+    }
+
+    // --- Web-Remote-Control ---
+
+    @Test
+    fun `loads the remote control token and default port`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val viewModel = createViewModel(tokenStore = tokenStore("abc-123"))
+        advanceUntilIdle()
+
+        assertEquals(RemoteControlServer.DEFAULT_PORT, viewModel.remoteControl.value.port)
+        assertEquals("abc-123", viewModel.remoteControl.value.token)
     }
 
     // --- Update-Indikator (Obtainium-Test) ---

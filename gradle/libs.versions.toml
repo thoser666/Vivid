@@ -110,6 +110,12 @@ ktor-serialization-kotlinx-json = { group = "io.ktor", name = "ktor-serializatio
 ktor-client-logging = { group = "io.ktor", name = "ktor-client-logging", version.ref = "ktor"}
 ktor-client-mock = { group = "io.ktor", name = "ktor-client-mock", version.ref = "ktor" }
 
+# Ktor-Server (Web-Remote-Control über LAN)
+ktor-server-core = { group = "io.ktor", name = "ktor-server-core", version.ref = "ktor" }
+ktor-server-cio = { group = "io.ktor", name = "ktor-server-cio", version.ref = "ktor" }
+ktor-server-content-negotiation = { group = "io.ktor", name = "ktor-server-content-negotiation", version.ref = "ktor" }
+ktor-server-test-host = { group = "io.ktor", name = "ktor-server-test-host", version.ref = "ktor" }
+
 timber = { group = "com.jakewharton.timber", name = "timber", version = "5.0.1" }
 
 rootencoder-encoder = { module = "com.github.pedroSG94.RootEncoder:encoder", version.ref = "rootencoder" }

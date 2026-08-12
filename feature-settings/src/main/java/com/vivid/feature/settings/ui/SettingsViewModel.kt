@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vivid.core.data.AppSettings // Importiert die vollständige Klasse
 import com.vivid.core.data.SettingsRepository
+import com.vivid.core.remote.RemoteControlServer
+import com.vivid.core.remote.RemoteControlTokenStore
 import com.vivid.core.update.UpdateCheckResult
 import com.vivid.core.update.UpdateChecker
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -17,10 +19,17 @@ data class SettingsUpdateState(
     val result: UpdateCheckResult? = null,
 )
 
+/** Zugangsdaten der Web-Remote-Control für die Anzeige in den Settings. */
+data class RemoteControlInfo(
+    val port: Int = RemoteControlServer.DEFAULT_PORT,
+    val token: String = "",
+)
+
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val updateChecker: UpdateChecker,
+    private val remoteControlTokenStore: RemoteControlTokenStore,
 ) : ViewModel() {
 
     // Der StateFlow verwendet jetzt die vollständige AppSettings-Klasse.
@@ -32,6 +41,9 @@ class SettingsViewModel @Inject constructor(
 
     private val _updateState = MutableStateFlow(SettingsUpdateState())
     val updateState = _updateState.asStateFlow()
+
+    private val _remoteControl = MutableStateFlow(RemoteControlInfo())
+    val remoteControl = _remoteControl.asStateFlow()
 
     /** Version, für die der letzte Check lief — verhindert Mehrfach-Checks pro Screen-Öffnung. */
     private var lastCheckedVersion: String? = null
@@ -58,6 +70,12 @@ class SettingsViewModel @Inject constructor(
             settingsRepository.appSettingsFlow.collect { settings ->
                 _uiState.value = settings
             }
+        }
+        viewModelScope.launch {
+            // Token der Web-Remote-Control laden (wird bei Bedarf erzeugt) —
+            // damit der Nutzer die LAN-URL im Browser aufrufen kann.
+            val token = remoteControlTokenStore.getOrCreateToken()
+            _remoteControl.value = RemoteControlInfo(port = RemoteControlServer.DEFAULT_PORT, token = token)
         }
     }
 
