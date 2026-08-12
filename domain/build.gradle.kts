@@ -9,6 +9,7 @@ android {
 
     lint {
         disable += setOf("GradleDependency", "NewerVersionAvailable", "OldTargetApi")
+        warningsAsErrors = true
     }
     compileSdk = libs.versions.compileSdk.get().toInt()
 

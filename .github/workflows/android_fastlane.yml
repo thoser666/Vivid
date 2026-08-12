@@ -63,6 +63,12 @@ jobs:
       - name: Run unit tests
         run: bundle exec fastlane test
 
+      # ✅ Lint & Static Analysis auf ALLEN Modulen — gleicher Standard wie
+      # android.yml (warningsAsErrors in allen Modulen gesetzt). blockt, sobald
+      # eine Warnung/Fehler auftaucht; Build-Release/ Publish hängen an diesem Job.
+      - name: Run lint & static analysis
+        run: bundle exec fastlane lint
+
       # ✅ Live-Check des UpdateCheckers gegen die ECHTEN GitHub-Releases des Repos
       # (kein Mock): parsebare Versions-Antwort, konsistente Cross-Track-Logik.
       # Bewusst als eigener Schritt, damit GH_TOKEN (authentifiziert, hohes

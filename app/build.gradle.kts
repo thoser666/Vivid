@@ -17,9 +17,11 @@ android {
     namespace = "com.vivid"
 
     lint {
+        // Blocking-Check: Lint bricht den Build bei jeder Warnung/Fehler ab.
         // Versionshinweise (GradleDependency/NewerVersionAvailable) sind informativ —
         // Dependency-Updates laufen über Dependabot. OldTargetApi: SDK-Upgrade bewusst.
         disable += setOf("GradleDependency", "NewerVersionAvailable", "OldTargetApi")
+        warningsAsErrors = true
     }
     compileSdk = libs.versions.compileSdk.get().toInt()
 
