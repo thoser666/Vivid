@@ -60,7 +60,15 @@ android {
                 this.keyAlias = keyAlias
                 this.keyPassword = keyPassword
             } else {
-                println("⚠️ Release signing not configured - using debug keystore")
+                // Nur warnen, wenn tatsächlich ein Release-Build (Signing nötig)
+                // angefordert wird — Tests/Lint/Debug laufen ohne KEYSTORE_PATH und
+                // sind kein Fehler (kein Warn-Rauschen in jedem CI-Schritt).
+                val wantsReleaseBuild = gradle.startParameter.taskNames.any {
+                    it.contains("Release", ignoreCase = true)
+                }
+                if (wantsReleaseBuild) {
+                    println("⚠️ Release signing not configured - using debug keystore")
+                }
             }
         }
     }

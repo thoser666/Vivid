@@ -154,12 +154,15 @@ jobs:
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
-          if [ -n "$KEYSTORE_BASE64" ]; then
-            echo $KEYSTORE_BASE64 | base64 -di > ${{ github.workspace }}/release.keystore
-            echo "KEYSTORE_PATH=${{ github.workspace }}/release.keystore" >> $GITHUB_ENV
-          else
-            echo "⚠️ No keystore found, will use debug signing"
+          # Härtung: Ohne Release-Keystore KEIN Release bauen/veröffentlichen —
+          # ein mit dem Debug-Key signiertes APK würde Obtainium-Updates brechen
+          # (andere Signatur). Stattdessen laut fehlschlagen.
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::error::KEYSTORE_BASE64 fehlt — Release müsste mit Debug-Key signiert werden. Abbruch."
+            exit 1
           fi
+          echo $KEYSTORE_BASE64 | base64 -di > ${{ github.workspace }}/release.keystore
+          echo "KEYSTORE_PATH=${{ github.workspace }}/release.keystore" >> $GITHUB_ENV
 
       # ✅ Release-Build mit Signing-Secrets
       - name: Build Release APK
@@ -228,12 +231,15 @@ jobs:
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
-          if [ -n "$KEYSTORE_BASE64" ]; then
-            echo $KEYSTORE_BASE64 | base64 -di > ${{ github.workspace }}/release.keystore
-            echo "KEYSTORE_PATH=${{ github.workspace }}/release.keystore" >> $GITHUB_ENV
-          else
-            echo "⚠️ No keystore found, will use debug signing"
+          # Härtung: Ohne Release-Keystore KEIN Release bauen/veröffentlichen —
+          # ein mit dem Debug-Key signiertes APK würde Obtainium-Updates brechen
+          # (andere Signatur). Stattdessen laut fehlschlagen.
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::error::KEYSTORE_BASE64 fehlt — Release müsste mit Debug-Key signiert werden. Abbruch."
+            exit 1
           fi
+          echo $KEYSTORE_BASE64 | base64 -di > ${{ github.workspace }}/release.keystore
+          echo "KEYSTORE_PATH=${{ github.workspace }}/release.keystore" >> $GITHUB_ENV
 
       # ✅ Signiertes APK bauen und als GitHub-Release veröffentlichen (stable oder nightly)
       # Das Sentry-Gradle-Plugin lädt das ProGuard-Mapping automatisch mit hoch
@@ -305,12 +311,15 @@ jobs:
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
-          if [ -n "$KEYSTORE_BASE64" ]; then
-            echo $KEYSTORE_BASE64 | base64 -di > ${{ github.workspace }}/release.keystore
-            echo "KEYSTORE_PATH=${{ github.workspace }}/release.keystore" >> $GITHUB_ENV
-          else
-            echo "⚠️ No keystore found, will use debug signing"
+          # Härtung: Ohne Release-Keystore KEIN Release bauen/veröffentlichen —
+          # ein mit dem Debug-Key signiertes APK würde Obtainium-Updates brechen
+          # (andere Signatur). Stattdessen laut fehlschlagen.
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::error::KEYSTORE_BASE64 fehlt — Release müsste mit Debug-Key signiert werden. Abbruch."
+            exit 1
           fi
+          echo $KEYSTORE_BASE64 | base64 -di > ${{ github.workspace }}/release.keystore
+          echo "KEYSTORE_PATH=${{ github.workspace }}/release.keystore" >> $GITHUB_ENV
 
       # ✅ versionName/versionCode aus dem soeben veröffentlichten nightly-Release lesen
       # und das Artefakt herunterladen (Revision-Sanity gegen das Checkout).
