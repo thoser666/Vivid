@@ -5,14 +5,17 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import com.vivid.R
 import com.vivid.feature.streaming.StreamingEngine
 import com.vivid.feature.streaming.StreamingState
@@ -132,6 +135,15 @@ class StreamingService : Service() {
 
     /** Aktualisiert die bereits gezeigte Notification mit dem neuen Status. */
     private fun updateNotification(state: StreamingState) {
+        // Auf Android 13+ braucht notify() die POST_NOTIFICATIONS-Berechtigung.
+        // Sie wird beim Go-Live angefordert; ist sie verweigert, überspringen wir
+        // das Update — die (systemseitig erzwungene) FGS-Notification bleibt aktiv.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
         NotificationManagerCompat.from(this)
             .notify(StreamingServiceSupport.NOTIFICATION_ID, buildNotification(state))
     }
