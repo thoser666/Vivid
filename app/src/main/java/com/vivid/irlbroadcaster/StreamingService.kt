@@ -90,32 +90,70 @@ class StreamingService : Service() {
         return START_NOT_STICKY
     }
 
-    /** Startet den Service als Foreground mit persistenter Notification + WakeLock. */
+    /**
+     * Startet den Service als Foreground mit persistenter Notification + WakeLock.
+     *
+     * Die FGS-Typen microphone/camera erfordern ab Android 14/15 die jeweilige
+     * Runtime-Permission (RECORD_AUDIO/CAMERA) — ohne sie crasht startForeground()
+     * mit SecurityException. Der Go-Live-Flow fragt die Berechtigungen zwar vorher
+     * an, aber als Defense-in-Depth (z. B. Revoke in den Einstellungen während die
+     * App im Hintergrund ist) werden die Typen nur mit erteilter Berechtigung gesetzt
+     * und ein fehlgeschlagener Start beendet den Service sauber statt zu crashen.
+     */
     private fun startAsForeground() {
         createNotificationChannel()
-        val notification = buildNotification(streamingEngine.streamingState.value)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(StreamingServiceSupport.NOTIFICATION_ID, notification, foregroundServiceType())
-        } else {
-            startForeground(StreamingServiceSupport.NOTIFICATION_ID, notification)
+        val type = foregroundServiceType()
+        // API 34+: Ist der Manifest-Typ-FGS deklariert, darf startForeground() nicht
+        // mit Type 0 aufgerufen werden (MissingForegroundServiceTypeException).
+        // Ohne jede erteilte FGS-Berechtigung gar nicht erst starten.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE && type == 0) {
+            Timber.w("StreamingService: FGS-Typ-Berechtigungen fehlen — Stream nicht gestartet")
+            teardown()
+            return
         }
-        acquireWakeLock()
+        val notification = buildNotification(streamingEngine.streamingState.value)
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                startForeground(StreamingServiceSupport.NOTIFICATION_ID, notification, type)
+            } else {
+                startForeground(StreamingServiceSupport.NOTIFICATION_ID, notification)
+            }
+            acquireWakeLock()
+        } catch (e: SecurityException) {
+            // z. B. RECORD_AUDIO/CAMERA zwischen Go-Live und Start entzogen.
+            Timber.e(e, "StreamingService: startForeground verweigert (FGS-Typ-Berechtigung?)")
+            teardown()
+        }
     }
 
     /**
-     * FGS-Typ für Kamera + Mikrofon. Die Typen sind bitmaskiert; ältere Plattformen
-     * ignorieren unbekannte Bits, daher reicht die API-Level-Abfrage.
+     * FGS-Typ für Kamera + Mikrofon, abhängig von der erteilten Runtime-Permission:
+     * - microphone: Android 14+ verlangt RECORD_AUDIO (vorher bedingungslos)
+     * - camera: Android 15+ verlangt CAMERA (vorher bedingungslos)
+     * Auf älteren Plattformen sind die Bits unkritisch und werden immer gesetzt.
      */
     private fun foregroundServiceType(): Int {
         var type = 0
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            if (hasPermission(Manifest.permission.RECORD_AUDIO)) {
+                type = type or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+            }
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            // Android 11–13: Typ unkritisch (keine Runtime-Permission-Pflicht).
             type = type or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+            if (hasPermission(Manifest.permission.CAMERA)) {
+                type = type or ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA
+            }
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             type = type or ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA
         }
         return type
     }
+
+    private fun hasPermission(permission: String): Boolean =
+        ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
 
     /** Aktualisiert die Notification, sobald sich der Engine-Status ändert. */
     private fun observeStreamState() {
@@ -136,9 +174,11 @@ class StreamingService : Service() {
 
     /** Aktualisiert die bereits gezeigte Notification mit dem neuen Status. */
     private fun updateNotification(state: StreamingState) {
-        // Auf Android 13+ braucht notify() die POST_NOTIFICATIONS-Berechtigung.
-        // Sie wird beim Go-Live angefordert; ist sie verweigert, überspringen wir
-        // das Update — die (systemseitig erzwungene) FGS-Notification bleibt aktiv.
+        // Auf Android 13+ braucht notify() die POST_NOTIFICATIONS-Berechtigung
+        // (auf Android ≤12 existiert sie nicht — der Guard greift dort gar nicht).
+        // startForeground() selbst ist davon ausgenommen (FGS-Notification erscheint
+        // auch ohne die Berechtigung); nur dieses Update hier wird übersprungen,
+        // falls der Nutzer die Berechtigung verweigert hat.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
             PackageManager.PERMISSION_GRANTED
