@@ -6,7 +6,7 @@ Jeder Release durchläuft eine von vier Stufen. Welche Stufe aktiv ist, bestimmt
 
 | Stufe | Tag-Muster | Auslöser | Zielgruppe |
 |-------|-----------|----------|------------|
-| `nightly` | `nightly` (rollierend) | Jeder develop-Merge | Entwickler · CI-Tester |
+| `nightly` | `nightly` (rollierend) | Jeder develop-Merge · **täglich 06:00 UTC (Schedule)** · manuell (`workflow_dispatch`) | Entwickler · CI-Tester |
 | `alpha` | `vX.Y.0-alpha` | Manuell via `fastlane release_alpha` | Frühe Tester (Obtainium, kein Pre-Release-Flag nötig) |
 | `beta` | `vX.Y.0-beta` | Manuell via `fastlane release_beta` (TODO) | Feldtester · Hunde essen ihr eigenes Futter |
 | `stable` | `vX.Y.Z` | Manuell via `fastlane release_stable` (TODO) | Play Store · F-Droid · Allgemeinverfügbarkeit |
