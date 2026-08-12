@@ -287,4 +287,44 @@ class StreamingViewModelTest {
             buildStreamUrl("srt://live.example:9000?streamid=key-1", "key-1", useTls = true),
         )
     }
+
+    @Test
+    fun `buildStreamUrl rewrites standard rtmp port 1935 to 443 when tls is on`() {
+        assertEquals(
+            "rtmps://live.example.com:443/app/key-1",
+            buildStreamUrl("rtmp://live.example.com:1935/app", "key-1", useTls = true),
+        )
+    }
+
+    @Test
+    fun `buildStreamUrl rewrites standard rtmp port 1935 without a path`() {
+        assertEquals(
+            "rtmps://live.example.com:443/key-1",
+            buildStreamUrl("rtmp://live.example.com:1935", "key-1", useTls = true),
+        )
+    }
+
+    @Test
+    fun `buildStreamUrl keeps custom tls port when tls is on`() {
+        assertEquals(
+            "rtmps://live.example.com:8443/app/key-1",
+            buildStreamUrl("rtmp://live.example.com:8443/app", "key-1", useTls = true),
+        )
+    }
+
+    @Test
+    fun `buildStreamUrl keeps standard port when tls is off`() {
+        assertEquals(
+            "rtmp://live.example.com:1935/app/key-1",
+            buildStreamUrl("rtmp://live.example.com:1935/app", "key-1", useTls = false),
+        )
+    }
+
+    @Test
+    fun `buildStreamUrl does not rewrite already secure rtmps urls`() {
+        assertEquals(
+            "rtmps://live.example.com:1935/app/key-1",
+            buildStreamUrl("rtmps://live.example.com:1935/app", "key-1", useTls = true),
+        )
+    }
 }

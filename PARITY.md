@@ -13,7 +13,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 | 📋 | Geplant (Roadmap) |
 | — | Nicht zutreffend auf Android |
 
-> **Stand:** 2026-08-12 · Aktualisierung: Go-Live-Selbst-Check (Stream-Config-Validierung) ergänzt
+> **Stand:** 2026-08-12 · Aktualisierung: RTMPS (TLS-Ingest) verifiziert und implementiert
 >
 > **Pflege:** Nach jedem Feature-Commit den Status in der jeweiligen Zeile aktualisieren und das Datum oben anpassen.
 >
@@ -25,7 +25,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 
 | Kategorie | ✅ | 🚧 | 📋 | Summe |
 |-----------|----|----|----|-------|
-| Streaming & Protokolle | 2 | 0 | 5 | 7 |
+| Streaming & Protokolle | 3 | 0 | 4 | 7 |
 | Netzwerk-Bonding | 0 | 0 | 1 | 1 |
 | OBS-Steuerung | 2 | 0 | 2 | 4 |
 | Chat & Moderation | 0 | 0 | 3 | 3 |
@@ -34,7 +34,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 | Audio | 0 | 0 | 3 | 3 |
 | Remote & Companion | 1 | 0 | 2 | 3 |
 | Plattform & Grundlagen | 5 | 1 | 0 | 6 |
-| **Gesamt** | **10** | **2** | **24** | **36**† |
+| **Gesamt** | **11** | **2** | **23** | **36**† |
 
 † Inkl. 1 n/a-Zeile (Apple-Watch-Companion); anwendbare Features: **35**.
 
@@ -46,7 +46,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 |----------------|--------|-------|------------------------|
 | RTMP | ✅ | `feature-streaming`, `core` | Single-Ingest-Stream über konfigurierte URL/Key |
 | SRT | ✅ | `feature-streaming` | SRT über `RootEncoder` 2.6.4; Stream-URL aus Settings |
-| RTMPS (TLS) | 📋 | `core` | TLS-Ingest prüfen (RootEncoder-Kapazität verifizieren) |
+| RTMPS (TLS) | ✅ | `feature-streaming` | TLS-Ingest via RootEncoder 2.6.4 verifiziert (Bytecode: `tlsEnabled = scheme.endsWith("s")`, Port 443 default, TLSv1.1/1.2); `buildStreamUrl` schreibt `rtmp://` → `rtmps://` und normalisiert Port 1935 → 443; Beweis-Test am echten UrlParser (`RootEncoderRtmpsSupportTest`) |
 | Multi-Streaming (RTMP(S) an mehrere Ziele) | 📋 | `feature-streaming` | Parallele Publisher verwalten; UI für mehrere Ziele |
 | RIST | 📋 | `core` | Stack-Entscheidung: `librist`-JNI oder SRT-basiert |
 | WHIP (WebRTC) | 📋 | `core` | WebRTC-Stack (z. B. `io.github.webrtc-sdk`); WHIP-Client + Sender |
@@ -128,6 +128,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 
 | Datum | Commit | Änderung |
 |-------|--------|----------|
+| 2026-08-12 | — | RTMPS (TLS-Ingest) verifiziert: RootEncoder 2.6.4 kann nativ TLS; Port-Normalisierung 1935→443 + Beweis-Test |
 | 2026-08-12 | — | Go-Live-Selbst-Check (Stream-Config-Validierung, blockierende Fehler + Warnungen) ergänzt |
 | 2026-08-11 | — | Web-Remote-Control (LAN-Server mit Token-Auth, Status/Start/Stop) ergänzt |
 | 2026-08-11 | — | About-Screen (In-App-Version + Update-Check gegen GitHub-Releases) ergänzt |

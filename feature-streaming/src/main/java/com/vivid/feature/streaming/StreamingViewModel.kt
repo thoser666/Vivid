@@ -85,8 +85,11 @@ class StreamingViewModel @Inject constructor(
  * URL ergibt `null`, damit der Aufrufer einen Fehler anzeigen kann.
  *
  * Bei [useTls] = true wird `rtmp://` automatisch auf `rtmps://` umgeschrieben
- * (RTMP über TLS, Port 443). Das funktioniert für YouTube und Twitch offiziell;
- * die RootEncoder-Library erkennt `rtmps://` am Scheme und aktiviert TLS selbst.
+ * (RTMP über TLS). Die RootEncoder-Library erkennt `rtmps://` am Scheme und
+ * aktiviert TLS selbst (verifiziert an RootEncoder 2.6.4: `tlsEnabled` wird
+ * gesetzt, wenn das Scheme auf `s` endet; Default-Port ist dann 443 statt 1935).
+ * Ein explizit gesetzter Standard-RTMP-Port (1935) wird deshalb auf 443
+ * umgeschrieben — ein eigener TLS-Port (z. B. 8443) bleibt erhalten.
  * URLs, die bereits ein sicheres Scheme haben (`rtmps`/`rtmpt`/`rtmpts`/`srt`),
  * bleiben unverändert.
  */
@@ -95,9 +98,28 @@ internal fun buildStreamUrl(streamUrl: String, streamKey: String, useTls: Boolea
     if (url.isEmpty()) return null
     if (useTls && url.startsWith("rtmp://")) {
         url = "rtmps://" + url.removePrefix("rtmp://")
+        // RootEncoder nutzt bei TLS standardmäßig Port 443. Einen expliziten
+        // Standard-RTMP-Port (1935) auf 443 umschreiben, sonst würde TLS auf
+        // dem falschen Port versuchen. Eigene Ports (z. B. 8443) bleiben.
+        url = normalizeTlsPort(url)
     }
     val key = streamKey.trim()
     if (key.isEmpty() || url.endsWith(key) || url.endsWith("/$key")) return url
     val separator = if (url.endsWith("/")) "" else "/"
     return url + separator + key
+}
+
+/**
+ * Schreibt einen expliziten Standard-RTMP-Port `:1935` direkt nach dem Host
+ * auf `:443` um (für rtmps). Eigene Ports (z. B. `:8443`) bleiben unverändert.
+ * Reine String-Logik ohne Regex, damit die Escapes nicht ins Rutschen kommen.
+ */
+private fun normalizeTlsPort(url: String): String {
+    val afterScheme = url.substringAfter("rtmps://", missingDelimiterValue = "")
+    if (afterScheme.isEmpty()) return url
+    val authority = afterScheme.substringBefore("/").substringBefore("?")
+    if (!authority.endsWith(":1935")) return url
+    val host = authority.removeSuffix(":1935")
+    val rest = afterScheme.removePrefix(authority)
+    return "rtmps://$host:443$rest"
 }

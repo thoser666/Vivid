@@ -107,6 +107,7 @@ The About-screen check follows the same rules as [RELEASE.md](RELEASE.md): it on
 
 - 🎛️ **OBS WebSocket Control** - Control OBS Studio directly from your phone (switch scenes, start/stop recording and streaming)
 - 🌐 **Streaming Pipeline** - CameraX-based live streaming to your configured RTMP/SRT ingest (Twitch, YouTube, Kick, or your own server)
+- 🔒 **RTMPS (TLS)** - Encrypted ingest via `rtmps://` (verified against RootEncoder 2.6.4: native TLS handshake, port 443); enabled per-platform or via the TLS toggle, standard port 1935 is auto-normalized to 443
 - ✅ **Go-Live Self-Check** - Before starting the stream, Vivid validates the configured URL and stream key (missing/invalid URL, unsupported protocol, missing key) and shows clear, actionable German messages directly on the streaming screen — blocking errors prevent starting, warnings (e.g. missing key) are shown but don't block
 - ⚙️ **Persisted Stream Settings** - Stream URL/key and OBS connection details are stored and reused across sessions
 - 🔄 **In-App Update Check** - Settings shows the installed version + an „Update verfügbar“ badge; the About screen (Settings → „Über Vivid & Updates“) adds a manual check against GitHub Releases — ideal for verifying Obtainium updates. Results are cached for 1 hour (DataStore), so opening Settings does not hammer the GitHub API rate limit; the manual check in About always refreshes and shows the **release notes** of the newest build
@@ -123,7 +124,7 @@ The About-screen check follows the same rules as [RELEASE.md](RELEASE.md): it on
 - 💬 **Chat Integration** - Twitch/YouTube/Kick chat with emotes and moderation
 - 🎨 **Configurable Overlays** - Chat, follower/donation alerts, custom graphics and branding
 - 📹 **High-Quality Streaming** - Up to 4K resolution at 60fps with H.264/AVC and H.265/HEVC
-- 🔒 **Extended Protocols** - RTMPS, SRTLA, RIST, and WHIP (WebRTC)
+- 🔒 **Extended Protocols** - SRTLA, RIST, and WHIP (WebRTC) — RTMPS is already implemented (see below)
 - 🕹️ **Remote & Companion Features** - Web remote control, game controller support, deep linking
 
 ## 📋 Platform Setup Guides
@@ -391,6 +392,7 @@ Status: ✅ implemented · 🚧 in progress · 📋 planned
 |----------------|-------|-------|
 | OBS WebSocket Control | ✅ | Scenes, recording, stream start/stop |
 | Streaming (RTMP / SRT) | ✅ | Configurable URL/key via settings |
+| RTMPS (TLS ingest) | ✅ | `rtmps://` via RootEncoder 2.6.4, port 443, TLS verified |
 | Go-Live Self-Check | ✅ | Validates URL/key before starting, clear error messages |
 | Persisted Stream Settings | ✅ | Stream & OBS config across sessions |
 | I18n Support | 🚧 | Groundwork in place, translations pending |
@@ -399,7 +401,7 @@ Status: ✅ implemented · 🚧 in progress · 📋 planned
 | Chat + Emotes + Moderation | 📋 | `feature-chat` module scaffolded |
 | Overlays & Widgets | 📋 | `feature-widgets` module scaffolded |
 | Audio Tools (levels, muting, talk-back) | 📋 | |
-| Extended Protocols (RTMPS, RIST, WHIP) | 📋 | |
+| Extended Protocols (RIST, WHIP) | 📋 | |
 | Web Remote Control | ✅ | LAN server (port 8080) with token auth: status, start/stop |
 | Game Controller Support | 📋 | |
 | Deep Linking (`moblin://`) | 📋 | |
@@ -437,7 +439,7 @@ cd Vivid
 ### Running Tests & Lint
 
 ```bash
-# Unit tests for all modules (147 tests across core, app, feature-*)
+# Unit tests for all modules (197 tests across core, app, feature-*)
 ./gradlew testDebugUnitTest
 
 # Live check: run the in-app UpdateChecker against the real GitHub releases
