@@ -161,7 +161,7 @@ bundle exec fastlane release_alpha
 >   - Data Safety Section (welche Daten sammelt die App?)
 
 **Kriterien (alle müssen erfüllt sein):**
-- [ ] ≥50 % Feature-Parität (aktuell 8/34 ≈ 24 %, Ziel: ≥17 Features)
+- [ ] ≥50 % Feature-Parität (aktuell 9/34 ≈ 26 %, Ziel: ≥17 Features)
 - [ ] Chat implementiert & getestet (📋 in PARITY.md)
 - [ ] Mindestens ein Overlay/Widget funktioniert (📋 in PARITY.md)
 - [ ] Kamera-Vorschau stabil (🚧 in PARITY.md)

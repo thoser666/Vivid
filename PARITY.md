@@ -13,7 +13,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 | 📋 | Geplant (Roadmap) |
 | — | Nicht zutreffend auf Android |
 
-> **Stand:** 2026-08-11 · Aktualisierung: About-Screen (In-App-Version & Update-Check) ergänzt
+> **Stand:** 2026-08-11 · Aktualisierung: Web-Remote-Control (LAN-Server) ergänzt
 >
 > **Pflege:** Nach jedem Feature-Commit den Status in der jeweiligen Zeile aktualisieren und das Datum oben anpassen.
 >
@@ -32,9 +32,9 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 | Overlays & Widgets | 0 | 0 | 5 | 5 |
 | Kamera & Video | 0 | 1 | 3 | 4 |
 | Audio | 0 | 0 | 3 | 3 |
-| Remote & Companion | 0 | 0 | 3 | 3 |
+| Remote & Companion | 1 | 0 | 2 | 3 |
 | Plattform & Grundlagen | 4 | 1 | 0 | 5 |
-| **Gesamt** | **8** | **2** | **25** | **35**† |
+| **Gesamt** | **9** | **2** | **24** | **35**† |
 
 † Inkl. 1 n/a-Zeile (Apple-Watch-Companion); anwendbare Features: **34**.
 
@@ -106,7 +106,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 
 | Moblin-Feature | Status | Modul | Offene Tasks / Notizen |
 |----------------|--------|-------|------------------------|
-| Web-Remote-Control (LAN-Server, Status/Preview) | 📋 | `core` | Ktor-Embedded-Server + Autorisierung |
+| Web-Remote-Control (LAN-Server, Status/Preview) | ✅ | `core` (`RemoteControlServer`), `feature-streaming` (`StreamingEngineStreamControl`), `app` (`VividApplication`) | Ktor-Server auf Port 8080 mit Token-Auth; `GET /status` (öffentlich), `POST /start|stop` (Bearer-Token aus Settings); Token wird in DataStore persistiert und in den Settings angezeigt. **Offen:** Video-Preview im Browser, Foreground-Service für Hintergrund-Betrieb, Toggle zum Aktivieren/Deaktivieren |
 | Game-Controller-Support (Zoom, Szenen, Torch) | 📋 | `core` | Android-GameController-API |
 | Deep Linking / Konfig-Import (`moblin://`, `.moblinSettings`) | 📋 | `app` | URL-Scheme + Import-Parser |
 | Apple-Watch-Companion | — | — | Nicht zutreffend auf Android; Wear-OS-Pendant separat bewerten |
@@ -127,6 +127,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 
 | Datum | Commit | Änderung |
 |-------|--------|----------|
+| 2026-08-11 | — | Web-Remote-Control (LAN-Server mit Token-Auth, Status/Start/Stop) ergänzt |
 | 2026-08-11 | — | About-Screen (In-App-Version + Update-Check gegen GitHub-Releases) ergänzt |
 | 2026-08-11 | — | Offene Tasks für OBS- & Audio-Troubleshooting ergänzt (README-FAQ) |
 | 2026-08-08 | — | Erstversion erstellt (Stand nach `4d8362e`) |

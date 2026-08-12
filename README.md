@@ -107,6 +107,7 @@ The About-screen check follows the same rules as [RELEASE.md](RELEASE.md): it on
 - 🌐 **Streaming Pipeline** - CameraX-based live streaming to your configured RTMP/SRT ingest (Twitch, YouTube, Kick, or your own server)
 - ⚙️ **Persisted Stream Settings** - Stream URL/key and OBS connection details are stored and reused across sessions
 - 🔄 **In-App Update Check** - Settings shows the installed version + an „Update verfügbar“ badge; the About screen (Settings → „Über Vivid & Updates“) adds a manual check against GitHub Releases — ideal for verifying Obtainium updates. Results are cached for 1 hour (DataStore), so opening Settings does not hammer the GitHub API rate limit; the manual check in About always refreshes and shows the **release notes** of the newest build
+- 🕹️ **Web Remote Control** - A small LAN server (port 8080, token-protected) exposes the streaming status via `http://<phone-ip>:8080/status` and allows starting/stopping the stream from any browser in the same network — see [Usage](#-usage)
 - 🔓 **Open Source** - Completely free and open source
 
 ### 🚧 In Progress
@@ -190,6 +191,32 @@ The About-screen check follows the same rules as [RELEASE.md](RELEASE.md): it on
    - Server: `srt://[server-ip]:[port]`
    - Stream ID: *[your stream ID]*
    - Configure latency and encryption as needed
+
+</details>
+
+<details>
+<summary><strong>🕹️ Web Remote Control (Stream per Browser steuern)</strong></summary>
+
+Vivid startet einen kleinen **LAN-Server** (Port **8080**), über den du den Stream-Status abfragen und den Stream starten/stoppen kannst — praktisch, wenn das Handy als Kamera läuft und du vom Laptop steuern willst:
+
+1. **Handy und Laptop ins selbe WLAN** bringen
+2. **Token holen:** In Vivid unter **Einstellungen → Web-Remote-Control** steht dein **Remote-Token** (wird einmalig erzeugt und gespeichert)
+3. **IP ermitteln:** LAN-IP des Handys (Android: **Einstellungen → WLAN → Verbundenes Netz → Details**)
+4. **Status abfragen (ohne Token):**
+
+   ```bash
+   curl http://<handy-ip>:8080/status
+   # → {"status":"IDLE"} | {"status":"STREAMING"} | ...
+   ```
+
+5. **Stream starten/stoppen (mit Token):**
+
+   ```bash
+   curl -X POST http://<handy-ip>:8080/start -H "Authorization: Bearer <dein-token>"
+   curl -X POST http://<handy-ip>:8080/stop  -H "Authorization: Bearer <dein-token>"
+   ```
+
+> 🔒 Der Server läuft nur, solange die App geöffnet ist, und Aktionen benötigen das Token — im selben WLAN ist die Verbindung unverschlüsselt (wie bei OBS ws://), außerhalb des LAN nicht erreichbar.
 
 </details>
 
