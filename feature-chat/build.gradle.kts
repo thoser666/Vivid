@@ -10,7 +10,7 @@ android {
     namespace = "com.vivid.feature.chat"
 
     lint {
-        disable += setOf("GradleDependency", "NewerVersionAvailable", "OldTargetApi")
+        disable += setOf("GradleDependency", "NewerVersionAvailable", "AndroidGradlePluginVersion", "OldTargetApi")
         warningsAsErrors = true
     }
     compileSdk = libs.versions.compileSdk.get().toInt()
