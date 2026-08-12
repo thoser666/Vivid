@@ -13,7 +13,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 | 📋 | Geplant (Roadmap) |
 | — | Nicht zutreffend auf Android |
 
-> **Stand:** 2026-08-12 · Aktualisierung: RTMPS (TLS-Ingest) verifiziert und implementiert
+> **Stand:** 2026-08-12 · Aktualisierung: Foreground-Service für Hintergrund-Streaming implementiert
 >
 > **Pflege:** Nach jedem Feature-Commit den Status in der jeweiligen Zeile aktualisieren und das Datum oben anpassen.
 >
@@ -25,7 +25,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 
 | Kategorie | ✅ | 🚧 | 📋 | Summe |
 |-----------|----|----|----|-------|
-| Streaming & Protokolle | 3 | 0 | 4 | 7 |
+| Streaming & Protokolle | 4 | 0 | 4 | 8 |
 | Netzwerk-Bonding | 0 | 0 | 1 | 1 |
 | OBS-Steuerung | 2 | 0 | 2 | 4 |
 | Chat & Moderation | 0 | 0 | 3 | 3 |
@@ -34,9 +34,9 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 | Audio | 0 | 0 | 3 | 3 |
 | Remote & Companion | 1 | 0 | 2 | 3 |
 | Plattform & Grundlagen | 5 | 1 | 0 | 6 |
-| **Gesamt** | **11** | **2** | **23** | **36**† |
+| **Gesamt** | **12** | **2** | **23** | **37**† |
 
-† Inkl. 1 n/a-Zeile (Apple-Watch-Companion); anwendbare Features: **35**.
+† Inkl. 1 n/a-Zeile (Apple-Watch-Companion); anwendbare Features: **36**.
 
 ---
 
@@ -47,6 +47,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 | RTMP | ✅ | `feature-streaming`, `core` | Single-Ingest-Stream über konfigurierte URL/Key |
 | SRT | ✅ | `feature-streaming` | SRT über `RootEncoder` 2.6.4; Stream-URL aus Settings |
 | RTMPS (TLS) | ✅ | `feature-streaming` | TLS-Ingest via RootEncoder 2.6.4 verifiziert (Bytecode: `tlsEnabled = scheme.endsWith("s")`, Port 443 default, TLSv1.1/1.2); `buildStreamUrl` schreibt `rtmp://` → `rtmps://` und normalisiert Port 1935 → 443; Beweis-Test am echten UrlParser (`RootEncoderRtmpsSupportTest`) |
+| Hintergrund-Streaming (Foreground-Service) | ✅ | `app` (`StreamingService`), `feature-streaming` (`StreamingServiceLauncher`, `StreamingViewModel`) | Stream läuft weiter, wenn die App im Hintergrund ist (Home-Taste/Bildschirm aus): Foreground-Service mit `microphone|camera`-Type, persistenter Notification (Status-Aktualisierung, Stop-Aktion), PARTIAL_WAKE_LOCK; Runtime-Permissions (Kamera/Mikro/Notif.) werden beim Go-Live angefordert. **Grenze:** Wird die Activity zerstört (Recents-Wischen), stirbt die Kamera-Preview und damit der Stream — ein GL-freier Encoder wäre nötig (Roadmap) |
 | Multi-Streaming (RTMP(S) an mehrere Ziele) | 📋 | `feature-streaming` | Parallele Publisher verwalten; UI für mehrere Ziele |
 | RIST | 📋 | `core` | Stack-Entscheidung: `librist`-JNI oder SRT-basiert |
 | WHIP (WebRTC) | 📋 | `core` | WebRTC-Stack (z. B. `io.github.webrtc-sdk`); WHIP-Client + Sender |
@@ -106,7 +107,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 
 | Moblin-Feature | Status | Modul | Offene Tasks / Notizen |
 |----------------|--------|-------|------------------------|
-| Web-Remote-Control (LAN-Server, Status/Preview) | ✅ | `core` (`RemoteControlServer`), `feature-streaming` (`StreamingEngineStreamControl`), `app` (`VividApplication`) | Ktor-Server auf Port 8080 mit Token-Auth; `GET /status` (öffentlich), `POST /start|stop` (Bearer-Token aus Settings); Token wird in DataStore persistiert und in den Settings angezeigt. **Offen:** Video-Preview im Browser, Foreground-Service für Hintergrund-Betrieb, Toggle zum Aktivieren/Deaktivieren |
+| Web-Remote-Control (LAN-Server, Status/Preview) | ✅ | `core` (`RemoteControlServer`), `feature-streaming` (`StreamingEngineStreamControl`), `app` (`VividApplication`) | Ktor-Server auf Port 8080 mit Token-Auth; `GET /status` (öffentlich), `POST /start|stop` (Bearer-Token aus Settings); Token wird in DataStore persistiert und in den Settings angezeigt. **Offen:** Video-Preview im Browser, Toggle zum Aktivieren/Deaktivieren |
 | Game-Controller-Support (Zoom, Szenen, Torch) | 📋 | `core` | Android-GameController-API |
 | Deep Linking / Konfig-Import (`moblin://`, `.moblinSettings`) | 📋 | `app` | URL-Scheme + Import-Parser |
 | Apple-Watch-Companion | — | — | Nicht zutreffend auf Android; Wear-OS-Pendant separat bewerten |
@@ -128,6 +129,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 
 | Datum | Commit | Änderung |
 |-------|--------|----------|
+| 2026-08-12 | — | Foreground-Service für Hintergrund-Streaming (Notification, WakeLock, Runtime-Permissions) implementiert |
 | 2026-08-12 | — | RTMPS (TLS-Ingest) verifiziert: RootEncoder 2.6.4 kann nativ TLS; Port-Normalisierung 1935→443 + Beweis-Test |
 | 2026-08-12 | — | Go-Live-Selbst-Check (Stream-Config-Validierung, blockierende Fehler + Warnungen) ergänzt |
 | 2026-08-11 | — | Web-Remote-Control (LAN-Server mit Token-Auth, Status/Start/Stop) ergänzt |
