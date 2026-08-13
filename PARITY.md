@@ -30,14 +30,14 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 | OBS-Steuerung | 2 | 0 | 2 | 4 |
 | Chat & Moderation | 0 | 0 | 4 | 4 |
 | Overlays & Widgets | 0 | 0 | 6 | 6 |
-| Kamera & Video | 0 | 1 | 4 | 5 |
+| Kamera & Video | 1 | 1 | 4 | 6 |
 | Audio | 0 | 0 | 3 | 3 |
 | Remote & Companion | 1 | 0 | 2 | 3 |
 | Plattform & Grundlagen | 5 | 1 | 0 | 6 |
 | Zusatz-Features (über Parität) | 0 | 0 | 1 | 1 |
-| **Gesamt** | **12** | **2** | **28** | **42**† |
+| **Gesamt** | **13** | **2** | **28** | **43**† |
 
-† Inkl. 1 n/a-Zeile (Apple-Watch-Companion) und 1 Zusatz-Feature über die Moblin-Parität hinaus; anwendbare Moblin-Features: **41**.
+† Inkl. 1 n/a-Zeile (Apple-Watch-Companion) und 1 Zusatz-Feature über die Moblin-Parität hinaus; anwendbare Moblin-Features: **42**.
 
 ---
 
@@ -94,7 +94,8 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 
 | Moblin-Feature | Status | Modul | Offene Tasks / Notizen |
 |----------------|--------|-------|------------------------|
-| Tap-to-Focus, Pinch-Zoom, Stabilisierung | 🚧 | `feature-streaming` | CameraX-Controls teils vorhanden (`CameraScreen`); UI-Completion offen. **Open Task:** Focus-Lock / manueller Fokus ([#377](https://github.com/eerimoq/moblin/issues/377)) über camera2-Interop (`CONTROL_AF_MODE_OFF`) bzw. `CameraControl.setLinearFocusDistance()` (manueller/Unendlich-Fokus für Drive-/Train-Streams) |
+| Tap-to-Focus, Pinch-Zoom, Stabilisierung | 🚧 | `feature-streaming` | CameraX-Controls teils vorhanden (`CameraScreen`); UI-Completion offen. **Offen:** Tap-to-Focus/Pinch-Zoom via camera2-Interop (`CameraControl.startFocusAndMetering()`) bzw. `setLinearFocusDistance()` (manueller Fokus-Slider). Fokus-Lock (∞) ist separat umgesetzt → siehe nächste Zeile |
+| Fokus-Lock (∞) / Autofokus-Toggle | ✅ | `feature-streaming` (`StreamingEngine`, `CameraFocusController`) | Toggle Auto ⇄ Unendlich-Lock gegen Fokus-Hunting ([#377](https://github.com/eerimoq/moblin/issues/377), Drive-/Train-Streams): RootEncoder-API (`disableAutoFocus()` + `setFocusDistance(0)`) über `FocusableCamera`-Adapter; Zustand als `focusMode`-`StateFlow` in der Engine (auch vor dem Go-Live schaltbar); Toggle im StreamingScreen; Unit-Tests (`CameraFocusControllerTest`, `StreamingEngineTest`) |
 | Color-Spaces (sRGB, P3, Log) + 3D-LUTs | 📋 | `feature-streaming` | Shader-Pipeline in `OpenGlView` ausbauen |
 | Video-Effekte (Graustufen, Letterbox, Sepia, Rauschfilter) | 📋 | `feature-streaming` | OpenGL-Effektkette |
 | Externes Zubehör (DJI Osmo, GoPro, Gimbal, UVC) | 📋 | `feature-streaming` | BLE/USB-Integrationen einzeln bewerten |
@@ -140,6 +141,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 
 | Datum | Commit | Änderung |
 |-------|--------|----------|
+| 2026-08-13 | — | **Fokus-Lock (∞)** / Autofokus-Toggle für die Streaming-Kamera implementiert ([#377](https://github.com/eerimoq/moblin/issues/377)): `CameraFocusController` + `FocusableCamera` (RootEncoder `disableAutoFocus()`/`setFocusDistance(0f)`), `focusMode`-StateFlow in `StreamingEngine`, Toggle im StreamingScreen, Unit-Tests |
 | 2026-08-13 | — | Zusatz-Feature (über Moblin-Parität hinaus): Oura-Ring-Gesundheitsdaten im Widget (Oura-Cloud-API, OAuth2; keine BLE-Schnittstelle) ergänzt |
 | 2026-08-13 | — | Konkrete Tasks ergänzt: Focus-Lock/manueller Fokus ([#377](https://github.com/eerimoq/moblin/issues/377)) bei Tap-to-Focus, Golf-Scoreboard ([#326](https://github.com/eerimoq/moblin/issues/326)) bei Scoreboards |
 | 2026-08-13 | — | Community-Feature-Requests aus dem Moblin-Tracker ergänzt: RTMP-Pull/Ingest ([#407](https://github.com/eerimoq/moblin/issues/407)), Text-Widget-Variablen GPS/`{road}` ([#360](https://github.com/eerimoq/moblin/issues/360) / [#384](https://github.com/eerimoq/moblin/issues/384)) |

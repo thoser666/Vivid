@@ -111,6 +111,7 @@ The About-screen check follows the same rules as [RELEASE.md](RELEASE.md): it on
 - 🌐 **Streaming Pipeline** - CameraX-based live streaming to your configured RTMP/SRT ingest (Twitch, YouTube, Kick, or your own server)
 - 🔒 **RTMPS (TLS)** - Encrypted ingest via `rtmps://` (verified against RootEncoder 2.6.4: native TLS handshake, port 443); enabled per-platform or via the TLS toggle, standard port 1935 is auto-normalized to 443
 - ✅ **Go-Live Self-Check** - Before starting the stream, Vivid validates the configured URL and stream key (missing/invalid URL, unsupported protocol, missing key) and shows clear, actionable German messages directly on the streaming screen — blocking errors prevent starting, warnings (e.g. missing key) are shown but don't block
+- 🔍 **Focus Lock** - Toggle autofocus ⇄ infinity lock on the streaming camera to prevent focus hunting (rain drops, dirt on the windshield) during drive/train streams — Moblin #377; works on the actual RootEncoder camera (not just the preview) and can be set before going live
 - ⚙️ **Persisted Stream Settings** - Stream URL/key and OBS connection details are stored and reused across sessions
 - 🔄 **In-App Update Check** - Settings shows the installed version + an „Update verfügbar“ badge; the About screen (Settings → „Über Vivid & Updates“) adds a manual check against GitHub Releases — ideal for verifying Obtainium updates. Results are cached for 1 hour (DataStore), so opening Settings does not hammer the GitHub API rate limit; the manual check in About always refreshes and shows the **release notes** of the newest build
 - 🕹️ **Web Remote Control** - A small LAN server (port 8080, token-protected) exposes the streaming status via `http://<phone-ip>:8080/status` and allows starting/stopping the stream from any browser in the same network — see [Usage](#-usage)
@@ -399,6 +400,7 @@ Status: ✅ implemented · 🚧 in progress · 📋 planned
 | RTMPS (TLS ingest) | ✅ | `rtmps://` via RootEncoder 2.6.4, port 443, TLS verified |
 | Background Streaming (Foreground Service) | ✅ | Stream continues in background: notification + wake lock, stop action |
 | Go-Live Self-Check | ✅ | Validates URL/key before starting, clear error messages |
+| Focus Lock (∞) | ✅ | Autofocus ⇄ infinity lock toggle on the streaming camera (Moblin #377) |
 | Persisted Stream Settings | ✅ | Stream & OBS config across sessions |
 | I18n Support | 🚧 | Groundwork in place, translations pending |
 | H.264/H.265, up to 4K/60fps | 📋 | Pipeline in place, quality targets planned |
