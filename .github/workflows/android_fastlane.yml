@@ -368,8 +368,12 @@ jobs:
             echo "::error::apksigner nicht gefunden (Android build-tools fehlen)"
             exit 1
           fi
-          # Signer-Fingerprint des veröffentlichten APK (apksigner: lowercase hex, keine Doppelpunkte)
-          APK_FP=$("$APKSIGNER" verify --print-certs published.apk 2>/dev/null | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | tr -d ':' | tr '[:upper:]' '[:lower:]')
+          # Roh-Ausgabe für Diagnose loggen, dann robust extrahieren (Format-/Versionstolerant:
+          # grep nach der SHA-256-Zeile statt festem Zeilenpräfix).
+          CERT_OUT=$("$APKSIGNER" verify --print-certs published.apk 2>&1)
+          echo "--- apksigner verify output ---"
+          echo "$CERT_OUT"
+          APK_FP=$(echo "$CERT_OUT" | grep -i 'SHA-256 digest' | head -1 | sed 's/.*digest[[:space:]]*:[[:space:]]*//I' | tr -d ':' | tr '[:upper:]' '[:lower:]')
           # Zertifikat-Fingerprint aus dem Release-Keystore (keytool: UPPERCASE mit Doppelpunkten)
           KEY_FP=$(keytool -list -v -keystore "$KEYSTORE_PATH" -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" 2>/dev/null | grep '^[[:space:]]*SHA256:' | sed 's/.*SHA256:[[:space:]]*//' | tr -d ':' | tr '[:upper:]' '[:lower:]')
           if [ -z "$APK_FP" ] || [ -z "$KEY_FP" ]; then
