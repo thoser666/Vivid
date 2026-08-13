@@ -13,7 +13,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 | 📋 | Geplant (Roadmap) |
 | — | Nicht zutreffend auf Android |
 
-> **Stand:** 2026-08-13 · Aktualisierung: Neue Moblin-Features aus Release **33.12.0** (2026-07-24) nachgetragen (Chat-Bot-Media-Steuerung, Photo-Shoot-Quick-Button, Höhenmeter im Text-Widget, Talkback-Mic im Remote-Control) — Referenzstand: Moblin **33.12.0**
+> **Stand:** 2026-08-13 · Aktualisierung: Neue Moblin-Features aus Release **33.12.0** (2026-07-24) nachgetragen (Chat-Bot-Media-Steuerung, Photo-Shoot-Quick-Button, Höhenmeter im Text-Widget, Talkback-Mic im Remote-Control) + Community-Feature-Requests (RTMP-Pull/Ingest, Text-Widget-Variablen) — Referenzstand: Moblin **33.12.0**
 >
 > **Pflege:** Nach jedem Feature-Commit den Status in der jeweiligen Zeile aktualisieren und das Datum oben anpassen.
 >
@@ -25,18 +25,19 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 
 | Kategorie | ✅ | 🚧 | 📋 | Summe |
 |-----------|----|----|----|-------|
-| Streaming & Protokolle | 4 | 0 | 4 | 8 |
+| Streaming & Protokolle | 4 | 0 | 5 | 9 |
 | Netzwerk-Bonding | 0 | 0 | 1 | 1 |
 | OBS-Steuerung | 2 | 0 | 2 | 4 |
 | Chat & Moderation | 0 | 0 | 4 | 4 |
-| Overlays & Widgets | 0 | 0 | 5 | 5 |
+| Overlays & Widgets | 0 | 0 | 6 | 6 |
 | Kamera & Video | 0 | 1 | 4 | 5 |
 | Audio | 0 | 0 | 3 | 3 |
 | Remote & Companion | 1 | 0 | 2 | 3 |
 | Plattform & Grundlagen | 5 | 1 | 0 | 6 |
-| **Gesamt** | **12** | **2** | **25** | **39**† |
+| Zusatz-Features (über Parität) | 0 | 0 | 1 | 1 |
+| **Gesamt** | **12** | **2** | **28** | **42**† |
 
-† Inkl. 1 n/a-Zeile (Apple-Watch-Companion); anwendbare Features: **39**.
+† Inkl. 1 n/a-Zeile (Apple-Watch-Companion) und 1 Zusatz-Feature über die Moblin-Parität hinaus; anwendbare Moblin-Features: **41**.
 
 ---
 
@@ -51,6 +52,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 | Multi-Streaming (RTMP(S) an mehrere Ziele) | 📋 | `feature-streaming` | Parallele Publisher verwalten; UI für mehrere Ziele |
 | RIST | 📋 | `core` | Stack-Entscheidung: `librist`-JNI oder SRT-basiert |
 | WHIP (WebRTC) | 📋 | `core` | WebRTC-Stack (z. B. `io.github.webrtc-sdk`); WHIP-Client + Sender |
+| RTMP-Pull / Ingest (Server-Modus) | 📋 | `core` | Community-Request [#407](https://github.com/eerimoq/moblin/issues/407); Moblin bietet Ingests (RTMP, SRT(LA), RIST, RTSP, WHIP) — Pull-Pfad statt nur Push |
 | 4K/60fps, H.264/H.265 (HEVC) | 📋 | `feature-streaming` | Encoder-Presets (CameraX/MediaCodec); HEVC-Fallback-Kette |
 
 ## 🔗 Netzwerk-Bonding
@@ -83,15 +85,16 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 |----------------|--------|-------|------------------------|
 | Chat-Overlay & Event-Alerts (Follow/Sub/Raid) | 📋 | `feature-widgets` | Modul ist Platzhalter; Alert-Layer + Trigger-API |
 | Text-/Info-Widgets (Zeit, Wetter, Geschwindigkeit, GPS, Höhenmeter) | 📋 | `feature-widgets` | Sensor-/Geo-Daten-Bindungen; Anstieg/Abstieg des Höhenmeters (**neu in Moblin 33.12.0**) |
+| Text-Widget-Variablen (GPS-Koordinaten, `{road}`/Route) | 📋 | `feature-widgets` | Community-Feature-Requests [#360](https://github.com/eerimoq/moblin/issues/360) / [#384](https://github.com/eerimoq/moblin/issues/384); Variablen-System im Text-Widget erweitern |
 | Karten-Widget | 📋 | `feature-widgets` | Karten-Provider wählen (Maps SDK / Tile-Overlay) |
 | Browser-Widget (CSS + JS-API) | 📋 | `feature-widgets` | WebView-Layer + `postMessage`-Bridge |
-| Scoreboards (Padel, Golf, Volleyball) | 📋 | `feature-widgets` | Datenmodelle + Renderer |
+| Scoreboards (Padel, Golf, Volleyball) | 📋 | `feature-widgets` | Datenmodelle + Renderer; **Open Task:** Golf-Scoreboard ([#326](https://github.com/eerimoq/moblin/issues/326)) — Spielernamen, Loch, Par, Punktestand, Auto-Total, horizontale/vertikale Layouts |
 
 ## 📹 Kamera & Video
 
 | Moblin-Feature | Status | Modul | Offene Tasks / Notizen |
 |----------------|--------|-------|------------------------|
-| Tap-to-Focus, Pinch-Zoom, Stabilisierung | 🚧 | `feature-streaming` | CameraX-Controls teils vorhanden (`CameraScreen`); UI-Completion offen |
+| Tap-to-Focus, Pinch-Zoom, Stabilisierung | 🚧 | `feature-streaming` | CameraX-Controls teils vorhanden (`CameraScreen`); UI-Completion offen. **Open Task:** Focus-Lock / manueller Fokus ([#377](https://github.com/eerimoq/moblin/issues/377)) über camera2-Interop (`CONTROL_AF_MODE_OFF`) bzw. `CameraControl.setLinearFocusDistance()` (manueller/Unendlich-Fokus für Drive-/Train-Streams) |
 | Color-Spaces (sRGB, P3, Log) + 3D-LUTs | 📋 | `feature-streaming` | Shader-Pipeline in `OpenGlView` ausbauen |
 | Video-Effekte (Graustufen, Letterbox, Sepia, Rauschfilter) | 📋 | `feature-streaming` | OpenGL-Effektkette |
 | Externes Zubehör (DJI Osmo, GoPro, Gimbal, UVC) | 📋 | `feature-streaming` | BLE/USB-Integrationen einzeln bewerten |
@@ -125,12 +128,21 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 | In-App-Version & Update-Check (About-Screen) | ✅ | `app` (`AboutScreen`), `feature-settings` (Update-Badge), `core` (`UpdateChecker`) | Zeigt installierte Version (versionName/versionCode) in Settings + About, Update-Badge direkt auf dem Settings-Screen, manueller Check in About; folgt den Cross-Track-Regeln aus RELEASE.md (kein Downgrade); Basis für den Obtainium-Update-Test |
 | I18n (lokalisierte Strings) | 🚧 | `feature-*` | `strings.xml`-Grundgerüst vorhanden; Übersetzungen laufen über |
 
+## 💡 Zusatz-Features (über Moblin-Parität hinaus)
+
+| Feature | Status | Modul | Offene Tasks / Notizen |
+|---------|--------|-------|------------------------|
+| Oura-Ring-Gesundheitsdaten im Widget (Sleep, Readiness, HR/HRV) | 📋 | `core` (OAuth2-Client, Repository), `feature-widgets` | Anzeige als Text-/Info-Widget (z. B. Readiness-/Schlaf-Score, Ruhe-HF); **keine BLE-Schnittstelle** → nur Oura-Cloud-API (OAuth2, Browser-Flow), daher aggregierte/verzögerte Werte, kein Live-Puls; Rate-Limits beachten |
+
 ---
 
 ## 🔄 Aktualisierungslog
 
 | Datum | Commit | Änderung |
 |-------|--------|----------|
+| 2026-08-13 | — | Zusatz-Feature (über Moblin-Parität hinaus): Oura-Ring-Gesundheitsdaten im Widget (Oura-Cloud-API, OAuth2; keine BLE-Schnittstelle) ergänzt |
+| 2026-08-13 | — | Konkrete Tasks ergänzt: Focus-Lock/manueller Fokus ([#377](https://github.com/eerimoq/moblin/issues/377)) bei Tap-to-Focus, Golf-Scoreboard ([#326](https://github.com/eerimoq/moblin/issues/326)) bei Scoreboards |
+| 2026-08-13 | — | Community-Feature-Requests aus dem Moblin-Tracker ergänzt: RTMP-Pull/Ingest ([#407](https://github.com/eerimoq/moblin/issues/407)), Text-Widget-Variablen GPS/`{road}` ([#360](https://github.com/eerimoq/moblin/issues/360) / [#384](https://github.com/eerimoq/moblin/issues/384)) |
 | 2026-08-13 | — | Moblin **33.12.0** (2026-07-24) nachgetragen: Chat-Bot-Media-Steuerung (Android-Adaption der Apple-Music-Steuerung via MediaSession), Photo-Shoot-Quick-Button, Höhenmeter (Anstieg/Abstieg) im Text-Widget, Talkback-Mic im Remote-Control |
 | 2026-08-12 | — | Foreground-Service für Hintergrund-Streaming (Notification, WakeLock, Runtime-Permissions) implementiert |
 | 2026-08-12 | — | RTMPS (TLS-Ingest) verifiziert: RootEncoder 2.6.4 kann nativ TLS; Port-Normalisierung 1935→443 + Beweis-Test |
