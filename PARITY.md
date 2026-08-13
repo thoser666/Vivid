@@ -113,7 +113,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 
 | Moblin-Feature | Status | Modul | Offene Tasks / Notizen |
 |----------------|--------|-------|------------------------|
-| Web-Remote-Control (LAN-Server, Status/Preview) | ✅ | `core` (`RemoteControlServer`), `feature-streaming` (`StreamingEngineStreamControl`), `app` (`VividApplication`) | Ktor-Server auf Port 8080 mit Token-Auth; `GET /status` (öffentlich), `POST /start|stop` (Bearer-Token aus Settings); Token wird in DataStore persistiert und in den Settings angezeigt. **Offen:** Video-Preview im Browser, Toggle zum Aktivieren/Deaktivieren, Talkback-Mic-Steuerung (Streamer-Seite; **neu in Moblin 33.12.0**) |
+| Web-Remote-Control (LAN-Server, Status/Preview) | ✅ | `core` (`RemoteControlServer`), `feature-streaming` (`StreamingEngineStreamControl`), `app` (`VividApplication`) | Ktor-Server auf Port 8080 mit Token-Auth; `GET /status` (öffentlich), `POST /start|stop` (Bearer-Token aus Settings); Token wird in DataStore persistiert und in den Settings angezeigt. **Android 17 (API 37, targetSdk 37):** `ACCESS_LOCAL_NETWORK`-Runtime-Berechtigung deklariert + im Settings-Screen erfragbar (Server-Neustart nach Erteilung), damit die LAN-Verbindung weiter funktioniert. **Offen:** Video-Preview im Browser, Toggle zum Aktivieren/Deaktivieren, Talkback-Mic-Steuerung (Streamer-Seite; **neu in Moblin 33.12.0**) |
 | Game-Controller-Support (Zoom, Szenen, Torch) | 📋 | `core` | Android-GameController-API |
 | Deep Linking / Konfig-Import (`moblin://`, `.moblinSettings`) | 📋 | `app` | URL-Scheme + Import-Parser |
 | Apple-Watch-Companion | — | — | Nicht zutreffend auf Android; Wear-OS-Pendant separat bewerten |
@@ -141,6 +141,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 
 | Datum | Commit | Änderung |
 |-------|--------|----------|
+| 2026-08-13 | — | **SDK-Umstellung auf Android 17 (API 37):** `compileSdk`/`targetSdk` 37, `minSdk` 24 unverändert; `ACCESS_LOCAL_NETWORK` deklariert + Runtime-Permission-Flow im Settings-Screen („LAN-Zugriff für Remote-Control erlauben“, Server-Neustart nach Erteilung) für die Web-Remote-Control |
 | 2026-08-13 | — | **OBS-Konfiguration per QR-Code importieren** umgesetzt: `ObsQrCodeParser` (Formate `obsws://` inkl. percent-decoded Passwort, `obswebsocket://`, `obswebsocket|[host]:[port]|[pw]`), Import-Feld im OBS-Settings-Screen, 11 Parser- + 4 ViewModel-Tests |
 | 2026-08-13 | — | **Fokus-Lock (∞)** / Autofokus-Toggle für die Streaming-Kamera implementiert ([#377](https://github.com/eerimoq/moblin/issues/377)): `CameraFocusController` + `FocusableCamera` (RootEncoder `disableAutoFocus()`/`setFocusDistance(0f)`), `focusMode`-StateFlow in `StreamingEngine`, Toggle im StreamingScreen, Unit-Tests |
 | 2026-08-13 | — | Zusatz-Feature (über Moblin-Parität hinaus): Oura-Ring-Gesundheitsdaten im Widget (Oura-Cloud-API, OAuth2; keine BLE-Schnittstelle) ergänzt |

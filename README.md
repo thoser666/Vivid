@@ -227,6 +227,8 @@ Vivid startet einen kleinen **LAN-Server** (Port **8080**), über den du den Str
 
 > 🔒 Der Server läuft nur, solange die App geöffnet ist, und Aktionen benötigen das Token — im selben WLAN ist die Verbindung unverschlüsselt (wie bei OBS ws://), außerhalb des LAN nicht erreichbar.
 
+> ℹ️ **Android 17 (API 37):** Seit `targetSdk 37` verlangt Android die **„Zugriff auf lokale Netzwerke“-Berechtigung** (`ACCESS_LOCAL_NETWORK`) für LAN-Server. Falls `/status` nicht erreichbar ist, in Vivid unter **Einstellungen → Web-Remote-Control** auf **„LAN-Zugriff für Remote-Control erlauben“** tippen (der Server startet danach automatisch neu).
+
 </details>
 
 ---

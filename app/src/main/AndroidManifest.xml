@@ -7,6 +7,9 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Web-Remote-Control über LAN: ab Android 17 (API 37) Pflicht für Apps
+         mit targetSdk 37, damit die App auf das lokale Netzwerk zugreifen darf. -->
+    <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
 
     <!-- Foreground-Service: Stream läuft im Hintergrund weiter -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />

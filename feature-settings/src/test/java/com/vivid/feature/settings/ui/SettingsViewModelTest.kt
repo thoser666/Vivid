@@ -42,7 +42,8 @@ class SettingsViewModelTest {
         repository: SettingsRepository = repository(),
         checker: UpdateChecker = mockk(relaxed = true),
         tokenStore: RemoteControlTokenStore = tokenStore(),
-    ) = SettingsViewModel(repository, checker, tokenStore)
+        remoteControlServer: RemoteControlServer = mockk(relaxed = true),
+    ) = SettingsViewModel(repository, checker, tokenStore, remoteControlServer)
 
     @After
     fun tearDown() {
@@ -214,6 +215,23 @@ class SettingsViewModelTest {
 
         assertEquals(RemoteControlServer.DEFAULT_PORT, viewModel.remoteControl.value.port)
         assertEquals("abc-123", viewModel.remoteControl.value.token)
+    }
+
+    @Test
+    fun `restartRemoteControlServer stops and starts the server`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val server = mockk<RemoteControlServer> {
+            coEvery { stop() } just runs
+            coEvery { start() } just runs
+        }
+        val viewModel = createViewModel(remoteControlServer = server)
+        advanceUntilIdle()
+
+        viewModel.restartRemoteControlServer()
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { server.stop() }
+        coVerify(exactly = 1) { server.start() }
     }
 
     // --- Update-Indikator (Obtainium-Test) ---

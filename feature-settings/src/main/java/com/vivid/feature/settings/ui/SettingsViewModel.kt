@@ -30,6 +30,7 @@ class SettingsViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val updateChecker: UpdateChecker,
     private val remoteControlTokenStore: RemoteControlTokenStore,
+    private val remoteControlServer: RemoteControlServer,
 ) : ViewModel() {
 
     // Der StateFlow verwendet jetzt die vollständige AppSettings-Klasse.
@@ -115,6 +116,23 @@ class SettingsViewModel @Inject constructor(
                 useTls = currentSettings.obsUseTls,
             )
             _saveEvent.emit(Unit)
+        }
+    }
+
+    /**
+     * Startet den Web-Remote-Control-Server neu.
+     *
+     * Ab Android 17 (targetSdk 37) braucht die Remote-Control die
+     * `ACCESS_LOCAL_NETWORK`-Runtime-Berechtigung. Wird sie erst nach dem
+     * App-Start erteilt, muss der Server neu starten, damit der lauschende
+     * Socket die neue Berechtigung übernimmt.
+     */
+    fun restartRemoteControlServer() {
+        viewModelScope.launch {
+            runCatching {
+                remoteControlServer.stop()
+                remoteControlServer.start()
+            }
         }
     }
 }

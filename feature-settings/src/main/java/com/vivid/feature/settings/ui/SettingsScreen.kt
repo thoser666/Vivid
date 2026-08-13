@@ -1,12 +1,19 @@
 package com.vivid.feature.settings.ui
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.vivid.core.update.UpdateCheckResult
@@ -25,6 +32,24 @@ fun SettingsScreen(
     val remoteControl by viewModel.remoteControl.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+
+    // Ab Android 17 (API 37, targetSdk 37) braucht die Web-Remote-Control die
+    // ACCESS_LOCAL_NETWORK-Runtime-Berechtigung. Wird sie hier erteilt, wird
+    // der LAN-Server neu gestartet, damit er sie übernimmt.
+    val context = LocalContext.current
+    val localNetworkPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) {
+            viewModel.restartRemoteControlServer()
+        }
+    }
+    val needsLocalNetworkPermission =
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.CINNAMON_BUN &&
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_LOCAL_NETWORK,
+            ) != PackageManager.PERMISSION_GRANTED
 
     // Einmaliger Update-Check beim Öffnen der Einstellungen (für den Obtainium-Test).
     LaunchedEffect(key1 = installedVersionName) {
@@ -145,6 +170,14 @@ fun SettingsScreen(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            }
+            if (needsLocalNetworkPermission) {
+                OutlinedButton(
+                    onClick = { localNetworkPermissionLauncher.launch(Manifest.permission.ACCESS_LOCAL_NETWORK) },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("LAN-Zugriff für Remote-Control erlauben")
+                }
             }
 
             Spacer(modifier = Modifier.weight(1f))
