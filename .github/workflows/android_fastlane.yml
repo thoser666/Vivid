@@ -352,6 +352,38 @@ jobs:
             exit 1
           fi
 
+      # ✅ Signatur-Check: Das veröffentlichte Nightly-APK muss mit dem Release-Key
+      # signiert sein (nicht mit dem Debug-Key — das würde Obtainium-Updates brechen).
+      # Fingerprint des APK-Signers (apksigner) gegen das Zertifikat aus dem
+      # dekodierten Keystore (keytool) vergleichen — als harter Fail, genau wie der
+      # Hash-Vergleich unten.
+      - name: Verify published APK signature against release key
+        env:
+          KEYSTORE_PATH: ${{ env.KEYSTORE_PATH }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        run: |
+          APKSIGNER=$(command -v apksigner || ls "$ANDROID_HOME"/build-tools/*/apksigner 2>/dev/null | sort -V | tail -1)
+          if [ -z "$APKSIGNER" ]; then
+            echo "::error::apksigner nicht gefunden (Android build-tools fehlen)"
+            exit 1
+          fi
+          # Signer-Fingerprint des veröffentlichten APK (apksigner: lowercase hex, keine Doppelpunkte)
+          APK_FP=$("$APKSIGNER" verify --print-certs published.apk 2>/dev/null | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | tr -d ':' | tr '[:upper:]' '[:lower:]')
+          # Zertifikat-Fingerprint aus dem Release-Keystore (keytool: UPPERCASE mit Doppelpunkten)
+          KEY_FP=$(keytool -list -v -keystore "$KEYSTORE_PATH" -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" 2>/dev/null | grep '^[[:space:]]*SHA256:' | sed 's/.*SHA256:[[:space:]]*//' | tr -d ':' | tr '[:upper:]' '[:lower:]')
+          if [ -z "$APK_FP" ] || [ -z "$KEY_FP" ]; then
+            echo "::error::Fingerprint nicht ermittelbar (APK='$APK_FP' Key='$KEY_FP') — Signatur-Check abgebrochen"
+            exit 1
+          fi
+          echo "APK Signer SHA-256: $APK_FP"
+          echo "Key SHA-256:       $KEY_FP"
+          if [ "$APK_FP" != "$KEY_FP" ]; then
+            echo "::error::Signatur-Mismatch — veröffentlichtes APK ist NICHT mit dem Release-Key signiert!"
+            exit 1
+          fi
+          echo "✅ Signatur verifiziert: veröffentlichtes Nightly-APK trägt den Release-Key"
+
       # ✅ Frischer Build mit exakt den veröffentlichten Parametern
       - name: Rebuild APK with published version params
         env:
