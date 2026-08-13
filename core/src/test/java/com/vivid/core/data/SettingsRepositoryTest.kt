@@ -118,6 +118,60 @@ class SettingsRepositoryTest {
     }
 
     @Test
+    fun `appSettingsFlow should default secondary stream settings to empty (disabled)`() = runTest {
+        val testDataStore = PreferenceDataStoreFactory.create(
+            scope = this,
+            produceFile = { File(tempDir.toFile(), "test_secondary_default.preferences_pb") }
+        )
+        val repository = SettingsRepository(testDataStore)
+
+        // Act
+        val settings = repository.appSettingsFlow.first()
+
+        // Assert
+        assertEquals("", settings.secondaryStreamUrl)
+        assertEquals("", settings.secondaryStreamKey)
+        assertEquals(false, settings.secondaryStreamUseTls)
+    }
+
+    @Test
+    fun `appSettingsFlow should return the saved secondary stream settings`() = runTest {
+        val testDataStore = PreferenceDataStoreFactory.create(
+            scope = this,
+            produceFile = { File(tempDir.toFile(), "test_secondary.preferences_pb") }
+        )
+        val repository = SettingsRepository(testDataStore)
+
+        // Act
+        repository.updateSecondaryStreamSettings("rtmp://secondary.example/app", "key-2", useTls = true)
+        val settings = repository.appSettingsFlow.first()
+
+        // Assert
+        assertEquals("rtmp://secondary.example/app", settings.secondaryStreamUrl)
+        assertEquals("key-2", settings.secondaryStreamKey)
+        assertEquals(true, settings.secondaryStreamUseTls)
+        // Das primäre Ziel bleibt unberührt.
+        assertEquals("", settings.streamUrl)
+    }
+
+    @Test
+    fun `appSettingsFlow should keep secondary settings untouched when updating the primary`() = runTest {
+        val testDataStore = PreferenceDataStoreFactory.create(
+            scope = this,
+            produceFile = { File(tempDir.toFile(), "test_secondary_independent.preferences_pb") }
+        )
+        val repository = SettingsRepository(testDataStore)
+
+        repository.updateStreamSettings("rtmp://primary.example/app", "key-1")
+        val settings = repository.appSettingsFlow.first()
+
+        assertEquals("rtmp://primary.example/app", settings.streamUrl)
+        assertEquals("", settings.secondaryStreamUrl)
+        assertEquals("", settings.secondaryStreamKey)
+        assertEquals(false, settings.secondaryStreamUseTls)
+    }
+
+    @Test
     fun `appSettingsFlow should return the saved obs tls flag`() = runTest {
         val testDataStore = PreferenceDataStoreFactory.create(
             scope = this,

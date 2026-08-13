@@ -46,7 +46,7 @@ class StreamingViewModelTest {
         viewModel.startStream()
         advanceUntilIdle()
 
-        coVerify { launcher.startStreaming("rtmp://live.example/app/key-1") }
+        coVerify { launcher.startStreaming(listOf("rtmp://live.example/app/key-1")) }
         assertNull(viewModel.errorMessage.value)
     }
 
@@ -65,7 +65,7 @@ class StreamingViewModelTest {
         viewModel.startStream()
         advanceUntilIdle()
 
-        coVerify { launcher.startStreaming("rtmps://live.twitch.tv/app/key-1") }
+        coVerify { launcher.startStreaming(listOf("rtmps://live.twitch.tv/app/key-1")) }
         assertNull(viewModel.errorMessage.value)
     }
 
@@ -84,7 +84,7 @@ class StreamingViewModelTest {
         viewModel.startStream()
         advanceUntilIdle()
 
-        coVerify { launcher.startStreaming("rtmps://a.rtmp.youtube.com/live2/key-1") }
+        coVerify { launcher.startStreaming(listOf("rtmps://a.rtmp.youtube.com/live2/key-1")) }
         assertNull(viewModel.errorMessage.value)
     }
 
@@ -99,7 +99,7 @@ class StreamingViewModelTest {
         viewModel.startStream()
         advanceUntilIdle()
 
-        coVerify { launcher.startStreaming("rtmp://live.example/app/key-1") }
+        coVerify { launcher.startStreaming(listOf("rtmp://live.example/app/key-1")) }
     }
 
     @Test
@@ -114,7 +114,7 @@ class StreamingViewModelTest {
         viewModel.startStream()
         advanceUntilIdle()
 
-        coVerify { launcher.startStreaming("rtmp://live.example/app/live-key") }
+        coVerify { launcher.startStreaming(listOf("rtmp://live.example/app/live-key")) }
     }
 
     @Test
@@ -128,7 +128,7 @@ class StreamingViewModelTest {
         viewModel.startStream()
         advanceUntilIdle()
 
-        coVerify { launcher.startStreaming("rtmp://live.example/app") }
+        coVerify { launcher.startStreaming(listOf("rtmp://live.example/app")) }
     }
 
     @Test
@@ -188,7 +188,7 @@ class StreamingViewModelTest {
         viewModel.startStream()
         advanceUntilIdle()
 
-        coVerify { launcher.startStreaming("rtmp://live.twitch.tv/app") }
+        coVerify { launcher.startStreaming(listOf("rtmp://live.twitch.tv/app")) }
         assertTrue(viewModel.configIssues.value.any { it.severity == ConfigIssueSeverity.WARNING })
         assertTrue(viewModel.configIssues.value.none { it.severity == ConfigIssueSeverity.ERROR })
     }
@@ -231,6 +231,95 @@ class StreamingViewModelTest {
         viewModel.stopStream()
 
         verify { launcher.stopStreaming() }
+    }
+
+    // --- Multi-Streaming (primär + optional sekundär) ---
+
+    @Test
+    fun `startStream starts primary and secondary targets`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repository = repositoryWith(
+            AppSettings(
+                streamUrl = "rtmp://live.example/app",
+                streamKey = "key-1",
+                secondaryStreamUrl = "rtmp://second.example/app",
+                secondaryStreamKey = "key-2",
+                secondaryStreamUseTls = true,
+            ),
+        )
+        val viewModel = StreamingViewModel(engine, repository, launcher)
+
+        viewModel.startStream()
+        advanceUntilIdle()
+
+        coVerify {
+            launcher.startStreaming(
+                listOf(
+                    "rtmp://live.example/app/key-1",
+                    "rtmps://second.example/app/key-2",
+                ),
+            )
+        }
+        assertNull(viewModel.errorMessage.value)
+    }
+
+    @Test
+    fun `startStream with blank secondary url starts only the primary`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repository = repositoryWith(
+            AppSettings(
+                streamUrl = "rtmp://live.example/app",
+                streamKey = "key-1",
+                secondaryStreamUrl = "  ",
+            ),
+        )
+        val viewModel = StreamingViewModel(engine, repository, launcher)
+
+        viewModel.startStream()
+        advanceUntilIdle()
+
+        coVerify { launcher.startStreaming(listOf("rtmp://live.example/app/key-1")) }
+    }
+
+    @Test
+    fun `startStream with invalid secondary url blocks the start`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repository = repositoryWith(
+            AppSettings(
+                streamUrl = "rtmp://live.example/app",
+                streamKey = "key-1",
+                secondaryStreamUrl = "http://second.example/app",
+                secondaryStreamKey = "key-2",
+            ),
+        )
+        val viewModel = StreamingViewModel(engine, repository, launcher)
+
+        viewModel.startStream()
+        advanceUntilIdle()
+
+        coVerify(exactly = 0) { launcher.startStreaming(any()) }
+        assertTrue(viewModel.errorMessage.value?.contains("Zweites Ziel") == true)
+    }
+
+    @Test
+    fun `configIssues reports a warning for a secondary url without key`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repository = repositoryWith(
+            AppSettings(
+                streamUrl = "rtmp://live.example/app",
+                streamKey = "key-1",
+                secondaryStreamUrl = "rtmp://second.example/app",
+            ),
+        )
+        val viewModel = StreamingViewModel(engine, repository, launcher)
+
+        advanceUntilIdle()
+
+        assertTrue(
+            viewModel.configIssues.value.any {
+                it.severity == ConfigIssueSeverity.WARNING && it.message.contains("Zweites Ziel")
+            },
+        )
     }
 
     @Test

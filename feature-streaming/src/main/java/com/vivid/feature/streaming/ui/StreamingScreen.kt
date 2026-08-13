@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.Settings
 // 1. Importiere ein passendes Icon für die OBS-Steuerung
 import androidx.compose.material.icons.filled.Podcasts // (Ein gutes Icon für "Broadcasting")
 import androidx.compose.material3.*
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -21,6 +22,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
@@ -44,6 +47,8 @@ import androidx.navigation.NavController
 import com.vivid.feature.streaming.ConfigIssueSeverity
 import com.vivid.feature.streaming.FocusMode
 import com.vivid.feature.streaming.StreamConfigIssue
+import com.vivid.feature.streaming.StreamTargetState
+import com.vivid.feature.streaming.StreamTargetStatus
 import com.vivid.feature.streaming.StreamingState
 import com.vivid.feature.streaming.StreamingViewModel
 
@@ -55,6 +60,7 @@ fun StreamingScreen(
 ) {
     val streamingEngine = viewModel.streamingEngine
     val streamingState by streamingEngine.streamingState.collectAsStateWithLifecycle()
+    val targetStates by streamingEngine.targetStates.collectAsStateWithLifecycle()
     val focusMode by streamingEngine.focusMode.collectAsStateWithLifecycle()
     val errorMessage by viewModel.errorMessage.collectAsStateWithLifecycle()
     val configIssues by viewModel.configIssues.collectAsStateWithLifecycle()
@@ -199,6 +205,21 @@ fun StreamingScreen(
                 Text(buttonText)
             }
 
+            // Per-Ziel-Status (Multi-Streaming): zeigt jedes Ziel mit aktuellem Zustand.
+            if (targetStates.isNotEmpty() && streamingState !is StreamingState.Idle) {
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(start = 16.dp, end = 16.dp, bottom = 72.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    targetStates.forEach { state ->
+                        TargetStatusRow(state)
+                    }
+                }
+            }
+
             // Fokus-Lock (Moblin #377): Fokus auf Unendlich fixieren, damit der
             // Autofokus während des Streamings nicht auf Regentropfen/Schmutz
             // scharf stellt. Gilt für die Streaming-Kamera (RootEncoder), nicht
@@ -271,6 +292,35 @@ private fun ConfigIssueRow(issue: StreamConfigIssue) {
         Text(
             text = issue.message,
             color = if (isError) Color(0xFFB3261E) else Color(0xFF8A6D00),
+        )
+    }
+}
+
+/** Zeigt ein einzelnes Stream-Ziel (Multi-Streaming) mit URL und Status an. */
+@Composable
+private fun TargetStatusRow(state: StreamTargetState) {
+    val label = when (state.status) {
+        StreamTargetStatus.IDLE -> "bereit"
+        StreamTargetStatus.PREPARING -> "verbinde…"
+        StreamTargetStatus.STREAMING -> "sendet live"
+        StreamTargetStatus.FAILED -> "fehlgeschlagen"
+    }
+    val color = when (state.status) {
+        StreamTargetStatus.STREAMING -> Color(0xFF2E7D32)
+        StreamTargetStatus.FAILED -> Color(0xFFB3261E)
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            modifier = Modifier
+                .size(8.dp)
+                .background(color, CircleShape),
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text = "${state.url} · $label",
+            style = MaterialTheme.typography.bodySmall,
+            color = color,
         )
     }
 }

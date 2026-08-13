@@ -3,7 +3,9 @@ package com.vivid.feature.streaming
 import android.content.Context
 import android.view.Surface
 import com.pedro.common.ConnectChecker
-import com.pedro.library.rtmp.RtmpCamera2
+import com.pedro.library.base.Camera2Base
+import com.pedro.library.multiple.MultiCamera2
+import com.pedro.library.multiple.MultiType
 import com.pedro.library.view.GlStreamInterface
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -12,23 +14,47 @@ import kotlinx.coroutines.flow.asStateFlow
 import javax.inject.Inject
 import javax.inject.Singleton
 
-// Ein Interface, das es uns erlaubt, die Kameraerstellung zu mocken
+/** Status eines einzelnen Stream-Ziels (Multi-Streaming). */
+enum class StreamTargetStatus {
+    IDLE,
+    PREPARING,
+    STREAMING,
+    FAILED,
+}
+
+/** Zustand eines einzelnen Stream-Ziels inkl. URL und ggf. Fehlerursache. */
+data class StreamTargetState(
+    val url: String,
+    val status: StreamTargetStatus = StreamTargetStatus.IDLE,
+    val failureReason: String? = null,
+)
+
+// Ein Interface, das es uns erlaubt, die Kameraerstellung zu mocken.
+// Pro Ziel wird ein ConnectChecker übergeben (Reihenfolge = Ziel-Index).
 interface CameraFactory {
-    fun create(connectChecker: ConnectChecker): RtmpCamera2
+    fun create(connectCheckers: List<ConnectChecker>): MultiCamera2
 }
 
 // Die echte Implementierung für die App
 class RtmpCamera2Factory @Inject constructor(
     @ApplicationContext private val context: Context,
 ) : CameraFactory {
-    override fun create(connectChecker: ConnectChecker): RtmpCamera2 {
+    override fun create(connectCheckers: List<ConnectChecker>): MultiCamera2 {
         // Context-Konstruktor statt View-Konstruktor: RootEncoder baut dann eine
         // eigene GL-Pipeline (GlStreamInterface) ohne Activity-View auf. Die
         // Kamera-Vorschau wird separat über attachPreview(Surface) angehängt —
         // so überlebt der Stream die Zerstörung der Activity (Recents-Wischen),
         // weil der Encoder nicht an der Preview-Surface hängt.
+        // MultiCamera2 verwaltet einen ConnectChecker pro Ziel (MVP: max. 2);
+        // nicht genutzte Protokolle werden mit leeren Arrays deaktiviert.
         // (Verifiziert an RootEncoder 2.6.4 per Bytecode + Maintainer-Doku.)
-        return RtmpCamera2(context, connectChecker)
+        return MultiCamera2(
+            context,
+            connectCheckers.toTypedArray(), // rtmp
+            emptyArray(), // rtsp
+            emptyArray(), // srt
+            emptyArray(), // udp
+        )
     }
 }
 
@@ -36,10 +62,15 @@ class RtmpCamera2Factory @Inject constructor(
 class StreamingEngine @Inject constructor(
     private val cameraFactory: CameraFactory, // <-- WIR INJIZIEREN EINE FACTORY
 ) {
-    private var rtmpCamera: RtmpCamera2? = null
+    private var camera: MultiCamera2? = null
 
     private val _streamingState = MutableStateFlow<StreamingState>(StreamingState.Idle)
     val streamingState: StateFlow<StreamingState> = _streamingState.asStateFlow()
+
+    private val _targetStates = MutableStateFlow<List<StreamTargetState>>(emptyList())
+
+    /** Zustand jedes einzelnen Stream-Ziels (URL, Status, Fehlerursache). */
+    val targetStates: StateFlow<List<StreamTargetState>> = _targetStates.asStateFlow()
 
     private val _focusMode = MutableStateFlow(FocusMode.AUTO)
     val focusMode: StateFlow<FocusMode> = _focusMode.asStateFlow()
@@ -53,18 +84,39 @@ class StreamingEngine @Inject constructor(
     // angehängt bzw. sofort, wenn die GL-Pipeline bereits läuft (Rotation/Recreate).
     private var previewRequest: PreviewRequest? = null
 
-    private val connectChecker = object : ConnectChecker {
+    companion object {
+        /**
+         * Maximale Anzahl paralleler Stream-Ziele (MVP: primär + 1 sekundär).
+         *
+         * RootEncoder legt pro Ziel einen RTMP-Client an — eine Erweiterung auf
+         * mehr Ziele erfordert eine Neuerstellung der [MultiCamera2] mit mehr
+         * ConnectCheckern (Kamera darf dabei nicht neu gestartet werden).
+         */
+        const val MAX_STREAM_TARGETS = 2
+    }
+
+    /**
+     * Erstellt einen ConnectChecker für ein Stream-Ziel. Jeder Checker kennt
+     * seinen Ziel-Index und aktualisiert nur den eigenen Eintrag in
+     * [targetStates] — der Gesamt-Status wird danach aggregiert.
+     */
+    private fun createTargetChecker(index: Int): ConnectChecker = object : ConnectChecker {
         override fun onConnectionStarted(url: String) {
-            _streamingState.value = StreamingState.Preparing
+            updateTarget(index) { it.copy(status = StreamTargetStatus.PREPARING) }
         }
 
         override fun onConnectionSuccess() {
-            _streamingState.value = StreamingState.Streaming
+            updateTarget(index) {
+                it.copy(status = StreamTargetStatus.STREAMING, failureReason = null)
+            }
         }
 
         override fun onConnectionFailed(reason: String) {
-            _streamingState.value = StreamingState.Failed(reason)
-            rtmpCamera?.stopStream()
+            updateTarget(index) {
+                it.copy(status = StreamTargetStatus.FAILED, failureReason = reason)
+            }
+            // Nur das fehlgeschlagene Ziel stoppen — andere Ziele streamen weiter.
+            camera?.stopStream(MultiType.RTMP, index)
         }
 
         override fun onNewBitrate(bitrate: Long) {
@@ -72,15 +124,50 @@ class StreamingEngine @Inject constructor(
         }
 
         override fun onDisconnect() {
-            _streamingState.value = StreamingState.Idle
+            updateTarget(index) {
+                it.copy(status = StreamTargetStatus.IDLE, failureReason = null)
+            }
         }
 
         override fun onAuthError() {
-            _streamingState.value = StreamingState.Failed("RTMP Auth Error")
+            updateTarget(index) {
+                it.copy(status = StreamTargetStatus.FAILED, failureReason = "RTMP Auth Error")
+            }
         }
 
         override fun onAuthSuccess() {
             // Optional: Handle auth success
+        }
+    }
+
+    /** Aktualisiert den Ziel-Eintrag [index] und aggregiert danach den Gesamt-Status. */
+    private fun updateTarget(index: Int, transform: (StreamTargetState) -> StreamTargetState) {
+        _targetStates.value = _targetStates.value.mapIndexed { i, state ->
+            if (i == index) transform(state) else state
+        }
+        recomputeStreamingState()
+    }
+
+    /**
+     * Aggregiert den Gesamt-Status aus den Ziel-Zuständen:
+     * - Streaming, sobald irgendein Ziel streamt
+     * - sonst Preparing, sobald sich irgendein Ziel vorbereitet
+     * - sonst Failed (mit Ursache des ersten fehlgeschlagenen Ziels)
+     * - sonst Idle
+     */
+    private fun recomputeStreamingState() {
+        val states = _targetStates.value
+        _streamingState.value = when {
+            states.any { it.status == StreamTargetStatus.STREAMING } -> StreamingState.Streaming
+            states.any { it.status == StreamTargetStatus.PREPARING } -> StreamingState.Preparing
+            else -> {
+                val failed = states.firstOrNull { it.status == StreamTargetStatus.FAILED }
+                if (failed != null) {
+                    StreamingState.Failed(failed.failureReason ?: "Unbekannter Fehler")
+                } else {
+                    StreamingState.Idle
+                }
+            }
         }
     }
 
@@ -92,9 +179,9 @@ class StreamingEngine @Inject constructor(
      * (Rotation, Recents) nicht ersetzt — der laufende Stream bleibt erhalten.
      */
     fun initializeCamera() {
-        if (rtmpCamera == null) {
-            rtmpCamera = cameraFactory.create(connectChecker)
-            focusController = CameraFocusController(FocusableRtmpCamera(rtmpCamera!!))
+        if (camera == null) {
+            camera = cameraFactory.create(List(MAX_STREAM_TARGETS) { createTargetChecker(it) })
+            focusController = CameraFocusController(FocusableCamera2(camera!!))
         }
     }
 
@@ -113,11 +200,12 @@ class StreamingEngine @Inject constructor(
     }
 
     /**
-     * Adapter, der nur die Fokus-Steuerung des [RtmpCamera2] exponiert.
-     * Voraussetzung: Die Kamera wurde vorher über [initializeCamera] erstellt.
+     * Adapter, der nur die Fokus-Steuerung der [Camera2Base] (MultiCamera2)
+     * exponiert. Voraussetzung: Die Kamera wurde vorher über [initializeCamera]
+     * erstellt.
      */
-    private class FocusableRtmpCamera(
-        private val camera: RtmpCamera2,
+    private class FocusableCamera2(
+        private val camera: Camera2Base,
     ) : FocusableCamera {
         override fun enableAutoFocus(): Boolean = camera.enableAutoFocus()
 
@@ -144,38 +232,78 @@ class StreamingEngine @Inject constructor(
     /** Löst die Preview-Surface (Activity zerstört/verdeckt). Der Stream läuft weiter. */
     fun detachPreview() {
         previewRequest = null
-        (rtmpCamera?.glInterface as? GlStreamInterface)?.deAttachPreview()
+        (camera?.glInterface as? GlStreamInterface)?.deAttachPreview()
     }
 
-    fun startStream(url: String) {
-        if (url.isBlank()) return
+    /**
+     * Startet den Stream auf alle angegebenen Ziele (Multi-Streaming).
+     *
+     * Leere Einträge werden ignoriert; es werden maximal [MAX_STREAM_TARGETS]
+     * Ziele gestartet. Läuft bereits ein Stream, wird nichts gestartet.
+     */
+    fun startStream(urls: List<String>) {
+        val activeUrls = urls
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .take(MAX_STREAM_TARGETS)
+        if (activeUrls.isEmpty()) return
 
-        if (rtmpCamera?.isStreaming == false) {
-            _streamingState.value = StreamingState.Preparing
-            if (rtmpCamera?.prepareAudio() == true && rtmpCamera?.prepareVideo() == true) {
-                // GL-Pipeline läuft jetzt — gemerkte Preview-Surface anhängen.
-                attachPreviewIfRunning()
-                rtmpCamera?.startStream(url)
-            } else {
-                _streamingState.value = StreamingState.Failed("Failed to prepare audio/video")
+        if (_streamingState.value is StreamingState.Streaming ||
+            _streamingState.value is StreamingState.Preparing
+        ) {
+            return
+        }
+
+        val cam = camera ?: return
+        if (cam.isStreaming) return
+
+        _targetStates.value = activeUrls.map { StreamTargetState(it) }
+        _streamingState.value = StreamingState.Preparing
+
+        if (cam.prepareAudio() == true && cam.prepareVideo() == true) {
+            // GL-Pipeline läuft jetzt — gemerkte Preview-Surface anhängen.
+            attachPreviewIfRunning()
+            activeUrls.forEachIndexed { index, url ->
+                cam.startStream(MultiType.RTMP, index, url)
+            }
+        } else {
+            val reason = "Failed to prepare audio/video"
+            _streamingState.value = StreamingState.Failed(reason)
+            _targetStates.value = _targetStates.value.map {
+                it.copy(status = StreamTargetStatus.FAILED, failureReason = reason)
             }
         }
+    }
+
+    /** Einfacher Einstieg für genau ein Ziel. */
+    fun startStream(url: String) {
+        startStream(listOf(url))
     }
 
     /** Hängt die gemerkte Preview-Surface an, sobald die GL-Pipeline läuft. */
     private fun attachPreviewIfRunning() {
         val request = previewRequest ?: return
-        val gl = rtmpCamera?.glInterface as? GlStreamInterface ?: return
+        val gl = camera?.glInterface as? GlStreamInterface ?: return
         if (gl.isRunning) {
             gl.attachPreview(request.surface)
             gl.setPreviewResolution(request.width, request.height)
         }
     }
 
+    /** Stoppt alle laufenden/startenden Ziele und setzt den Zustand auf Idle. */
     fun stopStream() {
-        if (rtmpCamera?.isStreaming == true) {
-            rtmpCamera?.stopStream()
-            _streamingState.value = StreamingState.Idle
+        if (_streamingState.value !is StreamingState.Streaming &&
+            _streamingState.value !is StreamingState.Preparing
+        ) {
+            return
         }
+        val cam = camera ?: return
+        _targetStates.value.forEachIndexed { index, _ ->
+            cam.stopStream(MultiType.RTMP, index)
+        }
+        _targetStates.value = _targetStates.value.map {
+            it.copy(status = StreamTargetStatus.IDLE, failureReason = null)
+        }
+        _streamingState.value = StreamingState.Idle
     }
 }

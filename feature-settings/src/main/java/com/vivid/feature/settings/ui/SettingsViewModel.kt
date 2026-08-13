@@ -85,6 +85,11 @@ class SettingsViewModel @Inject constructor(
     fun onStreamKeyChange(newKey: String) { _uiState.value = _uiState.value.copy(streamKey = newKey) }
     fun onStreamUseTlsChange(newUseTls: Boolean) { _uiState.value = _uiState.value.copy(streamUseTls = newUseTls) }
 
+    // Zweites (optionales) Stream-Ziel für Multi-Streaming.
+    fun onSecondaryStreamUrlChange(newUrl: String) { _uiState.value = _uiState.value.copy(secondaryStreamUrl = newUrl) }
+    fun onSecondaryStreamKeyChange(newKey: String) { _uiState.value = _uiState.value.copy(secondaryStreamKey = newKey) }
+    fun onSecondaryStreamUseTlsChange(newUseTls: Boolean) { _uiState.value = _uiState.value.copy(secondaryStreamUseTls = newUseTls) }
+
     /**
      * Übernimmt eine Plattform-Vorlage: setzt die Ingest-URL und aktiviert
      * automatisch die sichere Verbindung (rtmps://).
@@ -108,6 +113,11 @@ class SettingsViewModel @Inject constructor(
                 url = currentSettings.streamUrl,
                 key = currentSettings.streamKey,
                 useTls = currentSettings.streamUseTls,
+            )
+            settingsRepository.updateSecondaryStreamSettings(
+                url = currentSettings.secondaryStreamUrl,
+                key = currentSettings.secondaryStreamKey,
+                useTls = currentSettings.secondaryStreamUseTls,
             )
             settingsRepository.updateObsSettings(
                 host = currentSettings.obsHost,

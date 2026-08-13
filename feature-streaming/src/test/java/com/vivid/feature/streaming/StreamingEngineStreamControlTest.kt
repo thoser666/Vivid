@@ -63,7 +63,7 @@ class StreamingEngineStreamControlTest {
             AppSettings(streamUrl = "rtmp://live.example/app", streamKey = "key-1"),
         )
         control.start()
-        coVerify { engine.startStream("rtmp://live.example/app/key-1") }
+        coVerify { engine.startStream(listOf("rtmp://live.example/app/key-1")) }
     }
 
     @Test
@@ -71,7 +71,61 @@ class StreamingEngineStreamControlTest {
         val engine = mockk<StreamingEngine>(relaxed = true)
         val control = controlWith(engine, AppSettings())
         control.start()
-        coVerify(exactly = 0) { engine.startStream(any()) }
+        coVerify(exactly = 0) { engine.startStream(any<List<String>>()) }
+    }
+
+    @Test
+    fun `start builds urls for primary and secondary targets`() = runTest {
+        val engine = mockk<StreamingEngine>(relaxed = true)
+        val control = controlWith(
+            engine,
+            AppSettings(
+                streamUrl = "rtmp://live.example/app",
+                streamKey = "key-1",
+                secondaryStreamUrl = "rtmp://second.example/app",
+                secondaryStreamKey = "key-2",
+                secondaryStreamUseTls = true,
+            ),
+        )
+        control.start()
+        coVerify {
+            engine.startStream(
+                listOf(
+                    "rtmp://live.example/app/key-1",
+                    "rtmps://second.example/app/key-2",
+                ),
+            )
+        }
+    }
+
+    @Test
+    fun `start with only a secondary target starts that target`() = runTest {
+        val engine = mockk<StreamingEngine>(relaxed = true)
+        val control = controlWith(
+            engine,
+            AppSettings(
+                secondaryStreamUrl = "rtmp://second.example/app",
+                secondaryStreamKey = "key-2",
+            ),
+        )
+        control.start()
+        coVerify { engine.startStream(listOf("rtmp://second.example/app/key-2")) }
+    }
+
+    @Test
+    fun `start ignores blank targets`() = runTest {
+        val engine = mockk<StreamingEngine>(relaxed = true)
+        val control = controlWith(
+            engine,
+            AppSettings(
+                streamUrl = "   ",
+                streamKey = "key-1",
+                secondaryStreamUrl = "rtmp://second.example/app",
+                secondaryStreamKey = "",
+            ),
+        )
+        control.start()
+        coVerify { engine.startStream(listOf("rtmp://second.example/app")) }
     }
 
     @Test

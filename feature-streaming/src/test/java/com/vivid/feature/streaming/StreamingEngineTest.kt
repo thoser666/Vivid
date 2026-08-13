@@ -2,7 +2,8 @@ package com.vivid.feature.streaming
 
 import android.view.Surface
 import com.pedro.common.ConnectChecker
-import com.pedro.library.rtmp.RtmpCamera2
+import com.pedro.library.multiple.MultiCamera2
+import com.pedro.library.multiple.MultiType
 import com.pedro.library.view.GlStreamInterface
 import io.mockk.coVerify
 import io.mockk.every
@@ -13,27 +14,36 @@ import io.mockk.verify
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
 class StreamingEngineTest {
 
-    private lateinit var rtmpCamera: RtmpCamera2
+    private lateinit var camera: MultiCamera2
     private lateinit var glStreamInterface: GlStreamInterface
     private lateinit var cameraFactory: CameraFactory
     private lateinit var streamingEngine: StreamingEngine
+    private var capturedCheckers: List<ConnectChecker> = emptyList()
 
     @BeforeEach
     fun setUp() {
-        rtmpCamera = mockk(relaxed = true)
+        camera = mockk(relaxed = true)
         glStreamInterface = mockk(relaxed = true)
-        every { rtmpCamera.glInterface } returns glStreamInterface
+        every { camera.glInterface } returns glStreamInterface
         cameraFactory = object : CameraFactory {
-            override fun create(connectChecker: ConnectChecker): RtmpCamera2 {
-                return rtmpCamera
+            override fun create(connectCheckers: List<ConnectChecker>): MultiCamera2 {
+                capturedCheckers = connectCheckers
+                return camera
             }
         }
         streamingEngine = StreamingEngine(cameraFactory)
+    }
+
+    private fun streamingCameraReady() {
+        every { camera.isStreaming } returns false
+        every { camera.prepareAudio() } returns true
+        every { camera.prepareVideo() } returns true
     }
 
     @Test
@@ -45,7 +55,7 @@ class StreamingEngineTest {
         streamingEngine.startStream("")
 
         // Assert
-        coVerify(exactly = 0) { rtmpCamera.startStream(any()) }
+        coVerify(exactly = 0) { camera.startStream(any(), any(), any()) }
     }
 
     @Test
@@ -59,9 +69,9 @@ class StreamingEngineTest {
         var createCount = 0
         streamingEngine = StreamingEngine(
             object : CameraFactory {
-                override fun create(connectChecker: ConnectChecker): RtmpCamera2 {
+                override fun create(connectCheckers: List<ConnectChecker>): MultiCamera2 {
                     createCount++
-                    return rtmpCamera
+                    return camera
                 }
             },
         )
@@ -73,19 +83,24 @@ class StreamingEngineTest {
     }
 
     @Test
+    fun `initializeCamera should create one connect checker per max target`() = runTest {
+        streamingEngine.initializeCamera()
+
+        assertEquals(StreamingEngine.MAX_STREAM_TARGETS, capturedCheckers.size)
+    }
+
+    @Test
     fun `startStream should call startStream on camera if url is valid`() = runTest {
         // Arrange
         streamingEngine.initializeCamera()
-        every { rtmpCamera.isStreaming } returns false
-        every { rtmpCamera.prepareAudio() } returns true
-        every { rtmpCamera.prepareVideo() } returns true
+        streamingCameraReady()
         val testUrl = "rtmp://test.com/app"
 
         // Act
         streamingEngine.startStream(testUrl)
 
         // Assert
-        coVerify { rtmpCamera.startStream(testUrl) }
+        coVerify { camera.startStream(MultiType.RTMP, 0, testUrl) }
     }
 
     @Test
@@ -93,24 +108,20 @@ class StreamingEngineTest {
         // Arrange: RootEncoder erkennt rtmps:// am Scheme und aktiviert TLS selbst,
         // die Engine darf die URL also nicht umschreiben oder verwerfen.
         streamingEngine.initializeCamera()
-        every { rtmpCamera.isStreaming } returns false
-        every { rtmpCamera.prepareAudio() } returns true
-        every { rtmpCamera.prepareVideo() } returns true
+        streamingCameraReady()
         val testUrl = "rtmps://live.kick.com/app/live_12345_secret"
 
         // Act
         streamingEngine.startStream(testUrl)
 
         // Assert
-        coVerify { rtmpCamera.startStream(testUrl) }
+        coVerify { camera.startStream(MultiType.RTMP, 0, testUrl) }
     }
 
     @Test
     fun `startStream should set Preparing while starting`() = runTest {
         streamingEngine.initializeCamera()
-        every { rtmpCamera.isStreaming } returns false
-        every { rtmpCamera.prepareAudio() } returns true
-        every { rtmpCamera.prepareVideo() } returns true
+        streamingCameraReady()
 
         streamingEngine.startStream("rtmp://test.com/app")
 
@@ -120,82 +131,150 @@ class StreamingEngineTest {
     @Test
     fun `startStream should fail when audio preparation fails`() = runTest {
         streamingEngine.initializeCamera()
-        every { rtmpCamera.isStreaming } returns false
-        every { rtmpCamera.prepareAudio() } returns false
+        every { camera.isStreaming } returns false
+        every { camera.prepareAudio() } returns false
 
         streamingEngine.startStream("rtmp://test.com/app")
 
         assertEquals(StreamingState.Failed("Failed to prepare audio/video"), streamingEngine.streamingState.value)
-        coVerify(exactly = 0) { rtmpCamera.startStream(any()) }
+        coVerify(exactly = 0) { camera.startStream(any(), any(), any()) }
     }
 
     @Test
     fun `startStream should not restart when already streaming`() = runTest {
         streamingEngine.initializeCamera()
-        every { rtmpCamera.isStreaming } returns true
+        every { camera.isStreaming } returns true
 
         streamingEngine.startStream("rtmp://test.com/app")
 
-        coVerify(exactly = 0) { rtmpCamera.startStream(any()) }
+        coVerify(exactly = 0) { camera.startStream(any(), any(), any()) }
         assertEquals(StreamingState.Idle, streamingEngine.streamingState.value)
     }
 
     @Test
     fun `stopStream should stop the camera and reset the state to Idle`() = runTest {
         streamingEngine.initializeCamera()
-        var isStreaming = false
-        every { rtmpCamera.isStreaming } answers { isStreaming }
-        every { rtmpCamera.prepareAudio() } returns true
-        every { rtmpCamera.prepareVideo() } returns true
-        every { rtmpCamera.startStream("rtmp://test.com/app") } just runs
+        streamingCameraReady()
 
         streamingEngine.startStream("rtmp://test.com/app")
-        isStreaming = true
         streamingEngine.stopStream()
 
-        verify { rtmpCamera.stopStream() }
+        verify { camera.stopStream(MultiType.RTMP, 0) }
         assertEquals(StreamingState.Idle, streamingEngine.streamingState.value)
     }
 
     @Test
     fun `stopStream should do nothing when not streaming`() = runTest {
         streamingEngine.initializeCamera()
-        every { rtmpCamera.isStreaming } returns false
+        every { camera.isStreaming } returns false
 
         streamingEngine.stopStream()
 
-        verify(exactly = 0) { rtmpCamera.stopStream() }
+        verify(exactly = 0) { camera.stopStream(any(), any()) }
     }
 
     @Test
-    fun `connect checker callbacks should update the streaming state`() = runTest {
-        var capturedChecker: ConnectChecker? = null
-        streamingEngine = StreamingEngine(
-            object : CameraFactory {
-                override fun create(connectChecker: ConnectChecker): RtmpCamera2 {
-                    capturedChecker = connectChecker
-                    return rtmpCamera
-                }
-            },
-        )
+    fun `connect checker callbacks should update the target and streaming state`() = runTest {
         streamingEngine.initializeCamera()
-        val checker = requireNotNull(capturedChecker)
+        streamingCameraReady()
+        streamingEngine.startStream("rtmp://test.com/app")
+        val checker = capturedCheckers[0]
 
         checker.onConnectionStarted("rtmp://test.com/app")
         assertEquals(StreamingState.Preparing, streamingEngine.streamingState.value)
+        assertEquals(StreamTargetStatus.PREPARING, streamingEngine.targetStates.value[0].status)
 
         checker.onConnectionSuccess()
         assertEquals(StreamingState.Streaming, streamingEngine.streamingState.value)
+        assertEquals(StreamTargetStatus.STREAMING, streamingEngine.targetStates.value[0].status)
 
         checker.onDisconnect()
         assertEquals(StreamingState.Idle, streamingEngine.streamingState.value)
+        assertEquals(StreamTargetStatus.IDLE, streamingEngine.targetStates.value[0].status)
 
         checker.onConnectionFailed("boom")
         assertEquals(StreamingState.Failed("boom"), streamingEngine.streamingState.value)
-        verify { rtmpCamera.stopStream() }
+        assertEquals(StreamTargetStatus.FAILED, streamingEngine.targetStates.value[0].status)
+        assertEquals("boom", streamingEngine.targetStates.value[0].failureReason)
+        verify { camera.stopStream(MultiType.RTMP, 0) }
 
         checker.onAuthError()
         assertEquals(StreamingState.Failed("RTMP Auth Error"), streamingEngine.streamingState.value)
+    }
+
+    @Test
+    fun `targetStates is empty before the first start`() = runTest {
+        streamingEngine.initializeCamera()
+
+        assertEquals(0, streamingEngine.targetStates.value.size)
+    }
+
+    @Test
+    fun `startStream with two urls starts both targets`() = runTest {
+        streamingEngine.initializeCamera()
+        streamingCameraReady()
+
+        streamingEngine.startStream(listOf("rtmp://a.example/app", "rtmp://b.example/app"))
+
+        coVerify { camera.startStream(MultiType.RTMP, 0, "rtmp://a.example/app") }
+        coVerify { camera.startStream(MultiType.RTMP, 1, "rtmp://b.example/app") }
+        assertEquals(2, streamingEngine.targetStates.value.size)
+        assertEquals(StreamingState.Preparing, streamingEngine.streamingState.value)
+    }
+
+    @Test
+    fun `startStream filters blank urls`() = runTest {
+        streamingEngine.initializeCamera()
+        streamingCameraReady()
+
+        streamingEngine.startStream(listOf("   ", "rtmp://b.example/app"))
+
+        verify(exactly = 1) { camera.startStream(any(), any(), any()) }
+        coVerify { camera.startStream(MultiType.RTMP, 0, "rtmp://b.example/app") }
+        assertEquals(1, streamingEngine.targetStates.value.size)
+    }
+
+    @Test
+    fun `startStream caps the number of targets at the max`() = runTest {
+        streamingEngine.initializeCamera()
+        streamingCameraReady()
+
+        streamingEngine.startStream(
+            listOf("rtmp://a.example/app", "rtmp://b.example/app", "rtmp://c.example/app"),
+        )
+
+        verify(exactly = 2) { camera.startStream(any(), any(), any()) }
+        assertEquals(StreamingEngine.MAX_STREAM_TARGETS, streamingEngine.targetStates.value.size)
+    }
+
+    @Test
+    fun `failure of one target leaves the other streaming`() = runTest {
+        streamingEngine.initializeCamera()
+        streamingCameraReady()
+        streamingEngine.startStream(listOf("rtmp://a.example/app", "rtmp://b.example/app"))
+
+        capturedCheckers[0].onConnectionSuccess()
+        capturedCheckers[1].onConnectionFailed("boom")
+
+        assertEquals(StreamingState.Streaming, streamingEngine.streamingState.value)
+        assertEquals(StreamTargetStatus.STREAMING, streamingEngine.targetStates.value[0].status)
+        assertEquals(StreamTargetStatus.FAILED, streamingEngine.targetStates.value[1].status)
+        verify { camera.stopStream(MultiType.RTMP, 1) }
+        verify(exactly = 0) { camera.stopStream(MultiType.RTMP, 0) }
+    }
+
+    @Test
+    fun `stopStream stops all targets`() = runTest {
+        streamingEngine.initializeCamera()
+        streamingCameraReady()
+        streamingEngine.startStream(listOf("rtmp://a.example/app", "rtmp://b.example/app"))
+
+        streamingEngine.stopStream()
+
+        verify { camera.stopStream(MultiType.RTMP, 0) }
+        verify { camera.stopStream(MultiType.RTMP, 1) }
+        assertEquals(StreamingState.Idle, streamingEngine.streamingState.value)
+        assertNull(streamingEngine.targetStates.value[0].failureReason)
     }
 
     // --- Preview (GL-freier Pfad): attach/detach unabhängig vom Encoder ---
@@ -205,10 +284,10 @@ class StreamingEngineTest {
         streamingEngine.initializeCamera()
         var glRunning = false
         every { glStreamInterface.isRunning } answers { glRunning }
-        every { rtmpCamera.isStreaming } returns false
-        every { rtmpCamera.prepareAudio() } returns true
+        every { camera.isStreaming } returns false
+        every { camera.prepareAudio() } returns true
         // prepareVideo startet die GL-Pipeline (real: prepareGlView -> glInterface.start())
-        every { rtmpCamera.prepareVideo() } answers { glRunning = true; true }
+        every { camera.prepareVideo() } answers { glRunning = true; true }
         val surface: Surface = mockk(relaxed = true)
 
         // Vorschau kommt vor dem Stream-Start an -> GL läuft noch nicht.
@@ -244,7 +323,7 @@ class StreamingEngineTest {
 
         verify(exactly = 1) { glStreamInterface.deAttachPreview() }
         // Der Stream selbst wird durch das Ablösen der Vorschau nicht gestoppt.
-        verify(exactly = 0) { rtmpCamera.stopStream() }
+        verify(exactly = 0) { camera.stopStream(any(), any()) }
     }
 
     @Test
@@ -267,15 +346,13 @@ class StreamingEngineTest {
     fun `startStream without a preview surface streams view-less`() = runTest {
         streamingEngine.initializeCamera()
         every { glStreamInterface.isRunning } returns true
-        every { rtmpCamera.isStreaming } returns false
-        every { rtmpCamera.prepareAudio() } returns true
-        every { rtmpCamera.prepareVideo() } returns true
+        streamingCameraReady()
 
         streamingEngine.startStream("rtmp://test.com/app")
 
         // Ohne gemerkte Surface wird nichts angehängt — der Stream läuft trotzdem.
         verify(exactly = 0) { glStreamInterface.attachPreview(any()) }
-        coVerify { rtmpCamera.startStream("rtmp://test.com/app") }
+        coVerify { camera.startStream(MultiType.RTMP, 0, "rtmp://test.com/app") }
     }
 
     // --- Fokus-Lock (Moblin #377) ---
@@ -291,39 +368,39 @@ class StreamingEngineTest {
     @Test
     fun `toggleFocusLock locks the camera to infinity`() = runTest {
         streamingEngine.initializeCamera()
-        every { rtmpCamera.disableAutoFocus() } returns true
+        every { camera.disableAutoFocus() } returns true
 
         val result = streamingEngine.toggleFocusLock()
 
         assertEquals(true, result)
         assertEquals(FocusMode.LOCKED_INFINITY, streamingEngine.focusMode.value)
-        verify { rtmpCamera.disableAutoFocus() }
-        verify { rtmpCamera.setFocusDistance(CameraFocusController.FOCUS_DISTANCE_INFINITY) }
+        verify { camera.disableAutoFocus() }
+        verify { camera.setFocusDistance(CameraFocusController.FOCUS_DISTANCE_INFINITY) }
     }
 
     @Test
     fun `toggleFocusLock unlocks and re-enables autofocus`() = runTest {
         streamingEngine.initializeCamera()
-        every { rtmpCamera.disableAutoFocus() } returns true
+        every { camera.disableAutoFocus() } returns true
         streamingEngine.toggleFocusLock()
 
-        every { rtmpCamera.enableAutoFocus() } returns true
+        every { camera.enableAutoFocus() } returns true
         val result = streamingEngine.toggleFocusLock()
 
         assertEquals(true, result)
         assertEquals(FocusMode.AUTO, streamingEngine.focusMode.value)
-        verify { rtmpCamera.enableAutoFocus() }
+        verify { camera.enableAutoFocus() }
     }
 
     @Test
     fun `toggleFocusLock keeps the mode and state when the camera rejects the lock`() = runTest {
         streamingEngine.initializeCamera()
-        every { rtmpCamera.disableAutoFocus() } returns false
+        every { camera.disableAutoFocus() } returns false
 
         val result = streamingEngine.toggleFocusLock()
 
         assertEquals(false, result)
         assertEquals(FocusMode.AUTO, streamingEngine.focusMode.value)
-        verify(exactly = 0) { rtmpCamera.setFocusDistance(any()) }
+        verify(exactly = 0) { camera.setFocusDistance(any()) }
     }
 }

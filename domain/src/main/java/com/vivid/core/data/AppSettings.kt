@@ -6,6 +6,10 @@ data class AppSettings(
     val streamKey: String = "",
     // false = rtmp:// (Klartext), true = rtmps:// (RTMP über TLS)
     val streamUseTls: Boolean = false,
+    // Optionales zweites Stream-Ziel (Multi-Streaming). Leer = deaktiviert.
+    val secondaryStreamUrl: String = "",
+    val secondaryStreamKey: String = "",
+    val secondaryStreamUseTls: Boolean = false,
     val obsHost: String = "localhost",
     val obsPort: String = "4455",
     val obsPassword: String = "",

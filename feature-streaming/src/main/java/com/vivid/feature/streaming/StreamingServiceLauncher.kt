@@ -9,8 +9,8 @@ package com.vivid.feature.streaming
  */
 interface StreamingServiceLauncher {
 
-    /** Startet den Foreground-Service, der [url] streamt. */
-    fun startStreaming(url: String)
+    /** Startet den Foreground-Service, der die übergebenen [urls] streamt. */
+    fun startStreaming(urls: List<String>)
 
     /** Stoppt den Foreground-Service (und damit den Stream). */
     fun stopStreaming()

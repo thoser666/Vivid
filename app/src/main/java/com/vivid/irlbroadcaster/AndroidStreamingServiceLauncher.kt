@@ -21,8 +21,8 @@ class AndroidStreamingServiceLauncher @Inject constructor(
     @ApplicationContext private val context: Context,
 ) : StreamingServiceLauncher {
 
-    override fun startStreaming(url: String) {
-        StreamingService.start(context, url)
+    override fun startStreaming(urls: List<String>) {
+        StreamingService.start(context, urls)
     }
 
     override fun stopStreaming() {

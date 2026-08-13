@@ -17,7 +17,8 @@ object StreamingServiceSupport {
     const val ACTION_START_STREAM = "com.vivid.action.START_STREAM"
     const val ACTION_STOP_STREAM = "com.vivid.action.STOP_STREAM"
 
-    const val EXTRA_STREAM_URL = "com.vivid.extra.STREAM_URL"
+    /** Stream-Ziele (RTMP-URLs) als ArrayList<String> — Multi-Streaming. */
+    const val EXTRA_STREAM_URLS = "com.vivid.extra.STREAM_URLS"
 
     /** Titel der persistenten Notification, abhängig vom Engine-Status. */
     fun notificationTitle(state: StreamingState): String = when (state) {

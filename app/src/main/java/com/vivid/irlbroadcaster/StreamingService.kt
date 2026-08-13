@@ -66,14 +66,19 @@ class StreamingService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             StreamingServiceSupport.ACTION_START_STREAM -> {
-                val url = intent.getStringExtra(StreamingServiceSupport.EXTRA_STREAM_URL)
-                if (url.isNullOrBlank()) {
-                    Timber.w("StreamingService: START ohne URL — stoppe")
+                val urls = intent
+                    .getStringArrayListExtra(StreamingServiceSupport.EXTRA_STREAM_URLS)
+                    ?.orEmpty()
+                    ?.map { it.trim() }
+                    ?.filter { it.isNotEmpty() }
+                    .orEmpty()
+                if (urls.isEmpty()) {
+                    Timber.w("StreamingService: START ohne Stream-Ziel — stoppe")
                     stopSelf()
                     return START_NOT_STICKY
                 }
                 startAsForeground()
-                streamingEngine.startStream(url)
+                streamingEngine.startStream(urls)
                 observeStreamState()
                 scheduleStartupWatchdog()
             }
@@ -307,11 +312,11 @@ class StreamingService : Service() {
     }
 
     companion object {
-        /** Startet den Service und streamt [url] (aus dem Vordergrund aufrufen). */
-        fun start(context: Context, url: String) {
+        /** Startet den Service und streamt die [urls] (aus dem Vordergrund aufrufen). */
+        fun start(context: Context, urls: List<String>) {
             val intent = Intent(context, StreamingService::class.java)
                 .setAction(StreamingServiceSupport.ACTION_START_STREAM)
-                .putExtra(StreamingServiceSupport.EXTRA_STREAM_URL, url)
+                .putStringArrayListExtra(StreamingServiceSupport.EXTRA_STREAM_URLS, ArrayList(urls))
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent)
             } else {

@@ -27,7 +27,9 @@ object StreamConfigValidator {
     private val SUPPORTED_SCHEMES = listOf("rtmp", "rtmps", "srt")
 
     /**
-     * Prüft [streamUrl] und [streamKey] und liefert alle gefundenen Befunde.
+     * Prüft das primäre ([streamUrl]/[streamKey]) und optionale sekundäre
+     * ([secondaryStreamUrl]/[secondaryStreamKey]) Stream-Ziel und liefert alle
+     * gefundenen Befunde.
      *
      * - Leere URL → Fehler („Keine Stream-URL konfiguriert").
      * - Nicht unterstütztes Protokoll (weder rtmp/rtmps noch srt) → Fehler.
@@ -35,47 +37,89 @@ object StreamConfigValidator {
      * - Fehlender Stream-Key bei RTMP/RTMPS → Warnung (manche Plattformen
      *   liefern den Key bereits in der URL).
      * - `streamUseTls = true` bei einer `srt://`-URL → Warnung (TLS betrifft nur RTMP).
+     *
+     * Das sekundäre Ziel ist optional: Eine leere sekundäre URL wird ignoriert
+     * (Multi-Streaming deaktiviert), sobald sie aber gesetzt ist, gelten dieselben
+     * Checks — die Befunde sind mit „Zweites Ziel:" gekennzeichnet.
      */
-    fun validate(streamUrl: String, streamKey: String, streamUseTls: Boolean): List<StreamConfigIssue> {
-        val issues = mutableListOf<StreamConfigIssue>()
-        val url = streamUrl.trim()
+    fun validate(
+        streamUrl: String,
+        streamKey: String,
+        streamUseTls: Boolean,
+        secondaryStreamUrl: String = "",
+        secondaryStreamKey: String = "",
+        secondaryStreamUseTls: Boolean = false,
+    ): List<StreamConfigIssue> {
+        val issues = validateTarget(
+            url = streamUrl,
+            key = streamKey,
+            useTls = streamUseTls,
+            required = true,
+            label = "",
+        ).toMutableList()
+        issues += validateTarget(
+            url = secondaryStreamUrl,
+            key = secondaryStreamKey,
+            useTls = secondaryStreamUseTls,
+            required = false,
+            label = "Zweites Ziel: ",
+        )
+        return issues
+    }
 
-        if (url.isEmpty()) {
-            issues += StreamConfigIssue(
-                ConfigIssueSeverity.ERROR,
-                "Keine Stream-URL konfiguriert. Bitte in den Einstellungen hinterlegen.",
-            )
+    /**
+     * Validiert ein einzelnes Stream-Ziel. [required] = true nur für das primäre
+     * Ziel (leere URL = harter Fehler); das optionale sekundäre Ziel wird bei
+     * leerer URL still ignoriert.
+     */
+    private fun validateTarget(
+        url: String,
+        key: String,
+        useTls: Boolean,
+        required: Boolean,
+        label: String,
+    ): List<StreamConfigIssue> {
+        val issues = mutableListOf<StreamConfigIssue>()
+        val trimmedUrl = url.trim()
+
+        if (trimmedUrl.isEmpty()) {
+            if (required) {
+                issues += StreamConfigIssue(
+                    ConfigIssueSeverity.ERROR,
+                    "Keine Stream-URL konfiguriert. Bitte in den Einstellungen hinterlegen.",
+                )
+            }
             return issues
         }
 
-        val scheme = url.substringBefore("://").lowercase()
+        val scheme = trimmedUrl.substringBefore("://").lowercase()
         if (scheme !in SUPPORTED_SCHEMES) {
             issues += StreamConfigIssue(
                 ConfigIssueSeverity.ERROR,
-                "Nicht unterstütztes Protokoll \"$scheme\". Erlaubt sind rtmp, rtmps und srt.",
+                "${label}Nicht unterstütztes Protokoll \"$scheme\". Erlaubt sind rtmp, rtmps und srt.",
             )
         }
 
-        val host = hostOf(url)
+        val host = hostOf(trimmedUrl)
         if (host.isNullOrBlank()) {
             issues += StreamConfigIssue(
                 ConfigIssueSeverity.ERROR,
-                "Die Stream-URL enthält keinen gültigen Server-Host (z. B. rtmp://live.twitch.tv/app).",
+                "${label}Die Stream-URL enthält keinen gültigen Server-Host (z. B. rtmp://live.twitch.tv/app).",
             )
         }
 
-        val key = streamKey.trim()
-        if (key.isEmpty() && scheme.startsWith("rtmp")) {
+        val trimmedKey = key.trim()
+        if (trimmedKey.isEmpty() && scheme.startsWith("rtmp")) {
             issues += StreamConfigIssue(
                 ConfigIssueSeverity.WARNING,
-                "Kein Stream-Key hinterlegt. Twitch, YouTube und Kick verlangen einen Key.",
+                "${label}Kein Stream-Key hinterlegt. Twitch, YouTube und Kick verlangen einen Key.",
             )
         }
 
-        if (streamUseTls && scheme == "srt") {
+        if (useTls && scheme == "srt") {
             issues += StreamConfigIssue(
                 ConfigIssueSeverity.WARNING,
-                "TLS ist bei einer srt://-URL nicht anwendbar — die URL wird unverschlüsselt verwendet.",
+                "${label}TLS ist bei einer srt://-URL nicht anwendbar — die URL wird unverschlüsselt verwendet.",
             )
         }
 

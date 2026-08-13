@@ -56,6 +56,6 @@ class StreamingServiceSupportTest {
     fun `action and extra constants are stable`() {
         assertEquals("com.vivid.action.START_STREAM", StreamingServiceSupport.ACTION_START_STREAM)
         assertEquals("com.vivid.action.STOP_STREAM", StreamingServiceSupport.ACTION_STOP_STREAM)
-        assertEquals("com.vivid.extra.STREAM_URL", StreamingServiceSupport.EXTRA_STREAM_URL)
+        assertEquals("com.vivid.extra.STREAM_URLS", StreamingServiceSupport.EXTRA_STREAM_URLS)
     }
 }

@@ -38,6 +38,9 @@ class StreamingViewModel @Inject constructor(
                 streamUrl = settings.streamUrl,
                 streamKey = settings.streamKey,
                 streamUseTls = settings.streamUseTls,
+                secondaryStreamUrl = settings.secondaryStreamUrl,
+                secondaryStreamKey = settings.secondaryStreamKey,
+                secondaryStreamUseTls = settings.secondaryStreamUseTls,
             )
         }
     }
@@ -55,6 +58,9 @@ class StreamingViewModel @Inject constructor(
                 streamUrl = settings.streamUrl,
                 streamKey = settings.streamKey,
                 streamUseTls = settings.streamUseTls,
+                secondaryStreamUrl = settings.secondaryStreamUrl,
+                secondaryStreamKey = settings.secondaryStreamKey,
+                secondaryStreamUseTls = settings.secondaryStreamUseTls,
             )
             _configIssues.value = issues
 
@@ -64,15 +70,23 @@ class StreamingViewModel @Inject constructor(
                 return@launch
             }
 
-            val url = buildStreamUrl(settings.streamUrl, settings.streamKey, settings.streamUseTls)
-            if (url == null) {
+            val urls = buildList {
+                buildStreamUrl(settings.streamUrl, settings.streamKey, settings.streamUseTls)?.let { add(it) }
+                // Optionales zweites Ziel (Multi-Streaming).
+                buildStreamUrl(
+                    settings.secondaryStreamUrl,
+                    settings.secondaryStreamKey,
+                    settings.secondaryStreamUseTls,
+                )?.let { add(it) }
+            }
+            if (urls.isEmpty()) {
                 _errorMessage.value = "Keine Stream-URL konfiguriert. Bitte in den Einstellungen hinterlegen."
                 return@launch
             }
             // Der Stream läuft im Foreground-Service weiter, wenn die App in den
             // Hintergrund geht (Prozess-Priorität + WakeLock). Der Service ruft
-            // seinerseits streamingEngine.startStream(url) auf.
-            streamingServiceLauncher.startStreaming(url)
+            // seinerseits streamingEngine.startStream(urls) auf.
+            streamingServiceLauncher.startStreaming(urls)
         }
     }
 

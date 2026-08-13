@@ -14,6 +14,7 @@ import io.mockk.mockk
 import io.mockk.runs
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -28,6 +29,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class SettingsViewModelTest {
 
     private fun repository() = mockk<SettingsRepository> {
@@ -80,6 +82,29 @@ class SettingsViewModelTest {
     }
 
     @Test
+    fun `loads secondary stream settings from repository`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repository = mockk<SettingsRepository> {
+            every { appSettingsFlow } returns MutableStateFlow(
+                AppSettings(
+                    streamUrl = "rtmp://live.example/app",
+                    streamKey = "key-1",
+                    secondaryStreamUrl = "rtmp://second.example/app",
+                    secondaryStreamKey = "key-2",
+                    secondaryStreamUseTls = true,
+                ),
+            )
+        }
+
+        val viewModel = createViewModel(repository)
+        advanceUntilIdle()
+
+        assertEquals("rtmp://second.example/app", viewModel.uiState.value.secondaryStreamUrl)
+        assertEquals("key-2", viewModel.uiState.value.secondaryStreamKey)
+        assertEquals(true, viewModel.uiState.value.secondaryStreamUseTls)
+    }
+
+    @Test
     fun `input changes update the ui state`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val repository = mockk<SettingsRepository> {
@@ -92,6 +117,9 @@ class SettingsViewModelTest {
         viewModel.onStreamUrlChange("rtmp://new/app")
         viewModel.onStreamKeyChange("new-key")
         viewModel.onStreamUseTlsChange(true)
+        viewModel.onSecondaryStreamUrlChange("rtmp://new-secondary/app")
+        viewModel.onSecondaryStreamKeyChange("new-key-2")
+        viewModel.onSecondaryStreamUseTlsChange(true)
         viewModel.onObsHostChange("obs.example.com")
         viewModel.onObsPortChange("4455")
         viewModel.onObsPasswordChange("pw")
@@ -100,6 +128,9 @@ class SettingsViewModelTest {
         assertEquals("rtmp://new/app", viewModel.uiState.value.streamUrl)
         assertEquals("new-key", viewModel.uiState.value.streamKey)
         assertEquals(true, viewModel.uiState.value.streamUseTls)
+        assertEquals("rtmp://new-secondary/app", viewModel.uiState.value.secondaryStreamUrl)
+        assertEquals("new-key-2", viewModel.uiState.value.secondaryStreamKey)
+        assertEquals(true, viewModel.uiState.value.secondaryStreamUseTls)
         assertEquals("obs.example.com", viewModel.uiState.value.obsHost)
         assertEquals("4455", viewModel.uiState.value.obsPort)
         assertEquals("pw", viewModel.uiState.value.obsPassword)
@@ -178,6 +209,7 @@ class SettingsViewModelTest {
         val repository = mockk<SettingsRepository> {
             every { appSettingsFlow } returns MutableStateFlow(AppSettings())
             coEvery { updateStreamSettings(any(), any(), any()) } just runs
+            coEvery { updateSecondaryStreamSettings(any(), any(), any()) } just runs
             coEvery { updateObsSettings(any(), any(), any(), any()) } just runs
         }
 
@@ -187,6 +219,9 @@ class SettingsViewModelTest {
         viewModel.onStreamUrlChange("rtmp://live/app")
         viewModel.onStreamKeyChange("key-9")
         viewModel.onStreamUseTlsChange(true)
+        viewModel.onSecondaryStreamUrlChange("rtmp://live-second/app")
+        viewModel.onSecondaryStreamKeyChange("key-8")
+        viewModel.onSecondaryStreamUseTlsChange(true)
         viewModel.onObsHostChange("obs.example.com")
         viewModel.onObsPortChange("4455")
         viewModel.onObsPasswordChange("pw")
@@ -200,6 +235,7 @@ class SettingsViewModelTest {
         advanceUntilIdle()
 
         coVerify { repository.updateStreamSettings("rtmp://live/app", "key-9", true) }
+        coVerify { repository.updateSecondaryStreamSettings("rtmp://live-second/app", "key-8", true) }
         coVerify { repository.updateObsSettings("obs.example.com", "4455", "pw", false) }
         assertEquals(1, events.size)
         collector.cancel()

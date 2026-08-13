@@ -118,6 +118,36 @@ fun SettingsScreen(
                 )
             }
 
+            // Multi-Streaming: optionales zweites Ziel (parallel zum primären)
+            Text("Multi-Streaming (optional)", style = MaterialTheme.typography.titleLarge)
+            Text(
+                text = "Zweites Stream-Ziel: Das Signal wird gleichzeitig zu beiden Zielen gesendet. Leer lassen, um nur das primäre Ziel zu nutzen.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            OutlinedTextField(
+                value = uiState.secondaryStreamUrl,
+                onValueChange = viewModel::onSecondaryStreamUrlChange,
+                label = { Text("Zweite Stream-URL") },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            OutlinedTextField(
+                value = uiState.secondaryStreamKey,
+                onValueChange = viewModel::onSecondaryStreamKeyChange,
+                label = { Text("Zweiter Stream-Schlüssel") },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Sichere Verbindung (RTMPS)", modifier = Modifier.weight(1f))
+                Switch(
+                    checked = uiState.secondaryStreamUseTls,
+                    onCheckedChange = viewModel::onSecondaryStreamUseTlsChange,
+                )
+            }
+
             // OBS-Einstellungen
             Text("OBS-Einstellungen", style = MaterialTheme.typography.titleLarge)
             OutlinedTextField(

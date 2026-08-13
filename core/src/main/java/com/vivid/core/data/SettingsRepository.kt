@@ -17,6 +17,9 @@ class SettingsRepository @Inject constructor(
         val STREAM_URL = stringPreferencesKey("stream_url")
         val STREAM_KEY = stringPreferencesKey("stream_key")
         val STREAM_USE_TLS = booleanPreferencesKey("stream_use_tls")
+        val SECONDARY_STREAM_URL = stringPreferencesKey("secondary_stream_url")
+        val SECONDARY_STREAM_KEY = stringPreferencesKey("secondary_stream_key")
+        val SECONDARY_STREAM_USE_TLS = booleanPreferencesKey("secondary_stream_use_tls")
         val OBS_HOST = stringPreferencesKey("obs_host")
         val OBS_PORT = stringPreferencesKey("obs_port")
         val OBS_PASSWORD = stringPreferencesKey("obs_password")
@@ -24,14 +27,17 @@ class SettingsRepository @Inject constructor(
     }
 
     // WICHTIG: Dies ist jetzt der EINZIGE Flow, den das ViewModel braucht.
-    // Er kombiniert die Daten für Stream und OBS.
+    // Er kombiniert die Daten für Stream (primär + sekundär) und OBS.
     val appSettingsFlow: Flow<AppSettings> = combine(
         // Flow für Stream-Daten
         dataStore.data.map { prefs ->
-            Triple(
-                prefs[PrefKeys.STREAM_URL] ?: "",
-                prefs[PrefKeys.STREAM_KEY] ?: "",
-                prefs[PrefKeys.STREAM_USE_TLS] ?: false,
+            StreamPrefs(
+                url = prefs[PrefKeys.STREAM_URL] ?: "",
+                key = prefs[PrefKeys.STREAM_KEY] ?: "",
+                useTls = prefs[PrefKeys.STREAM_USE_TLS] ?: false,
+                secondaryUrl = prefs[PrefKeys.SECONDARY_STREAM_URL] ?: "",
+                secondaryKey = prefs[PrefKeys.SECONDARY_STREAM_KEY] ?: "",
+                secondaryUseTls = prefs[PrefKeys.SECONDARY_STREAM_USE_TLS] ?: false,
             )
         },
         // Flow für OBS-Daten
@@ -46,9 +52,12 @@ class SettingsRepository @Inject constructor(
     ) { streamData, obsData ->
         // Baue das komplette AppSettings-Objekt zusammen
         AppSettings(
-            streamUrl = streamData.first,
-            streamKey = streamData.second,
-            streamUseTls = streamData.third,
+            streamUrl = streamData.url,
+            streamKey = streamData.key,
+            streamUseTls = streamData.useTls,
+            secondaryStreamUrl = streamData.secondaryUrl,
+            secondaryStreamKey = streamData.secondaryKey,
+            secondaryStreamUseTls = streamData.secondaryUseTls,
             obsHost = obsData.host,
             obsPort = obsData.port,
             obsPassword = obsData.password,
@@ -66,6 +75,15 @@ class SettingsRepository @Inject constructor(
         }
     }
 
+    // Zweites (optionales) Stream-Ziel für Multi-Streaming.
+    suspend fun updateSecondaryStreamSettings(url: String, key: String, useTls: Boolean = false) {
+        dataStore.edit { prefs ->
+            prefs[PrefKeys.SECONDARY_STREAM_URL] = url
+            prefs[PrefKeys.SECONDARY_STREAM_KEY] = key
+            prefs[PrefKeys.SECONDARY_STREAM_USE_TLS] = useTls
+        }
+    }
+
     // useTls: false = ws:// (Standard-OBS-LAN), true = wss:// (Remote mit TLS).
     // WICHTIG: immer explizit übergeben, sonst wird ein gespeichertes wss://
     // still auf ws:// zurückgesetzt.
@@ -77,6 +95,15 @@ class SettingsRepository @Inject constructor(
             prefs[PrefKeys.OBS_USE_TLS] = useTls
         }
     }
+
+    private data class StreamPrefs(
+        val url: String,
+        val key: String,
+        val useTls: Boolean,
+        val secondaryUrl: String,
+        val secondaryKey: String,
+        val secondaryUseTls: Boolean,
+    )
 
     private data class ObsPrefs(
         val host: String,

@@ -44,9 +44,17 @@ class StreamingEngineStreamControl @Inject constructor(
 
     override suspend fun start() {
         val settings = settingsRepository.appSettingsFlow.first()
-        val url = buildStreamUrl(settings.streamUrl, settings.streamKey, settings.streamUseTls)
-        if (url != null) {
-            engine.startStream(url)
+        val urls = buildList {
+            buildStreamUrl(settings.streamUrl, settings.streamKey, settings.streamUseTls)?.let { add(it) }
+            // Optionales zweites Ziel (Multi-Streaming).
+            buildStreamUrl(
+                settings.secondaryStreamUrl,
+                settings.secondaryStreamKey,
+                settings.secondaryStreamUseTls,
+            )?.let { add(it) }
+        }
+        if (urls.isNotEmpty()) {
+            engine.startStream(urls)
         }
     }
 

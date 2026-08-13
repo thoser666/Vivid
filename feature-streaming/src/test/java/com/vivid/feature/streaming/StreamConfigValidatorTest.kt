@@ -93,4 +93,121 @@ class StreamConfigValidatorTest {
 
         assertTrue(issues.isEmpty())
     }
+
+    // --- Sekundäres Ziel (Multi-Streaming) ---
+
+    @Test
+    fun `blank secondary url is ignored (multi-streaming disabled)`() {
+        val issues = StreamConfigValidator.validate(
+            streamUrl = "rtmp://live.example/app",
+            streamKey = "key-1",
+            streamUseTls = false,
+        )
+
+        assertTrue(issues.isEmpty())
+    }
+
+    @Test
+    fun `valid secondary target passes together with the primary`() {
+        val issues = StreamConfigValidator.validate(
+            streamUrl = "rtmp://live.example/app",
+            streamKey = "key-1",
+            streamUseTls = false,
+            secondaryStreamUrl = "rtmp://second.example/app",
+            secondaryStreamKey = "key-2",
+        )
+
+        assertTrue(issues.isEmpty())
+    }
+
+    @Test
+    fun `invalid secondary scheme is an error labeled as second target`() {
+        val issues = StreamConfigValidator.validate(
+            streamUrl = "rtmp://live.example/app",
+            streamKey = "key-1",
+            streamUseTls = false,
+            secondaryStreamUrl = "http://second.example/app",
+            secondaryStreamKey = "key-2",
+        )
+
+        assertTrue(
+            issues.any {
+                it.severity == ConfigIssueSeverity.ERROR &&
+                    it.message.contains("Zweites Ziel") &&
+                    it.message.contains("http")
+            },
+        )
+    }
+
+    @Test
+    fun `secondary url without host is an error`() {
+        val issues = StreamConfigValidator.validate(
+            streamUrl = "rtmp://live.example/app",
+            streamKey = "key-1",
+            streamUseTls = false,
+            secondaryStreamUrl = "rtmp:///app",
+            secondaryStreamKey = "key-2",
+        )
+
+        assertTrue(
+            issues.any {
+                it.severity == ConfigIssueSeverity.ERROR && it.message.contains("Zweites Ziel")
+            },
+        )
+    }
+
+    @Test
+    fun `missing secondary key is a warning not an error`() {
+        val issues = StreamConfigValidator.validate(
+            streamUrl = "rtmp://live.example/app",
+            streamKey = "key-1",
+            streamUseTls = false,
+            secondaryStreamUrl = "rtmp://second.example/app",
+            secondaryStreamKey = "",
+        )
+
+        assertTrue(issues.none { it.severity == ConfigIssueSeverity.ERROR })
+        assertTrue(
+            issues.any {
+                it.severity == ConfigIssueSeverity.WARNING &&
+                    it.message.contains("Zweites Ziel") &&
+                    it.message.contains("Stream-Key")
+            },
+        )
+    }
+
+    @Test
+    fun `secondary srt url with tls shows a labeled warning`() {
+        val issues = StreamConfigValidator.validate(
+            streamUrl = "rtmp://live.example/app",
+            streamKey = "key-1",
+            streamUseTls = false,
+            secondaryStreamUrl = "srt://second.example:9000?streamid=key-2",
+            secondaryStreamKey = "key-2",
+            secondaryStreamUseTls = true,
+        )
+
+        assertTrue(issues.none { it.severity == ConfigIssueSeverity.ERROR })
+        assertTrue(
+            issues.any {
+                it.severity == ConfigIssueSeverity.WARNING &&
+                    it.message.contains("Zweites Ziel") &&
+                    it.message.contains("TLS")
+            },
+        )
+    }
+
+    @Test
+    fun `secondary issues do not appear when secondary url is blank`() {
+        val issues = StreamConfigValidator.validate(
+            streamUrl = "rtmp://live.example/app",
+            streamKey = "",
+            streamUseTls = false,
+            secondaryStreamUrl = "",
+            secondaryStreamKey = "key-2",
+        )
+
+        assertEquals(1, issues.size) // nur die primäre Key-Warnung
+        assertTrue(issues.none { it.message.contains("Zweites Ziel") })
+    }
 }
