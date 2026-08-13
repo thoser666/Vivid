@@ -13,11 +13,11 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 | 📋 | Geplant (Roadmap) |
 | — | Nicht zutreffend auf Android |
 
-> **Stand:** 2026-08-13 · Aktualisierung: Neue Moblin-Features aus Release **33.12.0** (2026-07-24) nachgetragen (Chat-Bot-Media-Steuerung, Photo-Shoot-Quick-Button, Höhenmeter im Text-Widget, Talkback-Mic im Remote-Control) + Community-Feature-Requests (RTMP-Pull/Ingest, Text-Widget-Variablen) — Referenzstand: Moblin **33.12.0**
+> **Stand:** 2026-08-13 · Aktualisierung: OBS-QR-Code-Import implementiert; Neue Moblin-Features aus Release **33.12.0** (2026-07-24) nachgetragen (Chat-Bot-Media-Steuerung, Photo-Shoot-Quick-Button, Höhenmeter im Text-Widget, Talkback-Mic im Remote-Control) + Community-Feature-Requests (RTMP-Pull/Ingest, Text-Widget-Variablen) — Referenzstand: Moblin **33.12.0**
 >
 > **Pflege:** Nach jedem Feature-Commit den Status in der jeweiligen Zeile aktualisieren und das Datum oben anpassen.
 >
-> 🚦 **Nächster Meilenstein:** Wenn die ✅-Spalte in der Tabelle ≥17 erreicht → Zeit für [Beta](RELEASE.md#beta--nächster-meilenstein). Siehe [RELEASE.md](RELEASE.md) für alle Stage Gates.
+> 🚦 **Nächster Meilenstein:** Wenn die ✅-Spalte in der Tabelle ≥17 erreicht (aktuell **14**) → Zeit für [Beta](RELEASE.md#beta--nächster-meilenstein). Siehe [RELEASE.md](RELEASE.md) für alle Stage Gates.
 
 ---
 
@@ -27,7 +27,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 |-----------|----|----|----|-------|
 | Streaming & Protokolle | 4 | 0 | 5 | 9 |
 | Netzwerk-Bonding | 0 | 0 | 1 | 1 |
-| OBS-Steuerung | 2 | 0 | 2 | 4 |
+| OBS-Steuerung | 3 | 0 | 1 | 4 |
 | Chat & Moderation | 0 | 0 | 4 | 4 |
 | Overlays & Widgets | 0 | 0 | 6 | 6 |
 | Kamera & Video | 1 | 1 | 4 | 6 |
@@ -35,7 +35,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 | Remote & Companion | 1 | 0 | 2 | 3 |
 | Plattform & Grundlagen | 5 | 1 | 0 | 6 |
 | Zusatz-Features (über Parität) | 0 | 0 | 1 | 1 |
-| **Gesamt** | **13** | **2** | **28** | **43**† |
+| **Gesamt** | **14** | **2** | **27** | **43**† |
 
 † Inkl. 1 n/a-Zeile (Apple-Watch-Companion) und 1 Zusatz-Feature über die Moblin-Parität hinaus; anwendbare Moblin-Features: **42**.
 
@@ -68,7 +68,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 | OBS WebSocket-Connect (ws:// LAN / wss:// Remote, Passwort-Auth) | ✅ | `core` (`OBSWebSocketClient`), `feature-obs-control` | Scheme über `obsUseTls`-Setting; Auth-Handshake getestet. **Offene Tasks (Troubleshooting):** Verbindungsfehler-Ursache im UI anzeigen (OBS nicht erreichbar, Port/Firewall, Netzwerk); Auth-Fehler (falsches/leeres Passwort) als eigener UI-Zustand + Passwort-Reset-Hinweis; ws/wss-Fehlkonfiguration gezielt melden — Doku: [README-FAQ](README.md#-faq--häufige-probleme) |
 | Szenen wechseln, Recording/Stream-Start/-Stop | ✅ | `feature-obs-control` | Request-Batch + Typen vorhanden |
 | Snapshot / Audio-Levels / Audio-Sync auslesen | 📋 | `feature-obs-control` | Weitere Request-Typen ergänzen |
-| OBS-Konfiguration per QR-Code importieren | 📋 | `core` | `ObsQrCodeData`-Modell existiert; QR-Scan + Connect-Flow verdrahten |
+| OBS-Konfiguration per QR-Code importieren | ✅ | `core` (`ObsQrCodeParser`), `feature-obs-control` | Parser fuer alle OBS-Formate (`obsws://host:port/pw` percent-decoded, `obswebsocket://`, `obswebsocket|[host]:[port]|[pw]`); Import-Feld im Settings-Screen uebernimmt Host/Port/Passwort; Unit-Tests (`ObsQrCodeParserTest`, `SettingsViewModelTest`). **Offen:** Kamera-Scan direkt im UI |
 
 ## 💬 Chat & Moderation
 
@@ -141,6 +141,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 
 | Datum | Commit | Änderung |
 |-------|--------|----------|
+| 2026-08-13 | — | **OBS-Konfiguration per QR-Code importieren** umgesetzt: `ObsQrCodeParser` (Formate `obsws://` inkl. percent-decoded Passwort, `obswebsocket://`, `obswebsocket|[host]:[port]|[pw]`), Import-Feld im OBS-Settings-Screen, 11 Parser- + 4 ViewModel-Tests |
 | 2026-08-13 | — | **Fokus-Lock (∞)** / Autofokus-Toggle für die Streaming-Kamera implementiert ([#377](https://github.com/eerimoq/moblin/issues/377)): `CameraFocusController` + `FocusableCamera` (RootEncoder `disableAutoFocus()`/`setFocusDistance(0f)`), `focusMode`-StateFlow in `StreamingEngine`, Toggle im StreamingScreen, Unit-Tests |
 | 2026-08-13 | — | Zusatz-Feature (über Moblin-Parität hinaus): Oura-Ring-Gesundheitsdaten im Widget (Oura-Cloud-API, OAuth2; keine BLE-Schnittstelle) ergänzt |
 | 2026-08-13 | — | Konkrete Tasks ergänzt: Focus-Lock/manueller Fokus ([#377](https://github.com/eerimoq/moblin/issues/377)) bei Tap-to-Focus, Golf-Scoreboard ([#326](https://github.com/eerimoq/moblin/issues/326)) bei Scoreboards |

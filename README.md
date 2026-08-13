@@ -396,6 +396,7 @@ Status: ✅ implemented · 🚧 in progress · 📋 planned
 | Moblin Feature | Vivid | Notes |
 |----------------|-------|-------|
 | OBS WebSocket Control | ✅ | Scenes, recording, stream start/stop |
+| OBS Config via QR Code | ✅ | Import `obsws://` / `obswebsocket` connect info (host, port, password) from the OBS QR code |
 | Streaming (RTMP / SRT) | ✅ | Configurable URL/key via settings |
 | RTMPS (TLS ingest) | ✅ | `rtmps://` via RootEncoder 2.6.4, port 443, TLS verified |
 | Background Streaming (Foreground Service) | ✅ | Stream continues in background: notification + wake lock, stop action |
@@ -449,7 +450,7 @@ cd Vivid
 ### Running Tests & Lint
 
 ```bash
-# Unit tests for all modules (205 tests across core, app, feature-*)
+# Unit tests for all modules (236 tests across core, app, feature-*)
 ./gradlew testDebugUnitTest
 
 # Live check: run the in-app UpdateChecker against the real GitHub releases
