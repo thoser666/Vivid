@@ -41,6 +41,11 @@ class StreamingEngine @Inject constructor(
     private val _streamingState = MutableStateFlow<StreamingState>(StreamingState.Idle)
     val streamingState: StateFlow<StreamingState> = _streamingState.asStateFlow()
 
+    private val _focusMode = MutableStateFlow(FocusMode.AUTO)
+    val focusMode: StateFlow<FocusMode> = _focusMode.asStateFlow()
+
+    private var focusController: CameraFocusController? = null
+
     /** Preview-Surface der Activity, die an die interne GL-Pipeline angehängt wird. */
     private data class PreviewRequest(val surface: Surface, val width: Int, val height: Int)
 
@@ -89,7 +94,38 @@ class StreamingEngine @Inject constructor(
     fun initializeCamera() {
         if (rtmpCamera == null) {
             rtmpCamera = cameraFactory.create(connectChecker)
+            focusController = CameraFocusController(FocusableRtmpCamera(rtmpCamera!!))
         }
+    }
+
+    /**
+     * Schaltet zwischen Autofokus und Fokus-Lock (Unendlich) um (Moblin #377).
+     *
+     * @return true, wenn der neue Modus von der Kamera übernommen wurde.
+     */
+    fun toggleFocusLock(): Boolean {
+        val controller = focusController ?: return false
+        val changed = controller.toggleFocusLock()
+        if (changed) {
+            _focusMode.value = controller.mode
+        }
+        return changed
+    }
+
+    /**
+     * Adapter, der nur die Fokus-Steuerung des [RtmpCamera2] exponiert.
+     * Voraussetzung: Die Kamera wurde vorher über [initializeCamera] erstellt.
+     */
+    private class FocusableRtmpCamera(
+        private val camera: RtmpCamera2,
+    ) : FocusableCamera {
+        override fun enableAutoFocus(): Boolean = camera.enableAutoFocus()
+
+        override fun disableAutoFocus(): Boolean = camera.disableAutoFocus()
+
+        override fun isAutoFocusEnabled(): Boolean = camera.isAutoFocusEnabled()
+
+        override fun setFocusDistance(distance: Float) = camera.setFocusDistance(distance)
     }
 
     /**

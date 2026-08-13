@@ -19,8 +19,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -39,6 +42,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.vivid.feature.streaming.ConfigIssueSeverity
+import com.vivid.feature.streaming.FocusMode
 import com.vivid.feature.streaming.StreamConfigIssue
 import com.vivid.feature.streaming.StreamingState
 import com.vivid.feature.streaming.StreamingViewModel
@@ -51,6 +55,7 @@ fun StreamingScreen(
 ) {
     val streamingEngine = viewModel.streamingEngine
     val streamingState by streamingEngine.streamingState.collectAsStateWithLifecycle()
+    val focusMode by streamingEngine.focusMode.collectAsStateWithLifecycle()
     val errorMessage by viewModel.errorMessage.collectAsStateWithLifecycle()
     val configIssues by viewModel.configIssues.collectAsStateWithLifecycle()
 
@@ -192,6 +197,26 @@ fun StreamingScreen(
                     is StreamingState.Failed -> "Retry"
                 }
                 Text(buttonText)
+            }
+
+            // Fokus-Lock (Moblin #377): Fokus auf Unendlich fixieren, damit der
+            // Autofokus während des Streamings nicht auf Regentropfen/Schmutz
+            // scharf stellt. Gilt für die Streaming-Kamera (RootEncoder), nicht
+            // nur für die Vorschau, und ist auch vor dem Go-Live schaltbar.
+            FilledTonalButton(
+                onClick = { streamingEngine.toggleFocusLock() },
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = 12.dp, end = 16.dp),
+            ) {
+                val isLocked = focusMode == FocusMode.LOCKED_INFINITY
+                Icon(
+                    imageVector = if (isLocked) Icons.Filled.Lock else Icons.Filled.LockOpen,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(if (isLocked) "Fokus: ∞" else "Fokus: Auto")
             }
 
             if (streamingState is StreamingState.Failed) {

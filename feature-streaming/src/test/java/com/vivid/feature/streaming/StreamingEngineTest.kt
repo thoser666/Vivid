@@ -277,4 +277,53 @@ class StreamingEngineTest {
         verify(exactly = 0) { glStreamInterface.attachPreview(any()) }
         coVerify { rtmpCamera.startStream("rtmp://test.com/app") }
     }
+
+    // --- Fokus-Lock (Moblin #377) ---
+
+    @Test
+    fun `toggleFocusLock returns false and keeps AUTO before the camera is initialized`() = runTest {
+        val result = streamingEngine.toggleFocusLock()
+
+        assertEquals(false, result)
+        assertEquals(FocusMode.AUTO, streamingEngine.focusMode.value)
+    }
+
+    @Test
+    fun `toggleFocusLock locks the camera to infinity`() = runTest {
+        streamingEngine.initializeCamera()
+        every { rtmpCamera.disableAutoFocus() } returns true
+
+        val result = streamingEngine.toggleFocusLock()
+
+        assertEquals(true, result)
+        assertEquals(FocusMode.LOCKED_INFINITY, streamingEngine.focusMode.value)
+        verify { rtmpCamera.disableAutoFocus() }
+        verify { rtmpCamera.setFocusDistance(CameraFocusController.FOCUS_DISTANCE_INFINITY) }
+    }
+
+    @Test
+    fun `toggleFocusLock unlocks and re-enables autofocus`() = runTest {
+        streamingEngine.initializeCamera()
+        every { rtmpCamera.disableAutoFocus() } returns true
+        streamingEngine.toggleFocusLock()
+
+        every { rtmpCamera.enableAutoFocus() } returns true
+        val result = streamingEngine.toggleFocusLock()
+
+        assertEquals(true, result)
+        assertEquals(FocusMode.AUTO, streamingEngine.focusMode.value)
+        verify { rtmpCamera.enableAutoFocus() }
+    }
+
+    @Test
+    fun `toggleFocusLock keeps the mode and state when the camera rejects the lock`() = runTest {
+        streamingEngine.initializeCamera()
+        every { rtmpCamera.disableAutoFocus() } returns false
+
+        val result = streamingEngine.toggleFocusLock()
+
+        assertEquals(false, result)
+        assertEquals(FocusMode.AUTO, streamingEngine.focusMode.value)
+        verify(exactly = 0) { rtmpCamera.setFocusDistance(any()) }
+    }
 }
