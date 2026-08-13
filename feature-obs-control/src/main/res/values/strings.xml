@@ -6,4 +6,8 @@
     <string name="obs_settings_password_label">OBS Password</string>
     <string name="obs_settings_tls_label">Secure connection (wss://)</string>
     <string name="obs_settings_save_button">Save</string>
+    <string name="obs_settings_qr_label">Import from QR code (paste content)</string>
+    <string name="obs_settings_qr_import_button">Import</string>
+    <string name="obs_settings_qr_import_error">Invalid QR code: %1$s</string>
+    <string name="obs_settings_qr_import_success">OBS connection imported — check values, then save.</string>
 </resources>

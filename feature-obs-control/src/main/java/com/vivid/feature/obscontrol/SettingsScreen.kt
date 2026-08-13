@@ -80,6 +80,33 @@ fun SettingsScreen(
             )
         }
 
+        // QR-Code-Import: OBS-Connect-Info-QR (obsws://host:port/password) einfügen
+        // und übernehmen — Host/Port/Passwort werden vorausgefüllt.
+        OutlinedTextField(
+            value = uiState.qrInput,
+            onValueChange = viewModel::onQrInputChanged,
+            label = { Text(stringResource(id = R.string.obs_settings_qr_label)) },
+            modifier = Modifier.fillMaxWidth(),
+            readOnly = uiState.isSaving,
+            singleLine = true,
+        )
+
+        uiState.qrMessage?.let { message ->
+            Text(
+                text = message,
+                color = androidx.compose.material3.MaterialTheme.colorScheme.error,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+
+        Button(
+            onClick = { viewModel.importFromQrCode(uiState.qrInput) },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !uiState.isSaving && uiState.qrInput.isNotBlank(),
+        ) {
+            Text(stringResource(id = R.string.obs_settings_qr_import_button))
+        }
+
         // Spacer to push the save button to the bottom.
         Spacer(modifier = Modifier.weight(1f))
 
