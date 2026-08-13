@@ -13,7 +13,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 | 📋 | Geplant (Roadmap) |
 | — | Nicht zutreffend auf Android |
 
-> **Stand:** 2026-08-12 · Aktualisierung: Foreground-Service für Hintergrund-Streaming implementiert
+> **Stand:** 2026-08-13 · Aktualisierung: Neue Moblin-Features aus Release **33.12.0** (2026-07-24) nachgetragen (Chat-Bot-Media-Steuerung, Photo-Shoot-Quick-Button, Höhenmeter im Text-Widget, Talkback-Mic im Remote-Control) — Referenzstand: Moblin **33.12.0**
 >
 > **Pflege:** Nach jedem Feature-Commit den Status in der jeweiligen Zeile aktualisieren und das Datum oben anpassen.
 >
@@ -28,15 +28,15 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 | Streaming & Protokolle | 4 | 0 | 4 | 8 |
 | Netzwerk-Bonding | 0 | 0 | 1 | 1 |
 | OBS-Steuerung | 2 | 0 | 2 | 4 |
-| Chat & Moderation | 0 | 0 | 3 | 3 |
+| Chat & Moderation | 0 | 0 | 4 | 4 |
 | Overlays & Widgets | 0 | 0 | 5 | 5 |
-| Kamera & Video | 0 | 1 | 3 | 4 |
+| Kamera & Video | 0 | 1 | 4 | 5 |
 | Audio | 0 | 0 | 3 | 3 |
 | Remote & Companion | 1 | 0 | 2 | 3 |
 | Plattform & Grundlagen | 5 | 1 | 0 | 6 |
-| **Gesamt** | **12** | **2** | **23** | **37**† |
+| **Gesamt** | **12** | **2** | **25** | **39**† |
 
-† Inkl. 1 n/a-Zeile (Apple-Watch-Companion); anwendbare Features: **36**.
+† Inkl. 1 n/a-Zeile (Apple-Watch-Companion); anwendbare Features: **39**.
 
 ---
 
@@ -75,13 +75,14 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 | Plattform-Chat (Twitch, Kick, YouTube, SOOP) | 📋 | `feature-chat` | Modul ist Platzhalter; IRC/WebSocket-Clients + Nachrichten-Stream aufbauen |
 | Emotes (BTTV, FFZ, 7TV) | 📋 | `feature-chat` | Emote-API-Clients + Rendering |
 | Moderation (Ban, Timeout, Delete), Chat-Bot, TTS | 📋 | `feature-chat` | ModActions + Bot-Framework |
+| Chat-Bot: Media-Player-Steuerung (generisch via MediaSession, z. B. Apple Music/Spotify) | 📋 | `feature-chat` | Chat-Bot-Kommando + `MediaSession`/`MediaController`-Bindung (Android-Adaption der Apple-Music-Steuerung aus Moblin 33.12.0); Kommandos case-insensitive |
 
 ## 🎨 Overlays & Widgets
 
 | Moblin-Feature | Status | Modul | Offene Tasks / Notizen |
 |----------------|--------|-------|------------------------|
 | Chat-Overlay & Event-Alerts (Follow/Sub/Raid) | 📋 | `feature-widgets` | Modul ist Platzhalter; Alert-Layer + Trigger-API |
-| Text-/Info-Widgets (Zeit, Wetter, Geschwindigkeit, GPS) | 📋 | `feature-widgets` | Sensor-/Geo-Daten-Bindungen |
+| Text-/Info-Widgets (Zeit, Wetter, Geschwindigkeit, GPS, Höhenmeter) | 📋 | `feature-widgets` | Sensor-/Geo-Daten-Bindungen; Anstieg/Abstieg des Höhenmeters (**neu in Moblin 33.12.0**) |
 | Karten-Widget | 📋 | `feature-widgets` | Karten-Provider wählen (Maps SDK / Tile-Overlay) |
 | Browser-Widget (CSS + JS-API) | 📋 | `feature-widgets` | WebView-Layer + `postMessage`-Bridge |
 | Scoreboards (Padel, Golf, Volleyball) | 📋 | `feature-widgets` | Datenmodelle + Renderer |
@@ -94,6 +95,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 | Color-Spaces (sRGB, P3, Log) + 3D-LUTs | 📋 | `feature-streaming` | Shader-Pipeline in `OpenGlView` ausbauen |
 | Video-Effekte (Graustufen, Letterbox, Sepia, Rauschfilter) | 📋 | `feature-streaming` | OpenGL-Effektkette |
 | Externes Zubehör (DJI Osmo, GoPro, Gimbal, UVC) | 📋 | `feature-streaming` | BLE/USB-Integrationen einzeln bewerten |
+| Photo-Shoot-Quick-Button (periodisch hochauflösende Fotos) | 📋 | `feature-streaming` | Quick-Button-Aktion; ein sauberes Bild pro Sekunde pro Kamera, Ablage in der Galerie; **neu in Moblin 33.12.0** |
 
 ## 🎙️ Audio
 
@@ -107,7 +109,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 
 | Moblin-Feature | Status | Modul | Offene Tasks / Notizen |
 |----------------|--------|-------|------------------------|
-| Web-Remote-Control (LAN-Server, Status/Preview) | ✅ | `core` (`RemoteControlServer`), `feature-streaming` (`StreamingEngineStreamControl`), `app` (`VividApplication`) | Ktor-Server auf Port 8080 mit Token-Auth; `GET /status` (öffentlich), `POST /start|stop` (Bearer-Token aus Settings); Token wird in DataStore persistiert und in den Settings angezeigt. **Offen:** Video-Preview im Browser, Toggle zum Aktivieren/Deaktivieren |
+| Web-Remote-Control (LAN-Server, Status/Preview) | ✅ | `core` (`RemoteControlServer`), `feature-streaming` (`StreamingEngineStreamControl`), `app` (`VividApplication`) | Ktor-Server auf Port 8080 mit Token-Auth; `GET /status` (öffentlich), `POST /start|stop` (Bearer-Token aus Settings); Token wird in DataStore persistiert und in den Settings angezeigt. **Offen:** Video-Preview im Browser, Toggle zum Aktivieren/Deaktivieren, Talkback-Mic-Steuerung (Streamer-Seite; **neu in Moblin 33.12.0**) |
 | Game-Controller-Support (Zoom, Szenen, Torch) | 📋 | `core` | Android-GameController-API |
 | Deep Linking / Konfig-Import (`moblin://`, `.moblinSettings`) | 📋 | `app` | URL-Scheme + Import-Parser |
 | Apple-Watch-Companion | — | — | Nicht zutreffend auf Android; Wear-OS-Pendant separat bewerten |
@@ -129,6 +131,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 
 | Datum | Commit | Änderung |
 |-------|--------|----------|
+| 2026-08-13 | — | Moblin **33.12.0** (2026-07-24) nachgetragen: Chat-Bot-Media-Steuerung (Android-Adaption der Apple-Music-Steuerung via MediaSession), Photo-Shoot-Quick-Button, Höhenmeter (Anstieg/Abstieg) im Text-Widget, Talkback-Mic im Remote-Control |
 | 2026-08-12 | — | Foreground-Service für Hintergrund-Streaming (Notification, WakeLock, Runtime-Permissions) implementiert |
 | 2026-08-12 | — | RTMPS (TLS-Ingest) verifiziert: RootEncoder 2.6.4 kann nativ TLS; Port-Normalisierung 1935→443 + Beweis-Test |
 | 2026-08-12 | — | Go-Live-Selbst-Check (Stream-Config-Validierung, blockierende Fehler + Warnungen) ergänzt |

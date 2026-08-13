@@ -124,11 +124,12 @@ The About-screen check follows the same rules as [RELEASE.md](RELEASE.md): it on
 ### 📋 Planned (Roadmap to Moblin parity)
 
 - 📡 **Multi-Network Bonding (SRTLA)** - Combine WiFi and mobile data for rock-solid streams
-- 💬 **Chat Integration** - Twitch/YouTube/Kick chat with emotes and moderation
-- 🎨 **Configurable Overlays** - Chat, follower/donation alerts, custom graphics and branding
+- 💬 **Chat Integration** - Twitch/YouTube/Kick chat with emotes and moderation, plus a chat bot (incl. media player control via MediaSession — Apple Music, Spotify, etc.; adapted from Moblin 33.12.0)
+- 🎨 **Configurable Overlays** - Chat, follower/donation alerts, custom graphics and branding; text widgets incl. altitude (ascent/descent)
 - 📹 **High-Quality Streaming** - Up to 4K resolution at 60fps with H.264/AVC and H.265/HEVC
 - 🔒 **Extended Protocols** - SRTLA, RIST, and WHIP (WebRTC) — RTMPS is already implemented (see below)
-- 🕹️ **Remote & Companion Features** - Web remote control, game controller support, deep linking
+- 🕹️ **Remote & Companion Features** - Web remote control (incl. talkback mic selection), game controller support, deep linking
+- 📸 **Photo Shoot Quick Button** - Periodically capture high-resolution clean pictures to the gallery (new in Moblin 33.12.0)
 
 ## 📋 Platform Setup Guides
 
@@ -403,10 +404,12 @@ Status: ✅ implemented · 🚧 in progress · 📋 planned
 | H.264/H.265, up to 4K/60fps | 📋 | Pipeline in place, quality targets planned |
 | Multi-Network Bonding (SRTLA) | 📋 | SRTLA algorithm to be ported |
 | Chat + Emotes + Moderation | 📋 | `feature-chat` module scaffolded |
-| Overlays & Widgets | 📋 | `feature-widgets` module scaffolded |
+| Chat-Bot Media Player Control | 📋 | Generic media control via MediaSession (Apple Music, Spotify, …); Android adaptation of Moblin 33.12.0 |
+| Overlays & Widgets | 📋 | `feature-widgets` module scaffolded; text widgets incl. altitude ascent/descent |
 | Audio Tools (levels, muting, talk-back) | 📋 | |
 | Extended Protocols (RIST, WHIP) | 📋 | |
 | Web Remote Control | ✅ | LAN server (port 8080) with token auth: status, start/stop |
+| Photo Shoot Quick Button | 📋 | Periodic high-res photos to the gallery; new in Moblin 33.12.0 |
 | Game Controller Support | 📋 | |
 | Deep Linking (`moblin://`) | 📋 | |
 
