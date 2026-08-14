@@ -37,6 +37,11 @@ FORBIDDEN_ENV_FILES=(
   "fastlane/.env.production"
 )
 
+# Test-Fixtures (Selbsttest des Guards) enthalten bewusst Beispiel-Secrets
+# (Fake-Token, Fake-Private-Keys) — vom Content-Guard ausgenommen, damit der
+# Guard sich nicht selbst blockiert.
+FIXTURE_EXCLUDE=":(exclude)scripts/test_guard_secrets.sh"
+
 # ── Hilfsfunktionen ──────────────────────────────────────────────────────────
 FAIL=0
 violation() { # $1 = Beschreibung, $2 = Datei
@@ -104,7 +109,7 @@ if git ls-files | grep -q .; then
     if ! is_placeholder "$value"; then
       violation "Klartext keyPassword" "$f:$line"
     fi
-  done < <(git grep -n -E '(storePassword|keyPassword)[[:space:]]*=' 2>/dev/null || true)
+  done < <(git grep -n -E -e '(storePassword|keyPassword)[[:space:]]*=' -- . "$FIXTURE_EXCLUDE" 2>/dev/null || true)
 
   # b) Echte Secrets — hochspezifische Token-Formate.
   #    WICHTIG: Process Substitution statt Pipe — sonst läuft der while-Loop in
@@ -112,16 +117,16 @@ if git ls-files | grep -q .; then
   #    liefert Exit 1 — mit pipefail kein Abbruch.)
   while IFS=: read -r f rest; do
     violation "GitHub-Token im Klartext" "$f:${rest%%:*}"
-  done < <(git grep -n -E 'gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}' 2>/dev/null || true)
+  done < <(git grep -n -E -e 'gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}' -- . "$FIXTURE_EXCLUDE" 2>/dev/null || true)
   while IFS=: read -r f rest; do
     violation "AWS Access Key im Klartext" "$f:${rest%%:*}"
-  done < <(git grep -n -E 'AKIA[0-9A-Z]{16}' 2>/dev/null || true)
+  done < <(git grep -n -E -e 'AKIA[0-9A-Z]{16}' -- . "$FIXTURE_EXCLUDE" 2>/dev/null || true)
   while IFS=: read -r f rest; do
     violation "Sentry-Auth-Token im Klartext" "$f:${rest%%:*}"
-  done < <(git grep -n -E 'sntrys_[A-Za-z0-9_]{16,}' 2>/dev/null || true)
+  done < <(git grep -n -E -e 'sntrys_[A-Za-z0-9_]{16,}' -- . "$FIXTURE_EXCLUDE" 2>/dev/null || true)
   while IFS=: read -r f rest; do
     violation "Privater Schlüsselblock" "$f:${rest%%:*}"
-  done < <(git grep -n -E -- '-----BEGIN (RSA |EC |DSA |OPENSSH |PGP )?PRIVATE KEY' 2>/dev/null || true)
+  done < <(git grep -n -E -e '-----BEGIN (RSA |EC |DSA |OPENSSH |PGP )?PRIVATE KEY' -- . "$FIXTURE_EXCLUDE" 2>/dev/null || true)
 fi
 
 # ── Ergebnis ─────────────────────────────────────────────────────────────────
