@@ -28,14 +28,14 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 | Streaming & Protokolle | 5 | 0 | 4 | 9 |
 | Netzwerk-Bonding | 0 | 0 | 1 | 1 |
 | OBS-Steuerung | 3 | 0 | 1 | 4 |
-| Chat & Moderation | 0 | 0 | 4 | 4 |
+| Chat & Moderation | 0 | 1 | 3 | 4 |
 | Overlays & Widgets | 0 | 0 | 6 | 6 |
 | Kamera & Video | 2 | 0 | 4 | 6 |
 | Audio | 0 | 0 | 3 | 3 |
 | Remote & Companion | 1 | 0 | 2 | 3 |
 | Plattform & Grundlagen | 5 | 1 | 0 | 6 |
 | Zusatz-Features (über Parität) | 0 | 0 | 1 | 1 |
-| **Gesamt** | **16** | **1** | **26** | **43**† |
+| **Gesamt** | **16** | **2** | **25** | **43**† |
 
 † Inkl. 1 n/a-Zeile (Apple-Watch-Companion) und 1 Zusatz-Feature über die Moblin-Parität hinaus; anwendbare Moblin-Features: **42**.
 
@@ -74,7 +74,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 
 | Moblin-Feature | Status | Modul | Offene Tasks / Notizen |
 |----------------|--------|-------|------------------------|
-| Plattform-Chat (Twitch, Kick, YouTube, SOOP) | 📋 | `feature-chat` | Modul ist Platzhalter; IRC/WebSocket-Clients + Nachrichten-Stream aufbauen |
+| Plattform-Chat (Twitch, Kick, YouTube, SOOP) | 🚧 | `feature-chat` | **Twitch-IRC-Client fertig** (`TwitchChatClient`, `SocketIrcConnection`): anonym (justinfan) + TLS 6697, CAP (tags/commands/membership), JOIN/PING-PONG, IRCv3-Tags-Parser (display-name, color, badges, emotes, tmi-sent-ts, mod/sub), `state`-StateFlow + `messages`-Flow, Auto-Reconnect mit Backoff, Hilt-DI (`@ChatScope`); 14 Unit-Tests. **Offen:** Kick (WebSocket), YouTube (innertube), SOOP; OAuth-Login für Senden/Moderation; UI/Overlay |
 | Emotes (BTTV, FFZ, 7TV) | 📋 | `feature-chat` | Emote-API-Clients + Rendering |
 | Moderation (Ban, Timeout, Delete), Chat-Bot, TTS | 📋 | `feature-chat` | ModActions + Bot-Framework |
 | Chat-Bot: Media-Player-Steuerung (generisch via MediaSession, z. B. Apple Music/Spotify) | 📋 | `feature-chat` | Chat-Bot-Kommando + `MediaSession`/`MediaController`-Bindung (Android-Adaption der Apple-Music-Steuerung aus Moblin 33.12.0); Kommandos case-insensitive |
@@ -141,7 +141,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 
 | Datum | Commit | Änderung |
 |-------|--------|----------|
-| 2026-08-14 | — | Entscheidung dokumentiert: **kein separates Begleitprojekt** (wie `moblin-assistant`) für Remote-Control über Internet / externe Chat-Bridges — Android bindet Plattform-Chats direkt in der App an, Remote bleibt aufs LAN beschränkt (Hinweis in der Web-Remote-Control-Zeile) |
+| 2026-08-14 | — | **Plattform-Chat (Twitch) begonnen:** Data-Layer des `feature-chat`-Moduls implementiert — `TwitchChatClient` (anonym/justinfan, TLS 6697, CAP tags/commands/membership, JOIN, PING→PONG, Auto-Reconnect mit Backoff, `state`-StateFlow + `messages`-Flow), `SocketIrcConnection` (Socket/TLS mit `IrcConnectionFactory` für Tests), IRCv3-Tags-Parser (`IrcMessageParser`, inkl. Escaping) und `ChatMessage`-Modell; Hilt-DI (`@ChatScope`); 14 Unit-Tests grün, Lint + App-Compile grün. Nächste Schritte: Kick/YouTube-Adapter, OAuth-Login, UI/Overlay |
 | 2026-08-14 | — | **RootEncoder auf 2.7.5 aktualisiert** (von 2.6.4): RTMP-Fixes (`onFail` bei fehlgeschlagenem Publish, Crash-Fix bei ungültiger URL, Handshake-Flags), SRT-Ack/Nak/Handshake-Fixes, Ktor-TLS-Fehlerbehandlung + `setTlsHostVerification`, „Java sockets by default"; API kompatibel verifiziert (Context-Konstruktoren `RtmpCamera2`/`MultiCamera2`, `Camera2Base`-Camera-Controls, RTMPS-Parsing via `RootEncoderRtmpsSupportTest`) — alle Tests grün |
 | 2026-08-14 | — | **Tap-to-Focus, Pinch-Zoom und Video-Stabilisierung** für die Streaming-Kamera implementiert: `CameraControls`-Vertrag + `RootEncoderCameraControls` (Adapter über RootEncoder `Camera2Base`, wandelt `android.util.Range` → `ZoomRange`), `StreamingPreviewGestures` (Tipp → Tap-to-Focus, Doppeltipp → Zoom-Reset, Pinch → Zoom), `ZoomCalculator` (Clamping auf den Kamera-Zoombereich), `CameraStabilizationController` (OIS bevorzugt, sonst EIS) mit `stabilizationEnabled`-StateFlow und Toggle im StreamingScreen; Engine-API `zoomBy`/`resetZoom`/`tapToFocus`/`toggleStabilization`; Unit-Tests (ZoomCalculator, Controller, Adapter, Engine) |
 | 2026-08-13 | — | **Multi-Streaming (bis zu 2 parallele RTMP(S)-Ziele)** implementiert: RootEncoder `MultiCamera2` in der `StreamingEngine` (`CameraFactory.create(List<ConnectChecker>)`, per-Ziel-ConnectChecker, `targetStates`-StateFlow), Status je Ziel im StreamingScreen, ein Fehlerziel stoppt nur sich selbst; sekundäre URL/Key/TLS in den Settings („Multi-Streaming (optional)“), Validator + Service-Plumbing (`EXTRA_STREAM_URLS`); Unit-Tests in allen betroffenen Modulen |
