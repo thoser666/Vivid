@@ -104,7 +104,7 @@ class StreamingViewModel @Inject constructor(
  *
  * Bei [useTls] = true wird `rtmp://` automatisch auf `rtmps://` umgeschrieben
  * (RTMP über TLS). Die RootEncoder-Library erkennt `rtmps://` am Scheme und
- * aktiviert TLS selbst (verifiziert an RootEncoder 2.6.4: `tlsEnabled` wird
+ * aktiviert TLS selbst (verifiziert an RootEncoder 2.7.5: `tlsEnabled` wird
  * gesetzt, wenn das Scheme auf `s` endet; Default-Port ist dann 443 statt 1935).
  * Ein explizit gesetzter Standard-RTMP-Port (1935) wird deshalb auf 443
  * umgeschrieben — ein eigener TLS-Port (z. B. 8443) bleibt erhalten.

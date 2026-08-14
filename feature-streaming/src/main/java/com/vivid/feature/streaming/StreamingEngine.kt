@@ -49,7 +49,7 @@ class RtmpCamera2Factory @Inject constructor(
         // weil der Encoder nicht an der Preview-Surface hängt.
         // MultiCamera2 verwaltet einen ConnectChecker pro Ziel (MVP: max. 2);
         // nicht genutzte Protokolle werden mit leeren Arrays deaktiviert.
-        // (Verifiziert an RootEncoder 2.6.4 per Bytecode + Maintainer-Doku.)
+        // (Verifiziert an RootEncoder 2.7.5 per Bytecode + Maintainer-Doku.)
         return MultiCamera2(
             context,
             connectCheckers.toTypedArray(), // rtmp

@@ -8,9 +8,9 @@ import org.junit.jupiter.api.Test
 import java.net.URISyntaxException
 
 /**
- * Beweist die RTMPS-Fähigkeit von RootEncoder 2.6.4 am echten Artefakt.
+ * Beweist die RTMPS-Fähigkeit von RootEncoder 2.7.5 am echten Artefakt.
  *
- * Verifiziert (Bytecode-Analyse von RootEncoder 2.6.4):
+ * Verifiziert (Bytecode-Analyse von RootEncoder 2.7.5):
  * - `RtmpClient.validSchemes = ["rtmp", "rtmps", "rtmpt", "rtmpts"]`
  * - In `connect()` wird `tlsEnabled = scheme.endsWith("s")` gesetzt, d. h.
  *   `rtmps://` und `rtmpts://` aktivieren den TLS-Handshake.
