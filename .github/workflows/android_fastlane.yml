@@ -345,6 +345,15 @@ jobs:
           curl -sfL -o published.apk "$BASE/app-release.apk" || { echo "::error::app-release.apk fehlt im Release"; exit 1; }
           curl -sfL -o published-mapping.txt "$BASE/mapping.txt" || { echo "::error::mapping.txt fehlt im Release"; exit 1; }
           curl -sfL -o published-output-metadata.json "$BASE/output-metadata.json" || { echo "::error::output-metadata.json fehlt im Release"; exit 1; }
+          # Optional: AAB herunterladen, falls die Release-Lane künftig zusätzlich
+          # ein Bundle publiziert — sonst werden die AAB-Checks übersprungen.
+          if curl -sfL -o published.aab "$BASE/app-release.aab"; then
+            echo "aab_published=true" >> "$GITHUB_OUTPUT"
+            echo "✅ AAB im Release gefunden"
+          else
+            echo "aab_published=false" >> "$GITHUB_OUTPUT"
+            echo "ℹ️ Kein AAB im Release — AAB-Signatur-/Reproduzierbarkeits-Checks übersprungen"
+          fi
           REV=$(unzip -p published.apk META-INF/version-control-info.textproto 2>/dev/null | grep revision | sed 's/.*: "//;s/".*//')
           echo "embedded_revision=$REV (checkout=${{ github.sha }})"
           if [ -z "$VERSION_CODE" ] || [ "$REV" != "${{ github.sha }}" ]; then
@@ -388,6 +397,31 @@ jobs:
           fi
           echo "✅ Signatur verifiziert: veröffentlichtes Nightly-APK trägt den Release-Key"
 
+      # ✅ AAB-Signatur-Check (falls die Release-Lane ein Bundle mitpubliziert):
+      # AABs sind JAR-signiert (v1) — Integrität per jarsigner, Zertifikat per
+      # keytool -printcert -jarfile lesen und gegen den Release-Key vergleichen.
+      - name: Verify published AAB signature against release key
+        if: steps.nightly.outputs.aab_published == 'true'
+        env:
+          KEYSTORE_PATH: ${{ env.KEYSTORE_PATH }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        run: |
+          jarsigner -verify published.aab || { echo "::error::AAB-Integritätsprüfung (jarsigner -verify) fehlgeschlagen"; exit 1; }
+          AAB_FP=$(keytool -printcert -jarfile published.aab 2>/dev/null | grep '^[[:space:]]*SHA256:' | sed 's/.*SHA256:[[:space:]]*//' | tr -d ':' | tr '[:upper:]' '[:lower:]')
+          KEY_FP=$(keytool -list -v -keystore "$KEYSTORE_PATH" -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" 2>/dev/null | grep '^[[:space:]]*SHA256:' | sed 's/.*SHA256:[[:space:]]*//' | tr -d ':' | tr '[:upper:]' '[:lower:]')
+          if [ -z "$AAB_FP" ] || [ -z "$KEY_FP" ]; then
+            echo "::error::Fingerprint nicht ermittelbar (AAB='$AAB_FP' Key='$KEY_FP') — AAB-Signatur-Check abgebrochen"
+            exit 1
+          fi
+          echo "AAB Signer SHA-256: $AAB_FP"
+          echo "Key SHA-256:        $KEY_FP"
+          if [ "$AAB_FP" != "$KEY_FP" ]; then
+            echo "::error::Signatur-Mismatch — veröffentlichtes AAB ist NICHT mit dem Release-Key signiert!"
+            exit 1
+          fi
+          echo "✅ Signatur verifiziert: veröffentlichtes AAB trägt den Release-Key"
+
       # ✅ Frischer Build mit exakt den veröffentlichten Parametern
       - name: Rebuild APK with published version params
         env:
@@ -397,6 +431,20 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           ./gradlew :app:assembleRelease \
+            -PversionName="${{ steps.nightly.outputs.version_name }}" \
+            -PversionCode="${{ steps.nightly.outputs.version_code }}" \
+            --stacktrace --no-daemon
+
+      # ✅ Frisches AAB (Bundle) mit denselben Parametern, falls publiziert
+      - name: Rebuild AAB with published version params
+        if: steps.nightly.outputs.aab_published == 'true'
+        env:
+          KEYSTORE_PATH: ${{ env.KEYSTORE_PATH }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          ./gradlew :app:bundleRelease \
             -PversionName="${{ steps.nightly.outputs.version_name }}" \
             -PversionCode="${{ steps.nightly.outputs.version_code }}" \
             --stacktrace --no-daemon
@@ -418,6 +466,10 @@ jobs:
           compare "app-release.apk" published.apk app/build/outputs/apk/release/app-release.apk
           compare "mapping.txt" published-mapping.txt app/build/outputs/mapping/release/mapping.txt
           compare "output-metadata.json" published-output-metadata.json app/build/outputs/apk/release/output-metadata.json
+          # AAB nur vergleichen, wenn es im Release vorhanden ist
+          if [ -f published.aab ]; then
+            compare "app-release.aab" published.aab app/build/outputs/bundle/release/app-release.aab
+          fi
           if [ "$fail" -eq 1 ]; then
             exit 1
           fi

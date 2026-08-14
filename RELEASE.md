@@ -121,6 +121,8 @@ Der Job **`verify-reproducibility`** in `android_fastlane.yml` vergleicht nach j
 
 **Signatur-Check:** Zusätzlich zum Hash-Vergleich verifiziert der Job die **Signatur des veröffentlichten APK** gegen den Release-Key: Der SHA-256-Fingerprint des APK-Signers (`apksigner verify --print-certs`) wird mit dem Zertifikat aus dem dekodierten `release.keystore` (`keytool -list -v`) verglichen. Damit wird hart sichergestellt, dass das veröffentlichte Nightly **nicht mit dem Debug-Key** signiert ist — ein Debug-signiertes APK würde Obtainium-Updates (Signatur-Mismatch) brechen. Auch dieser Check macht den Workflow bei Abweichung rot.
 
+**AAB (Bundle):** Sollte die Release-Lane künftig zusätzlich zum APK ein `app-release.aab` publizieren, wird es automatisch mitgeprüft (der Download-Step erkennt das AAB im Release und aktiviert die AAB-Checks nur dann): ① **Signatur** per `jarsigner -verify` (Integrität) + `keytool -printcert -jarfile` (Zertifikat gegen Release-Key), ② **Reproduzierbarkeit** durch frischen `:app:bundleRelease`-Build mit denselben versionName/versionCode-Parametern und Hash-Vergleich. Die AAB-Determinismustests lokal bestätigen: Zwei vollständig frische `bundleRelease`-Builds desselben Commits sind **bit-identisch** (Vorsicht: ein mit `--rerun-tasks` gemischter Vergleich gegen einen zwischenzeitlich veralteten Task-Cache täuscht Unterschiede vor — nur frische Builds vergleichen).
+
 ## ⚠️ Stage Gates
 
 ### `nightly` → laufend
