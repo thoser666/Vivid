@@ -71,6 +71,21 @@ android {
                 }
             }
         }
+        create("upload") {
+            // Play-Kanal: signiert das AAB fuer Google Play App Signing, bewusst
+            // getrennt vom Release-Key (UPLOAD_*-Secrets, nie KEYSTORE_*).
+            val keystorePath = System.getenv("UPLOAD_KEYSTORE_PATH")
+            val keystorePassword = System.getenv("UPLOAD_KEYSTORE_PASSWORD")
+            val keyAlias = System.getenv("UPLOAD_KEY_ALIAS")
+            val keyPassword = System.getenv("UPLOAD_KEY_PASSWORD")
+
+            if (!keystorePath.isNullOrEmpty()) {
+                storeFile = file(keystorePath)
+                storePassword = keystorePassword
+                this.keyAlias = keyAlias
+                this.keyPassword = keyPassword
+            }
+        }
     }
 
     buildTypes {
@@ -90,6 +105,16 @@ android {
             val releaseConfig = signingConfigs.getByName("release")
             signingConfig = if (releaseConfig.storeFile != null) {
                 releaseConfig
+            } else {
+                signingConfigs.getByName("debug")
+            }
+        }
+        create("playRelease") {
+            initWith(getByName("release"))
+            // AAB fuer den Play-Kanal: Upload-Key statt Release-Key.
+            val uploadConfig = signingConfigs.getByName("upload")
+            signingConfig = if (uploadConfig.storeFile != null) {
+                uploadConfig
             } else {
                 signingConfigs.getByName("debug")
             }

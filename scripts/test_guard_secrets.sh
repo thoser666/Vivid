@@ -14,6 +14,9 @@
 #   T8  Privater Schlüssel     -> Content-Guard (BEGIN ... PRIVATE KEY) schlägt an
 #   T9  Platzhalter/Variablen  -> KEIN Verstoß (storePassword=<pw> / =keystorePassword)
 #   T10 .env.default-Debugwerte-> KEIN Verstoß (KEYSTORE_PASSWORD=android)
+#   T11 upload-keystore.jks    -> Dateinamen-Guard (Play-Upload-Key)
+#   T12 play-credentials.json  -> Dateinamen-Guard (Play-Service-Account)
+#   T13 fastlane/.env.play     -> Env-Datei-Guard (Play-Upload-Secrets)
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -139,6 +142,36 @@ EOF
 git add fastlane/.env.default
 git commit -qm ok
 check "T10 .env.default-Debug-Werte -> Exit 0" 0 bash "$GUARD"
+
+# T11: upload-keystore.jks (Play-Upload-Key) getrackt
+setup_repo
+mkdir -p keystores
+printf '\x00\x01' > keystores/upload-keystore.jks
+git add -f keystores/upload-keystore.jks
+git commit -qm bad
+check "T11 upload-keystore.jks -> Exit 1" 1 bash "$GUARD"
+
+# T12: play-credentials.json (Play-Service-Account mit private_key) getrackt
+setup_repo
+cat > play-credentials.json <<'EOF'
+{
+  "type": "service_account",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nFAKE\n-----END PRIVATE KEY-----\n"
+}
+EOF
+git add play-credentials.json
+git commit -qm bad
+check "T12 play-credentials.json -> Exit 1" 1 bash "$GUARD"
+
+# T13: fastlane/.env.play (Play-Upload-Env mit echten Secrets) getrackt
+setup_repo
+cat > fastlane/.env.play <<'EOF'
+UPLOAD_KEYSTORE_PASSWORD=SuperSecret
+PLAY_JSON_KEY_DATA={"type":"service_account"}
+EOF
+git add fastlane/.env.play
+git commit -qm bad
+check "T13 fastlane/.env.play -> Exit 1" 1 bash "$GUARD"
 
 # ── Ergebnis ─────────────────────────────────────────────────────────────────
 echo "----------------------------------------"

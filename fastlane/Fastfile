@@ -231,4 +231,64 @@ platform :android do
       UI.success("✅ Nightly published: #{tag}")
     end
   end
+
+  desc "Build a release AAB signed with the UPLOAD key and upload it to Google Play (requires UPLOAD_KEYSTORE_* + Play service-account credentials)"
+  lane :publish_play do |options|
+    UI.header "Step 1/6: Checking credentials"
+    UI.user_error!("UPLOAD_KEYSTORE_PATH must be set (Play upload keystore)") if ENV["UPLOAD_KEYSTORE_PATH"].to_s.empty?
+    UI.user_error!("UPLOAD_KEYSTORE_PASSWORD must be set") if ENV["UPLOAD_KEYSTORE_PASSWORD"].to_s.empty?
+    UI.user_error!("UPLOAD_KEY_ALIAS must be set") if ENV["UPLOAD_KEY_ALIAS"].to_s.empty?
+    UI.user_error!("UPLOAD_KEY_PASSWORD must be set") if ENV["UPLOAD_KEY_PASSWORD"].to_s.empty?
+    if ENV["PLAY_JSON_KEY_FILE"].to_s.empty? && ENV["PLAY_JSON_KEY_DATA"].to_s.empty?
+      UI.user_error!("Play service-account credentials missing - set PLAY_JSON_KEY_FILE (path) or PLAY_JSON_KEY_DATA (json content), see https://docs.fastlane.tools/actions/supply/")
+    end
+
+    UI.header "Step 2/6: Determining version"
+    # Deterministisch aus dem letzten Version-Tag (v*) - NICHT aus GITHUB_RUN_NUMBER.
+    # versionCode muss in Play global eindeutig sein (pro App nur einmal hochladbar):
+    # gleicher Tag => gleicher Code; mit version:/version_code: kann bewusst ein
+    # anderer Wert erzwungen werden.
+    describe = `git describe --tags --abbrev=0 --match 'v*' 2>/dev/null`.strip.sub(/^v/, "")
+    version_name = options[:version] || (describe.empty? ? "1.0" : describe)
+    version_code = options[:version_code] || version_code_for(version_name) || ENV["GITHUB_RUN_NUMBER"] || "1"
+    track = options[:track] || "alpha"
+    UI.message("Play upload: #{version_name} (#{version_code}) -> track #{track}")
+
+    UI.header "Step 3/6: Building AAB with UPLOAD key"
+    gradle(
+      task: "bundlePlayRelease",
+      flags: "--stacktrace --no-daemon",
+      properties: {
+        "versionName" => version_name,
+        "versionCode" => version_code
+      }
+    )
+    aab = lane_context[SharedValues::GRADLE_AAB_OUTPUT_PATH] || "app/build/outputs/bundle/playRelease/app-playRelease.aab"
+    UI.user_error!("AAB not found: #{aab}") unless File.exist?(aab)
+    UI.message("AAB: #{aab} (#{File.size(aab)} bytes)")
+
+    UI.header "Step 4/6: Verifying AAB signature against UPLOAD key"
+    keystore = ENV["UPLOAD_KEYSTORE_PATH"]
+    aab_fp = `keytool -printcert -jarfile "#{aab}" 2>/dev/null | grep '^[[:space:]]*SHA256:' | head -1 | sed 's/.*SHA256:[[:space:]]*//' | tr -d ':' | tr '[:upper:]' '[:lower:]'`.strip
+    key_fp = `keytool -list -v -keystore "#{keystore}" -storepass "#{ENV["UPLOAD_KEYSTORE_PASSWORD"]}" -alias "#{ENV["UPLOAD_KEY_ALIAS"]}" 2>/dev/null | grep '^[[:space:]]*SHA256:' | sed 's/.*SHA256:[[:space:]]*//' | tr -d ':' | tr '[:upper:]' '[:lower:]'`.strip
+    UI.message("AAB signer SHA-256: #{aab_fp}")
+    UI.message("Upload key SHA-256: #{key_fp}")
+    UI.user_error!("Signature mismatch: AAB is not signed with the UPLOAD key") if aab_fp.empty? || key_fp.empty? || aab_fp != key_fp
+    UI.success("AAB signature verified against UPLOAD key")
+
+    UI.header "Step 5/6: Uploading to Google Play (track #{track})"
+    supply_opts = {
+      aab: aab,
+      track: track,
+      metadata_path: "fastlane/metadata/android",
+      skip_upload_apk: true
+    }
+    supply_opts[:json_key_file] = ENV["PLAY_JSON_KEY_FILE"] if ENV["PLAY_JSON_KEY_FILE"].to_s != ""
+    supply_opts[:json_key] = ENV["PLAY_JSON_KEY_DATA"] if ENV["PLAY_JSON_KEY_DATA"].to_s != ""
+    supply(supply_opts)
+
+    UI.header "Step 6/6: Done"
+    UI.success("Uploaded #{version_name} to Play track #{track}")
+    UI.message("Release in der Play Console veroeffentlichen: App -> Release -> 'Go live'")
+  end
 end

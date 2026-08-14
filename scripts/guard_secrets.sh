@@ -23,6 +23,11 @@ FORBIDDEN_NAMES=(
   "crashlytics-build.properties"
   "debug.keystore"
   "release.keystore"
+  "upload-keystore.jks"
+  "upload-keystore.keystore"
+  "upload_cert.pem"
+  "play-credentials.json"
+  "google-play-service-account.json"
 )
 FORBIDDEN_EXT=(
   "jks"
@@ -35,6 +40,7 @@ FORBIDDEN_EXT=(
 FORBIDDEN_ENV_FILES=(
   "fastlane/.env.release"
   "fastlane/.env.production"
+  "fastlane/.env.play"
 )
 
 # Test-Fixtures (Selbsttest des Guards) enthalten bewusst Beispiel-Secrets
