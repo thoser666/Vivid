@@ -393,6 +393,85 @@ Das `encrypted.zip` (nur für Google lesbar verschlüsselt) wird hochgeladen; Go
 3. Der Wechsel passiert **ohne App-Ausfall** und ohne Neuinstallationen — anders als beim Release-Key für GitHub/Obtainium
 
 
+### 🧪 Testplan: Erster Play-Upload (alpha-Track)
+
+Konkreter, ausführbarer Ablauf für den **ersten** Upload in die Play Console (Track `alpha`) — Ziel: ein mit dem Upload-Key signiertes AAB hochladen und als Alpha-Release verifizieren, ohne `beta`/`stable` zu berühren (siehe Stage Gates).
+
+**📋 Checkliste vor dem Start (alles abhaken):**
+
+- [ ] **Play Console:** App ist angelegt und automatisch in Play App Signing eingeschrieben (App-Signing-Key: Google-generiert, Variante A)
+- [ ] **Upload-Key:** `upload-keystore.jks` erzeugt und gesichert (Abschnitt „🔐 Play-Upload-Keystore erzeugen …“)
+- [ ] **`upload_cert.pem`** in der Play Console als Upload-Key-Zertifikat registriert
+- [ ] **Service-Account:** Play Console → Setup → API-Zugang → Google Play Developer API → Service-Konto mit Rolle **„Releasemanager“** → JSON-Key heruntergeladen
+- [ ] **Alle vier UPLOAD_*-Secrets** in GitHub (Settings → Secrets and variables → Actions):
+      - [ ] `UPLOAD_KEYSTORE_BASE64` — base64-Zeile des Keystores (eine Zeile)
+      - [ ] `UPLOAD_KEYSTORE_PASSWORD` — Store-Passwort
+      - [ ] `UPLOAD_KEY_ALIAS` — der Alias (`upload`)
+      - [ ] `UPLOAD_KEY_PASSWORD` — Key-Passwort
+- [ ] **Play-Credentials** (genau eines von beiden):
+      - [ ] `PLAY_JSON_KEY_FILE` — Pfad zur Service-Account-JSON **oder**
+      - [ ] `PLAY_JSON_KEY_DATA` — JSON-Inhalt (beides nie leer, nie ins Repo)
+- [ ] **Kein Leak:** `bash scripts/guard_secrets.sh` → `✅ [guard] Keine Keystores oder Klartext-Secrets gefunden.`
+
+**🎯 Ablauf (Schritt für Schritt):**
+
+**Schritt 1 — Secrets-Verfügbarkeit prüfen** (nur Namen, nie Werte):
+
+```bash
+gh secret list
+# Erwartet: UPLOAD_KEYSTORE_BASE64, UPLOAD_KEYSTORE_PASSWORD, UPLOAD_KEY_ALIAS,
+# UPLOAD_KEY_PASSWORD sowie PLAY_JSON_KEY_FILE ODER PLAY_JSON_KEY_DATA
+```
+
+**Schritt 2 — Guard + lokale Gegenprobe des Fingerprints:**
+
+```bash
+bash scripts/guard_secrets.sh   # Exit 0
+echo "$UPLOAD_KEYSTORE_BASE64" | base64 -di > /tmp/upload-keystore.jks
+keytool -list -v -keystore /tmp/upload-keystore.jks -storepass '<UPLOAD-STORE-PASSWORT>' | grep -A1 'SHA256'
+# SHA-256-Fingerprint notieren — muss identisch sein mit CI-Log (Step 4/6) und Play Console
+```
+
+**Schritt 3 — Play-Upload triggern (alpha-Track):**
+
+```bash
+gh workflow run android_fastlane.yml --ref develop   -f track=alpha   -f version=<versionName>   -f version_code=<versionCode>
+```
+
+> ⚠️ **versionCode-Regel:** In Play **pro App global eindeutig** — ein hochgeladener Code ist für immer belegt (kann nicht erneut hochgeladen werden). Für den ersten Upload **explizit setzen** (z. B. `1`); ohne `-f version_code` leitet die `publish_play`-Lane ihn aus dem letzten `v*`-Tag ab.
+
+**Schritt 4 — CI-Lauf beobachten** (`gh run watch <run-id>`), erwartete Reihenfolge im `publish-play`-Job:
+
+| Fastfile-Step | Erwartung |
+|---|---|
+| Step 1/6 Credential-Checks | `UPLOAD_KEYSTORE_*` + Play-Credentials vorhanden → weiter |
+| Step 2/6 Version | `Play upload: <version> (<code>) -> track alpha` |
+| Step 3/6 Build | `bundlePlayRelease` erfolgreich; AAB-Pfad + Größe geloggt |
+| Step 4/6 Signatur | `AAB signer SHA-256` == `Upload key SHA-256` → `✅ AAB signature verified against UPLOAD key` |
+| Step 5/6 Upload | `supply` meldet Erfolg (kein 401/403) |
+| Step 6/6 | `✅ Uploaded <version> to Play track alpha` |
+
+Fehlerbilder (bewusst **harte Abbrüche** — bei CI-Fail hat Play keinerlei Änderung):
+- `UPLOAD_KEYSTORE_BASE64 fehlt` → Decode-Step bricht ab (Secret fehlt/Name falsch)
+- `Signature mismatch` → AAB wurde nicht mit dem Upload-Key signiert (falsches Secret/Keystore) → **nichts** hochgeladen
+- `Authentication failed`/`403` im supply-Step → Service-Account fehlt, falsche Rolle („Releasemanager“) oder falscher Paketname (`applicationId`)
+
+**Schritt 5 — Play Console verifizieren:**
+
+1. Play Console → **Release-Übersicht (Alpha)** → neuer Release vorhanden, Status „Ready to roll out“ (bzw. „In review“ durch App-Prüfung)
+2. **Setup → App-Integrität → App-Signierung**: „Upload key certificate“-Fingerprint == notierter Wert (Schritt 2); „App signing key“ == Google-generiert (Variante A)
+3. **Nicht** „Go live“ drücken — der Testrelease bleibt im Alpha-Kanal
+
+**Schritt 6 — Nachbereitung:**
+
+- [ ] Play-alpha-Link an einen Tester schicken → Installation + Smoke-Test des Builds
+- [ ] Alpha-Testrelease **verwerfen** oder als Basis für `beta` weiterverwenden (bewusste Entscheidung, siehe Stage Gate `alpha`)
+- [ ] Nutzt die App APIs (Firebase/Maps/OAuth): den **App-Signing-Key**-Fingerprint aus der Play Console bei den Anbietern hinterlegen — **nicht** den Upload-Key (Google signiert die finalen APKs)
+
+**⛔ Abbruch/Rollback:** Bis zur Veröffentlichung („Go live“) ist jeder Upload in der Play Console **verwerfbar** — ein falscher Testrelease lässt sich ohne Auswirkung löschen. Ein CI-Fehlschlag (Secrets/Signatur) berührt Play nie, weil die Lane **vor** dem Upload hart abbricht. Einzige dauerhafte Folge: ein vergebener `version_code` ist in Play belegt → nächster Versuch braucht einen neuen Code.
+
+
+
 ## ⚠️ Stage Gates
 
 ### `nightly` → laufend
