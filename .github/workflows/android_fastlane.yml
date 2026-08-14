@@ -28,6 +28,11 @@ on:
         required: false
         default: 'alpha'
         type: string
+      dry_run:
+        description: 'Build + signature-verify only, skip the Play upload'
+        required: false
+        default: 'false'
+        type: boolean
 
 permissions:
   contents: read
@@ -544,10 +549,12 @@ jobs:
           VERSION: ${{ github.event.inputs.version }}
           VERSION_CODE: ${{ github.event.inputs.version_code }}
           TRACK: ${{ github.event.inputs.track }}
+          DRY_RUN: ${{ github.event.inputs.dry_run }}
         run: |
           args=()
           [ -n "$VERSION" ] && args+=(version:"$VERSION")
           [ -n "$VERSION_CODE" ] && args+=(version_code:"$VERSION_CODE")
           [ -n "$TRACK" ] && args+=(track:"$TRACK")
+          args+=(dry_run:"$DRY_RUN")
           bundle exec fastlane publish_play "${args[@]}"
 

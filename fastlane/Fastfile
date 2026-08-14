@@ -232,15 +232,22 @@ platform :android do
     end
   end
 
-  desc "Build a release AAB signed with the UPLOAD key and upload it to Google Play (requires UPLOAD_KEYSTORE_* + Play service-account credentials)"
+  desc "Build a release AAB signed with the UPLOAD key and upload it to Google Play (requires UPLOAD_KEYSTORE_* + Play service-account credentials; dry_run:true baut + verifiziert ohne Upload)"
   lane :publish_play do |options|
+    # Dry-Run: baut + signaturverifiziert, aber ueberspringt den supply-Upload.
+    # dry_run:true eignet sich zum Testen der Pipeline ohne Play-Auswirkung.
+    dry_run = options[:dry_run].to_s == "true"
+    UI.message("DRY RUN aktiv - kein Upload nach Google Play") if dry_run
+
     UI.header "Step 1/6: Checking credentials"
     UI.user_error!("UPLOAD_KEYSTORE_PATH must be set (Play upload keystore)") if ENV["UPLOAD_KEYSTORE_PATH"].to_s.empty?
     UI.user_error!("UPLOAD_KEYSTORE_PASSWORD must be set") if ENV["UPLOAD_KEYSTORE_PASSWORD"].to_s.empty?
     UI.user_error!("UPLOAD_KEY_ALIAS must be set") if ENV["UPLOAD_KEY_ALIAS"].to_s.empty?
     UI.user_error!("UPLOAD_KEY_PASSWORD must be set") if ENV["UPLOAD_KEY_PASSWORD"].to_s.empty?
-    if ENV["PLAY_JSON_KEY_FILE"].to_s.empty? && ENV["PLAY_JSON_KEY_DATA"].to_s.empty?
-      UI.user_error!("Play service-account credentials missing - set PLAY_JSON_KEY_FILE (path) or PLAY_JSON_KEY_DATA (json content), see https://docs.fastlane.tools/actions/supply/")
+    unless dry_run
+      if ENV["PLAY_JSON_KEY_FILE"].to_s.empty? && ENV["PLAY_JSON_KEY_DATA"].to_s.empty?
+        UI.user_error!("Play service-account credentials missing - set PLAY_JSON_KEY_FILE (path) or PLAY_JSON_KEY_DATA (json content), see https://docs.fastlane.tools/actions/supply/")
+      end
     end
 
     UI.header "Step 2/6: Determining version"
@@ -276,19 +283,29 @@ platform :android do
     UI.user_error!("Signature mismatch: AAB is not signed with the UPLOAD key") if aab_fp.empty? || key_fp.empty? || aab_fp != key_fp
     UI.success("AAB signature verified against UPLOAD key")
 
-    UI.header "Step 5/6: Uploading to Google Play (track #{track})"
-    supply_opts = {
-      aab: aab,
-      track: track,
-      metadata_path: "fastlane/metadata/android",
-      skip_upload_apk: true
-    }
-    supply_opts[:json_key_file] = ENV["PLAY_JSON_KEY_FILE"] if ENV["PLAY_JSON_KEY_FILE"].to_s != ""
-    supply_opts[:json_key] = ENV["PLAY_JSON_KEY_DATA"] if ENV["PLAY_JSON_KEY_DATA"].to_s != ""
-    supply(supply_opts)
+    if dry_run
+      UI.header "Step 5/6: DRY RUN - skipping Play upload"
+      UI.message("AAB ready: #{aab} (#{File.size(aab)} bytes)")
+      UI.message("Upload uebersprungen (dry_run=true) - nichts wurde an Google Play uebertragen")
+    else
+      UI.header "Step 5/6: Uploading to Google Play (track #{track})"
+      supply_opts = {
+        aab: aab,
+        track: track,
+        metadata_path: "fastlane/metadata/android",
+        skip_upload_apk: true
+      }
+      supply_opts[:json_key_file] = ENV["PLAY_JSON_KEY_FILE"] if ENV["PLAY_JSON_KEY_FILE"].to_s != ""
+      supply_opts[:json_key] = ENV["PLAY_JSON_KEY_DATA"] if ENV["PLAY_JSON_KEY_DATA"].to_s != ""
+      supply(supply_opts)
+    end
 
     UI.header "Step 6/6: Done"
-    UI.success("Uploaded #{version_name} to Play track #{track}")
-    UI.message("Release in der Play Console veroeffentlichen: App -> Release -> 'Go live'")
+    if dry_run
+      UI.success("DRY RUN abgeschlossen: AAB gebaut + Signatur verifiziert, kein Upload")
+    else
+      UI.success("Uploaded #{version_name} to Play track #{track}")
+      UI.message("Release in der Play Console veroeffentlichen: App -> Release -> 'Go live'")
+    end
   end
 end
