@@ -46,6 +46,7 @@ local.properties
 # Keystore files
 *.jks
 *.keystore
+*.b64
 
 # External native build files
 /.externalNativeBuild/

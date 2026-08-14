@@ -168,7 +168,78 @@ Alle Releases werden mit **einem einzigen Release-Key** signiert — derselbe Ke
 
 ### Veraltete Namen (entfernt)
 
-Frühere Setups nutzten abweichende Namen — `KEYALIAS`, `STOREFILE`, `SIGNING_*` (z. B. `SIGNING_STORE_FILE`/`SIGNING_KEY_ALIAS`) sowie eine lokale `keystore.properties`. Diese sind **vollständig entfernt**; einzige Quelle der Wahrheit sind die vier Secrets oben. Die lokale `keystore.properties` (untracked) ist ein Legacy-Überbleibsel aus dem alten Setup und wird vom Build nicht mehr gelesen — sie kann gelöscht werden.
+Frühere Setups nutzten abweichende Namen — `KEYALIAS`, `STOREFILE`, `SIGNING_*` (z. B. `SIGNING_STORE_FILE`/`SIGNING_KEY_ALIAS`) sowie eine lokale `keystore.properties`. Diese sind **vollständig entfernt**; einzige Quelle der Wahrheit sind die vier Secrets oben. Die lokale `keystore.properties` (untracked) ist ein Legacy-Überbleibsel aus dem alten Setup und wird vom Build nicht mehr gelesen — sie kann gelöscht werden.
+
+### 🔐 Release-Keystore erzeugen & Secrets hinterlegen (Erstinstallation)
+
+> **Hast du bereits einen Keystore?** Dieses Projekt nutzt bereits einen Release-Key (die vier Secrets sind hinterlegt). Diese Anleitung beschreibt die **einmalige Ersteinrichtung** — sie dient zum Nachvollziehen und für ein frisches Setup. Wichtig: Der Keystore ist **einzige** Signaturquelle für CI, lokal und spätere Stores; ein Wechsel bricht alle bestehenden Installationen (siehe Widerruf-Risiko unten).
+
+**Voraussetzung:** JDK 17 (liefert `keytool`; im CI bereits vorhanden).
+
+**Schritt 1 — Keystore erzeugen** (einmalig, auf einem sicheren Rechner):
+
+```bash
+keytool -genkeypair -v   -keystore release.keystore   -alias vivid   -keyalg RSA -keysize 4096   -validity 10000   -sigalg SHA256withRSA   -storepass '<STORE-PASSWORT>'   -keypass '<KEY-PASSWORT>'   -dname "CN=Vivid, OU=Mobile, O=Vivid, L=Berlin, S=Berlin, C=DE"
+```
+
+Empfehlungen:
+- **`-keysize 4096`** + **`-sigalg SHA256withRSA`** als Minimum; `-validity 10000` Tage ≈ 27 Jahre (Google Play verlangt Schlüssel, die mindestens bis nach 2033 gültig sind)
+- `storepass` und `keypass` stark und **unterschiedlich** (mind. 20 Zeichen, Zufallsgenerator — z. B. `openssl rand -base64 32`); `keypass` darf = `storepass` sein
+- Der Alias (`vivid`) wird dauerhaft als `KEY_ALIAS` hinterlegt — späteres Umbenennen bricht die Signierung
+
+**Schritt 2 — Keystore base64-kodieren**
+
+Linux / Git-Bash:
+
+```bash
+base64 -w 0 release.keystore > release.keystore.b64
+```
+
+macOS: `base64 -b 0 < release.keystore > release.keystore.b64` · Windows PowerShell: `[Convert]::ToBase64String([IO.File]::ReadAllBytes("release.keystore")) | Set-Content release.keystore.b64 -NoNewline`
+
+Die `.b64`-Datei ist **eine einzige lange Zeile** — genau dieser Wert wird `KEYSTORE_BASE64`. (Die Datei ist via `.gitignore` (`*.b64`) abgesichert — niemals committen.)
+
+**Schritt 3 — Secrets in GitHub hinterlegen**
+
+Repo → **Settings → Secrets and variables → Actions → New repository secret**, viermal:
+
+| Secret | Wert |
+|--------|------|
+| `KEYSTORE_BASE64` | die base64-Zeile aus Schritt 2 (eine Zeile, ohne Zeilenumbrüche) |
+| `KEYSTORE_PASSWORD` | das Store-Passwort |
+| `KEY_ALIAS` | der Alias (`vivid`) |
+| `KEY_PASSWORD` | das Key-Passwort |
+
+> ⚠️ Nach dem Anlegen ist ein Secret-Wert **nie wieder sichtbar** (nur ersetzbar) — Wert vorher in die Backups übernehmen. GitHub speichert Secrets verschlüsselt und maskiert sie in Logs.
+
+**Schritt 4 — Verifizieren**
+
+1. Lokal den Fingerprint ermitteln und notieren:
+   ```bash
+   echo "$KEYSTORE_BASE64" | base64 -di > /tmp/release.keystore
+   keytool -list -v -keystore /tmp/release.keystore -storepass '<STORE-PASSWORT>' | grep -A1 'SHA256'
+   ```
+2. `bash scripts/guard_secrets.sh` läuft ohne Verstoß (kein Klartext-Secret im Repo), dann einen nightly-Push (oder `workflow_dispatch`) triggern — der **Signatur-Check** im `verify-reproducibility`-Job vergleicht den APK-Signer automatisch gegen den Keystore und muss denselben Fingerprint zeigen (`✅ Signatur verifiziert`).
+
+**💾 Backup-Pflicht (nicht optional)**
+
+Der Keystore ist **die einzige Möglichkeit, Updates zu signieren**. Geht er verloren, können **alle installierten Geräte nie wieder aktualisiert werden** (Signatur-Mismatch → „App not installed“). Bei GitHub-/Obtainium-Installationen gibt es **keinen Key-Rollover** wie bei Google Play — ein verlorener Keystore ist endgültig.
+
+- Mindestens **3 Kopien an getrennten Orten**: verschlüsselter USB-Stick, Passwort-Manager (Bitwarden/KeePass), ausgedrucktes Papier im Safe
+- **Backup testen**: jede Kopie dekodieren und den Fingerprint mit dem Original vergleichen (Schritt 4.1)
+- Passwörter gehören in den Passwort-Manager, **nicht** in Chats oder E-Mails
+
+**🔄 Recovery aus `KEYSTORE_BASE64`**: Solange das GitHub-Secret existiert, ist der Keystore nicht verloren — `echo "$KEYSTORE_BASE64" | base64 -di > release.keystore` rekonstruiert ihn exakt (danach Fingerprint prüfen!).
+
+**⚠️ Widerruf-Risiko (Kompromittierung)**
+
+Ein APK-Signaturschlüssel ist **unwiderruflich mit der App-Identität verbunden** — leaken Keystore **oder** Passwörter (Repo-Breach, Secret-Exposure), kann ein Angreifer **eigene APKs mit eurer Signatur** bauen; diese installieren sich **über** die bestehende App (gleiche Signatur ⇒ Android akzeptiert das „Update“):
+
+1. **Sofort**: Das kompromittierte GitHub-Secret ersetzen (neuer Name → Workflows anpassen → altes Secret löschen)
+2. **Keystore selbst kompromittiert?** Neuen Keystore erzeugen (Schritte 1–3) und als neues Signing aktivieren — **bewusst** als Migrations-Release planen, denn ein Signatur-Wechsel erfordert auf allen Geräten **Neuinstallation** (App-Daten gehen verloren)
+3. **Vor dem ersten öffentlichen Release** ist ein Neu-Erzeugen gefahrlos (einfach die 4 Secrets überschreiben); **danach** ist der Key praktisch unersetzbar — **Verlust** bedeutet keine Updates mehr, **Leak** erlaubt Update-Hijacking. Bei Leak-Verdacht: **vor** dem nächsten öffentlichen Release einen neuen Key erzeugen, danach nur noch mit Nutzer-Kommunikation
+4. Später in der Play Console: der **Upload-Key** kann über „Play App Signing“ gewechselt werden; der **App-Signing-Key** bleibt der Keystore-Key
+5. Vorsorge: `KEYSTORE_BASE64` nur für die Actions-Berechtigung freigeben — wer das Secret lesen kann, kann mit eurer Identität signieren
 
 ## ⚠️ Stage Gates
 
