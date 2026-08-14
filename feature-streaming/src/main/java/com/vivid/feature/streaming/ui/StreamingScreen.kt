@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -34,7 +33,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -45,6 +43,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
+import com.vivid.core.ui.theme.LocalExtendedColors
 import com.vivid.feature.chat.ui.ChatOverlay
 import com.vivid.feature.streaming.ConfigIssueSeverity
 import com.vivid.feature.streaming.FocusMode
@@ -220,15 +219,22 @@ fun StreamingScreen(
 
             // Per-Ziel-Status (Multi-Streaming): zeigt jedes Ziel mit aktuellem Zustand.
             if (targetStates.isNotEmpty() && streamingState !is StreamingState.Idle) {
-                Column(
+                Surface(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .padding(start = 16.dp, end = 16.dp, bottom = 72.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    shape = MaterialTheme.shapes.medium,
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
                 ) {
-                    targetStates.forEach { state ->
-                        TargetStatusRow(state)
+                    Column(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        targetStates.forEach { state ->
+                            TargetStatusRow(state)
+                        }
                     }
                 }
             }
@@ -266,32 +272,46 @@ fun StreamingScreen(
 
             if (streamingState is StreamingState.Failed) {
                 val reason = (streamingState as StreamingState.Failed).reason
-                Text(
+                PreviewMessageBanner(
                     text = "Error: $reason",
-                    modifier = Modifier.align(Alignment.TopCenter),
+                    isError = true,
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
                 )
             } else if (permissionDenied) {
-                Text(
+                PreviewMessageBanner(
                     text = "Kamera-, Mikrofon- und Benachrichtigungs-Berechtigung werden für Streaming benötigt. Bitte erneut auf Go Live tippen und erlauben.",
-                    modifier = Modifier.align(Alignment.TopCenter),
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
                 )
             } else if (errorMessage != null) {
-                Text(
+                PreviewMessageBanner(
                     text = errorMessage.orEmpty(),
-                    modifier = Modifier.align(Alignment.TopCenter),
+                    isError = true,
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
                 )
             }
 
-            // Selbst-Check: Befunde nur im Idle-Zustand anzeigen (nicht während/nach dem Streamen)
-            if (configIssues.isNotEmpty() && streamingState !is StreamingState.Streaming) {
-                Column(
+            // Selbst-Check: Befunde nur im Idle-Zustand anzeigen (nicht während/nach dem
+            // Streamen). Bei gesetztem Fehler-Banner (errorMessage) wird die Liste ausgeblendet
+            // — das Banner zeigt dieselben Fehler bereits, eine Doppelanzeige überlappte sonst.
+            if (configIssues.isNotEmpty() && streamingState !is StreamingState.Streaming && errorMessage == null) {
+                Surface(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                        .fillMaxWidth(),
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    shape = MaterialTheme.shapes.medium,
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
                 ) {
-                    configIssues.forEach { issue ->
-                        ConfigIssueRow(issue)
+                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                        configIssues.forEach { issue ->
+                            ConfigIssueRow(issue)
+                        }
                     }
                 }
             }
@@ -311,6 +331,11 @@ fun StreamingScreen(
 @Composable
 private fun ConfigIssueRow(issue: StreamConfigIssue) {
     val isError = issue.severity == ConfigIssueSeverity.ERROR
+    val tint = if (isError) {
+        MaterialTheme.colorScheme.error
+    } else {
+        LocalExtendedColors.current.warning
+    }
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.padding(vertical = 2.dp),
@@ -318,12 +343,38 @@ private fun ConfigIssueRow(issue: StreamConfigIssue) {
         Icon(
             imageVector = if (isError) Icons.Filled.Error else Icons.Filled.Warning,
             contentDescription = null,
-            tint = if (isError) Color(0xFFB3261E) else Color(0xFF8A6D00),
+            tint = tint,
         )
         Spacer(Modifier.width(8.dp))
         Text(
             text = issue.message,
-            color = if (isError) Color(0xFFB3261E) else Color(0xFF8A6D00),
+            color = tint,
+        )
+    }
+}
+
+/** Banner über der Kamera-Vorschau: opaker Container garantiert Kontrast auf dem schwarzen Preview. */
+@Composable
+private fun PreviewMessageBanner(
+    text: String,
+    modifier: Modifier = Modifier,
+    isError: Boolean = false,
+) {
+    val container = if (isError) {
+        MaterialTheme.colorScheme.errorContainer to MaterialTheme.colorScheme.onErrorContainer
+    } else {
+        MaterialTheme.colorScheme.surfaceContainerHigh to MaterialTheme.colorScheme.onSurface
+    }
+    Surface(
+        modifier = modifier,
+        shape = MaterialTheme.shapes.medium,
+        color = container.first,
+        contentColor = container.second,
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+            style = MaterialTheme.typography.bodyMedium,
         )
     }
 }
@@ -338,8 +389,8 @@ private fun TargetStatusRow(state: StreamTargetState) {
         StreamTargetStatus.FAILED -> "fehlgeschlagen"
     }
     val color = when (state.status) {
-        StreamTargetStatus.STREAMING -> Color(0xFF2E7D32)
-        StreamTargetStatus.FAILED -> Color(0xFFB3261E)
+        StreamTargetStatus.STREAMING -> LocalExtendedColors.current.success
+        StreamTargetStatus.FAILED -> MaterialTheme.colorScheme.error
         else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
     Row(verticalAlignment = Alignment.CenterVertically) {

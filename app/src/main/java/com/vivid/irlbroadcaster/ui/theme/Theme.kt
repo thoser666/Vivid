@@ -4,6 +4,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import com.vivid.core.ui.theme.DarkExtendedColors
+import com.vivid.core.ui.theme.LightExtendedColors
+import com.vivid.core.ui.theme.LocalExtendedColors
 
 private val DarkColorScheme = darkColorScheme(
     primary = Purple80,
@@ -37,9 +41,13 @@ fun VividTheme(
         else -> LightColorScheme
     }
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = Typography,
-        content = content,
-    )
+    CompositionLocalProvider(
+        LocalExtendedColors provides if (darkTheme) DarkExtendedColors else LightExtendedColors,
+    ) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            typography = Typography,
+            content = content,
+        )
+    }
 }
