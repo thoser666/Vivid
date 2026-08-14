@@ -24,6 +24,8 @@ class SettingsRepository @Inject constructor(
         val OBS_PORT = stringPreferencesKey("obs_port")
         val OBS_PASSWORD = stringPreferencesKey("obs_password")
         val OBS_USE_TLS = booleanPreferencesKey("obs_use_tls")
+        val CHAT_CHANNEL = stringPreferencesKey("chat_channel")
+        val CHAT_OVERLAY_ENABLED = booleanPreferencesKey("chat_overlay_enabled")
     }
 
     // WICHTIG: Dies ist jetzt der EINZIGE Flow, den das ViewModel braucht.
@@ -49,7 +51,14 @@ class SettingsRepository @Inject constructor(
                 useTls = prefs[PrefKeys.OBS_USE_TLS] ?: false,
             )
         },
-    ) { streamData, obsData ->
+        // Flow für Chat-Overlay-Daten
+        dataStore.data.map { prefs ->
+            ChatPrefs(
+                channel = prefs[PrefKeys.CHAT_CHANNEL] ?: "",
+                overlayEnabled = prefs[PrefKeys.CHAT_OVERLAY_ENABLED] ?: false,
+            )
+        },
+    ) { streamData, obsData, chatData ->
         // Baue das komplette AppSettings-Objekt zusammen
         AppSettings(
             streamUrl = streamData.url,
@@ -62,6 +71,8 @@ class SettingsRepository @Inject constructor(
             obsPort = obsData.port,
             obsPassword = obsData.password,
             obsUseTls = obsData.useTls,
+            chatChannel = chatData.channel,
+            chatOverlayEnabled = chatData.overlayEnabled,
         )
     }
 
@@ -96,6 +107,13 @@ class SettingsRepository @Inject constructor(
         }
     }
 
+    suspend fun updateChatSettings(channel: String, overlayEnabled: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[PrefKeys.CHAT_CHANNEL] = channel
+            prefs[PrefKeys.CHAT_OVERLAY_ENABLED] = overlayEnabled
+        }
+    }
+
     private data class StreamPrefs(
         val url: String,
         val key: String,
@@ -110,5 +128,10 @@ class SettingsRepository @Inject constructor(
         val port: String,
         val password: String,
         val useTls: Boolean,
+    )
+
+    private data class ChatPrefs(
+        val channel: String,
+        val overlayEnabled: Boolean,
     )
 }

@@ -105,6 +105,10 @@ class SettingsViewModel @Inject constructor(
     fun onObsPasswordChange(newPassword: String) { _uiState.value = _uiState.value.copy(obsPassword = newPassword) }
     fun onObsUseTlsChange(newUseTls: Boolean) { _uiState.value = _uiState.value.copy(obsUseTls = newUseTls) }
 
+    // Chat-Overlay-Einstellungen.
+    fun onChatChannelChange(newChannel: String) { _uiState.value = _uiState.value.copy(chatChannel = newChannel) }
+    fun onChatOverlayEnabledChange(newEnabled: Boolean) { _uiState.value = _uiState.value.copy(chatOverlayEnabled = newEnabled) }
+
     fun saveSettings() {
         viewModelScope.launch {
             val currentSettings = _uiState.value
@@ -124,6 +128,10 @@ class SettingsViewModel @Inject constructor(
                 port = currentSettings.obsPort,
                 password = currentSettings.obsPassword,
                 useTls = currentSettings.obsUseTls,
+            )
+            settingsRepository.updateChatSettings(
+                channel = currentSettings.chatChannel,
+                overlayEnabled = currentSettings.chatOverlayEnabled,
             )
             _saveEvent.emit(Unit)
         }

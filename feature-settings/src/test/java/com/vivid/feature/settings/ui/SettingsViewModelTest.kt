@@ -124,6 +124,8 @@ class SettingsViewModelTest {
         viewModel.onObsPortChange("4455")
         viewModel.onObsPasswordChange("pw")
         viewModel.onObsUseTlsChange(true)
+        viewModel.onChatChannelChange("meinKanal")
+        viewModel.onChatOverlayEnabledChange(true)
 
         assertEquals("rtmp://new/app", viewModel.uiState.value.streamUrl)
         assertEquals("new-key", viewModel.uiState.value.streamKey)
@@ -135,6 +137,27 @@ class SettingsViewModelTest {
         assertEquals("4455", viewModel.uiState.value.obsPort)
         assertEquals("pw", viewModel.uiState.value.obsPassword)
         assertEquals(true, viewModel.uiState.value.obsUseTls)
+        assertEquals("meinKanal", viewModel.uiState.value.chatChannel)
+        assertEquals(true, viewModel.uiState.value.chatOverlayEnabled)
+    }
+
+    @Test
+    fun `loads chat settings from repository`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repository = mockk<SettingsRepository> {
+            every { appSettingsFlow } returns MutableStateFlow(
+                AppSettings(
+                    chatChannel = "meinKanal",
+                    chatOverlayEnabled = true,
+                ),
+            )
+        }
+
+        val viewModel = createViewModel(repository)
+        advanceUntilIdle()
+
+        assertEquals("meinKanal", viewModel.uiState.value.chatChannel)
+        assertEquals(true, viewModel.uiState.value.chatOverlayEnabled)
     }
 
     @Test
@@ -211,6 +234,7 @@ class SettingsViewModelTest {
             coEvery { updateStreamSettings(any(), any(), any()) } just runs
             coEvery { updateSecondaryStreamSettings(any(), any(), any()) } just runs
             coEvery { updateObsSettings(any(), any(), any(), any()) } just runs
+            coEvery { updateChatSettings(any(), any()) } just runs
         }
 
         val viewModel = createViewModel(repository)
@@ -225,6 +249,8 @@ class SettingsViewModelTest {
         viewModel.onObsHostChange("obs.example.com")
         viewModel.onObsPortChange("4455")
         viewModel.onObsPasswordChange("pw")
+        viewModel.onChatChannelChange("meinKanal")
+        viewModel.onChatOverlayEnabledChange(true)
 
         val events = mutableListOf<Unit>()
         val collector = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
@@ -237,6 +263,7 @@ class SettingsViewModelTest {
         coVerify { repository.updateStreamSettings("rtmp://live/app", "key-9", true) }
         coVerify { repository.updateSecondaryStreamSettings("rtmp://live-second/app", "key-8", true) }
         coVerify { repository.updateObsSettings("obs.example.com", "4455", "pw", false) }
+        coVerify { repository.updateChatSettings("meinKanal", true) }
         assertEquals(1, events.size)
         collector.cancel()
     }

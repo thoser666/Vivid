@@ -40,6 +40,8 @@ dependencies {
     implementation(project(":core"))
     // Domain-Modell (AppSettings) für die Stream-Einstellungen
     implementation(project(":domain"))
+    // Chat-Overlay über der Streaming-Vorschau
+    implementation(project(":feature-chat"))
 
     // AndroidX Core (ContextCompat u. a. für Runtime-Permissions)
     implementation(libs.androidx.core.ktx)

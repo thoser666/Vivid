@@ -45,6 +45,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
+import com.vivid.feature.chat.ui.ChatOverlay
 import com.vivid.feature.streaming.ConfigIssueSeverity
 import com.vivid.feature.streaming.FocusMode
 import com.vivid.feature.streaming.StreamConfigIssue
@@ -294,6 +295,14 @@ fun StreamingScreen(
                     }
                 }
             }
+
+            // Chat-Overlay (Twitch): unterhalb der Status-Box links unten,
+            // blendet sich bei deaktiviertem Overlay automatisch aus.
+            ChatOverlay(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(start = 12.dp, bottom = 84.dp),
+            )
         }
     }
 }

@@ -114,6 +114,7 @@ The About-screen check follows the same rules as [RELEASE.md](RELEASE.md): it on
 - ✅ **Go-Live Self-Check** - Before starting the stream, Vivid validates the configured URL and stream key (missing/invalid URL, unsupported protocol, missing key) and shows clear, actionable German messages directly on the streaming screen — blocking errors prevent starting, warnings (e.g. missing key) are shown but don't block
 - 🔍 **Focus Lock** - Toggle autofocus ⇄ infinity lock on the streaming camera to prevent focus hunting (rain drops, dirt on the windshield) during drive/train streams — Moblin #377; works on the actual RootEncoder camera (not just the preview) and can be set before going live
 - 👆 **Camera Controls on the Streaming Preview** - **Tap-to-focus** (single tap), **pinch to zoom** (clamped to the camera's zoom range) and **zoom reset** (double tap) directly on the live preview — gestures drive the real RootEncoder camera, not the preview only. Plus a **stabilization toggle** (optical stabilization preferred, EIS fallback) next to the focus-lock button
+- 💬 **Twitch Chat Overlay** - Show the chat of any Twitch channel over the live preview (anonymous, read-only). Configure the channel and toggle the overlay in Settings → **Chat-Overlay**; the latest messages appear bottom-left with each user's Twitch color, the connection auto-reconnects, and the overlay hides itself as soon as it is disabled in the settings
 - ⚙️ **Persisted Stream Settings** - Stream URL/key (incl. optional secondary target for multi-streaming) and OBS connection details are stored and reused across sessions
 - 🔄 **In-App Update Check** - Settings shows the installed version + an „Update verfügbar“ badge; the About screen (Settings → „Über Vivid & Updates“) adds a manual check against GitHub Releases — ideal for verifying Obtainium updates. Results are cached for 1 hour (DataStore), so opening Settings does not hammer the GitHub API rate limit; the manual check in About always refreshes and shows the **release notes** of the newest build
 - 🕹️ **Web Remote Control** - A small LAN server (port 8080, token-protected) exposes the streaming status via `http://<phone-ip>:8080/status` and allows starting/stopping the stream from any browser in the same network — see [Usage](#-usage)
@@ -123,12 +124,13 @@ The About-screen check follows the same rules as [RELEASE.md](RELEASE.md): it on
 ### 🚧 In Progress
 
 - 🌍 **I18n Support** - Localization groundwork is in place; translations are being added
+- 💬 **Chat Integration** - Twitch chat is implemented (IRC data-layer + overlay); Kick/YouTube/SOOP and OAuth login (sending & moderation) are still open
 
 ### 📋 Planned (Roadmap to Moblin parity)
 
 - 📡 **Multi-Network Bonding (SRTLA)** - Combine WiFi and mobile data for rock-solid streams
-- 💬 **Chat Integration** - Twitch/YouTube/Kick chat with emotes and moderation, plus a chat bot (incl. media player control via MediaSession — Apple Music, Spotify, etc.; adapted from Moblin 33.12.0)
-- 🎨 **Configurable Overlays** - Chat, follower/donation alerts, custom graphics and branding; text widgets incl. altitude (ascent/descent), GPS coordinates and road/route variables
+- 💬 **Chat Extensions** - Emotes (BTTV/FFZ/7TV) and moderation (ban/timeout), plus a chat bot (incl. media player control via MediaSession — Apple Music, Spotify, etc.; adapted from Moblin 33.12.0)
+- 🎨 **Overlays & Widgets** - Follower/donation alerts, custom graphics and branding; text widgets incl. altitude (ascent/descent), GPS coordinates and road/route variables (the Twitch chat overlay is already implemented — see above)
 - 📹 **High-Quality Streaming** - Up to 4K resolution at 60fps with H.264/AVC and H.265/HEVC
 - 🔒 **Extended Protocols** - SRTLA, RIST, and WHIP (WebRTC) — RTMPS is already implemented (see below); RTMP-Pull/ingest server mode (community request #407)
 - 🕹️ **Remote & Companion Features** - Web remote control (incl. talkback mic selection), game controller support, deep linking
@@ -410,9 +412,9 @@ Status: ✅ implemented · 🚧 in progress · 📋 planned
 | I18n Support | 🚧 | Groundwork in place, translations pending |
 | H.264/H.265, up to 4K/60fps | 📋 | Pipeline in place, quality targets planned |
 | Multi-Network Bonding (SRTLA) | 📋 | SRTLA algorithm to be ported |
-| Chat + Emotes + Moderation | 📋 | `feature-chat` module scaffolded |
+| Chat + Emotes + Moderation | 🚧 | `feature-chat` — Twitch IRC client (anonymous) + chat overlay over the live preview done; emotes & moderation pending |
 | Chat-Bot Media Player Control | 📋 | Generic media control via MediaSession (Apple Music, Spotify, …); Android adaptation of Moblin 33.12.0 |
-| Overlays & Widgets | 📋 | `feature-widgets` module scaffolded; text widgets incl. altitude ascent/descent, GPS coords and road variables |
+| Overlays & Widgets | 📋 | `feature-widgets` module scaffolded; text widgets incl. altitude ascent/descent, GPS coords and road variables (Twitch chat overlay already implemented in `feature-chat`) |
 | Audio Tools (levels, muting, talk-back) | 📋 | |
 | Extended Protocols (RIST, WHIP) | 📋 | |
 | RTMP-Pull / Ingest (Server mode) | 📋 | Community request #407; Moblin offers ingests (RTMP, SRT(LA), RIST, RTSP, WHIP) |

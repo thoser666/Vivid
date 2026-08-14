@@ -15,4 +15,8 @@ data class AppSettings(
     val obsPassword: String = "",
     // false = ws:// (Standard-OBS-LAN ohne TLS), true = wss:// (Remote mit TLS)
     val obsUseTls: Boolean = false,
+    // Twitch-Kanal für das Chat-Overlay (ohne '#').
+    val chatChannel: String = "",
+    // Zeigt das Chat-Overlay über der Streaming-Vorschau.
+    val chatOverlayEnabled: Boolean = false,
 )

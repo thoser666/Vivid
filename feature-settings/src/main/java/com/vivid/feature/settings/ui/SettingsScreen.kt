@@ -179,6 +179,31 @@ fun SettingsScreen(
                 )
             }
 
+            // Chat-Overlay über der Streaming-Vorschau
+            Text("Chat-Overlay", style = MaterialTheme.typography.titleLarge)
+            Text(
+                text = "Zeigt den Twitch-Chat des angegebenen Kanals über der Streaming-Vorschau an (anonym gelesen).",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            OutlinedTextField(
+                value = uiState.chatChannel,
+                onValueChange = viewModel::onChatChannelChange,
+                label = { Text("Twitch-Kanal (ohne #)") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Chat-Overlay anzeigen", modifier = Modifier.weight(1f))
+                Switch(
+                    checked = uiState.chatOverlayEnabled,
+                    onCheckedChange = viewModel::onChatOverlayEnabledChange,
+                )
+            }
+
             // Web-Remote-Control: Zugangsdaten für den LAN-Server
             Text("Web-Remote-Control", style = MaterialTheme.typography.titleLarge)
             if (remoteControl.token.isNotBlank()) {

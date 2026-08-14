@@ -186,4 +186,69 @@ class SettingsRepositoryTest {
         // Assert
         assertEquals(true, settings.obsUseTls)
     }
+
+    @Test
+    fun `appSettingsFlow should default chat settings to disabled and empty`() = runTest {
+        val testDataStore = PreferenceDataStoreFactory.create(
+            scope = this,
+            produceFile = { File(tempDir.toFile(), "test_chat_default.preferences_pb") }
+        )
+        val repository = SettingsRepository(testDataStore)
+
+        // Act
+        val settings = repository.appSettingsFlow.first()
+
+        // Assert
+        assertEquals("", settings.chatChannel)
+        assertEquals(false, settings.chatOverlayEnabled)
+    }
+
+    @Test
+    fun `appSettingsFlow should return the saved chat settings`() = runTest {
+        val testDataStore = PreferenceDataStoreFactory.create(
+            scope = this,
+            produceFile = { File(tempDir.toFile(), "test_chat.preferences_pb") }
+        )
+        val repository = SettingsRepository(testDataStore)
+
+        // Act
+        repository.updateChatSettings(channel = "meinKanal", overlayEnabled = true)
+        val settings = repository.appSettingsFlow.first()
+
+        // Assert
+        assertEquals("meinKanal", settings.chatChannel)
+        assertEquals(true, settings.chatOverlayEnabled)
+        // Andere Bereiche bleiben unberührt.
+        assertEquals("", settings.streamUrl)
+        assertEquals("localhost", settings.obsHost)
+    }
+
+    @Test
+    fun `appSettingsFlow should keep chat and stream settings independent`() = runTest {
+        // Chat-Daten: Das Schreiben darf die Stream-Einstellungen nicht anfassen.
+        val chatDataStore = PreferenceDataStoreFactory.create(
+            scope = this,
+            produceFile = { File(tempDir.toFile(), "test_chat_chat.preferences_pb") }
+        )
+        val chatRepository = SettingsRepository(chatDataStore)
+        chatRepository.updateChatSettings(channel = "meinKanal", overlayEnabled = true)
+        val afterChat = chatRepository.appSettingsFlow.first()
+
+        assertEquals("meinKanal", afterChat.chatChannel)
+        assertEquals(true, afterChat.chatOverlayEnabled)
+        assertEquals("", afterChat.streamUrl)
+
+        // Stream-Daten: Das Schreiben darf die Chat-Einstellungen nicht anfassen.
+        val streamDataStore = PreferenceDataStoreFactory.create(
+            scope = this,
+            produceFile = { File(tempDir.toFile(), "test_chat_stream.preferences_pb") }
+        )
+        val streamRepository = SettingsRepository(streamDataStore)
+        streamRepository.updateStreamSettings("rtmp://primary.example/app", "key-1")
+        val afterStream = streamRepository.appSettingsFlow.first()
+
+        assertEquals("rtmp://primary.example/app", afterStream.streamUrl)
+        assertEquals("", afterStream.chatChannel)
+        assertEquals(false, afterStream.chatOverlayEnabled)
+    }
 }
