@@ -166,6 +166,18 @@ Alle Releases werden mit **einem einzigen Release-Key** signiert — derselbe Ke
    - AAB (falls publiziert): `jarsigner -verify` + `keytool -printcert -jarfile` → derselbe Vergleich
 4. **Reproduzierbarkeits-Check**: frischer Rebuild desselben Commits mit denselben Version-Parametern → Hash-Vergleich (siehe oben). Anderer Keystore ⇒ andere Signatur ⇒ anderer Hash ⇒ roter Workflow.
 
+### Referenz-Fingerprint (Release-Key)
+
+Der Signatur-Check im `verify-reproducibility`-Job muss bei **jedem** Lauf exakt diesen SHA-256-Fingerprint liefern — für `Key SHA-256:` (Keystore-Zertifikat) **und** `APK Signer SHA-256:` (veröffentlichtes APK), beide identisch:
+
+```
+SHA-256: b31b8119bd065cdb7a51ad2ee7f71f17f1eb154e2a7c3007de644b4c14d6a85e
+```
+
+- **Verifiziert in CI-Lauf `31782286611`** (Commit `580f79d`, Workflow „Android CI with Fastlane“, grün) — `Key SHA-256:` und `APK Signer SHA-256:` stimmen überein
+- **Abweichung = roter Workflow:** Weicht ein künftiger Lauf ab (anderer Keystore, Debug-Key, vertauschte/leere Secrets), sofort prüfen, welcher Keystore in `KEYSTORE_BASE64` hinterlegt ist
+- **Lokale Gegenprüfung:** `keytool -list -v -keystore <release.keystore> -alias <KEY_ALIAS> -storepass '<KEYSTORE_PASSWORD>' | grep -i sha256` — der SHA-256-Wert der Zertifikatskette muss identisch sein
+
 ### Veraltete Namen (entfernt)
 
 Frühere Setups nutzten abweichende Namen — `KEYALIAS`, `STOREFILE`, `SIGNING_*` (z. B. `SIGNING_STORE_FILE`/`SIGNING_KEY_ALIAS`) sowie eine lokale `keystore.properties`. Diese sind **vollständig entfernt**; einzige Quelle der Wahrheit sind die vier Secrets oben. Die lokale `keystore.properties` (untracked) ist ein Legacy-Überbleibsel aus dem alten Setup und wird vom Build nicht mehr gelesen — sie kann gelöscht werden.
@@ -238,8 +250,94 @@ Ein APK-Signaturschlüssel ist **unwiderruflich mit der App-Identität verbunden
 1. **Sofort**: Das kompromittierte GitHub-Secret ersetzen (neuer Name → Workflows anpassen → altes Secret löschen)
 2. **Keystore selbst kompromittiert?** Neuen Keystore erzeugen (Schritte 1–3) und als neues Signing aktivieren — **bewusst** als Migrations-Release planen, denn ein Signatur-Wechsel erfordert auf allen Geräten **Neuinstallation** (App-Daten gehen verloren)
 3. **Vor dem ersten öffentlichen Release** ist ein Neu-Erzeugen gefahrlos (einfach die 4 Secrets überschreiben); **danach** ist der Key praktisch unersetzbar — **Verlust** bedeutet keine Updates mehr, **Leak** erlaubt Update-Hijacking. Bei Leak-Verdacht: **vor** dem nächsten öffentlichen Release einen neuen Key erzeugen, danach nur noch mit Nutzer-Kommunikation
-4. Später in der Play Console: der **Upload-Key** kann über „Play App Signing“ gewechselt werden; der **App-Signing-Key** bleibt der Keystore-Key
+4. Später in der Play Console: der **Upload-Key** kann über „Play App Signing“ gewechselt werden; der **App-Signing-Key** bleibt der Keystore-Key (Einrichtung Schritt für Schritt: siehe Abschnitt **„Google Play App Signing“** unten)
 5. Vorsorge: `KEYSTORE_BASE64` nur für die Actions-Berechtigung freigeben — wer das Secret lesen kann, kann mit eurer Identität signieren
+
+### 🛡️ Google Play App Signing (Play-Kanal, später einrichten)
+
+Dieser Abschnitt beschreibt, **wie** der Play-Kanal mit einem Upload-Key eingerichtet wird — relevant ab dem `beta`/`stable`-Meilenstein (siehe Stage Gates). Vivid wird eine **neue** Play-App sein und damit automatisch in Play App Signing eingeschrieben („new app“-Variante der Google-Doku).
+
+**Prinzip — zwei Schlüssel:**
+
+| Schlüssel | Wer hält ihn | Zweck |
+|-----------|--------------|-------|
+| **Upload-Key** | du (`.jks`/`.keystore`, RSA ≥ 2048) | signiert das hochgeladene AAB; Google verifiziert damit deine Identität. **Verlust/Leak ⇒ in der Play Console zurücksetzbar** („Request upload key reset“) |
+| **App-Signing-Key** | Google (öffentliches Zertifikat `.pem`/`.der`, RSA 4096) | signiert die finalen APKs für die Geräte. **Kann nicht zurückgesetzt werden** — Google verwahrt ihn in KMS |
+
+> **Konsequenz für Vivid:** Die **finalen Play-APKs** tragen die Google-Signatur, die **GitHub-/Obtainium-APKs** den hiesigen Release-Key — das sind **unterschiedliche Signaturen**. Ein Nutzer, der über Play installiert, kann nicht per Obtainium updaten (und umgekehrt), ohne die App neu zu installieren. Wenn **eine** Identität über alle Kanäle gewünscht ist, siehe „Variante B“ unten.
+
+**Variante A — dedizierter Upload-Key (Google-Empfehlung, getrennte Keys)**
+
+**Schritt 1 — Upload-Key erzeugen** (einmalig; Backup-Pflicht wie beim Release-Key):
+
+```bash
+keytool -genkeypair -v   -keystore upload-keystore.jks   -alias upload   -keyalg RSA -keysize 4096   -validity 10000   -sigalg SHA256withRSA   -storepass '<UPLOAD-STORE-PASSWORT>'   -keypass '<UPLOAD-KEY-PASSWORT>'   -dname "CN=Vivid Play Upload, O=Vivid, C=DE"
+```
+
+**Schritt 2 — Peer-Zertifikat (öffentliches Zertifikat) exportieren:**
+
+```bash
+keytool -export -rfc -keystore upload-keystore.jks -alias upload -file upload_cert.pem
+```
+
+Das `upload_cert.pem` enthält **nur das öffentliche Zertifikat** (keinen privaten Schlüssel) — genau diese Datei wird in der Play Console hochgeladen.
+
+**Schritt 3 — Play Console:**
+
+1. App in der Play Console anlegen → wird automatisch in Play App Signing eingeschrieben (quantum-ready, Google-generierte Keys)
+2. **Protected with Play → Play Store protection → Manage Play app signing** (bzw. Release → Setup → App integrity → App signing)
+3. Unter **Upload key certificate** das `upload_cert.pem` hochladen (bzw. „Export and upload your upload key“)
+4. **App signing key: Google-generiert lassen** (RSA 4096) — **nicht** den Vivid-Release-Key dorthin legen (sonst verliert der GitHub-/Obtainium-Kanal die Unabhängigkeit)
+
+**Schritt 4 — AAB mit dem Upload-Key signieren & hochladen (CI):**
+
+Die Fastlane-/CI-Seite braucht eine **zweite, getrennte** Signing-Konfiguration — nie dieselben Secrets wie der Release-Key. In `app/build.gradle.kts`:
+
+```kotlin
+// identisch zum bestehenden release-Block (app/build.gradle.kts), nur UPLOAD_*-Env
+android {
+    signingConfigs {
+        create("upload") {
+            val keystorePath = System.getenv("UPLOAD_KEYSTORE_PATH")
+            val keystorePassword = System.getenv("UPLOAD_KEYSTORE_PASSWORD")
+            val keyAlias = System.getenv("UPLOAD_KEY_ALIAS")
+            val keyPassword = System.getenv("UPLOAD_KEY_PASSWORD")
+
+            if (!keystorePath.isNullOrEmpty()) {
+                storeFile = file(keystorePath)
+                storePassword = keystorePassword
+                this.keyAlias = keyAlias
+                this.keyPassword = keyPassword
+            }
+        }
+    }
+}
+```
+
+CI-Secrets (getrennt von den Release-Secrets): `UPLOAD_KEYSTORE_BASE64` / `UPLOAD_KEYSTORE_PASSWORD` / `UPLOAD_KEY_ALIAS` / `UPLOAD_KEY_PASSWORD`. Der spätere Play-Upload-Lane dekodiert den Keystore, baut `:app:bundleRelease` mit der Upload-Signing-Config und lädt das AAB hoch.
+
+**Schritt 5 — Verifikation:**
+
+1. Lokal: `keytool -printcert -jarfile app-release.aab` → zeigt das **Upload-Key**-Zertifikat (SHA-256)
+2. Play Console (App-signing-Seite): Der **Upload key certificate**-Fingerprint muss mit dem lokalen übereinstimmen; der **App signing key**-Fingerprint ist der von Google generierte
+3. **API-Provider** (Firebase, Google Maps, OAuth, …): dort den **App-Signing-Key**-Fingerprint (SHA-1/SHA-256 von Google) registrieren — **nicht** den Upload-Key, denn Google signiert die finalen APKs. Bei Android App Links zusätzlich in `assetlinks.json`
+
+**Variante B — gleicher Key auf allen Kanälen**
+
+Wenn Nutzer zwischen Play und Obtainium wechseln können sollen (eine Identität), wird der **bestehende Release-Key** als App-Signing-Key an Google übertragen („Provide a copy of your app signing key“). Die Play Console liefert auf der Seite das **PEPK-Tool** und den exakten Befehl mit deinem Verschlüsselungs-Key:
+
+```bash
+java -jar pepk.jar --keystore=release.keystore --alias=vivid   --output=encrypted.zip --encryption-key=<Play-Console-Public-Key> --include-cert
+```
+
+Das `encrypted.zip` (nur für Google lesbar verschlüsselt) wird hochgeladen; Google nutzt den Release-Key als App-Signing-Key. **Danach signieren Play- und GitHub-APKs identisch** → Cross-Kanal-Updates funktionieren. Nachteil: Google hält eine Kopie des Release-Keys — ein Play-seitiger Vorfall betrifft dann auch den GitHub-Kanal (Google empfiehlt deshalb getrennte Keys).
+
+**🔄 Recovery & Reset (Upload-Key verloren/kompromittiert):**
+
+1. Neuen Upload-Key erzeugen (Schritt 1) und PEM exportieren (Schritt 2)
+2. Play Console → **Manage Play app signing → Upload Key Certificate → Request upload key reset** → Grund + `upload_cert.pem` hochladen
+3. Der Wechsel passiert **ohne App-Ausfall** und ohne Neuinstallationen — anders als beim Release-Key für GitHub/Obtainium
+
 
 ## ⚠️ Stage Gates
 
