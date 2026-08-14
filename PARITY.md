@@ -13,11 +13,11 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 | 📋 | Geplant (Roadmap) |
 | — | Nicht zutreffend auf Android |
 
-> **Stand:** 2026-08-13 · Aktualisierung: OBS-QR-Code-Import implementiert; Neue Moblin-Features aus Release **33.12.0** (2026-07-24) nachgetragen (Chat-Bot-Media-Steuerung, Photo-Shoot-Quick-Button, Höhenmeter im Text-Widget, Talkback-Mic im Remote-Control) + Community-Feature-Requests (RTMP-Pull/Ingest, Text-Widget-Variablen) — Referenzstand: Moblin **33.12.0**
+> **Stand:** 2026-08-14 · Aktualisierung: Tap-to-Focus, Pinch-Zoom und Video-Stabilisierung für die Streaming-Kamera implementiert — Referenzstand: Moblin **33.12.0**
 >
 > **Pflege:** Nach jedem Feature-Commit den Status in der jeweiligen Zeile aktualisieren und das Datum oben anpassen.
 >
-> 🚦 **Nächster Meilenstein:** Wenn die ✅-Spalte in der Tabelle ≥17 erreicht (aktuell **15**) → Zeit für [Beta](RELEASE.md#beta--nächster-meilenstein). Siehe [RELEASE.md](RELEASE.md) für alle Stage Gates.
+> 🚦 **Nächster Meilenstein:** Wenn die ✅-Spalte in der Tabelle ≥17 erreicht (aktuell **16**) → Zeit für [Beta](RELEASE.md#beta--nächster-meilenstein). Siehe [RELEASE.md](RELEASE.md) für alle Stage Gates.
 
 ---
 
@@ -30,12 +30,12 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 | OBS-Steuerung | 3 | 0 | 1 | 4 |
 | Chat & Moderation | 0 | 0 | 4 | 4 |
 | Overlays & Widgets | 0 | 0 | 6 | 6 |
-| Kamera & Video | 1 | 1 | 4 | 6 |
+| Kamera & Video | 2 | 0 | 4 | 6 |
 | Audio | 0 | 0 | 3 | 3 |
 | Remote & Companion | 1 | 0 | 2 | 3 |
 | Plattform & Grundlagen | 5 | 1 | 0 | 6 |
 | Zusatz-Features (über Parität) | 0 | 0 | 1 | 1 |
-| **Gesamt** | **15** | **2** | **26** | **43**† |
+| **Gesamt** | **16** | **1** | **26** | **43**† |
 
 † Inkl. 1 n/a-Zeile (Apple-Watch-Companion) und 1 Zusatz-Feature über die Moblin-Parität hinaus; anwendbare Moblin-Features: **42**.
 
@@ -94,7 +94,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 
 | Moblin-Feature | Status | Modul | Offene Tasks / Notizen |
 |----------------|--------|-------|------------------------|
-| Tap-to-Focus, Pinch-Zoom, Stabilisierung | 🚧 | `feature-streaming` | CameraX-Controls teils vorhanden (`CameraScreen`); UI-Completion offen. **Offen:** Tap-to-Focus/Pinch-Zoom via camera2-Interop (`CameraControl.startFocusAndMetering()`) bzw. `setLinearFocusDistance()` (manueller Fokus-Slider). Fokus-Lock (∞) ist separat umgesetzt → siehe nächste Zeile |
+| Tap-to-Focus, Pinch-Zoom, Stabilisierung | ✅ | `feature-streaming` (`StreamingEngine`, `StreamingPreviewGestures`, `ZoomCalculator`, `CameraStabilizationController`, `RootEncoderCameraControls`) | Komplett auf der Streaming-Kamera (RootEncoder, nicht CameraX): **Tap-to-Focus** (einzelner Tipp), **Pinch-Zoom** (`ScaleGestureDetector`, geclampt auf `getZoomRange()`) und **Zoom-Reset** (Doppeltipp) über `StreamingPreviewGestures` auf der Vorschau; **Video-Stabilisierung** als Toggle (OIS bevorzugt, sonst EIS) mit `stabilizationEnabled`-StateFlow; Engine-API `zoomBy`/`resetZoom`/`tapToFocus`/`toggleStabilization`; Unit-Tests (`ZoomCalculatorTest`, `CameraStabilizationControllerTest`, `RootEncoderCameraControlsTest`, `StreamingEngineTest`) |
 | Fokus-Lock (∞) / Autofokus-Toggle | ✅ | `feature-streaming` (`StreamingEngine`, `CameraFocusController`) | Toggle Auto ⇄ Unendlich-Lock gegen Fokus-Hunting ([#377](https://github.com/eerimoq/moblin/issues/377), Drive-/Train-Streams): RootEncoder-API (`disableAutoFocus()` + `setFocusDistance(0)`) über `FocusableCamera`-Adapter; Zustand als `focusMode`-`StateFlow` in der Engine (auch vor dem Go-Live schaltbar); Toggle im StreamingScreen; Unit-Tests (`CameraFocusControllerTest`, `StreamingEngineTest`) |
 | Color-Spaces (sRGB, P3, Log) + 3D-LUTs | 📋 | `feature-streaming` | Shader-Pipeline in `OpenGlView` ausbauen |
 | Video-Effekte (Graustufen, Letterbox, Sepia, Rauschfilter) | 📋 | `feature-streaming` | OpenGL-Effektkette |
@@ -141,6 +141,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 
 | Datum | Commit | Änderung |
 |-------|--------|----------|
+| 2026-08-14 | — | **Tap-to-Focus, Pinch-Zoom und Video-Stabilisierung** für die Streaming-Kamera implementiert: `CameraControls`-Vertrag + `RootEncoderCameraControls` (Adapter über RootEncoder `Camera2Base`, wandelt `android.util.Range` → `ZoomRange`), `StreamingPreviewGestures` (Tipp → Tap-to-Focus, Doppeltipp → Zoom-Reset, Pinch → Zoom), `ZoomCalculator` (Clamping auf den Kamera-Zoombereich), `CameraStabilizationController` (OIS bevorzugt, sonst EIS) mit `stabilizationEnabled`-StateFlow und Toggle im StreamingScreen; Engine-API `zoomBy`/`resetZoom`/`tapToFocus`/`toggleStabilization`; Unit-Tests (ZoomCalculator, Controller, Adapter, Engine) |
 | 2026-08-13 | — | **Multi-Streaming (bis zu 2 parallele RTMP(S)-Ziele)** implementiert: RootEncoder `MultiCamera2` in der `StreamingEngine` (`CameraFactory.create(List<ConnectChecker>)`, per-Ziel-ConnectChecker, `targetStates`-StateFlow), Status je Ziel im StreamingScreen, ein Fehlerziel stoppt nur sich selbst; sekundäre URL/Key/TLS in den Settings („Multi-Streaming (optional)“), Validator + Service-Plumbing (`EXTRA_STREAM_URLS`); Unit-Tests in allen betroffenen Modulen |
 | 2026-08-13 | — | **SDK-Umstellung auf Android 17 (API 37):** `compileSdk`/`targetSdk` 37, `minSdk` 24 unverändert; `ACCESS_LOCAL_NETWORK` deklariert + Runtime-Permission-Flow im Settings-Screen („LAN-Zugriff für Remote-Control erlauben“, Server-Neustart nach Erteilung) für die Web-Remote-Control |
 | 2026-08-13 | — | **OBS-Konfiguration per QR-Code importieren** umgesetzt: `ObsQrCodeParser` (Formate `obsws://` inkl. percent-decoded Passwort, `obswebsocket://`, `obswebsocket|[host]:[port]|[pw]`), Import-Feld im OBS-Settings-Screen, 11 Parser- + 4 ViewModel-Tests |
