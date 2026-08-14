@@ -1,7 +1,9 @@
 package com.vivid.feature.streaming
 
 import android.content.Context
+import android.view.MotionEvent
 import android.view.Surface
+import android.view.View
 import com.pedro.common.ConnectChecker
 import com.pedro.library.base.Camera2Base
 import com.pedro.library.multiple.MultiCamera2
@@ -76,6 +78,12 @@ class StreamingEngine @Inject constructor(
     val focusMode: StateFlow<FocusMode> = _focusMode.asStateFlow()
 
     private var focusController: CameraFocusController? = null
+
+    private val _stabilizationEnabled = MutableStateFlow(false)
+    val stabilizationEnabled: StateFlow<Boolean> = _stabilizationEnabled.asStateFlow()
+
+    private var cameraControls: CameraControls? = null
+    private var stabilizationController: CameraStabilizationController? = null
 
     /** Preview-Surface der Activity, die an die interne GL-Pipeline angehängt wird. */
     private data class PreviewRequest(val surface: Surface, val width: Int, val height: Int)
@@ -181,7 +189,11 @@ class StreamingEngine @Inject constructor(
     fun initializeCamera() {
         if (camera == null) {
             camera = cameraFactory.create(List(MAX_STREAM_TARGETS) { createTargetChecker(it) })
+            cameraControls = RootEncoderCameraControls(camera!!)
             focusController = CameraFocusController(FocusableCamera2(camera!!))
+            stabilizationController = CameraStabilizationController(cameraControls!!).also {
+                _stabilizationEnabled.value = it.isEnabled
+            }
         }
     }
 
@@ -195,6 +207,44 @@ class StreamingEngine @Inject constructor(
         val changed = controller.toggleFocusLock()
         if (changed) {
             _focusMode.value = controller.mode
+        }
+        return changed
+    }
+
+    /**
+     * Pinch-Zoom: multipliziert den aktuellen Zoom mit dem [scaleFactor] des
+     * ScaleGestureDetectors und begrenzt auf den Kamera-Zoombereich.
+     *
+     * Kein-op, solange die Kamera nicht initialisiert ist.
+     */
+    fun zoomBy(scaleFactor: Float) {
+        val controls = cameraControls ?: return
+        val range = controls.getZoomRange() ?: return
+        controls.setZoom(ZoomCalculator.zoomForScale(controls.getZoom(), scaleFactor, range))
+    }
+
+    /** Setzt den Zoom auf 1.0 zurück (z. B. per Doppeltipp). */
+    fun resetZoom() {
+        val controls = cameraControls ?: return
+        val range = controls.getZoomRange() ?: return
+        controls.setZoom(ZoomCalculator.clamp(ZoomCalculator.MIN_ZOOM, range))
+    }
+
+    /** Tap-to-Focus auf die getippte Stelle der Kamera-Vorschau. */
+    fun tapToFocus(view: View, event: MotionEvent) {
+        cameraControls?.tapToFocus(view, event)
+    }
+
+    /**
+     * Schaltet die Video-Stabilisierung (OIS bevorzugt, sonst EIS) um.
+     *
+     * @return true, wenn die Kamera den neuen Zustand übernommen hat.
+     */
+    fun toggleStabilization(): Boolean {
+        val controller = stabilizationController ?: return false
+        val changed = controller.toggle()
+        if (changed) {
+            _stabilizationEnabled.value = controller.isEnabled
         }
         return changed
     }

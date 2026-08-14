@@ -1,6 +1,7 @@
 package com.vivid.feature.streaming.ui
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.pm.PackageManager
 import android.os.Build
 import android.view.SurfaceHolder
@@ -62,6 +63,7 @@ fun StreamingScreen(
     val streamingState by streamingEngine.streamingState.collectAsStateWithLifecycle()
     val targetStates by streamingEngine.targetStates.collectAsStateWithLifecycle()
     val focusMode by streamingEngine.focusMode.collectAsStateWithLifecycle()
+    val stabilizationEnabled by streamingEngine.stabilizationEnabled.collectAsStateWithLifecycle()
     val errorMessage by viewModel.errorMessage.collectAsStateWithLifecycle()
     val configIssues by viewModel.configIssues.collectAsStateWithLifecycle()
 
@@ -154,6 +156,7 @@ fun StreamingScreen(
             // wird (Recents-Wischen, Rotation).
             AndroidView(
                 factory = { context ->
+                    @SuppressLint("ClickableViewAccessibility")
                     SurfaceView(context).also { view ->
                         streamingEngine.initializeCamera()
                         view.holder.addCallback(
@@ -180,6 +183,15 @@ fun StreamingScreen(
                                 }
                             },
                         )
+                        // Tap-to-Focus (Tipp), Pinch-Zoom und Zoom-Reset (Doppeltipp)
+                        // auf der Kamera-Vorschau (RootEncoder-Kamera, nicht CameraX).
+                        val gestures = StreamingPreviewGestures(
+                            context = context,
+                            onTapToFocus = { v, e -> streamingEngine.tapToFocus(v, e) },
+                            onZoomScale = { scale -> streamingEngine.zoomBy(scale) },
+                            onDoubleTap = { streamingEngine.resetZoom() },
+                        )
+                        view.setOnTouchListener(gestures.onTouch)
                     }
                 },
                 modifier = Modifier.fillMaxSize(),
@@ -220,24 +232,35 @@ fun StreamingScreen(
                 }
             }
 
-            // Fokus-Lock (Moblin #377): Fokus auf Unendlich fixieren, damit der
-            // Autofokus während des Streamings nicht auf Regentropfen/Schmutz
-            // scharf stellt. Gilt für die Streaming-Kamera (RootEncoder), nicht
-            // nur für die Vorschau, und ist auch vor dem Go-Live schaltbar.
-            FilledTonalButton(
-                onClick = { streamingEngine.toggleFocusLock() },
+            // Fokus-Lock (Moblin #377) + Video-Stabilisierung: Die Buttons steuern
+            // die RootEncoder-Kamera (nicht nur die Vorschau) und sind auch vor
+            // dem Go-Live schaltbar.
+            Row(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(top = 12.dp, end = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                val isLocked = focusMode == FocusMode.LOCKED_INFINITY
-                Icon(
-                    imageVector = if (isLocked) Icons.Filled.Lock else Icons.Filled.LockOpen,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                )
-                Spacer(Modifier.width(6.dp))
-                Text(if (isLocked) "Fokus: ∞" else "Fokus: Auto")
+                FilledTonalButton(
+                    onClick = { streamingEngine.toggleStabilization() },
+                ) {
+                    Text(
+                        if (stabilizationEnabled) "Stabilisierung: An" else "Stabilisierung: Aus",
+                    )
+                }
+
+                FilledTonalButton(
+                    onClick = { streamingEngine.toggleFocusLock() },
+                ) {
+                    val isLocked = focusMode == FocusMode.LOCKED_INFINITY
+                    Icon(
+                        imageVector = if (isLocked) Icons.Filled.Lock else Icons.Filled.LockOpen,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(if (isLocked) "Fokus: ∞" else "Fokus: Auto")
+                }
             }
 
             if (streamingState is StreamingState.Failed) {

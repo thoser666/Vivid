@@ -1,6 +1,8 @@
 package com.vivid.feature.streaming
 
+import android.view.MotionEvent
 import android.view.Surface
+import android.view.View
 import com.pedro.common.ConnectChecker
 import com.pedro.library.multiple.MultiCamera2
 import com.pedro.library.multiple.MultiType
@@ -402,5 +404,124 @@ class StreamingEngineTest {
         assertEquals(false, result)
         assertEquals(FocusMode.AUTO, streamingEngine.focusMode.value)
         verify(exactly = 0) { camera.setFocusDistance(any()) }
+    }
+
+    // --- Tap-to-Focus, Pinch-Zoom, Stabilisierung ---
+
+    private fun zoomRange(lower: Float, upper: Float): android.util.Range<Float> =
+        mockk<android.util.Range<Float>>(relaxed = true).also {
+            every { it.lower } returns lower
+            every { it.upper } returns upper
+        }
+
+    @Test
+    fun `zoomBy multiplies the current zoom and clamps to the range`() = runTest {
+        streamingEngine.initializeCamera()
+        every { camera.zoom } returns 2f
+        every { camera.zoomRange } returns zoomRange(1f, 8f)
+
+        streamingEngine.zoomBy(2f)
+
+        verify { camera.setZoom(4f) }
+    }
+
+    @Test
+    fun `zoomBy caps at the maximum zoom`() = runTest {
+        streamingEngine.initializeCamera()
+        every { camera.zoom } returns 6f
+        every { camera.zoomRange } returns zoomRange(1f, 8f)
+
+        streamingEngine.zoomBy(2f)
+
+        verify { camera.setZoom(8f) }
+    }
+
+    @Test
+    fun `zoomBy does nothing before the camera is initialized`() = runTest {
+        streamingEngine.zoomBy(2f)
+
+        verify(exactly = 0) { camera.setZoom(any<Float>()) }
+    }
+
+    @Test
+    fun `resetZoom sets the zoom back to 1`() = runTest {
+        streamingEngine.initializeCamera()
+        every { camera.zoomRange } returns zoomRange(1f, 8f)
+
+        streamingEngine.resetZoom()
+
+        verify { camera.setZoom(ZoomCalculator.MIN_ZOOM) }
+    }
+
+    @Test
+    fun `tapToFocus delegates to the camera`() = runTest {
+        streamingEngine.initializeCamera()
+        val view: View = mockk()
+        val event: MotionEvent = mockk()
+
+        streamingEngine.tapToFocus(view, event)
+
+        verify { camera.tapToFocus(view, event) }
+    }
+
+    @Test
+    fun `tapToFocus does nothing before the camera is initialized`() = runTest {
+        val view: View = mockk()
+        val event: MotionEvent = mockk()
+
+        streamingEngine.tapToFocus(view, event)
+
+        verify(exactly = 0) { camera.tapToFocus(any(), any()) }
+    }
+
+    @Test
+    fun `toggleStabilization returns false before the camera is initialized`() = runTest {
+        val result = streamingEngine.toggleStabilization()
+
+        assertEquals(false, result)
+        assertEquals(false, streamingEngine.stabilizationEnabled.value)
+    }
+
+    @Test
+    fun `toggleStabilization enables stabilization and updates the state`() = runTest {
+        every { camera.isVideoStabilizationEnabled } returns false
+        every { camera.isOpticalVideoStabilizationEnabled } returns false
+        every { camera.opticalZooms } returns emptyArray()
+        every { camera.enableVideoStabilization() } returns true
+        streamingEngine.initializeCamera()
+
+        val result = streamingEngine.toggleStabilization()
+
+        assertEquals(true, result)
+        assertEquals(true, streamingEngine.stabilizationEnabled.value)
+        verify { camera.enableVideoStabilization() }
+    }
+
+    @Test
+    fun `toggleStabilization disables an enabled stabilization`() = runTest {
+        every { camera.isVideoStabilizationEnabled } returns true
+        every { camera.isOpticalVideoStabilizationEnabled } returns false
+        every { camera.disableVideoStabilization() } just runs
+        streamingEngine.initializeCamera()
+
+        val result = streamingEngine.toggleStabilization()
+
+        assertEquals(true, result)
+        assertEquals(false, streamingEngine.stabilizationEnabled.value)
+        verify { camera.disableVideoStabilization() }
+    }
+
+    @Test
+    fun `toggleStabilization keeps the state when the camera rejects the change`() = runTest {
+        every { camera.isVideoStabilizationEnabled } returns false
+        every { camera.isOpticalVideoStabilizationEnabled } returns false
+        every { camera.opticalZooms } returns emptyArray()
+        every { camera.enableVideoStabilization() } returns false
+        streamingEngine.initializeCamera()
+
+        val result = streamingEngine.toggleStabilization()
+
+        assertEquals(false, result)
+        assertEquals(false, streamingEngine.stabilizationEnabled.value)
     }
 }
