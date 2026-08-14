@@ -266,9 +266,63 @@ Dieser Abschnitt beschreibt, **wie** der Play-Kanal mit einem Upload-Key eingeri
 
 > **Konsequenz für Vivid:** Die **finalen Play-APKs** tragen die Google-Signatur, die **GitHub-/Obtainium-APKs** den hiesigen Release-Key — das sind **unterschiedliche Signaturen**. Ein Nutzer, der über Play installiert, kann nicht per Obtainium updaten (und umgekehrt), ohne die App neu zu installieren. Wenn **eine** Identität über alle Kanäle gewünscht ist, siehe „Variante B“ unten.
 
+### 🔐 Play-Upload-Keystore erzeugen & UPLOAD_*-Secrets hinterlegen (Einrichtung)
+
+> Dieser Keystore ist **getrennt** vom Release-Key (GitHub/Obtainium): Er signiert ausschließlich die Play-AABs. Verlust ist unkritischer als beim Release-Key — der Upload-Key kann in der Play Console zurückgesetzt werden („Request upload key reset“, ohne App-Ausfall). Trotzdem gilt: Backup-Pflicht wie beim Release-Key (siehe unten).
+
+**Voraussetzung:** JDK 17 (liefert `keytool`; im CI bereits vorhanden).
+
+**Schritt 1 — Upload-Keystore erzeugen** (einmalig, auf einem sicheren Rechner):
+
+```bash
+keytool -genkeypair -v   -keystore upload-keystore.jks   -alias upload   -keyalg RSA -keysize 4096   -validity 10000   -sigalg SHA256withRSA   -storepass '<UPLOAD-STORE-PASSWORT>'   -keypass '<UPLOAD-KEY-PASSWORT>'   -dname "CN=Vivid Play Upload, O=Vivid, C=DE"
+```
+
+Empfehlungen wie beim Release-Key: `-keysize 4096` + `-sigalg SHA256withRSA`; `storepass` und `keypass` stark und **unterschiedlich** (mind. 20 Zeichen, Zufallsgenerator — z. B. `openssl rand -base64 32`); der Alias (`upload`) wird dauerhaft als `UPLOAD_KEY_ALIAS` hinterlegt — späteres Umbenennen bricht die Signierung.
+
+**Schritt 2 — Keystore base64-kodieren**
+
+Linux / Git-Bash:
+
+```bash
+base64 -w 0 upload-keystore.jks > upload-keystore.jks.b64
+```
+
+macOS: `base64 -b 0 < upload-keystore.jks > upload-keystore.jks.b64` · Windows PowerShell: `[Convert]::ToBase64String([IO.File]::ReadAllBytes("upload-keystore.jks")) | Set-Content upload-keystore.jks.b64 -NoNewline`
+
+Die `.b64`-Datei ist **eine einzige lange Zeile** — genau dieser Wert wird `UPLOAD_KEYSTORE_BASE64`. (Die Datei ist via `.gitignore` (`*.b64`) abgesichert — niemals committen; zusätzlich blockt der Secret-Guard `upload-keystore.jks`, `upload_cert.pem` und `fastlane/.env.play`.)
+
+**Schritt 3 — Secrets in GitHub hinterlegen**
+
+Repo → **Settings → Secrets and variables → Actions → New repository secret**, viermal:
+
+| Secret | Wert |
+|--------|------|
+| `UPLOAD_KEYSTORE_BASE64` | die base64-Zeile aus Schritt 2 (eine Zeile, ohne Zeilenumbrüche) |
+| `UPLOAD_KEYSTORE_PASSWORD` | das Store-Passwort des Upload-Keystores |
+| `UPLOAD_KEY_ALIAS` | der Alias (`upload`) |
+| `UPLOAD_KEY_PASSWORD` | das Key-Passwort |
+
+> Für den eigentlichen Upload braucht die `publish_play`-Lane zusätzlich die **Play-Service-Account-Credentials**: `PLAY_JSON_KEY_FILE` (Pfad zur JSON-Key-Datei) **oder** `PLAY_JSON_KEY_DATA` (JSON-Inhalt) — Anleitung in der Play Console (Setup → API-Zugang → Google Play Developer API → Service-Konto → JSON-Key). Beides sind Secrets und gehören **nie** ins Repo (Guard: `play-credentials.json` / `fastlane/.env.play`).
+
+**Schritt 4 — Verifizieren**
+
+1. Lokal den Fingerprint ermitteln und notieren:
+   ```bash
+   echo "$UPLOAD_KEYSTORE_BASE64" | base64 -di > /tmp/upload-keystore.jks
+   keytool -list -v -keystore /tmp/upload-keystore.jks -storepass '<UPLOAD-STORE-PASSWORT>' | grep -A1 'SHA256'
+   ```
+2. `bash scripts/guard_secrets.sh` läuft ohne Verstoß (kein Klartext-Secret im Repo), dann `publish-play` per `workflow_dispatch` triggern — die Lane bricht laut ab, wenn der AAB-Fingerprint nicht dem Upload-Key entspricht (`✅ AAB signature verified against UPLOAD key`).
+
+**💾 Backup-Pflicht (nicht optional):** Wie beim Release-Key mindestens **3 Kopien an getrennten Orten** (verschlüsselter USB-Stick, Passwort-Manager, Safe) und jede Kopie testweise dekodieren + Fingerprint prüfen (Schritt 4.1). Anders als der Release-Key ist der Upload-Key bei Verlust **ersetzbar** — aber nur mit etwas Aufwand in der Play Console, deshalb nicht leichtfertig behandeln.
+
+**🔄 Recovery:** Keystore jederzeit aus `UPLOAD_KEYSTORE_BASE64` rekonstruierbar (`echo "$UPLOAD_KEYSTORE_BASE64" | base64 -di > upload-keystore.jks`). Bei Kompromittierung: neuen Key erzeugen (Schritt 1), PEM exportieren (`keytool -export -rfc … -file upload_cert.pem`) und in der Play Console zurücksetzen.
+
+**⚠️ Widerruf-Risiko:** Leak des Upload-Keystores **oder** der Passwörter erlaubt es, eigene AABs mit eurer Upload-Identität in Play hochzuladen (Release-Hijacking). Sofort handeln: Secret ersetzen + „Request upload key reset“. **Strikt vom Release-Key trennen** — eigene Secrets, nie `KEYSTORE_*` wiederverwenden; nur so bleiben die beiden Kanäle (Play vs. GitHub/Obtainium) unabhängig und ein Play-Vorfall trifft nicht den Release-Key.
+
 **Variante A — dedizierter Upload-Key (Google-Empfehlung, getrennte Keys)**
 
-**Schritt 1 — Upload-Key erzeugen** (einmalig; Backup-Pflicht wie beim Release-Key):
+**Schritt 1 — Upload-Key erzeugen** (einmalig; vollständige Anleitung inkl. base64-Kodierung, GitHub-Secrets und Verifikation siehe Abschnitt **„🔐 Play-Upload-Keystore erzeugen & UPLOAD_*-Secrets hinterlegen“** oben):
 
 ```bash
 keytool -genkeypair -v   -keystore upload-keystore.jks   -alias upload   -keyalg RSA -keysize 4096   -validity 10000   -sigalg SHA256withRSA   -storepass '<UPLOAD-STORE-PASSWORT>'   -keypass '<UPLOAD-KEY-PASSWORT>'   -dname "CN=Vivid Play Upload, O=Vivid, C=DE"
@@ -314,7 +368,7 @@ android {
 }
 ```
 
-CI-Secrets (getrennt von den Release-Secrets): `UPLOAD_KEYSTORE_BASE64` / `UPLOAD_KEYSTORE_PASSWORD` / `UPLOAD_KEY_ALIAS` / `UPLOAD_KEY_PASSWORD`. Der spätere Play-Upload-Lane dekodiert den Keystore, baut `:app:bundleRelease` mit der Upload-Signing-Config und lädt das AAB hoch.
+CI-Secrets (getrennt von den Release-Secrets): `UPLOAD_KEYSTORE_BASE64` / `UPLOAD_KEYSTORE_PASSWORD` / `UPLOAD_KEY_ALIAS` / `UPLOAD_KEY_PASSWORD`. Der `publish-play`-Job (nur per `workflow_dispatch`) dekodiert den Keystore, baut `bundlePlayRelease` mit der Upload-Signing-Config und lädt das AAB über die `publish_play`-Lane hoch.
 
 **Schritt 5 — Verifikation:**
 
