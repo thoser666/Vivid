@@ -1,11 +1,13 @@
 package com.vivid.feature.chat.irc
 
+import javax.inject.Inject
+
 /**
  * Parser for IRCv3 messages as used by Twitch chat.
  *
  * Format: `@tags :prefix COMMAND param1 param2 :trailing`
  */
-class IrcMessageParser {
+class IrcMessageParser @Inject constructor() {
 
     fun parse(line: String): IrcMessage? {
         var rest = line.trim()
