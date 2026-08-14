@@ -104,7 +104,7 @@ git checkout <commit-sha>          # aus dem Release-Titel / version-control-inf
 
 # 2) Lokale Build-Artefakte kopieren (nie committet):
 #    - local.properties (SDK-Pfad)
-#    - keystore.properties + vivid-streaming-app.jks (Signing, falls nicht CI)
+#    - release.keystore + Env-Variablen (Signing — identisch zu CI, siehe unten)
 #    - gradle/gradle-daemon-jvm.properties (JVM-Pinning, sonst anderer JDK-Fallback)
 
 # 3) versionName/versionCode aus dem veröffentlichten Release lesen:
@@ -113,7 +113,11 @@ git checkout <commit-sha>          # aus dem Release-Titel / version-control-inf
 #      oder: aapt dump badging app-release.apk | grep version
 
 # 4) Bauen mit exakt diesen Parametern + Keystore-Env:
-KEYSTORE_PATH=... KEYSTORE_PASSWORD=... KEY_ALIAS=... KEY_PASSWORD=... \
+#    (KEYSTORE_PATH zeigt lokal auf die Datei; in CI erzeugt der Decode-Step sie)
+KEYSTORE_PATH=/pfad/zum/release.keystore \
+KEYSTORE_PASSWORD=<store-password> \
+KEY_ALIAS=<key-alias> \
+KEY_PASSWORD=<key-password> \
   ./gradlew :app:assembleRelease -PversionName=<name> -PversionCode=<code> \
     --stacktrace --no-daemon
 
@@ -137,6 +141,34 @@ Der Job **`verify-reproducibility`** in `android_fastlane.yml` vergleicht nach j
 **Signatur-Check:** Zusätzlich zum Hash-Vergleich verifiziert der Job die **Signatur des veröffentlichten APK** gegen den Release-Key: Der SHA-256-Fingerprint des APK-Signers (`apksigner verify --print-certs`) wird mit dem Zertifikat aus dem dekodierten `release.keystore` (`keytool -list -v`) verglichen. Damit wird hart sichergestellt, dass das veröffentlichte Nightly **nicht mit dem Debug-Key** signiert ist — ein Debug-signiertes APK würde Obtainium-Updates (Signatur-Mismatch) brechen. Auch dieser Check macht den Workflow bei Abweichung rot.
 
 **AAB (Bundle):** Sollte die Release-Lane künftig zusätzlich zum APK ein `app-release.aab` publizieren, wird es automatisch mitgeprüft (der Download-Step erkennt das AAB im Release und aktiviert die AAB-Checks nur dann): ① **Signatur** per `jarsigner -verify` (Integrität) + `keytool -printcert -jarfile` (Zertifikat gegen Release-Key), ② **Reproduzierbarkeit** durch frischen `:app:bundleRelease`-Build mit denselben versionName/versionCode-Parametern und Hash-Vergleich. Die AAB-Determinismustests lokal bestätigen: Zwei vollständig frische `bundleRelease`-Builds desselben Commits sind **bit-identisch** (Vorsicht: ein mit `--rerun-tasks` gemischter Vergleich gegen einen zwischenzeitlich veralteten Task-Cache täuscht Unterschiede vor — nur frische Builds vergleichen).
+
+## 🔑 Signing-Secrets (CI)
+
+Alle Releases werden mit **einem einzigen Release-Key** signiert — derselbe Keystore in CI, lokal und für jede spätere Play-Console-/F-Droid-Signierung. Die Secrets liegen als **GitHub-Repository-Secrets** (Settings → Secrets and variables → Actions), nie im Repo.
+
+### Tatsächlich verwendete Secrets
+
+| Secret | Inhalt | Verwendung |
+|--------|--------|------------|
+| `KEYSTORE_BASE64` | Der komplette Release-Keystore, base64-kodiert | Decode-Step in allen Release-/Verify-Jobs (`base64 -di` → `release.keystore` auf dem Runner; schlägt laut fehl, wenn leer — kein stilles Debug-Signing) |
+| `KEYSTORE_PASSWORD` | Store-Passwort des Keystores | `app/build.gradle.kts` (`signingConfigs.release`) · `keytool` beim Signatur-Check |
+| `KEY_ALIAS` | Alias des Signaturschlüssels | `app/build.gradle.kts` · `keytool -list -v -alias` beim Signatur-Check |
+| `KEY_PASSWORD` | Passwort des Schlüssels (i. d. R. = Store-Passwort) | `app/build.gradle.kts` (`keyPassword`) |
+
+> **Achtung:** `KEYSTORE_PATH` ist **kein Secret**, sondern wird im CI vom Decode-Step als Env-Variable gesetzt (`${{ github.workspace }}/release.keystore`); lokal zeigt sie auf die eigene Keystore-Datei. `app/build.gradle.kts` liest die vier Variablen ausschließlich über `System.getenv(...)` — kein `keystore.properties`-Fallback.
+
+### Verifikations-Ablauf (jeder Release)
+
+1. **Decode Keystore** (build-release, publish-release, verify-reproducibility): `KEYSTORE_BASE64` → Datei, `KEYSTORE_PATH` exportiert. Fehlt das Secret → **Abbruch** (statt Debug-Signing).
+2. **Build/Sign** (`assembleRelease` / `bundleRelease`): Gradle signiert mit dem Release-Key aus den vier Env-Variablen.
+3. **Signatur-Check** (verify-reproducibility, nach dem Publish):
+   - APK: `apksigner verify --print-certs` → SHA-256 des Signers **vs.** `keytool -list -v` des Keystores → muss identisch sein (Debug-Key ⇒ roter Workflow)
+   - AAB (falls publiziert): `jarsigner -verify` + `keytool -printcert -jarfile` → derselbe Vergleich
+4. **Reproduzierbarkeits-Check**: frischer Rebuild desselben Commits mit denselben Version-Parametern → Hash-Vergleich (siehe oben). Anderer Keystore ⇒ andere Signatur ⇒ anderer Hash ⇒ roter Workflow.
+
+### Veraltete Namen (entfernt)
+
+Frühere Setups nutzten abweichende Namen — `KEYALIAS`, `STOREFILE`, `SIGNING_*` (z. B. `SIGNING_STORE_FILE`/`SIGNING_KEY_ALIAS`) sowie eine lokale `keystore.properties`. Diese sind **vollständig entfernt**; einzige Quelle der Wahrheit sind die vier Secrets oben. Die lokale `keystore.properties` (untracked) ist ein Legacy-Überbleibsel aus dem alten Setup und wird vom Build nicht mehr gelesen — sie kann gelöscht werden.
 
 ## ⚠️ Stage Gates
 
