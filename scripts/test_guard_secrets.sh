@@ -17,6 +17,9 @@
 #   T11 upload-keystore.jks    -> Dateinamen-Guard (Play-Upload-Key)
 #   T12 play-credentials.json  -> Dateinamen-Guard (Play-Service-Account)
 #   T13 fastlane/.env.play     -> Env-Datei-Guard (Play-Upload-Secrets)
+#   T14 RELEASE.md-Kotlin-Snippet (UPLOAD_*-Env-Vals) -> KEIN Verstoß
+#   T15 Fastfile-Env-Interpolation (keytool, ENV[..])  -> KEIN Verstoß
+#   T16 PEM-Zertifikat (BEGIN CERTIFICATE)             -> KEIN Verstoß (nur PRIVATE KEY)
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -172,6 +175,58 @@ EOF
 git add fastlane/.env.play
 git commit -qm bad
 check "T13 fastlane/.env.play -> Exit 1" 1 bash "$GUARD"
+
+# T14: RELEASE.md-Kotlin-Snippet (upload-SigningConfig mit UPLOAD_*-Env-Vals) ist KEIN Verstoß
+setup_repo
+mkdir -p docs
+cat > docs/play-signing.md <<'EOF'
+```kotlin
+android {
+    signingConfigs {
+        create("upload") {
+            val keystorePath = System.getenv("UPLOAD_KEYSTORE_PATH")
+            val keystorePassword = System.getenv("UPLOAD_KEYSTORE_PASSWORD")
+            val keyAlias = System.getenv("UPLOAD_KEY_ALIAS")
+            val keyPassword = System.getenv("UPLOAD_KEY_PASSWORD")
+
+            if (!keystorePath.isNullOrEmpty()) {
+                storeFile = file(keystorePath)
+                storePassword = keystorePassword
+                this.keyAlias = keyAlias
+                this.keyPassword = keyPassword
+            }
+        }
+    }
+}
+```
+EOF
+git add docs/play-signing.md
+git commit -qm ok
+check "T14 RELEASE.md-Kotlin-Snippet (UPLOAD_*-Vals) -> Exit 0" 0 bash "$GUARD"
+
+# T15: Fastfile-publish_play-Snippet (Env-Interpolation statt Literalen) ist KEIN Verstoß
+setup_repo
+mkdir -p fastlane
+cat > fastlane/Fastfile <<'EOF'
+key_fp = `keytool -list -v -keystore "#{keystore}" -storepass "#{ENV["UPLOAD_KEYSTORE_PASSWORD"]}" -alias "#{ENV["UPLOAD_KEY_ALIAS"]}" 2>/dev/null | grep 'SHA256:'`.strip
+UI.user_error!("UPLOAD_KEYSTORE_PASSWORD must be set") if ENV["UPLOAD_KEYSTORE_PASSWORD"].to_s.empty?
+supply_opts[:json_key] = ENV["PLAY_JSON_KEY_DATA"] if ENV["PLAY_JSON_KEY_DATA"].to_s != ""
+EOF
+git add fastlane/Fastfile
+git commit -qm ok
+check "T15 Fastfile-Env-Interpolation -> Exit 0" 0 bash "$GUARD"
+
+# T16: PEM-Zertifikat (oeffentlich, BEGIN CERTIFICATE) ist KEIN Privatkey-Verstoß
+setup_repo
+mkdir -p docs
+cat > docs/cert-example.txt <<'EOF'
+-----BEGIN CERTIFICATE-----
+MIIBmTCCAT+gAwIBAgIUEXAMPLEONLYNOTAREALCERT
+-----END CERTIFICATE-----
+EOF
+git add docs/cert-example.txt
+git commit -qm ok
+check "T16 CERTIFICATE-Block (kein PRIVATE KEY) -> Exit 0" 0 bash "$GUARD"
 
 # ── Ergebnis ─────────────────────────────────────────────────────────────────
 echo "----------------------------------------"
