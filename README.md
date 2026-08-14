@@ -110,7 +110,7 @@ The About-screen check follows the same rules as [RELEASE.md](RELEASE.md): it on
 - 🎛️ **OBS WebSocket Control** - Control OBS Studio directly from your phone (switch scenes, start/stop recording and streaming)
 - 🌐 **Streaming Pipeline** - CameraX-based live streaming to your configured RTMP/SRT ingest (Twitch, YouTube, Kick, or your own server)
 - 🔗 **Multi-Streaming** - Send the same stream to **two RTMP(S) targets in parallel** (primary + optional secondary): add a secondary URL/key in Settings → Stream („Multi-Streaming (optional)“) and both targets start on Go Live. Each target shows its own status on the streaming screen (bereit / verbinde… / sendet live / fehlgeschlagen), and if one target fails it stops on its own while the other keeps streaming — ideal for cross-streaming to Twitch and YouTube at the same time
-- 🔒 **RTMPS (TLS)** - Encrypted ingest via `rtmps://` (verified against RootEncoder 2.6.4: native TLS handshake, port 443); enabled per-platform or via the TLS toggle, standard port 1935 is auto-normalized to 443
+- 🔒 **RTMPS (TLS)** - Encrypted ingest via `rtmps://` (verified against RootEncoder 2.7.5: native TLS handshake, port 443); enabled per-platform or via the TLS toggle, standard port 1935 is auto-normalized to 443
 - ✅ **Go-Live Self-Check** - Before starting the stream, Vivid validates the configured URL and stream key (missing/invalid URL, unsupported protocol, missing key) and shows clear, actionable German messages directly on the streaming screen — blocking errors prevent starting, warnings (e.g. missing key) are shown but don't block
 - 🔍 **Focus Lock** - Toggle autofocus ⇄ infinity lock on the streaming camera to prevent focus hunting (rain drops, dirt on the windshield) during drive/train streams — Moblin #377; works on the actual RootEncoder camera (not just the preview) and can be set before going live
 - 👆 **Camera Controls on the Streaming Preview** - **Tap-to-focus** (single tap), **pinch to zoom** (clamped to the camera's zoom range) and **zoom reset** (double tap) directly on the live preview — gestures drive the real RootEncoder camera, not the preview only. Plus a **stabilization toggle** (optical stabilization preferred, EIS fallback) next to the focus-lock button
@@ -402,7 +402,7 @@ Status: ✅ implemented · 🚧 in progress · 📋 planned
 | OBS WebSocket Control | ✅ | Scenes, recording, stream start/stop |
 | OBS Config via QR Code | ✅ | Import `obsws://` / `obswebsocket` connect info (host, port, password) from the OBS QR code |
 | Streaming (RTMP / SRT) | ✅ | Configurable URL/key via settings |
-| RTMPS (TLS ingest) | ✅ | `rtmps://` via RootEncoder 2.6.4, port 443, TLS verified |
+| RTMPS (TLS ingest) | ✅ | `rtmps://` via RootEncoder 2.7.5, port 443, TLS verified |
 | Background Streaming (Foreground Service) | ✅ | Stream continues in background: notification + wake lock, stop action |
 | Go-Live Self-Check | ✅ | Validates URL/key before starting, clear error messages |
 | Focus Lock (∞) | ✅ | Autofocus ⇄ infinity lock toggle on the streaming camera (Moblin #377) |
