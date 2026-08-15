@@ -9,3 +9,10 @@ updates:
     directory: "/" # Location of package manifests
     schedule:
       interval: "weekly"
+  # Pinned Actions automatisch per PR aktualisieren (siehe RELEASE.md:
+  # Abschnitt 'CI-Haertung: Pinned Actions' -> Update-Fahrplan).
+  # Dependabot liest die `# vX`-Provenienz-Kommentare und zieht SHA + Kommentar gemeinsam.
+  - package-ecosystem: "github-actions"
+    directory: "/" # .github/workflows wird standardmaessig gescannt
+    schedule:
+      interval: "weekly"

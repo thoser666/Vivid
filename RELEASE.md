@@ -187,6 +187,16 @@ Bump immer den gepeelten Commit `refs/tags/<tag>^{}` verwenden.
 4. **Grundregel:** nie einen Tag als `uses:`-Referenz einführen— Tags sind beweglich; nur 
    SHA-Pins mit Provenienz-Kommentar sind zulässig.
 
+### 🚧 Ausstehend: Kotlin-Update auf 2.4.20 (stabil)
+
+Der direkte Dependabot-Alert `kotlin-gradle-plugin` (unsafe Deserialization im Kotlin Build Cache, Dependabot #63) ist mit `tolerable_risk` dismissed. Die erste gepatchte Version ist **2.4.20-Beta1**; die **stabile 2.4.20** erscheint laut [Kotlin-Release-Fahrplan](https://kotlinlang.org/docs/releases.html) im **September 2026**. Bis dahin bleibt der Alert dismissed (Build-Tooling-only, kein App-Runtime-Risiko).
+
+**Beim Update dann:**
+- `kotlin` und `jetbrainsKotlinJvm` in `gradle/libs.versions.toml` auf `2.4.20` anheben — Compose-Compiler und Serialization alignen automatisch (`version.ref = "kotlin"`).
+- **KSP** (`ksp-version = "2.3.11"`) auf die zu Kotlin 2.4.20 passende Version heben (KSP folgt der Kotlin-Version).
+- Voller Testlauf Pflicht (CI-Mirror): `./gradlew testDebugUnitTest` + `lintDebug` — danach verifizieren, dass Dependabot den Alert #63 automatisch schließt.
+- Dependabot (gradle, weekly) öffnet den Update-PR automatisch, sobald 2.4.20 stabil auf Maven Central ist.
+
 ## 🔑 Signing-Secrets (CI)
 
 Alle Releases werden mit **einem einzigen Release-Key** signiert — derselbe Keystore in CI, lokal und für jede spätere Play-Console-/F-Droid-Signierung. Die Secrets liegen als **GitHub-Repository-Secrets** (Settings → Secrets and variables → Actions), nie im Repo.
