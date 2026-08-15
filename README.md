@@ -381,14 +381,14 @@ Bild läuft, aber Zuschauer hören nichts? Das sind die häufigsten Ursachen:
 | Area | Technology | Version |
 |------|-----------|---------|
 | Language | Kotlin | 2.2.20 |
-| Build | Android Gradle Plugin | 9.2.1 |
-| SDK | minSdk / compile+target | 24 / 36 |
+| Build | Android Gradle Plugin | 9.3.1 |
+| SDK | minSdk / compile+target | 24 / 37 |
 | UI | Jetpack Compose (BOM) | 2025.09.00 |
 | DI | Hilt + KSP | 2.59.2 / 2.3.11 |
-| Networking | OkHttp / Ktor | 5.3.2 / 3.5.0 |
-| Camera | CameraX | 1.6.1 |
+| Networking | OkHttp / Ktor | 5.3.2 / 3.5.2 |
+| Camera | CameraX (Vorschau) / RootEncoder (RTMP/SRT-Pipeline) | 1.6.1 / 2.7.5 |
 | Media | Media3 (ExoPlayer) | 1.9.0 |
-| Serialization | kotlinx.serialization | 1.9.0 |
+| Serialization | kotlinx.serialization | 1.11.0 |
 | Code Analysis | Sentry Gradle Plugin | 6.6.0 |
 
 All versions are centrally defined in [`gradle/libs.versions.toml`](gradle/libs.versions.toml).
@@ -456,7 +456,7 @@ cd Vivid
 ### Running Tests & Lint
 
 ```bash
-# Unit tests for all modules (236 tests across core, app, feature-*)
+# Unit tests for all modules (320 tests across core, app, feature-*)
 ./gradlew testDebugUnitTest
 
 # Live check: run the in-app UpdateChecker against the real GitHub releases

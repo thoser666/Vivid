@@ -567,7 +567,7 @@ Fehlerbilder (bewusst **harte Abbrüche** — bei CI-Fail hat Play keinerlei Än
 ```sh
 bundle exec fastlane release_alpha
 ```
-→ Pusht `v0.2.0-alpha`-Tag → CI baut signiert und veröffentlicht als GitHub-Prerelease
+→ Pusht einen `vX.Y.Z-alpha`-Tag → CI baut signiert und veröffentlicht als GitHub-Prerelease
 
 ### `beta` — 🚦 **Nächster Meilenstein**
 
@@ -590,9 +590,9 @@ bundle exec fastlane release_alpha
 >   - Data Safety Section (welche Daten sammelt die App?)
 
 **Kriterien (alle müssen erfüllt sein):**
-- [ ] ≥50 % Feature-Parität (aktuell 9/34 ≈ 26 %, Ziel: ≥17 Features)
-- [ ] Chat implementiert & getestet (📋 in PARITY.md)
-- [ ] Mindestens ein Overlay/Widget funktioniert (📋 in PARITY.md)
+- [ ] ≥17 ✅ Feature-Parität in PARITY.md (aktuell 16/42 ≈ 38 %)
+- [ ] Chat implementiert & getestet (🚧 in PARITY.md)
+- [ ] Mindestens ein Overlay/Widget funktioniert (🚧 in PARITY.md)
 - [ ] Kamera-Vorschau stabil (🚧 in PARITY.md)
 - [ ] Settings persistent über App-Neustarts
 - [ ] Keine bekannten Showstopper-Bugs
@@ -609,7 +609,7 @@ bundle exec fastlane release_beta
 > **🧠 Erinnerung: Sobald diese Kriterien erfüllt sind → `release_stable`-Lane schreiben und v1.0.0 taggen.**
 
 **Kriterien (alle müssen erfüllt sein):**
-- [ ] ≥90 % Feature-Parität (≈30 von 33)
+- [ ] ≥90 % Feature-Parität (≈39 von 43, 43 = 100 %)
 - [ ] Alle entwickelten Features in PARITY.md auf ✅
 - [ ] Vollständige CI-Test-Suite (Unit + UI + Integration)
 - [ ] Performance-Test bestanden (Streaming-Latenz <2 s, App-Start <1 s)
