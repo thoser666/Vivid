@@ -39,6 +39,13 @@ permissions:
 
 # Serialisiert die nightly-Publikation: zwei schnelle develop-Pushes dürfen
 # sich nicht um den rollierenden "nightly"-Tag streiten.
+# cancel-in-progress: false ist BEWUSST: Der laufende Run muss seine
+# Veröffentlichung (Tag-Push → Release → CHANGELOG → Verify) immer zu Ende
+# bringen — ein Abbruch mitten in der Kette hinterlässt Orphan-Tags/halb
+# erstellte Releases (siehe Orphan-Sweep im Fastfile). Queued Runs (noch ohne
+# gestarteten Job) cancelt GitHub automatisch, sobald ein neuerer Push für
+# denselben Ref eintrifft — die Queue staut sich also nie, und nur der
+# in-flight Run wird geschützt.
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
