@@ -244,8 +244,10 @@ platform :android do
       version_name = options[:version_name] || "#{base}-nightly.#{run_raw}"
 
       # Immutable Releases: every release gets a unique, date-based tag.
+      # Sekunden-Granularität: eliminiert Kollisionen mit Orphan-Tags gleichen
+      # Namens aus abgebrochenen Runs (Minuten-Granularität konnte kollidieren).
       # gh release create handles draft → upload → publish atomically.
-      tag = "nightly-#{Time.now.utc.strftime('%Y%m%d-%H%M')}"
+      tag = "nightly-#{Time.now.utc.strftime('%Y%m%d-%H%M%S')}"
       notes = "Nightly feature build — installable via Obtainium (enable pre-releases)."
       UI.message("Publishing nightly prerelease #{version_name} → tag #{tag}")
 
@@ -259,6 +261,13 @@ platform :android do
       # Validierung) — mit dem aktuellen develop-HEAD gibt es keinen Workflow-Diff.
       sh("git", "fetch", "origin", "develop")
       sh("git", "tag", tag, "origin/develop")
+
+      # Härtung: existiert der Tag remote bereits (Orphan-Rest eines abgebrochenen
+      # Runs), NICHT still überschreiben — laut abbrechen. Der Orphan-Tag-Sweep im
+      # Cleanup-Schritt räumt solche Reste beim nächsten erfolgreichen Run auf.
+      unless `git ls-remote --tags origin "refs/tags/#{tag}" 2>/dev/null`.strip.empty?
+        UI.user_error!("Tag #{tag} existiert bereits remote (Orphan eines abgebrochenen Runs?) — manuell prüfen: gh release view #{tag}; ggf. git push origin :refs/tags/#{tag}")
+      end
       sh("git", "push", "origin", tag)
 
       # Create the release with the APK (plus mapping & metadata for
@@ -276,12 +285,39 @@ platform :android do
       UI.message("  assets: #{assets.map { |a| File.basename(a) }.join(', ')}")
       UI.message("  mapping: #{mapping} exists=#{File.exist?(mapping)}") if mapping
       UI.message("  metadata: #{metadata} exists=#{File.exist?(metadata)}") if metadata
-      sh("gh", "release", "create", tag, *assets,
-         "--title", "Vivid nightly (#{version_name})",
-         "--notes", notes,
-         "--target", "develop",
-         "--prerelease",
-         "--latest=false")
+      # Härtung: Retry gegen transiente Fehler (Netz/API); bei endgültigem Fehler
+      # Rollback — evtl. angelegtes (Draft-)Release und den soeben gepushten Tag
+      # wieder löschen, damit KEIN Orphan-Tag zurückbleibt. Danach erneut werfen.
+      attempts = 0
+      begin
+        attempts += 1
+        sh("gh", "release", "create", tag, *assets,
+           "--title", "Vivid nightly (#{version_name})",
+           "--notes", notes,
+           "--target", "develop",
+           "--prerelease",
+           "--latest=false")
+      rescue => e
+        if attempts < 3
+          UI.important("gh release create fehlgeschlagen (Versuch #{attempts}/3) — retry: #{e.message}")
+          sleep 5
+          retry
+        end
+        UI.error("Release-Erstellung endgültig fehlgeschlagen — Rollback von Tag/Release #{tag}")
+        begin
+          sh("gh", "release", "delete", tag, "--yes")
+          UI.message("  (Rest-Release #{tag} gelöscht)")
+        rescue
+          UI.message("  (kein Release zu löschen — ok)")
+        end
+        begin
+          sh("git", "push", "origin", ":refs/tags/#{tag}")
+          UI.message("  (Orphan-Tag #{tag} gelöscht)")
+        rescue
+          UI.message("  (Tag-Löschung fehlgeschlagen — manuell: git push origin :refs/tags/#{tag})")
+        end
+        raise
+      end
 
       # Keep only the last 3 nightly releases to avoid clutter.
       # Delete release first, then the tag — immutable releases block tag
@@ -295,6 +331,22 @@ platform :android do
         sh("gh", "release", "delete", old_tag, "--yes") rescue UI.message("  (release delete skipped)")
         UI.message("  Deleting old tag: #{old_tag}")
         sh("git", "push", "origin", ":refs/tags/#{old_tag}") rescue UI.message("  (tag delete skipped)")
+      end
+
+      # Härtung (Selbstheilung): Orphan-Tags bereinigen — nightly-* Tags ohne
+      # Release (Rest aus abgebrochenen Runs: Tag gepusht, Release-Erstellung
+      # fehlgeschlagen/abgebrochen). Der release-basierte Cleanup oben sieht sie
+      # nicht; ohne diesen Sweep sammeln sie sich dauerhaft an.
+      UI.message("Sweeping orphan nightly tags (kein Release)…")
+      orphans = `git ls-remote --tags origin 'refs/tags/nightly-*' 2>/dev/null`.strip.lines
+        .map { |l| l.split("refs/tags/").last&.strip }
+        .compact
+        .reject { |t| t.empty? || t.end_with?("^{}") || t == tag }
+      orphans.each do |orphan|
+        has_release = `gh release view #{orphan} --json tagName 2>/dev/null`.strip != ""
+        next if has_release
+        UI.message("  Orphan-Tag ohne Release: #{orphan} → lösche")
+        sh("git", "push", "origin", ":refs/tags/#{orphan}") rescue UI.message("  (orphan tag delete skipped)")
       end
       UI.success("✅ Nightly published: #{tag}")
     end
