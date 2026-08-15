@@ -8,7 +8,7 @@ Jeder Release durchläuft eine von vier Stufen. Welche Stufe aktiv ist, bestimmt
 |-------|-----------|----------|------------|
 | `nightly` | `nightly` (rollierend) | Jeder develop-Merge · **täglich 06:00 UTC (Schedule)** · manuell (`workflow_dispatch`) | Entwickler · CI-Tester |
 | `alpha` | `vX.Y.0-alpha` | Manuell via `fastlane release_alpha` | Frühe Tester (Obtainium, kein Pre-Release-Flag nötig) |
-| `beta` | `vX.Y.0-beta` | Manuell via `fastlane release_beta` (Lane TODO — Plan: [🧪 Erster Beta-Build](#-erster-beta-build-plan)) | Feldtester · Hunde essen ihr eigenes Futter |
+| `beta` | `vX.Y.0-beta` | Manuell via `fastlane release_beta` (Spiegel von `release_alpha` inkl. Safety-Checks) | Feldtester · Hunde essen ihr eigenes Futter |
 | `stable` | `vX.Y.Z` | Manuell via `fastlane release_stable` (TODO) | Play Store · F-Droid · Allgemeinverfügbarkeit |
 
 ## 🗺️ Roadmap (Version → Features)
@@ -38,7 +38,7 @@ Das Beta-Gate ist erreicht, wenn **alle drei** Bedingungen erfüllt sind (Stand 
 
 **Ablauf nach Erreichen des Gates:**
 
-1. `fastlane release_beta` implementieren — Spiegel von `release_alpha` mit Stufe `beta` (Lane existiert noch nicht, TODO in der Stufenübersicht).
+1. `fastlane release_beta` implementiert (2026-08-15) — Spiegel von `release_alpha` mit Stufe `beta` inkl. Safety-Checks (Tag-Existenz, versionCode-Monotonie in der beta-Track, Quer-Track-Downgrade-Warnung).
 2. Tag `v0.3.0-beta` erzeugen + pushen → CI baut/publiziert automatisch (Tag-Trigger `v*` ist aktiv; Signatur- und Reproduzierbarkeits-Check laufen mit).
 3. Metadaten: `versionName = 0.3.0-beta`, `versionCode = 3002` (deterministisch aus dem Tag, Stufe beta = 2).
 4. QA-Rollout an Feldtester (Obtainium, Pre-Releases aktiviert); Smoke-Tests: Go-Live, Multi-Streaming, Chat-Overlay, OBS-Remote, Settings-Persistenz.
@@ -599,7 +599,7 @@ bundle exec fastlane release_alpha
 - [ ] ≥2 manuelle Tester haben bestätigt: „kein Crash in 15 Minuten"
 - [ ] Google-Play-Unterlagen vorbereitet (s. o.)
 
-**Befehl (TODO, noch zu implementieren):**
+**Befehl:**
 ```sh
 bundle exec fastlane release_beta
 ```

@@ -103,6 +103,74 @@ platform :android do
     UI.message("Monitor: https://github.com/thoser666/Vivid/actions")
   end
 
+  desc "Create and push a beta release tag — runs tests, auto-versions, triggers CI (mirror of release_alpha, stage beta)"
+  lane :release_beta do |options|
+    UI.header "Step 1/5: Running unit tests"
+    test
+
+    UI.header "Step 2/5: Checking branch"
+    branch = `git rev-parse --abbrev-ref HEAD`.strip
+    UI.user_error!("Must be on develop branch, current: #{branch}") unless branch == "develop"
+
+    UI.header "Step 3/5: Determining version"
+    tag = options[:version]
+    unless tag
+      latest = `git tag -l 'v*-beta' --sort=-v:refname 2>/dev/null`.strip.lines.first&.strip
+      if latest && !latest.empty?
+        base = latest.sub(/^v/, "").sub(/-beta$/, "")
+        parts = base.split(".").map(&:to_i)
+        tag = "v#{parts[0]}.#{parts[1] + 1}.0-beta"
+      else
+        # Erster Beta-Tag laut RELEASE.md-Plan (Beta-Gate: ≥17 ✅ + Chat + ≥1 Widget).
+        tag = "v0.3.0-beta"
+      end
+    end
+    tag = "v#{tag}" unless tag.start_with?("v")
+    UI.message("Next beta tag: #{tag}")
+
+    # Safety 1: refuse to overwrite an existing tag
+    if `git tag -l '#{tag}'`.strip != ""
+      UI.user_error!("Tag #{tag} already exists — use version: to pick a different one")
+    end
+
+    # Safety 2 (Versicherung): deterministischer versionCode aus dem Tag ableiten —
+    # ist das nicht möglich (falsches Format), darf kein Tag gepusht werden.
+    version_name = tag.sub(/^v/, "")
+    code = version_code_for(version_name)
+    if code.nil?
+      UI.user_error!("Could not derive versionCode from #{tag} — expected format vX.Y.Z[-beta]")
+    end
+
+    # Safety 3 (Versicherung): kein Downgrade innerhalb der beta-Track — der neue
+    # versionCode muss strikt größer sein als der höchste bisher veröffentlichte beta-Code.
+    last_beta_code = `git tag -l 'v*-beta' --sort=-v:refname 2>/dev/null`.strip.lines
+      .map { |t| version_code_for(t.strip.sub(/^v/, "")) }
+      .compact.max
+    if last_beta_code && code <= last_beta_code
+      UI.user_error!("versionCode #{code} is not greater than the last beta release (#{last_beta_code}) — use version: to pick a higher one")
+    end
+
+    # Safety 4 (Versicherung): Quer-Track-Hinweis statt Abbruch — die Roadmap startet
+    # beta bewusst bei v0.3.0-beta (3002), obwohl alpha schon bei v0.4.x (4000+) liegt.
+    # Android blockt Downgrades, daher nur warnen: Nutzer anderer Tracks müssen die App
+    # vorher deinstallieren.
+    other_codes = `git tag -l 'v*' 2>/dev/null`.strip.lines
+      .map { |t| version_code_for(t.strip.sub(/^v/, "")) }
+      .compact
+    max_other = (other_codes - [code]).max
+    if max_other && code < max_other
+      UI.important("⚠️ #{tag} (#{code}) hat einen kleineren versionCode als das letzte Release anderer Tracks (#{max_other}) — deren Nutzer müssen die App vorher deinstallieren (Android-Downgrade-Block).")
+    end
+
+    UI.header "Step 4/5: Creating and pushing tag"
+    sh("git", "tag", "-a", tag, "-m", "Beta release #{tag}")
+    sh("git", "push", "origin", tag)
+
+    UI.header "Step 5/5: Done"
+    UI.success("✅ Pushed #{tag} — CI will build and publish the beta release")
+    UI.message("Monitor: https://github.com/thoser666/Vivid/actions")
+  end
+
   desc "Build release APK and publish it as a GitHub release (requires gh + GH_TOKEN)"
   lane :release_github do |options|
     ref_type = ENV["GITHUB_REF_TYPE"].to_s # "tag" oder "branch"
