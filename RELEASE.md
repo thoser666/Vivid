@@ -8,23 +8,41 @@ Jeder Release durchläuft eine von vier Stufen. Welche Stufe aktiv ist, bestimmt
 |-------|-----------|----------|------------|
 | `nightly` | `nightly` (rollierend) | Jeder develop-Merge · **täglich 06:00 UTC (Schedule)** · manuell (`workflow_dispatch`) | Entwickler · CI-Tester |
 | `alpha` | `vX.Y.0-alpha` | Manuell via `fastlane release_alpha` | Frühe Tester (Obtainium, kein Pre-Release-Flag nötig) |
-| `beta` | `vX.Y.0-beta` | Manuell via `fastlane release_beta` (TODO) | Feldtester · Hunde essen ihr eigenes Futter |
+| `beta` | `vX.Y.0-beta` | Manuell via `fastlane release_beta` (Lane TODO — Plan: [🧪 Erster Beta-Build](#-erster-beta-build-plan)) | Feldtester · Hunde essen ihr eigenes Futter |
 | `stable` | `vX.Y.Z` | Manuell via `fastlane release_stable` (TODO) | Play Store · F-Droid · Allgemeinverfügbarkeit |
 
 ## 🗺️ Roadmap (Version → Features)
 
-Welche offenen PARITY-Punkte in welcher Version released werden — Zählerstand: ✅ **16** (Stand 2026-08-14, [PARITY.md](PARITY.md)). Reihenfolge nach dem Prinzip: **erst Gate-Pflichten, dann Nutzer-Sichtbares, dann Streaming-Komfort, zuletzt Protokoll-Ausbau & Plattform** — jedes Release bleibt für sich testbar und läuft über die jeweilige Fastlane-Lane.
+Welche offenen PARITY-Punkte in welcher Version released werden — Zählerstand: ✅ **16** (Stand 2026-08-15, [PARITY.md](PARITY.md)). Reihenfolge nach dem Prinzip: **erst Gate-Pflichten, dann Nutzer-Sichtbares, dann Streaming-Komfort, zuletzt Protokoll-Ausbau & Plattform** — jedes Release bleibt für sich testbar und läuft über die jeweilige Fastlane-Lane.
 
 | Version | Inhalt (PARITY-Punkte) | ✅ nach Release | Gate |
 |---------|------------------------|-----------------|------|
-| `v0.2.0-alpha` | (läuft bereits) | 16 | alpha-Gate aktiv |
-| `v0.3.0-beta` | **Chat & Moderation (4):** Plattform-Chat, Emotes, Moderation/Chat-Bot/TTS, Media-Player-Bot · **erstes Overlay:** Text-/Info-Widgets (Sensor-/GPS-Daten) | **21** | **Beta-Gate erreicht** (Chat + ≥1 Widget + ≥17 ✅) |
+| `v0.4.x-alpha` | (läuft bereits — aktuell `v0.4.2-alpha`, enthält den Scroll-Fix) | 16 | alpha-Gate aktiv |
+| `v0.3.0-beta` | **Chat & Moderation (4):** Plattform-Chat, Emotes, Moderation/Chat-Bot/TTS, Media-Player-Bot · **erstes Overlay:** Text-/Info-Widgets (Sensor-/GPS-Daten) | **21** | **Beta-Gate** (Chat + ≥1 Widget + ≥17 ✅) · Stand 16/17 — offen: erstes Widget + Chat-✅ |
 | `v0.4.0-beta` | **Overlays & Widgets (5):** Chat-Overlay/Event-Alerts, Text-Widget-Variablen, Karten-Widget, Browser-Widget, Scoreboards | **26** | Beta #2 |
 | `v0.5.0-beta` | **Kamera & Video (4):** Color-Spaces/3D-LUTs, Video-Effekte, Externes Zubehör, Photo-Shoot · **Audio (3):** Mic-Verwaltung, Level-Meter/Muting/Sync, Talk-Back · Oura-Ring-Widget | **34** | Beta #3 |
 | `v0.6.0-beta` | **Streaming-Erweiterung (5):** RIST, WHIP, RTMP-Pull/Ingest, 4K/HEVC, SRTLA-Bonding · OBS Snapshot/Audio-Levels · Game-Controller, Deep-Linking/Konfig-Import | **42** | Beta #4 |
 | `v1.0.0-stable` | I18n (🚧) + Play-Store-Unterlagen (Icon, Screenshots, Listing) | **43 (100 %)** | Stable-Gate (≥90 %) |
 
 > **Pflege:** Bei jeder Änderung an PARITY.md prüfen — neue Features wandern in den nächsten passenden Versions-Bucket; die Grenzen sind flexibel (ein Feature darf vorziehen, wenn es erst das Gate der nächsten Version schließbar macht).
+
+## 🧪 Erster Beta-Build (Plan)
+
+Das Beta-Gate ist erreicht, wenn **alle drei** Bedingungen erfüllt sind (Stand 2026-08-15: 2/3 offen):
+
+| Bedingung | Status | Offen |
+|-----------|--------|-------|
+| ≥17 ✅ in PARITY.md | **16/17** | **erstes Widget** (Text-/Info-Widgets) als 17. ✅ |
+| Chat-✅ | Twitch-IRC + Chat-Overlay laufen (25 Tests) | formal: Scope auf „Twitch-Chat“ (Row 77) oder Event-Alerts (Row 86) |
+| ≥1 Widget | 0/5 begonnen | Text-/Info-Widgets (Zeit/GPS/Geschwindigkeit/Höhenmeter) in `feature-widgets` (Modul existiert als Gerüst) |
+
+**Ablauf nach Erreichen des Gates:**
+
+1. `fastlane release_beta` implementieren — Spiegel von `release_alpha` mit Stufe `beta` (Lane existiert noch nicht, TODO in der Stufenübersicht).
+2. Tag `v0.3.0-beta` erzeugen + pushen → CI baut/publiziert automatisch (Tag-Trigger `v*` ist aktiv; Signatur- und Reproduzierbarkeits-Check laufen mit).
+3. Metadaten: `versionName = 0.3.0-beta`, `versionCode = 3002` (deterministisch aus dem Tag, Stufe beta = 2).
+4. QA-Rollout an Feldtester (Obtainium, Pre-Releases aktiviert); Smoke-Tests: Go-Live, Multi-Streaming, Chat-Overlay, OBS-Remote, Settings-Persistenz.
+5. Cross-Track beachten: **beta → nightly ist ein Downgrade** (deinstallieren); nightly → beta ist installierbar.
 
 ## 📐 Versionsstrategie (versionName & versionCode)
 

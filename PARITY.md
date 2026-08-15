@@ -13,11 +13,11 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 | 📋 | Geplant (Roadmap) |
 | — | Nicht zutreffend auf Android |
 
-> **Stand:** 2026-08-14 · Aktualisierung: Twitch-Chat-Data-Layer + **Chat-Overlay** über der Streaming-Vorschau implementiert (Kanal + Toggle in den Settings) — Referenzstand: Moblin **33.12.0**
+> **Stand:** 2026-08-15 · Aktualisierung: Alpha **v0.4.2** released (Scroll-Fix); **Beta-Gate bei 16/17 ✅** — offen für das Gate: **erstes Widget** (Text-/Info-Widgets) + **Chat-Formalisierung** (Twitch-IRC + Overlay laufen, Scope auf Twitch oder Event-Alerts) — Referenzstand: Moblin **33.12.0**
 >
 > **Pflege:** Nach jedem Feature-Commit den Status in der jeweiligen Zeile aktualisieren und das Datum oben anpassen.
 >
-> 🚦 **Nächster Meilenstein:** Wenn die ✅-Spalte in der Tabelle ≥17 erreicht (aktuell **16**) → Zeit für [Beta](RELEASE.md#beta--nächster-meilenstein). Siehe [RELEASE.md](RELEASE.md) für alle Stage Gates.
+> 🚦 **Nächster Meilenstein (Beta-Gate):** ≥17 ✅ (aktuell **16**) + Chat-✅ + ≥1 Widget — offen: erstes Widget (Text-/Info-Widgets) + Chat-Formalisierung (Twitch läuft). Siehe [RELEASE.md](RELEASE.md#beta--nächster-meilenstein) für alle Stage Gates.
 
 ---
 
@@ -141,6 +141,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 
 | Datum | Commit | Änderung |
 |-------|--------|----------|
+| 2026-08-15 | — | **Beta-Gate-Analyse:** 16/17 ✅ erreicht; offene Gate-Bedingungen: ≥1 Widget (`feature-widgets` ist noch Platzhalter) + Chat-✅ formal (Twitch-IRC + Overlay laufen, 25 Tests). Empfehlung: erstes Widget (Text-/Info-Widgets) als 17. ✅ — Plan für den ersten Beta-Build in [RELEASE.md](RELEASE.md#-erster-beta-build-plan) |
 | 2026-08-14 | — | **Plattform-Chat (Twitch) begonnen:** Data-Layer des `feature-chat`-Moduls implementiert — `TwitchChatClient` (anonym/justinfan, TLS 6697, CAP tags/commands/membership, JOIN, PING→PONG, Auto-Reconnect mit Backoff, `state`-StateFlow + `messages`-Flow), `SocketIrcConnection` (Socket/TLS mit `IrcConnectionFactory` für Tests), IRCv3-Tags-Parser (`IrcMessageParser`, inkl. Escaping) und `ChatMessage`-Modell; Hilt-DI (`@ChatScope`); 14 Unit-Tests grün, Lint + App-Compile grün. Nächste Schritte: Kick/YouTube-Adapter, OAuth-Login, UI/Overlay |
 | 2026-08-14 | — | **Chat-Overlay (Twitch) fertig:** Kanal + Overlay-Toggle in den Settings (`chat_channel`/`chat_overlay_enabled` in `SettingsRepository`/`AppSettings`, gespeichert über `updateChatSettings`, Sektion „Chat-Overlay“ im Settings-Screen); `ChatOverlayViewModel` (startet/stoppt den `TwitchChatClient` anhand der Settings, normalisiert den Kanal, begrenzt auf 50 Nachrichten, leert bei Kanal-/Statuswechsel, reicht den Verbindungsstatus durch) + `ChatOverlay`-Composable (transparente Box unten links über der Vorschau, zeigt die letzten 6 Nachrichten mit Username-Farbe, blendet sich bei deaktiviertem Overlay aus); Overlay im StreamingScreen eingehängt (feature-streaming hängt jetzt an feature-chat); 3 Repository-Tests + 8 VM-Tests grün, Lint (warningsAsErrors) + App-Compile grün. **Offen:** Event-Alerts (Follow/Sub/Raid), Badges/Emotes, Kick/YouTube/SOOP, OAuth |
 | 2026-08-14 | — | **RootEncoder auf 2.7.5 aktualisiert** (von 2.6.4): RTMP-Fixes (`onFail` bei fehlgeschlagenem Publish, Crash-Fix bei ungültiger URL, Handshake-Flags), SRT-Ack/Nak/Handshake-Fixes, Ktor-TLS-Fehlerbehandlung + `setTlsHostVerification`, „Java sockets by default"; API kompatibel verifiziert (Context-Konstruktoren `RtmpCamera2`/`MultiCamera2`, `Camera2Base`-Camera-Controls, RTMPS-Parsing via `RootEncoderRtmpsSupportTest`) — alle Tests grün |
