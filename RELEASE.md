@@ -142,6 +142,51 @@ Der Job **`verify-reproducibility`** in `android_fastlane.yml` vergleicht nach j
 
 **AAB (Bundle):** Sollte die Release-Lane künftig zusätzlich zum APK ein `app-release.aab` publizieren, wird es automatisch mitgeprüft (der Download-Step erkennt das AAB im Release und aktiviert die AAB-Checks nur dann): ① **Signatur** per `jarsigner -verify` (Integrität) + `keytool -printcert -jarfile` (Zertifikat gegen Release-Key), ② **Reproduzierbarkeit** durch frischen `:app:bundleRelease`-Build mit denselben versionName/versionCode-Parametern und Hash-Vergleich. Die AAB-Determinismustests lokal bestätigen: Zwei vollständig frische `bundleRelease`-Builds desselben Commits sind **bit-identisch** (Vorsicht: ein mit `--rerun-tasks` gemischter Vergleich gegen einen zwischenzeitlich veralteten Task-Cache täuscht Unterschiede vor — nur frische Builds vergleichen).
 
+
+## 🔒 CI-Härtung: Pinned Actions (Supply-Chain)
+
+Alle Drittanbieter-Actions in `.github/workflows/` sind auf **immutable Commit-SHAs** gepinnt 
+statt auf bewegliche Tags. Ein kompromittierter oder umgeschriebener Tag kann damit keinen Lauf mehr 
+stillschweigend vergiften; Updates passieren ausschließlich bewusst per PR. Die Provenienz steht als 
+Kommentar (`# v5`)— dieser Kommentar ist Pflicht, damit Dependabot/`actions-updater` die Version erkennen.
+
+### Pins (Stand: 15.08.2026, Commit `2212593`)
+
+| Action | Pin (SHA) | Version | Verwendung |
+|--------|-----------|---------|------------|
+| `actions/checkout` | `fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09` | v5 | alle Workflows |
+| `actions/setup-java` | `b6effb05e454b25005698d916606bdc6ffcbf961` | v5 | alle Workflows (JDK 17) |
+| `actions/cache` | `caa296126883cff596d87d8935842f9db880ef25` | v5 | android_fastlane (Gradle-Cache) |
+| `actions/upload-artifact` | `b7c566a772e6b6bfb58ed0dc250532a479d7789f` | v6 | alle Workflows (Artefakte) |
+| `ruby/setup-ruby` | `95ef2b042f9d7a56d8268cba8559e2842e2ad01b` | v1.321.0 | android_fastlane (Ruby 3.3) |
+
+**Verifikation (15.08.2026):** Alle Tags sind leichtgewichtig; die gepinnten SHAs sind exakt die 
+Commits, auf die die Tags aktuell zeigen (`git ls-remote <repo> refs/tags/<tag>`). CI bestätigt die Pins 
+(Lauf `31871320171`: Secret Guard/Build mit gepinnten Actions grün). Vorsicht bei **annotierten Tags**: 
+`ls-remote` liefert dann die Tag-Objekt-SHA, die GitHub Actions als `uses:`-Pin nicht akzeptiert— beim 
+Bump immer den gepeelten Commit `refs/tags/<tag>^{}` verwenden.
+
+### Update-Fahrplan
+
+1. **Empfohlen: Dependabot für `github-actions`** (`.github/dependabot.yml`):
+   ```yaml
+   version: 2
+   updates:
+     - package-ecosystem: "github-actions"
+       directory: "/"
+       schedule:
+         interval: "weekly"
+   ```
+   Dependabot liest die `# vX`-Kommentare und zieht bei einem Update SHA + Kommentar gemeinsam per PR.
+2. **Alternativ `actions-updater` (github/actions-updater)** oder manuell: SHA ersetzen und den 
+   `# vX`-Kommentar auf die neue Version setzen. Neue SHA ermitteln per
+   `git ls-remote <repo> refs/tags/<tag>^{}` (gepeelter Commit, siehe oben).
+3. **Nach jedem Bump:** die komplette CI-Runde abwarten (android.yml + android_fastlane.yml)— ein Pin 
+   gilt erst als sicher, wenn Secret-Guard, Tests, Release- und Verify-Jobs grün sind. Den 
+   `# vX`-Kommentar nie ohne SHA-Wechsel ändern (sonst stimmt die Provenienz nicht mehr).
+4. **Grundregel:** nie einen Tag als `uses:`-Referenz einführen— Tags sind beweglich; nur 
+   SHA-Pins mit Provenienz-Kommentar sind zulässig.
+
 ## 🔑 Signing-Secrets (CI)
 
 Alle Releases werden mit **einem einzigen Release-Key** signiert — derselbe Keystore in CI, lokal und für jede spätere Play-Console-/F-Droid-Signierung. Die Secrets liegen als **GitHub-Repository-Secrets** (Settings → Secrets and variables → Actions), nie im Repo.
