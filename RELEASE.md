@@ -196,7 +196,7 @@ keytool -genkeypair -v   -keystore release.keystore   -alias vivid   -keyalg RSA
 
 Empfehlungen:
 - **`-keysize 4096`** + **`-sigalg SHA256withRSA`** als Minimum; `-validity 10000` Tage ≈ 27 Jahre (Google Play verlangt Schlüssel, die mindestens bis nach 2033 gültig sind)
-- `storepass` und `keypass` stark und **unterschiedlich** (mind. 20 Zeichen, Zufallsgenerator — z. B. `openssl rand -base64 32`); `keypass` darf = `storepass` sein
+- `storepass` und `keypass` **identisch** setzen (ein starkes Passwort, mind. 20 Zeichen, Zufallsgenerator — z. B. `openssl rand -base64 32`): modernes `keytool` (JDK 9+) erzeugt standardmäßig **PKCS12**-Keystores, in denen `-keypass` ignoriert wird (der Schlüssel ist mit dem Store-Passwort geschützt) — unterschiedliche Passwörter lassen den CI-Signatur-Check mit „bad key during decryption“ scheitern. Wer bewusst getrennte Key-Passwörter will, muss die Datei explizit als JKS anlegen: `-storetype jks`.
 - Der Alias (`vivid`) wird dauerhaft als `KEY_ALIAS` hinterlegt — späteres Umbenennen bricht die Signierung
 
 **Schritt 2 — Keystore base64-kodieren**
@@ -278,7 +278,7 @@ Dieser Abschnitt beschreibt, **wie** der Play-Kanal mit einem Upload-Key eingeri
 keytool -genkeypair -v   -keystore upload-keystore.jks   -alias upload   -keyalg RSA -keysize 4096   -validity 10000   -sigalg SHA256withRSA   -storepass '<UPLOAD-STORE-PASSWORT>'   -keypass '<UPLOAD-KEY-PASSWORT>'   -dname "CN=Vivid Play Upload, O=Vivid, C=DE"
 ```
 
-Empfehlungen wie beim Release-Key: `-keysize 4096` + `-sigalg SHA256withRSA`; `storepass` und `keypass` stark und **unterschiedlich** (mind. 20 Zeichen, Zufallsgenerator — z. B. `openssl rand -base64 32`); der Alias (`upload`) wird dauerhaft als `UPLOAD_KEY_ALIAS` hinterlegt — späteres Umbenennen bricht die Signierung.
+Empfehlungen wie beim Release-Key: `-keysize 4096` + `-sigalg SHA256withRSA`; `storepass` und `keypass` **identisch** setzen (ein starkes Passwort, mind. 20 Zeichen — PKCS12-Default von keytool ignoriert `-keypass`, siehe Release-Key-Guide; getrennte Key-Passwörter nur mit `-storetype jks`); der Alias (`upload`) wird dauerhaft als `UPLOAD_KEY_ALIAS` hinterlegt — späteres Umbenennen bricht die Signierung.
 
 **Schritt 2 — Keystore base64-kodieren**
 

@@ -26,9 +26,14 @@ trap 'rm -rf "$TMP"' EXIT
 KEYSTORE="$TMP/test-upload.jks"
 # Bewusst KEINE camelCase-Namen (storePassword/keyPassword): der Secret-Guard
 # wertet genau diese Zuweisungen als Klartext-Secrets aus.
-KEYSTORE_PASSWORD="test-store-password-123"
+# Store- und Key-Passwort BEWUSST identisch: modernes keytool (JDK 9+) erzeugt
+# standardmaessig PKCS12-Keystores, in denen -keypass ignoriert wird (der Schluessel
+# ist mit dem Store-Passwort geschuetzt) - unterschiedliche Passwoerter wuerden den
+# Signatur-Check der Lane mit "bad key during decryption" scheitern lassen. Das
+# entspricht der Empfehlung in RELEASE.md (PKCS12: storepass == keypass).
+KEYSTORE_PASSWORD="test-upload-password-123"
 KEY_ALIAS="upload"
-KEY_PASSWORD="test-key-password-123"
+KEY_PASSWORD="$KEYSTORE_PASSWORD"
 
 echo "==> Test-Keystore erzeugen ($KEYSTORE)"
 keytool -genkeypair -v \

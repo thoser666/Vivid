@@ -112,6 +112,10 @@ android {
         create("playRelease") {
             initWith(getByName("release"))
             // AAB fuer den Play-Kanal: Upload-Key statt Release-Key.
+            // Library-Module (core, data, domain, feature-*) kennen nur debug/release:
+            // ohne matchingFallbacks schlaegt die Varianten-Aufloesung fehl (kein
+            // playRelease-Variant in den Libraries). Fallback auf deren release-Variante.
+            matchingFallbacks += listOf("release")
             val uploadConfig = signingConfigs.getByName("upload")
             signingConfig = if (uploadConfig.storeFile != null) {
                 uploadConfig
