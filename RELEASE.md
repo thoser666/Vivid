@@ -441,6 +441,7 @@ gh workflow run android_fastlane.yml --ref develop   -f track=alpha   -f version
 > ⚠️ **versionCode-Regel:** In Play **pro App global eindeutig** — ein hochgeladener Code ist für immer belegt (kann nicht erneut hochgeladen werden). Für den ersten Upload **explizit setzen** (z. B. `1`); ohne `-f version_code` leitet die `publish_play`-Lane ihn aus dem letzten `v*`-Tag ab.
 
 > 💡 **Erst trocken testen:** Mit `-f dry_run=true` baut der Job das AAB und verifiziert die Signatur gegen den Upload-Key, **ohne** etwas hochzuladen — ideal für den ersten Lauf (keine Play-Auswirkung, kein `version_code` verbraucht). Erst wenn Step 4/6 grün ist, den echten Upload (ohne `dry_run`) ausführen.
+> 🔁 **Automatischer CI-Selbsttest (ohne Play-Zugang):** Der Job **„Self-Test publish_play (dry_run)“** in `android_fastlane.yml` führt die Lane bei jedem Push/PR mit einem **lokal erzeugten Wegwerf-Keystore** aus (`scripts/test_publish_play_dryrun.sh`): `keytool` erzeugt den Test-Keystore, die Lane baut `bundlePlayRelease` und verifiziert die AAB-Signatur per `keytool` gegen den Test-Key — ganz ohne `UPLOAD_*`-Secrets und ohne Play-Zugang. Zusätzlich erzwingt ein Negativtest, dass `publish_play` **ohne** `dry_run` und ohne `PLAY_JSON_KEY_*` am Credential-Guard scheitert (kein Upload-Pfad ohne Play-Zugang). Damit ist die Lane dauerhaft regressionstestbar, **bevor** die echten Secrets existieren. Lokal jederzeit wiederholbar: `bash scripts/test_publish_play_dryrun.sh`.
 
 **Schritt 4 — CI-Lauf beobachten** (`gh run watch <run-id>`), erwartete Reihenfolge im `publish-play`-Job:
 

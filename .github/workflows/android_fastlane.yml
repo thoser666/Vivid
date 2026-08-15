@@ -493,6 +493,42 @@ jobs:
             exit 1
           fi
           echo "🎉 Alle Artefakte reproduzierbar"
+  # ✅ Selbsttest der publish_play-Lane OHNE Play-Zugang (dry_run=true):
+  # erzeugt einen lokalen Wegwerf-Keystore (keytool), baut bundlePlayRelease und
+  # verifiziert die AAB-Signatur per keytool gegen den Test-Key - kein Upload,
+  # keine UPLOAD_*/PLAY_*-Secrets noetig. Laeuft bei jedem push/PR: die Lane ist
+  # damit dauerhaft regressionstestbar, bevor echte Play-Secrets existieren.
+  # (scripts/test_publish_play_dryrun.sh, inkl. Negativtest: Upload ohne
+  # Play-Credentials muss am Credential-Guard scheitern.)
+  test-publish-play:
+    name: Self-Test publish_play (dry_run)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Run publish_play dry-run self-test
+        run: bash scripts/test_publish_play_dryrun.sh
+
   publish-play:
     name: Publish to Google Play
     runs-on: ubuntu-latest
