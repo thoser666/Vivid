@@ -99,3 +99,30 @@ fastlane/test_output
 *.jks
 # Keystore credentials (Klartext-Passwörter — niemals committen)
 keystore.properties
+
+# ===== Lokale Build-/Tool-Artefakte & Temp-Dateien (im Repo-Root abgelegt) =====
+# Gradle-User-Home-Kopien (GRADLE_USER_HOME zeigt zeitweise auf das Projektroot)
+/caches/
+/daemon/
+/wrapper/dists/
+/native/
+/jdks/
+/build-scan-data/
+/kotlin-profile/
+/android/FakeDependency.jar
+/sentry-wizard.exe
+
+# Von Gradle generiert (updateDaemonJvm) — lokal, nicht committen
+gradle/gradle-daemon-jvm.properties
+
+# Freebuff-Agent-Workspace (lokale DB/Logs)
+/.freebuff/
+
+# Test-Artefakte
+/core/test.preferences_pb
+
+# Windows-Temp-Redirects aus Shell-Kommandos (wörtlich als Datei im Repo angelegt)
+%TEMP%*
+
+# Sync-/Backup-Tool-Konfliktkopien (Name clash / Delete conflict)
+*(# *)*
