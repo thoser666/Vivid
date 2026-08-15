@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: ["master", "develop"]
 
+permissions:
+  contents: read
+
 jobs:
   # 0️⃣ Secret-Guard – verhindert, dass Keystores/Secrets ins Repo gelangen
   guard-secrets:
@@ -27,10 +30,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: read
-      id-token: write        # benötigt, falls du OIDC‑auth mit Sentry nutzt
-      # ── nur die Schritte, die du brauchst ──
-      # id-token: write  # optional, wenn du z.B. GCP/GitHub Packages veröffentlichen willst
 
     env:
       # ── Sentry‑Konfiguration (nur die wichtigsten) ──
@@ -87,8 +86,6 @@ jobs:
     if: (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') && github.actor != 'dependabot[bot]' && !contains(github.event.commits.*.author.username, 'dependabot[bot]')
     permissions:
       contents: read
-      packages: read
-      id-token: write
 
     env:
       SENTRY_ORG: privat-jb
