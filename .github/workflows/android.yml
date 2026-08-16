@@ -71,6 +71,10 @@ jobs:
       - name: Test changelog script
         run: bash scripts/test_update_changelog.sh
 
+      # Pre-Push-Gate (bash) — Dry-Run: alle drei Checks müssen aufgelistet sein
+      - name: Test pre-push gate script
+        run: bash scripts/test_pre_push.sh
+
       # ── Optional: Code‑Scanning / Security‑Events ──
       # - name: Run CodeQL
       #   uses: github/codeql-action/init@v2
