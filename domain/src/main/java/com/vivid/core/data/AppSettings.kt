@@ -19,4 +19,21 @@ data class AppSettings(
     val chatChannel: String = "",
     // Zeigt das Chat-Overlay über der Streaming-Vorschau.
     val chatOverlayEnabled: Boolean = false,
+    // --- Chat-Bot (KI) ---
+    // Schaltet den automatischen KI-Chat-Bot ein (verbindet sich bei Streamstart).
+    val chatBotEnabled: Boolean = false,
+    // OpenAI-kompatibler Endpunkt (ohne Pfad, z. B. "https://api.openai.com").
+    val chatBotApiBaseUrl: String = "https://api.openai.com",
+    val chatBotApiKey: String = "",
+    val chatBotModel: String = "gpt-4o-mini",
+    val chatBotSystemPrompt: String = "",
+    // Minimaler Abstand zwischen zwei Bot-Antworten in Sekunden.
+    val chatBotReplyCooldownSeconds: Long = 8,
+    // Antwortet nur, wenn der Bot direkt angesprochen wird.
+    val chatBotMentionsOnly: Boolean = true,
+    val chatBotMaxRepliesPerMinute: Int = 10,
+    // Twitch-Login des Bot-Kontos (ohne '@').
+    val chatBotLogin: String = "",
+    // Twitch-Chat-OAuth-Token des Bot-Kontos (chat:read + chat:send).
+    val chatBotOauthToken: String = "",
 )

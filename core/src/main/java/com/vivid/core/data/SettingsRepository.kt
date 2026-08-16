@@ -26,6 +26,16 @@ class SettingsRepository @Inject constructor(
         val OBS_USE_TLS = booleanPreferencesKey("obs_use_tls")
         val CHAT_CHANNEL = stringPreferencesKey("chat_channel")
         val CHAT_OVERLAY_ENABLED = booleanPreferencesKey("chat_overlay_enabled")
+        val CHAT_BOT_ENABLED = booleanPreferencesKey("chat_bot_enabled")
+        val CHAT_BOT_API_BASE_URL = stringPreferencesKey("chat_bot_api_base_url")
+        val CHAT_BOT_API_KEY = stringPreferencesKey("chat_bot_api_key")
+        val CHAT_BOT_MODEL = stringPreferencesKey("chat_bot_model")
+        val CHAT_BOT_SYSTEM_PROMPT = stringPreferencesKey("chat_bot_system_prompt")
+        val CHAT_BOT_REPLY_COOLDOWN_SECONDS = longPreferencesKey("chat_bot_reply_cooldown_seconds")
+        val CHAT_BOT_MENTIONS_ONLY = booleanPreferencesKey("chat_bot_mentions_only")
+        val CHAT_BOT_MAX_REPLIES_PER_MINUTE = intPreferencesKey("chat_bot_max_replies_per_minute")
+        val CHAT_BOT_LOGIN = stringPreferencesKey("chat_bot_login")
+        val CHAT_BOT_OAUTH_TOKEN = stringPreferencesKey("chat_bot_oauth_token")
     }
 
     // WICHTIG: Dies ist jetzt der EINZIGE Flow, den das ViewModel braucht.
@@ -58,7 +68,22 @@ class SettingsRepository @Inject constructor(
                 overlayEnabled = prefs[PrefKeys.CHAT_OVERLAY_ENABLED] ?: false,
             )
         },
-    ) { streamData, obsData, chatData ->
+        // Flow für Chat-Bot-Daten
+        dataStore.data.map { prefs ->
+            ChatBotPrefs(
+                enabled = prefs[PrefKeys.CHAT_BOT_ENABLED] ?: false,
+                apiBaseUrl = prefs[PrefKeys.CHAT_BOT_API_BASE_URL] ?: "https://api.openai.com",
+                apiKey = prefs[PrefKeys.CHAT_BOT_API_KEY] ?: "",
+                model = prefs[PrefKeys.CHAT_BOT_MODEL] ?: "gpt-4o-mini",
+                systemPrompt = prefs[PrefKeys.CHAT_BOT_SYSTEM_PROMPT] ?: "",
+                replyCooldownSeconds = prefs[PrefKeys.CHAT_BOT_REPLY_COOLDOWN_SECONDS] ?: 8L,
+                mentionsOnly = prefs[PrefKeys.CHAT_BOT_MENTIONS_ONLY] ?: true,
+                maxRepliesPerMinute = prefs[PrefKeys.CHAT_BOT_MAX_REPLIES_PER_MINUTE] ?: 10,
+                login = prefs[PrefKeys.CHAT_BOT_LOGIN] ?: "",
+                oauthToken = prefs[PrefKeys.CHAT_BOT_OAUTH_TOKEN] ?: "",
+            )
+        },
+    ) { streamData, obsData, chatData, chatBotData ->
         // Baue das komplette AppSettings-Objekt zusammen
         AppSettings(
             streamUrl = streamData.url,
@@ -73,6 +98,16 @@ class SettingsRepository @Inject constructor(
             obsUseTls = obsData.useTls,
             chatChannel = chatData.channel,
             chatOverlayEnabled = chatData.overlayEnabled,
+            chatBotEnabled = chatBotData.enabled,
+            chatBotApiBaseUrl = chatBotData.apiBaseUrl,
+            chatBotApiKey = chatBotData.apiKey,
+            chatBotModel = chatBotData.model,
+            chatBotSystemPrompt = chatBotData.systemPrompt,
+            chatBotReplyCooldownSeconds = chatBotData.replyCooldownSeconds,
+            chatBotMentionsOnly = chatBotData.mentionsOnly,
+            chatBotMaxRepliesPerMinute = chatBotData.maxRepliesPerMinute,
+            chatBotLogin = chatBotData.login,
+            chatBotOauthToken = chatBotData.oauthToken,
         )
     }
 
@@ -114,6 +149,32 @@ class SettingsRepository @Inject constructor(
         }
     }
 
+    suspend fun updateChatBotSettings(
+        enabled: Boolean,
+        apiBaseUrl: String,
+        apiKey: String,
+        model: String,
+        systemPrompt: String,
+        replyCooldownSeconds: Long,
+        mentionsOnly: Boolean,
+        maxRepliesPerMinute: Int,
+        login: String,
+        oauthToken: String,
+    ) {
+        dataStore.edit { prefs ->
+            prefs[PrefKeys.CHAT_BOT_ENABLED] = enabled
+            prefs[PrefKeys.CHAT_BOT_API_BASE_URL] = apiBaseUrl
+            prefs[PrefKeys.CHAT_BOT_API_KEY] = apiKey
+            prefs[PrefKeys.CHAT_BOT_MODEL] = model
+            prefs[PrefKeys.CHAT_BOT_SYSTEM_PROMPT] = systemPrompt
+            prefs[PrefKeys.CHAT_BOT_REPLY_COOLDOWN_SECONDS] = replyCooldownSeconds
+            prefs[PrefKeys.CHAT_BOT_MENTIONS_ONLY] = mentionsOnly
+            prefs[PrefKeys.CHAT_BOT_MAX_REPLIES_PER_MINUTE] = maxRepliesPerMinute
+            prefs[PrefKeys.CHAT_BOT_LOGIN] = login
+            prefs[PrefKeys.CHAT_BOT_OAUTH_TOKEN] = oauthToken
+        }
+    }
+
     private data class StreamPrefs(
         val url: String,
         val key: String,
@@ -133,5 +194,18 @@ class SettingsRepository @Inject constructor(
     private data class ChatPrefs(
         val channel: String,
         val overlayEnabled: Boolean,
+    )
+
+    private data class ChatBotPrefs(
+        val enabled: Boolean,
+        val apiBaseUrl: String,
+        val apiKey: String,
+        val model: String,
+        val systemPrompt: String,
+        val replyCooldownSeconds: Long,
+        val mentionsOnly: Boolean,
+        val maxRepliesPerMinute: Int,
+        val login: String,
+        val oauthToken: String,
     )
 }

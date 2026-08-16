@@ -13,7 +13,7 @@
 
 **Professional IRL streaming for Android — aiming for full feature parity with Moblin**
 
-[📲 Install](#-installation) • [📥 Download APK](../../releases) • [📝 Changelog](CHANGELOG.md) • [📚 Documentation](../../wiki) • [🐛 Report Bug](../../issues) • [💬 Discussions](../../discussions)
+[📲 Install](#-installation) • [📥 Download APK](../../releases) • [🤖 AI Chat Bot](docs/ai-chat-bot.md) • [📝 Changelog](CHANGELOG.md) • [📚 Documentation](../../wiki) • [🐛 Report Bug](../../issues) • [💬 Discussions](../../discussions)
 
 </div>
 
@@ -115,6 +115,7 @@ The About-screen check follows the same rules as [RELEASE.md](RELEASE.md): it on
 - 🔍 **Focus Lock** - Toggle autofocus ⇄ infinity lock on the streaming camera to prevent focus hunting (rain drops, dirt on the windshield) during drive/train streams — Moblin #377; works on the actual RootEncoder camera (not just the preview) and can be set before going live
 - 👆 **Camera Controls on the Streaming Preview** - **Tap-to-focus** (single tap), **pinch to zoom** (clamped to the camera's zoom range) and **zoom reset** (double tap) directly on the live preview — gestures drive the real RootEncoder camera, not the preview only. Plus a **stabilization toggle** (optical stabilization preferred, EIS fallback) next to the focus-lock button
 - 💬 **Twitch Chat Overlay** - Show the chat of any Twitch channel over the live preview (anonymous, read-only). Configure the channel and toggle the overlay in Settings → **Chat-Overlay**; the latest messages appear bottom-left with each user's Twitch color, the connection auto-reconnects, and the overlay hides itself as soon as it is disabled in the settings
+- 🤖 **AI Chat Bot** - A fully automated, in-app chat bot (inspired by cloud services like Stream Chat AI): it connects to your Twitch chat when you go live, answers viewers through an LLM of your choice (any OpenAI-compatible endpoint — OpenAI, Gemini, Groq, DeepSeek, or a local Ollama server) and shuts down cleanly when the stream ends. Mentions-only mode, a reply cooldown and a per-minute rate limit keep it from spamming; replies are capped at 500 characters. Auto-connect/auto-shutdown is wired into the streaming foreground service — see [docs/ai-chat-bot.md](docs/ai-chat-bot.md)
 - ⚙️ **Persisted Stream Settings** - Stream URL/key (incl. optional secondary target for multi-streaming) and OBS connection details are stored and reused across sessions
 - 🔄 **In-App Update Check** - Settings shows the installed version + an „Update verfügbar“ badge; the About screen (Settings → „Über Vivid & Updates“) adds a manual check against GitHub Releases — ideal for verifying Obtainium updates. Results are cached for 1 hour (DataStore), so opening Settings does not hammer the GitHub API rate limit; the manual check in About always refreshes and shows the **release notes** of the newest build
 - 🕹️ **Web Remote Control** - A small LAN server (port 8080, token-protected) exposes the streaming status via `http://<phone-ip>:8080/status` and allows starting/stopping the stream from any browser in the same network — see [Usage](#-usage)
@@ -124,12 +125,12 @@ The About-screen check follows the same rules as [RELEASE.md](RELEASE.md): it on
 ### 🚧 In Progress
 
 - 🌍 **I18n Support** - Localization groundwork is in place; translations are being added
-- 💬 **Chat Integration** - Twitch chat is implemented (IRC data-layer + overlay); Kick/YouTube/SOOP and OAuth login (sending & moderation) are still open
+- 💬 **Chat Integration** - Twitch chat is implemented (IRC data-layer + overlay + AI chat bot); Kick/YouTube/SOOP, the bot's settings screen and the Twitch OAuth browser flow (sending & moderation) are still open
 
 ### 📋 Planned (Roadmap to Moblin parity)
 
 - 📡 **Multi-Network Bonding (SRTLA)** - Combine WiFi and mobile data for rock-solid streams
-- 💬 **Chat Extensions** - Emotes (BTTV/FFZ/7TV) and moderation (ban/timeout), plus a chat bot (incl. media player control via MediaSession — Apple Music, Spotify, etc.; adapted from Moblin 33.12.0)
+- 💬 **Chat Extensions** - Emotes (BTTV/FFZ/7TV) and moderation (ban/timeout), plus chat-bot media player control via MediaSession (Apple Music, Spotify, etc.; adapted from Moblin 33.12.0) — note: the **AI chat bot** itself is already implemented (see above)
 - 🎨 **Overlays & Widgets** - Follower/donation alerts, custom graphics and branding; text widgets incl. altitude (ascent/descent), GPS coordinates and road/route variables (the Twitch chat overlay is already implemented — see above)
 - 📹 **High-Quality Streaming** - Up to 4K resolution at 60fps with H.264/AVC and H.265/HEVC
 - 🔒 **Extended Protocols** - SRTLA, RIST, and WHIP (WebRTC) — RTMPS is already implemented (see below); RTMP-Pull/ingest server mode (community request #407)
@@ -412,7 +413,8 @@ Status: ✅ implemented · 🚧 in progress · 📋 planned
 | I18n Support | 🚧 | Groundwork in place, translations pending |
 | H.264/H.265, up to 4K/60fps | 📋 | Pipeline in place, quality targets planned |
 | Multi-Network Bonding (SRTLA) | 📋 | SRTLA algorithm to be ported |
-| Chat + Emotes + Moderation | 🚧 | `feature-chat` — Twitch IRC client (anonymous) + chat overlay over the live preview done; emotes & moderation pending |
+| Chat + Emotes + Moderation | 🚧 | `feature-chat` — Twitch IRC client (anonymous) + chat overlay over the live preview + AI chat bot done; emotes & moderation pending |
+| AI Chat Bot (Vivid extra) | ✅ | Fully automatic LLM chat bot: auto-connect on go-live, clean shutdown on stream end; OpenAI-compatible LLM providers |
 | Chat-Bot Media Player Control | 📋 | Generic media control via MediaSession (Apple Music, Spotify, …); Android adaptation of Moblin 33.12.0 |
 | Overlays & Widgets | 📋 | `feature-widgets` module scaffolded; text widgets incl. altitude ascent/descent, GPS coords and road variables (Twitch chat overlay already implemented in `feature-chat`) |
 | Audio Tools (levels, muting, talk-back) | 📋 | |

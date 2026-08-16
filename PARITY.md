@@ -13,7 +13,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 | 📋 | Geplant (Roadmap) |
 | — | Nicht zutreffend auf Android |
 
-> **Stand:** 2026-08-15 · Aktualisierung: Alpha **v0.4.2** released (Scroll-Fix); **Beta-Gate bei 16/17 ✅** — offen für das Gate: **erstes Widget** (Text-/Info-Widgets) + **Chat-Formalisierung** (Twitch-IRC + Overlay laufen, Scope auf Twitch oder Event-Alerts) — Referenzstand: Moblin **33.12.0**
+> **Stand:** 2026-08-16 · Aktualisierung: **KI-Chat-Bot** (Vivid-Zusatz-Feature, automatisierte LLM-Chat-Antworten) implementiert — Beta-Gate weiterhin bei **16/17 ✅** (Moblin-Parität unverändert); offen für das Gate: **erstes Widget** (Text-/Info-Widgets) + **Chat-Formalisierung** (Twitch-IRC + Overlay + KI-Bot laufen, Scope auf Twitch oder Event-Alerts) — Referenzstand: Moblin **33.12.0**
 >
 > **Pflege:** Nach jedem Feature-Commit den Status in der jeweiligen Zeile aktualisieren und das Datum oben anpassen.
 >
@@ -34,10 +34,10 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 | Audio | 0 | 0 | 3 | 3 |
 | Remote & Companion | 1 | 0 | 2 | 3 |
 | Plattform & Grundlagen | 5 | 1 | 0 | 6 |
-| Zusatz-Features (über Parität) | 0 | 0 | 1 | 1 |
-| **Gesamt** | **16** | **3** | **24** | **43**† |
+| Zusatz-Features (über Parität) | 1 | 0 | 1 | 2 |
+| **Gesamt** | **16** | **3** | **24** | **44**† |
 
-† Inkl. 1 n/a-Zeile (Apple-Watch-Companion) und 1 Zusatz-Feature über die Moblin-Parität hinaus; anwendbare Moblin-Features: **42**.
+† Inkl. 1 n/a-Zeile (Apple-Watch-Companion) und 2 Zusatz-Features über die Moblin-Parität hinaus; anwendbare Moblin-Features: **42**.
 
 ---
 
@@ -134,6 +134,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 | Feature | Status | Modul | Offene Tasks / Notizen |
 |---------|--------|-------|------------------------|
 | Oura-Ring-Gesundheitsdaten im Widget (Sleep, Readiness, HR/HRV) | 📋 | `core` (OAuth2-Client, Repository), `feature-widgets` | Anzeige als Text-/Info-Widget (z. B. Readiness-/Schlaf-Score, Ruhe-HF); **keine BLE-Schnittstelle** → nur Oura-Cloud-API (OAuth2, Browser-Flow), daher aggregierte/verzögerte Werte, kein Live-Puls; Rate-Limits beachten |
+| KI-Chat-Bot (automatische Chat-Antworten via LLM, OpenAI-kompatibel) | ✅ | `feature-chat` (`ai`, `bot`, `twitch`), `app` (`StreamingService`) | Verbindet sich beim **Go-Live vollautomatisch** (Twitch-Chat mit OAuth-Handshake, `chat:read`+`chat:send`) und fährt bei **Streamende sauber herunter** — Lifecycle via `StreamingService` → `ChatBotController`; Deaktivieren in den Settings stoppt sofort. Bausteine: `TwitchBotClient` (Senden + Lesen), `ChatBotEngine` (nur-Erwähnung-Modus, Cooldown, Rate-Limit/Min., 500-Zeichen-Limit, Prompt-History), `OpenAiCompatibleLlmClient` (`/v1/chat/completions` → OpenAI, Gemini, Groq, DeepSeek, Ollama im LAN); Bot-Settings in `SettingsRepository`/`AppSettings`; 22 neue Unit-Tests. **Offen:** Settings-UI im Settings-Screen, Twitch-OAuth-Browser-Flow, Kosten-Budget/Std., Media-Player-Steuerung (Row 80). Anleitung: [docs/ai-chat-bot.md](docs/ai-chat-bot.md) |
 
 ---
 
@@ -141,6 +142,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 
 | Datum | Commit | Änderung |
 |-------|--------|----------|
+| 2026-08-16 | — | **KI-Chat-Bot (Vivid-Zusatz-Feature) implementiert:** `OpenAiCompatibleLlmClient` (OpenAI-kompatibles `/v1/chat/completions`, Bearer-Auth, `LlmConfig` pro Aufruf), `TwitchBotClient` (authentifizierte Twitch-Verbindung, `PASS oauth:<token>`, `PRIVMSG`-Senden, PING→PONG, Reconnect), `ChatBotEngine` (nur-Erwähnung-Modus, Cooldown, Rate-Limit, 500-Zeichen-Limit, Prompt-History, ChatBotState), `ChatBotController` + `StreamingService`-Wiring (Auto-Connect bei Go-Live, sauberer Shutdown bei Streamende, Stop bei Deaktivierung); Bot-Settings in `SettingsRepository`/`AppSettings` (Kanal, Login, OAuth-Token, LLM-Endpunkt/-Key/-Modell, System-Prompt, Cooldown, Mentions-Only, Rate-Limit); 22 neue Unit-Tests, Lint + App-Compile grün. Anleitung: [docs/ai-chat-bot.md](docs/ai-chat-bot.md) |
 | 2026-08-15 | — | **Beta-Gate-Analyse:** 16/17 ✅ erreicht; offene Gate-Bedingungen: ≥1 Widget (`feature-widgets` ist noch Platzhalter) + Chat-✅ formal (Twitch-IRC + Overlay laufen, 25 Tests). Empfehlung: erstes Widget (Text-/Info-Widgets) als 17. ✅ — Plan für den ersten Beta-Build in [RELEASE.md](RELEASE.md#-erster-beta-build-plan) |
 | 2026-08-14 | — | **Plattform-Chat (Twitch) begonnen:** Data-Layer des `feature-chat`-Moduls implementiert — `TwitchChatClient` (anonym/justinfan, TLS 6697, CAP tags/commands/membership, JOIN, PING→PONG, Auto-Reconnect mit Backoff, `state`-StateFlow + `messages`-Flow), `SocketIrcConnection` (Socket/TLS mit `IrcConnectionFactory` für Tests), IRCv3-Tags-Parser (`IrcMessageParser`, inkl. Escaping) und `ChatMessage`-Modell; Hilt-DI (`@ChatScope`); 14 Unit-Tests grün, Lint + App-Compile grün. Nächste Schritte: Kick/YouTube-Adapter, OAuth-Login, UI/Overlay |
 | 2026-08-14 | — | **Chat-Overlay (Twitch) fertig:** Kanal + Overlay-Toggle in den Settings (`chat_channel`/`chat_overlay_enabled` in `SettingsRepository`/`AppSettings`, gespeichert über `updateChatSettings`, Sektion „Chat-Overlay“ im Settings-Screen); `ChatOverlayViewModel` (startet/stoppt den `TwitchChatClient` anhand der Settings, normalisiert den Kanal, begrenzt auf 50 Nachrichten, leert bei Kanal-/Statuswechsel, reicht den Verbindungsstatus durch) + `ChatOverlay`-Composable (transparente Box unten links über der Vorschau, zeigt die letzten 6 Nachrichten mit Username-Farbe, blendet sich bei deaktiviertem Overlay aus); Overlay im StreamingScreen eingehängt (feature-streaming hängt jetzt an feature-chat); 3 Repository-Tests + 8 VM-Tests grün, Lint (warningsAsErrors) + App-Compile grün. **Offen:** Event-Alerts (Follow/Sub/Raid), Badges/Emotes, Kick/YouTube/SOOP, OAuth |

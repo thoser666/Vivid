@@ -18,7 +18,7 @@ Welche offenen PARITY-Punkte in welcher Version released werden — Zählerstand
 | Version | Inhalt (PARITY-Punkte) | ✅ nach Release | Gate |
 |---------|------------------------|-----------------|------|
 | `v0.4.x-alpha` | (läuft bereits — aktuell `v0.4.2-alpha`, enthält den Scroll-Fix) | 16 | alpha-Gate aktiv |
-| `v0.3.0-beta` | **Chat & Moderation (4):** Plattform-Chat, Emotes, Moderation/Chat-Bot/TTS, Media-Player-Bot · **erstes Overlay:** Text-/Info-Widgets (Sensor-/GPS-Daten) | **21** | **Beta-Gate** (Chat + ≥1 Widget + ≥17 ✅) · Stand 16/17 — offen: erstes Widget + Chat-✅ |
+| `v0.3.0-beta` | **Chat & Moderation (4):** Plattform-Chat, Emotes, Moderation/Chat-Bot/TTS, Media-Player-Bot · **erstes Overlay:** Text-/Info-Widgets (Sensor-/GPS-Daten) · **Vivid-Zusatz:** KI-Chat-Bot (LLM-Antworten, bereits in alpha implementiert) | **21** | **Beta-Gate** (Chat + ≥1 Widget + ≥17 ✅) · Stand 16/17 — offen: erstes Widget + Chat-✅ |
 | `v0.4.0-beta` | **Overlays & Widgets (5):** Chat-Overlay/Event-Alerts, Text-Widget-Variablen, Karten-Widget, Browser-Widget, Scoreboards | **26** | Beta #2 |
 | `v0.5.0-beta` | **Kamera & Video (4):** Color-Spaces/3D-LUTs, Video-Effekte, Externes Zubehör, Photo-Shoot · **Audio (3):** Mic-Verwaltung, Level-Meter/Muting/Sync, Talk-Back · Oura-Ring-Widget | **34** | Beta #3 |
 | `v0.6.0-beta` | **Streaming-Erweiterung (5):** RIST, WHIP, RTMP-Pull/Ingest, 4K/HEVC, SRTLA-Bonding · OBS Snapshot/Audio-Levels · Game-Controller, Deep-Linking/Konfig-Import | **42** | Beta #4 |
@@ -33,7 +33,7 @@ Das Beta-Gate ist erreicht, wenn **alle drei** Bedingungen erfüllt sind (Stand 
 | Bedingung | Status | Offen |
 |-----------|--------|-------|
 | ≥17 ✅ in PARITY.md | **16/17** | **erstes Widget** (Text-/Info-Widgets) als 17. ✅ |
-| Chat-✅ | Twitch-IRC + Chat-Overlay laufen (25 Tests) | formal: Scope auf „Twitch-Chat“ (Row 77) oder Event-Alerts (Row 86) |
+| Chat-✅ | Twitch-IRC + Chat-Overlay + **KI-Chat-Bot** laufen (45 Tests) | formal: Scope auf „Twitch-Chat“ (Row 77) oder Event-Alerts (Row 86) |
 | ≥1 Widget | 0/5 begonnen | Text-/Info-Widgets (Zeit/GPS/Geschwindigkeit/Höhenmeter) in `feature-widgets` (Modul existiert als Gerüst) |
 
 **Ablauf nach Erreichen des Gates:**

@@ -1,5 +1,7 @@
 package com.vivid.feature.chat.di
 
+import com.vivid.feature.chat.ai.LlmClient
+import com.vivid.feature.chat.ai.OpenAiCompatibleLlmClient
 import com.vivid.feature.chat.twitch.IrcConnectionFactory
 import com.vivid.feature.chat.twitch.SocketIrcConnectionFactory
 import dagger.Binds
@@ -26,6 +28,12 @@ abstract class ChatFeatureModule {
     abstract fun bindIrcConnectionFactory(
         factory: SocketIrcConnectionFactory,
     ): IrcConnectionFactory
+
+    @Binds
+    @Singleton
+    abstract fun bindLlmClient(
+        client: OpenAiCompatibleLlmClient,
+    ): LlmClient
 }
 
 @Module

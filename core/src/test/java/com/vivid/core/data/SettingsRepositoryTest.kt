@@ -251,4 +251,106 @@ class SettingsRepositoryTest {
         assertEquals("", afterStream.chatChannel)
         assertEquals(false, afterStream.chatOverlayEnabled)
     }
+
+    @Test
+    fun `appSettingsFlow should default chat bot settings to disabled with sensible defaults`() = runTest {
+        val testDataStore = PreferenceDataStoreFactory.create(
+            scope = this,
+            produceFile = { File(tempDir.toFile(), "test_bot_default.preferences_pb") }
+        )
+        val repository = SettingsRepository(testDataStore)
+
+        // Act
+        val settings = repository.appSettingsFlow.first()
+
+        // Assert
+        assertEquals(false, settings.chatBotEnabled)
+        assertEquals("https://api.openai.com", settings.chatBotApiBaseUrl)
+        assertEquals("", settings.chatBotApiKey)
+        assertEquals("gpt-4o-mini", settings.chatBotModel)
+        assertEquals(true, settings.chatBotMentionsOnly)
+        assertEquals(8L, settings.chatBotReplyCooldownSeconds)
+        assertEquals(10, settings.chatBotMaxRepliesPerMinute)
+        assertEquals("", settings.chatBotLogin)
+        assertEquals("", settings.chatBotOauthToken)
+    }
+
+    @Test
+    fun `appSettingsFlow should return the saved chat bot settings`() = runTest {
+        val testDataStore = PreferenceDataStoreFactory.create(
+            scope = this,
+            produceFile = { File(tempDir.toFile(), "test_bot.preferences_pb") }
+        )
+        val repository = SettingsRepository(testDataStore)
+
+        // Act
+        repository.updateChatBotSettings(
+            enabled = true,
+            apiBaseUrl = "https://llm.example",
+            apiKey = "my-secret-key",
+            model = "my-model",
+            systemPrompt = "Du bist mein Bot.",
+            replyCooldownSeconds = 5,
+            mentionsOnly = false,
+            maxRepliesPerMinute = 20,
+            login = "vividbot",
+            oauthToken = "oauth:tok123",
+        )
+        val settings = repository.appSettingsFlow.first()
+
+        // Assert
+        assertEquals(true, settings.chatBotEnabled)
+        assertEquals("https://llm.example", settings.chatBotApiBaseUrl)
+        assertEquals("my-secret-key", settings.chatBotApiKey)
+        assertEquals("my-model", settings.chatBotModel)
+        assertEquals("Du bist mein Bot.", settings.chatBotSystemPrompt)
+        assertEquals(5L, settings.chatBotReplyCooldownSeconds)
+        assertEquals(false, settings.chatBotMentionsOnly)
+        assertEquals(20, settings.chatBotMaxRepliesPerMinute)
+        assertEquals("vividbot", settings.chatBotLogin)
+        assertEquals("oauth:tok123", settings.chatBotOauthToken)
+        // Andere Bereiche bleiben unberührt.
+        assertEquals("", settings.chatChannel)
+        assertEquals("localhost", settings.obsHost)
+    }
+
+    @Test
+    fun `appSettingsFlow should keep chat bot and chat overlay settings independent`() = runTest {
+        val botDataStore = PreferenceDataStoreFactory.create(
+            scope = this,
+            produceFile = { File(tempDir.toFile(), "test_bot_indep.preferences_pb") }
+        )
+        val botRepository = SettingsRepository(botDataStore)
+        botRepository.updateChatBotSettings(
+            enabled = true,
+            apiBaseUrl = "https://llm.example",
+            apiKey = "key",
+            model = "model",
+            systemPrompt = "",
+            replyCooldownSeconds = 8,
+            mentionsOnly = true,
+            maxRepliesPerMinute = 10,
+            login = "vividbot",
+            oauthToken = "token",
+        )
+        val afterBot = botRepository.appSettingsFlow.first()
+
+        assertEquals(true, afterBot.chatBotEnabled)
+        assertEquals("", afterBot.chatChannel)
+        assertEquals(false, afterBot.chatOverlayEnabled)
+
+        // Chat-Overlay: Das Schreiben darf die Bot-Einstellungen nicht anfassen.
+        val overlayDataStore = PreferenceDataStoreFactory.create(
+            scope = this,
+            produceFile = { File(tempDir.toFile(), "test_bot_overlay.preferences_pb") }
+        )
+        val overlayRepository = SettingsRepository(overlayDataStore)
+        overlayRepository.updateChatSettings(channel = "meinKanal", overlayEnabled = true)
+        val afterOverlay = overlayRepository.appSettingsFlow.first()
+
+        assertEquals("meinKanal", afterOverlay.chatChannel)
+        assertEquals(true, afterOverlay.chatOverlayEnabled)
+        assertEquals(false, afterOverlay.chatBotEnabled)
+        assertEquals("", afterOverlay.chatBotOauthToken)
+    }
 }

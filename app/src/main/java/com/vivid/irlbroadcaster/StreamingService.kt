@@ -18,6 +18,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.vivid.R
+import com.vivid.feature.chat.bot.ChatBotController
 import com.vivid.feature.streaming.StreamingEngine
 import com.vivid.feature.streaming.StreamingState
 import dagger.hilt.android.AndroidEntryPoint
@@ -55,6 +56,9 @@ class StreamingService : Service() {
     @Inject
     lateinit var streamingEngine: StreamingEngine
 
+    @Inject
+    lateinit var chatBotController: ChatBotController
+
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     private var wakeLock: PowerManager.WakeLock? = null
@@ -79,6 +83,7 @@ class StreamingService : Service() {
                 }
                 startAsForeground()
                 streamingEngine.startStream(urls)
+                chatBotController.onStreamStarted()
                 observeStreamState()
                 scheduleStartupWatchdog()
             }
@@ -88,6 +93,7 @@ class StreamingService : Service() {
             // Prozess-Neustart ohne Intent: nur weiterlaufen, wenn wirklich gestreamt wird.
             else -> {
                 if (streamingEngine.streamingState.value !is StreamingState.Streaming) {
+                    chatBotController.onStreamStopped()
                     stopSelf()
                 }
             }
@@ -223,6 +229,7 @@ class StreamingService : Service() {
     private fun teardown() {
         stateJob?.cancel()
         stateJob = null
+        chatBotController.onStreamStopped()
         releaseWakeLock()
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
@@ -230,6 +237,7 @@ class StreamingService : Service() {
 
     override fun onDestroy() {
         serviceScope.cancel()
+        chatBotController.onStreamStopped()
         releaseWakeLock()
         super.onDestroy()
     }
