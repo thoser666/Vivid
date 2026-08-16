@@ -56,4 +56,9 @@ data class AppSettings(
     val chatBotPerViewerMaxReplies: Int = 0,
     // Kosten-Budget: maximale Bot-Antworten pro Stunde global (0 = unbegrenzt).
     val chatBotMaxRepliesPerHour: Int = 0,
+    // Zuletzt gewählte Limit-Voreinstellung (LOCKER/BALANCED/STRICT) oder
+    // "CUSTOM" bei manuell angepassten Werten — für die Wiederherstellung beim
+    // App-Start (nur Auswahl-Marker, die Werte selbst liegen in den drei Feldern).
+    // String statt Enum, damit das Domain-Modul nicht von feature-settings abhängt.
+    val chatBotLimitPreset: String = "CUSTOM",
 )

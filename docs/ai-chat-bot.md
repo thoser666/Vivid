@@ -118,6 +118,18 @@ Im Settings-Screen (Abschnitt **„Chat-Bot (KI)“ → „Begrenzungen“**) ka
 
 **Moderatoren umgehen die Per-Viewer-Limits** (Cooldown + Cap), damit Mods den Bot jederzeit direkt ansprechen können — das globale Rate-Limit und das Stunden-Budget gelten aber auch für sie. Alle Zähler setzen bei **Stream-Ende/-Start** zurück; das Stunden-Budget rolliert über ein gleitendes 1-Stunden-Fenster.
 
+### Schnellstart: Voreinstellungen
+
+Über den Limit-Feldern gibt es eine **Voreinstellungs-Leiste** („Locker · Balanced · Streng · Eigene“): Ein Tipp füllt Cooldown/Cap/Budget passend vor (danach weiterhin frei anpassbar). Die **zuletzt gewählte Voreinstellung wird gespeichert** (`chat_bot_limit_preset`-Key) und beim **App-Start wiederhergestellt** — eine manuelle Änderung eines Limit-Felds markiert die Auswahl als „Eigene“ (CUSTOM), damit die wiederhergestellte Stufe nicht die Bearbeitung überstimmt. Bei fehlender/„Eigene“-Auswahl fällt die Anzeige auf das Wert-Matching zurück.
+
+| Stufe | Cooldown/Viewer | Cap/Viewer (Stream) | Budget/Stunde | Für |
+|-------|-----------------|---------------------|---------------|-----|
+| **Locker** | 30 s | 0 (aus) | 0 (aus) | Viel Interaktion, minimaler Schutz |
+| **Balanced** | 60 s | 10 | 120 | Standard — guter Spam- und Kosten-Schutz |
+| **Streng** | 180 s (3 min) | 5 | 60 | Strikt gegen Einzel-Spammer und LLM-Kosten |
+
+Unter den Feldern zeigt **„Live-Verbrauch“** den aktuellen Zählerstand (nur solange der Bot aktiv ist): **Antworten diese Stunde** (mit Budget-Anzeige `x / y` bzw. „kein Budget“), **Antworten in diesem Stream** und die **Top-Viewer** (Anzeigename + Anzahl). So sieht der Streamer direkt, wie nah er am Kosten-Budget ist — die Zähler setzen bei Stream-Ende zurück.
+
 > **Stufen von locker bis streng:** Alles aus (nur globaler Cooldown + Rate-Limit) → Per-Viewer-Cooldown 60 s → zusätzlich Per-Viewer-Cap → zusätzlich Stunden-Budget. Wer den KI-Teil ganz abschalten will, wählt im Betriebsmodus-Switch **„Bot (wie Moblin)“** — dann beantwortet der Bot nur kostenlose `!`-Befehle, und die Begrenzungen gelten nur noch für die.
 
 ## Current status
@@ -197,6 +209,7 @@ All bot settings live in the app settings. Fields (DataStore keys):
 | Ignore other bots | `chat_bot_ignore_bots` | `rivuletbot` (kommasepariert, ohne `@`) |
 | Command scope | `chat_bot_command_scope` | `ALL` (default) / `MENTION` / `PREFIX` |
 | Command prefix | `chat_bot_command_prefix` | `v` → `!v!help` (nur bei `PREFIX`) |
+| Limit preset | `chat_bot_limit_preset` | `CUSTOM` (default) — zuletzt gewählte Stufe (`LOCKER`/`BALANCED`/`STRICT`), wird beim Start wiederhergestellt |
 
 Alle Felder sind direkt im **Settings-Screen** (Abschnitt **„Chat-Bot (KI)“**) editierbar und werden mit „Speichern“ persistiert. Token und API-Key sind als Passwortfelder mit Sichtbarkeits-Toggle (Auge) hinterlegt.
 

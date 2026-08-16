@@ -30,6 +30,7 @@ import androidx.navigation.NavHostController
 import com.vivid.core.data.ChatBotCommandScope
 import com.vivid.core.data.ChatBotMode
 import com.vivid.core.update.UpdateCheckResult
+import com.vivid.feature.chat.bot.ChatBotUsage
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
@@ -43,6 +44,7 @@ fun SettingsScreen(
     val uiState by viewModel.uiState.collectAsState()
     val updateState by viewModel.updateState.collectAsState()
     val remoteControl by viewModel.remoteControl.collectAsState()
+    val botUsage by viewModel.botUsage.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
@@ -338,6 +340,34 @@ fun SettingsScreen(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            Text(
+                text = "Voreinstellung (Schnellstart)",
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.padding(top = 8.dp),
+            )
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                // Drei Voreinstellungen + „Eigene“. Auswahl = gespeicherter Preset
+                // (Wiederherstellung beim App-Start), Fallback auf Wert-Matching.
+                val active = ChatBotLimitPreset.selection(
+                    uiState.chatBotLimitPreset,
+                    uiState.chatBotPerViewerCooldownSeconds,
+                    uiState.chatBotPerViewerMaxReplies,
+                    uiState.chatBotMaxRepliesPerHour,
+                )
+                val options: List<ChatBotLimitPreset?> = ChatBotLimitPreset.entries + listOf(null)
+                options.forEachIndexed { index, preset ->
+                    val selected = active == preset
+                    SegmentedButton(
+                        selected = selected,
+                        onClick = { preset?.let(viewModel::onChatBotLimitPresetChange) },
+                        shape = SegmentedButtonDefaults.itemShape(
+                            index = index,
+                            count = options.size,
+                        ),
+                        label = { Text(preset?.displayName ?: "Eigene") },
+                    )
+                }
+            }
             OutlinedTextField(
                 value = uiState.chatBotPerViewerCooldownSeconds.toString(),
                 onValueChange = viewModel::onChatBotPerViewerCooldownSecondsChange,
@@ -361,6 +391,40 @@ fun SettingsScreen(
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth(),
+            )
+
+            // Live-Verbrauch: Kosten-Budget beobachten (nur solange der Bot aktiv ist)
+            Text(
+                text = "Live-Verbrauch",
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.padding(top = 8.dp),
+            )
+            Text(
+                text = "Antworten diese Stunde: " +
+                    if (botUsage.hourlyBudget > 0) {
+                        "${botUsage.repliesThisHour} / ${botUsage.hourlyBudget}"
+                    } else {
+                        "${botUsage.repliesThisHour} (kein Budget)"
+                    },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                text = "Antworten in diesem Stream: ${botUsage.totalRepliesThisStream}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (botUsage.topViewers.isNotEmpty()) {
+                Text(
+                    text = "Top-Viewer: " + botUsage.topViewers.joinToString { "${it.displayName} (${it.replies})" },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Text(
+                text = "Wird nur angezeigt, solange der Bot aktiv ist — Zähler setzen bei Stream-Ende zurück.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
             // Koexistenz mit anderen Bots (z. B. Rivulet)

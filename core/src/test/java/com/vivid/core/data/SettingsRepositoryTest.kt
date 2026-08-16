@@ -280,6 +280,7 @@ class SettingsRepositoryTest {
         assertEquals(60L, settings.chatBotPerViewerCooldownSeconds)
         assertEquals(0, settings.chatBotPerViewerMaxReplies)
         assertEquals(0, settings.chatBotMaxRepliesPerHour)
+        assertEquals("CUSTOM", settings.chatBotLimitPreset)
     }
 
     @Test
@@ -309,6 +310,7 @@ class SettingsRepositoryTest {
             perViewerCooldownSeconds = 120,
             perViewerMaxReplies = 5,
             maxRepliesPerHour = 100,
+            limitPreset = "STRICT",
         )
         val settings = repository.appSettingsFlow.first()
 
@@ -330,6 +332,7 @@ class SettingsRepositoryTest {
         assertEquals(120L, settings.chatBotPerViewerCooldownSeconds)
         assertEquals(5, settings.chatBotPerViewerMaxReplies)
         assertEquals(100, settings.chatBotMaxRepliesPerHour)
+        assertEquals("STRICT", settings.chatBotLimitPreset)
         // Andere Bereiche bleiben unberührt.
         assertEquals("", settings.chatChannel)
         assertEquals("localhost", settings.obsHost)

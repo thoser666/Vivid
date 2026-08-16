@@ -8,6 +8,8 @@ import com.vivid.core.remote.RemoteControlServer
 import com.vivid.core.remote.RemoteControlTokenStore
 import com.vivid.core.update.UpdateCheckResult
 import com.vivid.core.update.UpdateChecker
+import com.vivid.feature.chat.bot.ChatBotEngine
+import com.vivid.feature.chat.bot.ChatBotUsage
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -47,7 +49,10 @@ class SettingsViewModelTest {
         checker: UpdateChecker = mockk(relaxed = true),
         tokenStore: RemoteControlTokenStore = tokenStore(),
         remoteControlServer: RemoteControlServer = mockk(relaxed = true),
-    ) = SettingsViewModel(repository, checker, tokenStore, remoteControlServer)
+        chatBotEngine: ChatBotEngine = mockk {
+            every { usage } returns MutableStateFlow(ChatBotUsage())
+        },
+    ) = SettingsViewModel(repository, checker, tokenStore, remoteControlServer, chatBotEngine)
 
     @After
     fun tearDown() {
@@ -237,7 +242,7 @@ class SettingsViewModelTest {
             coEvery { updateSecondaryStreamSettings(any(), any(), any()) } just runs
             coEvery { updateObsSettings(any(), any(), any(), any()) } just runs
             coEvery { updateChatSettings(any(), any()) } just runs
-            coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
+            coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
         }
 
         val viewModel = createViewModel(repository)
@@ -280,7 +285,7 @@ class SettingsViewModelTest {
             coEvery { updateSecondaryStreamSettings(any(), any(), any()) } just runs
             coEvery { updateObsSettings(any(), any(), any(), any()) } just runs
             coEvery { updateChatSettings(any(), any()) } just runs
-            coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
+            coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
         }
 
         val viewModel = createViewModel(repository)
@@ -377,6 +382,62 @@ class SettingsViewModelTest {
     }
 
     @Test
+    fun `limit presets fill the three limit fields`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repository = mockk<SettingsRepository> {
+            every { appSettingsFlow } returns MutableStateFlow(AppSettings())
+        }
+
+        val viewModel = createViewModel(repository)
+        advanceUntilIdle()
+
+        viewModel.onChatBotLimitPresetChange(ChatBotLimitPreset.LOCKER)
+        assertEquals(30L, viewModel.uiState.value.chatBotPerViewerCooldownSeconds)
+        assertEquals(0, viewModel.uiState.value.chatBotPerViewerMaxReplies)
+        assertEquals(0, viewModel.uiState.value.chatBotMaxRepliesPerHour)
+        assertEquals(ChatBotLimitPreset.LOCKER.name, viewModel.uiState.value.chatBotLimitPreset)
+
+        viewModel.onChatBotLimitPresetChange(ChatBotLimitPreset.BALANCED)
+        assertEquals(60L, viewModel.uiState.value.chatBotPerViewerCooldownSeconds)
+        assertEquals(10, viewModel.uiState.value.chatBotPerViewerMaxReplies)
+        assertEquals(120, viewModel.uiState.value.chatBotMaxRepliesPerHour)
+        assertEquals(ChatBotLimitPreset.BALANCED.name, viewModel.uiState.value.chatBotLimitPreset)
+
+        viewModel.onChatBotLimitPresetChange(ChatBotLimitPreset.STRICT)
+        assertEquals(180L, viewModel.uiState.value.chatBotPerViewerCooldownSeconds)
+        assertEquals(5, viewModel.uiState.value.chatBotPerViewerMaxReplies)
+        assertEquals(60, viewModel.uiState.value.chatBotMaxRepliesPerHour)
+        assertEquals(ChatBotLimitPreset.STRICT.name, viewModel.uiState.value.chatBotLimitPreset)
+
+        // Nach der Voreinstellung bleiben die Werte frei anpassbar —
+        // eine manuelle Änderung markiert die Auswahl als „Eigene“ (CUSTOM).
+        viewModel.onChatBotPerViewerCooldownSecondsChange("90")
+        assertEquals(90L, viewModel.uiState.value.chatBotPerViewerCooldownSeconds)
+        assertEquals(ChatBotLimitPreset.CUSTOM, viewModel.uiState.value.chatBotLimitPreset)
+    }
+
+    @Test
+    fun `manual limit edits mark the selection as custom`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repository = mockk<SettingsRepository> {
+            every { appSettingsFlow } returns MutableStateFlow(AppSettings())
+        }
+
+        val viewModel = createViewModel(repository)
+        advanceUntilIdle()
+
+        viewModel.onChatBotLimitPresetChange(ChatBotLimitPreset.BALANCED)
+        assertEquals(ChatBotLimitPreset.BALANCED.name, viewModel.uiState.value.chatBotLimitPreset)
+
+        viewModel.onChatBotPerViewerMaxRepliesChange("3")
+        assertEquals(ChatBotLimitPreset.CUSTOM, viewModel.uiState.value.chatBotLimitPreset)
+
+        viewModel.onChatBotLimitPresetChange(ChatBotLimitPreset.STRICT)
+        viewModel.onChatBotMaxRepliesPerHourChange("20")
+        assertEquals(ChatBotLimitPreset.CUSTOM, viewModel.uiState.value.chatBotLimitPreset)
+    }
+
+    @Test
     fun `saveSettings persists the complete chat bot configuration`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val repository = mockk<SettingsRepository> {
@@ -385,7 +446,7 @@ class SettingsViewModelTest {
             coEvery { updateSecondaryStreamSettings(any(), any(), any()) } just runs
             coEvery { updateObsSettings(any(), any(), any(), any()) } just runs
             coEvery { updateChatSettings(any(), any()) } just runs
-            coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
+            coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
         }
 
         val viewModel = createViewModel(repository)
@@ -405,9 +466,7 @@ class SettingsViewModelTest {
         viewModel.onChatBotIgnoreBotsChange("rivuletbot, otherbot")
         viewModel.onChatBotCommandScopeChange(ChatBotCommandScope.PREFIX)
         viewModel.onChatBotCommandPrefixChange("v")
-        viewModel.onChatBotPerViewerCooldownSecondsChange("90")
-        viewModel.onChatBotPerViewerMaxRepliesChange("4")
-        viewModel.onChatBotMaxRepliesPerHourChange("50")
+        viewModel.onChatBotLimitPresetChange(ChatBotLimitPreset.STRICT)
 
         viewModel.saveSettings()
         advanceUntilIdle()
@@ -428,11 +487,34 @@ class SettingsViewModelTest {
                 ignoreBots = "rivuletbot, otherbot",
                 commandScope = ChatBotCommandScope.PREFIX,
                 commandPrefix = "v",
-                perViewerCooldownSeconds = 90L,
-                perViewerMaxReplies = 4,
-                maxRepliesPerHour = 50,
+                perViewerCooldownSeconds = 180L,
+                perViewerMaxReplies = 5,
+                maxRepliesPerHour = 60,
+                limitPreset = ChatBotLimitPreset.STRICT.name,
             )
         }
+    }
+
+    @Test
+    fun `botUsage forwards the engine usage state`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val engine = mockk<ChatBotEngine> {
+            every { usage } returns MutableStateFlow(
+                ChatBotUsage(
+                    repliesThisHour = 7,
+                    hourlyBudget = 120,
+                    totalRepliesThisStream = 12,
+                    topViewers = listOf(ChatBotUsage.ViewerUsage("ViewerEins", 5)),
+                ),
+            )
+        }
+        val viewModel = createViewModel(chatBotEngine = engine)
+        advanceUntilIdle()
+
+        assertEquals(7, viewModel.botUsage.value.repliesThisHour)
+        assertEquals(120, viewModel.botUsage.value.hourlyBudget)
+        assertEquals(12, viewModel.botUsage.value.totalRepliesThisStream)
+        assertEquals("ViewerEins", viewModel.botUsage.value.topViewers.first().displayName)
     }
 
     // --- Web-Remote-Control ---

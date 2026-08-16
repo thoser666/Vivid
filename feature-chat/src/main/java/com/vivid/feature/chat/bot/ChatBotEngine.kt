@@ -25,6 +25,19 @@ enum class ChatBotState {
 }
 
 /**
+ * Live-Zählerstand des Bots für den Settings-Screen (Kosten-Budget beobachten).
+ * [hourlyBudget] ist 0, wenn kein Budget gesetzt ist (unbegrenzt).
+ */
+data class ChatBotUsage(
+    val repliesThisHour: Int = 0,
+    val hourlyBudget: Int = 0,
+    val totalRepliesThisStream: Int = 0,
+    val topViewers: List<ViewerUsage> = emptyList(),
+) {
+    data class ViewerUsage(val displayName: String, val replies: Int)
+}
+
+/**
  * Reaktions-Engine des Chat-Bots mit zwei Betriebsmodi (siehe [ChatBotMode]):
  *
  * - **COMMAND** („Bot wie Moblin"): Nur deterministische `!`-Befehle
@@ -67,6 +80,13 @@ class ChatBotEngine @Inject constructor(
     private val lastReplyByUser = mutableMapOf<String, Long>()
     private val userReplyCounts = mutableMapOf<String, Int>()
 
+    // Anzeigename je userId (für die Top-Viewer-Anzeige im Settings-Screen).
+    private val userReplyNames = mutableMapOf<String, String>()
+    private var totalRepliesThisStream = 0
+
+    private val _usage = MutableStateFlow(ChatBotUsage())
+    val usage: StateFlow<ChatBotUsage> = _usage.asStateFlow()
+
     /**
      * Startet die Engine. [messages] muss ein heißer Flow sein (z. B. die
      * Nachrichten des Bot-Clients), der bereits vor dem Connect besammelt wird.
@@ -89,6 +109,9 @@ class ChatBotEngine @Inject constructor(
         lastReplyAt = 0L
         lastReplyByUser.clear()
         userReplyCounts.clear()
+        userReplyNames.clear()
+        totalRepliesThisStream = 0
+        updateUsage()
         _state.value = ChatBotState.Idle
         collectorJob = scope.launch {
             messages.collect { message -> process(message) }
@@ -103,6 +126,9 @@ class ChatBotEngine @Inject constructor(
         streamStartedAtMillis = 0L
         lastReplyByUser.clear()
         userReplyCounts.clear()
+        userReplyNames.clear()
+        totalRepliesThisStream = 0
+        updateUsage()
         _state.value = ChatBotState.Disabled
     }
 
@@ -128,38 +154,38 @@ class ChatBotEngine @Inject constructor(
                 // !tts: Chat-Vorlesen umschalten und im Chat bestätigen.
                 if (canReplyFor(cfg, message.userId, message.isModerator)) {
                     val nowEnabled = chatTts.toggle()
-                    send(snd, if (nowEnabled) TTS_ON_TEXT else TTS_OFF_TEXT, message.userId)
+                    send(snd, if (nowEnabled) TTS_ON_TEXT else TTS_OFF_TEXT, message)
                 }
                 return
             }
             is BotCommandProcessor.Result.MediaNowPlaying -> {
                 // !song: aktuellen Titel melden (bzw. Zugriffs-Hinweis).
                 if (canReplyFor(cfg, message.userId, message.isModerator)) {
-                    send(snd, mediaStatusReply(), message.userId)
+                    send(snd, mediaStatusReply(), message)
                 }
                 return
             }
             is BotCommandProcessor.Result.MediaNext -> {
                 if (canReplyFor(cfg, message.userId, message.isModerator)) {
-                    send(snd, mediaActionReply({ media.skipToNext() }, MEDIA_NEXT_TEXT), message.userId)
+                    send(snd, mediaActionReply({ media.skipToNext() }, MEDIA_NEXT_TEXT), message)
                 }
                 return
             }
             is BotCommandProcessor.Result.MediaPause -> {
                 if (canReplyFor(cfg, message.userId, message.isModerator)) {
-                    send(snd, mediaActionReply({ media.pause() }, MEDIA_PAUSE_TEXT), message.userId)
+                    send(snd, mediaActionReply({ media.pause() }, MEDIA_PAUSE_TEXT), message)
                 }
                 return
             }
             is BotCommandProcessor.Result.MediaPlay -> {
                 if (canReplyFor(cfg, message.userId, message.isModerator)) {
-                    send(snd, mediaActionReply({ media.play() }, MEDIA_PLAY_TEXT), message.userId)
+                    send(snd, mediaActionReply({ media.play() }, MEDIA_PLAY_TEXT), message)
                 }
                 return
             }
             is BotCommandProcessor.Result.MediaPrevious -> {
                 if (canReplyFor(cfg, message.userId, message.isModerator)) {
-                    send(snd, mediaActionReply({ media.skipToPrevious() }, MEDIA_PREVIOUS_TEXT), message.userId)
+                    send(snd, mediaActionReply({ media.skipToPrevious() }, MEDIA_PREVIOUS_TEXT), message)
                 }
                 return
             }
@@ -172,7 +198,7 @@ class ChatBotEngine @Inject constructor(
             BotCommandProcessor.Result.None -> null
         }
         if (commandReply != null) {
-            if (canReplyFor(cfg, message.userId, message.isModerator)) send(snd, commandReply, message.userId)
+            if (canReplyFor(cfg, message.userId, message.isModerator)) send(snd, commandReply, message)
             return
         }
         // COMMAND-Modus: ohne Befehl passiert nichts (kein LLM-Aufruf).
@@ -189,7 +215,7 @@ class ChatBotEngine @Inject constructor(
             val trimmed = reply.trim().replace(Regex("\\s+"), " ").take(cfg.maxReplyLength)
             if (trimmed.isEmpty() || trimmed.equals(NO_REPLY_MARKER, ignoreCase = true)) return
             appendAssistantMessage(cfg, trimmed)
-            send(snd, trimmed, message.userId)
+            send(snd, trimmed, message)
         } catch (e: Exception) {
             _logs.tryEmit("Fehler: ${e.message}")
         } finally {
@@ -236,9 +262,9 @@ class ChatBotEngine @Inject constructor(
         return true
     }
 
-    private suspend fun send(snd: ChatSender, text: String, userId: String? = null) {
+    private suspend fun send(snd: ChatSender, text: String, message: ChatMessage? = null) {
         snd.send(text)
-        registerReply(userId)
+        registerReply(message)
         _logs.tryEmit(text)
     }
 
@@ -297,17 +323,35 @@ class ChatBotEngine @Inject constructor(
         return false
     }
 
-    private fun registerReply(userId: String?) {
+    private fun registerReply(message: ChatMessage?) {
         val timestamp = now()
         lastReplyAt = timestamp
         replyTimes.addLast(timestamp)
+        totalRepliesThisStream += 1
         val limit = timestamp - 3_600_000
         while (replyTimes.isNotEmpty() && replyTimes.first() < limit) replyTimes.removeFirst()
+        val userId = message?.userId
         if (userId != null) {
             lastReplyByUser[userId] = timestamp
             userReplyCounts[userId] = (userReplyCounts[userId] ?: 0) + 1
+            userReplyNames[userId] = message.displayName.ifBlank { message.userLogin }
             pruneUserState(timestamp)
         }
+        updateUsage()
+    }
+
+    /** Aktualisiert den Live-Zählerstand (Antworten/Std, Budget, Total, Top-Viewer). */
+    private fun updateUsage() {
+        val top = userReplyCounts.entries
+            .sortedByDescending { it.value }
+            .take(TOP_VIEWERS)
+            .map { ChatBotUsage.ViewerUsage(userReplyNames[it.key] ?: it.key, it.value) }
+        _usage.value = ChatBotUsage(
+            repliesThisHour = replyTimes.size,
+            hourlyBudget = config?.maxRepliesPerHour ?: 0,
+            totalRepliesThisStream = totalRepliesThisStream,
+            topViewers = top,
+        )
     }
 
     /** Entfernt veraltete Per-Viewer-Cooldown-Einträge (Cap-Zähler bleiben bis Stream-Ende). */
@@ -336,5 +380,8 @@ class ChatBotEngine @Inject constructor(
         internal const val MEDIA_PAUSE_TEXT = "⏸ Pausiert."
         internal const val MEDIA_PLAY_TEXT = "▶ Wiedergabe gestartet."
         internal const val MEDIA_PREVIOUS_TEXT = "⏮ Vorheriger Song."
+
+        /** Wie viele Top-Viewer der Live-Verbrauch im Settings-Screen zeigt. */
+        internal const val TOP_VIEWERS = 5
     }
 }

@@ -10,6 +10,8 @@ import com.vivid.core.remote.RemoteControlServer
 import com.vivid.core.remote.RemoteControlTokenStore
 import com.vivid.core.update.UpdateCheckResult
 import com.vivid.core.update.UpdateChecker
+import com.vivid.feature.chat.bot.ChatBotEngine
+import com.vivid.feature.chat.bot.ChatBotUsage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -33,6 +35,7 @@ class SettingsViewModel @Inject constructor(
     private val updateChecker: UpdateChecker,
     private val remoteControlTokenStore: RemoteControlTokenStore,
     private val remoteControlServer: RemoteControlServer,
+    private val chatBotEngine: ChatBotEngine,
 ) : ViewModel() {
 
     // Der StateFlow verwendet jetzt die vollständige AppSettings-Klasse.
@@ -47,6 +50,9 @@ class SettingsViewModel @Inject constructor(
 
     private val _remoteControl = MutableStateFlow(RemoteControlInfo())
     val remoteControl = _remoteControl.asStateFlow()
+
+    /** Live-Zählerstand des Chat-Bots (Antworten/Std, Budget, Top-Viewer). */
+    val botUsage: StateFlow<ChatBotUsage> = chatBotEngine.usage
 
     /** Version, für die der letzte Check lief — verhindert Mehrfach-Checks pro Screen-Öffnung. */
     private var lastCheckedVersion: String? = null
@@ -135,14 +141,35 @@ class SettingsViewModel @Inject constructor(
     fun onChatBotCommandPrefixChange(newPrefix: String) { _uiState.value = _uiState.value.copy(chatBotCommandPrefix = newPrefix) }
 
     // Begrenzungen: Per-Viewer-Cooldown/-Cap und Kosten-Budget (numerisch, ungültig → 0).
+    // Manuelle Änderungen markieren die Auswahl als „Eigene“ (CUSTOM), damit die
+    // wiederhergestellte Voreinstellung beim nächsten Start nicht die Bearbeitung überstimmt.
     fun onChatBotPerViewerCooldownSecondsChange(raw: String) {
-        _uiState.value = _uiState.value.copy(chatBotPerViewerCooldownSeconds = raw.toLongOrNull() ?: 0L)
+        _uiState.value = _uiState.value.copy(
+            chatBotPerViewerCooldownSeconds = raw.toLongOrNull() ?: 0L,
+            chatBotLimitPreset = ChatBotLimitPreset.CUSTOM,
+        )
     }
     fun onChatBotPerViewerMaxRepliesChange(raw: String) {
-        _uiState.value = _uiState.value.copy(chatBotPerViewerMaxReplies = raw.toIntOrNull() ?: 0)
+        _uiState.value = _uiState.value.copy(
+            chatBotPerViewerMaxReplies = raw.toIntOrNull() ?: 0,
+            chatBotLimitPreset = ChatBotLimitPreset.CUSTOM,
+        )
     }
     fun onChatBotMaxRepliesPerHourChange(raw: String) {
-        _uiState.value = _uiState.value.copy(chatBotMaxRepliesPerHour = raw.toIntOrNull() ?: 0)
+        _uiState.value = _uiState.value.copy(
+            chatBotMaxRepliesPerHour = raw.toIntOrNull() ?: 0,
+            chatBotLimitPreset = ChatBotLimitPreset.CUSTOM,
+        )
+    }
+
+    /** Schnellstart: füllt die drei Limit-Felder aus einer Voreinstellung und speichert die Wahl. */
+    fun onChatBotLimitPresetChange(preset: ChatBotLimitPreset) {
+        _uiState.value = _uiState.value.copy(
+            chatBotPerViewerCooldownSeconds = preset.perViewerCooldownSeconds,
+            chatBotPerViewerMaxReplies = preset.perViewerMaxReplies,
+            chatBotMaxRepliesPerHour = preset.maxRepliesPerHour,
+            chatBotLimitPreset = preset.name,
+        )
     }
 
     fun saveSettings() {
@@ -187,6 +214,7 @@ class SettingsViewModel @Inject constructor(
                 perViewerCooldownSeconds = currentSettings.chatBotPerViewerCooldownSeconds,
                 perViewerMaxReplies = currentSettings.chatBotPerViewerMaxReplies,
                 maxRepliesPerHour = currentSettings.chatBotMaxRepliesPerHour,
+                limitPreset = currentSettings.chatBotLimitPreset,
             )
             _saveEvent.emit(Unit)
         }

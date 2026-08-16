@@ -43,6 +43,7 @@ class SettingsRepository @Inject constructor(
         val CHAT_BOT_PER_VIEWER_COOLDOWN_SECONDS = longPreferencesKey("chat_bot_per_viewer_cooldown_seconds")
         val CHAT_BOT_PER_VIEWER_MAX_REPLIES = intPreferencesKey("chat_bot_per_viewer_max_replies")
         val CHAT_BOT_MAX_REPLIES_PER_HOUR = intPreferencesKey("chat_bot_max_replies_per_hour")
+        val CHAT_BOT_LIMIT_PRESET = stringPreferencesKey("chat_bot_limit_preset")
     }
 
     // WICHTIG: Dies ist jetzt der EINZIGE Flow, den das ViewModel braucht.
@@ -95,6 +96,7 @@ class SettingsRepository @Inject constructor(
                 perViewerCooldownSeconds = prefs[PrefKeys.CHAT_BOT_PER_VIEWER_COOLDOWN_SECONDS] ?: 60L,
                 perViewerMaxReplies = prefs[PrefKeys.CHAT_BOT_PER_VIEWER_MAX_REPLIES] ?: 0,
                 maxRepliesPerHour = prefs[PrefKeys.CHAT_BOT_MAX_REPLIES_PER_HOUR] ?: 0,
+                limitPreset = prefs[PrefKeys.CHAT_BOT_LIMIT_PRESET] ?: "CUSTOM",
             )
         },
     ) { streamData, obsData, chatData, chatBotData ->
@@ -129,6 +131,7 @@ class SettingsRepository @Inject constructor(
             chatBotPerViewerCooldownSeconds = chatBotData.perViewerCooldownSeconds,
             chatBotPerViewerMaxReplies = chatBotData.perViewerMaxReplies,
             chatBotMaxRepliesPerHour = chatBotData.maxRepliesPerHour,
+            chatBotLimitPreset = chatBotData.limitPreset,
         )
     }
 
@@ -188,6 +191,7 @@ class SettingsRepository @Inject constructor(
         perViewerCooldownSeconds: Long = 60L,
         perViewerMaxReplies: Int = 0,
         maxRepliesPerHour: Int = 0,
+        limitPreset: String = "CUSTOM",
     ) {
         dataStore.edit { prefs ->
             prefs[PrefKeys.CHAT_BOT_ENABLED] = enabled
@@ -207,6 +211,7 @@ class SettingsRepository @Inject constructor(
             prefs[PrefKeys.CHAT_BOT_PER_VIEWER_COOLDOWN_SECONDS] = perViewerCooldownSeconds
             prefs[PrefKeys.CHAT_BOT_PER_VIEWER_MAX_REPLIES] = perViewerMaxReplies
             prefs[PrefKeys.CHAT_BOT_MAX_REPLIES_PER_HOUR] = maxRepliesPerHour
+            prefs[PrefKeys.CHAT_BOT_LIMIT_PRESET] = limitPreset
         }
     }
 
@@ -249,5 +254,6 @@ class SettingsRepository @Inject constructor(
         val perViewerCooldownSeconds: Long,
         val perViewerMaxReplies: Int,
         val maxRepliesPerHour: Int,
+        val limitPreset: String,
     )
 }

@@ -529,6 +529,81 @@ class ChatBotEngineTest {
         engine.stop()
     }
 
+    // --- Live-Verbrauch (Settings-Screen: Kosten-Budget beobachten) ---
+
+    @Test
+    fun `usage exposes hourly count, budget, total and top viewers`() = runTest {
+        val engine = engine()
+        coEvery { sender.send(any()) } just Runs
+
+        engine.start(
+            messages,
+            config(
+                commandScope = ChatBotCommandScope.MENTION,
+                replyCooldownMillis = 0,
+                maxRepliesPerHour = 3,
+            ),
+            sender,
+            this,
+        )
+        messages.emit(chatMessage("@vividbot !help", login = "viewer1", displayName = "ViewerEins"))
+        messages.emit(chatMessage("@vividbot !help", login = "viewer2", displayName = "ViewerZwei"))
+        messages.emit(chatMessage("@vividbot !help", login = "viewer1", displayName = "ViewerEins"))
+        advanceUntilIdle()
+
+        val usage = engine.usage.value
+        assertEquals(3, usage.repliesThisHour)
+        assertEquals(3, usage.hourlyBudget)
+        assertEquals(3, usage.totalRepliesThisStream)
+        assertEquals(listOf("ViewerEins", "ViewerZwei"), usage.topViewers.map { it.displayName })
+        assertEquals(2, usage.topViewers.first().replies)
+        engine.stop()
+    }
+
+    @Test
+    fun `usage reports an unset budget as zero`() = runTest {
+        val engine = engine()
+        coEvery { sender.send(any()) } just Runs
+
+        engine.start(
+            messages,
+            config(commandScope = ChatBotCommandScope.MENTION, replyCooldownMillis = 0),
+            sender,
+            this,
+        )
+        messages.emit(chatMessage("@vividbot !help"))
+        advanceUntilIdle()
+
+        assertEquals(1, engine.usage.value.repliesThisHour)
+        assertEquals(0, engine.usage.value.hourlyBudget)
+        engine.stop()
+    }
+
+    @Test
+    fun `usage resets when the engine restarts`() = runTest {
+        val engine = engine()
+        coEvery { sender.send(any()) } just Runs
+
+        engine.start(
+            messages,
+            config(commandScope = ChatBotCommandScope.MENTION, replyCooldownMillis = 0),
+            sender,
+            this,
+        )
+        messages.emit(chatMessage("@vividbot !help"))
+        advanceUntilIdle()
+        assertEquals(1, engine.usage.value.totalRepliesThisStream)
+
+        engine.start(
+            messages,
+            config(commandScope = ChatBotCommandScope.MENTION, replyCooldownMillis = 0),
+            sender,
+            this,
+        )
+        assertEquals(0, engine.usage.value.totalRepliesThisStream)
+        engine.stop()
+    }
+
     @Test
     fun `respects the cooldown between replies`() = runTest {
         val engine = engine()
