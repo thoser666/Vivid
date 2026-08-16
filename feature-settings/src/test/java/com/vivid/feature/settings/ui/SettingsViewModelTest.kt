@@ -1,6 +1,7 @@
 package com.vivid.feature.settings.ui
 
 import com.vivid.core.data.AppSettings
+import com.vivid.core.data.ChatBotCommandScope
 import com.vivid.core.data.ChatBotMode
 import com.vivid.core.data.SettingsRepository
 import com.vivid.core.remote.RemoteControlServer
@@ -236,7 +237,7 @@ class SettingsViewModelTest {
             coEvery { updateSecondaryStreamSettings(any(), any(), any()) } just runs
             coEvery { updateObsSettings(any(), any(), any(), any()) } just runs
             coEvery { updateChatSettings(any(), any()) } just runs
-            coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
+            coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
         }
 
         val viewModel = createViewModel(repository)
@@ -279,7 +280,7 @@ class SettingsViewModelTest {
             coEvery { updateSecondaryStreamSettings(any(), any(), any()) } just runs
             coEvery { updateObsSettings(any(), any(), any(), any()) } just runs
             coEvery { updateChatSettings(any(), any()) } just runs
-            coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
+            coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
         }
 
         val viewModel = createViewModel(repository)
@@ -329,6 +330,9 @@ class SettingsViewModelTest {
         viewModel.onChatBotReplyCooldownSecondsChange("12")
         viewModel.onChatBotMentionsOnlyChange(false)
         viewModel.onChatBotMaxRepliesPerMinuteChange("25")
+        viewModel.onChatBotIgnoreBotsChange("rivuletbot")
+        viewModel.onChatBotCommandScopeChange(ChatBotCommandScope.PREFIX)
+        viewModel.onChatBotCommandPrefixChange("v")
 
         assertEquals(true, viewModel.uiState.value.chatBotEnabled)
         assertEquals(ChatBotMode.COMMAND, viewModel.uiState.value.chatBotMode)
@@ -341,6 +345,9 @@ class SettingsViewModelTest {
         assertEquals(12L, viewModel.uiState.value.chatBotReplyCooldownSeconds)
         assertEquals(false, viewModel.uiState.value.chatBotMentionsOnly)
         assertEquals(25, viewModel.uiState.value.chatBotMaxRepliesPerMinute)
+        assertEquals("rivuletbot", viewModel.uiState.value.chatBotIgnoreBots)
+        assertEquals(ChatBotCommandScope.PREFIX, viewModel.uiState.value.chatBotCommandScope)
+        assertEquals("v", viewModel.uiState.value.chatBotCommandPrefix)
 
         viewModel.onChatBotModeChange(ChatBotMode.AUTONOMOUS)
         assertEquals(ChatBotMode.AUTONOMOUS, viewModel.uiState.value.chatBotMode)
@@ -372,7 +379,7 @@ class SettingsViewModelTest {
             coEvery { updateSecondaryStreamSettings(any(), any(), any()) } just runs
             coEvery { updateObsSettings(any(), any(), any(), any()) } just runs
             coEvery { updateChatSettings(any(), any()) } just runs
-            coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
+            coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
         }
 
         val viewModel = createViewModel(repository)
@@ -389,6 +396,9 @@ class SettingsViewModelTest {
         viewModel.onChatBotReplyCooldownSecondsChange("5")
         viewModel.onChatBotMentionsOnlyChange(false)
         viewModel.onChatBotMaxRepliesPerMinuteChange("20")
+        viewModel.onChatBotIgnoreBotsChange("rivuletbot, otherbot")
+        viewModel.onChatBotCommandScopeChange(ChatBotCommandScope.PREFIX)
+        viewModel.onChatBotCommandPrefixChange("v")
 
         viewModel.saveSettings()
         advanceUntilIdle()
@@ -406,6 +416,9 @@ class SettingsViewModelTest {
                 mode = ChatBotMode.AUTONOMOUS,
                 login = "vividbot",
                 oauthToken = "oauth:tok123",
+                ignoreBots = "rivuletbot, otherbot",
+                commandScope = ChatBotCommandScope.PREFIX,
+                commandPrefix = "v",
             )
         }
     }

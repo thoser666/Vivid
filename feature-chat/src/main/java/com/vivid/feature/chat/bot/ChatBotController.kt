@@ -71,8 +71,9 @@ class ChatBotController @Inject constructor(
             scope = scope,
             streamStartedAtMillis = streamStartedAtMillis,
         )
-        // Chat-TTS (der !tts-Befehl): liest den gleichen Nachrichten-Flow vor.
-        chatTts.start(botClient.messages, config.login)
+        // Chat-TTS (der !tts-Befehl): liest den gleichen Nachrichten-Flow vor —
+        // andere Bots (Ignore-Liste) werden nicht vorgelesen.
+        chatTts.start(botClient.messages, config.login, config.ignoreBots)
         botClient.connect(config.channel, config.login, config.oauthToken)
     }
 

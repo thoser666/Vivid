@@ -77,6 +77,35 @@ Wie beim Bot von [Moblin](https://github.com/eerimoq/moblin) (Row 80, Android-Ad
 
 > 💡 **Tipp:** Im COMMAND-Modus funktioniert der Bot komplett ohne LLM-API-Key — ideal, wenn du nur die Moblin-artigen Chat-Befehle willst.
 
+## Koexistenz mit anderen Bots (z. B. Rivulet)
+
+Läuft neben dem Chat-Bot eines anderen Tools im selben Kanal (z. B. dem geplanten **Rivulet**-Bot, [github.com/thoser666/rivulet](https://github.com/thoser666/rivulet), Meilenstein M9), gibt es drei echte Kollisionspunkte — alle lassen sich in den Einstellungen (Abschnitt **„Chat-Bot (KI)“ → „Koexistenz mit anderen Bots“**) entschärfen:
+
+| Problem | Lösung in Vivid |
+|---------|-----------------|
+| **Doppelte Antworten**: Beide Bots beantworten `!help`, `!uptime`, `!song` … | **Befehlsscope** eingrenzen — Vivid antwortet nur auf `@vividbot`-Erwähnungen oder ein eigenes Präfix (`!v!help`), generische `!`-Befehle gehören dem anderen Bot |
+| **Doppelte Aktionen**: `!tts`/`!pause`/`!play` werden von beiden ausgeführt (TTS doppelt geflippt, Songs doppelt geskippt) | gleicher Befehlsscope — Vivid führt nur adressierte/präfixierte Aktionen aus |
+| **Bot-zu-Bot-Geräusch**: Vivids KI-Modus antwortet auf Ansagen des anderen Bots („Stream gestartet …“) | **Andere Bots ignorieren**: Login(s) des anderen Bots eintragen — deren Nachrichten werden komplett ignoriert (keine Befehle, kein LLM-Input, **auch nicht vorgelesen** vom Chat-TTS) |
+
+### Befehlsscope (drei Stufen)
+
+| Scope | Verhalten | Beispiel |
+|-------|-----------|----------|
+| **Alle !-Befehle** (`ALL`, Standard) | Jeder `!`-Befehl wird beantwortet — Moblin-Stil, heutiges Verhalten | `!help` → Antwort |
+| **Nur Erwähnung** (`MENTION`) | Nur Befehle, die den Bot direkt ansprechen | `@vividbot !help` → Antwort · `!help` → ignoriert |
+| **Eigenes Präfix** (`PREFIX`) | Nur Befehle mit eigenem Präfix; generische Befehle bleiben dem anderen Bot (werden als „nicht für mich“ ignoriert, nicht als unbekannt gemeldet) | `!v!help` → Antwort (Präfix `v`) · `!help` → ignoriert |
+
+Fremde Befehle außerhalb des Scopes liefern **kein** „Unbekannter Befehl“-Echo — sie werden als `None` behandelt, damit der andere Bot ungestört antworten kann.
+
+### Empfohlene Einrichtung für die Koexistenz mit Rivulet
+
+1. **Getrennte Bot-Konten** verwenden (Vivid-Bot ≠ Rivulet-Bot ≠ Streamer-Konto) — sonst teilen sich beide das Twitch-Nachrichten-Limit (20 Nachrichten/30 s) und die Antworten sind nicht unterscheidbar.
+2. Den **Login des Rivulet-Bots** unter „Andere Bots ignorieren“ eintragen (kommasepariert, ohne `@`).
+3. **Befehlsscope** wählen: Entweder Rivulet übernimmt die generischen `!`-Befehle und Vivid nutzt `@vividbot` (MENTION) oder ein eigenes Präfix (PREFIX, z. B. `v` → `!v!help`) — oder umgekehrt, je nachdem welcher Bot die generischen Befehle besitzen soll.
+4. `!help` zeigt im PREFIX-Modus automatisch die präfixierten Befehle (`!v!help · !v!uptime · …`).
+
+> Die Einstellungen werden mit **„Speichern“** persistiert (`chat_bot_ignore_bots`, `chat_bot_command_scope`, `chat_bot_command_prefix` in den App-Settings).
+
 ## Current status
 
 Implemented & unit-tested:
@@ -93,7 +122,7 @@ Implemented & unit-tested:
 Still open (next milestones):
 
 - **Twitch OAuth browser flow** (until then, paste a chat token — see below).
-- Cost budget per hour, media-player control commands (`!song`/`!next`/`!pause` via MediaSession, Moblin parity row), provider presets.
+- Cost budget per hour, provider presets.
 
 ## Prerequisites
 

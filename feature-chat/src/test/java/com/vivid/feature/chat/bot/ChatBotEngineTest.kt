@@ -1,5 +1,6 @@
 package com.vivid.feature.chat.bot
 
+import com.vivid.core.data.ChatBotCommandScope
 import com.vivid.core.data.ChatBotMode
 import com.vivid.feature.chat.ai.LlmClient
 import com.vivid.feature.chat.ai.LlmConfig
@@ -61,6 +62,9 @@ class ChatBotEngineTest {
         systemPrompt: String = "Du bist ein freundlicher Bot.",
         mode: ChatBotMode = ChatBotMode.AUTONOMOUS,
         apiKey: String = "key",
+        commandScope: ChatBotCommandScope = ChatBotCommandScope.ALL,
+        commandPrefix: String = "",
+        ignoreBots: Set<String> = emptySet(),
     ): ChatBotConfig = ChatBotConfig(
         channel = "channel",
         login = login,
@@ -70,6 +74,9 @@ class ChatBotEngineTest {
         replyCooldownMillis = replyCooldownMillis,
         maxRepliesPerMinute = maxRepliesPerMinute,
         mode = mode,
+        commandScope = commandScope,
+        commandPrefix = commandPrefix,
+        ignoreBots = ignoreBots,
         llm = LlmConfig(baseUrl = "https://llm.example", apiKey = apiKey, model = "model"),
     )
 
@@ -133,6 +140,93 @@ class ChatBotEngineTest {
         advanceUntilIdle()
 
         coVerify(exactly = 0) { llm.complete(any(), any()) }
+        engine.stop()
+    }
+
+    // --- Koexistenz: Ignore-Liste für andere Bots (z. B. Rivulet) ---
+
+    @Test
+    fun `ignores commands from bots on the ignore list`() = runTest {
+        val engine = engine()
+        coEvery { sender.send(any()) } just Runs
+
+        engine.start(messages, config(ignoreBots = setOf("rivuletbot")), sender, this)
+        messages.emit(chatMessage("!help", login = "rivuletbot", displayName = "RivuletBot"))
+        messages.emit(chatMessage("!pause", login = "rivuletbot", displayName = "RivuletBot"))
+        advanceUntilIdle()
+
+        // Weder Befehle noch LLM-Aufrufe für den ignorierten Bot.
+        coVerify(exactly = 0) { sender.send(any()) }
+        coVerify(exactly = 0) { llm.complete(any(), any()) }
+        engine.stop()
+    }
+
+    @Test
+    fun `does not feed ignored bot messages to the llm in autonomous mode`() = runTest {
+        val engine = engine()
+        coEvery { llm.complete(any(), any()) } returns "Antwort!"
+
+        engine.start(
+            messages,
+            config(mentionsOnly = false, ignoreBots = setOf("rivuletbot")),
+            sender,
+            this,
+        )
+        messages.emit(chatMessage("Der Stream startet gleich!", login = "rivuletbot", displayName = "RivuletBot"))
+        advanceUntilIdle()
+
+        coVerify(exactly = 0) { llm.complete(any(), any()) }
+        engine.stop()
+    }
+
+    @Test
+    fun `answers commands from other viewers even with an ignore list`() = runTest {
+        val engine = engine()
+        coEvery { sender.send(any()) } just Runs
+
+        engine.start(messages, config(ignoreBots = setOf("rivuletbot")), sender, this)
+        messages.emit(chatMessage("!help", login = "viewer1", displayName = "Viewer1"))
+        advanceUntilIdle()
+
+        coVerify { sender.send(BotCommandProcessor.HELP_TEXT) }
+        engine.stop()
+    }
+
+    // --- Koexistenz: Befehlsscope MENTION/PREFIX in der Engine ---
+
+    @Test
+    fun `mention scope answers only addressed commands`() = runTest {
+        val engine = engine()
+        coEvery { sender.send(any()) } just Runs
+
+        engine.start(messages, config(commandScope = ChatBotCommandScope.MENTION), sender, this)
+        messages.emit(chatMessage("!help")) // gehört dem anderen Bot
+        messages.emit(chatMessage("@vividbot !help"))
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { sender.send(BotCommandProcessor.HELP_TEXT) }
+        engine.stop()
+    }
+
+    @Test
+    fun `prefix scope answers only prefixed commands`() = runTest {
+        val engine = engine()
+        coEvery { sender.send(any()) } just Runs
+
+        engine.start(
+            messages,
+            config(commandScope = ChatBotCommandScope.PREFIX, commandPrefix = "v"),
+            sender,
+            this,
+        )
+        messages.emit(chatMessage("!uptime")) // generisch → anderer Bot
+        messages.emit(chatMessage("!v!help"))
+        advanceUntilIdle()
+
+        coVerify(exactly = 0) { sender.send("Gerade läuft kein Stream.") }
+        coVerify(exactly = 1) {
+            sender.send("Verfügbare Befehle: !v!help · !v!uptime · !v!tts · !v!song · !v!next · !v!pause · !v!bot")
+        }
         engine.stop()
     }
 

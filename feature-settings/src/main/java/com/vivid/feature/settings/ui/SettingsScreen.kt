@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
+import com.vivid.core.data.ChatBotCommandScope
 import com.vivid.core.data.ChatBotMode
 import com.vivid.core.update.UpdateCheckResult
 import kotlinx.coroutines.flow.collectLatest
@@ -331,6 +332,57 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth(),
             )
 
+            // Koexistenz mit anderen Bots (z. B. Rivulet)
+            Text("Koexistenz mit anderen Bots", style = MaterialTheme.typography.titleMedium)
+            Text(
+                text = "Läuft neben dem Bot eines anderen Tools (z. B. Rivulet) im selben Kanal, lassen sich Kollisionen vermeiden: Andere Bots ignorieren und den Befehlsscope eingrenzen, damit nicht beide auf dieselben !-Befehle antworten.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            OutlinedTextField(
+                value = uiState.chatBotIgnoreBots,
+                onValueChange = viewModel::onChatBotIgnoreBotsChange,
+                label = { Text("Andere Bots ignorieren (Logins, kommasepariert)") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Text(
+                text = "Befehlsscope",
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.padding(top = 8.dp),
+            )
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                ChatBotCommandScope.entries.forEachIndexed { index, scope ->
+                    SegmentedButton(
+                        selected = uiState.chatBotCommandScope == scope,
+                        onClick = { viewModel.onChatBotCommandScopeChange(scope) },
+                        shape = SegmentedButtonDefaults.itemShape(
+                            index = index,
+                            count = ChatBotCommandScope.entries.size,
+                        ),
+                        label = { Text(scope.displayName) },
+                    )
+                }
+            }
+            Text(
+                text = when (uiState.chatBotCommandScope) {
+                    ChatBotCommandScope.ALL -> "Jeder !-Befehl wird beantwortet (Standard, wie der Bot von Moblin)."
+                    ChatBotCommandScope.MENTION -> "Nur Befehle, die den Bot direkt ansprechen (z. B. @vividbot !help) — generische Befehle bleiben dem anderen Bot."
+                    ChatBotCommandScope.PREFIX -> "Nur Befehle mit eigenem Präfix (z. B. !v!help) — generische Befehle bleiben dem anderen Bot."
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (uiState.chatBotCommandScope == ChatBotCommandScope.PREFIX) {
+                OutlinedTextField(
+                    value = uiState.chatBotCommandPrefix,
+                    onValueChange = viewModel::onChatBotCommandPrefixChange,
+                    label = { Text("Eigenes Befehls-Präfix (z. B. v → !v!help)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+
             // Media-Player-Steuerung: braucht Benachrichtigungszugriff
             Text(
                 text = "Media-Befehle (!song / !next / !pause / !play / !prev) steuern den aktiven Musik-Player — dafür muss Vivid Benachrichtigungszugriff haben (liest keine Benachrichtigungen aus).",
@@ -439,6 +491,14 @@ private val ChatBotMode.displayName: String
     get() = when (this) {
         ChatBotMode.COMMAND -> "Bot (wie Moblin)"
         ChatBotMode.AUTONOMOUS -> "KI autonom"
+    }
+
+/** Anzeigename des Befehlsscopes (UI-spezifisch). */
+private val ChatBotCommandScope.displayName: String
+    get() = when (this) {
+        ChatBotCommandScope.ALL -> "Alle !-Befehle"
+        ChatBotCommandScope.MENTION -> "Nur Erwähnung"
+        ChatBotCommandScope.PREFIX -> "Eigenes Präfix"
     }
 
 /**

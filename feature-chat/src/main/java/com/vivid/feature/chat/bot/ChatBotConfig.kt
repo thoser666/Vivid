@@ -1,6 +1,7 @@
 package com.vivid.feature.chat.bot
 
 import com.vivid.core.data.AppSettings
+import com.vivid.core.data.ChatBotCommandScope
 import com.vivid.core.data.ChatBotMode
 import com.vivid.feature.chat.ai.LlmConfig
 
@@ -17,6 +18,13 @@ data class ChatBotConfig(
     val historySize: Int = 20,
     val mode: ChatBotMode = ChatBotMode.AUTONOMOUS,
     val llm: LlmConfig,
+    // --- Koexistenz mit anderen Bots ---
+    // Wer darf !-Befehle auslösen (siehe ChatBotCommandScope).
+    val commandScope: ChatBotCommandScope = ChatBotCommandScope.ALL,
+    // Eigenes Befehls-Präfix für den PREFIX-Scope (z. B. "v" → !v!help).
+    val commandPrefix: String = "",
+    // Logins anderer Bots (normalisiert, ohne '@'), deren Nachrichten ignoriert werden.
+    val ignoreBots: Set<String> = emptySet(),
 ) {
     /**
      * Startbereit? Kanal, Login und Token werden immer gebraucht — das LLM
@@ -38,6 +46,13 @@ data class ChatBotConfig(
                 replyCooldownMillis = settings.chatBotReplyCooldownSeconds * 1000,
                 maxRepliesPerMinute = settings.chatBotMaxRepliesPerMinute,
                 mode = settings.chatBotMode,
+                commandScope = settings.chatBotCommandScope,
+                commandPrefix = settings.chatBotCommandPrefix.trim(),
+                ignoreBots = settings.chatBotIgnoreBots
+                    .split(',')
+                    .map { it.trim().lowercase().removePrefix("@") }
+                    .filter { it.isNotBlank() }
+                    .toSet(),
                 llm = LlmConfig(
                     baseUrl = settings.chatBotApiBaseUrl,
                     apiKey = settings.chatBotApiKey,

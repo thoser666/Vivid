@@ -274,6 +274,9 @@ class SettingsRepositoryTest {
         assertEquals(ChatBotMode.AUTONOMOUS, settings.chatBotMode)
         assertEquals("", settings.chatBotLogin)
         assertEquals("", settings.chatBotOauthToken)
+        assertEquals("", settings.chatBotIgnoreBots)
+        assertEquals(ChatBotCommandScope.ALL, settings.chatBotCommandScope)
+        assertEquals("", settings.chatBotCommandPrefix)
     }
 
     @Test
@@ -297,6 +300,9 @@ class SettingsRepositoryTest {
             mode = ChatBotMode.COMMAND,
             login = "vividbot",
             oauthToken = "oauth:tok123",
+            ignoreBots = "rivuletbot, otherbot",
+            commandScope = ChatBotCommandScope.PREFIX,
+            commandPrefix = "v",
         )
         val settings = repository.appSettingsFlow.first()
 
@@ -312,6 +318,9 @@ class SettingsRepositoryTest {
         assertEquals(ChatBotMode.COMMAND, settings.chatBotMode)
         assertEquals("vividbot", settings.chatBotLogin)
         assertEquals("oauth:tok123", settings.chatBotOauthToken)
+        assertEquals("rivuletbot, otherbot", settings.chatBotIgnoreBots)
+        assertEquals(ChatBotCommandScope.PREFIX, settings.chatBotCommandScope)
+        assertEquals("v", settings.chatBotCommandPrefix)
         // Andere Bereiche bleiben unberührt.
         assertEquals("", settings.chatChannel)
         assertEquals("localhost", settings.obsHost)

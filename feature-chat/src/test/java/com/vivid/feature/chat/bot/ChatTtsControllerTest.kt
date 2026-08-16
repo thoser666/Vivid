@@ -108,6 +108,22 @@ class ChatTtsControllerTest {
     }
 
     @Test
+    fun `start skips messages from bots on the ignore list`() = runTest {
+        val controller = controller(this)
+        controller.setEnabled(true)
+        controller.start(messages, ownLogin = "vividbot", ignoreBots = setOf("rivuletbot"))
+
+        messages.emit(chatMessage("Der Stream startet gleich!", login = "rivuletbot", displayName = "RivuletBot"))
+        messages.emit(chatMessage("hallo zusammen", login = "viewer1", displayName = "Viewer1"))
+        advanceUntilIdle()
+
+        // Der andere Bot wird nicht vorgelesen, normale Viewer schon.
+        verify(exactly = 0) { speaker.speak("RivuletBot: Der Stream startet gleich!") }
+        verify { speaker.speak("Viewer1: hallo zusammen") }
+        controller.stop()
+    }
+
+    @Test
     fun `start does not speak while tts is disabled`() = runTest {
         val controller = controller(this)
         controller.start(messages, ownLogin = "vividbot") // enabled = false

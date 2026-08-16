@@ -39,4 +39,13 @@ data class AppSettings(
     val chatBotLogin: String = "",
     // Twitch-Chat-OAuth-Token des Bot-Kontos (chat:read + chat:send).
     val chatBotOauthToken: String = "",
+    // --- Chat-Bot: Koexistenz mit anderen Bots (z. B. Rivulet) ---
+    // Logins anderer Bots (kommasepariert, ohne '@'), deren Nachrichten
+    // komplett ignoriert werden (keine Befehle, kein LLM-Input, kein TTS).
+    val chatBotIgnoreBots: String = "",
+    // Wer darf !-Befehle auslösen: ALL (jeder) | MENTION (nur @-Erwähnung) |
+    // PREFIX (nur Befehle mit eigenem Präfix, z. B. "v" → !v!help).
+    val chatBotCommandScope: ChatBotCommandScope = ChatBotCommandScope.ALL,
+    // Eigenes Befehls-Präfix für den PREFIX-Scope (ohne '!', z. B. "v").
+    val chatBotCommandPrefix: String = "",
 )

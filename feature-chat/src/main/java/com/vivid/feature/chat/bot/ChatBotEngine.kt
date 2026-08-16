@@ -102,9 +102,18 @@ class ChatBotEngine @Inject constructor(
         val snd = sender ?: return
         if (message.text.isBlank()) return
         if (message.userLogin == cfg.login) return
+        // Koexistenz: Nachrichten anderer Bots (Ignore-Liste, z. B. Rivulet-Bot)
+        // werden komplett ignoriert — keine Befehle, kein LLM-Input.
+        if (message.userLogin in cfg.ignoreBots) return
 
         // Befehle werden in BEIDEN Modi deterministisch beantwortet (Moblin-Stil).
-        val commandReply = when (val result = commandProcessor.handle(message.text, streamStartedAtMillis)) {
+        val commandReply = when (val result = commandProcessor.handle(
+            message.text,
+            streamStartedAtMillis,
+            cfg.commandScope,
+            cfg.commandPrefix,
+            cfg.login,
+        )) {
             is BotCommandProcessor.Result.Reply -> result.text
             is BotCommandProcessor.Result.ToggleTts -> {
                 // !tts: Chat-Vorlesen umschalten und im Chat bestätigen.

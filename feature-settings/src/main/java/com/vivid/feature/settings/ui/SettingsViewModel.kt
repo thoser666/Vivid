@@ -3,6 +3,7 @@ package com.vivid.feature.settings.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vivid.core.data.AppSettings // Importiert die vollständige Klasse
+import com.vivid.core.data.ChatBotCommandScope
 import com.vivid.core.data.ChatBotMode
 import com.vivid.core.data.SettingsRepository
 import com.vivid.core.remote.RemoteControlServer
@@ -128,6 +129,11 @@ class SettingsViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(chatBotMaxRepliesPerMinute = raw.toIntOrNull() ?: 0)
     }
 
+    // Koexistenz mit anderen Bots (z. B. Rivulet): Ignore-Liste, Befehlsscope, Präfix.
+    fun onChatBotIgnoreBotsChange(newValue: String) { _uiState.value = _uiState.value.copy(chatBotIgnoreBots = newValue) }
+    fun onChatBotCommandScopeChange(newScope: ChatBotCommandScope) { _uiState.value = _uiState.value.copy(chatBotCommandScope = newScope) }
+    fun onChatBotCommandPrefixChange(newPrefix: String) { _uiState.value = _uiState.value.copy(chatBotCommandPrefix = newPrefix) }
+
     fun saveSettings() {
         viewModelScope.launch {
             val currentSettings = _uiState.value
@@ -164,6 +170,9 @@ class SettingsViewModel @Inject constructor(
                 mode = currentSettings.chatBotMode,
                 login = currentSettings.chatBotLogin,
                 oauthToken = currentSettings.chatBotOauthToken,
+                ignoreBots = currentSettings.chatBotIgnoreBots,
+                commandScope = currentSettings.chatBotCommandScope,
+                commandPrefix = currentSettings.chatBotCommandPrefix,
             )
             _saveEvent.emit(Unit)
         }

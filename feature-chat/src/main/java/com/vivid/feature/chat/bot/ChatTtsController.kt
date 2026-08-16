@@ -34,11 +34,17 @@ class ChatTtsController @Inject constructor(
 
     private var collectorJob: Job? = null
     private var ownLogin: String? = null
+    private var ignoreBots: Set<String> = emptySet()
 
-    /** Startet das Vorlesen von [messages]; eigene Nachrichten von [ownLogin] werden übersprungen. */
-    fun start(messages: Flow<ChatMessage>, ownLogin: String) {
+    /**
+     * Startet das Vorlesen von [messages]. Eigene Nachrichten von [ownLogin]
+     * und Nachrichten anderer Bots aus [ignoreBots] (Koexistenz, z. B. der
+     * Rivulet-Bot) werden übersprungen.
+     */
+    fun start(messages: Flow<ChatMessage>, ownLogin: String, ignoreBots: Set<String> = emptySet()) {
         stop()
         this.ownLogin = ownLogin.lowercase()
+        this.ignoreBots = ignoreBots.map { it.lowercase() }.toSet()
         collectorJob = scope.launch {
             messages.collect { message -> maybeSpeak(message) }
         }
@@ -48,6 +54,7 @@ class ChatTtsController @Inject constructor(
         collectorJob?.cancel()
         collectorJob = null
         ownLogin = null
+        ignoreBots = emptySet()
         // Der enabled-Zustand bleibt absichtlich erhalten (siehe Klassen-Kommentar).
     }
 
@@ -65,6 +72,8 @@ class ChatTtsController @Inject constructor(
         val login = ownLogin ?: return
         if (!_enabled.value) return
         if (message.userLogin == login) return
+        // Andere Bots (Ignore-Liste) werden nicht vorgelesen.
+        if (message.userLogin in ignoreBots) return
         val text = message.text.trim()
         // Befehle (ein `!`-Token, auch mitten in der Nachricht wie "@bot !help")
         // werden nicht vorgelesen — sonst liest der Bot Toggles/Befehle selbst vor.

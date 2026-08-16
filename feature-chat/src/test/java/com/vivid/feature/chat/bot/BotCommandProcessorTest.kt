@@ -1,5 +1,6 @@
 package com.vivid.feature.chat.bot
 
+import com.vivid.core.data.ChatBotCommandScope
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
@@ -195,6 +196,114 @@ class BotCommandProcessorTest {
         assertEquals(
             BotCommandProcessor.Result.MediaNext,
             processor().handle("!next !song", null),
+        )
+    }
+
+    // --- Koexistenz: Befehlsscope (ALL / MENTION / PREFIX) ---
+
+    @Test
+    fun `mention scope ignores commands without an address`() {
+        val p = processor()
+        assertEquals(
+            BotCommandProcessor.Result.None,
+            p.handle("!help", null, ChatBotCommandScope.MENTION, "", "vividbot"),
+        )
+        assertEquals(
+            BotCommandProcessor.Result.None,
+            p.handle("!pause", null, ChatBotCommandScope.MENTION, "", "vividbot"),
+        )
+    }
+
+    @Test
+    fun `mention scope answers commands addressed to the bot`() {
+        val p = processor()
+        assertEquals(
+            BotCommandProcessor.Result.Reply(BotCommandProcessor.HELP_TEXT),
+            p.handle("@vividbot !help", null, ChatBotCommandScope.MENTION, "", "vividbot"),
+        )
+        // Auch ohne @ und mit nachgestelltem Komma/Doppelpunkt.
+        assertEquals(
+            BotCommandProcessor.Result.MediaPause,
+            p.handle("vividbot: !pause", null, ChatBotCommandScope.MENTION, "", "vividbot"),
+        )
+    }
+
+    @Test
+    fun `mention scope is case-insensitive on the bot login`() {
+        assertEquals(
+            BotCommandProcessor.Result.Reply(BotCommandProcessor.HELP_TEXT),
+            processor().handle("@VividBot !help", null, ChatBotCommandScope.MENTION, "", "vividbot"),
+        )
+    }
+
+    @Test
+    fun `prefix scope answers only prefixed commands`() {
+        val p = processor()
+        assertEquals(
+            BotCommandProcessor.Result.Reply(
+                "Verfügbare Befehle: !v!help · !v!uptime · !v!tts · !v!song · !v!next · !v!pause · !v!bot",
+            ),
+            p.handle("!v!help", null, ChatBotCommandScope.PREFIX, "v"),
+        )
+        assertEquals(
+            BotCommandProcessor.Result.ToggleTts,
+            p.handle("!v!tts", null, ChatBotCommandScope.PREFIX, "v"),
+        )
+        assertEquals(
+            BotCommandProcessor.Result.MediaNext,
+            p.handle("!v!next", null, ChatBotCommandScope.PREFIX, "v"),
+        )
+    }
+
+    @Test
+    fun `prefix scope ignores generic commands of the other bot`() {
+        val p = processor()
+        // Generische !-Befehle gehören dem anderen Bot → None, nicht Unknown.
+        assertEquals(
+            BotCommandProcessor.Result.None,
+            p.handle("!help", null, ChatBotCommandScope.PREFIX, "v"),
+        )
+        assertEquals(
+            BotCommandProcessor.Result.None,
+            p.handle("@rivuletbot !uptime", null, ChatBotCommandScope.PREFIX, "v"),
+        )
+    }
+
+    @Test
+    fun `prefix scope works with multi-character prefixes and inside a message`() {
+        val p = processor()
+        assertEquals(
+            BotCommandProcessor.Result.MediaPause,
+            p.handle("hey @vividbot !vivid!pause", null, ChatBotCommandScope.PREFIX, "vivid"),
+        )
+    }
+
+    @Test
+    fun `prefix scope without a configured prefix answers nothing`() {
+        assertEquals(
+            BotCommandProcessor.Result.None,
+            processor().handle("!v!help", null, ChatBotCommandScope.PREFIX, ""),
+        )
+    }
+
+    @Test
+    fun `prefix scope is case-insensitive`() {
+        assertEquals(
+            BotCommandProcessor.Result.MediaNext,
+            processor().handle("!V!next", null, ChatBotCommandScope.PREFIX, "V"),
+        )
+    }
+
+    @Test
+    fun `all scope is the default and keeps answering every command`() {
+        val p = processor()
+        assertEquals(
+            BotCommandProcessor.Result.Reply(BotCommandProcessor.HELP_TEXT),
+            p.handle("!help", null),
+        )
+        assertEquals(
+            BotCommandProcessor.Result.Reply(BotCommandProcessor.HELP_TEXT),
+            p.handle("!help", null, ChatBotCommandScope.ALL, "v", "vividbot"),
         )
     }
 }

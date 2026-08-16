@@ -37,6 +37,9 @@ class SettingsRepository @Inject constructor(
         val CHAT_BOT_MODE = stringPreferencesKey("chat_bot_mode")
         val CHAT_BOT_LOGIN = stringPreferencesKey("chat_bot_login")
         val CHAT_BOT_OAUTH_TOKEN = stringPreferencesKey("chat_bot_oauth_token")
+        val CHAT_BOT_IGNORE_BOTS = stringPreferencesKey("chat_bot_ignore_bots")
+        val CHAT_BOT_COMMAND_SCOPE = stringPreferencesKey("chat_bot_command_scope")
+        val CHAT_BOT_COMMAND_PREFIX = stringPreferencesKey("chat_bot_command_prefix")
     }
 
     // WICHTIG: Dies ist jetzt der EINZIGE Flow, den das ViewModel braucht.
@@ -83,6 +86,9 @@ class SettingsRepository @Inject constructor(
                 mode = ChatBotMode.fromName(prefs[PrefKeys.CHAT_BOT_MODE]),
                 login = prefs[PrefKeys.CHAT_BOT_LOGIN] ?: "",
                 oauthToken = prefs[PrefKeys.CHAT_BOT_OAUTH_TOKEN] ?: "",
+                ignoreBots = prefs[PrefKeys.CHAT_BOT_IGNORE_BOTS] ?: "",
+                commandScope = ChatBotCommandScope.fromName(prefs[PrefKeys.CHAT_BOT_COMMAND_SCOPE]),
+                commandPrefix = prefs[PrefKeys.CHAT_BOT_COMMAND_PREFIX] ?: "",
             )
         },
     ) { streamData, obsData, chatData, chatBotData ->
@@ -111,6 +117,9 @@ class SettingsRepository @Inject constructor(
             chatBotMode = chatBotData.mode,
             chatBotLogin = chatBotData.login,
             chatBotOauthToken = chatBotData.oauthToken,
+            chatBotIgnoreBots = chatBotData.ignoreBots,
+            chatBotCommandScope = chatBotData.commandScope,
+            chatBotCommandPrefix = chatBotData.commandPrefix,
         )
     }
 
@@ -164,6 +173,9 @@ class SettingsRepository @Inject constructor(
         mode: ChatBotMode = ChatBotMode.AUTONOMOUS,
         login: String,
         oauthToken: String,
+        ignoreBots: String = "",
+        commandScope: ChatBotCommandScope = ChatBotCommandScope.ALL,
+        commandPrefix: String = "",
     ) {
         dataStore.edit { prefs ->
             prefs[PrefKeys.CHAT_BOT_ENABLED] = enabled
@@ -177,6 +189,9 @@ class SettingsRepository @Inject constructor(
             prefs[PrefKeys.CHAT_BOT_MODE] = mode.name
             prefs[PrefKeys.CHAT_BOT_LOGIN] = login
             prefs[PrefKeys.CHAT_BOT_OAUTH_TOKEN] = oauthToken
+            prefs[PrefKeys.CHAT_BOT_IGNORE_BOTS] = ignoreBots
+            prefs[PrefKeys.CHAT_BOT_COMMAND_SCOPE] = commandScope.name
+            prefs[PrefKeys.CHAT_BOT_COMMAND_PREFIX] = commandPrefix
         }
     }
 
@@ -213,5 +228,8 @@ class SettingsRepository @Inject constructor(
         val mode: ChatBotMode,
         val login: String,
         val oauthToken: String,
+        val ignoreBots: String,
+        val commandScope: ChatBotCommandScope,
+        val commandPrefix: String,
     )
 }
