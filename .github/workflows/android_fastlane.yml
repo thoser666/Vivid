@@ -600,4 +600,27 @@ jobs:
           [ -n "$TRACK" ] && args+=(track:"$TRACK")
           args+=(dry_run:"$DRY_RUN")
           bundle exec fastlane publish_play "${args[@]}"
-
+  # ✅ Selbstprüfung: verwaiste Draft-Releases auf v*-Tags melden (ohne
+  # Auto-Löschung — ein menschlich angelegter Draft kann legitim sein).
+  # Fängt Reste abgebrochener Stable-Runs (hart abgewürgter Runner: der
+  # Rollback in publish_release konnte nicht mehr laufen). Läuft auf
+  # Schedule/Manual, NICHT auf Push — während publish-release parallel ein
+  # Release neu erstellt, wäre eine Draft-Meldung transient und irreführend.
+  sweep-orphan-drafts:
+    name: Sweep Orphan Draft Releases (v*)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1.321.0
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+      - name: Sweep orphan draft releases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bundle exec fastlane sweep_orphan_drafts

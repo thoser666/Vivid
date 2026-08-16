@@ -160,6 +160,20 @@ Der Job **`verify-reproducibility`** in `android_fastlane.yml` vergleicht nach j
 
 **AAB (Bundle):** Sollte die Release-Lane künftig zusätzlich zum APK ein `app-release.aab` publizieren, wird es automatisch mitgeprüft (der Download-Step erkennt das AAB im Release und aktiviert die AAB-Checks nur dann): ① **Signatur** per `jarsigner -verify` (Integrität) + `keytool -printcert -jarfile` (Zertifikat gegen Release-Key), ② **Reproduzierbarkeit** durch frischen `:app:bundleRelease`-Build mit denselben versionName/versionCode-Parametern und Hash-Vergleich. Die AAB-Determinismustests lokal bestätigen: Zwei vollständig frische `bundleRelease`-Builds desselben Commits sind **bit-identisch** (Vorsicht: ein mit `--rerun-tasks` gemischter Vergleich gegen einen zwischenzeitlich veralteten Task-Cache täuscht Unterschiede vor — nur frische Builds vergleichen).
 
+### Rollback-Semantik bei Publish-Fehlern (Nightly vs. Stable)
+
+Die `publish_release`-Lane (`fastlane/Fastfile`) wendet bei fehlgeschlagenem `gh release create` **bewusst unterschiedliche** Rollback-Regeln an — je nach Release-Typ:
+
+| Aspekt | Nightly (`nightly-*`) | Stable (`v*`) |
+|---|---|---|
+| Tag-Herkunft | Wegwerf-Artefakt, vom Workflow selbst erzeugt (`nightly-<Timestamp>`) | Versionsmarker, **absichtlich** von der Release-Lane (`release_alpha`/`release_beta`) gepusht |
+| Retry | 3 Versuche + 5 s Pause (transiente Netz-/API-Fehler) | 3 Versuche + 5 s Pause (Spiegel des Nightly) |
+| Bei endgültigem Fehler | **Tag + Rest-Release löschen** → kein Orphan bleibt zurück | **Nur Rest-(Draft-)Release löschen, der Tag bleibt** — er wird für Re-Runs und Versionierung benötigt |
+| Re-Run nach Fehler | nächster Run erzeugt einen frischen Tag | Workflow läuft erneut auf demselben Tag → Release wird neu erstellt |
+| „Exists“-Check | — | akzeptiert nur **vollständige** Releases (published + APK-Asset); Draft/ohne-APK wird gelöscht und neu erstellt — verhindert stilles „Skipping“ ohne veröffentlichte APK |
+
+**Selbstheilung (Sweep):** Der Job **`sweep-orphan-drafts`** (`android_fastlane.yml`, täglich 06:00 UTC + manuell per `workflow_dispatch`) meldet verwaiste Draft-Releases auf `v*`-Tags — Reste abgebrochener Stable-Runs, deren Rollback bei hartem Runner-Kill nicht mehr laufen konnte. Er **meldet nur, löscht nie** (ein menschlich angelegter Draft kann legitim sein) und färbt den Workflow bei Funden rot. Verwaiste `nightly-*`-Tags ohne Release räumt dagegen der Orphan-Tag-Sweep direkt im Publish-Schritt auf.
+
 
 ## 🔒 CI-Härtung: Pinned Actions (Supply-Chain)
 
