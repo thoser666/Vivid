@@ -415,7 +415,7 @@ Status: ✅ implemented · 🚧 in progress · 📋 planned
 | Multi-Network Bonding (SRTLA) | 📋 | SRTLA algorithm to be ported |
 | Chat + Emotes + Moderation | 🚧 | `feature-chat` — Twitch IRC client (anonymous) + chat overlay over the live preview + AI chat bot done; emotes & moderation pending |
 | AI Chat Bot (Vivid extra) | ✅ | Fully automatic LLM chat bot: auto-connect on go-live, clean shutdown on stream end; OpenAI-compatible LLM providers |
-| Chat-Bot Media Player Control | 📋 | Generic media control via MediaSession (Apple Music, Spotify, …); Android adaptation of Moblin 33.12.0 |
+| Chat-Bot Media Player Control | ✅ | Generic media control via MediaSession (Apple Music, Spotify, …); Android adaptation of Moblin 33.12.0 — commands `!song`/`!next`/`!pause`/`!play`/`!prev` (needs notification access) |
 | Overlays & Widgets | 📋 | `feature-widgets` module scaffolded; text widgets incl. altitude ascent/descent, GPS coords and road variables (Twitch chat overlay already implemented in `feature-chat`) |
 | Audio Tools (levels, muting, talk-back) | 📋 | |
 | Extended Protocols (RIST, WHIP) | 📋 | |

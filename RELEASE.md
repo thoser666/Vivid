@@ -13,12 +13,12 @@ Jeder Release durchläuft eine von vier Stufen. Welche Stufe aktiv ist, bestimmt
 
 ## 🗺️ Roadmap (Version → Features)
 
-Welche offenen PARITY-Punkte in welcher Version released werden — Zählerstand: ✅ **16** (Stand 2026-08-15, [PARITY.md](PARITY.md)). Reihenfolge nach dem Prinzip: **erst Gate-Pflichten, dann Nutzer-Sichtbares, dann Streaming-Komfort, zuletzt Protokoll-Ausbau & Plattform** — jedes Release bleibt für sich testbar und läuft über die jeweilige Fastlane-Lane.
+Welche offenen PARITY-Punkte in welcher Version released werden — Zählerstand: ✅ **17** (Stand 2026-08-16, [PARITY.md](PARITY.md)). Reihenfolge nach dem Prinzip: **erst Gate-Pflichten, dann Nutzer-Sichtbares, dann Streaming-Komfort, zuletzt Protokoll-Ausbau & Plattform** — jedes Release bleibt für sich testbar und läuft über die jeweilige Fastlane-Lane.
 
 | Version | Inhalt (PARITY-Punkte) | ✅ nach Release | Gate |
 |---------|------------------------|-----------------|------|
-| `v0.4.x-alpha` | (läuft bereits — aktuell `v0.4.2-alpha`, enthält den Scroll-Fix) | 16 | alpha-Gate aktiv |
-| `v0.3.0-beta` | **Chat & Moderation (4):** Plattform-Chat, Emotes, Moderation/Chat-Bot/TTS, Media-Player-Bot · **erstes Overlay:** Text-/Info-Widgets (Sensor-/GPS-Daten) · **Vivid-Zusatz:** KI-Chat-Bot (LLM-Antworten, bereits in alpha implementiert) | **21** | **Beta-Gate** (Chat + ≥1 Widget + ≥17 ✅) · Stand 16/17 — offen: erstes Widget + Chat-✅ |
+| `v0.4.x-alpha` | (läuft bereits — aktuell `v0.4.2-alpha`, enthält den Scroll-Fix) | 17 | alpha-Gate aktiv |
+| `v0.3.0-beta` | **Chat & Moderation (4):** Plattform-Chat, Emotes, Moderation/Chat-Bot/TTS, Media-Player-Bot · **erstes Overlay:** Text-/Info-Widgets (Sensor-/GPS-Daten) · **Vivid-Zusatz:** KI-Chat-Bot (LLM-Antworten, bereits in alpha implementiert) | **21** | **Beta-Gate** (Chat + ≥1 Widget + ≥17 ✅) · Stand 17/17 — offen: erstes Widget + Chat-✅ formal |
 | `v0.4.0-beta` | **Overlays & Widgets (5):** Chat-Overlay/Event-Alerts, Text-Widget-Variablen, Karten-Widget, Browser-Widget, Scoreboards | **26** | Beta #2 |
 | `v0.5.0-beta` | **Kamera & Video (4):** Color-Spaces/3D-LUTs, Video-Effekte, Externes Zubehör, Photo-Shoot · **Audio (3):** Mic-Verwaltung, Level-Meter/Muting/Sync, Talk-Back · Oura-Ring-Widget | **34** | Beta #3 |
 | `v0.6.0-beta` | **Streaming-Erweiterung (5):** RIST, WHIP, RTMP-Pull/Ingest, 4K/HEVC, SRTLA-Bonding · OBS Snapshot/Audio-Levels · Game-Controller, Deep-Linking/Konfig-Import | **42** | Beta #4 |
@@ -28,11 +28,11 @@ Welche offenen PARITY-Punkte in welcher Version released werden — Zählerstand
 
 ## 🧪 Erster Beta-Build (Plan)
 
-Das Beta-Gate ist erreicht, wenn **alle drei** Bedingungen erfüllt sind (Stand 2026-08-15: 2/3 offen):
+Das Beta-Gate ist erreicht, wenn **alle drei** Bedingungen erfüllt sind (Stand 2026-08-16: 1/3 offen — **≥17 ✅ ist erreicht**):
 
 | Bedingung | Status | Offen |
 |-----------|--------|-------|
-| ≥17 ✅ in PARITY.md | **16/17** | **erstes Widget** (Text-/Info-Widgets) als 17. ✅ |
+| ≥17 ✅ in PARITY.md | ✅ **17/17** (Row 80 „Media-Player-Steuerung“ als 17. ✅) | — |
 | Chat-✅ | Twitch-IRC + Chat-Overlay + **KI-Chat-Bot** laufen (45 Tests) | formal: Scope auf „Twitch-Chat“ (Row 77) oder Event-Alerts (Row 86) |
 | ≥1 Widget | 0/5 begonnen | Text-/Info-Widgets (Zeit/GPS/Geschwindigkeit/Höhenmeter) in `feature-widgets` (Modul existiert als Gerüst) |
 
@@ -608,7 +608,7 @@ bundle exec fastlane release_alpha
 >   - Data Safety Section (welche Daten sammelt die App?)
 
 **Kriterien (alle müssen erfüllt sein):**
-- [ ] ≥17 ✅ Feature-Parität in PARITY.md (aktuell 16/42 ≈ 38 %)
+- [x] ≥17 ✅ Feature-Parität in PARITY.md (17/42 ≈ 40 %)
 - [ ] Chat implementiert & getestet (🚧 in PARITY.md)
 - [ ] Mindestens ein Overlay/Widget funktioniert (🚧 in PARITY.md)
 - [ ] Kamera-Vorschau stabil (🚧 in PARITY.md)

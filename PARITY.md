@@ -13,11 +13,11 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 | 📋 | Geplant (Roadmap) |
 | — | Nicht zutreffend auf Android |
 
-> **Stand:** 2026-08-16 · Aktualisierung: **KI-Chat-Bot** (Vivid-Zusatz-Feature, automatisierte LLM-Chat-Antworten) implementiert — Beta-Gate weiterhin bei **16/17 ✅** (Moblin-Parität unverändert); offen für das Gate: **erstes Widget** (Text-/Info-Widgets) + **Chat-Formalisierung** (Twitch-IRC + Overlay + KI-Bot laufen, Scope auf Twitch oder Event-Alerts) — Referenzstand: Moblin **33.12.0**
+> **Stand:** 2026-08-16 · Aktualisierung: **17/17 ✅ erreicht** — Row 80 „Chat-Bot: Media-Player-Steuerung“ ist als 17. Moblin-Paritäts-Punkt ✅ abgeschlossen (16 → 17); damit ist die **≥17-✅-Bedingung des Beta-Gates erfüllt**. Beta-Gate **2/3 erreicht**: offen sind nur noch das **erste Widget** (Text-/Info-Widgets) + die **Chat-Formalisierung** (Twitch-IRC + Overlay + KI-Bot laufen, Scope auf Twitch oder Event-Alerts) — Referenzstand: Moblin **33.12.0**
 >
 > **Pflege:** Nach jedem Feature-Commit den Status in der jeweiligen Zeile aktualisieren und das Datum oben anpassen.
 >
-> 🚦 **Nächster Meilenstein (Beta-Gate):** ≥17 ✅ (aktuell **16**) + Chat-✅ + ≥1 Widget — offen: erstes Widget (Text-/Info-Widgets) + Chat-Formalisierung (Twitch läuft). Siehe [RELEASE.md](RELEASE.md#beta--nächster-meilenstein) für alle Stage Gates.
+> 🚦 **Nächster Meilenstein (Beta-Gate):** ≥17 ✅ (**erreicht: 17**) + Chat-✅ + ≥1 Widget — offen: erstes Widget (Text-/Info-Widgets) + Chat-Formalisierung (Twitch läuft). Siehe [RELEASE.md](RELEASE.md#beta--nächster-meilenstein) für alle Stage Gates.
 
 ---
 
@@ -28,14 +28,14 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 | Streaming & Protokolle | 5 | 0 | 4 | 9 |
 | Netzwerk-Bonding | 0 | 0 | 1 | 1 |
 | OBS-Steuerung | 3 | 0 | 1 | 4 |
-| Chat & Moderation | 0 | 1 | 3 | 4 |
+| Chat & Moderation | 1 | 2 | 1 | 4 |
 | Overlays & Widgets | 0 | 1 | 5 | 6 |
 | Kamera & Video | 2 | 0 | 4 | 6 |
 | Audio | 0 | 0 | 3 | 3 |
 | Remote & Companion | 1 | 0 | 2 | 3 |
 | Plattform & Grundlagen | 5 | 1 | 0 | 6 |
 | Zusatz-Features (über Parität) | 1 | 0 | 1 | 2 |
-| **Gesamt** | **16** | **3** | **24** | **44**† |
+| **Gesamt** | **18** | **4** | **22** | **44**† |
 
 † Inkl. 1 n/a-Zeile (Apple-Watch-Companion) und 2 Zusatz-Features über die Moblin-Parität hinaus; anwendbare Moblin-Features: **42**.
 
