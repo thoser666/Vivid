@@ -1,0 +1,57 @@
+# Harness: fuehrt die ECHTE publish_release-Lane aus fastlane/Fastfile aus
+# (Text wird direkt aus der Datei extrahiert, kein Code dupliziert), mit
+# minimalen fastlane-Stubs und einem Mock-gh-Transport. Beruehrt KEINE echten
+# Releases. Aufruf: ruby scripts/publish_release_harness.rb
+#   MOCK_GH_STATE_DIR — Verzeichnis mit releases.json (Mock-Zustand)
+#   MOCK_GH_APK       — Pfad zur Dummy-APK (File.exist?-Check der Lane)
+require "json"
+
+module SharedValues
+  GRADLE_APK_OUTPUT_PATH = :apk_path
+  GRADLE_MAPPING_TXT_OUTPUT_PATH = :mapping
+  GRADLE_OUTPUT_JSON_OUTPUT_PATH = :metadata
+end
+
+class UI
+  def self.header(m);      puts "== #{m}"; end
+  def self.message(m);     puts "   [msg] #{m}"; end
+  def self.important(m);   puts "   [!!] #{m}"; end
+  def self.error(m);       puts "   [ERR] #{m}"; end
+  def self.success(m);     puts "   [OK] #{m}"; end
+  def self.user_error!(m); raise "USER_ERROR: #{m}"; end
+end
+
+MOCK_GH = File.expand_path("gh_mock_release.sh", __dir__)
+
+def sh(*args)
+  puts "   [sh] #{args.join(' ')}"
+  cmd = args[0] == "gh" ? ["bash", MOCK_GH] + args[1..] : args
+  ok = system(*cmd)
+  raise "sh failed: #{cmd.join(' ')}" unless ok
+end
+
+# Backtick-Override: `gh ...`-Aufrufe der Lane zum Mock umleiten. Das
+# nachgestellte "2>/dev/null" entfernen, damit cmd.exe es nicht missdeutet.
+def `(cmd)
+  c = cmd.strip.sub(/^gh\b/, "bash #{MOCK_GH}").sub(/\s*2>\/dev\/null\s*$/, "")
+  puts "   [bt] #{c}"
+  IO.popen(c.split, &:read).to_s
+end
+
+def lane_context; {}; end
+
+def lane(_name, &block)
+  $LANE_BLOCK = block
+end
+
+source = File.read(File.expand_path("fastlane/Fastfile", Dir.pwd))
+start = source.index("lane :publish_release do |options|")
+raise "publish_release-Lane nicht gefunden — Fastfile geändert?" unless start
+finish = source.index('  desc "Build a release AAB', start)
+raise "Lane-Ende nicht gefunden — Fastfile geändert?" unless finish
+lane_src = source[start...finish].sub(/\r?\n[ \t]*end[ \t]*\r?\n?\z/m, "")
+eval(lane_src, TOPLEVEL_BINDING)
+
+options = { tag: "v9.9.9-test", apk: ENV["MOCK_GH_APK"] || "dummy.apk" }
+$LANE_BLOCK.call(options)
+puts "LANE_OK"

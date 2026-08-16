@@ -536,6 +536,25 @@ jobs:
       - name: Run publish_play dry-run self-test
         run: bash scripts/test_publish_play_dryrun.sh
 
+  # ✅ Regressionstest: gehärtete stabile Release-Publizierung (publish_release,
+  # if-stable) lokal gegen einen Mock-gh — prüft Skip/Delete+Recreate/Retry/
+  # Rollback, ohne echte Releases zu berühren (siehe scripts/README-Hinweis im
+  # Test-Skript). Braucht nur plain Ruby (kein Bundler/Fastlane).
+  test-publish-release-hardening:
+    name: Self-Test publish_release (Hardening, Mock-gh)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1.321.0
+        with:
+          ruby-version: '3.3'
+      - name: Run publish_release hardening self-test
+        run: bash scripts/test_publish_release_hardening.sh
+
   publish-play:
     name: Publish to Google Play
     runs-on: ubuntu-latest
