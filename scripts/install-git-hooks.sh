@@ -29,4 +29,5 @@ chmod +x "$HOOK_FILE"
 
 echo "✅ Pre-Push-Hook installiert: $HOOK_FILE"
 echo "   Jeder \`git push\` läuft jetzt lokal: Unit-Tests + Lint + Secret-Guard."
+echo "   Optional zusätzlich Release-Build (R8/ProGuard): PRE_PUSH_RELEASE=1 git push"
 echo "   Umgehen nur bewusst: \`git push --no-verify\`."

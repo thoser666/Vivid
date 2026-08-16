@@ -18,6 +18,14 @@ grep -q "lintDebug" <<< "$out" || fail "lintDebug fehlt im Dry-Run"
 grep -q "guard_secrets.sh" <<< "$out" || fail "guard_secrets.sh fehlt im Dry-Run"
 grep -q "Alle Checks grün" <<< "$out" || fail "Abschlussmeldung fehlt im Dry-Run"
 
+# Der Release-Build ist optional: ohne PRE_PUSH_RELEASE darf er NICHT auftauchen,
+# mit PRE_PUSH_RELEASE=1 muss er aufgelistet sein.
+if grep -q "assembleRelease" <<< "$out"; then
+  fail "assembleRelease erscheint ohne PRE_PUSH_RELEASE=1 im Dry-Run"
+fi
+out_release="$(PRE_PUSH_RELEASE=1 bash scripts/pre-push.sh --dry-run)"
+grep -q "assembleRelease" <<< "$out_release" || fail "assembleRelease fehlt im Dry-Run mit PRE_PUSH_RELEASE=1"
+
 [[ -f scripts/install-git-hooks.sh ]] || fail "scripts/install-git-hooks.sh fehlt"
 
-echo "✅ Pre-Push-Gate: Dry-Run listet alle drei Checks, Installer vorhanden."
+echo "✅ Pre-Push-Gate: Dry-Run listet alle Checks (Release-Build nur optional), Installer vorhanden."
