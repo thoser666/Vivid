@@ -1,6 +1,6 @@
 # 🤖 AI Chat Bot
 
-> **Status:** Engine, Twitch sending, LLM client and stream-lifecycle wiring are **implemented and tested**. The configuration screen inside Vivid is the next milestone — until it lands, the settings documented below are stored per the fields listed in [Configuration](#configuration).
+> **Status:** Engine, Twitch sending, LLM client, stream-lifecycle wiring **and the mode switch** („Bot wie Moblin“ ↔ „KI entscheidet selbst“) are **implemented and tested**. The remaining configuration fields (Twitch token, LLM credentials) inside Vivid's settings screen are the next milestone — until they land, those settings are stored per the fields listed in [Configuration](#configuration) (pre-seeded via `SettingsRepository.updateChatBotSettings(...)`).
 
 Vivid ships a **fully automated, in-app chat bot** (the idea is borrowed from cloud services like [Stream Chat AI](https://streamchatai.com), but it runs right on your phone — no dashboard, no monthly fee, you only pay your own LLM provider):
 
@@ -32,6 +32,28 @@ Stream end → ChatBotController.onStreamStopped() → clean disconnect
 
 The bot joins the same channel you configured for the chat overlay (`chat_channel`) — it runs independently of the overlay, so you can use either or both.
 
+## Betriebsmodi (der Switch)
+
+In den Einstellungen (Abschnitt **„Chat-Bot (KI)“**) gibt es einen **Betriebsmodus-Switch** mit zwei Positionen:
+
+| Modus | Verhalten | LLM nötig? |
+|-------|-----------|------------|
+| **„Bot (wie Moblin)“** (`COMMAND`) | Deterministischer Befehls-Bot: reagiert **nur** auf `!`-Befehle (`!help`, `!uptime`, `!bot`) mit festen Antworten — genau wie der Chat-Bot von [Moblin](https://github.com/eerimoq/moblin). Nicht-Befehle werden ignoriert. | **Nein** — nur ein Twitch-Chat-Token reicht |
+| **„KI autonom“** (`AUTONOMOUS`) | Die KI entscheidet selbst: Bekannte `!`-Befehle werden weiterhin sofort beantwortet, alle übrigen (freigegebenen) Nachrichten bewertet das LLM und entscheidet, ob und wie es antwortet — **inklusive bewusstem Schweigen** (Signal: `[keine Antwort]`). | Ja — OpenAI-kompatibles LLM |
+
+**Eingebaute Befehle (beide Modi):**
+
+| Befehl | Antwort |
+|--------|---------|
+| `!help` / `!commands` | Listet die verfügbaren Befehle |
+| `!uptime` | Wie lange der Stream schon läuft (aus dem Stream-Start-Zeitstempel) |
+| `!bot` | Kurzinfo über den Bot |
+| `!<unbekannt>` | COMMAND: Hinweis „Unbekannter Befehl … — Tipp: !help“ · AUTONOMOUS: die KI entscheidet |
+
+Befehle sind **case-insensitive** und können mitten in der Nachricht stehen (`@bot !help`). Cooldown und Rate-Limit gelten für **alle** Antworten — auch für Befehle (schützt vor Spam, Twitch begrenzt 20 Nachrichten/30 s).
+
+> 💡 **Tipp:** Im COMMAND-Modus funktioniert der Bot komplett ohne LLM-API-Key — ideal, wenn du nur die Moblin-artigen Chat-Befehle willst.
+
 ## Current status
 
 Implemented & unit-tested:
@@ -39,14 +61,15 @@ Implemented & unit-tested:
 - `OpenAiCompatibleLlmClient` — OpenAI-compatible `/v1/chat/completions` client (Bearer auth, error handling, configurable model/temperature/max tokens).
 - `TwitchBotClient` — authenticated Twitch chat connection (`PASS oauth:<token>`), reads and **sends** messages, PING→PONG keepalive, auto-reconnect with backoff.
 - `ChatBotEngine` — reaction engine: ignores the bot's own messages, mentions-only filter, cooldown, per-minute rate limit, rolling prompt history, 500-char reply cap, `ChatBotState` (Disabled/Idle/Thinking).
-- `ChatBotController` + `StreamingService` wiring — automatic connect on Go Live, clean shutdown on stream end, instant stop when the bot is disabled in settings.
-- Bot settings in `SettingsRepository`/`AppSettings`.
+- `ChatBotController` + `StreamingService` wiring — automatic connect on Go Live, clean shutdown on stream end, instant stop when the bot is disabled in settings. Tracks the stream start timestamp for `!uptime`.
+- **Mode switch** in Vivid's Settings screen („Bot (wie Moblin)“ ↔ „KI autonom“) incl. enable toggle — see [Betriebsmodi (der Switch)](#betriebsmodi-der-switch).
+- Bot settings in `SettingsRepository`/`AppSettings` (`chat_bot_mode` key).
 
 Still open (next milestones):
 
-- **Settings UI** in Vivid's Settings screen (the settings themselves are already persisted).
+- **Remaining bot fields in the Settings screen** (Twitch token, LLM endpoint/key/model, cooldown, mentions-only, rate limit — currently pre-seeded via `SettingsRepository.updateChatBotSettings(...)`).
 - **Twitch OAuth browser flow** (until then, paste a chat token — see below).
-- Cost budget per hour, media-player control commands, provider presets.
+- Cost budget per hour, media-player control commands (`!song`/`!next`/`!pause` via MediaSession, Moblin parity row), provider presets.
 
 ## Prerequisites
 
@@ -99,6 +122,7 @@ All bot settings live in the app settings. Fields (DataStore keys):
 | Reply cooldown | `chat_bot_reply_cooldown_seconds` | `8` (default) |
 | Mentions only | `chat_bot_mentions_only` | `true` (default) — replies only when the bot is addressed |
 | Max replies/min | `chat_bot_max_replies_per_minute` | `10` (default) |
+| **Modus** | `chat_bot_mode` | `AUTONOMOUS` (default) — `COMMAND` = „Bot wie Moblin“ (nur `!`-Befehle, kein LLM nötig) |
 
 Until the settings screen ships, these can be pre-seeded for development/testing through the repository APIs (`SettingsRepository.updateChatBotSettings(...)`).
 
@@ -124,10 +148,11 @@ Until the settings screen ships, these can be pre-seeded for development/testing
 
 ## Roadmap
 
-- Settings screen for the bot inside Vivid (all fields from [Configuration](#configuration)).
+- ✅ **Mode switch** in Vivid's settings („Bot wie Moblin“ ↔ „KI autonom“) — done.
+- Full bot settings screen inside Vivid (remaining fields from [Configuration](#configuration): Twitch token, LLM credentials …).
 - Twitch OAuth browser flow (no manual token pasting).
 - Optional hourly cost budget for the LLM.
-- Bot commands / media-player control via MediaSession (Moblin parity row).
+- Media-player control commands (`!song`/`!next`/`!pause`) via MediaSession (Moblin parity row).
 - More platforms once Kick/YouTube chat lands.
 
 ## Architecture
@@ -137,8 +162,9 @@ Until the settings screen ships, these can be pre-seeded for development/testing
 | `feature-chat/…/ai/LlmClient.kt` | `LlmClient` interface + `OpenAiCompatibleLlmClient` (Ktor) + `LlmConfig` |
 | `feature-chat/…/ai/LlmModels.kt` | Chat-Completion request/response DTOs (kotlinx.serialization) |
 | `feature-chat/…/twitch/TwitchBotClient.kt` | Authenticated Twitch IRC connection: read + `sendMessage()` |
-| `feature-chat/…/bot/ChatBotEngine.kt` | Reaction engine (filters, history, LLM call, send, state) |
-| `feature-chat/…/bot/ChatBotConfig.kt` | Settings → engine configuration |
+| `feature-chat/…/bot/ChatBotEngine.kt` | Reaction engine (mode switch, filters, history, LLM call, send, state) |
+| `feature-chat/…/bot/BotCommandProcessor.kt` | Deterministic `!`-commands („Bot wie Moblin“, no LLM) |
+| `feature-chat/…/bot/ChatBotConfig.kt` | Settings → engine configuration (incl. mode) |
 | `feature-chat/…/bot/ChatSender.kt` | Send abstraction (interface) |
 | `feature-chat/…/bot/ChatBotController.kt` | Stream-lifecycle → bot wiring |
 | `app/…/StreamingService.kt` | Calls `onStreamStarted()` / `onStreamStopped()` |

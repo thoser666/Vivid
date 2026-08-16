@@ -34,6 +34,7 @@ class SettingsRepository @Inject constructor(
         val CHAT_BOT_REPLY_COOLDOWN_SECONDS = longPreferencesKey("chat_bot_reply_cooldown_seconds")
         val CHAT_BOT_MENTIONS_ONLY = booleanPreferencesKey("chat_bot_mentions_only")
         val CHAT_BOT_MAX_REPLIES_PER_MINUTE = intPreferencesKey("chat_bot_max_replies_per_minute")
+        val CHAT_BOT_MODE = stringPreferencesKey("chat_bot_mode")
         val CHAT_BOT_LOGIN = stringPreferencesKey("chat_bot_login")
         val CHAT_BOT_OAUTH_TOKEN = stringPreferencesKey("chat_bot_oauth_token")
     }
@@ -79,6 +80,7 @@ class SettingsRepository @Inject constructor(
                 replyCooldownSeconds = prefs[PrefKeys.CHAT_BOT_REPLY_COOLDOWN_SECONDS] ?: 8L,
                 mentionsOnly = prefs[PrefKeys.CHAT_BOT_MENTIONS_ONLY] ?: true,
                 maxRepliesPerMinute = prefs[PrefKeys.CHAT_BOT_MAX_REPLIES_PER_MINUTE] ?: 10,
+                mode = ChatBotMode.fromName(prefs[PrefKeys.CHAT_BOT_MODE]),
                 login = prefs[PrefKeys.CHAT_BOT_LOGIN] ?: "",
                 oauthToken = prefs[PrefKeys.CHAT_BOT_OAUTH_TOKEN] ?: "",
             )
@@ -106,6 +108,7 @@ class SettingsRepository @Inject constructor(
             chatBotReplyCooldownSeconds = chatBotData.replyCooldownSeconds,
             chatBotMentionsOnly = chatBotData.mentionsOnly,
             chatBotMaxRepliesPerMinute = chatBotData.maxRepliesPerMinute,
+            chatBotMode = chatBotData.mode,
             chatBotLogin = chatBotData.login,
             chatBotOauthToken = chatBotData.oauthToken,
         )
@@ -158,6 +161,7 @@ class SettingsRepository @Inject constructor(
         replyCooldownSeconds: Long,
         mentionsOnly: Boolean,
         maxRepliesPerMinute: Int,
+        mode: ChatBotMode = ChatBotMode.AUTONOMOUS,
         login: String,
         oauthToken: String,
     ) {
@@ -170,6 +174,7 @@ class SettingsRepository @Inject constructor(
             prefs[PrefKeys.CHAT_BOT_REPLY_COOLDOWN_SECONDS] = replyCooldownSeconds
             prefs[PrefKeys.CHAT_BOT_MENTIONS_ONLY] = mentionsOnly
             prefs[PrefKeys.CHAT_BOT_MAX_REPLIES_PER_MINUTE] = maxRepliesPerMinute
+            prefs[PrefKeys.CHAT_BOT_MODE] = mode.name
             prefs[PrefKeys.CHAT_BOT_LOGIN] = login
             prefs[PrefKeys.CHAT_BOT_OAUTH_TOKEN] = oauthToken
         }
@@ -205,6 +210,7 @@ class SettingsRepository @Inject constructor(
         val replyCooldownSeconds: Long,
         val mentionsOnly: Boolean,
         val maxRepliesPerMinute: Int,
+        val mode: ChatBotMode,
         val login: String,
         val oauthToken: String,
     )

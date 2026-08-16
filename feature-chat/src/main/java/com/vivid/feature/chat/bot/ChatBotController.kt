@@ -26,6 +26,10 @@ class ChatBotController @Inject constructor(
 ) {
     @Volatile
     private var streaming = false
+
+    /** Zeitstempel des Stream-Starts (für den `!uptime`-Befehl). */
+    @Volatile
+    private var streamStartedAtMillis = 0L
     private var settingsJob: Job? = null
 
     init {
@@ -43,11 +47,13 @@ class ChatBotController @Inject constructor(
     fun onStreamStarted() {
         if (streaming) return
         streaming = true
+        streamStartedAtMillis = System.currentTimeMillis()
         scope.launch { startBot(settingsRepository.appSettingsFlow.first()) }
     }
 
     fun onStreamStopped() {
         streaming = false
+        streamStartedAtMillis = 0L
         stopBot()
     }
 
@@ -57,7 +63,13 @@ class ChatBotController @Inject constructor(
             stopBot()
             return
         }
-        engine.start(botClient.messages, config, { text -> botClient.sendMessage(text) }, scope)
+        engine.start(
+            messages = botClient.messages,
+            config = config,
+            sender = { text -> botClient.sendMessage(text) },
+            scope = scope,
+            streamStartedAtMillis = streamStartedAtMillis,
+        )
         botClient.connect(config.channel, config.login, config.oauthToken)
     }
 

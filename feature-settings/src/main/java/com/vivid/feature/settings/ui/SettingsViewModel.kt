@@ -3,6 +3,7 @@ package com.vivid.feature.settings.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vivid.core.data.AppSettings // Importiert die vollständige Klasse
+import com.vivid.core.data.ChatBotMode
 import com.vivid.core.data.SettingsRepository
 import com.vivid.core.remote.RemoteControlServer
 import com.vivid.core.remote.RemoteControlTokenStore
@@ -109,6 +110,10 @@ class SettingsViewModel @Inject constructor(
     fun onChatChannelChange(newChannel: String) { _uiState.value = _uiState.value.copy(chatChannel = newChannel) }
     fun onChatOverlayEnabledChange(newEnabled: Boolean) { _uiState.value = _uiState.value.copy(chatOverlayEnabled = newEnabled) }
 
+    // Chat-Bot-Einstellungen.
+    fun onChatBotEnabledChange(newEnabled: Boolean) { _uiState.value = _uiState.value.copy(chatBotEnabled = newEnabled) }
+    fun onChatBotModeChange(newMode: ChatBotMode) { _uiState.value = _uiState.value.copy(chatBotMode = newMode) }
+
     fun saveSettings() {
         viewModelScope.launch {
             val currentSettings = _uiState.value
@@ -132,6 +137,19 @@ class SettingsViewModel @Inject constructor(
             settingsRepository.updateChatSettings(
                 channel = currentSettings.chatChannel,
                 overlayEnabled = currentSettings.chatOverlayEnabled,
+            )
+            settingsRepository.updateChatBotSettings(
+                enabled = currentSettings.chatBotEnabled,
+                apiBaseUrl = currentSettings.chatBotApiBaseUrl,
+                apiKey = currentSettings.chatBotApiKey,
+                model = currentSettings.chatBotModel,
+                systemPrompt = currentSettings.chatBotSystemPrompt,
+                replyCooldownSeconds = currentSettings.chatBotReplyCooldownSeconds,
+                mentionsOnly = currentSettings.chatBotMentionsOnly,
+                maxRepliesPerMinute = currentSettings.chatBotMaxRepliesPerMinute,
+                mode = currentSettings.chatBotMode,
+                login = currentSettings.chatBotLogin,
+                oauthToken = currentSettings.chatBotOauthToken,
             )
             _saveEvent.emit(Unit)
         }

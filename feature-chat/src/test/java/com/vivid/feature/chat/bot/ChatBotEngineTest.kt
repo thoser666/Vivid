@@ -1,9 +1,11 @@
 package com.vivid.feature.chat.bot
 
+import com.vivid.core.data.ChatBotMode
 import com.vivid.feature.chat.ai.LlmClient
 import com.vivid.feature.chat.ai.LlmConfig
 import com.vivid.feature.chat.ai.LlmException
 import com.vivid.feature.chat.model.ChatMessage
+import com.vivid.feature.chat.ai.LlmMessage
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.just
@@ -55,6 +57,8 @@ class ChatBotEngineTest {
         replyCooldownMillis: Long = 8_000,
         maxRepliesPerMinute: Int = 10,
         systemPrompt: String = "Du bist ein freundlicher Bot.",
+        mode: ChatBotMode = ChatBotMode.AUTONOMOUS,
+        apiKey: String = "key",
     ): ChatBotConfig = ChatBotConfig(
         channel = "channel",
         login = login,
@@ -63,10 +67,14 @@ class ChatBotEngineTest {
         mentionsOnly = mentionsOnly,
         replyCooldownMillis = replyCooldownMillis,
         maxRepliesPerMinute = maxRepliesPerMinute,
-        llm = LlmConfig(baseUrl = "https://llm.example", apiKey = "key", model = "model"),
+        mode = mode,
+        llm = LlmConfig(baseUrl = "https://llm.example", apiKey = apiKey, model = "model"),
     )
 
-    private fun engine(): ChatBotEngine = ChatBotEngine(llmClient = llm)
+    private fun engine(): ChatBotEngine = ChatBotEngine(
+        llmClient = llm,
+        commandProcessor = BotCommandProcessor(),
+    )
 
     @Test
     fun `replies when mentioned in mentions-only mode`() = runTest {
@@ -203,6 +211,145 @@ class ChatBotEngineTest {
 
         coVerify(exactly = 0) { llm.complete(any(), any()) }
         assertEquals(ChatBotState.Disabled, engine.state.value)
+        engine.stop()
+    }
+
+    // --- Betriebsmodus-Switch: COMMAND („Bot wie Moblin“) ---
+
+    @Test
+    fun `command mode answers commands deterministically without the llm`() = runTest {
+        val engine = engine()
+        coEvery { sender.send(any()) } just Runs
+
+        engine.start(messages, config(mode = ChatBotMode.COMMAND), sender, this)
+        messages.emit(chatMessage("!help"))
+        advanceUntilIdle()
+
+        coVerify(exactly = 0) { llm.complete(any(), any()) }
+        coVerify { sender.send(BotCommandProcessor.HELP_TEXT) }
+        assertEquals(ChatBotState.Idle, engine.state.value)
+        engine.stop()
+    }
+
+    @Test
+    fun `command mode ignores non-command messages`() = runTest {
+        val engine = engine()
+
+        engine.start(messages, config(mode = ChatBotMode.COMMAND), sender, this)
+        messages.emit(chatMessage("hallo zusammen"))
+        advanceUntilIdle()
+
+        coVerify(exactly = 0) { llm.complete(any(), any()) }
+        coVerify(exactly = 0) { sender.send(any()) }
+        engine.stop()
+    }
+
+    @Test
+    fun `command mode hints on unknown commands`() = runTest {
+        val engine = engine()
+        coEvery { sender.send(any()) } just Runs
+
+        engine.start(messages, config(mode = ChatBotMode.COMMAND), sender, this)
+        messages.emit(chatMessage("!xyz"))
+        advanceUntilIdle()
+
+        coVerify(exactly = 0) { llm.complete(any(), any()) }
+        coVerify { sender.send("Unbekannter Befehl „xyz“ — Tipp: !help") }
+        engine.stop()
+    }
+
+    @Test
+    fun `command mode starts even without an llm key`() = runTest {
+        val engine = engine()
+        coEvery { sender.send(any()) } just Runs
+
+        engine.start(messages, config(mode = ChatBotMode.COMMAND, apiKey = ""), sender, this)
+        messages.emit(chatMessage("!bot"))
+        advanceUntilIdle()
+
+        coVerify(exactly = 0) { llm.complete(any(), any()) }
+        coVerify { sender.send(BotCommandProcessor.BOT_INFO_TEXT) }
+        assertEquals(ChatBotState.Idle, engine.state.value)
+        engine.stop()
+    }
+
+    @Test
+    fun `command mode answers uptime from the stream start time`() = runTest {
+        var currentTime = 10_000_000L
+        val engine = ChatBotEngine(
+            llmClient = llm,
+            commandProcessor = BotCommandProcessor().apply { now = { currentTime } },
+        )
+        coEvery { sender.send(any()) } just Runs
+
+        engine.start(
+            messages,
+            config(mode = ChatBotMode.COMMAND, replyCooldownMillis = 0),
+            sender,
+            this,
+            streamStartedAtMillis = currentTime - 3_661_000L, // vor 1h 1m 1s
+        )
+        messages.emit(chatMessage("!uptime"))
+        advanceUntilIdle()
+
+        coVerify { sender.send("Der Stream läuft seit 1h 1m 1s.") }
+        engine.stop()
+    }
+
+    // --- Betriebsmodus-Switch: AUTONOMOUS („KI entscheidet selbst“) ---
+
+    @Test
+    fun `autonomous mode answers commands deterministically and lets the llm decide on other messages`() = runTest {
+        val engine = engine()
+        coEvery { llm.complete(any(), any()) } returns "Antwort!"
+        coEvery { sender.send(any()) } just Runs
+
+        engine.start(
+            messages,
+            config(mode = ChatBotMode.AUTONOMOUS, mentionsOnly = false, replyCooldownMillis = 0),
+            sender,
+            this,
+        )
+        messages.emit(chatMessage("!help"))
+        messages.emit(chatMessage("hallo zusammen"))
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { llm.complete(any(), any()) }
+        coVerify { sender.send(BotCommandProcessor.HELP_TEXT) }
+        coVerify { sender.send("Antwort!") }
+        engine.stop()
+    }
+
+    @Test
+    fun `autonomous mode lets the ai stay silent via the no-reply marker`() = runTest {
+        val engine = engine()
+        coEvery { llm.complete(any(), any()) } returns ChatBotEngine.NO_REPLY_MARKER
+
+        engine.start(messages, config(), sender, this)
+        messages.emit(chatMessage("@vividbot hallo"))
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { llm.complete(any(), any()) }
+        coVerify(exactly = 0) { sender.send(any()) }
+        assertEquals(ChatBotState.Idle, engine.state.value)
+        engine.stop()
+    }
+
+    @Test
+    fun `autonomous mode passes the autonomy guidance in the system prompt`() = runTest {
+        val engine = engine()
+        coEvery { llm.complete(any(), any()) } returns "Antwort!"
+        coEvery { sender.send(any()) } just Runs
+        val messagesArg = slot<List<LlmMessage>>()
+
+        engine.start(messages, config(mentionsOnly = false), sender, this)
+        messages.emit(chatMessage("hallo zusammen"))
+        advanceUntilIdle()
+
+        coVerify { llm.complete(any(), capture(messagesArg)) }
+        val system = messagesArg.captured.first { it.role == LlmMessage.ROLE_SYSTEM }
+        assertTrue(system.content.contains("autonomer Chat-Bot"))
+        assertTrue(system.content.contains(ChatBotEngine.NO_REPLY_MARKER))
         engine.stop()
     }
 }

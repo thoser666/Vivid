@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
+import com.vivid.core.data.ChatBotMode
 import com.vivid.core.update.UpdateCheckResult
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -207,6 +208,50 @@ fun SettingsScreen(
                 )
             }
 
+            // Chat-Bot (KI): An/Aus + Betriebsmodus-Switch
+            Text("Chat-Bot (KI)", style = MaterialTheme.typography.titleLarge)
+            Text(
+                text = "Automatischer Bot im Twitch-Chat: entweder deterministische Chat-Befehle (wie der Bot von Moblin) oder eine KI, die selbst entscheidet. Twitch-Token und LLM-Zugangsdaten werden bis zum vollständigen Bot-Settings-Screen per Repository vorbefüllt — siehe docs/ai-chat-bot.md.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Chat-Bot aktivieren", modifier = Modifier.weight(1f))
+                Switch(
+                    checked = uiState.chatBotEnabled,
+                    onCheckedChange = viewModel::onChatBotEnabledChange,
+                )
+            }
+            Text(
+                text = "Betriebsmodus",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(top = 8.dp),
+            )
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                ChatBotMode.entries.forEachIndexed { index, mode ->
+                    SegmentedButton(
+                        selected = uiState.chatBotMode == mode,
+                        onClick = { viewModel.onChatBotModeChange(mode) },
+                        shape = SegmentedButtonDefaults.itemShape(
+                            index = index,
+                            count = ChatBotMode.entries.size,
+                        ),
+                        label = { Text(mode.displayName) },
+                    )
+                }
+            }
+            Text(
+                text = when (uiState.chatBotMode) {
+                    ChatBotMode.COMMAND -> "Bot wie Moblin: reagiert nur auf Befehle wie !help, !uptime und !bot — kein LLM nötig, funktioniert ohne KI-Schlüssel."
+                    ChatBotMode.AUTONOMOUS -> "KI entscheidet selbst: Das LLM bewertet jede (freigegebene) Nachricht und entscheidet, ob und wie es antwortet — inklusive bewusstem Schweigen."
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
             // Web-Remote-Control: Zugangsdaten für den LAN-Server
             Text("Web-Remote-Control", style = MaterialTheme.typography.titleLarge)
             if (remoteControl.token.isNotBlank()) {
@@ -294,3 +339,10 @@ fun SettingsScreen(
         }
     }
 }
+
+/** Anzeigename des Chat-Bot-Betriebsmodus (UI-spezifisch). */
+private val ChatBotMode.displayName: String
+    get() = when (this) {
+        ChatBotMode.COMMAND -> "Bot (wie Moblin)"
+        ChatBotMode.AUTONOMOUS -> "KI autonom"
+    }

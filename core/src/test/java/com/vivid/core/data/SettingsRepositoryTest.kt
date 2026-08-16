@@ -271,6 +271,7 @@ class SettingsRepositoryTest {
         assertEquals(true, settings.chatBotMentionsOnly)
         assertEquals(8L, settings.chatBotReplyCooldownSeconds)
         assertEquals(10, settings.chatBotMaxRepliesPerMinute)
+        assertEquals(ChatBotMode.AUTONOMOUS, settings.chatBotMode)
         assertEquals("", settings.chatBotLogin)
         assertEquals("", settings.chatBotOauthToken)
     }
@@ -293,6 +294,7 @@ class SettingsRepositoryTest {
             replyCooldownSeconds = 5,
             mentionsOnly = false,
             maxRepliesPerMinute = 20,
+            mode = ChatBotMode.COMMAND,
             login = "vividbot",
             oauthToken = "oauth:tok123",
         )
@@ -307,6 +309,7 @@ class SettingsRepositoryTest {
         assertEquals(5L, settings.chatBotReplyCooldownSeconds)
         assertEquals(false, settings.chatBotMentionsOnly)
         assertEquals(20, settings.chatBotMaxRepliesPerMinute)
+        assertEquals(ChatBotMode.COMMAND, settings.chatBotMode)
         assertEquals("vividbot", settings.chatBotLogin)
         assertEquals("oauth:tok123", settings.chatBotOauthToken)
         // Andere Bereiche bleiben unberührt.

@@ -1,5 +1,6 @@
 package com.vivid.feature.chat.bot
 
+import com.vivid.core.data.ChatBotMode
 import com.vivid.feature.chat.ai.LlmClient
 import com.vivid.feature.chat.ai.LlmMessage
 import com.vivid.feature.chat.model.ChatMessage
@@ -23,14 +24,23 @@ enum class ChatBotState {
 }
 
 /**
- * Reaktions-Engine des KI-Chat-Bots: filtert eingehende Nachrichten
- * (nur-Erwähnung, Cooldown, Rate-Limit), ignoriert eigene Nachrichten,
- * baut den Prompt-Kontext auf, fragt das LLM an und schickt die Antwort
- * über den [ChatSender].
+ * Reaktions-Engine des Chat-Bots mit zwei Betriebsmodi (siehe [ChatBotMode]):
+ *
+ * - **COMMAND** („Bot wie Moblin"): Nur deterministische `!`-Befehle
+ *   ([BotCommandProcessor]) — kein LLM-Aufruf, funktioniert ohne LLM-Schlüssel.
+ * - **AUTONOMOUS** („KI entscheidet selbst"): Bekannte Befehle werden weiterhin
+ *   sofort deterministisch beantwortet; alle übrigen (freigegebenen) Nachrichten
+ *   bewertet das LLM und entscheidet selbst, ob — und wie — es antwortet
+ *   (inklusive bewusstem Schweigen via [NO_REPLY_MARKER]).
+ *
+ * Gemeinsame Sicherungen: eigene Nachrichten werden ignoriert, Cooldown und
+ * Rate-Limit gelten für alle Antworten, und jede Antwort wird auf
+ * [ChatBotConfig.maxReplyLength] gekürzt.
  */
 @Singleton
 class ChatBotEngine @Inject constructor(
     private val llmClient: LlmClient,
+    private val commandProcessor: BotCommandProcessor,
 ) {
     /** Uhrenfunktion (für Tests ersetzbar). */
     internal var now: () -> Long = System::currentTimeMillis
@@ -44,6 +54,7 @@ class ChatBotEngine @Inject constructor(
     private var collectorJob: Job? = null
     private var config: ChatBotConfig? = null
     private var sender: ChatSender? = null
+    private var streamStartedAtMillis = 0L
     private val history = ArrayDeque<LlmMessage>()
     private val replyTimes = ArrayDeque<Long>()
     private var lastReplyAt = 0L
@@ -51,12 +62,20 @@ class ChatBotEngine @Inject constructor(
     /**
      * Startet die Engine. [messages] muss ein heißer Flow sein (z. B. die
      * Nachrichten des Bot-Clients), der bereits vor dem Connect besammelt wird.
+     * [streamStartedAtMillis] ist der Stream-Start-Zeitstempel (für `!uptime`).
      */
-    fun start(messages: Flow<ChatMessage>, config: ChatBotConfig, sender: ChatSender, scope: CoroutineScope) {
+    fun start(
+        messages: Flow<ChatMessage>,
+        config: ChatBotConfig,
+        sender: ChatSender,
+        scope: CoroutineScope,
+        streamStartedAtMillis: Long = 0L,
+    ) {
         stop()
         if (!config.isReady) return
         this.config = config
         this.sender = sender
+        this.streamStartedAtMillis = streamStartedAtMillis
         history.clear()
         replyTimes.clear()
         lastReplyAt = 0L
@@ -71,6 +90,7 @@ class ChatBotEngine @Inject constructor(
         collectorJob = null
         config = null
         sender = null
+        streamStartedAtMillis = 0L
         _state.value = ChatBotState.Disabled
     }
 
@@ -79,25 +99,54 @@ class ChatBotEngine @Inject constructor(
         val snd = sender ?: return
         if (message.text.isBlank()) return
         if (message.userLogin == cfg.login) return
+
+        // Befehle werden in BEIDEN Modi deterministisch beantwortet (Moblin-Stil).
+        val commandReply = when (val result = commandProcessor.handle(message.text, streamStartedAtMillis)) {
+            is BotCommandProcessor.Result.Reply -> result.text
+            is BotCommandProcessor.Result.Unknown ->
+                if (cfg.mode == ChatBotMode.COMMAND) {
+                    "Unbekannter Befehl „${result.command}“ — Tipp: !help"
+                } else {
+                    null // AUTONOMOUS: die KI entscheidet über unbekannte Befehle
+                }
+            BotCommandProcessor.Result.None -> null
+        }
+        if (commandReply != null) {
+            if (canReply(cfg)) send(snd, commandReply)
+            return
+        }
+        // COMMAND-Modus: ohne Befehl passiert nichts (kein LLM-Aufruf).
+        if (cfg.mode == ChatBotMode.COMMAND) return
+
+        // AUTONOMOUS-Modus: Die KI entscheidet selbst über die Nachricht.
         if (cfg.mentionsOnly && !isMentioned(message.text, cfg.login)) return
-        if (cfg.replyCooldownMillis > 0 && now() - lastReplyAt < cfg.replyCooldownMillis) return
-        if (rateLimited(cfg)) return
+        if (!canReply(cfg)) return
 
         _state.value = ChatBotState.Thinking
         try {
             appendUserMessage(cfg, message)
             val reply = llmClient.complete(cfg.llm, conversation(cfg))
-            appendAssistantMessage(cfg, reply)
             val trimmed = reply.trim().replace(Regex("\\s+"), " ").take(cfg.maxReplyLength)
-            if (trimmed.isEmpty()) return
-            snd.send(trimmed)
-            registerReply()
-            _logs.tryEmit(trimmed)
+            if (trimmed.isEmpty() || trimmed.equals(NO_REPLY_MARKER, ignoreCase = true)) return
+            appendAssistantMessage(cfg, trimmed)
+            send(snd, trimmed)
         } catch (e: Exception) {
             _logs.tryEmit("Fehler: ${e.message}")
         } finally {
             _state.value = ChatBotState.Idle
         }
+    }
+
+    /** Cooldown + Rate-Limit gelten für ALLE Antworten (auch Befehle). */
+    private fun canReply(cfg: ChatBotConfig): Boolean {
+        if (cfg.replyCooldownMillis > 0 && now() - lastReplyAt < cfg.replyCooldownMillis) return false
+        return !rateLimited(cfg)
+    }
+
+    private suspend fun send(snd: ChatSender, text: String) {
+        snd.send(text)
+        registerReply()
+        _logs.tryEmit(text)
     }
 
     private fun appendUserMessage(cfg: ChatBotConfig, message: ChatMessage) {
@@ -111,8 +160,22 @@ class ChatBotEngine @Inject constructor(
     }
 
     private fun conversation(cfg: ChatBotConfig): List<LlmMessage> = buildList {
-        if (cfg.systemPrompt.isNotBlank()) {
-            add(LlmMessage(LlmMessage.ROLE_SYSTEM, cfg.systemPrompt))
+        val prompt = buildString {
+            if (cfg.systemPrompt.isNotBlank()) {
+                append(cfg.systemPrompt.trim())
+                append("\n\n")
+            }
+            if (cfg.mode == ChatBotMode.AUTONOMOUS) {
+                append(
+                    "Du bist ein autonomer Chat-Bot: Du entscheidest selbst, ob eine Antwort " +
+                        "sinnvoll ist. Antworte nur, wenn es echten Mehrwert gibt (z. B. eine " +
+                        "Frage oder eine direkte Ansprache). Willst du nicht antworten, " +
+                        "antworte exakt mit: $NO_REPLY_MARKER",
+                )
+            }
+        }
+        if (prompt.isNotBlank()) {
+            add(LlmMessage(LlmMessage.ROLE_SYSTEM, prompt.trim()))
         }
         addAll(history)
     }
@@ -139,5 +202,13 @@ class ChatBotEngine @Inject constructor(
         replyTimes.addLast(timestamp)
         val limit = timestamp - 60_000
         while (replyTimes.isNotEmpty() && replyTimes.first() < limit) replyTimes.removeFirst()
+    }
+
+    companion object {
+        /**
+         * Marker, mit dem das LLM im AUTONOMOUS-Modus signalisiert, dass es
+         * bewusst nicht antworten möchte (die Antwort wird nicht gesendet).
+         */
+        internal const val NO_REPLY_MARKER = "[keine Antwort]"
     }
 }

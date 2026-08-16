@@ -32,6 +32,9 @@ data class AppSettings(
     // Antwortet nur, wenn der Bot direkt angesprochen wird.
     val chatBotMentionsOnly: Boolean = true,
     val chatBotMaxRepliesPerMinute: Int = 10,
+    // Betriebsmodus: COMMAND = deterministische !-Befehle (wie der Bot von Moblin,
+    // kein LLM nötig); AUTONOMOUS = die KI entscheidet selbst, wann sie antwortet.
+    val chatBotMode: ChatBotMode = ChatBotMode.AUTONOMOUS,
     // Twitch-Login des Bot-Kontos (ohne '@').
     val chatBotLogin: String = "",
     // Twitch-Chat-OAuth-Token des Bot-Kontos (chat:read + chat:send).
