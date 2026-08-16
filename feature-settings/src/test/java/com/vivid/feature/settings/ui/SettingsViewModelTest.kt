@@ -1,6 +1,7 @@
 package com.vivid.feature.settings.ui
 
 import com.vivid.core.data.AppSettings
+import com.vivid.core.data.ChatBotMode
 import com.vivid.core.data.SettingsRepository
 import com.vivid.core.remote.RemoteControlServer
 import com.vivid.core.remote.RemoteControlTokenStore
@@ -235,6 +236,7 @@ class SettingsViewModelTest {
             coEvery { updateSecondaryStreamSettings(any(), any(), any()) } just runs
             coEvery { updateObsSettings(any(), any(), any(), any()) } just runs
             coEvery { updateChatSettings(any(), any()) } just runs
+            coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
         }
 
         val viewModel = createViewModel(repository)
@@ -266,6 +268,64 @@ class SettingsViewModelTest {
         coVerify { repository.updateChatSettings("meinKanal", true) }
         assertEquals(1, events.size)
         collector.cancel()
+    }
+
+    @Test
+    fun `saveSettings persists the chat bot enable state and mode switch`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repository = mockk<SettingsRepository> {
+            every { appSettingsFlow } returns MutableStateFlow(AppSettings())
+            coEvery { updateStreamSettings(any(), any(), any()) } just runs
+            coEvery { updateSecondaryStreamSettings(any(), any(), any()) } just runs
+            coEvery { updateObsSettings(any(), any(), any(), any()) } just runs
+            coEvery { updateChatSettings(any(), any()) } just runs
+            coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
+        }
+
+        val viewModel = createViewModel(repository)
+        advanceUntilIdle() // initial load drained so edits are not overwritten
+
+        viewModel.onChatBotEnabledChange(true)
+        viewModel.onChatBotModeChange(ChatBotMode.COMMAND)
+
+        viewModel.saveSettings()
+        advanceUntilIdle()
+
+        coVerify {
+            repository.updateChatBotSettings(
+                enabled = true,
+                apiBaseUrl = "https://api.openai.com",
+                apiKey = "",
+                model = "gpt-4o-mini",
+                systemPrompt = "",
+                replyCooldownSeconds = 8L,
+                mentionsOnly = true,
+                maxRepliesPerMinute = 10,
+                mode = ChatBotMode.COMMAND,
+                login = "",
+                oauthToken = "",
+            )
+        }
+    }
+
+    @Test
+    fun `input changes update the chat bot ui state`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repository = mockk<SettingsRepository> {
+            every { appSettingsFlow } returns MutableStateFlow(AppSettings())
+        }
+
+        val viewModel = createViewModel(repository)
+        advanceUntilIdle() // initial load drained so edits are not overwritten
+
+        viewModel.onChatBotEnabledChange(true)
+        viewModel.onChatBotModeChange(ChatBotMode.COMMAND)
+
+        assertEquals(true, viewModel.uiState.value.chatBotEnabled)
+        assertEquals(ChatBotMode.COMMAND, viewModel.uiState.value.chatBotMode)
+
+        viewModel.onChatBotModeChange(ChatBotMode.AUTONOMOUS)
+        assertEquals(ChatBotMode.AUTONOMOUS, viewModel.uiState.value.chatBotMode)
     }
 
     // --- Web-Remote-Control ---
