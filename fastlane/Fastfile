@@ -1,4 +1,5 @@
 # Fastfile
+require "json"
 default_platform(:android)
 
 # Deterministischer versionCode aus einem Version-Tag (vX.Y.Z[-alpha|beta|rc]).
@@ -226,14 +227,49 @@ platform :android do
 
     if stable
       tag = options[:tag] || ref_name
-      begin
-        sh("gh", "release", "view", tag, "--json", "tagName")
-        UI.important("Release #{tag} already exists - skipping")
-      rescue
+      # Härtung: Bestehendes Release nur dann akzeptieren, wenn es vollständig
+      # ist (published, kein Draft, APK-Asset vorhanden). Ein halb erstelltes
+      # Release aus einem abgebrochenen Run (z. B. Draft ohne Assets, Upload
+      # mitten in der Kette gestorben) darf einen Re-Run NICHT blockieren —
+      # sonst würde der Job stillschweigend grün enden, ohne dass eine
+      # installierbare APK veröffentlicht wurde.
+      existing = `gh release view #{tag} --json isDraft,assets 2>/dev/null`.strip
+      info = JSON.parse(existing) rescue nil
+      if info && !info["isDraft"] && (info["assets"] || []).any? { |a| a.is_a?(Hash) && (a["name"] || "").end_with?(".apk") }
+        UI.important("Release #{tag} already exists and is complete - skipping")
+      else
+        if info
+          UI.important("Release #{tag} exists but is incomplete (draft or missing APK) - deleting and recreating")
+          sh("gh", "release", "delete", tag, "--yes") rescue UI.message("  (kein Release zu löschen — ok)")
+        end
         UI.message("Publishing GitHub release #{tag}")
-        sh("gh", "release", "create", tag, apk,
-           "--title", "Vivid #{tag}",
-           "--generate-notes")
+        # Härtung: Retry gegen transiente Fehler (Netz/API) — Spiegel des
+        # nightly-Pfads. Bei endgültigem Fehler KEIN Tag-Rollback: Der Tag ist
+        # absichtlich von der Release-Lane gepusht (Versionierung, Re-Run-
+        # Trigger) und damit kein Wegwerf-Artefakt wie nightly-Tags. Bereinigt
+        # wird nur ein evtl. zurückgebliebenes (Draft-)Release, damit ein
+        # Re-Run nicht in die "exists - skipping"-Falle läuft.
+        attempts = 0
+        begin
+          attempts += 1
+          sh("gh", "release", "create", tag, apk,
+             "--title", "Vivid #{tag}",
+             "--generate-notes")
+        rescue => e
+          if attempts < 3
+            UI.important("gh release create fehlgeschlagen (Versuch #{attempts}/3) — retry: #{e.message}")
+            sleep 5
+            retry
+          end
+          UI.error("Release-Erstellung endgültig fehlgeschlagen — Rest-Release wird bereinigt, Tag #{tag} bleibt erhalten")
+          begin
+            sh("gh", "release", "delete", tag, "--yes")
+            UI.message("  (Rest-Release #{tag} gelöscht)")
+          rescue
+            UI.message("  (kein Release zu löschen — ok)")
+          end
+          raise
+        end
       end
     else
       # Nur Version-Tags (v*) als Basis — nicht nightly-Tags, die täglich wandern.
@@ -426,6 +462,38 @@ platform :android do
     else
       UI.success("Uploaded #{version_name} to Play track #{track}")
       UI.message("Release in der Play Console veroeffentlichen: App -> Release -> 'Go live'")
+    end
+  end
+
+  desc "Report orphaned draft releases on v* tags (no auto-delete - a draft may be intentional)"
+  lane :sweep_orphan_drafts do
+    UI.header "Scanning v* releases for orphaned drafts…"
+    # Ein Draft auf einem v*-Tag ist der Rest eines abgebrochenen Stable-Runs:
+    # der Rollback im publish-release-Job (publish_release-Lane) kann bei hartem
+    # Runner-Kill nicht mehr laufen. Drafts werden nur GEMELDET, nie automatisch
+    # gelöscht — ein menschlich angelegter Draft (geplante Veröffentlichung) ist
+    # legitim. Der Job läuft auf Schedule/Manual, nicht auf Push: während
+    # publish-release parallel ein Release neu erstellt, wäre eine Meldung
+    # transient und irreführend.
+    # Achtung: gh release list akzeptiert NUR die Felder createdAt/isDraft/isImmutable/
+    # isLatest/isPrerelease/name/publishedAt/tagName — "url" gibt es nur bei
+    # gh release view. Die Release-URL wird deshalb unten aus dem Tag gebaut.
+    rows = `gh release list --limit 100 --json tagName,isDraft,name,createdAt 2>/dev/null`.strip
+    releases = JSON.parse(rows) rescue []
+    if releases.empty?
+      UI.important("Keine Releases gefunden (gh nicht verfügbar / GH_TOKEN fehlt?) — Sweep übersprungen")
+    else
+      drafts = releases.select { |r| (r["tagName"] || "").match?(/^v\d+\.\d+/) && r["isDraft"] }
+      if drafts.empty?
+        UI.success("✅ Keine verwaisten Draft-Releases auf v*-Tags gefunden (#{releases.size} Releases geprüft)")
+      else
+        UI.error("⚠️ #{drafts.size} verwaiste(s) Draft-Release(s) auf v*-Tags gefunden:")
+        drafts.each do |d|
+          UI.error("  - #{d["tagName"]} (#{d["name"]}) created #{d["createdAt"]} — https://github.com/thoser666/Vivid/releases/tag/#{d["tagName"]}")
+        end
+        UI.error("Auflösung (manuell): veröffentlichen → gh release edit <tag> --draft=false; oder löschen → gh release delete <tag> --yes")
+        UI.user_error!("Orphaned draft release(s) found on v* tags — resolve manually, see above")
+      end
     end
   end
 end
