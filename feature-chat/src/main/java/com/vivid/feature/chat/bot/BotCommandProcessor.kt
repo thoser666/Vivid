@@ -23,6 +23,24 @@ class BotCommandProcessor @Inject constructor() {
         /** Bekannter Befehl mit deterministischer Antwort. */
         data class Reply(val text: String) : Result
 
+        /** `!tts` — schaltet das Chat-Vorlesen (Text-to-Speech) um. */
+        data object ToggleTts : Result
+
+        /** `!song` / `!nowplaying` — aktueller Titel. */
+        data object MediaNowPlaying : Result
+
+        /** `!next` / `!skip` — nächster Titel. */
+        data object MediaNext : Result
+
+        /** `!pause` — Wiedergabe pausieren. */
+        data object MediaPause : Result
+
+        /** `!play` — Wiedergabe fortsetzen. */
+        data object MediaPlay : Result
+
+        /** `!prev` / `!previous` — vorheriger Titel. */
+        data object MediaPrevious : Result
+
         /** Mit `!` beginnendes Token, aber kein bekannter Befehl. */
         data class Unknown(val command: String) : Result
 
@@ -45,6 +63,12 @@ class BotCommandProcessor @Inject constructor() {
         return when (command) {
             "help", "commands", "hilfe" -> Result.Reply(HELP_TEXT)
             "uptime" -> Result.Reply(uptimeReply(streamStartedAtMillis))
+            "tts" -> Result.ToggleTts
+            "song", "nowplaying", "np" -> Result.MediaNowPlaying
+            "next", "skip" -> Result.MediaNext
+            "pause" -> Result.MediaPause
+            "play" -> Result.MediaPlay
+            "prev", "previous" -> Result.MediaPrevious
             "bot" -> Result.Reply(BOT_INFO_TEXT)
             else -> Result.Unknown(command)
         }
@@ -62,7 +86,7 @@ class BotCommandProcessor @Inject constructor() {
     }
 
     companion object {
-        const val HELP_TEXT = "Verfügbare Befehle: !help · !uptime · !bot"
+        const val HELP_TEXT = "Verfügbare Befehle: !help · !uptime · !tts · !song · !next · !pause · !bot"
         const val BOT_INFO_TEXT = "Ich bin der Chat-Bot von Vivid 🤖 — alle Befehle: !help"
     }
 }

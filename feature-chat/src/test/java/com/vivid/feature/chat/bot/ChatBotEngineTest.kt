@@ -6,8 +6,10 @@ import com.vivid.feature.chat.ai.LlmConfig
 import com.vivid.feature.chat.ai.LlmException
 import com.vivid.feature.chat.model.ChatMessage
 import com.vivid.feature.chat.ai.LlmMessage
+import com.vivid.feature.chat.media.ChatMediaPlayer
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
 import io.mockk.Runs
@@ -71,9 +73,11 @@ class ChatBotEngineTest {
         llm = LlmConfig(baseUrl = "https://llm.example", apiKey = apiKey, model = "model"),
     )
 
-    private fun engine(): ChatBotEngine = ChatBotEngine(
+    private fun engine(media: ChatMediaPlayer = mockk()): ChatBotEngine = ChatBotEngine(
         llmClient = llm,
         commandProcessor = BotCommandProcessor(),
+        chatTts = mockk(),
+        media = media,
     )
 
     @Test
@@ -279,6 +283,8 @@ class ChatBotEngineTest {
         val engine = ChatBotEngine(
             llmClient = llm,
             commandProcessor = BotCommandProcessor().apply { now = { currentTime } },
+            chatTts = mockk(),
+            media = mockk(),
         )
         coEvery { sender.send(any()) } just Runs
 
@@ -350,6 +356,196 @@ class ChatBotEngineTest {
         val system = messagesArg.captured.first { it.role == LlmMessage.ROLE_SYSTEM }
         assertTrue(system.content.contains("autonomer Chat-Bot"))
         assertTrue(system.content.contains(ChatBotEngine.NO_REPLY_MARKER))
+        engine.stop()
+    }
+
+    // --- !tts: Chat-Text-to-Speech ---
+
+    @Test
+    fun `tts command toggles the chat tts and confirms in chat`() = runTest {
+        val chatTts = mockk<ChatTtsController>()
+        every { chatTts.toggle() } returns true
+        val engine = ChatBotEngine(
+            llmClient = llm,
+            commandProcessor = BotCommandProcessor(),
+            chatTts = chatTts,
+            media = mockk(),
+        )
+        val sent = slot<String>()
+        coEvery { sender.send(capture(sent)) } just Runs
+
+        engine.start(messages, config(), sender, this)
+        messages.emit(chatMessage("!tts"))
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { chatTts.toggle() }
+        coVerify(exactly = 0) { llm.complete(any(), any()) }
+        assertTrue(sent.captured.contains("AN"))
+        engine.stop()
+    }
+
+    @Test
+    fun `tts command confirms when toggling off`() = runTest {
+        val chatTts = mockk<ChatTtsController>()
+        every { chatTts.toggle() } returns false
+        val engine = ChatBotEngine(
+            llmClient = llm,
+            commandProcessor = BotCommandProcessor(),
+            chatTts = chatTts,
+            media = mockk(),
+        )
+        val sent = slot<String>()
+        coEvery { sender.send(capture(sent)) } just Runs
+
+        engine.start(messages, config(), sender, this)
+        messages.emit(chatMessage("!tts"))
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { chatTts.toggle() }
+        assertTrue(sent.captured.contains("AUS"))
+        engine.stop()
+    }
+
+    // --- Media-Player-Steuerung (!song/!next/!pause/!play/!prev) ---
+
+    @Test
+    fun `song command replies with the current track`() = runTest {
+        val media = mockk<ChatMediaPlayer>()
+        every { media.hasAccess() } returns true
+        every { media.nowPlaying() } returns "Blue Monday – New Order"
+        val engine = engine(media)
+        val sent = slot<String>()
+        coEvery { sender.send(capture(sent)) } just Runs
+
+        engine.start(messages, config(), sender, this)
+        messages.emit(chatMessage("!song"))
+        advanceUntilIdle()
+
+        coVerify(exactly = 0) { llm.complete(any(), any()) }
+        assertEquals("Aktuell läuft: Blue Monday – New Order", sent.captured)
+        engine.stop()
+    }
+
+    @Test
+    fun `song command reports when nothing is playing`() = runTest {
+        val media = mockk<ChatMediaPlayer>()
+        every { media.hasAccess() } returns true
+        every { media.nowPlaying() } returns null
+        val engine = engine(media)
+        val sent = slot<String>()
+        coEvery { sender.send(capture(sent)) } just Runs
+
+        engine.start(messages, config(), sender, this)
+        messages.emit(chatMessage("!song"))
+        advanceUntilIdle()
+
+        assertEquals("Gerade läuft kein Song.", sent.captured)
+        engine.stop()
+    }
+
+    @Test
+    fun `song command reports missing notification access`() = runTest {
+        val media = mockk<ChatMediaPlayer>()
+        every { media.hasAccess() } returns false
+        val engine = engine(media)
+        val sent = slot<String>()
+        coEvery { sender.send(capture(sent)) } just Runs
+
+        engine.start(messages, config(), sender, this)
+        messages.emit(chatMessage("!song"))
+        advanceUntilIdle()
+
+        assertEquals(ChatBotEngine.MEDIA_NO_ACCESS_TEXT, sent.captured)
+        verify(exactly = 0) { media.nowPlaying() }
+        engine.stop()
+    }
+
+    @Test
+    fun `next command skips and confirms`() = runTest {
+        val media = mockk<ChatMediaPlayer>()
+        every { media.hasAccess() } returns true
+        every { media.skipToNext() } just Runs
+        val engine = engine(media)
+        val sent = slot<String>()
+        coEvery { sender.send(capture(sent)) } just Runs
+
+        engine.start(messages, config(), sender, this)
+        messages.emit(chatMessage("!next"))
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { media.skipToNext() }
+        assertEquals(ChatBotEngine.MEDIA_NEXT_TEXT, sent.captured)
+        engine.stop()
+    }
+
+    @Test
+    fun `pause command pauses and confirms`() = runTest {
+        val media = mockk<ChatMediaPlayer>()
+        every { media.hasAccess() } returns true
+        every { media.pause() } just Runs
+        val engine = engine(media)
+        val sent = slot<String>()
+        coEvery { sender.send(capture(sent)) } just Runs
+
+        engine.start(messages, config(), sender, this)
+        messages.emit(chatMessage("!pause"))
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { media.pause() }
+        assertEquals(ChatBotEngine.MEDIA_PAUSE_TEXT, sent.captured)
+        engine.stop()
+    }
+
+    @Test
+    fun `play command resumes and confirms`() = runTest {
+        val media = mockk<ChatMediaPlayer>()
+        every { media.hasAccess() } returns true
+        every { media.play() } just Runs
+        val engine = engine(media)
+        val sent = slot<String>()
+        coEvery { sender.send(capture(sent)) } just Runs
+
+        engine.start(messages, config(), sender, this)
+        messages.emit(chatMessage("!play"))
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { media.play() }
+        assertEquals(ChatBotEngine.MEDIA_PLAY_TEXT, sent.captured)
+        engine.stop()
+    }
+
+    @Test
+    fun `prev command goes back and confirms`() = runTest {
+        val media = mockk<ChatMediaPlayer>()
+        every { media.hasAccess() } returns true
+        every { media.skipToPrevious() } just Runs
+        val engine = engine(media)
+        val sent = slot<String>()
+        coEvery { sender.send(capture(sent)) } just Runs
+
+        engine.start(messages, config(), sender, this)
+        messages.emit(chatMessage("!prev"))
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { media.skipToPrevious() }
+        assertEquals(ChatBotEngine.MEDIA_PREVIOUS_TEXT, sent.captured)
+        engine.stop()
+    }
+
+    @Test
+    fun `media actions report missing notification access without acting`() = runTest {
+        val media = mockk<ChatMediaPlayer>()
+        every { media.hasAccess() } returns false
+        val engine = engine(media)
+        val sent = slot<String>()
+        coEvery { sender.send(capture(sent)) } just Runs
+
+        engine.start(messages, config(), sender, this)
+        messages.emit(chatMessage("!pause"))
+        advanceUntilIdle()
+
+        assertEquals(ChatBotEngine.MEDIA_NO_ACCESS_TEXT, sent.captured)
+        verify(exactly = 0) { media.pause() }
         engine.stop()
     }
 }

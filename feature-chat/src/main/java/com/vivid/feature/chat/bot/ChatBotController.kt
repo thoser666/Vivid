@@ -22,6 +22,7 @@ class ChatBotController @Inject constructor(
     @param:ChatScope private val scope: CoroutineScope,
     private val botClient: TwitchBotClient,
     private val engine: ChatBotEngine,
+    private val chatTts: ChatTtsController,
     private val settingsRepository: SettingsRepository,
 ) {
     @Volatile
@@ -70,11 +71,14 @@ class ChatBotController @Inject constructor(
             scope = scope,
             streamStartedAtMillis = streamStartedAtMillis,
         )
+        // Chat-TTS (der !tts-Befehl): liest den gleichen Nachrichten-Flow vor.
+        chatTts.start(botClient.messages, config.login)
         botClient.connect(config.channel, config.login, config.oauthToken)
     }
 
     private fun stopBot() {
         engine.stop()
+        chatTts.stop()
         botClient.disconnect()
     }
 }

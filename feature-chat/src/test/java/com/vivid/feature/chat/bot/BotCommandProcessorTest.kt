@@ -74,6 +74,94 @@ class BotCommandProcessorTest {
     }
 
     @Test
+    fun `tts returns the toggle result`() {
+        assertEquals(
+            BotCommandProcessor.Result.ToggleTts,
+            processor().handle("!tts", null),
+        )
+    }
+
+    @Test
+    fun `tts is case-insensitive`() {
+        assertEquals(
+            BotCommandProcessor.Result.ToggleTts,
+            processor().handle("!TTS", null),
+        )
+    }
+
+    @Test
+    fun `tts works inside a message`() {
+        assertEquals(
+            BotCommandProcessor.Result.ToggleTts,
+            processor().handle("@vividbot bitte !tts", null),
+        )
+    }
+
+    @Test
+    fun `song returns the now-playing result`() {
+        assertEquals(
+            BotCommandProcessor.Result.MediaNowPlaying,
+            processor().handle("!song", null),
+        )
+    }
+
+    @Test
+    fun `nowplaying and np are aliases for song`() {
+        assertEquals(
+            BotCommandProcessor.Result.MediaNowPlaying,
+            processor().handle("!nowplaying", null),
+        )
+        assertEquals(
+            BotCommandProcessor.Result.MediaNowPlaying,
+            processor().handle("!np", null),
+        )
+    }
+
+    @Test
+    fun `next and skip advance to the next track`() {
+        assertEquals(
+            BotCommandProcessor.Result.MediaNext,
+            processor().handle("!next", null),
+        )
+        assertEquals(
+            BotCommandProcessor.Result.MediaNext,
+            processor().handle("!skip", null),
+        )
+    }
+
+    @Test
+    fun `pause and play control playback`() {
+        assertEquals(
+            BotCommandProcessor.Result.MediaPause,
+            processor().handle("!pause", null),
+        )
+        assertEquals(
+            BotCommandProcessor.Result.MediaPlay,
+            processor().handle("!play", null),
+        )
+    }
+
+    @Test
+    fun `prev and previous go back to the previous track`() {
+        assertEquals(
+            BotCommandProcessor.Result.MediaPrevious,
+            processor().handle("!prev", null),
+        )
+        assertEquals(
+            BotCommandProcessor.Result.MediaPrevious,
+            processor().handle("!previous", null),
+        )
+    }
+
+    @Test
+    fun `media commands are case-insensitive`() {
+        assertEquals(
+            BotCommandProcessor.Result.MediaPause,
+            processor().handle("!PAUSE", null),
+        )
+    }
+
+    @Test
     fun `unknown commands are reported as unknown`() {
         assertEquals(
             BotCommandProcessor.Result.Unknown("xyz"),
@@ -101,8 +189,12 @@ class BotCommandProcessorTest {
     fun `first exclamation token wins`() {
         // Nur das erste !-Token wird interpretiert — deterministisch und spamsicher.
         assertEquals(
-            BotCommandProcessor.Result.Unknown("song"),
-            processor().handle("!song !help", null),
+            BotCommandProcessor.Result.Unknown("xyz"),
+            processor().handle("!xyz !help", null),
+        )
+        assertEquals(
+            BotCommandProcessor.Result.MediaNext,
+            processor().handle("!next !song", null),
         )
     }
 }

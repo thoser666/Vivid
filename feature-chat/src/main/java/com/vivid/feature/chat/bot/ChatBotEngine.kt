@@ -3,6 +3,7 @@ package com.vivid.feature.chat.bot
 import com.vivid.core.data.ChatBotMode
 import com.vivid.feature.chat.ai.LlmClient
 import com.vivid.feature.chat.ai.LlmMessage
+import com.vivid.feature.chat.media.ChatMediaPlayer
 import com.vivid.feature.chat.model.ChatMessage
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -41,6 +42,8 @@ enum class ChatBotState {
 class ChatBotEngine @Inject constructor(
     private val llmClient: LlmClient,
     private val commandProcessor: BotCommandProcessor,
+    private val chatTts: ChatTtsController,
+    private val media: ChatMediaPlayer,
 ) {
     /** Uhrenfunktion (für Tests ersetzbar). */
     internal var now: () -> Long = System::currentTimeMillis
@@ -103,6 +106,35 @@ class ChatBotEngine @Inject constructor(
         // Befehle werden in BEIDEN Modi deterministisch beantwortet (Moblin-Stil).
         val commandReply = when (val result = commandProcessor.handle(message.text, streamStartedAtMillis)) {
             is BotCommandProcessor.Result.Reply -> result.text
+            is BotCommandProcessor.Result.ToggleTts -> {
+                // !tts: Chat-Vorlesen umschalten und im Chat bestätigen.
+                if (canReply(cfg)) {
+                    val nowEnabled = chatTts.toggle()
+                    send(snd, if (nowEnabled) TTS_ON_TEXT else TTS_OFF_TEXT)
+                }
+                return
+            }
+            is BotCommandProcessor.Result.MediaNowPlaying -> {
+                // !song: aktuellen Titel melden (bzw. Zugriffs-Hinweis).
+                if (canReply(cfg)) send(snd, mediaStatusReply())
+                return
+            }
+            is BotCommandProcessor.Result.MediaNext -> {
+                if (canReply(cfg)) send(snd, mediaActionReply({ media.skipToNext() }, MEDIA_NEXT_TEXT))
+                return
+            }
+            is BotCommandProcessor.Result.MediaPause -> {
+                if (canReply(cfg)) send(snd, mediaActionReply({ media.pause() }, MEDIA_PAUSE_TEXT))
+                return
+            }
+            is BotCommandProcessor.Result.MediaPlay -> {
+                if (canReply(cfg)) send(snd, mediaActionReply({ media.play() }, MEDIA_PLAY_TEXT))
+                return
+            }
+            is BotCommandProcessor.Result.MediaPrevious -> {
+                if (canReply(cfg)) send(snd, mediaActionReply({ media.skipToPrevious() }, MEDIA_PREVIOUS_TEXT))
+                return
+            }
             is BotCommandProcessor.Result.Unknown ->
                 if (cfg.mode == ChatBotMode.COMMAND) {
                     "Unbekannter Befehl „${result.command}“ — Tipp: !help"
@@ -135,6 +167,19 @@ class ChatBotEngine @Inject constructor(
         } finally {
             _state.value = ChatBotState.Idle
         }
+    }
+
+    /** „Aktuell läuft …“ oder ein Hinweis, wenn nichts läuft / kein Zugriff. */
+    private fun mediaStatusReply(): String = when {
+        !media.hasAccess() -> MEDIA_NO_ACCESS_TEXT
+        else -> media.nowPlaying()?.let { "Aktuell läuft: $it" } ?: "Gerade läuft kein Song."
+    }
+
+    /** Führt eine Media-Aktion aus oder antwortet mit dem Zugriffs-Hinweis. */
+    private fun mediaActionReply(action: () -> Unit, confirm: String): String {
+        if (!media.hasAccess()) return MEDIA_NO_ACCESS_TEXT
+        action()
+        return confirm
     }
 
     /** Cooldown + Rate-Limit gelten für ALLE Antworten (auch Befehle). */
@@ -210,5 +255,15 @@ class ChatBotEngine @Inject constructor(
          * bewusst nicht antworten möchte (die Antwort wird nicht gesendet).
          */
         internal const val NO_REPLY_MARKER = "[keine Antwort]"
+
+        internal const val TTS_ON_TEXT = "TTS ist jetzt AN 🔊 — Chat wird vorgelesen."
+        internal const val TTS_OFF_TEXT = "TTS ist jetzt AUS 🔇."
+
+        internal const val MEDIA_NO_ACCESS_TEXT =
+            "⚠️ Kein Media-Zugriff — bitte Benachrichtigungszugriff für Vivid aktivieren (Systemeinstellungen → Benachrichtigungen)."
+        internal const val MEDIA_NEXT_TEXT = "⏭ Nächster Song."
+        internal const val MEDIA_PAUSE_TEXT = "⏸ Pausiert."
+        internal const val MEDIA_PLAY_TEXT = "▶ Wiedergabe gestartet."
+        internal const val MEDIA_PREVIOUS_TEXT = "⏮ Vorheriger Song."
     }
 }

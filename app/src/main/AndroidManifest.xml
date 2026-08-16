@@ -33,6 +33,20 @@
             android:exported="false"
             android:foregroundServiceType="microphone|camera" />
 
+        <!-- Benachrichtigungszugriff (vom Nutzer in den Systemeinstellungen gewährt)
+             → erlaubt dem Chat-Bot, Media-Sessions fremder Apps zu steuern
+             (!song / !next / !pause / !play / !prev). Der Listener liest keine
+             Benachrichtigungen aus, er ist nur der Zugriffs-Marker. -->
+        <service
+            android:name="com.vivid.feature.chat.media.MediaNotificationListener"
+            android:exported="false"
+            android:label="@string/app_name"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
         <activity
             android:name=".irlbroadcaster.MainActivity"
             android:exported="true"

@@ -2,6 +2,10 @@ package com.vivid.feature.chat.di
 
 import com.vivid.feature.chat.ai.LlmClient
 import com.vivid.feature.chat.ai.OpenAiCompatibleLlmClient
+import com.vivid.feature.chat.bot.ChatTtsSpeaker
+import com.vivid.feature.chat.bot.AndroidTtsSpeaker
+import com.vivid.feature.chat.media.ChatMediaController
+import com.vivid.feature.chat.media.ChatMediaPlayer
 import com.vivid.feature.chat.twitch.IrcConnectionFactory
 import com.vivid.feature.chat.twitch.SocketIrcConnectionFactory
 import dagger.Binds
@@ -34,6 +38,18 @@ abstract class ChatFeatureModule {
     abstract fun bindLlmClient(
         client: OpenAiCompatibleLlmClient,
     ): LlmClient
+
+    @Binds
+    @Singleton
+    abstract fun bindChatTtsSpeaker(
+        speaker: AndroidTtsSpeaker,
+    ): ChatTtsSpeaker
+
+    @Binds
+    @Singleton
+    abstract fun bindChatMediaPlayer(
+        player: ChatMediaController,
+    ): ChatMediaPlayer
 }
 
 @Module

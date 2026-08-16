@@ -320,12 +320,94 @@ class SettingsViewModelTest {
 
         viewModel.onChatBotEnabledChange(true)
         viewModel.onChatBotModeChange(ChatBotMode.COMMAND)
+        viewModel.onChatBotLoginChange("vividbot")
+        viewModel.onChatBotOauthTokenChange("oauth:tok123")
+        viewModel.onChatBotApiBaseUrlChange("https://llm.example")
+        viewModel.onChatBotApiKeyChange("sk-secret")
+        viewModel.onChatBotModelChange("my-model")
+        viewModel.onChatBotSystemPromptChange("Du bist mein Bot.")
+        viewModel.onChatBotReplyCooldownSecondsChange("12")
+        viewModel.onChatBotMentionsOnlyChange(false)
+        viewModel.onChatBotMaxRepliesPerMinuteChange("25")
 
         assertEquals(true, viewModel.uiState.value.chatBotEnabled)
         assertEquals(ChatBotMode.COMMAND, viewModel.uiState.value.chatBotMode)
+        assertEquals("vividbot", viewModel.uiState.value.chatBotLogin)
+        assertEquals("oauth:tok123", viewModel.uiState.value.chatBotOauthToken)
+        assertEquals("https://llm.example", viewModel.uiState.value.chatBotApiBaseUrl)
+        assertEquals("sk-secret", viewModel.uiState.value.chatBotApiKey)
+        assertEquals("my-model", viewModel.uiState.value.chatBotModel)
+        assertEquals("Du bist mein Bot.", viewModel.uiState.value.chatBotSystemPrompt)
+        assertEquals(12L, viewModel.uiState.value.chatBotReplyCooldownSeconds)
+        assertEquals(false, viewModel.uiState.value.chatBotMentionsOnly)
+        assertEquals(25, viewModel.uiState.value.chatBotMaxRepliesPerMinute)
 
         viewModel.onChatBotModeChange(ChatBotMode.AUTONOMOUS)
         assertEquals(ChatBotMode.AUTONOMOUS, viewModel.uiState.value.chatBotMode)
+    }
+
+    @Test
+    fun `numeric chat bot fields fall back to zero on invalid input`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repository = mockk<SettingsRepository> {
+            every { appSettingsFlow } returns MutableStateFlow(AppSettings())
+        }
+
+        val viewModel = createViewModel(repository)
+        advanceUntilIdle()
+
+        viewModel.onChatBotReplyCooldownSecondsChange("abc")
+        viewModel.onChatBotMaxRepliesPerMinuteChange("xyz")
+
+        assertEquals(0L, viewModel.uiState.value.chatBotReplyCooldownSeconds)
+        assertEquals(0, viewModel.uiState.value.chatBotMaxRepliesPerMinute)
+    }
+
+    @Test
+    fun `saveSettings persists the complete chat bot configuration`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repository = mockk<SettingsRepository> {
+            every { appSettingsFlow } returns MutableStateFlow(AppSettings())
+            coEvery { updateStreamSettings(any(), any(), any()) } just runs
+            coEvery { updateSecondaryStreamSettings(any(), any(), any()) } just runs
+            coEvery { updateObsSettings(any(), any(), any(), any()) } just runs
+            coEvery { updateChatSettings(any(), any()) } just runs
+            coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
+        }
+
+        val viewModel = createViewModel(repository)
+        advanceUntilIdle()
+
+        viewModel.onChatBotEnabledChange(true)
+        viewModel.onChatBotModeChange(ChatBotMode.AUTONOMOUS)
+        viewModel.onChatBotLoginChange("vividbot")
+        viewModel.onChatBotOauthTokenChange("oauth:tok123")
+        viewModel.onChatBotApiBaseUrlChange("https://llm.example")
+        viewModel.onChatBotApiKeyChange("sk-secret")
+        viewModel.onChatBotModelChange("my-model")
+        viewModel.onChatBotSystemPromptChange("Du bist mein Bot.")
+        viewModel.onChatBotReplyCooldownSecondsChange("5")
+        viewModel.onChatBotMentionsOnlyChange(false)
+        viewModel.onChatBotMaxRepliesPerMinuteChange("20")
+
+        viewModel.saveSettings()
+        advanceUntilIdle()
+
+        coVerify {
+            repository.updateChatBotSettings(
+                enabled = true,
+                apiBaseUrl = "https://llm.example",
+                apiKey = "sk-secret",
+                model = "my-model",
+                systemPrompt = "Du bist mein Bot.",
+                replyCooldownSeconds = 5L,
+                mentionsOnly = false,
+                maxRepliesPerMinute = 20,
+                mode = ChatBotMode.AUTONOMOUS,
+                login = "vividbot",
+                oauthToken = "oauth:tok123",
+            )
+        }
     }
 
     // --- Web-Remote-Control ---

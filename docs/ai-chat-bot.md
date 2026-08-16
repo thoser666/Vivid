@@ -1,6 +1,6 @@
 # 🤖 AI Chat Bot
 
-> **Status:** Engine, Twitch sending, LLM client, stream-lifecycle wiring **and the mode switch** („Bot wie Moblin“ ↔ „KI entscheidet selbst“) are **implemented and tested**. The remaining configuration fields (Twitch token, LLM credentials) inside Vivid's settings screen are the next milestone — until they land, those settings are stored per the fields listed in [Configuration](#configuration) (pre-seeded via `SettingsRepository.updateChatBotSettings(...)`).
+> **Status:** Engine, Twitch sending, LLM client, stream-lifecycle wiring, the mode switch („Bot wie Moblin“ ↔ „KI entscheidet selbst“) **and the full settings screen** (bot account, Twitch token, LLM endpoint/key/model, system prompt, cooldown, mentions-only, rate limit) are **implemented and tested**. Still open: the Twitch OAuth browser flow (until then, paste a chat token — see below) and the optional cost budget.
 
 Vivid ships a **fully automated, in-app chat bot** (the idea is borrowed from cloud services like [Stream Chat AI](https://streamchatai.com), but it runs right on your phone — no dashboard, no monthly fee, you only pay your own LLM provider):
 
@@ -47,10 +47,33 @@ In den Einstellungen (Abschnitt **„Chat-Bot (KI)“**) gibt es einen **Betrieb
 |--------|---------|
 | `!help` / `!commands` | Listet die verfügbaren Befehle |
 | `!uptime` | Wie lange der Stream schon läuft (aus dem Stream-Start-Zeitstempel) |
+| `!tts` | **Chat-Text-to-Speech umschalten** (an/aus) — liest Chat-Nachrichten auf dem Gerät des Streamers laut vor |
+| `!song` / `!nowplaying` | Aktuellen Titel melden („Aktuell läuft: Titel – Interpret“) |
+| `!next` / `!skip` | Zum nächsten Titel springen |
+| `!pause` / `!play` | Wiedergabe pausieren / fortsetzen |
+| `!prev` / `!previous` | Zum vorherigen Titel springen |
 | `!bot` | Kurzinfo über den Bot |
 | `!<unbekannt>` | COMMAND: Hinweis „Unbekannter Befehl … — Tipp: !help“ · AUTONOMOUS: die KI entscheidet |
 
 Befehle sind **case-insensitive** und können mitten in der Nachricht stehen (`@bot !help`). Cooldown und Rate-Limit gelten für **alle** Antworten — auch für Befehle (schützt vor Spam, Twitch begrenzt 20 Nachrichten/30 s).
+
+#### Chat-Text-to-Speech (`!tts`)
+
+Wie beim Bot von [Moblin](https://github.com/eerimoq/moblin) kann der Chat das Vorlesen umschalten: Jeder schreibt `!tts` und der Bot bestätigt im Chat („TTS ist jetzt AN/AUS“). Wenn TTS an ist, liest das Gerät des Streamers eingehende Chat-Nachrichten laut vor (Android-TextToSpeech, keine Runtime-Berechtigung nötig).
+
+- Es werden **Viewer-Nachrichten** vorgelesen („Name: Text“), **eigene Bot-Nachrichten und `!`-Befehle** werden übersprungen (der Bot liest also weder seine eigene Bestätigung noch den `!tts`-Toggle selbst vor).
+- Vorgelesen wird nur, **solange der Bot aktiv ist** (der `!tts`-Befehl setzt voraus, dass der Bot im Chat ist).
+- Der An/Aus-Zustand **überlebt Stream-Ende/-Start** — TTS bleibt an, bis `!tts` es wieder ausschaltet.
+- Die vorgelesene Nachricht ist auf 200 Zeichen begrenzt. Ist auf dem Gerät keine TTS-Engine installiert, passiert nichts (kein Crash).
+
+#### Media-Player-Steuerung (`!song` / `!next` / `!pause` / `!play` / `!prev`)
+
+Wie beim Bot von [Moblin](https://github.com/eerimoq/moblin) (Row 80, Android-Adaption der Apple-Music-Steuerung) steuert der Chat den aktiven Musik-Player (Apple Music, Spotify, YouTube Music, …) über die **MediaSession** des Geräts:
+
+- **`!song`** meldet den aktuellen Titel („Aktuell läuft: …“), **`!next`/`!prev`** springen weiter/zurück, **`!pause`/`!play`** pausieren/fortsetzen — alle case-insensitive.
+- **Voraussetzung:** Benachrichtigungszugriff für Vivid (Systemeinstellungen → Benachrichtigungen bzw. Sonderzugriff). Ohne diesen Zugriff dürfen Apps fremde Media-Sessions nicht sehen — der Bot antwortet dann mit einem Hinweis statt zu steuern. Im Settings-Screen gibt es dafür den Button **„Benachrichtigungszugriff aktivieren“** (öffnet die Systemeinstellung).
+- Technisch läuft das über einen leeren `MediaNotificationListener` (nur Zugriffs-Marker — er liest **keine** Benachrichtigungen aus) + `MediaSessionManager.getActiveSessions(...)` → `MediaController.TransportControls`.
+- Es wird die aktive Session (playing/paused/buffering) bevorzugt, sonst die erste verfügbare.
 
 > 💡 **Tipp:** Im COMMAND-Modus funktioniert der Bot komplett ohne LLM-API-Key — ideal, wenn du nur die Moblin-artigen Chat-Befehle willst.
 
@@ -61,13 +84,14 @@ Implemented & unit-tested:
 - `OpenAiCompatibleLlmClient` — OpenAI-compatible `/v1/chat/completions` client (Bearer auth, error handling, configurable model/temperature/max tokens).
 - `TwitchBotClient` — authenticated Twitch chat connection (`PASS oauth:<token>`), reads and **sends** messages, PING→PONG keepalive, auto-reconnect with backoff.
 - `ChatBotEngine` — reaction engine: ignores the bot's own messages, mentions-only filter, cooldown, per-minute rate limit, rolling prompt history, 500-char reply cap, `ChatBotState` (Disabled/Idle/Thinking).
-- `ChatBotController` + `StreamingService` wiring — automatic connect on Go Live, clean shutdown on stream end, instant stop when the bot is disabled in settings. Tracks the stream start timestamp for `!uptime`.
+- `ChatBotController` + `StreamingService` wiring — automatic connect on Go Live, clean shutdown on stream end, instant stop when the bot is disabled in settings. Tracks the stream start timestamp for `!uptime`, wires the chat TTS to the message stream.
+- **Chat-TTS (`!tts`)** — `ChatTtsController` (enabled state, speaks viewer messages, skips own messages and commands) + `AndroidTtsSpeaker` (system TextToSpeech engine).
+- **Media-Player-Steuerung (`!song`/`!next`/`!pause`/`!play`/`!prev`)** — `ChatMediaController` (MediaController über aktive MediaSessions) + `MediaNotificationListener` (Benachrichtigungszugriff als Voraussetzung).
 - **Mode switch** in Vivid's Settings screen („Bot (wie Moblin)“ ↔ „KI autonom“) incl. enable toggle — see [Betriebsmodi (der Switch)](#betriebsmodi-der-switch).
 - Bot settings in `SettingsRepository`/`AppSettings` (`chat_bot_mode` key).
 
 Still open (next milestones):
 
-- **Remaining bot fields in the Settings screen** (Twitch token, LLM endpoint/key/model, cooldown, mentions-only, rate limit — currently pre-seeded via `SettingsRepository.updateChatBotSettings(...)`).
 - **Twitch OAuth browser flow** (until then, paste a chat token — see below).
 - Cost budget per hour, media-player control commands (`!song`/`!next`/`!pause` via MediaSession, Moblin parity row), provider presets.
 
@@ -75,7 +99,7 @@ Still open (next milestones):
 
 1. A **Twitch account for the bot** (can be your main account or a dedicated one).
 2. A **chat token** for that account with the scopes `chat:read` and `chat:send`.
-3. An **LLM API key** (or a reachable Ollama instance).
+3. An **LLM API key** (or a reachable Ollama instance) — only needed in „KI autonom“ mode; the „Bot wie Moblin“ command mode works without one.
 
 ## 1. Getting a Twitch chat token
 
@@ -124,7 +148,7 @@ All bot settings live in the app settings. Fields (DataStore keys):
 | Max replies/min | `chat_bot_max_replies_per_minute` | `10` (default) |
 | **Modus** | `chat_bot_mode` | `AUTONOMOUS` (default) — `COMMAND` = „Bot wie Moblin“ (nur `!`-Befehle, kein LLM nötig) |
 
-Until the settings screen ships, these can be pre-seeded for development/testing through the repository APIs (`SettingsRepository.updateChatBotSettings(...)`).
+Alle Felder sind direkt im **Settings-Screen** (Abschnitt **„Chat-Bot (KI)“**) editierbar und werden mit „Speichern“ persistiert. Token und API-Key sind als Passwortfelder mit Sichtbarkeits-Toggle (Auge) hinterlegt.
 
 ## Behavior & safeguards
 
@@ -150,9 +174,9 @@ Until the settings screen ships, these can be pre-seeded for development/testing
 
 - ✅ **Mode switch** in Vivid's settings („Bot wie Moblin“ ↔ „KI autonom“) — done.
 - Full bot settings screen inside Vivid (remaining fields from [Configuration](#configuration): Twitch token, LLM credentials …).
+- ✅ **Media-player control** (`!song`/`!next`/`!pause`/`!play`/`!prev` via MediaSession, Moblin parity row) — done (needs notification access).
 - Twitch OAuth browser flow (no manual token pasting).
 - Optional hourly cost budget for the LLM.
-- Media-player control commands (`!song`/`!next`/`!pause`) via MediaSession (Moblin parity row).
 - More platforms once Kick/YouTube chat lands.
 
 ## Architecture
@@ -163,7 +187,11 @@ Until the settings screen ships, these can be pre-seeded for development/testing
 | `feature-chat/…/ai/LlmModels.kt` | Chat-Completion request/response DTOs (kotlinx.serialization) |
 | `feature-chat/…/twitch/TwitchBotClient.kt` | Authenticated Twitch IRC connection: read + `sendMessage()` |
 | `feature-chat/…/bot/ChatBotEngine.kt` | Reaction engine (mode switch, filters, history, LLM call, send, state) |
-| `feature-chat/…/bot/BotCommandProcessor.kt` | Deterministic `!`-commands („Bot wie Moblin“, no LLM) |
+| `feature-chat/…/bot/BotCommandProcessor.kt` | Deterministic `!`-commands („Bot wie Moblin“, no LLM) — incl. `!tts` |
+| `feature-chat/…/bot/ChatTtsController.kt` | Chat-TTS: enabled state, speaks viewer messages, `toggle()` for `!tts` |
+| `feature-chat/…/bot/AndroidTtsSpeaker.kt` | Android TextToSpeech implementation of the speaker interface |
+| `feature-chat/…/media/ChatMediaController.kt` | Media-Player-Steuerung (MediaController über aktive MediaSessions) |
+| `feature-chat/…/media/MediaNotificationListener.kt` | Notification-Listener (Zugriffs-Marker für Media-Session-Steuerung) |
 | `feature-chat/…/bot/ChatBotConfig.kt` | Settings → engine configuration (incl. mode) |
 | `feature-chat/…/bot/ChatSender.kt` | Send abstraction (interface) |
 | `feature-chat/…/bot/ChatBotController.kt` | Stream-lifecycle → bot wiring |

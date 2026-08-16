@@ -113,6 +113,20 @@ class SettingsViewModel @Inject constructor(
     // Chat-Bot-Einstellungen.
     fun onChatBotEnabledChange(newEnabled: Boolean) { _uiState.value = _uiState.value.copy(chatBotEnabled = newEnabled) }
     fun onChatBotModeChange(newMode: ChatBotMode) { _uiState.value = _uiState.value.copy(chatBotMode = newMode) }
+    fun onChatBotLoginChange(newLogin: String) { _uiState.value = _uiState.value.copy(chatBotLogin = newLogin) }
+    fun onChatBotOauthTokenChange(newToken: String) { _uiState.value = _uiState.value.copy(chatBotOauthToken = newToken) }
+    fun onChatBotApiBaseUrlChange(newUrl: String) { _uiState.value = _uiState.value.copy(chatBotApiBaseUrl = newUrl) }
+    fun onChatBotApiKeyChange(newKey: String) { _uiState.value = _uiState.value.copy(chatBotApiKey = newKey) }
+    fun onChatBotModelChange(newModel: String) { _uiState.value = _uiState.value.copy(chatBotModel = newModel) }
+    fun onChatBotSystemPromptChange(newPrompt: String) { _uiState.value = _uiState.value.copy(chatBotSystemPrompt = newPrompt) }
+    // Numerische Felder: Roh-Text aus dem Eingabefeld, unlesbar → 0 (Cooldown aus / unbegrenzt).
+    fun onChatBotReplyCooldownSecondsChange(raw: String) {
+        _uiState.value = _uiState.value.copy(chatBotReplyCooldownSeconds = raw.toLongOrNull() ?: 0L)
+    }
+    fun onChatBotMentionsOnlyChange(newEnabled: Boolean) { _uiState.value = _uiState.value.copy(chatBotMentionsOnly = newEnabled) }
+    fun onChatBotMaxRepliesPerMinuteChange(raw: String) {
+        _uiState.value = _uiState.value.copy(chatBotMaxRepliesPerMinute = raw.toIntOrNull() ?: 0)
+    }
 
     fun saveSettings() {
         viewModelScope.launch {

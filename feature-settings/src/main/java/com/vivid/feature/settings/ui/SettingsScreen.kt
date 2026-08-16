@@ -1,19 +1,28 @@
 package com.vivid.feature.settings.ui
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -208,10 +217,10 @@ fun SettingsScreen(
                 )
             }
 
-            // Chat-Bot (KI): An/Aus + Betriebsmodus-Switch
+            // Chat-Bot (KI): An/Aus + Betriebsmodus-Switch + alle Konfigurationsfelder
             Text("Chat-Bot (KI)", style = MaterialTheme.typography.titleLarge)
             Text(
-                text = "Automatischer Bot im Twitch-Chat: entweder deterministische Chat-Befehle (wie der Bot von Moblin) oder eine KI, die selbst entscheidet. Twitch-Token und LLM-Zugangsdaten werden bis zum vollständigen Bot-Settings-Screen per Repository vorbefüllt — siehe docs/ai-chat-bot.md.",
+                text = "Automatischer Bot im Twitch-Chat: entweder deterministische Chat-Befehle (wie der Bot von Moblin) oder eine KI, die selbst entscheidet. Alle Felder lassen sich hier konfigurieren — Details: docs/ai-chat-bot.md.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -245,12 +254,97 @@ fun SettingsScreen(
             }
             Text(
                 text = when (uiState.chatBotMode) {
-                    ChatBotMode.COMMAND -> "Bot wie Moblin: reagiert nur auf Befehle wie !help, !uptime und !bot — kein LLM nötig, funktioniert ohne KI-Schlüssel."
+                    ChatBotMode.COMMAND -> "Bot wie Moblin: reagiert nur auf Befehle wie !help, !uptime, !tts und !bot — kein LLM nötig, funktioniert ohne KI-Schlüssel."
                     ChatBotMode.AUTONOMOUS -> "KI entscheidet selbst: Das LLM bewertet jede (freigegebene) Nachricht und entscheidet, ob und wie es antwortet — inklusive bewusstem Schweigen."
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+
+            // Bot-Konto (Twitch) + LLM-Zugang
+            Text("Bot-Konto & LLM", style = MaterialTheme.typography.titleMedium)
+            OutlinedTextField(
+                value = uiState.chatBotLogin,
+                onValueChange = viewModel::onChatBotLoginChange,
+                label = { Text("Bot-Login (Twitch, ohne @)") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            SecretField(
+                value = uiState.chatBotOauthToken,
+                onValueChange = viewModel::onChatBotOauthTokenChange,
+                label = "Twitch-OAuth-Token (chat:read + chat:send)",
+            )
+            OutlinedTextField(
+                value = uiState.chatBotApiBaseUrl,
+                onValueChange = viewModel::onChatBotApiBaseUrlChange,
+                label = { Text("LLM API-Basis-URL (OpenAI-kompatibel)") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            SecretField(
+                value = uiState.chatBotApiKey,
+                onValueChange = viewModel::onChatBotApiKeyChange,
+                label = "LLM API-Key",
+            )
+            OutlinedTextField(
+                value = uiState.chatBotModel,
+                onValueChange = viewModel::onChatBotModelChange,
+                label = { Text("LLM-Modell") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            OutlinedTextField(
+                value = uiState.chatBotSystemPrompt,
+                onValueChange = viewModel::onChatBotSystemPromptChange,
+                label = { Text("System-Prompt (optional)") },
+                minLines = 2,
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            // Bot-Verhalten
+            Text("Bot-Verhalten", style = MaterialTheme.typography.titleMedium)
+            OutlinedTextField(
+                value = uiState.chatBotReplyCooldownSeconds.toString(),
+                onValueChange = viewModel::onChatBotReplyCooldownSecondsChange,
+                label = { Text("Antwort-Cooldown (Sekunden, 0 = aus)") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Nur auf Erwähnungen antworten", modifier = Modifier.weight(1f))
+                Switch(
+                    checked = uiState.chatBotMentionsOnly,
+                    onCheckedChange = viewModel::onChatBotMentionsOnlyChange,
+                )
+            }
+            OutlinedTextField(
+                value = uiState.chatBotMaxRepliesPerMinute.toString(),
+                onValueChange = viewModel::onChatBotMaxRepliesPerMinuteChange,
+                label = { Text("Max. Antworten pro Minute (0 = unbegrenzt)") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            // Media-Player-Steuerung: braucht Benachrichtigungszugriff
+            Text(
+                text = "Media-Befehle (!song / !next / !pause / !play / !prev) steuern den aktiven Musik-Player — dafür muss Vivid Benachrichtigungszugriff haben (liest keine Benachrichtigungen aus).",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            OutlinedButton(
+                onClick = {
+                    runCatching { context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Benachrichtigungszugriff aktivieren")
+            }
 
             // Web-Remote-Control: Zugangsdaten für den LAN-Server
             Text("Web-Remote-Control", style = MaterialTheme.typography.titleLarge)
@@ -346,3 +440,33 @@ private val ChatBotMode.displayName: String
         ChatBotMode.COMMAND -> "Bot (wie Moblin)"
         ChatBotMode.AUTONOMOUS -> "KI autonom"
     }
+
+/**
+ * Passwort-/Token-Eingabefeld mit Sichtbarkeits-Toggle (Auge).
+ * Genutzt für Twitch-OAuth-Token und LLM-API-Key.
+ */
+@Composable
+private fun SecretField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+) {
+    var visible by remember { mutableStateOf(false) }
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(label) },
+        singleLine = true,
+        visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+        trailingIcon = {
+            IconButton(onClick = { visible = !visible }) {
+                Icon(
+                    imageVector = if (visible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
+                    contentDescription = if (visible) "Eingabe ausblenden" else "Eingabe anzeigen",
+                )
+            }
+        },
+        modifier = Modifier.fillMaxWidth(),
+    )
+}
