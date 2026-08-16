@@ -11,6 +11,8 @@
 #   S4 transiente Fehler   → Retry (Versuch 1/3, 2/3) bis Erfolg
 #   S5 permanenter Fehler  → Rollback NUR des Rest-Releases (Tag bleibt), Run rot
 #   S6 Draft + Fehler      → Rollback löscht den Draft, Run rot
+#   S7 Tag bleibt immer    → Beweis: stabiler Pfad führt NIE eine Tag-Löschung
+#                            aus (Command-Log + statischer Source-Guard)
 #
 # Läuft im CI (android_fastlane.yml, Job "Self-Test publish_release (Hardening)")
 # und lokal: bash scripts/test_publish_release_hardening.sh  (Exit 0 = grün)
@@ -145,6 +147,22 @@ assert_has "S6.2 endgültig" "endgültig fehlgeschlagen"
 assert_has "S6.3 draft geloescht" "Rest-Release v9.9.9-test gelöscht"
 assert_not_has "S6.4 kein lane ok" "LANE_OK"
 assert_count "S6.6 state leer (Draft weg)" 0
+
+echo "== S7: stabiler Pfad fuehrt NIE eine Tag-Loeschung aus (Rollback-Szenario)"
+reset_state
+echo 5 > "$STATE/fail_create"
+OUT=$(ruby "$HARNESS" 2>&1) || true
+# Command-Log des Harness (Zeilen "[cmdlog] ...") = die WIRKLICH ausgeführten
+# Kommandos. Eine Tag-Löschung wäre "git push origin :refs/tags/..." oder
+# "git tag -d ..." — beides darf im stabilen Pfad nie auftauchen.
+assert_not_has "S7.1 kein refs/tags-Push im cmdlog" ":refs/tags/"
+assert_not_has "S7.2 kein git tag -d im cmdlog" "tag -d"
+# Positivkontrolle: der Rollback (gh release delete) MUSS im cmdlog stehen —
+# beweist, dass das Log vollständig ist und nicht nur leer daherkommt.
+assert_has "S7.3 Rollback-Delete im cmdlog (Positivkontrolle)" "[cmdlog] gh release delete v9.9.9-test --yes"
+assert_has "S7.4 Create-Versuche im cmdlog" "[cmdlog] gh release create v9.9.9-test"
+assert_not_has "S7.5 kein lane ok" "LANE_OK"
+assert_count "S7.6 state leer" 0
 
 echo
 echo "=========================================="
