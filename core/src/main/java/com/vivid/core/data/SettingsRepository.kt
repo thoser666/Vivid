@@ -40,6 +40,9 @@ class SettingsRepository @Inject constructor(
         val CHAT_BOT_IGNORE_BOTS = stringPreferencesKey("chat_bot_ignore_bots")
         val CHAT_BOT_COMMAND_SCOPE = stringPreferencesKey("chat_bot_command_scope")
         val CHAT_BOT_COMMAND_PREFIX = stringPreferencesKey("chat_bot_command_prefix")
+        val CHAT_BOT_PER_VIEWER_COOLDOWN_SECONDS = longPreferencesKey("chat_bot_per_viewer_cooldown_seconds")
+        val CHAT_BOT_PER_VIEWER_MAX_REPLIES = intPreferencesKey("chat_bot_per_viewer_max_replies")
+        val CHAT_BOT_MAX_REPLIES_PER_HOUR = intPreferencesKey("chat_bot_max_replies_per_hour")
     }
 
     // WICHTIG: Dies ist jetzt der EINZIGE Flow, den das ViewModel braucht.
@@ -89,6 +92,9 @@ class SettingsRepository @Inject constructor(
                 ignoreBots = prefs[PrefKeys.CHAT_BOT_IGNORE_BOTS] ?: "",
                 commandScope = ChatBotCommandScope.fromName(prefs[PrefKeys.CHAT_BOT_COMMAND_SCOPE]),
                 commandPrefix = prefs[PrefKeys.CHAT_BOT_COMMAND_PREFIX] ?: "",
+                perViewerCooldownSeconds = prefs[PrefKeys.CHAT_BOT_PER_VIEWER_COOLDOWN_SECONDS] ?: 60L,
+                perViewerMaxReplies = prefs[PrefKeys.CHAT_BOT_PER_VIEWER_MAX_REPLIES] ?: 0,
+                maxRepliesPerHour = prefs[PrefKeys.CHAT_BOT_MAX_REPLIES_PER_HOUR] ?: 0,
             )
         },
     ) { streamData, obsData, chatData, chatBotData ->
@@ -120,6 +126,9 @@ class SettingsRepository @Inject constructor(
             chatBotIgnoreBots = chatBotData.ignoreBots,
             chatBotCommandScope = chatBotData.commandScope,
             chatBotCommandPrefix = chatBotData.commandPrefix,
+            chatBotPerViewerCooldownSeconds = chatBotData.perViewerCooldownSeconds,
+            chatBotPerViewerMaxReplies = chatBotData.perViewerMaxReplies,
+            chatBotMaxRepliesPerHour = chatBotData.maxRepliesPerHour,
         )
     }
 
@@ -176,6 +185,9 @@ class SettingsRepository @Inject constructor(
         ignoreBots: String = "",
         commandScope: ChatBotCommandScope = ChatBotCommandScope.ALL,
         commandPrefix: String = "",
+        perViewerCooldownSeconds: Long = 60L,
+        perViewerMaxReplies: Int = 0,
+        maxRepliesPerHour: Int = 0,
     ) {
         dataStore.edit { prefs ->
             prefs[PrefKeys.CHAT_BOT_ENABLED] = enabled
@@ -192,6 +204,9 @@ class SettingsRepository @Inject constructor(
             prefs[PrefKeys.CHAT_BOT_IGNORE_BOTS] = ignoreBots
             prefs[PrefKeys.CHAT_BOT_COMMAND_SCOPE] = commandScope.name
             prefs[PrefKeys.CHAT_BOT_COMMAND_PREFIX] = commandPrefix
+            prefs[PrefKeys.CHAT_BOT_PER_VIEWER_COOLDOWN_SECONDS] = perViewerCooldownSeconds
+            prefs[PrefKeys.CHAT_BOT_PER_VIEWER_MAX_REPLIES] = perViewerMaxReplies
+            prefs[PrefKeys.CHAT_BOT_MAX_REPLIES_PER_HOUR] = maxRepliesPerHour
         }
     }
 
@@ -231,5 +246,8 @@ class SettingsRepository @Inject constructor(
         val ignoreBots: String,
         val commandScope: ChatBotCommandScope,
         val commandPrefix: String,
+        val perViewerCooldownSeconds: Long,
+        val perViewerMaxReplies: Int,
+        val maxRepliesPerHour: Int,
     )
 }

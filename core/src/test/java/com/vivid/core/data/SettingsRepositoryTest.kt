@@ -277,6 +277,9 @@ class SettingsRepositoryTest {
         assertEquals("", settings.chatBotIgnoreBots)
         assertEquals(ChatBotCommandScope.ALL, settings.chatBotCommandScope)
         assertEquals("", settings.chatBotCommandPrefix)
+        assertEquals(60L, settings.chatBotPerViewerCooldownSeconds)
+        assertEquals(0, settings.chatBotPerViewerMaxReplies)
+        assertEquals(0, settings.chatBotMaxRepliesPerHour)
     }
 
     @Test
@@ -303,6 +306,9 @@ class SettingsRepositoryTest {
             ignoreBots = "rivuletbot, otherbot",
             commandScope = ChatBotCommandScope.PREFIX,
             commandPrefix = "v",
+            perViewerCooldownSeconds = 120,
+            perViewerMaxReplies = 5,
+            maxRepliesPerHour = 100,
         )
         val settings = repository.appSettingsFlow.first()
 
@@ -321,6 +327,9 @@ class SettingsRepositoryTest {
         assertEquals("rivuletbot, otherbot", settings.chatBotIgnoreBots)
         assertEquals(ChatBotCommandScope.PREFIX, settings.chatBotCommandScope)
         assertEquals("v", settings.chatBotCommandPrefix)
+        assertEquals(120L, settings.chatBotPerViewerCooldownSeconds)
+        assertEquals(5, settings.chatBotPerViewerMaxReplies)
+        assertEquals(100, settings.chatBotMaxRepliesPerHour)
         // Andere Bereiche bleiben unberührt.
         assertEquals("", settings.chatChannel)
         assertEquals("localhost", settings.obsHost)

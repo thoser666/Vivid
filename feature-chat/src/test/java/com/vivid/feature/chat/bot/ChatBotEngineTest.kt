@@ -39,10 +39,13 @@ class ChatBotEngineTest {
         text: String,
         login: String = "viewer1",
         displayName: String? = null,
+        isModerator: Boolean = false,
     ): ChatMessage = ChatMessage(
         id = "id-${text.hashCode()}",
         channel = "channel",
-        userId = "1",
+        // userId ist plattformneutral und muss pro User eindeutig sein —
+        // die Per-Viewer-Limits der Engine keyen darauf.
+        userId = "user-$login",
         userLogin = login,
         displayName = displayName ?: login,
         color = null,
@@ -50,7 +53,7 @@ class ChatBotEngineTest {
         badges = emptyList(),
         emotesTag = "",
         timestamp = System.currentTimeMillis(),
-        isModerator = false,
+        isModerator = isModerator,
         isSubscriber = false,
     )
 
@@ -65,6 +68,9 @@ class ChatBotEngineTest {
         commandScope: ChatBotCommandScope = ChatBotCommandScope.ALL,
         commandPrefix: String = "",
         ignoreBots: Set<String> = emptySet(),
+        perViewerCooldownMillis: Long = 0L,
+        perViewerMaxReplies: Int = 0,
+        maxRepliesPerHour: Int = 0,
     ): ChatBotConfig = ChatBotConfig(
         channel = "channel",
         login = login,
@@ -77,6 +83,9 @@ class ChatBotEngineTest {
         commandScope = commandScope,
         commandPrefix = commandPrefix,
         ignoreBots = ignoreBots,
+        perViewerCooldownMillis = perViewerCooldownMillis,
+        perViewerMaxReplies = perViewerMaxReplies,
+        maxRepliesPerHour = maxRepliesPerHour,
         llm = LlmConfig(baseUrl = "https://llm.example", apiKey = apiKey, model = "model"),
     )
 
@@ -227,6 +236,296 @@ class ChatBotEngineTest {
         coVerify(exactly = 1) {
             sender.send("Verfügbare Befehle: !v!help · !v!uptime · !v!tts · !v!song · !v!next · !v!pause · !v!bot")
         }
+        engine.stop()
+    }
+
+    // --- Begrenzungen: Per-Viewer-Cooldown, Per-Viewer-Cap, Stunden-Budget ---
+
+    @Test
+    fun `per viewer cooldown blocks repeat replies from the same viewer`() = runTest {
+        val engine = engine()
+        var currentTime = 10_000_000L
+        engine.now = { currentTime }
+        coEvery { sender.send(any()) } just Runs
+
+        engine.start(
+            messages,
+            config(
+                commandScope = ChatBotCommandScope.MENTION,
+                replyCooldownMillis = 0, // nur das Per-Viewer-Limit testen
+                perViewerCooldownMillis = 60_000,
+            ),
+            sender,
+            this,
+        )
+        messages.emit(chatMessage("@vividbot !help")) // viewer1
+        advanceUntilIdle()
+        currentTime += 5_000 // innerhalb des 60s-Fensters
+        messages.emit(chatMessage("@vividbot !uptime")) // viewer1, geblockt
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { sender.send(BotCommandProcessor.HELP_TEXT) }
+        coVerify(exactly = 0) { sender.send("Gerade läuft kein Stream.") }
+        engine.stop()
+    }
+
+    @Test
+    fun `per viewer cooldown allows a reply after the window passes`() = runTest {
+        val engine = engine()
+        var currentTime = 10_000_000L
+        engine.now = { currentTime }
+        coEvery { sender.send(any()) } just Runs
+
+        engine.start(
+            messages,
+            config(
+                commandScope = ChatBotCommandScope.MENTION,
+                replyCooldownMillis = 0,
+                perViewerCooldownMillis = 60_000,
+            ),
+            sender,
+            this,
+        )
+        messages.emit(chatMessage("@vividbot !help"))
+        advanceUntilIdle()
+        currentTime += 61_000
+        messages.emit(chatMessage("@vividbot !help"))
+        advanceUntilIdle()
+
+        coVerify(exactly = 2) { sender.send(BotCommandProcessor.HELP_TEXT) }
+        engine.stop()
+    }
+
+    @Test
+    fun `per viewer cooldown is independent per viewer`() = runTest {
+        val engine = engine()
+        var currentTime = 10_000_000L
+        engine.now = { currentTime }
+        coEvery { sender.send(any()) } just Runs
+
+        engine.start(
+            messages,
+            config(
+                commandScope = ChatBotCommandScope.MENTION,
+                replyCooldownMillis = 0,
+                perViewerCooldownMillis = 60_000,
+            ),
+            sender,
+            this,
+        )
+        messages.emit(chatMessage("@vividbot !help", login = "viewer1"))
+        advanceUntilIdle()
+        currentTime += 5_000
+        messages.emit(chatMessage("@vividbot !help", login = "viewer2"))
+        advanceUntilIdle()
+
+        coVerify(exactly = 2) { sender.send(BotCommandProcessor.HELP_TEXT) }
+        engine.stop()
+    }
+
+    @Test
+    fun `moderators bypass the per viewer cooldown`() = runTest {
+        val engine = engine()
+        var currentTime = 10_000_000L
+        engine.now = { currentTime }
+        coEvery { sender.send(any()) } just Runs
+
+        engine.start(
+            messages,
+            config(
+                commandScope = ChatBotCommandScope.MENTION,
+                replyCooldownMillis = 0,
+                perViewerCooldownMillis = 60_000,
+            ),
+            sender,
+            this,
+        )
+        messages.emit(chatMessage("@vividbot !help", login = "mod1"))
+        advanceUntilIdle()
+        currentTime += 5_000
+        // Gleicher Absender, aber Moderator → antwortet trotz Cooldown.
+        messages.emit(chatMessage("@vividbot !uptime", login = "mod1", isModerator = true))
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { sender.send(BotCommandProcessor.HELP_TEXT) }
+        coVerify(exactly = 1) { sender.send("Gerade läuft kein Stream.") }
+        engine.stop()
+    }
+
+    @Test
+    fun `per viewer cap limits replies per viewer per stream`() = runTest {
+        val engine = engine()
+        var currentTime = 10_000_000L
+        engine.now = { currentTime }
+        coEvery { sender.send(any()) } just Runs
+
+        engine.start(
+            messages,
+            config(
+                commandScope = ChatBotCommandScope.MENTION,
+                replyCooldownMillis = 0,
+                perViewerCooldownMillis = 0,
+                perViewerMaxReplies = 2,
+            ),
+            sender,
+            this,
+        )
+        repeat(3) {
+            messages.emit(chatMessage("@vividbot !help"))
+            advanceUntilIdle()
+            currentTime += 5_000 // kein Cooldown → nur der Cap zählt
+        }
+
+        coVerify(exactly = 2) { sender.send(BotCommandProcessor.HELP_TEXT) }
+        engine.stop()
+    }
+
+    @Test
+    fun `per viewer cap resets when the engine restarts`() = runTest {
+        val engine = engine()
+        var currentTime = 10_000_000L
+        engine.now = { currentTime }
+        coEvery { sender.send(any()) } just Runs
+
+        engine.start(
+            messages,
+            config(
+                commandScope = ChatBotCommandScope.MENTION,
+                replyCooldownMillis = 0,
+                perViewerMaxReplies = 1,
+            ),
+            sender,
+            this,
+        )
+        messages.emit(chatMessage("@vividbot !help"))
+        advanceUntilIdle()
+        messages.emit(chatMessage("@vividbot !help"))
+        advanceUntilIdle()
+        coVerify(exactly = 1) { sender.send(BotCommandProcessor.HELP_TEXT) }
+
+        // Neustart (z. B. Stream-Ende/-Start) setzt den Zähler zurück.
+        engine.start(
+            messages,
+            config(
+                commandScope = ChatBotCommandScope.MENTION,
+                replyCooldownMillis = 0,
+                perViewerMaxReplies = 1,
+            ),
+            sender,
+            this,
+        )
+        messages.emit(chatMessage("@vividbot !help"))
+        advanceUntilIdle()
+        coVerify(exactly = 2) { sender.send(BotCommandProcessor.HELP_TEXT) }
+        engine.stop()
+    }
+
+    @Test
+    fun `hourly budget stops replies once the hour cap is reached`() = runTest {
+        val engine = engine()
+        var currentTime = 10_000_000L
+        engine.now = { currentTime }
+        coEvery { sender.send(any()) } just Runs
+
+        engine.start(
+            messages,
+            config(
+                commandScope = ChatBotCommandScope.MENTION,
+                replyCooldownMillis = 0,
+                maxRepliesPerHour = 2,
+            ),
+            sender,
+            this,
+        )
+        repeat(3) {
+            messages.emit(chatMessage("@vividbot !help", login = "viewer$it"))
+            advanceUntilIdle()
+        }
+
+        coVerify(exactly = 2) { sender.send(BotCommandProcessor.HELP_TEXT) }
+        engine.stop()
+    }
+
+    @Test
+    fun `hourly budget resets after an hour`() = runTest {
+        val engine = engine()
+        var currentTime = 10_000_000L
+        engine.now = { currentTime }
+        coEvery { sender.send(any()) } just Runs
+
+        engine.start(
+            messages,
+            config(
+                commandScope = ChatBotCommandScope.MENTION,
+                replyCooldownMillis = 0,
+                maxRepliesPerHour = 1,
+            ),
+            sender,
+            this,
+        )
+        messages.emit(chatMessage("@vividbot !help", login = "viewer1"))
+        advanceUntilIdle()
+        messages.emit(chatMessage("@vividbot !help", login = "viewer2"))
+        advanceUntilIdle()
+        coVerify(exactly = 1) { sender.send(BotCommandProcessor.HELP_TEXT) }
+
+        currentTime += 3_601_000 // über eine Stunde später
+        messages.emit(chatMessage("@vividbot !help", login = "viewer3"))
+        advanceUntilIdle()
+        coVerify(exactly = 2) { sender.send(BotCommandProcessor.HELP_TEXT) }
+        engine.stop()
+    }
+
+    @Test
+    fun `per viewer cooldown also blocks the autonomous llm path`() = runTest {
+        val engine = engine()
+        var currentTime = 10_000_000L
+        engine.now = { currentTime }
+        coEvery { llm.complete(any(), any()) } returns "KI-Antwort!"
+        coEvery { sender.send(any()) } just Runs
+
+        engine.start(
+            messages,
+            config(mentionsOnly = false, perViewerCooldownMillis = 60_000, replyCooldownMillis = 0),
+            sender,
+            this,
+        )
+        messages.emit(chatMessage("hallo bot")) // viewer1 → LLM antwortet
+        advanceUntilIdle()
+        currentTime += 5_000 // noch im 60s-Fenster
+        messages.emit(chatMessage("und noch eine Frage")) // viewer1 → geblockt
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { llm.complete(any(), any()) }
+        coVerify(exactly = 1) { sender.send("KI-Antwort!") }
+        engine.stop()
+    }
+
+    @Test
+    fun `per viewer cooldown blocks media commands from the same viewer`() = runTest {
+        val media = mockk<ChatMediaPlayer>()
+        every { media.hasAccess() } returns true
+        every { media.nowPlaying() } returns "Song"
+        every { media.pause() } just Runs
+        val engine = engine(media)
+        var currentTime = 10_000_000L
+        engine.now = { currentTime }
+        coEvery { sender.send(any()) } just Runs
+
+        engine.start(
+            messages,
+            config(perViewerCooldownMillis = 60_000, replyCooldownMillis = 0),
+            sender,
+            this,
+        )
+        messages.emit(chatMessage("!song")) // viewer1
+        advanceUntilIdle()
+        currentTime += 5_000
+        messages.emit(chatMessage("!pause")) // viewer1 → geblockt, keine Aktion
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { sender.send("Aktuell läuft: Song") }
+        coVerify(exactly = 0) { media.pause() }
         engine.stop()
     }
 

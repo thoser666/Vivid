@@ -25,6 +25,13 @@ data class ChatBotConfig(
     val commandPrefix: String = "",
     // Logins anderer Bots (normalisiert, ohne '@'), deren Nachrichten ignoriert werden.
     val ignoreBots: Set<String> = emptySet(),
+    // --- Begrenzungen (pro Viewer + Kosten) ---
+    // Wartezeit pro Viewer nach einer Antwort (0 = aus). Mods umgehen das.
+    val perViewerCooldownMillis: Long = 0L,
+    // Max. Antworten pro Viewer pro Stream (0 = unbegrenzt). Mods umgehen das.
+    val perViewerMaxReplies: Int = 0,
+    // Kosten-Budget: max. Antworten pro Stunde global (0 = unbegrenzt).
+    val maxRepliesPerHour: Int = 0,
 ) {
     /**
      * Startbereit? Kanal, Login und Token werden immer gebraucht — das LLM
@@ -53,6 +60,9 @@ data class ChatBotConfig(
                     .map { it.trim().lowercase().removePrefix("@") }
                     .filter { it.isNotBlank() }
                     .toSet(),
+                perViewerCooldownMillis = settings.chatBotPerViewerCooldownSeconds * 1000,
+                perViewerMaxReplies = settings.chatBotPerViewerMaxReplies,
+                maxRepliesPerHour = settings.chatBotMaxRepliesPerHour,
                 llm = LlmConfig(
                     baseUrl = settings.chatBotApiBaseUrl,
                     apiKey = settings.chatBotApiKey,

@@ -237,7 +237,7 @@ class SettingsViewModelTest {
             coEvery { updateSecondaryStreamSettings(any(), any(), any()) } just runs
             coEvery { updateObsSettings(any(), any(), any(), any()) } just runs
             coEvery { updateChatSettings(any(), any()) } just runs
-            coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
+            coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
         }
 
         val viewModel = createViewModel(repository)
@@ -280,7 +280,7 @@ class SettingsViewModelTest {
             coEvery { updateSecondaryStreamSettings(any(), any(), any()) } just runs
             coEvery { updateObsSettings(any(), any(), any(), any()) } just runs
             coEvery { updateChatSettings(any(), any()) } just runs
-            coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
+            coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
         }
 
         val viewModel = createViewModel(repository)
@@ -333,6 +333,9 @@ class SettingsViewModelTest {
         viewModel.onChatBotIgnoreBotsChange("rivuletbot")
         viewModel.onChatBotCommandScopeChange(ChatBotCommandScope.PREFIX)
         viewModel.onChatBotCommandPrefixChange("v")
+        viewModel.onChatBotPerViewerCooldownSecondsChange("90")
+        viewModel.onChatBotPerViewerMaxRepliesChange("4")
+        viewModel.onChatBotMaxRepliesPerHourChange("50")
 
         assertEquals(true, viewModel.uiState.value.chatBotEnabled)
         assertEquals(ChatBotMode.COMMAND, viewModel.uiState.value.chatBotMode)
@@ -348,6 +351,9 @@ class SettingsViewModelTest {
         assertEquals("rivuletbot", viewModel.uiState.value.chatBotIgnoreBots)
         assertEquals(ChatBotCommandScope.PREFIX, viewModel.uiState.value.chatBotCommandScope)
         assertEquals("v", viewModel.uiState.value.chatBotCommandPrefix)
+        assertEquals(90L, viewModel.uiState.value.chatBotPerViewerCooldownSeconds)
+        assertEquals(4, viewModel.uiState.value.chatBotPerViewerMaxReplies)
+        assertEquals(50, viewModel.uiState.value.chatBotMaxRepliesPerHour)
 
         viewModel.onChatBotModeChange(ChatBotMode.AUTONOMOUS)
         assertEquals(ChatBotMode.AUTONOMOUS, viewModel.uiState.value.chatBotMode)
@@ -379,7 +385,7 @@ class SettingsViewModelTest {
             coEvery { updateSecondaryStreamSettings(any(), any(), any()) } just runs
             coEvery { updateObsSettings(any(), any(), any(), any()) } just runs
             coEvery { updateChatSettings(any(), any()) } just runs
-            coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
+            coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
         }
 
         val viewModel = createViewModel(repository)
@@ -399,6 +405,9 @@ class SettingsViewModelTest {
         viewModel.onChatBotIgnoreBotsChange("rivuletbot, otherbot")
         viewModel.onChatBotCommandScopeChange(ChatBotCommandScope.PREFIX)
         viewModel.onChatBotCommandPrefixChange("v")
+        viewModel.onChatBotPerViewerCooldownSecondsChange("90")
+        viewModel.onChatBotPerViewerMaxRepliesChange("4")
+        viewModel.onChatBotMaxRepliesPerHourChange("50")
 
         viewModel.saveSettings()
         advanceUntilIdle()
@@ -419,6 +428,9 @@ class SettingsViewModelTest {
                 ignoreBots = "rivuletbot, otherbot",
                 commandScope = ChatBotCommandScope.PREFIX,
                 commandPrefix = "v",
+                perViewerCooldownSeconds = 90L,
+                perViewerMaxReplies = 4,
+                maxRepliesPerHour = 50,
             )
         }
     }

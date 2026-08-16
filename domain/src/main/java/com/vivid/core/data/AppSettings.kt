@@ -48,4 +48,12 @@ data class AppSettings(
     val chatBotCommandScope: ChatBotCommandScope = ChatBotCommandScope.ALL,
     // Eigenes Befehls-Präfix für den PREFIX-Scope (ohne '!', z. B. "v").
     val chatBotCommandPrefix: String = "",
+    // --- Chat-Bot: Begrenzungen (pro Viewer + Kosten) ---
+    // Wie lange ein Viewer nach einer Bot-Antwort warten muss, bevor der Bot
+    // ihm erneut antwortet (0 = aus). Moderatoren umgehen das.
+    val chatBotPerViewerCooldownSeconds: Long = 60,
+    // Maximale Bot-Antworten pro Viewer pro Stream (0 = unbegrenzt).
+    val chatBotPerViewerMaxReplies: Int = 0,
+    // Kosten-Budget: maximale Bot-Antworten pro Stunde global (0 = unbegrenzt).
+    val chatBotMaxRepliesPerHour: Int = 0,
 )

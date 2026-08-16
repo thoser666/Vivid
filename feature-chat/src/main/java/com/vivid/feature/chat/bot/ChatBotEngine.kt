@@ -62,6 +62,11 @@ class ChatBotEngine @Inject constructor(
     private val replyTimes = ArrayDeque<Long>()
     private var lastReplyAt = 0L
 
+    // Per-Viewer-Begrenzungen: userId (plattformneutral) → Zeitstempel der
+    // letzten Antwort bzw. Anzahl der Antworten in diesem Stream.
+    private val lastReplyByUser = mutableMapOf<String, Long>()
+    private val userReplyCounts = mutableMapOf<String, Int>()
+
     /**
      * Startet die Engine. [messages] muss ein heißer Flow sein (z. B. die
      * Nachrichten des Bot-Clients), der bereits vor dem Connect besammelt wird.
@@ -82,6 +87,8 @@ class ChatBotEngine @Inject constructor(
         history.clear()
         replyTimes.clear()
         lastReplyAt = 0L
+        lastReplyByUser.clear()
+        userReplyCounts.clear()
         _state.value = ChatBotState.Idle
         collectorJob = scope.launch {
             messages.collect { message -> process(message) }
@@ -94,6 +101,8 @@ class ChatBotEngine @Inject constructor(
         config = null
         sender = null
         streamStartedAtMillis = 0L
+        lastReplyByUser.clear()
+        userReplyCounts.clear()
         _state.value = ChatBotState.Disabled
     }
 
@@ -117,31 +126,41 @@ class ChatBotEngine @Inject constructor(
             is BotCommandProcessor.Result.Reply -> result.text
             is BotCommandProcessor.Result.ToggleTts -> {
                 // !tts: Chat-Vorlesen umschalten und im Chat bestätigen.
-                if (canReply(cfg)) {
+                if (canReplyFor(cfg, message.userId, message.isModerator)) {
                     val nowEnabled = chatTts.toggle()
-                    send(snd, if (nowEnabled) TTS_ON_TEXT else TTS_OFF_TEXT)
+                    send(snd, if (nowEnabled) TTS_ON_TEXT else TTS_OFF_TEXT, message.userId)
                 }
                 return
             }
             is BotCommandProcessor.Result.MediaNowPlaying -> {
                 // !song: aktuellen Titel melden (bzw. Zugriffs-Hinweis).
-                if (canReply(cfg)) send(snd, mediaStatusReply())
+                if (canReplyFor(cfg, message.userId, message.isModerator)) {
+                    send(snd, mediaStatusReply(), message.userId)
+                }
                 return
             }
             is BotCommandProcessor.Result.MediaNext -> {
-                if (canReply(cfg)) send(snd, mediaActionReply({ media.skipToNext() }, MEDIA_NEXT_TEXT))
+                if (canReplyFor(cfg, message.userId, message.isModerator)) {
+                    send(snd, mediaActionReply({ media.skipToNext() }, MEDIA_NEXT_TEXT), message.userId)
+                }
                 return
             }
             is BotCommandProcessor.Result.MediaPause -> {
-                if (canReply(cfg)) send(snd, mediaActionReply({ media.pause() }, MEDIA_PAUSE_TEXT))
+                if (canReplyFor(cfg, message.userId, message.isModerator)) {
+                    send(snd, mediaActionReply({ media.pause() }, MEDIA_PAUSE_TEXT), message.userId)
+                }
                 return
             }
             is BotCommandProcessor.Result.MediaPlay -> {
-                if (canReply(cfg)) send(snd, mediaActionReply({ media.play() }, MEDIA_PLAY_TEXT))
+                if (canReplyFor(cfg, message.userId, message.isModerator)) {
+                    send(snd, mediaActionReply({ media.play() }, MEDIA_PLAY_TEXT), message.userId)
+                }
                 return
             }
             is BotCommandProcessor.Result.MediaPrevious -> {
-                if (canReply(cfg)) send(snd, mediaActionReply({ media.skipToPrevious() }, MEDIA_PREVIOUS_TEXT))
+                if (canReplyFor(cfg, message.userId, message.isModerator)) {
+                    send(snd, mediaActionReply({ media.skipToPrevious() }, MEDIA_PREVIOUS_TEXT), message.userId)
+                }
                 return
             }
             is BotCommandProcessor.Result.Unknown ->
@@ -153,7 +172,7 @@ class ChatBotEngine @Inject constructor(
             BotCommandProcessor.Result.None -> null
         }
         if (commandReply != null) {
-            if (canReply(cfg)) send(snd, commandReply)
+            if (canReplyFor(cfg, message.userId, message.isModerator)) send(snd, commandReply, message.userId)
             return
         }
         // COMMAND-Modus: ohne Befehl passiert nichts (kein LLM-Aufruf).
@@ -161,7 +180,7 @@ class ChatBotEngine @Inject constructor(
 
         // AUTONOMOUS-Modus: Die KI entscheidet selbst über die Nachricht.
         if (cfg.mentionsOnly && !isMentioned(message.text, cfg.login)) return
-        if (!canReply(cfg)) return
+        if (!canReplyFor(cfg, message.userId, message.isModerator)) return
 
         _state.value = ChatBotState.Thinking
         try {
@@ -170,7 +189,7 @@ class ChatBotEngine @Inject constructor(
             val trimmed = reply.trim().replace(Regex("\\s+"), " ").take(cfg.maxReplyLength)
             if (trimmed.isEmpty() || trimmed.equals(NO_REPLY_MARKER, ignoreCase = true)) return
             appendAssistantMessage(cfg, trimmed)
-            send(snd, trimmed)
+            send(snd, trimmed, message.userId)
         } catch (e: Exception) {
             _logs.tryEmit("Fehler: ${e.message}")
         } finally {
@@ -197,9 +216,29 @@ class ChatBotEngine @Inject constructor(
         return !rateLimited(cfg)
     }
 
-    private suspend fun send(snd: ChatSender, text: String) {
+    /**
+     * Wie [canReply], plus Per-Viewer-Begrenzungen (Cooldown + Cap pro Stream).
+     * Moderatoren umgehen die Per-Viewer-Limits, nicht aber das globale
+     * Rate-Limit. Key ist die plattformneutrale `userId` (Twitch/YouTube/Kick).
+     */
+    private fun canReplyFor(cfg: ChatBotConfig, userId: String?, isModerator: Boolean): Boolean {
+        if (!canReply(cfg)) return false
+        if (userId == null) return true // kein stabiler ID-Schlüssel → nur global begrenzen
+        if (isModerator) return true
+        val timestamp = now()
+        // Per-Viewer-Cooldown: nach einer Antwort erst nach Ablauf wieder antworten.
+        if (cfg.perViewerCooldownMillis > 0) {
+            val last = lastReplyByUser[userId] ?: 0L
+            if (timestamp - last < cfg.perViewerCooldownMillis) return false
+        }
+        // Per-Viewer-Cap: max. Antworten pro Viewer pro Stream.
+        if (cfg.perViewerMaxReplies > 0 && (userReplyCounts[userId] ?: 0) >= cfg.perViewerMaxReplies) return false
+        return true
+    }
+
+    private suspend fun send(snd: ChatSender, text: String, userId: String? = null) {
         snd.send(text)
-        registerReply()
+        registerReply(userId)
         _logs.tryEmit(text)
     }
 
@@ -244,18 +283,41 @@ class ChatBotEngine @Inject constructor(
     }
 
     private fun rateLimited(cfg: ChatBotConfig): Boolean {
-        if (cfg.maxRepliesPerMinute <= 0) return false
-        val limit = now() - 60_000
-        while (replyTimes.isNotEmpty() && replyTimes.first() < limit) replyTimes.removeFirst()
-        return replyTimes.size >= cfg.maxRepliesPerMinute
+        if (cfg.maxRepliesPerMinute <= 0 && cfg.maxRepliesPerHour <= 0) return false
+        val timestamp = now()
+        val hourLimit = timestamp - 3_600_000
+        while (replyTimes.isNotEmpty() && replyTimes.first() < hourLimit) replyTimes.removeFirst()
+        // Kosten-Budget: max. Antworten pro Stunde global.
+        if (cfg.maxRepliesPerHour > 0 && replyTimes.size >= cfg.maxRepliesPerHour) return true
+        if (cfg.maxRepliesPerMinute > 0) {
+            val minuteLimit = timestamp - 60_000
+            val inMinute = replyTimes.count { it >= minuteLimit }
+            if (inMinute >= cfg.maxRepliesPerMinute) return true
+        }
+        return false
     }
 
-    private fun registerReply() {
+    private fun registerReply(userId: String?) {
         val timestamp = now()
         lastReplyAt = timestamp
         replyTimes.addLast(timestamp)
-        val limit = timestamp - 60_000
+        val limit = timestamp - 3_600_000
         while (replyTimes.isNotEmpty() && replyTimes.first() < limit) replyTimes.removeFirst()
+        if (userId != null) {
+            lastReplyByUser[userId] = timestamp
+            userReplyCounts[userId] = (userReplyCounts[userId] ?: 0) + 1
+            pruneUserState(timestamp)
+        }
+    }
+
+    /** Entfernt veraltete Per-Viewer-Cooldown-Einträge (Cap-Zähler bleiben bis Stream-Ende). */
+    private fun pruneUserState(timestamp: Long) {
+        val cooldown = config?.perViewerCooldownMillis ?: 0L
+        if (cooldown <= 0) return
+        val iterator = lastReplyByUser.entries.iterator()
+        while (iterator.hasNext()) {
+            if (timestamp - iterator.next().value >= cooldown) iterator.remove()
+        }
     }
 
     companion object {

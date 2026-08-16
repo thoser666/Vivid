@@ -332,6 +332,37 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth(),
             )
 
+            // Begrenzungen: pro Viewer + Kosten-Budget (0 = aus/unbegrenzt)
+            Text(
+                text = "Begrenzungen (0 = aus/unbegrenzt) — Cooldown und Cap gelten pro Viewer (funktionieren auf allen Plattformen: Twitch, Kick, YouTube …); Moderatoren umgehen die Per-Viewer-Limits. Das Stunden-Budget deckelt die LLM-Kosten global.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            OutlinedTextField(
+                value = uiState.chatBotPerViewerCooldownSeconds.toString(),
+                onValueChange = viewModel::onChatBotPerViewerCooldownSecondsChange,
+                label = { Text("Per-Viewer-Cooldown (Sekunden, 0 = aus)") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            OutlinedTextField(
+                value = uiState.chatBotPerViewerMaxReplies.toString(),
+                onValueChange = viewModel::onChatBotPerViewerMaxRepliesChange,
+                label = { Text("Max. Antworten pro Viewer (pro Stream, 0 = unbegrenzt)") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            OutlinedTextField(
+                value = uiState.chatBotMaxRepliesPerHour.toString(),
+                onValueChange = viewModel::onChatBotMaxRepliesPerHourChange,
+                label = { Text("Kosten-Budget: Max. Antworten pro Stunde (0 = unbegrenzt)") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.fillMaxWidth(),
+            )
+
             // Koexistenz mit anderen Bots (z. B. Rivulet)
             Text("Koexistenz mit anderen Bots", style = MaterialTheme.typography.titleMedium)
             Text(

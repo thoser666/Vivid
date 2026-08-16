@@ -106,6 +106,20 @@ Fremde Befehle außerhalb des Scopes liefern **kein** „Unbekannter Befehl“-E
 
 > Die Einstellungen werden mit **„Speichern“** persistiert (`chat_bot_ignore_bots`, `chat_bot_command_scope`, `chat_bot_command_prefix` in den App-Settings).
 
+## Begrenzungen (pro Viewer + Kosten)
+
+Im Settings-Screen (Abschnitt **„Chat-Bot (KI)“ → „Begrenzungen“**) kann der Streamer drei Schutzstufen einstellen — alle mit `0 = aus/unbegrenzt`. Sie greifen **vor Befehlen und vor LLM-Antworten** und funktionieren **plattformneutral** über die `userId` der Plattform (Twitch-User-ID, YouTube-`channelId`, Kick-User-ID) — die Engine liegt ja über allen Plattform-Adaptern.
+
+| Einstellung | Default | Wirkung |
+|-------------|---------|---------|
+| **Per-Viewer-Cooldown** (Sekunden) | 60 | Nach einer Antwort muss derselbe Viewer warten, bevor der Bot ihm erneut antwortet — schützt vor Einzel-Spammern und deckelt den LLM-Verbrauch pro Person |
+| **Max. Antworten pro Viewer** (pro Stream) | 0 (aus) | Total-Cap: jeder Viewer bekommt höchstens N Antworten pro Stream (zählt auch Befehle) |
+| **Kosten-Budget: Max. Antworten pro Stunde** | 0 (aus) | Globale Obergrenze aller Bot-Antworten pro Stunde — der direkte LLM-Kosten-Deckel (inkl. Befehle) |
+
+**Moderatoren umgehen die Per-Viewer-Limits** (Cooldown + Cap), damit Mods den Bot jederzeit direkt ansprechen können — das globale Rate-Limit und das Stunden-Budget gelten aber auch für sie. Alle Zähler setzen bei **Stream-Ende/-Start** zurück; das Stunden-Budget rolliert über ein gleitendes 1-Stunden-Fenster.
+
+> **Stufen von locker bis streng:** Alles aus (nur globaler Cooldown + Rate-Limit) → Per-Viewer-Cooldown 60 s → zusätzlich Per-Viewer-Cap → zusätzlich Stunden-Budget. Wer den KI-Teil ganz abschalten will, wählt im Betriebsmodus-Switch **„Bot (wie Moblin)“** — dann beantwortet der Bot nur kostenlose `!`-Befehle, und die Begrenzungen gelten nur noch für die.
+
 ## Current status
 
 Implemented & unit-tested:
@@ -117,12 +131,13 @@ Implemented & unit-tested:
 - **Chat-TTS (`!tts`)** — `ChatTtsController` (enabled state, speaks viewer messages, skips own messages and commands) + `AndroidTtsSpeaker` (system TextToSpeech engine).
 - **Media-Player-Steuerung (`!song`/`!next`/`!pause`/`!play`/`!prev`)** — `ChatMediaController` (MediaController über aktive MediaSessions) + `MediaNotificationListener` (Benachrichtigungszugriff als Voraussetzung).
 - **Mode switch** in Vivid's Settings screen („Bot (wie Moblin)“ ↔ „KI autonom“) incl. enable toggle — see [Betriebsmodi (der Switch)](#betriebsmodi-der-switch).
+- **Per-Viewer-Cooldown, Per-Viewer-Cap und Stunden-Budget** — configurable limits in the settings screen („Begrenzungen“), platform-neutral keyed on `userId`, moderators bypass the per-viewer limits; counters reset on stream start/stop.
 - Bot settings in `SettingsRepository`/`AppSettings` (`chat_bot_mode` key).
 
 Still open (next milestones):
 
 - **Twitch OAuth browser flow** (until then, paste a chat token — see below).
-- Cost budget per hour, provider presets.
+- Provider presets (one-tap LLM provider config).
 
 ## Prerequisites
 
@@ -176,6 +191,12 @@ All bot settings live in the app settings. Fields (DataStore keys):
 | Mentions only | `chat_bot_mentions_only` | `true` (default) — replies only when the bot is addressed |
 | Max replies/min | `chat_bot_max_replies_per_minute` | `10` (default) |
 | **Modus** | `chat_bot_mode` | `AUTONOMOUS` (default) — `COMMAND` = „Bot wie Moblin“ (nur `!`-Befehle, kein LLM nötig) |
+| Per-viewer cooldown | `chat_bot_per_viewer_cooldown_seconds` | `60` (default, `0` = aus) |
+| Max replies/viewer | `chat_bot_per_viewer_max_replies` | `0` (default = unbegrenzt) — Cap pro Stream |
+| Hourly budget | `chat_bot_max_replies_per_hour` | `0` (default = unbegrenzt) — LLM-Kosten-Deckel |
+| Ignore other bots | `chat_bot_ignore_bots` | `rivuletbot` (kommasepariert, ohne `@`) |
+| Command scope | `chat_bot_command_scope` | `ALL` (default) / `MENTION` / `PREFIX` |
+| Command prefix | `chat_bot_command_prefix` | `v` → `!v!help` (nur bei `PREFIX`) |
 
 Alle Felder sind direkt im **Settings-Screen** (Abschnitt **„Chat-Bot (KI)“**) editierbar und werden mit „Speichern“ persistiert. Token und API-Key sind als Passwortfelder mit Sichtbarkeits-Toggle (Auge) hinterlegt.
 
@@ -185,6 +206,9 @@ Alle Felder sind direkt im **Settings-Screen** (Abschnitt **„Chat-Bot (KI)“*
 - **Mentions-only** — with the default `mentionsOnly = true`, the bot only reacts to messages containing its login or `!bot`. Turn it off if you want it to answer every message (keep an eye on the rate limit).
 - **Cooldown** — at least `replyCooldownSeconds` between two replies (default 8 s).
 - **Rate limit** — at most `maxRepliesPerMinute` replies per rolling minute (default 10) — Twitch's global IRC rate limit is 20 messages/30 s; the default stays well below it.
+- **Per-viewer cooldown** — a viewer must wait `perViewerCooldownMillis` after a bot reply before the bot answers them again (default 60 s, `0` = off); moderators bypass it. Platform-neutral via the user id.
+- **Per-viewer cap** — at most `perViewerMaxReplies` replies per viewer per stream (`0` = unlimited); moderators bypass it.
+- **Hourly budget** — at most `maxRepliesPerHour` replies per rolling hour across all viewers (`0` = unlimited) — the LLM cost ceiling.
 - **Reply cap** — every reply is trimmed to 500 characters and line breaks are collapsed (Twitch's message limit).
 - **No echo** — the bot ignores messages it sent itself.
 - **LLM errors** — a failed request is logged (no message is sent) and the bot stays available; it never crashes the stream.
@@ -202,10 +226,10 @@ Alle Felder sind direkt im **Settings-Screen** (Abschnitt **„Chat-Bot (KI)“*
 ## Roadmap
 
 - ✅ **Mode switch** in Vivid's settings („Bot wie Moblin“ ↔ „KI autonom“) — done.
-- Full bot settings screen inside Vivid (remaining fields from [Configuration](#configuration): Twitch token, LLM credentials …).
+- ✅ **Full bot settings screen** inside Vivid (all fields from [Configuration](#configuration): Twitch token, LLM credentials, limits, coexistence) — done.
 - ✅ **Media-player control** (`!song`/`!next`/`!pause`/`!play`/`!prev` via MediaSession, Moblin parity row) — done (needs notification access).
+- ✅ **Per-viewer cooldown, per-viewer cap and hourly cost budget** — done (see [Begrenzungen](#begrenzungen-pro-viewer--kosten)).
 - Twitch OAuth browser flow (no manual token pasting).
-- Optional hourly cost budget for the LLM.
 - More platforms once Kick/YouTube chat lands.
 
 ## Architecture

@@ -134,6 +134,17 @@ class SettingsViewModel @Inject constructor(
     fun onChatBotCommandScopeChange(newScope: ChatBotCommandScope) { _uiState.value = _uiState.value.copy(chatBotCommandScope = newScope) }
     fun onChatBotCommandPrefixChange(newPrefix: String) { _uiState.value = _uiState.value.copy(chatBotCommandPrefix = newPrefix) }
 
+    // Begrenzungen: Per-Viewer-Cooldown/-Cap und Kosten-Budget (numerisch, ungültig → 0).
+    fun onChatBotPerViewerCooldownSecondsChange(raw: String) {
+        _uiState.value = _uiState.value.copy(chatBotPerViewerCooldownSeconds = raw.toLongOrNull() ?: 0L)
+    }
+    fun onChatBotPerViewerMaxRepliesChange(raw: String) {
+        _uiState.value = _uiState.value.copy(chatBotPerViewerMaxReplies = raw.toIntOrNull() ?: 0)
+    }
+    fun onChatBotMaxRepliesPerHourChange(raw: String) {
+        _uiState.value = _uiState.value.copy(chatBotMaxRepliesPerHour = raw.toIntOrNull() ?: 0)
+    }
+
     fun saveSettings() {
         viewModelScope.launch {
             val currentSettings = _uiState.value
@@ -173,6 +184,9 @@ class SettingsViewModel @Inject constructor(
                 ignoreBots = currentSettings.chatBotIgnoreBots,
                 commandScope = currentSettings.chatBotCommandScope,
                 commandPrefix = currentSettings.chatBotCommandPrefix,
+                perViewerCooldownSeconds = currentSettings.chatBotPerViewerCooldownSeconds,
+                perViewerMaxReplies = currentSettings.chatBotPerViewerMaxReplies,
+                maxRepliesPerHour = currentSettings.chatBotMaxRepliesPerHour,
             )
             _saveEvent.emit(Unit)
         }
