@@ -47,6 +47,7 @@ local.properties
 *.jks
 *.keystore
 *.b64
+upload_cert.pem
 
 # External native build files
 /.externalNativeBuild/

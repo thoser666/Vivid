@@ -751,18 +751,22 @@ Der `supply`-Upload (`publish_play`) lädt nur APK/AAB + Metadaten (Titel, Besch
 
 Master-Checkliste für den Weg zum ersten Play-Upload — **Reihenfolge = kritischer Pfad**, Aufwand pro Schritt (einmalig, realistisch). Details stehen in den verlinkten Abschnitten; der **Testplan darunter** ist die Ausführung.
 
-> **Gesamt: ~4–6 h Hands-on** (einmalig) + **1–7 Tage Wartezeit** (Zahlungsverifikation, Tester-Freigabe, App-Prüfung). Der GitHub-/Obtainium-Beta ist von **keinem** dieser Punkte abhängig — die betreffen nur den Play-Kanal.
+> 🐙 **Tracking:** Der Fortschritt wird in [Issue #116](https://github.com/thoser666/Vivid/issues/116) abgehakt (19 abhakbare Task-Liste, P0–P2) — die Checkliste hier ist die Quelle, das Issue das Live-Tracking.
 
-**P0 — Blockierend (ohne diese Schritte kann `publish_play` nie laufen) · ~2–3 h:**
+> **Gesamt: ~4–5 h Hands-on** (einmalig) + **1–7 Tage Wartezeit** (Zahlungsverifikation, Tester-Freigabe, App-Prüfung). Der GitHub-/Obtainium-Beta ist von **keinem** dieser Punkte abhängig — die betreffen nur den Play-Kanal.
+>
+> 📏 **Messwerte (Stand 17.08.2026, lokal/CI gemessen):** keytool 4096-bit-Keystore ≈ **2 s** · `prepare_play_secrets.sh` (Dry-Run) < 1 min · `guard_secrets.sh` ≈ **14 s** · CI-Selbsttest `publish_play (dry_run)` ≈ **6 min** (Build+Signaturverifikation) · Android-CI „Build & Test“ ≈ **6,5 min** · Fastlane-Nightly-Gesamtlauf ≈ **19 min**. Die „~min“-Angaben unten sind damit kalibriert — nur die manuellen Console-Schritte (Konto, Formulare, Tester) dominieren den Gesamtaufwand.
+
+**P0 — Blockierend (ohne diese Schritte kann `publish_play` nie laufen) · ~1,5–2 h:**
 
 - [ ] **Play-Entwicklerkonto** (~30 min + ggf. **1–3 Tage Zahlungsverifikation**): play.google.com/console → einmalige Registrierung (**25 $**) → Abschnitt „🔑 Secrets …“, Schritt A.1 — **zeitkritisch, zuerst erledigen**
 - [ ] **App „Vivid“ anlegen** (~10 min): `applicationId` muss exakt **`com.vivid`** sein (sonst 403 im Upload); neue Apps sind automatisch in Play App Signing eingeschrieben (App-Signing-Key: Google-generiert, Variante A)
-- [ ] **Upload-Keystore erzeugen + sichern** (~15 min): `bash scripts/prepare_play_secrets.sh --generate` oder manuell nach Abschnitt „🔐 Play-Upload-Keystore erzeugen …“ — **BACKUP Pflicht** (Keystore-Verlust = Upload für immer verloren, siehe Widerruf-Risiko)
+- [ ] **Upload-Keystore erzeugen + sichern** (~5 min: Erzeugung ≈ 2 s, der Rest ist Backup): `bash scripts/prepare_play_secrets.sh --generate` oder manuell nach Abschnitt „🔐 Play-Upload-Keystore erzeugen …“ — **BACKUP Pflicht** (Keystore-Verlust = Upload für immer verloren, siehe Widerruf-Risiko)
 - [ ] **`upload_cert.pem` in der Console registrieren** (~5 min): Setup → App-Integrität → App-Signierung → „Exportieren und Upload-Key hochladen“
 - [ ] **Service-Account + JSON-Key** (~30 min): Setup → API-Zugang → GCP-Dienstkonto → Android Publisher API aktivieren → Rolle **„Releasemanager“** → JSON herunterladen (Schritt C) — niemals committen
-- [ ] **6 GitHub-Secrets setzen** (~10 min): `bash scripts/prepare_play_secrets.sh --set` → `UPLOAD_KEYSTORE_BASE64`, `UPLOAD_KEYSTORE_PASSWORD`, `UPLOAD_KEY_ALIAS`, `UPLOAD_KEY_PASSWORD`, `PLAY_JSON_KEY_DATA` (+ optional `PLAY_JSON_KEY_FILE`) — Werte nur aus Dateien/stdin, nie ins Log
-- [ ] **Verifikation** (~15 min): `bash scripts/guard_secrets.sh` grün + `gh secret list` zeigt alle Namen + SHA-256-Fingerprint-Abgleich (Schritt E)
-- [ ] **Dry-Run grün** (~15 min CI): `workflow_dispatch` mit `dry_run=true` → baut + signaturverifiziert gegen den Upload-Key, verbraucht **keinen** versionCode und berührt Play nicht
+- [ ] **6 GitHub-Secrets setzen** (~5 min: `--set` erledigt alle sechs in <1 min, Rest ist Passwort-Eingabe): `bash scripts/prepare_play_secrets.sh --set` → `UPLOAD_KEYSTORE_BASE64`, `UPLOAD_KEYSTORE_PASSWORD`, `UPLOAD_KEY_ALIAS`, `UPLOAD_KEY_PASSWORD`, `PLAY_JSON_KEY_DATA` (+ optional `PLAY_JSON_KEY_FILE`) — Werte nur aus Dateien/stdin, nie ins Log
+- [ ] **Verifikation** (~5 min: Guard ≈ 14 s, Rest ist `gh secret list` + Fingerprint): `bash scripts/guard_secrets.sh` grün + `gh secret list` zeigt alle Namen + SHA-256-Fingerprint-Abgleich (Schritt E)
+- [ ] **Dry-Run grün** (~10 min CI — gemessen ≈ 6 min für Build+Verifikation im CI-Selbsttest): `workflow_dispatch` mit `dry_run=true` → baut + signaturverifiziert gegen den Upload-Key, verbraucht **keinen** versionCode und berührt Play nicht
 
 **P1 — Fürs „Ausrollen“ (Release bleibt sonst in der Console gesperrt) · ~2 h** — kann **parallel** zu P0 laufen:
 
@@ -778,7 +782,7 @@ Master-Checkliste für den Weg zum ersten Play-Upload — **Reihenfolge = kritis
 **P2 — Auslieferung an Tester · ~30 min + Wartezeit:**
 
 - [ ] **≥2 Tester einladen** (~10 min + **1 h–7 Tage Wartezeit**): Play Console → Testing → Alpha → Tester-Liste (E-Mail-Adressen) → Freigabe abwarten
-- [ ] **Erster echter Upload** (~15 min CI): Testplan Schritt 3–6 ohne `dry_run`, `version_code` **explizit** setzen (z. B. `1`) — ein vergebener Code ist in Play für immer belegt
+- [ ] **Erster echter Upload** (~10 min CI — Build+Signatur ≈ 6 min, Upload ≈ 1–2 min): Testplan Schritt 3–6 ohne `dry_run`, `version_code` **explizit** setzen (z. B. `1`) — ein vergebener Code ist in Play für immer belegt
 - [ ] **Smoke-Test bestätigen lassen**: „kein Crash in 15 Minuten“ pro Tester → Voraussetzung fürs spätere Ausrollen
 
 **Kritischer Pfad:** P0 → P2 (erster Upload in den Alpha-Track); P1 ist für den **reinen Upload** nicht nötig, aber **zwingend fürs Ausrollen** („Go live“) — parallel erledigen. **Reihenfolge-Tipp:** Mit dem Play-Konto starten (Zahlungsverifikation kann Tage dauern) und parallel die echten Screenshots aufnehmen — das ist der einzige P1-Punkt mit echtem Tooling-Aufwand.
