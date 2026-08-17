@@ -94,8 +94,8 @@ Das Beta-Gate ist erreicht, wenn **alle drei** Bedingungen erfüllt sind (Stand 
 **Play-Unterlagen (nur nötig, wenn der Beta-Tag auch in die Play Console geht — für den reinen GitHub-/Obtainium-Beta nicht blockierend):**
 
 - [x] Privacy Policy fertig — [PRIVACY.md](PRIVACY.md)
-- [ ] App-Icon 512×512 PNG → `fastlane/metadata/android/images/icon.png`
-- [ ] Screenshots (mind. 2, 16:9 oder 9:16) → `fastlane/metadata/android/images/phoneScreenshots/`
+- [x] App-Icon 512×512 PNG → `fastlane/metadata/android/images/icon.png` (vorhanden, 512×512, RGBA)
+- [ ] Screenshots (mind. 2, 16:9 oder 9:16) → `fastlane/metadata/android/images/phoneScreenshots/` (wird vom CI-Check `scripts/check_play_metadata.sh` geprüft — der `publish-play`-Job bricht ohne vollständige Metadaten ab)
 - [ ] Content Rating Questionnaire (wird in der Play Console ausgefüllt)
 - [ ] Data Safety Section (welche Daten sammelt die App? — Play Console)
 - [ ] `UPLOAD_*`- + `PLAY_JSON_KEY_*`-Secrets hinterlegt (nur für Play-Upload; Anleitung: Abschnitt „🔑 Secrets für den ersten Play-Upload vorbereiten“)
@@ -114,11 +114,11 @@ Das Beta-Gate ist erreicht, wenn **alle drei** Bedingungen erfüllt sind (Stand 
 
 > **Erst wenn alle `[x]`:** `bundle exec fastlane release_beta` → Tag `v0.5.0-beta` → CI baut signiert, veröffentlicht als GitHub-Release (kein Pre-Release-Status-Limit nötig — Beta-Tags werden wie Alpha veröffentlicht) und läuft durch Signatur-/Reproduzierbarkeits-Checks.
 
-**Ablauf nach Erreichen des Gates:**
+**Ablauf nach Erreichen des Gates** — Status 2026-08-17: **Schritte 1–3 erledigt** (Tag `v0.5.0-beta` gesetzt und als GitHub-Release veröffentlicht):
 
-1. `fastlane release_beta` implementiert (2026-08-15) — Spiegel von `release_alpha` mit Stufe `beta` inkl. Safety-Checks (Tag-Existenz, versionCode-Monotonie in der beta-Track, Quer-Track-Downgrade-Warnung).
-2. Tag `v0.5.0-beta` erzeugen + pushen → CI baut/publiziert automatisch (Tag-Trigger `v*` ist aktiv; Signatur- und Reproduzierbarkeits-Check laufen mit). Die Lane leitet den ersten Beta-Tag **automatisch vom höchsten `v*`-Tag ab** (Stufe auf `beta`): aktuell `v0.5.0-alpha` → `v0.5.0-beta`.
-3. Metadaten: `versionName = 0.5.0-beta`, `versionCode = 5002` (deterministisch aus dem Tag: `major*1_000_000 + minor*1_000 + patch*10 + Stufe`, beta = 2 → `0.5.0-beta` = 5002 — **direkt über** `0.5.0-alpha` (5001), kein Downgrade für Bestandsnutzer).
+1. ✅ `fastlane release_beta` implementiert (2026-08-15) — Spiegel von `release_alpha` mit Stufe `beta` inkl. Safety-Checks (Tag-Existenz, versionCode-Monotonie in der beta-Track, Quer-Track-Downgrade-Warnung).
+2. ✅ Tag `v0.5.0-beta` erzeugt + gepusht (17.08.2026) → CI baut/publiziert automatisch (Tag-Trigger `v*` ist aktiv; Signatur- und Reproduzierbarkeits-Check laufen mit). Die Lane leitet den ersten Beta-Tag **automatisch vom höchsten `v*`-Tag ab** (Stufe auf `beta`): aktuell `v0.5.0-alpha` → `v0.5.0-beta`.
+3. ✅ Metadaten: `versionName = 0.5.0-beta`, `versionCode = 5002` (deterministisch aus dem Tag: `major*1_000_000 + minor*1_000 + patch*10 + Stufe`, beta = 2 → `0.5.0-beta` = 5002 — **direkt über** `0.5.0-alpha` (5001), kein Downgrade für Bestandsnutzer).
 4. QA-Rollout an Feldtester (Obtainium, Pre-Releases aktiviert); Smoke-Tests: Go-Live, Multi-Streaming, Chat-Overlay, OBS-Remote, Settings-Persistenz, Chat-Bot-Owner-Befehle (`!start`/`!stop`/`!diag`/`!ask`).
 5. Cross-Track beachten: **beta → nightly ist ein Downgrade** (deinstallieren); nightly → beta ist installierbar.
 
@@ -566,6 +566,10 @@ Das `encrypted.zip` (nur für Google lesbar verschlüsselt) wird hochgeladen; Go
 
 Konkreter End-to-End-Ablauf, um **alle nötigen Secrets** für den ersten echten `publish_play`-Lauf (alpha-Track) zu beschaffen und in GitHub zu hinterlegen. Ergebnis: `gh secret list` zeigt die fünf Secrets aus Schritt D, und der Testplan unten ist 1:1 ausführbar.
 
+> 🛠 **Ausführbares Skript:** [scripts/prepare_play_secrets.sh](../scripts/prepare_play_secrets.sh) setzt Schritte B–E praktisch um — Keystore lokalisieren/erzeugen (`--generate`), base64-kodieren, `upload_cert.pem` exportieren, alle sechs Secrets per `gh` setzen (`--set`) und verifizieren (Guard + `gh secret list` + Fingerprint). Werte werden nur aus Dateien/stdin gelesen, nie ins Log geschrieben. Ohne `--set` druckt es die auszuführenden `gh secret set`-Befehle.
+>
+> ✅ **Metadaten-Check:** [scripts/check_play_metadata.sh](../scripts/check_play_metadata.sh) prüft die Play-Metadaten-Vollständigkeit (Icon 512×512, ≥2 Screenshots 16:9/9:16, Store-Listing + Changelog pro Locale). Läuft als harter Gate im `publish-play`-Job (android_fastlane.yml) direkt vor dem Upload; der Selbsttest ([scripts/test_play_metadata.sh](../scripts/test_play_metadata.sh), 1 Positiv- + 5 Negativfälle) läuft bei jedem Push in android.yml. Lokal: `bash scripts/check_play_metadata.sh` (Exit 0 = vollständig).
+
 **Schritt A — Play-Console-Grundlagen (einmalig, ~30 min):**
 
 1. **Play-Entwicklerkonto** anlegen (https://play.google.com/console → einmalige Registrierung, 25 $) — Voraussetzung für jeden Upload
@@ -755,7 +759,7 @@ bundle exec fastlane release_alpha
 
 ### `beta` — 🚦 **Nächster Meilenstein**
 
-> **🧠 Status (2026-08-17): Alle Kriterien erfüllt** — die `release_beta`-Lane existiert bereits (Spiegel von `release_alpha`, Stufe beta) und leitet den ersten Beta-Tag automatisch ab: `v0.5.0-beta` (5002). Ersten Beta-Tag setzen, sobald Play-Unterlagen + ≥2 Tester stehen.
+> **🧠 Status (2026-08-17): Beta-Tag gesetzt** — `v0.5.0-beta` (5002) wurde am 17.08.2026 per `fastlane release_beta` erzeugt, gepusht und von der CI als GitHub-Release veröffentlicht (GitHub-/Obtainium-Kanal live). Offen für den **Play-Upload**: Play-Unterlagen (Screenshots, Content Rating, Data Safety, `UPLOAD_*`-+`PLAY_JSON_KEY_*`-Secrets) und ≥2 Tester-Freigaben.
 >
 > **📋 Google Play: Vor dem ersten Beta-Release benötigst du:**
 > - Google Play Developer Account ($25 einmalig)
@@ -767,8 +771,7 @@ bundle exec fastlane release_alpha
 > - Content Rating Questionnaire
 > - Data Safety Section (welche Daten sammelt die App?)
 >
-> → **Vorlagen bereit:** `fastlane/metadata/android/en-US/` und `de-DE/` mit Titel, Kurz-/Langbeschreibung und Changelogs. Privacy Policy fertig ([PRIVACY.md](PRIVACY.md)). Noch ausfüllen:
->   - App-Icon (512×512, PNG) → `fastlane/metadata/android/images/icon.png`
+> → **Vorlagen bereit:** `fastlane/metadata/android/en-US/` und `de-DE/` mit Titel, Kurz-/Langbeschreibung und Changelogs. Privacy Policy fertig ([PRIVACY.md](PRIVACY.md)), App-Icon (512×512, PNG) vorhanden. Noch ausfüllen:
 >   - Screenshots (mind. 2, 16:9 oder 9:16) → `fastlane/metadata/android/images/phoneScreenshots/`
 >   - Content Rating Questionnaire (wird in der Play Console ausgefüllt)
 >   - Data Safety Section (welche Daten sammelt die App?)
@@ -778,7 +781,7 @@ bundle exec fastlane release_alpha
 - [x] Chat implementiert & getestet (Twitch-Scope ✅, PARITY Row 77; Kick/YouTube/OAuth Post-Beta)
 - [x] Mindestens ein Overlay/Widget funktioniert (Text-/Info-Widget Zeit/GPS/Geschwindigkeit ✅, PARITY Row 87)
 - [ ] Kamera-Vorschau stabil (🚧 in PARITY.md)
-- [ ] Settings persistent über App-Neustarts
+- [x] Settings persistent über App-Neustarts (DataStore-basiert, `SettingsRepository`)
 - [ ] Keine bekannten Showstopper-Bugs
 - [ ] ≥2 manuelle Tester haben bestätigt: „kein Crash in 15 Minuten"
 - [ ] Google-Play-Unterlagen vorbereitet (s. o.)

@@ -587,6 +587,12 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
+      # Härtung: Play-Metadaten müssen vollständig sein (Icon, ≥2 Screenshots
+      # 16:9/9:16, Store-Listing + Changelog pro Locale), sonst KEIN Upload —
+      # ein Play-Release mit fehlenden Unterlagen würde in der Prüfung hängen.
+      - name: Check Play metadata completeness
+        run: bash scripts/check_play_metadata.sh
+
       # Play-Upload-Keystore dekodieren (UPLOAD_*-Secrets, getrennt vom Release-Key)
       - name: Decode Upload Keystore
         env:

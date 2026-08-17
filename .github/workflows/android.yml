@@ -75,6 +75,12 @@ jobs:
       - name: Test pre-push gate script
         run: bash scripts/test_pre_push.sh
 
+      # Play-Metadaten-Check (bash) — Selbsttest mit Fixture-PNGs: 1 Positiv-
+      # + 5 Negativfälle. Der harte Gate-Check läuft im publish-play-Job
+      # (android_fastlane.yml) direkt vor dem Upload.
+      - name: Test play metadata check
+        run: bash scripts/test_play_metadata.sh
+
       # ── Optional: Code‑Scanning / Security‑Events ──
       # - name: Run CodeQL
       #   uses: github/codeql-action/init@v2

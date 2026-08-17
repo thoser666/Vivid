@@ -23,6 +23,14 @@ For _fastlane_ installation instructions, see [Installing _fastlane_](https://do
 
 Run all unit tests
 
+### android lint
+
+```sh
+[bundle exec] fastlane android lint
+```
+
+Run lint & static analysis on all modules
+
 ### android build_debug
 
 ```sh
@@ -61,10 +69,15 @@ Run tests and build release
 [bundle exec] fastlane android release_alpha
 ```
 
-Create and push an alpha release tag. Runs all unit tests, verifies you're on `develop`, auto-detects the next version (e.g. `v0.2.0-alpha` → `v0.3.0-alpha`), then pushes the tag. The CI `android_fastlane.yml` workflow picks up `v*`-tags and builds + publishes a stable prerelease.
+Create and push an alpha release tag — runs tests, auto-versions, triggers CI
 
-Options:
-- `version:` — override auto-detection (e.g. `version:"v0.5.0-alpha"`)
+### android release_beta
+
+```sh
+[bundle exec] fastlane android release_beta
+```
+
+Create and push a beta release tag — runs tests, auto-versions, triggers CI (mirror of release_alpha, stage beta)
 
 ### android release_github
 
@@ -72,7 +85,7 @@ Options:
 [bundle exec] fastlane android release_github
 ```
 
-Build release APK and publish it as a GitHub release (requires gh + GH_TOKEN). Stable for v*-tags, rolling nightly prerelease for branch pushes
+Build release APK and publish it as a GitHub release (requires gh + GH_TOKEN)
 
 ### android publish_release
 
@@ -80,7 +93,23 @@ Build release APK and publish it as a GitHub release (requires gh + GH_TOKEN). S
 [bundle exec] fastlane android publish_release
 ```
 
-Publish a pre-built release APK as a GitHub release (requires gh + GH_TOKEN). Used by CI after `build_release` for error isolation.
+Publish a pre-built release APK as a GitHub release (requires gh + GH_TOKEN, pre-built APK)
+
+### android publish_play
+
+```sh
+[bundle exec] fastlane android publish_play
+```
+
+Build a release AAB signed with the UPLOAD key and upload it to Google Play (requires UPLOAD_KEYSTORE_* + Play service-account credentials; dry_run:true baut + verifiziert ohne Upload)
+
+### android sweep_orphan_drafts
+
+```sh
+[bundle exec] fastlane android sweep_orphan_drafts
+```
+
+Report orphaned draft releases on v* tags (no auto-delete - a draft may be intentional)
 
 ----
 
