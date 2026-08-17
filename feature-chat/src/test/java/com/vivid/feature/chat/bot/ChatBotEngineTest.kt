@@ -8,8 +8,10 @@ import com.vivid.feature.chat.ai.LlmException
 import com.vivid.feature.chat.model.ChatMessage
 import com.vivid.feature.chat.ai.LlmMessage
 import com.vivid.feature.chat.media.ChatMediaPlayer
+import com.vivid.feature.chat.twitch.TwitchSendChatException
 import com.vivid.feature.chat.twitch.TwitchWhisperException
 import java.util.Optional
+import io.mockk.andThenJust
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -703,6 +705,27 @@ class ChatBotEngineTest {
         advanceUntilIdle()
 
         coVerify(exactly = 0) { sender.send(any()) }
+        assertEquals(ChatBotState.Idle, engine.state.value)
+        engine.stop()
+    }
+
+    @Test
+    fun `keeps processing messages when sending fails`() = runTest {
+        val engine = engine()
+        coEvery { llm.complete(any(), any()) } returns "Antwort!"
+        // Erster Send schlägt fehl (z. B. Helix-Fehler, Rate-Limit), zweiter klappt.
+        coEvery { sender.send(any()) } throws TwitchSendChatException("Rate-Limit") andThenJust Runs
+
+        engine.start(messages, config(replyCooldownMillis = 0), sender, this)
+        messages.emit(chatMessage("@vividbot eins"))
+        advanceUntilIdle()
+        messages.emit(chatMessage("@vividbot zwei"))
+        advanceUntilIdle()
+
+        // Beide Nachrichten wurden verarbeitet — der Send-Fehler hat die
+        // Engine-Coroutine nicht beendet (Bot bleibt verfügbar).
+        coVerify(exactly = 2) { llm.complete(any(), any()) }
+        coVerify(exactly = 2) { sender.send(any()) }
         assertEquals(ChatBotState.Idle, engine.state.value)
         engine.stop()
     }

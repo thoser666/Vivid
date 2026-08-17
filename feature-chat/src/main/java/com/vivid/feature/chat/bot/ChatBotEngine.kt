@@ -471,9 +471,18 @@ class ChatBotEngine @Inject constructor(
     }
 
     private suspend fun send(snd: ChatSender, text: String, message: ChatMessage? = null) {
-        snd.send(text)
-        registerReply(message)
-        _logs.tryEmit(text)
+        try {
+            snd.send(text)
+            registerReply(message)
+            _logs.tryEmit(text)
+        } catch (e: Exception) {
+            // Senden fehlgeschlagen (z. B. Helix-Fehler, fehlende User-ID,
+            // Rate-Limit): loggen statt die Engine-Coroutine zu beenden — der
+            // Bot bleibt für nachfolgende Nachrichten verfügbar. Kein
+            // registerReply: eine nicht gesendete Antwort verbraucht weder
+            // Cooldown noch Limits.
+            _logs.tryEmit("Senden fehlgeschlagen: ${e.message ?: "unbekannter Fehler"}")
+        }
     }
 
     /**

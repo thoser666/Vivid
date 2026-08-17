@@ -4,7 +4,7 @@ import com.vivid.core.data.AppSettings
 import com.vivid.core.data.SettingsRepository
 import com.vivid.feature.chat.model.ChatConnectionState
 import com.vivid.feature.chat.model.ChatMessage
-import com.vivid.feature.chat.twitch.TwitchChatClient
+import com.vivid.feature.chat.twitch.TwitchChatEventSubReader
 import io.mockk.Runs
 import io.mockk.every
 import io.mockk.just
@@ -28,12 +28,12 @@ import org.junit.jupiter.api.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class ChatOverlayViewModelTest {
 
-    private fun client(
+    private fun reader(
         messageFlow: MutableSharedFlow<ChatMessage> =
             MutableSharedFlow<ChatMessage>(extraBufferCapacity = 64),
         stateFlow: MutableStateFlow<ChatConnectionState> =
             MutableStateFlow<ChatConnectionState>(ChatConnectionState.Disconnected),
-    ): TwitchChatClient = mockk {
+    ): TwitchChatEventSubReader = mockk {
         every { messages } returns messageFlow
         every { state } returns stateFlow
         every { start(any()) } just Runs
@@ -44,9 +44,22 @@ class ChatOverlayViewModelTest {
         every { appSettingsFlow } returns flow
     }
 
+    /** Voll konfiguriert (Kanal + Bot-Zugangsdaten für EventSub). */
+    private fun settings(
+        enabled: Boolean = true,
+        channel: String = "kanal",
+        botLogin: String = "vividbot",
+    ): AppSettings = AppSettings(
+        chatOverlayEnabled = enabled,
+        chatChannel = channel,
+        chatBotLogin = botLogin,
+        chatBotOauthToken = "tok123",
+        chatBotTwitchClientId = "cid-abc",
+    )
+
     private fun chatMessage(text: String, index: Int = 0): ChatMessage = ChatMessage(
         id = "id-$index",
-        channel = "channel",
+        channel = "kanal",
         userId = "user-$index",
         userLogin = "user$index",
         displayName = "User$index",
@@ -65,68 +78,92 @@ class ChatOverlayViewModelTest {
     }
 
     @Test
-    fun `enabled with a channel starts the client with the normalized channel`() = runTest {
+    fun `enabled with channel and bot credentials starts the reader with the event sub config`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val client = client()
-        val settings = MutableStateFlow(AppSettings(chatOverlayEnabled = true, chatChannel = " MeinKanal "))
-        val viewModel = ChatOverlayViewModel(client, repository(settings))
+        val reader = reader()
+        val settings = MutableStateFlow(settings(channel = " MeinKanal "))
+        val viewModel = ChatOverlayViewModel(reader, repository(settings))
         advanceUntilIdle()
 
-        verify(exactly = 1) { client.start("meinkanal") }
-        verify(exactly = 0) { client.stop() }
+        verify(exactly = 1) {
+            reader.start(
+                match {
+                    it.channel == "meinkanal" &&
+                        it.botLogin == "vividbot" &&
+                        it.oauthToken == "tok123" &&
+                        it.clientId == "cid-abc"
+                },
+            )
+        }
+        verify(exactly = 0) { reader.stop() }
         assertTrue(viewModel.uiState.value.enabled)
+        assertTrue(viewModel.uiState.value.configured)
         assertEquals("meinkanal", viewModel.uiState.value.channel)
     }
 
     @Test
-    fun `disabled stops the client and does not start`() = runTest {
+    fun `disabled stops the reader and does not start`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val client = client()
-        val settings = MutableStateFlow(AppSettings(chatOverlayEnabled = false, chatChannel = "kanal"))
-        val viewModel = ChatOverlayViewModel(client, repository(settings))
+        val reader = reader()
+        val settings = MutableStateFlow(settings(enabled = false))
+        val viewModel = ChatOverlayViewModel(reader, repository(settings))
         advanceUntilIdle()
 
-        verify(exactly = 0) { client.start(any()) }
-        verify(exactly = 1) { client.stop() }
+        verify(exactly = 0) { reader.start(any()) }
+        verify(exactly = 1) { reader.stop() }
         assertFalse(viewModel.uiState.value.enabled)
     }
 
     @Test
     fun `enabled without a channel stays disconnected`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val client = client()
-        val settings = MutableStateFlow(AppSettings(chatOverlayEnabled = true, chatChannel = "  "))
-        val viewModel = ChatOverlayViewModel(client, repository(settings))
+        val reader = reader()
+        val settings = MutableStateFlow(settings(channel = "  "))
+        val viewModel = ChatOverlayViewModel(reader, repository(settings))
         advanceUntilIdle()
 
-        verify(exactly = 0) { client.start(any()) }
-        verify(exactly = 1) { client.stop() }
+        verify(exactly = 0) { reader.start(any()) }
+        verify(exactly = 1) { reader.stop() }
         assertEquals("", viewModel.uiState.value.channel)
+    }
+
+    @Test
+    fun `enabled without bot credentials marks the overlay as unconfigured`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val reader = reader()
+        val settings = MutableStateFlow(settings(botLogin = ""))
+        val viewModel = ChatOverlayViewModel(reader, repository(settings))
+        advanceUntilIdle()
+
+        verify(exactly = 0) { reader.start(any()) }
+        verify(exactly = 1) { reader.stop() }
+        assertFalse(viewModel.uiState.value.configured)
+        assertTrue(viewModel.uiState.value.enabled)
     }
 
     @Test
     fun `channel change reconnects to the new channel`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val client = client()
-        val settings = MutableStateFlow(AppSettings(chatOverlayEnabled = true, chatChannel = "kanalA"))
-        val viewModel = ChatOverlayViewModel(client, repository(settings))
+        val reader = reader()
+        val settings = MutableStateFlow(settings(channel = "kanalA"))
+        val viewModel = ChatOverlayViewModel(reader, repository(settings))
         advanceUntilIdle()
 
-        settings.value = AppSettings(chatOverlayEnabled = true, chatChannel = "kanalB")
+        settings.value = settings(channel = "kanalB")
         advanceUntilIdle()
 
-        verify(exactly = 1) { client.start("kanala") }
-        verify(exactly = 1) { client.start("kanalb") }
-        verify(exactly = 0) { client.stop() }
+        verify(exactly = 1) { reader.start(match { it.channel == "kanala" }) }
+        verify(exactly = 1) { reader.start(match { it.channel == "kanalb" }) }
+        verify(exactly = 0) { reader.stop() }
     }
 
     @Test
     fun `messages are accumulated in the ui state`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val messageFlow = MutableSharedFlow<ChatMessage>(extraBufferCapacity = 64)
-        val client = client(messageFlow = messageFlow)
-        val settings = MutableStateFlow(AppSettings(chatOverlayEnabled = true, chatChannel = "kanal"))
-        val viewModel = ChatOverlayViewModel(client, repository(settings))
+        val reader = reader(messageFlow = messageFlow)
+        val settings = MutableStateFlow(settings())
+        val viewModel = ChatOverlayViewModel(reader, repository(settings))
         advanceUntilIdle()
 
         messageFlow.tryEmit(chatMessage("hallo"))
@@ -140,9 +177,9 @@ class ChatOverlayViewModelTest {
     fun `message list is capped at MAX_MESSAGES`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val messageFlow = MutableSharedFlow<ChatMessage>(extraBufferCapacity = 64)
-        val client = client(messageFlow = messageFlow)
-        val settings = MutableStateFlow(AppSettings(chatOverlayEnabled = true, chatChannel = "kanal"))
-        val viewModel = ChatOverlayViewModel(client, repository(settings))
+        val reader = reader(messageFlow = messageFlow)
+        val settings = MutableStateFlow(settings())
+        val viewModel = ChatOverlayViewModel(reader, repository(settings))
         advanceUntilIdle()
 
         repeat(ChatOverlayViewModel.MAX_MESSAGES + 5) { i ->
@@ -159,16 +196,16 @@ class ChatOverlayViewModelTest {
     fun `messages are cleared when the overlay is disabled`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val messageFlow = MutableSharedFlow<ChatMessage>(extraBufferCapacity = 64)
-        val client = client(messageFlow = messageFlow)
-        val settings = MutableStateFlow(AppSettings(chatOverlayEnabled = true, chatChannel = "kanal"))
-        val viewModel = ChatOverlayViewModel(client, repository(settings))
+        val reader = reader(messageFlow = messageFlow)
+        val settings = MutableStateFlow(settings())
+        val viewModel = ChatOverlayViewModel(reader, repository(settings))
         advanceUntilIdle()
 
         messageFlow.tryEmit(chatMessage("hallo"))
         advanceUntilIdle()
         assertEquals(1, viewModel.uiState.value.messages.size)
 
-        settings.value = AppSettings(chatOverlayEnabled = false, chatChannel = "kanal")
+        settings.value = settings(enabled = false)
         advanceUntilIdle()
 
         assertTrue(viewModel.uiState.value.messages.isEmpty())
@@ -179,9 +216,9 @@ class ChatOverlayViewModelTest {
     fun `connection state is forwarded to the ui state`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val stateFlow = MutableStateFlow<ChatConnectionState>(ChatConnectionState.Disconnected)
-        val client = client(stateFlow = stateFlow)
-        val settings = MutableStateFlow(AppSettings(chatOverlayEnabled = true, chatChannel = "kanal"))
-        val viewModel = ChatOverlayViewModel(client, repository(settings))
+        val reader = reader(stateFlow = stateFlow)
+        val settings = MutableStateFlow(settings())
+        val viewModel = ChatOverlayViewModel(reader, repository(settings))
         advanceUntilIdle()
 
         stateFlow.value = ChatConnectionState.Connecting

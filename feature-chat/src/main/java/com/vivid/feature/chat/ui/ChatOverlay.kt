@@ -47,8 +47,11 @@ fun ChatOverlay(
     ) {
         if (uiState.messages.isEmpty()) {
             Text(
-                text = when (uiState.connection) {
-                    ChatConnectionState.Connecting -> "Verbinde…"
+                text = when {
+                    // Seit dem IRC-Ausstieg liest das Overlay über EventSub und
+                    // braucht deshalb die Bot-Zugangsdaten (kein anonymes Lesen).
+                    !uiState.configured -> "Chat-Overlay: nicht konfiguriert (Bot-Login + Token + Client-ID in den Einstellungen)"
+                    uiState.connection == ChatConnectionState.Connecting -> "Verbinde…"
                     else -> "Chat: ${uiState.channel}"
                 },
                 style = MaterialTheme.typography.labelMedium,

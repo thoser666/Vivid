@@ -3,9 +3,10 @@ package com.vivid.feature.chat.bot
 import com.vivid.core.data.AppSettings
 import com.vivid.core.data.SettingsRepository
 import com.vivid.feature.chat.di.ChatScope
-import com.vivid.feature.chat.twitch.TwitchBotClient
+import com.vivid.feature.chat.twitch.TwitchChatEventSubReader
 import com.vivid.feature.chat.twitch.TwitchEventSubClient
 import com.vivid.feature.chat.twitch.TwitchEventSubConfig
+import com.vivid.feature.chat.twitch.TwitchSendChatClient
 import com.vivid.feature.chat.twitch.TwitchWhisperClient
 import com.vivid.feature.chat.twitch.TwitchWhisperConfig
 import javax.inject.Inject
@@ -25,7 +26,8 @@ import kotlinx.coroutines.launch
 @Singleton
 class ChatBotController @Inject constructor(
     @param:ChatScope private val scope: CoroutineScope,
-    private val botClient: TwitchBotClient,
+    private val chatReader: TwitchChatEventSubReader,
+    private val sendChatClient: TwitchSendChatClient,
     private val whisperClient: TwitchWhisperClient,
     private val eventSubClient: TwitchEventSubClient,
     private val engine: ChatBotEngine,
@@ -71,13 +73,21 @@ class ChatBotController @Inject constructor(
             stopBot()
             return
         }
+        // Kanal-Nachrichten (EventSub channel.chat.message) + private Whispers
+        // (EventSub user.whisper.message) → Engine. Gesendet wird über die
+        // Helix-API (POST /helix/chat/messages) statt IRC-PRIVMSG.
+        val eventSubConfig = TwitchEventSubConfig(
+            botLogin = config.login,
+            oauthToken = config.oauthToken,
+            clientId = config.twitchClientId,
+            channel = config.channel,
+        )
         engine.start(
-            // Kanal-Nachrichten (IRC) + private Whispers (EventSub) → Engine.
-            messages = merge(botClient.messages, eventSubClient.whispers),
+            messages = merge(chatReader.messages, eventSubClient.whispers),
             config = config,
             sender = object : ChatSender {
                 override suspend fun send(text: String) {
-                    botClient.sendMessage(text)
+                    sendChatClient.send(eventSubConfig, text)
                 }
 
                 override suspend fun sendWhisper(toLogin: String, text: String) {
@@ -97,23 +107,17 @@ class ChatBotController @Inject constructor(
         )
         // Chat-TTS (der !tts-Befehl): liest den gleichen Nachrichten-Flow vor —
         // andere Bots (Ignore-Liste) werden nicht vorgelesen.
-        chatTts.start(botClient.messages, config.login, config.ignoreBots)
-        botClient.connect(config.channel, config.login, config.oauthToken)
-        // Whisper-Empfang: Streamer kann dem Bot privat Befehle schicken.
-        eventSubClient.start(
-            TwitchEventSubConfig(
-                botLogin = config.login,
-                oauthToken = config.oauthToken,
-                clientId = config.twitchClientId,
-                channel = config.channel,
-            ),
-        )
+        chatTts.start(chatReader.messages, config.login, config.ignoreBots)
+        // Chat lesen (EventSub) + Whisper-Empfang: Streamer kann dem Bot
+        // privat Befehle schicken.
+        chatReader.start(eventSubConfig)
+        eventSubClient.start(eventSubConfig)
     }
 
     private fun stopBot() {
         engine.stop()
         chatTts.stop()
-        botClient.disconnect()
+        chatReader.stop()
         eventSubClient.stop()
     }
 }

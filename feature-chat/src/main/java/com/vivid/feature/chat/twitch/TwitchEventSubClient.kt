@@ -260,10 +260,10 @@ internal data class WhisperContent(val text: String = "")
 // --- Helix-Subscribe-Request ---
 
 @Serializable
-internal data class EventSubSubscribeRequest(
+internal data class EventSubSubscribeRequest<T>(
     val type: String,
     val version: String,
-    val condition: EventSubCondition,
+    val condition: T,
     val transport: EventSubTransport,
 )
 

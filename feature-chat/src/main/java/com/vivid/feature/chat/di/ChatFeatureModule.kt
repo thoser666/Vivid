@@ -8,9 +8,7 @@ import com.vivid.feature.chat.bot.AndroidTtsSpeaker
 import com.vivid.feature.chat.media.ChatMediaController
 import com.vivid.feature.chat.media.ChatMediaPlayer
 import com.vivid.feature.chat.twitch.EventSubSocketFactory
-import com.vivid.feature.chat.twitch.IrcConnectionFactory
 import com.vivid.feature.chat.twitch.OkHttpEventSubSocketFactory
-import com.vivid.feature.chat.twitch.SocketIrcConnectionFactory
 import dagger.Binds
 import dagger.BindsOptionalOf
 import dagger.Module
@@ -30,12 +28,6 @@ annotation class ChatScope
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class ChatFeatureModule {
-
-    @Binds
-    @Singleton
-    abstract fun bindIrcConnectionFactory(
-        factory: SocketIrcConnectionFactory,
-    ): IrcConnectionFactory
 
     @Binds
     @Singleton

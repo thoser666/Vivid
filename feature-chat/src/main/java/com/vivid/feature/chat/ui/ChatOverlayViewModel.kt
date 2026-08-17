@@ -5,7 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.vivid.core.data.SettingsRepository
 import com.vivid.feature.chat.model.ChatConnectionState
 import com.vivid.feature.chat.model.ChatMessage
-import com.vivid.feature.chat.twitch.TwitchChatClient
+import com.vivid.feature.chat.twitch.TwitchChatEventSubReader
+import com.vivid.feature.chat.twitch.TwitchEventSubConfig
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,7 +17,7 @@ import kotlinx.coroutines.launch
 
 @HiltViewModel
 class ChatOverlayViewModel @Inject constructor(
-    private val chatClient: TwitchChatClient,
+    private val chatReader: TwitchChatEventSubReader,
     private val settingsRepository: SettingsRepository,
 ) : ViewModel() {
 
@@ -28,6 +29,8 @@ class ChatOverlayViewModel @Inject constructor(
     data class ChatOverlayUiState(
         val enabled: Boolean = false,
         val channel: String = "",
+        /** Bot-Login + OAuth-Token + Client-ID gesetzt? EventSub braucht einen Token. */
+        val configured: Boolean = false,
         val messages: List<ChatMessage> = emptyList(),
         val connection: ChatConnectionState = ChatConnectionState.Disconnected,
     )
@@ -37,31 +40,44 @@ class ChatOverlayViewModel @Inject constructor(
 
     init {
         // Reagiert auf die Chat-Einstellungen: startet/stoppt die Verbindung
-        // und räumt Nachrichten bei Kanal-/Statuswechseln auf.
+        // und räumt Nachrichten bei Kanal-/Statuswechseln auf. Seit dem
+        // IRC-Ausstieg liest das Overlay über EventSub `channel.chat.message`
+        // und braucht deshalb die Bot-Zugangsdaten (Login + Token + Client-ID).
         viewModelScope.launch {
             settingsRepository.appSettingsFlow.collect { settings ->
                 val enabled = settings.chatOverlayEnabled
                 val channel = settings.chatChannel.trim().lowercase()
+                val configured = settings.chatBotLogin.isNotBlank() &&
+                    settings.chatBotOauthToken.isNotBlank() &&
+                    settings.chatBotTwitchClientId.isNotBlank()
                 val previous = _uiState.value
                 val contextChanged = previous.enabled != enabled || previous.channel != channel
 
-                if (enabled && channel.isNotBlank()) {
-                    chatClient.start(channel)
+                if (enabled && channel.isNotBlank() && configured) {
+                    chatReader.start(
+                        TwitchEventSubConfig(
+                            botLogin = settings.chatBotLogin,
+                            oauthToken = settings.chatBotOauthToken,
+                            clientId = settings.chatBotTwitchClientId,
+                            channel = channel,
+                        ),
+                    )
                 } else {
-                    chatClient.stop()
+                    chatReader.stop()
                 }
                 _uiState.update {
                     it.copy(
                         enabled = enabled,
                         channel = channel,
+                        configured = configured,
                         messages = if (contextChanged) emptyList() else it.messages,
                     )
                 }
             }
         }
-        // Neue Nachrichten des Clients in den UI-State aufnehmen (begrenzt).
+        // Neue Nachrichten des Readers in den UI-State aufnehmen (begrenzt).
         viewModelScope.launch {
-            chatClient.messages.collect { message ->
+            chatReader.messages.collect { message ->
                 _uiState.update { state ->
                     state.copy(messages = (state.messages + message).takeLast(MAX_MESSAGES))
                 }
@@ -69,14 +85,14 @@ class ChatOverlayViewModel @Inject constructor(
         }
         // Verbindungsstatus durchreichen.
         viewModelScope.launch {
-            chatClient.state.collect { connection ->
+            chatReader.state.collect { connection ->
                 _uiState.update { it.copy(connection = connection) }
             }
         }
     }
 
     override fun onCleared() {
-        chatClient.stop()
+        chatReader.stop()
         super.onCleared()
     }
 }
