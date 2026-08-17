@@ -100,6 +100,8 @@ Das Beta-Gate ist erreicht, wenn **alle drei** Bedingungen erfüllt sind (Stand 
 - [ ] Data Safety Section (welche Daten sammelt die App? — Play Console)
 - [ ] `UPLOAD_*`- + `PLAY_JSON_KEY_*`-Secrets hinterlegt (nur für Play-Upload; Anleitung: Abschnitt „🔑 Secrets für den ersten Play-Upload vorbereiten“)
 
+> 🎯 **Master-Checkliste (Reihenfolge + Zeitaufwand):** Abschnitt **„✅ Play-Vorbereitung: Priorisierte Abhakliste“** unten — alle Play-Schritte als P0–P2 mit genauen Schritten, Aufwand und kritischem Pfad.
+
 **📸 Screenshots für den Play-Upload erzeugen (Anleitung):**
 
 **Anforderungen** (Play Console + CI-Gate `scripts/check_play_metadata.sh`):
@@ -744,6 +746,42 @@ Der `supply`-Upload (`publish_play`) lädt nur APK/AAB + Metadaten (Titel, Besch
 7. **News-Apps / Regierungs-Apps:** nicht zutreffend → überspringen
 8. **Testing-Track sicherstellen:** `supply(track: …)` braucht einen **existierenden Track** — Default-Namen: `internal` (bis 100 Testpersonen, ohne Freigabe), `alpha`/`beta` (geschlossener Test mit Tester-Liste), `production`. Für den ersten Upload: Track in der Console anlegen, bevor `publish_play` mit `track=alpha` läuft (sonst Fehler „track not found“)
 9. **Rollout:** Nach dem Upload in der Console → Release → **„Ausrollen“** — Google listet dort exakt die noch fehlenden Pflichtfelder (meist genau Content Rating / Data Safety); die Punkte 1–8 schließen diese Lücken
+
+### ✅ Play-Vorbereitung: Priorisierte Abhakliste (mit Zeitaufwand)
+
+Master-Checkliste für den Weg zum ersten Play-Upload — **Reihenfolge = kritischer Pfad**, Aufwand pro Schritt (einmalig, realistisch). Details stehen in den verlinkten Abschnitten; der **Testplan darunter** ist die Ausführung.
+
+> **Gesamt: ~4–6 h Hands-on** (einmalig) + **1–7 Tage Wartezeit** (Zahlungsverifikation, Tester-Freigabe, App-Prüfung). Der GitHub-/Obtainium-Beta ist von **keinem** dieser Punkte abhängig — die betreffen nur den Play-Kanal.
+
+**P0 — Blockierend (ohne diese Schritte kann `publish_play` nie laufen) · ~2–3 h:**
+
+- [ ] **Play-Entwicklerkonto** (~30 min + ggf. **1–3 Tage Zahlungsverifikation**): play.google.com/console → einmalige Registrierung (**25 $**) → Abschnitt „🔑 Secrets …“, Schritt A.1 — **zeitkritisch, zuerst erledigen**
+- [ ] **App „Vivid“ anlegen** (~10 min): `applicationId` muss exakt **`com.vivid`** sein (sonst 403 im Upload); neue Apps sind automatisch in Play App Signing eingeschrieben (App-Signing-Key: Google-generiert, Variante A)
+- [ ] **Upload-Keystore erzeugen + sichern** (~15 min): `bash scripts/prepare_play_secrets.sh --generate` oder manuell nach Abschnitt „🔐 Play-Upload-Keystore erzeugen …“ — **BACKUP Pflicht** (Keystore-Verlust = Upload für immer verloren, siehe Widerruf-Risiko)
+- [ ] **`upload_cert.pem` in der Console registrieren** (~5 min): Setup → App-Integrität → App-Signierung → „Exportieren und Upload-Key hochladen“
+- [ ] **Service-Account + JSON-Key** (~30 min): Setup → API-Zugang → GCP-Dienstkonto → Android Publisher API aktivieren → Rolle **„Releasemanager“** → JSON herunterladen (Schritt C) — niemals committen
+- [ ] **6 GitHub-Secrets setzen** (~10 min): `bash scripts/prepare_play_secrets.sh --set` → `UPLOAD_KEYSTORE_BASE64`, `UPLOAD_KEYSTORE_PASSWORD`, `UPLOAD_KEY_ALIAS`, `UPLOAD_KEY_PASSWORD`, `PLAY_JSON_KEY_DATA` (+ optional `PLAY_JSON_KEY_FILE`) — Werte nur aus Dateien/stdin, nie ins Log
+- [ ] **Verifikation** (~15 min): `bash scripts/guard_secrets.sh` grün + `gh secret list` zeigt alle Namen + SHA-256-Fingerprint-Abgleich (Schritt E)
+- [ ] **Dry-Run grün** (~15 min CI): `workflow_dispatch` mit `dry_run=true` → baut + signaturverifiziert gegen den Upload-Key, verbraucht **keinen** versionCode und berührt Play nicht
+
+**P1 — Fürs „Ausrollen“ (Release bleibt sonst in der Console gesperrt) · ~2 h** — kann **parallel** zu P0 laufen:
+
+- [ ] **Echte Screenshots statt Platzhalter** (~45–60 min): Option A (Emulator, Anleitung oben) oder automatisiert `bundle exec fastlane capture_play_screenshots` → ≥2 × 16:9/9:16, `check_play_metadata.sh` bleibt grün
+- [ ] **Store-Listing**: Kontakt-E-Mail + **PRIVACY.md unter öffentlicher HTTPS-URL hosten** (~15 min; GitHub-Pages/Gist) — beides Pflichtfelder
+- [ ] **App-Zugriff**: „Alle Funktionen ohne Login“ (~5 min)
+- [ ] **Anzeigen**: „Nein“ (~2 min; kein Ad-SDK im Projekt, verifiziert)
+- [ ] **Content Rating (IARC-Fragebogen)** (~15–20 min): Live-Streaming + nutzergenerierter Chat → junges Rating; fehlt es, blockiert Google das Ausrollen
+- [ ] **Zielgruppe**: nicht kinderorientiert (~2 min)
+- [ ] **Data Safety** (~15–30 min): Kamera/Mikro, Standort (GPS-Widget), Chat/Settings, Sentry-Crashdaten; keine Datenverkäufe — Internal-Test-Tracks sind befreit, alpha/beta/production nicht
+- [ ] **Track `alpha` anlegen** (~5 min): Play Console → Testing → Alpha — `supply(track: alpha)` bricht sonst mit „track not found“
+
+**P2 — Auslieferung an Tester · ~30 min + Wartezeit:**
+
+- [ ] **≥2 Tester einladen** (~10 min + **1 h–7 Tage Wartezeit**): Play Console → Testing → Alpha → Tester-Liste (E-Mail-Adressen) → Freigabe abwarten
+- [ ] **Erster echter Upload** (~15 min CI): Testplan Schritt 3–6 ohne `dry_run`, `version_code` **explizit** setzen (z. B. `1`) — ein vergebener Code ist in Play für immer belegt
+- [ ] **Smoke-Test bestätigen lassen**: „kein Crash in 15 Minuten“ pro Tester → Voraussetzung fürs spätere Ausrollen
+
+**Kritischer Pfad:** P0 → P2 (erster Upload in den Alpha-Track); P1 ist für den **reinen Upload** nicht nötig, aber **zwingend fürs Ausrollen** („Go live“) — parallel erledigen. **Reihenfolge-Tipp:** Mit dem Play-Konto starten (Zahlungsverifikation kann Tage dauern) und parallel die echten Screenshots aufnehmen — das ist der einzige P1-Punkt mit echtem Tooling-Aufwand.
 
 ### 🧪 Testplan: Erster Play-Upload (alpha-Track)
 
