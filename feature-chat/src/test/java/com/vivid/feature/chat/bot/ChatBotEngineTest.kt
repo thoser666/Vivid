@@ -43,6 +43,7 @@ class ChatBotEngineTest {
         displayName: String? = null,
         isModerator: Boolean = false,
         isBroadcaster: Boolean = false,
+        isWhisper: Boolean = false,
     ): ChatMessage = ChatMessage(
         id = "id-${text.hashCode()}",
         channel = "channel",
@@ -59,6 +60,7 @@ class ChatBotEngineTest {
         isModerator = isModerator,
         isSubscriber = false,
         isBroadcaster = isBroadcaster,
+        isWhisper = isWhisper,
     )
 
     private fun config(
@@ -1409,6 +1411,103 @@ class ChatBotEngineTest {
         assertEquals(ChatBotEngine.OWNER_ONLY_TEXT, sent.captured)
         coVerify(exactly = 0) { sender.sendWhisper(any(), any()) }
         coVerify(exactly = 0) { control.start() }
+        engine.stop()
+    }
+
+    // --- Whisper-Empfang (EventSub): Streamer schickt dem Bot private Befehle ---
+
+    @Test
+    fun `whisper from the allow list starts the stream and replies privately`() = runTest {
+        val control = streamControl()
+        val engine = engine(streamControl = control)
+        coEvery { sender.sendWhisper(any(), any()) } just Runs
+        coEvery { sender.send(any()) } just Runs
+
+        engine.start(messages, config(ownerLogins = setOf("streamer2")), sender, this)
+        messages.emit(chatMessage("!start", login = "streamer2", isWhisper = true))
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { control.start() }
+        coVerify(exactly = 1) { sender.sendWhisper("streamer2", ChatBotEngine.STREAM_START_TEXT) }
+        coVerify(exactly = 0) { sender.send(any()) }
+        engine.stop()
+    }
+
+    @Test
+    fun `whisper from the channel owner counts as broadcaster and answers privately`() = runTest {
+        val control = streamControl()
+        val engine = engine(streamControl = control)
+        val whispered = slot<String>()
+        coEvery { sender.sendWhisper(any(), capture(whispered)) } just Runs
+
+        engine.start(messages, config(), sender, this)
+        messages.emit(
+            chatMessage(
+                "!diag",
+                login = "channel",
+                isBroadcaster = true, // vom EventSub-Client gesetzt (Login == Kanal)
+                isWhisper = true,
+            ),
+        )
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { control.diagnostics() }
+        coVerify(exactly = 0) { sender.send(any()) }
+        assertTrue(whispered.captured.contains("Stream:"))
+        engine.stop()
+    }
+
+    @Test
+    fun `whisper from a non-owner gets a private hint and no action`() = runTest {
+        val control = streamControl()
+        val engine = engine(streamControl = control)
+        coEvery { sender.sendWhisper(any(), any()) } just Runs
+        coEvery { sender.send(any()) } just Runs
+
+        engine.start(messages, config(ownerLogins = setOf("streamer2")), sender, this)
+        messages.emit(chatMessage("!start", login = "viewer1", isWhisper = true))
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { sender.sendWhisper("viewer1", ChatBotEngine.OWNER_ONLY_TEXT) }
+        coVerify(exactly = 0) { sender.send(any()) }
+        coVerify(exactly = 0) { control.start() }
+        engine.stop()
+    }
+
+    @Test
+    fun `viewer commands in whispers are ignored`() = runTest {
+        val engine = engine()
+        coEvery { sender.send(any()) } just Runs
+        coEvery { sender.sendWhisper(any(), any()) } just Runs
+        coEvery { llm.complete(any(), any()) } returns "Antwort!"
+
+        engine.start(messages, config(), sender, this)
+        messages.emit(chatMessage("!help", login = "viewer1", isWhisper = true))
+        messages.emit(chatMessage("was ist los?", login = "viewer1", isWhisper = true))
+        advanceUntilIdle()
+
+        coVerify(exactly = 0) { sender.send(any()) }
+        coVerify(exactly = 0) { sender.sendWhisper(any(), any()) }
+        coVerify(exactly = 0) { llm.complete(any(), any()) }
+        engine.stop()
+    }
+
+    @Test
+    fun `whisper reply failure never falls back to the public channel`() = runTest {
+        val control = streamControl()
+        val engine = engine(streamControl = control)
+        coEvery { sender.sendWhisper(any(), any()) } throws TwitchWhisperException("Empfänger blockt Whispers")
+        coEvery { sender.send(any()) } just Runs
+
+        engine.start(messages, config(ownerLogins = setOf("streamer2")), sender, this)
+        messages.emit(chatMessage("!stop", login = "streamer2", isWhisper = true))
+        advanceUntilIdle()
+
+        // Die Aktion wird ausgeführt, aber die Bestätigung bleibt privat —
+        // eine private Anfrage wird nie öffentlich beantwortet.
+        coVerify(exactly = 1) { control.stop() }
+        coVerify(exactly = 1) { sender.sendWhisper(any(), any()) }
+        coVerify(exactly = 0) { sender.send(any()) }
         engine.stop()
     }
 }

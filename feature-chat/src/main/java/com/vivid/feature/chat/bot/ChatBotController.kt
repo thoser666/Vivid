@@ -4,6 +4,8 @@ import com.vivid.core.data.AppSettings
 import com.vivid.core.data.SettingsRepository
 import com.vivid.feature.chat.di.ChatScope
 import com.vivid.feature.chat.twitch.TwitchBotClient
+import com.vivid.feature.chat.twitch.TwitchEventSubClient
+import com.vivid.feature.chat.twitch.TwitchEventSubConfig
 import com.vivid.feature.chat.twitch.TwitchWhisperClient
 import com.vivid.feature.chat.twitch.TwitchWhisperConfig
 import javax.inject.Inject
@@ -12,6 +14,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.launch
 
 /**
@@ -24,6 +27,7 @@ class ChatBotController @Inject constructor(
     @param:ChatScope private val scope: CoroutineScope,
     private val botClient: TwitchBotClient,
     private val whisperClient: TwitchWhisperClient,
+    private val eventSubClient: TwitchEventSubClient,
     private val engine: ChatBotEngine,
     private val chatTts: ChatTtsController,
     private val settingsRepository: SettingsRepository,
@@ -68,7 +72,8 @@ class ChatBotController @Inject constructor(
             return
         }
         engine.start(
-            messages = botClient.messages,
+            // Kanal-Nachrichten (IRC) + private Whispers (EventSub) → Engine.
+            messages = merge(botClient.messages, eventSubClient.whispers),
             config = config,
             sender = object : ChatSender {
                 override suspend fun send(text: String) {
@@ -94,11 +99,21 @@ class ChatBotController @Inject constructor(
         // andere Bots (Ignore-Liste) werden nicht vorgelesen.
         chatTts.start(botClient.messages, config.login, config.ignoreBots)
         botClient.connect(config.channel, config.login, config.oauthToken)
+        // Whisper-Empfang: Streamer kann dem Bot privat Befehle schicken.
+        eventSubClient.start(
+            TwitchEventSubConfig(
+                botLogin = config.login,
+                oauthToken = config.oauthToken,
+                clientId = config.twitchClientId,
+                channel = config.channel,
+            ),
+        )
     }
 
     private fun stopBot() {
         engine.stop()
         chatTts.stop()
         botClient.disconnect()
+        eventSubClient.stop()
     }
 }

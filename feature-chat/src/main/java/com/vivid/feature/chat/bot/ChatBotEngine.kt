@@ -151,6 +151,14 @@ class ChatBotEngine @Inject constructor(
         // werden komplett ignoriert — keine Befehle, kein LLM-Input.
         if (message.userLogin in cfg.ignoreBots) return
 
+        // Privat eingegangene Nachrichten (Twitch-Whisper per EventSub): nur
+        // Owner-Befehle werden beantwortet (Antwort geht als Whisper zurück) —
+        // Whispers werden nie in die Viewer-/LLM-Pfade eingespeist.
+        if (message.isWhisper) {
+            handleWhisper(cfg, snd, message)
+            return
+        }
+
         // Befehle werden in BEIDEN Modi deterministisch beantwortet (Moblin-Stil).
         val commandReply = when (val result = commandProcessor.handle(
             message.text,
@@ -274,6 +282,30 @@ class ChatBotEngine @Inject constructor(
         cfg.isOwner(message.userLogin, message.isBroadcaster)
 
     /**
+     * Privat eingegangene Nachrichten (Twitch-Whisper): nur Owner-Befehle
+     * werden beantwortet — die Antwort geht als Whisper an den Absender
+     * zurück (nie öffentlich). Andere Befehle und Freitext werden ignoriert:
+     * Whispers sind kein Viewer-Kanal.
+     */
+    private suspend fun handleWhisper(cfg: ChatBotConfig, snd: ChatSender, message: ChatMessage) {
+        when (val result = commandProcessor.handle(
+            message.text,
+            streamStartedAtMillis,
+            cfg.commandScope,
+            cfg.commandPrefix,
+            cfg.login,
+        )) {
+            is BotCommandProcessor.Result.OwnerStart ->
+                handleOwnerAction(cfg, message, snd) { streamControl.start(); STREAM_START_TEXT }
+            is BotCommandProcessor.Result.OwnerStop ->
+                handleOwnerAction(cfg, message, snd) { streamControl.stop(); STREAM_STOP_TEXT }
+            is BotCommandProcessor.Result.OwnerDiagnose -> handleOwnerDiagnose(cfg, message, snd)
+            is BotCommandProcessor.Result.OwnerAsk -> handleOwnerAsk(cfg, message, snd, result.text)
+            else -> Unit
+        }
+    }
+
+    /**
      * Führt eine Owner-Aktion aus (Stream starten/stoppen). Nicht-Owner
      * bekommen einen Hinweis. Owner umgehen Cooldown und Per-Viewer-Limits;
      * das globale Rate-Limit (Kosten-Schutz) gilt weiterhin.
@@ -285,7 +317,7 @@ class ChatBotEngine @Inject constructor(
         action: suspend () -> String,
     ) {
         if (!isOwner(cfg, message)) {
-            send(snd, OWNER_ONLY_TEXT, message)
+            sendOwnerOnlyHint(snd, message)
             return
         }
         if (rateLimited(cfg)) return
@@ -308,7 +340,7 @@ class ChatBotEngine @Inject constructor(
      */
     private suspend fun handleOwnerDiagnose(cfg: ChatBotConfig, message: ChatMessage, snd: ChatSender) {
         if (!isOwner(cfg, message)) {
-            send(snd, OWNER_ONLY_TEXT, message)
+            sendOwnerOnlyHint(snd, message)
             return
         }
         if (rateLimited(cfg)) return
@@ -340,7 +372,7 @@ class ChatBotEngine @Inject constructor(
         text: String,
     ) {
         if (!isOwner(cfg, message)) {
-            send(snd, OWNER_ONLY_TEXT, message)
+            sendOwnerOnlyHint(snd, message)
             return
         }
         if (rateLimited(cfg)) return
@@ -445,12 +477,26 @@ class ChatBotEngine @Inject constructor(
     }
 
     /**
-     * Sendet eine Antwort an den Owner: mit aktiviertem privaten Antwortweg
-     * (Twitch-Whisper statt PRIVMSG) direkt an den Owner-Login, sonst
-     * öffentlich in den Chat. Schlägt der Whisper fehl (keine Client-ID,
-     * blockierter Empfänger, fehlender Scope), fällt die Antwort auf den
-     * öffentlichen Chat zurück — die Bestätigung der Aktion schlägt die
-     * Privatsphäre im Fehlerfall.
+     * Sendet eine private Antwort per Whisper an den Absender
+     * ([ChatMessage.userLogin]). Gibt true zurück, wenn der Whisper gesendet
+     * wurde. Bei Fehlern wird nur geloggt — eine private Anfrage wird nie
+     * öffentlich beantwortet (kein Leaken in den Kanal).
+     */
+    private suspend fun whisperBack(snd: ChatSender, message: ChatMessage, text: String): Boolean =
+        try {
+            snd.sendWhisper(message.userLogin, text)
+            registerReply(message)
+            _logs.tryEmit(text)
+            true
+        } catch (e: Exception) {
+            _logs.tryEmit("Whisper-Antwort fehlgeschlagen (${e.message ?: "unbekannter Fehler"}) — keine öffentliche Antwort.")
+            false
+        }
+
+    /**
+     * Antwortet an den Owner: Whispers (private Anfrage) immer privat;
+     * normale Chat-Nachrichten privat, wenn [ChatBotConfig.ownerWhisperReplies]
+     * aktiv ist (mit öffentlichem Fallback bei Whisper-Fehler), sonst öffentlich.
      */
     private suspend fun sendOwnerReply(
         cfg: ChatBotConfig,
@@ -458,19 +504,20 @@ class ChatBotEngine @Inject constructor(
         message: ChatMessage,
         text: String,
     ) {
+        if (message.isWhisper) {
+            whisperBack(snd, message, text)
+            return
+        }
         if (cfg.ownerWhisperReplies && message.userLogin.isNotBlank()) {
-            try {
-                snd.sendWhisper(message.userLogin, text)
-                registerReply(message)
-                _logs.tryEmit(text)
-                return
-            } catch (e: Exception) {
-                _logs.tryEmit(
-                    "Owner-Whisper fehlgeschlagen (${e.message ?: "unbekannter Fehler"}) — öffentliche Antwort als Fallback.",
-                )
-            }
+            if (whisperBack(snd, message, text)) return
+            _logs.tryEmit("Owner-Whisper fehlgeschlagen — öffentliche Antwort als Fallback.")
         }
         send(snd, text, message)
+    }
+
+    /** Nicht-Owner-Hinweis: bei privater Anfrage als Whisper zurück, sonst öffentlich. */
+    private suspend fun sendOwnerOnlyHint(snd: ChatSender, message: ChatMessage) {
+        if (message.isWhisper) whisperBack(snd, message, OWNER_ONLY_TEXT) else send(snd, OWNER_ONLY_TEXT, message)
     }
 
     private fun appendUserMessage(cfg: ChatBotConfig, message: ChatMessage) {

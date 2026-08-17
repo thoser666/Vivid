@@ -103,8 +103,9 @@ class TwitchWhisperClient @Inject constructor(
     /**
      * Löst einen Twitch-Login über `GET /helix/users` in die User-ID auf
      * (mit Cache). null bei Netzwerk-/Auth-Fehlern oder unbekanntem Login.
+     * Auch vom EventSub-Client genutzt (Bot-User-ID für die Subscription).
      */
-    private suspend fun resolveUserId(config: TwitchWhisperConfig, login: String): String? {
+    suspend fun resolveUserId(config: TwitchWhisperConfig, login: String): String? {
         val key = login.trim().lowercase()
         userIdCache[key]?.let { return it }
         try {
