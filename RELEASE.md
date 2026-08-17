@@ -699,6 +699,36 @@ Fehlerbilder (bewusst **harte Abbrüche** — bei CI-Fail hat Play keinerlei Än
 
 
 
+## 🤖 Chat-Bot: Twitch-Token & Client-ID (Setup)
+
+Damit der KI-Chat-Bot im Kanal antwortet und **Owner-Befehle privat per Whisper** sendet/empfängt (`!start`/`!stop`/`!diag`/`!ask`), braucht das **Bot-Konto** einen User-Access-Token mit den richtigen Scopes und eine **Twitch-App-Client-ID**. Beide Werte liegen **nur in den App-Einstellungen** des Streamers — sie sind bewusst **keine** GitHub-Secrets (der Secret-Guard-Check verhindert, dass sie je ins Repo gelangen). Details zu Limits & Verhalten: `docs/ai-chat-bot.md`.
+
+**1. Bot-Token mit Scope `user:manage:whispers` erzeugen** (einmalig, dann App-einstellen):
+
+- Optional: eigenes Twitch-Konto für den Bot registrieren (gleiche App-Regeln wie jedes Konto).
+- Quick-Weg: **twitchtokengenerator.com** → „Custom Scope“ → folgende Scopes anfordern:
+  `chat:read` `chat:edit` `user:manage:whispers`
+  (`chat:read`/`chat:edit` = Chat lesen/senden; `user:manage:whispers` deckt **Senden** und zugleich den **EventSub-Empfang** `user.whisper.message` ab — Twitch akzeptiert dort auch `user:read:whispers`.)
+- Oder offizieller OAuth-Flow (eigene Twitch-App nötig, siehe Schritt 2):
+  ```
+  https://id.twitch.tv/oauth2/authorize?client_id=<CLIENT_ID>&redirect_uri=<REDIRECT>&response_type=token&scope=chat:read%20chat:edit%20user:manage:whispers
+  ```
+- **Wichtig für Whispers:** Das Bot-Konto braucht eine **verifizierte Telefonnummer** (Twitch-Pflicht), und der Empfänger (der Streamer) darf „Block Whispers from Strangers“ nicht aktiv haben — sonst antwortet der Bot öffentlich in den Chat zurück.
+
+**2. Twitch-App-Client-ID besorgen:**
+
+- [dev.twitch.tv/console/apps](https://dev.twitch.tv/console/apps) → **Register Your Application** (Name z. B. „Vivid Bot“, OAuth-Redirect passend zum Token-Generator) → **Client-ID** kopieren.
+
+**3. In den App-Settings hinterlegen** (Settings → Chat-Bot → **Owner-Zugriff**):
+
+- [ ] `Bot-Login (Twitch, ohne @)` — Login des Bot-Kontos
+- [ ] `Twitch-OAuth-Token` — Token aus Schritt 1 (mit `user:manage:whispers`)
+- [ ] `Twitch-App-Client-ID (für Whisper)` — Client-ID aus Schritt 2
+- [ ] `Antworten privat senden (Whisper)` — **an** lassen (Standard); ohne Client-ID/Scope fällt die Antwort automatisch öffentlich in den Chat
+- [ ] Falls der Bot von einem **Zweitaccount** gesteuert wird: dessen Login in `Owner-Logins (Allow-List)` eintragen (der Kanal-Inhaber ist automatisch Owner)
+
+**4. GitHub (optional, nur für CI-Live-Tests):** Der Laufzeit-Bot braucht **kein** GitHub-Secret. Wer den Whisper-Weg in CI prüfen will, hinterlegt die Werte als Repository-Secrets (`TWITCH_BOT_TOKEN`, `TWITCH_CLIENT_ID`) — nie als Datei im Repo; `scripts/guard_secrets.sh` (CI-Job) bricht sonst ab.
+
 ## ⚠️ Stage Gates
 
 ### `nightly` → laufend

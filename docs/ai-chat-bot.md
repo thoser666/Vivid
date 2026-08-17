@@ -150,7 +150,7 @@ Viewer, die einen Owner-Befehl tippen, bekommen nur den Hinweis „⚠️ Dieser
 |--------|--------|---------|
 | Stream starten | `!start` / `!go-live` | Startet den Stream mit den gespeicherten Einstellungen (primär + optional zweites Ziel) — gleiche Logik wie die Web-Remote-Control |
 | Stream stoppen | `!stop` / `!end` | Stoppt den Stream |
-| Diagnose | `!diag` / `!status` | **Diagnose-Lauf:** sammelt deterministisch Stream-Status (inkl. Fehlerursache), OBS-Verbindung und Konfigurations-Checks (URL/Key, Multi-Streaming, Chat-Kanal, Bot-Token, Viewer-/Owner-LLM). Ohne Owner-KI → Checkliste direkt im Chat; mit Owner-KI → Bewertung + konkrete Empfehlungen |
+| Diagnose | `!diag` / `!status` | **Diagnose-Lauf:** sammelt deterministisch Stream-Status (inkl. Fehlerursache), OBS-Verbindung und Konfigurations-Checks (URL/Key, Multi-Streaming, Chat-Kanal, Bot-Token, **Whisper-Antwortweg (Client-ID + Token)**, Viewer-/Owner-LLM). Ohne Owner-KI → Checkliste direkt im Chat; mit Owner-KI → Bewertung + konkrete Empfehlungen |
 | Owner-KI fragen | `!ask <frage>` | Stellt die Frage an die **Owner-KI** mit dem aktuellen Stream-Zustand als Kontext (z. B. „!ask warum stockt der Stream?“) |
 
 #### Befehls-Syntax (Referenz)
@@ -204,6 +204,15 @@ Fallback: öffentliche Antwort (PRIVMSG) in den Kanal + Bot-Log-Hinweis
 - Das Sender-Konto braucht eine **verifizierte Telefonnummer** (Twitch-Anforderung).
 
 Twitch-Limits: 40 eindeutige Empfänger/Tag, 3 Whispers/s, 100/min, 500 Zeichen für die erste Nachricht an einen User (der Bot kürzt automatisch auf 500), und Twitch kann Whispers **still verwerfen** (auch bei HTTP 204). Blockt der Empfänger Whispers von Fremden (`Block Whispers from Strangers`), antwortet Twitch mit 400 — der Bot **fällt dann öffentlich in den Chat zurück** (Zuverlässigkeit der Bestätigung schlägt Privatsphäre im Fehlerfall) und loggt den Grund. Der ganze Weg lässt sich im Settings-Screen abschalten (`chat_bot_owner_whisper_replies`); ohne Client-ID/Scope geht die Antwort automatisch öffentlich.
+
+#### Whisper-Empfang (EventSub) — private Befehle an den Bot
+
+Der Streamer kann dem Bot auch **privat** Befehle schicken: Der Bot verbindet sich bei Go-Live zusätzlich zu IRC mit **Twitch-EventSub (WebSocket)** und subscribt `user.whisper.message` für die Bot-User-ID (`TwitchEventSubClient`). Eingehende Whispers landen als `ChatMessage` mit `isWhisper = true` in der Engine — es gelten dieselben Voraussetzungen wie beim Senden (Bot-Token mit Scope `user:manage:whispers`, Twitch-App-Client-ID).
+
+- **Nur Owner-Befehle:** Whispers werden nie in die Viewer-/LLM-Pfade eingespeist. `!start`/`!stop`/`!diag`/`!ask` werden verarbeitet, alle anderen Nachrichten (auch `!help` von Viewern) werden ignoriert — Whispers sind kein Viewer-Kanal.
+- **Owner-Erkennung:** Whisper vom **Kanal-Login** (Absender-Login == Kanalname) gilt automatisch als Broadcaster (Twitch verifiziert die Absender-Identität); zusätzlich greift die Allow-List `chat_bot_owner_logins` (z. B. Zweitaccount). Nicht-Owner bekommen nur den Hinweis **als Whisper zurück**.
+- **Antwort bleibt privat:** Antworten auf Whispers gehen immer als Whisper an den Absender — auch wenn der Whisper fehlschlägt, wird **nie öffentlich** geantwortet (kein Leaken der privaten Interaktion in den Kanal).
+- **Reconnect:** Beim `session_reconnect` übernimmt die neue WebSocket-Session die Subscriptions automatisch (kein Re-Subscribe); bei hartem Verbindungsverlust wird nach dem Reconnect neu subscribt (Backoff wie beim IRC-Client).
 
 ### Owner-KI (optional)
 
@@ -333,8 +342,45 @@ Alle Felder sind direkt im **Settings-Screen** (Abschnitt **„Chat-Bot (KI)“*
 - ✅ **Media-player control** (`!song`/`!next`/`!pause`/`!play`/`!prev` via MediaSession, Moblin parity row) — done (needs notification access).
 - ✅ **Per-viewer cooldown, per-viewer cap and hourly cost budget** — done (see [Begrenzungen](#begrenzungen-pro-viewer--kosten)).
 - ✅ **Owner-Steuerung (nur der Streamer)** — `!start`/`!stop`/`!diag`/`!ask` mit Owner-Gate (Broadcaster + Allow-List) und separater Owner-KI (see [Owner-Steuerung](#owner-steuerung-nur-der-streamer)).
+- 🔜 **Chat komplett auf Helix/EventSub (IRC-Ausstieg)** — Twitch empfiehlt die Migration offiziell (IRC bleibt aber „Active“); einziger echter Blockierer: das anonyme Overlay braucht künftig einen Token (Details: [Ausblick unten](#ausblick-chat-komplett-auf-helixeventsub-irc-ausstieg)).
 - Twitch OAuth browser flow (no manual token pasting).
 - More platforms once Kick/YouTube chat lands.
+
+## Ausblick: Chat komplett auf Helix/EventSub (IRC-Ausstieg)
+
+**Fazit: Machbar — Twitch empfiehlt die Migration offiziell, erzwingt sie aber nicht.** IRC ist im [Product Lifecycle](https://dev.twitch.tv/docs/product-lifecycle/) weiterhin „Active“ (nur nicht-sichere WebSocket-Verbindungen wurden Aug 2025 abgeschaltet); die offizielle Anleitung [Migrating from IRC](https://dev.twitch.tv/docs/chat/irc-migration/) rät aber jedem Chat-Bot zur Umstellung. Der Aufwand ist moderat, weil die EventSub-Infrastruktur für den Whisper-Empfang bereits existiert (WebSocket-Socket, Subscription-Client, `resolveUserId`).
+
+**IRC heute (3 Stellen):** `TwitchChatClient` (anonymes Overlay, `justinfan`, read-only), `TwitchBotClient` (Bot, lesen + senden), `IrcConnection`/`IrcMessageParser` (Raw-Socket + Parser). Whispers sind bereits auf Helix/EventSub umgestellt.
+
+| Funktion | Heute (IRC) | Ziel (Helix/EventSub) |
+|----------|-------------|----------------------|
+| Chat lesen | `PRIVMSG`, Scope `chat:read` | EventSub `channel.chat.message`, Scope `user:read:chat` |
+| Chat senden | `PRIVMSG`, Scope `chat:edit` | `POST /helix/chat/messages`, Scope `user:write:chat` |
+| Badges | `badges`-Tag („broadcaster/1“, …) | `event.badges[]` (`set_id`/`id`/`info`) |
+| Emotes | `emotes`-Tag (`id:start-end`) | `message.fragments[]` (emote-Objekte) |
+| Mod/Sub/Broadcaster | `mod=1`, `subscriber=1`, Badge | Badge-`set_id`s `moderator`/`subscriber`/`broadcaster` |
+| Chat-Farbe | `color`-Tag | `event.color` |
+| Zeitstempel | `tmi-sent-ts` | `message_timestamp` |
+| Keepalive | `PING`/`PONG` | WebSocket-Ping-Frames + `session_keepalive` (OkHttp automatisch) |
+| Reconnect | `RECONNECT` | `session_reconnect` (bereits im `TwitchEventSubClient`) |
+| JOIN/PART/NAMES | (wird nicht genutzt) | entfällt — Get Chatters nur für Mods/Broadcaster |
+
+**Constraints & Entscheidungen:**
+
+1. **Anonymes Overlay entfällt** — EventSub erfordert einen authentifizierten User-Token. Das Chat-Overlay (heute ohne Token) braucht künftig den Bot- oder Broadcaster-Token → Produktentscheidung: Overlay nur mit konfiguriertem Bot-Konto **oder** Overlay bleibt als einziger Fall auf IRC.
+2. **User-IDs nötig** — Subscription-Condition und Send-Chat brauchen `broadcaster_user_id`/`sender_id` (Auflösung via `GET /helix/users`; `resolveUserId` existiert bereits).
+3. **Scopes ändern sich** — `chat:read`/`chat:edit` → `user:read:chat`/`user:write:chat` (+ `user:bot` je nach Token-Typ). Doku, Settings-Labels und Setup-Anleitung (RELEASE.md) anpassen.
+4. **Emotes-Format** — `ChatMessage.emotesTag` (IRC-Format) müsste auf die EventSub-Fragments abgebildet werden, falls das Overlay Emotes rendert.
+5. **Senden mit Fehlerdetails** — `drop_reason` im Response (Slow-Mode, verifizierte E-Mail, …) statt IRC-NOTICE; Rate-Limit (~20/20 s pro User) ist für den Bot (Cooldown ≥ 8 s) unkritisch.
+6. **EventSub-Limits passend** — max. 3 WebSocket-Verbindungen mit Subscriptions, 300 Subs/Verbindung; für 1 Kanal (Whisper + Chat auf einer Verbindung) unkritisch.
+
+**Migrationsplan (1 Feature-Bündel, ~1–2 Tage):**
+
+1. `TwitchChatEventSubReader` — `channel.chat.message`-Subscription + Event→`ChatMessage`-Mapping (Badges/Emotes/Farbe) — Muster: `TwitchEventSubClient`.
+2. `TwitchSendChatClient` — `POST /helix/chat/messages` mit `broadcaster_id`/`sender_id` + `drop_reason`-Auswertung — Muster: `TwitchWhisperClient`.
+3. Overlay + Bot auf den EventSub-Reader umstellen (Token-Fluss entscheiden, s. o.).
+4. `IrcConnection`, `IrcMessageParser` und die IRC-Handshakes entfernen.
+5. Scopes/Doku/Tests aktualisieren; IRC-Tests durch EventSub-Tests ersetzen.
 
 ## Architecture
 
