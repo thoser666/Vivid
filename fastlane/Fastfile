@@ -122,8 +122,15 @@ platform :android do
         parts = base.split(".").map(&:to_i)
         tag = "v#{parts[0]}.#{parts[1] + 1}.0-beta"
       else
-        # Erster Beta-Tag laut RELEASE.md-Plan (Beta-Gate: ≥17 ✅ + Chat + ≥1 Widget).
-        tag = "v0.3.0-beta"
+        # Erster Beta-Tag: vom höchsten existierenden v*-Tag ableiten (Stufe auf beta),
+        # damit der versionCode direkt über dem letzten Alpha liegt — v0.5.0-alpha
+        # (5001) → v0.5.0-beta (5002), kein Quer-Track-Downgrade.
+        latest_any = `git tag -l 'v*' --sort=-v:refname 2>/dev/null`.strip.lines.first&.strip
+        tag = latest_any&.sub(/-(alpha|rc)$/, "-beta")
+        unless tag&.match?(/^v\d+\.\d+\.\d+-beta$/)
+          # Fallback (z. B. nur nightly-*-Tags vorhanden): Plan aus RELEASE.md.
+          tag = "v0.5.0-beta"
+        end
       end
     end
     tag = "v#{tag}" unless tag.start_with?("v")
@@ -151,10 +158,11 @@ platform :android do
       UI.user_error!("versionCode #{code} is not greater than the last beta release (#{last_beta_code}) — use version: to pick a higher one")
     end
 
-    # Safety 4 (Versicherung): Quer-Track-Hinweis statt Abbruch — die Roadmap startet
-    # beta bewusst bei v0.3.0-beta (3002), obwohl alpha schon bei v0.4.x (4000+) liegt.
-    # Android blockt Downgrades, daher nur warnen: Nutzer anderer Tracks müssen die App
-    # vorher deinstallieren.
+    # Safety 4 (Versicherung): Quer-Track-Hinweis statt Abbruch — der erste Beta-Tag
+    # wird vom höchsten v*-Tag abgeleitet (v0.5.0-alpha → v0.5.0-beta, 5001 → 5002) und
+    # liegt damit direkt über dem letzten Alpha. Die Warnung greift nur noch, wenn
+    # jemand bewusst ein niedrigeres version: übergibt — Android blockt Downgrades,
+    # deren Nutzer müssen die App dann vorher deinstallieren.
     other_codes = `git tag -l 'v*' 2>/dev/null`.strip.lines
       .map { |t| version_code_for(t.strip.sub(/^v/, "")) }
       .compact
