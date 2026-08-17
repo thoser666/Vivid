@@ -95,10 +95,116 @@ Das Beta-Gate ist erreicht, wenn **alle drei** Bedingungen erfüllt sind (Stand 
 
 - [x] Privacy Policy fertig — [PRIVACY.md](PRIVACY.md)
 - [x] App-Icon 512×512 PNG → `fastlane/metadata/android/images/icon.png` (vorhanden, 512×512, RGBA)
-- [ ] Screenshots (mind. 2, 16:9 oder 9:16) → `fastlane/metadata/android/images/phoneScreenshots/` (wird vom CI-Check `scripts/check_play_metadata.sh` geprüft — der `publish-play`-Job bricht ohne vollständige Metadaten ab)
+- [ ] Screenshots (mind. 2, 16:9 oder 9:16) → `fastlane/metadata/android/images/phoneScreenshots/` (CI-Gate `scripts/check_play_metadata.sh` ist **grün** — 2 Platzhalter 1080×1920 vorhanden; vor einem öffentlichen Listing durch echte App-Screenshots ersetzen)
 - [ ] Content Rating Questionnaire (wird in der Play Console ausgefüllt)
 - [ ] Data Safety Section (welche Daten sammelt die App? — Play Console)
 - [ ] `UPLOAD_*`- + `PLAY_JSON_KEY_*`-Secrets hinterlegt (nur für Play-Upload; Anleitung: Abschnitt „🔑 Secrets für den ersten Play-Upload vorbereiten“)
+
+**📸 Screenshots für den Play-Upload erzeugen (Anleitung):**
+
+**Anforderungen** (Play Console + CI-Gate `scripts/check_play_metadata.sh`):
+- Format: JPEG oder **24-bit PNG ohne Alpha** · min. 320 px · max. 3840 px · Seitenverhältnis **exakt 16:9 oder 9:16** (±1 %)
+- **Mind. 2 Bilder** in `fastlane/metadata/android/images/phoneScreenshots/`, Namenskonvention für `supply`: `<index>_<locale>.png` → `1_en-US.png`, `2_en-US.png`
+- Empfohlen: **1080×1920 (9:16, Hochformat)** — die aktuellen Platzhalter haben exakt dieses Format und werden beim Erzeugen der echten Screenshots **ersetzt** (gleicher Dateiname)
+
+**Option A — Android-Emulator (empfohlen: echte App-Inhalte):**
+
+Wichtig: Viele Geräte haben 19.5:9-/20:9-Displays — deren Native-Capture ist **kein** 9:16 und schlägt im Gate fehl. Das **Pixel-2-Profil ist exakt 1080×1920 (9:16)** und damit der einfachste Weg. Schritte (Windows/Git-Bash; SDK-Pfad ggf. an dein `%LOCALAPPDATA%\Android\Sdk` anpassen):
+
+```bash
+SDK="/c/Users/steff/AppData/Local/Android/Sdk"
+AVDM="$SDK/cmdline-tools/latest/bin/avdmanager.bat"
+
+# 1) AVD mit 9:16-Display anlegen (System-Image android-35 ist lokal vorhanden)
+"$AVDM" create avd -n vivid_play -k "system-images;android-35;google_apis_playstore;x86_64" --device "pixel_2"
+
+# 2) Emulator starten (ohne Fenster reicht für Screenshots)
+"$SDK/emulator/emulator.exe" -avd vivid_play -no-snapshot -no-audio -no-boot-anim -no-window &
+adb wait-for-device shell 'while [ "$(getprop sys.boot_completed)" != "1" ]; do sleep 1; done'
+
+# 3) Debug-APK bauen, installieren, starten (Debug-Variante: com.vivid.debug)
+./gradlew :app:assembleDebug
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+# Berechtigungen VORAB erteilen, damit keine Dialoge die Screenshots stören
+adb shell pm grant com.vivid.debug android.permission.CAMERA
+adb shell pm grant com.vivid.debug android.permission.RECORD_AUDIO
+adb shell pm grant com.vivid.debug android.permission.ACCESS_FINE_LOCATION
+adb shell pm grant com.vivid.debug android.permission.ACCESS_COARSE_LOCATION
+adb shell pm grant com.vivid.debug android.permission.POST_NOTIFICATIONS
+adb shell am start -n com.vivid.debug/.irlbroadcaster.MainActivity
+
+# 4) Ziel-Screens aufnehmen — Helfer: tippt ein UI-Element über seinen
+#    content-desc (aus uiautomator dump; findet auch Compose-Elemente)
+tap_desc() { # $1 = content-desc
+  adb shell uiautomator dump /sdcard/ui.xml >/dev/null
+  adb pull /sdcard/ui.xml /tmp/ui.xml >/dev/null 2>&1
+  b=$(grep -o "content-desc=\"$1\"[^>]*bounds=\"\[[0-9]*,[0-9]*\]\[[0-9]*,[0-9]*\]\"" /tmp/ui.xml \
+      | grep -o '\[[0-9]*,[0-9]*\]\[[0-9]*,[0-9]*\]' | head -1)
+  [ -z "$b" ] && { echo "content-desc \"$1\" nicht gefunden — Screen manuell öffnen"; return 1; }
+  x1=$(echo "$b" | sed -E 's/\[([0-9]+),([0-9]+)\]\[([0-9]+),([0-9]+)\]/\1/')
+  y1=$(echo "$b" | sed -E 's/\[([0-9]+),([0-9]+)\]\[([0-9]+),([0-9]+)\]/\2/')
+  x2=$(echo "$b" | sed -E 's/\[([0-9]+),([0-9]+)\]\[([0-9]+),([0-9]+)\]/\3/')
+  y2=$(echo "$b" | sed -E 's/\[([0-9]+),([0-9]+)\]\[([0-9]+),([0-9]+)\]/\4/')
+  adb shell input tap $(( (x1 + x2) / 2 )) $(( (y1 + y2) / 2 ))
+  sleep 2
+}
+
+# Screenshot 1 — „Live Stream“ (Start-Screen): direkt nach dem Start
+adb exec-out screencap -p > fastlane/metadata/android/images/phoneScreenshots/1_en-US.png
+
+# Screenshot 2 — Einstellungen (Top-Bar-Zahnrad, content-desc "Open Settings")
+tap_desc "Open Settings"
+adb exec-out screencap -p > fastlane/metadata/android/images/phoneScreenshots/2_en-US.png
+
+# Screenshot 3 (optional) — OBS-Steuerung (content-desc "Open OBS Control")
+adb shell input keyevent KEYCODE_BACK   # zurück zum Live-Stream
+sleep 1
+tap_desc "Open OBS Control"
+adb exec-out screencap -p > fastlane/metadata/android/images/phoneScreenshots/3_en-US.png
+
+# 5) Gate prüfen
+bash scripts/check_play_metadata.sh   # Exit 0 = „Play-Metadaten vollständig.“
+```
+
+**Gewünschte Screens** (Routen aus `MainActivity.kt`, Navigation per `content-desc` aus `StreamingScreen.kt`):
+
+| # | Screen | Route | Navigieren | Empfohlener Inhalt |
+|---|---|---|---|---|
+| 1 | Live Stream | `streaming_route` (Start) | App-Start | Haupt-Screen: Kamera-Vorschau, Go-Live, Streaming-Status |
+| 2 | Einstellungen | `settings_route` | `tap_desc "Open Settings"` (Top-Bar-Zahnrad) | Chat-Bot-Bereich (Owner-KI, Limits/Cooldown), Streaming-Ziele |
+| 3 (opt.) | OBS-Steuerung | `obs_control` | `tap_desc "Open OBS Control"` | OBS-Remote-UI (WebSocket-Status) |
+| 4 (opt.) | Über | `about_route` | Settings → unten „About“ | Version, Links |
+
+Hinweise:
+- Die **ersten zwei** ersetzen die Platzhalter (`1_en-US.png`, `2_en-US.png`); weitere (`3_en-US.png`, …) sind optional und wandern automatisch mit ins Play-Listing
+- `uiautomator dump` findet Compose-Elemente über ihre Accessibility-`content-desc` — die Top-Bar-Buttons tragen die descs `Open Settings` / `Open OBS Control`
+- Ohne echten Stream zeigt der Live-Screen Config-/Status-Hinweise statt laufender Übertragung — fürs Listing ok; ein Screenshot mit **laufendem Stream** ist ideal, braucht aber echte Twitch-Zugangsdaten in den Settings
+
+> ⚠️ **Kein 9:16-Display verfügbar?** Dann das Capture mit einem Bildeditor auf 9:16 **beschneiden** (mittig) und auf **1080×1920** exportieren (PNG ohne Alpha) — z. B. GIMP: Werkzeug „Zuschneiden“ mit Seitenverhältnis 9:16, dann „Bild skalieren“ auf 1080×1920. Alternativ ein anderes 9:16-Profil verwenden (z. B. `nexus_5x` = 1080×1920).
+
+**Option A2 — Automatisiert per UI-Test (fastlane screengrab, reproduzierbar):**
+
+Die Lane **`capture_play_screenshots`** erzeugt die zwei Screenshots per Compose-UI-Test (`app/src/androidTest/.../PlayScreenshotsTest.kt`): Live-Stream-Hauptscreen + Einstellungen (Navigation über die `content-desc` „Open Settings“). Voraussetzung: ein laufender Emulator/Gerät (z. B. der Pixel-2-AVD aus Option A). Ablauf:
+
+```bash
+bundle exec fastlane capture_play_screenshots
+```
+
+Was die Lane tut: ① `clean assembleDebug assembleDebugAndroidTest`, ② `screengrab`-Action (installiert APKs, instrumentiert **nur** `PlayScreenshotsTest`, zieht die PNGs vom Gerät nach `fastlane/screenshots/en-US/images/phoneScreenshots/`), ③ kopiert sie als `1_en-US.png`/`2_en-US.png` in `fastlane/metadata/android/images/phoneScreenshots/` und prüft den Metadaten-Gate. Screenshot-Namen: `1_live_stream` (Live Stream), `2_settings` (Einstellungen).
+
+**Setup (einmalig, bereits im Repo):** `tools.fastlane:screengrab:2.1.1` als `androidTestImplementation`, Debug-Manifest mit den Screengrab-Permissions (`app/src/debug/AndroidManifest.xml`), `UiAutomatorScreenshotStrategy` im Test (sonst schwarze Screenshots bei Compose), `LocaleTestRule` für die Locale-Umschaltung. Bewusst **kein** Screengrab-Gradle-Plugin (mit AGP 9 nicht kompatibel) — die Action arbeitet library-only. Beim ersten Lauf ggf. `WRITE_EXTERNAL_STORAGE`-Warnung ignorieren (nur API ≤ 18 relevant); der Emulator muss gebootet sein, sonst bricht die Action mit „no connected devices“ ab.
+
+**Option B — fastlane FrameIT (nur für Marketing/Optik, NICHT direkt fürs Play-Listing):**
+
+- FrameIT rahmt Screenshots in Geräte-Frames und unterstützt seit 2.0 auch Android (`fastlane frameit android`; Frames werden beim ersten Lauf heruntergeladen, benötigt ImageMagick). Unterstützte Geräte u. a.: Pixel 3/3 XL, Galaxy S8/S9, Nexus 5X.
+- **Achtung:** Der Rahmen ändert das Seitenverhältnis des Ergebnisbilds → ein gerahmtes Bild erfüllt **weder** Play noch den Gate (16:9/9:16). Fürs Play-Listing deshalb **ungerahmte** Captures (Option A) verwenden; gerahmte Bilder nur für Website/QA — oder das gerahmte Ergebnis anschließend zurück auf 9:16 beschneiden.
+- Minimal-Beispiel im Screenshot-Ordner:
+  ```bash
+  cd fastlane/metadata/android/images/phoneScreenshots
+  fastlane frameit android      # nutzt Framefile.json, falls vorhanden
+  ```
+
+**Nach dem Ersetzen:** `bash scripts/check_play_metadata.sh` muss Exit 0 liefern, damit der `publish-play`-Job durch den Metadaten-Gate kommt — die Screenshots wandern beim Upload (`supply(metadata_path: …)`) automatisch mit ins Play-Listing.
 
 **Tester-Freigabe (Pflicht für den Beta-Tag):**
 
@@ -574,7 +680,7 @@ Konkreter End-to-End-Ablauf, um **alle nötigen Secrets** für den ersten echten
 
 1. **Play-Entwicklerkonto** anlegen (https://play.google.com/console → einmalige Registrierung, 25 $) — Voraussetzung für jeden Upload
 2. **App anlegen** („App erstellen“): Name **`Vivid`**, Standardsprache, App-Typ „App“, kostenlos — neue Apps werden **automatisch in Play App Signing eingeschrieben** (App-Signing-Key generiert Google, Variante A)
-3. Notieren: der **`applicationId`** aus `app/build.gradle.kts` (z. B. `com.vivid.app`) — er muss exakt zum hochgeladenen AAB passen (sonst `403` im supply-Step)
+3. Notieren: der **`applicationId`** aus `app/build.gradle.kts` — aktuell **`com.vivid`** — er muss exakt zum hochgeladenen AAB passen (sonst `403` im supply-Step)
 
 **Schritt B — Upload-Key erzeugen & in der Play Console registrieren:**
 
@@ -616,10 +722,28 @@ gh secret list                              # Kontrolle: alle fünf Namen sichtb
 1. `bash scripts/guard_secrets.sh` → `✅ [guard] Keine Keystores oder Klartext-Secrets gefunden.` (Guard blockt u. a. `upload-keystore.jks`, `upload_cert.pem`, `play-credentials.json`, `fastlane/.env.play` und `*.b64`)
 2. `gh secret list` zeigt **alle fünf** Namen (Schritt D) — fehlt einer, schlägt der CI-Job bereits bei „Decode Upload Keystore“ fehl (bekanntes Fehlerbild, siehe Testplan)
 3. **Dry-Run** per `workflow_dispatch` mit `-f dry_run=true` (Testplan Schritt 3) → baut + verifiziert, verbraucht **keinen** `version_code` und berührt Play nicht
-4. Erst wenn der Dry-Run grün ist: echter Upload (Testplan Schritt 3 ohne `dry_run`)
+4. Erst wenn der Dry-Run grün ist: echter Upload (Testplan Schritt 3 ohne `dry_run`)**💡 Reihenfolge-Zusammenfassung:** A (Konto+App) → B (Keystore+Console) → C (Service-Account+JSON) → D (Secrets) → E (Guard+Dry-Run) → **Listing ausfüllen (unten)** → Testplan Schritt 3–6 (echter Upload).
 
-**💡 Reihenfolge-Zusammenfassung:** A (Konto+App) → B (Keystore+Console) → C (Service-Account+JSON) → D (Secrets) → E (Guard+Dry-Run) → Testplan Schritt 3–6 (echter Upload).
+### 📋 Play-Listing in der Play Console anlegen (App-Content + Store-Listing)
 
+Der `supply`-Upload (`publish_play`) lädt nur APK/AAB + Metadaten (Titel, Beschreibung, Changelog, Screenshots, Icon) hoch. **Content Rating, Data Safety, Zielgruppe, Anzeigen- und App-Zugriff-Erklärung sind reine Console-Formulare** — supply kann sie nicht setzen. Der Upload in einen Test-Track klappt auch ohne sie, aber das **„Ausrollen“ (Roll out) eines Releases bleibt gesperrt**, bis die Pflichtfelder ausgefüllt sind — genau daran hängt ein erster Lauf typischerweise fest. Einmalig in der Play Console ausfüllen (Reihenfolge wie die Console-Checkliste):
+
+1. **Haupt-Store-Listing:**
+   - Titel, Kurz- und Langbeschreibung: werden von `supply` aus `fastlane/metadata/android/{en-US,de-DE}/` hochgeladen (bereits vorhanden) — in der Console nur prüfen
+   - **Kontakt-E-Mail** (Pflicht) und **Datenschutzerklärung-URL** (Pflicht): [PRIVACY.md](PRIVACY.md) muss unter einer **öffentlich erreichbaren HTTPS-URL** liegen (z. B. GitHub-Pages oder Gist; ein `raw.githubusercontent.com`-Link funktioniert technisch, ist aber nicht empfohlen)
+   - **Feature-Grafik** (1024×500) optional; App-Symbol + Screenshots lädt `supply` automatisch aus `images/` mit hoch
+2. **App-Content → App-Zugriff:** „Alle Funktionen ohne Login“ — Vivid hat kein eigenes Konto (Twitch-/LLM-Tokens liegen lokal in den Settings)
+3. **App-Content → Anzeigen:** „Nein“ — kein Ad-SDK im Projekt (verifiziert: kein `ads`/`billing`-Dependency)
+4. **App-Content → Content-Rating (IARC-Fragebogen):** selbsterklärende Fragen; für Vivid realistisch: Live-Streaming mit **nutzergenerierten Inhalten** (Chat), Kamera/Mikrofon, keine Gewalt-/Glücksspiel-Referenzen → junges Rating. **Fehlt das Rating, blockiert Google das Ausrollen** („Content rating fehlt“)
+5. **App-Content → Zielgruppe und Inhalte:** „Nein“ (nicht kinderorientiert — Vivid richtet sich an Streamer, 18+)
+6. **App-Content → Data Safety:** ehrlich nach Manifest/Berechtigungen ausfüllen:
+   - **Erhoben:** Kamera-/Mikrofon-Inhalte (werden gestreamt), **Standort** (GPS-Widget, nur auf Nutzeraktion), **Nutzerinhalte/App-Aktivität** (Chat-Nachrichten, Settings), **Crash-/Fehlerdaten + Gerätekennung/IP** (Sentry, DSN im Manifest)
+   - **Nicht erhoben:** Konten, E-Mails, Finanzdaten, Einkäufe, Health-Daten
+   - Übertragung verschlüsselt (TLS), **keine Datenverkäufe** — Vivid hat kein eigenes Backend (nur vom Nutzer konfigurierte Endpunkte: Twitch-API, LLM, OBS-lokal)
+   - Hinweis: **Internal-Test-Tracks sind von Data Safety befreit** (Google-Hilfe) — für alpha/beta/production trotzdem ausfüllen, sonst blockiert das Ausrollen
+7. **News-Apps / Regierungs-Apps:** nicht zutreffend → überspringen
+8. **Testing-Track sicherstellen:** `supply(track: …)` braucht einen **existierenden Track** — Default-Namen: `internal` (bis 100 Testpersonen, ohne Freigabe), `alpha`/`beta` (geschlossener Test mit Tester-Liste), `production`. Für den ersten Upload: Track in der Console anlegen, bevor `publish_play` mit `track=alpha` läuft (sonst Fehler „track not found“)
+9. **Rollout:** Nach dem Upload in der Console → Release → **„Ausrollen“** — Google listet dort exakt die noch fehlenden Pflichtfelder (meist genau Content Rating / Data Safety); die Punkte 1–8 schließen diese Lücken
 
 ### 🧪 Testplan: Erster Play-Upload (alpha-Track)
 
@@ -668,13 +792,15 @@ gh workflow run android_fastlane.yml --ref develop   -f track=alpha   -f version
 
 > ⚠️ **versionCode-Regel:** In Play **pro App global eindeutig** — ein hochgeladener Code ist für immer belegt (kann nicht erneut hochgeladen werden). Für den ersten Upload **explizit setzen** (z. B. `1`); ohne `-f version_code` leitet die `publish_play`-Lane ihn aus dem letzten `v*`-Tag ab.
 
-> 💡 **Erst trocken testen:** Mit `-f dry_run=true` baut der Job das AAB und verifiziert die Signatur gegen den Upload-Key, **ohne** etwas hochzuladen — ideal für den ersten Lauf (keine Play-Auswirkung, kein `version_code` verbraucht). Erst wenn Step 4/6 grün ist, den echten Upload (ohne `dry_run`) ausführen.
-> 🔁 **Automatischer CI-Selbsttest (ohne Play-Zugang):** Der Job **„Self-Test publish_play (dry_run)“** in `android_fastlane.yml` führt die Lane bei jedem Push/PR mit einem **lokal erzeugten Wegwerf-Keystore** aus (`scripts/test_publish_play_dryrun.sh`): `keytool` erzeugt den Test-Keystore, die Lane baut `bundlePlayRelease` und verifiziert die AAB-Signatur per `keytool` gegen den Test-Key — ganz ohne `UPLOAD_*`-Secrets und ohne Play-Zugang. Zusätzlich erzwingt ein Negativtest, dass `publish_play` **ohne** `dry_run` und ohne `PLAY_JSON_KEY_*` am Credential-Guard scheitert (kein Upload-Pfad ohne Play-Zugang). Damit ist die Lane dauerhaft regressionstestbar, **bevor** die echten Secrets existieren. Lokal jederzeit wiederholbar: `bash scripts/test_publish_play_dryrun.sh`.
+> 💡 **Erst trocken testen:** Mit `-f dry_run=true` baut der Job das AAB und verifiziert die Signatur gegen den Upload-Key, **ohne** etwas hochzuladen — ideal für den ersten Lauf (keine Play-Auswirkung, kein `version_code` verbraucht). Der Metadaten-Gate läuft **auch im Dry-Run** (die zwei Platzhalter-Screenshots erfüllen ihn bereits). Erst wenn Step 4/6 grün ist, den echten Upload (ohne `dry_run`) ausführen.
+> 🔁 **Automatischer CI-Selbsttest (ohne Play-Zugang):** Der Job **„Self-Test publish_play (dry_run)“** in `android_fastlane.yml` führt die Lane bei jedem Push/PR mit einem **lokal erzeugten Wegwerf-Keystore** aus (`scripts/test_publish_play_dryrun.sh`): `keytool` erzeugt den Test-Keystore, die Lane baut `bundlePlayRelease` und verifiziert die AAB-Signatur per `keytool` gegen den Test-Key — ganz ohne `UPLOAD_*`-Secrets und ohne Play-Zugang. Zusätzlich erzwingt ein Negativtest, dass `publish_play` **ohne** `dry_run` und ohne `PLAY_JSON_KEY_*` am Credential-Guard scheitert (kein Upload-Pfad ohne Play-Zugang). Damit ist die Lane dauerhaft regressionstestbar, **bevor** die echten Secrets existieren. Lokal jederzeit wiederholbar: `bash scripts/test_publish_play_dryrun.sh`. Der **Metadaten-Gate** ist davon getrennt abgedeckt: `test_play_metadata.sh` (android.yml, jeder Push) prüft das Check-Skript selbst, der echte Gate läuft im `publish-play`-Job — zusammen decken sie alle Schritte des Jobs ab (Gate → Keystore → Signatur → Upload).
 
-**Schritt 4 — CI-Lauf beobachten** (`gh run watch <run-id>`), erwartete Reihenfolge im `publish-play`-Job:
+**Schritt 4 — CI-Lauf beobachten** (`gh run watch <run-id>`), erwartete Reihenfolge im `publish-play`-Job (Job-Schritte **vor** der Lane + Fastfile-Schritte):
 
-| Fastfile-Step | Erwartung |
+| Job-Step | Erwartung |
 |---|---|
+| Check Play metadata completeness | `✅ [play-metadata] Play-Metadaten vollständig.` (Icon 512×512, ≥2 Screenshots 16:9/9:16, Store-Listing + Changelog pro Locale) — Gate läuft **vor** dem Keystore: bricht bei Lücken ab, bevor Secrets verbraucht werden |
+| Decode Upload Keystore | `UPLOAD_KEYSTORE_BASE64` dekodiert → `upload-keystore.jks`, `UPLOAD_KEYSTORE_PATH` als Env gesetzt |
 | Step 1/6 Credential-Checks | `UPLOAD_KEYSTORE_*` + Play-Credentials vorhanden → weiter |
 | Step 2/6 Version | `Play upload: <version> (<code>) -> track alpha` |
 | Step 3/6 Build | `bundlePlayRelease` erfolgreich; AAB-Pfad + Größe geloggt |
@@ -683,6 +809,7 @@ gh workflow run android_fastlane.yml --ref develop   -f track=alpha   -f version
 | Step 6/6 | `✅ Uploaded <version> to Play track alpha` |
 
 Fehlerbilder (bewusst **harte Abbrüche** — bei CI-Fail hat Play keinerlei Änderung):
+- `❌ [play-metadata] …` → Metadaten unvollständig (Icon/Screenshots/Locale/Changelog) → Job bricht **vor** „Decode Upload Keystore“ ab — kein Secret-Verbrauch, kein Upload
 - `UPLOAD_KEYSTORE_BASE64 fehlt` → Decode-Step bricht ab (Secret fehlt/Name falsch)
 - `Signature mismatch` → AAB wurde nicht mit dem Upload-Key signiert (falsches Secret/Keystore) → **nichts** hochgeladen
 - `Authentication failed`/`403` im supply-Step → Service-Account fehlt, falsche Rolle („Releasemanager“) oder falscher Paketname (`applicationId`)
