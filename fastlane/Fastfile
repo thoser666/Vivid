@@ -1,5 +1,6 @@
 # Fastfile
 require "json"
+require "fileutils"
 default_platform(:android)
 
 # Deterministischer versionCode aus einem Version-Tag (vX.Y.Z[-alpha|beta|rc]).
@@ -503,5 +504,46 @@ platform :android do
         UI.user_error!("Orphaned draft release(s) found on v* tags — resolve manually, see above")
       end
     end
+  end
+
+  desc "Capture the two Play Store screenshots via UI tests (fastlane screengrab) — requires a running emulator/device; replaces the placeholder PNGs under fastlane/metadata/android/images/phoneScreenshots/ and verifies the metadata gate"
+  lane :capture_play_screenshots do
+    UI.header "Step 1/3: Building debug + androidTest APKs"
+    gradle(task: "clean assembleDebug assembleDebugAndroidTest")
+
+    UI.header "Step 2/3: Capturing screenshots (fastlane screengrab)"
+    # Library-only setup (tools.fastlane:screengrab, KEIN Screengrab-Gradle-Plugin —
+    # das alte Plugin ist mit AGP 9 nicht kompatibel). Die Action installiert die
+    # APKs selbst, instrumentiert nur PlayScreenshotsTest (use_tests_in_classes)
+    # und zieht die PNGs vom Geraet nach fastlane/screenshots/<locale>/images/phoneScreenshots/.
+    # use_timestamp_suffix:false → stabile Dateinamen (1_live_stream.png, 2_settings.png).
+    screengrab(
+      app_apk_path: "app/build/outputs/apk/debug/app-debug.apk",
+      tests_apk_path: "app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk",
+      app_package_name: "com.vivid.debug",
+      tests_package_name: "com.vivid.debug.test",
+      locales: ["en-US"],
+      use_tests_in_classes: ["com.vivid.irlbroadcaster.PlayScreenshotsTest"],
+      clear_previous_screenshots: true,
+      use_timestamp_suffix: false,
+      output_directory: "fastlane/screenshots",
+      exit_on_test_failure: true
+    )
+
+    UI.header "Step 3/3: Copying into metadata (supply naming) + verifying"
+    shots_dir = "fastlane/screenshots/en-US/images/phoneScreenshots"
+    mapping = {
+      "1_live_stream.png" => "1_en-US.png",
+      "2_settings.png"    => "2_en-US.png"
+    }
+    FileUtils.mkdir_p("fastlane/metadata/android/images/phoneScreenshots")
+    mapping.each do |src, dst|
+      src_path = File.join(shots_dir, src)
+      UI.user_error!("Screenshot fehlt: #{src_path}") unless File.exist?(src_path)
+      FileUtils.cp(src_path, "fastlane/metadata/android/images/phoneScreenshots/#{dst}")
+      UI.success("✅ #{src} → #{dst}")
+    end
+    sh "bash scripts/check_play_metadata.sh"
+    UI.success("Screenshots regeneriert — Platzhalter ersetzt, Metadaten-Gate grün")
   end
 end

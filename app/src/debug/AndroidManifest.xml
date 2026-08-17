@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Debug-only: Berechtigungen für fastlane screengrab (Screenshot-Erzeugung).
+     Nur in der Debug-Variante gemerged — Release/Play-Builds enthalten sie nicht. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Screenshots auf externem Speicher (nur für API ≤ 18 nötig) -->
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="18" />
+
+    <!-- LocaleTestRule wechselt die Gerätesprache -->
+    <uses-permission
+        android:name="android.permission.CHANGE_CONFIGURATION"
+        tools:ignore="ProtectedPermissions" />
+
+    <!-- CleanStatusBar (saubere Statusleiste) -->
+    <uses-permission
+        android:name="android.permission.DUMP"
+        tools:ignore="ProtectedPermissions" />
+
+</manifest>
