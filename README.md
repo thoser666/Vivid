@@ -125,7 +125,7 @@ The About-screen check follows the same rules as [RELEASE.md](RELEASE.md): it on
 ### 🚧 In Progress
 
 - 🌍 **I18n Support** - Localization groundwork is in place; translations are being added
-- 💬 **Chat Integration** - Twitch chat is implemented (IRC data-layer + overlay + AI chat bot **with full settings screen**); Kick/YouTube/SOOP and the Twitch OAuth browser flow (sending & moderation) are still open
+- 💬 **Chat Integration** - Twitch chat is implemented (EventSub/Helix data-layer — no IRC — + overlay + AI chat bot **with full settings screen**); Kick/YouTube/SOOP and the Twitch OAuth browser flow (sending & moderation) are still open
 
 ### 📋 Planned (Roadmap to Moblin parity)
 
@@ -413,7 +413,7 @@ Status: ✅ implemented · 🚧 in progress · 📋 planned
 | I18n Support | 🚧 | Groundwork in place, translations pending |
 | H.264/H.265, up to 4K/60fps | 📋 | Pipeline in place, quality targets planned |
 | Multi-Network Bonding (SRTLA) | 📋 | SRTLA algorithm to be ported |
-| Chat (Twitch) + Emotes + Moderation | ✅ Twitch-Scope | `feature-chat` — Twitch IRC client (anonymous) + chat overlay over the live preview + AI chat bot done; **Kick/YouTube/SOOP + OAuth (sending/moderation) = post-beta roadmap**, emotes & moderation pending |
+| Chat (Twitch) + Emotes + Moderation | ✅ Twitch-Scope | `feature-chat` — Twitch EventSub reader (`channel.chat.message`) + Helix send (`POST /helix/chat/messages`) + chat overlay over the live preview + AI chat bot done (IRC removed); **Kick/YouTube/SOOP + OAuth (sending/moderation) = post-beta roadmap**, emotes & moderation pending |
 | AI Chat Bot (Vivid extra) | ✅ | Fully automatic LLM chat bot: auto-connect on go-live, clean shutdown on stream end; OpenAI-compatible LLM providers; **owner mode** (`!start`/`!stop`/`!diag`/`!ask`, streamer-only via broadcaster badge + allow-list, separate owner LLM) |
 | Chat-Bot Media Player Control | ✅ | Generic media control via MediaSession (Apple Music, Spotify, …); Android adaptation of Moblin 33.12.0 — commands `!song`/`!next`/`!pause`/`!play`/`!prev` (needs notification access) |
 | Overlays & Widgets | 🚧 | `feature-widgets`: first **text/info widget** (time, GPS coordinates, speed) live as overlay — time/date ticker, `LocationProvider` (LocationManager), settings toggles, permission flow; altitude/weather/road variables still open (Twitch chat overlay already implemented in `feature-chat`) |

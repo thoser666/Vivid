@@ -78,7 +78,7 @@ Das Beta-Gate ist erreicht, wenn **alle drei** Bedingungen erfüllt sind (Stand 
 | Bedingung | Status | Offen |
 |-----------|--------|-------|
 | ≥17 ✅ in PARITY.md | ✅ **17/17** (Row 80 „Media-Player-Steuerung“ als 17. ✅) | — |
-| Chat-✅ | ✅ **Twitch-Scope** (PARITY Row 77): Twitch-IRC + Chat-Overlay + **KI-Chat-Bot** laufen | Post-Beta: Kick/YouTube/SOOP, OAuth-Login (Senden/Moderation) |
+| Chat-✅ | ✅ **Twitch-Scope** (PARITY Row 77): Twitch (EventSub/Helix) + Chat-Overlay + **KI-Chat-Bot** laufen | Post-Beta: Kick/YouTube/SOOP, OAuth-Login (Senden/Moderation) |
 | ≥1 Widget | ✅ **1/5 begonnen** — Text-/Info-Widget (Zeit/GPS/Geschwindigkeit) läuft (PARITY Row 87, 14 Tests) | Wetter (externer Dienst), Höhenmeter |
 
 **📋 Checkliste vor dem Beta-Tag (Stand 2026-08-17):**
@@ -110,7 +110,7 @@ Das Beta-Gate ist erreicht, wenn **alle drei** Bedingungen erfüllt sind (Stand 
 | Befehl | Wer | Zweck |
 |--------|-----|-------|
 | `!help` · `!uptime` · `!tts` · `!song` · `!next` · `!pause` · `!play` · `!prev` · `!bot` | alle (Viewer) | Standard-Befehle — vollständige Referenz: [docs/ai-chat-bot.md](docs/ai-chat-bot.md) |
-| `!start` / `!go-live` · `!stop` / `!end` · `!diag` / `!status` · `!ask <frage>` | **nur der Streamer** (Broadcaster-Badge oder Allow-List `chat_bot_owner_logins`) | Stream starten/stoppen · Diagnose mit Empfehlungen · Frage an die separate Owner-KI — nur während eines aktiven Streams; Viewer erhalten nur einen Hinweis |
+| `!start` / `!go-live` · `!stop` / `!end` · `!diag` / `!status` · `!ask <frage>` | **nur der Streamer** (Broadcaster-Badge oder Allow-List `chat_bot_owner_logins`) | Stream starten/stoppen · Diagnose mit Empfehlungen · Frage an die **exklusive Owner-KI** (Fallback: normale Bot-KI) — nur während eines aktiven Streams; Viewer erhalten nur einen Hinweis |
 
 > **Erst wenn alle `[x]`:** `bundle exec fastlane release_beta` → Tag `v0.5.0-beta` → CI baut signiert, veröffentlicht als GitHub-Release (kein Pre-Release-Status-Limit nötig — Beta-Tags werden wie Alpha veröffentlicht) und läuft durch Signatur-/Reproduzierbarkeits-Checks.
 
@@ -703,16 +703,19 @@ Fehlerbilder (bewusst **harte Abbrüche** — bei CI-Fail hat Play keinerlei Än
 
 Damit der KI-Chat-Bot im Kanal antwortet und **Owner-Befehle privat per Whisper** sendet/empfängt (`!start`/`!stop`/`!diag`/`!ask`), braucht das **Bot-Konto** einen User-Access-Token mit den richtigen Scopes und eine **Twitch-App-Client-ID**. Beide Werte liegen **nur in den App-Einstellungen** des Streamers — sie sind bewusst **keine** GitHub-Secrets (der Secret-Guard-Check verhindert, dass sie je ins Repo gelangen). Details zu Limits & Verhalten: `docs/ai-chat-bot.md`.
 
-**1. Bot-Token mit Scope `user:manage:whispers` erzeugen** (einmalig, dann App-einstellen):
+**1. Bot-Token mit den Chat-Scopes erzeugen** (einmalig, dann App-einstellen):
+
+Seit dem **IRC-Ausstieg** liest Vivid den Chat über Twitch-EventSub (`channel.chat.message`, Scope `user:read:chat`) und sendet über die Helix-API (`POST /helix/chat/messages`, Scope `user:write:chat`) — die alten IRC-Scopes `chat:read`/`chat:edit` sind nicht mehr gültig. Hinzu kommt `user:manage:whispers` für die privaten Owner-Antworten.
 
 - Optional: eigenes Twitch-Konto für den Bot registrieren (gleiche App-Regeln wie jedes Konto).
 - Quick-Weg: **twitchtokengenerator.com** → „Custom Scope“ → folgende Scopes anfordern:
-  `chat:read` `chat:edit` `user:manage:whispers`
-  (`chat:read`/`chat:edit` = Chat lesen/senden; `user:manage:whispers` deckt **Senden** und zugleich den **EventSub-Empfang** `user.whisper.message` ab — Twitch akzeptiert dort auch `user:read:whispers`.)
+  `user:read:chat` `user:write:chat` `user:manage:whispers`
+  (`user:read:chat` = Chat lesen via EventSub (ersetzt `chat:read`), `user:write:chat` = Chat senden via Helix (ersetzt `chat:edit`); `user:manage:whispers` deckt **Senden** und zugleich den **EventSub-Empfang** `user.whisper.message` ab — Twitch akzeptiert dort auch `user:read:whispers`.)
 - Oder offizieller OAuth-Flow (eigene Twitch-App nötig, siehe Schritt 2):
   ```
-  https://id.twitch.tv/oauth2/authorize?client_id=<CLIENT_ID>&redirect_uri=<REDIRECT>&response_type=token&scope=chat:read%20chat:edit%20user:manage:whispers
+  https://id.twitch.tv/oauth2/authorize?client_id=<CLIENT_ID>&redirect_uri=<REDIRECT>&response_type=token&scope=user:read:chat%20user:write:chat%20user:manage:whispers
   ```
+- **Auch das Chat-Overlay braucht diese Credentials:** Es liest über denselben EventSub-Reader (kein anonymes IRC mehr) — ohne Bot-Login/Token/Client-ID zeigt das Overlay einen Konfigurations-Hinweis.
 - **Wichtig für Whispers:** Das Bot-Konto braucht eine **verifizierte Telefonnummer** (Twitch-Pflicht), und der Empfänger (der Streamer) darf „Block Whispers from Strangers“ nicht aktiv haben — sonst antwortet der Bot öffentlich in den Chat zurück.
 
 **2. Twitch-App-Client-ID besorgen:**

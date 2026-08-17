@@ -16,7 +16,8 @@ Vivid ships a **fully automated, in-app chat bot** (the idea is borrowed from cl
 Go Live (StreamingService)
         │  ChatBotController.onStreamStarted()
         ▼
-TwitchBotClient ──JOIN #channel (OAuth token)──► Twitch chat (read + send)
+TwitchChatEventSubReader ──EventSub WebSocket──► channel.chat.message (read, Scope user:read:chat)
+TwitchSendChatClient     ──POST /helix/chat/messages──► send (Scope user:write:chat)
         │ messages
         ▼
 ChatBotEngine ──filters: own messages, mentions-only, cooldown, rate limit──►
@@ -25,7 +26,7 @@ ChatBotEngine ──filters: own messages, mentions-only, cooldown, rate limit�
 OpenAiCompatibleLlmClient ──POST /v1/chat/completions──► OpenAI / Gemini / Groq / DeepSeek / Ollama
         │
         ▼
-Reply (≤ 500 chars) ──PRIVMSG──► Twitch chat
+Reply (≤ 500 chars) ──POST /helix/chat/messages──► Twitch chat
 
 Stream end → ChatBotController.onStreamStopped() → clean disconnect
 ```
@@ -53,7 +54,7 @@ In den Einstellungen (Abschnitt **„Chat-Bot (KI)“**) gibt es einen **Betrieb
 | `!pause` / `!play` | Wiedergabe pausieren / fortsetzen |
 | `!prev` / `!previous` | Zum vorherigen Titel springen |
 | `!bot` | Kurzinfo über den Bot |
-| `!start` / `!go-live` · `!stop` / `!end` · `!diag` / `!status` · `!ask <frage>` | **Owner-Befehle — nur der Streamer** (Broadcaster-Badge oder Allow-List `chat_bot_owner_logins`): Stream starten/stoppen, Diagnose mit Empfehlungen, Frage an die separate Owner-KI — nur während eines aktiven Streams; Viewer erhalten nur einen Hinweis (Details: [Owner-Steuerung](#owner-steuerung-nur-der-streamer)) |
+| `!start` / `!go-live` · `!stop` / `!end` · `!diag` / `!status` · `!ask <frage>` | **Owner-Befehle — nur der Streamer** (Broadcaster-Badge oder Allow-List `chat_bot_owner_logins`): Stream starten/stoppen, Diagnose mit Empfehlungen, Frage an die **exklusive Owner-KI** (Fallback: die normale Bot-KI) — nur während eines aktiven Streams; Viewer erhalten nur einen Hinweis (Details: [Owner-Steuerung](#owner-steuerung-nur-der-streamer)) |
 | `!<unbekannt>` | COMMAND: Hinweis „Unbekannter Befehl … — Tipp: !help“ · AUTONOMOUS: die KI entscheidet |
 
 Befehle sind **case-insensitive** und können mitten in der Nachricht stehen (`@bot !help`). Cooldown und Rate-Limit gelten für **alle** Antworten — auch für Befehle (schützt vor Spam, Twitch begrenzt 20 Nachrichten/30 s).
@@ -135,7 +136,7 @@ Unter den Feldern zeigt **„Live-Verbrauch“** den aktuellen Zählerstand (nur
 
 ## Owner-Steuerung (nur der Streamer)
 
-Die normale Interaktion mit den Viewern läuft über den **Hauptaccount** (den Bot). Zusätzlich gibt es **Owner-Befehle, die nur der Streamer nutzen kann** — sie können Stream starten/stoppen, einen Diagnose-Lauf ausführen und eine **separate, leistungsfähigere Owner-KI** fragen. Sie sind nur während eines aktiven Streams verfügbar (der Bot läuft nur bei Go-Live).
+Die normale Interaktion mit den Viewern läuft über den **Hauptaccount** (den Bot). Zusätzlich gibt es **Owner-Befehle, die nur der Streamer nutzen kann** — sie können Stream starten/stoppen, einen Diagnose-Lauf ausführen und eine **eigene, exklusiv für die Streamer-Befehle erreichbare Owner-KI** fragen (z. B. ein leistungsfähigeres oder persönliches Modell-Konto). Ist **keine eigene Owner-KI** hinterlegt, fallen die Befehle als **Fallback auf die normale Bot-KI** (Viewer-LLM) zurück; nur wenn auch die nicht konfiguriert ist, liefern sie deterministische Antworten (Checkliste bzw. Hinweis). Owner-Befehle sind nur während eines aktiven Streams verfügbar (der Bot läuft nur bei Go-Live).
 
 ### Wer ist Owner?
 
@@ -150,8 +151,8 @@ Viewer, die einen Owner-Befehl tippen, bekommen nur den Hinweis „⚠️ Dieser
 |--------|--------|---------|
 | Stream starten | `!start` / `!go-live` | Startet den Stream mit den gespeicherten Einstellungen (primär + optional zweites Ziel) — gleiche Logik wie die Web-Remote-Control |
 | Stream stoppen | `!stop` / `!end` | Stoppt den Stream |
-| Diagnose | `!diag` / `!status` | **Diagnose-Lauf:** sammelt deterministisch Stream-Status (inkl. Fehlerursache), OBS-Verbindung und Konfigurations-Checks (URL/Key, Multi-Streaming, Chat-Kanal, Bot-Token, **Whisper-Antwortweg (Client-ID + Token)**, Viewer-/Owner-LLM). Ohne Owner-KI → Checkliste direkt im Chat; mit Owner-KI → Bewertung + konkrete Empfehlungen |
-| Owner-KI fragen | `!ask <frage>` | Stellt die Frage an die **Owner-KI** mit dem aktuellen Stream-Zustand als Kontext (z. B. „!ask warum stockt der Stream?“) |
+| Diagnose | `!diag` / `!status` | **Diagnose-Lauf:** sammelt deterministisch Stream-Status (inkl. Fehlerursache), OBS-Verbindung und Konfigurations-Checks (URL/Key, Multi-Streaming, Chat-Kanal, Bot-Token, **Whisper-Antwortweg (Client-ID + Token)**, Viewer-/Owner-LLM, **Owner-KI-Quelle** — offen, wenn weder Owner- noch Viewer-LLM konfiguriert sind). **Owner-KI exklusiv** → Bewertung + konkrete Empfehlungen; ohne eigene Owner-KI → **Viewer-KI als Fallback**; ohne jede KI → Checkliste direkt im Chat. Die Antwort weist die **KI-Quelle** aus („Auswertung durch: eigene Owner-KI / Viewer-KI (Fallback) / deterministisch“) |
+| Owner-KI fragen | `!ask <frage>` | Stellt die Frage an die **Owner-KI** (exklusiv; ohne eigene Owner-KI Fallback auf die Viewer-KI) mit dem aktuellen Stream-Zustand als Kontext (z. B. „!ask warum stockt der Stream?“) |
 
 #### Befehls-Syntax (Referenz)
 
@@ -176,14 +177,15 @@ Der Owner-Scope ist **unabhängig vom Betriebsmodus** (COMMAND/AUTONOMOUS) — O
 ```
 Owner (Zweit-/Kanal-Account) ──„!diag“──► Twitch-Chat
         ▼
-TwitchBotClient (liest Nachrichten)
+TwitchChatEventSubReader (liest Nachrichten, EventSub)
         ▼
 ChatBotEngine → ist Owner? ──nein──► „⚠️ nur für den Streamer“ (öffentlich, keine Aktion)
         │ ja
         ▼
 !start / !stop  → ChatStreamControl.start()/stop() → Bestätigung
 !diag            → StreamDiagnostics (Status, OBS, Checks)
-        ├─ ohne Owner-KI ──► deterministische Checkliste
+        ├─ ohne Owner-KI ──► Viewer-KI als Fallback (Fact-Sheet)
+        │                    └─ auch ohne jede KI ──► deterministische Checkliste
         └─ mit Owner-KI ───► Owner-LLM (Fact-Sheet) ──Empfehlungen
 !ask <frage>     → Owner-LLM (Fact-Sheet + Frage) ──Antwort
         │
@@ -194,12 +196,12 @@ TwitchWhisperClient (Helix-API: Login → User-ID, POST /helix/whispers)
 Whisper an den Owner-Login (privat, nicht im Chat)
         │ Fehler (Client-ID fehlt, Scope fehlt, Empfänger blockt, …)
         ▼
-Fallback: öffentliche Antwort (PRIVMSG) in den Kanal + Bot-Log-Hinweis
+Fallback: öffentliche Antwort (Send-Chat-API) in den Kanal + Bot-Log-Hinweis
 ```
 
 **Wo die Antwort landet (Standard: Whisper):** Owner-Antworten kommen per **Twitch-Whisper** direkt an den Owner-Login statt in den öffentlichen Chat — Diagnose, Empfehlungen und Fragen sind damit nur für den Streamer sichtbar. Umsetzung über die **Helix-Whisper-API** (`POST /helix/whispers`) — der frühere IRC-Weg (`/w` via PRIVMSG) ist von Twitch seit Februar 2023 abgeschaltet. Voraussetzungen:
 
-- Der **OAuth-Token des Bot-Kontos** braucht den Scope **`user:manage:whispers`** (zusätzlich zu `chat:read`/`chat:edit`).
+- Der **OAuth-Token des Bot-Kontos** braucht den Scope **`user:manage:whispers`** (zusätzlich zu `user:read:chat`/`user:write:chat`).
 - Die **Twitch-App-Client-ID** ist in den Einstellungen hinterlegt (`chat_bot_twitch_client_id`) — Pflicht-Header für alle Helix-Aufrufe.
 - Das Sender-Konto braucht eine **verifizierte Telefonnummer** (Twitch-Anforderung).
 
@@ -207,16 +209,16 @@ Twitch-Limits: 40 eindeutige Empfänger/Tag, 3 Whispers/s, 100/min, 500 Zeichen 
 
 #### Whisper-Empfang (EventSub) — private Befehle an den Bot
 
-Der Streamer kann dem Bot auch **privat** Befehle schicken: Der Bot verbindet sich bei Go-Live zusätzlich zu IRC mit **Twitch-EventSub (WebSocket)** und subscribt `user.whisper.message` für die Bot-User-ID (`TwitchEventSubClient`). Eingehende Whispers landen als `ChatMessage` mit `isWhisper = true` in der Engine — es gelten dieselben Voraussetzungen wie beim Senden (Bot-Token mit Scope `user:manage:whispers`, Twitch-App-Client-ID).
+Der Streamer kann dem Bot auch **privat** Befehle schicken: Der Bot verbindet sich bei Go-Live mit einer **zweiten EventSub-WebSocket-Verbindung** (zusätzlich zum Chat-Reader) und subscribt `user.whisper.message` für die Bot-User-ID (`TwitchEventSubClient`). Eingehende Whispers landen als `ChatMessage` mit `isWhisper = true` in der Engine — es gelten dieselben Voraussetzungen wie beim Senden (Bot-Token mit Scope `user:manage:whispers`, Twitch-App-Client-ID).
 
 - **Nur Owner-Befehle:** Whispers werden nie in die Viewer-/LLM-Pfade eingespeist. `!start`/`!stop`/`!diag`/`!ask` werden verarbeitet, alle anderen Nachrichten (auch `!help` von Viewern) werden ignoriert — Whispers sind kein Viewer-Kanal.
 - **Owner-Erkennung:** Whisper vom **Kanal-Login** (Absender-Login == Kanalname) gilt automatisch als Broadcaster (Twitch verifiziert die Absender-Identität); zusätzlich greift die Allow-List `chat_bot_owner_logins` (z. B. Zweitaccount). Nicht-Owner bekommen nur den Hinweis **als Whisper zurück**.
 - **Antwort bleibt privat:** Antworten auf Whispers gehen immer als Whisper an den Absender — auch wenn der Whisper fehlschlägt, wird **nie öffentlich** geantwortet (kein Leaken der privaten Interaktion in den Kanal).
-- **Reconnect:** Beim `session_reconnect` übernimmt die neue WebSocket-Session die Subscriptions automatisch (kein Re-Subscribe); bei hartem Verbindungsverlust wird nach dem Reconnect neu subscribt (Backoff wie beim IRC-Client).
+- **Reconnect:** Beim `session_reconnect` übernimmt die neue WebSocket-Session die Subscriptions automatisch (kein Re-Subscribe); bei hartem Verbindungsverlust wird nach dem Reconnect neu subscribt (Backoff wie beim Chat-Reader).
 
-### Owner-KI (optional)
+### Owner-KI (optional, exklusiv)
 
-`!ask` und die Empfehlungen von `!diag` laufen über einen **eigenen LLM-Endpunkt** (`chat_bot_owner_llm_base_url` / `_api_key` / `_model`) — unabhängig vom Viewer-LLM, damit der Streamer z. B. ein leistungsfähigeres Modell nutzen kann. Ohne Konfiguration liefert `!diag` die deterministische Checkliste und `!ask` einen Konfigurations-Hinweis.
+`!ask` und die Empfehlungen von `!diag` laufen über einen **eigenen LLM-Endpunkt** (`chat_bot_owner_llm_base_url` / `_api_key` / `_model`) — unabhängig vom Viewer-LLM, damit der Streamer z. B. ein leistungsfähigeres oder persönliches Modell-Konto nutzen kann. Dieser Endpunkt ist **exklusiv für die Streamer-Befehle erreichbar** (Viewer-Nachrichten erreichen ihn nie). **Fallback:** Ist keine eigene Owner-KI hinterlegt, nutzen die Owner-Befehle die **normale Bot-KI** (Viewer-LLM) mit dem Owner-Kontext (Fact-Sheet); nur wenn auch die nicht konfiguriert ist (z. B. COMMAND-Modus), liefert `!diag` die deterministische Checkliste und `!ask` einen Konfigurations-Hinweis.
 
 ### Limits & Sicherheit
 
@@ -232,7 +234,8 @@ Der Streamer kann dem Bot auch **privat** Befehle schicken: Der Bot verbindet si
 Implemented & unit-tested:
 
 - `OpenAiCompatibleLlmClient` — OpenAI-compatible `/v1/chat/completions` client (Bearer auth, error handling, configurable model/temperature/max tokens).
-- `TwitchBotClient` — authenticated Twitch chat connection (`PASS oauth:<token>`), reads and **sends** messages, PING→PONG keepalive, auto-reconnect with backoff.
+- `TwitchChatEventSubReader` — EventSub-WebSocket-Reader für `channel.chat.message` (Scope `user:read:chat`): `session_welcome` → Helix-Subscribe, `notification` → `ChatMessage` (Badges/Emotes/Farbe/Zeitstempel), `session_reconnect` + Backoff-Reconnect. Ersetzt den IRC-Leser für Overlay **und** Bot.
+- `TwitchSendChatClient` — Helix-Send-Client (`POST /helix/chat/messages`, Scope `user:write:chat`): User-ID-Auflösung mit Cache, 500-Zeichen-Limit, `drop_reason`-Auswertung statt IRC-NOTICE. Ersetzt das IRC-`PRIVMSG`-Senden.
 - `ChatBotEngine` — reaction engine: ignores the bot's own messages, mentions-only filter, cooldown, per-minute rate limit, rolling prompt history, 500-char reply cap, `ChatBotState` (Disabled/Idle/Thinking).
 - `ChatBotController` + `StreamingService` wiring — automatic connect on Go Live, clean shutdown on stream end, instant stop when the bot is disabled in settings. Tracks the stream start timestamp for `!uptime`, wires the chat TTS to the message stream.
 - **Chat-TTS (`!tts`)** — `ChatTtsController` (enabled state, speaks viewer messages, skips own messages and commands) + `AndroidTtsSpeaker` (system TextToSpeech engine).
@@ -249,7 +252,7 @@ Still open (next milestones):
 ## Prerequisites
 
 1. A **Twitch account for the bot** (can be your main account or a dedicated one).
-2. A **chat token** for that account with the scopes `chat:read` and `chat:send`.
+2. A **chat token** for that account with the scopes `user:read:chat` (lesen, EventSub), `user:write:chat` (senden, Helix) und — nur wenn du die Owner-Whisper-Antworten nutzt — `user:manage:whispers`.
 3. An **LLM API key** (or a reachable Ollama instance) — only needed in „KI autonom“ mode; the „Bot wie Moblin“ command mode works without one.
 
 ## 1. Getting a Twitch chat token
@@ -259,8 +262,8 @@ Still open (next milestones):
 You need a token for a **bot account** (not a user account), i.e. an account that isn't heavily rate-limited on chat.
 
 1. Create your bot account at <https://www.twitch.tv> and confirm the email.
-2. Generate an access token with the `chat:read` and `chat:send` scopes using the official Twitch token generator: <https://twitchtokengenerator.com> → pick the **Chat Read/Write** (or *Chat Bot*) scope set → authorize with the **bot account**.
-   - If you prefer the raw OAuth flow: authorize against `https://id.twitch.tv/oauth2/authorize` with `response_type=token` and `scope=chat:read chat:send`.
+2. Generate an access token with the `user:read:chat`, `user:write:chat` and `user:manage:whispers` scopes using the official Twitch token generator: <https://twitchtokengenerator.com> → pick the **Chat Read/Write** (or *Chat Bot*) scope set → authorize with the **bot account**.
+   - If you prefer the raw OAuth flow: authorize against `https://id.twitch.tv/oauth2/authorize` with `response_type=token` and `scope=user:read:chat user:write:chat user:manage:whispers`.
 3. Copy the token (it starts with `oauth:` in some generators — the `oauth:` prefix is optional, Vivid strips it automatically).
 4. Note the **login name** of the bot account (lowercase, no `@`) — that's the `Chat bot login`.
 
@@ -317,7 +320,7 @@ Alle Felder sind direkt im **Settings-Screen** (Abschnitt **„Chat-Bot (KI)“*
 - **Auto-connect / auto-shutdown** — the bot follows the stream lifecycle: connect on Go Live, clean disconnect on stop (even remote/`StreamingState.Idle` stops and process restarts).
 - **Mentions-only** — with the default `mentionsOnly = true`, the bot only reacts to messages containing its login or `!bot`. Turn it off if you want it to answer every message (keep an eye on the rate limit).
 - **Cooldown** — at least `replyCooldownSeconds` between two replies (default 8 s).
-- **Rate limit** — at most `maxRepliesPerMinute` replies per rolling minute (default 10) — Twitch's global IRC rate limit is 20 messages/30 s; the default stays well below it.
+- **Rate limit** — at most `maxRepliesPerMinute` replies per rolling minute (default 10) — Twitch's Send-Chat-API limit is 20 messages/20 s; the default stays well below it.
 - **Per-viewer cooldown** — a viewer must wait `perViewerCooldownMillis` after a bot reply before the bot answers them again (default 60 s, `0` = off); moderators bypass it. Platform-neutral via the user id.
 - **Per-viewer cap** — at most `perViewerMaxReplies` replies per viewer per stream (`0` = unlimited); moderators bypass it.
 - **Hourly budget** — at most `maxRepliesPerHour` replies per rolling hour across all viewers (`0` = unlimited) — the LLM cost ceiling.
@@ -331,7 +334,8 @@ Alle Felder sind direkt im **Settings-Screen** (Abschnitt **„Chat-Bot (KI)“*
 |---------|--------------------|
 | Bot never joins | `chat_bot_enabled` off, or `chat_channel`/`chat_bot_login`/`chat_bot_oauth_token` empty → fill all three |
 | `Login authentication failed` in chat | Token invalid, expired, revoked, or generated for a **different** account than `chat_bot_login` |
-| Bot connects but can't send | Token lacks the `chat:send` scope |
+| Bot connects but can't send | Token lacks the `user:write:chat` scope (Senden läuft seit dem IRC-Ausstieg über `POST /helix/chat/messages`) |
+| Bot liest nichts / Overlay zeigt „nicht konfiguriert“ | Token lacks the `user:read:chat` scope → die EventSub-Subscription wird von Twitch mit 403 abgelehnt; Token neu erzeugen (Scopes s. o.) |
 | No replies to mentions | `mentionsOnly` on and the message doesn't contain the bot login or `!bot`; or cooldown/rate limit hit |
 | `LLM-Anfrage fehlgeschlagen` | Wrong base URL, invalid API key, model name not available on the provider, or no network access (Ollama: phone must reach the host) |
 
@@ -342,15 +346,13 @@ Alle Felder sind direkt im **Settings-Screen** (Abschnitt **„Chat-Bot (KI)“*
 - ✅ **Media-player control** (`!song`/`!next`/`!pause`/`!play`/`!prev` via MediaSession, Moblin parity row) — done (needs notification access).
 - ✅ **Per-viewer cooldown, per-viewer cap and hourly cost budget** — done (see [Begrenzungen](#begrenzungen-pro-viewer--kosten)).
 - ✅ **Owner-Steuerung (nur der Streamer)** — `!start`/`!stop`/`!diag`/`!ask` mit Owner-Gate (Broadcaster + Allow-List) und separater Owner-KI (see [Owner-Steuerung](#owner-steuerung-nur-der-streamer)).
-- 🔜 **Chat komplett auf Helix/EventSub (IRC-Ausstieg)** — Twitch empfiehlt die Migration offiziell (IRC bleibt aber „Active“); einziger echter Blockierer: das anonyme Overlay braucht künftig einen Token (Details: [Ausblick unten](#ausblick-chat-komplett-auf-helixeventsub-irc-ausstieg)).
+- ✅ **Chat komplett auf Helix/EventSub (IRC-Ausstieg)** — Lesen über EventSub `channel.chat.message` (`TwitchChatEventSubReader`), Senden über `POST /helix/chat/messages` (`TwitchSendChatClient`); IRC-Clients, `IrcConnection` und Parser entfernt. Konsequenz: Overlay und Bot brauchen den Bot-Token (kein anonymes Lesen mehr) — Details: [Umgesetzt unten](#umgesetzt-chat-komplett-auf-helixeventsub-irc-ausstieg).
 - Twitch OAuth browser flow (no manual token pasting).
 - More platforms once Kick/YouTube chat lands.
 
-## Ausblick: Chat komplett auf Helix/EventSub (IRC-Ausstieg)
+## Umgesetzt: Chat komplett auf Helix/EventSub (IRC-Ausstieg)
 
-**Fazit: Machbar — Twitch empfiehlt die Migration offiziell, erzwingt sie aber nicht.** IRC ist im [Product Lifecycle](https://dev.twitch.tv/docs/product-lifecycle/) weiterhin „Active“ (nur nicht-sichere WebSocket-Verbindungen wurden Aug 2025 abgeschaltet); die offizielle Anleitung [Migrating from IRC](https://dev.twitch.tv/docs/chat/irc-migration/) rät aber jedem Chat-Bot zur Umstellung. Der Aufwand ist moderat, weil die EventSub-Infrastruktur für den Whisper-Empfang bereits existiert (WebSocket-Socket, Subscription-Client, `resolveUserId`).
-
-**IRC heute (3 Stellen):** `TwitchChatClient` (anonymes Overlay, `justinfan`, read-only), `TwitchBotClient` (Bot, lesen + senden), `IrcConnection`/`IrcMessageParser` (Raw-Socket + Parser). Whispers sind bereits auf Helix/EventSub umgestellt.
+**✅ Umgesetzt (IRC-Ausstieg):** Twitch empfiehlt die Migration offiziell ([Migrating from IRC](https://dev.twitch.tv/docs/chat/irc-migration/)); IRC ist im [Product Lifecycle](https://dev.twitch.tv/docs/product-lifecycle/) weiterhin „Active“, wird hier aber nicht mehr genutzt. **Alle IRC-Stellen sind entfernt:** `TwitchChatClient` (anonymes Overlay) und `TwitchBotClient` (Bot, lesen+senden) wurden durch `TwitchChatEventSubReader` (EventSub `channel.chat.message`) und `TwitchSendChatClient` (Helix `POST /helix/chat/messages`) ersetzt; `IrcConnection`/`IrcMessageParser` sind gelöscht. Whispers liefen bereits auf Helix/EventSub.
 
 | Funktion | Heute (IRC) | Ziel (Helix/EventSub) |
 |----------|-------------|----------------------|
@@ -365,22 +367,22 @@ Alle Felder sind direkt im **Settings-Screen** (Abschnitt **„Chat-Bot (KI)“*
 | Reconnect | `RECONNECT` | `session_reconnect` (bereits im `TwitchEventSubClient`) |
 | JOIN/PART/NAMES | (wird nicht genutzt) | entfällt — Get Chatters nur für Mods/Broadcaster |
 
-**Constraints & Entscheidungen:**
+**Umgesetzte Entscheidungen:**
 
-1. **Anonymes Overlay entfällt** — EventSub erfordert einen authentifizierten User-Token. Das Chat-Overlay (heute ohne Token) braucht künftig den Bot- oder Broadcaster-Token → Produktentscheidung: Overlay nur mit konfiguriertem Bot-Konto **oder** Overlay bleibt als einziger Fall auf IRC.
-2. **User-IDs nötig** — Subscription-Condition und Send-Chat brauchen `broadcaster_user_id`/`sender_id` (Auflösung via `GET /helix/users`; `resolveUserId` existiert bereits).
-3. **Scopes ändern sich** — `chat:read`/`chat:edit` → `user:read:chat`/`user:write:chat` (+ `user:bot` je nach Token-Typ). Doku, Settings-Labels und Setup-Anleitung (RELEASE.md) anpassen.
-4. **Emotes-Format** — `ChatMessage.emotesTag` (IRC-Format) müsste auf die EventSub-Fragments abgebildet werden, falls das Overlay Emotes rendert.
-5. **Senden mit Fehlerdetails** — `drop_reason` im Response (Slow-Mode, verifizierte E-Mail, …) statt IRC-NOTICE; Rate-Limit (~20/20 s pro User) ist für den Bot (Cooldown ≥ 8 s) unkritisch.
-6. **EventSub-Limits passend** — max. 3 WebSocket-Verbindungen mit Subscriptions, 300 Subs/Verbindung; für 1 Kanal (Whisper + Chat auf einer Verbindung) unkritisch.
+1. **Anonymes Overlay entfällt** — EventSub erfordert einen authentifizierten User-Token. Das Chat-Overlay nutzt jetzt die **Bot-Zugangsdaten** (Login + OAuth-Token + Client-ID aus den Einstellungen); ohne konfigurierte Credentials zeigt das Overlay einen Hinweis statt zu verbinden.
+2. **User-IDs aufgelöst** — Subscription-Condition und Send-Chat brauchen `broadcaster_user_id`/`sender_id` (Auflösung via `GET /helix/users`; `resolveUserId` mit Cache).
+3. **Scopes gewechselt** — `chat:read`/`chat:edit` → `user:read:chat`/`user:write:chat` (User-Access-Token; `user:bot`/`channel:bot` sind nur bei App-Access-Tokens nötig). Doku, Setup-Anleitung (RELEASE.md) und Troubleshooting sind angepasst.
+4. **Emotes-Format gemappt** — `ChatMessage.emotesTag` wird aus den EventSub-Fragments auf das IRC-Format (`id:start-end`) abgebildet (kompatibel mit der Engine; das Overlay rendert weiterhin nur Text).
+5. **Senden mit Fehlerdetails** — `drop_reason` im Response (Slow-Mode, verifizierte E-Mail, Bann, …) statt IRC-NOTICE; Rate-Limit (~20/20 s pro User) ist für den Bot (Cooldown ≥ 8 s) unkritisch.
+6. **EventSub-Limits passend** — max. 3 WebSocket-Verbindungen mit Subscriptions; genutzt werden 2 (Chat + Whisper) für 1 Kanal — unkritisch.
 
-**Migrationsplan (1 Feature-Bündel, ~1–2 Tage):**
+**Migrationsplan (1 Feature-Bündel) — abgeschlossen:**
 
-1. `TwitchChatEventSubReader` — `channel.chat.message`-Subscription + Event→`ChatMessage`-Mapping (Badges/Emotes/Farbe) — Muster: `TwitchEventSubClient`.
-2. `TwitchSendChatClient` — `POST /helix/chat/messages` mit `broadcaster_id`/`sender_id` + `drop_reason`-Auswertung — Muster: `TwitchWhisperClient`.
-3. Overlay + Bot auf den EventSub-Reader umstellen (Token-Fluss entscheiden, s. o.).
-4. `IrcConnection`, `IrcMessageParser` und die IRC-Handshakes entfernen.
-5. Scopes/Doku/Tests aktualisieren; IRC-Tests durch EventSub-Tests ersetzen.
+1. ✅ `TwitchChatEventSubReader` — `channel.chat.message`-Subscription + Event→`ChatMessage`-Mapping (Badges/Emotes/Farbe/Zeitstempel) — Muster: `TwitchEventSubClient`.
+2. ✅ `TwitchSendChatClient` — `POST /helix/chat/messages` mit `broadcaster_id`/`sender_id` + `drop_reason`-Auswertung — Muster: `TwitchWhisperClient`.
+3. ✅ Overlay + Bot auf den EventSub-Reader umgestellt (Token-Fluss: Bot-Zugangsdaten, s. o.); Bot-Senden über `TwitchSendChatClient`.
+4. ✅ `IrcConnection`, `IrcMessageParser`, `TwitchChatClient`, `TwitchBotClient` und die IRC-Handshakes entfernt (auch Tests + DI-Binding).
+5. ✅ Scopes/Doku/Tests aktualisiert; IRC-Tests durch EventSub-/Helix-Tests ersetzt.
 
 ## Architecture
 
@@ -388,7 +390,8 @@ Alle Felder sind direkt im **Settings-Screen** (Abschnitt **„Chat-Bot (KI)“*
 |------|----------------|
 | `feature-chat/…/ai/LlmClient.kt` | `LlmClient` interface + `OpenAiCompatibleLlmClient` (Ktor) + `LlmConfig` |
 | `feature-chat/…/ai/LlmModels.kt` | Chat-Completion request/response DTOs (kotlinx.serialization) |
-| `feature-chat/…/twitch/TwitchBotClient.kt` | Authenticated Twitch IRC connection: read + `sendMessage()` |
+| `feature-chat/…/twitch/TwitchChatEventSubReader.kt` | EventSub-Reader `channel.chat.message` (lesen, Scope `user:read:chat`) |
+| `feature-chat/…/twitch/TwitchSendChatClient.kt` | Helix-Send-Client `POST /helix/chat/messages` (senden, Scope `user:write:chat`, inkl. `drop_reason`) |
 | `feature-chat/…/bot/ChatBotEngine.kt` | Reaction engine (mode switch, filters, history, LLM call, send, state) |
 | `feature-chat/…/bot/BotCommandProcessor.kt` | Deterministic `!`-commands („Bot wie Moblin“, no LLM) — incl. `!tts` |
 | `feature-chat/…/bot/ChatTtsController.kt` | Chat-TTS: enabled state, speaks viewer messages, `toggle()` for `!tts` |
