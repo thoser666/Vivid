@@ -135,6 +135,33 @@ class TwitchBotClientTest {
             assertEquals("abc123", message.id)
             assertEquals("pogchamp", message.userLogin)
             assertEquals("HeyGuys", message.text)
+            assertEquals(false, message.isBroadcaster)
+            client.disconnect()
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `privmsg marks the channel owner via the broadcaster badge`() = runTest {
+        val written = mutableListOf<String>()
+        val line = "@badge-info=;badges=broadcaster/1;display-name=StreamerOne;id=def;mod=0;" +
+            "room-id=123;subscriber=0;tmi-sent-ts=1500000000000;turbo=0;user-id=999;" +
+            "user-type= :streamerone!streamerone@streamerone.tmi.twitch.tv PRIVMSG #channel :Moin"
+        val lines = flow {
+            emit(line)
+            awaitCancellation()
+        }
+        val client = TwitchBotClient(
+            scope = this,
+            connectionFactory = factory(connection(written, lines)),
+            parser = parser,
+        )
+
+        client.messages.test {
+            client.connect("channel", "vividbot", "token")
+            val message = awaitItem()
+            assertEquals("streamerone", message.userLogin)
+            assertTrue(message.isBroadcaster)
             client.disconnect()
             cancelAndIgnoreRemainingEvents()
         }

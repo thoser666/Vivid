@@ -146,6 +146,15 @@ class SettingsViewModel @Inject constructor(
     fun onChatBotCommandScopeChange(newScope: ChatBotCommandScope) { _uiState.value = _uiState.value.copy(chatBotCommandScope = newScope) }
     fun onChatBotCommandPrefixChange(newPrefix: String) { _uiState.value = _uiState.value.copy(chatBotCommandPrefix = newPrefix) }
 
+    // Owner-Zugriff (nur der Streamer): Allow-List-Logins + eigene Owner-KI.
+    fun onChatBotOwnerLoginsChange(newValue: String) { _uiState.value = _uiState.value.copy(chatBotOwnerLogins = newValue) }
+    fun onChatBotOwnerLlmBaseUrlChange(newUrl: String) { _uiState.value = _uiState.value.copy(chatBotOwnerLlmBaseUrl = newUrl) }
+    fun onChatBotOwnerLlmApiKeyChange(newKey: String) { _uiState.value = _uiState.value.copy(chatBotOwnerLlmApiKey = newKey) }
+    fun onChatBotOwnerLlmModelChange(newModel: String) { _uiState.value = _uiState.value.copy(chatBotOwnerLlmModel = newModel) }
+    // Privater Antwortweg: Owner-Antworten per Twitch-Whisper statt PRIVMSG.
+    fun onChatBotOwnerWhisperRepliesChange(newValue: Boolean) { _uiState.value = _uiState.value.copy(chatBotOwnerWhisperReplies = newValue) }
+    fun onChatBotTwitchClientIdChange(newValue: String) { _uiState.value = _uiState.value.copy(chatBotTwitchClientId = newValue) }
+
     // Begrenzungen: Per-Viewer-Cooldown/-Cap und Kosten-Budget (numerisch, ungültig → 0).
     // Manuelle Änderungen markieren die Auswahl als „Eigene“ (CUSTOM), damit die
     // wiederhergestellte Voreinstellung beim nächsten Start nicht die Bearbeitung überstimmt.
@@ -227,6 +236,12 @@ class SettingsViewModel @Inject constructor(
                 perViewerMaxReplies = currentSettings.chatBotPerViewerMaxReplies,
                 maxRepliesPerHour = currentSettings.chatBotMaxRepliesPerHour,
                 limitPreset = currentSettings.chatBotLimitPreset,
+                ownerLogins = currentSettings.chatBotOwnerLogins,
+                ownerLlmBaseUrl = currentSettings.chatBotOwnerLlmBaseUrl,
+                ownerLlmApiKey = currentSettings.chatBotOwnerLlmApiKey,
+                ownerLlmModel = currentSettings.chatBotOwnerLlmModel,
+                ownerWhisperReplies = currentSettings.chatBotOwnerWhisperReplies,
+                twitchClientId = currentSettings.chatBotTwitchClientId,
             )
             _saveEvent.emit(Unit)
         }

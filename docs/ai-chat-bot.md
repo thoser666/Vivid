@@ -53,6 +53,7 @@ In den Einstellungen (Abschnitt **„Chat-Bot (KI)“**) gibt es einen **Betrieb
 | `!pause` / `!play` | Wiedergabe pausieren / fortsetzen |
 | `!prev` / `!previous` | Zum vorherigen Titel springen |
 | `!bot` | Kurzinfo über den Bot |
+| `!start` / `!go-live` · `!stop` / `!end` · `!diag` / `!status` · `!ask <frage>` | **Owner-Befehle — nur der Streamer** (Broadcaster-Badge oder Allow-List `chat_bot_owner_logins`): Stream starten/stoppen, Diagnose mit Empfehlungen, Frage an die separate Owner-KI — nur während eines aktiven Streams; Viewer erhalten nur einen Hinweis (Details: [Owner-Steuerung](#owner-steuerung-nur-der-streamer)) |
 | `!<unbekannt>` | COMMAND: Hinweis „Unbekannter Befehl … — Tipp: !help“ · AUTONOMOUS: die KI entscheidet |
 
 Befehle sind **case-insensitive** und können mitten in der Nachricht stehen (`@bot !help`). Cooldown und Rate-Limit gelten für **alle** Antworten — auch für Befehle (schützt vor Spam, Twitch begrenzt 20 Nachrichten/30 s).
@@ -132,6 +133,91 @@ Unter den Feldern zeigt **„Live-Verbrauch“** den aktuellen Zählerstand (nur
 
 > **Stufen von locker bis streng:** Alles aus (nur globaler Cooldown + Rate-Limit) → Per-Viewer-Cooldown 60 s → zusätzlich Per-Viewer-Cap → zusätzlich Stunden-Budget. Wer den KI-Teil ganz abschalten will, wählt im Betriebsmodus-Switch **„Bot (wie Moblin)“** — dann beantwortet der Bot nur kostenlose `!`-Befehle, und die Begrenzungen gelten nur noch für die.
 
+## Owner-Steuerung (nur der Streamer)
+
+Die normale Interaktion mit den Viewern läuft über den **Hauptaccount** (den Bot). Zusätzlich gibt es **Owner-Befehle, die nur der Streamer nutzen kann** — sie können Stream starten/stoppen, einen Diagnose-Lauf ausführen und eine **separate, leistungsfähigere Owner-KI** fragen. Sie sind nur während eines aktiven Streams verfügbar (der Bot läuft nur bei Go-Live).
+
+### Wer ist Owner?
+
+- **Der Kanal-Inhaber automatisch** (Twitch-`broadcaster/1`-Badge wird geparst → `isBroadcaster` auf der Chat-Nachricht).
+- **Zusätzlich eingetragene Logins** (`chat_bot_owner_logins`, kommasepariert ohne `@`) — z. B. der **Zweitaccount** des Streamers, wenn er nicht mit dem Kanal-Account im Chat ist.
+
+Viewer, die einen Owner-Befehl tippen, bekommen nur den Hinweis „⚠️ Dieser Befehl ist nur für den Streamer.“ — es wird **nichts** ausgeführt.
+
+### Owner-Befehle (beide Betriebsmodi)
+
+| Befehl | Syntax | Wirkung |
+|--------|--------|---------|
+| Stream starten | `!start` / `!go-live` | Startet den Stream mit den gespeicherten Einstellungen (primär + optional zweites Ziel) — gleiche Logik wie die Web-Remote-Control |
+| Stream stoppen | `!stop` / `!end` | Stoppt den Stream |
+| Diagnose | `!diag` / `!status` | **Diagnose-Lauf:** sammelt deterministisch Stream-Status (inkl. Fehlerursache), OBS-Verbindung und Konfigurations-Checks (URL/Key, Multi-Streaming, Chat-Kanal, Bot-Token, Viewer-/Owner-LLM). Ohne Owner-KI → Checkliste direkt im Chat; mit Owner-KI → Bewertung + konkrete Empfehlungen |
+| Owner-KI fragen | `!ask <frage>` | Stellt die Frage an die **Owner-KI** mit dem aktuellen Stream-Zustand als Kontext (z. B. „!ask warum stockt der Stream?“) |
+
+#### Befehls-Syntax (Referenz)
+
+- **Case-insensitive:** `!START` = `!start`; Befehle können **mitten in der Nachricht** stehen (`@vividbot !diag bitte`).
+- **Parameter** gibt es nur bei `!ask`: Alles nach dem Befehlstoken ist die Frage (`!ask warum stockt der Stream?` → Text `warum stockt der Stream?`). `!ask` **ohne** Text antwortet mit „Bitte gib eine Frage an: !ask <frage>“.
+- **PREFIX-Scope:** präfixierte Formen `!v!start` / `!v!stop` / `!v!diag` / `!v!ask <frage>` (Präfix `v`) — die generischen `!`-Formen gehören dann dem anderen Bot (Koexistenz-Modus).
+- **Verfügbarkeit:** nur während eines aktiven Streams (der Bot verbindet sich nur bei Go-Live) und nur, wenn der Bot selbst konfiguriert und im Chat ist.
+
+#### Owner-Scope (wer darf, wann)
+
+| Absender | `!start` / `!stop` / `!diag` / `!ask` |
+|----------|--------------------------------------|
+| **Kanal-Inhaber** (Broadcaster-Badge `broadcaster/1`) | ✅ immer Owner — kein Eintrag nötig |
+| **Allow-List** (`chat_bot_owner_logins`, z. B. Zweitaccount) | ✅ Owner |
+| **Moderatoren** (ohne Owner-Status) | ❌ nur der Hinweis „⚠️ Dieser Befehl ist nur für den Streamer.“ |
+| **Viewer** | ❌ nur der Hinweis — keine Aktion, kein LLM-Aufruf |
+
+Der Owner-Scope ist **unabhängig vom Betriebsmodus** (COMMAND/AUTONOMOUS) — Owner-Befehle funktionieren in beiden. Der **Befehlsscope** (ALL/MENTION/PREFIX, siehe [Koexistenz](#koexistenz-mit-anderen-bots-z-b-rivulet)) gilt auch für Owner-Befehle: im MENTION-Scope muss der Owner den Bot ansprechen (`@vividbot !diag`), im PREFIX-Scope die präfixierte Form nutzen.
+
+#### Antwortweg an den Owner
+
+```
+Owner (Zweit-/Kanal-Account) ──„!diag“──► Twitch-Chat
+        ▼
+TwitchBotClient (liest Nachrichten)
+        ▼
+ChatBotEngine → ist Owner? ──nein──► „⚠️ nur für den Streamer“ (öffentlich, keine Aktion)
+        │ ja
+        ▼
+!start / !stop  → ChatStreamControl.start()/stop() → Bestätigung
+!diag            → StreamDiagnostics (Status, OBS, Checks)
+        ├─ ohne Owner-KI ──► deterministische Checkliste
+        └─ mit Owner-KI ───► Owner-LLM (Fact-Sheet) ──Empfehlungen
+!ask <frage>     → Owner-LLM (Fact-Sheet + Frage) ──Antwort
+        │
+        ▼  (Antwortweg, Standard: privat)
+TwitchWhisperClient (Helix-API: Login → User-ID, POST /helix/whispers)
+        │ erfolgreich (HTTP 204)
+        ▼
+Whisper an den Owner-Login (privat, nicht im Chat)
+        │ Fehler (Client-ID fehlt, Scope fehlt, Empfänger blockt, …)
+        ▼
+Fallback: öffentliche Antwort (PRIVMSG) in den Kanal + Bot-Log-Hinweis
+```
+
+**Wo die Antwort landet (Standard: Whisper):** Owner-Antworten kommen per **Twitch-Whisper** direkt an den Owner-Login statt in den öffentlichen Chat — Diagnose, Empfehlungen und Fragen sind damit nur für den Streamer sichtbar. Umsetzung über die **Helix-Whisper-API** (`POST /helix/whispers`) — der frühere IRC-Weg (`/w` via PRIVMSG) ist von Twitch seit Februar 2023 abgeschaltet. Voraussetzungen:
+
+- Der **OAuth-Token des Bot-Kontos** braucht den Scope **`user:manage:whispers`** (zusätzlich zu `chat:read`/`chat:edit`).
+- Die **Twitch-App-Client-ID** ist in den Einstellungen hinterlegt (`chat_bot_twitch_client_id`) — Pflicht-Header für alle Helix-Aufrufe.
+- Das Sender-Konto braucht eine **verifizierte Telefonnummer** (Twitch-Anforderung).
+
+Twitch-Limits: 40 eindeutige Empfänger/Tag, 3 Whispers/s, 100/min, 500 Zeichen für die erste Nachricht an einen User (der Bot kürzt automatisch auf 500), und Twitch kann Whispers **still verwerfen** (auch bei HTTP 204). Blockt der Empfänger Whispers von Fremden (`Block Whispers from Strangers`), antwortet Twitch mit 400 — der Bot **fällt dann öffentlich in den Chat zurück** (Zuverlässigkeit der Bestätigung schlägt Privatsphäre im Fehlerfall) und loggt den Grund. Der ganze Weg lässt sich im Settings-Screen abschalten (`chat_bot_owner_whisper_replies`); ohne Client-ID/Scope geht die Antwort automatisch öffentlich.
+
+### Owner-KI (optional)
+
+`!ask` und die Empfehlungen von `!diag` laufen über einen **eigenen LLM-Endpunkt** (`chat_bot_owner_llm_base_url` / `_api_key` / `_model`) — unabhängig vom Viewer-LLM, damit der Streamer z. B. ein leistungsfähigeres Modell nutzen kann. Ohne Konfiguration liefert `!diag` die deterministische Checkliste und `!ask` einen Konfigurations-Hinweis.
+
+### Limits & Sicherheit
+
+- **Owner-Gate:** Nur Broadcaster + Allow-List — Viewer können weder Aktionen auslösen noch die Owner-KI fragen.
+- **Kein Viewer-Cooldown/-Cap für Owner:** Owner-Befehle umgehen Cooldown und Per-Viewer-Limits (sofortige Antwort).
+- **Globales Rate-Limit gilt weiter** (Kosten-Schutz); Owner-Antworten zählen auch ins Stunden-Budget.
+- **Fehler-Resilienz:** Schlägt die Owner-KI fehl, kommt bei `!diag` trotzdem die deterministische Checkliste durch.
+- **Privater Antwortweg:** Owner-Antworten gehen per Twitch-Whisper (Helix-API) statt in den öffentlichen Chat — Standard an, per Setting abschaltbar; Fehler (fehlende Client-ID, fehlender Scope, blockierter Empfänger) fallen öffentlich mit Log-Hinweis zurück.
+- **Entkoppelt:** `feature-chat` hängt nicht an `feature-streaming` — die Owner-Steuerung läuft über das `ChatStreamControl`-Interface (`@BindsOptionalOf` in feature-chat, echte Implementierung `AppChatStreamControl` in der App).
+
 ## Current status
 
 Implemented & unit-tested:
@@ -210,6 +296,10 @@ All bot settings live in the app settings. Fields (DataStore keys):
 | Command scope | `chat_bot_command_scope` | `ALL` (default) / `MENTION` / `PREFIX` |
 | Command prefix | `chat_bot_command_prefix` | `v` → `!v!help` (nur bei `PREFIX`) |
 | Limit preset | `chat_bot_limit_preset` | `CUSTOM` (default) — zuletzt gewählte Stufe (`LOCKER`/`BALANCED`/`STRICT`), wird beim Start wiederhergestellt |
+| Owner logins | `chat_bot_owner_logins` | `` (default) — kommasepariert, ohne `@`; zusätzlich zum Broadcaster |
+| Owner-LLM base URL | `chat_bot_owner_llm_base_url` | `` (default) — eigener Endpunkt für `!ask`/`!diag` |
+| Owner-LLM API key | `chat_bot_owner_llm_api_key` | `` (default) |
+| Owner-LLM model | `chat_bot_owner_llm_model` | `` (default) |
 
 Alle Felder sind direkt im **Settings-Screen** (Abschnitt **„Chat-Bot (KI)“**) editierbar und werden mit „Speichern“ persistiert. Token und API-Key sind als Passwortfelder mit Sichtbarkeits-Toggle (Auge) hinterlegt.
 
@@ -242,6 +332,7 @@ Alle Felder sind direkt im **Settings-Screen** (Abschnitt **„Chat-Bot (KI)“*
 - ✅ **Full bot settings screen** inside Vivid (all fields from [Configuration](#configuration): Twitch token, LLM credentials, limits, coexistence) — done.
 - ✅ **Media-player control** (`!song`/`!next`/`!pause`/`!play`/`!prev` via MediaSession, Moblin parity row) — done (needs notification access).
 - ✅ **Per-viewer cooldown, per-viewer cap and hourly cost budget** — done (see [Begrenzungen](#begrenzungen-pro-viewer--kosten)).
+- ✅ **Owner-Steuerung (nur der Streamer)** — `!start`/`!stop`/`!diag`/`!ask` mit Owner-Gate (Broadcaster + Allow-List) und separater Owner-KI (see [Owner-Steuerung](#owner-steuerung-nur-der-streamer)).
 - Twitch OAuth browser flow (no manual token pasting).
 - More platforms once Kick/YouTube chat lands.
 
@@ -258,7 +349,9 @@ Alle Felder sind direkt im **Settings-Screen** (Abschnitt **„Chat-Bot (KI)“*
 | `feature-chat/…/bot/AndroidTtsSpeaker.kt` | Android TextToSpeech implementation of the speaker interface |
 | `feature-chat/…/media/ChatMediaController.kt` | Media-Player-Steuerung (MediaController über aktive MediaSessions) |
 | `feature-chat/…/media/MediaNotificationListener.kt` | Notification-Listener (Zugriffs-Marker für Media-Session-Steuerung) |
-| `feature-chat/…/bot/ChatBotConfig.kt` | Settings → engine configuration (incl. mode) |
+| `feature-chat/…/bot/ChatBotConfig.kt` | Settings → engine configuration (incl. mode, owner logins, owner LLM) |
+| `feature-chat/…/bot/ChatStreamControl.kt` | `ChatStreamControl` interface + `StreamDiagnostics` (Owner-Steuerung, entkoppelt) |
+| `app/…/AppChatStreamControl.kt` | App-Implementierung der Owner-Steuerung (Stream-Start/Stopp + Diagnose) + Hilt-Binding |
 | `feature-chat/…/bot/ChatSender.kt` | Send abstraction (interface) |
 | `feature-chat/…/bot/ChatBotController.kt` | Stream-lifecycle → bot wiring |
 | `app/…/StreamingService.kt` | Calls `onStreamStarted()` / `onStreamStopped()` |

@@ -130,6 +130,7 @@ class TwitchBotClient @Inject constructor(
         val tags = message.tags
         val login = message.prefix?.substringBefore('!').orEmpty()
         val displayName = tags["display-name"]?.takeIf { it.isNotEmpty() } ?: login.ifEmpty { "unknown" }
+        val badges = tags["badges"].orEmpty().split(',').filter { it.isNotEmpty() }
         return ChatMessage(
             id = tags["id"].orEmpty(),
             channel = channel,
@@ -138,16 +139,21 @@ class TwitchBotClient @Inject constructor(
             displayName = displayName,
             color = tags["color"]?.takeIf { it.isNotEmpty() },
             text = message.trailing.orEmpty(),
-            badges = tags["badges"].orEmpty().split(',').filter { it.isNotEmpty() },
+            badges = badges,
             emotesTag = tags["emotes"].orEmpty(),
             timestamp = tags["tmi-sent-ts"]?.toLongOrNull() ?: System.currentTimeMillis(),
             isModerator = tags["mod"] == "1",
             isSubscriber = tags["subscriber"] == "1",
+            isBroadcaster = BROADCASTER_BADGE in badges,
         )
     }
 
     private fun backoffMillis(attempt: Int): Long {
         val factor = 1L shl attempt.coerceAtMost(5)
         return (1_000L * factor).coerceAtMost(30_000L)
+    }
+
+    private companion object {
+        const val BROADCASTER_BADGE = "broadcaster/1"
     }
 }

@@ -49,6 +49,18 @@ class BotCommandProcessor @Inject constructor() {
         /** `!prev` / `!previous` — vorheriger Titel. */
         data object MediaPrevious : Result
 
+        /** `!start` / `!go-live` — Stream starten (nur Owner). */
+        data object OwnerStart : Result
+
+        /** `!stop` / `!end` — Stream stoppen (nur Owner). */
+        data object OwnerStop : Result
+
+        /** `!diag` / `!status` — Diagnose-Lauf (nur Owner). */
+        data object OwnerDiagnose : Result
+
+        /** `!ask <frage>` — Frage an die Owner-KI (nur Owner). */
+        data class OwnerAsk(val text: String) : Result
+
         /** Mit `!` beginnendes Token, aber kein bekannter Befehl. */
         data class Unknown(val command: String) : Result
 
@@ -81,7 +93,8 @@ class BotCommandProcessor @Inject constructor() {
             val token = tokens.firstOrNull { it.lowercase().startsWith("!${p}!") } ?: return Result.None
             val command = token.substring(p.length + 2).lowercase()
             if (command.isBlank()) return Result.None
-            return dispatch(command, streamStartedAtMillis, prefix = p)
+            val rest = tokens.drop(1).joinToString(" ")
+            return dispatch(command, streamStartedAtMillis, prefix = p, rest = rest)
         }
 
         // MENTION: Nur wenn der Bot direkt angesprochen wird (Login als Wort,
@@ -96,10 +109,11 @@ class BotCommandProcessor @Inject constructor() {
         val token = tokens.firstOrNull { it.startsWith("!") } ?: return Result.None
         val command = token.substring(1).lowercase()
         if (command.isBlank()) return Result.None
-        return dispatch(command, streamStartedAtMillis, prefix = null)
+        val rest = tokens.drop(1).joinToString(" ")
+        return dispatch(command, streamStartedAtMillis, prefix = null, rest = rest)
     }
 
-    private fun dispatch(command: String, startedAt: Long?, prefix: String?): Result =
+    private fun dispatch(command: String, startedAt: Long?, prefix: String?, rest: String = ""): Result =
         when (command) {
             "help", "commands", "hilfe" -> Result.Reply(helpText(prefix))
             "uptime" -> Result.Reply(uptimeReply(startedAt))
@@ -109,6 +123,11 @@ class BotCommandProcessor @Inject constructor() {
             "pause" -> Result.MediaPause
             "play" -> Result.MediaPlay
             "prev", "previous" -> Result.MediaPrevious
+            // Owner-Befehle (nur der Streamer; das Gate liegt in der Engine).
+            "start", "go-live", "go_live", "livestart" -> Result.OwnerStart
+            "stop", "end", "shutdown" -> Result.OwnerStop
+            "diag", "diagnose", "status" -> Result.OwnerDiagnose
+            "ask" -> Result.OwnerAsk(rest.trim())
             "bot" -> Result.Reply(BOT_INFO_TEXT)
             else -> Result.Unknown(command)
         }

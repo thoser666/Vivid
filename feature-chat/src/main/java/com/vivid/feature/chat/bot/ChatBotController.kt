@@ -4,6 +4,8 @@ import com.vivid.core.data.AppSettings
 import com.vivid.core.data.SettingsRepository
 import com.vivid.feature.chat.di.ChatScope
 import com.vivid.feature.chat.twitch.TwitchBotClient
+import com.vivid.feature.chat.twitch.TwitchWhisperClient
+import com.vivid.feature.chat.twitch.TwitchWhisperConfig
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
@@ -21,6 +23,7 @@ import kotlinx.coroutines.launch
 class ChatBotController @Inject constructor(
     @param:ChatScope private val scope: CoroutineScope,
     private val botClient: TwitchBotClient,
+    private val whisperClient: TwitchWhisperClient,
     private val engine: ChatBotEngine,
     private val chatTts: ChatTtsController,
     private val settingsRepository: SettingsRepository,
@@ -67,7 +70,23 @@ class ChatBotController @Inject constructor(
         engine.start(
             messages = botClient.messages,
             config = config,
-            sender = { text -> botClient.sendMessage(text) },
+            sender = object : ChatSender {
+                override suspend fun send(text: String) {
+                    botClient.sendMessage(text)
+                }
+
+                override suspend fun sendWhisper(toLogin: String, text: String) {
+                    whisperClient.whisper(
+                        TwitchWhisperConfig(
+                            botLogin = config.login,
+                            oauthToken = config.oauthToken,
+                            clientId = config.twitchClientId,
+                        ),
+                        toLogin,
+                        text,
+                    )
+                }
+            },
             scope = scope,
             streamStartedAtMillis = streamStartedAtMillis,
         )

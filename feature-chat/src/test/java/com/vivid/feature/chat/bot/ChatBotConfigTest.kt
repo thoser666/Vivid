@@ -99,4 +99,60 @@ class ChatBotConfigTest {
 
         assertFalse(config.isReady)
     }
+
+    // --- Owner-Zugriff (nur der Streamer) ---
+
+    @Test
+    fun `fromSettings normalizes the owner logins and maps the owner llm`() {
+        val config = ChatBotConfig.fromSettings(
+            AppSettings(
+                chatBotOwnerLogins = " @Streamer2 , zweitkonto,  ",
+                chatBotOwnerLlmBaseUrl = "https://owner.example",
+                chatBotOwnerLlmApiKey = "owner-key",
+                chatBotOwnerLlmModel = "claude-4",
+            ),
+        )
+
+        assertEquals(setOf("streamer2", "zweitkonto"), config.ownerLogins)
+        assertEquals("https://owner.example", config.ownerLlm.baseUrl)
+        assertEquals("owner-key", config.ownerLlm.apiKey)
+        assertEquals("claude-4", config.ownerLlm.model)
+        assertTrue(config.isOwnerLlmReady)
+        // Privater Antwortweg: Standard an, Client-ID leer.
+        assertEquals(true, config.ownerWhisperReplies)
+        assertEquals("", config.twitchClientId)
+    }
+
+    @Test
+    fun `fromSettings maps the private whisper path settings`() {
+        val config = ChatBotConfig.fromSettings(
+            AppSettings(
+                chatBotOwnerWhisperReplies = false,
+                chatBotTwitchClientId = " client-abc ",
+            ),
+        )
+
+        assertFalse(config.ownerWhisperReplies)
+        assertEquals("client-abc", config.twitchClientId)
+    }
+
+    @Test
+    fun `owner llm is not ready when not configured`() {
+        val config = ChatBotConfig.fromSettings(AppSettings())
+
+        assertFalse(config.isOwnerLlmReady)
+    }
+
+    @Test
+    fun `isOwner accepts the broadcaster and allow-listed logins`() {
+        val config = ChatBotConfig.fromSettings(AppSettings(chatBotOwnerLogins = "streamer2"))
+
+        // Broadcaster-Badge ist immer Owner.
+        assertTrue(config.isOwner("streamer1", isBroadcaster = true))
+        // Allow-List (case-insensitiv, mit/ohne '@').
+        assertTrue(config.isOwner("STREAMER2", isBroadcaster = false))
+        assertTrue(config.isOwner("@streamer2", isBroadcaster = false))
+        // Jeder andere ist kein Owner.
+        assertFalse(config.isOwner("viewer1", isBroadcaster = false))
+    }
 }

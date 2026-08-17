@@ -13,4 +13,7 @@ data class ChatMessage(
     val timestamp: Long,
     val isModerator: Boolean,
     val isSubscriber: Boolean,
+    // true, wenn der Absender der Kanal-Inhaber ist (Twitch-Badge „broadcaster/1“) —
+    // Grundlage für die Owner-Erkennung (nur der Streamer darf Owner-Befehle nutzen).
+    val isBroadcaster: Boolean = false,
 )

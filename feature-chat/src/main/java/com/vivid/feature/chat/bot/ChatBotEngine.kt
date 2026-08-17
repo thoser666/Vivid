@@ -5,6 +5,7 @@ import com.vivid.feature.chat.ai.LlmClient
 import com.vivid.feature.chat.ai.LlmMessage
 import com.vivid.feature.chat.media.ChatMediaPlayer
 import com.vivid.feature.chat.model.ChatMessage
+import java.util.Optional
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
@@ -57,9 +58,18 @@ class ChatBotEngine @Inject constructor(
     private val commandProcessor: BotCommandProcessor,
     private val chatTts: ChatTtsController,
     private val media: ChatMediaPlayer,
+    private val chatStreamControl: Optional<ChatStreamControl>,
 ) {
     /** Uhrenfunktion (für Tests ersetzbar). */
     internal var now: () -> Long = System::currentTimeMillis
+
+    /**
+     * Owner-Steuerung des Streams: In der App ist die echte Implementierung
+     * gebunden (Hilt-@Binds); ohne Bindung (Tests, Module ohne Stream-Engine)
+     * greift der NoOp-Fallback.
+     */
+    private val streamControl: ChatStreamControl
+        get() = chatStreamControl.orElse(NoOpChatStreamControl)
 
     private val _state = MutableStateFlow(ChatBotState.Disabled)
     val state: StateFlow<ChatBotState> = _state.asStateFlow()
@@ -189,6 +199,29 @@ class ChatBotEngine @Inject constructor(
                 }
                 return
             }
+            // Owner-Befehle: nur der Streamer (Broadcaster oder Allow-List).
+            is BotCommandProcessor.Result.OwnerStart -> {
+                handleOwnerAction(cfg, message, snd) {
+                    streamControl.start()
+                    STREAM_START_TEXT
+                }
+                return
+            }
+            is BotCommandProcessor.Result.OwnerStop -> {
+                handleOwnerAction(cfg, message, snd) {
+                    streamControl.stop()
+                    STREAM_STOP_TEXT
+                }
+                return
+            }
+            is BotCommandProcessor.Result.OwnerDiagnose -> {
+                handleOwnerDiagnose(cfg, message, snd)
+                return
+            }
+            is BotCommandProcessor.Result.OwnerAsk -> {
+                handleOwnerAsk(cfg, message, snd, result.text)
+                return
+            }
             is BotCommandProcessor.Result.Unknown ->
                 if (cfg.mode == ChatBotMode.COMMAND) {
                     "Unbekannter Befehl „${result.command}“ — Tipp: !help"
@@ -236,6 +269,149 @@ class ChatBotEngine @Inject constructor(
         return confirm
     }
 
+    /** Owner-Gate: nur der Streamer (Broadcaster-Badge oder Allow-List) darf Owner-Befehle. */
+    private fun isOwner(cfg: ChatBotConfig, message: ChatMessage): Boolean =
+        cfg.isOwner(message.userLogin, message.isBroadcaster)
+
+    /**
+     * Führt eine Owner-Aktion aus (Stream starten/stoppen). Nicht-Owner
+     * bekommen einen Hinweis. Owner umgehen Cooldown und Per-Viewer-Limits;
+     * das globale Rate-Limit (Kosten-Schutz) gilt weiterhin.
+     */
+    private suspend fun handleOwnerAction(
+        cfg: ChatBotConfig,
+        message: ChatMessage,
+        snd: ChatSender,
+        action: suspend () -> String,
+    ) {
+        if (!isOwner(cfg, message)) {
+            send(snd, OWNER_ONLY_TEXT, message)
+            return
+        }
+        if (rateLimited(cfg)) return
+        try {
+            sendOwnerReply(cfg, snd, message, action())
+        } catch (e: Exception) {
+            _logs.tryEmit("Owner-Aktion fehlgeschlagen: ${e.message}")
+            sendOwnerReply(
+                cfg,
+                snd,
+                message,
+                "❌ Aktion fehlgeschlagen: ${e.message ?: "unbekannter Fehler"}",
+            )
+        }
+    }
+
+    /**
+     * `!diag`: Diagnose-Fact-Sheet deterministisch sammeln; mit konfigurierter
+     * Owner-KI → Bewertung + Empfehlungen, sonst die Checkliste direkt.
+     */
+    private suspend fun handleOwnerDiagnose(cfg: ChatBotConfig, message: ChatMessage, snd: ChatSender) {
+        if (!isOwner(cfg, message)) {
+            send(snd, OWNER_ONLY_TEXT, message)
+            return
+        }
+        if (rateLimited(cfg)) return
+        val diagnostics = streamControl.diagnostics()
+        if (!cfg.isOwnerLlmReady) {
+            sendOwnerReply(cfg, snd, message, diagnostics.summary())
+            return
+        }
+        _state.value = ChatBotState.Thinking
+        try {
+            val reply = llmClient.complete(cfg.ownerLlm, ownerDiagnoseConversation(cfg, diagnostics))
+            val trimmed = trimReply(reply, cfg)
+            if (trimmed.isEmpty() || trimmed.equals(NO_REPLY_MARKER, ignoreCase = true)) return
+            sendOwnerReply(cfg, snd, message, trimmed)
+        } catch (e: Exception) {
+            _logs.tryEmit("Owner-Diagnose fehlgeschlagen: ${e.message}")
+            // Die deterministische Checkliste kommt trotzdem durch.
+            sendOwnerReply(cfg, snd, message, diagnostics.summary() + "\n\n(Owner-KI fehlgeschlagen: ${e.message})")
+        } finally {
+            _state.value = ChatBotState.Idle
+        }
+    }
+
+    /** `!ask <frage>`: Frage an die Owner-KI, mit aktuellem Stream-Zustand als Kontext. */
+    private suspend fun handleOwnerAsk(
+        cfg: ChatBotConfig,
+        message: ChatMessage,
+        snd: ChatSender,
+        text: String,
+    ) {
+        if (!isOwner(cfg, message)) {
+            send(snd, OWNER_ONLY_TEXT, message)
+            return
+        }
+        if (rateLimited(cfg)) return
+        if (text.isBlank()) {
+            sendOwnerReply(cfg, snd, message, OWNER_ASK_EMPTY_TEXT)
+            return
+        }
+        if (!cfg.isOwnerLlmReady) {
+            sendOwnerReply(cfg, snd, message, OWNER_LLM_NOT_CONFIGURED_TEXT)
+            return
+        }
+        _state.value = ChatBotState.Thinking
+        try {
+            val diagnostics = streamControl.diagnostics()
+            val reply = llmClient.complete(cfg.ownerLlm, ownerAskConversation(cfg, text, diagnostics))
+            val trimmed = trimReply(reply, cfg)
+            if (trimmed.isEmpty() || trimmed.equals(NO_REPLY_MARKER, ignoreCase = true)) return
+            sendOwnerReply(cfg, snd, message, trimmed)
+        } catch (e: Exception) {
+            _logs.tryEmit("Owner-Frage fehlgeschlagen: ${e.message}")
+            sendOwnerReply(cfg, snd, message, "❌ Owner-KI fehlgeschlagen: ${e.message}")
+        } finally {
+            _state.value = ChatBotState.Idle
+        }
+    }
+
+    /** Kürzt eine Antwort auf das konfigurierte Maximum (wie die Viewer-Antworten). */
+    private fun trimReply(reply: String, cfg: ChatBotConfig): String =
+        reply.trim().replace(Regex("\\s+"), " ").take(cfg.maxReplyLength)
+
+    /** System-Prompt für die Owner-KI (zusätzlich zum konfigurierten Prompt). */
+    private fun ownerSystemPrompt(cfg: ChatBotConfig): String = buildString {
+        append(
+            "Du bist der persönliche Streaming-Assistent des Streamers. Du bekommst " +
+                "exklusiven Zugriff auf den Stream-Zustand (nur der Streamer kann dich " +
+                "fragen). Antworte präzise und kompakt.",
+        )
+        if (cfg.systemPrompt.isNotBlank()) {
+            append("\n\n")
+            append(cfg.systemPrompt.trim())
+        }
+    }
+
+    /** Konversation für `!diag` mit Owner-KI (Zustand → Bewertung + Empfehlungen). */
+    private fun ownerDiagnoseConversation(cfg: ChatBotConfig, diagnostics: StreamDiagnostics): List<LlmMessage> =
+        buildList {
+            add(LlmMessage(LlmMessage.ROLE_SYSTEM, ownerSystemPrompt(cfg)))
+            add(
+                LlmMessage(
+                    LlmMessage.ROLE_USER,
+                    "Führe eine Diagnose des Streams durch. Aktueller Zustand:\n${diagnostics.factSheet()}\n\n" +
+                        "Bewerte den Zustand und gib konkrete Empfehlungen (kompakt, max. ${cfg.maxReplyLength} Zeichen).",
+                ),
+            )
+        }
+
+    /** Konversation für `!ask` mit Owner-KI (Frage + aktueller Zustand). */
+    private fun ownerAskConversation(
+        cfg: ChatBotConfig,
+        question: String,
+        diagnostics: StreamDiagnostics,
+    ): List<LlmMessage> = buildList {
+        add(LlmMessage(LlmMessage.ROLE_SYSTEM, ownerSystemPrompt(cfg)))
+        add(
+            LlmMessage(
+                LlmMessage.ROLE_USER,
+                "Aktueller Stream-Zustand:\n${diagnostics.factSheet()}\n\nFrage vom Streamer: $question",
+            ),
+        )
+    }
+
     /** Cooldown + Rate-Limit gelten für ALLE Antworten (auch Befehle). */
     private fun canReply(cfg: ChatBotConfig): Boolean {
         if (cfg.replyCooldownMillis > 0 && now() - lastReplyAt < cfg.replyCooldownMillis) return false
@@ -266,6 +442,35 @@ class ChatBotEngine @Inject constructor(
         snd.send(text)
         registerReply(message)
         _logs.tryEmit(text)
+    }
+
+    /**
+     * Sendet eine Antwort an den Owner: mit aktiviertem privaten Antwortweg
+     * (Twitch-Whisper statt PRIVMSG) direkt an den Owner-Login, sonst
+     * öffentlich in den Chat. Schlägt der Whisper fehl (keine Client-ID,
+     * blockierter Empfänger, fehlender Scope), fällt die Antwort auf den
+     * öffentlichen Chat zurück — die Bestätigung der Aktion schlägt die
+     * Privatsphäre im Fehlerfall.
+     */
+    private suspend fun sendOwnerReply(
+        cfg: ChatBotConfig,
+        snd: ChatSender,
+        message: ChatMessage,
+        text: String,
+    ) {
+        if (cfg.ownerWhisperReplies && message.userLogin.isNotBlank()) {
+            try {
+                snd.sendWhisper(message.userLogin, text)
+                registerReply(message)
+                _logs.tryEmit(text)
+                return
+            } catch (e: Exception) {
+                _logs.tryEmit(
+                    "Owner-Whisper fehlgeschlagen (${e.message ?: "unbekannter Fehler"}) — öffentliche Antwort als Fallback.",
+                )
+            }
+        }
+        send(snd, text, message)
     }
 
     private fun appendUserMessage(cfg: ChatBotConfig, message: ChatMessage) {
@@ -380,6 +585,13 @@ class ChatBotEngine @Inject constructor(
         internal const val MEDIA_PAUSE_TEXT = "⏸ Pausiert."
         internal const val MEDIA_PLAY_TEXT = "▶ Wiedergabe gestartet."
         internal const val MEDIA_PREVIOUS_TEXT = "⏮ Vorheriger Song."
+
+        internal const val OWNER_ONLY_TEXT = "⚠️ Dieser Befehl ist nur für den Streamer."
+        internal const val OWNER_ASK_EMPTY_TEXT = "Bitte gib eine Frage an: !ask <frage>"
+        internal const val OWNER_LLM_NOT_CONFIGURED_TEXT =
+            "⚠️ Owner-KI nicht konfiguriert — in den Einstellungen Owner-LLM-Endpunkt, -Key und -Modell hinterlegen."
+        internal const val STREAM_START_TEXT = "▶️ Stream wird gestartet…"
+        internal const val STREAM_STOP_TEXT = "⏹ Stream wird gestoppt."
 
         /** Wie viele Top-Viewer der Live-Verbrauch im Settings-Screen zeigt. */
         internal const val TOP_VIEWERS = 5

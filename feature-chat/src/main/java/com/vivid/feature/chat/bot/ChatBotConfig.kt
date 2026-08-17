@@ -32,7 +32,34 @@ data class ChatBotConfig(
     val perViewerMaxReplies: Int = 0,
     // Kosten-Budget: max. Antworten pro Stunde global (0 = unbegrenzt).
     val maxRepliesPerHour: Int = 0,
+    // --- Owner-Zugriff (nur der Streamer) ---
+    // Logins (normalisiert, ohne '@'), die zusätzlich zum Broadcaster als
+    // „Owner" gelten und die Owner-Befehle !start/!stop/!diag/!ask nutzen dürfen.
+    val ownerLogins: Set<String> = emptySet(),
+    // Separater, leistungsfähigerer LLM-Endpunkt für Owner-Befehle. Leer =
+    // Owner-KI nicht konfiguriert (!diag liefert dann die deterministische
+    // Checkliste, !ask einen Konfigurations-Hinweis).
+    val ownerLlm: LlmConfig = LlmConfig(baseUrl = "", apiKey = "", model = ""),
+    // Owner-Antworten privat per Twitch-Whisper statt öffentlich in den Chat
+    // senden (Standard: an). Dafür muss der Bot-Token den Scope
+    // user:manage:whispers haben und [twitchClientId] gesetzt sein; sonst
+    // fällt die Antwort auf den öffentlichen Chat zurück.
+    val ownerWhisperReplies: Boolean = true,
+    // Twitch-App-Client-ID für die Helix-Whisper-API (nur nötig bei Whisper).
+    val twitchClientId: String = "",
 ) {
+    /** Ist die Owner-KI konfiguriert (Endpunkt + Key + Modell)? */
+    val isOwnerLlmReady: Boolean
+        get() = ownerLlm.isConfigured
+
+    /**
+     * Owner-Erkennung: Der Kanal-Inhaber (Broadcaster-Badge) ist immer Owner;
+     * zusätzlich können weitere Logins in [ownerLogins] freigegeben werden
+     * (z. B. der Zweitaccount des Streamers). [userLogin] wird normalisiert
+     * verglichen (trim + lowercase, ohne '@').
+     */
+    fun isOwner(userLogin: String, isBroadcaster: Boolean): Boolean =
+        isBroadcaster || userLogin.trim().lowercase().removePrefix("@") in ownerLogins
     /**
      * Startbereit? Kanal, Login und Token werden immer gebraucht — das LLM
      * nur im AUTONOMOUS-Modus. Im COMMAND-Modus (deterministische Befehle,
@@ -63,6 +90,18 @@ data class ChatBotConfig(
                 perViewerCooldownMillis = settings.chatBotPerViewerCooldownSeconds * 1000,
                 perViewerMaxReplies = settings.chatBotPerViewerMaxReplies,
                 maxRepliesPerHour = settings.chatBotMaxRepliesPerHour,
+                ownerLogins = settings.chatBotOwnerLogins
+                    .split(',')
+                    .map { it.trim().lowercase().removePrefix("@") }
+                    .filter { it.isNotBlank() }
+                    .toSet(),
+                ownerLlm = LlmConfig(
+                    baseUrl = settings.chatBotOwnerLlmBaseUrl,
+                    apiKey = settings.chatBotOwnerLlmApiKey,
+                    model = settings.chatBotOwnerLlmModel,
+                ),
+                ownerWhisperReplies = settings.chatBotOwnerWhisperReplies,
+                twitchClientId = settings.chatBotTwitchClientId.trim(),
                 llm = LlmConfig(
                     baseUrl = settings.chatBotApiBaseUrl,
                     apiKey = settings.chatBotApiKey,

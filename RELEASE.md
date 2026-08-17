@@ -103,7 +103,14 @@ Das Beta-Gate ist erreicht, wenn **alle drei** Bedingungen erfüllt sind (Stand 
 **Tester-Freigabe (Pflicht für den Beta-Tag):**
 
 - [ ] **≥2 manuelle Tester** mit Obtainium (Pre-Releases aktiviert) in der Tester-Liste
-- [ ] Jeder Tester bestätigt **„kein Crash in 15 Minuten“** mit Smoke-Test: Go-Live (Kamera + Mikro), Multi-Streaming (2. Ziel), Chat-Overlay (Twitch-Kanal), Text-/Info-Widget (Zeit/GPS/Geschwindigkeit), OBS-WebSocket-Remote, Settings-Persistenz nach App-Neustart
+- [ ] Jeder Tester bestätigt **„kein Crash in 15 Minuten“** mit Smoke-Test: Go-Live (Kamera + Mikro), Multi-Streaming (2. Ziel), Chat-Overlay (Twitch-Kanal), Text-/Info-Widget (Zeit/GPS/Geschwindigkeit), OBS-WebSocket-Remote, Settings-Persistenz nach App-Neustart, **Chat-Bot-Owner-Befehle** (s. u.)
+
+**🤖 Bot-Befehle (Referenz für den Smoke-Test):**
+
+| Befehl | Wer | Zweck |
+|--------|-----|-------|
+| `!help` · `!uptime` · `!tts` · `!song` · `!next` · `!pause` · `!play` · `!prev` · `!bot` | alle (Viewer) | Standard-Befehle — vollständige Referenz: [docs/ai-chat-bot.md](docs/ai-chat-bot.md) |
+| `!start` / `!go-live` · `!stop` / `!end` · `!diag` / `!status` · `!ask <frage>` | **nur der Streamer** (Broadcaster-Badge oder Allow-List `chat_bot_owner_logins`) | Stream starten/stoppen · Diagnose mit Empfehlungen · Frage an die separate Owner-KI — nur während eines aktiven Streams; Viewer erhalten nur einen Hinweis |
 
 > **Erst wenn alle `[x]`:** `bundle exec fastlane release_beta` → Tag `v0.5.0-beta` → CI baut signiert, veröffentlicht als GitHub-Release (kein Pre-Release-Status-Limit nötig — Beta-Tags werden wie Alpha veröffentlicht) und läuft durch Signatur-/Reproduzierbarkeits-Checks.
 
@@ -112,7 +119,7 @@ Das Beta-Gate ist erreicht, wenn **alle drei** Bedingungen erfüllt sind (Stand 
 1. `fastlane release_beta` implementiert (2026-08-15) — Spiegel von `release_alpha` mit Stufe `beta` inkl. Safety-Checks (Tag-Existenz, versionCode-Monotonie in der beta-Track, Quer-Track-Downgrade-Warnung).
 2. Tag `v0.5.0-beta` erzeugen + pushen → CI baut/publiziert automatisch (Tag-Trigger `v*` ist aktiv; Signatur- und Reproduzierbarkeits-Check laufen mit). Die Lane leitet den ersten Beta-Tag **automatisch vom höchsten `v*`-Tag ab** (Stufe auf `beta`): aktuell `v0.5.0-alpha` → `v0.5.0-beta`.
 3. Metadaten: `versionName = 0.5.0-beta`, `versionCode = 5002` (deterministisch aus dem Tag: `major*1_000_000 + minor*1_000 + patch*10 + Stufe`, beta = 2 → `0.5.0-beta` = 5002 — **direkt über** `0.5.0-alpha` (5001), kein Downgrade für Bestandsnutzer).
-4. QA-Rollout an Feldtester (Obtainium, Pre-Releases aktiviert); Smoke-Tests: Go-Live, Multi-Streaming, Chat-Overlay, OBS-Remote, Settings-Persistenz.
+4. QA-Rollout an Feldtester (Obtainium, Pre-Releases aktiviert); Smoke-Tests: Go-Live, Multi-Streaming, Chat-Overlay, OBS-Remote, Settings-Persistenz, Chat-Bot-Owner-Befehle (`!start`/`!stop`/`!diag`/`!ask`).
 5. Cross-Track beachten: **beta → nightly ist ein Downgrade** (deinstallieren); nightly → beta ist installierbar.
 
 ## 📐 Versionsstrategie (versionName & versionCode)

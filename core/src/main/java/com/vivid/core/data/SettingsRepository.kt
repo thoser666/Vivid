@@ -44,6 +44,12 @@ class SettingsRepository @Inject constructor(
         val CHAT_BOT_PER_VIEWER_MAX_REPLIES = intPreferencesKey("chat_bot_per_viewer_max_replies")
         val CHAT_BOT_MAX_REPLIES_PER_HOUR = intPreferencesKey("chat_bot_max_replies_per_hour")
         val CHAT_BOT_LIMIT_PRESET = stringPreferencesKey("chat_bot_limit_preset")
+        val CHAT_BOT_OWNER_LOGINS = stringPreferencesKey("chat_bot_owner_logins")
+        val CHAT_BOT_OWNER_LLM_BASE_URL = stringPreferencesKey("chat_bot_owner_llm_base_url")
+        val CHAT_BOT_OWNER_LLM_API_KEY = stringPreferencesKey("chat_bot_owner_llm_api_key")
+        val CHAT_BOT_OWNER_LLM_MODEL = stringPreferencesKey("chat_bot_owner_llm_model")
+        val CHAT_BOT_OWNER_WHISPER_REPLIES = booleanPreferencesKey("chat_bot_owner_whisper_replies")
+        val CHAT_BOT_TWITCH_CLIENT_ID = stringPreferencesKey("chat_bot_twitch_client_id")
         val WIDGET_ENABLED = booleanPreferencesKey("widget_enabled")
         val WIDGET_SHOW_TIME = booleanPreferencesKey("widget_show_time")
         val WIDGET_SHOW_LOCATION = booleanPreferencesKey("widget_show_location")
@@ -101,6 +107,12 @@ class SettingsRepository @Inject constructor(
                 perViewerMaxReplies = prefs[PrefKeys.CHAT_BOT_PER_VIEWER_MAX_REPLIES] ?: 0,
                 maxRepliesPerHour = prefs[PrefKeys.CHAT_BOT_MAX_REPLIES_PER_HOUR] ?: 0,
                 limitPreset = prefs[PrefKeys.CHAT_BOT_LIMIT_PRESET] ?: "CUSTOM",
+                ownerLogins = prefs[PrefKeys.CHAT_BOT_OWNER_LOGINS] ?: "",
+                ownerLlmBaseUrl = prefs[PrefKeys.CHAT_BOT_OWNER_LLM_BASE_URL] ?: "",
+                ownerLlmApiKey = prefs[PrefKeys.CHAT_BOT_OWNER_LLM_API_KEY] ?: "",
+                ownerLlmModel = prefs[PrefKeys.CHAT_BOT_OWNER_LLM_MODEL] ?: "",
+                ownerWhisperReplies = prefs[PrefKeys.CHAT_BOT_OWNER_WHISPER_REPLIES] ?: true,
+                twitchClientId = prefs[PrefKeys.CHAT_BOT_TWITCH_CLIENT_ID] ?: "",
             )
         },
         // Flow für Widget-Daten (Text-/Info-Widget)
@@ -145,6 +157,12 @@ class SettingsRepository @Inject constructor(
             chatBotPerViewerMaxReplies = chatBotData.perViewerMaxReplies,
             chatBotMaxRepliesPerHour = chatBotData.maxRepliesPerHour,
             chatBotLimitPreset = chatBotData.limitPreset,
+            chatBotOwnerLogins = chatBotData.ownerLogins,
+            chatBotOwnerLlmBaseUrl = chatBotData.ownerLlmBaseUrl,
+            chatBotOwnerLlmApiKey = chatBotData.ownerLlmApiKey,
+            chatBotOwnerLlmModel = chatBotData.ownerLlmModel,
+            chatBotOwnerWhisperReplies = chatBotData.ownerWhisperReplies,
+            chatBotTwitchClientId = chatBotData.twitchClientId,
             widgetEnabled = widgetData.enabled,
             widgetShowTime = widgetData.showTime,
             widgetShowLocation = widgetData.showLocation,
@@ -209,6 +227,12 @@ class SettingsRepository @Inject constructor(
         perViewerMaxReplies: Int = 0,
         maxRepliesPerHour: Int = 0,
         limitPreset: String = "CUSTOM",
+        ownerLogins: String = "",
+        ownerLlmBaseUrl: String = "",
+        ownerLlmApiKey: String = "",
+        ownerLlmModel: String = "",
+        ownerWhisperReplies: Boolean = true,
+        twitchClientId: String = "",
     ) {
         dataStore.edit { prefs ->
             prefs[PrefKeys.CHAT_BOT_ENABLED] = enabled
@@ -229,6 +253,12 @@ class SettingsRepository @Inject constructor(
             prefs[PrefKeys.CHAT_BOT_PER_VIEWER_MAX_REPLIES] = perViewerMaxReplies
             prefs[PrefKeys.CHAT_BOT_MAX_REPLIES_PER_HOUR] = maxRepliesPerHour
             prefs[PrefKeys.CHAT_BOT_LIMIT_PRESET] = limitPreset
+            prefs[PrefKeys.CHAT_BOT_OWNER_LOGINS] = ownerLogins
+            prefs[PrefKeys.CHAT_BOT_OWNER_LLM_BASE_URL] = ownerLlmBaseUrl
+            prefs[PrefKeys.CHAT_BOT_OWNER_LLM_API_KEY] = ownerLlmApiKey
+            prefs[PrefKeys.CHAT_BOT_OWNER_LLM_MODEL] = ownerLlmModel
+            prefs[PrefKeys.CHAT_BOT_OWNER_WHISPER_REPLIES] = ownerWhisperReplies
+            prefs[PrefKeys.CHAT_BOT_TWITCH_CLIENT_ID] = twitchClientId
         }
     }
 
@@ -272,6 +302,12 @@ class SettingsRepository @Inject constructor(
         val perViewerMaxReplies: Int,
         val maxRepliesPerHour: Int,
         val limitPreset: String,
+        val ownerLogins: String,
+        val ownerLlmBaseUrl: String,
+        val ownerLlmApiKey: String,
+        val ownerLlmModel: String,
+        val ownerWhisperReplies: Boolean,
+        val twitchClientId: String,
     )
 
     private data class WidgetPrefs(

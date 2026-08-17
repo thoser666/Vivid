@@ -242,7 +242,7 @@ class SettingsViewModelTest {
             coEvery { updateSecondaryStreamSettings(any(), any(), any()) } just runs
             coEvery { updateObsSettings(any(), any(), any(), any()) } just runs
             coEvery { updateChatSettings(any(), any()) } just runs
-            coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
+            coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
             coEvery { updateWidgetSettings(any(), any(), any(), any()) } just runs
         }
 
@@ -286,7 +286,7 @@ class SettingsViewModelTest {
             coEvery { updateSecondaryStreamSettings(any(), any(), any()) } just runs
             coEvery { updateObsSettings(any(), any(), any(), any()) } just runs
             coEvery { updateChatSettings(any(), any()) } just runs
-            coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
+            coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
             coEvery { updateWidgetSettings(any(), any(), any(), any()) } just runs
         }
 
@@ -325,7 +325,7 @@ class SettingsViewModelTest {
             coEvery { updateSecondaryStreamSettings(any(), any(), any()) } just runs
             coEvery { updateObsSettings(any(), any(), any(), any()) } just runs
             coEvery { updateChatSettings(any(), any()) } just runs
-            coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
+            coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
             coEvery { updateWidgetSettings(any(), any(), any(), any()) } just runs
         }
 
@@ -410,6 +410,31 @@ class SettingsViewModelTest {
     }
 
     @Test
+    fun `owner settings input changes update the ui state`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repository = mockk<SettingsRepository> {
+            every { appSettingsFlow } returns MutableStateFlow(AppSettings())
+        }
+
+        val viewModel = createViewModel(repository)
+        advanceUntilIdle() // initial load drained so edits are not overwritten
+
+        viewModel.onChatBotOwnerLoginsChange("streamer2, zweitkonto")
+        viewModel.onChatBotOwnerLlmBaseUrlChange("https://owner.example")
+        viewModel.onChatBotOwnerLlmApiKeyChange("sk-owner")
+        viewModel.onChatBotOwnerLlmModelChange("claude-4")
+        viewModel.onChatBotOwnerWhisperRepliesChange(false)
+        viewModel.onChatBotTwitchClientIdChange("client-abc")
+
+        assertEquals("streamer2, zweitkonto", viewModel.uiState.value.chatBotOwnerLogins)
+        assertEquals("https://owner.example", viewModel.uiState.value.chatBotOwnerLlmBaseUrl)
+        assertEquals("sk-owner", viewModel.uiState.value.chatBotOwnerLlmApiKey)
+        assertEquals("claude-4", viewModel.uiState.value.chatBotOwnerLlmModel)
+        assertEquals(false, viewModel.uiState.value.chatBotOwnerWhisperReplies)
+        assertEquals("client-abc", viewModel.uiState.value.chatBotTwitchClientId)
+    }
+
+    @Test
     fun `numeric chat bot fields fall back to zero on invalid input`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val repository = mockk<SettingsRepository> {
@@ -491,7 +516,7 @@ class SettingsViewModelTest {
             coEvery { updateSecondaryStreamSettings(any(), any(), any()) } just runs
             coEvery { updateObsSettings(any(), any(), any(), any()) } just runs
             coEvery { updateChatSettings(any(), any()) } just runs
-            coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
+            coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
             coEvery { updateWidgetSettings(any(), any(), any(), any()) } just runs
         }
 
@@ -513,6 +538,12 @@ class SettingsViewModelTest {
         viewModel.onChatBotCommandScopeChange(ChatBotCommandScope.PREFIX)
         viewModel.onChatBotCommandPrefixChange("v")
         viewModel.onChatBotLimitPresetChange(ChatBotLimitPreset.STRICT)
+        viewModel.onChatBotOwnerLoginsChange("streamer2, zweitkonto")
+        viewModel.onChatBotOwnerLlmBaseUrlChange("https://owner.example")
+        viewModel.onChatBotOwnerLlmApiKeyChange("sk-owner")
+        viewModel.onChatBotOwnerLlmModelChange("claude-4")
+        viewModel.onChatBotOwnerWhisperRepliesChange(false)
+        viewModel.onChatBotTwitchClientIdChange("client-abc")
 
         viewModel.saveSettings()
         advanceUntilIdle()
@@ -537,6 +568,12 @@ class SettingsViewModelTest {
                 perViewerMaxReplies = 5,
                 maxRepliesPerHour = 60,
                 limitPreset = ChatBotLimitPreset.STRICT.name,
+                ownerLogins = "streamer2, zweitkonto",
+                ownerLlmBaseUrl = "https://owner.example",
+                ownerLlmApiKey = "sk-owner",
+                ownerLlmModel = "claude-4",
+                ownerWhisperReplies = false,
+                twitchClientId = "client-abc",
             )
         }
     }

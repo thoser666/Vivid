@@ -162,6 +162,80 @@ class BotCommandProcessorTest {
         )
     }
 
+    // --- Owner-Befehle (!start / !stop / !diag / !ask) ---
+
+    @Test
+    fun `start and go-live return the owner start result`() {
+        assertEquals(
+            BotCommandProcessor.Result.OwnerStart,
+            processor().handle("!start", null),
+        )
+        assertEquals(
+            BotCommandProcessor.Result.OwnerStart,
+            processor().handle("!go-live", null),
+        )
+        assertEquals(
+            BotCommandProcessor.Result.OwnerStart,
+            processor().handle("!GO_LIVE", null),
+        )
+    }
+
+    @Test
+    fun `stop and end return the owner stop result`() {
+        assertEquals(
+            BotCommandProcessor.Result.OwnerStop,
+            processor().handle("!stop", null),
+        )
+        assertEquals(
+            BotCommandProcessor.Result.OwnerStop,
+            processor().handle("!end", null),
+        )
+    }
+
+    @Test
+    fun `diag and status return the owner diagnose result`() {
+        assertEquals(
+            BotCommandProcessor.Result.OwnerDiagnose,
+            processor().handle("!diag", null),
+        )
+        assertEquals(
+            BotCommandProcessor.Result.OwnerDiagnose,
+            processor().handle("!status", null),
+        )
+    }
+
+    @Test
+    fun `ask carries the question text`() {
+        assertEquals(
+            BotCommandProcessor.Result.OwnerAsk("stelle die Verbindung zu Twitch her"),
+            processor().handle("!ask stelle die Verbindung zu Twitch her", null),
+        )
+    }
+
+    @Test
+    fun `ask without a question carries an empty text`() {
+        assertEquals(
+            BotCommandProcessor.Result.OwnerAsk(""),
+            processor().handle("!ask", null),
+        )
+    }
+
+    @Test
+    fun `owner commands work inside a message and with the prefix scope`() {
+        assertEquals(
+            BotCommandProcessor.Result.OwnerStart,
+            processor().handle("@vividbot !start bitte", null),
+        )
+        assertEquals(
+            BotCommandProcessor.Result.OwnerStop,
+            processor().handle("!v!stop", null, ChatBotCommandScope.PREFIX, "v"),
+        )
+        assertEquals(
+            BotCommandProcessor.Result.OwnerAsk("was ist los?"),
+            processor().handle("!v!ask was ist los?", null, ChatBotCommandScope.PREFIX, "v"),
+        )
+    }
+
     @Test
     fun `unknown commands are reported as unknown`() {
         assertEquals(

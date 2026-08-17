@@ -61,6 +61,23 @@ data class AppSettings(
     // App-Start (nur Auswahl-Marker, die Werte selbst liegen in den drei Feldern).
     // String statt Enum, damit das Domain-Modul nicht von feature-settings abhängt.
     val chatBotLimitPreset: String = "CUSTOM",
+    // --- Chat-Bot: Owner-Zugriff (nur der Streamer) ---
+    // Logins (kommasepariert, ohne '@'), die als „Owner" gelten und die
+    // Owner-Befehle !start/!stop/!diag/!ask nutzen dürfen. Der Kanal-Inhaber
+    // (Broadcaster-Badge) ist zusätzlich immer Owner. Leer = nur Broadcaster.
+    val chatBotOwnerLogins: String = "",
+    // Separater, leistungsfähigerer LLM-Endpunkt für Owner-Befehle (z. B. !ask,
+    // Diagnose mit Empfehlungen). Leer = Owner-KI nicht konfiguriert.
+    val chatBotOwnerLlmBaseUrl: String = "",
+    val chatBotOwnerLlmApiKey: String = "",
+    val chatBotOwnerLlmModel: String = "",
+    // Owner-Antworten privat per Twitch-Whisper statt öffentlich in den Chat
+    // senden (Standard: an). Dafür muss der Bot-Token den Scope
+    // user:manage:whispers haben und die Client-ID unten gesetzt sein; sonst
+    // fällt die Antwort auf den öffentlichen Chat zurück.
+    val chatBotOwnerWhisperReplies: Boolean = true,
+    // Twitch-App-Client-ID (Pflicht-Header für die Helix-Whisper-API).
+    val chatBotTwitchClientId: String = "",
     // --- Text-/Info-Widget (Overlay) ---
     // Zeigt das Text-/Info-Widget über der Streaming-Vorschau (Uhrzeit, GPS, Geschwindigkeit).
     val widgetEnabled: Boolean = false,

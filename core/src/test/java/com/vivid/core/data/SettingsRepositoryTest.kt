@@ -281,6 +281,12 @@ class SettingsRepositoryTest {
         assertEquals(0, settings.chatBotPerViewerMaxReplies)
         assertEquals(0, settings.chatBotMaxRepliesPerHour)
         assertEquals("CUSTOM", settings.chatBotLimitPreset)
+        assertEquals("", settings.chatBotOwnerLogins)
+        assertEquals("", settings.chatBotOwnerLlmBaseUrl)
+        assertEquals("", settings.chatBotOwnerLlmApiKey)
+        assertEquals("", settings.chatBotOwnerLlmModel)
+        assertEquals(true, settings.chatBotOwnerWhisperReplies)
+        assertEquals("", settings.chatBotTwitchClientId)
     }
 
     @Test
@@ -311,6 +317,12 @@ class SettingsRepositoryTest {
             perViewerMaxReplies = 5,
             maxRepliesPerHour = 100,
             limitPreset = "STRICT",
+            ownerLogins = "streamer2, zweitkonto",
+            ownerLlmBaseUrl = "https://owner.example",
+            ownerLlmApiKey = "owner-key",
+            ownerLlmModel = "claude-4",
+            ownerWhisperReplies = false,
+            twitchClientId = "client-123",
         )
         val settings = repository.appSettingsFlow.first()
 
@@ -333,6 +345,12 @@ class SettingsRepositoryTest {
         assertEquals(5, settings.chatBotPerViewerMaxReplies)
         assertEquals(100, settings.chatBotMaxRepliesPerHour)
         assertEquals("STRICT", settings.chatBotLimitPreset)
+        assertEquals("streamer2, zweitkonto", settings.chatBotOwnerLogins)
+        assertEquals("https://owner.example", settings.chatBotOwnerLlmBaseUrl)
+        assertEquals("owner-key", settings.chatBotOwnerLlmApiKey)
+        assertEquals("claude-4", settings.chatBotOwnerLlmModel)
+        assertEquals(false, settings.chatBotOwnerWhisperReplies)
+        assertEquals("client-123", settings.chatBotTwitchClientId)
         // Andere Bereiche bleiben unberührt.
         assertEquals("", settings.chatChannel)
         assertEquals("localhost", settings.obsHost)

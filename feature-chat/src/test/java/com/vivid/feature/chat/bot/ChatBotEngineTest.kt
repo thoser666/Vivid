@@ -8,6 +8,8 @@ import com.vivid.feature.chat.ai.LlmException
 import com.vivid.feature.chat.model.ChatMessage
 import com.vivid.feature.chat.ai.LlmMessage
 import com.vivid.feature.chat.media.ChatMediaPlayer
+import com.vivid.feature.chat.twitch.TwitchWhisperException
+import java.util.Optional
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -40,6 +42,7 @@ class ChatBotEngineTest {
         login: String = "viewer1",
         displayName: String? = null,
         isModerator: Boolean = false,
+        isBroadcaster: Boolean = false,
     ): ChatMessage = ChatMessage(
         id = "id-${text.hashCode()}",
         channel = "channel",
@@ -55,6 +58,7 @@ class ChatBotEngineTest {
         timestamp = System.currentTimeMillis(),
         isModerator = isModerator,
         isSubscriber = false,
+        isBroadcaster = isBroadcaster,
     )
 
     private fun config(
@@ -71,6 +75,13 @@ class ChatBotEngineTest {
         perViewerCooldownMillis: Long = 0L,
         perViewerMaxReplies: Int = 0,
         maxRepliesPerHour: Int = 0,
+        ownerLogins: Set<String> = emptySet(),
+        ownerLlmBaseUrl: String = "",
+        ownerLlmApiKey: String = "",
+        ownerLlmModel: String = "",
+        // Standard aus, damit die bestehenden Owner-Tests den öffentlichen
+        // Weg (sender.send) prüfen; Whisper-Tests aktivieren ihn explizit.
+        ownerWhisperReplies: Boolean = false,
     ): ChatBotConfig = ChatBotConfig(
         channel = "channel",
         login = login,
@@ -86,15 +97,37 @@ class ChatBotEngineTest {
         perViewerCooldownMillis = perViewerCooldownMillis,
         perViewerMaxReplies = perViewerMaxReplies,
         maxRepliesPerHour = maxRepliesPerHour,
+        ownerLogins = ownerLogins,
+        ownerLlm = LlmConfig(
+            baseUrl = ownerLlmBaseUrl,
+            apiKey = ownerLlmApiKey,
+            model = ownerLlmModel,
+        ),
+        ownerWhisperReplies = ownerWhisperReplies,
         llm = LlmConfig(baseUrl = "https://llm.example", apiKey = apiKey, model = "model"),
     )
 
-    private fun engine(media: ChatMediaPlayer = mockk()): ChatBotEngine = ChatBotEngine(
+    private fun engine(
+        media: ChatMediaPlayer = mockk(),
+        streamControl: ChatStreamControl? = null,
+    ): ChatBotEngine = ChatBotEngine(
         llmClient = llm,
         commandProcessor = BotCommandProcessor(),
         chatTts = mockk(),
         media = media,
+        chatStreamControl = Optional.ofNullable(streamControl),
     )
+
+    private fun streamControl(status: ChatStreamStatus = ChatStreamStatus.Idle): ChatStreamControl =
+        mockk {
+            coEvery { start() } just Runs
+            every { stop() } just Runs
+            coEvery { diagnostics() } returns StreamDiagnostics(
+                status = status,
+                obsConnected = true,
+                checks = listOf(DiagnosticCheck("Stream-URL (primär)", ok = true)),
+            )
+        }
 
     @Test
     fun `replies when mentioned in mentions-only mode`() = runTest {
@@ -753,6 +786,7 @@ class ChatBotEngineTest {
             commandProcessor = BotCommandProcessor().apply { now = { currentTime } },
             chatTts = mockk(),
             media = mockk(),
+            chatStreamControl = Optional.empty(),
         )
         coEvery { sender.send(any()) } just Runs
 
@@ -838,6 +872,7 @@ class ChatBotEngineTest {
             commandProcessor = BotCommandProcessor(),
             chatTts = chatTts,
             media = mockk(),
+            chatStreamControl = Optional.empty(),
         )
         val sent = slot<String>()
         coEvery { sender.send(capture(sent)) } just Runs
@@ -861,6 +896,7 @@ class ChatBotEngineTest {
             commandProcessor = BotCommandProcessor(),
             chatTts = chatTts,
             media = mockk(),
+            chatStreamControl = Optional.empty(),
         )
         val sent = slot<String>()
         coEvery { sender.send(capture(sent)) } just Runs
@@ -1014,6 +1050,365 @@ class ChatBotEngineTest {
 
         assertEquals(ChatBotEngine.MEDIA_NO_ACCESS_TEXT, sent.captured)
         verify(exactly = 0) { media.pause() }
+        engine.stop()
+    }
+
+    // --- Owner-Steuerung (!start / !stop / !diag / !ask — nur der Streamer) ---
+
+    @Test
+    fun `owner start command from a viewer is rejected without acting`() = runTest {
+        val control = streamControl()
+        val engine = engine(streamControl = control)
+        val sent = slot<String>()
+        coEvery { sender.send(capture(sent)) } just Runs
+
+        engine.start(messages, config(), sender, this)
+        messages.emit(chatMessage("!start")) // viewer1
+        advanceUntilIdle()
+
+        assertEquals(ChatBotEngine.OWNER_ONLY_TEXT, sent.captured)
+        coVerify(exactly = 0) { control.start() }
+        coVerify(exactly = 0) { llm.complete(any(), any()) }
+        engine.stop()
+    }
+
+    @Test
+    fun `owner start command from the allow list starts the stream`() = runTest {
+        val control = streamControl()
+        val engine = engine(streamControl = control)
+        val sent = slot<String>()
+        coEvery { sender.send(capture(sent)) } just Runs
+
+        engine.start(messages, config(ownerLogins = setOf("streamer2")), sender, this)
+        messages.emit(chatMessage("!start", login = "streamer2", displayName = "StreamerZwei"))
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { control.start() }
+        assertEquals(ChatBotEngine.STREAM_START_TEXT, sent.captured)
+        engine.stop()
+    }
+
+    @Test
+    fun `broadcaster badge allows owner commands`() = runTest {
+        val control = streamControl()
+        val engine = engine(streamControl = control)
+        val sent = slot<String>()
+        coEvery { sender.send(capture(sent)) } just Runs
+
+        engine.start(messages, config(), sender, this)
+        messages.emit(chatMessage("!stop", login = "streamer1", isBroadcaster = true))
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { control.stop() }
+        assertEquals(ChatBotEngine.STREAM_STOP_TEXT, sent.captured)
+        engine.stop()
+    }
+
+    @Test
+    fun `owner commands work in command mode without the llm`() = runTest {
+        val control = streamControl()
+        val engine = engine(streamControl = control)
+        val sent = slot<String>()
+        coEvery { sender.send(capture(sent)) } just Runs
+
+        engine.start(messages, config(mode = ChatBotMode.COMMAND, ownerLogins = setOf("streamer2")), sender, this)
+        messages.emit(chatMessage("!start", login = "streamer2"))
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { control.start() }
+        coVerify(exactly = 0) { llm.complete(any(), any()) }
+        assertEquals(ChatBotEngine.STREAM_START_TEXT, sent.captured)
+        engine.stop()
+    }
+
+    @Test
+    fun `owner commands bypass the reply cooldown`() = runTest {
+        val control = streamControl()
+        val engine = engine(streamControl = control)
+        var currentTime = 1_000_000L
+        engine.now = { currentTime }
+        coEvery { sender.send(any()) } just Runs
+
+        engine.start(
+            messages,
+            config(ownerLogins = setOf("streamer2"), replyCooldownMillis = 8_000),
+            sender,
+            this,
+        )
+        // Viewer-Antwort registriert einen Reply (Start des Cooldown-Fensters).
+        messages.emit(chatMessage("!help"))
+        advanceUntilIdle()
+        currentTime += 1_000 // noch innerhalb des 8s-Cooldowns
+        messages.emit(chatMessage("!start", login = "streamer2"))
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { control.start() }
+        engine.stop()
+    }
+
+    @Test
+    fun `owner commands are still protected by the rate limit`() = runTest {
+        val control = streamControl()
+        val engine = engine(streamControl = control)
+        var currentTime = 10_000_000L
+        engine.now = { currentTime }
+        coEvery { sender.send(any()) } just Runs
+
+        engine.start(
+            messages,
+            config(ownerLogins = setOf("streamer2"), replyCooldownMillis = 0, maxRepliesPerMinute = 1),
+            sender,
+            this,
+        )
+        messages.emit(chatMessage("!help")) // verbraucht das Rate-Limit-Fenster
+        advanceUntilIdle()
+        messages.emit(chatMessage("!start", login = "streamer2"))
+        advanceUntilIdle()
+
+        coVerify(exactly = 0) { control.start() }
+        coVerify(exactly = 1) { sender.send(BotCommandProcessor.HELP_TEXT) }
+        engine.stop()
+    }
+
+    @Test
+    fun `owner diagnose without owner llm sends the deterministic summary`() = runTest {
+        val control = mockk<ChatStreamControl> {
+            coEvery { start() } just Runs
+            every { stop() } just Runs
+            coEvery { diagnostics() } returns StreamDiagnostics(
+                status = ChatStreamStatus.Streaming,
+                obsConnected = false,
+                checks = listOf(
+                    DiagnosticCheck("Stream-URL (primär)", ok = true),
+                    DiagnosticCheck("OBS verbunden", ok = false),
+                ),
+            )
+        }
+        val engine = engine(streamControl = control)
+        val sent = slot<String>()
+        coEvery { sender.send(capture(sent)) } just Runs
+
+        engine.start(messages, config(ownerLogins = setOf("streamer2")), sender, this)
+        messages.emit(chatMessage("!diag", login = "streamer2"))
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { control.diagnostics() }
+        coVerify(exactly = 0) { llm.complete(any(), any()) }
+        assertTrue(sent.captured.contains("Stream:"))
+        assertTrue(sent.captured.contains("OBS: ⚠️"))
+        assertTrue(sent.captured.contains("Offene Punkte"))
+        assertTrue(sent.captured.contains("OBS verbunden"))
+        engine.stop()
+    }
+
+    @Test
+    fun `owner diagnose with owner llm routes the fact sheet to the owner llm`() = runTest {
+        val control = streamControl()
+        val engine = engine(streamControl = control)
+        val sent = slot<String>()
+        val messagesArg = slot<List<LlmMessage>>()
+        val ownerLlm = LlmConfig(baseUrl = "https://owner.example", apiKey = "owner-key", model = "claude-4")
+        coEvery { llm.complete(eq(ownerLlm), capture(messagesArg)) } returns "Empfehlung: Alles gut ✅"
+        coEvery { sender.send(capture(sent)) } just Runs
+
+        engine.start(
+            messages,
+            config(
+                ownerLogins = setOf("streamer2"),
+                ownerLlmBaseUrl = ownerLlm.baseUrl,
+                ownerLlmApiKey = ownerLlm.apiKey,
+                ownerLlmModel = ownerLlm.model,
+            ),
+            sender,
+            this,
+        )
+        messages.emit(chatMessage("!diag", login = "streamer2"))
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { control.diagnostics() }
+        val user = messagesArg.captured.first { it.role == LlmMessage.ROLE_USER }
+        assertTrue(user.content.contains("stream_status=idle"))
+        assertTrue(user.content.contains("check:Stream-URL (primär)=ok"))
+        assertEquals("Empfehlung: Alles gut ✅", sent.captured)
+        engine.stop()
+    }
+
+    @Test
+    fun `owner diagnose falls back to the summary when the owner llm fails`() = runTest {
+        val control = streamControl()
+        val engine = engine(streamControl = control)
+        val sent = slot<String>()
+        coEvery { llm.complete(any(), any()) } throws LlmException("kaputt")
+        coEvery { sender.send(capture(sent)) } just Runs
+
+        engine.start(
+            messages,
+            config(
+                ownerLogins = setOf("streamer2"),
+                ownerLlmBaseUrl = "https://owner.example",
+                ownerLlmApiKey = "key",
+                ownerLlmModel = "model",
+            ),
+            sender,
+            this,
+        )
+        messages.emit(chatMessage("!diag", login = "streamer2"))
+        advanceUntilIdle()
+
+        assertTrue(sent.captured.contains("Stream:"))
+        assertTrue(sent.captured.contains("Owner-KI fehlgeschlagen"))
+        assertEquals(ChatBotState.Idle, engine.state.value)
+        engine.stop()
+    }
+
+    @Test
+    fun `owner ask without owner llm shows the configuration hint`() = runTest {
+        val engine = engine()
+        val sent = slot<String>()
+        coEvery { sender.send(capture(sent)) } just Runs
+
+        engine.start(messages, config(ownerLogins = setOf("streamer2")), sender, this)
+        messages.emit(chatMessage("!ask warum stockt der Stream?", login = "streamer2"))
+        advanceUntilIdle()
+
+        assertEquals(ChatBotEngine.OWNER_LLM_NOT_CONFIGURED_TEXT, sent.captured)
+        coVerify(exactly = 0) { llm.complete(any(), any()) }
+        engine.stop()
+    }
+
+    @Test
+    fun `owner ask without text asks for a question`() = runTest {
+        val engine = engine()
+        val sent = slot<String>()
+        coEvery { sender.send(capture(sent)) } just Runs
+
+        engine.start(messages, config(ownerLogins = setOf("streamer2")), sender, this)
+        messages.emit(chatMessage("!ask", login = "streamer2"))
+        advanceUntilIdle()
+
+        assertEquals(ChatBotEngine.OWNER_ASK_EMPTY_TEXT, sent.captured)
+        coVerify(exactly = 0) { llm.complete(any(), any()) }
+        engine.stop()
+    }
+
+    @Test
+    fun `owner ask routes the question with stream context to the owner llm`() = runTest {
+        val control = streamControl()
+        val engine = engine(streamControl = control)
+        val sent = slot<String>()
+        val messagesArg = slot<List<LlmMessage>>()
+        val ownerLlm = LlmConfig(baseUrl = "https://owner.example", apiKey = "owner-key", model = "claude-4")
+        coEvery { llm.complete(eq(ownerLlm), capture(messagesArg)) } returns "Antwort für den Streamer"
+        coEvery { sender.send(capture(sent)) } just Runs
+
+        engine.start(
+            messages,
+            config(
+                ownerLogins = setOf("streamer2"),
+                ownerLlmBaseUrl = ownerLlm.baseUrl,
+                ownerLlmApiKey = ownerLlm.apiKey,
+                ownerLlmModel = ownerLlm.model,
+            ),
+            sender,
+            this,
+        )
+        messages.emit(chatMessage("!ask stelle die Verbindung zu Twitch her", login = "streamer2"))
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { control.diagnostics() }
+        val user = messagesArg.captured.first { it.role == LlmMessage.ROLE_USER }
+        assertTrue(user.content.contains("Aktueller Stream-Zustand:"))
+        assertTrue(user.content.contains("stelle die Verbindung zu Twitch her"))
+        assertEquals("Antwort für den Streamer", sent.captured)
+        engine.stop()
+    }
+
+    // --- Privater Antwortweg: Owner-Antworten per Twitch-Whisper statt PRIVMSG ---
+
+    @Test
+    fun `owner start reply is whispered instead of sent to the channel`() = runTest {
+        val control = streamControl()
+        val engine = engine(streamControl = control)
+        coEvery { sender.sendWhisper(any(), any()) } just Runs
+
+        engine.start(
+            messages,
+            config(ownerLogins = setOf("streamer2"), ownerWhisperReplies = true),
+            sender,
+            this,
+        )
+        messages.emit(chatMessage("!start", login = "streamer2", displayName = "StreamerZwei"))
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { control.start() }
+        coVerify(exactly = 1) { sender.sendWhisper("streamer2", ChatBotEngine.STREAM_START_TEXT) }
+        coVerify(exactly = 0) { sender.send(any()) }
+        engine.stop()
+    }
+
+    @Test
+    fun `owner diagnose summary is whispered when private replies are enabled`() = runTest {
+        val control = streamControl()
+        val engine = engine(streamControl = control)
+        val sent = slot<String>()
+        coEvery { sender.sendWhisper(any(), capture(sent)) } just Runs
+
+        engine.start(
+            messages,
+            config(ownerLogins = setOf("streamer2"), ownerWhisperReplies = true),
+            sender,
+            this,
+        )
+        messages.emit(chatMessage("!diag", login = "streamer2"))
+        advanceUntilIdle()
+
+        coVerify(exactly = 0) { sender.send(any()) }
+        assertTrue(sent.captured.contains("Stream:"))
+        engine.stop()
+    }
+
+    @Test
+    fun `owner replies fall back to the public channel when the whisper fails`() = runTest {
+        val control = streamControl()
+        val engine = engine(streamControl = control)
+        val sent = slot<String>()
+        coEvery { sender.sendWhisper(any(), any()) } throws TwitchWhisperException("Empfänger blockt Whispers")
+        coEvery { sender.send(capture(sent)) } just Runs
+
+        engine.start(
+            messages,
+            config(ownerLogins = setOf("streamer2"), ownerWhisperReplies = true),
+            sender,
+            this,
+        )
+        messages.emit(chatMessage("!stop", login = "streamer2"))
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { control.stop() }
+        coVerify(exactly = 1) { sender.sendWhisper(any(), any()) }
+        assertEquals(ChatBotEngine.STREAM_STOP_TEXT, sent.captured)
+        engine.stop()
+    }
+
+    @Test
+    fun `non-owner hint stays public even with whisper enabled`() = runTest {
+        val control = streamControl()
+        val engine = engine(streamControl = control)
+        val sent = slot<String>()
+        coEvery { sender.send(capture(sent)) } just Runs
+
+        engine.start(
+            messages,
+            config(ownerLogins = setOf("streamer2"), ownerWhisperReplies = true),
+            sender,
+            this,
+        )
+        messages.emit(chatMessage("!start")) // viewer1
+        advanceUntilIdle()
+
+        assertEquals(ChatBotEngine.OWNER_ONLY_TEXT, sent.captured)
+        coVerify(exactly = 0) { sender.sendWhisper(any(), any()) }
+        coVerify(exactly = 0) { control.start() }
         engine.stop()
     }
 }

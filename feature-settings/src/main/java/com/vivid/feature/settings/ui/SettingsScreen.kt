@@ -526,6 +526,67 @@ fun SettingsScreen(
                 )
             }
 
+            // Owner-Zugriff (nur der Streamer): Allow-List + eigene Owner-KI
+            Text("Owner-Zugriff (nur Streamer)", style = MaterialTheme.typography.titleMedium)
+            Text(
+                text = "Nur du (und eingetragene Logins) kannst während eines aktiven Streams die Owner-Befehle !start, !stop, !diag und !ask nutzen — Viewer sehen nur einen Hinweis. Der Kanal-Inhaber ist automatisch Owner (Broadcaster-Badge); trage hier zusätzliche Logins ein, z. B. deinen Zweitaccount.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            OutlinedTextField(
+                value = uiState.chatBotOwnerLogins,
+                onValueChange = viewModel::onChatBotOwnerLoginsChange,
+                label = { Text("Owner-Logins (kommasepariert, ohne @)") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Text(
+                text = "Owner-KI (optional, leistungsfähigeres Modell): !ask und die Diagnose-Empfehlungen von !diag laufen über diesen Endpunkt. Ohne Konfiguration liefert !diag die Checkliste direkt und !ask einen Hinweis.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            OutlinedTextField(
+                value = uiState.chatBotOwnerLlmBaseUrl,
+                onValueChange = viewModel::onChatBotOwnerLlmBaseUrlChange,
+                label = { Text("Owner-LLM API-Basis-URL (OpenAI-kompatibel)") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            SecretField(
+                value = uiState.chatBotOwnerLlmApiKey,
+                onValueChange = viewModel::onChatBotOwnerLlmApiKeyChange,
+                label = "Owner-LLM API-Key",
+            )
+            OutlinedTextField(
+                value = uiState.chatBotOwnerLlmModel,
+                onValueChange = viewModel::onChatBotOwnerLlmModelChange,
+                label = { Text("Owner-LLM-Modell") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Antworten privat senden (Whisper)", modifier = Modifier.weight(1f))
+                Switch(
+                    checked = uiState.chatBotOwnerWhisperReplies,
+                    onCheckedChange = viewModel::onChatBotOwnerWhisperRepliesChange,
+                )
+            }
+            Text(
+                text = "Owner-Antworten (!start/!stop/!diag/!ask) kommen per Twitch-Whisper statt in den öffentlichen Chat. Dafür braucht der Bot-Token den Scope user:manage:whispers und die Twitch-App-Client-ID unten; schlägt der Whisper fehl (z. B. Empfänger blockt Fremde), antwortet der Bot öffentlich.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            OutlinedTextField(
+                value = uiState.chatBotTwitchClientId,
+                onValueChange = viewModel::onChatBotTwitchClientIdChange,
+                label = { Text("Twitch-App-Client-ID (für Whisper)") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+
             // Media-Player-Steuerung: braucht Benachrichtigungszugriff
             Text(
                 text = "Media-Befehle (!song / !next / !pause / !play / !prev) steuern den aktiven Musik-Player — dafür muss Vivid Benachrichtigungszugriff haben (liest keine Benachrichtigungen aus).",

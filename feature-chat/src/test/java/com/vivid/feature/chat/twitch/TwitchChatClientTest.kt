@@ -18,6 +18,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -109,6 +110,34 @@ class TwitchChatClientTest {
             assertEquals(1500000000000L, message.timestamp)
             assertTrue(message.isModerator)
             assertEquals(false, message.isSubscriber)
+            assertEquals(false, message.isBroadcaster)
+            client.stop()
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `privmsg marks the channel owner via the broadcaster badge`() = runTest {
+        val written = mutableListOf<String>()
+        val line = "@badge-info=;badges=broadcaster/1,subscriber/48;color=#FF0000;display-name=StreamerOne;" +
+            "id=xyz;mod=0;room-id=123;subscriber=1;tmi-sent-ts=1500000000000;turbo=0;user-id=999;" +
+            "user-type= :streamerone!streamerone@streamerone.tmi.twitch.tv PRIVMSG #channel :Moin zusammen"
+        val lines = flow {
+            emit(line)
+            awaitCancellation()
+        }
+        val client = TwitchChatClient(
+            scope = this,
+            connectionFactory = factory(connection(written, lines)),
+            parser = parser,
+        )
+
+        client.messages.test {
+            client.start("channel")
+            val message = awaitItem()
+            assertEquals(listOf("broadcaster/1", "subscriber/48"), message.badges)
+            assertTrue(message.isBroadcaster)
+            assertFalse(message.isModerator)
             client.stop()
             cancelAndIgnoreRemainingEvents()
         }
