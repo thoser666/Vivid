@@ -42,6 +42,8 @@ dependencies {
     implementation(project(":domain"))
     // Chat-Overlay über der Streaming-Vorschau
     implementation(project(":feature-chat"))
+    // Text-/Info-Widget über der Streaming-Vorschau (Uhrzeit/GPS/Geschwindigkeit)
+    implementation(project(":feature-widgets"))
 
     // AndroidX Core (ContextCompat u. a. für Runtime-Permissions)
     implementation(libs.androidx.core.ktx)

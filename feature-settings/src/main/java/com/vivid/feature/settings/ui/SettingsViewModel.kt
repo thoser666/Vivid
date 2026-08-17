@@ -117,6 +117,12 @@ class SettingsViewModel @Inject constructor(
     fun onChatChannelChange(newChannel: String) { _uiState.value = _uiState.value.copy(chatChannel = newChannel) }
     fun onChatOverlayEnabledChange(newEnabled: Boolean) { _uiState.value = _uiState.value.copy(chatOverlayEnabled = newEnabled) }
 
+    // Text-/Info-Widget-Einstellungen (Overlay: Uhrzeit/GPS/Geschwindigkeit).
+    fun onWidgetEnabledChange(newEnabled: Boolean) { _uiState.value = _uiState.value.copy(widgetEnabled = newEnabled) }
+    fun onWidgetShowTimeChange(newValue: Boolean) { _uiState.value = _uiState.value.copy(widgetShowTime = newValue) }
+    fun onWidgetShowLocationChange(newValue: Boolean) { _uiState.value = _uiState.value.copy(widgetShowLocation = newValue) }
+    fun onWidgetShowSpeedChange(newValue: Boolean) { _uiState.value = _uiState.value.copy(widgetShowSpeed = newValue) }
+
     // Chat-Bot-Einstellungen.
     fun onChatBotEnabledChange(newEnabled: Boolean) { _uiState.value = _uiState.value.copy(chatBotEnabled = newEnabled) }
     fun onChatBotModeChange(newMode: ChatBotMode) { _uiState.value = _uiState.value.copy(chatBotMode = newMode) }
@@ -195,6 +201,12 @@ class SettingsViewModel @Inject constructor(
             settingsRepository.updateChatSettings(
                 channel = currentSettings.chatChannel,
                 overlayEnabled = currentSettings.chatOverlayEnabled,
+            )
+            settingsRepository.updateWidgetSettings(
+                enabled = currentSettings.widgetEnabled,
+                showTime = currentSettings.widgetShowTime,
+                showLocation = currentSettings.widgetShowLocation,
+                showSpeed = currentSettings.widgetShowSpeed,
             )
             settingsRepository.updateChatBotSettings(
                 enabled = currentSettings.chatBotEnabled,

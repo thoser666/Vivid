@@ -1,5 +1,7 @@
 package com.vivid.core.di
 
+import com.vivid.core.location.AndroidLocationProvider
+import com.vivid.core.location.LocationProvider
 import com.vivid.core.network.VividApi
 import com.vivid.core.network.VividApiImpl
 import com.vivid.core.repository.StreamingRepository
@@ -25,4 +27,10 @@ abstract class BindingModule {
     abstract fun bindVividApi(
         impl: VividApiImpl,
     ): VividApi
+
+    @Binds
+    @Singleton
+    abstract fun bindLocationProvider(
+        impl: AndroidLocationProvider,
+    ): LocationProvider
 }

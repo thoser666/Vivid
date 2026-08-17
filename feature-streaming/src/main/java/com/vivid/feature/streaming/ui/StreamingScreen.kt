@@ -45,6 +45,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.vivid.core.ui.theme.LocalExtendedColors
 import com.vivid.feature.chat.ui.ChatOverlay
+import com.vivid.feature.widget.TextInfoWidget
 import com.vivid.feature.streaming.ConfigIssueSeverity
 import com.vivid.feature.streaming.FocusMode
 import com.vivid.feature.streaming.StreamConfigIssue
@@ -322,6 +323,14 @@ fun StreamingScreen(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
                     .padding(start = 12.dp, bottom = 84.dp),
+            )
+
+            // Text-/Info-Widget (Uhrzeit/GPS/Geschwindigkeit): rechts unten,
+            // gegenüber dem Chat-Overlay, damit sich beide nicht überlappen.
+            TextInfoWidget(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 12.dp, bottom = 84.dp),
             )
         }
     }

@@ -243,6 +243,7 @@ class SettingsViewModelTest {
             coEvery { updateObsSettings(any(), any(), any(), any()) } just runs
             coEvery { updateChatSettings(any(), any()) } just runs
             coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
+            coEvery { updateWidgetSettings(any(), any(), any(), any()) } just runs
         }
 
         val viewModel = createViewModel(repository)
@@ -286,6 +287,7 @@ class SettingsViewModelTest {
             coEvery { updateObsSettings(any(), any(), any(), any()) } just runs
             coEvery { updateChatSettings(any(), any()) } just runs
             coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
+            coEvery { updateWidgetSettings(any(), any(), any(), any()) } just runs
         }
 
         val viewModel = createViewModel(repository)
@@ -310,6 +312,49 @@ class SettingsViewModelTest {
                 mode = ChatBotMode.COMMAND,
                 login = "",
                 oauthToken = "",
+            )
+        }
+    }
+
+    @Test
+    fun `widget toggles update the ui state and persist on save`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repository = mockk<SettingsRepository> {
+            every { appSettingsFlow } returns MutableStateFlow(AppSettings())
+            coEvery { updateStreamSettings(any(), any(), any()) } just runs
+            coEvery { updateSecondaryStreamSettings(any(), any(), any()) } just runs
+            coEvery { updateObsSettings(any(), any(), any(), any()) } just runs
+            coEvery { updateChatSettings(any(), any()) } just runs
+            coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
+            coEvery { updateWidgetSettings(any(), any(), any(), any()) } just runs
+        }
+
+        val viewModel = createViewModel(repository)
+        advanceUntilIdle() // initial load drained so edits are not overwritten
+
+        // Defaults: Widget aus, alle Felder sichtbar.
+        assertEquals(false, viewModel.uiState.value.widgetEnabled)
+        assertEquals(true, viewModel.uiState.value.widgetShowTime)
+
+        viewModel.onWidgetEnabledChange(true)
+        viewModel.onWidgetShowTimeChange(false)
+        viewModel.onWidgetShowLocationChange(true)
+        viewModel.onWidgetShowSpeedChange(false)
+
+        assertEquals(true, viewModel.uiState.value.widgetEnabled)
+        assertEquals(false, viewModel.uiState.value.widgetShowTime)
+        assertEquals(true, viewModel.uiState.value.widgetShowLocation)
+        assertEquals(false, viewModel.uiState.value.widgetShowSpeed)
+
+        viewModel.saveSettings()
+        advanceUntilIdle()
+
+        coVerify {
+            repository.updateWidgetSettings(
+                enabled = true,
+                showTime = false,
+                showLocation = true,
+                showSpeed = false,
             )
         }
     }
@@ -447,6 +492,7 @@ class SettingsViewModelTest {
             coEvery { updateObsSettings(any(), any(), any(), any()) } just runs
             coEvery { updateChatSettings(any(), any()) } just runs
             coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
+            coEvery { updateWidgetSettings(any(), any(), any(), any()) } just runs
         }
 
         val viewModel = createViewModel(repository)

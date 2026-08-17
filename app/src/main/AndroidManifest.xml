@@ -7,6 +7,11 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Text-/Info-Widget: GPS-Koordinaten + Geschwindigkeit über der Vorschau.
+         Ab Android 12 müssen FINE und COARSE zusammen deklariert werden; der
+         Provider nutzt FINE (GPS liefert auch Geschwindigkeit). -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <!-- Web-Remote-Control über LAN: ab Android 17 (API 37) Pflicht für Apps
          mit targetSdk 37, damit die App auf das lokale Netzwerk zugreifen darf. -->
     <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />

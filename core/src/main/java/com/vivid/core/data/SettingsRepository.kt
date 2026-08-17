@@ -44,6 +44,10 @@ class SettingsRepository @Inject constructor(
         val CHAT_BOT_PER_VIEWER_MAX_REPLIES = intPreferencesKey("chat_bot_per_viewer_max_replies")
         val CHAT_BOT_MAX_REPLIES_PER_HOUR = intPreferencesKey("chat_bot_max_replies_per_hour")
         val CHAT_BOT_LIMIT_PRESET = stringPreferencesKey("chat_bot_limit_preset")
+        val WIDGET_ENABLED = booleanPreferencesKey("widget_enabled")
+        val WIDGET_SHOW_TIME = booleanPreferencesKey("widget_show_time")
+        val WIDGET_SHOW_LOCATION = booleanPreferencesKey("widget_show_location")
+        val WIDGET_SHOW_SPEED = booleanPreferencesKey("widget_show_speed")
     }
 
     // WICHTIG: Dies ist jetzt der EINZIGE Flow, den das ViewModel braucht.
@@ -99,7 +103,16 @@ class SettingsRepository @Inject constructor(
                 limitPreset = prefs[PrefKeys.CHAT_BOT_LIMIT_PRESET] ?: "CUSTOM",
             )
         },
-    ) { streamData, obsData, chatData, chatBotData ->
+        // Flow für Widget-Daten (Text-/Info-Widget)
+        dataStore.data.map { prefs ->
+            WidgetPrefs(
+                enabled = prefs[PrefKeys.WIDGET_ENABLED] ?: false,
+                showTime = prefs[PrefKeys.WIDGET_SHOW_TIME] ?: true,
+                showLocation = prefs[PrefKeys.WIDGET_SHOW_LOCATION] ?: true,
+                showSpeed = prefs[PrefKeys.WIDGET_SHOW_SPEED] ?: true,
+            )
+        },
+    ) { streamData, obsData, chatData, chatBotData, widgetData ->
         // Baue das komplette AppSettings-Objekt zusammen
         AppSettings(
             streamUrl = streamData.url,
@@ -132,6 +145,10 @@ class SettingsRepository @Inject constructor(
             chatBotPerViewerMaxReplies = chatBotData.perViewerMaxReplies,
             chatBotMaxRepliesPerHour = chatBotData.maxRepliesPerHour,
             chatBotLimitPreset = chatBotData.limitPreset,
+            widgetEnabled = widgetData.enabled,
+            widgetShowTime = widgetData.showTime,
+            widgetShowLocation = widgetData.showLocation,
+            widgetShowSpeed = widgetData.showSpeed,
         )
     }
 
@@ -256,4 +273,26 @@ class SettingsRepository @Inject constructor(
         val maxRepliesPerHour: Int,
         val limitPreset: String,
     )
+
+    private data class WidgetPrefs(
+        val enabled: Boolean,
+        val showTime: Boolean,
+        val showLocation: Boolean,
+        val showSpeed: Boolean,
+    )
+
+    /** Text-/Info-Widget-Einstellungen speichern. */
+    suspend fun updateWidgetSettings(
+        enabled: Boolean,
+        showTime: Boolean,
+        showLocation: Boolean,
+        showSpeed: Boolean,
+    ) {
+        dataStore.edit { prefs ->
+            prefs[PrefKeys.WIDGET_ENABLED] = enabled
+            prefs[PrefKeys.WIDGET_SHOW_TIME] = showTime
+            prefs[PrefKeys.WIDGET_SHOW_LOCATION] = showLocation
+            prefs[PrefKeys.WIDGET_SHOW_SPEED] = showSpeed
+        }
+    }
 }

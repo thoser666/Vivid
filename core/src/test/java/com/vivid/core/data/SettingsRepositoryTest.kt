@@ -377,4 +377,42 @@ class SettingsRepositoryTest {
         assertEquals(false, afterOverlay.chatBotEnabled)
         assertEquals("", afterOverlay.chatBotOauthToken)
     }
+
+    @Test
+    fun `appSettingsFlow should default widget settings to disabled with all fields visible`() = runTest {
+        val testDataStore = PreferenceDataStoreFactory.create(
+            scope = this,
+            produceFile = { File(tempDir.toFile(), "test_widget_default.preferences_pb") }
+        )
+        val repository = SettingsRepository(testDataStore)
+
+        val settings = repository.appSettingsFlow.first()
+
+        assertEquals(false, settings.widgetEnabled)
+        assertEquals(true, settings.widgetShowTime)
+        assertEquals(true, settings.widgetShowLocation)
+        assertEquals(true, settings.widgetShowSpeed)
+    }
+
+    @Test
+    fun `appSettingsFlow should return the saved widget settings`() = runTest {
+        val testDataStore = PreferenceDataStoreFactory.create(
+            scope = this,
+            produceFile = { File(tempDir.toFile(), "test_widget.preferences_pb") }
+        )
+        val repository = SettingsRepository(testDataStore)
+
+        repository.updateWidgetSettings(
+            enabled = true,
+            showTime = false,
+            showLocation = true,
+            showSpeed = false,
+        )
+        val settings = repository.appSettingsFlow.first()
+
+        assertEquals(true, settings.widgetEnabled)
+        assertEquals(false, settings.widgetShowTime)
+        assertEquals(true, settings.widgetShowLocation)
+        assertEquals(false, settings.widgetShowSpeed)
+    }
 }

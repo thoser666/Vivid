@@ -61,4 +61,11 @@ data class AppSettings(
     // App-Start (nur Auswahl-Marker, die Werte selbst liegen in den drei Feldern).
     // String statt Enum, damit das Domain-Modul nicht von feature-settings abhängt.
     val chatBotLimitPreset: String = "CUSTOM",
+    // --- Text-/Info-Widget (Overlay) ---
+    // Zeigt das Text-/Info-Widget über der Streaming-Vorschau (Uhrzeit, GPS, Geschwindigkeit).
+    val widgetEnabled: Boolean = false,
+    // Welche Felder das Widget anzeigt (unabhängig vom Haupt-Toggle).
+    val widgetShowTime: Boolean = true,
+    val widgetShowLocation: Boolean = true,
+    val widgetShowSpeed: Boolean = true,
 )

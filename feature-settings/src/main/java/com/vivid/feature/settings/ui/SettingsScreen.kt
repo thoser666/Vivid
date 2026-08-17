@@ -220,6 +220,54 @@ fun SettingsScreen(
                 )
             }
 
+            // Text-/Info-Widget über der Streaming-Vorschau (Uhrzeit/GPS/Geschwindigkeit)
+            Text("Text-/Info-Widget", style = MaterialTheme.typography.titleLarge)
+            Text(
+                text = "Zeigt Uhrzeit, GPS-Koordinaten und Geschwindigkeit als Overlay rechts unten über der Streaming-Vorschau an. Für GPS/Geschwindigkeit wird die Standort-Berechtigung benötigt.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Widget anzeigen", modifier = Modifier.weight(1f))
+                Switch(
+                    checked = uiState.widgetEnabled,
+                    onCheckedChange = viewModel::onWidgetEnabledChange,
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Uhrzeit", modifier = Modifier.weight(1f))
+                Switch(
+                    checked = uiState.widgetShowTime,
+                    onCheckedChange = viewModel::onWidgetShowTimeChange,
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("GPS-Koordinaten", modifier = Modifier.weight(1f))
+                Switch(
+                    checked = uiState.widgetShowLocation,
+                    onCheckedChange = viewModel::onWidgetShowLocationChange,
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Geschwindigkeit", modifier = Modifier.weight(1f))
+                Switch(
+                    checked = uiState.widgetShowSpeed,
+                    onCheckedChange = viewModel::onWidgetShowSpeedChange,
+                )
+            }
+
             // Chat-Bot (KI): An/Aus + Betriebsmodus-Switch + alle Konfigurationsfelder
             Text("Chat-Bot (KI)", style = MaterialTheme.typography.titleLarge)
             Text(
