@@ -131,7 +131,7 @@ The About-screen check follows the same rules as [RELEASE.md](RELEASE.md): it on
 
 - 📡 **Multi-Network Bonding (SRTLA)** - Combine WiFi and mobile data for rock-solid streams
 - 💬 **Chat Extensions** - Emotes (BTTV/FFZ/7TV) and moderation (ban/timeout) — note: chat-bot **media player control** via MediaSession (Apple Music, Spotify, etc.; adapted from Moblin 33.12.0) is already implemented (`!song`/`!next`/`!pause`/`!play`/`!prev`, needs notification access), and the **AI chat bot** itself is already implemented (see above)
-- 🎨 **Overlays & Widgets** - Follower/donation alerts, custom graphics and branding; text widgets incl. altitude (ascent/descent), GPS coordinates and road/route variables (the Twitch chat overlay is already implemented — see above)
+- 🎨 **Overlays & Widgets** - Follower/donation alerts, custom graphics and branding; text widgets incl. altitude (ascent/descent), GPS coordinates and road/route variables (the Twitch chat overlay and a first text/info widget with time, GPS and speed are already implemented — see above)
 - 📹 **High-Quality Streaming** - Up to 4K resolution at 60fps with H.264/AVC and H.265/HEVC
 - 🔒 **Extended Protocols** - SRTLA, RIST, and WHIP (WebRTC) — RTMPS is already implemented (see below); RTMP-Pull/ingest server mode (community request #407)
 - 🕹️ **Remote & Companion Features** - Web remote control (incl. talkback mic selection), game controller support, deep linking
@@ -413,10 +413,10 @@ Status: ✅ implemented · 🚧 in progress · 📋 planned
 | I18n Support | 🚧 | Groundwork in place, translations pending |
 | H.264/H.265, up to 4K/60fps | 📋 | Pipeline in place, quality targets planned |
 | Multi-Network Bonding (SRTLA) | 📋 | SRTLA algorithm to be ported |
-| Chat + Emotes + Moderation | 🚧 | `feature-chat` — Twitch IRC client (anonymous) + chat overlay over the live preview + AI chat bot done; emotes & moderation pending |
+| Chat (Twitch) + Emotes + Moderation | ✅ Twitch-Scope | `feature-chat` — Twitch IRC client (anonymous) + chat overlay over the live preview + AI chat bot done; **Kick/YouTube/SOOP + OAuth (sending/moderation) = post-beta roadmap**, emotes & moderation pending |
 | AI Chat Bot (Vivid extra) | ✅ | Fully automatic LLM chat bot: auto-connect on go-live, clean shutdown on stream end; OpenAI-compatible LLM providers |
 | Chat-Bot Media Player Control | ✅ | Generic media control via MediaSession (Apple Music, Spotify, …); Android adaptation of Moblin 33.12.0 — commands `!song`/`!next`/`!pause`/`!play`/`!prev` (needs notification access) |
-| Overlays & Widgets | 📋 | `feature-widgets` module scaffolded; text widgets incl. altitude ascent/descent, GPS coords and road variables (Twitch chat overlay already implemented in `feature-chat`) |
+| Overlays & Widgets | 🚧 | `feature-widgets`: first **text/info widget** (time, GPS coordinates, speed) live as overlay — time/date ticker, `LocationProvider` (LocationManager), settings toggles, permission flow; altitude/weather/road variables still open (Twitch chat overlay already implemented in `feature-chat`) |
 | Audio Tools (levels, muting, talk-back) | 📋 | |
 | Extended Protocols (RIST, WHIP) | 📋 | |
 | RTMP-Pull / Ingest (Server mode) | 📋 | Community request #407; Moblin offers ingests (RTMP, SRT(LA), RIST, RTSP, WHIP) |

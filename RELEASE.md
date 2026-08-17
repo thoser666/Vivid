@@ -18,7 +18,7 @@ Welche offenen PARITY-Punkte in welcher Version released werden — Zählerstand
 | Version | Inhalt (PARITY-Punkte) | ✅ nach Release | Gate |
 |---------|------------------------|-----------------|------|
 | `v0.4.x-alpha` | (läuft bereits — aktuell `v0.4.2-alpha`, enthält den Scroll-Fix) | 17 | alpha-Gate aktiv |
-| `v0.3.0-beta` | **Chat & Moderation (4):** Plattform-Chat, Emotes, Moderation/Chat-Bot/TTS, Media-Player-Bot · **erstes Overlay:** Text-/Info-Widgets (Sensor-/GPS-Daten) · **Vivid-Zusatz:** KI-Chat-Bot (LLM-Antworten, bereits in alpha implementiert) | **21** | **Beta-Gate** (Chat + ≥1 Widget + ≥17 ✅) · Stand 17/17 — offen: erstes Widget + Chat-✅ formal |
+| `v0.5.0-beta` | **Chat & Moderation (4):** Plattform-Chat, Emotes, Moderation/Chat-Bot/TTS, Media-Player-Bot · **erstes Overlay:** Text-/Info-Widgets (Sensor-/GPS-Daten) · **Vivid-Zusatz:** KI-Chat-Bot (LLM-Antworten, bereits in alpha implementiert) | **21** | **Beta-Gate 3/3 erreicht** (≥17 ✅ · Chat-✅ Twitch-Scope · ≥1 Widget ✅) — offen nur noch: Play-Unterlagen + ≥2 Tester · versionCode 5002 (über 0.5.0-alpha/5001) |
 | `v0.4.0-beta` | **Overlays & Widgets (5):** Chat-Overlay/Event-Alerts, Text-Widget-Variablen, Karten-Widget, Browser-Widget, Scoreboards | **26** | Beta #2 |
 | `v0.5.0-beta` | **Kamera & Video (4):** Color-Spaces/3D-LUTs, Video-Effekte, Externes Zubehör, Photo-Shoot · **Audio (3):** Mic-Verwaltung, Level-Meter/Muting/Sync, Talk-Back · Oura-Ring-Widget | **34** | Beta #3 |
 | `v0.6.0-beta` | **Streaming-Erweiterung (5):** RIST, WHIP, RTMP-Pull/Ingest, 4K/HEVC, SRTLA-Bonding · OBS Snapshot/Audio-Levels · Game-Controller, Deep-Linking/Konfig-Import | **42** | Beta #4 |
@@ -26,21 +26,66 @@ Welche offenen PARITY-Punkte in welcher Version released werden — Zählerstand
 
 > **Pflege:** Bei jeder Änderung an PARITY.md prüfen — neue Features wandern in den nächsten passenden Versions-Bucket; die Grenzen sind flexibel (ein Feature darf vorziehen, wenn es erst das Gate der nächsten Version schließbar macht).
 
+## 📡 Remote-Steuerung (Post-Beta-Plan)
+
+Zielbild: **Screens und Widgets von außen konfigurieren** — der Streamer bleibt am Gerät, während Kamera/Vorschau laufen, und ändert Settings, Widget-Position/-Felder und Stream-Status über eine zweite Oberfläche („alternative zur Konfiguration innerhalb von Vivid“). Basis ist die **bestehende Web-Remote-Control** (PARITY Row 116): Ktor-LAN-Server auf Port 8080 mit Token-Auth, heute `GET /status` + `POST /start|stop`. Der Plan ist bewusst **Post-Beta** (nach dem ersten `v0.5.0-beta`-Tag), damit die lokale Settings-API erst stabil ist.
+
+**Ist-Zustand (heute):**
+
+| Endpunkt | Auth | Zweck |
+|---|---|---|
+| `GET /status` | öffentlich | Stream-Status als JSON |
+| `POST /start` · `POST /stop` | Bearer-Token | Stream mit gespeicherten Einstellungen starten/stoppen |
+
+> Token liegt in DataStore (`RemoteControlTokenStore`), wird in den Settings angezeigt; Android 17 (`targetSdk 37`) braucht die `ACCESS_LOCAL_NETWORK`-Runtime-Berechtigung (im Settings-Screen erfragbar, Server-Neustart nach Erteilung).
+
+**Option A — Config-Endpunkte + Web-UI (empfohlen, kein zweites APK):**
+
+Der bestehende Server wird um **Konfigurations-Endpunkte** erweitert (gleiche Token-Auth, LAN-only) und liefert eine **schlanke Web-UI als statische Assets** (PWA-fähig, im Browser auf dem Zweitgerät):
+
+| Neuer Endpunkt | Zweck |
+|---|---|
+| `GET /settings` | komplette Einstellungen als JSON (ohne Secrets — API-Key/Tokens nur maskiert) |
+| `PUT /settings` (Teil-Update, JSON-Patch-artig) | z. B. `{ "widgetEnabled": true, "widgetShowSpeed": false }`, `{ "streamUrl": … }` |
+| `GET /widgets` | aktuelle Widget-Konfiguration (Position, sichtbare Felder) |
+| `PUT /widgets` | Widget-Felder/Position ändern |
+| `GET /status` · `POST /start` · `POST /stop` | (existiert bereits) |
+
+- **Single Source of Truth bleibt das lokale DataStore:** Der Server schreibt ausschließlich über `SettingsRepository` (validierte Werte) — kein paralleler Config-Speicher.
+- **Web-UI-Scope v1:** Status-Karte, Start/Stop, Settings-Formular (Stream, OBS, Chat, Chat-Bot, Widgets), Widget-Preview-Platzhalter; PWA-fähig (Offline-Startseite, installierbar) — kein Play-Listing, keine zweite Signierung, keine separate Distribution nötig.
+- **Aufwand:** klein–mittel (Server-Endpunkte + eine HTML/JS-Seite; die Domain-Logik liegt bereits in `SettingsRepository`).
+
+**Option B — Companion-APK (eigenes Projekt, später):**
+
+Eine native **„vivid-companion“**-App (eigenes Repo/Modul, getrennt versioniert, eigene Signierung + Distribution) nutzt **dieselbe LAN-API** aus Option A und bietet native UI, Live-Vorschau und später Wear-OS. **Wann sinnvoll:** erst wenn die Web-UI an Grenzen stößt (Live-Preview-Latenz, Offline-Use, Haptik) — die API-Stabilität von Option A ist die Voraussetzung, nicht umgekehrt.
+
+**Option C — Wear-OS-Tile (langfristig):** Moblin-Row 119 („Wear-OS-Pendant separat bewerten“) — Start/Stop + Status vom Handgelenk; setzt die stabile Remote-API (Option A/B) voraus.
+
+**Sicherheits-Prinzipien (gelten für alle Optionen):**
+
+1. **LAN-only, kein Internet-Relay** — bewusst kein Fernzugriff über das Internet (siehe PARITY Row 116); ein Relay-Server wäre ein eigener Wunsch außerhalb der Moblin-Parität.
+2. **Token-Auth für jeden Schreib-Endpunkt** (Bearer-Token aus DataStore); `GET /status` bleibt öffentlich (nur Status, keine Secrets).
+3. **Keine Secrets im Response:** API-Key, OAuth-Token, Stream-Key, Passwörter werden nie als Klartext ausgeliefert (nur maskiert/„gesetzt“-Flag); Schreibzugriffe auf Secret-Felder nur mit neuem Wert.
+4. **Validierung serverseitig** (gleiche Regeln wie der Settings-Screen: numerische Felder, URL-Formate) — fehlerhafte Puts lehnt der Server ab, bevor DataStore berührt wird.
+5. **Änderungen sofort wirksam** (Flows in `SettingsRepository`), Konflikte mit gleichzeitiger In-App-Bearbeitung: Letzter-Schreiber-gewinnt (bewusst einfach; ein Lock wäre Over-Engineering fürs LAN).
+
+**Reihenfolge im Release-Plan:** Option A frühestens nach dem ersten Beta-Tag (`v0.5.0-beta`), ideal als Bestandteil von Beta #2/#3 (`v0.4.0-beta`-Bucket „Overlays & Widgets“ passt inhaltlich); Option B erst nach stabiler Option-A-API; Wear-OS (Option C) danach separat bewerten.
+
 ## 🧪 Erster Beta-Build (Plan)
 
-Das Beta-Gate ist erreicht, wenn **alle drei** Bedingungen erfüllt sind (Stand 2026-08-16: 1/3 offen — **≥17 ✅ ist erreicht**):
+Das Beta-Gate ist erreicht, wenn **alle drei** Bedingungen erfüllt sind (Stand 2026-08-17: **0/3 offen — alle drei erfüllt**):
 
 | Bedingung | Status | Offen |
 |-----------|--------|-------|
 | ≥17 ✅ in PARITY.md | ✅ **17/17** (Row 80 „Media-Player-Steuerung“ als 17. ✅) | — |
-| Chat-✅ | Twitch-IRC + Chat-Overlay + **KI-Chat-Bot** laufen (45 Tests) | formal: Scope auf „Twitch-Chat“ (Row 77) oder Event-Alerts (Row 86) |
-| ≥1 Widget | 0/5 begonnen | Text-/Info-Widgets (Zeit/GPS/Geschwindigkeit/Höhenmeter) in `feature-widgets` (Modul existiert als Gerüst) |
+| Chat-✅ | ✅ **Twitch-Scope** (PARITY Row 77): Twitch-IRC + Chat-Overlay + **KI-Chat-Bot** laufen | Post-Beta: Kick/YouTube/SOOP, OAuth-Login (Senden/Moderation) |
+| ≥1 Widget | ✅ **1/5 begonnen** — Text-/Info-Widget (Zeit/GPS/Geschwindigkeit) läuft (PARITY Row 87, 14 Tests) | Wetter (externer Dienst), Höhenmeter |
 
 **Ablauf nach Erreichen des Gates:**
 
 1. `fastlane release_beta` implementiert (2026-08-15) — Spiegel von `release_alpha` mit Stufe `beta` inkl. Safety-Checks (Tag-Existenz, versionCode-Monotonie in der beta-Track, Quer-Track-Downgrade-Warnung).
-2. Tag `v0.3.0-beta` erzeugen + pushen → CI baut/publiziert automatisch (Tag-Trigger `v*` ist aktiv; Signatur- und Reproduzierbarkeits-Check laufen mit).
-3. Metadaten: `versionName = 0.3.0-beta`, `versionCode = 3002` (deterministisch aus dem Tag, Stufe beta = 2).
+2. Tag `v0.5.0-beta` erzeugen + pushen → CI baut/publiziert automatisch (Tag-Trigger `v*` ist aktiv; Signatur- und Reproduzierbarkeits-Check laufen mit). Die Lane leitet den ersten Beta-Tag **automatisch vom höchsten `v*`-Tag ab** (Stufe auf `beta`): aktuell `v0.5.0-alpha` → `v0.5.0-beta`.
+3. Metadaten: `versionName = 0.5.0-beta`, `versionCode = 5002` (deterministisch aus dem Tag: `major*1_000_000 + minor*1_000 + patch*10 + Stufe`, beta = 2 → `0.5.0-beta` = 5002 — **direkt über** `0.5.0-alpha` (5001), kein Downgrade für Bestandsnutzer).
 4. QA-Rollout an Feldtester (Obtainium, Pre-Releases aktiviert); Smoke-Tests: Go-Live, Multi-Streaming, Chat-Overlay, OBS-Remote, Settings-Persistenz.
 5. Cross-Track beachten: **beta → nightly ist ein Downgrade** (deinstallieren); nightly → beta ist installierbar.
 
@@ -644,7 +689,7 @@ bundle exec fastlane release_alpha
 
 ### `beta` — 🚦 **Nächster Meilenstein**
 
-> **🧠 Erinnerung: Sobald diese Kriterien erfüllt sind → `release_beta`-Lane schreiben und ersten Beta-Tag setzen.**
+> **🧠 Status (2026-08-17): Alle Kriterien erfüllt** — die `release_beta`-Lane existiert bereits (Spiegel von `release_alpha`, Stufe beta) und leitet den ersten Beta-Tag automatisch ab: `v0.5.0-beta` (5002). Ersten Beta-Tag setzen, sobald Play-Unterlagen + ≥2 Tester stehen.
 >
 > **📋 Google Play: Vor dem ersten Beta-Release benötigst du:**
 > - Google Play Developer Account ($25 einmalig)
@@ -664,8 +709,8 @@ bundle exec fastlane release_alpha
 
 **Kriterien (alle müssen erfüllt sein):**
 - [x] ≥17 ✅ Feature-Parität in PARITY.md (17/42 ≈ 40 %)
-- [ ] Chat implementiert & getestet (🚧 in PARITY.md)
-- [ ] Mindestens ein Overlay/Widget funktioniert (🚧 in PARITY.md)
+- [x] Chat implementiert & getestet (Twitch-Scope ✅, PARITY Row 77; Kick/YouTube/OAuth Post-Beta)
+- [x] Mindestens ein Overlay/Widget funktioniert (Text-/Info-Widget Zeit/GPS/Geschwindigkeit ✅, PARITY Row 87)
 - [ ] Kamera-Vorschau stabil (🚧 in PARITY.md)
 - [ ] Settings persistent über App-Neustarts
 - [ ] Keine bekannten Showstopper-Bugs
