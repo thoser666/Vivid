@@ -484,6 +484,61 @@ Das `encrypted.zip` (nur für Google lesbar verschlüsselt) wird hochgeladen; Go
 3. Der Wechsel passiert **ohne App-Ausfall** und ohne Neuinstallationen — anders als beim Release-Key für GitHub/Obtainium
 
 
+### 🔑 Secrets für den ersten Play-Upload vorbereiten (UPLOAD_* + PLAY_JSON_KEY_*)
+
+Konkreter End-to-End-Ablauf, um **alle nötigen Secrets** für den ersten echten `publish_play`-Lauf (alpha-Track) zu beschaffen und in GitHub zu hinterlegen. Ergebnis: `gh secret list` zeigt die fünf Secrets aus Schritt D, und der Testplan unten ist 1:1 ausführbar.
+
+**Schritt A — Play-Console-Grundlagen (einmalig, ~30 min):**
+
+1. **Play-Entwicklerkonto** anlegen (https://play.google.com/console → einmalige Registrierung, 25 $) — Voraussetzung für jeden Upload
+2. **App anlegen** („App erstellen“): Name **`Vivid`**, Standardsprache, App-Typ „App“, kostenlos — neue Apps werden **automatisch in Play App Signing eingeschrieben** (App-Signing-Key generiert Google, Variante A)
+3. Notieren: der **`applicationId`** aus `app/build.gradle.kts` (z. B. `com.vivid.app`) — er muss exakt zum hochgeladenen AAB passen (sonst `403` im supply-Step)
+
+**Schritt B — Upload-Key erzeugen & in der Play Console registrieren:**
+
+1. Upload-Keystore erzeugen + base64-kodieren — **exakt** nach Abschnitt **„🔐 Play-Upload-Keystore erzeugen & UPLOAD_*-Secrets hinterlegen“** oben (Schritte 1–2)
+2. Öffentliches Zertifikat exportieren (enthält **keinen** privaten Schlüssel):
+   ```bash
+   keytool -export -rfc -keystore upload-keystore.jks -alias upload -file upload_cert.pem
+   ```
+3. Play Console → **Setup → App-Integrität → App-Signierung** → unter „Upload-Key-Zertifikat“ **„Exportieren und Upload-Key hochladen“** → `upload_cert.pem` wählen. App-Signing-Key: **Google-generiert lassen** (Variante A)
+
+**Schritt C — Service-Account + JSON-Key erzeugen (die Play-API-Credentials):**
+
+> Die `publish_play`-Lane braucht ein **Google-Dienstkonto** mit Play-Zugriff — daraus entsteht die JSON-Key-Datei, die später `PLAY_JSON_KEY_DATA` wird. Die UI-Namen beziehen sich auf die deutsche Play Console (englisch in Klammern).
+
+1. Play Console → **Setup → API-Zugang** → unter „Google Play Developer API“ auf **„Google Cloud Platform-Konsole verknüpfen“** (bzw. „API-Zugang einrichten“) → öffnet die Google Cloud Console mit dem Play-Projekt
+2. In der Google Cloud Console: **APIs & Dienste → Bibliothek** → nach **„Android Publisher API“** suchen → **aktivieren**
+3. **APIs & Dienste → Anmeldedaten → Anmeldedaten erstellen → Dienstkonto** → Name z. B. `vivid-play-publisher`, Rolle „Keine Rolle“, „Fertig“
+4. Dienstkonto öffnen → Reiter **„Schlüssel“** → **„Neuen Schlüssel hinzufügen“ → JSON** → lädt z. B. `vivid-play-publisher.json` herunter (enthält `client_email`, `private_key`, `project_id` — **nie committen**, siehe Guard unten)
+5. Zurück in der Play Console → **Setup → API-Zugang** → beim Dienstkonto **„Zugriff gewähren“** → Rolle **„Releasemanager“** (engl. „Release manager“) — die **minimale** Rolle für `supply`-Uploads (nur „Releases verwalten“, keine Finanz-/Nutzerrechte)
+6. Kurzer Smoke-Check der Datei: `head -5 vivid-play-publisher.json` → `client_email` muss auf die Play-Console-App verweisen (gleiche E-Mail wie unter API-Zugang)
+
+**Schritt D — GitHub-Secrets hinterlegen (5 Secrets, exakte Befehle):**
+
+Repo → **Settings → Secrets and variables → Actions → New repository secret**, oder komfortabel per `gh` (Werte werden interaktiv bzw. via Pipeline eingelesen):
+
+```bash
+gh secret set UPLOAD_KEYSTORE_BASE64        # ← base64-Zeile aus Schritt B.1 (eine Zeile, ohne Umbruch)
+gh secret set UPLOAD_KEYSTORE_PASSWORD      # ← Store-Passwort des Upload-Keystores
+gh secret set UPLOAD_KEY_ALIAS              # ← upload
+gh secret set UPLOAD_KEY_PASSWORD           # ← Key-Passwort (bei jks ggf. ≠ Store-Passwort)
+gh secret set PLAY_JSON_KEY_DATA            # ← kompletten Inhalt von vivid-play-publisher.json einfügen (mehrzeilig OK)
+gh secret list                              # Kontrolle: alle fünf Namen sichtbar (Werte nie)
+```
+
+> **`PLAY_JSON_KEY_FILE` vs. `PLAY_JSON_KEY_DATA`:** Für **CI** immer **`PLAY_JSON_KEY_DATA`** — die Lane übergibt den Inhalt direkt an `supply(json_key:)`. `PLAY_JSON_KEY_FILE` (Pfad) ist nur für **lokale** Läufe gedacht (dort kann fastlane die Datei lesen); im CI würde der Pfad auf dem Runner nicht existieren. Genau **eines** von beiden reicht — sind beide leer, bricht die Lane im Step 1/6 ab (auch ohne `dry_run`).
+
+**Schritt E — Verifikation (bevor irgendetwas hochgeladen wird):**
+
+1. `bash scripts/guard_secrets.sh` → `✅ [guard] Keine Keystores oder Klartext-Secrets gefunden.` (Guard blockt u. a. `upload-keystore.jks`, `upload_cert.pem`, `play-credentials.json`, `fastlane/.env.play` und `*.b64`)
+2. `gh secret list` zeigt **alle fünf** Namen (Schritt D) — fehlt einer, schlägt der CI-Job bereits bei „Decode Upload Keystore“ fehl (bekanntes Fehlerbild, siehe Testplan)
+3. **Dry-Run** per `workflow_dispatch` mit `-f dry_run=true` (Testplan Schritt 3) → baut + verifiziert, verbraucht **keinen** `version_code` und berührt Play nicht
+4. Erst wenn der Dry-Run grün ist: echter Upload (Testplan Schritt 3 ohne `dry_run`)
+
+**💡 Reihenfolge-Zusammenfassung:** A (Konto+App) → B (Keystore+Console) → C (Service-Account+JSON) → D (Secrets) → E (Guard+Dry-Run) → Testplan Schritt 3–6 (echter Upload).
+
+
 ### 🧪 Testplan: Erster Play-Upload (alpha-Track)
 
 Konkreter, ausführbarer Ablauf für den **ersten** Upload in die Play Console (Track `alpha`) — Ziel: ein mit dem Upload-Key signiertes AAB hochladen und als Alpha-Release verifizieren, ohne `beta`/`stable` zu berühren (siehe Stage Gates).
