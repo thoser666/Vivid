@@ -1196,7 +1196,42 @@ class ChatBotEngineTest {
     }
 
     @Test
-    fun `owner diagnose without owner llm sends the deterministic summary`() = runTest {
+    fun `owner diagnose without owner llm falls back to the viewer llm`() = runTest {
+        val control = mockk<ChatStreamControl> {
+            coEvery { start() } just Runs
+            every { stop() } just Runs
+            coEvery { diagnostics() } returns StreamDiagnostics(
+                status = ChatStreamStatus.Streaming,
+                obsConnected = false,
+                checks = listOf(
+                    DiagnosticCheck("Stream-URL (primär)", ok = true),
+                    DiagnosticCheck("OBS verbunden", ok = false),
+                ),
+            )
+        }
+        val engine = engine(streamControl = control)
+        val sent = slot<String>()
+        val messagesArg = slot<List<LlmMessage>>()
+        coEvery { llm.complete(any(), capture(messagesArg)) } returns "Empfehlung vom Viewer-LLM"
+        coEvery { sender.send(capture(sent)) } just Runs
+
+        engine.start(messages, config(ownerLogins = setOf("streamer2")), sender, this)
+        messages.emit(chatMessage("!diag", login = "streamer2"))
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { control.diagnostics() }
+        coVerify(exactly = 1) { llm.complete(any(), any()) }
+        // Die Antwort zeigt die KI-Quelle an (Viewer-KI als Fallback).
+        assertTrue(sent.captured.contains("Empfehlung vom Viewer-LLM"))
+        assertTrue(sent.captured.contains("Auswertung durch: Viewer-KI (Fallback)"))
+        // Auch im Fallback bekommt die KI den Owner-Kontext (Fact-Sheet).
+        val user = messagesArg.captured.first { it.role == LlmMessage.ROLE_USER }
+        assertTrue(user.content.contains("Führe eine Diagnose des Streams durch"))
+        engine.stop()
+    }
+
+    @Test
+    fun `owner diagnose without any llm sends the deterministic summary`() = runTest {
         val control = mockk<ChatStreamControl> {
             coEvery { start() } just Runs
             every { stop() } just Runs
@@ -1213,7 +1248,13 @@ class ChatBotEngineTest {
         val sent = slot<String>()
         coEvery { sender.send(capture(sent)) } just Runs
 
-        engine.start(messages, config(ownerLogins = setOf("streamer2")), sender, this)
+        // COMMAND-Modus + kein LLM → gar keine KI vorhanden → Checkliste direkt.
+        engine.start(
+            messages,
+            config(ownerLogins = setOf("streamer2"), mode = ChatBotMode.COMMAND, apiKey = ""),
+            sender,
+            this,
+        )
         messages.emit(chatMessage("!diag", login = "streamer2"))
         advanceUntilIdle()
 
@@ -1223,6 +1264,8 @@ class ChatBotEngineTest {
         assertTrue(sent.captured.contains("OBS: ⚠️"))
         assertTrue(sent.captured.contains("Offene Punkte"))
         assertTrue(sent.captured.contains("OBS verbunden"))
+        // Die Quelle ist auch ohne KI ausgewiesen (deterministisch).
+        assertTrue(sent.captured.contains("Auswertung durch: deterministisch (keine KI konfiguriert)"))
         engine.stop()
     }
 
@@ -1254,7 +1297,9 @@ class ChatBotEngineTest {
         val user = messagesArg.captured.first { it.role == LlmMessage.ROLE_USER }
         assertTrue(user.content.contains("stream_status=idle"))
         assertTrue(user.content.contains("check:Stream-URL (primär)=ok"))
-        assertEquals("Empfehlung: Alles gut ✅", sent.captured)
+        // Die Antwort zeigt die KI-Quelle an (eigene Owner-KI).
+        assertTrue(sent.captured.contains("Empfehlung: Alles gut ✅"))
+        assertTrue(sent.captured.contains("Auswertung durch: eigene Owner-KI (exklusiv)"))
         engine.stop()
     }
 
@@ -1281,18 +1326,44 @@ class ChatBotEngineTest {
         advanceUntilIdle()
 
         assertTrue(sent.captured.contains("Stream:"))
-        assertTrue(sent.captured.contains("Owner-KI fehlgeschlagen"))
+        assertTrue(sent.captured.contains("KI-Auswertung fehlgeschlagen"))
         assertEquals(ChatBotState.Idle, engine.state.value)
         engine.stop()
     }
 
     @Test
-    fun `owner ask without owner llm shows the configuration hint`() = runTest {
+    fun `owner ask without owner llm falls back to the viewer llm`() = runTest {
+        val engine = engine()
+        val sent = slot<String>()
+        val messagesArg = slot<List<LlmMessage>>()
+        coEvery { llm.complete(any(), capture(messagesArg)) } returns "Antwort vom Viewer-LLM"
+        coEvery { sender.send(capture(sent)) } just Runs
+
+        engine.start(messages, config(ownerLogins = setOf("streamer2")), sender, this)
+        messages.emit(chatMessage("!ask warum stockt der Stream?", login = "streamer2"))
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { llm.complete(any(), any()) }
+        assertEquals("Antwort vom Viewer-LLM", sent.captured)
+        // Der Fallback läuft über den Owner-Kontext (Fact-Sheet + Frage).
+        val user = messagesArg.captured.first { it.role == LlmMessage.ROLE_USER }
+        assertTrue(user.content.contains("warum stockt der Stream?"))
+        engine.stop()
+    }
+
+    @Test
+    fun `owner ask without any llm shows the configuration hint`() = runTest {
         val engine = engine()
         val sent = slot<String>()
         coEvery { sender.send(capture(sent)) } just Runs
 
-        engine.start(messages, config(ownerLogins = setOf("streamer2")), sender, this)
+        // COMMAND-Modus + kein LLM → gar keine KI vorhanden → Konfigurations-Hinweis.
+        engine.start(
+            messages,
+            config(ownerLogins = setOf("streamer2"), mode = ChatBotMode.COMMAND, apiKey = ""),
+            sender,
+            this,
+        )
         messages.emit(chatMessage("!ask warum stockt der Stream?", login = "streamer2"))
         advanceUntilIdle()
 

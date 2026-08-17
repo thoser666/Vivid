@@ -2,6 +2,7 @@ package com.vivid.feature.chat.bot
 
 import com.vivid.core.data.ChatBotMode
 import com.vivid.feature.chat.ai.LlmClient
+import com.vivid.feature.chat.ai.LlmConfig
 import com.vivid.feature.chat.ai.LlmMessage
 import com.vivid.feature.chat.media.ChatMediaPlayer
 import com.vivid.feature.chat.model.ChatMessage
@@ -335,8 +336,9 @@ class ChatBotEngine @Inject constructor(
     }
 
     /**
-     * `!diag`: Diagnose-Fact-Sheet deterministisch sammeln; mit konfigurierter
-     * Owner-KI → Bewertung + Empfehlungen, sonst die Checkliste direkt.
+     * `!diag`: Diagnose-Fact-Sheet deterministisch sammeln; Bewertung + Empfehlungen
+     * kommen von der **Owner-KI**, ohne eigene Owner-KI als **Fallback von der
+     * Viewer-KI**; nur wenn gar keine KI konfiguriert ist, die Checkliste direkt.
      */
     private suspend fun handleOwnerDiagnose(cfg: ChatBotConfig, message: ChatMessage, snd: ChatSender) {
         if (!isOwner(cfg, message)) {
@@ -345,23 +347,57 @@ class ChatBotEngine @Inject constructor(
         }
         if (rateLimited(cfg)) return
         val diagnostics = streamControl.diagnostics()
-        if (!cfg.isOwnerLlmReady) {
-            sendOwnerReply(cfg, snd, message, diagnostics.summary())
+        val llm = ownerLlm(cfg)
+        val sourceLine = ownerLlmSourceLine(cfg, llm)
+        if (llm == null) {
+            sendOwnerReply(
+                cfg,
+                snd,
+                message,
+                appendSourceLine(diagnostics.summary(), sourceLine, cfg),
+            )
             return
         }
         _state.value = ChatBotState.Thinking
         try {
-            val reply = llmClient.complete(cfg.ownerLlm, ownerDiagnoseConversation(cfg, diagnostics))
+            val reply = llmClient.complete(llm, ownerDiagnoseConversation(cfg, diagnostics))
             val trimmed = trimReply(reply, cfg)
             if (trimmed.isEmpty() || trimmed.equals(NO_REPLY_MARKER, ignoreCase = true)) return
-            sendOwnerReply(cfg, snd, message, trimmed)
+            sendOwnerReply(cfg, snd, message, appendSourceLine(trimmed, sourceLine, cfg))
         } catch (e: Exception) {
             _logs.tryEmit("Owner-Diagnose fehlgeschlagen: ${e.message}")
-            // Die deterministische Checkliste kommt trotzdem durch.
-            sendOwnerReply(cfg, snd, message, diagnostics.summary() + "\n\n(Owner-KI fehlgeschlagen: ${e.message})")
+            // Die deterministische Checkliste kommt trotzdem durch — mit
+            // Quellen-Zeile, damit sichtbar ist, welche KI ausgefallen ist.
+            val note = diagnostics.summary() + " (KI-Auswertung fehlgeschlagen: ${e.message})"
+            sendOwnerReply(cfg, snd, message, appendSourceLine(note, sourceLine, cfg))
         } finally {
             _state.value = ChatBotState.Idle
         }
+    }
+
+    /**
+     * Quellen-Zeile für die `!diag`-Ausgabe: zeigt an, welche KI geantwortet
+     * hat (eigene Owner-KI, Viewer-KI als Fallback oder deterministisch).
+     */
+    private fun ownerLlmSourceLine(cfg: ChatBotConfig, llm: LlmConfig?): String {
+        val source = when {
+            llm == null -> "deterministisch (keine KI konfiguriert)"
+            cfg.isOwnerLlmReady -> "eigene Owner-KI (exklusiv)"
+            else -> "Viewer-KI (Fallback)"
+        }
+        return "🤖 Auswertung durch: $source"
+    }
+
+    /**
+     * Hängt die Quellen-Zeile an [text] an und hält das Gesamtlimit ein — der
+     * Platz für die Zeile wird reserviert, damit sie nie abgeschnitten wird.
+     */
+    private fun appendSourceLine(text: String, sourceLine: String, cfg: ChatBotConfig): String {
+        val maxTotal = cfg.maxReplyLength
+        val combined = "$text\n\n$sourceLine"
+        if (combined.length <= maxTotal) return combined
+        val budget = (maxTotal - sourceLine.length - 2).coerceAtLeast(0)
+        return "${text.take(budget).trimEnd()}\n\n$sourceLine"
     }
 
     /** `!ask <frage>`: Frage an die Owner-KI, mit aktuellem Stream-Zustand als Kontext. */
@@ -380,24 +416,36 @@ class ChatBotEngine @Inject constructor(
             sendOwnerReply(cfg, snd, message, OWNER_ASK_EMPTY_TEXT)
             return
         }
-        if (!cfg.isOwnerLlmReady) {
+        val llm = ownerLlm(cfg)
+        if (llm == null) {
             sendOwnerReply(cfg, snd, message, OWNER_LLM_NOT_CONFIGURED_TEXT)
             return
         }
         _state.value = ChatBotState.Thinking
         try {
             val diagnostics = streamControl.diagnostics()
-            val reply = llmClient.complete(cfg.ownerLlm, ownerAskConversation(cfg, text, diagnostics))
+            val reply = llmClient.complete(llm, ownerAskConversation(cfg, text, diagnostics))
             val trimmed = trimReply(reply, cfg)
             if (trimmed.isEmpty() || trimmed.equals(NO_REPLY_MARKER, ignoreCase = true)) return
             sendOwnerReply(cfg, snd, message, trimmed)
         } catch (e: Exception) {
             _logs.tryEmit("Owner-Frage fehlgeschlagen: ${e.message}")
-            sendOwnerReply(cfg, snd, message, "❌ Owner-KI fehlgeschlagen: ${e.message}")
+            sendOwnerReply(cfg, snd, message, "❌ KI-Auswertung fehlgeschlagen: ${e.message}")
         } finally {
             _state.value = ChatBotState.Idle
         }
     }
+
+    /**
+     * KI für die Owner-Befehle: bevorzugt die **exklusive Owner-KI**
+     * ([ChatBotConfig.ownerLlm]) — ein Endpunkt, der nur für die Streamer-
+     * Befehle (`!start`/`!stop`/`!diag`/`!ask`) erreichbar ist. Ist keine
+     * eigene Owner-KI hinterlegt, fällt der Befehl auf die **Viewer-KI**
+     * ([ChatBotConfig.llm]) zurück. null nur, wenn gar keine KI konfiguriert
+     * ist (z. B. COMMAND-Modus) — dann greifen die deterministischen Fallbacks.
+     */
+    private fun ownerLlm(cfg: ChatBotConfig): LlmConfig? =
+        if (cfg.isOwnerLlmReady) cfg.ownerLlm else if (cfg.llm.isConfigured) cfg.llm else null
 
     /** Kürzt eine Antwort auf das konfigurierte Maximum (wie die Viewer-Antworten). */
     private fun trimReply(reply: String, cfg: ChatBotConfig): String =
@@ -645,7 +693,7 @@ class ChatBotEngine @Inject constructor(
         internal const val OWNER_ONLY_TEXT = "⚠️ Dieser Befehl ist nur für den Streamer."
         internal const val OWNER_ASK_EMPTY_TEXT = "Bitte gib eine Frage an: !ask <frage>"
         internal const val OWNER_LLM_NOT_CONFIGURED_TEXT =
-            "⚠️ Owner-KI nicht konfiguriert — in den Einstellungen Owner-LLM-Endpunkt, -Key und -Modell hinterlegen."
+            "⚠️ Keine KI konfiguriert — !ask/!diag brauchen einen LLM-Endpunkt (eigene Owner-KI oder Fallback: die normale Bot-KI)."
         internal const val STREAM_START_TEXT = "▶️ Stream wird gestartet…"
         internal const val STREAM_STOP_TEXT = "⏹ Stream wird gestoppt."
 

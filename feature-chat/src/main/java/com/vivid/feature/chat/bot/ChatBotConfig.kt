@@ -36,9 +36,12 @@ data class ChatBotConfig(
     // Logins (normalisiert, ohne '@'), die zusätzlich zum Broadcaster als
     // „Owner" gelten und die Owner-Befehle !start/!stop/!diag/!ask nutzen dürfen.
     val ownerLogins: Set<String> = emptySet(),
-    // Separater, leistungsfähigerer LLM-Endpunkt für Owner-Befehle. Leer =
-    // Owner-KI nicht konfiguriert (!diag liefert dann die deterministische
-    // Checkliste, !ask einen Konfigurations-Hinweis).
+    // Separater LLM-Endpunkt, der **exklusiv** für die Owner-Befehle
+    // (!start/!stop/!diag/!ask) erreichbar ist — z. B. ein leistungsfähigeres
+    // oder eigenes Modell-Konto des Streamers. Leer = keine eigene Owner-KI:
+    // die Owner-Befehle fallen dann auf die Viewer-KI ([llm]) zurück; nur wenn
+    // auch die nicht konfiguriert ist, liefert !diag die deterministische
+    // Checkliste und !ask einen Konfigurations-Hinweis.
     val ownerLlm: LlmConfig = LlmConfig(baseUrl = "", apiKey = "", model = ""),
     // Owner-Antworten privat per Twitch-Whisper statt öffentlich in den Chat
     // senden (Standard: an). Dafür muss der Bot-Token den Scope

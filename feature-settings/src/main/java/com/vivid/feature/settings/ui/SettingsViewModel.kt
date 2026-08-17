@@ -29,6 +29,30 @@ data class RemoteControlInfo(
     val token: String = "",
 )
 
+/**
+ * KI-Quelle, die die Owner-Befehle (!start/!stop/!diag/!ask) aktuell nutzen
+ * (Anzeige im Settings-Screen). Spiegelt die Engine-Auswahl
+ * (`ChatBotEngine.ownerLlm`): eigene Owner-KI bevorzugt, sonst Viewer-KI als
+ * Fallback, sonst deterministisch (Checkliste/Hinweis).
+ */
+enum class OwnerLlmSource(
+    val label: String,
+    val description: String,
+) {
+    OWNER(
+        label = "eigene Owner-KI (exklusiv)",
+        description = "!ask/!diag laufen über den hinterlegten Owner-LLM-Endpunkt — Viewer-Nachrichten erreichen ihn nie.",
+    ),
+    VIEWER_FALLBACK(
+        label = "Viewer-KI (Fallback)",
+        description = "Keine eigene Owner-KI hinterlegt — die Befehle nutzen die normale Bot-KI mit dem Owner-Kontext.",
+    ),
+    DETERMINISTIC(
+        label = "deterministisch (ohne KI)",
+        description = "Weder Owner- noch Viewer-KI konfiguriert — !diag liefert die Checkliste direkt, !ask einen Hinweis.",
+    ),
+}
+
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
@@ -53,6 +77,24 @@ class SettingsViewModel @Inject constructor(
 
     /** Live-Zählerstand des Chat-Bots (Antworten/Std, Budget, Top-Viewer). */
     val botUsage: StateFlow<ChatBotUsage> = chatBotEngine.usage
+
+    /**
+     * Aktive KI-Quelle der Owner-Befehle, abgeleitet aus den aktuellen
+     * Settings — identische Logik wie die Engine (`ChatBotEngine.ownerLlm`):
+     * eigene Owner-KI (alle 3 Felder) → Viewer-KI (Fallback) → deterministisch.
+     */
+    val ownerLlmSource: OwnerLlmSource
+        get() {
+            val settings = _uiState.value
+            val ownerReady = settings.chatBotOwnerLlmBaseUrl.isNotBlank() &&
+                settings.chatBotOwnerLlmApiKey.isNotBlank() &&
+                settings.chatBotOwnerLlmModel.isNotBlank()
+            if (ownerReady) return OwnerLlmSource.OWNER
+            val viewerReady = settings.chatBotApiBaseUrl.isNotBlank() &&
+                settings.chatBotApiKey.isNotBlank() &&
+                settings.chatBotModel.isNotBlank()
+            return if (viewerReady) OwnerLlmSource.VIEWER_FALLBACK else OwnerLlmSource.DETERMINISTIC
+        }
 
     /** Version, für die der letzte Check lief — verhindert Mehrfach-Checks pro Screen-Öffnung. */
     private var lastCheckedVersion: String? = null

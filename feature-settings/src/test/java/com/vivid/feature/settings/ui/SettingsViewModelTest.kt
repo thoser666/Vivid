@@ -579,6 +579,41 @@ class SettingsViewModelTest {
     }
 
     @Test
+    fun `ownerLlmSource is OWNER when all three owner llm fields are set`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onChatBotOwnerLlmBaseUrlChange("https://owner.example")
+        viewModel.onChatBotOwnerLlmApiKeyChange("sk-owner")
+        viewModel.onChatBotOwnerLlmModelChange("claude-4")
+
+        assertEquals(OwnerLlmSource.OWNER, viewModel.ownerLlmSource)
+    }
+
+    @Test
+    fun `ownerLlmSource falls back to the viewer llm when no owner llm is set`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onChatBotApiBaseUrlChange("https://llm.example")
+        viewModel.onChatBotApiKeyChange("sk-secret")
+        viewModel.onChatBotModelChange("my-model")
+
+        assertEquals(OwnerLlmSource.VIEWER_FALLBACK, viewModel.ownerLlmSource)
+    }
+
+    @Test
+    fun `ownerLlmSource is DETERMINISTIC when no llm is configured at all`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        assertEquals(OwnerLlmSource.DETERMINISTIC, viewModel.ownerLlmSource)
+    }
+
+    @Test
     fun `botUsage forwards the engine usage state`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val engine = mockk<ChatBotEngine> {

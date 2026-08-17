@@ -35,6 +35,9 @@ class AppChatStreamControlTest {
     private suspend fun whisperCheck(settings: AppSettings): DiagnosticCheck =
         control(settings).diagnostics().checks.first { it.label == "Whisper (privater Antwortweg)" }
 
+    private suspend fun ownerLlmSourceCheck(settings: AppSettings): DiagnosticCheck =
+        control(settings).diagnostics().checks.first { it.label == "Owner-KI-Quelle" }
+
     private val baseSettings = AppSettings(
         chatBotOwnerWhisperReplies = true,
         chatBotTwitchClientId = "client-abc",
@@ -90,5 +93,55 @@ class AppChatStreamControlTest {
         assertTrue(diagnostics.checks.any { it.label == "Whisper (privater Antwortweg)" })
         // Das Fact-Sheet (für !ask/!diag mit Owner-KI) listet alle Checks.
         assertTrue(diagnostics.factSheet().contains("check:Whisper (privater Antwortweg)=ok"))
+    }
+
+    @Test
+    fun `owner ki source ok with the exclusive owner llm`() = runTest {
+        val check = ownerLlmSourceCheck(
+            baseSettings.copy(
+                chatBotOwnerLlmBaseUrl = "https://owner.example",
+                chatBotOwnerLlmApiKey = "sk-owner",
+                chatBotOwnerLlmModel = "claude-4",
+            ),
+        )
+        assertTrue(check.detail, check.ok)
+        assertTrue(check.detail, check.detail.contains("eigene Owner-KI (exklusiv)"))
+    }
+
+    @Test
+    fun `owner ki source ok with the viewer llm as fallback`() = runTest {
+        val check = ownerLlmSourceCheck(
+            baseSettings.copy(
+                chatBotApiBaseUrl = "https://llm.example",
+                chatBotApiKey = "sk-secret",
+                chatBotModel = "my-model",
+            ),
+        )
+        assertTrue(check.detail, check.ok)
+        assertTrue(check.detail, check.detail.contains("Viewer-KI (Fallback)"))
+    }
+
+    @Test
+    fun `owner ki source is missing when no llm is configured at all`() = runTest {
+        val check = ownerLlmSourceCheck(baseSettings)
+        assertFalse(check.ok)
+        assertTrue(check.detail, check.detail.contains("deterministisch"))
+    }
+
+    @Test
+    fun `diagnostics exposes the owner ki source check to the owner ki`() = runTest {
+        val diagnostics = control(baseSettings).diagnostics()
+        assertTrue(diagnostics.checks.any { it.label == "Owner-KI-Quelle" })
+        // Ohne jede KI ist der Check im Fact-Sheet offen (MISSING).
+        assertTrue(diagnostics.factSheet().contains("check:Owner-KI-Quelle=MISSING"))
+        // Mit Owner-KI ist er ok.
+        val okDiagnostics = control(
+            baseSettings.copy(
+                chatBotOwnerLlmBaseUrl = "https://owner.example",
+                chatBotOwnerLlmApiKey = "sk-owner",
+                chatBotOwnerLlmModel = "claude-4",
+            ),
+        ).diagnostics()
+        assertTrue(okDiagnostics.factSheet().contains("check:Owner-KI-Quelle=ok"))
     }
 }

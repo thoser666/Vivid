@@ -66,8 +66,10 @@ data class AppSettings(
     // Owner-Befehle !start/!stop/!diag/!ask nutzen dürfen. Der Kanal-Inhaber
     // (Broadcaster-Badge) ist zusätzlich immer Owner. Leer = nur Broadcaster.
     val chatBotOwnerLogins: String = "",
-    // Separater, leistungsfähigerer LLM-Endpunkt für Owner-Befehle (z. B. !ask,
-    // Diagnose mit Empfehlungen). Leer = Owner-KI nicht konfiguriert.
+    // Separater LLM-Endpunkt, exklusiv für Owner-Befehle (z. B. !ask, Diagnose
+    // mit Empfehlungen). Leer = keine eigene Owner-KI → Fallback auf die
+    // Viewer-KI; nur wenn auch die fehlt, liefern die Befehle deterministische
+    // Antworten (Checkliste/Hinweis).
     val chatBotOwnerLlmBaseUrl: String = "",
     val chatBotOwnerLlmApiKey: String = "",
     val chatBotOwnerLlmModel: String = "",

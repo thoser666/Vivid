@@ -19,7 +19,9 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -541,7 +543,7 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth(),
             )
             Text(
-                text = "Owner-KI (optional, leistungsfähigeres Modell): !ask und die Diagnose-Empfehlungen von !diag laufen über diesen Endpunkt. Ohne Konfiguration liefert !diag die Checkliste direkt und !ask einen Hinweis.",
+                text = "Owner-KI (optional, exklusiv für Streamer-Befehle): !ask und die Diagnose-Empfehlungen von !diag laufen über diesen Endpunkt. Ohne eigene Owner-KI fallen die Befehle als Fallback auf die normale Bot-KI zurück (nur wenn auch die fehlt, liefert !diag die Checkliste direkt und !ask einen Hinweis).",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -564,6 +566,26 @@ fun SettingsScreen(
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
+            // Aktive KI-Quelle der Owner-Befehle (abgeleitet — identische
+            // Auswahl wie die Engine: eigene Owner-KI → Viewer-KI → deterministisch).
+            val ownerLlmSource = viewModel.ownerLlmSource
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = "KI-Quelle für Owner-Befehle: ${ownerLlmSource.label}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = when (ownerLlmSource) {
+                        OwnerLlmSource.OWNER -> Color(0xFF43A047) // grün: exklusive Owner-KI aktiv
+                        OwnerLlmSource.VIEWER_FALLBACK -> Color(0xFFF57C00) // amber: Viewer-KI als Fallback
+                        OwnerLlmSource.DETERMINISTIC -> MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                )
+                Text(
+                    text = ownerLlmSource.description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,

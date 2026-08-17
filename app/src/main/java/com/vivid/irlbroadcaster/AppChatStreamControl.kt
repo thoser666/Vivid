@@ -52,6 +52,12 @@ class AppChatStreamControl @Inject constructor(
         }
         val settings = settingsRepository.appSettingsFlow.first()
         val obsConnected = streamingRepository.isConnectedToObs.value
+        val viewerLlmReady = settings.chatBotApiBaseUrl.isNotBlank() &&
+            settings.chatBotApiKey.isNotBlank() &&
+            settings.chatBotModel.isNotBlank()
+        val ownerLlmReady = settings.chatBotOwnerLlmBaseUrl.isNotBlank() &&
+            settings.chatBotOwnerLlmApiKey.isNotBlank() &&
+            settings.chatBotOwnerLlmModel.isNotBlank()
         val checks = listOf(
             DiagnosticCheck("Stream-URL (primär)", settings.streamUrl.isNotBlank()),
             DiagnosticCheck("Stream-Key (primär)", settings.streamKey.isNotBlank()),
@@ -82,17 +88,19 @@ class AppChatStreamControl @Inject constructor(
                     else -> "Client-ID + Token gesetzt (Scope user:manage:whispers nötig)"
                 },
             ),
+            DiagnosticCheck("Viewer-LLM (Endpunkt/Key/Modell)", viewerLlmReady),
+            DiagnosticCheck("Owner-LLM (Endpunkt/Key/Modell)", ownerLlmReady),
+            // KI-Quelle der Owner-Befehle (!diag/!ask): eigene Owner-KI oder
+            // Viewer-KI als Fallback — offen nur, wenn gar keine KI
+            // konfiguriert ist (dann antworten die Befehle deterministisch).
             DiagnosticCheck(
-                "Viewer-LLM (Endpunkt/Key/Modell)",
-                settings.chatBotApiBaseUrl.isNotBlank() &&
-                    settings.chatBotApiKey.isNotBlank() &&
-                    settings.chatBotModel.isNotBlank(),
-            ),
-            DiagnosticCheck(
-                "Owner-LLM (Endpunkt/Key/Modell)",
-                settings.chatBotOwnerLlmBaseUrl.isNotBlank() &&
-                    settings.chatBotOwnerLlmApiKey.isNotBlank() &&
-                    settings.chatBotOwnerLlmModel.isNotBlank(),
+                "Owner-KI-Quelle",
+                ownerLlmReady || viewerLlmReady,
+                when {
+                    ownerLlmReady -> "eigene Owner-KI (exklusiv)"
+                    viewerLlmReady -> "Viewer-KI (Fallback)"
+                    else -> "keine KI konfiguriert → deterministisch (Checkliste/Hinweis)"
+                },
             ),
         )
         return StreamDiagnostics(status = status, obsConnected = obsConnected, checks = checks)
