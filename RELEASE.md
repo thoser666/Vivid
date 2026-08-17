@@ -81,6 +81,32 @@ Das Beta-Gate ist erreicht, wenn **alle drei** Bedingungen erfüllt sind (Stand 
 | Chat-✅ | ✅ **Twitch-Scope** (PARITY Row 77): Twitch-IRC + Chat-Overlay + **KI-Chat-Bot** laufen | Post-Beta: Kick/YouTube/SOOP, OAuth-Login (Senden/Moderation) |
 | ≥1 Widget | ✅ **1/5 begonnen** — Text-/Info-Widget (Zeit/GPS/Geschwindigkeit) läuft (PARITY Row 87, 14 Tests) | Wetter (externer Dienst), Höhenmeter |
 
+**📋 Checkliste vor dem Beta-Tag (Stand 2026-08-17):**
+
+**Release-Voraussetzungen (GitHub/Obtainium-Kanal):**
+
+- [x] Komplette Test-Suite grün (CI + Pre-Push-Gate) — läuft bei jedem Push
+- [x] Lint (warningsAsErrors) grün — Teil des Pre-Push-Gates
+- [x] Signing-Secrets hinterlegt (`KEYSTORE_BASE64` / `KEYSTORE_PASSWORD` / `KEY_ALIAS` / `KEY_PASSWORD`, Abschnitt „🔑 Signing-Secrets“) — Nightlies/Alpha werden bereits damit signiert
+- [x] Settings persistent über App-Neustarts (DataStore-basiert)
+- [ ] **Keine bekannten Showstopper-Bugs** — letzter manueller Durchlauf auf dem Zielgerät (s. u. Smoke-Tests)
+
+**Play-Unterlagen (nur nötig, wenn der Beta-Tag auch in die Play Console geht — für den reinen GitHub-/Obtainium-Beta nicht blockierend):**
+
+- [x] Privacy Policy fertig — [PRIVACY.md](PRIVACY.md)
+- [ ] App-Icon 512×512 PNG → `fastlane/metadata/android/images/icon.png`
+- [ ] Screenshots (mind. 2, 16:9 oder 9:16) → `fastlane/metadata/android/images/phoneScreenshots/`
+- [ ] Content Rating Questionnaire (wird in der Play Console ausgefüllt)
+- [ ] Data Safety Section (welche Daten sammelt die App? — Play Console)
+- [ ] `UPLOAD_*`- + `PLAY_JSON_KEY_*`-Secrets hinterlegt (nur für Play-Upload; Anleitung: Abschnitt „🔑 Secrets für den ersten Play-Upload vorbereiten“)
+
+**Tester-Freigabe (Pflicht für den Beta-Tag):**
+
+- [ ] **≥2 manuelle Tester** mit Obtainium (Pre-Releases aktiviert) in der Tester-Liste
+- [ ] Jeder Tester bestätigt **„kein Crash in 15 Minuten“** mit Smoke-Test: Go-Live (Kamera + Mikro), Multi-Streaming (2. Ziel), Chat-Overlay (Twitch-Kanal), Text-/Info-Widget (Zeit/GPS/Geschwindigkeit), OBS-WebSocket-Remote, Settings-Persistenz nach App-Neustart
+
+> **Erst wenn alle `[x]`:** `bundle exec fastlane release_beta` → Tag `v0.5.0-beta` → CI baut signiert, veröffentlicht als GitHub-Release (kein Pre-Release-Status-Limit nötig — Beta-Tags werden wie Alpha veröffentlicht) und läuft durch Signatur-/Reproduzierbarkeits-Checks.
+
 **Ablauf nach Erreichen des Gates:**
 
 1. `fastlane release_beta` implementiert (2026-08-15) — Spiegel von `release_alpha` mit Stufe `beta` inkl. Safety-Checks (Tag-Existenz, versionCode-Monotonie in der beta-Track, Quer-Track-Downgrade-Warnung).
