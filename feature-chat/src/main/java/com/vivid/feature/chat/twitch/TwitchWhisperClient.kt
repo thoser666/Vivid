@@ -23,7 +23,7 @@ import java.util.concurrent.ConcurrentHashMap
  * IRC-Weg (`/w`-Command via PRIVMSG) ist von Twitch seit Februar 2023
  * abgeschaltet. Voraussetzungen (Twitch-Doku „Whispers“):
  * - Der OAuth-Token des Bot-Kontos muss den Scope **`user:manage:whispers`**
- *   enthalten (zusätzlich zu chat:read/chat:edit).
+ *   enthalten (zusätzlich zu `user:read:chat`/`user:write:chat`).
  * - [clientId] ist die **Client-ID der Twitch-App**, die den Token ausgestellt
  *   hat (Pflicht-Header `Client-Id` für alle Helix-API-Aufrufe).
  * - Das Sender-Konto braucht eine **verifizierte Telefonnummer**.

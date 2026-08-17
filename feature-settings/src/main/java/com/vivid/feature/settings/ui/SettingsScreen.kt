@@ -326,7 +326,7 @@ fun SettingsScreen(
             SecretField(
                 value = uiState.chatBotOauthToken,
                 onValueChange = viewModel::onChatBotOauthTokenChange,
-                label = "Twitch-OAuth-Token (chat:read + chat:send)",
+                label = "Twitch-OAuth-Token (user:read:chat + user:write:chat)",
             )
             OutlinedTextField(
                 value = uiState.chatBotApiBaseUrl,

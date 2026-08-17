@@ -37,7 +37,7 @@ data class AppSettings(
     val chatBotMode: ChatBotMode = ChatBotMode.AUTONOMOUS,
     // Twitch-Login des Bot-Kontos (ohne '@').
     val chatBotLogin: String = "",
-    // Twitch-Chat-OAuth-Token des Bot-Kontos (chat:read + chat:send).
+    // Twitch-Chat-OAuth-Token des Bot-Kontos (user:read:chat + user:write:chat).
     val chatBotOauthToken: String = "",
     // --- Chat-Bot: Koexistenz mit anderen Bots (z. B. Rivulet) ---
     // Logins anderer Bots (kommasepariert, ohne '@'), deren Nachrichten
