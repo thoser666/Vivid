@@ -66,6 +66,22 @@ class AppChatStreamControl @Inject constructor(
                 "Bot-Login + OAuth-Token",
                 settings.chatBotLogin.isNotBlank() && settings.chatBotOauthToken.isNotBlank(),
             ),
+            // Privater Antwortweg (!diag/!ask-Antworten an den Owner): braucht
+            // Client-ID + Bot-Token, wenn der Toggle an ist. Toggle aus = bewusst
+            // öffentliche Antworten → kein offener Punkt.
+            DiagnosticCheck(
+                "Whisper (privater Antwortweg)",
+                !settings.chatBotOwnerWhisperReplies ||
+                    (settings.chatBotTwitchClientId.isNotBlank() && settings.chatBotOauthToken.isNotBlank()),
+                when {
+                    !settings.chatBotOwnerWhisperReplies -> "deaktiviert (Toggle aus) → öffentlich"
+                    settings.chatBotTwitchClientId.isBlank() && settings.chatBotOauthToken.isBlank() ->
+                        "Client-ID + Bot-Token fehlen"
+                    settings.chatBotTwitchClientId.isBlank() -> "Twitch-App-Client-ID fehlt"
+                    settings.chatBotOauthToken.isBlank() -> "Bot-Token fehlt"
+                    else -> "Client-ID + Token gesetzt (Scope user:manage:whispers nötig)"
+                },
+            ),
             DiagnosticCheck(
                 "Viewer-LLM (Endpunkt/Key/Modell)",
                 settings.chatBotApiBaseUrl.isNotBlank() &&
