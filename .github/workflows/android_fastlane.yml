@@ -500,6 +500,14 @@ jobs:
             exit 1
           fi
           echo "🎉 Alle Artefakte reproduzierbar"
+
+      # ✅ R8-Nachweis APK-Kanal: die Rebuilds haben assembleRelease (und ggf.
+      # bundleRelease) gebaut — das Mapping belegt, dass die Sentry-Opt-out-Logik
+      # im ausgelieferten Nightly-APK enthalten ist (Lambda inlined in
+      # io.sentry.SentryClient). Ergänzt die Reproduzierbarkeits-Prüfung.
+      - name: Verify Sentry opt-out logic in release mapping
+        run: bash scripts/check_sentry_optout_mapping.sh app/build/outputs/mapping/release/mapping.txt
+
   # ✅ Selbsttest der publish_play-Lane OHNE Play-Zugang (dry_run=true):
   # erzeugt einen lokalen Wegwerf-Keystore (keytool), baut bundlePlayRelease und
   # verifiziert die AAB-Signatur per keytool gegen den Test-Key - kein Upload,
@@ -535,6 +543,12 @@ jobs:
 
       - name: Run publish_play dry-run self-test
         run: bash scripts/test_publish_play_dryrun.sh
+
+      # ✅ R8-Nachweis AAB-Kanal: der Dry-Run hat bundlePlayRelease gebaut — das
+      # Mapping belegt, dass die Sentry-Opt-out-Logik im Play-AAB enthalten ist
+      # (Lambda inlined in io.sentry.SentryClient). Kostet keine Extra-Build-Zeit.
+      - name: Verify Sentry opt-out logic in playRelease mapping
+        run: bash scripts/check_sentry_optout_mapping.sh app/build/outputs/mapping/playRelease/mapping.txt
 
   # ✅ Regressionstest: gehärtete stabile Release-Publizierung (publish_release,
   # if-stable) lokal gegen einen Mock-gh — prüft Skip/Delete+Recreate/Retry/
