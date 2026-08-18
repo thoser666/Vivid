@@ -579,10 +579,13 @@ platform :android do
       FileUtils.cp(src_path, File.join(meta_dir, dst))
       UI.success("✅ #{src} → #{dst}")
     end
-    # Array-Form + absoluter Skriptpfad + METADATA_DIR explizit: fastlanes
-    # String-sh mit relativen Pfaden scheitert unter Windows (cwd = fastlane/,
-    # bash-Auflösung WSL vs. Git-bash) — so ist der Check cwd-unabhängig.
-    sh({ "METADATA_DIR" => File.join(root, "fastlane/metadata/android") },
+    # Array-Form + absolute Skriptpfade + METADATA_DIR/README_FILE explizit:
+    # fastlanes String-sh mit relativen Pfaden scheitert unter Windows
+    # (cwd = fastlane/, bash-Auflösung WSL vs. Git-bash) — so ist der Check
+    # cwd-unabhängig. README_FILE muss auf das Projekt-Root zeigen, sonst
+    # sucht der README↔Play-Konsistenz-Guard die README relativ zu fastlane/.
+    sh({ "METADATA_DIR" => File.join(root, "fastlane/metadata/android"),
+         "README_FILE" => File.join(root, "README.md") },
        "bash", File.join(root, "scripts/check_play_metadata.sh"))
     UI.success("Screenshots regeneriert — Platzhalter ersetzt, Metadaten-Gate grün")
   end

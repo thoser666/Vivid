@@ -183,6 +183,14 @@ fi
 # (kein kaputter README-Bild-Link, keine in der README vergessenen Shots).
 # Dateinamen-basiert (robust gegen relative/absolute Pfade in der README).
 README_FILE="${README_FILE:-README.md}"
+# Projekt-Root aus dem README-Pfad ableiten (cwd-unabhängig: die Lane läuft mit
+# cwd = fastlane/, manuelle Aufrufe mit cwd = Projekt-Root). Die README-
+# Bildreferenzen sind immer projekt-root-relativ.
+if [[ "$README_FILE" == */* ]]; then
+  README_ROOT="$(cd "$(dirname "$README_FILE")" && pwd)"
+else
+  README_ROOT="$(pwd)"
+fi
 
 # a) Jede README-Bild-Referenz, deren Dateiname einem Play-Screenshot entspricht,
 #    muss eine echte Datei sein; alle solche Dateinamen werden für (b) gesammelt.
@@ -199,10 +207,12 @@ else
     # Nur Referenzen auf Play-Screenshot-Dateien prüfen (Namen wie 1_en-US.png)
     if printf '%s\n' "${shot_names[@]:-}" | grep -qx "$base"; then
       readme_shots+=("$base")
-      if [ ! -f "${ref%%#*}" ]; then
-        fail "README referenziert fehlende Datei: $ref"
-      else
+      # README-Referenzen sind projekt-root-relativ (absoluten Pfade direkt prüfen)
+      ref_path="${ref%%#*}"
+      if [ -f "$ref_path" ] || [ -f "$README_ROOT/$ref_path" ]; then
         echo "✅ README → $ref (existiert)"
+      else
+        fail "README referenziert fehlende Datei: $ref"
       fi
     fi
   done < <(grep -oE '\[[^]]*\]\([^)]*\.(png|jpg|jpeg)[^)]*\)' "$README_FILE" 2>/dev/null | sed -E 's/^\[[^]]*\]\(//; s/\)$//')
@@ -212,10 +222,11 @@ else
     base="$(basename "${ref%%#*}")"
     if printf '%s\n' "${shot_names[@]:-}" | grep -qx "$base"; then
       readme_shots+=("$base")
-      if [ ! -f "${ref%%#*}" ]; then
-        fail "README referenziert fehlende Datei: $ref"
-      else
+      ref_path="${ref%%#*}"
+      if [ -f "$ref_path" ] || [ -f "$README_ROOT/$ref_path" ]; then
         echo "✅ README → $ref (existiert)"
+      else
+        fail "README referenziert fehlende Datei: $ref"
       fi
     fi
   done < <(grep -oE 'src="[^"]*\.(png|jpg|jpeg)"' "$README_FILE" 2>/dev/null | sed -E 's/^src="//; s/"$//')
