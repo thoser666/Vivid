@@ -7,9 +7,51 @@ Jeder Release durchläuft eine von vier Stufen. Welche Stufe aktiv ist, bestimmt
 | Stufe | Tag-Muster | Auslöser | Zielgruppe |
 |-------|-----------|----------|------------|
 | `nightly` | `nightly` (rollierend) | Jeder develop-Merge · **täglich 06:00 UTC (Schedule)** · manuell (`workflow_dispatch`) | Entwickler · CI-Tester |
-| `alpha` | `vX.Y.0-alpha` | Manuell via `fastlane release_alpha` | Frühe Tester (Obtainium, kein Pre-Release-Flag nötig) |
-| `beta` | `vX.Y.0-beta` | Manuell via `fastlane release_beta` (Spiegel von `release_alpha` inkl. Safety-Checks) | Feldtester · Hunde essen ihr eigenes Futter |
+| `alpha` | `vX.Y.Z-alpha` (Patch-Alphas möglich, z. B. `v0.4.2-alpha`) | Manuell via `fastlane release_alpha` | Frühe Tester (Obtainium, kein Pre-Release-Flag nötig) |
+| `beta` | `vX.Y.Z-beta` (Patch-Betas möglich, z. B. `v0.5.1-beta`) | Manuell via `fastlane release_beta` (Spiegel von `release_alpha` inkl. Safety-Checks) | Feldtester · Hunde essen ihr eigenes Futter |
 | `stable` | `vX.Y.Z` | Manuell via `fastlane release_stable` (TODO) | Play Store · F-Droid · Allgemeinverfügbarkeit |
+
+## 🧭 Beta-Release-Strategie (wann wird ein Beta-Tag gesetzt?)
+
+**Leitfrage:** Gibt es seit dem letzten Beta-Tag **user-facing** Änderungen, die Tester sehen sollen? Nur Doku-/CI-Arbeit rechtfertigt keine neue Beta — die wartet auf das nächste Feature-Bucket (Roadmap-Tabelle unten).
+
+### Patch- vs. Feature-Beta
+
+| Typ | Tag | Wann | Beispiel |
+|-----|-----|------|----------|
+| **Patch-Beta** | `vX.Y.Z-beta` (Z ≥ 1) | Kleine, fokussierte Änderungen **ohne** neue Features: Privacy-/Verhaltensänderungen, Bugfixes, relevante Dependency-Bumps | `v0.5.1-beta` (18.08.2026): Sentry-Privacy-Härtung + okhttp-Bump |
+| **Feature-Beta** | `vX.Y.0-beta` | Ein neues Roadmap-Bucket ist implementiert (siehe Roadmap-Tabelle) | `v0.6.0-beta` = Streaming-Erweiterung (RIST/WHIP/RTMP) |
+
+### Regeln für den Tag
+
+1. **Immer den vollen Tag inkl. Stufen-Suffix übergeben** — die Lane hängt das Suffix nur im Auto-Ableitungs-Pfad an:
+   ```
+   bundle exec fastlane release_beta version:v0.5.1-beta
+   ```
+   Ein explizites `version:0.5.1` **ohne** `-beta` erzeugt den **stabilen** Tag `v0.5.1` (versionCode 5014). Passiert am 18.08.2026 — der CI-Run wurde gecancelt und der Tag gelöscht, bevor etwas publiziert wurde. **Nie ohne Suffix aufrufen.**
+
+2. **⚠️ Automatik-Fallstrick `v0.6.0-beta`:** `release_beta` **ohne** `version:` leitet den nächsten Tag als `minor+1` vom höchsten `v*-beta` ab — `v0.5.0-beta` → **`v0.6.0-beta`**. Diesen Namen reserviert die Roadmap aber für das Streaming-Bucket (RIST/WHIP/RTMP), das noch **nicht** implementiert ist. Deshalb: **Patch-Betas immer explizit** mit `version:vX.Y.Z-beta` übergeben.
+
+3. **Gate vor dem Tag:** Änderungen sind grün in Tests + CI (Pre-Push-Gate · Fastlane-CI inkl. Signatur-/Reproduzierbarkeits-Checks) · Release-Notes liegen in `docs/release-notes-vX.Y.Z-beta.md` committet vor · keine bekannten Blocker.
+
+4. **versionCode:** deterministisch aus dem Tag (Schema unten) — `v0.5.1-beta` = 5012, monoton über dem letzten Beta (5002). Liegt der Patch-Beta-Code unter dem letzten Alpha (z. B. 5012 < 6001 von `v0.6.0-alpha`), löst die Lane nur eine **Quer-Track-Warnung** aus (Alpha-Nutzer müssen vorher deinstallieren), kein Abbruch.
+
+### Alpha-Strategie (analog — gleiche Fallstricke)
+
+**Leitfrage:** Gibt es seit dem letzten Alpha **user-facing** Änderungen? Das Alpha ist die frühe Teststufe (Obtainium, kein Pre-Release-Flag) — hier darf die Frequenz höher sein als bei Beta/Stable, aber reine Doku-/CI-Arbeit rechtfertigt auch hier keinen neuen Tag.
+
+| Typ | Tag | Wann | Beispiel |
+|-----|-----|------|----------|
+| **Patch-Alpha** | `vX.Y.Z-alpha` (Z ≥ 1) | Kleine, fokussierte Änderungen ohne neue Features | `v0.4.1-alpha`, `v0.4.2-alpha` (Bugfix-/Scroll-Releases) |
+| **Feature-Alpha** | `vX.Y.0-alpha` | Neues Roadmap-Bucket | `v0.5.0-alpha` (Chat-Bot), `v0.6.0-alpha` (IRC-Ausstieg + Owner-Steuerung) |
+
+`release_alpha` hat **denselben Automatik-Fallstrick** wie `release_beta` (minor+1-Ableitung) und **dieselbe Suffix-Falle** — plus eine Besonderheit:
+
+1. **Suffix-Pflicht:** `bundle exec fastlane release_alpha version:v0.5.1-alpha` — ein explizites `version:0.5.1` **ohne** `-alpha` erzeugt den stabilen Tag `v0.5.1` (identischer Vorfall wie bei Beta am 18.08.2026). **Nie ohne Suffix aufrufen.**
+
+2. **⚠️ Automatik-Fallstrick `minor+1`:** `release_alpha` **ohne** `version:` leitet `v0.6.0-alpha` → **`v0.7.0-alpha`** ab — dabei wird die Roadmap-Nummerierung (Feature-Buckets) übersprungen bzw. die falsche Stufe getroffen. Feature- und Patch-Alphas deshalb **immer explizit** mit `version:vX.Y.Z-alpha` übergeben.
+
+3. **versionCode:** deterministisch aus dem Tag — `v0.5.1-alpha` = 5011. **⚠️ Besonderheit:** `release_alpha` hat (anders als `release_beta`) **keine lokalen Safety-Checks** — keine versionCode-Monotonie-Prüfung, keine Quer-Track-Warnung. Die Monotonie (neuer Code > letzter veröffentlichter) muss vor dem Tag **manuell** geprüft werden.
 
 ## 🗺️ Roadmap (Version → Features)
 

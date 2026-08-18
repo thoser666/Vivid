@@ -111,6 +111,14 @@ Build a release AAB signed with the UPLOAD key and upload it to Google Play (req
 
 Report orphaned draft releases on v* tags (no auto-delete - a draft may be intentional)
 
+### android capture_play_screenshots
+
+```sh
+[bundle exec] fastlane android capture_play_screenshots
+```
+
+Capture the two Play Store screenshots via UI tests (fastlane screengrab) — requires a running emulator/device; replaces the placeholder PNGs under fastlane/metadata/android/images/phoneScreenshots/ and verifies the metadata gate
+
 ----
 
 This README.md is auto-generated and will be re-generated every time [_fastlane_](https://fastlane.tools) is run.
