@@ -87,4 +87,8 @@ data class AppSettings(
     val widgetShowTime: Boolean = true,
     val widgetShowLocation: Boolean = true,
     val widgetShowSpeed: Boolean = true,
+    // --- Datenschutz (Sentry) ---
+    // Fehler-/Crash-Berichte an Sentry senden (Standard: an). Aus = Opt-out:
+    // beforeSend verwirft dann alle Events — es wird nichts an Sentry übertragen.
+    val sentryEnabled: Boolean = true,
 )

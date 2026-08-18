@@ -54,11 +54,14 @@ class SettingsRepository @Inject constructor(
         val WIDGET_SHOW_TIME = booleanPreferencesKey("widget_show_time")
         val WIDGET_SHOW_LOCATION = booleanPreferencesKey("widget_show_location")
         val WIDGET_SHOW_SPEED = booleanPreferencesKey("widget_show_speed")
+        val SENTRY_ENABLED = booleanPreferencesKey("sentry_enabled")
     }
 
     // WICHTIG: Dies ist jetzt der EINZIGE Flow, den das ViewModel braucht.
-    // Er kombiniert die Daten für Stream (primär + sekundär) und OBS.
+    // Er kombiniert die Daten für Stream (primär + sekundär), OBS, Chat,
+    // Chat-Bot, Widget und den Sentry-Opt-out (6. Flow, verschachtelt).
     val appSettingsFlow: Flow<AppSettings> = combine(
+        combine(
         // Flow für Stream-Daten
         dataStore.data.map { prefs ->
             StreamPrefs(
@@ -168,6 +171,11 @@ class SettingsRepository @Inject constructor(
             widgetShowLocation = widgetData.showLocation,
             widgetShowSpeed = widgetData.showSpeed,
         )
+    },
+        // 6. Flow: Sentry-Opt-out (Datenschutz) — Default: an
+        dataStore.data.map { prefs -> prefs[PrefKeys.SENTRY_ENABLED] ?: true },
+    ) { settings, sentryEnabled ->
+        settings.copy(sentryEnabled = sentryEnabled)
     }
 
     // Update-Funktionen bleiben getrennt, das ist in Ordnung.
@@ -316,6 +324,13 @@ class SettingsRepository @Inject constructor(
         val showLocation: Boolean,
         val showSpeed: Boolean,
     )
+
+    /** Sentry-Opt-out speichern (false = keine Fehlerberichte senden). */
+    suspend fun updateSentryEnabled(enabled: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[PrefKeys.SENTRY_ENABLED] = enabled
+        }
+    }
 
     /** Text-/Info-Widget-Einstellungen speichern. */
     suspend fun updateWidgetSettings(

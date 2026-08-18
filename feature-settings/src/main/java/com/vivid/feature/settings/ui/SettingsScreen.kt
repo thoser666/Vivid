@@ -655,6 +655,24 @@ fun SettingsScreen(
                 }
             }
 
+            // Datenschutz: Sentry-Fehlerberichte an/aus (Opt-out, Default: an)
+            Text("Datenschutz & Fehlerberichte", style = MaterialTheme.typography.titleLarge)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Fehlerberichte senden (Sentry)", modifier = Modifier.weight(1f))
+                Switch(
+                    checked = uiState.sentryEnabled,
+                    onCheckedChange = viewModel::onSentryEnabledChange,
+                )
+            }
+            Text(
+                text = "Sendet bei Abstürzen Fehlerberichte an Sentry (Standard: an). Es werden keine Screenshots aufgenommen; Geräte-/IP-Informationen sind deaktiviert. Aus = es wird nichts an Sentry übertragen. Details: PRIVACY.md im Repository.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
             Spacer(modifier = Modifier.weight(1f))
 
             // Version + Update-Status — direkt sichtbar, ohne in den About-Screen zu gehen

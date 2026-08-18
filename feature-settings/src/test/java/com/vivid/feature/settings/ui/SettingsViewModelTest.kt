@@ -244,6 +244,7 @@ class SettingsViewModelTest {
             coEvery { updateChatSettings(any(), any()) } just runs
             coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
             coEvery { updateWidgetSettings(any(), any(), any(), any()) } just runs
+            coEvery { updateSentryEnabled(any()) } just runs
         }
 
         val viewModel = createViewModel(repository)
@@ -288,6 +289,7 @@ class SettingsViewModelTest {
             coEvery { updateChatSettings(any(), any()) } just runs
             coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
             coEvery { updateWidgetSettings(any(), any(), any(), any()) } just runs
+            coEvery { updateSentryEnabled(any()) } just runs
         }
 
         val viewModel = createViewModel(repository)
@@ -327,6 +329,7 @@ class SettingsViewModelTest {
             coEvery { updateChatSettings(any(), any()) } just runs
             coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
             coEvery { updateWidgetSettings(any(), any(), any(), any()) } just runs
+            coEvery { updateSentryEnabled(any()) } just runs
         }
 
         val viewModel = createViewModel(repository)
@@ -357,6 +360,48 @@ class SettingsViewModelTest {
                 showSpeed = false,
             )
         }
+    }
+
+    @Test
+    fun `sentry toggle updates the ui state and persists on save`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repository = mockk<SettingsRepository> {
+            every { appSettingsFlow } returns MutableStateFlow(AppSettings())
+            coEvery { updateStreamSettings(any(), any(), any()) } just runs
+            coEvery { updateSecondaryStreamSettings(any(), any(), any()) } just runs
+            coEvery { updateObsSettings(any(), any(), any(), any()) } just runs
+            coEvery { updateChatSettings(any(), any()) } just runs
+            coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
+            coEvery { updateWidgetSettings(any(), any(), any(), any()) } just runs
+            coEvery { updateSentryEnabled(any()) } just runs
+        }
+
+        val viewModel = createViewModel(repository)
+        advanceUntilIdle() // initial load drained so edits are not overwritten
+
+        // Default: Fehlerberichte an.
+        assertEquals(true, viewModel.uiState.value.sentryEnabled)
+
+        viewModel.onSentryEnabledChange(false)
+        assertEquals(false, viewModel.uiState.value.sentryEnabled)
+
+        viewModel.saveSettings()
+        advanceUntilIdle()
+
+        coVerify { repository.updateSentryEnabled(false) }
+    }
+
+    @Test
+    fun `sentry default stays enabled after loading settings`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repository = mockk<SettingsRepository> {
+            every { appSettingsFlow } returns MutableStateFlow(AppSettings())
+        }
+
+        val viewModel = createViewModel(repository)
+        advanceUntilIdle()
+
+        assertEquals(true, viewModel.uiState.value.sentryEnabled)
     }
 
     @Test
@@ -518,6 +563,7 @@ class SettingsViewModelTest {
             coEvery { updateChatSettings(any(), any()) } just runs
             coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
             coEvery { updateWidgetSettings(any(), any(), any(), any()) } just runs
+            coEvery { updateSentryEnabled(any()) } just runs
         }
 
         val viewModel = createViewModel(repository)

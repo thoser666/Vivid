@@ -814,7 +814,7 @@ Der `supply`-Upload (`publish_play`) lädt nur APK/AAB + Metadaten (Titel, Besch
      - **Kamera-/Mikrofon-Inhalte** — werden live zum **selbst konfigurierten** Streaming-Server übertragen (RTMP/SRT); nur während der Stream läuft
      - **Standort (präzise, GPS)** — nur solange das **Text-/Info-Widget** (Zeit/GPS/Geschwindigkeit) aktiv ist; Koordinaten/Geschwindigkeit sind Teil des gestreamten Overlays, wenn parallel gestreamt wird („auf Nutzeraktion“)
      - **Nutzerinhalte (Chat)** — Twitch-Chat wird gelesen/gesendet (Helix/EventSub); bei **aktivem KI-Bot** gehen Chat-Kontext + System-Prompt an den **vom Streamer selbst konfigurierten LLM-Endpunkt** (OpenAI-kompatibel: OpenAI/Gemini/Groq/DeepSeek oder lokal Ollama)
-     - **Crash-/Fehlerdaten + Gerätekennung/IP (Sentry)** — **automatisch, ohne In-App-Opt-out**: DSN im Manifest, Screenshot + View-Hierarchy aktiv, sample-rate 1.0; es gibt **keinen** Schalter in den Settings (Workaround: OS-Netzwerkblock) — siehe PRIVACY.md
+     - **Crash-/Fehlerdaten + Gerätekennung (Sentry)** — **automatisch, aber Opt-out-Toggle in den Settings** (Default: an): DSN im Manifest, **keine Crash-Screenshots** (attach-screenshot=false), keine IP-/Gerätename-Erhebung (sendDefaultPii=false), View-Hierarchy nur Layout — siehe PRIVACY.md
    - **Nicht erhoben:** Konten, E-Mails, Finanzdaten, Einkäufe, Health-Daten, Kontakte, Kalender, Web-Verlauf, Dateien
    - **Keine Datenverkäufe** — kein eigenes Backend (nur vom Nutzer konfigurierte Endpunkte: Twitch, LLM, OBS-lokal)
    - **Antworttabelle für das Formular (Datentyp → Erhoben? → Zweck → Geteilt? → Verschlüsselt? → Löschung/Kontrolle):**
@@ -825,8 +825,8 @@ Der `supply`-Upload (`publish_play`) lädt nur APK/AAB + Metadaten (Titel, Besch
      | **Fotos & Videos / Audiodateien (Kamera/Mikro)** | ✅ Ja (live, nur während Stream) | App-Funktionalität (Streaming) | ✅ Ja — an den **selbst konfigurierten** Streaming-Server | API/Steuerung TLS; Stream abhängig vom Server-Protokoll | nur lokal während des Streams; kein Vivid-Speicher |
      | **Nachrichten/Chat (Nutzerinhalte)** | ✅ Ja (Twitch-Chat lesen/senden) | App-Funktionalität (Bot/Overlay) | ✅ Ja — an Twitch; bei aktivem KI-Bot an den **selbst konfigurierten** LLM-Endpunkt | ✅ TLS | Bot abschaltbar; History nur in-memory |
      | **App-Aktivität (Interaktionen, Settings)** | ✅ Ja (lokal) | App-Funktionalität | ❌ Nein (lokal im DataStore) | n/a (lokal) | App-Daten im System löschbar |
-     | **App-Info & Leistung (Crash-/Diagnosedaten)** | ✅ Ja — **automatisch** | Analyse/Fehlerbehebung | ✅ Ja — an Sentry | ✅ TLS | ⚠️ **kein In-App-Opt-out** (siehe PRIVACY.md) |
-     | **Geräte-/andere Kennungen (inkl. IP)** | ✅ Ja (via Sentry: Gerätemodell, OS, IP) | Analyse/Fehlerbehebung | ✅ Ja — an Sentry | ✅ TLS | ⚠️ kein In-App-Opt-out |
+     | **App-Info & Leistung (Crash-/Diagnosedaten)** | ✅ Ja — automatisch, **Opt-out in Settings** (Default: an) | Analyse/Fehlerbehebung | ✅ Ja — an Sentry | ✅ TLS | **Toggle „Fehlerberichte senden“** in den Settings (keine Screenshots) |
+     | **Geräte-/andere Kennungen (Gerätemodell, OS)** | ✅ Ja (via Sentry; **keine IP**, kein Gerätename — sendDefaultPii=false) | Analyse/Fehlerbehebung | ✅ Ja — an Sentry | ✅ TLS | Toggle in den Settings |
      | Konten, E-Mail, Telefon, Finanzen, Health, Kontakte, Kalender, Web-Verlauf, Dateien | ❌ **Nein** | — | ❌ | — | — |
 
    - **Globale Formular-Abschlussfragen:** „Verkauf von Nutzerdaten“ → **Nein** · „Weitergabe für Werbung“ → **Nein** · „Nutzer können Löschung beantragen“ → ehrlich: für lokale Daten via App-Daten löschen, für Sentry-Daten über den Sentry-Data-Request (kein In-App-Weg) — im Formular entsprechend **Nein/teilweise** angeben, konsistent zur PRIVACY.md
@@ -865,7 +865,7 @@ Master-Checkliste für den Weg zum ersten Play-Upload — **Reihenfolge = kritis
 - [ ] **Anzeigen**: „Nein“ (~2 min; kein Ad-SDK im Projekt, verifiziert)
 - [ ] **Content Rating (IARC-Fragebogen)** (~15–20 min, **Antwortvorlage oben bei Schritt 4**): Live-Streaming + nutzergenerierter Chat + Standort teilen → ehrlich **16+**; fehlt es, blockiert Google das Ausrollen
 - [ ] **Zielgruppe**: nicht kinderorientiert (~2 min)
-- [ ] **Data Safety** (~15–30 min, **Vorlage in Schritt 6 oben**, abgestimmt mit [PRIVACY.md](PRIVACY.md)): Kamera/Mikro, **Standort präzise** (GPS-Widget, nur bei aktivem Widget), **Chat/LLM** (Twitch + selbst konfigurierter LLM-Endpunkt), **Sentry automatisch** (kein Opt-out); keine Datenverkäufe — Internal-Test-Tracks sind befreit, alpha/beta/production nicht
+- [ ] **Data Safety** (~15–30 min, **Vorlage in Schritt 6 oben**, abgestimmt mit [PRIVACY.md](PRIVACY.md)): Kamera/Mikro, **Standort präzise** (GPS-Widget, nur bei aktivem Widget), **Chat/LLM** (Twitch + selbst konfigurierter LLM-Endpunkt), **Sentry automatisch mit Opt-out-Toggle** (Default: an, keine Screenshots); keine Datenverkäufe — Internal-Test-Tracks sind befreit, alpha/beta/production nicht
 - [ ] **Track `alpha` anlegen** (~5 min): Play Console → Testing → Alpha — `supply(track: alpha)` bricht sonst mit „track not found“
 
 **P2 — Auslieferung an Tester · ~30 min + Wartezeit:**

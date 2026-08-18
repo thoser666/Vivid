@@ -39,10 +39,10 @@ If you enable the chat features, the app connects to **Twitch** using a token **
 
 ## Crash Reporting (Sentry)
 
-- **What:** When the app crashes, Sentry collects a stack trace, device information (model, OS version), and — because screenshot/view-hierarchy attachment is enabled — **a screenshot and the view hierarchy at the moment of the crash**. User-interaction breadcrumbs (clicks, swipes, scrolls) and performance traces are collected as well.
+- **What:** When the app crashes, Sentry collects a stack trace, device information (model, OS version), and the view hierarchy at the moment of the crash (layout properties only — no text contents). **Screenshots are NOT captured**: the screen can contain stream previews, chat messages, or visible credentials. User-interaction breadcrumbs (clicks, swipes, scrolls) and performance traces are collected as well.
 - **Why:** To help developers identify and fix bugs.
 - **Where it goes:** Sentry.io (project `vivid`). Data is subject to Sentry's [privacy policy](https://sentry.io/privacy/).
-- **⚠️ Important:** Crash reporting is **enabled by default** — the Sentry SDK initializes automatically from the app manifest and currently has **no in-app opt-out switch**. If this concerns you (e.g. because a crash screenshot might capture stream previews or chat content), you can block network access for the app at the OS level, or uninstall the app. We intend to add an in-app toggle; until then, this policy reflects the actual behavior.
+- **Your choice:** Crash reporting is **enabled by default**, but you can switch it off at any time in **Settings → Datenschutz & Fehlerberichte → „Fehlerberichte senden (Sentry)“**. When disabled, **no events are sent to Sentry at all**. Device-identifying data (IP address, device name) is **not collected** (`sendDefaultPii` is disabled).
 - **CI note:** Release builds upload deobfuscation (ProGuard mapping) files to Sentry when a Sentry auth token is present in the build environment. No personal data is contained in these mapping files.
 
 ## Data the App Does NOT Collect
@@ -90,4 +90,4 @@ This policy may be updated as the app evolves. Changes will be reflected in the 
 
 ---
 
-*This privacy policy was last reviewed on 2026-08-18. It reflects the current state of the Vivid app, including the AI chatbot, GPS info widget, LAN remote control, and automatic Sentry crash reporting.*
+*This privacy policy was last reviewed on 2026-08-18. It reflects the current state of the Vivid app, including the AI chatbot, GPS info widget, LAN remote control, and Sentry crash reporting with an in-app opt-out toggle (default: on).*

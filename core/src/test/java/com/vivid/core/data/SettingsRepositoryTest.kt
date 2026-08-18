@@ -413,6 +413,65 @@ class SettingsRepositoryTest {
     }
 
     @Test
+    fun `appSettingsFlow should default sentry reporting to enabled`() = runTest {
+        val testDataStore = PreferenceDataStoreFactory.create(
+            scope = this,
+            produceFile = { File(tempDir.toFile(), "test_sentry_default.preferences_pb") }
+        )
+        val repository = SettingsRepository(testDataStore)
+
+        val settings = repository.appSettingsFlow.first()
+
+        assertEquals(true, settings.sentryEnabled)
+    }
+
+    @Test
+    fun `appSettingsFlow should return the saved sentry enabled flag`() = runTest {
+        val testDataStore = PreferenceDataStoreFactory.create(
+            scope = this,
+            produceFile = { File(tempDir.toFile(), "test_sentry.preferences_pb") }
+        )
+        val repository = SettingsRepository(testDataStore)
+
+        repository.updateSentryEnabled(false)
+        val settings = repository.appSettingsFlow.first()
+
+        assertEquals(false, settings.sentryEnabled)
+    }
+
+    @Test
+    fun `appSettingsFlow should keep sentry setting independent of widget settings`() = runTest {
+        // Sentry-Schreiben darf die Widget-Einstellungen nicht anfassen.
+        val sentryDataStore = PreferenceDataStoreFactory.create(
+            scope = this,
+            produceFile = { File(tempDir.toFile(), "test_sentry_indep.preferences_pb") }
+        )
+        val sentryRepository = SettingsRepository(sentryDataStore)
+        sentryRepository.updateSentryEnabled(false)
+        val afterSentry = sentryRepository.appSettingsFlow.first()
+
+        assertEquals(false, afterSentry.sentryEnabled)
+        assertEquals(false, afterSentry.widgetEnabled)
+
+        // Widget-Schreiben darf die Sentry-Einstellung nicht anfassen.
+        val widgetDataStore = PreferenceDataStoreFactory.create(
+            scope = this,
+            produceFile = { File(tempDir.toFile(), "test_sentry_widget.preferences_pb") }
+        )
+        val widgetRepository = SettingsRepository(widgetDataStore)
+        widgetRepository.updateWidgetSettings(
+            enabled = true,
+            showTime = true,
+            showLocation = true,
+            showSpeed = true,
+        )
+        val afterWidget = widgetRepository.appSettingsFlow.first()
+
+        assertEquals(true, afterWidget.widgetEnabled)
+        assertEquals(true, afterWidget.sentryEnabled)
+    }
+
+    @Test
     fun `appSettingsFlow should return the saved widget settings`() = runTest {
         val testDataStore = PreferenceDataStoreFactory.create(
             scope = this,

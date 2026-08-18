@@ -197,6 +197,9 @@ class SettingsViewModel @Inject constructor(
     fun onChatBotOwnerWhisperRepliesChange(newValue: Boolean) { _uiState.value = _uiState.value.copy(chatBotOwnerWhisperReplies = newValue) }
     fun onChatBotTwitchClientIdChange(newValue: String) { _uiState.value = _uiState.value.copy(chatBotTwitchClientId = newValue) }
 
+    // Datenschutz: Sentry-Fehlerberichte an/aus (Opt-out).
+    fun onSentryEnabledChange(newEnabled: Boolean) { _uiState.value = _uiState.value.copy(sentryEnabled = newEnabled) }
+
     // Begrenzungen: Per-Viewer-Cooldown/-Cap und Kosten-Budget (numerisch, ungültig → 0).
     // Manuelle Änderungen markieren die Auswahl als „Eigene“ (CUSTOM), damit die
     // wiederhergestellte Voreinstellung beim nächsten Start nicht die Bearbeitung überstimmt.
@@ -259,6 +262,7 @@ class SettingsViewModel @Inject constructor(
                 showLocation = currentSettings.widgetShowLocation,
                 showSpeed = currentSettings.widgetShowSpeed,
             )
+            settingsRepository.updateSentryEnabled(currentSettings.sentryEnabled)
             settingsRepository.updateChatBotSettings(
                 enabled = currentSettings.chatBotEnabled,
                 apiBaseUrl = currentSettings.chatBotApiBaseUrl,
