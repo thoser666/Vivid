@@ -42,7 +42,7 @@ class VividApplication : Application() {
             // JavaBean-Accessor: isSendDefaultPii (keine IP-/Gerätename-Erhebung)
             options.isSendDefaultPii = false
             options.beforeSend = SentryOptions.BeforeSendCallback { event, _ ->
-                if (sentryEnabled) event else null
+                applySentryOptOut(event, sentryEnabled)
             }
         }
         // Opt-out-Stand live verfolgen (für beforeSend).
