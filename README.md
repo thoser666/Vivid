@@ -19,6 +19,15 @@
 
 ---
 
+## 📸 Screenshots
+
+<p align="center">
+  <img src="fastlane/metadata/android/images/phoneScreenshots/1_en-US.png" alt="Vivid live streaming screen" width="250">
+  <img src="fastlane/metadata/android/images/phoneScreenshots/2_en-US.png" alt="Vivid settings screen" width="250">
+</p>
+
+---
+
 ## 🎯 Goal: Feature Parity with Moblin
 
 Vivid is an Android implementation of the open-source [Moblin](https://github.com/eerimoq/moblin) IRL streaming app. The **end goal** is to be **at least functionally equivalent to Moblin** — every feature Moblin offers should work in Vivid, adapted to the Android platform.
