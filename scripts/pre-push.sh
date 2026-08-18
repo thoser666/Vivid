@@ -5,10 +5,14 @@
 # :feature-settings-Test).
 #
 # Aufruf:
-#   bash scripts/pre-push.sh                    # manuell (Tests + Lint + Guard)
+#   bash scripts/pre-push.sh                    # manuell (Tests + Lint + Mapping + Guard)
 #   bash scripts/pre-push.sh --dry-run          # zeigt nur die Checks an (Tests/Übersicht)
 #   PRE_PUSH_SKIP_LINT=1 bash scripts/pre-push.sh  # Lint überspringen (nur Tests + Guard)
 #   PRE_PUSH_RELEASE=1 bash scripts/pre-push.sh    # zusätzlich Release-Build (R8/ProGuard)
+#
+# Der Mapping-Check (check_sentry_optout_mapping.sh) läuft automatisch, wenn ein
+# frisches Release-Mapping vorliegt (nach PRE_PUSH_RELEASE=1 garantiert) und
+# weist nach, dass die Sentry-Opt-out-Logik im R8-Release-Build enthalten ist.
 #
 # Der Release-Build (assembleRelease) ist OPTIONAL: er läuft R8/ProGuard +
 # Resource-Shrinking und fängt so Signatur-/ProGuard-Probleme lokal, bevor sie
@@ -48,6 +52,26 @@ fi
 if [[ "${PRE_PUSH_RELEASE:-0}" == "1" ]]; then
   echo "▶ [pre-push] Release-Build (R8/ProGuard, PRE_PUSH_RELEASE=1: ./gradlew assembleRelease)"
   run ./gradlew assembleRelease --console=plain
+fi
+
+# Automatischer Mapping-Check: weist nach, dass die Sentry-Opt-out-Logik in
+# BEIDEN Release-Kanälen (release=APK + playRelease=AAB, R8) überlebt — Lambda
+# muss in io.sentry.SentryClient inlined sein. Nach PRE_PUSH_RELEASE=1 sind die
+# Mappings garantiert frisch (Pflicht). Ohne Release-Build läuft der Check
+# automatisch, wenn frische Mappings vorliegen (z. B. vom letzten Release-Build);
+# sonst Hinweis statt Fehlschlag, da der Release-Build bewusst optional ist.
+echo "▶ [pre-push] Sentry-Opt-out-Mapping-Check (scripts/check_sentry_optout_mapping.sh)"
+if [[ "${PRE_PUSH_RELEASE:-0}" == "1" ]]; then
+  run bash scripts/check_sentry_optout_mapping.sh
+else
+  if [[ "$DRY_RUN" == "1" ]]; then
+    echo "   [dry-run] bash scripts/check_sentry_optout_mapping.sh"
+  elif bash scripts/check_sentry_optout_mapping.sh; then
+    :
+  else
+    echo "   ⚠️  Kein frisches Release-Mapping — Opt-out-Nachweis übersprungen."
+    echo "      Für den vollständigen Nachweis: PRE_PUSH_RELEASE=1 git push"
+  fi
 fi
 
 echo "▶ [pre-push] Secret-Guard (scripts/guard_secrets.sh)"

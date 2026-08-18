@@ -71,9 +71,15 @@ jobs:
       - name: Test changelog script
         run: bash scripts/test_update_changelog.sh
 
-      # Pre-Push-Gate (bash) — Dry-Run: alle drei Checks müssen aufgelistet sein
+      # Pre-Push-Gate (bash) — Dry-Run: alle Checks müssen aufgelistet sein
       - name: Test pre-push gate script
         run: bash scripts/test_pre_push.sh
+
+      # Sentry-Opt-out-Mapping-Check (bash) — Selbsttest mit Stub-Mapping:
+      # beweist, dass der Check die inlined Opt-out-Logik im R8-Mapping findet
+      # (1 Positiv- + 6 Negativfälle, offline/deterministisch).
+      - name: Test sentry optout mapping check
+        run: bash scripts/test_sentry_optout_mapping.sh
 
       # Play-Metadaten-Check (bash) — Selbsttest mit Fixture-PNGs: 1 Positiv-
       # + 5 Negativfälle. Der harte Gate-Check läuft im publish-play-Job
