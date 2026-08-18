@@ -4,7 +4,6 @@ import android.app.Application
 import com.vivid.core.data.SettingsRepository
 import com.vivid.core.remote.RemoteControlServer
 import dagger.hilt.android.HiltAndroidApp
-import io.sentry.SentryOptions
 import io.sentry.android.core.SentryAndroid
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -25,7 +24,7 @@ class VividApplication : Application() {
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     /**
-     * Aktueller Sentry-Opt-out-Stand für [SentryOptions.BeforeSendCallback]
+     * Aktueller Sentry-Opt-out-Stand für den beforeSend-Callback
      * (synchron lesbar, kein suspend im Callback möglich). Wird vom
      * appSettingsFlow gespiegelt; Default: an.
      */
@@ -41,9 +40,7 @@ class VividApplication : Application() {
         SentryAndroid.init(this) { options ->
             // JavaBean-Accessor: isSendDefaultPii (keine IP-/Gerätename-Erhebung)
             options.isSendDefaultPii = false
-            options.beforeSend = SentryOptions.BeforeSendCallback { event, _ ->
-                applySentryOptOut(event, sentryEnabled)
-            }
+            options.beforeSend = sentryBeforeSendCallback { sentryEnabled }
         }
         // Opt-out-Stand live verfolgen (für beforeSend).
         applicationScope.launch {
