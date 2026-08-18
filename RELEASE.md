@@ -241,9 +241,14 @@ bash scripts/check_play_metadata.sh   # Exit 0 = „Play-Metadaten vollständig.
 | # | Screen | Route | Navigieren | Empfohlener Inhalt |
 |---|---|---|---|---|
 | 1 | Live Stream | `streaming_route` (Start) | App-Start | Haupt-Screen: Kamera-Vorschau, Go-Live, Streaming-Status |
-| 2 | Einstellungen | `settings_route` | `tap_desc "Open Settings"` (Top-Bar-Zahnrad) | Chat-Bot-Bereich (Owner-KI, Limits/Cooldown), Streaming-Ziele |
+| 2 | Einstellungen (Kategorie-Übersicht) | `settings_route` | `tap_desc "Open Settings"` (Top-Bar-Zahnrad) | Fünf Kategorien: Streaming & OBS, Overlays & Widgets, Chat-Bot & KI, Remote & Datenschutz, Über & Updates |
+| 2a | Chat-Bot & KI | `settings_chatbot` | Settings → Kachel „Chat-Bot & KI“ | Owner-KI, Limits/Cooldown, Presets, Live-Verbrauch, Koexistenz, Media-Befehle |
+| 2b | Streaming & OBS | `settings_streaming` | Settings → Kachel „Streaming & OBS“ | Stream-URL/-Key, Plattform-Vorlagen, Multi-Streaming, OBS |
+| 2c | Overlays & Widgets | `settings_overlays` | Settings → Kachel „Overlays & Widgets“ | Chat-Overlay, Text-/Info-Widget |
+| 2d | Remote & Datenschutz | `settings_remote` | Settings → Kachel „Remote & Datenschutz“ | Web-Remote (Token/LAN), Sentry-Opt-out |
+| 2e | Über & Updates | `settings_about` | Settings → Kachel „Über & Updates“ | Version, Update-Badge, Link zu „Über Vivid & Updates“ |
 | 3 (opt.) | OBS-Steuerung | `obs_control` | `tap_desc "Open OBS Control"` | OBS-Remote-UI (WebSocket-Status) |
-| 4 (opt.) | Über | `about_route` | Settings → unten „About“ | Version, Links |
+| 4 (opt.) | Über | `about_route` | Settings → „Über & Updates“ → Button | Version, Links |
 
 Hinweise:
 - Die **ersten zwei** ersetzen die Platzhalter (`1_en-US.png`, `2_en-US.png`); weitere (`3_en-US.png`, …) sind optional und wandern automatisch mit ins Play-Listing

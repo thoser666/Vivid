@@ -35,7 +35,7 @@ The bot joins the same channel you configured for the chat overlay (`chat_channe
 
 ## Betriebsmodi (der Switch)
 
-In den Einstellungen (Abschnitt **„Chat-Bot (KI)“**) gibt es einen **Betriebsmodus-Switch** mit zwei Positionen:
+In den Einstellungen (**„Chat-Bot & KI“ → „Chat-Bot (KI)“**) gibt es einen **Betriebsmodus-Switch** mit zwei Positionen:
 
 | Modus | Verhalten | LLM nötig? |
 |-------|-----------|------------|
@@ -73,7 +73,7 @@ Wie beim Bot von [Moblin](https://github.com/eerimoq/moblin) kann der Chat das V
 Wie beim Bot von [Moblin](https://github.com/eerimoq/moblin) (Row 80, Android-Adaption der Apple-Music-Steuerung) steuert der Chat den aktiven Musik-Player (Apple Music, Spotify, YouTube Music, …) über die **MediaSession** des Geräts:
 
 - **`!song`** meldet den aktuellen Titel („Aktuell läuft: …“), **`!next`/`!prev`** springen weiter/zurück, **`!pause`/`!play`** pausieren/fortsetzen — alle case-insensitive.
-- **Voraussetzung:** Benachrichtigungszugriff für Vivid (Systemeinstellungen → Benachrichtigungen bzw. Sonderzugriff). Ohne diesen Zugriff dürfen Apps fremde Media-Sessions nicht sehen — der Bot antwortet dann mit einem Hinweis statt zu steuern. Im Settings-Screen gibt es dafür den Button **„Benachrichtigungszugriff aktivieren“** (öffnet die Systemeinstellung).
+- **Voraussetzung:** Benachrichtigungszugriff für Vivid (Systemeinstellungen → Benachrichtigungen bzw. Sonderzugriff). Ohne diesen Zugriff dürfen Apps fremde Media-Sessions nicht sehen — der Bot antwortet dann mit einem Hinweis statt zu steuern. Im Settings-Screen gibt es dafür den Button **„Benachrichtigungszugriff aktivieren“** (öffnet die Systemeinstellung; Kategorie **„Chat-Bot & KI“**, unten bei „Media-Befehle“).
 - Technisch läuft das über einen leeren `MediaNotificationListener` (nur Zugriffs-Marker — er liest **keine** Benachrichtigungen aus) + `MediaSessionManager.getActiveSessions(...)` → `MediaController.TransportControls`.
 - Es wird die aktive Session (playing/paused/buffering) bevorzugt, sonst die erste verfügbare.
 
@@ -81,7 +81,7 @@ Wie beim Bot von [Moblin](https://github.com/eerimoq/moblin) (Row 80, Android-Ad
 
 ## Koexistenz mit anderen Bots (z. B. Rivulet)
 
-Läuft neben dem Chat-Bot eines anderen Tools im selben Kanal (z. B. dem geplanten **Rivulet**-Bot, [github.com/thoser666/rivulet](https://github.com/thoser666/rivulet), Meilenstein M9), gibt es drei echte Kollisionspunkte — alle lassen sich in den Einstellungen (Abschnitt **„Chat-Bot (KI)“ → „Koexistenz mit anderen Bots“**) entschärfen:
+Läuft neben dem Chat-Bot eines anderen Tools im selben Kanal (z. B. dem geplanten **Rivulet**-Bot, [github.com/thoser666/rivulet](https://github.com/thoser666/rivulet), Meilenstein M9), gibt es drei echte Kollisionspunkte — alle lassen sich in den Einstellungen (**„Chat-Bot & KI“ → „Koexistenz mit anderen Bots“**) entschärfen:
 
 | Problem | Lösung in Vivid |
 |---------|-----------------|
@@ -110,7 +110,7 @@ Fremde Befehle außerhalb des Scopes liefern **kein** „Unbekannter Befehl“-E
 
 ## Begrenzungen (pro Viewer + Kosten)
 
-Im Settings-Screen (Abschnitt **„Chat-Bot (KI)“ → „Begrenzungen“**) kann der Streamer drei Schutzstufen einstellen — alle mit `0 = aus/unbegrenzt`. Sie greifen **vor Befehlen und vor LLM-Antworten** und funktionieren **plattformneutral** über die `userId` der Plattform (Twitch-User-ID, YouTube-`channelId`, Kick-User-ID) — die Engine liegt ja über allen Plattform-Adaptern.
+Im Settings-Screen (**„Chat-Bot & KI“ → „Begrenzungen“**) kann der Streamer drei Schutzstufen einstellen — alle mit `0 = aus/unbegrenzt`. Sie greifen **vor Befehlen und vor LLM-Antworten** und funktionieren **plattformneutral** über die `userId` der Plattform (Twitch-User-ID, YouTube-`channelId`, Kick-User-ID) — die Engine liegt ja über allen Plattform-Adaptern.
 
 | Einstellung | Default | Wirkung |
 |-------------|---------|---------|
@@ -205,7 +205,7 @@ Fallback: öffentliche Antwort (Send-Chat-API) in den Kanal + Bot-Log-Hinweis
 - Die **Twitch-App-Client-ID** ist in den Einstellungen hinterlegt (`chat_bot_twitch_client_id`) — Pflicht-Header für alle Helix-Aufrufe.
 - Das Sender-Konto braucht eine **verifizierte Telefonnummer** (Twitch-Anforderung).
 
-Twitch-Limits: 40 eindeutige Empfänger/Tag, 3 Whispers/s, 100/min, 500 Zeichen für die erste Nachricht an einen User (der Bot kürzt automatisch auf 500), und Twitch kann Whispers **still verwerfen** (auch bei HTTP 204). Blockt der Empfänger Whispers von Fremden (`Block Whispers from Strangers`), antwortet Twitch mit 400 — der Bot **fällt dann öffentlich in den Chat zurück** (Zuverlässigkeit der Bestätigung schlägt Privatsphäre im Fehlerfall) und loggt den Grund. Der ganze Weg lässt sich im Settings-Screen abschalten (`chat_bot_owner_whisper_replies`); ohne Client-ID/Scope geht die Antwort automatisch öffentlich.
+Twitch-Limits: 40 eindeutige Empfänger/Tag, 3 Whispers/s, 100/min, 500 Zeichen für die erste Nachricht an einen User (der Bot kürzt automatisch auf 500), und Twitch kann Whispers **still verwerfen** (auch bei HTTP 204). Blockt der Empfänger Whispers von Fremden (`Block Whispers from Strangers`), antwortet Twitch mit 400 — der Bot **fällt dann öffentlich in den Chat zurück** (Zuverlässigkeit der Bestätigung schlägt Privatsphäre im Fehlerfall) und loggt den Grund. Der ganze Weg lässt sich im Settings-Screen abschalten (**„Chat-Bot & KI“ → „Owner-Zugriff (nur Streamer)“**, `chat_bot_owner_whisper_replies`); ohne Client-ID/Scope geht die Antwort automatisch öffentlich.
 
 #### Whisper-Empfang (EventSub) — private Befehle an den Bot
 
@@ -313,7 +313,7 @@ All bot settings live in the app settings. Fields (DataStore keys):
 | Owner-LLM API key | `chat_bot_owner_llm_api_key` | `` (default) |
 | Owner-LLM model | `chat_bot_owner_llm_model` | `` (default) |
 
-Alle Felder sind direkt im **Settings-Screen** (Abschnitt **„Chat-Bot (KI)“**) editierbar und werden mit „Speichern“ persistiert. Token und API-Key sind als Passwortfelder mit Sichtbarkeits-Toggle (Auge) hinterlegt.
+Alle Felder sind direkt im **Settings-Screen** (Kategorie **„Chat-Bot & KI“**, Abschnitte „Bot-Konto & LLM“, „Bot-Verhalten“, „Begrenzungen“) editierbar und werden mit „Speichern“ persistiert. Token und API-Key sind als Passwortfelder mit Sichtbarkeits-Toggle (Auge) hinterlegt.
 
 ## Behavior & safeguards
 
