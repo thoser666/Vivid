@@ -70,6 +70,12 @@ fi
 echo "▶ [pre-push] Fastfile-Suffix-Guard (scripts/test_stage_suffix_guard.sh)"
 run bash scripts/test_stage_suffix_guard.sh
 
+# Geteilte Release-Safety (Ruby, offline): versionCode-Ableitung, Track-Monotonie
+# (kein Downgrade) und Quer-Track-Vergleich — beide Lanes müssen dieselben
+# Funktionen nutzen, damit sie nicht wieder auseinanderlaufen.
+echo "▶ [pre-push] Release-Safety (scripts/test_release_safety.sh)"
+run bash scripts/test_release_safety.sh
+
 echo "▶ [pre-push] Sentry-Opt-out-Mapping-Check (scripts/check_sentry_optout_mapping.sh)"
 if [[ "${PRE_PUSH_RELEASE:-0}" == "1" ]]; then
   run bash scripts/check_sentry_optout_mapping.sh

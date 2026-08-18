@@ -94,6 +94,13 @@ jobs:
       - name: Test fastlane stage-suffix guard
         run: bash scripts/test_stage_suffix_guard.sh
 
+      # Geteilte Release-Safety (Ruby) — Selbsttest: versionCode-Ableitung,
+      # Track-Monotonie (kein Downgrade) und Quer-Track-Vergleich; strukturell
+      # wird geprüft, dass release_alpha UND release_beta dieselben Funktionen
+      # nutzen (kein Auseinanderlaufen der Lanes mehr).
+      - name: Test fastlane release-safety
+        run: bash scripts/test_release_safety.sh
+
       # ── Optional: Code‑Scanning / Security‑Events ──
       # - name: Run CodeQL
       #   uses: github/codeql-action/init@v2
