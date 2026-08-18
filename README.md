@@ -522,10 +522,6 @@ We welcome contributions! Join our [Discussions](../../discussions) to pitch an 
 
 ---
 
-## 📱 Screenshots
-
-*Screenshots will be added with the next release.*
-
 ## 🆘 Support & Community
 
 - 📚 **Documentation**: Check our [Wiki](../../wiki) for detailed guides
