@@ -788,7 +788,26 @@ Der `supply`-Upload (`publish_play`) lädt nur APK/AAB + Metadaten (Titel, Besch
    - **Feature-Grafik** (1024×500) optional; App-Symbol + Screenshots lädt `supply` automatisch aus `images/` mit hoch
 2. **App-Content → App-Zugriff:** „Alle Funktionen ohne Login“ — Vivid hat kein eigenes Konto (Twitch-/LLM-Tokens liegen lokal in den Settings)
 3. **App-Content → Anzeigen:** „Nein“ — kein Ad-SDK im Projekt (verifiziert: kein `ads`/`billing`-Dependency)
-4. **App-Content → Content-Rating (IARC-Fragebogen):** selbsterklärende Fragen; für Vivid realistisch: Live-Streaming mit **nutzergenerierten Inhalten** (Chat), Kamera/Mikrofon, keine Gewalt-/Glücksspiel-Referenzen → junges Rating. **Fehlt das Rating, blockiert Google das Ausrollen** („Content rating fehlt“)
+4. **App-Content → Content-Rating (IARC-Fragebogen):** selbsterklärende Fragen; für Vivid realistisch: Live-Streaming mit **nutzergenerierten Inhalten** (Chat) + **Standort teilen** → ehrliches Ergebnis **16+** (nicht „jung“). Antwortvorlage direkt unten („IARC-Antwortvorlage für Vivid“). **Fehlt das Rating, blockiert Google das Ausrollen** („Content rating fehlt“)
+
+   **IARC-Antwortvorlage für Vivid (Stand 08/2026):**
+
+   | Fragekategorie | Antwort | Begründung für Vivid |
+   |---|---|---|
+   | Gewalt (realistisch/cartoon) | **Nein** | keine Gewaltinhalte in der App selbst |
+   | Sexualität & Nacktheit | **Nein** | keine sexualisierten Inhalte in der App |
+   | Sprache (Kraftausdrücke/vulgär) | **Nein** | die App generiert keine; UGC-Chat kann sie enthalten (siehe UGC-Zeile) |
+   | Glücksspiel (Echtgeld/simuliert/3D) | **Nein** | kein Glücksspiel, keine Lootboxen |
+   | Alkohol, Tabak, Drogen | **Nein** | keine Referenzen |
+   | **Nutzergenerierte Inhalte (UGC)** | **Ja** | Live-Stream + Twitch-Chat sind Nutzerinhalte, **nicht gefiltert/modieriert** |
+   | **Standort teilen** | **Ja** | GPS-Widget zeigt Koordinaten im gestreamten Overlay → für Zuschauer sichtbar |
+   | **Persönliche Daten teilen** | **Ja** | öffentlicher Chat + Stream können persönliche Infos enthalten |
+   | **Chat/Kommunikation zwischen Nutzern** | **Ja** | Twitch-Chat (Overlay + Bot) |
+   | **Internetzugang** | **Ja** | Streaming, Chat, LLM-Endpunkte |
+   | In-App-Käufe / digitale Käufe | **Nein** | keine IAP, App ist kostenlos |
+   | Zufallsgegenstände | **Nein** | keine |
+
+   **Erwartetes Rating:** durch **ungefilterte UGC + Standort-Teilen** liegt das ehrliche Ergebnis bei **16+** (z. B. PEGI 16 / USK 16; regionale Abweichungen möglich) — Referenz: Streaming-Apps mit Live-UGC werden von IARC als „reif“ eingestuft. **Entscheidungshebel:** Falls die UGC-Frage „können Inhalte enthalten, die allein ein höheres Rating auslösen“ mit Ja beantwortet wird (Live-Streams können real beliebiges zeigen), steigt das Rating weiter (Richtung 18+). Wer das geringer hält, muss die Streams tatsächlich selbst moderieren/filtern — die Antwort muss wahr sein (Review).
 5. **App-Content → Zielgruppe und Inhalte:** „Nein“ (nicht kinderorientiert — Vivid richtet sich an Streamer, 18+)
 6. **App-Content → Data Safety:** ehrlich nach Manifest/Berechtigungen ausfüllen — **abgestimmt mit [PRIVACY.md](PRIVACY.md)** (Stand 18.08.2026):
    - **Erhoben:**
@@ -796,8 +815,21 @@ Der `supply`-Upload (`publish_play`) lädt nur APK/AAB + Metadaten (Titel, Besch
      - **Standort (präzise, GPS)** — nur solange das **Text-/Info-Widget** (Zeit/GPS/Geschwindigkeit) aktiv ist; Koordinaten/Geschwindigkeit sind Teil des gestreamten Overlays, wenn parallel gestreamt wird („auf Nutzeraktion“)
      - **Nutzerinhalte (Chat)** — Twitch-Chat wird gelesen/gesendet (Helix/EventSub); bei **aktivem KI-Bot** gehen Chat-Kontext + System-Prompt an den **vom Streamer selbst konfigurierten LLM-Endpunkt** (OpenAI-kompatibel: OpenAI/Gemini/Groq/DeepSeek oder lokal Ollama)
      - **Crash-/Fehlerdaten + Gerätekennung/IP (Sentry)** — **automatisch, ohne In-App-Opt-out**: DSN im Manifest, Screenshot + View-Hierarchy aktiv, sample-rate 1.0; es gibt **keinen** Schalter in den Settings (Workaround: OS-Netzwerkblock) — siehe PRIVACY.md
-   - **Nicht erhoben:** Konten, E-Mails, Finanzdaten, Einkäufe, Health-Daten, Kontakte
-   - Übertragung verschlüsselt (TLS), **keine Datenverkäufe** — kein eigenes Backend (nur vom Nutzer konfigurierte Endpunkte: Twitch, LLM, OBS-lokal)
+   - **Nicht erhoben:** Konten, E-Mails, Finanzdaten, Einkäufe, Health-Daten, Kontakte, Kalender, Web-Verlauf, Dateien
+   - **Keine Datenverkäufe** — kein eigenes Backend (nur vom Nutzer konfigurierte Endpunkte: Twitch, LLM, OBS-lokal)
+   - **Antworttabelle für das Formular (Datentyp → Erhoben? → Zweck → Geteilt? → Verschlüsselt? → Löschung/Kontrolle):**
+
+     | Formular-Datentyp | Erhoben? | Zweck | Geteilt? | Verschlüsselt? | Löschung/Kontrolle |
+     |---|---|---|---|---|---|
+     | **Standort — präzise** | ✅ Ja (nur bei aktivem GPS-Widget) | App-Funktionalität (Overlay) | ✅ Ja — Teil des Streams an den **selbst konfigurierten** Server (für Zuschauer sichtbar) | Stream: abhängig vom Server (RTMPS/SRT = TLS, RTMP = unverschlüsselt) | Widget aus = keine Erfassung; kein Vivid-Server-Speicher |
+     | **Fotos & Videos / Audiodateien (Kamera/Mikro)** | ✅ Ja (live, nur während Stream) | App-Funktionalität (Streaming) | ✅ Ja — an den **selbst konfigurierten** Streaming-Server | API/Steuerung TLS; Stream abhängig vom Server-Protokoll | nur lokal während des Streams; kein Vivid-Speicher |
+     | **Nachrichten/Chat (Nutzerinhalte)** | ✅ Ja (Twitch-Chat lesen/senden) | App-Funktionalität (Bot/Overlay) | ✅ Ja — an Twitch; bei aktivem KI-Bot an den **selbst konfigurierten** LLM-Endpunkt | ✅ TLS | Bot abschaltbar; History nur in-memory |
+     | **App-Aktivität (Interaktionen, Settings)** | ✅ Ja (lokal) | App-Funktionalität | ❌ Nein (lokal im DataStore) | n/a (lokal) | App-Daten im System löschbar |
+     | **App-Info & Leistung (Crash-/Diagnosedaten)** | ✅ Ja — **automatisch** | Analyse/Fehlerbehebung | ✅ Ja — an Sentry | ✅ TLS | ⚠️ **kein In-App-Opt-out** (siehe PRIVACY.md) |
+     | **Geräte-/andere Kennungen (inkl. IP)** | ✅ Ja (via Sentry: Gerätemodell, OS, IP) | Analyse/Fehlerbehebung | ✅ Ja — an Sentry | ✅ TLS | ⚠️ kein In-App-Opt-out |
+     | Konten, E-Mail, Telefon, Finanzen, Health, Kontakte, Kalender, Web-Verlauf, Dateien | ❌ **Nein** | — | ❌ | — | — |
+
+   - **Globale Formular-Abschlussfragen:** „Verkauf von Nutzerdaten“ → **Nein** · „Weitergabe für Werbung“ → **Nein** · „Nutzer können Löschung beantragen“ → ehrlich: für lokale Daten via App-Daten löschen, für Sentry-Daten über den Sentry-Data-Request (kein In-App-Weg) — im Formular entsprechend **Nein/teilweise** angeben, konsistent zur PRIVACY.md
    - Hinweis: **Internal-Test-Tracks sind von Data Safety befreit** (Google-Hilfe) — für alpha/beta/production trotzdem ausfüllen, sonst blockiert das Ausrollen
 7. **News-Apps / Regierungs-Apps:** nicht zutreffend → überspringen
 8. **Testing-Track sicherstellen:** `supply(track: …)` braucht einen **existierenden Track** — Default-Namen: `internal` (bis 100 Testpersonen, ohne Freigabe), `alpha`/`beta` (geschlossener Test mit Tester-Liste), `production`. Für den ersten Upload: Track in der Console anlegen, bevor `publish_play` mit `track=alpha` läuft (sonst Fehler „track not found“)
@@ -831,7 +863,7 @@ Master-Checkliste für den Weg zum ersten Play-Upload — **Reihenfolge = kritis
 - [ ] **Kontakt-E-Mail** im Store-Listing eintragen (Pflichtfeld, bleibt offen)
 - [ ] **App-Zugriff**: „Alle Funktionen ohne Login“ (~5 min)
 - [ ] **Anzeigen**: „Nein“ (~2 min; kein Ad-SDK im Projekt, verifiziert)
-- [ ] **Content Rating (IARC-Fragebogen)** (~15–20 min): Live-Streaming + nutzergenerierter Chat → junges Rating; fehlt es, blockiert Google das Ausrollen
+- [ ] **Content Rating (IARC-Fragebogen)** (~15–20 min, **Antwortvorlage oben bei Schritt 4**): Live-Streaming + nutzergenerierter Chat + Standort teilen → ehrlich **16+**; fehlt es, blockiert Google das Ausrollen
 - [ ] **Zielgruppe**: nicht kinderorientiert (~2 min)
 - [ ] **Data Safety** (~15–30 min, **Vorlage in Schritt 6 oben**, abgestimmt mit [PRIVACY.md](PRIVACY.md)): Kamera/Mikro, **Standort präzise** (GPS-Widget, nur bei aktivem Widget), **Chat/LLM** (Twitch + selbst konfigurierter LLM-Endpunkt), **Sentry automatisch** (kein Opt-out); keine Datenverkäufe — Internal-Test-Tracks sind befreit, alpha/beta/production nicht
 - [ ] **Track `alpha` anlegen** (~5 min): Play Console → Testing → Alpha — `supply(track: alpha)` bricht sonst mit „track not found“
