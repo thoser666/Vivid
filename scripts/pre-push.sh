@@ -14,10 +14,11 @@
 # frisches Release-Mapping vorliegt (nach PRE_PUSH_RELEASE=1 garantiert) und
 # weist nach, dass die Sentry-Opt-out-Logik im R8-Release-Build enthalten ist.
 #
-# Der Release-Build (assembleRelease) ist OPTIONAL: er läuft R8/ProGuard +
-# Resource-Shrinking und fängt so Signatur-/ProGuard-Probleme lokal, bevor sie
-# die CI erreichen. Signierung fällt ohne KEYSTORE_PATH-Secrets auf den
-# Debug-Keystore zurück (gleiches Verhalten wie in der CI ohne Secrets).
+# Die Release-Builds (assembleRelease + bundlePlayRelease) sind OPTIONAL: sie
+# laufen R8/ProGuard + Resource-Shrinking und fangen so Signatur-/ProGuard-
+# Probleme lokal, bevor sie die CI erreichen. Signierung fällt ohne die
+# KEYSTORE_*/UPLOAD_*-Secrets auf den Debug-Keystore zurück (gleiches Verhalten
+# wie in der CI ohne Secrets).
 #
 # Als Git-Hook installieren:  bash scripts/install-git-hooks.sh
 # Einen einzelnen Push umgehen: git push --no-verify
@@ -48,10 +49,12 @@ if [[ "${PRE_PUSH_SKIP_LINT:-0}" != "1" ]]; then
   run ./gradlew lintDebug --console=plain
 fi
 
-# Optional: Release-Build mit R8/ProGuard + Resource-Shrinking (assembleRelease).
+# Optional: Release-Builds mit R8/ProGuard + Resource-Shrinking — BEIDE Kanäle,
+# damit der anschließende Mapping-Check (release + playRelease) frische Mappings
+# vorfindet: assembleRelease (APK) + bundlePlayRelease (AAB, Upload-Key-Kanal).
 if [[ "${PRE_PUSH_RELEASE:-0}" == "1" ]]; then
-  echo "▶ [pre-push] Release-Build (R8/ProGuard, PRE_PUSH_RELEASE=1: ./gradlew assembleRelease)"
-  run ./gradlew assembleRelease --console=plain
+  echo "▶ [pre-push] Release-Builds (R8/ProGuard, PRE_PUSH_RELEASE=1: ./gradlew assembleRelease bundlePlayRelease)"
+  run ./gradlew assembleRelease bundlePlayRelease --console=plain
 fi
 
 # Automatischer Mapping-Check: weist nach, dass die Sentry-Opt-out-Logik in
