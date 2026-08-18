@@ -639,6 +639,21 @@ macOS: `base64 -b 0 < upload-keystore.jks > upload-keystore.jks.b64` · Windows 
 
 Die `.b64`-Datei ist **eine einzige lange Zeile** — genau dieser Wert wird `UPLOAD_KEYSTORE_BASE64`. (Die Datei ist via `.gitignore` (`*.b64`) abgesichert — niemals committen; zusätzlich blockt der Secret-Guard `upload-keystore.jks`, `upload_cert.pem` und `fastlane/.env.play`.)
 
+> **📂 Keystore-Standort (Stand 18.08.):** Der Upload-Keystore liegt **außerhalb des Repos** unter `I:\gpg-keys\Google_Play_upload\` (`upload-keystore.jks` + `upload_cert.pem` + `upload-keystore.jks.b64`). Alle Skript-Aufrufe nutzen `KEYSTORE_PATH` bzw. `--keystore <pfad>`, z. B. `KEYSTORE_PATH="I:/gpg-keys/Google_Play_upload/upload-keystore.jks" bash scripts/prepare_play_secrets.sh --set`. So ist ein versehentliches Committen **strukturell unmöglich**.
+
+**✅ Backup-Checkliste — VOR dem Setzen der Secrets abhaken** (Keystore-Verlust = Play-Upload-Zugang weg, Passwörter nie wiederherstellbar):
+
+- [ ] **Passwörter notieren**: Store-Passwort + Key-Passwort (≥ 20 Zeichen) in den **Passwort-Manager** (Bitwarden/KeePass) — niemals in Chats/E-Mails/Repos
+- [ ] **Alias notieren**: `upload` (wird dauerhaft `UPLOAD_KEY_ALIAS` — späteres Umbenennen bricht die Signierung)
+- [ ] **Keystore-Datei sichern**: mindestens **3 Kopien an getrennten Orten** (verschlüsselter USB-Stick, Passwort-Manager-Anhang, Safe/Papier) — `upload-keystore.jks` ist klein (≈ 4 KB)
+- [ ] **Backups testen**: jede Kopie an einem zweiten Rechner dekodieren und den Fingerprint mit dem Original vergleichen (Schritt 4.1) — ein Backup, das sich nicht lesen lässt, existiert nicht
+- [ ] **`upload_cert.pem` sichern** (öffentliches Zertifikat für die Play Console — Verlust unkritisch, aus dem Keystore re-exportierbar)
+- [ ] **Fingerprint notieren**: `keytool -list -v -keystore upload-keystore.jks -storepass '<PASSWORT>' | grep SHA256` → für den Console-Abgleich (Schritt 4.2)
+- [ ] **Recovery-Weg einmal getestet**: Keystore aus `UPLOAD_KEYSTORE_BASE64` zurückdekodieren und Fingerprint prüfen — dann ist klar, dass GitHub als zusätzliches Backup taugt
+- [ ] **Widerruf-Risiko verstanden**: Leak von Keystore **oder** Passwörtern = Release-Hijacking in Play → Secret ersetzen + „Request upload key reset“; Upload-Key strikt vom Release-Key (`KEYSTORE_*`) getrennt halten
+
+> Erst wenn **alle** Kästchen gesetzt sind: `bash scripts/prepare_play_secrets.sh --set` (bzw. Schritt 3 manuell). Danach sind die Secret-Werte in GitHub **nie wieder sichtbar** — nur ersetzbar.
+
 **Schritt 3 — Secrets in GitHub hinterlegen**
 
 Repo → **Settings → Secrets and variables → Actions → New repository secret**, viermal:
@@ -945,9 +960,9 @@ Master-Checkliste für den Weg zum ersten Play-Upload — **Reihenfolge = kritis
 
 **Tag 0–2 — P0-Vorbereitung ohne Konto (~30 min):**
 
-1. **Upload-Keystore-Backup** verankern: `upload-keystore.jks` + `upload_cert.pem` existieren lokal (17.08.) — jetzt **an 2 Orten sichern** (z. B. verschlüsseltes Archiv + Offline-Medium). ⚠️ Keystore-Verlust = Upload für immer verloren
-2. **UPLOAD-Secrets ohne Console setzbar** (Keystore-Passwörter): `bash scripts/prepare_play_secrets.sh --set` → `UPLOAD_KEYSTORE_BASE64`, `UPLOAD_KEYSTORE_PASSWORD`, `UPLOAD_KEY_ALIAS`, `UPLOAD_KEY_PASSWORD` (Werte nur aus Dateien/stdin, nie ins Log)
-3. **Fingerprint notieren** für den späteren Console-Abgleich: `keytool -list -v -keystore upload-keystore.jks | grep SHA256`
+1. **Upload-Keystore-Backup** verankern: Keystore **am 18.08. neu erzeugt** und liegt unter `I:\gpg-keys\Google_Play_upload\` (außerhalb des Repos) — Backup-Checkliste (Abschnitt „🔐 Play-Upload-Keystore …“, Schritt 2) abhaken: Passwörter im Manager, **3 Kopien an getrennten Orten** (verschlüsseltes Archiv + Offline-Medium), Recovery-Test. ⚠️ Keystore-Verlust = Upload für immer verloren
+2. **UPLOAD-Secrets ohne Console setzbar** (Keystore-Passwörter): `KEYSTORE_PATH="I:/gpg-keys/Google_Play_upload/upload-keystore.jks" bash scripts/prepare_play_secrets.sh --set` → `UPLOAD_KEYSTORE_BASE64`, `UPLOAD_KEYSTORE_PASSWORD`, `UPLOAD_KEY_ALIAS`, `UPLOAD_KEY_PASSWORD` (Werte nur aus Dateien/stdin, nie ins Log)
+3. **Fingerprint notieren** für den späteren Console-Abgleich: `keytool -list -v -keystore "I:/gpg-keys/Google_Play_upload/upload-keystore.jks" | grep SHA256`
 
 **Tag 2–5 — direkt nach Kontofreigabe, ein Vormittag (~1,5–2 h):**
 
