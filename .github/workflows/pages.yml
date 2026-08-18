@@ -36,6 +36,8 @@ jobs:
           import markdown, pathlib
           src = pathlib.Path('PRIVACY.md').read_text(encoding='utf-8')
           body = markdown.markdown(src, extensions=['tables', 'fenced_code', 'sane_lists'])
+          # Platzhalter-Ersetzung statt .format(): die CSS-Klammern würden sonst
+          # als Format-Platzhalter interpretiert (KeyError).
           html = '''<!DOCTYPE html>
           <html lang="en">
           <head>
@@ -54,9 +56,9 @@ jobs:
             </style>
           </head>
           <body>
-          {body}
+          __BODY__
           </body>
-          </html>'''.format(body=body)
+          </html>'''.replace('__BODY__', body)
           out = pathlib.Path('docs/privacy')
           out.mkdir(parents=True, exist_ok=True)
           (out / 'index.html').write_text(html, encoding='utf-8')
