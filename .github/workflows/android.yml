@@ -87,6 +87,13 @@ jobs:
       - name: Test play metadata check
         run: bash scripts/test_play_metadata.sh
 
+      # Fastfile-Suffix-Guard (Ruby) — Selbsttest: beweist, dass release_alpha/
+      # release_beta bei explizitem version: OHNE Stufen-Suffix abbrechen
+      # (der v0.5.1-Vorfall vom 18.08.2026) und dass beide Lanes den Guard
+      # aufrufen. Offline, kein fastlane nötig.
+      - name: Test fastlane stage-suffix guard
+        run: bash scripts/test_stage_suffix_guard.sh
+
       # ── Optional: Code‑Scanning / Security‑Events ──
       # - name: Run CodeQL
       #   uses: github/codeql-action/init@v2

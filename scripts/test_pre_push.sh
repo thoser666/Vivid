@@ -16,6 +16,7 @@ fail() {
 grep -q "testDebugUnitTest" <<< "$out" || fail "testDebugUnitTest fehlt im Dry-Run"
 grep -q "lintDebug" <<< "$out" || fail "lintDebug fehlt im Dry-Run"
 grep -q "check_sentry_optout_mapping.sh" <<< "$out" || fail "check_sentry_optout_mapping.sh fehlt im Dry-Run"
+grep -q "test_stage_suffix_guard.sh" <<< "$out" || fail "test_stage_suffix_guard.sh fehlt im Dry-Run"
 grep -q "guard_secrets.sh" <<< "$out" || fail "guard_secrets.sh fehlt im Dry-Run"
 grep -q "Alle Checks grün" <<< "$out" || fail "Abschlussmeldung fehlt im Dry-Run"
 

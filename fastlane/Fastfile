@@ -1,6 +1,7 @@
 # Fastfile
 require "json"
 require "fileutils"
+require_relative "stage_suffix"
 default_platform(:android)
 
 # Deterministischer versionCode aus einem Version-Tag (vX.Y.Z[-alpha|beta|rc]).
@@ -90,6 +91,13 @@ platform :android do
       end
     end
     tag = "v#{tag}" unless tag.start_with?("v")
+
+    # Suffix-Guard: Ein explizit übergebenes version: ohne '-alpha' würde einen
+    # STABILEN Tag erzeugen (v0.5.1 statt v0.5.1-alpha — Vorfall 18.08.2026, siehe
+    # RELEASE.md → Alpha-Strategie). Invariante: Alpha-Tags enden immer auf '-alpha'.
+    unless stage_suffix_ok?(tag, "alpha")
+      UI.user_error!("Tag #{tag} ist kein gültiger Alpha-Tag (Suffix '-alpha' fehlt). Explizites version: muss den vollen Tag inkl. Stufe enthalten, z. B. version:v0.5.1-alpha — sonst entstünde ein stabiler Tag.")
+    end
     UI.message("Next alpha tag: #{tag}")
 
     # Safety: refuse to overwrite an existing tag
@@ -135,6 +143,13 @@ platform :android do
       end
     end
     tag = "v#{tag}" unless tag.start_with?("v")
+
+    # Suffix-Guard: Ein explizit übergebenes version: ohne '-beta' würde einen
+    # STABILEN Tag erzeugen (v0.5.1 statt v0.5.1-beta — Vorfall 18.08.2026, siehe
+    # RELEASE.md → Beta-Strategie). Invariante: Beta-Tags enden immer auf '-beta'.
+    unless stage_suffix_ok?(tag, "beta")
+      UI.user_error!("Tag #{tag} ist kein gültiger Beta-Tag (Suffix '-beta' fehlt). Explizites version: muss den vollen Tag inkl. Stufe enthalten, z. B. version:v0.5.1-beta — sonst entstünde ein stabiler Tag.")
+    end
     UI.message("Next beta tag: #{tag}")
 
     # Safety 1: refuse to overwrite an existing tag

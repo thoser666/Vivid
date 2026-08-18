@@ -63,6 +63,13 @@ fi
 # Mappings garantiert frisch (Pflicht). Ohne Release-Build läuft der Check
 # automatisch, wenn frische Mappings vorliegen (z. B. vom letzten Release-Build);
 # sonst Hinweis statt Fehlschlag, da der Release-Build bewusst optional ist.
+# Fastfile-Suffix-Guard (Ruby, offline): verhindert, dass release_alpha/
+# release_beta mit explizitem version: ohne Stufen-Suffix einen stabilen Tag
+# erzeugen (Vorfall v0.5.1 vom 18.08.2026). Reine Funktions-/Strukturprüfung,
+# kein fastlane-Lauf nötig.
+echo "▶ [pre-push] Fastfile-Suffix-Guard (scripts/test_stage_suffix_guard.sh)"
+run bash scripts/test_stage_suffix_guard.sh
+
 echo "▶ [pre-push] Sentry-Opt-out-Mapping-Check (scripts/check_sentry_optout_mapping.sh)"
 if [[ "${PRE_PUSH_RELEASE:-0}" == "1" ]]; then
   run bash scripts/check_sentry_optout_mapping.sh
