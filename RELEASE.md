@@ -51,7 +51,7 @@ Jeder Release durchläuft eine von vier Stufen. Welche Stufe aktiv ist, bestimmt
 
 2. **⚠️ Automatik-Fallstrick `minor+1`:** `release_alpha` **ohne** `version:` leitet `v0.6.0-alpha` → **`v0.7.0-alpha`** ab — dabei wird die Roadmap-Nummerierung (Feature-Buckets) übersprungen bzw. die falsche Stufe getroffen. Feature- und Patch-Alphas deshalb **immer explizit** mit `version:vX.Y.Z-alpha` übergeben.
 
-3. **versionCode:** deterministisch aus dem Tag — `v0.5.1-alpha` = 5011. **⚠️ Besonderheit:** `release_alpha` hat (anders als `release_beta`) **keine lokalen Safety-Checks** — keine versionCode-Monotonie-Prüfung, keine Quer-Track-Warnung. Die Monotonie (neuer Code > letzter veröffentlichter) muss vor dem Tag **manuell** geprüft werden.
+3. **versionCode:** deterministisch aus dem Tag — `v0.5.1-alpha` = 5011. **Seit 18.08.2026 hat `release_alpha` dieselben Safety-Checks wie `release_beta`** (geteilte Funktionen in `fastlane/release_safety.rb`): versionCode ableitbar, kein Downgrade innerhalb der alpha-Track, Quer-Track-Warnung. Damit die Checks lokal (Windows) wirklich greifen, müssen alle `git tag -l`-Aufrufe **Double-Quotes** verwenden — Single-Quotes würden unter cmd.exe literal übergeben und nie matchen (Windows-Falle, strukturell per Selbsttest abgesichert).
 
 ## 🗺️ Roadmap (Version → Features)
 
@@ -920,6 +920,52 @@ Master-Checkliste für den Weg zum ersten Play-Upload — **Reihenfolge = kritis
 - [ ] **Smoke-Test bestätigen lassen**: „kein Crash in 15 Minuten“ pro Tester → Voraussetzung fürs spätere Ausrollen
 
 **Kritischer Pfad:** P0 → P2 (erster Upload in den Alpha-Track); P1 ist für den **reinen Upload** nicht nötig, aber **zwingend fürs Ausrollen** („Go live“) — parallel erledigen. **Reihenfolge-Tipp:** Mit dem Play-Konto starten (Identitäts-/Zahlungsverifikation dauert 2–5 Werktage) und parallel die echten Screenshots aufnehmen — das ist der einzige P1-Punkt mit echtem Tooling-Aufwand.
+
+### 📅 Zeitplan: Erster Play-Upload (kritischer Pfad, Tag für Tag)
+
+**Grundprinzip:** Der 2–5-Werktage-Verifikationsblock ist der Flaschenhals → **heute starten**. Alles, was ohne Konto geht, wird parallel erledigt; die Console-Schritte passen nach der Freigabe auf einen Vormittag. Stand: 18.08.2026.
+
+**Tag 0 — Konto anstoßen + Screenshots parallel (~1,5 h):**
+
+1. **Play-Entwicklerkonto registrieren** (zeitkritisch, zuerst): [play.google.com/console](https://play.google.com/console) → einmalige Registrierung (**25 $**, Kredit-/Debitkarte, Telefonnummer, Ausweis) → Identitäts- + Zahlungsverifikation läuft (2–5 Werktage, E-Mail-Antrag nach Freigabe beobachten)
+2. **Parallel — echte Screenshots per Screengrab-Lane** (Option B, automatisiert):
+   ```bash
+   SDK="/c/Users/steff/AppData/Local/Android/Sdk"
+   "$SDK/cmdline-tools/latest/bin/avdmanager.bat" create avd -n vivid_play \
+     -k "system-images;android-35;google_apis_playstore;x86_64" --device "pixel_2"
+   "$SDK/emulator/emulator.exe" -avd vivid_play -no-snapshot -no-audio -no-boot-anim -no-window &
+   adb wait-for-device shell 'while [ "$(getprop sys.boot_completed)" != "1" ]; do sleep 1; done'
+   bundle exec fastlane capture_play_screenshots   # baut Debug+androidTest, nimmt 1_live_stream + 2_settings auf,
+   # kopiert nach fastlane/metadata/android/images/phoneScreenshots/1_en-US.png + 2_en-US.png, prüft das Gate
+   bash scripts/check_play_metadata.sh              # Exit 0 = „Play-Metadaten vollständig.“
+   ```
+   → Ergebnis: 2 echte 9:16-Screenshots (1080×1920, Pixel-2-Profil), Platzhalter ersetzt, **committen** (ersetzen `e2c966c`-Platzhalter)
+3. **Optional:** Screenshot 3 (OBS-Steuerung) manuell nach Option A ergänzen (3_en-US.png) — nur wenn der Inhalt stehen soll
+4. **Offline vorbereiten (ohne Console):** IARC-Antwortvorlage + Data-Safety-Antworttabelle (oben, Schritt 4/6) als Entwurf durchgehen — spart nach der Freigabe Zeit
+
+**Tag 0–2 — P0-Vorbereitung ohne Konto (~30 min):**
+
+1. **Upload-Keystore-Backup** verankern: `upload-keystore.jks` + `upload_cert.pem` existieren lokal (17.08.) — jetzt **an 2 Orten sichern** (z. B. verschlüsseltes Archiv + Offline-Medium). ⚠️ Keystore-Verlust = Upload für immer verloren
+2. **UPLOAD-Secrets ohne Console setzbar** (Keystore-Passwörter): `bash scripts/prepare_play_secrets.sh --set` → `UPLOAD_KEYSTORE_BASE64`, `UPLOAD_KEYSTORE_PASSWORD`, `UPLOAD_KEY_ALIAS`, `UPLOAD_KEY_PASSWORD` (Werte nur aus Dateien/stdin, nie ins Log)
+3. **Fingerprint notieren** für den späteren Console-Abgleich: `keytool -list -v -keystore upload-keystore.jks | grep SHA256`
+
+**Tag 2–5 — direkt nach Kontofreigabe, ein Vormittag (~1,5–2 h):**
+
+1. **App „Vivid“ anlegen** (`applicationId` exakt `com.vivid`) → automatisch in Play App Signing (Variante A, Google-generierter Key)
+2. **Upload-Key registrieren:** Setup → App-Integrität → App-Signierung → „Exportieren und Upload-Key hochladen“ → `upload_cert.pem`
+3. **Service-Account:** Setup → API-Zugang → GCP-Dienstkonto → Android Publisher API aktivieren → Rolle **„Releasemanager“** → JSON herunterladen (nie committen)
+4. **PLAY_JSON_KEY_DATA** (optional `PLAY_JSON_KEY_FILE`) per `--set` hinterlegen
+5. **Verifikation:** `bash scripts/guard_secrets.sh` grün + `gh secret list` zeigt alle 6 Namen + Fingerprint-Abgleich (Schritt E)
+6. **P1-Formulare** in der Console: Track `alpha` anlegen · App-Zugriff („Alle Funktionen ohne Login“) · Anzeigen („Nein“) · **Content Rating** (IARC-Vorlage → 16+) · Zielgruppe (nicht kinderorientiert) · **Data Safety** (Antworttabelle, abgestimmt mit PRIVACY.md) · Kontakt-E-Mail
+7. **Dry-Run:** `workflow_dispatch` mit `dry_run=true` → baut + signaturverifiziert gegen den Upload-Key, verbraucht **keinen** versionCode (CI-Selbsttest läuft bereits bei jedem Push grün — das ist der Beweis der Infrastruktur)
+
+**Tag 5–7 — Auslieferung an Tester (~1 h + Wartezeit):**
+
+1. **≥2 Tester einladen** (Play Console → Testing → Alpha): E-Mail-Adressen reichen (kein Google-Konto-Link nötig); jede Adresse braucht ein Google-Konto; **Opt-in-Link teilen** („Join on the web“); eigene zweite Gmail-Adresse als ersten Tester nutzen
+2. **Erster echter Upload:** `publish_play` **ohne** `dry_run`, `version_code` **explizit** setzen (z. B. `1`) — ein vergebener Code ist in Play für immer belegt
+3. **Smoke-Test bestätigen lassen:** „kein Crash in 15 Minuten“ pro Tester → Voraussetzung fürs spätere Ausrollen
+
+**Fallback bei längerer Verifikation (> 5 Werktage):** Kein Blocker für den GitHub-/Obtainium-Kanal (v0.5.1-beta läuft weiter); die P0-/P1-Vorbereitung (Screenshots, Secrets, Vorlagen) ist komplett konto-unabhängig und kann in der Wartezeit fertig werden.
 
 ### 🧪 Testplan: Erster Play-Upload (alpha-Track)
 
