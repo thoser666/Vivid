@@ -1,66 +1,82 @@
 # 🔒 Privacy Policy for Vivid
 
-**Last updated:** 2026-08-09
+**Last updated:** 2026-08-18
 
 ## Introduction
 
 Vivid is an open-source live streaming app for Android. This policy explains what data the app accesses, how it is used, and your choices.
 
-**The short version:** Vivid does not collect, sell, or share your personal data with any third party. The app streams your camera and microphone to a server **you** configure. Crash reports go to Sentry only if you enable them.
+**The short version:** Vivid has no servers of its own. Your camera/microphone stream goes directly to a streaming server **you** configure, chat messages are sent to **Twitch** and — if you enable the AI chatbot — to a **language-model provider you configure**. Crash reports are sent to **Sentry** automatically. Vivid does not sell or share personal data with advertisers, and it does not require an account.
 
 ## Data the App Accesses
 
 ### Camera & Microphone
 - **What:** Live video and audio from your device camera and microphone.
 - **Why:** To encode and stream live content to the RTMP/SRT server URL you provide.
-- **Where it goes:** Directly to the streaming server **you** configure in Settings. Vivid does not have its own streaming infrastructure — all data goes to your chosen server.
-- **Storage:** Stream URLs and keys are stored locally on your device using Android DataStore. They never leave your device except when connecting to the server you specified.
+- **Where it goes:** Directly to the streaming server **you** configure in Settings. Vivid does not operate streaming infrastructure — all stream data goes to your chosen server (e.g. Twitch, YouTube, Kick, or your own server). The stream keeps running via a foreground service while the app is in the background.
+- **Storage:** Stream URLs and keys are stored locally on your device (Android DataStore). They only leave your device when the app connects to the server you specified.
 
-### Network
-- **What:** Internet access, network state.
-- **Why:** Required for RTMP/SRT streaming, OBS WebSocket connections, and downloading updates.
+### Location (GPS) — Info Widget
+- **What:** GPS coordinates and speed, read while the „Time/GPS/Speed“ info widget is active.
+- **Why:** To display position and speed as an overlay on the stream preview.
+- **Where it goes:** The overlay is part of the video preview — **if you enable the widget while streaming, the coordinates and speed are part of what gets streamed** to your configured server. Vivid itself never stores or transmits location data to any Vivid-operated service.
+- **Your choice:** Disable the widget in the widget settings to stop location access.
 
-### Crash Reporting (Sentry) — Opt-In via Settings
-- **What:** If enabled, Sentry collects crash stack traces, device info (model, OS version), and in some cases screenshots and view hierarchy at the time of a crash.
+### Network & LAN
+- **What:** Internet access, network state, and (on Android 17+) access to the local network.
+- **Why:** Required for RTMP/SRT streaming, Twitch chat, OBS WebSocket connections, and the optional web-based remote control that runs on your local network.
+- **Where it goes:** The web remote control is served **only on your local network** (no internet exposure) and is intended for devices you control (e.g. a computer running OBS).
+
+## Chat & AI Chatbot
+
+If you enable the chat features, the app connects to **Twitch** using a token **you** provide:
+
+- **Channel chat:** Chat messages from your channel are read via Twitch (Helix/EventSub) so the bot can reply. If the bot is in autonomous mode, the last ~20 messages are kept **in memory only** while the bot runs and are sent to the **language-model endpoint you configure** (Settings → Chat Bot).
+- **LLM endpoints:** The bot calls an OpenAI-compatible API whose **base URL, API key and model you configure yourself** (e.g. OpenAI, Gemini, Groq, DeepSeek, or a local model such as Ollama). Chat messages and your configured system prompt are transmitted **to that provider**. Choose a provider whose privacy practices you accept; a local/self-hosted model keeps the data on your network.
+- **Owner commands (`!ask`/`!diag`/`!start`/`!stop`):** Only the channel owner (or logins you explicitly whitelist) can trigger these. Replies are sent **privately via Twitch whisper** (not public chat) when whisper is enabled.
+- **Tokens & credentials:** Twitch OAuth tokens, LLM API keys and all chat settings are stored **locally on your device** (DataStore). They are never uploaded anywhere except to the services you configured (Twitch, your LLM provider).
+- **Notification access:** If you enable media control commands (`!song`/`!next`/`!pause`), the app requests notification-listener access. The listener is only a permission marker so the bot can control media sessions — it does **not** read your notifications.
+
+## Crash Reporting (Sentry)
+
+- **What:** When the app crashes, Sentry collects a stack trace, device information (model, OS version), and — because screenshot/view-hierarchy attachment is enabled — **a screenshot and the view hierarchy at the moment of the crash**. User-interaction breadcrumbs (clicks, swipes, scrolls) and performance traces are collected as well.
 - **Why:** To help developers identify and fix bugs.
-- **Where it goes:** Sentry.io (project: `vivid`, organization: `privat-jb`). Data is subject to Sentry's [privacy policy](https://sentry.io/privacy/).
-- **Your choice:** You can disable crash reporting in the app's Settings at any time.
-- **⚠️ Warning:** When enabled, crash screenshots may capture whatever is on your screen at the moment of a crash — including stream previews, chat messages, or credentials. Disable screenshot attachment in Settings if this concerns you.
+- **Where it goes:** Sentry.io (project `vivid`). Data is subject to Sentry's [privacy policy](https://sentry.io/privacy/).
+- **⚠️ Important:** Crash reporting is **enabled by default** — the Sentry SDK initializes automatically from the app manifest and currently has **no in-app opt-out switch**. If this concerns you (e.g. because a crash screenshot might capture stream previews or chat content), you can block network access for the app at the OS level, or uninstall the app. We intend to add an in-app toggle; until then, this policy reflects the actual behavior.
+- **CI note:** Release builds upload deobfuscation (ProGuard mapping) files to Sentry when a Sentry auth token is present in the build environment. No personal data is contained in these mapping files.
 
 ## Data the App Does NOT Collect
 
 Vivid does **not**:
-- Collect analytics or usage data beyond Sentry crash reports
 - Use advertising identifiers (AAID) or any ad networks
-- Track your location
-- Require an account or login
-- Access your contacts, SMS, call logs, or storage
-- Share data with third parties (except Sentry if crash reporting is enabled)
+- Require an account or login (you configure tokens yourself)
+- Access your contacts, SMS, call logs, or general storage
+- Sell or share data with third parties for advertising
 - Use Firebase, Google Analytics, or any Google tracking services
 - Embed telemetry in streaming data
 
 ## Data Storage
 
-- **Stream settings** (URLs, keys, OBS WebSocket credentials) are stored locally using Android's DataStore (Preferences).
-- **No data** is stored on remote servers by Vivid itself.
-- You can clear all app data via Android's system settings at any time.
+- **Settings & tokens** (stream URLs/keys, Twitch OAuth, LLM keys, bot configuration) are stored locally using Android's DataStore (Preferences).
+- **Chat history** is kept in memory only while the bot runs and is not persisted.
+- **No data** is stored on remote servers operated by Vivid itself.
+- Android may include app data in automatic cloud backups (system-level backup). You can clear all app data or disable backup via Android's system settings at any time.
 
 ## Third-Party Services
 
-### Sentry (Crash Reporting)
-- **Provider:** Functional Software, Inc. (Sentry.io)
-- **Data:** Crash reports, device metadata, optional screenshots/view hierarchy
-- **Privacy policy:** https://sentry.io/privacy/
-- **Opt-out:** Toggle off in Settings → Crash Reporting
+| Service | Purpose | Data sent | Opt-out |
+|---|---|---|---|
+| **Sentry** (Functional Software, Inc.) | Crash & performance monitoring | Crash reports, device metadata, screenshots/view hierarchy | No in-app toggle yet — see above |
+| **Twitch** (Twitch Interactive) | Chat bot, whispers | Chat messages, your bot token, channel name | Disable the chat bot in Settings |
+| **Your configured LLM provider** (e.g. OpenAI, Groq, local Ollama) | AI chat replies | Chat messages, system prompt, your API key | Disable autonomous mode or clear the keys in Settings |
+| **Your streaming server** (e.g. Twitch, YouTube, Kick, own RTMP/SRT server) | Live streaming | Camera/microphone stream | Stop the stream |
 
-### Streaming Servers
-- Vivid connects to the RTMP/SRT server URL **you** provide in Settings.
-- Vivid does not control, host, or have access to these servers.
-- You are responsible for the privacy practices of the streaming server you use (e.g., YouTube, Twitch, own server).
+- Vivid does not control, host, or have access to these third-party servers beyond what you configure.
+- You are responsible for the privacy practices of the streaming server and LLM provider you choose.
 
 ## Children's Privacy
 
-Vivid is not directed at children under 13. We do not knowingly collect personal data from children.
+Vivid is not directed at children under 13 and is intended for adult streamers. We do not knowingly collect personal data from children.
 
 ## Changes to This Policy
 
@@ -74,4 +90,4 @@ This policy may be updated as the app evolves. Changes will be reflected in the 
 
 ---
 
-*This privacy policy was last reviewed on 2026-08-09. It accurately reflects the current state of the Vivid app as of this date.*
+*This privacy policy was last reviewed on 2026-08-18. It reflects the current state of the Vivid app, including the AI chatbot, GPS info widget, LAN remote control, and automatic Sentry crash reporting.*
