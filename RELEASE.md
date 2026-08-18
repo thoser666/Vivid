@@ -71,6 +71,32 @@ Eine native **„vivid-companion“**-App (eigenes Repo/Modul, getrennt versioni
 
 **Reihenfolge im Release-Plan:** Option A frühestens nach dem ersten Beta-Tag (`v0.5.0-beta`), ideal als Bestandteil von Beta #2/#3 (`v0.4.0-beta`-Bucket „Overlays & Widgets“ passt inhaltlich); Option B erst nach stabiler Option-A-API; Wear-OS (Option C) danach separat bewerten.
 
+## 📦 Vertriebskanäle: Play vs. F-Droid vs. IzzyOnDroid (Entscheidung)
+
+Vergleich der Voraussetzungen für den ersten Upload (Stand 08/2026, Vivid ist MIT-lizenziert + hat reproduzierbare Builds im CI):
+
+| Kriterium | Google Play | F-Droid (Hauptrepo) | IzzyOnDroid | Eigener F-Droid-Repo-Server |
+|---|---|---|---|---|
+| **Kosten** | **25 $** einmalig | 0 $ | 0 $ | 0 $ (Hosting z. B. GitHub Pages) |
+| **Open-Source-Pflicht** | nein | **ja** (Vivid: ✅ MIT) | ja | nein (nur Empfehlung) |
+| **Wartezeit bis Upload** | Kontoverifizierung **2–5 Werktage** | Review-MR (Wochen möglich) | Review (Tage–Wochen) | **sofort** |
+| **Signing** | eigener Upload-Key + Play App Signing | **F-Droid-Key** (deine Signatur zählt dort nicht) | deren Key | **dein Release-Key bleibt** |
+| **Updates** | sofort nach Upload | Neubau aus Source, **Tage–Wochen Lag** | Tage–Wochen Lag | **sofort** (eigene CI) |
+| **Tester-Pflicht** | alpha ≥2 · production **12 Tester/14 Tage** | keine | keine | keine |
+| **Antifeature/Policy** | Play-Formulare (Data Safety, Content Rating) | Sentry = **Tracking**-Antifeature, Twitch/Kick/YT = **NonFreeNet** | dito | keine (eigene Kuratierung) |
+| **Reichweite** | **größte** | FOSS-Nische | FOSS-Nische | nur wer die URL kennt |
+| **Beta-Programm** | Closed/Open Testing | nein | nein | nein |
+| **Reproduzierbare Builds** | nicht gefordert (Bonus) | **stark bevorzugt** (Vivid: ✅ im CI) | bevorzugt | optional |
+
+**Entscheidung (Roadmap):**
+
+1. **Primär: Google Play** — größte Reichweite und das einzige Beta-Tester-Programm; die 12-Tester/14-Tage-Regel betrifft nur **production**, alpha/beta-Upload nicht. Der 25-$-Aufwand + Konto-Verifizierung ist der Einstieg (P0).
+2. **Bereits aktiv: GitHub Releases + Obtainium** — der bestehende Beta-Kanal, unabhängig von Play.
+3. **Post-Beta, optional: eigener F-Droid-Repo-Server** — gleiche APKs mit **deinem** Release-Key, sofortige Updates, kein Review, keine Antifeature-Listung (eigene Kuratierung). Ideal für das FOSS-Publikum; Sentry-Off-Variante nicht zwingend nötig, aber möglich.
+4. **Später (etablierte App): F-Droid-Hauptrepo** — setzt eine **Sentry-freie Build-Variante** voraus (sonst Tracking-Antifeature) und akzeptiert, dass F-Droid selbst signiert (die eigene Release-Signatur-Pipeline gilt dort nicht). IzzyOnDroid ist ein leichterer Zwischenschritt mit denselben Einschränkungen.
+
+**Konsequenz für die Roadmap:** Play bleibt der Gate-Pfad (v1.0-stable „Play-Store-Unterlagen“); F-Droid ist ein **Zusatzkanal** nach dem ersten Play-Upload, kein Ersatz für die Beta-Tester-Auslieferung.
+
 ## 🧪 Erster Beta-Build (Plan)
 
 Das Beta-Gate ist erreicht, wenn **alle drei** Bedingungen erfüllt sind (Stand 2026-08-17: **0/3 offen — alle drei erfüllt**):
