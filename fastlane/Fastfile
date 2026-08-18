@@ -527,6 +527,14 @@ platform :android do
 
   desc "Capture the two Play Store screenshots via UI tests (fastlane screengrab) — requires a running emulator/device; replaces the placeholder PNGs under fastlane/metadata/android/images/phoneScreenshots/ and verifies the metadata gate"
   lane :capture_play_screenshots do
+    # WICHTIG: fastlane läuft mit cwd = fastlane/ (Verzeichnis der Fastfile). Alle
+    # Pfade deshalb explizit vom Projekt-Root ableiten — relative Pfade landeten
+    # sonst in fastlane/fastlane/... (verschachtelt) und das Gate prüfte die
+    # falschen Dateien.
+    root = File.expand_path("..", __dir__)
+    shots_dir = File.join(root, "fastlane/screenshots/en-US/images/phoneScreenshots")
+    meta_dir = File.join(root, "fastlane/metadata/android/images/phoneScreenshots")
+
     UI.header "Step 1/3: Building debug + androidTest APKs"
     gradle(task: "clean assembleDebug assembleDebugAndroidTest")
 
@@ -545,24 +553,37 @@ platform :android do
       use_tests_in_classes: ["com.vivid.irlbroadcaster.PlayScreenshotsTest"],
       clear_previous_screenshots: true,
       use_timestamp_suffix: false,
-      output_directory: "fastlane/screenshots",
+      output_directory: File.join(root, "fastlane/screenshots"),
       exit_on_test_failure: true
     )
 
     UI.header "Step 3/3: Copying into metadata (supply naming) + verifying"
-    shots_dir = "fastlane/screenshots/en-US/images/phoneScreenshots"
+    # Windows-Fallback: screengrabs run-as-tar-Pull scheitert unter Git-Bash/cmd.exe
+    # (toybox-tar-Pipe bricht ab). Dann die PNGs direkt per adb exec-out run-as cat
+    # vom Gerät streamen — identische Bytes, kein Zwischenschritt über /sdcard.
+    if !File.exist?(File.join(shots_dir, "1_live_stream.png")) || !File.exist?(File.join(shots_dir, "2_settings.png"))
+      UI.important("Screenshots fehlen lokal — Pull-Fallback über adb exec-out run-as cat")
+      FileUtils.mkdir_p(shots_dir)
+      ["1_live_stream.png", "2_settings.png"].each do |name|
+        sh "adb exec-out run-as com.vivid.debug cat app_screengrab/en-US/images/screenshots/#{name} > #{File.join(shots_dir, name)}"
+      end
+    end
     mapping = {
       "1_live_stream.png" => "1_en-US.png",
       "2_settings.png"    => "2_en-US.png"
     }
-    FileUtils.mkdir_p("fastlane/metadata/android/images/phoneScreenshots")
+    FileUtils.mkdir_p(meta_dir)
     mapping.each do |src, dst|
       src_path = File.join(shots_dir, src)
       UI.user_error!("Screenshot fehlt: #{src_path}") unless File.exist?(src_path)
-      FileUtils.cp(src_path, "fastlane/metadata/android/images/phoneScreenshots/#{dst}")
+      FileUtils.cp(src_path, File.join(meta_dir, dst))
       UI.success("✅ #{src} → #{dst}")
     end
-    sh "bash scripts/check_play_metadata.sh"
+    # Array-Form + absoluter Skriptpfad + METADATA_DIR explizit: fastlanes
+    # String-sh mit relativen Pfaden scheitert unter Windows (cwd = fastlane/,
+    # bash-Auflösung WSL vs. Git-bash) — so ist der Check cwd-unabhängig.
+    sh({ "METADATA_DIR" => File.join(root, "fastlane/metadata/android") },
+       "bash", File.join(root, "scripts/check_play_metadata.sh"))
     UI.success("Screenshots regeneriert — Platzhalter ersetzt, Metadaten-Gate grün")
   end
 end
