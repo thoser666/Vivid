@@ -732,7 +732,7 @@ Der `supply`-Upload (`publish_play`) lädt nur APK/AAB + Metadaten (Titel, Besch
 
 1. **Haupt-Store-Listing:**
    - Titel, Kurz- und Langbeschreibung: werden von `supply` aus `fastlane/metadata/android/{en-US,de-DE}/` hochgeladen (bereits vorhanden) — in der Console nur prüfen
-   - **Kontakt-E-Mail** (Pflicht) und **Datenschutzerklärung-URL** (Pflicht): [PRIVACY.md](PRIVACY.md) muss unter einer **öffentlich erreichbaren HTTPS-URL** liegen (z. B. GitHub-Pages oder Gist; ein `raw.githubusercontent.com`-Link funktioniert technisch, ist aber nicht empfohlen)
+   - **Kontakt-E-Mail** (Pflicht) und **Datenschutzerklärung-URL** (Pflicht): **fertig gehostet unter https://thoser666.github.io/Vivid/privacy/** (GitHub-Pages-Workflow, automatisch aktualisiert bei PRIVACY.md-Änderungen)
    - **Feature-Grafik** (1024×500) optional; App-Symbol + Screenshots lädt `supply` automatisch aus `images/` mit hoch
 2. **App-Content → App-Zugriff:** „Alle Funktionen ohne Login“ — Vivid hat kein eigenes Konto (Twitch-/LLM-Tokens liegen lokal in den Settings)
 3. **App-Content → Anzeigen:** „Nein“ — kein Ad-SDK im Projekt (verifiziert: kein `ads`/`billing`-Dependency)
@@ -771,7 +771,8 @@ Master-Checkliste für den Weg zum ersten Play-Upload — **Reihenfolge = kritis
 **P1 — Fürs „Ausrollen“ (Release bleibt sonst in der Console gesperrt) · ~2 h** — kann **parallel** zu P0 laufen:
 
 - [ ] **Echte Screenshots statt Platzhalter** (~45–60 min): Option A (Emulator, Anleitung oben) oder automatisiert `bundle exec fastlane capture_play_screenshots` → ≥2 × 16:9/9:16, `check_play_metadata.sh` bleibt grün
-- [ ] **Store-Listing**: Kontakt-E-Mail + **PRIVACY.md unter öffentlicher HTTPS-URL hosten** (~15 min; GitHub-Pages/Gist) — beides Pflichtfelder
+- [x] **PRIVACY.md unter öffentlicher HTTPS-URL hosten** — ✅ **fertig:** https://thoser666.github.io/Vivid/privacy/ (GitHub-Pages-Workflow `.github/workflows/pages.yml`, aktualisiert sich automatisch bei PRIVACY.md-Änderungen)
+- [ ] **Kontakt-E-Mail** im Store-Listing eintragen (Pflichtfeld, bleibt offen)
 - [ ] **App-Zugriff**: „Alle Funktionen ohne Login“ (~5 min)
 - [ ] **Anzeigen**: „Nein“ (~2 min; kein Ad-SDK im Projekt, verifiziert)
 - [ ] **Content Rating (IARC-Fragebogen)** (~15–20 min): Live-Streaming + nutzergenerierter Chat → junges Rating; fehlt es, blockiert Google das Ausrollen
@@ -933,7 +934,7 @@ bundle exec fastlane release_alpha
 > **📋 Google Play: Vor dem ersten Beta-Release benötigst du:**
 > - Google Play Developer Account ($25 einmalig)
 > - App-Signing-Key (bereits vorhanden: `release.keystore` im CI)
-> - ~~Privacy Policy~~ → **erledigt:** [PRIVACY.md](PRIVACY.md)
+> - ~~Privacy Policy~~ → **erledigt:** [PRIVACY.md](PRIVACY.md) — live unter https://thoser666.github.io/Vivid/privacy/
 > - App-Icon (512×512, PNG)
 > - Screenshots (mind. 2, 16:9 oder 9:16)
 > - Store Listing (Kurzbeschreibung, Langbeschreibung)
