@@ -47,7 +47,8 @@ expect_exit() { # $1 = erwarteter Exit, $2 = Beschreibung
   local expected="$1" desc="$2" rc=0
   # Exit-Code einfangen — bei set -e bricht sonst jeder Fehlschlag das Skript ab
   set +e
-  METADATA_DIR="$META" $CHECK >/dev/null 2>&1
+  METADATA_DIR="$META" README_FILE="$TMP/README.md" \
+    bash scripts/check_play_metadata.sh >/dev/null 2>&1
   rc=$?
   set -e
   if [ "$rc" -ne "$expected" ]; then
@@ -62,7 +63,7 @@ build_fixture() { # $1 = images-Ordner, $2 = Anzahl Screenshots, $3 = Fehlende-L
   mkdir -p "$META/images/phoneScreenshots"
   make_png "$images/icon.png" 512 512
   for i in $(seq 1 "$count"); do
-    make_png "$images/phoneScreenshots/shot$i.png" 1080 1920   # 9:16
+    make_png "$images/phoneScreenshots/${i}_en-US.png" 1080 1920   # 9:16, Name wie Play-Metadaten
   done
   for loc in en-US de-DE; do
     mkdir -p "$META/$loc/changelogs"
@@ -74,36 +75,73 @@ build_fixture() { # $1 = images-Ordner, $2 = Anzahl Screenshots, $3 = Fehlende-L
   done
 }
 
+# README-Fixture: referenziert die Fixture-Screenshots (Konsistenz-Guard braucht
+# eine README, deren Bildpfade auf den Metadaten-Pfad zeigen).
+build_readme() { # $1 = Anzahl referenzierter Screenshots
+  local count="$1" i
+  {
+    echo "# Fixture-README"
+    echo ""
+    echo "## Screenshots"
+    for i in $(seq 1 "$count"); do
+      echo "<img src=\"$META/images/phoneScreenshots/${i}_en-US.png\" width=\"250\">"
+    done
+  } > "$TMP/README.md"
+}
+
 # ── Positiv: alles vorhanden → Exit 0 ───────────────────────────────────────
 build_fixture "$META/images" 2 ""
+build_readme 2
 expect_exit 0 "vollständiges Fixture erkannt"
 
 # ── Negativ 1: Icon fehlt ───────────────────────────────────────────────────
 rm -rf "$TMP"; META="$TMP/metadata/android"
 build_fixture "$META/images" 2 ""
+build_readme 2
 rm "$META/images/icon.png"
 expect_exit 1 "fehlendes Icon erkannt"
 
 # ── Negativ 2: nur 1 Screenshot ─────────────────────────────────────────────
 rm -rf "$TMP"; META="$TMP/metadata/android"
 build_fixture "$META/images" 1 ""
+build_readme 1
 expect_exit 1 "zu wenige Screenshots erkannt"
 
 # ── Negativ 3: falsches Seitenverhältnis (4:3 statt 9:16/16:9) ──────────────
 rm -rf "$TMP"; META="$TMP/metadata/android"
 build_fixture "$META/images" 2 ""
-make_png "$META/images/phoneScreenshots/shot2.png" 1600 1200   # 4:3
+build_readme 2
+make_png "$META/images/phoneScreenshots/2_en-US.png" 1600 1200   # 4:3
 expect_exit 1 "falsches Screenshot-Format erkannt"
 
 # ── Negativ 4: Locale-Datei fehlt ───────────────────────────────────────────
 rm -rf "$TMP"; META="$TMP/metadata/android"
 build_fixture "$META/images" 2 "title.txt"
+build_readme 2
 expect_exit 1 "fehlende Locale-Datei erkannt"
 
 # ── Negativ 5: Icon falsche Größe ───────────────────────────────────────────
 rm -rf "$TMP"; META="$TMP/metadata/android"
 build_fixture "$META/images" 2 ""
+build_readme 2
 make_png "$META/images/icon.png" 256 256
 expect_exit 1 "Icon mit falscher Größe erkannt"
 
-echo "✅ check_play_metadata.sh: alle Fälle bestanden (1 Positiv, 5 Negativ)."
+# ── Negativ 6: README referenziert fehlende Datei (Konsistenz-Guard) ────────
+rm -rf "$TMP"; META="$TMP/metadata/android"
+build_fixture "$META/images" 2 ""
+# README verweist auf 3_en-US.png, das es nicht gibt
+{
+  echo "# Fixture-README"
+  echo "<img src=\"$META/images/phoneScreenshots/1_en-US.png\">"
+  echo "<img src=\"$META/images/phoneScreenshots/3_en-US.png\">"
+} > "$TMP/README.md"
+expect_exit 1 "README-Referenz auf fehlende Datei erkannt"
+
+# ── Negativ 7: Screenshot fehlt in der README-Galerie (Konsistenz-Guard) ────
+rm -rf "$TMP"; META="$TMP/metadata/android"
+build_fixture "$META/images" 2 ""
+build_readme 1   # referenziert nur 1_en-US.png, 2_en-US.png fehlt in der README
+expect_exit 1 "in der README vergessener Screenshot erkannt"
+
+echo "✅ check_play_metadata.sh: alle Fälle bestanden (1 Positiv, 7 Negativ)."

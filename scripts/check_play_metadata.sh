@@ -10,12 +10,16 @@
 #                    title.txt, short_description.txt, full_description.txt —
 #                    vorhanden und nicht leer
 #   ✅ Changelog   : pro Locale changelogs/default.txt — vorhanden und nicht leer
+#   ✅ README-Guard: alle README-Bildreferenzen auf Play-Screenshots existieren,
+#                    und jeder Play-Screenshot ist in der README-Galerie
+#                    referenziert (README ↔ Play bleiben synchron)
 #
 # Bildmaße werden deterministisch per eingebettetem Python-Snapshot geprüft
 # (PNG-IHDR / JPEG-SOF-Marker, nur stdlib) — kein ImageMagick/PIL nötig.
 #
 # Exit-Code 0 = vollständig · 1 = Lücke (hart für CI).
-# METADATA_DIR kann auf ein anderes Verzeichnis zeigen (Selbsttest-Fixtures).
+# METADATA_DIR kann auf ein anderes Verzeichnis zeigen (Selbsttest-Fixtures),
+# README_FILE auf eine andere README (Selbsttest-Fixtures).
 set -euo pipefail
 
 # Portabler Python-Aufruf (CI/Ubuntu: python3 · Windows: python bzw. py -3)
@@ -170,6 +174,61 @@ done
 # en-US ist Pflicht (Play verlangt mindestens Englisch)
 if [ ! -d "$META/en-US" ]; then
   fail "Pflicht-Locale en-US fehlt"
+fi
+
+# ── 4) Konsistenz-Guard README ↔ Play ───────────────────────────────────────
+# Alle Bild-Referenzen der README auf den Play-Metadaten-Pfad müssen existieren,
+# und jeder Play-Screenshot muss in der README-Galerie referenziert sein — so
+# bleiben README-Galerie und Play-Store-Metadaten garantiert synchron
+# (kein kaputter README-Bild-Link, keine in der README vergessenen Shots).
+# Dateinamen-basiert (robust gegen relative/absolute Pfade in der README).
+README_FILE="${README_FILE:-README.md}"
+
+# a) Jede README-Bild-Referenz, deren Dateiname einem Play-Screenshot entspricht,
+#    muss eine echte Datei sein; alle solche Dateinamen werden für (b) gesammelt.
+readme_shots=()
+if [ ! -f "$README_FILE" ]; then
+  fail "README fehlt: $README_FILE (Konsistenz-Guard kann nicht prüfen)"
+else
+  # Screenshot-Dateinamen aus dem Metadaten-Ordner (für den Basename-Vergleich)
+  shot_names=()
+  for s in "${shots[@]:-}"; do shot_names+=("$(basename "$s")"); done
+  while IFS= read -r ref; do
+    [ -z "$ref" ] && continue
+    base="$(basename "${ref%%#*}")"   # ohne URL-Fragment
+    # Nur Referenzen auf Play-Screenshot-Dateien prüfen (Namen wie 1_en-US.png)
+    if printf '%s\n' "${shot_names[@]:-}" | grep -qx "$base"; then
+      readme_shots+=("$base")
+      if [ ! -f "${ref%%#*}" ]; then
+        fail "README referenziert fehlende Datei: $ref"
+      else
+        echo "✅ README → $ref (existiert)"
+      fi
+    fi
+  done < <(grep -oE '\[[^]]*\]\([^)]*\.(png|jpg|jpeg)[^)]*\)' "$README_FILE" 2>/dev/null | sed -E 's/^\[[^]]*\]\(//; s/\)$//')
+  # Auch reine <img src="…">-Referenzen erfassen (Markdown-HTML-Mischform)
+  while IFS= read -r ref; do
+    [ -z "$ref" ] && continue
+    base="$(basename "${ref%%#*}")"
+    if printf '%s\n' "${shot_names[@]:-}" | grep -qx "$base"; then
+      readme_shots+=("$base")
+      if [ ! -f "${ref%%#*}" ]; then
+        fail "README referenziert fehlende Datei: $ref"
+      else
+        echo "✅ README → $ref (existiert)"
+      fi
+    fi
+  done < <(grep -oE 'src="[^"]*\.(png|jpg|jpeg)"' "$README_FILE" 2>/dev/null | sed -E 's/^src="//; s/"$//')
+fi
+
+# b) Jeder Play-Screenshot muss in der README-Galerie referenziert sein
+if [ -d "$SHOT_DIR" ]; then
+  for f in "${shots[@]:-}"; do
+    base="$(basename "$f")"
+    if ! printf '%s\n' "${readme_shots[@]:-}" | grep -qx "$base"; then
+      fail "Screenshot fehlt in README-Galerie: $base (README ↔ Play müssen synchron sein)"
+    fi
+  done
 fi
 
 # ── Ergebnis ─────────────────────────────────────────────────────────────────
