@@ -13,6 +13,12 @@
 
 **Professional IRL streaming for Android — aiming for full feature parity with Moblin**
 
+<p align="center">
+  <a href="docs/hero.svg">
+    <img src="docs/hero.svg" alt="Vivid — IRL Streaming auf Android" width="260">
+  </a>
+</p>
+
 [📲 Install](#-installation) • [📥 Download APK](../../releases) • [🤖 AI Chat Bot](docs/ai-chat-bot.md) • [📝 Changelog](CHANGELOG.md) • [📚 Documentation](../../wiki) • [🐛 Report Bug](../../issues) • [💬 Discussions](../../discussions)
 
 </div>
