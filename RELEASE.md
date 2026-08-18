@@ -678,11 +678,37 @@ Konkreter End-to-End-Ablauf, um **alle nötigen Secrets** für den ersten echten
 >
 > ✅ **Metadaten-Check:** [scripts/check_play_metadata.sh](../scripts/check_play_metadata.sh) prüft die Play-Metadaten-Vollständigkeit (Icon 512×512, ≥2 Screenshots 16:9/9:16, Store-Listing + Changelog pro Locale). Läuft als harter Gate im `publish-play`-Job (android_fastlane.yml) direkt vor dem Upload; der Selbsttest ([scripts/test_play_metadata.sh](../scripts/test_play_metadata.sh), 1 Positiv- + 5 Negativfälle) läuft bei jedem Push in android.yml. Lokal: `bash scripts/check_play_metadata.sh` (Exit 0 = vollständig).
 
-**Schritt A — Play-Console-Grundlagen (einmalig, ~30 min):**
+**Schritt A — Play-Console: Konto registrieren & App anlegen (einmalig, ~30 min):**
 
-1. **Play-Entwicklerkonto** anlegen (https://play.google.com/console → einmalige Registrierung, 25 $) — Voraussetzung für jeden Upload
-2. **App anlegen** („App erstellen“): Name **`Vivid`**, Standardsprache, App-Typ „App“, kostenlos — neue Apps werden **automatisch in Play App Signing eingeschrieben** (App-Signing-Key generiert Google, Variante A)
-3. Notieren: der **`applicationId`** aus `app/build.gradle.kts` — aktuell **`com.vivid`** — er muss exakt zum hochgeladenen AAB passen (sonst `403` im supply-Step)
+**A.1 — Entwicklerkonto registrieren** (https://play.google.com/console → „Weiter zu Play Console“ → Anmeldung mit dem Google-Konto, das dauerhaft zum Projekt gehören soll):
+
+| Formularfeld | Wert für Vivid | Hinweis |
+|---|---|---|
+| **Land/Region** | dein Land | **danach nur schwer änderbar** — bestimmt Steuer & Zahlungsabwicklung |
+| **Kontotyp** | **Persönlich** | „Organisation“ bräuchte D-U-N-S-Nummer + Firmendaten |
+| **Entwicklername** (öffentlich) | z. B. `thoser666` | erscheint im Store unter der App |
+| **Kontakt-E-Mail** (öffentlich) | deine E-Mail | wird auch Kontakt im Store-Listing (P1) |
+| **Website** (optional) | z. B. https://github.com/thoser666/Vivid | optional, aber gut fürs Listing |
+| **Telefonnummer** | deine Handynummer | SMS-Verifizierung |
+| **Physische Adresse** | Straße, PLZ, Ort, Land | nur für Verifikation/Steuer, **nicht öffentlich** |
+| **Zahlungsmethode** | Kredit-/Debitkarte | einmalige **25 $** Registrierungsgebühr |
+| **Identitätsverifizierung** | Ausweis/Pass | Verifizierung **2–5 Werktage** |
+| **Zustimmung** | Google Play Developer Distribution Agreement | Pflicht zum Abschluss |
+
+⚠️ **Production-Frist:** persönliche Konten (ab 13.11.2023) erhalten Production-Zugang erst nach **Closed Test mit ≥12 Testern über 14 Tage** — der **alpha/beta-Upload ist davon NICHT betroffen**.
+
+**A.2 — App anlegen** (Play Console → „Alle Apps“ → **„App erstellen“**):
+
+| Formularfeld | Wert für Vivid | Hinweis |
+|---|---|---|
+| **App-Name** | `Vivid` | max. 30 Zeichen, öffentlich sichtbar |
+| **Standardsprache** | **Englisch (Vereinigte Staaten)** — `en-US` | Metadaten-Vorlagen liegen in `en-US` + `de-DE` vor (`fastlane/metadata/android/`) |
+| **App oder Spiel** | **App** | |
+| **Kostenlos oder kostenpflichtig** | **Kostenlos** | |
+
+Nach dem Anlegen: Die App ist **automatisch in Play App Signing eingeschrieben** (App-Signing-Key generiert Google, Variante A). Der `internal`-Test-Track existiert automatisch; `alpha`/`beta`/`production` legst du später an (Schritt 8 im Abschnitt „📋 Play-Listing …“).
+
+**A.3 — applicationId notieren:** `com.vivid` aus `app/build.gradle.kts` — muss exakt zum hochgeladenen AAB passen (sonst `403` im supply-Step). Nicht verwechseln: `com.vivid.debug` ist nur die Debug-Variante.
 
 **Schritt B — Upload-Key erzeugen & in der Play Console registrieren:**
 
@@ -738,10 +764,14 @@ Der `supply`-Upload (`publish_play`) lädt nur APK/AAB + Metadaten (Titel, Besch
 3. **App-Content → Anzeigen:** „Nein“ — kein Ad-SDK im Projekt (verifiziert: kein `ads`/`billing`-Dependency)
 4. **App-Content → Content-Rating (IARC-Fragebogen):** selbsterklärende Fragen; für Vivid realistisch: Live-Streaming mit **nutzergenerierten Inhalten** (Chat), Kamera/Mikrofon, keine Gewalt-/Glücksspiel-Referenzen → junges Rating. **Fehlt das Rating, blockiert Google das Ausrollen** („Content rating fehlt“)
 5. **App-Content → Zielgruppe und Inhalte:** „Nein“ (nicht kinderorientiert — Vivid richtet sich an Streamer, 18+)
-6. **App-Content → Data Safety:** ehrlich nach Manifest/Berechtigungen ausfüllen:
-   - **Erhoben:** Kamera-/Mikrofon-Inhalte (werden gestreamt), **Standort** (GPS-Widget, nur auf Nutzeraktion), **Nutzerinhalte/App-Aktivität** (Chat-Nachrichten, Settings), **Crash-/Fehlerdaten + Gerätekennung/IP** (Sentry, DSN im Manifest)
-   - **Nicht erhoben:** Konten, E-Mails, Finanzdaten, Einkäufe, Health-Daten
-   - Übertragung verschlüsselt (TLS), **keine Datenverkäufe** — Vivid hat kein eigenes Backend (nur vom Nutzer konfigurierte Endpunkte: Twitch-API, LLM, OBS-lokal)
+6. **App-Content → Data Safety:** ehrlich nach Manifest/Berechtigungen ausfüllen — **abgestimmt mit [PRIVACY.md](PRIVACY.md)** (Stand 18.08.2026):
+   - **Erhoben:**
+     - **Kamera-/Mikrofon-Inhalte** — werden live zum **selbst konfigurierten** Streaming-Server übertragen (RTMP/SRT); nur während der Stream läuft
+     - **Standort (präzise, GPS)** — nur solange das **Text-/Info-Widget** (Zeit/GPS/Geschwindigkeit) aktiv ist; Koordinaten/Geschwindigkeit sind Teil des gestreamten Overlays, wenn parallel gestreamt wird („auf Nutzeraktion“)
+     - **Nutzerinhalte (Chat)** — Twitch-Chat wird gelesen/gesendet (Helix/EventSub); bei **aktivem KI-Bot** gehen Chat-Kontext + System-Prompt an den **vom Streamer selbst konfigurierten LLM-Endpunkt** (OpenAI-kompatibel: OpenAI/Gemini/Groq/DeepSeek oder lokal Ollama)
+     - **Crash-/Fehlerdaten + Gerätekennung/IP (Sentry)** — **automatisch, ohne In-App-Opt-out**: DSN im Manifest, Screenshot + View-Hierarchy aktiv, sample-rate 1.0; es gibt **keinen** Schalter in den Settings (Workaround: OS-Netzwerkblock) — siehe PRIVACY.md
+   - **Nicht erhoben:** Konten, E-Mails, Finanzdaten, Einkäufe, Health-Daten, Kontakte
+   - Übertragung verschlüsselt (TLS), **keine Datenverkäufe** — kein eigenes Backend (nur vom Nutzer konfigurierte Endpunkte: Twitch, LLM, OBS-lokal)
    - Hinweis: **Internal-Test-Tracks sind von Data Safety befreit** (Google-Hilfe) — für alpha/beta/production trotzdem ausfüllen, sonst blockiert das Ausrollen
 7. **News-Apps / Regierungs-Apps:** nicht zutreffend → überspringen
 8. **Testing-Track sicherstellen:** `supply(track: …)` braucht einen **existierenden Track** — Default-Namen: `internal` (bis 100 Testpersonen, ohne Freigabe), `alpha`/`beta` (geschlossener Test mit Tester-Liste), `production`. Für den ersten Upload: Track in der Console anlegen, bevor `publish_play` mit `track=alpha` läuft (sonst Fehler „track not found“)
@@ -753,13 +783,13 @@ Master-Checkliste für den Weg zum ersten Play-Upload — **Reihenfolge = kritis
 
 > 🐙 **Tracking:** Der Fortschritt wird in [Issue #116](https://github.com/thoser666/Vivid/issues/116) abgehakt (19 abhakbare Task-Liste, P0–P2) — die Checkliste hier ist die Quelle, das Issue das Live-Tracking.
 
-> **Gesamt: ~4–5 h Hands-on** (einmalig) + **1–7 Tage Wartezeit** (Zahlungsverifikation, Tester-Freigabe, App-Prüfung). Der GitHub-/Obtainium-Beta ist von **keinem** dieser Punkte abhängig — die betreffen nur den Play-Kanal.
+> **Gesamt: ~4–5 h Hands-on** (einmalig) + **2–5 Werktage Kontoverifizierung, danach 1 h–7 Tage Tester-Freigabe** (Production zusätzlich: 12-Tester/14-Tage-Closed-Test). Der GitHub-/Obtainium-Beta ist von **keinem** dieser Punkte abhängig — die betreffen nur den Play-Kanal.
 >
 > 📏 **Messwerte (Stand 17.08.2026, lokal/CI gemessen):** keytool 4096-bit-Keystore ≈ **2 s** · `prepare_play_secrets.sh` (Dry-Run) < 1 min · `guard_secrets.sh` ≈ **14 s** · CI-Selbsttest `publish_play (dry_run)` ≈ **6 min** (Build+Signaturverifikation) · Android-CI „Build & Test“ ≈ **6,5 min** · Fastlane-Nightly-Gesamtlauf ≈ **19 min**. Die „~min“-Angaben unten sind damit kalibriert — nur die manuellen Console-Schritte (Konto, Formulare, Tester) dominieren den Gesamtaufwand.
 
 **P0 — Blockierend (ohne diese Schritte kann `publish_play` nie laufen) · ~1,5–2 h:**
 
-- [ ] **Play-Entwicklerkonto** (~30 min + ggf. **1–3 Tage Zahlungsverifikation**): play.google.com/console → einmalige Registrierung (**25 $**) → Abschnitt „🔑 Secrets …“, Schritt A.1 — **zeitkritisch, zuerst erledigen**
+- [ ] **Play-Entwicklerkonto** (~30 min + **2–5 Werktage Identitäts-/Zahlungsverifikation**): play.google.com/console → einmalige Registrierung (**25 $**, Kredit-/Debitkarte, Telefonnummer, Ausweis) → Abschnitt „🔑 Secrets …“, Schritt A.1 — **zeitkritisch, zuerst erledigen**. ⚠️ **Production-Frist:** persönliche Konten (ab 13.11.2023) brauchen vor Production-Zugang einen **Closed Test mit ≥12 Testern über 14 Tage** — der **alpha/beta-Upload ist davon NICHT betroffen**
 - [ ] **App „Vivid“ anlegen** (~10 min): `applicationId` muss exakt **`com.vivid`** sein (sonst 403 im Upload); neue Apps sind automatisch in Play App Signing eingeschrieben (App-Signing-Key: Google-generiert, Variante A)
 - [ ] **Upload-Keystore erzeugen + sichern** (~5 min: Erzeugung ≈ 2 s, der Rest ist Backup): `bash scripts/prepare_play_secrets.sh --generate` oder manuell nach Abschnitt „🔐 Play-Upload-Keystore erzeugen …“ — **BACKUP Pflicht** (Keystore-Verlust = Upload für immer verloren, siehe Widerruf-Risiko)
 - [ ] **`upload_cert.pem` in der Console registrieren** (~5 min): Setup → App-Integrität → App-Signierung → „Exportieren und Upload-Key hochladen“
@@ -777,16 +807,16 @@ Master-Checkliste für den Weg zum ersten Play-Upload — **Reihenfolge = kritis
 - [ ] **Anzeigen**: „Nein“ (~2 min; kein Ad-SDK im Projekt, verifiziert)
 - [ ] **Content Rating (IARC-Fragebogen)** (~15–20 min): Live-Streaming + nutzergenerierter Chat → junges Rating; fehlt es, blockiert Google das Ausrollen
 - [ ] **Zielgruppe**: nicht kinderorientiert (~2 min)
-- [ ] **Data Safety** (~15–30 min): Kamera/Mikro, Standort (GPS-Widget), Chat/Settings, Sentry-Crashdaten; keine Datenverkäufe — Internal-Test-Tracks sind befreit, alpha/beta/production nicht
+- [ ] **Data Safety** (~15–30 min, **Vorlage in Schritt 6 oben**, abgestimmt mit [PRIVACY.md](PRIVACY.md)): Kamera/Mikro, **Standort präzise** (GPS-Widget, nur bei aktivem Widget), **Chat/LLM** (Twitch + selbst konfigurierter LLM-Endpunkt), **Sentry automatisch** (kein Opt-out); keine Datenverkäufe — Internal-Test-Tracks sind befreit, alpha/beta/production nicht
 - [ ] **Track `alpha` anlegen** (~5 min): Play Console → Testing → Alpha — `supply(track: alpha)` bricht sonst mit „track not found“
 
 **P2 — Auslieferung an Tester · ~30 min + Wartezeit:**
 
-- [ ] **≥2 Tester einladen** (~10 min + **1 h–7 Tage Wartezeit**): Play Console → Testing → Alpha → Tester-Liste (E-Mail-Adressen) → Freigabe abwarten
+- [ ] **≥2 Tester einladen** (~10 min + **1 h–7 Tage Wartezeit**): Play Console → Testing → **Alpha** → Tester-Liste → **E-Mail-Adressen eintragen reicht** (kein Google-Konto-Link/keine Google-Group nötig — Groups sind nur für Organisations-Konten). **Wichtig:** Jede Adresse muss mit einem **Google-Konto** verknüpft sein (nicht zwingend Gmail), und die Tester müssen die Einladung **ANNEHMEN („opt in“)** — per Einladungs-E-Mail oder über den geteilten **Opt-in-Link** („Join on the web“, in der Track-Ansicht kopierbar); erst nach Annahme sehen sie die App. Bis 200 Listen à 2.000 Testpersonen; **Tipp:** eigene zweite Gmail-Adresse als erster Tester nutzen
 - [ ] **Erster echter Upload** (~10 min CI — Build+Signatur ≈ 6 min, Upload ≈ 1–2 min): Testplan Schritt 3–6 ohne `dry_run`, `version_code` **explizit** setzen (z. B. `1`) — ein vergebener Code ist in Play für immer belegt
 - [ ] **Smoke-Test bestätigen lassen**: „kein Crash in 15 Minuten“ pro Tester → Voraussetzung fürs spätere Ausrollen
 
-**Kritischer Pfad:** P0 → P2 (erster Upload in den Alpha-Track); P1 ist für den **reinen Upload** nicht nötig, aber **zwingend fürs Ausrollen** („Go live“) — parallel erledigen. **Reihenfolge-Tipp:** Mit dem Play-Konto starten (Zahlungsverifikation kann Tage dauern) und parallel die echten Screenshots aufnehmen — das ist der einzige P1-Punkt mit echtem Tooling-Aufwand.
+**Kritischer Pfad:** P0 → P2 (erster Upload in den Alpha-Track); P1 ist für den **reinen Upload** nicht nötig, aber **zwingend fürs Ausrollen** („Go live“) — parallel erledigen. **Reihenfolge-Tipp:** Mit dem Play-Konto starten (Identitäts-/Zahlungsverifikation dauert 2–5 Werktage) und parallel die echten Screenshots aufnehmen — das ist der einzige P1-Punkt mit echtem Tooling-Aufwand.
 
 ### 🧪 Testplan: Erster Play-Upload (alpha-Track)
 
