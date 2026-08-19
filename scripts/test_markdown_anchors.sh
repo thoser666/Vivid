@@ -91,4 +91,16 @@ cat > "$TMP/a.md" <<'EOF'
 EOF
 expect_exit 0 "Umlaut-Anker korrekt berechnet"
 
-echo "✅ check_markdown_anchors.sh: alle Fälle bestanden (2 Positiv, 4 Negativ)."
+# ── Positiv 3: Variation-Selector (U+FE0F) wie GitHub — „## 🛣️ Roadmap“
+#    → Anker „️-roadmap“ (U+FE0F + "-roadmap", empirisch von GitHub bestätigt;
+#    Python-\w würde den VS entfernen, Rubys \p{Word} behält ihn) ────────────
+cat > "$TMP/a.md" <<'EOF'
+# Fixture A
+
+## 🛣️ Roadmap
+
+[vs](#️-roadmap)
+EOF
+expect_exit 0 "Variation-Selector-Anker wie GitHub berechnet"
+
+echo "✅ check_markdown_anchors.sh: alle Fälle bestanden (3 Positiv, 4 Negativ)."

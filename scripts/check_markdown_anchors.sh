@@ -30,7 +30,7 @@ fi
 CHECK_PY="$(mktemp)"
 trap 'rm -f "$CHECK_PY"' EXIT
 cat > "$CHECK_PY" <<'PYEOF'
-import os, re, sys
+import os, re, sys, unicodedata
 
 # UTF-8-Ausgabe erzwingen (Windows-Konsolen nutzen sonst cp1252 und brechen
 # an ✅/❌ ab — vgl. Vorfall im Projekt beim PNG-Verifikationsskript)
@@ -39,13 +39,23 @@ try:
 except Exception:
     pass
 
+# Wortzeichen wie Rubys \p{Word} (das GitHub nutzt): L/N/Pc/M-Kategorien.
+# WICHTIG: Python-\w entfernt combining marks (z. B. U+FE0F), Rubys \p{Word}
+# behält sie — GitHub-Anker wie „️-roadmap“ (U+FE0F + "-roadmap") für
+# „## 🛣️ Roadmap“ enthalten den Variation-Selector (empirisch verifiziert).
+def is_word_char(ch):
+    if ch in '- ':
+        return True
+    cat = unicodedata.category(ch)
+    return cat[0] in 'LN' or cat in ('Pc', 'Mn', 'Mc', 'Me')
+
 # Deterministischer GitHub-Anker (empirisch gegen gerenderte Seiten verifiziert)
 def anchor(header):
     h = re.sub(r'^#+\s*', '', header)          # ATX-# am Anfang
     h = re.sub(r'\s*#+\s*$', '', h).strip()    # schließende # (ATX)
     h = h.replace('*', '').replace('`', '').replace('~', '')  # Markdown-Formatierung
     h = h.lower()
-    h = re.sub(r'[^\w\- ]', '', h, flags=re.UNICODE)  # \w behält Umlaute, entfernt Emojis/Sonderzeichen
+    h = ''.join(c for c in h if is_word_char(c))
     return h.replace(' ', '-')
 
 JUNK_DIRS = {'.git', 'build', '.gradle', 'node_modules', '.idea', 'caches', '.freebuff'}
