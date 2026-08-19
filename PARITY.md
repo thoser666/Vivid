@@ -13,7 +13,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 | 📋 | Geplant (Roadmap) |
 | — | Nicht zutreffend auf Android |
 
-> **Stand:** 2026-08-17 · Aktualisierung: **Beta-Gate 3/3 erreicht** — (1) **17/17 ✅** (Row 80 „Chat-Bot: Media-Player-Steuerung“ ist der 17. Moblin-✅), (2) **Chat-✅** mit Twitch-Scope (Row 77: Twitch-IRC + Overlay + KI-Bot; Kick/YouTube/SOOP/OAuth = Post-Beta-Roadmap), (3) **≥1 Widget ✅** (Row 87: Text-/Info-Widget Zeit/GPS/Geschwindigkeit). Nächster Schritt: erster Beta-Tag `v0.5.0-beta` (versionCode 5002, Ableitung aus `v0.5.0-alpha`) — Referenzstand: Moblin **33.12.0**
+> **Stand:** 2026-08-19 · Aktualisierung: **Beta-Gate 3/3 erreicht** — (1) **17/17 ✅** (Row 80 „Chat-Bot: Media-Player-Steuerung“ ist der 17. Moblin-✅), (2) **Chat-✅** mit Twitch-Scope (Row 77: Twitch-IRC + Overlay + KI-Bot; Kick/YouTube/SOOP/OAuth = Post-Beta-Roadmap), (3) **≥1 Widget ✅** (Row 87: Text-/Info-Widget Zeit/GPS/Geschwindigkeit). Erste Beta-Releases veröffentlicht: `v0.5.0-beta` … `v0.5.3-beta` (zuletzt 19.08.) — Referenzstand: Moblin **33.12.0**
 >
 > **Pflege:** Nach jedem Feature-Commit den Status in der jeweiligen Zeile aktualisieren und das Datum oben anpassen.
 >
