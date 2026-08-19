@@ -409,6 +409,22 @@ Bild läuft, aber Zuschauer hören nichts? Das sind die häufigsten Ursachen:
 
 </details>
 
+<details>
+<summary><strong>❓ Obtainium zeigt eine falsche „Neueste Version“ (z. B. ein altes v0.2.x)</strong></summary>
+
+**Symptom:** Obtainium meldet „Installierte Version ist 0.5.3-beta“, aber „Neueste Version ist v0.2.5“ (oder eine andere Version, die es in Vivid nie gab).
+
+**Ursache:** Vivid veröffentlicht ausschließlich unter `vX.Y.Z-alpha`/`-beta` (aktuell `v0.5.3-beta`), Nightly-Builds als Pre-Release. Eine „v0.2.5“ existiert weder als Release noch als Tag. Die Anzeige stammt dann aus einem **veralteten Cache** des Obtainium-Eintrags oder der Eintrag zeigt auf eine **falsche/alte Quelle**.
+
+**Lösung:**
+
+1. In Obtainium den Vivid-Eintrag öffnen → **⋮-Menü → „App-Daten aktualisieren“** (Refresh), danach „Aktualisieren“ tippen
+2. Bleibt die Anzeige falsch: **Eintrag löschen** und neu hinzufügen mit exakt `https://github.com/thoser666/Vivid`
+3. **Pre-Releases-Toggle:** Für Beta/Alpha **nicht** nötig — diese Releases sind auf GitHub als normale Releases markiert (kein Pre-Release-Flag). Nur für **Nightly-Builds** den Toggle aktivieren
+4. **Gegenprobe in der App:** Settings → „Über Vivid & Updates“ → „Nach Updates suchen“ zeigt die echte neueste GitHub-Version — weicht Obtainium davon ab, liegt es am Eintrag, nicht an Vivid
+
+</details>
+
 ---
 
 ## 🧱 Tech Stack
