@@ -93,4 +93,10 @@ fi
 echo "▶ [pre-push] Secret-Guard (scripts/guard_secrets.sh)"
 run bash scripts/guard_secrets.sh
 
+# Markdown-Anker-Check: validiert alle internen [text](datei.md#anker)-Links
+# deterministisch gegen die GitHub-Anker der Ziel-Dateien (tote Anker nach
+# Abschnitts-Umbenennungen brechen so lokal, nicht erst in der CI).
+echo "▶ [pre-push] Markdown-Anker-Check (scripts/check_markdown_anchors.sh)"
+run bash scripts/check_markdown_anchors.sh
+
 echo "✅ [pre-push] Alle Checks grün — Push freigegeben."

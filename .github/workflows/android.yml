@@ -94,6 +94,16 @@ jobs:
       - name: Test fastlane stage-suffix guard
         run: bash scripts/test_stage_suffix_guard.sh
 
+      # Markdown-Anker-Check (Python) — Selbsttest mit Fixtures (2 Positiv- +
+      # 4 Negativfälle: toter Anker same-file/cross-file, fehlende Ziel-Datei,
+      # Umlaut-/Formatierungs-Header) + Real-Check des Repos: tote Anker nach
+      # Abschnitts-Umbenennungen brechen die CI statt still zu 404en.
+      - name: Test markdown anchor check
+        run: bash scripts/test_markdown_anchors.sh
+
+      - name: Check markdown anchors
+        run: bash scripts/check_markdown_anchors.sh
+
       # Geteilte Release-Safety (Ruby) — Selbsttest: versionCode-Ableitung,
       # Track-Monotonie (kein Downgrade) und Quer-Track-Vergleich; strukturell
       # wird geprüft, dass release_alpha UND release_beta dieselben Funktionen

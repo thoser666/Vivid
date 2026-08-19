@@ -19,6 +19,7 @@ grep -q "check_sentry_optout_mapping.sh" <<< "$out" || fail "check_sentry_optout
 grep -q "test_stage_suffix_guard.sh" <<< "$out" || fail "test_stage_suffix_guard.sh fehlt im Dry-Run"
 grep -q "test_release_safety.sh" <<< "$out" || fail "test_release_safety.sh fehlt im Dry-Run"
 grep -q "guard_secrets.sh" <<< "$out" || fail "guard_secrets.sh fehlt im Dry-Run"
+grep -q "check_markdown_anchors.sh" <<< "$out" || fail "check_markdown_anchors.sh fehlt im Dry-Run"
 grep -q "Alle Checks grün" <<< "$out" || fail "Abschlussmeldung fehlt im Dry-Run"
 
 # Der Release-Build ist optional: ohne PRE_PUSH_RELEASE darf er NICHT auftauchen,
