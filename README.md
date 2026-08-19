@@ -210,6 +210,20 @@ Release stages & criteria (nightly → alpha → beta → stable) and the versio
 </details>
 
 <details>
+<summary><strong>⚙️ Owncast / Custom Platform (freie RTMP-URL)</strong></summary>
+
+Vivid streams **protocol-based** (RTMP / RTMPS / SRT) — you are *not* limited to Twitch, YouTube or Kick. Any platform with a standard ingest works via the free **Stream URL** field; the platform templates (Twitch/YouTube/Kick) are only convenience presets. Example: [Owncast](https://owncast.online) (open-source, self-hosted):
+
+1. **Install Owncast** (e.g. Docker: `docker run -p 8080:8080 -p 1935:1935 ghcr.io/owncast/owncast:latest`) and open the web UI
+2. **Get the ingest data:** Owncast shows its **RTMP ingest** (`rtmp://<your-server>/live`) and **Stream Key** in the admin/stream page
+3. In Vivid → **Settings → Streaming & OBS**: enter those values as **Stream URL** + **Stream Key** (no template button needed — the field accepts any RTMP(S)/SRT URL)
+4. **Go Live** — the stream goes directly to your server
+
+> ⚠️ **Chat:** Vivid's chat (overlay + AI bot) currently connects **only to Twitch** — Owncast chat is *not* read yet. Streaming to Owncast works fully; chat integration for custom platforms is on the post-beta roadmap.
+
+</details>
+
+<details>
 <summary><strong>🎛️ OBS Studio Setup (WebSocket-Steuerung)</strong></summary>
 
 <p align="center">
