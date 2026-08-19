@@ -159,6 +159,10 @@ The About-screen check follows the same rules as [RELEASE.md](RELEASE.md): it on
 - 🧪 **[Beta-Build-Checkliste](RELEASE.md#-erster-beta-build-plan)** — Beta-Gate-Bedingungen + Play-Unterlagen + ≥2 manuelle Tester (abhakbare Liste in RELEASE.md)
 - ✅ **[Play-Vorbereitung P0–P2](RELEASE.md#-play-vorbereitung-priorisierte-abhakliste-mit-zeitaufwand)** — Master-Checkliste für den ersten Play-Upload (Secrets, Console, Screenshots, Tester; ~4–5 h einmalig; Fortschritt live in [Issue #116](https://github.com/thoser666/Vivid/issues/116))
 
+**In progress** (laufende Arbeitspakete):
+
+- 🌍 **[I18n-Externalisierung](docs/i18n-plan.md)** — ≈74 hartkodierte deutsche Literale in 4 Modulen (feature-settings zuerst) werden in Modul-`strings.xml`-Ressourcen ausgelagert; de-Default + en-Pflicht, CI-Gates (Externalisierungs- + Vollständigkeits-Check) geplant
+
 **Post-Beta roadmap buckets** (full detail + open tasks in [PARITY.md](PARITY.md)):
 
 - 💬 **[Multi-Plattform-Chat (Kick, YouTube, SOOP)](PARITY.md#-roadmap-bucket-multi-plattform-chat-kick-youtube-soop)** — platform adapters (YouTube innertube with anonymous reading, Kick Pusher WebSocket + GraphQL, SOOP) + OAuth login (PKCE), parallel sessions for multi-streaming
