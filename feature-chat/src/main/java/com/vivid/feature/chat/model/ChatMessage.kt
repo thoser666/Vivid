@@ -13,11 +13,14 @@ data class ChatMessage(
     val timestamp: Long,
     val isModerator: Boolean,
     val isSubscriber: Boolean,
-    // true, wenn der Absender der Kanal-Inhaber ist (Twitch-Badge „broadcaster/1“) —
+    // true, wenn der Absender der Kanal-Inhaber ist (Twitch-Badge „broadcaster/1") —
     // Grundlage für die Owner-Erkennung (nur der Streamer darf Owner-Befehle nutzen).
     val isBroadcaster: Boolean = false,
     // true, wenn die Nachricht privat per Twitch-Whisper (EventSub) statt im
     // Kanal eingegangen ist — nur Owner-Befehle werden beantwortet, und die
     // Antwort geht als Whisper zurück (nie öffentlich).
     val isWhisper: Boolean = false,
+    // Strukturierte Inline-Emotes (Twitch CDN) — geparst aus den EventSub-Fragments.
+    // Wird vom Chat-Overlay gerendert; die Bot-Engine nutzt weiterhin [emotesTag].
+    val inlineEmotes: List<InlineEmote> = emptyList(),
 )

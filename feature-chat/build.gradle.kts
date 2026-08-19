@@ -76,6 +76,9 @@ dependencies {
     implementation(libs.ktor.client.content.negotiation)
     implementation(libs.ktor.serialization.kotlinx.json)
 
+    // Image Loading (Inline-Emotes im Chat-Overlay)
+    implementation(libs.coil.compose)
+
     // Testing
     testImplementation(libs.junit.jupiter.api)
     testImplementation(libs.junit.jupiter.params)

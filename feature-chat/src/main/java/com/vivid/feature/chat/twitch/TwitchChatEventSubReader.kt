@@ -3,6 +3,7 @@ package com.vivid.feature.chat.twitch
 import com.vivid.feature.chat.di.ChatScope
 import com.vivid.feature.chat.model.ChatConnectionState
 import com.vivid.feature.chat.model.ChatMessage
+import com.vivid.feature.chat.model.InlineEmote
 import io.ktor.client.HttpClient
 import io.ktor.client.request.header
 import io.ktor.client.request.post
@@ -169,6 +170,7 @@ class TwitchChatEventSubReader @Inject constructor(
     private fun toChatMessage(cfg: TwitchEventSubConfig, event: ChatMessageEvent): ChatMessage {
         val badges = event.badges.map { "${it.set_id}/${it.id}" }
         val login = event.chatter_user_login.trim().lowercase()
+        val emotesTag = buildEmotesTag(event.message.fragments)
         return ChatMessage(
             id = event.message_id,
             channel = event.broadcaster_user_login.ifBlank { cfg.channel }.lowercase(),
@@ -178,12 +180,13 @@ class TwitchChatEventSubReader @Inject constructor(
             color = event.color?.takeIf { it.isNotBlank() },
             text = event.message.text.trim(),
             badges = badges,
-            emotesTag = buildEmotesTag(event.message.fragments),
+            emotesTag = emotesTag,
             timestamp = parseTimestamp(event.message_timestamp),
             isModerator = event.badges.any { it.set_id == "moderator" },
             isSubscriber = event.badges.any { it.set_id == "subscriber" },
             isBroadcaster = event.badges.any { it.set_id == "broadcaster" },
             isWhisper = false,
+            inlineEmotes = InlineEmote.parseFromEmotesTag(emotesTag),
         )
     }
 

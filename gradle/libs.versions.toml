@@ -5,6 +5,7 @@ compileSdk = "37"
 minSdk = "24"
 targetSdk = "37"
 
+coil = "2.7.0"
 cameraX = "1.6.1"
 constraintlayout = "2.2.1"
 coreTesting = "2.2.0"
@@ -119,6 +120,7 @@ ktor-server-content-negotiation = { group = "io.ktor", name = "ktor-server-conte
 ktor-server-test-host = { group = "io.ktor", name = "ktor-server-test-host", version.ref = "ktor" }
 
 timber = { group = "com.jakewharton.timber", name = "timber", version = "5.0.1" }
+coil-compose = { module = "io.coil-kt:coil-compose", version.ref = "coil" }
 
 rootencoder-encoder = { module = "com.github.pedroSG94.RootEncoder:encoder", version.ref = "rootencoder" }
 rootencoder-library = { module = "com.github.pedroSG94.RootEncoder:library", version.ref = "rootencoder" }

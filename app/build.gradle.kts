@@ -198,6 +198,9 @@ dependencies {
     // Logging
     implementation(libs.timber)
 
+    // Image Loading (Coil für Inline-Emotes im Chat-Overlay)
+    implementation(libs.coil.compose)
+
     // Testing
     testImplementation(libs.junit)
     testImplementation(libs.mockk)

@@ -1,6 +1,10 @@
 package com.vivid.irlbroadcaster
 
 import android.app.Application
+import coil.ImageLoader
+import coil.ImageLoaderFactory
+import coil.disk.DiskCache
+import coil.request.ImageRequest
 import com.vivid.core.data.SettingsRepository
 import com.vivid.core.remote.RemoteControlServer
 import dagger.hilt.android.HiltAndroidApp
@@ -13,7 +17,7 @@ import timber.log.Timber
 import javax.inject.Inject
 
 @HiltAndroidApp
-class VividApplication : Application() {
+class VividApplication : Application(), ImageLoaderFactory {
 
     @Inject
     lateinit var remoteControlServer: RemoteControlServer
@@ -22,6 +26,17 @@ class VividApplication : Application() {
     lateinit var settingsRepository: SettingsRepository
 
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    /** Coil ImageLoader mit 25MB Disk-Cache für Twitch-Emotes. */
+    override fun newImageLoader(): ImageLoader = ImageLoader.Builder(this)
+        .diskCache {
+            DiskCache.Builder()
+                .directory(cacheDir.resolve("emote_cache"))
+                .maxSizeBytes(25L * 1024 * 1024)
+                .build()
+        }
+        .respectCacheHeaders(false)
+        .build()
 
     /**
      * Aktueller Sentry-Opt-out-Stand für den beforeSend-Callback

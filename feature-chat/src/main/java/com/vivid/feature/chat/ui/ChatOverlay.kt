@@ -3,7 +3,11 @@ package com.vivid.feature.chat.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -13,22 +17,29 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil.compose.AsyncImage
 import com.vivid.feature.chat.model.ChatConnectionState
 import com.vivid.feature.chat.model.ChatMessage
+import com.vivid.feature.chat.model.InlineEmote
 
 /**
  * Chat-Overlay über der Streaming-Vorschau. Zeigt die letzten Nachrichten des
- * konfigurierten Twitch-Kanals und blendet sich aus, wenn das Overlay in den
- * Einstellungen deaktiviert oder kein Kanal gesetzt ist.
+ * konfigurierten Twitch-Kanals mit Inline-Emotes (Twitch CDN) und blendet
+ * sich aus, wenn das Overlay in den Einstellungen deaktiviert oder kein
+ * Kanal gesetzt ist.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ChatOverlay(
     modifier: Modifier = Modifier,
@@ -48,8 +59,6 @@ fun ChatOverlay(
         if (uiState.messages.isEmpty()) {
             Text(
                 text = when {
-                    // Seit dem IRC-Ausstieg liest das Overlay über EventSub und
-                    // braucht deshalb die Bot-Zugangsdaten (kein anonymes Lesen).
                     !uiState.configured -> "Chat-Overlay: nicht konfiguriert (Bot-Login + Token + Client-ID in den Einstellungen)"
                     uiState.connection == ChatConnectionState.Connecting -> "Verbinde…"
                     else -> "Chat: ${uiState.channel}"
@@ -58,7 +67,6 @@ fun ChatOverlay(
                 color = Color.White.copy(alpha = 0.7f),
             )
         } else {
-            // Nur die neuesten Nachrichten anzeigen, damit das Overlay klein bleibt.
             uiState.messages.takeLast(6).forEach { message ->
                 ChatMessageRow(message)
             }
@@ -66,22 +74,88 @@ fun ChatOverlay(
     }
 }
 
+/**
+ * Eine Chat-Zeile mit Inline-Emotes: Username in Farbe, danach Textsegmente
+ * im Wechsel mit Twitch-CDN-Emote-Bildern (via Coil).
+ */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ChatMessageRow(message: ChatMessage) {
     val nameColor = message.color?.let(::parseHexColor) ?: Color(0xFFB39DDB)
-    Text(
-        text = buildAnnotatedString {
-            withStyle(SpanStyle(color = nameColor, fontWeight = FontWeight.Bold)) {
-                append("${message.displayName}: ")
+    val emoteSizeDp = with(LocalDensity.current) { 14.sp.toDp() }
+    val segments = parseMessageSegments(message.text, message.inlineEmotes)
+
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        // Username (immer als erstes)
+        Text(
+            text = buildAnnotatedString {
+                withStyle(SpanStyle(color = nameColor, fontWeight = FontWeight.Bold)) {
+                    append("${message.displayName}: ")
+                }
+            },
+            style = MaterialTheme.typography.bodySmall,
+        )
+        // Textsegmente und Emotes im Wechsel
+        segments.forEach { segment ->
+            when (segment) {
+                is MessageSegment.Text -> {
+                    Text(
+                        text = segment.text,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White,
+                    )
+                }
+                is MessageSegment.Emote -> {
+                    AsyncImage(
+                        model = segment.emote.url,
+                        contentDescription = segment.emote.id,
+                        modifier = Modifier
+                            .width(emoteSizeDp)
+                            .height(emoteSizeDp)
+                            .clip(RoundedCornerShape(2.dp)),
+                        contentScale = ContentScale.Fit,
+                    )
+                }
             }
-            withStyle(SpanStyle(color = Color.White)) {
-                append(message.text)
-            }
-        },
-        style = MaterialTheme.typography.bodySmall,
-        maxLines = 2,
-        overflow = TextOverflow.Ellipsis,
-    )
+        }
+    }
+}
+
+/** Segmente einer Chat-Nachricht: reiner Text oder ein Inline-Emote. */
+internal sealed interface MessageSegment {
+    data class Text(val text: String) : MessageSegment
+    data class Emote(val emote: InlineEmote) : MessageSegment
+}
+
+/**
+ * Zerlegt den Klartext einer Chat-Nachricht in [MessageSegment]e, indem
+ * [inlineEmotes] an ihren Positionen aus dem Text herausgeschnitten werden.
+ */
+internal fun parseMessageSegments(
+    text: String,
+    inlineEmotes: List<InlineEmote>,
+): List<MessageSegment> {
+    if (inlineEmotes.isEmpty()) return listOf(MessageSegment.Text(text))
+    val segments = mutableListOf<MessageSegment>()
+    var cursor = 0
+    for (emote in inlineEmotes) {
+        if (emote.start > cursor && emote.start <= text.length) {
+            segments.add(MessageSegment.Text(text.substring(cursor, emote.start)))
+        }
+        if (emote.end < text.length) {
+            segments.add(MessageSegment.Emote(emote))
+            cursor = emote.end + 1
+        } else {
+            segments.add(MessageSegment.Emote(emote))
+            cursor = text.length
+        }
+    }
+    if (cursor < text.length) {
+        segments.add(MessageSegment.Text(text.substring(cursor)))
+    }
+    return segments
 }
 
 private fun parseHexColor(hex: String): Color? =
