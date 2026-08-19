@@ -154,7 +154,10 @@ The About-screen check follows the same rules as [RELEASE.md](RELEASE.md): it on
 
 ## 🛣️ Roadmap
 
-**Current stage: Beta** — the [Beta-Gate is formally reached](RELEASE.md) (17/17 Moblin parity ✅, Twitch chat ✅ with scope, ≥1 widget ✅); the first beta `v0.5.1-beta` shipped (current: `v0.5.2-beta`), Play Store preparation (P0–P2 checklist) is in progress — tracked in [RELEASE.md](RELEASE.md).
+**Current stage: Beta** — the [Beta-Gate is formally reached](RELEASE.md) (17/17 Moblin parity ✅, Twitch chat ✅ with scope, ≥1 widget ✅); the first beta `v0.5.1-beta` shipped (current: `v0.5.2-beta`). Open checklists for the current stage:
+
+- 🧪 **[Beta-Build-Checkliste](RELEASE.md#-erster-beta-build-plan)** — Beta-Gate-Bedingungen + Play-Unterlagen + ≥2 manuelle Tester (abhakbare Liste in RELEASE.md)
+- ✅ **[Play-Vorbereitung P0–P2](RELEASE.md#-play-vorbereitung-priorisierte-abhakliste-mit-zeitaufwand)** — Master-Checkliste für den ersten Play-Upload (Secrets, Console, Screenshots, Tester; ~4–5 h einmalig; Fortschritt live in [Issue #116](https://github.com/thoser666/Vivid/issues/116))
 
 **Post-Beta roadmap buckets** (full detail + open tasks in [PARITY.md](PARITY.md)):
 
@@ -162,7 +165,7 @@ The About-screen check follows the same rules as [RELEASE.md](RELEASE.md): it on
 - 🎨 **[Color-Spaces + 3D-LUTs](PARITY.md#-roadmap-bucket-color-spaces--3d-luts)** — sRGB/P3/Log video color spaces + PNG 3D-LUTs (Hald CLUT) in the stream pipeline
 - 📋 **Remaining Moblin-parity features** (SRTLA bonding, H.264/H.265 up to 4K/60fps, RIST/WHIP, RTMP ingest, emotes, moderation, event alerts, more widgets, …) — see the [Planned features](#-planned-roadmap-to-moblin-parity) list and the per-feature [Parity Status](#-parity-status) table
 
-Release stages & criteria (nightly → alpha → beta → stable), the Play prep checklist and the versioning strategy: **[RELEASE.md](RELEASE.md)**.
+Release stages & criteria (nightly → alpha → beta → stable) and the versioning strategy: **[RELEASE.md](RELEASE.md)**.
 
 ## 📋 Platform Setup Guides
 
