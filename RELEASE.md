@@ -141,6 +141,8 @@ Vergleich der Voraussetzungen für den ersten Upload (Stand 08/2026, Vivid ist M
 
 ## 🧪 Erster Beta-Build (Plan)
 
+> 🧭 **Übersicht:** Diese Checkliste ist Teil der [README-Roadmap](README.md#️-roadmap) (Ebene „Current stage: Beta“) — dort sind auch die laufenden Arbeitspakete (In Progress) und die Post-Beta-Buckets auf einen Blick.
+
 Das Beta-Gate ist erreicht, wenn **alle drei** Bedingungen erfüllt sind (Stand 2026-08-17: **0/3 offen — alle drei erfüllt**):
 
 | Bedingung | Status | Offen |
@@ -903,6 +905,8 @@ Der `supply`-Upload (`publish_play`) lädt nur APK/AAB + Metadaten (Titel, Besch
 9. **Rollout:** Nach dem Upload in der Console → Release → **„Ausrollen“** — Google listet dort exakt die noch fehlenden Pflichtfelder (meist genau Content Rating / Data Safety); die Punkte 1–8 schließen diese Lücken
 
 ### ✅ Play-Vorbereitung: Priorisierte Abhakliste (mit Zeitaufwand)
+
+> 🧭 **Übersicht:** Diese Master-Checkliste ist Teil der [README-Roadmap](README.md#️-roadmap) (Ebene „Current stage: Beta“) — dort sind auch die laufenden Arbeitspakete (In Progress) und die Post-Beta-Buckets auf einen Blick.
 
 Master-Checkliste für den Weg zum ersten Play-Upload — **Reihenfolge = kritischer Pfad**, Aufwand pro Schritt (einmalig, realistisch). Details stehen in den verlinkten Abschnitten; der **Testplan darunter** ist die Ausführung.
 
