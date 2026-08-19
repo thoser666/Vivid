@@ -152,6 +152,18 @@ The About-screen check follows the same rules as [RELEASE.md](RELEASE.md): it on
 - 🕹️ **Remote & Companion Features** - Web remote control (incl. talkback mic selection), game controller support, deep linking
 - 📸 **Photo Shoot Quick Button** - Periodically capture high-resolution clean pictures to the gallery (new in Moblin 33.12.0)
 
+## 🛣️ Roadmap
+
+**Current stage: Beta** — the [Beta-Gate is formally reached](RELEASE.md) (17/17 Moblin parity ✅, Twitch chat ✅ with scope, ≥1 widget ✅); the first beta `v0.5.1-beta` shipped (current: `v0.5.2-beta`), Play Store preparation (P0–P2 checklist) is in progress — tracked in [RELEASE.md](RELEASE.md).
+
+**Post-Beta roadmap buckets** (full detail + open tasks in [PARITY.md](PARITY.md)):
+
+- 💬 **[Multi-Plattform-Chat (Kick, YouTube, SOOP)](PARITY.md#-roadmap-bucket-multi-plattform-chat-kick-youtube-soop)** — platform adapters (YouTube innertube with anonymous reading, Kick Pusher WebSocket + GraphQL, SOOP) + OAuth login (PKCE), parallel sessions for multi-streaming
+- 🎨 **[Color-Spaces + 3D-LUTs](PARITY.md#-roadmap-bucket-color-spaces--3d-luts)** — sRGB/P3/Log video color spaces + PNG 3D-LUTs (Hald CLUT) in the stream pipeline
+- 📋 **Remaining Moblin-parity features** (SRTLA bonding, H.264/H.265 up to 4K/60fps, RIST/WHIP, RTMP ingest, emotes, moderation, event alerts, more widgets, …) — see the [Planned features](#-planned-roadmap-to-moblin-parity) list and the per-feature [Parity Status](#-parity-status) table
+
+Release stages & criteria (nightly → alpha → beta → stable), the Play prep checklist and the versioning strategy: **[RELEASE.md](RELEASE.md)**.
+
 ## 📋 Platform Setup Guides
 
 <details>
