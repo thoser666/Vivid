@@ -44,8 +44,10 @@ Jeder Release durchläuft eine von vier Stufen. Welche Stufe aktiv ist, bestimmt
 
 | Typ | Tag | Wann | Beispiel |
 |-----|-----|------|----------|
-| **Patch-Alpha** | `vX.Y.Z-alpha` (Z ≥ 1) | Kleine, fokussierte Änderungen ohne neue Features | `v0.4.1-alpha`, `v0.4.2-alpha` (Bugfix-/Scroll-Releases) |
-| **Feature-Alpha** | `vX.Y.0-alpha` | Neues Roadmap-Bucket | `v0.5.0-alpha` (Chat-Bot), `v0.6.0-alpha` (IRC-Ausstieg + Owner-Steuerung) |
+| **Patch-Alpha** | `vX.Y.Z-alpha` (Z ≥ 1) | Kleine, fokussierte Änderungen — **auch einzelne kleine Nutzer-Features**, solange **kein** Roadmap-Bucket abgeschlossen wird: Bugfixes, Privacy-/Verhaltensänderungen, Dependency-Bumps, kleine Features | `v0.4.1-alpha`, `v0.4.2-alpha` (Bugfix-/Scroll-Releases) |
+| **Feature-Alpha** | `vX.Y.0-alpha` | Neues Roadmap-Bucket | `v0.5.0-alpha` (Chat-Bot); `v0.6.0-alpha` wurde **übersprungen** — IRC-Ausstieg + Owner-Steuerung gingen direkt in die Beta-Linie (`v0.5.0-beta`-Bucket) |
+
+**Abgrenzung (wie Beta):** Entscheidend ist, ob ein **Roadmap-Bucket komplett** wird. Kleine Nutzer-Features ohne abgeschlossenes Bucket laufen als Patch-Alpha in der laufenden Minor-Linie — sie reservieren keine neue Versionsnummer und blockieren die Bucket-Nummerierung nicht.
 
 `release_alpha` hat **denselben Automatik-Fallstrick** wie `release_beta` (minor+1-Ableitung) und **dieselbe Suffix-Falle** — plus eine Besonderheit:
 
