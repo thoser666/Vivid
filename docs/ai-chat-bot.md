@@ -342,7 +342,7 @@ Alle Felder sind direkt im **Settings-Screen** (Kategorie **„Chat-Bot & KI“*
 ## Roadmap
 
 - ✅ **Mode switch** in Vivid's settings („Bot wie Moblin“ ↔ „KI autonom“) — done.
-- ✅ **Full bot settings screen** inside Vivid (all fields from [Configuration](#configuration): Twitch token, LLM credentials, limits, coexistence) — done.
+- ✅ **Full bot settings screen** inside Vivid (all fields from the configuration: Twitch token, LLM credentials, limits, coexistence) — done.
 - ✅ **Media-player control** (`!song`/`!next`/`!pause`/`!play`/`!prev` via MediaSession, Moblin parity row) — done (needs notification access).
 - ✅ **Per-viewer cooldown, per-viewer cap and hourly cost budget** — done (see [Begrenzungen](#begrenzungen-pro-viewer--kosten)).
 - ✅ **Owner-Steuerung (nur der Streamer)** — `!start`/`!stop`/`!diag`/`!ask` mit Owner-Gate (Broadcaster + Allow-List) und separater Owner-KI (see [Owner-Steuerung](#owner-steuerung-nur-der-streamer)).

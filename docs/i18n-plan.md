@@ -64,4 +64,4 @@
 
 ---
 
-*Siehe auch: [PARITY.md – Plattform & Grundlagen](PARITY.md) · [README – Features](README.md)*
+*Siehe auch: [PARITY.md – Plattform & Grundlagen](../PARITY.md) · [README – Features](../README.md)*

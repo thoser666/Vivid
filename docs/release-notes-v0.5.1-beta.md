@@ -6,7 +6,7 @@
 | **Tag** | `v0.5.1-beta` |
 | **Branch** | `develop` |
 | **Veröffentlicht** | über `fastlane release_beta` → CI baut signiert und publiziert als GitHub-Release (Latest) |
-| **Signiert mit** | Release-Key (SHA-256 `b31b8119…`, siehe [RELEASE.md](RELEASE.md) → Referenz-Fingerprint) |
+| **Signiert mit** | Release-Key (SHA-256 `b31b8119…`, siehe [RELEASE.md](../RELEASE.md) → Referenz-Fingerprint) |
 | **Installation** | Obtainium (Latest, kein Pre-Release-Flag nötig) · direkt über die GitHub-Release-Seite |
 
 ---
@@ -27,7 +27,7 @@ In den Einstellungen (Abschnitt **„Datenschutz & Fehlerberichte“**) kann die
 
 ### 3. Kein PII-Sampling
 
-`sendDefaultPii` ist deaktiviert: **Keine IP-Adresse, kein Gerätename** wird mit den Crash-Daten erhoben. Was genau gesendet wird, ist in [PRIVACY.md](PRIVACY.md) dokumentiert — abgestimmt auf die Data-Safety-Antworttabelle in RELEASE.md.
+`sendDefaultPii` ist deaktiviert: **Keine IP-Adresse, kein Gerätename** wird mit den Crash-Daten erhoben. Was genau gesendet wird, ist in [PRIVACY.md](../PRIVACY.md) dokumentiert — abgestimmt auf die Data-Safety-Antworttabelle in RELEASE.md.
 
 ### 4. Der Nachweis ist im Build verankert (R8-Mapping-Check)
 
@@ -42,7 +42,7 @@ Damit die Opt-out-Logik nie stillschweigend vom Release-Build wegoptimiert wird,
 
 ## 🔧 Weitere Änderungen seit v0.5.0-beta
 
-- **Play-Vorbereitung (Doku + Tooling):** [PRIVACY.md](PRIVACY.md) + GitHub-Pages-Hosting (`thoser666.github.io/Vivid/privacy/`), IARC-Content-Rating-Vorlage, Data-Safety-Antworttabelle, Play-Console-Registrierungs-Guide, Store-Strategie (Play vs. F-Droid), `prepare_play_secrets.sh`, Play-Metadaten-Gate, Screengrab-Lane `capture_play_screenshots`
+- **Play-Vorbereitung (Doku + Tooling):** [PRIVACY.md](../PRIVACY.md) + GitHub-Pages-Hosting (`thoser666.github.io/Vivid/privacy/`), IARC-Content-Rating-Vorlage, Data-Safety-Antworttabelle, Play-Console-Registrierungs-Guide, Store-Strategie (Play vs. F-Droid), `prepare_play_secrets.sh`, Play-Metadaten-Gate, Screengrab-Lane `capture_play_screenshots`
 - **CI-Härtung:** Zwei-Kanal-Mapping-Check (Pre-Push + Fastlane-CI), Play-Metadaten-Selbsttest, sentry-optout-Checker-Selbsttest (9 Fälle) in android.yml
 
 ## 🧪 Testschwerpunkte für Beta-Tester

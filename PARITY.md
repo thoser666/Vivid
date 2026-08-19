@@ -17,7 +17,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 >
 > **Pflege:** Nach jedem Feature-Commit den Status in der jeweiligen Zeile aktualisieren und das Datum oben anpassen.
 >
-> 🚦 **Nächster Meilenstein (Beta):** Beta-Gate **3/3 erreicht** — alle drei Bedingungen formal erfüllt (≥17 ✅, Chat-✅ Twitch-Scope, ≥1 Widget ✅). Offen für den Beta-Build nur noch: Play-Unterlagen + ≥2 manuelle Tester (siehe [RELEASE.md](RELEASE.md#beta--nächster-meilenstein)).
+> 🚦 **Nächster Meilenstein (Beta):** Beta-Gate **3/3 erreicht** — alle drei Bedingungen formal erfüllt (≥17 ✅, Chat-✅ Twitch-Scope, ≥1 Widget ✅). Offen für den Beta-Build nur noch: Play-Unterlagen + ≥2 manuelle Tester (siehe [RELEASE.md](RELEASE.md#beta---nächster-meilenstein)).
 
 ---
 

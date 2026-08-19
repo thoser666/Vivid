@@ -6,7 +6,7 @@
 | **Tag** | `v0.5.0-alpha` |
 | **Branch** | `develop` |
 | **Veröffentlicht** | über `fastlane release_alpha` → CI baut signiert und publiziert als GitHub-Release (Latest) |
-| **Signiert mit** | Release-Key (SHA-256 `b31b8119…`, siehe [RELEASE.md](RELEASE.md) → Referenz-Fingerprint) |
+| **Signiert mit** | Release-Key (SHA-256 `b31b8119…`, siehe [RELEASE.md](../RELEASE.md) → Referenz-Fingerprint) |
 | **Installation** | Obtainium (Latest, kein Pre-Release-Flag nötig) · direkt über die GitHub-Release-Seite |
 
 ---
