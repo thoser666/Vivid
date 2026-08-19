@@ -99,4 +99,9 @@ run bash scripts/guard_secrets.sh
 echo "▶ [pre-push] Markdown-Anker-Check (scripts/check_markdown_anchors.sh)"
 run bash scripts/check_markdown_anchors.sh
 
+# GitHub-Golden-Test: beweist offline, dass die Anker-Berechnung exakt dem
+# GitHub-Rendering entspricht (14 empirisch verifizierte IDs, inkl. VS16).
+echo "▶ [pre-push] GitHub-Golden-Anker-Test (scripts/test_github_anchors.sh)"
+run bash scripts/test_github_anchors.sh
+
 echo "✅ [pre-push] Alle Checks grün — Push freigegeben."

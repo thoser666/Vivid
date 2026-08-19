@@ -72,7 +72,7 @@ def md_files(root):
     return sorted(out)
 
 def parse(path):
-    """Liefert (header-anchors, link-targets) einer Datei — Codeblöcke übersprungen."""
+    """Liefert (rohe Header, link-targets) einer Datei — Codeblöcke übersprungen."""
     headers, links = [], []
     in_code = False
     try:
@@ -86,7 +86,7 @@ def parse(path):
                     continue
                 m = re.match(r'^(#{1,6})\s+(.+)$', s)
                 if m:
-                    headers.append(anchor(s))
+                    headers.append(s)
                 for lm in re.finditer(r'\[[^\]]*\]\(([^)\s]+)\)', s):
                     links.append(lm.group(1))
     except OSError as e:
@@ -94,13 +94,25 @@ def parse(path):
         sys.exit(1)
     return headers, links
 
+def dump_anchors(path):
+    """--dump-anchors: druckt je Header 'roh\tanker' (für den GitHub-Golden-Test)."""
+    targets = md_files(path) if os.path.isdir(path) else [path]
+    for f in targets:
+        headers, _ = parse(f)
+        for h in headers:
+            print(f"{h}\t{anchor(h)}")
+
 def main():
-    root = sys.argv[1] if len(sys.argv) > 1 else '.'
+    args = sys.argv[1:]
+    if args and args[0] == '--dump-anchors':
+        dump_anchors(args[1] if len(args) > 1 else '.')
+        return
+    root = args[0] if args else '.'
     files = md_files(root)
     errors = []
     for path in files:
         headers, links = parse(path)
-        header_set = set(headers)
+        header_set = set(anchor(h) for h in headers)
         base = os.path.dirname(path)
         for target in links:
             if target.startswith(('http://', 'https://', 'mailto:', 'tel:', 'data:')):
@@ -130,7 +142,7 @@ def main():
                 continue
             if is_md and anch:
                 dheaders, _ = parse(dest)
-                if anch not in set(dheaders):
+                if anch not in set(anchor(h) for h in dheaders):
                     errors.append(f"{path}: toter Anker '{target}' in {filepart}")
     if errors:
         for e in errors:
@@ -143,4 +155,4 @@ main()
 PYEOF
 
 # shellcheck disable=SC2086  # PY kann "py -3" mit Argument sein
-$PY "$CHECK_PY" "$ROOT"
+$PY "$CHECK_PY" "$@"

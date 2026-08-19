@@ -97,10 +97,17 @@ jobs:
       # Markdown-Anker-Check (Python) — Selbsttest mit Fixtures (3 Positiv- +
       # 5 Negativfälle: toter Anker same-file/cross-file, fehlende Ziel-Datei
       # inkl. Nicht-md-Bilder/SVGs, Umlaut-/Variation-Selector-Header) +
+      # GitHub-Golden-Test (14 empirisch von GitHub verifizierte Anker-IDs) +
       # Real-Check des Repos: tote Anker nach Abschnitts-Umbenennungen und
       # kaputte Datei-/Bild-Links brechen die CI statt still zu 404en.
       - name: Test markdown anchor check
         run: bash scripts/test_markdown_anchors.sh
+
+      # GitHub-Golden-Test: beweist OFFLINE, dass die Anker-Berechnung exakt
+      # dem GitHub-Rendering entspricht (scripts/github_anchors_golden.tsv,
+      # IDs aus gerenderten Seiten extrahiert — kein Netzwerk nötig).
+      - name: Test GitHub anchor golden file
+        run: bash scripts/test_github_anchors.sh
 
       - name: Check markdown anchors
         run: bash scripts/check_markdown_anchors.sh
