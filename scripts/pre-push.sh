@@ -76,6 +76,13 @@ run bash scripts/test_stage_suffix_guard.sh
 echo "▶ [pre-push] Release-Safety (scripts/test_release_safety.sh)"
 run bash scripts/test_release_safety.sh
 
+# Roadmap-Reservierung (Ruby, offline): v0.6.0-beta wird abgelehnt, solange das
+# Streaming-Erweiterungs-Bucket (RIST/WHIP/RTMP-Pull/4K-HEVC/SRTLA) in PARITY.md
+# nicht vollständig ✅ ist — die Bucket-Nummerierung darf nicht vorzeitig belegt
+# werden (RELEASE.md → Roadmap → Nummerierung).
+echo "▶ [pre-push] Roadmap-Reservierung (scripts/test_roadmap_reservation.sh)"
+run bash scripts/test_roadmap_reservation.sh
+
 echo "▶ [pre-push] Sentry-Opt-out-Mapping-Check (scripts/check_sentry_optout_mapping.sh)"
 if [[ "${PRE_PUSH_RELEASE:-0}" == "1" ]]; then
   run bash scripts/check_sentry_optout_mapping.sh

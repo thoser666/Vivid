@@ -80,6 +80,16 @@ platform :android do
       UI.user_error!("Tag #{tag} ist kein gültiger Alpha-Tag (Suffix '-alpha' fehlt). Explizites version: muss den vollen Tag inkl. Stufe enthalten, z. B. version:v0.5.1-alpha — sonst entstünde ein stabiler Tag.")
     end
 
+    # Safety 5 (Versicherung, geteilt mit release_beta): Roadmap-Reservierung —
+    # v0.6.0-beta ist für das Streaming-Erweiterungs-Bucket reserviert (RELEASE.md →
+    # Roadmap → Nummerierung). Solange das Bucket in PARITY.md nicht implementiert
+    # ist, darf der Tag nicht belegt werden — sonst kollidiert die Nummerierung mit
+    # dem späteren Feature-Bucket.
+    reservation = reserved_roadmap_reason(tag)
+    if reservation
+      UI.user_error!("Tag #{tag} ist reserviert: #{reservation} — erst nach Implementierung des Buckets verwenden (siehe RELEASE.md → Roadmap → Nummerierung).")
+    end
+
     # Safety 2–4 (geteilt mit release_beta, siehe fastlane/release_safety.rb):
     # versionCode ableitbar · kein Downgrade innerhalb der alpha-Track · Quer-Track-Hinweis.
     all_tags = `git tag -l "v*" 2>/dev/null`.lines
@@ -163,6 +173,16 @@ platform :android do
     # Safety 1: refuse to overwrite an existing tag
     if `git tag -l "#{tag}"`.strip != ""
       UI.user_error!("Tag #{tag} already exists — use version: to pick a different one")
+    end
+
+    # Safety 5 (Versicherung, geteilt mit release_alpha): Roadmap-Reservierung —
+    # v0.6.0-beta ist für das Streaming-Erweiterungs-Bucket reserviert (RELEASE.md →
+    # Roadmap → Nummerierung). Solange das Bucket in PARITY.md nicht implementiert
+    # ist, darf der Tag nicht belegt werden — sonst kollidiert die Nummerierung mit
+    # dem späteren Feature-Bucket.
+    reservation = reserved_roadmap_reason(tag)
+    if reservation
+      UI.user_error!("Tag #{tag} ist reserviert: #{reservation} — erst nach Implementierung des Buckets verwenden (siehe RELEASE.md → Roadmap → Nummerierung).")
     end
 
     # Safety 2–4 (geteilt mit release_alpha, siehe fastlane/release_safety.rb):

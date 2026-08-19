@@ -119,6 +119,13 @@ jobs:
       - name: Test fastlane release-safety
         run: bash scripts/test_release_safety.sh
 
+      # Roadmap-Reservierung (Ruby) — Selbsttest: v0.6.0-beta wird abgelehnt,
+      # solange das Streaming-Erweiterungs-Bucket (RIST/WHIP/RTMP-Pull/4K-HEVC/
+      # SRTLA) in PARITY.md nicht vollständig ✅ ist (RELEASE.md → Roadmap →
+      # Nummerierung); erlaubt sobald das Bucket implementiert ist.
+      - name: Test fastlane roadmap reservation guard
+        run: bash scripts/test_roadmap_reservation.sh
+
       # ── Optional: Code‑Scanning / Security‑Events ──
       # - name: Run CodeQL
       #   uses: github/codeql-action/init@v2
