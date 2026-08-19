@@ -26,8 +26,11 @@ trap 'rm -rf "$TMP"' EXIT
 fail() { echo "❌ FAIL: $1"; exit 1; }
 
 count=0
+# CRLF-resistent: Git kann die TSV beim Checkout in CRLF konvertieren
+# (autocrlf) — das \r im letzten Feld strippen, sonst mismatch
 while IFS=$'\t' read -r header expected; do
   [[ -z "$header" ]] && continue
+  expected="${expected%$'\r'}"
   # Mini-Fixture: nur der Header (--dump-anchors braucht keine Links)
   printf '%s\n' "$header" > "$TMP/case.md"
   actual="$(bash scripts/check_markdown_anchors.sh --dump-anchors "$TMP/case.md" | cut -f2)"
