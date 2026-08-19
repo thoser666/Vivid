@@ -19,8 +19,10 @@ Jeder Release durchläuft eine von vier Stufen. Welche Stufe aktiv ist, bestimmt
 
 | Typ | Tag | Wann | Beispiel |
 |-----|-----|------|----------|
-| **Patch-Beta** | `vX.Y.Z-beta` (Z ≥ 1) | Kleine, fokussierte Änderungen **ohne** neue Features: Privacy-/Verhaltensänderungen, Bugfixes, relevante Dependency-Bumps | `v0.5.1-beta` (18.08.2026): Sentry-Privacy-Härtung + okhttp-Bump |
-| **Feature-Beta** | `vX.Y.0-beta` | Ein neues Roadmap-Bucket ist implementiert (siehe Roadmap-Tabelle) | `v0.6.0-beta` = Streaming-Erweiterung (RIST/WHIP/RTMP) |
+| **Patch-Beta** | `vX.Y.Z-beta` (Z ≥ 1) | Kleine, fokussierte Änderungen — **auch einzelne kleine Nutzer-Features**, solange **kein** Roadmap-Bucket abgeschlossen wird: Privacy-/Verhaltensänderungen, Bugfixes, relevante Dependency-Bumps, kleine Features | `v0.5.1-beta` (18.08.2026): Sentry-Privacy-Härtung + okhttp-Bump · `v0.5.3-beta` (19.08.2026): Dark-Mode Stufe 1 + Inline-Emotes |
+| **Feature-Beta** | `vX.Y.0-beta` | Ein neues Roadmap-Bucket ist implementiert (siehe Roadmap-Tabelle) | `v0.6.0-beta` = Streaming-Erweiterung (RIST/WHIP/RTMP) — **für dieses Bucket reserviert, nie für andere Inhalte belegen** |
+
+**Abgrenzung:** Entscheidend ist, ob ein **Roadmap-Bucket komplett** wird. Kleine Nutzer-Features ohne abgeschlossenes Bucket (z. B. Dark-Mode Stufe 1, Inline-Emotes) laufen als Patch-Beta in der laufenden Minor-Linie — sie reservieren keine neue Versionsnummer und blockieren die Bucket-Nummerierung (`v0.6.0-beta`) nicht.
 
 ### Regeln für den Tag
 
@@ -67,6 +69,8 @@ Welche offenen PARITY-Punkte in welcher Version released werden — Zählerstand
 | `v1.0.0-stable` | I18n (🚧) + Play-Store-Unterlagen (Icon, Screenshots, Listing) | **43 (100 %)** | Stable-Gate (≥90 %) |
 
 > **Pflege:** Bei jeder Änderung an PARITY.md prüfen — neue Features wandern in den nächsten passenden Versions-Bucket; die Grenzen sind flexibel (ein Feature darf vorziehen, wenn es erst das Gate der nächsten Version schließbar macht).
+>
+> **Nummerierung:** Die Minor-Nummer folgt dem nächsten **abgeschlossenen** Bucket. Inkrementelle Features ohne abgeschlossenes Bucket wandern als Patch-Beta in die laufende Minor-Linie (z. B. `v0.5.3-beta`); **`v0.6.0-beta` bleibt fest dem Streaming-Bucket (RIST/WHIP/RTMP) reserviert** und wird erst nach dessen Implementierung belegt.
 
 ## 📡 Remote-Steuerung (Post-Beta-Plan)
 
