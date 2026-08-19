@@ -2,10 +2,12 @@
 # Check: validiert alle internen Markdown-Anker im Repo gegen die Ziel-Dateien.
 # Läuft im CI (android.yml) und lokal — Exit-Code 0 = sauber, 1 = toter Anker.
 #
-# Was geprüft wird (nur interne .md-Ziele, externe URLs werden übersprungen):
+# Was geprüft wird (externe URLs und GitHub-UI-Links werden übersprungen):
 #   1) [x](#anker)          → Anker muss in DERSELBEN Datei existieren
 #   2) [x](datei.md#anker)  → Ziel-Datei muss existieren UND den Anker haben
 #   3) [x](datei.md)        → Ziel-Datei muss existieren
+#   4) [x](bild.png|svg|toml|…) → Nicht-md-Ziele müssen existieren (fängt
+#      kaputte README-Galerie-Bilder, fehlende SVGs, toml usw. ab)
 #
 # Anker-Berechnung = deterministischer GitHub-Algorithmus (identisch zu dem,
 # was GitHub beim Rendern erzeugt — empirisch verifiziert):
@@ -113,13 +115,20 @@ def main():
             # lokalen Dateien — überspringen (Query-Strings enden oft auf .md)
             if '?' in filepart or filepart.startswith('/') or not filepart:
                 continue
-            if not filepart.lower().endswith('.md'):
-                continue
             dest = os.path.normpath(os.path.join(base, filepart))
-            if not os.path.isfile(dest):
+            # Relative GitHub-UI-Links (../../issues, ../../releases, …) verlassen
+            # den Repo-Root und werden von GitHub zur Repo-Homepage aufgelöst —
+            # keine lokalen Dateien, überspringen
+            root_abs, dest_abs = os.path.abspath(root), os.path.abspath(dest)
+            if root_abs != dest_abs and not dest_abs.startswith(root_abs + os.sep):
+                continue
+            is_md = filepart.lower().endswith('.md')
+            # Existenzprüfung für ALLE Ziele (md: Datei; Bilder/SVG/toml/…: Datei
+            # oder Verzeichnis) — kaputte Bild-/Asset-Links brechen so die CI
+            if (os.path.isfile(dest) if is_md else os.path.exists(dest)) is False:
                 errors.append(f"{path}: Ziel-Datei fehlt: '{filepart}'")
                 continue
-            if anch:
+            if is_md and anch:
                 dheaders, _ = parse(dest)
                 if anch not in set(dheaders):
                     errors.append(f"{path}: toter Anker '{target}' in {filepart}")

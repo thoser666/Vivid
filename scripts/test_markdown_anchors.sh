@@ -54,6 +54,8 @@ EOF
 }
 
 # ── Positiv: alle Anker gültig (GitHub-Algorithmus: Emoji→'-', Umlaute bleiben) ──
+printf 'PNG' > "$TMP/img.png"
+printf 'SVG' > "$TMP/gfx.svg"
 build_fixture '[ok](#-erster-beta-build-plan)
 [ok2](b.md#-erster-beta-build-plan)
 [ok3](b.md#-play-vorbereitung-priorisierte-abhakliste-mit-zeitaufwand)
@@ -62,8 +64,9 @@ build_fixture '[ok](#-erster-beta-build-plan)
 [ok6](#fett-und-code-header)
 [file](b.md)
 [external](https://example.com/x#y)
-[nonmd](../icon.png)'
-expect_exit 0 "gültige Anker + externe/non-md-Links ignoriert"
+[img](img.png)
+[svg](gfx.svg)'
+expect_exit 0 "gültige Anker + externe Links ignoriert + Bilder/SVGs existieren"
 
 # ── Negativ 1: toter Anker in derselben Datei ───────────────────────────────
 build_fixture '[bad](#-gibts-nicht)'
@@ -80,6 +83,10 @@ expect_exit 1 "fehlende Ziel-Datei erkannt"
 # ── Negativ 4: Ziel-Datei fehlt (ohne Anker) ────────────────────────────────
 build_fixture '[missing2](c.md)'
 expect_exit 1 "fehlende Ziel-Datei ohne Anker erkannt"
+
+# ── Negativ 5: Nicht-md-Ziel fehlt (kaputtes Bild, README-Galerie) ──────────
+build_fixture '[missingimg](nicht-da.png)'
+expect_exit 1 "fehlende Bild-Datei erkannt"
 
 # ── Positiv 2: Anker mit Umlaut-Header ──────────────────────────────────────
 cat > "$TMP/a.md" <<'EOF'
@@ -103,4 +110,4 @@ cat > "$TMP/a.md" <<'EOF'
 EOF
 expect_exit 0 "Variation-Selector-Anker wie GitHub berechnet"
 
-echo "✅ check_markdown_anchors.sh: alle Fälle bestanden (3 Positiv, 4 Negativ)."
+echo "✅ check_markdown_anchors.sh: alle Fälle bestanden (3 Positiv, 5 Negativ)."
