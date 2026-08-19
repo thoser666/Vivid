@@ -52,6 +52,11 @@ fun SettingsStreamingObsScreen(
             label = { Text("Stream-URL") },
             modifier = Modifier.fillMaxWidth(),
         )
+        Text(
+            text = STREAM_URL_HINT,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         OutlinedTextField(
             value = uiState.streamKey,
             onValueChange = viewModel::onStreamKeyChange,

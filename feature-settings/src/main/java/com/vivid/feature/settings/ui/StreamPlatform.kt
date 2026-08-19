@@ -21,3 +21,12 @@ enum class StreamPlatform(
     YouTube("YouTube", "rtmp://a.rtmp.youtube.com/live2"),
     Kick("Kick", "rtmp://live.kick.com/app"),
 }
+
+/**
+ * Hinweistext unter dem Stream-URL-Feld: Das Feld akzeptiert beliebige
+ * RTMP(S)-/SRT-Ingest-URLs (z. B. Owncast oder einen eigenen Server) — die
+ * Plattform-Vorlagen oben sind nur Komfort-Presets. Als Konstante testbar
+ * und zentral gepflegt (siehe StreamPlatformTest).
+ */
+const val STREAM_URL_HINT =
+    "Freie Ingest-URL: akzeptiert beliebige RTMP(S)- oder SRT-Ziele, z. B. Owncast oder einen eigenen Server. Die Plattform-Vorlagen oben sind nur Presets."
