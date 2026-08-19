@@ -145,10 +145,15 @@ class SettingsViewModel @Inject constructor(
      * automatisch die sichere Verbindung (rtmps://).
      */
     fun applyPlatformPreset(platform: StreamPlatform) {
-        _uiState.value = _uiState.value.copy(
-            streamUrl = platform.ingestUrl,
-            streamUseTls = true,
-        )
+        // Custom: URL leeren, damit eine beliebige RTMP(S)/SRT-Ingest-URL (z. B.
+        // Owncast) eingetragen werden kann — der TLS-Toggle bleibt unangetastet.
+        // Vorlagen: Ingest-URL füllen + RTMPS aktivieren (buildStreamUrl-Konvertierung).
+        val updated = _uiState.value.copy(streamUrl = platform.ingestUrl)
+        _uiState.value = if (platform == StreamPlatform.Custom) {
+            updated
+        } else {
+            updated.copy(streamUseTls = true)
+        }
     }
     fun onObsHostChange(newHost: String) { _uiState.value = _uiState.value.copy(obsHost = newHost) }
     fun onObsPortChange(newPort: String) { _uiState.value = _uiState.value.copy(obsPort = newPort) }

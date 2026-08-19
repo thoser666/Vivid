@@ -29,10 +29,20 @@ class StreamPlatformTest {
     }
 
     @Test
-    fun `drei Plattform-Vorlagen in Anzeige-Reihenfolge mit Ingest-URLs`() {
-        assertEquals(listOf("Twitch", "YouTube", "Kick"), StreamPlatform.entries.map { it.label })
+    fun `vier Plattform-Optionen in Anzeige-Reihenfolge mit Ingest-URLs`() {
+        assertEquals(
+            listOf("Twitch", "YouTube", "Kick", "Benutzerdefiniert"),
+            StreamPlatform.entries.map { it.label },
+        )
         assertEquals("rtmp://live.twitch.tv/app", StreamPlatform.Twitch.ingestUrl)
         assertEquals("rtmp://a.rtmp.youtube.com/live2", StreamPlatform.YouTube.ingestUrl)
         assertEquals("rtmp://live.kick.com/app", StreamPlatform.Kick.ingestUrl)
+        // Custom: leere Ingest-URL, damit beliebige Ziele eingetragen werden können
+        assertEquals("", StreamPlatform.Custom.ingestUrl)
+    }
+
+    @Test
+    fun `custom-Option hat lesbares Label`() {
+        assertEquals("Benutzerdefiniert", StreamPlatform.Custom.label)
     }
 }

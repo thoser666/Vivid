@@ -12,6 +12,8 @@ package com.vivid.feature.settings.ui
  * - Kick:    rtmps://live.kick.com/app (nicht offiziell dokumentiert, wird
  *            aber von gängigen Tools wie Restreamer/Stunnel genutzt; falls
  *            der Server TLS ablehnt, kann der Nutzer den Toggle deaktivieren)
+ * - Custom:  leert die URL — beliebige RTMP(S)/SRT-Ingest-Ziele (z. B. Owncast)
+ *            eintragen; der TLS-Toggle bleibt unangetastet.
  */
 enum class StreamPlatform(
     val label: String,
@@ -20,6 +22,14 @@ enum class StreamPlatform(
     Twitch("Twitch", "rtmp://live.twitch.tv/app"),
     YouTube("YouTube", "rtmp://a.rtmp.youtube.com/live2"),
     Kick("Kick", "rtmp://live.kick.com/app"),
+
+    /**
+     * Eigene/benutzerdefinierte Ziel-URL: [ingestUrl] ist leer, damit eine
+     * beliebige RTMP(S)/SRT-Ingest-URL eingetragen werden kann (z. B. Owncast
+     * oder ein eigener Server). Anders als die Vorlagen wird der TLS-Toggle
+     * NICHT verändert — er bleibt, wie der Nutzer ihn gesetzt hat.
+     */
+    Custom("Benutzerdefiniert", ""),
 }
 
 /**

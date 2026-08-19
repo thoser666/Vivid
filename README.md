@@ -216,7 +216,7 @@ Vivid streams **protocol-based** (RTMP / RTMPS / SRT) — you are *not* limited 
 
 1. **Install Owncast** (e.g. Docker: `docker run -p 8080:8080 -p 1935:1935 ghcr.io/owncast/owncast:latest`) and open the web UI
 2. **Get the ingest data:** Owncast shows its **RTMP ingest** (`rtmp://<your-server>/live`) and **Stream Key** in the admin/stream page
-3. In Vivid → **Settings → Streaming & OBS**: enter those values as **Stream URL** + **Stream Key** (no template button needed — the field accepts any RTMP(S)/SRT URL)
+3. In Vivid → **Settings → Streaming & OBS**: tap **„Benutzerdefiniert“** (Custom) to clear the URL, then enter those values as **Stream URL** + **Stream Key** — the field accepts any RTMP(S)/SRT URL; the TLS toggle stays as you left it
 4. **Go Live** — the stream goes directly to your server
 
 > ⚠️ **Chat:** Vivid's chat (overlay + AI bot) currently connects **only to Twitch** — Owncast chat is *not* read yet. Streaming to Owncast works fully; chat integration for custom platforms is on the post-beta roadmap.

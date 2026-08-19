@@ -216,6 +216,45 @@ class SettingsViewModelTest {
     }
 
     @Test
+    fun `applying the custom preset clears the url and leaves tls untouched`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repository = mockk<SettingsRepository> {
+            every { appSettingsFlow } returns MutableStateFlow(AppSettings())
+        }
+
+        val viewModel = createViewModel(repository)
+        advanceUntilIdle()
+
+        // Vorher: Vorlage aktiv (URL + TLS an)
+        viewModel.applyPlatformPreset(StreamPlatform.Twitch)
+        assertEquals("rtmp://live.twitch.tv/app", viewModel.uiState.value.streamUrl)
+        assertEquals(true, viewModel.uiState.value.streamUseTls)
+
+        // Custom: URL wird geleert, TLS bleibt an (wird NICHT zurückgesetzt)
+        viewModel.applyPlatformPreset(StreamPlatform.Custom)
+        assertEquals("", viewModel.uiState.value.streamUrl)
+        assertEquals(true, viewModel.uiState.value.streamUseTls)
+    }
+
+    @Test
+    fun `custom preset does not force tls on`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repository = mockk<SettingsRepository> {
+            every { appSettingsFlow } returns MutableStateFlow(AppSettings())
+        }
+
+        val viewModel = createViewModel(repository)
+        advanceUntilIdle()
+
+        // TLS bewusst aus → Custom darf es nicht einschalten
+        viewModel.onStreamUseTlsChange(false)
+        viewModel.applyPlatformPreset(StreamPlatform.Custom)
+
+        assertEquals("", viewModel.uiState.value.streamUrl)
+        assertEquals(false, viewModel.uiState.value.streamUseTls)
+    }
+
+    @Test
     fun `applying a preset keeps an already entered stream key`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val repository = mockk<SettingsRepository> {
