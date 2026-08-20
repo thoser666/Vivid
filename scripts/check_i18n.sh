@@ -7,8 +7,12 @@
 #      Ausnahmen (bewusst nicht lokalisiert, siehe i18n-plan §4):
 #      - AppChatStreamControl.kt  → !diag-Bot-Ausgabe (Bot-Antworten bleiben
 #        in der Streamer-Sprache, wie alle Bot-Texte in feature-chat)
-#      - rein technische Strings (Logs, WakeLock-Tags, URLs, Routen) werden
-#        von den Mustern nicht erfasst.
+#      - Bot-Antworten/-Befehle in feature-chat (BotCommandProcessor,
+#        ChatBotEngine, TwitchSendChatClient-Exceptions) — bewusst in der
+#        Sprache des Streamers/Viewers, keine UI-Texte
+#      - rein technische Strings (Logs, WakeLock-Tags, URLs, Routen,
+#        WidgetFormatters-Einheiten wie km/h) werden von den Mustern nicht
+#        erfasst bzw. sind bewusst konstant.
 #   2. Vollständigkeits-Check: `values/strings.xml` ↔ `values-en/strings.xml`
 #      und `values-fr/strings.xml` müssen in jedem Modul dieselben Keys
 #      haben (fehlende Übersetzung = Fehler; verwaiste Keys = Fehler).
@@ -33,6 +37,8 @@ else
     "feature-settings/src/main"
     "feature-obs-control/src/main"
     "feature-streaming/src/main"
+    "feature-chat/src/main"
+    "feature-widgets/src/main"
     "app/src/main"
   )
 fi

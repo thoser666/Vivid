@@ -19,11 +19,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.vivid.feature.widgets.R
 
 /**
  * Text-/Info-Widget über der Streaming-Vorschau: Uhrzeit, Datum, GPS-Koordinaten und
@@ -80,21 +82,21 @@ fun TextInfoWidget(
         }
         if (uiState.showLocation && uiState.location.isNotBlank()) {
             Text(
-                text = "📍 ${uiState.location}",
+                text = stringResource(R.string.widget_location_label, uiState.location),
                 style = MaterialTheme.typography.bodySmall,
                 color = Color.White,
             )
         }
         if (uiState.showSpeed && uiState.speed.isNotBlank()) {
             Text(
-                text = "🚗 ${uiState.speed}",
+                text = stringResource(R.string.widget_speed_label, uiState.speed),
                 style = MaterialTheme.typography.bodySmall,
                 color = Color.White,
             )
         }
         if (uiState.showAltitude && uiState.altitude.isNotBlank()) {
             Text(
-                text = "⛰️ ${uiState.altitude}",
+                text = stringResource(R.string.widget_altitude_label, uiState.altitude),
                 style = MaterialTheme.typography.bodySmall,
                 color = Color.White,
             )

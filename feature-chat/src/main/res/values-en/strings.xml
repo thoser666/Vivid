@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Chat overlay above the streaming preview (ui/ChatOverlay.kt) -->
+    <string name="chat_overlay_not_configured">Chat overlay: not configured (bot login + token + client ID in settings)</string>
+    <string name="chat_overlay_connecting">Connecting…</string>
+    <string name="chat_overlay_channel">Chat: %1$s</string>
+</resources>

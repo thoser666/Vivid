@@ -19,6 +19,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -29,6 +30,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
+import com.vivid.feature.chat.R
 import com.vivid.feature.chat.model.ChatConnectionState
 import com.vivid.feature.chat.model.ChatMessage
 import com.vivid.feature.chat.model.InlineEmote
@@ -59,9 +61,9 @@ fun ChatOverlay(
         if (uiState.messages.isEmpty()) {
             Text(
                 text = when {
-                    !uiState.configured -> "Chat-Overlay: nicht konfiguriert (Bot-Login + Token + Client-ID in den Einstellungen)"
-                    uiState.connection == ChatConnectionState.Connecting -> "Verbinde…"
-                    else -> "Chat: ${uiState.channel}"
+                    !uiState.configured -> stringResource(R.string.chat_overlay_not_configured)
+                    uiState.connection == ChatConnectionState.Connecting -> stringResource(R.string.chat_overlay_connecting)
+                    else -> stringResource(R.string.chat_overlay_channel, uiState.channel)
                 },
                 style = MaterialTheme.typography.labelMedium,
                 color = Color.White.copy(alpha = 0.7f),

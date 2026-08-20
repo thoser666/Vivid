@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Text-/Info-Widget über der Streaming-Vorschau (widget/TextInfoWidget.kt) -->
+    <string name="widget_location_label">📍 %1$s</string>
+    <string name="widget_speed_label">🚗 %1$s</string>
+    <string name="widget_altitude_label">⛰️ %1$s</string>
+</resources>
