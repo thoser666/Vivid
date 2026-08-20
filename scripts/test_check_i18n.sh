@@ -18,7 +18,7 @@ fail() { echo "  ✗ $*"; FAILED=1; }
 pass() { echo "  ✓ $*"; }
 
 # ── Fixture-Modul anlegen ────────────────────────────────────────────────
-mkdir -p "$TMP/fx/src/main/java/x" "$TMP/fx/src/main/res/values" "$TMP/fx/src/main/res/values-en"
+mkdir -p "$TMP/fx/src/main/java/x" "$TMP/fx/src/main/res/values" "$TMP/fx/src/main/res/values-en" "$TMP/fx/src/main/res/values-fr"
 cat > "$TMP/fx/src/main/java/x/Dummy.kt" <<'EOF'
 package x
 EOF
@@ -35,6 +35,11 @@ sed -i 's/Beispiel/Example/' "$TMP/fx/src/main/res/values-en/strings.xml"
 # ist case-sensitiv, der de-Guard erwartet „Presets“. Das Fixture muss beide
 # Varianten abdecken, damit F1 grün ist.
 sed -i 's|z. B. Owncast. Die Plattform-Vorlagen oben sind nur Presets.|e.g. Owncast. The platform presets above are just presets.|' "$TMP/fx/src/main/res/values-en/strings.xml"
+# Französische Fassung (values-fr ist jetzt Pflicht-Sprache im Guard):
+# de-Guard erwartet „Presets“, en-Guard „presets“, fr-Guard „préréglages“.
+cp "$TMP/fx/src/main/res/values/strings.xml" "$TMP/fx/src/main/res/values-fr/strings.xml"
+sed -i 's/Beispiel/Exemple/' "$TMP/fx/src/main/res/values-fr/strings.xml"
+sed -i 's|z. B. Owncast. Die Plattform-Vorlagen oben sind nur Presets.|p. ex. Owncast. Les modèles de plateforme ci-dessus ne sont que des préréglages.|' "$TMP/fx/src/main/res/values-fr/strings.xml"
 
 echo "▶ [i18n-test] F1: sauberes Fixture → grün"
 if I18N_MODULES="$TMP/fx" I18N_HINT_MODULE="$TMP/fx" bash scripts/check_i18n.sh > /dev/null 2>&1; then

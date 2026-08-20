@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Erreurs de vérification des mises à jour (UpdateChecker.kt / écran À propos) -->
+    <string name="update_error_unknown_version">Version inconnue : %1$s</string>
+    <string name="update_error_check_failed">Échec de la vérification des mises à jour : %1$s</string>
+    <string name="update_error_no_releases">Aucune version trouvée</string>
+</resources>

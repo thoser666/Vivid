@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Écran de streaming (StreamingScreen.kt) -->
+    <string name="streaming_ui_title">Stream en direct</string>
+    <string name="streaming_obs_content_desc">Ouvrir le contrôle OBS</string>
+    <string name="streaming_settings_content_desc">Ouvrir les paramètres</string>
+    <string name="streaming_start">Démarrer le stream</string>
+    <string name="streaming_preparing">Préparation…</string>
+    <string name="streaming_stop">Arrêter le stream</string>
+    <string name="streaming_retry">Réessayer</string>
+    <string name="streaming_stabilization_on">Stabilisation : activée</string>
+    <string name="streaming_stabilization_off">Stabilisation : désactivée</string>
+    <string name="streaming_focus_inf">Mise au point : ∞</string>
+    <string name="streaming_focus_auto">Mise au point : auto</string>
+    <string name="streaming_error_prefix">Erreur : %1$s</string>
+    <string name="streaming_permission_required">Les autorisations de caméra, de microphone et de notifications sont requises pour le streaming. Appuyez à nouveau sur Go Live et autorisez-les.</string>
+    <string name="streaming_target_idle">prêt</string>
+    <string name="streaming_target_preparing">connexion…</string>
+    <string name="streaming_target_streaming">en direct</string>
+    <string name="streaming_target_failed">échec</string>
+
+    <!-- Écran caméra (CameraScreen.kt) -->
+    <string name="camera_permission_required">Veuillez accorder l\'autorisation de caméra.</string>
+
+    <!-- Écran de lecture (PlaybackScreen.kt) -->
+    <string name="playback_previous">Précédent</string>
+    <string name="playback_play_pause">Lecture/Pause</string>
+    <string name="playback_next">Suivant</string>
+
+    <!-- Auto-contrôle (StreamConfigValidator.kt) -->
+    <string name="stream_secondary_label">Deuxième cible : </string>
+    <string name="stream_error_no_url">Aucune URL de stream configurée. Veuillez la renseigner dans les paramètres.</string>
+    <string name="stream_error_bad_scheme">Protocole non pris en charge « %1$s ». Les protocoles autorisés sont rtmp, rtmps et srt.</string>
+    <string name="stream_error_no_host">L\'URL de stream ne contient aucun hôte de serveur valide (p. ex. rtmp://live.twitch.tv/app).</string>
+    <string name="stream_error_no_key">Aucune clé de stream renseignée. Twitch, YouTube et Kick exigent une clé.</string>
+    <string name="stream_error_srt_tls">TLS ne s\'applique pas à une URL srt:// — l\'URL sera utilisée sans chiffrement.</string>
+</resources>

@@ -1,6 +1,6 @@
 # 🌍 I18n-Plan: String-Externalisierung & Lokalisierung
 
-**Status:** ✅ Abgeschlossen (2026-08-20) · **Ziel erreicht:** Alle UI-Strings sind aus dem Compose-Code in Modul-`strings.xml` ausgelagert; Deutsch (Default) + Englisch (`values-en`) sind in **allen** Modulen vollständig. CI-Gates (Externalisierungs- + Vollständigkeits-Check) sind aktiv.
+**Status:** ✅ Abgeschlossen (2026-08-20) · **Ziel erreicht:** Alle UI-Strings sind aus dem Compose-Code in Modul-`strings.xml` ausgelagert; Deutsch (Default) + Englisch (`values-en`) + Französisch (`values-fr`) sind in **allen** Modulen vollständig. CI-Gates (Externalisierungs- + Vollständigkeits-Check) sind aktiv.
 
 > Hintergrund: Der PARITY-Punkt „I18n (lokalisierte Strings)“ (Plattform & Grundlagen) ist **nur als Grundgerüst** angelegt — die Compose-UI nutzt überwiegend hartkodierte deutsche Literale. Dieses Dokument ist der konkrete Arbeitsplan, um den Punkt abzuschließen.
 
@@ -18,7 +18,7 @@
 | `feature-widgets`, `core`, `domain` | 0 | — |
 | **Summe** | **≈74** | zzgl. ~15–25 weitere Muster (z. B. `"…" + variable`-Konkatenation) |
 
-**Bestehende Ressourcen:** `app/src/main/res/values/strings.xml` (Grundgerüst) + `values-fr/strings.xml` (partiell). `R.string`-Nutzung im Compose-Code ist aktuell fast null.
+**Bestehende Ressourcen:** `app/src/main/res/values/strings.xml` (Grundgerüst). `R.string`-Nutzung im Compose-Code war vor der Externalisierung fast null.
 
 ## 2. Vorgehen pro Modul (Reihenfolge = Aufwand absteigend)
 
@@ -40,9 +40,9 @@
 |--------|--------|-------|
 | `values/` (de, Default) | Pflicht | App-Sprache bleibt Deutsch (Zielgruppe IRL-Streamer DACH) |
 | `values-en/` (en) | Pflicht | Vollständige englische Übersetzung |
-| `values-fr/` (fr) | Bestehend | Vorhandene Teilübersetzung pflegen/ergänzen (nice-to-have) |
+| `values-fr/` (fr) | Pflicht | Vollständige französische Übersetzung (seit 2026-08-20 in allen Modulen) |
 
-**Mechanik:** Nach der Externalisierung sind alle Module auf `values/` vollständig; danach `values-en` und `values-fr` parallel ergänzen. Kein String darf ohne Übersetzung in `values-en` fehlen (CI-Check, siehe §5).
+**Mechanik:** Alle Module sind auf `values/` vollständig; `values-en` und `values-fr` wurden parallel ergänzt. Kein String darf ohne Übersetzung in `values-en` oder `values-fr` fehlen (CI-Check, siehe §5).
 
 ## 4. Was NICHT lokalisiert wird
 
@@ -55,8 +55,8 @@
 ## 5. CI-/Qualitäts-Checks (alle aktiv)
 
 1. **Externalisierungs-Gate:** `scripts/check_i18n.sh` — `Text(“…”)`, `contentDescription = “…”`, `label = “…”` / `title = “…”` in `src/main` der UI-Module (feature-settings, feature-obs-control, feature-streaming, app) liefern **0 Treffer** (Ausnahme: `AppChatStreamControl.kt` = `!diag`-Bot-Ausgabe, bewusst nicht lokalisiert) → verhindert Rückfall auf Hartkodierung.
-2. **Vollständigkeits-Check:** derselbe Guard vergleicht `values/strings.xml` ↔ `values-en/strings.xml` pro Modul (fehlende Keys in einer Richtung = Fehler).
-3. **stream_url_hint-Inhalts-Guard:** Der Hinweis unter dem Stream-URL-Feld muss in **beiden** Sprachen die Kernaussagen nennen (RTMP, SRT, Owncast, Presets) — die custom-Plattform-Fähigkeit bleibt so sichtbar.
+2. **Vollständigkeits-Check:** derselbe Guard vergleicht `values/strings.xml` ↔ `values-en/strings.xml` ↔ `values-fr/strings.xml` pro Modul (fehlende Keys in einer Richtung = Fehler).
+3. **stream_url_hint-Inhalts-Guard:** Der Hinweis unter dem Stream-URL-Feld muss in **allen drei** Sprachen die Kernaussagen nennen (RTMP, SRT, Owncast, Presets bzw. préréglages) — die custom-Plattform-Fähigkeit bleibt so sichtbar.
 4. **Selbsttest:** `scripts/test_check_i18n.sh` (5 Fixtures: sauber grün, hartkodierter String rot, fehlende Übersetzung rot, Hint ohne Owncast rot, Repo-Regression grün) — läuft in Pre-Push und CI.
 5. **Lint:** Android-Lint meldet `HardcodedText`-Warnungen — als `warningsAsErrors` im CI aktiviert.
 
@@ -64,7 +64,7 @@
 
 ## 6. Aufwand & Abgrenzung
 
-- **Umgesetzt (2026-08-20):** ~110+ Literale über 4 Module + Validierungs-/Notification-/Update-Fehlertexte; Zusatz `values-en` in app/core/feature-settings/feature-obs-control/feature-streaming (vollständig).
+- **Umgesetzt (2026-08-20):** ~110+ Literale über 4 Module + Validierungs-/Notification-/Update-Fehlertexte; `values-en` **und** `values-fr` in app/core/feature-settings/feature-obs-control/feature-streaming (jeweils vollständig, CI-geprüft).
 - **Kein UI-Umbau nötig gewesen** — reine Mechanik (Strings → Ressourcen); Enum-Anzeigenamen/Validierungsmeldungen wurden auf `@StringRes`-IDs umgestellt (Tests prüfen Ressourcen-IDs statt deutscher Texte).
 - **Resultat:** PARITY-Zeile I18n ✅, README „In Progress“ leer → **letzter offener In-Progress-Punkt geschlossen**; Gesamt-Zähler 21/3/21.
 

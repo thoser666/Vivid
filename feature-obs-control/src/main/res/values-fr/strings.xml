@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Panneau de connexion rapide OBS (ObsControlScreen) -->
+    <string name="obs_connected">Connecté à OBS !</string>
+    <string name="obs_disconnect">Déconnecter</string>
+    <string name="obs_connecting">Connexion…</string>
+    <string name="obs_enter_details">Saisir les données de connexion OBS</string>
+    <string name="obs_ip_label">Adresse IP</string>
+    <string name="obs_port_label">Port</string>
+    <string name="obs_password_label">Mot de passe</string>
+    <string name="obs_secure_connection">Connexion sécurisée (wss://)</string>
+    <string name="obs_plain_connection">Connexion normale (ws://)</string>
+    <string name="obs_connect">Connecter</string>
+    <string name="obs_retry">Réessayer</string>
+    <string name="obs_error_prefix">Erreur : %1$s</string>
+    <string name="obs_invalid_port_message">Numéro de port invalide</string>
+    <string name="obs_connect_failed_message">Échec de la connexion</string>
+
+    <!-- Écran des paramètres OBS -->
+    <string name="obs_settings_host_label">Hôte OBS</string>
+    <string name="obs_settings_port_label">Port OBS</string>
+    <string name="obs_settings_password_label">Mot de passe OBS</string>
+    <string name="obs_settings_tls_label">Connexion sécurisée (wss://)</string>
+    <string name="obs_settings_save_button">Enregistrer</string>
+    <string name="obs_settings_qr_label">Importer depuis le code QR (coller le contenu)</string>
+    <string name="obs_settings_qr_import_button">Importer</string>
+    <string name="obs_settings_qr_import_error">Code QR invalide : %1$s</string>
+    <string name="obs_settings_qr_import_success">Connexion OBS importée — vérifiez les valeurs, puis enregistrez.</string>
+</resources>

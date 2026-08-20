@@ -1,4 +1,36 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Vivid</string>
+
+    <!-- Écran À propos (ui/about/AboutScreen.kt) -->
+    <string name="about_title">À propos de Vivid</string>
+    <string name="about_back">Retour</string>
+    <string name="about_source_desc">Vous avez installé cette version via les versions GitHub. Obtainium installe les mises à jour automatiquement — détails dans le README, section « Installation ».</string>
+    <string name="about_version_line">Version %1$s · Build %2$s</string>
+    <string name="about_obtainium_note">Après une mise à jour Obtainium, le nouveau numéro de version s\'affiche ici.</string>
+    <string name="about_updates_title">Mises à jour</string>
+    <string name="about_checking">Recherche de mises à jour…</string>
+    <string name="about_check_button">Rechercher des mises à jour</string>
+    <string name="about_recheck_button">Vérifier à nouveau</string>
+    <string name="about_up_to_date">Vous êtes à jour — dernière version : %1$s</string>
+    <string name="about_update_available">Mise à jour disponible : %1$s</string>
+    <string name="about_whats_new">Nouveautés</string>
+    <string name="about_release_page">Aller à la page des versions</string>
+    <string name="about_link_releases">Versions GitHub</string>
+    <string name="about_link_changelog">Journal des modifications</string>
+    <string name="about_link_privacy">Politique de confidentialité</string>
+    <string name="about_link_repo">Code source sur GitHub</string>
+    <string name="about_link_open">Ouvrir %1$s</string>
+
+    <!-- Service d'avant-plan de streaming (StreamingServiceSupport.kt) -->
+    <string name="notif_channel_name">Stream en direct</string>
+    <string name="notif_title_live">Vivid diffuse en direct</string>
+    <string name="notif_title_failed">Échec du stream</string>
+    <string name="notif_title_preparing">Préparation du stream…</string>
+    <string name="notif_text_streaming">Le stream en direct continue en arrière-plan — appuyez pour arrêter.</string>
+    <string name="notif_text_failed">La connexion a échoué (%1$s) — appuyez pour arrêter.</string>
+    <string name="notif_text_preparing">Le stream continue en arrière-plan — appuyez pour arrêter.</string>
+    <string name="notif_channel_desc">Affiche l\'état du stream en direct tant que Vivid diffuse.</string>
+    <string name="notif_stop_action">Arrêter le stream</string>
+    <string name="app_logo_content_desc">Logo de l\'application de streaming Vivid</string>
 </resources>
