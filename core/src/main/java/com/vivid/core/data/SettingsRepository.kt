@@ -54,6 +54,7 @@ class SettingsRepository @Inject constructor(
         val WIDGET_SHOW_TIME = booleanPreferencesKey("widget_show_time")
         val WIDGET_SHOW_LOCATION = booleanPreferencesKey("widget_show_location")
         val WIDGET_SHOW_SPEED = booleanPreferencesKey("widget_show_speed")
+        val WIDGET_SHOW_ALTITUDE = booleanPreferencesKey("widget_show_altitude")
         val SENTRY_ENABLED = booleanPreferencesKey("sentry_enabled")
     }
 
@@ -125,6 +126,7 @@ class SettingsRepository @Inject constructor(
                 showTime = prefs[PrefKeys.WIDGET_SHOW_TIME] ?: true,
                 showLocation = prefs[PrefKeys.WIDGET_SHOW_LOCATION] ?: true,
                 showSpeed = prefs[PrefKeys.WIDGET_SHOW_SPEED] ?: true,
+                showAltitude = prefs[PrefKeys.WIDGET_SHOW_ALTITUDE] ?: false,
             )
         },
     ) { streamData, obsData, chatData, chatBotData, widgetData ->
@@ -170,6 +172,7 @@ class SettingsRepository @Inject constructor(
             widgetShowTime = widgetData.showTime,
             widgetShowLocation = widgetData.showLocation,
             widgetShowSpeed = widgetData.showSpeed,
+            widgetShowAltitude = widgetData.showAltitude,
         )
     },
         // 6. Flow: Sentry-Opt-out (Datenschutz) — Default: an
@@ -323,6 +326,7 @@ class SettingsRepository @Inject constructor(
         val showTime: Boolean,
         val showLocation: Boolean,
         val showSpeed: Boolean,
+        val showAltitude: Boolean,
     )
 
     /** Sentry-Opt-out speichern (false = keine Fehlerberichte senden). */
@@ -338,12 +342,14 @@ class SettingsRepository @Inject constructor(
         showTime: Boolean,
         showLocation: Boolean,
         showSpeed: Boolean,
+        showAltitude: Boolean,
     ) {
         dataStore.edit { prefs ->
             prefs[PrefKeys.WIDGET_ENABLED] = enabled
             prefs[PrefKeys.WIDGET_SHOW_TIME] = showTime
             prefs[PrefKeys.WIDGET_SHOW_LOCATION] = showLocation
             prefs[PrefKeys.WIDGET_SHOW_SPEED] = showSpeed
+            prefs[PrefKeys.WIDGET_SHOW_ALTITUDE] = showAltitude
         }
     }
 }

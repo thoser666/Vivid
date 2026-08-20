@@ -40,4 +40,10 @@ object WidgetFormatters {
         if (metersPerSecond == null || metersPerSecond < 0f) return "–"
         return String.format(Locale.GERMANY, "%.1f", metersPerSecond * 3.6f) + " km/h"
     }
+
+    /** Höhenmeter (ganzzahlig); `null` → `–`. */
+    fun formatAltitude(altitudeMeters: Double?): String {
+        if (altitudeMeters == null) return "–"
+        return String.format(Locale.ROOT, "%.0f", altitudeMeters) + " m"
+    }
 }

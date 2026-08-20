@@ -64,4 +64,15 @@ class WidgetFormattersTest {
         assertEquals("–", WidgetFormatters.formatSpeed(null))
         assertEquals("–", WidgetFormatters.formatSpeed(-1f))
     }
+
+    @Test
+    fun `formatAltitude returns whole meters`() {
+        assertEquals("34 m", WidgetFormatters.formatAltitude(34.2))
+        assertEquals("-10 m", WidgetFormatters.formatAltitude(-10.1))
+    }
+
+    @Test
+    fun `formatAltitude returns dash for missing value`() {
+        assertEquals("–", WidgetFormatters.formatAltitude(null))
+    }
 }

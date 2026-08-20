@@ -98,5 +98,15 @@ fun SettingsOverlaysScreen(
                 onCheckedChange = viewModel::onWidgetShowSpeedChange,
             )
         }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("Höhe", modifier = Modifier.weight(1f))
+            Switch(
+                checked = uiState.widgetShowAltitude,
+                onCheckedChange = viewModel::onWidgetShowAltitudeChange,
+            )
+        }
     }
 }

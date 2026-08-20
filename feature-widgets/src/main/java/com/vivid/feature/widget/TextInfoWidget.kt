@@ -45,8 +45,8 @@ fun TextInfoWidget(
     val locationLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { }
-    LaunchedEffect(uiState.enabled, uiState.showLocation, uiState.showSpeed) {
-        val needsLocation = uiState.enabled && (uiState.showLocation || uiState.showSpeed)
+    LaunchedEffect(uiState.enabled, uiState.showLocation, uiState.showSpeed, uiState.showAltitude) {
+        val needsLocation = uiState.enabled && (uiState.showLocation || uiState.showSpeed || uiState.showAltitude)
         if (needsLocation &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) !=
             PackageManager.PERMISSION_GRANTED
@@ -88,6 +88,13 @@ fun TextInfoWidget(
         if (uiState.showSpeed && uiState.speed.isNotBlank()) {
             Text(
                 text = "🚗 ${uiState.speed}",
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.White,
+            )
+        }
+        if (uiState.showAltitude && uiState.altitude.isNotBlank()) {
+            Text(
+                text = "⛰️ ${uiState.altitude}",
                 style = MaterialTheme.typography.bodySmall,
                 color = Color.White,
             )

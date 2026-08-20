@@ -464,6 +464,7 @@ class SettingsRepositoryTest {
             showTime = true,
             showLocation = true,
             showSpeed = true,
+            showAltitude = true,
         )
         val afterWidget = widgetRepository.appSettingsFlow.first()
 
@@ -484,6 +485,7 @@ class SettingsRepositoryTest {
             showTime = false,
             showLocation = true,
             showSpeed = false,
+            showAltitude = false,
         )
         val settings = repository.appSettingsFlow.first()
 

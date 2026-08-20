@@ -169,6 +169,7 @@ class SettingsViewModel @Inject constructor(
     fun onWidgetShowTimeChange(newValue: Boolean) { _uiState.value = _uiState.value.copy(widgetShowTime = newValue) }
     fun onWidgetShowLocationChange(newValue: Boolean) { _uiState.value = _uiState.value.copy(widgetShowLocation = newValue) }
     fun onWidgetShowSpeedChange(newValue: Boolean) { _uiState.value = _uiState.value.copy(widgetShowSpeed = newValue) }
+    fun onWidgetShowAltitudeChange(newValue: Boolean) { _uiState.value = _uiState.value.copy(widgetShowAltitude = newValue) }
 
     // Chat-Bot-Einstellungen.
     fun onChatBotEnabledChange(newEnabled: Boolean) { _uiState.value = _uiState.value.copy(chatBotEnabled = newEnabled) }
@@ -266,6 +267,7 @@ class SettingsViewModel @Inject constructor(
                 showTime = currentSettings.widgetShowTime,
                 showLocation = currentSettings.widgetShowLocation,
                 showSpeed = currentSettings.widgetShowSpeed,
+                showAltitude = currentSettings.widgetShowAltitude,
             )
             settingsRepository.updateSentryEnabled(currentSettings.sentryEnabled)
             settingsRepository.updateChatBotSettings(

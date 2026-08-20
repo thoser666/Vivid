@@ -23,10 +23,12 @@ data class TextInfoWidgetUiState(
     val showTime: Boolean = true,
     val showLocation: Boolean = true,
     val showSpeed: Boolean = true,
+    val showAltitude: Boolean = false,
     val time: String = "--:--:--",
     val date: String = "",
     val location: String = "",
     val speed: String = "",
+    val altitude: String = "",
 )
 
 /**
@@ -69,6 +71,7 @@ class TextInfoWidgetViewModel @Inject constructor(
                         showTime = settings.widgetShowTime,
                         showLocation = settings.widgetShowLocation,
                         showSpeed = settings.widgetShowSpeed,
+                        showAltitude = settings.widgetShowAltitude,
                     )
                 }
             }
@@ -91,7 +94,7 @@ class TextInfoWidgetViewModel @Inject constructor(
         viewModelScope.launch {
             combine(
                 settingsRepository.appSettingsFlow.map { settings ->
-                    settings.widgetEnabled && (settings.widgetShowLocation || settings.widgetShowSpeed)
+                    settings.widgetEnabled && (settings.widgetShowLocation || settings.widgetShowSpeed || settings.widgetShowAltitude)
                 },
                 locationProvider.locationUpdates(),
             ) { active, location -> active to location }
@@ -102,6 +105,9 @@ class TextInfoWidgetViewModel @Inject constructor(
                                 location = WidgetFormatters.formatCoordinates(location.latitude, location.longitude),
                                 speed = WidgetFormatters.formatSpeed(
                                     if (location.hasSpeed) location.speedMetersPerSecond else null,
+                                ),
+                                altitude = WidgetFormatters.formatAltitude(
+                                    if (location.hasAltitude) location.altitudeMeters else null,
                                 ),
                             )
                         }
