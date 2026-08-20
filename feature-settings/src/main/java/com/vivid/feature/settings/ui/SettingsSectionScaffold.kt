@@ -1,5 +1,7 @@
 package com.vivid.feature.settings.ui
 
+import com.vivid.feature.settings.R
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -27,6 +29,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -60,7 +63,7 @@ fun SettingsSectionScaffold(
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Zurück",
+                            contentDescription = stringResource(R.string.settings_back),
                         )
                     }
                 },
@@ -81,49 +84,49 @@ fun SettingsSectionScaffold(
                 onClick = onSave,
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text("Speichern")
+                Text(stringResource(R.string.settings_save_button))
             }
         }
     }
 }
 
-/** Anzeigename des Chat-Bot-Betriebsmodus (UI-spezifisch). */
-val ChatBotMode.displayName: String
+/** Anzeigename des Chat-Bot-Betriebsmodus (UI-spezifisch, String-Ressource). */
+val ChatBotMode.displayNameRes: Int
     get() = when (this) {
-        ChatBotMode.COMMAND -> "Bot (wie Moblin)"
-        ChatBotMode.AUTONOMOUS -> "KI autonom"
+        ChatBotMode.COMMAND -> R.string.chatbot_mode_command
+        ChatBotMode.AUTONOMOUS -> R.string.chatbot_mode_autonomous
     }
 
 /** Anzeigename des Design-Modus (Settings-Kategorie „Darstellung“). */
-val ThemeMode.displayName: String
+val ThemeMode.displayNameRes: Int
     get() = when (this) {
-        ThemeMode.SYSTEM -> "System"
-        ThemeMode.LIGHT -> "Hell"
-        ThemeMode.DARK -> "Dunkel"
-        ThemeMode.AMOLED -> "AMOLED"
+        ThemeMode.SYSTEM -> R.string.theme_mode_system
+        ThemeMode.LIGHT -> R.string.theme_mode_light
+        ThemeMode.DARK -> R.string.theme_mode_dark
+        ThemeMode.AMOLED -> R.string.theme_mode_amoled
     }
 
 /** Anzeigename der Akzentfarbe (Settings-Kategorie „Darstellung“). */
-val AccentColor.displayName: String
+val AccentColor.displayNameRes: Int
     get() = when (this) {
-        AccentColor.VIVID_GREEN -> "Vivid Grün"
-        AccentColor.OCEAN_BLUE -> "Ozean-Blau"
-        AccentColor.ROYAL_PURPLE -> "Royal-Lila"
-        AccentColor.SUNSET_ORANGE -> "Sonnenuntergang"
-        AccentColor.ROSE_PINK -> "Rosé"
-        AccentColor.TEAL -> "Petrol"
+        AccentColor.VIVID_GREEN -> R.string.accent_vivid_green
+        AccentColor.OCEAN_BLUE -> R.string.accent_ocean_blue
+        AccentColor.ROYAL_PURPLE -> R.string.accent_royal_purple
+        AccentColor.SUNSET_ORANGE -> R.string.accent_sunset_orange
+        AccentColor.ROSE_PINK -> R.string.accent_rose_pink
+        AccentColor.TEAL -> R.string.accent_teal
     }
 
 /** Swatch-Farbe des Akzents (aus dem HCT-Seed, rein sRGB). */
 val AccentColor.seedColor: Color
     get() = Color(seedHex.removePrefix("#").toLong(16) or 0xFF000000)
 
-/** Anzeigename des Befehlsscopes (UI-spezifisch). */
-val ChatBotCommandScope.displayName: String
+/** Anzeigename des Befehlsscopes (UI-spezifisch, String-Ressource). */
+val ChatBotCommandScope.displayNameRes: Int
     get() = when (this) {
-        ChatBotCommandScope.ALL -> "Alle !-Befehle"
-        ChatBotCommandScope.MENTION -> "Nur Erwähnung"
-        ChatBotCommandScope.PREFIX -> "Eigenes Präfix"
+        ChatBotCommandScope.ALL -> R.string.chatbot_scope_all
+        ChatBotCommandScope.MENTION -> R.string.chatbot_scope_mention
+        ChatBotCommandScope.PREFIX -> R.string.chatbot_scope_prefix
     }
 
 /**
@@ -134,13 +137,13 @@ val ChatBotCommandScope.displayName: String
 fun SecretField(
     value: String,
     onValueChange: (String) -> Unit,
-    label: String,
+    @StringRes labelRes: Int,
 ) {
     var visible by remember { mutableStateOf(false) }
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
-        label = { Text(label) },
+        label = { Text(stringResource(labelRes)) },
         singleLine = true,
         visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
@@ -148,7 +151,9 @@ fun SecretField(
             IconButton(onClick = { visible = !visible }) {
                 Icon(
                     imageVector = if (visible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
-                    contentDescription = if (visible) "Eingabe ausblenden" else "Eingabe anzeigen",
+                    contentDescription = stringResource(
+                        if (visible) R.string.secret_hide else R.string.secret_show,
+                    ),
                 )
             }
         },

@@ -47,7 +47,7 @@ class StreamingViewModelTest {
         advanceUntilIdle()
 
         coVerify { launcher.startStreaming(listOf("rtmp://live.example/app/key-1")) }
-        assertNull(viewModel.errorMessage.value)
+        assertTrue(viewModel.configIssues.value.none { it.severity == ConfigIssueSeverity.ERROR })
     }
 
     @Test
@@ -66,7 +66,7 @@ class StreamingViewModelTest {
         advanceUntilIdle()
 
         coVerify { launcher.startStreaming(listOf("rtmps://live.twitch.tv/app/key-1")) }
-        assertNull(viewModel.errorMessage.value)
+        assertTrue(viewModel.configIssues.value.none { it.severity == ConfigIssueSeverity.ERROR })
     }
 
     @Test
@@ -85,7 +85,7 @@ class StreamingViewModelTest {
         advanceUntilIdle()
 
         coVerify { launcher.startStreaming(listOf("rtmps://a.rtmp.youtube.com/live2/key-1")) }
-        assertNull(viewModel.errorMessage.value)
+        assertTrue(viewModel.configIssues.value.none { it.severity == ConfigIssueSeverity.ERROR })
     }
 
     @Test
@@ -141,7 +141,11 @@ class StreamingViewModelTest {
         advanceUntilIdle()
 
         coVerify(exactly = 0) { launcher.startStreaming(any()) }
-        assertEquals("Keine Stream-URL konfiguriert. Bitte in den Einstellungen hinterlegen.", viewModel.errorMessage.value)
+        assertTrue(
+            viewModel.configIssues.value.any {
+                it.severity == ConfigIssueSeverity.ERROR && it.messageRes == R.string.stream_error_no_url
+            },
+        )
     }
 
     @Test
@@ -156,9 +160,12 @@ class StreamingViewModelTest {
         advanceUntilIdle()
 
         coVerify(exactly = 0) { launcher.startStreaming(any()) }
-        assertEquals(
-            "Nicht unterstütztes Protokoll \"http\". Erlaubt sind rtmp, rtmps und srt.",
-            viewModel.errorMessage.value,
+        assertTrue(
+            viewModel.configIssues.value.any {
+                it.severity == ConfigIssueSeverity.ERROR &&
+                    it.messageRes == R.string.stream_error_bad_scheme &&
+                    it.formatArgs == listOf("http")
+            },
         )
     }
 
@@ -174,7 +181,11 @@ class StreamingViewModelTest {
         advanceUntilIdle()
 
         coVerify(exactly = 0) { launcher.startStreaming(any()) }
-        assertTrue(viewModel.errorMessage.value?.contains("Server-Host") == true)
+        assertTrue(
+            viewModel.configIssues.value.any {
+                it.severity == ConfigIssueSeverity.ERROR && it.messageRes == R.string.stream_error_no_host
+            },
+        )
     }
 
     @Test
@@ -260,7 +271,7 @@ class StreamingViewModelTest {
                 ),
             )
         }
-        assertNull(viewModel.errorMessage.value)
+        assertTrue(viewModel.configIssues.value.none { it.severity == ConfigIssueSeverity.ERROR })
     }
 
     @Test
@@ -298,7 +309,11 @@ class StreamingViewModelTest {
         advanceUntilIdle()
 
         coVerify(exactly = 0) { launcher.startStreaming(any()) }
-        assertTrue(viewModel.errorMessage.value?.contains("Zweites Ziel") == true)
+        assertTrue(
+            viewModel.configIssues.value.any {
+                it.severity == ConfigIssueSeverity.ERROR && it.prefixRes == R.string.stream_secondary_label
+            },
+        )
     }
 
     @Test
@@ -317,7 +332,7 @@ class StreamingViewModelTest {
 
         assertTrue(
             viewModel.configIssues.value.any {
-                it.severity == ConfigIssueSeverity.WARNING && it.message.contains("Zweites Ziel")
+                it.severity == ConfigIssueSeverity.WARNING && it.prefixRes == R.string.stream_secondary_label
             },
         )
     }

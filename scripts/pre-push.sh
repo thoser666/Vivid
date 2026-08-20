@@ -100,6 +100,16 @@ fi
 echo "▶ [pre-push] Secret-Guard (scripts/guard_secrets.sh)"
 run bash scripts/guard_secrets.sh
 
+# I18n-Guard: Externalisierungs-Gate (keine hartkodierten UI-Strings),
+# values/ ↔ values-en/ Vollständigkeit und stream_url_hint-Inhalts-Guard.
+echo "▶ [pre-push] I18n-Guard (scripts/check_i18n.sh)"
+run bash scripts/check_i18n.sh
+
+# I18n-Guard-Selbsttest (Fixtures): beweist, dass der Guard hartkodierte
+# Strings, fehlende Übersetzungen und Hint-Rückfälle rot meldet.
+echo "▶ [pre-push] I18n-Guard-Selbsttest (scripts/test_check_i18n.sh)"
+run bash scripts/test_check_i18n.sh
+
 # Markdown-Anker-Check: validiert alle internen [text](datei.md#anker)-Links
 # deterministisch gegen die GitHub-Anker der Ziel-Dateien (tote Anker nach
 # Abschnitts-Umbenennungen brechen so lokal, nicht erst in der CI).

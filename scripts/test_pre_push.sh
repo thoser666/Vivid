@@ -20,6 +20,8 @@ grep -q "test_stage_suffix_guard.sh" <<< "$out" || fail "test_stage_suffix_guard
 grep -q "test_release_safety.sh" <<< "$out" || fail "test_release_safety.sh fehlt im Dry-Run"
 grep -q "test_roadmap_reservation.sh" <<< "$out" || fail "test_roadmap_reservation.sh fehlt im Dry-Run"
 grep -q "guard_secrets.sh" <<< "$out" || fail "guard_secrets.sh fehlt im Dry-Run"
+grep -q "check_i18n.sh" <<< "$out" || fail "check_i18n.sh fehlt im Dry-Run"
+grep -q "test_check_i18n.sh" <<< "$out" || fail "test_check_i18n.sh fehlt im Dry-Run"
 grep -q "check_markdown_anchors.sh" <<< "$out" || fail "check_markdown_anchors.sh fehlt im Dry-Run"
 grep -q "test_github_anchors.sh" <<< "$out" || fail "test_github_anchors.sh fehlt im Dry-Run"
 grep -q "Alle Checks grün" <<< "$out" || fail "Abschlussmeldung fehlt im Dry-Run"

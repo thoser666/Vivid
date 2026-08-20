@@ -1,5 +1,8 @@
 package com.vivid.feature.settings.ui
 
+import com.vivid.feature.settings.R
+import androidx.annotation.StringRes
+
 /**
  * Schnellstart-Voreinstellungen für die Chat-Bot-Begrenzungen
  * (Per-Viewer-Cooldown, Per-Viewer-Cap, Stunden-Budget).
@@ -9,19 +12,19 @@ package com.vivid.feature.settings.ui
  * allen Voreinstellungen ab, gilt „Eigene“.
  */
 enum class ChatBotLimitPreset(
-    val displayName: String,
+    @StringRes val displayNameRes: Int,
     val perViewerCooldownSeconds: Long,
     val perViewerMaxReplies: Int,
     val maxRepliesPerHour: Int,
 ) {
     /** Viel Interaktion, minimaler Schutz: kurzer Cooldown, keine Caps. */
-    LOCKER("Locker", 30, 0, 0),
+    LOCKER(R.string.preset_locker, 30, 0, 0),
 
     /** Standard: 60-s-Cooldown, moderater Viewer-Cap und Kosten-Deckel. */
-    BALANCED("Balanced", 60, 10, 120),
+    BALANCED(R.string.preset_balanced, 60, 10, 120),
 
     /** Strikt gegen Spam und LLM-Kosten: 3-min-Cooldown, kleiner Cap. */
-    STRICT("Streng", 180, 5, 60),
+    STRICT(R.string.preset_strict, 180, 5, 60),
     ;
 
     companion object {

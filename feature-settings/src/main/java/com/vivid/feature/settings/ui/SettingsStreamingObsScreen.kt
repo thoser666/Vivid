@@ -1,5 +1,6 @@
 package com.vivid.feature.settings.ui
 
+import com.vivid.feature.settings.R
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -11,6 +12,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.vivid.core.data.AppSettings
 
@@ -25,12 +27,12 @@ fun SettingsStreamingObsScreen(
     onBack: () -> Unit,
 ) {
     SettingsSectionScaffold(
-        title = "Streaming & OBS",
+        title = stringResource(R.string.cat_streaming_title),
         onBack = onBack,
         onSave = viewModel::saveSettings,
     ) {
         // Stream-Einstellungen
-        Text("Stream-Einstellungen", style = MaterialTheme.typography.titleLarge)
+        Text(stringResource(R.string.streaming_section_title), style = MaterialTheme.typography.titleLarge)
 
         // Plattform-Vorlagen: füllen die Ingest-URL und aktivieren RTMPS
         Row(
@@ -41,7 +43,7 @@ fun SettingsStreamingObsScreen(
                 FilterChip(
                     selected = uiState.streamUrl == platform.ingestUrl,
                     onClick = { viewModel.applyPlatformPreset(platform) },
-                    label = { Text(platform.label) },
+                    label = { Text(stringResource(platform.labelRes)) },
                 )
             }
         }
@@ -49,25 +51,25 @@ fun SettingsStreamingObsScreen(
         OutlinedTextField(
             value = uiState.streamUrl,
             onValueChange = viewModel::onStreamUrlChange,
-            label = { Text("Stream-URL") },
+            label = { Text(stringResource(R.string.stream_url_label)) },
             modifier = Modifier.fillMaxWidth(),
         )
         Text(
-            text = STREAM_URL_HINT,
+            text = stringResource(STREAM_URL_HINT_RES),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         OutlinedTextField(
             value = uiState.streamKey,
             onValueChange = viewModel::onStreamKeyChange,
-            label = { Text("Stream-Schlüssel") },
+            label = { Text(stringResource(R.string.stream_key_label)) },
             modifier = Modifier.fillMaxWidth(),
         )
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("Sichere Verbindung (RTMPS)", modifier = Modifier.weight(1f))
+            Text(stringResource(R.string.stream_tls_label), modifier = Modifier.weight(1f))
             Switch(
                 checked = uiState.streamUseTls,
                 onCheckedChange = viewModel::onStreamUseTlsChange,
@@ -75,29 +77,29 @@ fun SettingsStreamingObsScreen(
         }
 
         // Multi-Streaming: optionales zweites Ziel (parallel zum primären)
-        Text("Multi-Streaming (optional)", style = MaterialTheme.typography.titleLarge)
+        Text(stringResource(R.string.multi_streaming_title), style = MaterialTheme.typography.titleLarge)
         Text(
-            text = "Zweites Stream-Ziel: Das Signal wird gleichzeitig zu beiden Zielen gesendet. Leer lassen, um nur das primäre Ziel zu nutzen.",
+            text = stringResource(R.string.multi_streaming_desc),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         OutlinedTextField(
             value = uiState.secondaryStreamUrl,
             onValueChange = viewModel::onSecondaryStreamUrlChange,
-            label = { Text("Zweite Stream-URL") },
+            label = { Text(stringResource(R.string.secondary_url_label)) },
             modifier = Modifier.fillMaxWidth(),
         )
         OutlinedTextField(
             value = uiState.secondaryStreamKey,
             onValueChange = viewModel::onSecondaryStreamKeyChange,
-            label = { Text("Zweiter Stream-Schlüssel") },
+            label = { Text(stringResource(R.string.secondary_key_label)) },
             modifier = Modifier.fillMaxWidth(),
         )
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("Sichere Verbindung (RTMPS)", modifier = Modifier.weight(1f))
+            Text(stringResource(R.string.stream_tls_label), modifier = Modifier.weight(1f))
             Switch(
                 checked = uiState.secondaryStreamUseTls,
                 onCheckedChange = viewModel::onSecondaryStreamUseTlsChange,
@@ -105,30 +107,30 @@ fun SettingsStreamingObsScreen(
         }
 
         // OBS-Einstellungen
-        Text("OBS-Einstellungen", style = MaterialTheme.typography.titleLarge)
+        Text(stringResource(R.string.obs_section_title), style = MaterialTheme.typography.titleLarge)
         OutlinedTextField(
             value = uiState.obsHost,
             onValueChange = viewModel::onObsHostChange,
-            label = { Text("OBS Host") },
+            label = { Text(stringResource(R.string.obs_host_label)) },
             modifier = Modifier.fillMaxWidth(),
         )
         OutlinedTextField(
             value = uiState.obsPort,
             onValueChange = viewModel::onObsPortChange,
-            label = { Text("OBS Port") },
+            label = { Text(stringResource(R.string.obs_port_label)) },
             modifier = Modifier.fillMaxWidth(),
         )
         OutlinedTextField(
             value = uiState.obsPassword,
             onValueChange = viewModel::onObsPasswordChange,
-            label = { Text("OBS Passwort") },
+            label = { Text(stringResource(R.string.obs_password_label)) },
             modifier = Modifier.fillMaxWidth(),
         )
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("Sichere Verbindung (wss://)", modifier = Modifier.weight(1f))
+            Text(stringResource(R.string.obs_tls_label), modifier = Modifier.weight(1f))
             Switch(
                 checked = uiState.obsUseTls,
                 onCheckedChange = viewModel::onObsUseTlsChange,

@@ -1,5 +1,6 @@
 package com.vivid.feature.settings.ui
 
+import com.vivid.feature.settings.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -20,6 +21,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.vivid.core.data.AccentColor
 import com.vivid.core.data.AppSettings
@@ -38,14 +40,14 @@ fun SettingsAppearanceScreen(
     onBack: () -> Unit,
 ) {
     SettingsSectionScaffold(
-        title = "Darstellung",
+        title = stringResource(R.string.cat_appearance_title),
         onBack = onBack,
         onSave = viewModel::saveSettings,
     ) {
         // Design-Modus: System / Hell / Dunkel / AMOLED
-        Text("Design-Modus", style = MaterialTheme.typography.titleLarge)
+        Text(stringResource(R.string.appearance_mode_title), style = MaterialTheme.typography.titleLarge)
         Text(
-            text = "Legt fest, ob Vivid hell, dunkel oder im AMOLED-Modus erscheint — oder dem System folgt. AMOLED nutzt rein-schwarze Flächen (spart auf OLED-Displays Energie).",
+            text = stringResource(R.string.appearance_mode_desc),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -58,29 +60,31 @@ fun SettingsAppearanceScreen(
                         index = index,
                         count = ThemeMode.entries.size,
                     ),
-                    label = { Text(mode.displayName) },
+                    label = { Text(stringResource(mode.displayNameRes)) },
                 )
             }
         }
         Text(
-            text = when (uiState.themeMode) {
-                ThemeMode.SYSTEM -> "Folgt der System-Einstellung deines Geräts (Standard)."
-                ThemeMode.LIGHT -> "Immer hell — unabhängig von der System-Einstellung."
-                ThemeMode.DARK -> "Immer dunkel — unabhängig von der System-Einstellung."
-                ThemeMode.AMOLED -> "Dunkel mit rein-schwarzen Flächen: maximaler Kontrast, weniger Akku-Verbrauch auf OLED-Screens."
-            },
+            text = stringResource(
+                when (uiState.themeMode) {
+                    ThemeMode.SYSTEM -> R.string.appearance_mode_system_desc
+                    ThemeMode.LIGHT -> R.string.appearance_mode_light_desc
+                    ThemeMode.DARK -> R.string.appearance_mode_dark_desc
+                    ThemeMode.AMOLED -> R.string.appearance_mode_amoled_desc
+                },
+            ),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
         // Akzentfarbe: kuratierte Material-3-Paletten (Swatch = HCT-Seed)
         Text(
-            text = "Akzentfarbe",
+            text = stringResource(R.string.appearance_accent_title),
             style = MaterialTheme.typography.titleLarge,
             modifier = Modifier.padding(top = 8.dp),
         )
         Text(
-            text = "Färbt Buttons, Schalter, Links und Hervorhebungen. Jede Farbe ist eine komplette Material-3-Palette (TonalSpot) — der Standard bleibt Vivid-Grün.",
+            text = stringResource(R.string.appearance_accent_desc),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -125,7 +129,7 @@ private fun AccentSwatch(
                 .background(color = accent.seedColor, shape = CircleShape),
         )
         Text(
-            text = accent.displayName,
+            text = stringResource(accent.displayNameRes),
             style = MaterialTheme.typography.labelSmall,
             color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
         )

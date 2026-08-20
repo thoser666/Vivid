@@ -34,6 +34,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
@@ -53,6 +54,7 @@ import com.vivid.feature.streaming.StreamTargetState
 import com.vivid.feature.streaming.StreamTargetStatus
 import com.vivid.feature.streaming.StreamingState
 import com.vivid.feature.streaming.StreamingViewModel
+import com.vivid.feature.streaming.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -65,7 +67,6 @@ fun StreamingScreen(
     val targetStates by streamingEngine.targetStates.collectAsStateWithLifecycle()
     val focusMode by streamingEngine.focusMode.collectAsStateWithLifecycle()
     val stabilizationEnabled by streamingEngine.stabilizationEnabled.collectAsStateWithLifecycle()
-    val errorMessage by viewModel.errorMessage.collectAsStateWithLifecycle()
     val configIssues by viewModel.configIssues.collectAsStateWithLifecycle()
 
     // Runtime-Permissions (Kamera/Mikro + Notifications) werden beim Go-Live
@@ -119,7 +120,7 @@ fun StreamingScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Live Stream") },
+                title = { Text(stringResource(R.string.streaming_ui_title)) },
                 actions = {
                     // Button für OBS-Steuerung
                     IconButton(onClick = {
@@ -128,7 +129,7 @@ fun StreamingScreen(
                     }) {
                         Icon(
                             imageVector = Icons.Default.Podcasts,
-                            contentDescription = "Open OBS Control",
+                            contentDescription = stringResource(R.string.streaming_obs_content_desc),
                         )
                     }
 
@@ -138,7 +139,7 @@ fun StreamingScreen(
                     }) {
                         Icon(
                             imageVector = Icons.Default.Settings,
-                            contentDescription = "Open Settings",
+                            contentDescription = stringResource(R.string.streaming_settings_content_desc),
                         )
                     }
                 },
@@ -210,10 +211,10 @@ fun StreamingScreen(
                 modifier = Modifier.align(Alignment.BottomCenter),
             ) {
                 val buttonText = when (streamingState) {
-                    is StreamingState.Idle -> "Start Streaming"
-                    is StreamingState.Preparing -> "Preparing..."
-                    is StreamingState.Streaming -> "Stop Streaming"
-                    is StreamingState.Failed -> "Retry"
+                    is StreamingState.Idle -> stringResource(R.string.streaming_start)
+                    is StreamingState.Preparing -> stringResource(R.string.streaming_preparing)
+                    is StreamingState.Streaming -> stringResource(R.string.streaming_stop)
+                    is StreamingState.Failed -> stringResource(R.string.streaming_retry)
                 }
                 Text(buttonText)
             }
@@ -253,7 +254,9 @@ fun StreamingScreen(
                     onClick = { streamingEngine.toggleStabilization() },
                 ) {
                     Text(
-                        if (stabilizationEnabled) "Stabilisierung: An" else "Stabilisierung: Aus",
+                        stringResource(
+                            if (stabilizationEnabled) R.string.streaming_stabilization_on else R.string.streaming_stabilization_off,
+                        ),
                     )
                 }
 
@@ -267,14 +270,19 @@ fun StreamingScreen(
                         modifier = Modifier.size(18.dp),
                     )
                     Spacer(Modifier.width(6.dp))
-                    Text(if (isLocked) "Fokus: ∞" else "Fokus: Auto")
+                    Text(
+                        stringResource(
+                            if (isLocked) R.string.streaming_focus_inf else R.string.streaming_focus_auto,
+                        ),
+                    )
                 }
             }
 
+            val errorIssues = configIssues.filter { it.severity == ConfigIssueSeverity.ERROR }
             if (streamingState is StreamingState.Failed) {
                 val reason = (streamingState as StreamingState.Failed).reason
                 PreviewMessageBanner(
-                    text = "Error: $reason",
+                    text = stringResource(R.string.streaming_error_prefix, reason ?: ""),
                     isError = true,
                     modifier = Modifier
                         .align(Alignment.TopCenter)
@@ -282,14 +290,14 @@ fun StreamingScreen(
                 )
             } else if (permissionDenied) {
                 PreviewMessageBanner(
-                    text = "Kamera-, Mikrofon- und Benachrichtigungs-Berechtigung werden für Streaming benötigt. Bitte erneut auf Go Live tippen und erlauben.",
+                    text = stringResource(R.string.streaming_permission_required),
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .padding(horizontal = 16.dp, vertical = 8.dp),
                 )
-            } else if (errorMessage != null) {
+            } else if (errorIssues.isNotEmpty() && streamingState !is StreamingState.Streaming) {
                 PreviewMessageBanner(
-                    text = errorMessage.orEmpty(),
+                    text = errorIssues.map { resolveIssueText(it) }.joinToString("\n"),
                     isError = true,
                     modifier = Modifier
                         .align(Alignment.TopCenter)
@@ -298,9 +306,9 @@ fun StreamingScreen(
             }
 
             // Selbst-Check: Befunde nur im Idle-Zustand anzeigen (nicht während/nach dem
-            // Streamen). Bei gesetztem Fehler-Banner (errorMessage) wird die Liste ausgeblendet
+            // Streamen). Bei gesetzten Fehler-Befunden (errorIssues) wird die Liste ausgeblendet
             // — das Banner zeigt dieselben Fehler bereits, eine Doppelanzeige überlappte sonst.
-            if (configIssues.isNotEmpty() && streamingState !is StreamingState.Streaming && errorMessage == null) {
+            if (configIssues.isNotEmpty() && streamingState !is StreamingState.Streaming && errorIssues.isEmpty()) {
                 Surface(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
@@ -356,10 +364,17 @@ private fun ConfigIssueRow(issue: StreamConfigIssue) {
         )
         Spacer(Modifier.width(8.dp))
         Text(
-            text = issue.message,
+            text = resolveIssueText(issue),
             color = tint,
         )
     }
+}
+
+/** Löst einen Selbst-Check-Befund in die lokalisierte Meldung auf. */
+@Composable
+private fun resolveIssueText(issue: StreamConfigIssue): String {
+    val prefix = if (issue.prefixRes != 0) stringResource(issue.prefixRes) else ""
+    return prefix + stringResource(issue.messageRes, *issue.formatArgs.toTypedArray())
 }
 
 /** Banner über der Kamera-Vorschau: opaker Container garantiert Kontrast auf dem schwarzen Preview. */
@@ -391,12 +406,14 @@ private fun PreviewMessageBanner(
 /** Zeigt ein einzelnes Stream-Ziel (Multi-Streaming) mit URL und Status an. */
 @Composable
 private fun TargetStatusRow(state: StreamTargetState) {
-    val label = when (state.status) {
-        StreamTargetStatus.IDLE -> "bereit"
-        StreamTargetStatus.PREPARING -> "verbinde…"
-        StreamTargetStatus.STREAMING -> "sendet live"
-        StreamTargetStatus.FAILED -> "fehlgeschlagen"
-    }
+    val label = stringResource(
+        when (state.status) {
+            StreamTargetStatus.IDLE -> R.string.streaming_target_idle
+            StreamTargetStatus.PREPARING -> R.string.streaming_target_preparing
+            StreamTargetStatus.STREAMING -> R.string.streaming_target_streaming
+            StreamTargetStatus.FAILED -> R.string.streaming_target_failed
+        },
+    )
     val color = when (state.status) {
         StreamTargetStatus.STREAMING -> LocalExtendedColors.current.success
         StreamTargetStatus.FAILED -> MaterialTheme.colorScheme.error

@@ -20,8 +20,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import com.vivid.feature.streaming.R
 import timber.log.Timber
 
 @Composable
@@ -56,7 +58,7 @@ fun CameraScreen() {
                 contentAlignment = Alignment.Center,
                 modifier = Modifier.fillMaxSize(),
             ) {
-                Text(text = "Bitte Kamera-Berechtigung erteilen.")
+                Text(text = stringResource(R.string.camera_permission_required))
             }
         }
     }

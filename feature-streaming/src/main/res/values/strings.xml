@@ -1,14 +1,37 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Vivid</string>
-    <string name="welcome_message">Welcome to %s, your live streaming companion!</string>
-    <string name="stream_button">Start Stream</string>
-    <string name="settings_title">Settings</string>
-    <string name="language_setting">Language</string>
-    <string name="streaming_screen_title">Live Stream</string>
-    <string name="start_stream_button">Start Stream</string>
-    <string name="permissions_rationale">Camera and microphone permissions are required to stream live video. Please grant them.</string>
-    <string name="grant_permissions_button">Grant Permissions</string>
-    <string name="permissions_denied_permanently">Permissions were denied permanently. Please enable them in app settings.</string>
-    <string name="open_settings_button">Open Settings</string>
+    <!-- Streaming-Screen (StreamingScreen.kt) -->
+    <string name="streaming_ui_title">Live Stream</string>
+    <string name="streaming_obs_content_desc">OBS-Steuerung öffnen</string>
+    <string name="streaming_settings_content_desc">Einstellungen öffnen</string>
+    <string name="streaming_start">Stream starten</string>
+    <string name="streaming_preparing">Bereite vor…</string>
+    <string name="streaming_stop">Stream beenden</string>
+    <string name="streaming_retry">Erneut versuchen</string>
+    <string name="streaming_stabilization_on">Stabilisierung: An</string>
+    <string name="streaming_stabilization_off">Stabilisierung: Aus</string>
+    <string name="streaming_focus_inf">Fokus: ∞</string>
+    <string name="streaming_focus_auto">Fokus: Auto</string>
+    <string name="streaming_error_prefix">Fehler: %1$s</string>
+    <string name="streaming_permission_required">Kamera-, Mikrofon- und Benachrichtigungs-Berechtigung werden für Streaming benötigt. Bitte erneut auf Go Live tippen und erlauben.</string>
+    <string name="streaming_target_idle">bereit</string>
+    <string name="streaming_target_preparing">verbinde…</string>
+    <string name="streaming_target_streaming">sendet live</string>
+    <string name="streaming_target_failed">fehlgeschlagen</string>
+
+    <!-- Kamera-Screen (CameraScreen.kt) -->
+    <string name="camera_permission_required">Bitte Kamera-Berechtigung erteilen.</string>
+
+    <!-- Playback-Screen (PlaybackScreen.kt) -->
+    <string name="playback_previous">Zurück</string>
+    <string name="playback_play_pause">Play/Pause</string>
+    <string name="playback_next">Weiter</string>
+
+    <!-- Selbst-Check (StreamConfigValidator.kt) -->
+    <string name="stream_secondary_label">Zweites Ziel: </string>
+    <string name="stream_error_no_url">Keine Stream-URL konfiguriert. Bitte in den Einstellungen hinterlegen.</string>
+    <string name="stream_error_bad_scheme">Nicht unterstütztes Protokoll „%1$s“. Erlaubt sind rtmp, rtmps und srt.</string>
+    <string name="stream_error_no_host">Die Stream-URL enthält keinen gültigen Server-Host (z. B. rtmp://live.twitch.tv/app).</string>
+    <string name="stream_error_no_key">Kein Stream-Key hinterlegt. Twitch, YouTube und Kick verlangen einen Key.</string>
+    <string name="stream_error_srt_tls">TLS ist bei einer srt://-URL nicht anwendbar — die URL wird unverschlüsselt verwendet.</string>
 </resources>

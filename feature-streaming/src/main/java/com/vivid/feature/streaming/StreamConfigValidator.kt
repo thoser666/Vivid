@@ -1,5 +1,7 @@
 package com.vivid.feature.streaming
 
+import androidx.annotation.StringRes
+
 /** Schweregrad eines Befundes aus dem Stream-Selbst-Check. */
 enum class ConfigIssueSeverity {
     /** Blockiert den Go-Live (z. B. fehlende URL). */
@@ -9,18 +11,27 @@ enum class ConfigIssueSeverity {
     WARNING,
 }
 
-/** Ein einzelner Befund des Stream-Selbst-Checks mit klarer, anzeigbarer Meldung. */
+/**
+ * Ein einzelner Befund des Stream-Selbst-Checks.
+ *
+ * Die Meldung ist eine String-Ressource (i18n): [messageRes] ist die
+ * Ressourcen-ID, [formatArgs] liefert die Platzhalter-Argumente (z. B. das
+ * nicht unterstützte Protokoll). [prefixRes] markiert Befunde des optionalen
+ * sekundären Ziels („Zweites Ziel: …“) und wird von der UI vorangestellt.
+ */
 data class StreamConfigIssue(
     val severity: ConfigIssueSeverity,
-    val message: String,
+    @StringRes val messageRes: Int,
+    val formatArgs: List<String> = emptyList(),
+    @StringRes val prefixRes: Int = 0,
 )
 
 /**
  * Validiert die Stream-Konfiguration VOR dem Go-Live.
  *
  * Reine Funktion ohne Abhängigkeiten, damit sie trivial unit-testbar ist.
- * Die Meldungen sind bewusst auf Deutsch und erklären, was zu tun ist —
- * sie werden direkt im StreamingScreen angezeigt.
+ * Die Meldungen liegen als String-Ressourcen vor (Deutsch = Default,
+ * Englisch in `values-en`) — sie werden direkt im StreamingScreen angezeigt.
  */
 object StreamConfigValidator {
 
@@ -40,7 +51,7 @@ object StreamConfigValidator {
      *
      * Das sekundäre Ziel ist optional: Eine leere sekundäre URL wird ignoriert
      * (Multi-Streaming deaktiviert), sobald sie aber gesetzt ist, gelten dieselben
-     * Checks — die Befunde sind mit „Zweites Ziel:" gekennzeichnet.
+     * Checks — die Befunde sind mit [R.string.stream_secondary_label] gekennzeichnet.
      */
     fun validate(
         streamUrl: String,
@@ -55,14 +66,14 @@ object StreamConfigValidator {
             key = streamKey,
             useTls = streamUseTls,
             required = true,
-            label = "",
+            prefixRes = 0,
         ).toMutableList()
         issues += validateTarget(
             url = secondaryStreamUrl,
             key = secondaryStreamKey,
             useTls = secondaryStreamUseTls,
             required = false,
-            label = "Zweites Ziel: ",
+            prefixRes = R.string.stream_secondary_label,
         )
         return issues
     }
@@ -77,7 +88,7 @@ object StreamConfigValidator {
         key: String,
         useTls: Boolean,
         required: Boolean,
-        label: String,
+        @StringRes prefixRes: Int,
     ): List<StreamConfigIssue> {
         val issues = mutableListOf<StreamConfigIssue>()
         val trimmedUrl = url.trim()
@@ -86,7 +97,8 @@ object StreamConfigValidator {
             if (required) {
                 issues += StreamConfigIssue(
                     ConfigIssueSeverity.ERROR,
-                    "Keine Stream-URL konfiguriert. Bitte in den Einstellungen hinterlegen.",
+                    R.string.stream_error_no_url,
+                    prefixRes = prefixRes,
                 )
             }
             return issues
@@ -96,7 +108,9 @@ object StreamConfigValidator {
         if (scheme !in SUPPORTED_SCHEMES) {
             issues += StreamConfigIssue(
                 ConfigIssueSeverity.ERROR,
-                "${label}Nicht unterstütztes Protokoll \"$scheme\". Erlaubt sind rtmp, rtmps und srt.",
+                R.string.stream_error_bad_scheme,
+                formatArgs = listOf(scheme),
+                prefixRes = prefixRes,
             )
         }
 
@@ -104,7 +118,8 @@ object StreamConfigValidator {
         if (host.isNullOrBlank()) {
             issues += StreamConfigIssue(
                 ConfigIssueSeverity.ERROR,
-                "${label}Die Stream-URL enthält keinen gültigen Server-Host (z. B. rtmp://live.twitch.tv/app).",
+                R.string.stream_error_no_host,
+                prefixRes = prefixRes,
             )
         }
 
@@ -112,14 +127,16 @@ object StreamConfigValidator {
         if (trimmedKey.isEmpty() && scheme.startsWith("rtmp")) {
             issues += StreamConfigIssue(
                 ConfigIssueSeverity.WARNING,
-                "${label}Kein Stream-Key hinterlegt. Twitch, YouTube und Kick verlangen einen Key.",
+                R.string.stream_error_no_key,
+                prefixRes = prefixRes,
             )
         }
 
         if (useTls && scheme == "srt") {
             issues += StreamConfigIssue(
                 ConfigIssueSeverity.WARNING,
-                "${label}TLS ist bei einer srt://-URL nicht anwendbar — die URL wird unverschlüsselt verwendet.",
+                R.string.stream_error_srt_tls,
+                prefixRes = prefixRes,
             )
         }
 

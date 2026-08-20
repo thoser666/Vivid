@@ -274,10 +274,10 @@ class StreamingService : Service() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val channel = NotificationChannel(
             StreamingServiceSupport.CHANNEL_ID,
-            StreamingServiceSupport.CHANNEL_NAME,
+            getString(StreamingServiceSupport.CHANNEL_NAME_RES),
             NotificationManager.IMPORTANCE_LOW,
         ).apply {
-            description = "Zeigt den Live-Stream-Status, solange Vivid sendet."
+            description = getString(R.string.notif_channel_desc)
             setShowBadge(false)
         }
         getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
@@ -297,10 +297,14 @@ class StreamingService : Service() {
             Intent(this, MainActivity::class.java),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
+        // notif_text_failed enthält einen %1$s-Platzhalter für die technische
+        // Fehlerursache; bei anderen Stati werden die überzähligen Argumente
+        // von String.format ignoriert.
+        val failureReason = (state as? StreamingState.Failed)?.reason ?: ""
         return NotificationCompat.Builder(this, StreamingServiceSupport.CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentTitle(StreamingServiceSupport.notificationTitle(state))
-            .setContentText(StreamingServiceSupport.notificationText(state))
+            .setContentTitle(getString(StreamingServiceSupport.notificationTitleRes(state)))
+            .setContentText(getString(StreamingServiceSupport.notificationTextRes(state), failureReason))
             .setContentIntent(contentIntent)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
@@ -310,7 +314,7 @@ class StreamingService : Service() {
                     addAction(
                         NotificationCompat.Action.Builder(
                             android.R.drawable.ic_media_pause,
-                            "Stream beenden",
+                            getString(R.string.notif_stop_action),
                             stopIntent,
                         ).build(),
                     )

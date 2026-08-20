@@ -1,5 +1,6 @@
 package com.vivid.feature.settings.ui
 
+import com.vivid.feature.settings.R
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.MaterialTheme
@@ -9,6 +10,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import com.vivid.core.data.AppSettings
 
 /**
@@ -22,21 +24,21 @@ fun SettingsOverlaysScreen(
     onBack: () -> Unit,
 ) {
     SettingsSectionScaffold(
-        title = "Overlays & Widgets",
+        title = stringResource(R.string.cat_overlays_title),
         onBack = onBack,
         onSave = viewModel::saveSettings,
     ) {
         // Chat-Overlay über der Streaming-Vorschau
-        Text("Chat-Overlay", style = MaterialTheme.typography.titleLarge)
+        Text(stringResource(R.string.overlays_chat_title), style = MaterialTheme.typography.titleLarge)
         Text(
-            text = "Zeigt den Twitch-Chat des angegebenen Kanals über der Streaming-Vorschau an (anonym gelesen).",
+            text = stringResource(R.string.overlays_chat_desc),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         OutlinedTextField(
             value = uiState.chatChannel,
             onValueChange = viewModel::onChatChannelChange,
-            label = { Text("Twitch-Kanal (ohne #)") },
+            label = { Text(stringResource(R.string.overlays_channel_label)) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
         )
@@ -44,7 +46,7 @@ fun SettingsOverlaysScreen(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("Chat-Overlay anzeigen", modifier = Modifier.weight(1f))
+            Text(stringResource(R.string.overlays_chat_enabled), modifier = Modifier.weight(1f))
             Switch(
                 checked = uiState.chatOverlayEnabled,
                 onCheckedChange = viewModel::onChatOverlayEnabledChange,
@@ -52,9 +54,9 @@ fun SettingsOverlaysScreen(
         }
 
         // Text-/Info-Widget über der Streaming-Vorschau (Uhrzeit/GPS/Geschwindigkeit)
-        Text("Text-/Info-Widget", style = MaterialTheme.typography.titleLarge)
+        Text(stringResource(R.string.overlays_widget_title), style = MaterialTheme.typography.titleLarge)
         Text(
-            text = "Zeigt Uhrzeit, GPS-Koordinaten und Geschwindigkeit als Overlay rechts unten über der Streaming-Vorschau an. Für GPS/Geschwindigkeit wird die Standort-Berechtigung benötigt.",
+            text = stringResource(R.string.overlays_widget_desc),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -62,7 +64,7 @@ fun SettingsOverlaysScreen(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("Widget anzeigen", modifier = Modifier.weight(1f))
+            Text(stringResource(R.string.overlays_widget_enabled), modifier = Modifier.weight(1f))
             Switch(
                 checked = uiState.widgetEnabled,
                 onCheckedChange = viewModel::onWidgetEnabledChange,
@@ -72,7 +74,7 @@ fun SettingsOverlaysScreen(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("Uhrzeit", modifier = Modifier.weight(1f))
+            Text(stringResource(R.string.overlays_widget_time), modifier = Modifier.weight(1f))
             Switch(
                 checked = uiState.widgetShowTime,
                 onCheckedChange = viewModel::onWidgetShowTimeChange,
@@ -82,7 +84,7 @@ fun SettingsOverlaysScreen(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("GPS-Koordinaten", modifier = Modifier.weight(1f))
+            Text(stringResource(R.string.overlays_widget_location), modifier = Modifier.weight(1f))
             Switch(
                 checked = uiState.widgetShowLocation,
                 onCheckedChange = viewModel::onWidgetShowLocationChange,
@@ -92,7 +94,7 @@ fun SettingsOverlaysScreen(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("Geschwindigkeit", modifier = Modifier.weight(1f))
+            Text(stringResource(R.string.overlays_widget_speed), modifier = Modifier.weight(1f))
             Switch(
                 checked = uiState.widgetShowSpeed,
                 onCheckedChange = viewModel::onWidgetShowSpeedChange,
@@ -102,7 +104,7 @@ fun SettingsOverlaysScreen(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("Höhe", modifier = Modifier.weight(1f))
+            Text(stringResource(R.string.overlays_widget_altitude), modifier = Modifier.weight(1f))
             Switch(
                 checked = uiState.widgetShowAltitude,
                 onCheckedChange = viewModel::onWidgetShowAltitudeChange,

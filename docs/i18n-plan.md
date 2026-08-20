@@ -1,6 +1,6 @@
 # 🌍 I18n-Plan: String-Externalisierung & Lokalisierung
 
-**Status:** 🚧 In Arbeit · **Ziel:** Alle UI-Strings aus dem Compose-Code in `strings.xml` auslagern und mindestens Deutsch (Default) + Englisch vollständig liefern.
+**Status:** ✅ Abgeschlossen (2026-08-20) · **Ziel erreicht:** Alle UI-Strings sind aus dem Compose-Code in Modul-`strings.xml` ausgelagert; Deutsch (Default) + Englisch (`values-en`) sind in **allen** Modulen vollständig. CI-Gates (Externalisierungs- + Vollständigkeits-Check) sind aktiv.
 
 > Hintergrund: Der PARITY-Punkt „I18n (lokalisierte Strings)“ (Plattform & Grundlagen) ist **nur als Grundgerüst** angelegt — die Compose-UI nutzt überwiegend hartkodierte deutsche Literale. Dieses Dokument ist der konkrete Arbeitsplan, um den Punkt abzuschließen.
 
@@ -46,21 +46,27 @@
 
 ## 4. Was NICHT lokalisiert wird
 
-- **Bot-Antworten & LLM-Prompts** (`feature-chat`): bewusst in der Sprache des Streamers/Viewers — der System-Prompt ist bereits konfigurierbar (Settings). Bot-Kommandos wie `!help`/`!diag` bleiben deterministisch (Englisch/Deutsch gemischt, dokumentiert in [ai-chat-bot.md](ai-chat-bot.md)).
+- **Bot-Antworten & LLM-Prompts** (`feature-chat`, inkl. der `!diag`-Ausgabe in `AppChatStreamControl`): bewusst in der Sprache des Streamers/Viewers — der System-Prompt ist bereits konfigurierbar (Settings). Bot-Kommandos wie `!help`/`!diag` bleiben deterministisch (Englisch/Deutsch gemischt, dokumentiert in [ai-chat-bot.md](ai-chat-bot.md)).
 - **Plattform-/Technik-Texte:** Stream-Keys, URLs, JSON-Feldnamen, Fehler von Dritt-Bibliotheken.
+- **Technische Fehlerdetails:** Exception-Messages werden in lokalisierte Rahmen eingesetzt (z. B. „Update-Check fehlgeschlagen: %1$s“, „Fehler: %1$s“); das Detail selbst bleibt unübersetzt. Technische Fallbacks sind bewusst englisch (z. B. `unknown error`, `network error`).
+- **Versionierungstexte:** Release-Kanal-Suffixe (`nightly`/`alpha`/`beta`/`rc`/`stable`) sind Teil der Versionsidentifikation und bleiben unübersetzt.
 - **Log-Ausgaben** (dürfen englisch bleiben, sind nicht UI).
 
-## 5. CI-/Qualitäts-Checks
+## 5. CI-/Qualitäts-Checks (alle aktiv)
 
-1. **Externalisierungs-Gate:** Neuer Guard-Check (analog `scripts/guard_secrets.sh`): `git grep 'Text("'` in den UI-Modulen darf **keine** Treffer mehr liefern (Ausnahme: erlaubte Dateien wie Test-Fixtures) → verhindert Rückfall auf Hartcodierung.
-2. **Vollständigkeits-Check:** Skript vergleicht `values/strings.xml` gegen `values-en/strings.xml` (fehlende Keys = Fehler) — analog zum Play-Metadaten-Check `scripts/check_play_metadata.sh`.
-3. **Lint:** Android-Lint meldet bereits `HardcodedText`-Warnungen — als `warningsAsErrors` im CI aktiviert.
+1. **Externalisierungs-Gate:** `scripts/check_i18n.sh` — `Text(“…”)`, `contentDescription = “…”`, `label = “…”` / `title = “…”` in `src/main` der UI-Module (feature-settings, feature-obs-control, feature-streaming, app) liefern **0 Treffer** (Ausnahme: `AppChatStreamControl.kt` = `!diag`-Bot-Ausgabe, bewusst nicht lokalisiert) → verhindert Rückfall auf Hartkodierung.
+2. **Vollständigkeits-Check:** derselbe Guard vergleicht `values/strings.xml` ↔ `values-en/strings.xml` pro Modul (fehlende Keys in einer Richtung = Fehler).
+3. **stream_url_hint-Inhalts-Guard:** Der Hinweis unter dem Stream-URL-Feld muss in **beiden** Sprachen die Kernaussagen nennen (RTMP, SRT, Owncast, Presets) — die custom-Plattform-Fähigkeit bleibt so sichtbar.
+4. **Selbsttest:** `scripts/test_check_i18n.sh` (5 Fixtures: sauber grün, hartkodierter String rot, fehlende Übersetzung rot, Hint ohne Owncast rot, Repo-Regression grün) — läuft in Pre-Push und CI.
+5. **Lint:** Android-Lint meldet `HardcodedText`-Warnungen — als `warningsAsErrors` im CI aktiviert.
+
+**Verdrahtung:** `scripts/check_i18n.sh` + `scripts/test_check_i18n.sh` in `scripts/pre-push.sh` (mit Assertionen in `scripts/test_pre_push.sh`) und im `guard-secrets`-Job von `.github/workflows/android.yml`.
 
 ## 6. Aufwand & Abgrenzung
 
-- **Geschätzt:** ~74 Literale + ~20 weitere Muster über 4 Module; reine Externalisierung ≈ 1–2 Sessions, Übersetzung EN/FR zusätzlich.
-- **Kein UI-Umbau nötig** — reine Mechanik (Strings → Ressourcen), keine Verhaltensänderung.
-- Danach: PARITY-Zeile I18n auf ✅, README „In Progress“ leer → **letzter offener In-Progress-Punkt geschlossen**.
+- **Umgesetzt (2026-08-20):** ~110+ Literale über 4 Module + Validierungs-/Notification-/Update-Fehlertexte; Zusatz `values-en` in app/core/feature-settings/feature-obs-control/feature-streaming (vollständig).
+- **Kein UI-Umbau nötig gewesen** — reine Mechanik (Strings → Ressourcen); Enum-Anzeigenamen/Validierungsmeldungen wurden auf `@StringRes`-IDs umgestellt (Tests prüfen Ressourcen-IDs statt deutscher Texte).
+- **Resultat:** PARITY-Zeile I18n ✅, README „In Progress“ leer → **letzter offener In-Progress-Punkt geschlossen**; Gesamt-Zähler 21/3/21.
 
 ---
 

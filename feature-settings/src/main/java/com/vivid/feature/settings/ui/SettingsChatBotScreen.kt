@@ -1,5 +1,6 @@
 package com.vivid.feature.settings.ui
 
+import com.vivid.feature.settings.R
 import android.content.Intent
 import android.provider.Settings
 import androidx.compose.foundation.layout.Column
@@ -20,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -42,14 +44,14 @@ fun SettingsChatBotScreen(
 ) {
     val context = LocalContext.current
     SettingsSectionScaffold(
-        title = "Chat-Bot & KI",
+        title = stringResource(R.string.cat_chatbot_title),
         onBack = onBack,
         onSave = viewModel::saveSettings,
     ) {
         // Chat-Bot (KI): An/Aus + Betriebsmodus-Switch + alle Konfigurationsfelder
-        Text("Chat-Bot (KI)", style = MaterialTheme.typography.titleLarge)
+        Text(stringResource(R.string.chatbot_section_title), style = MaterialTheme.typography.titleLarge)
         Text(
-            text = "Automatischer Bot im Twitch-Chat: entweder deterministische Chat-Befehle (wie der Bot von Moblin) oder eine KI, die selbst entscheidet. Alle Felder lassen sich hier konfigurieren — Details: docs/ai-chat-bot.md.",
+            text = stringResource(R.string.chatbot_section_desc),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -57,14 +59,14 @@ fun SettingsChatBotScreen(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("Chat-Bot aktivieren", modifier = Modifier.weight(1f))
+            Text(stringResource(R.string.chatbot_enabled), modifier = Modifier.weight(1f))
             Switch(
                 checked = uiState.chatBotEnabled,
                 onCheckedChange = viewModel::onChatBotEnabledChange,
             )
         }
         Text(
-            text = "Betriebsmodus",
+            text = stringResource(R.string.chatbot_mode_title),
             style = MaterialTheme.typography.titleMedium,
             modifier = Modifier.padding(top = 8.dp),
         )
@@ -77,66 +79,68 @@ fun SettingsChatBotScreen(
                         index = index,
                         count = ChatBotMode.entries.size,
                     ),
-                    label = { Text(mode.displayName) },
+                    label = { Text(stringResource(mode.displayNameRes)) },
                 )
             }
         }
         Text(
-            text = when (uiState.chatBotMode) {
-                ChatBotMode.COMMAND -> "Bot wie Moblin: reagiert nur auf Befehle wie !help, !uptime, !tts und !bot — kein LLM nötig, funktioniert ohne KI-Schlüssel."
-                ChatBotMode.AUTONOMOUS -> "KI entscheidet selbst: Das LLM bewertet jede (freigegebene) Nachricht und entscheidet, ob und wie es antwortet — inklusive bewusstem Schweigen."
-            },
+            text = stringResource(
+                when (uiState.chatBotMode) {
+                    ChatBotMode.COMMAND -> R.string.chatbot_mode_command_desc
+                    ChatBotMode.AUTONOMOUS -> R.string.chatbot_mode_autonomous_desc
+                },
+            ),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
         // Bot-Konto (Twitch) + LLM-Zugang
-        Text("Bot-Konto & LLM", style = MaterialTheme.typography.titleMedium)
+        Text(stringResource(R.string.chatbot_account_title), style = MaterialTheme.typography.titleMedium)
         OutlinedTextField(
             value = uiState.chatBotLogin,
             onValueChange = viewModel::onChatBotLoginChange,
-            label = { Text("Bot-Login (Twitch, ohne @)") },
+            label = { Text(stringResource(R.string.chatbot_login_label)) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
         )
         SecretField(
             value = uiState.chatBotOauthToken,
             onValueChange = viewModel::onChatBotOauthTokenChange,
-            label = "Twitch-OAuth-Token (user:read:chat + user:write:chat)",
+            labelRes = R.string.chatbot_oauth_label,
         )
         OutlinedTextField(
             value = uiState.chatBotApiBaseUrl,
             onValueChange = viewModel::onChatBotApiBaseUrlChange,
-            label = { Text("LLM API-Basis-URL (OpenAI-kompatibel)") },
+            label = { Text(stringResource(R.string.chatbot_api_base_url_label)) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
         )
         SecretField(
             value = uiState.chatBotApiKey,
             onValueChange = viewModel::onChatBotApiKeyChange,
-            label = "LLM API-Key",
+            labelRes = R.string.chatbot_api_key_label,
         )
         OutlinedTextField(
             value = uiState.chatBotModel,
             onValueChange = viewModel::onChatBotModelChange,
-            label = { Text("LLM-Modell") },
+            label = { Text(stringResource(R.string.chatbot_model_label)) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
         )
         OutlinedTextField(
             value = uiState.chatBotSystemPrompt,
             onValueChange = viewModel::onChatBotSystemPromptChange,
-            label = { Text("System-Prompt (optional)") },
+            label = { Text(stringResource(R.string.chatbot_system_prompt_label)) },
             minLines = 2,
             modifier = Modifier.fillMaxWidth(),
         )
 
         // Bot-Verhalten
-        Text("Bot-Verhalten", style = MaterialTheme.typography.titleMedium)
+        Text(stringResource(R.string.chatbot_behavior_title), style = MaterialTheme.typography.titleMedium)
         OutlinedTextField(
             value = uiState.chatBotReplyCooldownSeconds.toString(),
             onValueChange = viewModel::onChatBotReplyCooldownSecondsChange,
-            label = { Text("Antwort-Cooldown (Sekunden, 0 = aus)") },
+            label = { Text(stringResource(R.string.chatbot_cooldown_label)) },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             modifier = Modifier.fillMaxWidth(),
@@ -145,7 +149,7 @@ fun SettingsChatBotScreen(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("Nur auf Erwähnungen antworten", modifier = Modifier.weight(1f))
+            Text(stringResource(R.string.chatbot_mentions_only), modifier = Modifier.weight(1f))
             Switch(
                 checked = uiState.chatBotMentionsOnly,
                 onCheckedChange = viewModel::onChatBotMentionsOnlyChange,
@@ -154,7 +158,7 @@ fun SettingsChatBotScreen(
         OutlinedTextField(
             value = uiState.chatBotMaxRepliesPerMinute.toString(),
             onValueChange = viewModel::onChatBotMaxRepliesPerMinuteChange,
-            label = { Text("Max. Antworten pro Minute (0 = unbegrenzt)") },
+            label = { Text(stringResource(R.string.chatbot_max_per_minute_label)) },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             modifier = Modifier.fillMaxWidth(),
@@ -162,12 +166,12 @@ fun SettingsChatBotScreen(
 
         // Begrenzungen: pro Viewer + Kosten-Budget (0 = aus/unbegrenzt)
         Text(
-            text = "Begrenzungen (0 = aus/unbegrenzt) — Cooldown und Cap gelten pro Viewer (funktionieren auf allen Plattformen: Twitch, Kick, YouTube …); Moderatoren umgehen die Per-Viewer-Limits. Das Stunden-Budget deckelt die LLM-Kosten global.",
+            text = stringResource(R.string.chatbot_limits_desc),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(
-            text = "Voreinstellung (Schnellstart)",
+            text = stringResource(R.string.chatbot_preset_title),
             style = MaterialTheme.typography.titleSmall,
             modifier = Modifier.padding(top = 8.dp),
         )
@@ -190,14 +194,14 @@ fun SettingsChatBotScreen(
                         index = index,
                         count = options.size,
                     ),
-                    label = { Text(preset?.displayName ?: "Eigene") },
+                    label = { Text(stringResource(preset?.displayNameRes ?: R.string.chatbot_preset_custom)) },
                 )
             }
         }
         OutlinedTextField(
             value = uiState.chatBotPerViewerCooldownSeconds.toString(),
             onValueChange = viewModel::onChatBotPerViewerCooldownSecondsChange,
-            label = { Text("Per-Viewer-Cooldown (Sekunden, 0 = aus)") },
+            label = { Text(stringResource(R.string.chatbot_per_viewer_cooldown_label)) },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             modifier = Modifier.fillMaxWidth(),
@@ -205,7 +209,7 @@ fun SettingsChatBotScreen(
         OutlinedTextField(
             value = uiState.chatBotPerViewerMaxReplies.toString(),
             onValueChange = viewModel::onChatBotPerViewerMaxRepliesChange,
-            label = { Text("Max. Antworten pro Viewer (pro Stream, 0 = unbegrenzt)") },
+            label = { Text(stringResource(R.string.chatbot_per_viewer_max_label)) },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             modifier = Modifier.fillMaxWidth(),
@@ -213,7 +217,7 @@ fun SettingsChatBotScreen(
         OutlinedTextField(
             value = uiState.chatBotMaxRepliesPerHour.toString(),
             onValueChange = viewModel::onChatBotMaxRepliesPerHourChange,
-            label = { Text("Kosten-Budget: Max. Antworten pro Stunde (0 = unbegrenzt)") },
+            label = { Text(stringResource(R.string.chatbot_budget_label)) },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             modifier = Modifier.fillMaxWidth(),
@@ -221,54 +225,59 @@ fun SettingsChatBotScreen(
 
         // Live-Verbrauch: Kosten-Budget beobachten (nur solange der Bot aktiv ist)
         Text(
-            text = "Live-Verbrauch",
+            text = stringResource(R.string.chatbot_usage_title),
             style = MaterialTheme.typography.titleSmall,
             modifier = Modifier.padding(top = 8.dp),
         )
         Text(
-            text = "Antworten diese Stunde: " +
+            text = stringResource(
+                R.string.chatbot_usage_per_hour,
                 if (botUsage.hourlyBudget > 0) {
                     "${botUsage.repliesThisHour} / ${botUsage.hourlyBudget}"
                 } else {
-                    "${botUsage.repliesThisHour} (kein Budget)"
+                    "${botUsage.repliesThisHour} ${stringResource(R.string.chatbot_usage_no_budget)}"
                 },
+            ),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(
-            text = "Antworten in diesem Stream: ${botUsage.totalRepliesThisStream}",
+            text = stringResource(R.string.chatbot_usage_per_stream, botUsage.totalRepliesThisStream),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         if (botUsage.topViewers.isNotEmpty()) {
             Text(
-                text = "Top-Viewer: " + botUsage.topViewers.joinToString { "${it.displayName} (${it.replies})" },
+                text = stringResource(
+                    R.string.chatbot_usage_top_viewers,
+                    botUsage.topViewers.joinToString { "${it.displayName} (${it.replies})" },
+                ),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         Text(
-            text = "Wird nur angezeigt, solange der Bot aktiv ist — Zähler setzen bei Stream-Ende zurück.",
+            text = stringResource(R.string.chatbot_usage_hint),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
         // Koexistenz mit anderen Bots (z. B. Rivulet)
-        Text("Koexistenz mit anderen Bots", style = MaterialTheme.typography.titleMedium)
+        Text(stringResource(R.string.chatbot_coexistence_title), style = MaterialTheme.typography.titleMedium)
         Text(
-            text = "Läuft neben dem Bot eines anderen Tools (z. B. Rivulet) im selben Kanal, lassen sich Kollisionen vermeiden: Andere Bots ignorieren und den Befehlsscope eingrenzen, damit nicht beide auf dieselben !-Befehle antworten.",
+            text = stringResource(R.string.chatbot_coexistence_desc),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         OutlinedTextField(
             value = uiState.chatBotIgnoreBots,
             onValueChange = viewModel::onChatBotIgnoreBotsChange,
-            label = { Text("Andere Bots ignorieren (Logins, kommasepariert)") },
+            label = { Text(stringResource(R.string.chatbot_ignore_bots_label)) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
         )
         Text(
-            text = "Befehlsscope",
+            text = stringResource(R.string.chatbot_scope_title),
             style = MaterialTheme.typography.titleSmall,
             modifier = Modifier.padding(top = 8.dp),
         )
@@ -281,16 +290,18 @@ fun SettingsChatBotScreen(
                         index = index,
                         count = ChatBotCommandScope.entries.size,
                     ),
-                    label = { Text(scope.displayName) },
+                    label = { Text(stringResource(scope.displayNameRes)) },
                 )
             }
         }
         Text(
-            text = when (uiState.chatBotCommandScope) {
-                ChatBotCommandScope.ALL -> "Jeder !-Befehl wird beantwortet (Standard, wie der Bot von Moblin)."
-                ChatBotCommandScope.MENTION -> "Nur Befehle, die den Bot direkt ansprechen (z. B. @vividbot !help) — generische Befehle bleiben dem anderen Bot."
-                ChatBotCommandScope.PREFIX -> "Nur Befehle mit eigenem Präfix (z. B. !v!help) — generische Befehle bleiben dem anderen Bot."
-            },
+            text = stringResource(
+                when (uiState.chatBotCommandScope) {
+                    ChatBotCommandScope.ALL -> R.string.chatbot_scope_all_desc
+                    ChatBotCommandScope.MENTION -> R.string.chatbot_scope_mention_desc
+                    ChatBotCommandScope.PREFIX -> R.string.chatbot_scope_prefix_desc
+                },
+            ),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -298,47 +309,47 @@ fun SettingsChatBotScreen(
             OutlinedTextField(
                 value = uiState.chatBotCommandPrefix,
                 onValueChange = viewModel::onChatBotCommandPrefixChange,
-                label = { Text("Eigenes Befehls-Präfix (z. B. v → !v!help)") },
+                label = { Text(stringResource(R.string.chatbot_prefix_label)) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
         }
 
         // Owner-Zugriff (nur der Streamer): Allow-List + eigene Owner-KI
-        Text("Owner-Zugriff (nur Streamer)", style = MaterialTheme.typography.titleMedium)
+        Text(stringResource(R.string.chatbot_owner_title), style = MaterialTheme.typography.titleMedium)
         Text(
-            text = "Nur du (und eingetragene Logins) kannst während eines aktiven Streams die Owner-Befehle !start, !stop, !diag und !ask nutzen — Viewer sehen nur einen Hinweis. Der Kanal-Inhaber ist automatisch Owner (Broadcaster-Badge); trage hier zusätzliche Logins ein, z. B. deinen Zweitaccount.",
+            text = stringResource(R.string.chatbot_owner_desc),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         OutlinedTextField(
             value = uiState.chatBotOwnerLogins,
             onValueChange = viewModel::onChatBotOwnerLoginsChange,
-            label = { Text("Owner-Logins (kommasepariert, ohne @)") },
+            label = { Text(stringResource(R.string.chatbot_owner_logins_label)) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
         )
         Text(
-            text = "Owner-KI (optional, exklusiv für Streamer-Befehle): !ask und die Diagnose-Empfehlungen von !diag laufen über diesen Endpunkt. Ohne eigene Owner-KI fallen die Befehle als Fallback auf die normale Bot-KI zurück (nur wenn auch die fehlt, liefert !diag die Checkliste direkt und !ask einen Hinweis).",
+            text = stringResource(R.string.chatbot_owner_llm_desc),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         OutlinedTextField(
             value = uiState.chatBotOwnerLlmBaseUrl,
             onValueChange = viewModel::onChatBotOwnerLlmBaseUrlChange,
-            label = { Text("Owner-LLM API-Basis-URL (OpenAI-kompatibel)") },
+            label = { Text(stringResource(R.string.chatbot_owner_llm_url_label)) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
         )
         SecretField(
             value = uiState.chatBotOwnerLlmApiKey,
             onValueChange = viewModel::onChatBotOwnerLlmApiKeyChange,
-            label = "Owner-LLM API-Key",
+            labelRes = R.string.chatbot_owner_llm_key_label,
         )
         OutlinedTextField(
             value = uiState.chatBotOwnerLlmModel,
             onValueChange = viewModel::onChatBotOwnerLlmModelChange,
-            label = { Text("Owner-LLM-Modell") },
+            label = { Text(stringResource(R.string.chatbot_owner_llm_model_label)) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
         )
@@ -347,7 +358,7 @@ fun SettingsChatBotScreen(
         val ownerLlmSource = viewModel.ownerLlmSource
         Column(modifier = Modifier.fillMaxWidth()) {
             Text(
-                text = "KI-Quelle für Owner-Befehle: ${ownerLlmSource.label}",
+                text = stringResource(R.string.chatbot_owner_source_label, stringResource(ownerLlmSource.labelRes)),
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Medium,
                 color = when (ownerLlmSource) {
@@ -357,7 +368,7 @@ fun SettingsChatBotScreen(
                 },
             )
             Text(
-                text = ownerLlmSource.description,
+                text = stringResource(ownerLlmSource.descriptionRes),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -366,28 +377,28 @@ fun SettingsChatBotScreen(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("Antworten privat senden (Whisper)", modifier = Modifier.weight(1f))
+            Text(stringResource(R.string.chatbot_owner_whisper), modifier = Modifier.weight(1f))
             Switch(
                 checked = uiState.chatBotOwnerWhisperReplies,
                 onCheckedChange = viewModel::onChatBotOwnerWhisperRepliesChange,
             )
         }
         Text(
-            text = "Owner-Antworten (!start/!stop/!diag/!ask) kommen per Twitch-Whisper statt in den öffentlichen Chat. Dafür braucht der Bot-Token den Scope user:manage:whispers und die Twitch-App-Client-ID unten; schlägt der Whisper fehl (z. B. Empfänger blockt Fremde), antwortet der Bot öffentlich.",
+            text = stringResource(R.string.chatbot_owner_whisper_desc),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         OutlinedTextField(
             value = uiState.chatBotTwitchClientId,
             onValueChange = viewModel::onChatBotTwitchClientIdChange,
-            label = { Text("Twitch-App-Client-ID (für Whisper)") },
+            label = { Text(stringResource(R.string.chatbot_client_id_label)) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
         )
 
         // Media-Player-Steuerung: braucht Benachrichtigungszugriff
         Text(
-            text = "Media-Befehle (!song / !next / !pause / !play / !prev) steuern den aktiven Musik-Player — dafür muss Vivid Benachrichtigungszugriff haben (liest keine Benachrichtigungen aus).",
+            text = stringResource(R.string.chatbot_media_desc),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -397,7 +408,7 @@ fun SettingsChatBotScreen(
             },
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Text("Benachrichtigungszugriff aktivieren")
+            Text(stringResource(R.string.chatbot_notification_access_button))
         }
     }
 }

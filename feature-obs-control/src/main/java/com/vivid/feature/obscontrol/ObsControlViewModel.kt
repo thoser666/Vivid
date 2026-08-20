@@ -43,7 +43,7 @@ class ObsControlViewModel @Inject constructor(
     fun connect(password: String, ip: String, port: String, useTls: Boolean = false) {
         val portNumber = port.toIntOrNull()
         if (portNumber == null) {
-            _uiState.value = ConnectionState.Error("Invalid port number")
+            _uiState.value = ConnectionState.Error(messageRes = R.string.obs_invalid_port_message)
             return
         }
 
@@ -51,7 +51,10 @@ class ObsControlViewModel @Inject constructor(
         try {
             streamingRepository.connectToObs(password, ip, portNumber, useTls)
         } catch (e: Exception) {
-            _uiState.value = ConnectionState.Error(e.message ?: "Failed to connect")
+            _uiState.value = ConnectionState.Error(
+                message = e.message ?: "",
+                messageRes = if (e.message.isNullOrBlank()) R.string.obs_connect_failed_message else 0,
+            )
         }
     }
 

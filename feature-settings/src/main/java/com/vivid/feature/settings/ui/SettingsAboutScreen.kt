@@ -1,5 +1,6 @@
 package com.vivid.feature.settings.ui
 
+import com.vivid.feature.settings.R
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -21,6 +22,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.vivid.core.update.UpdateCheckResult
 
@@ -39,12 +41,12 @@ fun SettingsAboutScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Über & Updates") },
+                title = { Text(stringResource(R.string.cat_about_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Zurück",
+                            contentDescription = stringResource(R.string.settings_back),
                         )
                     }
                 },
@@ -67,7 +69,7 @@ fun SettingsAboutScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Text(
-                        text = "Version $installedVersionName",
+                        text = stringResource(R.string.about_version, installedVersionName),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -79,7 +81,7 @@ fun SettingsAboutScreen(
                                 contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
                             ) {
                                 Text(
-                                    text = "⬆ Update verfügbar: ${result.latestVersion}",
+                                    text = stringResource(R.string.about_update_available, result.latestVersion),
                                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                                     style = MaterialTheme.typography.labelMedium,
                                 )
@@ -87,7 +89,7 @@ fun SettingsAboutScreen(
                         }
                         is UpdateCheckResult.UpToDate -> {
                             Text(
-                                text = "· aktuell",
+                                text = stringResource(R.string.about_up_to_date),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.primary,
                             )
@@ -101,7 +103,7 @@ fun SettingsAboutScreen(
                 onClick = onOpenAbout,
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text("Über Vivid & Updates")
+                Text(stringResource(R.string.about_open_button))
             }
         }
     }

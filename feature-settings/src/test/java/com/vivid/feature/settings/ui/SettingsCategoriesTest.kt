@@ -1,5 +1,6 @@
 package com.vivid.feature.settings.ui
 
+import com.vivid.feature.settings.R
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -16,8 +17,15 @@ class SettingsCategoriesTest {
     @Test
     fun `alle sechs Kategorien vorhanden - in Anzeige-Reihenfolge`() {
         assertEquals(
-            listOf("Streaming & OBS", "Darstellung", "Overlays & Widgets", "Chat-Bot & KI", "Remote & Datenschutz", "Über & Updates"),
-            SettingsCategories.all.map { it.title },
+            listOf(
+                R.string.cat_streaming_title,
+                R.string.cat_appearance_title,
+                R.string.cat_overlays_title,
+                R.string.cat_chatbot_title,
+                R.string.cat_remote_title,
+                R.string.cat_about_title,
+            ),
+            SettingsCategories.all.map { it.titleRes },
         )
     }
 
@@ -32,11 +40,11 @@ class SettingsCategoriesTest {
     }
 
     @Test
-    fun `jede Kategorie hat Titel Subtitle und Icon`() {
+    fun `jede Kategorie hat Titel- Subtitle-Ressource und Icon`() {
         SettingsCategories.all.forEach { category ->
-            assertTrue("Titel fehlt", category.title.isNotBlank())
-            assertTrue("Subtitle fehlt für '${category.title}'", category.subtitle.isNotBlank())
-            assertNotNull("Icon fehlt für '${category.title}'", category.icon)
+            assertTrue("Titel-Ressource fehlt", category.titleRes != 0)
+            assertTrue("Subtitle-Ressource fehlt", category.subtitleRes != 0)
+            assertNotNull("Icon fehlt", category.icon)
         }
     }
 

@@ -1,5 +1,8 @@
 package com.vivid.feature.settings.ui
 
+import com.vivid.feature.settings.R
+import androidx.annotation.StringRes
+
 /**
  * Plattform-Vorlagen für die Stream-Einstellungen.
  *
@@ -16,12 +19,12 @@ package com.vivid.feature.settings.ui
  *            eintragen; der TLS-Toggle bleibt unangetastet.
  */
 enum class StreamPlatform(
-    val label: String,
+    @StringRes val labelRes: Int,
     val ingestUrl: String,
 ) {
-    Twitch("Twitch", "rtmp://live.twitch.tv/app"),
-    YouTube("YouTube", "rtmp://a.rtmp.youtube.com/live2"),
-    Kick("Kick", "rtmp://live.kick.com/app"),
+    Twitch(R.string.platform_twitch, "rtmp://live.twitch.tv/app"),
+    YouTube(R.string.platform_youtube, "rtmp://a.rtmp.youtube.com/live2"),
+    Kick(R.string.platform_kick, "rtmp://live.kick.com/app"),
 
     /**
      * Eigene/benutzerdefinierte Ziel-URL: [ingestUrl] ist leer, damit eine
@@ -29,14 +32,17 @@ enum class StreamPlatform(
      * oder ein eigener Server). Anders als die Vorlagen wird der TLS-Toggle
      * NICHT verändert — er bleibt, wie der Nutzer ihn gesetzt hat.
      */
-    Custom("Benutzerdefiniert", ""),
+    Custom(R.string.platform_custom, ""),
 }
 
 /**
- * Hinweistext unter dem Stream-URL-Feld: Das Feld akzeptiert beliebige
- * RTMP(S)-/SRT-Ingest-URLs (z. B. Owncast oder einen eigenen Server) — die
- * Plattform-Vorlagen oben sind nur Komfort-Presets. Als Konstante testbar
- * und zentral gepflegt (siehe StreamPlatformTest).
+ * Ressourcen-ID des Hinweistexts unter dem Stream-URL-Feld: Das Feld
+ * akzeptiert beliebige RTMP(S)-/SRT-Ingest-URLs (z. B. Owncast oder einen
+ * eigenen Server) — die Plattform-Vorlagen oben sind nur Komfort-Presets.
+ *
+ * Als testbare Konstante und zentral gepflegt (siehe StreamPlatformTest).
+ * Der Inhalt selbst lebt in `res/values/strings.xml` und `values-en`
+ * (`stream_url_hint`) und wird zusätzlich vom CI-Guard `check_i18n.sh` auf
+ * die Kernaussagen (RTMP, SRT, Owncast, Presets) in beiden Sprachen geprüft.
  */
-const val STREAM_URL_HINT =
-    "Freie Ingest-URL: akzeptiert beliebige RTMP(S)- oder SRT-Ziele, z. B. Owncast oder einen eigenen Server. Die Plattform-Vorlagen oben sind nur Presets."
+val STREAM_URL_HINT_RES: Int = R.string.stream_url_hint

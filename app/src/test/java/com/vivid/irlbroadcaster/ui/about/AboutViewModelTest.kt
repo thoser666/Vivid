@@ -1,5 +1,6 @@
 package com.vivid.irlbroadcaster.ui.about
 
+import com.vivid.core.R
 import com.vivid.core.update.UpdateCheckResult
 import com.vivid.core.update.UpdateChecker
 import io.mockk.coEvery
@@ -74,12 +75,18 @@ class AboutViewModelTest {
     @Test
     fun `checkForUpdates maps an error into the state`() {
         val checker = mockk<UpdateChecker>()
-        coEvery { checker.check(any(), any()) } returns UpdateCheckResult.Error("Update-Check fehlgeschlagen: network down")
+        coEvery { checker.check(any(), any()) } returns UpdateCheckResult.Error(
+            R.string.update_error_check_failed,
+            listOf("network down"),
+        )
         val viewModel = AboutViewModel(checker)
 
         viewModel.checkForUpdates()
 
-        assertEquals(UpdateCheckResult.Error("Update-Check fehlgeschlagen: network down"), viewModel.uiState.value.result)
+        assertEquals(
+            UpdateCheckResult.Error(R.string.update_error_check_failed, listOf("network down")),
+            viewModel.uiState.value.result,
+        )
     }
 
     @Test

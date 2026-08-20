@@ -1,5 +1,7 @@
 package com.vivid.feature.settings.ui
 
+import com.vivid.feature.settings.R
+import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vivid.core.data.AccentColor
@@ -36,22 +38,24 @@ data class RemoteControlInfo(
  * (Anzeige im Settings-Screen). Spiegelt die Engine-Auswahl
  * (`ChatBotEngine.ownerLlm`): eigene Owner-KI bevorzugt, sonst Viewer-KI als
  * Fallback, sonst deterministisch (Checkliste/Hinweis).
+ *
+ * Label/Beschreibung sind String-Ressourcen (i18n).
  */
 enum class OwnerLlmSource(
-    val label: String,
-    val description: String,
+    @StringRes val labelRes: Int,
+    @StringRes val descriptionRes: Int,
 ) {
     OWNER(
-        label = "eigene Owner-KI (exklusiv)",
-        description = "!ask/!diag laufen über den hinterlegten Owner-LLM-Endpunkt — Viewer-Nachrichten erreichen ihn nie.",
+        labelRes = R.string.owner_source_owner,
+        descriptionRes = R.string.owner_source_owner_desc,
     ),
     VIEWER_FALLBACK(
-        label = "Viewer-KI (Fallback)",
-        description = "Keine eigene Owner-KI hinterlegt — die Befehle nutzen die normale Bot-KI mit dem Owner-Kontext.",
+        labelRes = R.string.owner_source_viewer_fallback,
+        descriptionRes = R.string.owner_source_viewer_fallback_desc,
     ),
     DETERMINISTIC(
-        label = "deterministisch (ohne KI)",
-        description = "Weder Owner- noch Viewer-KI konfiguriert — !diag liefert die Checkliste direkt, !ask einen Hinweis.",
+        labelRes = R.string.owner_source_deterministic,
+        descriptionRes = R.string.owner_source_deterministic_desc,
     ),
 }
 

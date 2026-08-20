@@ -1,5 +1,7 @@
 package com.vivid.core.update
 
+import androidx.annotation.StringRes
+import com.vivid.core.R
 import javax.inject.Inject
 
 /** Ergebnis eines Update-Checks gegen die GitHub-Releases. */
@@ -15,8 +17,15 @@ sealed interface UpdateCheckResult {
         val releaseNotes: String = "",
     ) : UpdateCheckResult
 
-    /** Kein Update-Check möglich (Netzwerkfehler, keine Releases, unbekannte Version). */
-    data class Error(val message: String) : UpdateCheckResult
+    /**
+     * Kein Update-Check möglich (Netzwerkfehler, keine Releases, unbekannte Version).
+     * Die Meldung ist eine String-Ressource (i18n, siehe `core/res/values/strings.xml`);
+     * [formatArgs] liefert die Platzhalter-Argumente.
+     */
+    data class Error(
+        @StringRes val messageRes: Int,
+        val formatArgs: List<String> = emptyList(),
+    ) : UpdateCheckResult
 }
 
 /**
@@ -63,12 +72,17 @@ class UpdateChecker @Inject constructor(
 
     private suspend fun performCheck(installedVersionName: String): UpdateCheckResult {
         val installed = AppVersion.parse(installedVersionName)
-            ?: return UpdateCheckResult.Error("Unbekannte Version: $installedVersionName")
+            ?: return UpdateCheckResult.Error(R.string.update_error_unknown_version, listOf(installedVersionName))
 
         val releases = try {
             api.getReleases()
         } catch (e: Exception) {
-            return UpdateCheckResult.Error("Update-Check fehlgeschlagen: ${e.message ?: "Netzwerkfehler"}")
+            // Technische Detail-Meldung (Exception) bleibt unübersetzt (siehe i18n-plan §4),
+            // der Rahmen ist lokalisiert.
+            return UpdateCheckResult.Error(
+                R.string.update_error_check_failed,
+                listOf(e.message ?: "network error"),
+            )
         }
 
         val candidates = releases
@@ -79,7 +93,7 @@ class UpdateChecker @Inject constructor(
             .toList()
 
         val latest = candidates.maxOrNull()
-            ?: return UpdateCheckResult.Error("Keine Releases gefunden")
+            ?: return UpdateCheckResult.Error(R.string.update_error_no_releases)
 
         return if (latest > installed) {
             val matchingRelease = releases.firstOrNull { release ->

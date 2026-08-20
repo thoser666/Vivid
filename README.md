@@ -138,9 +138,9 @@ The About-screen check follows the same rules as [RELEASE.md](RELEASE.md): it on
 - 🔋 **Background Streaming (Foreground Service)** - The stream keeps running when the app is in the background (home button, screen off) **and even if the Activity is destroyed** (recents swipe, rotation): a foreground service with a persistent notification (live status + stop action) and a partial wake lock keeps the encoder and camera alive, and the encoder runs on a view-independent GL pipeline (RootEncoder Context-constructor) so it never depends on the camera preview surface
 - 🔓 **Open Source** - Completely free and open source
 
-### 🚧 In Progress
+### ✅ Implemented
 
-- 🌍 **I18n Support** - Localization groundwork (`strings.xml`) is in place, but the Compose UI still uses hardcoded German literals (≈74 `Text("…")` in app/feature-settings/feature-obs-control/feature-streaming) — externalization plan: [docs/i18n-plan.md](docs/i18n-plan.md)
+- 🌍 **I18n Support** — all UI strings externalized into per-module `strings.xml` (German default + full English `values-en`), including validator/notification/update-check messages; CI gates enforce externalization and `values` ↔ `values-en` completeness ([docs/i18n-plan.md](docs/i18n-plan.md)). Bot/`!diag` texts are intentionally not localized (streamer language).
 
 ### 📋 Planned (Roadmap to Moblin parity)
 
@@ -158,10 +158,6 @@ The About-screen check follows the same rules as [RELEASE.md](RELEASE.md): it on
 
 - 🧪 **[Beta-Build-Checkliste](RELEASE.md#-erster-beta-build-plan)** — Beta-Gate-Bedingungen + Play-Unterlagen + ≥2 manuelle Tester (abhakbare Liste in RELEASE.md)
 - ✅ **[Play-Vorbereitung P0–P2](RELEASE.md#-play-vorbereitung-priorisierte-abhakliste-mit-zeitaufwand)** — Master-Checkliste für den ersten Play-Upload (Secrets, Console, Screenshots, Tester; ~4–5 h einmalig; Fortschritt live in [Issue #116](https://github.com/thoser666/Vivid/issues/116))
-
-**In progress** (laufende Arbeitspakete):
-
-- 🌍 **[I18n-Externalisierung](docs/i18n-plan.md)** — ≈74 hartkodierte deutsche Literale in 4 Modulen (feature-settings zuerst) werden in Modul-`strings.xml`-Ressourcen ausgelagert; de-Default + en-Pflicht, CI-Gates (Externalisierungs- + Vollständigkeits-Check) geplant
 
 **Post-Beta roadmap buckets** (full detail + open tasks in [PARITY.md](PARITY.md)):
 
@@ -475,7 +471,7 @@ Status: ✅ implemented · 🚧 in progress · 📋 planned
 | Go-Live Self-Check | ✅ | Validates URL/key before starting, clear error messages |
 | Focus Lock (∞) | ✅ | Autofocus ⇄ infinity lock toggle on the streaming camera (Moblin #377) |
 | Persisted Stream Settings | ✅ | Stream & OBS config across sessions |
-| I18n Support | 🚧 | `strings.xml` groundwork (`values/` + partial `values-fr/`) exists, but the Compose UI still has ≈74 hardcoded German literals in 4 modules — externalization plan: [docs/i18n-plan.md](docs/i18n-plan.md) |
+| I18n Support | ✅ | All UI strings externalized (per-module `strings.xml`, German default + full English `values-en`); CI gates: externalization + `values`↔`values-en` completeness + hint-content guard — [docs/i18n-plan.md](docs/i18n-plan.md) |
 | H.264/H.265, up to 4K/60fps | 📋 | Pipeline in place, quality targets planned |
 | Multi-Network Bonding (SRTLA) | 📋 | SRTLA algorithm to be ported |
 | Chat (Twitch) + Emotes + Moderation | ✅ Twitch-Scope | `feature-chat` — Twitch EventSub reader (`channel.chat.message`) + Helix send (`POST /helix/chat/messages`) + chat overlay over the live preview + **inline Twitch emotes** (CDN rendering via Coil) + AI chat bot done (IRC removed); **Kick/YouTube/SOOP + OAuth (sending/moderation) = post-beta roadmap**, third-party emotes (BTTV/FFZ/7TV) & moderation pending |

@@ -1,5 +1,6 @@
 package com.vivid.irlbroadcaster
 
+import com.vivid.R
 import com.vivid.feature.streaming.StreamingState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -10,34 +11,39 @@ class StreamingServiceSupportTest {
 
     @Test
     fun `notificationTitle shows live state while streaming`() {
-        assertEquals("Vivid sendet live", StreamingServiceSupport.notificationTitle(StreamingState.Streaming))
+        assertEquals(R.string.notif_title_live, StreamingServiceSupport.notificationTitleRes(StreamingState.Streaming))
     }
 
     @Test
     fun `notificationTitle shows failure state`() {
         assertEquals(
-            "Stream fehlgeschlagen",
-            StreamingServiceSupport.notificationTitle(StreamingState.Failed("RTMP Auth Error")),
+            R.string.notif_title_failed,
+            StreamingServiceSupport.notificationTitleRes(StreamingState.Failed("RTMP Auth Error")),
         )
     }
 
     @Test
     fun `notificationTitle shows preparing state otherwise`() {
-        assertEquals("Stream wird vorbereitet …", StreamingServiceSupport.notificationTitle(StreamingState.Idle))
-        assertEquals("Stream wird vorbereitet …", StreamingServiceSupport.notificationTitle(StreamingState.Preparing))
+        assertEquals(R.string.notif_title_preparing, StreamingServiceSupport.notificationTitleRes(StreamingState.Idle))
+        assertEquals(R.string.notif_title_preparing, StreamingServiceSupport.notificationTitleRes(StreamingState.Preparing))
     }
 
     @Test
     fun `notificationText mentions background streaming while streaming`() {
-        val text = StreamingServiceSupport.notificationText(StreamingState.Streaming)
-        assertTrue(text.contains("Hintergrund"))
-        assertTrue(text.contains("Beenden"))
+        assertEquals(R.string.notif_text_streaming, StreamingServiceSupport.notificationTextRes(StreamingState.Streaming))
     }
 
     @Test
     fun `notificationText includes the failure reason`() {
-        val text = StreamingServiceSupport.notificationText(StreamingState.Failed("RTMP Auth Error"))
-        assertTrue(text.contains("RTMP Auth Error"))
+        assertEquals(
+            R.string.notif_text_failed,
+            StreamingServiceSupport.notificationTextRes(StreamingState.Failed("RTMP Auth Error")),
+        )
+    }
+
+    @Test
+    fun `notification channel name is a resource`() {
+        assertEquals(R.string.notif_channel_name, StreamingServiceSupport.CHANNEL_NAME_RES)
     }
 
     @Test

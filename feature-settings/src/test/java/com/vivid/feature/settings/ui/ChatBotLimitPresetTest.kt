@@ -1,5 +1,6 @@
 package com.vivid.feature.settings.ui
 
+import com.vivid.feature.settings.R
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -62,11 +63,11 @@ class ChatBotLimitPresetTest {
     }
 
     @Test
-    fun `every preset has a display name and distinct values`() {
+    fun `every preset has a display-name resource and distinct values`() {
         val entries = ChatBotLimitPreset.entries
         assertEquals(3, entries.size)
         entries.forEach { preset ->
-            assert(preset.displayName.isNotBlank())
+            assert(preset.displayNameRes != 0)
         }
         val valueSets = entries.map { Triple(it.perViewerCooldownSeconds, it.perViewerMaxReplies, it.maxRepliesPerHour) }
         assertEquals(valueSets.size, valueSets.toSet().size)

@@ -18,12 +18,13 @@ class StreamingViewModel @Inject constructor(
     private val streamingServiceLauncher: StreamingServiceLauncher,
 ) : ViewModel() {
 
-    private val _errorMessage = MutableStateFlow<String?>(null)
-    val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
-
     private val _configIssues = MutableStateFlow<List<StreamConfigIssue>>(emptyList())
 
-    /** Befunde des Stream-Selbst-Checks (werden vor dem Go-Live im UI angezeigt). */
+    /**
+     * Befunde des Stream-Selbst-Checks (werden vor dem Go-Live im UI angezeigt).
+     * Die Meldungen sind String-Ressourcen (i18n) — die UI löst sie per
+     * `stringResource` auf, daher gibt es keinen vorkomponierten String mehr.
+     */
     val configIssues: StateFlow<List<StreamConfigIssue>> = _configIssues.asStateFlow()
 
     init {
@@ -51,7 +52,6 @@ class StreamingViewModel @Inject constructor(
      */
     fun startStream() {
         viewModelScope.launch {
-            _errorMessage.value = null
             val settings = settingsRepository.appSettingsFlow.first()
 
             val issues = StreamConfigValidator.validate(
@@ -64,11 +64,8 @@ class StreamingViewModel @Inject constructor(
             )
             _configIssues.value = issues
 
-            val errors = issues.filter { it.severity == ConfigIssueSeverity.ERROR }
-            if (errors.isNotEmpty()) {
-                _errorMessage.value = errors.joinToString("\n") { it.message }
-                return@launch
-            }
+            // Harte Fehler blockieren den Go-Live (die UI zeigt sie als Banner).
+            if (issues.any { it.severity == ConfigIssueSeverity.ERROR }) return@launch
 
             val urls = buildList {
                 buildStreamUrl(settings.streamUrl, settings.streamKey, settings.streamUseTls)?.let { add(it) }
@@ -80,7 +77,12 @@ class StreamingViewModel @Inject constructor(
                 )?.let { add(it) }
             }
             if (urls.isEmpty()) {
-                _errorMessage.value = "Keine Stream-URL konfiguriert. Bitte in den Einstellungen hinterlegen."
+                // Defensiv: validate() liefert für leere primäre URL bereits den
+                // Fehler; falls er trotzdem fehlt, als Befund nachtragen.
+                _configIssues.value = issues + StreamConfigIssue(
+                    ConfigIssueSeverity.ERROR,
+                    R.string.stream_error_no_url,
+                )
                 return@launch
             }
             // Der Stream läuft im Foreground-Service weiter, wenn die App in den

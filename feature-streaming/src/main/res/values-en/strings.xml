@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Streaming screen (StreamingScreen.kt) -->
+    <string name="streaming_ui_title">Live Stream</string>
+    <string name="streaming_obs_content_desc">Open OBS Control</string>
+    <string name="streaming_settings_content_desc">Open Settings</string>
+    <string name="streaming_start">Start Streaming</string>
+    <string name="streaming_preparing">Preparing…</string>
+    <string name="streaming_stop">Stop Streaming</string>
+    <string name="streaming_retry">Retry</string>
+    <string name="streaming_stabilization_on">Stabilization: On</string>
+    <string name="streaming_stabilization_off">Stabilization: Off</string>
+    <string name="streaming_focus_inf">Focus: ∞</string>
+    <string name="streaming_focus_auto">Focus: Auto</string>
+    <string name="streaming_error_prefix">Error: %1$s</string>
+    <string name="streaming_permission_required">Camera, microphone and notification permissions are required for streaming. Tap Go Live again and allow them.</string>
+    <string name="streaming_target_idle">ready</string>
+    <string name="streaming_target_preparing">connecting…</string>
+    <string name="streaming_target_streaming">live</string>
+    <string name="streaming_target_failed">failed</string>
+
+    <!-- Camera screen (CameraScreen.kt) -->
+    <string name="camera_permission_required">Please grant the camera permission.</string>
+
+    <!-- Playback screen (PlaybackScreen.kt) -->
+    <string name="playback_previous">Previous</string>
+    <string name="playback_play_pause">Play/Pause</string>
+    <string name="playback_next">Next</string>
+
+    <!-- Self-check (StreamConfigValidator.kt) -->
+    <string name="stream_secondary_label">Second target: </string>
+    <string name="stream_error_no_url">No stream URL configured. Please add it in the settings.</string>
+    <string name="stream_error_bad_scheme">Unsupported protocol \"%1$s\". Allowed are rtmp, rtmps and srt.</string>
+    <string name="stream_error_no_host">The stream URL contains no valid server host (e.g. rtmp://live.twitch.tv/app).</string>
+    <string name="stream_error_no_key">No stream key set. Twitch, YouTube and Kick require a key.</string>
+    <string name="stream_error_srt_tls">TLS does not apply to an srt:// URL — the URL will be used unencrypted.</string>
+</resources>

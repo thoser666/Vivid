@@ -22,10 +22,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.vivid.feature.obscontrol.ConnectionState // <-- WICHTIGER IMPORT für deinen UI-Zustand
 import com.vivid.feature.obscontrol.ObsControlViewModel
+import com.vivid.feature.obscontrol.R
 
 @Composable
 fun ObsControlScreen(
@@ -54,43 +56,50 @@ fun ObsControlScreen(
         // UI basierend auf dem ConnectionState rendern
         when (val state = uiState) {
             is ConnectionState.Connected -> {
-                Text("Connected to OBS!")
+                Text(stringResource(R.string.obs_connected))
                 Spacer(modifier = Modifier.height(16.dp))
                 Button(onClick = { viewModel.disconnect() }) {
-                    Text("Disconnect")
+                    Text(stringResource(R.string.obs_disconnect))
                 }
             }
             is ConnectionState.Connecting -> {
                 CircularProgressIndicator()
-                Text("Connecting...")
+                Text(stringResource(R.string.obs_connecting))
             }
             is ConnectionState.Disconnected -> {
-                Text("Enter OBS Connection Details")
+                Text(stringResource(R.string.obs_enter_details))
                 Spacer(modifier = Modifier.height(8.dp))
-                TextField(value = ip, onValueChange = { ip = it }, label = { Text("IP Address") })
-                TextField(value = port, onValueChange = { port = it }, label = { Text("Port") })
-                TextField(value = password, onValueChange = { password = it }, label = { Text("Password") })
+                TextField(value = ip, onValueChange = { ip = it }, label = { Text(stringResource(R.string.obs_ip_label)) })
+                TextField(value = port, onValueChange = { port = it }, label = { Text(stringResource(R.string.obs_port_label)) })
+                TextField(value = password, onValueChange = { password = it }, label = { Text(stringResource(R.string.obs_password_label)) })
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = if (useTls) "Secure connection (wss://)" else "Plain connection (ws://)",
+                        text = stringResource(
+                            if (useTls) R.string.obs_secure_connection else R.string.obs_plain_connection,
+                        ),
                         modifier = Modifier.weight(1f),
                     )
                     Switch(checked = useTls, onCheckedChange = { useTls = it })
                 }
                 Spacer(modifier = Modifier.height(16.dp))
                 Button(onClick = { viewModel.connect(password, ip, port, useTls) }) {
-                    Text("Connect")
+                    Text(stringResource(R.string.obs_connect))
                 }
             }
             is ConnectionState.Error -> {
-                Text("Error: ${state.message}")
+                val errorText = if (state.messageRes != 0) {
+                    stringResource(state.messageRes)
+                } else {
+                    state.message
+                }
+                Text(stringResource(R.string.obs_error_prefix, errorText))
                 Spacer(modifier = Modifier.height(16.dp))
                 Button(onClick = { viewModel.disconnect() }) { // Reset-Möglichkeit
-                    Text("Retry")
+                    Text(stringResource(R.string.obs_retry))
                 }
             }
         }

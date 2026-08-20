@@ -1,5 +1,6 @@
 package com.vivid.feature.settings.ui
 
+import com.vivid.feature.settings.R
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
@@ -16,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.core.content.ContextCompat
 import com.vivid.core.data.AppSettings
 
@@ -50,15 +52,15 @@ fun SettingsRemotePrivacyScreen(
             ) != PackageManager.PERMISSION_GRANTED
 
     SettingsSectionScaffold(
-        title = "Remote & Datenschutz",
+        title = stringResource(R.string.cat_remote_title),
         onBack = onBack,
         onSave = viewModel::saveSettings,
     ) {
         // Web-Remote-Control: Zugangsdaten für den LAN-Server
-        Text("Web-Remote-Control", style = MaterialTheme.typography.titleLarge)
+        Text(stringResource(R.string.remote_section_title), style = MaterialTheme.typography.titleLarge)
         if (remoteControl.token.isNotBlank()) {
             Text(
-                text = "Im gleichen WLAN erreichbar unter http://<GERÄTE-IP>:${remoteControl.port}/status — Aktionen via Authorization: Bearer <token>.",
+                text = stringResource(R.string.remote_reachable_desc, remoteControl.port),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -66,12 +68,12 @@ fun SettingsRemotePrivacyScreen(
                 value = remoteControl.token,
                 onValueChange = {},
                 readOnly = true,
-                label = { Text("Remote-Token") },
+                label = { Text(stringResource(R.string.remote_token_label)) },
                 modifier = Modifier.fillMaxWidth(),
             )
         } else {
             Text(
-                text = "Token wird geladen…",
+                text = stringResource(R.string.remote_token_loading),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -81,24 +83,24 @@ fun SettingsRemotePrivacyScreen(
                 onClick = { localNetworkPermissionLauncher.launch(Manifest.permission.ACCESS_LOCAL_NETWORK) },
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text("LAN-Zugriff für Remote-Control erlauben")
+                Text(stringResource(R.string.remote_permission_button))
             }
         }
 
         // Datenschutz: Sentry-Fehlerberichte an/aus (Opt-out, Default: an)
-        Text("Datenschutz & Fehlerberichte", style = MaterialTheme.typography.titleLarge)
+        Text(stringResource(R.string.privacy_section_title), style = MaterialTheme.typography.titleLarge)
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("Fehlerberichte senden (Sentry)", modifier = Modifier.weight(1f))
+            Text(stringResource(R.string.privacy_sentry_toggle), modifier = Modifier.weight(1f))
             Switch(
                 checked = uiState.sentryEnabled,
                 onCheckedChange = viewModel::onSentryEnabledChange,
             )
         }
         Text(
-            text = "Sendet bei Abstürzen Fehlerberichte an Sentry (Standard: an). Es werden keine Screenshots aufgenommen; Geräte-/IP-Informationen sind deaktiviert. Aus = es wird nichts an Sentry übertragen. Details: PRIVACY.md im Repository.",
+            text = stringResource(R.string.privacy_sentry_desc),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

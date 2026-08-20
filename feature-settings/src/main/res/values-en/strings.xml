@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- ===== Category overview (SettingsCategories.kt) ===== -->
+    <string name="cat_streaming_title">Streaming &amp; OBS</string>
+    <string name="cat_streaming_subtitle">Stream URL/key, platform presets, multi-streaming, OBS connection</string>
+    <string name="cat_appearance_title">Appearance</string>
+    <string name="cat_appearance_subtitle">Theme mode (Light/Dark/AMOLED), accent color</string>
+    <string name="cat_overlays_title">Overlays &amp; Widgets</string>
+    <string name="cat_overlays_subtitle">Twitch chat overlay, text/info widget (time/GPS/speed)</string>
+    <string name="cat_chatbot_title">Chat Bot &amp; AI</string>
+    <string name="cat_chatbot_subtitle">Mode, bot account/LLM, limits, owner access, media commands</string>
+    <string name="cat_remote_title">Remote &amp; Privacy</string>
+    <string name="cat_remote_subtitle">Web remote control (LAN), Sentry error reports</string>
+    <string name="cat_about_title">About &amp; Updates</string>
+    <string name="cat_about_subtitle">Version, update badge, release info</string>
+
+    <!-- ===== Overview screen (SettingsScreen.kt) ===== -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_subtitle">Choose a category — changes are applied when you save.</string>
+    <string name="settings_version">Version %1$s</string>
+    <string name="settings_update_available">· ⬆ Update available: %1$s</string>
+    <string name="settings_up_to_date">· up to date</string>
+    <string name="settings_saved_snackbar">Settings saved</string>
+
+    <!-- ===== Shared layout (SettingsSectionScaffold.kt) ===== -->
+    <string name="settings_save_button">Save</string>
+    <string name="settings_back">Back</string>
+    <string name="secret_show">Show input</string>
+    <string name="secret_hide">Hide input</string>
+
+    <!-- Theme mode + accent color display names -->
+    <string name="theme_mode_system">System</string>
+    <string name="theme_mode_light">Light</string>
+    <string name="theme_mode_dark">Dark</string>
+    <string name="theme_mode_amoled">AMOLED</string>
+    <string name="accent_vivid_green">Vivid Green</string>
+    <string name="accent_ocean_blue">Ocean Blue</string>
+    <string name="accent_royal_purple">Royal Purple</string>
+    <string name="accent_sunset_orange">Sunset Orange</string>
+    <string name="accent_rose_pink">Rose Pink</string>
+    <string name="accent_teal">Teal</string>
+
+    <!-- ===== Appearance (SettingsAppearanceScreen.kt) ===== -->
+    <string name="appearance_mode_title">Theme mode</string>
+    <string name="appearance_mode_desc">Choose whether Vivid appears light, dark or in AMOLED mode — or follows the system. AMOLED uses pure-black surfaces (saves battery on OLED displays).</string>
+    <string name="appearance_mode_system_desc">Follows your device\'s system setting (default).</string>
+    <string name="appearance_mode_light_desc">Always light — independent of the system setting.</string>
+    <string name="appearance_mode_dark_desc">Always dark — independent of the system setting.</string>
+    <string name="appearance_mode_amoled_desc">Dark with pure-black surfaces: maximum contrast, less battery drain on OLED screens.</string>
+    <string name="appearance_accent_title">Accent color</string>
+    <string name="appearance_accent_desc">Colors buttons, switches, links and highlights. Each color is a complete Material-3 palette (TonalSpot) — Vivid Green stays the default.</string>
+
+    <!-- ===== Streaming & OBS (SettingsStreamingObsScreen.kt) ===== -->
+    <string name="streaming_section_title">Stream settings</string>
+    <string name="stream_url_label">Stream URL</string>
+    <string name="stream_url_hint">Free ingest URL: accepts any RTMP(S) or SRT target, e.g. Owncast or your own server. The platform presets above are just shortcuts.</string>
+    <string name="stream_key_label">Stream key</string>
+    <string name="stream_tls_label">Secure connection (RTMPS)</string>
+    <string name="multi_streaming_title">Multi-streaming (optional)</string>
+    <string name="multi_streaming_desc">Second stream target: the signal is sent to both targets simultaneously. Leave empty to use only the primary target.</string>
+    <string name="secondary_url_label">Second stream URL</string>
+    <string name="secondary_key_label">Second stream key</string>
+    <string name="obs_section_title">OBS settings</string>
+    <string name="obs_host_label">OBS host</string>
+    <string name="obs_port_label">OBS port</string>
+    <string name="obs_password_label">OBS password</string>
+    <string name="obs_tls_label">Secure connection (wss://)</string>
+    <string name="platform_twitch">Twitch</string>
+    <string name="platform_youtube">YouTube</string>
+    <string name="platform_kick">Kick</string>
+    <string name="platform_custom">Custom</string>
+
+    <!-- ===== Overlays & Widgets (SettingsOverlaysScreen.kt) ===== -->
+    <string name="overlays_chat_title">Chat overlay</string>
+    <string name="overlays_chat_desc">Shows the Twitch chat of the given channel over the streaming preview (read anonymously).</string>
+    <string name="overlays_channel_label">Twitch channel (without #)</string>
+    <string name="overlays_chat_enabled">Show chat overlay</string>
+    <string name="overlays_widget_title">Text/info widget</string>
+    <string name="overlays_widget_desc">Shows time, GPS coordinates and speed as an overlay at the bottom right of the streaming preview. GPS/speed require the location permission.</string>
+    <string name="overlays_widget_enabled">Show widget</string>
+    <string name="overlays_widget_time">Time</string>
+    <string name="overlays_widget_location">GPS coordinates</string>
+    <string name="overlays_widget_speed">Speed</string>
+    <string name="overlays_widget_altitude">Altitude</string>
+
+    <!-- ===== Remote & Privacy (SettingsRemotePrivacyScreen.kt) ===== -->
+    <string name="remote_section_title">Web remote control</string>
+    <string name="remote_reachable_desc">Reachable on the same Wi-Fi at http://&lt;DEVICE-IP&gt;:%1$d/status — actions via Authorization: Bearer &lt;token&gt;.</string>
+    <string name="remote_token_label">Remote token</string>
+    <string name="remote_token_loading">Loading token…</string>
+    <string name="remote_permission_button">Allow LAN access for remote control</string>
+    <string name="privacy_section_title">Privacy &amp; error reports</string>
+    <string name="privacy_sentry_toggle">Send error reports (Sentry)</string>
+    <string name="privacy_sentry_desc">Sends error reports to Sentry on crashes (default: on). No screenshots are taken; device/IP information is disabled. Off = nothing is transmitted to Sentry. Details: PRIVACY.md in the repository.</string>
+
+    <!-- ===== About & Updates (SettingsAboutScreen.kt) ===== -->
+    <string name="about_version">Version %1$s</string>
+    <string name="about_update_available">⬆ Update available: %1$s</string>
+    <string name="about_up_to_date">· up to date</string>
+    <string name="about_open_button">About Vivid &amp; Updates</string>
+
+    <!-- ===== Chat Bot & AI (SettingsChatBotScreen.kt) ===== -->
+    <string name="chatbot_section_title">Chat bot (AI)</string>
+    <string name="chatbot_section_desc">Automatic bot in the Twitch chat: either deterministic chat commands (like Moblin\'s bot) or an AI that decides on its own. All fields can be configured here — details: docs/ai-chat-bot.md.</string>
+    <string name="chatbot_enabled">Enable chat bot</string>
+    <string name="chatbot_mode_title">Mode</string>
+    <string name="chatbot_mode_command">Bot (like Moblin)</string>
+    <string name="chatbot_mode_autonomous">AI autonomous</string>
+    <string name="chatbot_mode_command_desc">Bot like Moblin: only reacts to commands like !help, !uptime, !tts and !bot — no LLM needed, works without an AI key.</string>
+    <string name="chatbot_mode_autonomous_desc">The AI decides on its own: the LLM evaluates every (allowed) message and decides whether and how to answer — including deliberately staying silent.</string>
+    <string name="chatbot_account_title">Bot account &amp; LLM</string>
+    <string name="chatbot_login_label">Bot login (Twitch, without @)</string>
+    <string name="chatbot_oauth_label">Twitch OAuth token (user:read:chat + user:write:chat)</string>
+    <string name="chatbot_api_base_url_label">LLM API base URL (OpenAI-compatible)</string>
+    <string name="chatbot_api_key_label">LLM API key</string>
+    <string name="chatbot_model_label">LLM model</string>
+    <string name="chatbot_system_prompt_label">System prompt (optional)</string>
+    <string name="chatbot_behavior_title">Bot behavior</string>
+    <string name="chatbot_cooldown_label">Reply cooldown (seconds, 0 = off)</string>
+    <string name="chatbot_mentions_only">Only reply to mentions</string>
+    <string name="chatbot_max_per_minute_label">Max replies per minute (0 = unlimited)</string>
+    <string name="chatbot_limits_desc">Limits (0 = off/unlimited) — cooldown and cap apply per viewer (work on all platforms: Twitch, Kick, YouTube …); moderators bypass the per-viewer limits. The hourly budget caps LLM costs globally.</string>
+    <string name="chatbot_preset_title">Preset (quick start)</string>
+    <string name="chatbot_preset_custom">Custom</string>
+    <string name="chatbot_per_viewer_cooldown_label">Per-viewer cooldown (seconds, 0 = off)</string>
+    <string name="chatbot_per_viewer_max_label">Max replies per viewer (per stream, 0 = unlimited)</string>
+    <string name="chatbot_budget_label">Cost budget: max replies per hour (0 = unlimited)</string>
+    <string name="chatbot_usage_title">Live usage</string>
+    <string name="chatbot_usage_per_hour">Replies this hour: %1$s</string>
+    <string name="chatbot_usage_no_budget">(no budget)</string>
+    <string name="chatbot_usage_per_stream">Replies this stream: %1$d</string>
+    <string name="chatbot_usage_top_viewers">Top viewers: %1$s</string>
+    <string name="chatbot_usage_hint">Only shown while the bot is active — counters reset at stream end.</string>
+    <string name="chatbot_coexistence_title">Coexistence with other bots</string>
+    <string name="chatbot_coexistence_desc">Running alongside another tool\'s bot (e.g. Rivulet) in the same channel, collisions can be avoided: ignore other bots and narrow the command scope so both don\'t answer the same !-commands.</string>
+    <string name="chatbot_ignore_bots_label">Ignore other bots (logins, comma-separated)</string>
+    <string name="chatbot_scope_title">Command scope</string>
+    <string name="chatbot_scope_all">All !-commands</string>
+    <string name="chatbot_scope_mention">Only mentions</string>
+    <string name="chatbot_scope_prefix">Own prefix</string>
+    <string name="chatbot_scope_all_desc">Every !-command is answered (default, like Moblin\'s bot).</string>
+    <string name="chatbot_scope_mention_desc">Only commands that address the bot directly (e.g. @vividbot !help) — generic commands stay with the other bot.</string>
+    <string name="chatbot_scope_prefix_desc">Only commands with your own prefix (e.g. !v!help) — generic commands stay with the other bot.</string>
+    <string name="chatbot_prefix_label">Own command prefix (e.g. v → !v!help)</string>
+    <string name="chatbot_owner_title">Owner access (streamer only)</string>
+    <string name="chatbot_owner_desc">Only you (and listed logins) can use the owner commands !start, !stop, !diag and !ask during an active stream — viewers only see a hint. The channel owner is automatically an owner (broadcaster badge); add extra logins here, e.g. your second account.</string>
+    <string name="chatbot_owner_logins_label">Owner logins (comma-separated, without @)</string>
+    <string name="chatbot_owner_llm_desc">Owner AI (optional, exclusive to streamer commands): !ask and the diagnosis recommendations of !diag run through this endpoint. Without a dedicated owner AI the commands fall back to the normal bot AI (only if that is also missing, !diag returns the checklist directly and !ask a hint).</string>
+    <string name="chatbot_owner_llm_url_label">Owner LLM API base URL (OpenAI-compatible)</string>
+    <string name="chatbot_owner_llm_key_label">Owner LLM API key</string>
+    <string name="chatbot_owner_llm_model_label">Owner LLM model</string>
+    <string name="chatbot_owner_source_label">AI source for owner commands: %1$s</string>
+    <string name="owner_source_owner">dedicated owner AI (exclusive)</string>
+    <string name="owner_source_owner_desc">!ask/!diag run through the configured owner LLM endpoint — viewer messages never reach it.</string>
+    <string name="owner_source_viewer_fallback">viewer AI (fallback)</string>
+    <string name="owner_source_viewer_fallback_desc">No dedicated owner AI configured — the commands use the normal bot AI with the owner context.</string>
+    <string name="owner_source_deterministic">deterministic (without AI)</string>
+    <string name="owner_source_deterministic_desc">Neither owner nor viewer AI configured — !diag returns the checklist directly, !ask a hint.</string>
+    <string name="chatbot_owner_whisper">Reply privately (Whisper)</string>
+    <string name="chatbot_owner_whisper_desc">Owner replies (!start/!stop/!diag/!ask) arrive via Twitch Whisper instead of the public chat. This requires the bot token to have the user:manage:whispers scope and the Twitch app client ID below; if the whisper fails (e.g. the recipient blocks strangers), the bot replies publicly.</string>
+    <string name="chatbot_client_id_label">Twitch app client ID (for Whisper)</string>
+    <string name="chatbot_media_desc">Media commands (!song / !next / !pause / !play / !prev) control the active music player — for that Vivid needs notification access (it does not read notifications).</string>
+    <string name="chatbot_notification_access_button">Enable notification access</string>
+
+    <!-- Chat bot quick-start presets (ChatBotLimitPreset.kt) -->
+    <string name="preset_locker">Relaxed</string>
+    <string name="preset_balanced">Balanced</string>
+    <string name="preset_strict">Strict</string>
+</resources>

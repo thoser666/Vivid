@@ -37,6 +37,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -44,6 +45,7 @@ import androidx.navigation.NavHostController
 import com.vivid.core.update.AppVersion
 import com.vivid.core.update.UpdateCheckResult
 import com.vivid.core.update.ReleaseChannel
+import com.vivid.R
 
 /** Einstiegs-Link-Ziele für den About-Screen. */
 private object Links {
@@ -65,10 +67,13 @@ fun AboutScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Über Vivid") },
+                title = { Text(stringResource(R.string.about_title)) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Zurück")
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = stringResource(R.string.about_back),
+                        )
                     }
                 },
             )
@@ -99,7 +104,7 @@ fun AboutScreen(
             )
 
             Text(
-                text = "Installiert hast du diese Version über die GitHub-Releases. Updates installiert Obtainium automatisch — Details in der README unter „Installation“.",
+                text = stringResource(R.string.about_source_desc),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -113,15 +118,19 @@ private fun VersionCard(versionName: String, versionCode: Int) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Vivid", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                Text(
+                    text = stringResource(R.string.app_name),
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                )
                 ChannelBadge(channel = channel)
             }
             Text(
-                text = "Version $versionName  ·  Build $versionCode",
+                text = stringResource(R.string.about_version_line, versionName, versionCode),
                 style = MaterialTheme.typography.bodyMedium,
             )
             Text(
-                text = "Nach einem Obtainium-Update erscheint hier die neue Versionsnummer.",
+                text = stringResource(R.string.about_obtainium_note),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -159,7 +168,7 @@ private fun UpdateCheckCard(
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Updates", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.about_updates_title), style = MaterialTheme.typography.titleMedium)
             Button(
                 onClick = onCheck,
                 enabled = !checking,
@@ -172,11 +181,15 @@ private fun UpdateCheckCard(
                         color = MaterialTheme.colorScheme.onPrimary,
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Suche nach Updates …")
+                    Text(stringResource(R.string.about_checking))
                 } else {
                     Icon(Icons.Default.SystemUpdate, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(if (result == null) "Nach Updates suchen" else "Erneut prüfen")
+                    Text(
+                        stringResource(
+                            if (result == null) R.string.about_check_button else R.string.about_recheck_button,
+                        ),
+                    )
                 }
             }
             result?.let { UpdateResultRow(it, onOpenRelease) }
@@ -194,7 +207,7 @@ private fun UpdateResultRow(result: UpdateCheckResult, onOpenRelease: (String) -
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
                 )
-                Text("Du bist aktuell — neueste Version: ${result.latestVersion}")
+                Text(stringResource(R.string.about_up_to_date, result.latestVersion))
             }
         }
         is UpdateCheckResult.UpdateAvailable -> {
@@ -205,7 +218,7 @@ private fun UpdateResultRow(result: UpdateCheckResult, onOpenRelease: (String) -
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary,
                     )
-                    Text("Update verfügbar: ${result.latestVersion}", fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.about_update_available, result.latestVersion), fontWeight = FontWeight.SemiBold)
                 }
                 val notes = cleanReleaseNotes(result.releaseNotes)
                 if (notes.isNotBlank()) {
@@ -220,7 +233,7 @@ private fun UpdateResultRow(result: UpdateCheckResult, onOpenRelease: (String) -
                             verticalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
                             Text(
-                                text = "Was gibt's Neues",
+                                text = stringResource(R.string.about_whats_new),
                                 style = MaterialTheme.typography.labelLarge,
                                 color = MaterialTheme.colorScheme.onSurface,
                             )
@@ -233,7 +246,7 @@ private fun UpdateResultRow(result: UpdateCheckResult, onOpenRelease: (String) -
                     }
                 }
                 OutlinedButton(onClick = { onOpenRelease(result.releaseUrl) }) {
-                    Text("Zur Release-Seite")
+                    Text(stringResource(R.string.about_release_page))
                     Spacer(modifier = Modifier.width(4.dp))
                     Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null, modifier = Modifier.size(16.dp))
                 }
@@ -246,7 +259,10 @@ private fun UpdateResultRow(result: UpdateCheckResult, onOpenRelease: (String) -
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.error,
                 )
-                Text(result.message, color = MaterialTheme.colorScheme.error)
+                Text(
+                    text = stringResource(result.messageRes, *result.formatArgs.toTypedArray()),
+                    color = MaterialTheme.colorScheme.error,
+                )
             }
         }
     }
@@ -256,13 +272,13 @@ private fun UpdateResultRow(result: UpdateCheckResult, onOpenRelease: (String) -
 private fun LinksCard(onOpenUri: (String) -> Unit) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(vertical = 4.dp)) {
-            LinkRow("GitHub Releases", Links.RELEASES, onOpenUri)
+            LinkRow(stringResource(R.string.about_link_releases), Links.RELEASES, onOpenUri)
             HorizontalDivider()
-            LinkRow("Changelog", Links.CHANGELOG, onOpenUri)
+            LinkRow(stringResource(R.string.about_link_changelog), Links.CHANGELOG, onOpenUri)
             HorizontalDivider()
-            LinkRow("Datenschutzerklärung", Links.PRIVACY, onOpenUri)
+            LinkRow(stringResource(R.string.about_link_privacy), Links.PRIVACY, onOpenUri)
             HorizontalDivider()
-            LinkRow("Quellcode auf GitHub", Links.REPO, onOpenUri)
+            LinkRow(stringResource(R.string.about_link_repo), Links.REPO, onOpenUri)
         }
     }
 }
@@ -289,7 +305,7 @@ private fun LinkRow(label: String, url: String, onOpenUri: (String) -> Unit) {
         Text(label, style = MaterialTheme.typography.bodyLarge)
         Icon(
             Icons.AutoMirrored.Filled.OpenInNew,
-            contentDescription = "$label öffnen",
+            contentDescription = stringResource(R.string.about_link_open, label),
             modifier = Modifier.size(18.dp),
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
         )

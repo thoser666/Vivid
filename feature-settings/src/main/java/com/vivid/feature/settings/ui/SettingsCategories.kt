@@ -1,5 +1,7 @@
 package com.vivid.feature.settings.ui
 
+import com.vivid.feature.settings.R
+import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.Info
@@ -12,10 +14,11 @@ import androidx.compose.ui.graphics.vector.ImageVector
 /**
  * Eine Kategorie der Einstellungen (Übersichts-Screen). Die Routen müssen mit
  * den `composable(...)`-Definitionen in `MainActivity` übereinstimmen.
+ * Titel/Untertitel sind String-Ressourcen (i18n).
  */
 data class SettingsCategory(
-    val title: String,
-    val subtitle: String,
+    @StringRes val titleRes: Int,
+    @StringRes val subtitleRes: Int,
     val icon: ImageVector,
     val route: String,
 )
@@ -30,38 +33,38 @@ object SettingsCategories {
     /** Alle Kategorien in Anzeige-Reihenfolge. */
     val all: List<SettingsCategory> = listOf(
         SettingsCategory(
-            title = "Streaming & OBS",
-            subtitle = "Stream-URL/-Key, Plattform-Vorlagen, Multi-Streaming, OBS-Verbindung",
+            titleRes = R.string.cat_streaming_title,
+            subtitleRes = R.string.cat_streaming_subtitle,
             icon = Icons.Filled.Videocam,
             route = "settings_streaming",
         ),
         SettingsCategory(
-            title = "Darstellung",
-            subtitle = "Design-Modus (Hell/Dunkel/AMOLED), Akzentfarbe",
+            titleRes = R.string.cat_appearance_title,
+            subtitleRes = R.string.cat_appearance_subtitle,
             icon = Icons.Filled.Palette,
             route = "settings_appearance",
         ),
         SettingsCategory(
-            title = "Overlays & Widgets",
-            subtitle = "Twitch-Chat-Overlay, Text-/Info-Widget (Zeit/GPS/Geschwindigkeit)",
+            titleRes = R.string.cat_overlays_title,
+            subtitleRes = R.string.cat_overlays_subtitle,
             icon = Icons.Filled.Widgets,
             route = "settings_overlays",
         ),
         SettingsCategory(
-            title = "Chat-Bot & KI",
-            subtitle = "Betriebsmodus, Bot-Konto/LLM, Limits, Owner-Zugriff, Media-Befehle",
+            titleRes = R.string.cat_chatbot_title,
+            subtitleRes = R.string.cat_chatbot_subtitle,
             icon = Icons.Filled.ChatBubble,
             route = "settings_chatbot",
         ),
         SettingsCategory(
-            title = "Remote & Datenschutz",
-            subtitle = "Web-Remote-Control (LAN), Sentry-Fehlerberichte",
+            titleRes = R.string.cat_remote_title,
+            subtitleRes = R.string.cat_remote_subtitle,
             icon = Icons.Filled.Security,
             route = "settings_remote",
         ),
         SettingsCategory(
-            title = "Über & Updates",
-            subtitle = "Version, Update-Badge, Release-Info",
+            titleRes = R.string.cat_about_title,
+            subtitleRes = R.string.cat_about_subtitle,
             icon = Icons.Filled.Info,
             route = "settings_about",
         ),

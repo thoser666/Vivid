@@ -4,9 +4,11 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.vivid.feature.streaming.R
 
 @Composable
 fun PlaybackScreen(
@@ -39,13 +41,13 @@ fun PlaybackScreen(
             horizontalArrangement = Arrangement.SpaceEvenly,
         ) {
             Button(onClick = { /* Previous stream */ }) {
-                Text("Previous")
+                Text(stringResource(R.string.playback_previous))
             }
             Button(onClick = { viewModel.togglePlayback() }) {
-                Text("Play/Pause")
+                Text(stringResource(R.string.playback_play_pause))
             }
             Button(onClick = { /* Next stream */ }) {
-                Text("Next")
+                Text(stringResource(R.string.playback_next))
             }
         }
     }

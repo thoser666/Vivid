@@ -1,4 +1,36 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Vivid</string>
+
+    <!-- About-Screen (ui/about/AboutScreen.kt) -->
+    <string name="about_title">Über Vivid</string>
+    <string name="about_back">Zurück</string>
+    <string name="about_source_desc">Installiert hast du diese Version über die GitHub-Releases. Updates installiert Obtainium automatisch — Details in der README unter „Installation“.</string>
+    <string name="about_version_line">Version %1$s · Build %2$s</string>
+    <string name="about_obtainium_note">Nach einem Obtainium-Update erscheint hier die neue Versionsnummer.</string>
+    <string name="about_updates_title">Updates</string>
+    <string name="about_checking">Suche nach Updates …</string>
+    <string name="about_check_button">Nach Updates suchen</string>
+    <string name="about_recheck_button">Erneut prüfen</string>
+    <string name="about_up_to_date">Du bist aktuell — neueste Version: %1$s</string>
+    <string name="about_update_available">Update verfügbar: %1$s</string>
+    <string name="about_whats_new">"Was gibt's Neues"</string>
+    <string name="about_release_page">Zur Release-Seite</string>
+    <string name="about_link_releases">GitHub Releases</string>
+    <string name="about_link_changelog">Changelog</string>
+    <string name="about_link_privacy">Datenschutzerklärung</string>
+    <string name="about_link_repo">Quellcode auf GitHub</string>
+    <string name="about_link_open">%1$s öffnen</string>
+
+    <!-- Streaming-Foreground-Service (StreamingServiceSupport.kt) -->
+    <string name="notif_channel_name">Live-Stream</string>
+    <string name="notif_title_live">Vivid sendet live</string>
+    <string name="notif_title_failed">Stream fehlgeschlagen</string>
+    <string name="notif_title_preparing">Stream wird vorbereitet …</string>
+    <string name="notif_text_streaming">Der Livestream läuft im Hintergrund weiter — tippe zum Beenden.</string>
+    <string name="notif_text_failed">Die Verbindung ist fehlgeschlagen (%1$s) — tippe zum Beenden.</string>
+    <string name="notif_text_preparing">Der Stream läuft im Hintergrund weiter — tippe zum Beenden.</string>
+    <string name="notif_channel_desc">Zeigt den Live-Stream-Status, solange Vivid sendet.</string>
+    <string name="notif_stop_action">Stream beenden</string>
+    <string name="app_logo_content_desc">Vivid-Streaming-App-Logo</string>
 </resources>

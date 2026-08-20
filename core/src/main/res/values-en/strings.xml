@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Update-check errors (UpdateChecker.kt / About screen) -->
+    <string name="update_error_unknown_version">Unknown version: %1$s</string>
+    <string name="update_error_check_failed">Update check failed: %1$s</string>
+    <string name="update_error_no_releases">No releases found</string>
+</resources>

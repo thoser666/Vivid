@@ -1,13 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- OBS Quick-Connect-Panel (ObsControlScreen) -->
+    <string name="obs_connected">Mit OBS verbunden!</string>
+    <string name="obs_disconnect">Trennen</string>
+    <string name="obs_connecting">Verbinde…</string>
+    <string name="obs_enter_details">OBS-Verbindungsdaten eingeben</string>
+    <string name="obs_ip_label">IP-Adresse</string>
+    <string name="obs_port_label">Port</string>
+    <string name="obs_password_label">Passwort</string>
+    <string name="obs_secure_connection">Sichere Verbindung (wss://)</string>
+    <string name="obs_plain_connection">Normale Verbindung (ws://)</string>
+    <string name="obs_connect">Verbinden</string>
+    <string name="obs_retry">Erneut versuchen</string>
+    <string name="obs_error_prefix">Fehler: %1$s</string>
+    <string name="obs_invalid_port_message">Ungültige Portnummer</string>
+    <string name="obs_connect_failed_message">Verbindung fehlgeschlagen</string>
+
     <!-- OBS Settings Screen -->
     <string name="obs_settings_host_label">OBS Host</string>
     <string name="obs_settings_port_label">OBS Port</string>
-    <string name="obs_settings_password_label">OBS Password</string>
-    <string name="obs_settings_tls_label">Secure connection (wss://)</string>
-    <string name="obs_settings_save_button">Save</string>
-    <string name="obs_settings_qr_label">Import from QR code (paste content)</string>
-    <string name="obs_settings_qr_import_button">Import</string>
-    <string name="obs_settings_qr_import_error">Invalid QR code: %1$s</string>
-    <string name="obs_settings_qr_import_success">OBS connection imported — check values, then save.</string>
+    <string name="obs_settings_password_label">OBS Passwort</string>
+    <string name="obs_settings_tls_label">Sichere Verbindung (wss://)</string>
+    <string name="obs_settings_save_button">Speichern</string>
+    <string name="obs_settings_qr_label">Aus QR-Code importieren (Inhalt einfügen)</string>
+    <string name="obs_settings_qr_import_button">Importieren</string>
+    <string name="obs_settings_qr_import_error">Ungültiger QR-Code: %1$s</string>
+    <string name="obs_settings_qr_import_success">OBS-Verbindung importiert — Werte prüfen, dann speichern.</string>
 </resources>

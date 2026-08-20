@@ -13,7 +13,7 @@ class StreamConfigValidatorTest {
         assertEquals(1, issues.size)
         val issue = issues[0]
         assertEquals(ConfigIssueSeverity.ERROR, issue.severity)
-        assertTrue(issue.message.contains("Keine Stream-URL konfiguriert"))
+        assertEquals(R.string.stream_error_no_url, issue.messageRes)
     }
 
     @Test
@@ -26,14 +26,20 @@ class StreamConfigValidatorTest {
     fun `unsupported scheme produces an error`() {
         val issues = StreamConfigValidator.validate("http://live.example/app", "key", streamUseTls = false)
 
-        assertTrue(issues.any { it.severity == ConfigIssueSeverity.ERROR && it.message.contains("http") })
+        assertTrue(
+            issues.any {
+                it.severity == ConfigIssueSeverity.ERROR &&
+                    it.messageRes == R.string.stream_error_bad_scheme &&
+                    it.formatArgs == listOf("http")
+            },
+        )
     }
 
     @Test
     fun `url without host produces an error`() {
         val issues = StreamConfigValidator.validate("rtmp:///app", "key", streamUseTls = false)
 
-        assertTrue(issues.any { it.severity == ConfigIssueSeverity.ERROR && it.message.contains("Server-Host") })
+        assertTrue(issues.any { it.severity == ConfigIssueSeverity.ERROR && it.messageRes == R.string.stream_error_no_host })
     }
 
     @Test
@@ -67,7 +73,7 @@ class StreamConfigValidatorTest {
         )
 
         assertTrue(issues.none { it.severity == ConfigIssueSeverity.ERROR })
-        assertTrue(issues.any { it.severity == ConfigIssueSeverity.WARNING && it.message.contains("TLS") })
+        assertTrue(issues.any { it.severity == ConfigIssueSeverity.WARNING && it.messageRes == R.string.stream_error_srt_tls })
     }
 
     @Test
@@ -80,7 +86,7 @@ class StreamConfigValidatorTest {
 
         assertEquals(1, issues.size)
         assertEquals(ConfigIssueSeverity.WARNING, issues[0].severity)
-        assertTrue(issues[0].message.contains("Stream-Key"))
+        assertEquals(R.string.stream_error_no_key, issues[0].messageRes)
     }
 
     @Test
@@ -133,8 +139,9 @@ class StreamConfigValidatorTest {
         assertTrue(
             issues.any {
                 it.severity == ConfigIssueSeverity.ERROR &&
-                    it.message.contains("Zweites Ziel") &&
-                    it.message.contains("http")
+                    it.prefixRes == R.string.stream_secondary_label &&
+                    it.messageRes == R.string.stream_error_bad_scheme &&
+                    it.formatArgs == listOf("http")
             },
         )
     }
@@ -151,7 +158,9 @@ class StreamConfigValidatorTest {
 
         assertTrue(
             issues.any {
-                it.severity == ConfigIssueSeverity.ERROR && it.message.contains("Zweites Ziel")
+                it.severity == ConfigIssueSeverity.ERROR &&
+                    it.prefixRes == R.string.stream_secondary_label &&
+                    it.messageRes == R.string.stream_error_no_host
             },
         )
     }
@@ -170,8 +179,8 @@ class StreamConfigValidatorTest {
         assertTrue(
             issues.any {
                 it.severity == ConfigIssueSeverity.WARNING &&
-                    it.message.contains("Zweites Ziel") &&
-                    it.message.contains("Stream-Key")
+                    it.prefixRes == R.string.stream_secondary_label &&
+                    it.messageRes == R.string.stream_error_no_key
             },
         )
     }
@@ -191,8 +200,8 @@ class StreamConfigValidatorTest {
         assertTrue(
             issues.any {
                 it.severity == ConfigIssueSeverity.WARNING &&
-                    it.message.contains("Zweites Ziel") &&
-                    it.message.contains("TLS")
+                    it.prefixRes == R.string.stream_secondary_label &&
+                    it.messageRes == R.string.stream_error_srt_tls
             },
         )
     }
@@ -208,6 +217,6 @@ class StreamConfigValidatorTest {
         )
 
         assertEquals(1, issues.size) // nur die primäre Key-Warnung
-        assertTrue(issues.none { it.message.contains("Zweites Ziel") })
+        assertTrue(issues.none { it.prefixRes != 0 })
     }
 }

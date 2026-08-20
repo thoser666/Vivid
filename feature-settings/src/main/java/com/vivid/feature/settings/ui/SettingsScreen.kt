@@ -1,5 +1,6 @@
 package com.vivid.feature.settings.ui
 
+import com.vivid.feature.settings.R
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -28,6 +29,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
@@ -58,6 +60,7 @@ fun SettingsScreen(
     val updateState by viewModel.updateState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val savedMessage = stringResource(R.string.settings_saved_snackbar)
 
     // Einmaliger Update-Check beim Öffnen der Einstellungen (für den Obtainium-Test).
     LaunchedEffect(key1 = installedVersionName) {
@@ -69,7 +72,7 @@ fun SettingsScreen(
         viewModel.saveEvent.collectLatest {
             // Zeige eine Bestätigung an
             scope.launch {
-                snackbarHostState.showSnackbar("Einstellungen gespeichert")
+                snackbarHostState.showSnackbar(savedMessage)
             }
         }
     }
@@ -86,19 +89,19 @@ fun SettingsScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Text(
-                text = "Einstellungen",
+                text = stringResource(R.string.settings_title),
                 style = MaterialTheme.typography.headlineSmall,
             )
             Text(
-                text = "Wähle eine Kategorie — die Felder werden erst beim Speichern übernommen.",
+                text = stringResource(R.string.settings_subtitle),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
             SettingsCategories.all.forEach { category ->
                 CategoryCard(
-                    title = category.title,
-                    subtitle = category.subtitle,
+                    title = stringResource(category.titleRes),
+                    subtitle = stringResource(category.subtitleRes),
                     icon = category.icon,
                     onClick = { navController.navigate(category.route) },
                 )
@@ -112,21 +115,21 @@ fun SettingsScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Text(
-                        text = "Version $installedVersionName",
+                        text = stringResource(R.string.settings_version, installedVersionName),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     when (val result = updateState.result) {
                         is UpdateCheckResult.UpdateAvailable -> {
                             Text(
-                                text = "· ⬆ Update verfügbar: ${result.latestVersion}",
+                                text = stringResource(R.string.settings_update_available, result.latestVersion),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.primary,
                             )
                         }
                         is UpdateCheckResult.UpToDate -> {
                             Text(
-                                text = "· aktuell",
+                                text = stringResource(R.string.settings_up_to_date),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.primary,
                             )

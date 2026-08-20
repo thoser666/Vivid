@@ -8,6 +8,7 @@ import com.vivid.core.data.SettingsRepository
 import com.vivid.core.data.ThemeMode
 import com.vivid.core.remote.RemoteControlServer
 import com.vivid.core.remote.RemoteControlTokenStore
+import com.vivid.core.R
 import com.vivid.core.update.UpdateCheckResult
 import com.vivid.core.update.UpdateChecker
 import com.vivid.feature.chat.bot.ChatBotEngine
@@ -794,13 +795,19 @@ class SettingsViewModelTest {
     fun `checkForUpdates maps errors without touching the settings state`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val checker = mockk<UpdateChecker>()
-        coEvery { checker.check(any()) } returns UpdateCheckResult.Error("Update-Check fehlgeschlagen: network down")
+        coEvery { checker.check(any()) } returns UpdateCheckResult.Error(
+            R.string.update_error_check_failed,
+            listOf("network down"),
+        )
         val viewModel = createViewModel(checker = checker)
 
         viewModel.checkForUpdates("0.2.0-nightly.93")
         advanceUntilIdle()
 
-        assertEquals(UpdateCheckResult.Error("Update-Check fehlgeschlagen: network down"), viewModel.updateState.value.result)
+        assertEquals(
+            UpdateCheckResult.Error(R.string.update_error_check_failed, listOf("network down")),
+            viewModel.updateState.value.result,
+        )
     }
 
     @Test

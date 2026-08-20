@@ -26,6 +26,9 @@ android {
             "NewerVersionAvailable",
             "AndroidGradlePluginVersion",
             "OldTargetApi",
+            // values-fr/ ist bewusst partiell (nice-to-have, siehe docs/i18n-plan.md §3) —
+            // die Pflicht-Sprachen sind values/ (de) + values-en/ (vollständig, CI-geprüft).
+            "MissingTranslation",
         )
         warningsAsErrors = true
     }

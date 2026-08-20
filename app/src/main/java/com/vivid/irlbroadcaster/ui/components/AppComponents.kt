@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.vivid.R
@@ -16,7 +17,7 @@ import com.vivid.R
 fun AppThumbnail(modifier: Modifier = Modifier) {
     Image(
         painter = painterResource(id = R.drawable.vivid_logo),
-        contentDescription = "Vivid Streaming App Logo",
+        contentDescription = stringResource(R.string.app_logo_content_desc),
         modifier = modifier.size(128.dp),
     )
 }

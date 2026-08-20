@@ -171,7 +171,7 @@ class StreamingEngine @Inject constructor(
             else -> {
                 val failed = states.firstOrNull { it.status == StreamTargetStatus.FAILED }
                 if (failed != null) {
-                    StreamingState.Failed(failed.failureReason ?: "Unbekannter Fehler")
+                    StreamingState.Failed(failed.failureReason ?: "unknown error")
                 } else {
                     StreamingState.Idle
                 }

@@ -31,6 +31,16 @@ jobs:
       - name: Run secret guard
         run: bash scripts/guard_secrets.sh
 
+      # I18n-Guard: verbietet hartkodierte UI-Strings (Externalisierungs-Gate),
+      # prüft values/ ↔ values-en/ Vollständigkeit pro Modul und sichert die
+      # stream_url_hint-Kernaussagen (RTMP/SRT/Owncast/Presets) in beiden
+      # Sprachen — siehe docs/i18n-plan.md §5.
+      - name: Check i18n
+        run: bash scripts/check_i18n.sh
+
+      - name: Test i18n guard
+        run: bash scripts/test_check_i18n.sh
+
   # 1️⃣ Build & Test
   build:
     name: Build & Test

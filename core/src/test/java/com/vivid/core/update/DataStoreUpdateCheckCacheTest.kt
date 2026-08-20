@@ -108,7 +108,7 @@ class DataStoreUpdateCheckCacheTest {
 
         cache.save(
             installedVersion = "0.2.0-nightly.93",
-            result = UpdateCheckResult.Error("network down"),
+            result = UpdateCheckResult.Error(com.vivid.core.R.string.update_error_check_failed),
         )
 
         assertNull(cache.load())

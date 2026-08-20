@@ -85,7 +85,10 @@ class ObsControlViewModelTest {
         val viewModel = ObsControlViewModel(repository, settingsRepository())
         viewModel.connect("secret", "127.0.0.1", "not-a-port")
 
-        assertEquals(ConnectionState.Error("Invalid port number"), viewModel.uiState.value)
+        assertEquals(
+            ConnectionState.Error(messageRes = R.string.obs_invalid_port_message),
+            viewModel.uiState.value,
+        )
         verify(exactly = 0) { repository.connectToObs(any(), any(), any(), any()) }
     }
 
