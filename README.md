@@ -424,7 +424,7 @@ Bild läuft, aber Zuschauer hören nichts? Das sind die häufigsten Ursachen:
 
 **Symptom:** Obtainium meldet „Installierte Version ist 0.5.3-beta“, aber „Neueste Version ist v0.2.5“ (oder eine andere Version, die es in Vivid nie gab).
 
-**Ursache:** Vivid veröffentlicht ausschließlich unter `vX.Y.Z-alpha`/`-beta` (aktuell `v0.5.3-beta`), Nightly-Builds als Pre-Release. Eine „v0.2.5“ existiert weder als Release noch als Tag. Die Anzeige stammt dann aus einem **veralteten Cache** des Obtainium-Eintrags oder der Eintrag zeigt auf eine **falsche/alte Quelle**.
+**Ursache:** Vivid veröffentlicht ausschließlich unter `vX.Y.Z-alpha`/`-beta` (aktuell `v0.5.4-beta`), Nightly-Builds als Pre-Release. Eine „v0.2.5“ existiert weder als Release noch als Tag. Die Anzeige stammt dann aus einem **veralteten Cache** des Obtainium-Eintrags oder der Eintrag zeigt auf eine **falsche/alte Quelle**.
 
 **Lösung:**
 

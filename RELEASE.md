@@ -19,7 +19,7 @@ Jeder Release durchläuft eine von vier Stufen. Welche Stufe aktiv ist, bestimmt
 
 | Typ | Tag | Wann | Beispiel |
 |-----|-----|------|----------|
-| **Patch-Beta** | `vX.Y.Z-beta` (Z ≥ 1) | Kleine, fokussierte Änderungen — **auch einzelne kleine Nutzer-Features**, solange **kein** Roadmap-Bucket abgeschlossen wird: Privacy-/Verhaltensänderungen, Bugfixes, relevante Dependency-Bumps, kleine Features | `v0.5.1-beta` (18.08.2026): Sentry-Privacy-Härtung + okhttp-Bump · `v0.5.3-beta` (19.08.2026): Dark-Mode Stufe 1 + Inline-Emotes |
+| **Patch-Beta** | `vX.Y.Z-beta` (Z ≥ 1) | Kleine, fokussierte Änderungen — **auch einzelne kleine Nutzer-Features**, solange **kein** Roadmap-Bucket abgeschlossen wird: Privacy-/Verhaltensänderungen, Bugfixes, relevante Dependency-Bumps, kleine Features | `v0.5.1-beta` (18.08.2026): Sentry-Privacy-Härtung + okhttp-Bump · `v0.5.3-beta` (19.08.2026): Dark-Mode Stufe 1 + Inline-Emotes · `v0.5.4-beta` (20.08.2026): Dark-Mode Stufe 2 + Höhenmeter + Custom-Plattform + I18n 3 Sprachen |
 | **Feature-Beta** | `vX.Y.0-beta` | Ein neues Roadmap-Bucket ist implementiert (siehe Roadmap-Tabelle) | `v0.6.0-beta` = Streaming-Erweiterung (RIST/WHIP/RTMP) — **für dieses Bucket reserviert, nie für andere Inhalte belegen** |
 
 **Abgrenzung:** Entscheidend ist, ob ein **Roadmap-Bucket komplett** wird. Kleine Nutzer-Features ohne abgeschlossenes Bucket (z. B. Dark-Mode Stufe 1, Inline-Emotes) laufen als Patch-Beta in der laufenden Minor-Linie — sie reservieren keine neue Versionsnummer und blockieren die Bucket-Nummerierung (`v0.6.0-beta`) nicht.
@@ -59,7 +59,7 @@ Jeder Release durchläuft eine von vier Stufen. Welche Stufe aktiv ist, bestimmt
 
 ## 🗺️ Roadmap (Version → Features)
 
-Welche offenen PARITY-Punkte in welcher Version released werden — Zählerstand: ✅ **20** (Stand 2026-08-20, [PARITY.md](PARITY.md)). Reihenfolge nach dem Prinzip: **erst Gate-Pflichten, dann Nutzer-Sichtbares, dann Streaming-Komfort, zuletzt Protokoll-Ausbau & Plattform** — jedes Release bleibt für sich testbar und läuft über die jeweilige Fastlane-Lane.
+Welche offenen PARITY-Punkte in welcher Version released werden — Zählerstand: ✅ **21** (Stand 2026-08-20, [PARITY.md](PARITY.md)). Reihenfolge nach dem Prinzip: **erst Gate-Pflichten, dann Nutzer-Sichtbares, dann Streaming-Komfort, zuletzt Protokoll-Ausbau & Plattform** — jedes Release bleibt für sich testbar und läuft über die jeweilige Fastlane-Lane.
 
 | Version | Inhalt (PARITY-Punkte) | ✅ nach Release | Gate |
 |---------|------------------------|-----------------|------|
@@ -68,11 +68,11 @@ Welche offenen PARITY-Punkte in welcher Version released werden — Zählerstand
 | `v0.4.0-beta` | **Overlays & Widgets (5):** Chat-Overlay/Event-Alerts, Text-Widget-Variablen, Karten-Widget, Browser-Widget, Scoreboards | **29** | Beta #2 |
 | `v0.5.0-beta` | **Kamera & Video (4):** Color-Spaces/3D-LUTs, Video-Effekte, Externes Zubehör, Photo-Shoot · **Audio (3):** Mic-Verwaltung, Level-Meter/Muting/Sync, Talk-Back · Oura-Ring-Widget | **37** | Beta #3 |
 | `v0.6.0-beta` | **Streaming-Erweiterung (5):** RIST, WHIP, RTMP-Pull/Ingest, 4K/HEVC, SRTLA-Bonding · OBS Snapshot/Audio-Levels · Game-Controller, Deep-Linking/Konfig-Import | **45** | Beta #4 |
-| `v1.0.0-stable` | I18n (🚧) + Play-Store-Unterlagen (Icon, Screenshots, Listing) | **46 (100 %)** | Stable-Gate (≥90 %) |
+| `v1.0.0-stable` | I18n (✅, 3 Sprachen: de/en/fr) + Play-Store-Unterlagen (Icon, Screenshots, Listing) | **46 (100 %)** | Stable-Gate (≥90 %) |
 
 > **Pflege:** Bei jeder Änderung an PARITY.md prüfen — neue Features wandern in den nächsten passenden Versions-Bucket; die Grenzen sind flexibel (ein Feature darf vorziehen, wenn es erst das Gate der nächsten Version schließbar macht).
 >
-> **Nummerierung:** Die Minor-Nummer folgt dem nächsten **abgeschlossenen** Bucket. Inkrementelle Features ohne abgeschlossenes Bucket wandern als Patch-Beta in die laufende Minor-Linie (z. B. `v0.5.3-beta`); **`v0.6.0-beta` bleibt fest dem Streaming-Bucket (RIST/WHIP/RTMP) reserviert** und wird erst nach dessen Implementierung belegt.
+> **Nummerierung:** Die Minor-Nummer folgt dem nächsten **abgeschlossenen** Bucket. Inkrementelle Features ohne abgeschlossenes Bucket wandern als Patch-Beta in die laufende Minor-Linie (z. B. `v0.5.3-beta`, `v0.5.4-beta`); **`v0.6.0-beta` bleibt fest dem Streaming-Bucket (RIST/WHIP/RTMP) reserviert** und wird erst nach dessen Implementierung belegt.
 
 ## 📡 Remote-Steuerung (Post-Beta-Plan)
 
@@ -155,7 +155,7 @@ Das Beta-Gate ist erreicht, wenn **alle drei** Bedingungen erfüllt sind (Stand 
 |-----------|--------|-------|
 | ≥17 ✅ in PARITY.md | ✅ **17/17** (Row 80 „Media-Player-Steuerung“ als 17. ✅) | — |
 | Chat-✅ | ✅ **Twitch-Scope** (PARITY Row 77): Twitch (EventSub/Helix) + Chat-Overlay + **KI-Chat-Bot** laufen | Post-Beta: Kick/YouTube/SOOP, OAuth-Login (Senden/Moderation) |
-| ≥1 Widget | ✅ **1/5 begonnen** — Text-/Info-Widget (Zeit/GPS/Geschwindigkeit) läuft (PARITY Row 87, 14 Tests) | Wetter (externer Dienst), Höhenmeter |
+| ≥1 Widget | ✅ **1/5 begonnen** — Text-/Info-Widget (Zeit/GPS/Geschwindigkeit) läuft (PARITY Row 87, 14 Tests) | Wetter (externer Dienst) · Höhenmeter ✅ seit v0.5.4-beta |
 
 **📋 Checkliste vor dem Beta-Tag (Stand 2026-08-17):**
 
