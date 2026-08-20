@@ -9,6 +9,14 @@ Alle Änderungen an Vivid — **automatisch aus den GitHub-Releases gespiegelt**
 - 🎯 Feature-Tracking: [PARITY.md](PARITY.md)
 
 <!-- CHANGELOG-START -->
+## 🌙 **Nightly** 0.5.3-nightly.275 — 2026-08-20
+
+[GitHub-Release](https://github.com/thoser666/Vivid/releases/tag/nightly-20260820-132815)
+
+Nightly feature build — installable via Obtainium (enable pre-releases).
+
+**Artefakte:** `app-release.apk` · `mapping.txt` · `output-metadata.json`
+
 ## 🌙 **Nightly** 0.5.3-nightly.274 — 2026-08-20
 
 [GitHub-Release](https://github.com/thoser666/Vivid/releases/tag/nightly-20260820-124644)
