@@ -30,9 +30,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.vivid.core.data.AccentColor
 import com.vivid.core.data.ChatBotCommandScope
 import com.vivid.core.data.ChatBotMode
+import com.vivid.core.data.ThemeMode
 
 /**
  * Gemeinsames Layout für die Settings-Sub-Screens (Kategorie-Ansichten).
@@ -90,6 +93,30 @@ val ChatBotMode.displayName: String
         ChatBotMode.COMMAND -> "Bot (wie Moblin)"
         ChatBotMode.AUTONOMOUS -> "KI autonom"
     }
+
+/** Anzeigename des Design-Modus (Settings-Kategorie „Darstellung“). */
+val ThemeMode.displayName: String
+    get() = when (this) {
+        ThemeMode.SYSTEM -> "System"
+        ThemeMode.LIGHT -> "Hell"
+        ThemeMode.DARK -> "Dunkel"
+        ThemeMode.AMOLED -> "AMOLED"
+    }
+
+/** Anzeigename der Akzentfarbe (Settings-Kategorie „Darstellung“). */
+val AccentColor.displayName: String
+    get() = when (this) {
+        AccentColor.VIVID_GREEN -> "Vivid Grün"
+        AccentColor.OCEAN_BLUE -> "Ozean-Blau"
+        AccentColor.ROYAL_PURPLE -> "Royal-Lila"
+        AccentColor.SUNSET_ORANGE -> "Sonnenuntergang"
+        AccentColor.ROSE_PINK -> "Rosé"
+        AccentColor.TEAL -> "Petrol"
+    }
+
+/** Swatch-Farbe des Akzents (aus dem HCT-Seed, rein sRGB). */
+val AccentColor.seedColor: Color
+    get() = Color(seedHex.removePrefix("#").toLong(16) or 0xFF000000)
 
 /** Anzeigename des Befehlsscopes (UI-spezifisch). */
 val ChatBotCommandScope.displayName: String

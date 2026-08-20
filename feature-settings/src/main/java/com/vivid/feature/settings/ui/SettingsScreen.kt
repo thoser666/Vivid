@@ -37,11 +37,12 @@ import kotlinx.coroutines.launch
 
 /**
  * Einstellungen — Kategorie-Übersicht (wie die Settings-Struktur von Moblin):
- * fünf Kacheln führen in die jeweiligen Sub-Screens, in denen die Felder
+ * sechs Kacheln führen in die jeweiligen Sub-Screens, in denen die Felder
  * bearbeitet und gespeichert werden.
  *
  * Routen der Sub-Screens (siehe MainActivity):
  *  - settings_streaming  → Streaming & OBS
+ *  - settings_appearance → Darstellung (Design-Modus + Akzentfarbe)
  *  - settings_overlays   → Overlays & Widgets
  *  - settings_chatbot    → Chat-Bot & KI
  *  - settings_remote     → Remote & Datenschutz

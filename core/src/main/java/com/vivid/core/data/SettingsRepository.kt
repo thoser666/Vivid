@@ -56,11 +56,14 @@ class SettingsRepository @Inject constructor(
         val WIDGET_SHOW_SPEED = booleanPreferencesKey("widget_show_speed")
         val WIDGET_SHOW_ALTITUDE = booleanPreferencesKey("widget_show_altitude")
         val SENTRY_ENABLED = booleanPreferencesKey("sentry_enabled")
+        val THEME_MODE = stringPreferencesKey("theme_mode")
+        val THEME_ACCENT = stringPreferencesKey("theme_accent")
     }
 
     // WICHTIG: Dies ist jetzt der EINZIGE Flow, den das ViewModel braucht.
     // Er kombiniert die Daten für Stream (primär + sekundär), OBS, Chat,
-    // Chat-Bot, Widget und den Sentry-Opt-out (6. Flow, verschachtelt).
+    // Chat-Bot, Widget (innerer 5-Flow-Combine — combine hat nur typisierte
+    // Overloads bis 5) sowie Darstellung + Sentry-Opt-out (äußerer Combine).
     val appSettingsFlow: Flow<AppSettings> = combine(
         combine(
         // Flow für Stream-Daten
@@ -175,10 +178,21 @@ class SettingsRepository @Inject constructor(
             widgetShowAltitude = widgetData.showAltitude,
         )
     },
-        // 6. Flow: Sentry-Opt-out (Datenschutz) — Default: an
+        // 6. Flow: Darstellung (Theme-Modus + Akzentfarbe)
+        dataStore.data.map { prefs ->
+            ThemePrefs(
+                mode = ThemeMode.fromName(prefs[PrefKeys.THEME_MODE]),
+                accent = AccentColor.fromName(prefs[PrefKeys.THEME_ACCENT]),
+            )
+        },
+        // 7. Flow: Sentry-Opt-out (Datenschutz) — Default: an
         dataStore.data.map { prefs -> prefs[PrefKeys.SENTRY_ENABLED] ?: true },
-    ) { settings, sentryEnabled ->
-        settings.copy(sentryEnabled = sentryEnabled)
+    ) { settings, themeData, sentryEnabled ->
+        settings.copy(
+            sentryEnabled = sentryEnabled,
+            themeMode = themeData.mode,
+            themeAccent = themeData.accent,
+        )
     }
 
     // Update-Funktionen bleiben getrennt, das ist in Ordnung.
@@ -329,10 +343,23 @@ class SettingsRepository @Inject constructor(
         val showAltitude: Boolean,
     )
 
+    private data class ThemePrefs(
+        val mode: ThemeMode,
+        val accent: AccentColor,
+    )
+
     /** Sentry-Opt-out speichern (false = keine Fehlerberichte senden). */
     suspend fun updateSentryEnabled(enabled: Boolean) {
         dataStore.edit { prefs ->
             prefs[PrefKeys.SENTRY_ENABLED] = enabled
+        }
+    }
+
+    /** Darstellung speichern: Design-Modus + Akzentfarbe. */
+    suspend fun updateThemeSettings(themeMode: ThemeMode, accentColor: AccentColor) {
+        dataStore.edit { prefs ->
+            prefs[PrefKeys.THEME_MODE] = themeMode.name
+            prefs[PrefKeys.THEME_ACCENT] = accentColor.name
         }
     }
 

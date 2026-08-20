@@ -3,6 +3,7 @@ package com.vivid.irlbroadcaster
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -16,9 +17,14 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.vivid.BuildConfig
+import com.vivid.core.data.AppSettings
+import com.vivid.core.data.SettingsRepository
+import com.vivid.core.data.ThemeMode
+import com.vivid.core.data.resolveDark
 import com.vivid.feature.obscontrol.ui.ObsControlScreen
 import com.vivid.feature.playback.PlaybackScreen
 import com.vivid.feature.settings.ui.SettingsAboutScreen
+import com.vivid.feature.settings.ui.SettingsAppearanceScreen
 import com.vivid.feature.settings.ui.SettingsChatBotScreen
 import com.vivid.feature.settings.ui.SettingsOverlaysScreen
 import com.vivid.feature.settings.ui.SettingsRemotePrivacyScreen
@@ -30,14 +36,28 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.vivid.irlbroadcaster.ui.about.AboutScreen
 import com.vivid.irlbroadcaster.ui.theme.VividTheme
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
+    @Inject
+    lateinit var settingsRepository: SettingsRepository
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            VividTheme {
+            // Darstellung (Settings-Kategorie „Darstellung“): Design-Modus
+            // (System/Hell/Dunkel/AMOLED) + Akzentfarbe live anwenden — das
+            // Theme reagiert sofort, ohne App-Neustart.
+            val settings by settingsRepository.appSettingsFlow.collectAsState(initial = AppSettings())
+            val systemDark = isSystemInDarkTheme()
+            val dark = settings.themeMode.resolveDark(systemDark)
+            VividTheme(
+                darkTheme = dark,
+                amoled = settings.themeMode == ThemeMode.AMOLED,
+                accent = settings.themeAccent,
+            ) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background,
@@ -78,6 +98,15 @@ fun VividAppNavigation() {
             val viewModel: SettingsViewModel = hiltViewModel()
             val uiState by viewModel.uiState.collectAsState()
             SettingsStreamingObsScreen(
+                uiState = uiState,
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable("settings_appearance") {
+            val viewModel: SettingsViewModel = hiltViewModel()
+            val uiState by viewModel.uiState.collectAsState()
+            SettingsAppearanceScreen(
                 uiState = uiState,
                 viewModel = viewModel,
                 onBack = { navController.popBackStack() },

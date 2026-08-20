@@ -3,6 +3,7 @@ package com.vivid.feature.settings.ui
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.icons.filled.Widgets
@@ -33,6 +34,12 @@ object SettingsCategories {
             subtitle = "Stream-URL/-Key, Plattform-Vorlagen, Multi-Streaming, OBS-Verbindung",
             icon = Icons.Filled.Videocam,
             route = "settings_streaming",
+        ),
+        SettingsCategory(
+            title = "Darstellung",
+            subtitle = "Design-Modus (Hell/Dunkel/AMOLED), Akzentfarbe",
+            icon = Icons.Filled.Palette,
+            route = "settings_appearance",
         ),
         SettingsCategory(
             title = "Overlays & Widgets",

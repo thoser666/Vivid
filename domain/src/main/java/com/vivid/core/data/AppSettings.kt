@@ -92,4 +92,9 @@ data class AppSettings(
     // Fehler-/Crash-Berichte an Sentry senden (Standard: an). Aus = Opt-out:
     // beforeSend verwirft dann alle Events — es wird nichts an Sentry übertragen.
     val sentryEnabled: Boolean = true,
+    // --- Darstellung (Theme) ---
+    // Design-Modus: SYSTEM (System folgen) | LIGHT | DARK | AMOLED (schwarze Flächen).
+    val themeMode: ThemeMode = ThemeMode.SYSTEM,
+    // Kuratierte Akzentfarbe (Standard: Vivid-Grün — unverändert gegenüber Stufe 1).
+    val themeAccent: AccentColor = AccentColor.VIVID_GREEN,
 )

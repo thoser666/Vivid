@@ -1,6 +1,8 @@
 package com.vivid.core.data
 
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringPreferencesKey
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -493,5 +495,61 @@ class SettingsRepositoryTest {
         assertEquals(false, settings.widgetShowTime)
         assertEquals(true, settings.widgetShowLocation)
         assertEquals(false, settings.widgetShowSpeed)
+    }
+
+    @Test
+    fun `appSettingsFlow should default theme to SYSTEM and Vivid Green`() = runTest {
+        val testDataStore = PreferenceDataStoreFactory.create(
+            scope = this,
+            produceFile = { File(tempDir.toFile(), "test_theme_default.preferences_pb") }
+        )
+        val repository = SettingsRepository(testDataStore)
+
+        val settings = repository.appSettingsFlow.first()
+
+        assertEquals(ThemeMode.SYSTEM, settings.themeMode)
+        assertEquals(AccentColor.VIVID_GREEN, settings.themeAccent)
+    }
+
+    @Test
+    fun `appSettingsFlow should return the saved theme settings`() = runTest {
+        val testDataStore = PreferenceDataStoreFactory.create(
+            scope = this,
+            produceFile = { File(tempDir.toFile(), "test_theme.preferences_pb") }
+        )
+        val repository = SettingsRepository(testDataStore)
+
+        repository.updateThemeSettings(
+            themeMode = ThemeMode.AMOLED,
+            accentColor = AccentColor.ROSE_PINK,
+        )
+        val settings = repository.appSettingsFlow.first()
+
+        assertEquals(ThemeMode.AMOLED, settings.themeMode)
+        assertEquals(AccentColor.ROSE_PINK, settings.themeAccent)
+
+        // Theme-Schreiben darf andere Einstellungen nicht anfassen.
+        assertEquals(false, settings.widgetEnabled)
+        assertEquals(true, settings.sentryEnabled)
+    }
+
+    @Test
+    fun `appSettingsFlow should fall back to defaults for unknown theme names`() = runTest {
+        // Unbekannte gespeicherte Werte (z. B. von einer neueren App-Version
+        // zurückdowngraded) müssen robust auf die Defaults fallen.
+        val rawDataStore = PreferenceDataStoreFactory.create(
+            scope = this,
+            produceFile = { File(tempDir.toFile(), "test_theme_unknown.preferences_pb") }
+        )
+        // Direkt ungültige Namen über die DataStore-API schreiben.
+        rawDataStore.edit { prefs ->
+            prefs[stringPreferencesKey("theme_mode")] = "NIGHT_MODE"
+            prefs[stringPreferencesKey("theme_accent")] = "NEON_PINK"
+        }
+
+        val settings = SettingsRepository(rawDataStore).appSettingsFlow.first()
+
+        assertEquals(ThemeMode.SYSTEM, settings.themeMode)
+        assertEquals(AccentColor.VIVID_GREEN, settings.themeAccent)
     }
 }

@@ -2,10 +2,12 @@ package com.vivid.feature.settings.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.vivid.core.data.AccentColor
 import com.vivid.core.data.AppSettings // Importiert die vollständige Klasse
 import com.vivid.core.data.ChatBotCommandScope
 import com.vivid.core.data.ChatBotMode
 import com.vivid.core.data.SettingsRepository
+import com.vivid.core.data.ThemeMode
 import com.vivid.core.remote.RemoteControlServer
 import com.vivid.core.remote.RemoteControlTokenStore
 import com.vivid.core.update.UpdateCheckResult
@@ -206,6 +208,10 @@ class SettingsViewModel @Inject constructor(
     // Datenschutz: Sentry-Fehlerberichte an/aus (Opt-out).
     fun onSentryEnabledChange(newEnabled: Boolean) { _uiState.value = _uiState.value.copy(sentryEnabled = newEnabled) }
 
+    // Darstellung (Theme): Design-Modus + Akzentfarbe.
+    fun onThemeModeChange(newMode: ThemeMode) { _uiState.value = _uiState.value.copy(themeMode = newMode) }
+    fun onAccentColorChange(newAccent: AccentColor) { _uiState.value = _uiState.value.copy(themeAccent = newAccent) }
+
     // Begrenzungen: Per-Viewer-Cooldown/-Cap und Kosten-Budget (numerisch, ungültig → 0).
     // Manuelle Änderungen markieren die Auswahl als „Eigene“ (CUSTOM), damit die
     // wiederhergestellte Voreinstellung beim nächsten Start nicht die Bearbeitung überstimmt.
@@ -270,6 +276,10 @@ class SettingsViewModel @Inject constructor(
                 showAltitude = currentSettings.widgetShowAltitude,
             )
             settingsRepository.updateSentryEnabled(currentSettings.sentryEnabled)
+            settingsRepository.updateThemeSettings(
+                themeMode = currentSettings.themeMode,
+                accentColor = currentSettings.themeAccent,
+            )
             settingsRepository.updateChatBotSettings(
                 enabled = currentSettings.chatBotEnabled,
                 apiBaseUrl = currentSettings.chatBotApiBaseUrl,

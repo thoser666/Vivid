@@ -1,9 +1,11 @@
 package com.vivid.feature.settings.ui
 
+import com.vivid.core.data.AccentColor
 import com.vivid.core.data.AppSettings
 import com.vivid.core.data.ChatBotCommandScope
 import com.vivid.core.data.ChatBotMode
 import com.vivid.core.data.SettingsRepository
+import com.vivid.core.data.ThemeMode
 import com.vivid.core.remote.RemoteControlServer
 import com.vivid.core.remote.RemoteControlTokenStore
 import com.vivid.core.update.UpdateCheckResult
@@ -284,6 +286,7 @@ class SettingsViewModelTest {
             coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
             coEvery { updateWidgetSettings(any(), any(), any(), any(), any()) } just runs
             coEvery { updateSentryEnabled(any()) } just runs
+            coEvery { updateThemeSettings(any(), any()) } just runs
         }
 
         val viewModel = createViewModel(repository)
@@ -329,6 +332,7 @@ class SettingsViewModelTest {
             coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
             coEvery { updateWidgetSettings(any(), any(), any(), any(), any()) } just runs
             coEvery { updateSentryEnabled(any()) } just runs
+            coEvery { updateThemeSettings(any(), any()) } just runs
         }
 
         val viewModel = createViewModel(repository)
@@ -369,6 +373,7 @@ class SettingsViewModelTest {
             coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
             coEvery { updateWidgetSettings(any(), any(), any(), any(), any()) } just runs
             coEvery { updateSentryEnabled(any()) } just runs
+            coEvery { updateThemeSettings(any(), any()) } just runs
         }
 
         val viewModel = createViewModel(repository)
@@ -396,12 +401,7 @@ class SettingsViewModelTest {
                 enabled = true,
                 showTime = false,
                 showLocation = true,
-                showSpeed = false,
-
-
-
-
-            )
+                showSpeed = false, showAltitude = any())
         }
     }
 
@@ -417,6 +417,7 @@ class SettingsViewModelTest {
             coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
             coEvery { updateWidgetSettings(any(), any(), any(), any(), any()) } just runs
             coEvery { updateSentryEnabled(any()) } just runs
+            coEvery { updateThemeSettings(any(), any()) } just runs
         }
 
         val viewModel = createViewModel(repository)
@@ -607,6 +608,7 @@ class SettingsViewModelTest {
             coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
             coEvery { updateWidgetSettings(any(), any(), any(), any(), any()) } just runs
             coEvery { updateSentryEnabled(any()) } just runs
+            coEvery { updateThemeSettings(any(), any()) } just runs
         }
 
         val viewModel = createViewModel(repository)
@@ -846,5 +848,71 @@ class SettingsViewModelTest {
         advanceUntilIdle()
         assertFalse(viewModel.updateState.value.checking)
         assertEquals(UpdateCheckResult.UpToDate("0.2.0-nightly.97"), viewModel.updateState.value.result)
+    }
+
+    @Test
+    fun `loads theme settings from repository`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repository = mockk<SettingsRepository> {
+            every { appSettingsFlow } returns MutableStateFlow(
+                AppSettings(
+                    themeMode = ThemeMode.AMOLED,
+                    themeAccent = AccentColor.OCEAN_BLUE,
+                ),
+            )
+        }
+
+        val viewModel = createViewModel(repository)
+        advanceUntilIdle()
+
+        assertEquals(ThemeMode.AMOLED, viewModel.uiState.value.themeMode)
+        assertEquals(AccentColor.OCEAN_BLUE, viewModel.uiState.value.themeAccent)
+    }
+
+    @Test
+    fun `theme mode and accent change handlers update the state`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        assertEquals(ThemeMode.SYSTEM, viewModel.uiState.value.themeMode)
+        assertEquals(AccentColor.VIVID_GREEN, viewModel.uiState.value.themeAccent)
+
+        viewModel.onThemeModeChange(ThemeMode.DARK)
+        viewModel.onAccentColorChange(AccentColor.ROYAL_PURPLE)
+
+        assertEquals(ThemeMode.DARK, viewModel.uiState.value.themeMode)
+        assertEquals(AccentColor.ROYAL_PURPLE, viewModel.uiState.value.themeAccent)
+    }
+
+    @Test
+    fun `saveSettings persists the theme settings`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repository = mockk<SettingsRepository> {
+            every { appSettingsFlow } returns MutableStateFlow(AppSettings())
+            coEvery { updateStreamSettings(any(), any(), any()) } just runs
+            coEvery { updateSecondaryStreamSettings(any(), any(), any()) } just runs
+            coEvery { updateObsSettings(any(), any(), any(), any()) } just runs
+            coEvery { updateChatSettings(any(), any()) } just runs
+            coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
+            coEvery { updateWidgetSettings(any(), any(), any(), any(), any()) } just runs
+            coEvery { updateSentryEnabled(any()) } just runs
+            coEvery { updateThemeSettings(any(), any()) } just runs
+        }
+
+        val viewModel = createViewModel(repository)
+        advanceUntilIdle()
+
+        viewModel.onThemeModeChange(ThemeMode.AMOLED)
+        viewModel.onAccentColorChange(AccentColor.TEAL)
+        viewModel.saveSettings()
+        advanceUntilIdle()
+
+        coVerify {
+            repository.updateThemeSettings(
+                themeMode = ThemeMode.AMOLED,
+                accentColor = AccentColor.TEAL,
+            )
+        }
     }
 }
