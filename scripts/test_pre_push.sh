@@ -24,6 +24,8 @@ grep -q "check_i18n.sh" <<< "$out" || fail "check_i18n.sh fehlt im Dry-Run"
 grep -q "test_check_i18n.sh" <<< "$out" || fail "test_check_i18n.sh fehlt im Dry-Run"
 grep -q "check_markdown_anchors.sh" <<< "$out" || fail "check_markdown_anchors.sh fehlt im Dry-Run"
 grep -q "test_github_anchors.sh" <<< "$out" || fail "test_github_anchors.sh fehlt im Dry-Run"
+grep -q "check_parity_log.sh" <<< "$out" || fail "check_parity_log.sh fehlt im Dry-Run"
+grep -q "test_parity_log.sh" <<< "$out" || fail "test_parity_log.sh fehlt im Dry-Run"
 grep -q "Alle Checks grün" <<< "$out" || fail "Abschlussmeldung fehlt im Dry-Run"
 
 # Der Release-Build ist optional: ohne PRE_PUSH_RELEASE darf er NICHT auftauchen,

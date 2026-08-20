@@ -122,6 +122,17 @@ jobs:
       - name: Check markdown anchors
         run: bash scripts/check_markdown_anchors.sh
 
+      # PARITY-Log-Guard (Python) — Selbsttest mit Fixtures (sauberer Log grün,
+      # Platzhalter „—"/ungültige Hashes rot, Header-/Trenner-Zeilen ignoriert,
+      # Backtick-Hashes ok) + Real-Check: jeder Aktualisierungslog-Eintrag in
+      # PARITY.md muss einen gültigen 7-Zeichen-Commit-Hash tragen, damit der
+      # Log nachvollziehbar bleibt (Vorfall 2026-08-20: I18n-Eintrag war „—").
+      - name: Test parity log guard
+        run: bash scripts/test_parity_log.sh
+
+      - name: Check parity log
+        run: bash scripts/check_parity_log.sh
+
       # Geteilte Release-Safety (Ruby) — Selbsttest: versionCode-Ableitung,
       # Track-Monotonie (kein Downgrade) und Quer-Track-Vergleich; strukturell
       # wird geprüft, dass release_alpha UND release_beta dieselben Funktionen

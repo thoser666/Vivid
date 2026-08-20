@@ -121,4 +121,14 @@ run bash scripts/check_markdown_anchors.sh
 echo "▶ [pre-push] GitHub-Golden-Anker-Test (scripts/test_github_anchors.sh)"
 run bash scripts/test_github_anchors.sh
 
+# PARITY-Log-Guard: jeder Aktualisierungslog-Eintrag in PARITY.md muss einen
+# gültigen 7-Zeichen-Commit-Hash tragen statt „—" (nachvollziehbarer Log).
+echo "▶ [pre-push] PARITY-Log-Guard (scripts/check_parity_log.sh)"
+run bash scripts/check_parity_log.sh
+
+# PARITY-Log-Guard-Selbsttest (Fixtures): beweist, dass Platzhalter „—" und
+# ungültige Hashes rot gemeldet werden und saubere Logs grün bleiben.
+echo "▶ [pre-push] PARITY-Log-Guard-Selbsttest (scripts/test_parity_log.sh)"
+run bash scripts/test_parity_log.sh
+
 echo "✅ [pre-push] Alle Checks grün — Push freigegeben."
