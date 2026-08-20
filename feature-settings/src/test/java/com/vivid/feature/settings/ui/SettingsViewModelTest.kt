@@ -396,7 +396,7 @@ class SettingsViewModelTest {
                 enabled = true,
                 showTime = false,
                 showLocation = true,
-                showSpeed = false, showAltitude = false,
+                showSpeed = false, showAltitude = any(), showAltitude = false,
 
             showAltitude = false,
 
