@@ -249,4 +249,43 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 
 ---
 
+## 🔍 Zuordnung der Log-Commit-Hashes (Rekonstruktion)
+
+Die Commit-Spalte wurde am 2026-08-20 **rückwirkend aus der Git-Historie
+rekonstruiert** (vorher Platzhalter “—”). Methode: für jeden Eintrag
+`git log -S "<Eintrag>" -- PARITY.md` — der Hash ist der Commit, der den
+Eintrag **tatsächlich eingebracht** hat (per Diff verifiziert). Bei
+Einträgen, deren Phrase in mehreren Commits vorkommt (Status-Zeilen,
+Roadmap-Buckets, spätere Nennungen), wurde per Diff geprüft, welcher
+Commit die Log-Zeile hinzufügte:
+
+| Datum | Commit | Eintrag | Kandidaten (Phrase in PARITY.md) | Vermerk |
+|-------|--------|---------|----------------------------------|---------|
+| 2026-08-17 | `a9171cb` | Chat-Formalisierung | `a9171cb`, `f705896` | `f705896` (Beta-Gate-Status) nennt die Formalisierung nur im Status; `a9171cb` fügt die Log-Zeile hinzu |
+| 2026-08-17 | `cdb3d8c` | Text-/Info-Widget | `a9171cb`, `f705896`, `5d9cb4a`, `af7169f` | nur `cdb3d8c` fügt die Log-Zeile hinzu; die anderen erwähnen das Widget nur (Status/Log-Text) |
+| 2026-08-20 | `5957f82` | UI-Farbschemata Stufe 2 | `5957f82`, `a3e2bba`, `6a8c6d4` | Stufe 2: `5957f82`; Stufe 1 (`6a8c6d4`) ist eigener Eintrag, `a3e2bba` nennt die Phrase nur |
+| 2026-08-18 | `6a8c6d4` | UI-Farbschemata Stufe 1 | `5957f82`, `a3e2bba`, `6a8c6d4` | s. o. |
+| 2026-08-19 | `a3af8a5` | Chat-Overlay Inline-Emotes | `a3af8a5`, `cfb14ef`, `f705896`, `a49a3b2`, `af7169f` | nur `a3af8a5` fügt die Zeile hinzu; die anderen nennen “Chat-Overlay” in Status-/Log-Zeilen |
+| 2026-08-14 | `a49a3b2` | Chat-Overlay (Twitch) fertig | `a3af8a5`, `cfb14ef`, `f705896`, `a49a3b2`, `af7169f` | s. o. (Einführung durch `a49a3b2`) |
+| 2026-08-16 | `0eb100d` | KI-Chat-Bot implementiert | `a9171cb`, `9f2219c`, `0eb100d` | nur `0eb100d` fügt die Log-Zeile hinzu |
+| 2026-08-14 | `ab3f73e` | Plattform-Chat (Twitch) begonnen | `cfb14ef`, `a9171cb`, `618dda8`, `af7169f` | Einführung durch `ab3f73e`; `618dda8` = spätere IRC-Referenz-Bereinigung |
+| 2026-08-14 | `4628805` | Tap-to-Focus, Pinch-Zoom, Stabilisierung | `a49a3b2`, `4628805` | `a49a3b2` nennt die Phrase nur im Overlay-Log-Text; `4628805` fügt die Zeile hinzu |
+| 2026-08-13 | `78728d8` | Fokus-Lock | `4628805`, `78728d8` | `4628805` erwähnt Fokus-Lock nur im Task-Text; `78728d8` fügt die Zeile hinzu |
+| 2026-08-13 | `1c36b16` | Multi-Streaming | `cfb14ef`, `1c36b16`, `af7169f` | nur `1c36b16` fügt die Log-Zeile hinzu |
+| 2026-08-13 | `1fb17d4` | OBS-QR-Code-Import | `1fb17d4`, `af7169f` | `af7169f` (Erstversion) hat nur die Status-Zeile, `1fb17d4` die Log-Zeile |
+| 2026-08-13 | `5d9cb4a` | Oura-Ring-Gesundheitsdaten im Widget | `e34656b`, `a3e2bba`, `9f2219c`, `0eb100d`, `5d9cb4a` | die anderen nennen das Widget nur (Chat/Remote/Widget-Kontext); `5d9cb4a` fügt die Log-Zeile hinzu |
+| 2026-08-12 | `c5a71fe` | Foreground-Service | `58febc7`, `c5a71fe` | `58febc7` nennt Hintergrund-Streaming nur im 33.12.0-Eintrag |
+| 2026-08-12 | `8a65a88` | Go-Live-Selbst-Check | `d4ba87a`, `8a65a88` | `d4ba87a` erwähnt den Check nur in der RTMPS-Zeile |
+| 2026-08-11 | `5abb11d` | Web-Remote-Control | `ab3f73e`, `618dda8`, `de31b83`, `8a65a88`, `5abb11d`, `af7169f` | nur `5abb11d` fügt die Zeile hinzu; die anderen nennen Remote-Control nur |
+| 2026-08-11 | `c4857e7` | About-Screen | `5abb11d`, `c4857e7` | `5abb11d` nennt den About-Screen nur im Remote-Control-Eintrag |
+
+**Eindeutig zugeordnet (23 Einträge, genau ein Kandidat):** `cee9141`,
+`e5dab62`, `e4674f5` (3×), `6bd4833`, `cfb14ef`, `e34656b`, `a3e2bba`,
+`d541780`, `121d8b2` (3×), `0037e2a`, `f705896`, `8af67fb`, `de31b83`,
+`5d9cb4a` (2×), `58febc7`, `d4ba87a`, `8110b59`, `af7169f`.
+
+---
+
+---
+
 *Siehe auch: [README – Parity Status](README.md#-parity-status) · [Moblin (Original)](https://github.com/eerimoq/moblin)*
