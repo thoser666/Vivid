@@ -12,12 +12,29 @@
 # Neueste Einträge stehen oben — nur der Kopf (Überschrift, Spaltentrenner)
 # wird übersprungen.
 #
-# Aufruf:  bash scripts/check_parity_log.sh [PARITY_DATEI]
+# Mit `--check-exists` wird zusätzlich geprüft, dass jeder Hash tatsächlich
+# existiert und ein Vorfahre von HEAD ist — nicht nur formatgültig. Das
+# fängt Rebase-Orphans ab: Vorfall 2026-08-21 verwies der Log-Eintrag nach
+# einem Rebase auf `c0fb445`, obwohl der Feature-Commit als `7ae806a`
+# neu geschrieben worden war (der alte Hash lag nur noch im Reflog, nicht
+# in der Geschichte). In Shallow-Clones fehlen historische Objekte lokal —
+# dort wird die Existenzprüfung mit Warnung übersprungen (Format-Check
+# bleibt aktiv).
+#
+# Aufruf:  bash scripts/check_parity_log.sh [--check-exists] [PARITY_DATEI]
 #          (Standard: PARITY.md im Repo-Root; für Test-Fixtures überschreibbar)
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
-FILE="${1:-PARITY.md}"
+
+CHECK_EXISTS=0
+FILE="PARITY.md"
+for arg in "$@"; do
+  case "$arg" in
+    --check-exists) CHECK_EXISTS=1 ;;
+    *) FILE="$arg" ;;
+  esac
+done
 
 if [[ ! -f "$FILE" ]]; then
   echo "❌ [parity-log] $FILE fehlt."
@@ -41,8 +58,9 @@ if [[ -z "$PY" ]]; then
   exit 1
 fi
 
-"$PY" - "$FILE" <<'PYEOF'
+"$PY" - "$FILE" "$CHECK_EXISTS" <<'PYEOF'
 import re
+import subprocess
 import sys
 
 # UTF-8-Ausgabe erzwingen (Windows-Konsolen nutzen sonst cp1252 und brechen
@@ -53,6 +71,8 @@ except Exception:
     pass
 
 path = sys.argv[1]
+check_exists = sys.argv[2] == "1"
+
 with open(path, encoding="utf-8", errors="replace") as fh:
     lines = fh.read().splitlines()
 
@@ -69,6 +89,7 @@ for line in lines:
         rows.append(line)
 
 errors = []
+hashes = []
 for row in rows:
     cells = [c.strip() for c in row.strip().strip("|").split("|")]
     if len(cells) < 3:
@@ -83,12 +104,54 @@ for row in rows:
             f"{date}: Commit-Spalte '{commit}' ist kein 7-Zeichen-Git-Hash "
             f"(0-9a-f) — bitte `git rev-parse --short <commit>` eintragen."
         )
+        continue
+    hashes.append((date, commit))
+
+# Existenz-/Reachability-Prüfung: jeder Hash muss ein Vorfahre von HEAD sein
+# (bzw. HEAD selbst). Ein Hash, der nur noch im Reflog liegt (Rebase-Orphan),
+# existiert zwar im Objekt-Store, ist aber kein Vorfahre — genau dieser Fall
+# wird hier rot gemeldet. In Shallow-Clones fehlen historische Objekte lokal,
+# dort wird die Prüfung mit Warnung übersprungen (Format-Check bleibt aktiv).
+if check_exists and hashes:
+    shallow = subprocess.run(
+        ["git", "rev-parse", "--is-shallow-repository"],
+        capture_output=True, text=True,
+    )
+    if shallow.returncode == 0 and shallow.stdout.strip() == "true":
+        print("⚠️ [parity-log] Shallow-Clone erkannt — Hash-Existenzprüfung "
+              "übersprungen (Format-Check bleibt aktiv).")
+    else:
+        for date, h in hashes:
+            anc = subprocess.run(
+                ["git", "merge-base", "--is-ancestor", h, "HEAD"],
+                capture_output=True,
+            )
+            if anc.returncode == 0:
+                continue
+            exists = subprocess.run(
+                ["git", "cat-file", "-e", h + "^{commit}"],
+                capture_output=True,
+            )
+            if exists.returncode != 0:
+                errors.append(
+                    f"{date}: Hash '{h}' existiert nicht im Repo — bitte "
+                    f"`git rev-parse --short <commit>` eintragen."
+                )
+            else:
+                errors.append(
+                    f"{date}: Hash '{h}' ist kein Vorfahre von HEAD — wurde "
+                    f"der Commit rebased/orphaned? Bitte auf den tatsächlichen "
+                    f"Hash korrigieren."
+                )
 
 if errors:
     for e in errors:
         print(f"❌ {path}: {e}")
-    print(f"❌ [parity-log] {len(errors)} Log-Eintrag/Einträge ohne gültigen Commit-Hash.")
+    print(f"❌ [parity-log] {len(errors)} Log-Eintrag/Einträge ohne gültigen/existierenden Commit-Hash.")
     sys.exit(1)
 
-print(f"✅ [parity-log] {len(rows)} Log-Einträge, alle mit gültigem 7-Zeichen-Commit-Hash.")
+if check_exists:
+    print(f"✅ [parity-log] {len(rows)} Log-Einträge, alle mit gültigem 7-Zeichen-Commit-Hash und existierendem Vorfahren von HEAD.")
+else:
+    print(f"✅ [parity-log] {len(rows)} Log-Einträge, alle mit gültigem 7-Zeichen-Commit-Hash.")
 PYEOF

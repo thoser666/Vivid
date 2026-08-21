@@ -6,7 +6,11 @@
 #     P3  Negativ: ungueltiger Hash (nicht-hex / falsche Laenge)    -> rot
 #     P4  Positiv: Header-/Trenner-Zeilen zaehlen nicht, Backtick-
 #                  Hashes sind gueltig                              -> gruen
-#     P5  Real: der echte Repo-Stand (PARITY.md) ist gruen          -> gruen
+#     P5  Real: der echte Repo-Stand (PARITY.md) ist gruen
+#                  (inkl. --check-exists: alle Hashes existieren und
+#                  sind Vorfahren von HEAD)                         -> gruen
+#     P6  Negativ: formatgueltiger, aber NICHT existierender Hash
+#                  (mit --check-exists)                             -> rot
 # Läuft im CI (android.yml) und lokal: bash scripts/test_parity_log.sh
 #
 # Hinweis: Die Fixture-Zeilen sind bewusst ASCII — das Zeichen in der
@@ -22,10 +26,11 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
 fail() { echo "FAIL: $1"; exit 1; }
-expect_exit() { # $1 = erwarteter Exit, $2 = Beschreibung, $3 = Datei
-  local expected="$1" desc="$2" file="$3" rc=0
+expect_exit() { # $1 = erwarteter Exit, $2 = Beschreibung, $3 = Datei, $4 = optionale Flags
+  local expected="$1" desc="$2" file="$3" flags="${4:-}" rc=0
   set +e
-  $CHECK "$file" >/dev/null 2>&1
+  # shellcheck disable=SC2086 # flags ist genau ein Token (z. B. --check-exists)
+  $CHECK $flags "$file" >/dev/null 2>&1
   rc=$?
   set -e
   if [ "$rc" -ne "$expected" ]; then
@@ -85,6 +90,18 @@ EOF
 expect_exit 0 "P4 Header-/Trenner-Zeilen ignoriert, Backtick-Hashes ok -> gruen" "$TMP/header.md"
 
 # ── Real-Check des Repos (Regression) ───────────────────────────────────────
-expect_exit 0 "P5 echter Repo-Stand (PARITY.md) -> gruen" "PARITY.md"
+# Mit --check-exists: alle 42 echten Einträge müssen existieren und Vorfahren
+# von HEAD sein (keine Rebase-Orphans wie c0fb445 nach dem Rebase 2026-08-21).
+expect_exit 0 "P5 echter Repo-Stand (PARITY.md, --check-exists) -> gruen" "PARITY.md" "--check-exists"
 
-echo "OK: Alle 5 Faelle gruen."
+# ── P6: formatgültiger, aber nicht existierender Hash (--check-exists) ───────
+cat > "$TMP/nonexist.md" <<'EOF'
+## 🔄 Aktualisierungslog
+
+| Datum | Commit | Änderung |
+|-------|--------|----------|
+| 2026-08-21 | `1111111` | Existiert nicht im Repo |
+EOF
+expect_exit 1 "P6 nicht-existenter Hash (--check-exists) -> rot" "$TMP/nonexist.md" "--check-exists"
+
+echo "OK: Alle 6 Faelle gruen."

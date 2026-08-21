@@ -58,6 +58,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Vollständige Historie: der PARITY-Log-Guard prüft mit
+          # --check-exists, dass referenzierte Hashes existieren und Vorfahren
+          # von HEAD sind — im Default-Shallow-Checkout (fetch-depth: 1)
+          # fehlen die historischen Objekte lokal.
+          fetch-depth: 0
 
       - name: Set up JDK 17
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
@@ -127,11 +133,15 @@ jobs:
       # Backtick-Hashes ok) + Real-Check: jeder Aktualisierungslog-Eintrag in
       # PARITY.md muss einen gültigen 7-Zeichen-Commit-Hash tragen, damit der
       # Log nachvollziehbar bleibt (Vorfall 2026-08-20: I18n-Eintrag war „—").
+      # Der Real-Check läuft mit --check-exists: der Hash muss zusätzlich
+      # existieren und Vorfahre von HEAD sein (fängt Rebase-Orphans wie
+      # c0fb445 → 7ae806a vom 2026-08-21) — dafür braucht der Build-Job
+      # vollständige Historie (fetch-depth: 0).
       - name: Test parity log guard
         run: bash scripts/test_parity_log.sh
 
       - name: Check parity log
-        run: bash scripts/check_parity_log.sh
+        run: bash scripts/check_parity_log.sh --check-exists
 
       # Geteilte Release-Safety (Ruby) — Selbsttest: versionCode-Ableitung,
       # Track-Monotonie (kein Downgrade) und Quer-Track-Vergleich; strukturell

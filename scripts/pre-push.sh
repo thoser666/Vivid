@@ -123,8 +123,10 @@ run bash scripts/test_github_anchors.sh
 
 # PARITY-Log-Guard: jeder Aktualisierungslog-Eintrag in PARITY.md muss einen
 # gültigen 7-Zeichen-Commit-Hash tragen statt „—" (nachvollziehbarer Log).
+# Mit --check-exists wird zusätzlich geprüft, dass der Hash existiert und ein
+# Vorfahre von HEAD ist — fängt Rebase-Orphans ab (Vorfall c0fb445→7ae806a).
 echo "▶ [pre-push] PARITY-Log-Guard (scripts/check_parity_log.sh)"
-run bash scripts/check_parity_log.sh
+run bash scripts/check_parity_log.sh --check-exists
 
 # PARITY-Log-Guard-Selbsttest (Fixtures): beweist, dass Platzhalter „—" und
 # ungültige Hashes rot gemeldet werden und saubere Logs grün bleiben.
