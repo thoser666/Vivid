@@ -16,11 +16,14 @@ import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.jupiter.api.AfterEach
@@ -292,5 +295,63 @@ class ChatOverlayViewModelTest {
         // Kein Crash, keine Badges — das Overlay läuft trotzdem (leere Map).
         assertTrue(viewModel.uiState.value.badges.isEmpty())
         assertTrue(viewModel.uiState.value.enabled)
+    }
+
+    @Test
+    fun `a stale badge load for a previous channel is discarded`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val badgesA = mapOf(
+            "broadcaster/1" to ChatBadge("broadcaster", "1", "Broadcaster", "https://cdn/a/2"),
+        )
+        val badgesB = mapOf(
+            "moderator/1" to ChatBadge("moderator", "1", "Moderator", "https://cdn/b/2"),
+        )
+        val badgeClient = mockk<TwitchBadgeClient> {
+            // Kanal A lädt langsam, Kanal B schnell — die alte Antwort von A
+            // trifft NACH der von B ein und darf die Badge-Map nicht mit den
+            // Badges des alten Kanals überschreiben.
+            coEvery { load(match { it.channel == "kanala" }) } coAnswers { delay(1000); badgesA }
+            coEvery { load(match { it.channel == "kanalb" }) } coAnswers { delay(100); badgesB }
+        }
+        val reader = reader()
+        val settings = MutableStateFlow(settings(channel = "kanalA"))
+        val viewModel = ChatOverlayViewModel(reader, repository(settings), badgeClient)
+        runCurrent() // Load für Kanal A startet (suspended im delay)
+        assertEquals(emptyMap<String, ChatBadge>(), viewModel.uiState.value.badges)
+
+        settings.value = settings(channel = "kanalB")
+        runCurrent() // Load B startet; A ist noch in-flight, Map wurde geleert
+        assertEquals(emptyMap<String, ChatBadge>(), viewModel.uiState.value.badges)
+
+        advanceTimeBy(101) // B (100 ms) ist fertig
+        runCurrent()
+        assertEquals(badgesB, viewModel.uiState.value.badges)
+
+        advanceTimeBy(1000) // A (1000 ms) trifft jetzt ein — muss verworfen werden
+        runCurrent()
+        assertEquals(badgesB, viewModel.uiState.value.badges)
+    }
+
+    @Test
+    fun `a badge load completing after disable is discarded`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val badges = mapOf(
+            "broadcaster/1" to ChatBadge("broadcaster", "1", "Broadcaster", "https://cdn/bc/2"),
+        )
+        val badgeClient = mockk<TwitchBadgeClient> {
+            coEvery { load(any()) } coAnswers { delay(1000); badges }
+        }
+        val reader = reader()
+        val settings = MutableStateFlow(settings())
+        val viewModel = ChatOverlayViewModel(reader, repository(settings), badgeClient)
+        runCurrent() // Load startet, noch in-flight
+
+        settings.value = settings(enabled = false)
+        runCurrent()
+        assertTrue(viewModel.uiState.value.badges.isEmpty())
+
+        advanceTimeBy(1001) // Load-Antwort kommt nach dem Deaktivieren an
+        runCurrent()
+        assertTrue(viewModel.uiState.value.badges.isEmpty())
     }
 }

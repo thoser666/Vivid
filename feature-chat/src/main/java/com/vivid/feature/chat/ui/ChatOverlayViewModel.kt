@@ -47,6 +47,15 @@ class ChatOverlayViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(ChatOverlayUiState())
     val uiState: StateFlow<ChatOverlayUiState> = _uiState.asStateFlow()
 
+    /**
+     * Kanal, für den der aktuell laufende Badge-Load gestartet wurde (oder
+     * `null`, wenn kein Load aktiv ist). In-flight Badge-Loads werden anhand
+     * dieses Tokens verworfen, wenn seit ihrem Start ein Kanalwechsel oder
+     * ein Stopp erfolgt ist — sonst würde eine langsame Antwort des alten
+     * Kanals die Badge-Map des neuen Kanals überschreiben.
+     */
+    private var badgeLoadChannel: String? = null
+
     init {
         // Reagiert auf die Chat-Einstellungen: startet/stoppt die Verbindung
         // und räumt Nachrichten bei Kanal-/Statuswechseln auf. Seit dem
@@ -72,6 +81,9 @@ class ChatOverlayViewModel @Inject constructor(
                     chatReader.start(config)
                     loadBadges(config)
                 } else {
+                    // Stopp/fehlende Konfiguration: laufende Badge-Loads
+                    // invalidieren, damit ihre Antworten nicht mehr ankommen.
+                    badgeLoadChannel = null
                     chatReader.stop()
                 }
                 _uiState.update {
@@ -107,11 +119,20 @@ class ChatOverlayViewModel @Inject constructor(
      * Lädt die Twitch-Badges (global + Kanal) für das Overlay-Rendering.
      * Fehler sind unkritisch: das Overlay zeigt dann einfach keine
      * Badge-Bilder, der Chat läuft weiter.
+     *
+     * Stale-Guard: Der Load merkt sich den Kanal, für den er gestartet wurde.
+     * Ist beim Eintreffen der Antwort ein anderer Kanal aktiv (Kanalwechsel
+     * dazwischen) oder der Kanal null (Overlay gestoppt), wird die Antwort
+     * verworfen — so überschreibt ein langsamer Load des alten Kanals nie die
+     * Badges des neuen Kanals.
      */
     private fun loadBadges(config: TwitchEventSubConfig) {
+        badgeLoadChannel = config.channel
         viewModelScope.launch {
             val badges = runCatching { badgeClient.load(config) }.getOrDefault(emptyMap())
-            _uiState.update { it.copy(badges = badges) }
+            if (badgeLoadChannel == config.channel) {
+                _uiState.update { it.copy(badges = badges) }
+            }
         }
     }
 
