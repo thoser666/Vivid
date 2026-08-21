@@ -19,8 +19,6 @@
     <string name="streaming_target_streaming">sendet live</string>
     <string name="streaming_target_failed">fehlgeschlagen</string>
 
-    <!-- Kamera-Screen (CameraScreen.kt) -->
-    <string name="camera_permission_required">Bitte Kamera-Berechtigung erteilen.</string>
 
     <!-- Playback-Screen (PlaybackScreen.kt) -->
     <string name="playback_previous">Zurück</string>

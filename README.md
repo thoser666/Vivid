@@ -452,7 +452,7 @@ Bild läuft, aber Zuschauer hören nichts? Das sind die häufigsten Ursachen:
 | DI | Hilt + KSP | 2.59.2 / 2.3.11 |
 | Networking | OkHttp / Ktor | 5.3.2 / 3.5.2 |
 | Image Loading | Coil | 2.7.0 |
-| Camera | RootEncoder (Stream-Pipeline + Vorschau) — CameraX 1.6.1 nur im ungenutzten CameraScreen | 2.7.5 |
+| Camera | RootEncoder (Stream-Pipeline + Vorschau) | 2.7.5 |
 | Media | Media3 (ExoPlayer) | 1.9.0 |
 | Serialization | kotlinx.serialization | 1.11.0 |
 | Code Analysis | Sentry Gradle Plugin | 6.6.0 |

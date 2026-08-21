@@ -19,8 +19,6 @@
     <string name="streaming_target_streaming">en direct</string>
     <string name="streaming_target_failed">échec</string>
 
-    <!-- Écran caméra (CameraScreen.kt) -->
-    <string name="camera_permission_required">Veuillez accorder l\'autorisation de caméra.</string>
 
     <!-- Écran de lecture (PlaybackScreen.kt) -->
     <string name="playback_previous">Précédent</string>
