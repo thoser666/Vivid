@@ -4,4 +4,13 @@
     <string name="chat_overlay_not_configured">Chat-Overlay: nicht konfiguriert (Bot-Login + Token + Client-ID in den Einstellungen)</string>
     <string name="chat_overlay_connecting">Verbinde…</string>
     <string name="chat_overlay_channel">Chat: %1$s</string>
+    <!-- Event-Alerts (Follow/Sub/Raid) im Chat-Overlay (ui/ChatOverlay.kt) -->
+    <string name="chat_alert_follow">🔔 %1$s folgt jetzt!</string>
+    <string name="chat_alert_subscribe">🎉 %1$s abonniert (%2$s)</string>
+    <string name="chat_alert_subscribe_plain">🎉 %1$s abonniert</string>
+    <string name="chat_alert_sub_gift"> · Geschenk von %1$s</string>
+    <plurals name="chat_alert_raid">
+        <item quantity="one">⚔️ Raid von %1$s (%2$d Viewer)</item>
+        <item quantity="other">⚔️ Raid von %1$s (%2$d Viewer)</item>
+    </plurals>
 </resources>

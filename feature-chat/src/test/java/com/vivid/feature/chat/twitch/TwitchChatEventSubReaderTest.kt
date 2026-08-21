@@ -1,5 +1,7 @@
 package com.vivid.feature.chat.twitch
 
+import com.vivid.feature.chat.model.AlertDetail
+import com.vivid.feature.chat.model.ChatAlertType
 import com.vivid.feature.chat.model.ChatConnectionState
 import app.cash.turbine.test
 import io.ktor.client.HttpClient
@@ -112,7 +114,7 @@ class TwitchChatEventSubReaderTest {
     }
 
     @Test
-    fun `subscribes to channel chat message after the session welcome`() = runTest {
+    fun `subscribes to chat and alert topics after the session welcome`() = runTest {
         val sockets = mutableListOf(FakeEventSubSocket())
         val subscribeRequests = mutableListOf<String>()
         val client = client(this, sockets, subscribeRequests, testScheduler)
@@ -121,12 +123,21 @@ class TwitchChatEventSubReaderTest {
         sockets.first().push(welcome)
         advanceUntilIdle()
 
-        assertEquals(1, subscribeRequests.size)
-        val body = subscribeRequests.first()
-        assertTrue(body.contains("\"type\":\"channel.chat.message\""), body)
-        assertTrue(body.contains("\"version\":\"1\""), body)
-        assertTrue(body.contains("\"condition\":{\"broadcaster_user_id\":\"222\",\"user_id\":\"111\"}"), body)
-        assertTrue(body.contains("\"transport\":{\"method\":\"websocket\",\"session_id\":\"sess-1\"}"), body)
+        // Chat + Follow + Subscribe + Raid = 4 Subscriptions auf derselben Session.
+        assertEquals(4, subscribeRequests.size)
+        val chat = subscribeRequests[0]
+        assertTrue(chat.contains("\"type\":\"channel.chat.message\""), chat)
+        assertTrue(chat.contains("\"version\":\"1\""), chat)
+        assertTrue(chat.contains("\"condition\":{\"broadcaster_user_id\":\"222\",\"user_id\":\"111\"}"), chat)
+        assertTrue(chat.contains("\"transport\":{\"method\":\"websocket\",\"session_id\":\"sess-1\"}"), chat)
+        // Event-Alerts: Follow v2 (Moderator = Bot), Subscribe v1, Raid v1 (alle Raids).
+        val bodies = subscribeRequests.joinToString("\n")
+        assertTrue(bodies.contains("\"type\":\"channel.follow\"\n  \"version\":\"2\"") || bodies.contains("\"type\":\"channel.follow\""), bodies)
+        assertTrue(bodies.contains("\"condition\":{\"broadcaster_user_id\":\"222\",\"moderator_user_id\":\"111\"}"), bodies)
+        assertTrue(bodies.contains("\"type\":\"channel.subscribe\""), bodies)
+        assertTrue(bodies.contains("\"condition\":{\"broadcaster_user_id\":\"222\"}"), bodies)
+        assertTrue(bodies.contains("\"type\":\"channel.raid\""), bodies)
+        assertTrue(bodies.contains("\"condition\":{\"to_broadcaster_user_id\":\"222\",\"from_broadcaster_user_id\":\"\"}"), bodies)
         // Nach erfolgreichem Subscribe gilt der Chat als verbunden.
         assertEquals(ChatConnectionState.Connected("thoser666"), client.state.value)
         client.stop()
@@ -209,6 +220,66 @@ class TwitchChatEventSubReaderTest {
     }
 
     @Test
+    fun `emits follow subscribe and raid notifications as alerts`() = runTest {
+        val sockets = mutableListOf(FakeEventSubSocket())
+        val client = client(this, sockets, mutableListOf(), testScheduler)
+        val follow =
+            """{"metadata":{"message_type":"notification","subscription_type":"channel.follow","message_id":"a1"},"payload":{"subscription":{},"event":{"user_id":"333","user_login":"follower1","user_name":"FollowerEins","broadcaster_user_id":"222","broadcaster_user_login":"thoser666","broadcaster_user_name":"Thoser666","followed_at":"2026-08-21T10:00:00Z"}}}"""
+        val subscribe =
+            """{"metadata":{"message_type":"notification","subscription_type":"channel.subscribe","message_id":"a2"},"payload":{"subscription":{},"event":{"user_id":"444","user_login":"sub1","user_name":"SubEins","broadcaster_user_id":"222","tier":"1000","is_gift":true,"gifter_user_name":"GifterX"}}}"""
+        val raid =
+            """{"metadata":{"message_type":"notification","subscription_type":"channel.raid","message_id":"a3"},"payload":{"subscription":{},"event":{"from_broadcaster_user_id":"555","from_broadcaster_user_login":"raider1","from_broadcaster_user_name":"RaiderEins","to_broadcaster_user_id":"222","to_broadcaster_user_login":"thoser666","to_broadcaster_user_name":"Thoser666","viewers":12}}}"""
+
+        client.alerts.test {
+            client.start(config)
+            sockets.first().push(welcome)
+            sockets.first().push(follow)
+            sockets.first().push(subscribe)
+            sockets.first().push(raid)
+            advanceUntilIdle()
+
+            val f = awaitItem()
+            assertEquals(ChatAlertType.FOLLOW, f.type)
+            assertEquals("FollowerEins", f.displayName)
+            val s = awaitItem()
+            assertEquals(ChatAlertType.SUBSCRIBE, s.type)
+            assertEquals("SubEins", s.displayName)
+            assertEquals("1000", s.detail.tier)
+            assertEquals("GifterX", s.detail.gifterName)
+            val r = awaitItem()
+            assertEquals(ChatAlertType.RAID, r.type)
+            assertEquals("RaiderEins", r.displayName)
+            assertEquals(12, r.detail.viewerCount)
+            client.stop()
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `trigger test alert emits a synthetic alert on the alerts flow`() = runTest {
+        val sockets = mutableListOf(FakeEventSubSocket())
+        val client = client(this, sockets, mutableListOf(), testScheduler)
+
+        client.alerts.test {
+            client.start(config)
+            client.triggerTestAlert(
+                ChatAlertType.RAID,
+                displayName = "TestKanal",
+                detail = AlertDetail(viewerCount = 7),
+            )
+            advanceUntilIdle()
+
+            val alert = awaitItem()
+            assertEquals(ChatAlertType.RAID, alert.type)
+            assertEquals("TestKanal", alert.displayName)
+            assertEquals(7, alert.detail.viewerCount)
+            assertTrue(alert.id.startsWith("test-raid-"))
+            client.stop()
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     fun `graceful reconnect reuses the reconnect url without resubscribing`() = runTest {
         val first = FakeEventSubSocket()
         val second = FakeEventSubSocket()
@@ -219,7 +290,7 @@ class TwitchChatEventSubReaderTest {
         client.start(config)
         first.push(welcome)
         advanceUntilIdle()
-        assertEquals(1, subscribeRequests.size)
+        assertEquals(4, subscribeRequests.size)
 
         // session_reconnect → neue URL; Twitch übernimmt die Abos automatisch.
         first.push(reconnect)
@@ -230,7 +301,7 @@ class TwitchChatEventSubReaderTest {
         // Neue Session: kein erneuter Subscribe (Abos wandern mit).
         second.push(welcome)
         advanceUntilIdle()
-        assertEquals(1, subscribeRequests.size)
+        assertEquals(4, subscribeRequests.size)
         client.stop()
     }
 
@@ -245,7 +316,7 @@ class TwitchChatEventSubReaderTest {
         client.start(config)
         first.push(welcome)
         advanceUntilIdle()
-        assertEquals(1, subscribeRequests.size)
+        assertEquals(4, subscribeRequests.size)
 
         // Harte Trennung ohne session_reconnect → neue Session braucht ein Abo.
         first.drop()
@@ -254,7 +325,7 @@ class TwitchChatEventSubReaderTest {
         assertEquals(TwitchChatEventSubReader.DEFAULT_EVENTSUB_URL, second.connectedUrl)
         second.push(welcome)
         advanceUntilIdle()
-        assertEquals(2, subscribeRequests.size)
+        assertEquals(8, subscribeRequests.size)
         client.stop()
     }
 }

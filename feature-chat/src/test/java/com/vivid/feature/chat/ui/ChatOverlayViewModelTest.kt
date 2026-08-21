@@ -2,6 +2,9 @@ package com.vivid.feature.chat.ui
 
 import com.vivid.core.data.AppSettings
 import com.vivid.core.data.SettingsRepository
+import com.vivid.feature.chat.model.AlertDetail
+import com.vivid.feature.chat.model.ChatAlert
+import com.vivid.feature.chat.model.ChatAlertType
 import com.vivid.feature.chat.model.ChatBadge
 import com.vivid.feature.chat.model.ChatConnectionState
 import com.vivid.feature.chat.model.ChatMessage
@@ -40,11 +43,15 @@ class ChatOverlayViewModelTest {
             MutableSharedFlow<ChatMessage>(extraBufferCapacity = 64),
         stateFlow: MutableStateFlow<ChatConnectionState> =
             MutableStateFlow<ChatConnectionState>(ChatConnectionState.Disconnected),
+        alertsFlow: MutableSharedFlow<ChatAlert> =
+            MutableSharedFlow<ChatAlert>(extraBufferCapacity = 64),
     ): TwitchChatEventSubReader = mockk {
         every { messages } returns messageFlow
         every { state } returns stateFlow
+        every { alerts } returns alertsFlow
         every { start(any()) } just Runs
         every { stop() } just Runs
+        every { triggerTestAlert(any()) } just Runs
     }
 
     private fun repository(flow: MutableStateFlow<AppSettings>): SettingsRepository = mockk {
@@ -353,5 +360,82 @@ class ChatOverlayViewModelTest {
         advanceTimeBy(1001) // Load-Antwort kommt nach dem Deaktivieren an
         runCurrent()
         assertTrue(viewModel.uiState.value.badges.isEmpty())
+    }
+
+    // --- Event-Alerts (Follow/Sub/Raid) im Overlay ---
+
+    @Test
+    fun `alerts are shown capped and auto dismiss after the ttl`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val alertFlow = MutableSharedFlow<ChatAlert>(extraBufferCapacity = 64)
+        val reader = reader(alertsFlow = alertFlow)
+        val settings = MutableStateFlow(settings())
+        val viewModel = ChatOverlayViewModel(reader, repository(settings), badgeClient())
+        advanceUntilIdle()
+
+        repeat(ChatOverlayViewModel.MAX_ALERTS + 2) { i ->
+            alertFlow.tryEmit(
+                ChatAlert(
+                    id = "a$i",
+                    type = ChatAlertType.FOLLOW,
+                    displayName = "User$i",
+                    timestamp = 0L,
+                ),
+            )
+        }
+        // runCurrent statt advanceUntilIdle: die TTL-Entfernung (delay) darf
+        // hier noch nicht feuern, sonst wären die Alerts schon wieder weg.
+        runCurrent()
+
+        // Nur die letzten MAX_ALERTS bleiben sichtbar (älteste fliegen raus).
+        assertEquals(ChatOverlayViewModel.MAX_ALERTS, viewModel.uiState.value.alerts.size)
+        assertEquals("a2", viewModel.uiState.value.alerts.first().id)
+        assertEquals("a4", viewModel.uiState.value.alerts.last().id)
+
+        // Nach Ablauf der TTL verschwinden die Alerts automatisch.
+        advanceTimeBy(ChatOverlayViewModel.ALERT_TTL_MS)
+        advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.alerts.isEmpty())
+    }
+
+    @Test
+    fun `alerts are cleared when the overlay channel changes`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val alertFlow = MutableSharedFlow<ChatAlert>(extraBufferCapacity = 64)
+        val reader = reader(alertsFlow = alertFlow)
+        val settings = MutableStateFlow(settings())
+        val viewModel = ChatOverlayViewModel(reader, repository(settings), badgeClient())
+        advanceUntilIdle()
+
+        alertFlow.tryEmit(
+            ChatAlert(
+                id = "raid-1",
+                type = ChatAlertType.RAID,
+                displayName = "RaiderEins",
+                timestamp = 0L,
+                detail = AlertDetail(viewerCount = 12),
+            ),
+        )
+        runCurrent()
+        assertEquals(1, viewModel.uiState.value.alerts.size)
+
+        settings.value = settings(channel = "andererKanal")
+        runCurrent()
+
+        // Kanalwechsel leert die Alerts sofort (nicht erst nach der TTL).
+        assertTrue(viewModel.uiState.value.alerts.isEmpty())
+    }
+
+    @Test
+    fun `trigger test alert is forwarded to the reader`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val reader = reader()
+        val settings = MutableStateFlow(settings())
+        val viewModel = ChatOverlayViewModel(reader, repository(settings), badgeClient())
+        advanceUntilIdle()
+
+        viewModel.triggerTestAlert(ChatAlertType.FOLLOW)
+
+        verify(exactly = 1) { reader.triggerTestAlert(ChatAlertType.FOLLOW) }
     }
 }

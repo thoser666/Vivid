@@ -1,6 +1,9 @@
 package com.vivid.feature.chat.twitch
 
 import com.vivid.feature.chat.di.ChatScope
+import com.vivid.feature.chat.model.AlertDetail
+import com.vivid.feature.chat.model.ChatAlert
+import com.vivid.feature.chat.model.ChatAlertType
 import com.vivid.feature.chat.model.ChatConnectionState
 import com.vivid.feature.chat.model.ChatMessage
 import com.vivid.feature.chat.model.InlineEmote
@@ -32,6 +35,8 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.decodeFromJsonElement
 
 /**
  * Liest den öffentlichen Twitch-Chat über **EventSub WebSocket**
@@ -65,6 +70,18 @@ class TwitchChatEventSubReader @Inject constructor(
         onBufferOverflow = BufferOverflow.DROP_OLDEST,
     )
     val messages: Flow<ChatMessage> = _messages.asSharedFlow()
+
+    /**
+     * Event-Alerts (Follow/Sub/Raid) des Kanals — vom selben EventSub-
+     * WebSocket wie [messages], aber als eigener Flow. Die Overlay-Alerts
+     * werden über [ChatOverlayViewModel] angezeigt; [triggerTestAlert]
+     * speist synthetische Alerts in denselben Flow ein (Trigger-API).
+     */
+    private val _alerts = MutableSharedFlow<ChatAlert>(
+        extraBufferCapacity = 64,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST,
+    )
+    val alerts: Flow<ChatAlert> = _alerts.asSharedFlow()
 
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -149,10 +166,32 @@ class TwitchChatEventSubReader @Inject constructor(
                 reconnectUrl = envelope.payload.session?.reconnect_url
                 if (reconnectUrl != null) reconnecting = true
             }
-            "notification" -> envelope.payload.event?.let { event ->
-                val text = event.message.text.trim()
-                if (text.isNotEmpty()) {
-                    _messages.tryEmit(toChatMessage(cfg, event))
+            "notification" -> envelope.payload.event?.let { eventJson ->
+                // Dispatch über subscription_type: Chat-Nachrichten und
+                // Event-Alerts (Follow/Sub/Raid) kommen über denselben
+                // WebSocket, tragen aber verschiedene Event-Formen.
+                when (envelope.metadata.subscription_type) {
+                    FOLLOW_SUBSCRIPTION_TYPE -> {
+                        val event = json.decodeFromJsonElement<FollowEvent>(eventJson)
+                        _alerts.tryEmit(toFollowAlert(event))
+                    }
+                    SUBSCRIBE_SUBSCRIPTION_TYPE -> {
+                        val event = json.decodeFromJsonElement<SubscribeEvent>(eventJson)
+                        _alerts.tryEmit(toSubscribeAlert(event))
+                    }
+                    RAID_SUBSCRIPTION_TYPE -> {
+                        val event = json.decodeFromJsonElement<RaidEvent>(eventJson)
+                        _alerts.tryEmit(toRaidAlert(event))
+                    }
+                    // channel.chat.message (auch wenn subscription_type fehlt,
+                    // z. B. in Fixtures) → Chat-Nachricht.
+                    else -> {
+                        val event = json.decodeFromJsonElement<ChatMessageEvent>(eventJson)
+                        val text = event.message.text.trim()
+                        if (text.isNotEmpty()) {
+                            _messages.tryEmit(toChatMessage(cfg, event))
+                        }
+                    }
                 }
             }
             // session_keepalive / revocation / ... → ignorieren.
@@ -221,7 +260,16 @@ class TwitchChatEventSubReader @Inject constructor(
         }.getOrDefault(System.currentTimeMillis())
     }
 
-    /** Subscribt `channel.chat.message` für den Kanal (Broadcaster) als dieser Session. */
+    /**
+     * Subscribt alle Topics dieser Session: `channel.chat.message` (Kern für
+     * Overlay + Bot) plus die Event-Alerts `channel.follow`/`channel.subscribe`/
+     * `channel.raid`.
+     *
+     * Nur der Chat-Subscribe bestimmt [subscribed] (Reconnect-Logik) — die
+     * Alert-Subscriptions sind best-effort: fehlt ein Scope oder ist der Bot
+     * z. B. kein Moderator (Follow braucht `moderator:read:followers`), fällt
+     * nur der jeweilige Alert-Typ aus, Chat und Reconnect laufen weiter.
+     */
     private suspend fun subscribe(cfg: TwitchEventSubConfig, sessionId: String) {
         val auth = TwitchWhisperConfig(
             botLogin = cfg.botLogin,
@@ -230,28 +278,128 @@ class TwitchChatEventSubReader @Inject constructor(
         )
         val botUserId = whisperClient.resolveUserId(auth, cfg.botLogin) ?: return
         val broadcasterUserId = whisperClient.resolveUserId(auth, cfg.channel) ?: return
+
+        subscribed = postSubscription(
+            cfg, sessionId,
+            type = CHAT_SUBSCRIPTION_TYPE,
+            version = CHAT_SUBSCRIPTION_VERSION,
+            condition = ChatEventSubCondition(
+                broadcaster_user_id = broadcasterUserId,
+                user_id = botUserId,
+            ),
+        )
+
+        // Event-Alerts: jede Subscription einzeln, Fehler → nur dieser Typ fällt aus.
+        runCatching {
+            postSubscription(
+                cfg, sessionId,
+                type = FOLLOW_SUBSCRIPTION_TYPE,
+                version = FOLLOW_SUBSCRIPTION_VERSION,
+                condition = FollowEventSubCondition(
+                    broadcaster_user_id = broadcasterUserId,
+                    moderator_user_id = botUserId,
+                ),
+            )
+        }
+        runCatching {
+            postSubscription(
+                cfg, sessionId,
+                type = SUBSCRIBE_SUBSCRIPTION_TYPE,
+                version = SUBSCRIBE_SUBSCRIPTION_VERSION,
+                condition = SubscribeEventSubCondition(broadcaster_user_id = broadcasterUserId),
+            )
+        }
+        runCatching {
+            postSubscription(
+                cfg, sessionId,
+                type = RAID_SUBSCRIPTION_TYPE,
+                version = RAID_SUBSCRIPTION_VERSION,
+                condition = RaidEventSubCondition(
+                    to_broadcaster_user_id = broadcasterUserId,
+                    from_broadcaster_user_id = "",
+                ),
+            )
+        }
+    }
+
+    /**
+     * Postet eine EventSub-Subscription für diese Session; true = Erfolg.
+     *
+     * `inline`/`reified`: Ktors `setBody` ist reified und braucht den konkreten
+     * Typ der Condition, um den generischen `EventSubSubscribeRequest<T>`-
+     * Serializer aufzulösen — ein `Any`-Parameter würde die Typ-Information
+     * auslöschen und den Serializer-Lookup brechen.
+     */
+    private suspend inline fun <reified T : Any> postSubscription(
+        cfg: TwitchEventSubConfig,
+        sessionId: String,
+        type: String,
+        version: String,
+        condition: T,
+    ): Boolean {
         val response = http.post("$HELIX_API/eventsub/subscriptions") {
             header(HttpHeaders.Authorization, "Bearer ${cfg.oauthToken.trim().removePrefix("oauth:")}")
             header(CLIENT_ID_HEADER, cfg.clientId)
             contentType(ContentType.Application.Json)
             setBody(
                 EventSubSubscribeRequest(
-                    type = CHAT_SUBSCRIPTION_TYPE,
-                    version = CHAT_SUBSCRIPTION_VERSION,
-                    condition = ChatEventSubCondition(
-                        broadcaster_user_id = broadcasterUserId,
-                        user_id = botUserId,
-                    ),
+                    type = type,
+                    version = version,
+                    condition = condition,
                     transport = EventSubTransport(method = "websocket", session_id = sessionId),
                 ),
             )
         }
-        // Nur bei Erfolg als subscribed markieren — sonst beim nächsten
-        // session_welcome (nach Reconnect) erneut versuchen. Bei 403
-        // („subscription missing proper authorization“, z. B. Scope
-        // user:read:chat fehlt) bleibt der Reader im Reconnect-Zustand.
-        subscribed = response.status.isSuccess()
+        return response.status.isSuccess()
     }
+
+    /**
+     * Trigger-API für Event-Alerts: erzeugt lokal (ohne Netzwerk) einen
+     * synthetischen [ChatAlert] und speist ihn in denselben [alerts]-Flow ein.
+     * Damit lässt sich das Overlay-Verhalten testen bzw. eine Probe auslösen
+     * (z. B. vor dem Go-Live), ohne echte Follows/Subs/Raids abzuwarten.
+     */
+    fun triggerTestAlert(
+        type: ChatAlertType,
+        displayName: String = "Test",
+        detail: AlertDetail = AlertDetail(),
+    ) {
+        _alerts.tryEmit(
+            ChatAlert(
+                id = "test-${type.name.lowercase()}-${System.nanoTime()}",
+                type = type,
+                displayName = displayName,
+                timestamp = System.currentTimeMillis(),
+                detail = detail,
+            ),
+        )
+    }
+
+    private fun toFollowAlert(event: FollowEvent): ChatAlert = ChatAlert(
+        id = "follow-${event.user_id}-${System.nanoTime()}",
+        type = ChatAlertType.FOLLOW,
+        displayName = event.user_name.ifBlank { event.user_login }.ifBlank { "?" },
+        timestamp = parseTimestamp(event.followed_at),
+    )
+
+    private fun toSubscribeAlert(event: SubscribeEvent): ChatAlert = ChatAlert(
+        id = "sub-${event.user_id}-${System.nanoTime()}",
+        type = ChatAlertType.SUBSCRIBE,
+        displayName = event.user_name.ifBlank { event.user_login }.ifBlank { "?" },
+        timestamp = System.currentTimeMillis(),
+        detail = AlertDetail(
+            tier = event.tier,
+            gifterName = if (event.is_gift) event.gifter_user_name else "",
+        ),
+    )
+
+    private fun toRaidAlert(event: RaidEvent): ChatAlert = ChatAlert(
+        id = "raid-${event.from_broadcaster_user_id}-${System.nanoTime()}",
+        type = ChatAlertType.RAID,
+        displayName = event.from_broadcaster_user_name.ifBlank { event.from_broadcaster_user_login }.ifBlank { "?" },
+        timestamp = System.currentTimeMillis(),
+        detail = AlertDetail(viewerCount = event.viewers),
+    )
 
     private fun backoffMillis(attempt: Int): Long {
         val factor = 1L shl attempt.coerceAtMost(5)
@@ -264,6 +412,12 @@ class TwitchChatEventSubReader @Inject constructor(
         private const val CLIENT_ID_HEADER = "Client-Id"
         private const val CHAT_SUBSCRIPTION_TYPE = "channel.chat.message"
         private const val CHAT_SUBSCRIPTION_VERSION = "1"
+        private const val FOLLOW_SUBSCRIPTION_TYPE = "channel.follow"
+        private const val FOLLOW_SUBSCRIPTION_VERSION = "2"
+        private const val SUBSCRIBE_SUBSCRIPTION_TYPE = "channel.subscribe"
+        private const val SUBSCRIBE_SUBSCRIPTION_VERSION = "1"
+        private const val RAID_SUBSCRIPTION_TYPE = "channel.raid"
+        private const val RAID_SUBSCRIPTION_VERSION = "1"
     }
 }
 
@@ -279,7 +433,53 @@ internal data class ChatEventSubEnvelope(
 @Serializable
 internal data class ChatEventSubPayload(
     val session: EventSubSession? = null,
-    val event: ChatMessageEvent? = null,
+    // Die Event-Form variiert je nach subscription_type (Chat-Nachricht vs.
+    // Follow/Subscribe/Raid) — deshalb als JsonElement und erst im Handler
+    // anhand von metadata.subscription_type dekodiert.
+    val event: JsonElement? = null,
+)
+
+@Serializable
+internal data class FollowEvent(
+    val user_id: String = "",
+    val user_login: String = "",
+    val user_name: String = "",
+    val followed_at: String = "",
+)
+
+@Serializable
+internal data class SubscribeEvent(
+    val user_id: String = "",
+    val user_login: String = "",
+    val user_name: String = "",
+    val tier: String = "",
+    val is_gift: Boolean = false,
+    val gifter_user_name: String = "",
+)
+
+@Serializable
+internal data class RaidEvent(
+    val from_broadcaster_user_id: String = "",
+    val from_broadcaster_user_login: String = "",
+    val from_broadcaster_user_name: String = "",
+    val viewers: Int = 0,
+)
+
+// --- Helix-Subscribe-Conditions für die Event-Alert-Topics ---
+
+@Serializable
+internal data class FollowEventSubCondition(
+    val broadcaster_user_id: String,
+    val moderator_user_id: String,
+)
+
+@Serializable
+internal data class SubscribeEventSubCondition(val broadcaster_user_id: String)
+
+@Serializable
+internal data class RaidEventSubCondition(
+    val to_broadcaster_user_id: String,
+    val from_broadcaster_user_id: String,
 )
 
 @Serializable

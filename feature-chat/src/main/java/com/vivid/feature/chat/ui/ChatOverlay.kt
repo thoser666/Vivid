@@ -19,6 +19,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -31,6 +32,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.vivid.feature.chat.R
+import com.vivid.feature.chat.model.ChatAlert
+import com.vivid.feature.chat.model.ChatAlertType
 import com.vivid.feature.chat.model.ChatBadge
 import com.vivid.feature.chat.model.ChatConnectionState
 import com.vivid.feature.chat.model.ChatMessage
@@ -59,7 +62,13 @@ fun ChatOverlay(
             .padding(horizontal = 10.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        if (uiState.messages.isEmpty()) {
+        // Event-Alerts (Follow/Sub/Raid) oberhalb der Chat-Nachrichten — jede
+        // Zeile in der Farbe des Alert-Typs, verschwindet nach der TTL von
+        // selbst (im ViewModel geregelt).
+        uiState.alerts.forEach { alert ->
+            AlertRow(alert)
+        }
+        if (uiState.messages.isEmpty() && uiState.alerts.isEmpty()) {
             Text(
                 text = when {
                     !uiState.configured -> stringResource(R.string.chat_overlay_not_configured)
@@ -75,6 +84,57 @@ fun ChatOverlay(
             }
         }
     }
+}
+
+/**
+ * Eine Event-Alert-Zeile (Follow/Sub/Raid): Typ-Farbe + lokalisierter Text
+ * aus den String-Ressourcen. Die Zusatzdaten (Tier/Giftgeber/Viewer) kommen
+ * strukturiert im [ChatAlert.detail] und werden hier in die Templates
+ * eingesetzt (keine Lokalisierung in der Datenebene).
+ */
+@Composable
+private fun AlertRow(alert: ChatAlert) {
+    val color = when (alert.type) {
+        ChatAlertType.FOLLOW -> Color(0xFF4CAF50)
+        ChatAlertType.SUBSCRIBE -> Color(0xFFBA68C8)
+        ChatAlertType.RAID -> Color(0xFFFFB74D)
+    }
+    val text = when (alert.type) {
+        ChatAlertType.FOLLOW -> stringResource(R.string.chat_alert_follow, alert.displayName)
+        ChatAlertType.SUBSCRIBE -> {
+            val tier = tierLabel(alert.detail.tier)
+            val base = if (tier != null) {
+                stringResource(R.string.chat_alert_subscribe, alert.displayName, tier)
+            } else {
+                stringResource(R.string.chat_alert_subscribe_plain, alert.displayName)
+            }
+            if (alert.detail.gifterName.isNotBlank()) {
+                base + stringResource(R.string.chat_alert_sub_gift, alert.detail.gifterName)
+            } else {
+                base
+            }
+        }
+        ChatAlertType.RAID -> pluralStringResource(
+            R.plurals.chat_alert_raid,
+            alert.detail.viewerCount,
+            alert.displayName,
+            alert.detail.viewerCount,
+        )
+    }
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelMedium,
+        fontWeight = FontWeight.Bold,
+        color = color,
+    )
+}
+
+/** Twitch-Tier-Wert (`1000`/`2000`/`3000`) → Anzeige-Label „Tier 1/2/3“ (unverändert lokalisiert). */
+private fun tierLabel(tier: String): String? = when (tier) {
+    "1000" -> "Tier 1"
+    "2000" -> "Tier 2"
+    "3000" -> "Tier 3"
+    else -> null
 }
 
 /**

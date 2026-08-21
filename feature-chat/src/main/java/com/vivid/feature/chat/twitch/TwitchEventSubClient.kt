@@ -229,6 +229,11 @@ internal data class EventSubEnvelope(
 internal data class EventSubMetadata(
     val message_type: String = "",
     val message_id: String = "",
+    // Nur bei notifications gefüllt — der Chat-Reader dispatcht darüber, ob
+    // es sich um eine Chat-Nachricht (channel.chat.message) oder ein
+    // Event-Alert (channel.follow/subscribe/raid) handelt.
+    val subscription_type: String = "",
+    val subscription_version: String = "",
 )
 
 @Serializable

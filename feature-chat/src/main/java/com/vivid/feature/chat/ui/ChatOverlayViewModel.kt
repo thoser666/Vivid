@@ -3,6 +3,8 @@ package com.vivid.feature.chat.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vivid.core.data.SettingsRepository
+import com.vivid.feature.chat.model.ChatAlert
+import com.vivid.feature.chat.model.ChatAlertType
 import com.vivid.feature.chat.model.ChatBadge
 import com.vivid.feature.chat.model.ChatConnectionState
 import com.vivid.feature.chat.model.ChatMessage
@@ -11,6 +13,7 @@ import com.vivid.feature.chat.twitch.TwitchChatEventSubReader
 import com.vivid.feature.chat.twitch.TwitchEventSubConfig
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -27,6 +30,12 @@ class ChatOverlayViewModel @Inject constructor(
     companion object {
         /** Maximale Anzahl an Nachrichten, die im Overlay vorgehalten werden. */
         const val MAX_MESSAGES = 50
+
+        /** Maximale Anzahl gleichzeitig angezeigter Event-Alerts. */
+        const val MAX_ALERTS = 3
+
+        /** Anzeigedauer eines Event-Alerts, danach verschwindet er. */
+        const val ALERT_TTL_MS = 10_000L
     }
 
     data class ChatOverlayUiState(
@@ -42,6 +51,12 @@ class ChatOverlayViewModel @Inject constructor(
          * geladen; ohne Badge-Daten zeigt das Overlay nur den Usernamen.
          */
         val badges: Map<String, ChatBadge> = emptyMap(),
+        /**
+         * Event-Alerts (Follow/Sub/Raid) aus dem EventSub-WebSocket — max.
+         * [MAX_ALERTS] gleichzeitig, jeder verschwindet nach [ALERT_TTL_MS]
+         * automatisch wieder.
+         */
+        val alerts: List<ChatAlert> = emptyList(),
     )
 
     private val _uiState = MutableStateFlow(ChatOverlayUiState())
@@ -95,6 +110,9 @@ class ChatOverlayViewModel @Inject constructor(
                         // Bei Kanalwechsel/Deaktivierung erst einmal leeren — die
                         // neuen Badges kommen asynchron mit dem nächsten Load.
                         badges = if (contextChanged) emptyMap() else it.badges,
+                        // Alerts gehören zum vorherigen Kanal — bei Wechsel/Stopp
+                        // sofort entfernen (TTL-Entfernung läuft sonst weiter).
+                        alerts = if (contextChanged) emptyList() else it.alerts,
                     )
                 }
             }
@@ -107,12 +125,35 @@ class ChatOverlayViewModel @Inject constructor(
                 }
             }
         }
+        // Event-Alerts aufnehmen (begrenzt) und nach Ablauf der TTL wieder
+        // entfernen. Entfernt wird per ID-Gleichheit — die IDs der Alerts sind
+        // eindeutig, ein TTL-Timer löscht also nie fremde Alerts mit.
+        viewModelScope.launch {
+            chatReader.alerts.collect { alert ->
+                _uiState.update { state ->
+                    state.copy(alerts = (state.alerts + alert).takeLast(MAX_ALERTS))
+                }
+                viewModelScope.launch {
+                    delay(ALERT_TTL_MS)
+                    _uiState.update { state -> state.copy(alerts = state.alerts - alert) }
+                }
+            }
+        }
         // Verbindungsstatus durchreichen.
         viewModelScope.launch {
             chatReader.state.collect { connection ->
                 _uiState.update { it.copy(connection = connection) }
             }
         }
+    }
+
+    /**
+     * Trigger-API: löst über den Reader einen synthetischen Test-Alert aus
+     * (ohne Netzwerk) — zum Verifizieren des Overlay-Renderings vor dem
+     * Go-Live bzw. in Tests.
+     */
+    fun triggerTestAlert(type: ChatAlertType) {
+        chatReader.triggerTestAlert(type)
     }
 
     /**

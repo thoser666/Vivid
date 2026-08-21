@@ -4,4 +4,14 @@
     <string name="chat_overlay_not_configured">Overlay de chat : non configuré (login du bot + jeton + ID client dans les paramètres)</string>
     <string name="chat_overlay_connecting">Connexion…</string>
     <string name="chat_overlay_channel">Chat : %1$s</string>
+    <!-- Alertes d'événement (follow/abonnement/raid) dans l'overlay de chat (ui/ChatOverlay.kt) -->
+    <string name="chat_alert_follow">🔔 %1$s suit maintenant !</string>
+    <string name="chat_alert_subscribe">🎉 %1$s s\'abonne (%2$s)</string>
+    <string name="chat_alert_subscribe_plain">🎉 %1$s s\'abonne</string>
+    <string name="chat_alert_sub_gift"> · cadeau de %1$s</string>
+    <plurals name="chat_alert_raid">
+        <item quantity="one">⚔️ Raid de %1$s (%2$d spectateur)</item>
+        <item quantity="many">⚔️ Raid de %1$s (%2$d spectateurs)</item>
+        <item quantity="other">⚔️ Raid de %1$s (%2$d spectateurs)</item>
+    </plurals>
 </resources>
