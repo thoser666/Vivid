@@ -31,6 +31,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.vivid.feature.chat.R
+import com.vivid.feature.chat.model.ChatBadge
 import com.vivid.feature.chat.model.ChatConnectionState
 import com.vivid.feature.chat.model.ChatMessage
 import com.vivid.feature.chat.model.InlineEmote
@@ -70,27 +71,45 @@ fun ChatOverlay(
             )
         } else {
             uiState.messages.takeLast(6).forEach { message ->
-                ChatMessageRow(message)
+                ChatMessageRow(message, uiState.badges)
             }
         }
     }
 }
 
 /**
- * Eine Chat-Zeile mit Inline-Emotes: Username in Farbe, danach Textsegmente
- * im Wechsel mit Twitch-CDN-Emote-Bildern (via Coil).
+ * Eine Chat-Zeile: Twitch-Badges (Broadcaster/Mod/Sub) vor dem Username,
+ * danach Textsegmente im Wechsel mit Twitch-CDN-Emote-Bildern (via Coil).
+ * [badges] ist die `"set_id/version_id" → [ChatBadge]`-Map aus dem
+ * [ChatOverlayViewModel.ChatOverlayUiState] — unbekannte Badges werden
+ * einfach übersprungen.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ChatMessageRow(message: ChatMessage) {
+private fun ChatMessageRow(message: ChatMessage, badges: Map<String, ChatBadge>) {
     val nameColor = message.color?.let(::parseHexColor) ?: Color(0xFFB39DDB)
     val emoteSizeDp = with(LocalDensity.current) { 14.sp.toDp() }
+    val badgeSizeDp = with(LocalDensity.current) { 18.sp.toDp() }
     val segments = parseMessageSegments(message.text, message.inlineEmotes)
 
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        // Username (immer als erstes)
+        // Twitch-Badges (Broadcaster, Moderator, Subscriber, …)
+        message.badges.forEach { key ->
+            badges[key]?.let { badge ->
+                AsyncImage(
+                    model = badge.imageUrl,
+                    contentDescription = badge.title,
+                    modifier = Modifier
+                        .width(badgeSizeDp)
+                        .height(badgeSizeDp)
+                        .clip(RoundedCornerShape(2.dp)),
+                    contentScale = ContentScale.Fit,
+                )
+            }
+        }
+        // Username (direkt nach den Badges)
         Text(
             text = buildAnnotatedString {
                 withStyle(SpanStyle(color = nameColor, fontWeight = FontWeight.Bold)) {

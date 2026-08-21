@@ -3,8 +3,10 @@ package com.vivid.feature.chat.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vivid.core.data.SettingsRepository
+import com.vivid.feature.chat.model.ChatBadge
 import com.vivid.feature.chat.model.ChatConnectionState
 import com.vivid.feature.chat.model.ChatMessage
+import com.vivid.feature.chat.twitch.TwitchBadgeClient
 import com.vivid.feature.chat.twitch.TwitchChatEventSubReader
 import com.vivid.feature.chat.twitch.TwitchEventSubConfig
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -19,6 +21,7 @@ import kotlinx.coroutines.launch
 class ChatOverlayViewModel @Inject constructor(
     private val chatReader: TwitchChatEventSubReader,
     private val settingsRepository: SettingsRepository,
+    private val badgeClient: TwitchBadgeClient,
 ) : ViewModel() {
 
     companion object {
@@ -33,6 +36,12 @@ class ChatOverlayViewModel @Inject constructor(
         val configured: Boolean = false,
         val messages: List<ChatMessage> = emptyList(),
         val connection: ChatConnectionState = ChatConnectionState.Disconnected,
+        /**
+         * Twitch-Badge-Bilder je `"set_id/version_id"` (z. B. `broadcaster/1`,
+         * `moderator/1`, `subscriber/6`) — vom [TwitchBadgeClient] beim Start
+         * geladen; ohne Badge-Daten zeigt das Overlay nur den Usernamen.
+         */
+        val badges: Map<String, ChatBadge> = emptyMap(),
     )
 
     private val _uiState = MutableStateFlow(ChatOverlayUiState())
@@ -54,14 +63,14 @@ class ChatOverlayViewModel @Inject constructor(
                 val contextChanged = previous.enabled != enabled || previous.channel != channel
 
                 if (enabled && channel.isNotBlank() && configured) {
-                    chatReader.start(
-                        TwitchEventSubConfig(
-                            botLogin = settings.chatBotLogin,
-                            oauthToken = settings.chatBotOauthToken,
-                            clientId = settings.chatBotTwitchClientId,
-                            channel = channel,
-                        ),
+                    val config = TwitchEventSubConfig(
+                        botLogin = settings.chatBotLogin,
+                        oauthToken = settings.chatBotOauthToken,
+                        clientId = settings.chatBotTwitchClientId,
+                        channel = channel,
                     )
+                    chatReader.start(config)
+                    loadBadges(config)
                 } else {
                     chatReader.stop()
                 }
@@ -71,6 +80,9 @@ class ChatOverlayViewModel @Inject constructor(
                         channel = channel,
                         configured = configured,
                         messages = if (contextChanged) emptyList() else it.messages,
+                        // Bei Kanalwechsel/Deaktivierung erst einmal leeren — die
+                        // neuen Badges kommen asynchron mit dem nächsten Load.
+                        badges = if (contextChanged) emptyMap() else it.badges,
                     )
                 }
             }
@@ -88,6 +100,18 @@ class ChatOverlayViewModel @Inject constructor(
             chatReader.state.collect { connection ->
                 _uiState.update { it.copy(connection = connection) }
             }
+        }
+    }
+
+    /**
+     * Lädt die Twitch-Badges (global + Kanal) für das Overlay-Rendering.
+     * Fehler sind unkritisch: das Overlay zeigt dann einfach keine
+     * Badge-Bilder, der Chat läuft weiter.
+     */
+    private fun loadBadges(config: TwitchEventSubConfig) {
+        viewModelScope.launch {
+            val badges = runCatching { badgeClient.load(config) }.getOrDefault(emptyMap())
+            _uiState.update { it.copy(badges = badges) }
         }
     }
 
