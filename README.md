@@ -145,16 +145,22 @@ The About-screen check follows the same rules as [RELEASE.md](RELEASE.md): it on
 ### 📋 Planned (Roadmap to Moblin parity)
 
 - 📡 **Multi-Network Bonding (SRTLA)** - Combine WiFi and mobile data for rock-solid streams
-- 💬 **Chat Extensions** - Emotes (BTTV/FFZ/7TV) and moderation (ban/timeout) — note: chat-bot **media player control** via MediaSession (Apple Music, Spotify, etc.; adapted from Moblin 33.12.0) is already implemented (`!song`/`!next`/`!pause`/`!play`/`!prev`, needs notification access), and the **AI chat bot** itself is already implemented (see above)
-- 🎨 **Overlays & Widgets** - Follower/donation alerts, custom graphics and branding; text widgets incl. altitude (ascent/descent), GPS coordinates and road/route variables (the Twitch chat overlay and a first text/info widget with time, GPS and speed are already implemented — see above)
+- 💬 **Chat Extensions** - Emotes (BTTV/FFZ/7TV) plus chat polish: viewer count, set stream title/category, chat polls, and chat display details (hide/gray out deleted messages, replies, `/me` styling, cheered bits, adjustable overlay layout) — note: moderation (`!ban`/`!timeout`/`!delete`), chat-bot **media player control** via MediaSession (Apple Music, Spotify, etc.; adapted from Moblin 33.12.0) and the **AI chat bot** itself are already implemented (see above)
+- 🎨 **Overlays & Widgets** - Follower/donation alerts, custom graphics and branding; text widgets incl. weather, timer/stopwatch, distance, G-force and road/route variables (altitude, GPS and speed are already implemented — see above); further widget types planned: image widget, QR-code widget, battery indicator (with low-battery chat warning), grid overlay for positioning, and speech-to-text subtitles
 - 📹 **High-Quality Streaming** - Up to 4K resolution at 60fps with H.264/AVC and H.265/HEVC
-- 🔒 **Extended Protocols** - SRTLA, RIST, and WHIP (WebRTC) — RTMPS is already implemented (see below); RTMP-Pull/ingest server mode (community request #407)
-- 🕹️ **Remote & Companion Features** - Web remote control (incl. talkback mic selection), game controller support, deep linking
-- 📸 **Photo Shoot Quick Button** - Periodically capture high-resolution clean pictures to the gallery (new in Moblin 33.12.0)
+- 🔒 **Extended Protocols** - SRTLA, RIST, and WHIP (WebRTC) — RTMPS is already implemented (see below); RTMP-Pull/ingest server mode (community request #407); adaptive bitrate for SRT(LA) + per-connection upload statistics
+- 🎬 **Scenes & Video Sources** - Save and switch complete stream configurations (basic scenes) incl. an auto scene switcher; screen capture and a basic video player as additional stream sources (multi-cam)
+- 🎛️ **Pro Camera Controls** - Manual exposure bias, white balance, ISO and focus; back-camera lens selection (ultra-wide/wide/tele); torch and low-light boost
+- 📼 **Replays** - Record to disk (MP4) while streaming and save/play replays
+- 🖥️ **Externes Display / Streamer-Browser** - Video on an external display (Android Cast / Presentation) and a built-in browser visible only to the streamer (Moblin feature)
+- 📱 **Landscape & Portrait** - Landscape in both orientations (video always gravity-down) and a portrait UI with landscape video (Vivid is currently portrait-only)
+- ❤️ **BLE Fitness Sensors** - Heart-rate belt and cycling power monitor (BLE) shown in the text widget — related to the Oura-ring cloud row
+- 🕹️ **Remote & Companion Features** - Web remote control (incl. talkback mic selection, mic/bitrate/zoom control, logs), game controller support, deep linking
+- 📸 **Photo Shoot Quick Button** - Periodically capture high-resolution clean pictures to the gallery; manual snapshots with optional Discord auto-upload (new in Moblin 33.12.0)
 
 ## 🛣️ Roadmap
 
-**Current stage: Beta** — the [Beta-Gate is formally reached](RELEASE.md) (17/17 Moblin parity ✅, Twitch chat ✅ with scope, ≥1 widget ✅); the first beta `v0.5.1-beta` shipped (current: `v0.5.2-beta`). Open checklists for the current stage:
+**Current stage: Beta** — the [Beta-Gate is formally reached](RELEASE.md) (17/17 Moblin parity ✅, Twitch chat ✅ with scope, ≥1 widget ✅); the first beta `v0.5.1-beta` shipped (current: `v0.5.5-beta`). Open checklists for the current stage:
 
 - 🧪 **[Beta-Build-Checkliste](RELEASE.md#-erster-beta-build-plan)** — Beta-Gate-Bedingungen + Play-Unterlagen + ≥2 manuelle Tester (abhakbare Liste in RELEASE.md)
 - ✅ **[Play-Vorbereitung P0–P2](RELEASE.md#-play-vorbereitung-priorisierte-abhakliste-mit-zeitaufwand)** — Master-Checkliste für den ersten Play-Upload (Secrets, Console, Screenshots, Tester; ~4–5 h einmalig; Fortschritt live in [Issue #116](https://github.com/thoser666/Vivid/issues/116))
@@ -163,7 +169,8 @@ The About-screen check follows the same rules as [RELEASE.md](RELEASE.md): it on
 
 - 💬 **[Multi-Plattform-Chat (Kick, YouTube, SOOP)](PARITY.md#-roadmap-bucket-multi-plattform-chat-kick-youtube-soop)** — platform adapters (YouTube innertube with anonymous reading, Kick Pusher WebSocket + GraphQL, SOOP) + OAuth login (PKCE), parallel sessions for multi-streaming
 - 🎨 **[Color-Spaces + 3D-LUTs](PARITY.md#-roadmap-bucket-color-spaces--3d-luts)** — sRGB/P3/Log video color spaces + PNG 3D-LUTs (Hald CLUT) in the stream pipeline
-- 📋 **Remaining Moblin-parity features** (SRTLA bonding, H.264/H.265 up to 4K/60fps, RIST/WHIP, RTMP ingest, emotes, moderation, event alerts, more widgets, …) — see the [Planned features](#-planned-roadmap-to-moblin-parity) list and the per-feature [Parity Status](#-parity-status) table
+- 📋 **Remaining Moblin-parity features** (SRTLA bonding, H.264/H.265 up to 4K/60fps, RIST/WHIP, RTMP ingest, emotes, more widgets, …) — see the [Planned features](#-planned-roadmap-to-moblin-parity) list and the per-feature [Parity Status](#-parity-status) table
+- 🆕 **Moblin-Gap-Analyse (21.08.)** — systematic comparison against the Moblin README surfaced **20 missing features**, now tracked in [PARITY.md](PARITY.md): scenes & video sources, pro camera controls (exposure/WB/ISO/lens), replays/record-to-disk, image/QR/battery/grid widgets, speech-to-text subtitles, landscape/portrait, viewer count, title/category, chat display details, chat polls, streamer browser, adaptive bitrate, BLE sensors — applicable Moblin features: **62**
 
 Release stages & criteria (nightly → alpha → beta → stable) and the versioning strategy: **[RELEASE.md](RELEASE.md)**.
 
@@ -474,11 +481,11 @@ Status: ✅ implemented · 🚧 in progress · 📋 planned
 | I18n Support | ✅ | All UI strings externalized (per-module `strings.xml`, German default + full English `values-en`); CI gates: externalization + `values`↔`values-en` completeness + hint-content guard — [docs/i18n-plan.md](docs/i18n-plan.md) |
 | H.264/H.265, up to 4K/60fps | 📋 | Pipeline in place, quality targets planned |
 | Multi-Network Bonding (SRTLA) | 📋 | SRTLA algorithm to be ported |
-| Chat (Twitch) + Emotes + Moderation | ✅ Twitch-Scope | `feature-chat` — Twitch EventSub reader (`channel.chat.message`) + Helix send (`POST /helix/chat/messages`) + chat overlay over the live preview + **inline Twitch emotes** (CDN rendering via Coil) + AI chat bot done (IRC removed); **Kick/YouTube/SOOP + OAuth (sending/moderation) = post-beta roadmap**, third-party emotes (BTTV/FFZ/7TV) & moderation pending |
+| Chat (Twitch) + Emotes + Moderation | ✅ Twitch-Scope | `feature-chat` — Twitch EventSub reader (`channel.chat.message`) + Helix send (`POST /helix/chat/messages`) + chat overlay over the live preview + **inline Twitch emotes** (CDN rendering via Coil) + **moderation done** (`!ban`/`!timeout`/`!delete`) + AI chat bot done (IRC removed); **Kick/YouTube/SOOP + OAuth (sending/moderation) = post-beta roadmap**, third-party emotes (BTTV/FFZ/7TV) pending |
 | AI Chat Bot (Vivid extra) | ✅ | Fully automatic LLM chat bot: auto-connect on go-live, clean shutdown on stream end; OpenAI-compatible LLM providers; **owner mode** (`!start`/`!stop`/`!diag`/`!ask`, streamer-only via broadcaster badge + allow-list, separate owner LLM) |
 | UI Color Schemes (Vivid extra) | ✅ | Material-3 palette (seed `#3DDC84`) replaces the template colors; **appearance settings category „Darstellung“**: user toggle System/Light/Dark/AMOLED (pure-black surfaces for OLED) + 6 curated accent colors (M3 TonalSpot palettes, Vivid Green stays the default) — applies live, no restart |
 | Chat-Bot Media Player Control | ✅ | Generic media control via MediaSession (Apple Music, Spotify, …); Android adaptation of Moblin 33.12.0 — commands `!song`/`!next`/`!pause`/`!play`/`!prev` (needs notification access) |
-| Overlays & Widgets | 🚧 | `feature-widgets`: first **text/info widget** (time, GPS coordinates, speed) live as overlay — time/date ticker, `LocationProvider` (LocationManager), settings toggles, permission flow; altitude/weather/road variables still open (Twitch chat overlay already implemented in `feature-chat`) |
+| Overlays & Widgets | 🚧 | `feature-widgets`: **text/info widget** (time, GPS coordinates, speed, altitude) live as overlay — time/date ticker, `LocationProvider` (LocationManager), settings toggles, permission flow; weather/road variables + image/QR/battery/grid widgets + speech-to-text subtitles planned (Twitch chat overlay + event alerts already implemented in `feature-chat`) |
 | Audio Tools (levels, muting, talk-back) | 📋 | |
 | Extended Protocols (RIST, WHIP) | 📋 | |
 | RTMP-Pull / Ingest (Server mode) | 📋 | Community request #407; Moblin offers ingests (RTMP, SRT(LA), RIST, RTSP, WHIP) |
@@ -486,6 +493,22 @@ Status: ✅ implemented · 🚧 in progress · 📋 planned
 | Photo Shoot Quick Button | 📋 | Periodic high-res photos to the gallery; new in Moblin 33.12.0 |
 | Game Controller Support | 📋 | |
 | Deep Linking (`moblin://`) | 📋 | |
+| Scenes (basic) + Auto Scene Switcher | 📋 | Complete stream configs as switchable scenes; video-source widget (multi-cam) |
+| Pro Camera Controls + Lens Selection | 📋 | Manual exposure bias, white balance, ISO, focus; ultra-wide/wide/tele selection |
+| Screen Capture + Video Player as source | 📋 | MediaProjection + basic video player as stream source |
+| Record to Disk (MP4) + Replays | 📋 | Record while streaming; save & play replays |
+| Torch / Low-Light Boost | 📋 | Flashlight toggle + gain boost in low light |
+| External Display (Cast / HDMI-out) | 📋 | Video on an external display via Android Cast/Presentation |
+| VTuber / PNGTuber | 📋 | Basic avatar instead of the camera |
+| Image / QR / Battery / Grid Widgets | 📋 | Image + QR code on stream, battery indicator (+ low-battery chat warning), grid overlay for positioning |
+| Speech-to-Text Subtitles | 📋 | Live subtitles from the mic as overlay |
+| Twitch: Viewer Count, Title/Category, Ads | 📋 | Helix streams/channels API |
+| Chat Display Details (deleted msgs, replies, /me, bits) | 📋 | Hide/gray out deleted messages, show replies, `/me` styling, cheered bits, adjustable layout |
+| Chat Poll | 📋 | Simple chat polls via the bot |
+| Adaptive Bitrate (SRT/SRTLA) + Upload Stats | 📋 | Dynamic bitrate + per-connection statistics |
+| Streamer Browser | 📋 | Built-in browser, visible to the streamer only |
+| Landscape / Portrait | 📋 | Landscape 0/180 (gravity-down video) + portrait UI with landscape video |
+| BLE Fitness Sensors (HR, Cycling Power) | 📋 | Heart-rate belt + cycling power monitor (related to the Oura-ring row) |
 
 ---
 

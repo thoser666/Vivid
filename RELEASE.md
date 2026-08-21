@@ -59,16 +59,16 @@ Jeder Release durchläuft eine von vier Stufen. Welche Stufe aktiv ist, bestimmt
 
 ## 🗺️ Roadmap (Version → Features)
 
-Welche offenen PARITY-Punkte in welcher Version released werden — Zählerstand: ✅ **21** (Stand 2026-08-20, [PARITY.md](PARITY.md)). Reihenfolge nach dem Prinzip: **erst Gate-Pflichten, dann Nutzer-Sichtbares, dann Streaming-Komfort, zuletzt Protokoll-Ausbau & Plattform** — jedes Release bleibt für sich testbar und läuft über die jeweilige Fastlane-Lane.
+Welche offenen PARITY-Punkte in welcher Version released werden — Zählerstand: ✅ **23** (Stand 2026-08-21, [PARITY.md](PARITY.md)). **Gap-Analyse 21.08.:** Abgleich gegen die Moblin-README hat **20 fehlende Features** aufgedeckt (Szenen, Pro-Kamera-Steuerung, Videoquellen, Replays, Bild-/QR-/Akku-/Grid-Widgets, Untertitel-STT, Landscape/Portrait, Viewer-Zähler, Titel/Kategorie, Chat-Anzeige-Details, Poll, Streamer-Browser, adaptive Bitrate, BLE-Sensoren …) — anwendbare Moblin-Features jetzt **62**, alle neuen Punkte sind in die Buckets unten einsortiert. Reihenfolge nach dem Prinzip: **erst Gate-Pflichten, dann Nutzer-Sichtbares, dann Streaming-Komfort, zuletzt Protokoll-Ausbau & Plattform** — jedes Release bleibt für sich testbar und läuft über die jeweilige Fastlane-Lane.
 
 | Version | Inhalt (PARITY-Punkte) | ✅ nach Release | Gate |
 |---------|------------------------|-----------------|------|
 | `v0.4.x-alpha` | (läuft bereits — aktuell `v0.4.2-alpha`, enthält den Scroll-Fix) | 20 | alpha-Gate aktiv |
-| `v0.5.0-beta` | **Chat & Moderation (4):** Plattform-Chat, Emotes, Moderation/Chat-Bot/TTS, Media-Player-Bot · **erstes Overlay:** Text-/Info-Widgets (Sensor-/GPS-Daten) · **Vivid-Zusatz:** KI-Chat-Bot (LLM-Antworten, bereits in alpha implementiert) | **24** | **Beta-Gate 3/3 erreicht** (≥17 ✅ · Chat-✅ Twitch-Scope · ≥1 Widget ✅) — offen nur noch: Play-Unterlagen + ≥2 Tester · versionCode 5002 (über 0.5.0-alpha/5001) |
-| `v0.4.0-beta` | **Overlays & Widgets (5):** Chat-Overlay/Event-Alerts, Text-Widget-Variablen, Karten-Widget, Browser-Widget, Scoreboards | **29** | Beta #2 |
-| `v0.5.0-beta` | **Kamera & Video (4):** Color-Spaces/3D-LUTs, Video-Effekte, Externes Zubehör, Photo-Shoot · **Audio (3):** Mic-Verwaltung, Level-Meter/Muting/Sync, Talk-Back · Oura-Ring-Widget | **37** | Beta #3 |
-| `v0.6.0-beta` | **Streaming-Erweiterung (5):** RIST, WHIP, RTMP-Pull/Ingest, 4K/HEVC, SRTLA-Bonding · OBS Snapshot/Audio-Levels · Game-Controller, Deep-Linking/Konfig-Import | **45** | Beta #4 |
-| `v1.0.0-stable` | I18n (✅, 3 Sprachen: de/en/fr) + Play-Store-Unterlagen (Icon, Screenshots, Listing) | **46 (100 %)** | Stable-Gate (≥90 %) |
+| `v0.5.0-beta` | **Chat & Moderation (4):** Plattform-Chat, Emotes, Moderation/Chat-Bot/TTS, Media-Player-Bot · **erstes Overlay:** Text-/Info-Widgets (Sensor-/GPS-Daten) · **Vivid-Zusatz:** KI-Chat-Bot (LLM-Antworten, bereits in alpha implementiert) | **23** | **Beta-Gate 3/3 erreicht** (≥17 ✅ · Chat-✅ Twitch-Scope · ≥1 Widget ✅) — offen nur noch: Play-Unterlagen + ≥2 Tester · versionCode 5002 (über 0.5.0-alpha/5001) |
+| `v0.4.0-beta` | **Overlays & Widgets (10):** Text-/Info-Widgets komplett (Höhenmeter ✅), Text-Widget-Variablen, Karten-Widget, Browser-Widget, Scoreboards, Bild-Widget, QR-Code-Widget, Akku-Anzeige (+ Low-Battery-Warnung), Grid-Overlay, Untertitel (Speech-to-Text) — Chat-Overlay/Event-Alerts sind ✅ bereits implementiert | **33** | Beta #2 |
+| `v0.5.0-beta` | **Kamera & Video (12):** Color-Spaces/3D-LUTs, Video-Effekte, Externes Zubehör, Photo-Shoot, Szenen + Auto-Scene-Switcher, Pro-Kamera-Steuerung + Linsen-Auswahl, Screen-Capture/Video-Player-Quelle, Replays (Record-to-Disk), Taschenlampe, Low-Light-Boost, Externes Display/Cast, VTuber/PNGTuber · **Audio (3):** Mic-Verwaltung, Level-Meter/Muting/Sync, Talk-Back · Oura-Ring- + BLE-Sensoren | **50** | Beta #3 |
+| `v0.6.0-beta` | **Streaming-Erweiterung (6):** RIST, WHIP, RTMP-Pull/Ingest, 4K/HEVC, SRTLA-Bonding, Adaptive Bitrate + Upload-Statistik · OBS Snapshot/Audio-Levels/Mute · Game-Controller, Deep-Linking/Konfig-Import, Streamer-Browser · Landscape/Portrait | **61** | Beta #4 |
+| `v1.0.0-stable` | **Chat-Rest (4):** Emotes (BTTV/FFZ/7TV), Twitch-Integration (Viewer, Titel/Kategorie), Chat-Anzeige-Details, Chat-Poll · I18n (✅, 3 Sprachen: de/en/fr) + Play-Store-Unterlagen (Icon, Screenshots, Listing) | **65 (100 %)** | Stable-Gate (≥90 %) |
 
 > **Pflege:** Bei jeder Änderung an PARITY.md prüfen — neue Features wandern in den nächsten passenden Versions-Bucket; die Grenzen sind flexibel (ein Feature darf vorziehen, wenn es erst das Gate der nächsten Version schließbar macht).
 >
@@ -1159,7 +1159,7 @@ bundle exec fastlane release_alpha
 >   - Data Safety Section (welche Daten sammelt die App?)
 
 **Kriterien (alle müssen erfüllt sein):**
-- [x] ≥17 ✅ Feature-Parität in PARITY.md (17/42 ≈ 40 %)
+- [x] ≥17 ✅ Feature-Parität in PARITY.md (17/62 ≈ 27 % — Nenner aktualisiert nach Gap-Analyse 21.08.)
 - [x] Chat implementiert & getestet (Twitch-Scope ✅, PARITY Row 77; Kick/YouTube/OAuth Post-Beta)
 - [x] Mindestens ein Overlay/Widget funktioniert (Text-/Info-Widget Zeit/GPS/Geschwindigkeit ✅, PARITY Row 87)
 - [ ] Kamera-Vorschau stabil (🚧 in PARITY.md)
@@ -1178,7 +1178,7 @@ bundle exec fastlane release_beta
 > **🧠 Erinnerung: Sobald diese Kriterien erfüllt sind → `release_stable`-Lane schreiben und v1.0.0 taggen.**
 
 **Kriterien (alle müssen erfüllt sein):**
-- [ ] ≥90 % Feature-Parität (≈39 von 43, 43 = 100 %)
+- [ ] ≥90 % Feature-Parität (≈56 von 62, 62 = 100 %)
 - [ ] Alle entwickelten Features in PARITY.md auf ✅
 - [ ] Vollständige CI-Test-Suite (Unit + UI + Integration)
 - [ ] Performance-Test bestanden (Streaming-Latenz <2 s, App-Start <1 s)
