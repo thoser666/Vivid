@@ -236,6 +236,96 @@ class BotCommandProcessorTest {
         )
     }
 
+    // --- Moderation (!ban / !timeout / !delete — Owner-only, Gate in der Engine) ---
+
+    @Test
+    fun `ban carries the target user`() {
+        assertEquals(
+            BotCommandProcessor.Result.Ban("troll1"),
+            processor().handle("!ban troll1", null),
+        )
+        assertEquals(
+            BotCommandProcessor.Result.Ban("troll1"),
+            processor().handle("!ban @troll1", null),
+        )
+    }
+
+    @Test
+    fun `ban without a user carries an empty login`() {
+        assertEquals(
+            BotCommandProcessor.Result.Ban(""),
+            processor().handle("!ban", null),
+        )
+    }
+
+    @Test
+    fun `timeout carries the user and an optional duration`() {
+        assertEquals(
+            BotCommandProcessor.Result.Timeout("mod1", null),
+            processor().handle("!timeout mod1", null),
+        )
+        assertEquals(
+            BotCommandProcessor.Result.Timeout("mod1", 10),
+            processor().handle("!timeout mod1 10", null),
+        )
+    }
+
+    @Test
+    fun `timeout accepts duration suffixes case-insensitively`() {
+        assertEquals(
+            BotCommandProcessor.Result.Timeout("mod1", 10),
+            processor().handle("!timeout mod1 10min", null),
+        )
+        assertEquals(
+            BotCommandProcessor.Result.Timeout("mod1", 10),
+            processor().handle("!timeout mod1 10Minute", null),
+        )
+        assertEquals(
+            BotCommandProcessor.Result.Timeout("mod1", 10),
+            processor().handle("!timeout mod1 10m", null),
+        )
+    }
+
+    @Test
+    fun `timeout rejects a non-numeric or non-positive duration`() {
+        assertEquals(
+            BotCommandProcessor.Result.Timeout("mod1", null),
+            processor().handle("!timeout mod1 später", null),
+        )
+        assertEquals(
+            BotCommandProcessor.Result.Timeout("mod1", null),
+            processor().handle("!timeout mod1 0", null),
+        )
+    }
+
+    @Test
+    fun `delete carries an optional count`() {
+        assertEquals(
+            BotCommandProcessor.Result.Delete(null),
+            processor().handle("!delete", null),
+        )
+        assertEquals(
+            BotCommandProcessor.Result.Delete(5),
+            processor().handle("!delete 5", null),
+        )
+    }
+
+    @Test
+    fun `moderation commands work inside a message and with the prefix scope`() {
+        assertEquals(
+            BotCommandProcessor.Result.Ban("troll1"),
+            processor().handle("@vividbot !ban troll1 bitte", null),
+        )
+        assertEquals(
+            BotCommandProcessor.Result.Timeout("mod1", 10),
+            processor().handle("!v!timeout mod1 10", null, ChatBotCommandScope.PREFIX, "v"),
+        )
+        assertEquals(
+            BotCommandProcessor.Result.Delete(3),
+            processor().handle("!v!delete 3", null, ChatBotCommandScope.PREFIX, "v"),
+        )
+    }
+
     @Test
     fun `unknown commands are reported as unknown`() {
         assertEquals(

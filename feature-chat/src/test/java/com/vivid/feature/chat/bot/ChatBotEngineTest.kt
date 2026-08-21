@@ -8,6 +8,7 @@ import com.vivid.feature.chat.ai.LlmException
 import com.vivid.feature.chat.model.ChatMessage
 import com.vivid.feature.chat.ai.LlmMessage
 import com.vivid.feature.chat.media.ChatMediaPlayer
+import com.vivid.feature.chat.twitch.TwitchModerationException
 import com.vivid.feature.chat.twitch.TwitchSendChatException
 import com.vivid.feature.chat.twitch.TwitchWhisperException
 import java.util.Optional
@@ -1602,6 +1603,211 @@ class ChatBotEngineTest {
         coVerify(exactly = 1) { control.stop() }
         coVerify(exactly = 1) { sender.sendWhisper(any(), any()) }
         coVerify(exactly = 0) { sender.send(any()) }
+        engine.stop()
+    }
+
+    // --- Owner-Moderation (!ban / !timeout / !delete — nur der Streamer) ---
+
+    @Test
+    fun `ban from a viewer is rejected without acting`() = runTest {
+        val moderation = mockk<ChatModeration>()
+        val engine = engine()
+        val sent = slot<String>()
+        coEvery { sender.send(capture(sent)) } just Runs
+
+        engine.start(messages, config(), sender, this, moderation = moderation)
+        messages.emit(chatMessage("!ban troll1")) // viewer1
+        advanceUntilIdle()
+
+        assertEquals(ChatBotEngine.OWNER_ONLY_TEXT, sent.captured)
+        coVerify(exactly = 0) { moderation.ban(any()) }
+        coVerify(exactly = 0) { llm.complete(any(), any()) }
+        engine.stop()
+    }
+
+    @Test
+    fun `ban from the allow list bans the target user`() = runTest {
+        val moderation = mockk<ChatModeration>()
+        coEvery { moderation.ban("troll1") } returns "✅ @troll1 wurde verbannt."
+        val engine = engine()
+        val sent = slot<String>()
+        coEvery { sender.send(capture(sent)) } just Runs
+
+        engine.start(
+            messages,
+            config(ownerLogins = setOf("streamer2")),
+            sender,
+            this,
+            moderation = moderation,
+        )
+        messages.emit(chatMessage("!ban troll1", login = "streamer2"))
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { moderation.ban("troll1") }
+        coVerify(exactly = 0) { llm.complete(any(), any()) }
+        assertEquals("✅ @troll1 wurde verbannt.", sent.captured)
+        engine.stop()
+    }
+
+    @Test
+    fun `timeout passes the duration to the moderation client`() = runTest {
+        val moderation = mockk<ChatModeration>()
+        coEvery { moderation.timeout("mod1", 10) } returns "⏱ @mod1 wurde für 10 Min. getimeoutet."
+        val engine = engine()
+        coEvery { sender.send(any()) } just Runs
+
+        engine.start(
+            messages,
+            config(ownerLogins = setOf("streamer2")),
+            sender,
+            this,
+            moderation = moderation,
+        )
+        messages.emit(chatMessage("!timeout mod1 10", login = "streamer2"))
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { moderation.timeout("mod1", 10) }
+        coVerify { sender.send("⏱ @mod1 wurde für 10 Min. getimeoutet.") }
+        engine.stop()
+    }
+
+    @Test
+    fun `delete passes the tracked recent message ids`() = runTest {
+        val moderation = mockk<ChatModeration>()
+        coEvery { moderation.deleteRecent(any(), any()) } returns "🗑 2 Nachricht(en) gelöscht."
+        val engine = engine()
+        coEvery { sender.send(any()) } just Runs
+
+        engine.start(
+            messages,
+            config(ownerLogins = setOf("streamer2")),
+            sender,
+            this,
+            moderation = moderation,
+        )
+        val eins = chatMessage("erste nachricht")
+        val zwei = chatMessage("zweite nachricht")
+        val deleteCommand = chatMessage("!delete 2", login = "streamer2")
+        messages.emit(eins)
+        messages.emit(zwei)
+        advanceUntilIdle()
+        messages.emit(deleteCommand)
+        advanceUntilIdle()
+
+        // Die Engine trackt die Kanal-Nachrichten-IDs (inkl. des Befehls
+        // selbst) und übergibt den Ringpuffer; der Client wählt die letzten 2.
+        coVerify(exactly = 1) { moderation.deleteRecent(2, listOf(eins.id, zwei.id, deleteCommand.id)) }
+        coVerify { sender.send("🗑 2 Nachricht(en) gelöscht.") }
+        engine.stop()
+    }
+
+    @Test
+    fun `ban without a user shows the missing-user hint without acting`() = runTest {
+        val moderation = mockk<ChatModeration>()
+        val engine = engine()
+        val sent = slot<String>()
+        coEvery { sender.send(capture(sent)) } just Runs
+
+        engine.start(
+            messages,
+            config(ownerLogins = setOf("streamer2")),
+            sender,
+            this,
+            moderation = moderation,
+        )
+        messages.emit(chatMessage("!ban", login = "streamer2"))
+        advanceUntilIdle()
+
+        assertEquals(ChatBotEngine.MODERATION_MISSING_USER_TEXT, sent.captured)
+        coVerify(exactly = 0) { moderation.ban(any()) }
+        engine.stop()
+    }
+
+    @Test
+    fun `moderation reply is whispered when private replies are enabled`() = runTest {
+        val moderation = mockk<ChatModeration>()
+        coEvery { moderation.ban("troll1") } returns "✅ @troll1 wurde verbannt."
+        val engine = engine()
+        coEvery { sender.sendWhisper(any(), any()) } just Runs
+
+        engine.start(
+            messages,
+            config(ownerLogins = setOf("streamer2"), ownerWhisperReplies = true),
+            sender,
+            this,
+            moderation = moderation,
+        )
+        messages.emit(chatMessage("!ban troll1", login = "streamer2"))
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { moderation.ban("troll1") }
+        coVerify(exactly = 1) { sender.sendWhisper("streamer2", "✅ @troll1 wurde verbannt.") }
+        coVerify(exactly = 0) { sender.send(any()) }
+        engine.stop()
+    }
+
+    @Test
+    fun `moderation via whisper from the owner executes and replies privately`() = runTest {
+        val moderation = mockk<ChatModeration>()
+        coEvery { moderation.timeout("troll1", null) } returns "⏱ @troll1 wurde für 5 Min. getimeoutet."
+        val engine = engine()
+        coEvery { sender.sendWhisper(any(), any()) } just Runs
+
+        engine.start(messages, config(ownerLogins = setOf("streamer2")), sender, this, moderation = moderation)
+        messages.emit(chatMessage("!timeout troll1", login = "streamer2", isWhisper = true))
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { moderation.timeout("troll1", null) }
+        coVerify(exactly = 1) { sender.sendWhisper("streamer2", "⏱ @troll1 wurde für 5 Min. getimeoutet.") }
+        coVerify(exactly = 0) { sender.send(any()) }
+        engine.stop()
+    }
+
+    @Test
+    fun `moderation failure is answered with an error hint`() = runTest {
+        val moderation = mockk<ChatModeration>()
+        coEvery { moderation.ban(any()) } throws TwitchModerationException("Scope moderator:manage:banned_users fehlt")
+        val engine = engine()
+        val sent = slot<String>()
+        coEvery { sender.send(capture(sent)) } just Runs
+
+        engine.start(
+            messages,
+            config(ownerLogins = setOf("streamer2")),
+            sender,
+            this,
+            moderation = moderation,
+        )
+        messages.emit(chatMessage("!ban troll1", login = "streamer2"))
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { moderation.ban("troll1") }
+        assertTrue(sent.captured.contains("Moderation fehlgeschlagen"))
+        engine.stop()
+    }
+
+    @Test
+    fun `moderation commands are still protected by the rate limit`() = runTest {
+        val moderation = mockk<ChatModeration>()
+        val engine = engine()
+        var currentTime = 10_000_000L
+        engine.now = { currentTime }
+        coEvery { sender.send(any()) } just Runs
+
+        engine.start(
+            messages,
+            config(ownerLogins = setOf("streamer2"), replyCooldownMillis = 0, maxRepliesPerMinute = 1),
+            sender,
+            this,
+            moderation = moderation,
+        )
+        messages.emit(chatMessage("!help")) // verbraucht das Rate-Limit-Fenster
+        advanceUntilIdle()
+        messages.emit(chatMessage("!ban troll1", login = "streamer2"))
+        advanceUntilIdle()
+
+        coVerify(exactly = 0) { moderation.ban(any()) }
+        coVerify(exactly = 1) { sender.send(BotCommandProcessor.HELP_TEXT) }
         engine.stop()
     }
 }

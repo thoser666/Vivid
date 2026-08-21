@@ -300,6 +300,7 @@ Was die Lane tut: ① `clean assembleDebug assembleDebugAndroidTest`, ② `scree
 |--------|-----|-------|
 | `!help` · `!uptime` · `!tts` · `!song` · `!next` · `!pause` · `!play` · `!prev` · `!bot` | alle (Viewer) | Standard-Befehle — vollständige Referenz: [docs/ai-chat-bot.md](docs/ai-chat-bot.md) |
 | `!start` / `!go-live` · `!stop` / `!end` · `!diag` / `!status` · `!ask <frage>` | **nur der Streamer** (Broadcaster-Badge oder Allow-List `chat_bot_owner_logins`) | Stream starten/stoppen · Diagnose mit Empfehlungen · Frage an die **exklusive Owner-KI** (Fallback: normale Bot-KI) — nur während eines aktiven Streams; Viewer erhalten nur einen Hinweis |
+| `!ban <user>` · `!timeout <user> <minuten?>` · `!delete <anzahl?>` | **nur der Streamer** (Broadcaster-Badge oder Allow-List `chat_bot_owner_logins`) | Chat-Moderation über die Helix-API — Scopes `moderator:manage:banned_users` / `moderator:manage:chat_messages`, der Bot muss Moderator im Kanal sein: verbannen, timeouten (Standard 5 Min), die letzten N vom Bot gesehenen Nachrichten löschen |
 
 > **Erst wenn alle `[x]`:** `bundle exec fastlane release_beta` → Tag `v0.5.0-beta` → CI baut signiert, veröffentlicht als GitHub-Release (kein Pre-Release-Status-Limit nötig — Beta-Tags werden wie Alpha veröffentlicht) und läuft durch Signatur-/Reproduzierbarkeits-Checks.
 
@@ -1086,7 +1087,7 @@ Fehlerbilder (bewusst **harte Abbrüche** — bei CI-Fail hat Play keinerlei Än
 
 ## 🤖 Chat-Bot: Twitch-Token & Client-ID (Setup)
 
-Damit der KI-Chat-Bot im Kanal antwortet und **Owner-Befehle privat per Whisper** sendet/empfängt (`!start`/`!stop`/`!diag`/`!ask`), braucht das **Bot-Konto** einen User-Access-Token mit den richtigen Scopes und eine **Twitch-App-Client-ID**. Beide Werte liegen **nur in den App-Einstellungen** des Streamers — sie sind bewusst **keine** GitHub-Secrets (der Secret-Guard-Check verhindert, dass sie je ins Repo gelangen). Details zu Limits & Verhalten: `docs/ai-chat-bot.md`.
+Damit der KI-Chat-Bot im Kanal antwortet, **Owner-Befehle privat per Whisper** sendet/empfängt (`!start`/`!stop`/`!diag`/`!ask`) und die **Owner-Moderation** ausführen kann (`!ban`/`!timeout`/`!delete`), braucht das **Bot-Konto** einen User-Access-Token mit den richtigen Scopes und eine **Twitch-App-Client-ID**. Beide Werte liegen **nur in den App-Einstellungen** des Streamers — sie sind bewusst **keine** GitHub-Secrets (der Secret-Guard-Check verhindert, dass sie je ins Repo gelangen). Scopes für die Moderation: `moderator:manage:banned_users` (Ban/Timeout) und `moderator:manage:chat_messages` (Nachrichten löschen) — zusätzlich zu `user:read:chat`/`user:write:chat` (und `user:manage:whispers` für den privaten Antwortweg). Details zu Limits & Verhalten: `docs/ai-chat-bot.md`.
 
 **1. Bot-Token mit den Chat-Scopes erzeugen** (einmalig, dann App-einstellen):
 

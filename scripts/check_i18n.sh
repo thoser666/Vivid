@@ -42,10 +42,12 @@ else
     "app/src/main"
   )
 fi
-# Erlaubte Dateien: Bot-Diagnose-Ausgabe (!diag), die bewusst NICHT lokalisiert
-# wird (i18n-plan §4 — Bot-Antworten in der Sprache des Streamers/Viewers).
+# Erlaubte Dateien: Bot-Antworten/-Ausgaben, die bewusst NICHT lokalisiert
+# werden (i18n-plan §4 — Bot-Texte in der Sprache des Streamers/Viewers):
+# !diag-Ausgabe der Owner-Steuerung und Moderation-Client-Bestätigungen.
 ALLOWLIST_FILES=(
   "app/src/main/java/com/vivid/irlbroadcaster/AppChatStreamControl.kt"
+  "feature-chat/src/main/java/com/vivid/feature/chat/twitch/TwitchModerationClient.kt"
 )
 
 HITS=$(grep -rn -E 'Text\("|contentDescription = "[A-Za-zÄÖÜäöü]|label = "[A-Za-zÄÖÜäöü]|title = "[A-Za-zÄÖÜäöü]' "${UI_MODULES[@]}" --include="*.kt" \

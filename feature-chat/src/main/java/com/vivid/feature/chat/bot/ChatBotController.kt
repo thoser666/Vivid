@@ -6,6 +6,7 @@ import com.vivid.feature.chat.di.ChatScope
 import com.vivid.feature.chat.twitch.TwitchChatEventSubReader
 import com.vivid.feature.chat.twitch.TwitchEventSubClient
 import com.vivid.feature.chat.twitch.TwitchEventSubConfig
+import com.vivid.feature.chat.twitch.TwitchModerationClient
 import com.vivid.feature.chat.twitch.TwitchSendChatClient
 import com.vivid.feature.chat.twitch.TwitchWhisperClient
 import com.vivid.feature.chat.twitch.TwitchWhisperConfig
@@ -29,6 +30,7 @@ class ChatBotController @Inject constructor(
     private val chatReader: TwitchChatEventSubReader,
     private val sendChatClient: TwitchSendChatClient,
     private val whisperClient: TwitchWhisperClient,
+    private val moderationClient: TwitchModerationClient,
     private val eventSubClient: TwitchEventSubClient,
     private val engine: ChatBotEngine,
     private val chatTts: ChatTtsController,
@@ -104,6 +106,18 @@ class ChatBotController @Inject constructor(
             },
             scope = scope,
             streamStartedAtMillis = streamStartedAtMillis,
+            // Owner-Moderation (!ban/!timeout/!delete): echte Helix-Aufrufe
+            // mit denselben Bot-Zugangsdaten wie das Senden.
+            moderation = object : ChatModeration {
+                override suspend fun ban(userLogin: String): String =
+                    moderationClient.ban(eventSubConfig, userLogin)
+
+                override suspend fun timeout(userLogin: String, durationMinutes: Int?): String =
+                    moderationClient.timeout(eventSubConfig, userLogin, durationMinutes)
+
+                override suspend fun deleteRecent(count: Int?, recentMessageIds: List<String>): String =
+                    moderationClient.deleteRecent(eventSubConfig, count, recentMessageIds)
+            },
         )
         // Chat-TTS (der !tts-Befehl): liest den gleichen Nachrichten-Flow vor —
         // andere Bots (Ignore-Liste) werden nicht vorgelesen.

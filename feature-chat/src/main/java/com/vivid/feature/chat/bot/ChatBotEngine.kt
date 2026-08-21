@@ -81,7 +81,12 @@ class ChatBotEngine @Inject constructor(
     private var collectorJob: Job? = null
     private var config: ChatBotConfig? = null
     private var sender: ChatSender? = null
+    private var moderation: ChatModeration = NoOpChatModeration
     private var streamStartedAtMillis = 0L
+
+    // Ringpuffer der zuletzt gesehenen Kanal-Nachrichten-IDs — Grundlage für
+    // `!delete <anzahl>` (gelöscht werden kann nur, was der Bot gesehen hat).
+    private val recentMessageIds = ArrayDeque<String>()
     private val history = ArrayDeque<LlmMessage>()
     private val replyTimes = ArrayDeque<Long>()
     private var lastReplyAt = 0L
@@ -109,11 +114,13 @@ class ChatBotEngine @Inject constructor(
         sender: ChatSender,
         scope: CoroutineScope,
         streamStartedAtMillis: Long = 0L,
+        moderation: ChatModeration = NoOpChatModeration,
     ) {
         stop()
         if (!config.isReady) return
         this.config = config
         this.sender = sender
+        this.moderation = moderation
         this.streamStartedAtMillis = streamStartedAtMillis
         history.clear()
         replyTimes.clear()
@@ -121,6 +128,7 @@ class ChatBotEngine @Inject constructor(
         lastReplyByUser.clear()
         userReplyCounts.clear()
         userReplyNames.clear()
+        recentMessageIds.clear()
         totalRepliesThisStream = 0
         updateUsage()
         _state.value = ChatBotState.Idle
@@ -134,10 +142,12 @@ class ChatBotEngine @Inject constructor(
         collectorJob = null
         config = null
         sender = null
+        moderation = NoOpChatModeration
         streamStartedAtMillis = 0L
         lastReplyByUser.clear()
         userReplyCounts.clear()
         userReplyNames.clear()
+        recentMessageIds.clear()
         totalRepliesThisStream = 0
         updateUsage()
         _state.value = ChatBotState.Disabled
@@ -147,6 +157,12 @@ class ChatBotEngine @Inject constructor(
         val cfg = config ?: return
         val snd = sender ?: return
         if (message.text.isBlank()) return
+        // Letzte Kanal-Nachrichten-IDs tracken (Ringpuffer) — Grundlage für
+        // `!delete <anzahl>`: gelöscht werden kann nur, was der Bot gesehen hat.
+        if (!message.isWhisper && message.id.isNotBlank()) {
+            recentMessageIds.addLast(message.id)
+            while (recentMessageIds.size > MAX_TRACKED_MESSAGE_IDS) recentMessageIds.removeFirst()
+        }
         if (message.userLogin == cfg.login) return
         // Koexistenz: Nachrichten anderer Bots (Ignore-Liste, z. B. Rivulet-Bot)
         // werden komplett ignoriert — keine Befehle, kein LLM-Input.
@@ -231,6 +247,32 @@ class ChatBotEngine @Inject constructor(
                 handleOwnerAsk(cfg, message, snd, result.text)
                 return
             }
+            is BotCommandProcessor.Result.Ban -> {
+                handleModeration(cfg, message, snd) {
+                    if (result.userLogin.isBlank()) {
+                        MODERATION_MISSING_USER_TEXT
+                    } else {
+                        moderation.ban(result.userLogin)
+                    }
+                }
+                return
+            }
+            is BotCommandProcessor.Result.Timeout -> {
+                handleModeration(cfg, message, snd) {
+                    if (result.userLogin.isBlank()) {
+                        MODERATION_MISSING_USER_TEXT
+                    } else {
+                        moderation.timeout(result.userLogin, result.durationMinutes)
+                    }
+                }
+                return
+            }
+            is BotCommandProcessor.Result.Delete -> {
+                handleModeration(cfg, message, snd) {
+                    moderation.deleteRecent(result.count, recentMessageIds.toList())
+                }
+                return
+            }
             is BotCommandProcessor.Result.Unknown ->
                 if (cfg.mode == ChatBotMode.COMMAND) {
                     "Unbekannter Befehl „${result.command}“ — Tipp: !help"
@@ -302,7 +344,49 @@ class ChatBotEngine @Inject constructor(
                 handleOwnerAction(cfg, message, snd) { streamControl.stop(); STREAM_STOP_TEXT }
             is BotCommandProcessor.Result.OwnerDiagnose -> handleOwnerDiagnose(cfg, message, snd)
             is BotCommandProcessor.Result.OwnerAsk -> handleOwnerAsk(cfg, message, snd, result.text)
+            is BotCommandProcessor.Result.Ban ->
+                handleModeration(cfg, message, snd) {
+                    if (result.userLogin.isBlank()) MODERATION_MISSING_USER_TEXT else moderation.ban(result.userLogin)
+                }
+            is BotCommandProcessor.Result.Timeout ->
+                handleModeration(cfg, message, snd) {
+                    if (result.userLogin.isBlank()) MODERATION_MISSING_USER_TEXT else moderation.timeout(result.userLogin, result.durationMinutes)
+                }
+            is BotCommandProcessor.Result.Delete ->
+                handleModeration(cfg, message, snd) { moderation.deleteRecent(result.count, recentMessageIds.toList()) }
             else -> Unit
+        }
+    }
+
+    /**
+     * Führt eine Moderation-Aktion aus (`!ban`/`!timeout`/`!delete`). Nur der
+     * Streamer (Owner-Gate); Nicht-Owner bekommen den üblichen Hinweis. Owner
+     * umgehen Cooldown und Per-Viewer-Limits; das globale Rate-Limit
+     * (Kosten-Schutz) gilt weiterhin. Die Aktion liefert die fertige
+     * Chat-Antwort; Fehler werden gefangen und als Fehlerhinweis beantwortet
+     * (die Engine bleibt für nachfolgende Nachrichten verfügbar).
+     */
+    private suspend fun handleModeration(
+        cfg: ChatBotConfig,
+        message: ChatMessage,
+        snd: ChatSender,
+        action: suspend () -> String,
+    ) {
+        if (!isOwner(cfg, message)) {
+            sendOwnerOnlyHint(snd, message)
+            return
+        }
+        if (rateLimited(cfg)) return
+        try {
+            sendOwnerReply(cfg, snd, message, action())
+        } catch (e: Exception) {
+            _logs.tryEmit("Moderation fehlgeschlagen: ${e.message}")
+            sendOwnerReply(
+                cfg,
+                snd,
+                message,
+                "❌ Moderation fehlgeschlagen: ${e.message ?: "unbekannter Fehler"}",
+            )
         }
     }
 
@@ -694,10 +778,15 @@ class ChatBotEngine @Inject constructor(
         internal const val OWNER_ASK_EMPTY_TEXT = "Bitte gib eine Frage an: !ask <frage>"
         internal const val OWNER_LLM_NOT_CONFIGURED_TEXT =
             "⚠️ Keine KI konfiguriert — !ask/!diag brauchen einen LLM-Endpunkt (eigene Owner-KI oder Fallback: die normale Bot-KI)."
+        internal const val MODERATION_MISSING_USER_TEXT =
+            "Bitte gib einen Benutzernamen an, z. B. !ban <user> oder !timeout <user> <minuten?>"
         internal const val STREAM_START_TEXT = "▶️ Stream wird gestartet…"
         internal const val STREAM_STOP_TEXT = "⏹ Stream wird gestoppt."
 
         /** Wie viele Top-Viewer der Live-Verbrauch im Settings-Screen zeigt. */
         internal const val TOP_VIEWERS = 5
+
+        /** Wie viele Kanal-Nachrichten-IDs der Bot für `!delete` merkt. */
+        internal const val MAX_TRACKED_MESSAGE_IDS = 50
     }
 }

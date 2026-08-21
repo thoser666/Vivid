@@ -55,6 +55,7 @@ In den Einstellungen (**„Chat-Bot & KI“ → „Chat-Bot (KI)“**) gibt es e
 | `!prev` / `!previous` | Zum vorherigen Titel springen |
 | `!bot` | Kurzinfo über den Bot |
 | `!start` / `!go-live` · `!stop` / `!end` · `!diag` / `!status` · `!ask <frage>` | **Owner-Befehle — nur der Streamer** (Broadcaster-Badge oder Allow-List `chat_bot_owner_logins`): Stream starten/stoppen, Diagnose mit Empfehlungen, Frage an die **exklusive Owner-KI** (Fallback: die normale Bot-KI) — nur während eines aktiven Streams; Viewer erhalten nur einen Hinweis (Details: [Owner-Steuerung](#owner-steuerung-nur-der-streamer)) |
+| `!ban <user>` · `!timeout <user> <minuten?>` · `!delete <anzahl?>` | **Owner-Moderation — nur der Streamer**: Viewer verbannen/timeouten bzw. die letzten N Chat-Nachrichten löschen — über die Twitch-Helix-Moderation-API (Scopes `moderator:manage:banned_users` + `moderator:manage:chat_messages`; der Bot muss Moderator im Kanal sein). Löschbar ist nur, was der Bot gesehen hat (Ringpuffer der letzten 50 IDs). Details: [Owner-Steuerung](#owner-steuerung-nur-der-streamer) |
 | `!<unbekannt>` | COMMAND: Hinweis „Unbekannter Befehl … — Tipp: !help“ · AUTONOMOUS: die KI entscheidet |
 
 Befehle sind **case-insensitive** und können mitten in der Nachricht stehen (`@bot !help`). Cooldown und Rate-Limit gelten für **alle** Antworten — auch für Befehle (schützt vor Spam, Twitch begrenzt 20 Nachrichten/30 s).
@@ -153,18 +154,19 @@ Viewer, die einen Owner-Befehl tippen, bekommen nur den Hinweis „⚠️ Dieser
 | Stream stoppen | `!stop` / `!end` | Stoppt den Stream |
 | Diagnose | `!diag` / `!status` | **Diagnose-Lauf:** sammelt deterministisch Stream-Status (inkl. Fehlerursache), OBS-Verbindung und Konfigurations-Checks (URL/Key, Multi-Streaming, Chat-Kanal, Bot-Token, **Whisper-Antwortweg (Client-ID + Token)**, Viewer-/Owner-LLM, **Owner-KI-Quelle** — offen, wenn weder Owner- noch Viewer-LLM konfiguriert sind). **Owner-KI exklusiv** → Bewertung + konkrete Empfehlungen; ohne eigene Owner-KI → **Viewer-KI als Fallback**; ohne jede KI → Checkliste direkt im Chat. Die Antwort weist die **KI-Quelle** aus („Auswertung durch: eigene Owner-KI / Viewer-KI (Fallback) / deterministisch“) |
 | Owner-KI fragen | `!ask <frage>` | Stellt die Frage an die **Owner-KI** (exklusiv; ohne eigene Owner-KI Fallback auf die Viewer-KI) mit dem aktuellen Stream-Zustand als Kontext (z. B. „!ask warum stockt der Stream?“) |
+| Moderieren | `!ban <user>` · `!timeout <user> <minuten?>` · `!delete <anzahl?>` | **Chat-Moderation über die Helix-API:** `!ban` verbannt permanent, `!timeout` zeitweilig (Standard 5 Minuten, optional in Minuten, auch `10min`/`10m`), `!delete N` löscht die letzten N Nachrichten, die der Bot gesehen hat (ohne Zahl: alle getrackten). Scopes `moderator:manage:banned_users` / `moderator:manage:chat_messages`; der Bot muss Moderator im Kanal sein (oder der Kanal-Inhaber). Nicht-Owner erhalten nur den Hinweis |
 
 #### Befehls-Syntax (Referenz)
 
 - **Case-insensitive:** `!START` = `!start`; Befehle können **mitten in der Nachricht** stehen (`@vividbot !diag bitte`).
-- **Parameter** gibt es nur bei `!ask`: Alles nach dem Befehlstoken ist die Frage (`!ask warum stockt der Stream?` → Text `warum stockt der Stream?`). `!ask` **ohne** Text antwortet mit „Bitte gib eine Frage an: !ask <frage>“.
-- **PREFIX-Scope:** präfixierte Formen `!v!start` / `!v!stop` / `!v!diag` / `!v!ask <frage>` (Präfix `v`) — die generischen `!`-Formen gehören dann dem anderen Bot (Koexistenz-Modus).
+- **Parameter:** `!ask` übernimmt alles nach dem Befehlstoken als Frage (`!ask warum stockt der Stream?` → Text `warum stockt der Stream?`); `!ban`/`!timeout` nehmen das erste Token als Benutzernamen (`@` optional, wird gestrippt), `!timeout` optional ein zweites Token als Minuten (auch `10min`/`10m`); `!delete` optional einen Zähler (ohne Zähler = alle getrackten Nachrichten). Fehlt der Benutzername, antwortet der Bot mit einem Hinweis.
+- **PREFIX-Scope:** präfixierte Formen `!v!start` / `!v!stop` / `!v!diag` / `!v!ask <frage>` · `!v!ban <user>` / `!v!timeout <user> <minuten?>` / `!v!delete <anzahl?>` (Präfix `v`) — die generischen `!`-Formen gehören dann dem anderen Bot (Koexistenz-Modus).
 - **Verfügbarkeit:** nur während eines aktiven Streams (der Bot verbindet sich nur bei Go-Live) und nur, wenn der Bot selbst konfiguriert und im Chat ist.
 
 #### Owner-Scope (wer darf, wann)
 
-| Absender | `!start` / `!stop` / `!diag` / `!ask` |
-|----------|--------------------------------------|
+| Absender | `!start` / `!stop` / `!diag` / `!ask` · `!ban` / `!timeout` / `!delete` |
+|----------|---------------------------------------------------------------------|
 | **Kanal-Inhaber** (Broadcaster-Badge `broadcaster/1`) | ✅ immer Owner — kein Eintrag nötig |
 | **Allow-List** (`chat_bot_owner_logins`, z. B. Zweitaccount) | ✅ Owner |
 | **Moderatoren** (ohne Owner-Status) | ❌ nur der Hinweis „⚠️ Dieser Befehl ist nur für den Streamer.“ |
@@ -188,6 +190,8 @@ ChatBotEngine → ist Owner? ──nein──► „⚠️ nur für den Streamer
         │                    └─ auch ohne jede KI ──► deterministische Checkliste
         └─ mit Owner-KI ───► Owner-LLM (Fact-Sheet) ──Empfehlungen
 !ask <frage>     → Owner-LLM (Fact-Sheet + Frage) ──Antwort
+!ban / !timeout  → TwitchModerationClient (POST /helix/moderation/bans)
+!delete <n>      → TwitchModerationClient (DELETE /helix/moderation/chat je ID)
         │
         ▼  (Antwortweg, Standard: privat)
 TwitchWhisperClient (Helix-API: Login → User-ID, POST /helix/whispers)
@@ -227,7 +231,8 @@ Der Streamer kann dem Bot auch **privat** Befehle schicken: Der Bot verbindet si
 - **Globales Rate-Limit gilt weiter** (Kosten-Schutz); Owner-Antworten zählen auch ins Stunden-Budget.
 - **Fehler-Resilienz:** Schlägt die Owner-KI fehl, kommt bei `!diag` trotzdem die deterministische Checkliste durch.
 - **Privater Antwortweg:** Owner-Antworten gehen per Twitch-Whisper (Helix-API) statt in den öffentlichen Chat — Standard an, per Setting abschaltbar; Fehler (fehlende Client-ID, fehlender Scope, blockierter Empfänger) fallen öffentlich mit Log-Hinweis zurück.
-- **Entkoppelt:** `feature-chat` hängt nicht an `feature-streaming` — die Owner-Steuerung läuft über das `ChatStreamControl`-Interface (`@BindsOptionalOf` in feature-chat, echte Implementierung `AppChatStreamControl` in der App).
+- **Moderation über Helix:** `!ban`/`!timeout`/`!delete` laufen über die Twitch-Helix-Moderation-API (Scopes `moderator:manage:banned_users` bzw. `moderator:manage:chat_messages`) — der Bot muss Moderator im Kanal sein (oder der Kanal-Inhaber). Löschbar sind nur Nachrichten, die der Bot über EventSub gesehen hat (Ringpuffer der letzten 50); zu alte/schon gelöschte Nachrichten überspringt der Client automatisch (400).
+- **Entkoppelt:** `feature-chat` hängt nicht an `feature-streaming` — die Owner-Steuerung läuft über das `ChatStreamControl`-Interface (`@BindsOptionalOf` in feature-chat, echte Implementierung `AppChatStreamControl` in der App); die Moderation über das `ChatModeration`-Interface (Implementierung `TwitchModerationClient` in feature-chat).
 
 ## Current status
 
@@ -240,6 +245,7 @@ Implemented & unit-tested:
 - `ChatBotController` + `StreamingService` wiring — automatic connect on Go Live, clean shutdown on stream end, instant stop when the bot is disabled in settings. Tracks the stream start timestamp for `!uptime`, wires the chat TTS to the message stream.
 - **Chat-TTS (`!tts`)** — `ChatTtsController` (enabled state, speaks viewer messages, skips own messages and commands) + `AndroidTtsSpeaker` (system TextToSpeech engine).
 - **Media-Player-Steuerung (`!song`/`!next`/`!pause`/`!play`/`!prev`)** — `ChatMediaController` (MediaController über aktive MediaSessions) + `MediaNotificationListener` (Benachrichtigungszugriff als Voraussetzung).
+- **Moderation (`!ban`/`!timeout`/`!delete`, Owner-only)** — `TwitchModerationClient` (Helix `POST /helix/moderation/bans`, `DELETE /helix/moderation/chat`) + `ChatModeration`-Interface in der Engine (Owner-Gate, Rate-Limit, privater Antwortweg; `!delete` über einen 50-ID-Ringpuffer der gesehenen Nachrichten).
 - **Mode switch** in Vivid's Settings screen („Bot (wie Moblin)“ ↔ „KI autonom“) incl. enable toggle — see [Betriebsmodi (der Switch)](#betriebsmodi-der-switch).
 - **Per-Viewer-Cooldown, Per-Viewer-Cap und Stunden-Budget** — configurable limits in the settings screen („Begrenzungen“), platform-neutral keyed on `userId`, moderators bypass the per-viewer limits; counters reset on stream start/stop.
 - Bot settings in `SettingsRepository`/`AppSettings` (`chat_bot_mode` key).
@@ -252,7 +258,7 @@ Still open (next milestones):
 ## Prerequisites
 
 1. A **Twitch account for the bot** (can be your main account or a dedicated one).
-2. A **chat token** for that account with the scopes `user:read:chat` (lesen, EventSub), `user:write:chat` (senden, Helix) und — nur wenn du die Owner-Whisper-Antworten nutzt — `user:manage:whispers`.
+2. A **chat token** for that account with the scopes `user:read:chat` (lesen, EventSub), `user:write:chat` (senden, Helix), — nur wenn du die Owner-Whisper-Antworten nutzt — `user:manage:whispers` und — nur für die Owner-Moderation (`!ban`/`!timeout`/`!delete`) — `moderator:manage:banned_users` + `moderator:manage:chat_messages`.
 3. An **LLM API key** (or a reachable Ollama instance) — only needed in „KI autonom“ mode; the „Bot wie Moblin“ command mode works without one.
 
 ## 1. Getting a Twitch chat token
@@ -344,6 +350,7 @@ Alle Felder sind direkt im **Settings-Screen** (Kategorie **„Chat-Bot & KI“*
 - ✅ **Mode switch** in Vivid's settings („Bot wie Moblin“ ↔ „KI autonom“) — done.
 - ✅ **Full bot settings screen** inside Vivid (all fields from the configuration: Twitch token, LLM credentials, limits, coexistence) — done.
 - ✅ **Media-player control** (`!song`/`!next`/`!pause`/`!play`/`!prev` via MediaSession, Moblin parity row) — done (needs notification access).
+- ✅ **Moderation** (`!ban`/`!timeout`/`!delete`, Owner-only, via Twitch-Helix-Moderation-API) — done (see [Owner-Steuerung](#owner-steuerung-nur-der-streamer)).
 - ✅ **Per-viewer cooldown, per-viewer cap and hourly cost budget** — done (see [Begrenzungen](#begrenzungen-pro-viewer--kosten)).
 - ✅ **Owner-Steuerung (nur der Streamer)** — `!start`/`!stop`/`!diag`/`!ask` mit Owner-Gate (Broadcaster + Allow-List) und separater Owner-KI (see [Owner-Steuerung](#owner-steuerung-nur-der-streamer)).
 - ✅ **Chat komplett auf Helix/EventSub (IRC-Ausstieg)** — Lesen über EventSub `channel.chat.message` (`TwitchChatEventSubReader`), Senden über `POST /helix/chat/messages` (`TwitchSendChatClient`); IRC-Clients, `IrcConnection` und Parser entfernt. Konsequenz: Overlay und Bot brauchen den Bot-Token (kein anonymes Lesen mehr) — Details: [Umgesetzt unten](#umgesetzt-chat-komplett-auf-helixeventsub-irc-ausstieg).

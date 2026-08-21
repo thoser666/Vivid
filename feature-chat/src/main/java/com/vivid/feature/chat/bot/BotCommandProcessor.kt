@@ -49,6 +49,18 @@ class BotCommandProcessor @Inject constructor() {
         /** `!prev` / `!previous` — vorheriger Titel. */
         data object MediaPrevious : Result
 
+        /** `!ban <user>` — Viewer verbannen (Owner-only). */
+        data class Ban(val userLogin: String) : Result
+
+        /** `!timeout <user> <duration?>` — Viewer timeouten (Owner-only).
+         *  duration ist optional in Minuten (z. B. `!timeout mod 10` für 10 Min).
+         *  Wird keine Dauer angegeben, gilt der Standard-Cooldown (z. B. 5 Min). */
+        data class Timeout(val userLogin: String, val durationMinutes: Int?) : Result
+
+        /** `!delete <count?>` — Nachrichten löschen (Owner-only).
+         *  count ist optional (z. B. `!delete 5` für die letzten 5 Nachrichten). */
+        data class Delete(val count: Int?) : Result
+
         /** `!start` / `!go-live` — Stream starten (nur Owner). */
         data object OwnerStart : Result
 
@@ -93,7 +105,7 @@ class BotCommandProcessor @Inject constructor() {
             val token = tokens.firstOrNull { it.lowercase().startsWith("!${p}!") } ?: return Result.None
             val command = token.substring(p.length + 2).lowercase()
             if (command.isBlank()) return Result.None
-            val rest = tokens.drop(1).joinToString(" ")
+            val rest = tokens.drop(tokens.indexOf(token) + 1).joinToString(" ")
             return dispatch(command, streamStartedAtMillis, prefix = p, rest = rest)
         }
 
@@ -105,11 +117,13 @@ class BotCommandProcessor @Inject constructor() {
             if (!mentioned) return Result.None
         }
 
-        // ALL + MENTION: erster `!`-Token in der Nachricht.
+        // ALL + MENTION: erster `!`-Token in der Nachricht. Der Rest sind die
+        // Tokens NACH dem Befehlstoken (der kann mitten in der Nachricht
+        // stehen, z. B. `@vividbot !ban troll1` → Rest = `troll1`).
         val token = tokens.firstOrNull { it.startsWith("!") } ?: return Result.None
         val command = token.substring(1).lowercase()
         if (command.isBlank()) return Result.None
-        val rest = tokens.drop(1).joinToString(" ")
+        val rest = tokens.drop(tokens.indexOf(token) + 1).joinToString(" ")
         return dispatch(command, streamStartedAtMillis, prefix = null, rest = rest)
     }
 
@@ -128,6 +142,9 @@ class BotCommandProcessor @Inject constructor() {
             "stop", "end", "shutdown" -> Result.OwnerStop
             "diag", "diagnose", "status" -> Result.OwnerDiagnose
             "ask" -> Result.OwnerAsk(rest.trim())
+            "ban" -> Result.Ban(firstToken(rest).removePrefix("@"))
+            "timeout" -> Result.Timeout(firstToken(rest).removePrefix("@"), parseTimeoutDuration(rest))
+            "delete" -> Result.Delete(firstToken(rest).toIntOrNull())
             "bot" -> Result.Reply(BOT_INFO_TEXT)
             else -> Result.Unknown(command)
         }
@@ -137,6 +154,24 @@ class BotCommandProcessor @Inject constructor() {
         if (prefix.isNullOrBlank()) return HELP_TEXT
         val p = "!${prefix}!"
         return "Verfügbare Befehle: ${p}help · ${p}uptime · ${p}tts · ${p}song · ${p}next · ${p}pause · ${p}bot"
+    }
+
+    /** Erstes Token eines Rest-Strings (alles bis zum ersten Whitespace). */
+    private fun firstToken(rest: String): String =
+        rest.trim().takeWhile { it != ' ' && it != '\t' }.takeIf { it.isNotBlank() } ?: ""
+
+    /**
+     * Optionales zweites Token als Minuten-Zahl für `!timeout` — erlaubt
+     * Suffixe (`10`, `10min`, `10Minute`, `10m`), case-insensitive.
+     */
+    private fun parseTimeoutDuration(rest: String): Int? {
+        val token = rest.trim().split(Regex("\\s+")).filter { it.isNotBlank() }.getOrNull(1)
+            ?: return null
+        val number = token.lowercase()
+            .removeSuffix("minute")
+            .removeSuffix("min")
+            .removeSuffix("m")
+        return number.toIntOrNull()?.takeIf { it > 0 }
     }
 
     private fun uptimeReply(startedAt: Long?): String {

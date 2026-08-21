@@ -13,7 +13,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 | 📋 | Geplant (Roadmap) |
 | — | Nicht zutreffend auf Android |
 
-> **Stand:** 2026-08-20 · Aktualisierung: **Beta-Gate 3/3 erreicht** — (1) **17/17 ✅** (Row 80 „Chat-Bot: Media-Player-Steuerung“ ist der 17. Moblin-✅), (2) **Chat-✅** mit Twitch-Scope (Row 77: Twitch-IRC + Overlay + KI-Bot; Kick/YouTube/SOOP/OAuth = Post-Beta-Roadmap), (3) **≥1 Widget ✅** (Row 87: Text-/Info-Widget Zeit/GPS/Geschwindigkeit). Beta-Releases veröffentlicht: `v0.5.0-beta` … `v0.5.4-beta` (zuletzt 20.08.2026: Dark-Mode Stufe 2, Höhenmeter, Custom-Plattform, **I18n 3 Sprachen**) — Referenzstand: Moblin **33.12.0**
+> **Stand:** 2026-08-20 · Aktualisierung: **Beta-Gate 3/3 erreicht** — (1) **17/17 ✅** (Row 80 „Chat-Bot: Media-Player-Steuerung“ ist der 17. Moblin-✅), (2) **Chat-✅** mit Twitch-Scope (Row 77: Twitch-IRC + Overlay + KI-Bot; Kick/YouTube/SOOP/OAuth = Post-Beta-Roadmap), (3) **≥1 Widget ✅** (Row 87: Text-/Info-Widget Zeit/GPS/Geschwindigkeit). Beta-Releases veröffentlicht: `v0.5.0-beta` … `v0.5.4-beta` (zuletzt 20.08.2026: Dark-Mode Stufe 2, Höhenmeter, Custom-Plattform, **I18n 3 Sprachen**, **Moderation (Ban/Timeout/Delete)**) — Referenzstand: Moblin **33.12.0**
 >
 > **Pflege:** Nach jedem Feature-Commit den Status in der jeweiligen Zeile aktualisieren und das Datum oben anpassen.
 >
@@ -28,14 +28,14 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 | Streaming & Protokolle | 5 | 0 | 4 | 9 |
 | Netzwerk-Bonding | 0 | 0 | 1 | 1 |
 | OBS-Steuerung | 3 | 0 | 1 | 4 |
-| Chat & Moderation | 2 | 1 | 1 | 4 |
+| Chat & Moderation | 3 | 0 | 1 | 4 |
 | Overlays & Widgets | 0 | 2 | 4 | 6 |
 | Kamera & Video | 2 | 0 | 4 | 6 |
 | Audio | 0 | 0 | 3 | 3 |
 | Remote & Companion | 1 | 0 | 2 | 3 |
 | Plattform & Grundlagen | 6 | 0 | 0 | 6 |
 | Zusatz-Features (über Parität) | 2 | 0 | 1 | 3 |
-| **Gesamt** | **21** | **3** | **21** | **45**† |
+| **Gesamt** | **22** | **2** | **21** | **45**† |
 
 † Inkl. 1 n/a-Zeile (Apple-Watch-Companion) und 3 Zusatz-Features über die Moblin-Parität hinaus; anwendbare Moblin-Features: **42**.
 
@@ -76,7 +76,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 |----------------|--------|-------|------------------------|
 | Plattform-Chat (Twitch, Kick, YouTube, SOOP) | ✅ Twitch-Scope | `feature-chat` | **Twitch vollständig (IRC-Ausstieg ✅):** `TwitchChatEventSubReader` (EventSub-WebSocket `channel.chat.message`, Scope `user:read:chat`; Badges/Emotes/Farbe/Zeitstempel aus dem Event, `session_welcome`→Helix-Subscribe, `session_reconnect`+Backoff) + `TwitchSendChatClient` (Helix `POST /helix/chat/messages`, Scope `user:write:chat`, `drop_reason`-Auswertung). IRC komplett entfernt (`TwitchChatClient`, `TwitchBotClient`, `IrcConnection`/Parser, Tests, DI-Binding). Overlay und Bot lesen über den Reader, Senden über die Helix-API; das Overlay braucht jetzt die Bot-Zugangsdaten (kein anonymes `justinfan`-Lesen mehr). **UI/Overlay ✓** (`ChatOverlay` + `ChatOverlayViewModel`), **KI-Chat-Bot ✓** (Modus-Switch, `!tts`, Media, Koexistenz, Begrenzungen). **Scope-Entscheidung (Beta-Gate):** „Twitch-Chat“ gilt als ✅ — Lesen (EventSub) + Senden (Helix), Overlay und Bot laufen. **Post-Beta-Roadmap:** [Bucket „Multi-Plattform-Chat“](#-roadmap-bucket-multi-plattform-chat-kick-youtube-soop) — Kick (WebSocket), YouTube (innertube), SOOP, OAuth-Login für Senden/Moderation |
 | Emotes (BTTV, FFZ, 7TV) | 📋 | `feature-chat` | Emote-API-Clients + Rendering |
-| Moderation (Ban, Timeout, Delete), Chat-Bot, TTS | 🚧 | `feature-chat` | **Chat-Bot-Kommandos implementiert** (`!help`/`!uptime`/`!tts`/`!bot` via `BotCommandProcessor`) inkl. **Chat-TTS-Toggle** (`!tts`, `ChatTtsController` + `AndroidTtsSpeaker`); **offen:** ModActions (Ban/Timeout/Delete) + Bot-Framework-Erweiterungen |
+| Moderation (Ban, Timeout, Delete), Chat-Bot, TTS | ✅ | `feature-chat` | **Vollständig:** Chat-Bot-Kommandos (`!help`/`!uptime`/`!tts`/`!bot` via `BotCommandProcessor`) inkl. **Chat-TTS-Toggle** (`!tts`, `ChatTtsController` + `AndroidTtsSpeaker`); **Moderation `!ban`/`!timeout`/`!delete` (Owner-only)** über `TwitchModerationClient` (Helix `POST /helix/moderation/bans` + `DELETE /helix/moderation/chat`, Scopes `moderator:manage:banned_users`/`moderator:manage:chat_messages`, der Bot muss Moderator im Kanal sein) + `ChatModeration`-Interface in der Engine (Owner-Gate, Rate-Limit, privater Antwortweg); `!delete` löscht die letzten N vom Bot gesehenen Nachrichten (50-ID-Ringpuffer) |
 | Chat-Bot: Media-Player-Steuerung (generisch via MediaSession, z. B. Apple Music/Spotify) | ✅ | `feature-chat` (`media`) | Android-Adaption der Apple-Music-Steuerung aus Moblin 33.12.0: `ChatMediaController` steuert den aktiven Media-Player über `MediaSessionManager.getActiveSessions` → `MediaController.TransportControls` (bevorzugt playing/paused/buffering-Session); Kommandos `!song`/`!nowplaying`, `!next`/`!skip`, `!pause`, `!play`, `!prev`/`!previous` (case-insensitive); **Voraussetzung:** Benachrichtigungszugriff via `MediaNotificationListener` (leerer Zugriffs-Marker, liest keine Benachrichtigungen) — ohne Zugriff antwortet der Bot mit einem Hinweis; Button „Benachrichtigungszugriff aktivieren“ im Settings-Screen |
 
 ### 💬 Roadmap-Bucket: Multi-Plattform-Chat (Kick, YouTube, SOOP)
