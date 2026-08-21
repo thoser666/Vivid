@@ -38,10 +38,20 @@ class AppChatStreamControlTest {
     private suspend fun ownerLlmSourceCheck(settings: AppSettings): DiagnosticCheck =
         control(settings).diagnostics().checks.first { it.label == "Owner-KI-Quelle" }
 
+    private suspend fun alertsCheck(settings: AppSettings): DiagnosticCheck =
+        control(settings).diagnostics().checks.first { it.label == "Event-Alerts konfiguriert" }
+
     private val baseSettings = AppSettings(
         chatBotOwnerWhisperReplies = true,
         chatBotTwitchClientId = "client-abc",
         chatBotOauthToken = "oauth:tok123",
+    )
+
+    private val alertsBaseSettings = AppSettings(
+        chatChannel = "mychannel",
+        chatBotLogin = "vividbot",
+        chatBotOauthToken = "oauth:tok123",
+        chatBotTwitchClientId = "client-abc",
     )
 
     @Test
@@ -143,5 +153,57 @@ class AppChatStreamControlTest {
             ),
         ).diagnostics()
         assertTrue(okDiagnostics.factSheet().contains("check:Owner-KI-Quelle=ok"))
+    }
+
+    @Test
+    fun `alerts check ok when channel bot and client id are set`() = runTest {
+        val check = alertsCheck(alertsBaseSettings)
+        assertTrue(check.detail, check.ok)
+        assertTrue(check.detail, check.detail.contains("Moderator"))
+    }
+
+    @Test
+    fun `alerts check fails when the chat channel is missing`() = runTest {
+        val check = alertsCheck(alertsBaseSettings.copy(chatChannel = ""))
+        assertFalse(check.ok)
+        assertTrue(check.detail, check.detail.contains("Chat-Kanal fehlt"))
+    }
+
+    @Test
+    fun `alerts check fails when the bot login is missing`() = runTest {
+        val check = alertsCheck(alertsBaseSettings.copy(chatBotLogin = ""))
+        assertFalse(check.ok)
+        assertTrue(check.detail, check.detail.contains("Bot-Login fehlt"))
+    }
+
+    @Test
+    fun `alerts check fails when the bot token is missing`() = runTest {
+        val check = alertsCheck(alertsBaseSettings.copy(chatBotOauthToken = ""))
+        assertFalse(check.ok)
+        assertTrue(check.detail, check.detail.contains("Bot-Token fehlt"))
+    }
+
+    @Test
+    fun `alerts check fails when the client id is missing`() = runTest {
+        val check = alertsCheck(alertsBaseSettings.copy(chatBotTwitchClientId = ""))
+        assertFalse(check.ok)
+        assertTrue(check.detail, check.detail.contains("Client-ID fehlt"))
+    }
+
+    @Test
+    fun `alerts check lists all missing parts at once`() = runTest {
+        val check = alertsCheck(AppSettings())
+        assertFalse(check.ok)
+        assertTrue(check.detail, check.detail.contains("Kanal, Bot-Login, Bot-Token und Client-ID fehlen"))
+    }
+
+    @Test
+    fun `diagnostics exposes the alerts check to the owner ki`() = runTest {
+        val diagnostics = control(alertsBaseSettings).diagnostics()
+        assertTrue(diagnostics.checks.any { it.label == "Event-Alerts konfiguriert" })
+        // Das Fact-Sheet (für !ask/!diag mit Owner-KI) listet alle Checks.
+        assertTrue(diagnostics.factSheet().contains("check:Event-Alerts konfiguriert=ok"))
+        val missing = control(alertsBaseSettings.copy(chatBotTwitchClientId = "")).diagnostics()
+        assertTrue(missing.factSheet().contains("check:Event-Alerts konfiguriert=MISSING"))
     }
 }

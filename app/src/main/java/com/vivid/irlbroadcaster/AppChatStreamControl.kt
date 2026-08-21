@@ -72,6 +72,34 @@ class AppChatStreamControl @Inject constructor(
                 "Bot-Login + OAuth-Token",
                 settings.chatBotLogin.isNotBlank() && settings.chatBotOauthToken.isNotBlank(),
             ),
+            // Event-Alerts (Follow/Sub/Raid) im Chat-Overlay: brauchen den Kanal
+            // (Subscription-Condition), Bot-Login + Token (Auth) und die
+            // Client-ID (Helix-API). Die Scopes lassen sich aus den Settings
+            // nicht verifizieren (Twitch gibt keine Scope-Liste im Token
+            // zurück) — der Bot muss Moderator sein (moderator:read:followers)
+            // und der Token channel:read:subscriptions besitzen; fehlende
+            // Rechte lassen nur den jeweiligen Alert-Typ ausfallen (best-effort,
+            // Chat läuft weiter).
+            DiagnosticCheck(
+                "Event-Alerts konfiguriert",
+                settings.chatChannel.isNotBlank() &&
+                    settings.chatBotLogin.isNotBlank() &&
+                    settings.chatBotOauthToken.isNotBlank() &&
+                    settings.chatBotTwitchClientId.isNotBlank(),
+                when {
+                    settings.chatChannel.isBlank() && settings.chatBotLogin.isBlank() &&
+                        settings.chatBotOauthToken.isBlank() && settings.chatBotTwitchClientId.isBlank() ->
+                        "Kanal, Bot-Login, Bot-Token und Client-ID fehlen"
+                    settings.chatChannel.isBlank() -> "Chat-Kanal fehlt"
+                    settings.chatBotLogin.isBlank() -> "Bot-Login fehlt"
+                    settings.chatBotOauthToken.isBlank() -> "Bot-Token fehlt"
+                    settings.chatBotTwitchClientId.isBlank() -> "Twitch-App-Client-ID fehlt"
+                    else ->
+                        "Kanal/Bot/Client-ID gesetzt — Bot muss Moderator sein (Scope " +
+                            "moderator:read:followers) und der Token channel:read:subscriptions " +
+                            "besitzen (für Sub-Alerts)"
+                },
+            ),
             // Privater Antwortweg (!diag/!ask-Antworten an den Owner): braucht
             // Client-ID + Bot-Token, wenn der Toggle an ist. Toggle aus = bewusst
             // öffentliche Antworten → kein offener Punkt.
