@@ -1,6 +1,7 @@
 package com.vivid.feature.chat.bot
 
 import com.vivid.core.data.ChatBotCommandScope
+import com.vivid.feature.chat.model.ChatAlertType
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
@@ -326,6 +327,64 @@ class BotCommandProcessorTest {
         )
     }
 
+    // --- Test-Alert (!testalert — Owner-only, Gate in der Engine) ---
+
+    @Test
+    fun `testalert parses the alert type`() {
+        assertEquals(
+            BotCommandProcessor.Result.TestAlert(ChatAlertType.FOLLOW),
+            processor().handle("!testalert follow", null),
+        )
+        assertEquals(
+            BotCommandProcessor.Result.TestAlert(ChatAlertType.SUBSCRIBE),
+            processor().handle("!testalert sub", null),
+        )
+        assertEquals(
+            BotCommandProcessor.Result.TestAlert(ChatAlertType.RAID),
+            processor().handle("!testalert raid", null),
+        )
+    }
+
+    @Test
+    fun `testalert accepts aliases and is case-insensitive`() {
+        assertEquals(
+            BotCommandProcessor.Result.TestAlert(ChatAlertType.FOLLOW),
+            processor().handle("!testalert Follower", null),
+        )
+        assertEquals(
+            BotCommandProcessor.Result.TestAlert(ChatAlertType.SUBSCRIBE),
+            processor().handle("!test-alert subscribe", null),
+        )
+        assertEquals(
+            BotCommandProcessor.Result.TestAlert(ChatAlertType.RAID),
+            processor().handle("!alert RAID", null),
+        )
+    }
+
+    @Test
+    fun `testalert without a valid type carries null`() {
+        assertEquals(
+            BotCommandProcessor.Result.TestAlert(null),
+            processor().handle("!testalert", null),
+        )
+        assertEquals(
+            BotCommandProcessor.Result.TestAlert(null),
+            processor().handle("!testalert quatsch", null),
+        )
+    }
+
+    @Test
+    fun `testalert works inside a message and with the prefix scope`() {
+        assertEquals(
+            BotCommandProcessor.Result.TestAlert(ChatAlertType.FOLLOW),
+            processor().handle("@vividbot !testalert follow bitte", null),
+        )
+        assertEquals(
+            BotCommandProcessor.Result.TestAlert(ChatAlertType.RAID),
+            processor().handle("!v!testalert raid", null, ChatBotCommandScope.PREFIX, "v"),
+        )
+    }
+
     @Test
     fun `unknown commands are reported as unknown`() {
         assertEquals(
@@ -405,7 +464,7 @@ class BotCommandProcessorTest {
         val p = processor()
         assertEquals(
             BotCommandProcessor.Result.Reply(
-                "Verfügbare Befehle: !v!help · !v!uptime · !v!tts · !v!song · !v!next · !v!pause · !v!bot",
+                "Verfügbare Befehle: !v!help · !v!uptime · !v!tts · !v!song · !v!next · !v!pause · !v!bot · !v!testalert",
             ),
             p.handle("!v!help", null, ChatBotCommandScope.PREFIX, "v"),
         )

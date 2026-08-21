@@ -54,7 +54,7 @@ In den Einstellungen (**„Chat-Bot & KI“ → „Chat-Bot (KI)“**) gibt es e
 | `!pause` / `!play` | Wiedergabe pausieren / fortsetzen |
 | `!prev` / `!previous` | Zum vorherigen Titel springen |
 | `!bot` | Kurzinfo über den Bot |
-| `!start` / `!go-live` · `!stop` / `!end` · `!diag` / `!status` · `!ask <frage>` | **Owner-Befehle — nur der Streamer** (Broadcaster-Badge oder Allow-List `chat_bot_owner_logins`): Stream starten/stoppen, Diagnose mit Empfehlungen, Frage an die **exklusive Owner-KI** (Fallback: die normale Bot-KI) — nur während eines aktiven Streams; Viewer erhalten nur einen Hinweis (Details: [Owner-Steuerung](#owner-steuerung-nur-der-streamer)) |
+| `!start` / `!go-live` · `!stop` / `!end` · `!diag` / `!status` · `!ask <frage>` · `!testalert <follow\|sub\|raid>` | **Owner-Befehle — nur der Streamer** (Broadcaster-Badge oder Allow-List `chat_bot_owner_logins`): Stream starten/stoppen, Diagnose mit Empfehlungen, Frage an die **exklusive Owner-KI** (Fallback: die normale Bot-KI), Test-Alert für das Chat-Overlay — nur während eines aktiven Streams; Viewer erhalten nur einen Hinweis (Details: [Owner-Steuerung](#owner-steuerung-nur-der-streamer)) |
 | `!ban <user>` · `!timeout <user> <minuten?>` · `!delete <anzahl?>` | **Owner-Moderation — nur der Streamer**: Viewer verbannen/timeouten bzw. die letzten N Chat-Nachrichten löschen — über die Twitch-Helix-Moderation-API (Scopes `moderator:manage:banned_users` + `moderator:manage:chat_messages`; der Bot muss Moderator im Kanal sein). Löschbar ist nur, was der Bot gesehen hat (Ringpuffer der letzten 50 IDs). Details: [Owner-Steuerung](#owner-steuerung-nur-der-streamer) |
 | `!<unbekannt>` | COMMAND: Hinweis „Unbekannter Befehl … — Tipp: !help“ · AUTONOMOUS: die KI entscheidet |
 
@@ -155,17 +155,18 @@ Viewer, die einen Owner-Befehl tippen, bekommen nur den Hinweis „⚠️ Dieser
 | Diagnose | `!diag` / `!status` | **Diagnose-Lauf:** sammelt deterministisch Stream-Status (inkl. Fehlerursache), OBS-Verbindung und Konfigurations-Checks (URL/Key, Multi-Streaming, Chat-Kanal, Bot-Token, **Whisper-Antwortweg (Client-ID + Token)**, Viewer-/Owner-LLM, **Owner-KI-Quelle** — offen, wenn weder Owner- noch Viewer-LLM konfiguriert sind). **Owner-KI exklusiv** → Bewertung + konkrete Empfehlungen; ohne eigene Owner-KI → **Viewer-KI als Fallback**; ohne jede KI → Checkliste direkt im Chat. Die Antwort weist die **KI-Quelle** aus („Auswertung durch: eigene Owner-KI / Viewer-KI (Fallback) / deterministisch“) |
 | Owner-KI fragen | `!ask <frage>` | Stellt die Frage an die **Owner-KI** (exklusiv; ohne eigene Owner-KI Fallback auf die Viewer-KI) mit dem aktuellen Stream-Zustand als Kontext (z. B. „!ask warum stockt der Stream?“) |
 | Moderieren | `!ban <user>` · `!timeout <user> <minuten?>` · `!delete <anzahl?>` | **Chat-Moderation über die Helix-API:** `!ban` verbannt permanent, `!timeout` zeitweilig (Standard 5 Minuten, optional in Minuten, auch `10min`/`10m`), `!delete N` löscht die letzten N Nachrichten, die der Bot gesehen hat (ohne Zahl: alle getrackten). Scopes `moderator:manage:banned_users` / `moderator:manage:chat_messages`; der Bot muss Moderator im Kanal sein (oder der Kanal-Inhaber). Nicht-Owner erhalten nur den Hinweis |
+| Test-Alert | `!testalert <follow\|sub\|raid>` | Löst über die **Trigger-API** einen synthetischen Event-Alert im Chat-Overlay aus (erscheint dort sofort, wenn der Streaming-Screen offen ist) — zum Prüfen des Overlay-Renderings vor dem Go-Live, ohne echte Follows/Subs/Raids abzuwarten. Fehlt/ungültig der Typ, antwortet der Bot mit `Nutzung: !testalert follow\|sub\|raid`; kein Scope nötig |
 
 #### Befehls-Syntax (Referenz)
 
 - **Case-insensitive:** `!START` = `!start`; Befehle können **mitten in der Nachricht** stehen (`@vividbot !diag bitte`).
 - **Parameter:** `!ask` übernimmt alles nach dem Befehlstoken als Frage (`!ask warum stockt der Stream?` → Text `warum stockt der Stream?`); `!ban`/`!timeout` nehmen das erste Token als Benutzernamen (`@` optional, wird gestrippt), `!timeout` optional ein zweites Token als Minuten (auch `10min`/`10m`); `!delete` optional einen Zähler (ohne Zähler = alle getrackten Nachrichten). Fehlt der Benutzername, antwortet der Bot mit einem Hinweis.
-- **PREFIX-Scope:** präfixierte Formen `!v!start` / `!v!stop` / `!v!diag` / `!v!ask <frage>` · `!v!ban <user>` / `!v!timeout <user> <minuten?>` / `!v!delete <anzahl?>` (Präfix `v`) — die generischen `!`-Formen gehören dann dem anderen Bot (Koexistenz-Modus).
+- **PREFIX-Scope:** präfixierte Formen `!v!start` / `!v!stop` / `!v!diag` / `!v!ask <frage>` · `!v!testalert <follow\|sub\|raid>` · `!v!ban <user>` / `!v!timeout <user> <minuten?>` / `!v!delete <anzahl?>` (Präfix `v`) — die generischen `!`-Formen gehören dann dem anderen Bot (Koexistenz-Modus).
 - **Verfügbarkeit:** nur während eines aktiven Streams (der Bot verbindet sich nur bei Go-Live) und nur, wenn der Bot selbst konfiguriert und im Chat ist.
 
 #### Owner-Scope (wer darf, wann)
 
-| Absender | `!start` / `!stop` / `!diag` / `!ask` · `!ban` / `!timeout` / `!delete` |
+| Absender | `!start` / `!stop` / `!diag` / `!ask` · `!testalert` · `!ban` / `!timeout` / `!delete` |
 |----------|---------------------------------------------------------------------|
 | **Kanal-Inhaber** (Broadcaster-Badge `broadcaster/1`) | ✅ immer Owner — kein Eintrag nötig |
 | **Allow-List** (`chat_bot_owner_logins`, z. B. Zweitaccount) | ✅ Owner |

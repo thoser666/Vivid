@@ -3,6 +3,7 @@ package com.vivid.feature.chat.bot
 import com.vivid.core.data.AppSettings
 import com.vivid.core.data.SettingsRepository
 import com.vivid.feature.chat.di.ChatScope
+import com.vivid.feature.chat.model.ChatAlertType
 import com.vivid.feature.chat.twitch.TwitchChatEventSubReader
 import com.vivid.feature.chat.twitch.TwitchEventSubClient
 import com.vivid.feature.chat.twitch.TwitchEventSubConfig
@@ -117,6 +118,13 @@ class ChatBotController @Inject constructor(
 
                 override suspend fun deleteRecent(count: Int?, recentMessageIds: List<String>): String =
                     moderationClient.deleteRecent(eventSubConfig, count, recentMessageIds)
+            },
+            // !testalert: synthetische Event-Alerts über den EventSub-Reader —
+            // sie erscheinen im Chat-Overlay (derselbe Flow wie echte Alerts).
+            alertTrigger = object : ChatAlertTrigger {
+                override fun triggerTestAlert(type: ChatAlertType) {
+                    chatReader.triggerTestAlert(type)
+                }
             },
         )
         // Chat-TTS (der !tts-Befehl): liest den gleichen Nachrichten-Flow vor —

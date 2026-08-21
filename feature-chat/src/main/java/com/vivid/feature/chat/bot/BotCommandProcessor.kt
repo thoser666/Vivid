@@ -1,6 +1,7 @@
 package com.vivid.feature.chat.bot
 
 import com.vivid.core.data.ChatBotCommandScope
+import com.vivid.feature.chat.model.ChatAlertType
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -73,6 +74,10 @@ class BotCommandProcessor @Inject constructor() {
         /** `!ask <frage>` — Frage an die Owner-KI (nur Owner). */
         data class OwnerAsk(val text: String) : Result
 
+        /** `!testalert <follow|sub|raid>` — Test-Alert für das Overlay (nur Owner).
+         *  type ist null bei fehlendem/ungültigem Typ → Engine antwortet mit Nutzungs-Hinweis. */
+        data class TestAlert(val type: ChatAlertType?) : Result
+
         /** Mit `!` beginnendes Token, aber kein bekannter Befehl. */
         data class Unknown(val command: String) : Result
 
@@ -142,6 +147,7 @@ class BotCommandProcessor @Inject constructor() {
             "stop", "end", "shutdown" -> Result.OwnerStop
             "diag", "diagnose", "status" -> Result.OwnerDiagnose
             "ask" -> Result.OwnerAsk(rest.trim())
+            "testalert", "test-alert", "alert" -> Result.TestAlert(parseAlertType(rest))
             "ban" -> Result.Ban(firstToken(rest).removePrefix("@"))
             "timeout" -> Result.Timeout(firstToken(rest).removePrefix("@"), parseTimeoutDuration(rest))
             "delete" -> Result.Delete(firstToken(rest).toIntOrNull())
@@ -153,7 +159,19 @@ class BotCommandProcessor @Inject constructor() {
     private fun helpText(prefix: String?): String {
         if (prefix.isNullOrBlank()) return HELP_TEXT
         val p = "!${prefix}!"
-        return "Verfügbare Befehle: ${p}help · ${p}uptime · ${p}tts · ${p}song · ${p}next · ${p}pause · ${p}bot"
+        return "Verfügbare Befehle: ${p}help · ${p}uptime · ${p}tts · ${p}song · ${p}next · ${p}pause · ${p}bot · ${p}testalert"
+    }
+
+    /**
+     * Erstes Token des Rest-Strings als Alert-Typ für `!testalert` — erlaubt
+     * `follow`, `sub`/`subscribe`, `raid` (case-insensitive); null bei
+     * fehlendem/ungültigem Typ (Engine antwortet mit Nutzungs-Hinweis).
+     */
+    private fun parseAlertType(rest: String): ChatAlertType? = when (firstToken(rest).lowercase()) {
+        "follow", "follower" -> ChatAlertType.FOLLOW
+        "sub", "subscribe", "subscriber" -> ChatAlertType.SUBSCRIBE
+        "raid" -> ChatAlertType.RAID
+        else -> null
     }
 
     /** Erstes Token eines Rest-Strings (alles bis zum ersten Whitespace). */
@@ -186,7 +204,7 @@ class BotCommandProcessor @Inject constructor() {
     }
 
     companion object {
-        const val HELP_TEXT = "Verfügbare Befehle: !help · !uptime · !tts · !song · !next · !pause · !bot"
+        const val HELP_TEXT = "Verfügbare Befehle: !help · !uptime · !tts · !song · !next · !pause · !bot · !testalert"
         const val BOT_INFO_TEXT = "Ich bin der Chat-Bot von Vivid 🤖 — alle Befehle: !help"
     }
 }

@@ -5,6 +5,7 @@ import com.vivid.feature.chat.ai.LlmClient
 import com.vivid.feature.chat.ai.LlmConfig
 import com.vivid.feature.chat.ai.LlmMessage
 import com.vivid.feature.chat.media.ChatMediaPlayer
+import com.vivid.feature.chat.model.ChatAlertType
 import com.vivid.feature.chat.model.ChatMessage
 import java.util.Optional
 import javax.inject.Inject
@@ -82,6 +83,7 @@ class ChatBotEngine @Inject constructor(
     private var config: ChatBotConfig? = null
     private var sender: ChatSender? = null
     private var moderation: ChatModeration = NoOpChatModeration
+    private var alertTrigger: ChatAlertTrigger = NoOpChatAlertTrigger
     private var streamStartedAtMillis = 0L
 
     // Ringpuffer der zuletzt gesehenen Kanal-Nachrichten-IDs — Grundlage für
@@ -115,12 +117,14 @@ class ChatBotEngine @Inject constructor(
         scope: CoroutineScope,
         streamStartedAtMillis: Long = 0L,
         moderation: ChatModeration = NoOpChatModeration,
+        alertTrigger: ChatAlertTrigger = NoOpChatAlertTrigger,
     ) {
         stop()
         if (!config.isReady) return
         this.config = config
         this.sender = sender
         this.moderation = moderation
+        this.alertTrigger = alertTrigger
         this.streamStartedAtMillis = streamStartedAtMillis
         history.clear()
         replyTimes.clear()
@@ -143,6 +147,7 @@ class ChatBotEngine @Inject constructor(
         config = null
         sender = null
         moderation = NoOpChatModeration
+        alertTrigger = NoOpChatAlertTrigger
         streamStartedAtMillis = 0L
         lastReplyByUser.clear()
         userReplyCounts.clear()
@@ -247,6 +252,10 @@ class ChatBotEngine @Inject constructor(
                 handleOwnerAsk(cfg, message, snd, result.text)
                 return
             }
+            is BotCommandProcessor.Result.TestAlert -> {
+                handleTestAlert(cfg, message, snd, result.type)
+                return
+            }
             is BotCommandProcessor.Result.Ban -> {
                 handleModeration(cfg, message, snd) {
                     if (result.userLogin.isBlank()) {
@@ -344,6 +353,7 @@ class ChatBotEngine @Inject constructor(
                 handleOwnerAction(cfg, message, snd) { streamControl.stop(); STREAM_STOP_TEXT }
             is BotCommandProcessor.Result.OwnerDiagnose -> handleOwnerDiagnose(cfg, message, snd)
             is BotCommandProcessor.Result.OwnerAsk -> handleOwnerAsk(cfg, message, snd, result.text)
+            is BotCommandProcessor.Result.TestAlert -> handleTestAlert(cfg, message, snd, result.type)
             is BotCommandProcessor.Result.Ban ->
                 handleModeration(cfg, message, snd) {
                     if (result.userLogin.isBlank()) MODERATION_MISSING_USER_TEXT else moderation.ban(result.userLogin)
@@ -389,6 +399,46 @@ class ChatBotEngine @Inject constructor(
             )
         }
     }
+
+    /**
+     * `!testalert <follow|sub|raid>`: löst über die [ChatAlertTrigger]-Schnitt-
+     * stelle einen synthetischen Event-Alert aus (erscheint im Chat-Overlay),
+     * damit der Streamer vor dem Go-Live das Overlay-Rendering prüfen kann.
+     * Owner-Gate + Rate-Limit wie bei den anderen Owner-Befehlen; ohne/ungülti-
+     * gen Typ antwortet der Bot mit dem Nutzungs-Hinweis.
+     */
+    private suspend fun handleTestAlert(
+        cfg: ChatBotConfig,
+        message: ChatMessage,
+        snd: ChatSender,
+        type: ChatAlertType?,
+    ) {
+        if (!isOwner(cfg, message)) {
+            sendOwnerOnlyHint(snd, message)
+            return
+        }
+        if (rateLimited(cfg)) return
+        if (type == null) {
+            sendOwnerReply(cfg, snd, message, TEST_ALERT_USAGE_TEXT)
+            return
+        }
+        try {
+            alertTrigger.triggerTestAlert(type)
+            sendOwnerReply(cfg, snd, message, testAlertConfirmation(type))
+        } catch (e: Exception) {
+            _logs.tryEmit("Test-Alert fehlgeschlagen: ${e.message}")
+            sendOwnerReply(
+                cfg,
+                snd,
+                message,
+                "❌ Test-Alert fehlgeschlagen: ${e.message ?: "unbekannter Fehler"}",
+            )
+        }
+    }
+
+    /** Bestätigungstext für einen ausgelösten Test-Alert. */
+    private fun testAlertConfirmation(type: ChatAlertType): String =
+        "✅ Test-Alert (${type.name.lowercase()}) ausgelöst — erscheint im Chat-Overlay, sobald der Streaming-Screen offen ist."
 
     /**
      * Führt eine Owner-Aktion aus (Stream starten/stoppen). Nicht-Owner
@@ -780,6 +830,7 @@ class ChatBotEngine @Inject constructor(
             "⚠️ Keine KI konfiguriert — !ask/!diag brauchen einen LLM-Endpunkt (eigene Owner-KI oder Fallback: die normale Bot-KI)."
         internal const val MODERATION_MISSING_USER_TEXT =
             "Bitte gib einen Benutzernamen an, z. B. !ban <user> oder !timeout <user> <minuten?>"
+        internal const val TEST_ALERT_USAGE_TEXT = "Nutzung: !testalert follow|sub|raid"
         internal const val STREAM_START_TEXT = "▶️ Stream wird gestartet…"
         internal const val STREAM_STOP_TEXT = "⏹ Stream wird gestoppt."
 

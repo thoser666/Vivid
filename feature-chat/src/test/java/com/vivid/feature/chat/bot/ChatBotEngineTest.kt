@@ -8,6 +8,7 @@ import com.vivid.feature.chat.ai.LlmException
 import com.vivid.feature.chat.model.ChatMessage
 import com.vivid.feature.chat.ai.LlmMessage
 import com.vivid.feature.chat.media.ChatMediaPlayer
+import com.vivid.feature.chat.model.ChatAlertType
 import com.vivid.feature.chat.twitch.TwitchModerationException
 import com.vivid.feature.chat.twitch.TwitchSendChatException
 import com.vivid.feature.chat.twitch.TwitchWhisperException
@@ -272,7 +273,7 @@ class ChatBotEngineTest {
 
         coVerify(exactly = 0) { sender.send("Gerade läuft kein Stream.") }
         coVerify(exactly = 1) {
-            sender.send("Verfügbare Befehle: !v!help · !v!uptime · !v!tts · !v!song · !v!next · !v!pause · !v!bot")
+            sender.send("Verfügbare Befehle: !v!help · !v!uptime · !v!tts · !v!song · !v!next · !v!pause · !v!bot · !v!testalert")
         }
         engine.stop()
     }
@@ -1417,6 +1418,82 @@ class ChatBotEngineTest {
         assertTrue(user.content.contains("Aktueller Stream-Zustand:"))
         assertTrue(user.content.contains("stelle die Verbindung zu Twitch her"))
         assertEquals("Antwort für den Streamer", sent.captured)
+        engine.stop()
+    }
+
+    // --- Test-Alert (!testalert — Owner-only) ---
+
+    @Test
+    fun `owner test alert triggers the alert and confirms`() = runTest {
+        val trigger = mockk<ChatAlertTrigger> {
+            every { triggerTestAlert(any()) } just Runs
+        }
+        val engine = engine()
+        val sent = slot<String>()
+        coEvery { sender.send(capture(sent)) } just Runs
+
+        engine.start(messages, config(ownerLogins = setOf("streamer2")), sender, this, alertTrigger = trigger)
+        messages.emit(chatMessage("!testalert follow", login = "streamer2"))
+        advanceUntilIdle()
+
+        verify(exactly = 1) { trigger.triggerTestAlert(ChatAlertType.FOLLOW) }
+        assertTrue(sent.captured.contains("Test-Alert (follow) ausgelöst"))
+        engine.stop()
+    }
+
+    @Test
+    fun `test alert from a viewer is rejected without triggering`() = runTest {
+        val trigger = mockk<ChatAlertTrigger> {
+            every { triggerTestAlert(any()) } just Runs
+        }
+        val engine = engine()
+        val sent = slot<String>()
+        coEvery { sender.send(capture(sent)) } just Runs
+
+        engine.start(messages, config(ownerLogins = setOf("streamer2")), sender, this, alertTrigger = trigger)
+        messages.emit(chatMessage("!testalert raid")) // viewer1
+        advanceUntilIdle()
+
+        verify(exactly = 0) { trigger.triggerTestAlert(any()) }
+        assertEquals(ChatBotEngine.OWNER_ONLY_TEXT, sent.captured)
+        engine.stop()
+    }
+
+    @Test
+    fun `test alert without a valid type shows the usage hint`() = runTest {
+        val trigger = mockk<ChatAlertTrigger> {
+            every { triggerTestAlert(any()) } just Runs
+        }
+        val engine = engine()
+        val sent = slot<String>()
+        coEvery { sender.send(capture(sent)) } just Runs
+
+        engine.start(messages, config(ownerLogins = setOf("streamer2")), sender, this, alertTrigger = trigger)
+        messages.emit(chatMessage("!testalert quatsch", login = "streamer2"))
+        advanceUntilIdle()
+
+        verify(exactly = 0) { trigger.triggerTestAlert(any()) }
+        assertEquals(ChatBotEngine.TEST_ALERT_USAGE_TEXT, sent.captured)
+        engine.stop()
+    }
+
+    @Test
+    fun `owner test alert via whisper triggers and whispers back`() = runTest {
+        val trigger = mockk<ChatAlertTrigger> {
+            every { triggerTestAlert(any()) } just Runs
+        }
+        val engine = engine()
+        val sent = slot<String>()
+        coEvery { sender.sendWhisper(any(), capture(sent)) } just Runs
+
+        engine.start(messages, config(ownerLogins = setOf("streamer2")), sender, this, alertTrigger = trigger)
+        messages.emit(chatMessage("!testalert sub", login = "streamer2", isWhisper = true))
+        advanceUntilIdle()
+
+        verify(exactly = 1) { trigger.triggerTestAlert(ChatAlertType.SUBSCRIBE) }
+        coVerify(exactly = 1) { sender.sendWhisper("streamer2", any()) }
+        // Bestätigung nutzt den kanonischen Enum-Namen (subscribe, nicht sub).
+        assertTrue(sent.captured.contains("Test-Alert (subscribe) ausgelöst"))
         engine.stop()
     }
 
