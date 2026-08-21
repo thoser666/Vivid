@@ -40,6 +40,7 @@ else
     "feature-chat/src/main"
     "feature-widgets/src/main"
     "app/src/main"
+    "core/src/main"
   )
 fi
 # Erlaubte Dateien: Bot-Antworten/-Ausgaben, die bewusst NICHT lokalisiert

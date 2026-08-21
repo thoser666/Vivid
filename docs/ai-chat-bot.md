@@ -1,6 +1,6 @@
 # 🤖 AI Chat Bot
 
-> **Status:** Engine, Twitch sending, LLM client, stream-lifecycle wiring, the mode switch („Bot wie Moblin“ ↔ „KI entscheidet selbst“) **and the full settings screen** (bot account, Twitch token, LLM endpoint/key/model, system prompt, cooldown, mentions-only, rate limit) are **implemented and tested**. Still open: the Twitch OAuth browser flow (until then, paste a chat token — see below) and the optional cost budget.
+> **Status:** Engine, Twitch sending, LLM client, stream-lifecycle wiring, the mode switch („Bot wie Moblin“ ↔ „KI entscheidet selbst“) **and the full settings screen** (bot account, Twitch token, LLM endpoint/key/model, system prompt, cooldown, mentions-only, rate limit) are **implemented and tested**. Still open: the Twitch OAuth browser flow (until then, paste a chat token — see below).
 
 Vivid ships a **fully automated, in-app chat bot** (the idea is borrowed from cloud services like [Stream Chat AI](https://streamchatai.com), but it runs right on your phone — no dashboard, no monthly fee, you only pay your own LLM provider):
 
@@ -58,7 +58,7 @@ In den Einstellungen (**„Chat-Bot & KI“ → „Chat-Bot (KI)“**) gibt es e
 | `!ban <user>` · `!timeout <user> <minuten?>` · `!delete <anzahl?>` | **Owner-Moderation — nur der Streamer**: Viewer verbannen/timeouten bzw. die letzten N Chat-Nachrichten löschen — über die Twitch-Helix-Moderation-API (Scopes `moderator:manage:banned_users` + `moderator:manage:chat_messages`; der Bot muss Moderator im Kanal sein). Löschbar ist nur, was der Bot gesehen hat (Ringpuffer der letzten 50 IDs). Details: [Owner-Steuerung](#owner-steuerung-nur-der-streamer) |
 | `!<unbekannt>` | COMMAND: Hinweis „Unbekannter Befehl … — Tipp: !help“ · AUTONOMOUS: die KI entscheidet |
 
-Befehle sind **case-insensitive** und können mitten in der Nachricht stehen (`@bot !help`). Cooldown und Rate-Limit gelten für **alle** Antworten — auch für Befehle (schützt vor Spam, Twitch begrenzt 20 Nachrichten/30 s).
+Befehle sind **case-insensitive** und können mitten in der Nachricht stehen (`@bot !help`). Cooldown und Rate-Limit gelten für **alle** Antworten — auch für Befehle (schützt vor Spam, Twitch begrenzt 20 Nachrichten/20 s).
 
 #### Chat-Text-to-Speech (`!tts`)
 
@@ -102,7 +102,7 @@ Fremde Befehle außerhalb des Scopes liefern **kein** „Unbekannter Befehl“-E
 
 ### Empfohlene Einrichtung für die Koexistenz mit Rivulet
 
-1. **Getrennte Bot-Konten** verwenden (Vivid-Bot ≠ Rivulet-Bot ≠ Streamer-Konto) — sonst teilen sich beide das Twitch-Nachrichten-Limit (20 Nachrichten/30 s) und die Antworten sind nicht unterscheidbar.
+1. **Getrennte Bot-Konten** verwenden (Vivid-Bot ≠ Rivulet-Bot ≠ Streamer-Konto) — sonst teilen sich beide das Twitch-Nachrichten-Limit (20 Nachrichten/20 s) und die Antworten sind nicht unterscheidbar.
 2. Den **Login des Rivulet-Bots** unter „Andere Bots ignorieren“ eintragen (kommasepariert, ohne `@`).
 3. **Befehlsscope** wählen: Entweder Rivulet übernimmt die generischen `!`-Befehle und Vivid nutzt `@vividbot` (MENTION) oder ein eigenes Präfix (PREFIX, z. B. `v` → `!v!help`) — oder umgekehrt, je nachdem welcher Bot die generischen Befehle besitzen soll.
 4. `!help` zeigt im PREFIX-Modus automatisch die präfixierten Befehle (`!v!help · !v!uptime · …`).

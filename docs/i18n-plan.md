@@ -55,7 +55,7 @@
 ## 5. CI-/Qualitäts-Checks (alle aktiv)
 
 1. **Externalisierungs-Gate:** `scripts/check_i18n.sh` — `Text(“…”)`, `contentDescription = “…”`, `label = “…”` / `title = “…”` in `src/main` der UI-Module (feature-settings, feature-obs-control, feature-streaming, feature-chat, feature-widgets, app) liefern **0 Treffer**. Ausnahmen: `AppChatStreamControl.kt` (`!diag`-Bot-Ausgabe), Bot-Antworten/-Befehle in feature-chat (BotCommandProcessor, ChatBotEngine, TwitchSendChatClient-Exceptions, TwitchModerationClient-Bestätigungen) und technische Konstanten (WidgetFormatters-Einheiten km/h/m) — bewusst nicht lokalisiert → verhindert Rückfall auf Hartkodierung.
-2. **Vollständigkeits-Check:** derselbe Guard vergleicht `values/strings.xml` ↔ `values-en/strings.xml` ↔ `values-fr/strings.xml` pro Modul (fehlende Keys in einer Richtung = Fehler). Deckt seit der Chat-/Widget-Externalisierung sechs Module ab (inkl. feature-chat + feature-widgets).
+2. **Vollständigkeits-Check:** derselbe Guard vergleicht `values/strings.xml` ↔ `values-en/strings.xml` ↔ `values-fr/strings.xml` pro Modul (fehlende Keys in einer Richtung = Fehler). Deckt **sieben Module** ab: feature-settings, feature-obs-control, feature-streaming, feature-chat, feature-widgets, app **und core** (seit 2026-08-21; `core` hat eigene Ressourcen, z. B. Update-Check-Fehlertexte — vorher nicht CI-gesichert).
 3. **stream_url_hint-Inhalts-Guard:** Der Hinweis unter dem Stream-URL-Feld muss in **allen drei** Sprachen die Kernaussagen nennen (RTMP, SRT, Owncast, Presets bzw. préréglages) — die custom-Plattform-Fähigkeit bleibt so sichtbar.
 4. **Selbsttest:** `scripts/test_check_i18n.sh` (5 Fixtures: sauber grün, hartkodierter String rot, fehlende Übersetzung rot, Hint ohne Owncast rot, Repo-Regression grün) — läuft in Pre-Push und CI.
 5. **Lint:** Android-Lint meldet `HardcodedText`-Warnungen — als `warningsAsErrors` im CI aktiviert.
@@ -66,6 +66,7 @@
 
 - **Umgesetzt (2026-08-20):** ~110+ Literale über 4 Module + Validierungs-/Notification-/Update-Fehlertexte; `values-en` **und** `values-fr` in app/core/feature-settings/feature-obs-control/feature-streaming (jeweils vollständig, CI-geprüft).
 - **Nachgezogen (2026-08-20):** Chat-Overlay-Status (feature-chat) und Text-/Info-Widget-Labels (feature-widgets) externalisiert — beide Module haben jetzt eigene `res/values{,-en,-fr}`; der Guard prüft sie mit (6 Module).
+- **Härtung (2026-08-21):** `core` in die Guard-Modul-Liste aufgenommen (7 Module) — `core` hat eigene lokalisierte Ressourcen (Update-Check-Fehlertexte), die vorher nicht CI-gesichert waren.
 - **Kein UI-Umbau nötig gewesen** — reine Mechanik (Strings → Ressourcen); Enum-Anzeigenamen/Validierungsmeldungen wurden auf `@StringRes`-IDs umgestellt (Tests prüfen Ressourcen-IDs statt deutscher Texte).
 - **Resultat:** PARITY-Zeile I18n ✅, README „In Progress“ leer → **letzter offener In-Progress-Punkt geschlossen**; Gesamt-Zähler 21/3/21.
 
