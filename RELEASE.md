@@ -6,7 +6,7 @@ Jeder Release durchläuft eine von vier Stufen. Welche Stufe aktiv ist, bestimmt
 
 | Stufe | Tag-Muster | Auslöser | Zielgruppe |
 |-------|-----------|----------|------------|
-| `nightly` | `nightly` (rollierend) | Jeder develop-Merge · **täglich 06:00 UTC (Schedule)** · manuell (`workflow_dispatch`) | Entwickler · CI-Tester |
+| `nightly` | `nightly` (rollierend) | **täglich 06:00 UTC (Schedule)** · manuell (`workflow_dispatch`) — **seit 21.08.2026 NUR einmal pro Tag**, nicht mehr bei jedem develop-Push (develop-Pushes laufen nur Tests/Builds) | Entwickler · CI-Tester |
 | `alpha` | `vX.Y.Z-alpha` (Patch-Alphas möglich, z. B. `v0.4.2-alpha`) | Manuell via `fastlane release_alpha` | Frühe Tester (Obtainium, kein Pre-Release-Flag nötig) |
 | `beta` | `vX.Y.Z-beta` (Patch-Betas möglich, z. B. `v0.5.1-beta`) | Manuell via `fastlane release_beta` (Spiegel von `release_alpha` inkl. Safety-Checks) | Feldtester · Hunde essen ihr eigenes Futter |
 | `stable` | `vX.Y.Z` | Manuell via `fastlane release_stable` (TODO) | Play Store · F-Droid · Allgemeinverfügbarkeit |
@@ -422,7 +422,7 @@ sha256sum app/build/outputs/apk/release/output-metadata.json  <veröffentlichtes
 
 ### Automatischer CI-Check
 
-Der Job **`verify-reproducibility`** in `android_fastlane.yml` vergleicht nach jedem nightly-Publish die veröffentlichten Artefakte automatisch mit einem frischen Build desselben Commits (liest versionName/versionCode aus dem Release, prüft die eingebettete Git-Revision, Hash-Vergleich). **Alle drei Artefakte sind deterministisch und werden verglichen:** `app-release.apk`, `mapping.txt` (ProGuard/R8) und `output-metadata.json` — die Nightly-Releases enthalten daher neben dem APK auch Mapping und Metadaten (für Deobfuskation und Reproduzierbarkeits-Check). Schlägt ein Vergleich fehl, wird der Workflow rot.
+Der Job **`verify-reproducibility`** in `android_fastlane.yml` vergleicht nach dem (täglichen) nightly-Publish die veröffentlichten Artefakte automatisch mit einem frischen Build desselben Commits (liest versionName/versionCode aus dem Release, prüft die eingebettete Git-Revision, Hash-Vergleich). Er läuft nur auf Schedule/Manual (nicht bei jedem develop-Push, seit das Nightly einmal täglich gebaut wird). **Alle drei Artefakte sind deterministisch und werden verglichen:** `app-release.apk`, `mapping.txt` (ProGuard/R8) und `output-metadata.json` — die Nightly-Releases enthalten daher neben dem APK auch Mapping und Metadaten (für Deobfuskation und Reproduzierbarkeits-Check). Schlägt ein Vergleich fehl, wird der Workflow rot.
 
 **Signatur-Check:** Zusätzlich zum Hash-Vergleich verifiziert der Job die **Signatur des veröffentlichten APK** gegen den Release-Key: Der SHA-256-Fingerprint des APK-Signers (`apksigner verify --print-certs`) wird mit dem Zertifikat aus dem dekodierten `release.keystore` (`keytool -list -v`) verglichen. Damit wird hart sichergestellt, dass das veröffentlichte Nightly **nicht mit dem Debug-Key** signiert ist — ein Debug-signiertes APK würde Obtainium-Updates (Signatur-Mismatch) brechen. Auch dieser Check macht den Workflow bei Abweichung rot.
 

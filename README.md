@@ -576,7 +576,7 @@ bundle exec fastlane release_alpha
 
 The `android_fastlane.yml` workflow runs these lanes in CI. Two release paths are automated:
 
-- **Every push to `develop`** (i.e. every newly implemented feature) builds the signed release APK and publishes it as a rolling **`nightly` prerelease** with a version derived from the git tag + CI run number. The nightly release is replaced on each build, so it always contains the latest feature build. In addition, a **scheduled build runs daily at 06:00 UTC** (and the workflow can be triggered manually via `gh workflow run android_fastlane.yml --ref develop`), so a fresh nightly exists even without new commits.
+- **A scheduled build runs once per day at 06:00 UTC** (and the workflow can be triggered manually via `gh workflow run android_fastlane.yml --ref develop`) — it builds the signed release APK and publishes it as a rolling **`nightly` prerelease** with a version derived from the git tag + CI run number. The nightly release is replaced on each build, so it always contains the latest feature build; since 21.08.2026 it is **built once per day, not on every push** (develop pushes only run tests/builds, no new nightly).
 - **Pushing a `v*` tag** (e.g. `git tag v0.2.0 && git push origin v0.2.0`) publishes a **stable GitHub release** with auto-generated notes.
 
 Both release the same signed APK; Obtainium users can track the latest release for stable versions or enable *pre-releases* to follow the nightly builds. If a lockfile update is needed (e.g. a security bump), run `bundle update <gem>` and commit the new `Gemfile.lock`.

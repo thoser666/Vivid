@@ -6,9 +6,12 @@ on:
     tags: [ 'v*' ]
   pull_request:
     branches: [ main ]
-  # Täglicher Nightly-Build: frische APK auch ohne neue Commits (06:00 UTC).
-  # Schedule-Runs laufen auf dem Default-Branch (develop) — GitHub setzt
-  # github.ref dabei auf refs/heads/develop.
+  # Nightly-Build NUR einmal pro Tag (06:00 UTC) + manuell: der Nightly-
+  # Publish läuft NICHT bei jedem develop-Push (seit 21.08.2026 — vorher
+  # entstand pro Push ein neues Nightly; die tägliche Kadenz hält Obtainium-
+  # Updates stabil und spart CI-Ressourcen). Schedule-Runs laufen auf dem
+  # Default-Branch (develop) — GitHub setzt github.ref dabei auf
+  # refs/heads/develop.
   schedule:
     - cron: '0 6 * * *'
   # Manuell auslösbar (z. B. zum Testen des Schedule-Pfads):
@@ -206,8 +209,10 @@ jobs:
           path: app/build/outputs/apk/release/app-release.apk
 
   # ✅ Release-APK veröffentlichen:
-  #   - v*-Tags  → stabiles GitHub-Release
-  #   - develop-Pushes (jedes neue Feature) → rollierendes nightly-Prerelease
+  #   - v*-Tags  → stabiles GitHub-Release (auf Push)
+  #   - develop  → rollierendes nightly-Prerelease, NUR einmal pro Tag
+  #     (Schedule 06:00 UTC + manuell per workflow_dispatch) — NICHT bei
+  #     jedem develop-Push, damit die Nightly-Kadenz stabil bleibt.
   # Baut bewusst selbst (nicht needs: build-release), weil der Job bei Tag-Push
   # übersprungen würde und GitHub Actions abhängige Jobs dann ebenfalls skippt.
   publish-release:
@@ -217,9 +222,11 @@ jobs:
     # Kein Release für: Dependabot (auch per manuellem Merge) und die
     # Changelog-Bot-Commits (Loop-Schutz: docs: Update CHANGELOG … darf
     # kein neues Nightly auslösen — Tests/Build laufen trotzdem).
-    # Push: nur develop/tags und keine Bots. Schedule/Dispatch: immer (kein
-    # Push-Event → keine Dependabot-/Bot-Risiken, Frames kommen frisch von develop).
-    if: (github.event_name == 'push' && (startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/develop') && github.actor != 'dependabot[bot]' && github.actor != 'github-actions[bot]' && !contains(github.event.commits.*.author.username, 'dependabot[bot]')) || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    # Push: nur v*-Tags (stable) und keine Bots. Schedule/Dispatch: immer
+    # (kein Push-Event → keine Dependabot-/Bot-Risiken, Frames kommen frisch
+    # von develop).
+    # Nightly (develop) nur via Schedule/Manual; Push-Pfad nur für v*-Tags (stable).
+    if: (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && github.actor != 'dependabot[bot]' && github.actor != 'github-actions[bot]' && !contains(github.event.commits.*.author.username, 'dependabot[bot]')) || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     # Bewusst KEIN `workflows: write`: Push-getriggerte Workflows, die dem
     # GITHUB_TOKEN diese Berechtigung geben, scheitern bei der Validierung
     # ("This run likely failed because of a workflow file issue" — Schutz vor
@@ -312,7 +319,9 @@ jobs:
     name: Verify Reproducibility (nightly)
     runs-on: ubuntu-latest
     needs: publish-release
-    if: (github.event_name == 'push' && github.ref == 'refs/heads/develop' && github.actor != 'dependabot[bot]' && github.actor != 'github-actions[bot]' && !contains(github.event.commits.*.author.username, 'dependabot[bot]')) || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    # Läuft nur nach dem (täglichen) nightly-Publish — Schedule/Manual,
+    # nicht bei jedem develop-Push (dort wird seit 21.08. kein Nightly gebaut).
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     permissions:
       contents: read
 
