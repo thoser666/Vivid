@@ -343,6 +343,14 @@ class BotCommandProcessorTest {
             BotCommandProcessor.Result.TestAlert(ChatAlertType.RAID),
             processor().handle("!testalert raid", null),
         )
+        assertEquals(
+            BotCommandProcessor.Result.TestAlert(ChatAlertType.GIFT_SUB),
+            processor().handle("!testalert gift", null),
+        )
+        assertEquals(
+            BotCommandProcessor.Result.TestAlert(ChatAlertType.RESUB),
+            processor().handle("!testalert resub", null),
+        )
     }
 
     @Test
@@ -358,6 +366,18 @@ class BotCommandProcessorTest {
         assertEquals(
             BotCommandProcessor.Result.TestAlert(ChatAlertType.RAID),
             processor().handle("!alert RAID", null),
+        )
+        assertEquals(
+            BotCommandProcessor.Result.TestAlert(ChatAlertType.GIFT_SUB),
+            processor().handle("!testalert giftsub", null),
+        )
+        assertEquals(
+            BotCommandProcessor.Result.TestAlert(ChatAlertType.GIFT_SUB),
+            processor().handle("!test-alert Gift-Sub", null),
+        )
+        assertEquals(
+            BotCommandProcessor.Result.TestAlert(ChatAlertType.RESUB),
+            processor().handle("!alert resubscribe", null),
         )
     }
 

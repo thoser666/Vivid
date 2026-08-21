@@ -9,6 +9,21 @@
     <string name="chat_alert_subscribe">🎉 %1$s subscribed (%2$s)</string>
     <string name="chat_alert_subscribe_plain">🎉 %1$s subscribed</string>
     <string name="chat_alert_sub_gift"> · gifted by %1$s</string>
+    <plurals name="chat_alert_gift">
+        <item quantity="one">🎁 %1$s gifted %2$d sub</item>
+        <item quantity="other">🎁 %1$s gifted %2$d subs</item>
+    </plurals>
+    <plurals name="chat_alert_gift_anonymous">
+        <item quantity="one">🎁 Anonymous gifted %1$d sub</item>
+        <item quantity="other">🎁 Anonymous gifted %1$d subs</item>
+    </plurals>
+    <plurals name="chat_alert_gift_cumulative">
+        <item quantity="one"> · %1$d total</item>
+        <item quantity="other"> · %1$d total</item>
+    </plurals>
+    <string name="chat_alert_resub">🔁 %1$s resubscribed (%2$s) — month %3$d</string>
+    <string name="chat_alert_resub_plain">🔁 %1$s resubscribed — month %2$d</string>
+    <string name="chat_alert_resub_streak"> · %1$d-month streak</string>
     <plurals name="chat_alert_raid">
         <item quantity="one">⚔️ Raid from %1$s (%2$d viewer)</item>
         <item quantity="other">⚔️ Raid from %1$s (%2$d viewers)</item>

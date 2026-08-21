@@ -179,6 +179,14 @@ class TwitchChatEventSubReader @Inject constructor(
                         val event = json.decodeFromJsonElement<SubscribeEvent>(eventJson)
                         _alerts.tryEmit(toSubscribeAlert(event))
                     }
+                    GIFT_SUBSCRIPTION_TYPE -> {
+                        val event = json.decodeFromJsonElement<GiftEvent>(eventJson)
+                        _alerts.tryEmit(toGiftAlert(event))
+                    }
+                    RESUB_SUBSCRIPTION_TYPE -> {
+                        val event = json.decodeFromJsonElement<ResubEvent>(eventJson)
+                        _alerts.tryEmit(toResubAlert(event))
+                    }
                     RAID_SUBSCRIPTION_TYPE -> {
                         val event = json.decodeFromJsonElement<RaidEvent>(eventJson)
                         _alerts.tryEmit(toRaidAlert(event))
@@ -312,6 +320,22 @@ class TwitchChatEventSubReader @Inject constructor(
         runCatching {
             postSubscription(
                 cfg, sessionId,
+                type = GIFT_SUBSCRIPTION_TYPE,
+                version = GIFT_SUBSCRIPTION_VERSION,
+                condition = SubscribeEventSubCondition(broadcaster_user_id = broadcasterUserId),
+            )
+        }
+        runCatching {
+            postSubscription(
+                cfg, sessionId,
+                type = RESUB_SUBSCRIPTION_TYPE,
+                version = RESUB_SUBSCRIPTION_VERSION,
+                condition = SubscribeEventSubCondition(broadcaster_user_id = broadcasterUserId),
+            )
+        }
+        runCatching {
+            postSubscription(
+                cfg, sessionId,
                 type = RAID_SUBSCRIPTION_TYPE,
                 version = RAID_SUBSCRIPTION_VERSION,
                 condition = RaidEventSubCondition(
@@ -393,6 +417,31 @@ class TwitchChatEventSubReader @Inject constructor(
         ),
     )
 
+    private fun toGiftAlert(event: GiftEvent): ChatAlert = ChatAlert(
+        id = "gift-${event.user_id}-${System.nanoTime()}",
+        type = ChatAlertType.GIFT_SUB,
+        displayName = event.user_name.ifBlank { event.user_login }.ifBlank { "?" },
+        timestamp = System.currentTimeMillis(),
+        detail = AlertDetail(
+            tier = event.tier,
+            count = event.total,
+            cumulativeTotal = event.cumulative_total ?: 0,
+            isAnonymous = event.is_anonymous,
+        ),
+    )
+
+    private fun toResubAlert(event: ResubEvent): ChatAlert = ChatAlert(
+        id = "resub-${event.user_id}-${System.nanoTime()}",
+        type = ChatAlertType.RESUB,
+        displayName = event.user_name.ifBlank { event.user_login }.ifBlank { "?" },
+        timestamp = System.currentTimeMillis(),
+        detail = AlertDetail(
+            tier = event.tier,
+            months = event.cumulative_months,
+            streakMonths = event.streak_months ?: 0,
+        ),
+    )
+
     private fun toRaidAlert(event: RaidEvent): ChatAlert = ChatAlert(
         id = "raid-${event.from_broadcaster_user_id}-${System.nanoTime()}",
         type = ChatAlertType.RAID,
@@ -416,6 +465,10 @@ class TwitchChatEventSubReader @Inject constructor(
         private const val FOLLOW_SUBSCRIPTION_VERSION = "2"
         private const val SUBSCRIBE_SUBSCRIPTION_TYPE = "channel.subscribe"
         private const val SUBSCRIBE_SUBSCRIPTION_VERSION = "1"
+        private const val GIFT_SUBSCRIPTION_TYPE = "channel.subscription.gift"
+        private const val GIFT_SUBSCRIPTION_VERSION = "1"
+        private const val RESUB_SUBSCRIPTION_TYPE = "channel.subscription.message"
+        private const val RESUB_SUBSCRIPTION_VERSION = "1"
         private const val RAID_SUBSCRIPTION_TYPE = "channel.raid"
         private const val RAID_SUBSCRIPTION_VERSION = "1"
     }
@@ -455,6 +508,31 @@ internal data class SubscribeEvent(
     val tier: String = "",
     val is_gift: Boolean = false,
     val gifter_user_name: String = "",
+)
+
+@Serializable
+internal data class GiftEvent(
+    val user_id: String = "",
+    val user_login: String = "",
+    val user_name: String = "",
+    val broadcaster_user_id: String = "",
+    val total: Int = 0,
+    val tier: String = "",
+    // Twitch liefert null bei anonymen Gifts (und wenn der Wert unbekannt ist).
+    val cumulative_total: Int? = null,
+    val is_anonymous: Boolean = false,
+)
+
+@Serializable
+internal data class ResubEvent(
+    val user_id: String = "",
+    val user_login: String = "",
+    val user_name: String = "",
+    val broadcaster_user_id: String = "",
+    val tier: String = "",
+    val cumulative_months: Int = 0,
+    // Twitch liefert null, wenn keine Serie aktiv ist.
+    val streak_months: Int? = null,
 )
 
 @Serializable

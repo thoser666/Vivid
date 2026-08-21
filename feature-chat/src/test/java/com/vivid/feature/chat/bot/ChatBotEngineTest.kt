@@ -1492,8 +1492,29 @@ class ChatBotEngineTest {
 
         verify(exactly = 1) { trigger.triggerTestAlert(ChatAlertType.SUBSCRIBE) }
         coVerify(exactly = 1) { sender.sendWhisper("streamer2", any()) }
-        // Bestätigung nutzt den kanonischen Enum-Namen (subscribe, nicht sub).
-        assertTrue(sent.captured.contains("Test-Alert (subscribe) ausgelöst"))
+        // Bestätigung nutzt das sprechende Label (sub, nicht den Enum-Namen).
+        assertTrue(sent.captured.contains("Test-Alert (sub) ausgelöst"))
+        engine.stop()
+    }
+
+    @Test
+    fun `owner test alert triggers gift and resub with readable labels`() = runTest {
+        val trigger = mockk<ChatAlertTrigger> {
+            every { triggerTestAlert(any()) } just Runs
+        }
+        val engine = engine()
+        val sent = mutableListOf<String>()
+        coEvery { sender.send(capture(sent)) } just Runs
+
+        engine.start(messages, config(ownerLogins = setOf("streamer2")), sender, this, alertTrigger = trigger)
+        messages.emit(chatMessage("!testalert gift", login = "streamer2"))
+        messages.emit(chatMessage("!testalert resub", login = "streamer2"))
+        advanceUntilIdle()
+
+        verify(exactly = 1) { trigger.triggerTestAlert(ChatAlertType.GIFT_SUB) }
+        verify(exactly = 1) { trigger.triggerTestAlert(ChatAlertType.RESUB) }
+        assertTrue(sent.joinToString("\n").contains("Test-Alert (gift) ausgelöst"))
+        assertTrue(sent.joinToString("\n").contains("Test-Alert (resub) ausgelöst"))
         engine.stop()
     }
 

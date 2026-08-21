@@ -436,9 +436,17 @@ class ChatBotEngine @Inject constructor(
         }
     }
 
-    /** Bestätigungstext für einen ausgelösten Test-Alert. */
-    private fun testAlertConfirmation(type: ChatAlertType): String =
-        "✅ Test-Alert (${type.name.lowercase()}) ausgelöst — erscheint im Chat-Overlay, sobald der Streaming-Screen offen ist."
+    /** Bestätigungstext für einen ausgelösten Test-Alert (sprechender Typ-Name). */
+    private fun testAlertConfirmation(type: ChatAlertType): String {
+        val label = when (type) {
+            ChatAlertType.FOLLOW -> "follow"
+            ChatAlertType.SUBSCRIBE -> "sub"
+            ChatAlertType.GIFT_SUB -> "gift"
+            ChatAlertType.RESUB -> "resub"
+            ChatAlertType.RAID -> "raid"
+        }
+        return "✅ Test-Alert ($label) ausgelöst — erscheint im Chat-Overlay, sobald der Streaming-Screen offen ist."
+    }
 
     /**
      * Führt eine Owner-Aktion aus (Stream starten/stoppen). Nicht-Owner
@@ -830,7 +838,7 @@ class ChatBotEngine @Inject constructor(
             "⚠️ Keine KI konfiguriert — !ask/!diag brauchen einen LLM-Endpunkt (eigene Owner-KI oder Fallback: die normale Bot-KI)."
         internal const val MODERATION_MISSING_USER_TEXT =
             "Bitte gib einen Benutzernamen an, z. B. !ban <user> oder !timeout <user> <minuten?>"
-        internal const val TEST_ALERT_USAGE_TEXT = "Nutzung: !testalert follow|sub|raid"
+        internal const val TEST_ALERT_USAGE_TEXT = "Nutzung: !testalert follow|sub|gift|resub|raid"
         internal const val STREAM_START_TEXT = "▶️ Stream wird gestartet…"
         internal const val STREAM_STOP_TEXT = "⏹ Stream wird gestoppt."
 

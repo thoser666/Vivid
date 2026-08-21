@@ -1,13 +1,16 @@
 package com.vivid.feature.chat.model
 
 /**
- * Typ eines Chat-Overlay-Alerts (Follow/Sub/Raid) — die Events, die Twitch
- * über EventSub als eigene Subscription-Typen liefert (`channel.follow`,
- * `channel.subscribe`, `channel.raid`).
+ * Typ eines Chat-Overlay-Alerts (Follow/Sub/Gift-Sub/Resub/Raid) — die
+ * Events, die Twitch über EventSub als eigene Subscription-Typen liefert
+ * (`channel.follow`, `channel.subscribe`, `channel.subscription.gift`,
+ * `channel.subscription.message`, `channel.raid`).
  */
 enum class ChatAlertType {
     FOLLOW,
     SUBSCRIBE,
+    GIFT_SUB,
+    RESUB,
     RAID,
 }
 
@@ -42,9 +45,21 @@ data class ChatAlert(
  * @param tier Sub-Tier als Twitch-Wert (`1000`/`2000`/`3000` → Tier 1/2/3).
  * @param gifterName Anzeigename des Giftgebers (bei Geschenk-Subs).
  * @param viewerCount Raid-Größe (Viewer-Anzahl).
+ * @param count Anzahl verschenkter Subs im Gift-Event (`total`).
+ * @param cumulativeTotal Lebenszeit-Gesamtsumme des Giftgebers
+ *   (`cumulative_total`; bei anonymen Gifts liefert Twitch null → 0).
+ * @param isAnonymous Gift anonym verschenkt (Twitch liefert dann leere
+ *   User-Felder — das Overlay zeigt den lokalisierten „Anonym“-Namen).
+ * @param months Kumulierte Sub-Monate beim Resub (`cumulative_months`).
+ * @param streakMonths Aktuelle Monats-Serie (`streak_months`; 0 wenn keine).
  */
 data class AlertDetail(
     val tier: String = "",
     val gifterName: String = "",
     val viewerCount: Int = 0,
+    val count: Int = 0,
+    val cumulativeTotal: Int = 0,
+    val isAnonymous: Boolean = false,
+    val months: Int = 0,
+    val streakMonths: Int = 0,
 )

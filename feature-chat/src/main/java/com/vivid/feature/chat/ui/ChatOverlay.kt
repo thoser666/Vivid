@@ -87,16 +87,19 @@ fun ChatOverlay(
 }
 
 /**
- * Eine Event-Alert-Zeile (Follow/Sub/Raid): Typ-Farbe + lokalisierter Text
- * aus den String-Ressourcen. Die Zusatzdaten (Tier/Giftgeber/Viewer) kommen
- * strukturiert im [ChatAlert.detail] und werden hier in die Templates
- * eingesetzt (keine Lokalisierung in der Datenebene).
+ * Eine Event-Alert-Zeile (Follow/Sub/Gift-Sub/Resub/Raid): Typ-Farbe +
+ * lokalisierter Text aus den String-Ressourcen. Die Zusatzdaten
+ * (Tier/Giftgeber/Viewer/Anzahl/Monate) kommen strukturiert im
+ * [ChatAlert.detail] und werden hier in die Templates eingesetzt (keine
+ * Lokalisierung in der Datenebene).
  */
 @Composable
 private fun AlertRow(alert: ChatAlert) {
     val color = when (alert.type) {
         ChatAlertType.FOLLOW -> Color(0xFF4CAF50)
         ChatAlertType.SUBSCRIBE -> Color(0xFFBA68C8)
+        ChatAlertType.GIFT_SUB -> Color(0xFF4DD0E1)
+        ChatAlertType.RESUB -> Color(0xFF64B5F6)
         ChatAlertType.RAID -> Color(0xFFFFB74D)
     }
     val text = when (alert.type) {
@@ -110,6 +113,47 @@ private fun AlertRow(alert: ChatAlert) {
             }
             if (alert.detail.gifterName.isNotBlank()) {
                 base + stringResource(R.string.chat_alert_sub_gift, alert.detail.gifterName)
+            } else {
+                base
+            }
+        }
+        ChatAlertType.GIFT_SUB -> {
+            val count = alert.detail.count.coerceAtLeast(1)
+            val base = if (alert.detail.isAnonymous) {
+                pluralStringResource(R.plurals.chat_alert_gift_anonymous, count, count)
+            } else {
+                pluralStringResource(R.plurals.chat_alert_gift, count, alert.displayName, count)
+            }
+            val tier = tierLabel(alert.detail.tier)
+            val withTier = if (tier != null) {
+                "$base ($tier)"
+            } else {
+                base
+            }
+            if (alert.detail.cumulativeTotal > 0) {
+                withTier + pluralStringResource(
+                    R.plurals.chat_alert_gift_cumulative,
+                    alert.detail.cumulativeTotal,
+                    alert.detail.cumulativeTotal,
+                )
+            } else {
+                withTier
+            }
+        }
+        ChatAlertType.RESUB -> {
+            val tier = tierLabel(alert.detail.tier)
+            val base = if (tier != null) {
+                stringResource(
+                    R.string.chat_alert_resub,
+                    alert.displayName,
+                    tier,
+                    alert.detail.months,
+                )
+            } else {
+                stringResource(R.string.chat_alert_resub_plain, alert.displayName, alert.detail.months)
+            }
+            if (alert.detail.streakMonths > 0) {
+                base + stringResource(R.string.chat_alert_resub_streak, alert.detail.streakMonths)
             } else {
                 base
             }

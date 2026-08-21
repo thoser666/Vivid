@@ -123,18 +123,21 @@ class TwitchChatEventSubReaderTest {
         sockets.first().push(welcome)
         advanceUntilIdle()
 
-        // Chat + Follow + Subscribe + Raid = 4 Subscriptions auf derselben Session.
-        assertEquals(4, subscribeRequests.size)
+        // Chat + Follow + Subscribe + Gift + Resub + Raid = 6 Subscriptions auf derselben Session.
+        assertEquals(6, subscribeRequests.size)
         val chat = subscribeRequests[0]
         assertTrue(chat.contains("\"type\":\"channel.chat.message\""), chat)
         assertTrue(chat.contains("\"version\":\"1\""), chat)
         assertTrue(chat.contains("\"condition\":{\"broadcaster_user_id\":\"222\",\"user_id\":\"111\"}"), chat)
         assertTrue(chat.contains("\"transport\":{\"method\":\"websocket\",\"session_id\":\"sess-1\"}"), chat)
-        // Event-Alerts: Follow v2 (Moderator = Bot), Subscribe v1, Raid v1 (alle Raids).
+        // Event-Alerts: Follow v2 (Moderator = Bot), Subscribe v1, Gift v1,
+        // Resub v1 (alle mit nur broadcaster_user_id), Raid v1 (alle Raids).
         val bodies = subscribeRequests.joinToString("\n")
         assertTrue(bodies.contains("\"type\":\"channel.follow\"\n  \"version\":\"2\"") || bodies.contains("\"type\":\"channel.follow\""), bodies)
         assertTrue(bodies.contains("\"condition\":{\"broadcaster_user_id\":\"222\",\"moderator_user_id\":\"111\"}"), bodies)
         assertTrue(bodies.contains("\"type\":\"channel.subscribe\""), bodies)
+        assertTrue(bodies.contains("\"type\":\"channel.subscription.gift\""), bodies)
+        assertTrue(bodies.contains("\"type\":\"channel.subscription.message\""), bodies)
         assertTrue(bodies.contains("\"condition\":{\"broadcaster_user_id\":\"222\"}"), bodies)
         assertTrue(bodies.contains("\"type\":\"channel.raid\""), bodies)
         assertTrue(bodies.contains("\"condition\":{\"to_broadcaster_user_id\":\"222\",\"from_broadcaster_user_id\":\"\"}"), bodies)
@@ -256,6 +259,48 @@ class TwitchChatEventSubReaderTest {
     }
 
     @Test
+    fun `emits gift subs and resubs as alerts`() = runTest {
+        val sockets = mutableListOf(FakeEventSubSocket())
+        val client = client(this, sockets, mutableListOf(), testScheduler)
+        val gift =
+            """{"metadata":{"message_type":"notification","subscription_type":"channel.subscription.gift","message_id":"a4"},"payload":{"subscription":{},"event":{"user_id":"666","user_login":"gifter1","user_name":"GifterEins","broadcaster_user_id":"222","total":3,"tier":"1000","cumulative_total":9,"is_anonymous":false}}}"""
+        val anonymousGift =
+            """{"metadata":{"message_type":"notification","subscription_type":"channel.subscription.gift","message_id":"a5"},"payload":{"subscription":{},"event":{"user_id":"","user_login":"","user_name":"","broadcaster_user_id":"222","total":1,"tier":"2000","cumulative_total":null,"is_anonymous":true}}}"""
+        val resub =
+            """{"metadata":{"message_type":"notification","subscription_type":"channel.subscription.message","message_id":"a6"},"payload":{"subscription":{},"event":{"user_id":"777","user_login":"resubber1","user_name":"ResubberEins","broadcaster_user_id":"222","tier":"1000","cumulative_months":24,"streak_months":6}}}"""
+
+        client.alerts.test {
+            client.start(config)
+            sockets.first().push(welcome)
+            sockets.first().push(gift)
+            sockets.first().push(anonymousGift)
+            sockets.first().push(resub)
+            advanceUntilIdle()
+
+            val g = awaitItem()
+            assertEquals(ChatAlertType.GIFT_SUB, g.type)
+            assertEquals("GifterEins", g.displayName)
+            assertEquals(3, g.detail.count)
+            assertEquals(9, g.detail.cumulativeTotal)
+            assertEquals("1000", g.detail.tier)
+            assertFalse(g.detail.isAnonymous)
+            val anon = awaitItem()
+            assertEquals(ChatAlertType.GIFT_SUB, anon.type)
+            assertTrue(anon.detail.isAnonymous)
+            assertEquals(1, anon.detail.count)
+            assertEquals(0, anon.detail.cumulativeTotal)
+            val re = awaitItem()
+            assertEquals(ChatAlertType.RESUB, re.type)
+            assertEquals("ResubberEins", re.displayName)
+            assertEquals(24, re.detail.months)
+            assertEquals(6, re.detail.streakMonths)
+            assertEquals("1000", re.detail.tier)
+            client.stop()
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     fun `trigger test alert emits a synthetic alert on the alerts flow`() = runTest {
         val sockets = mutableListOf(FakeEventSubSocket())
         val client = client(this, sockets, mutableListOf(), testScheduler)
@@ -290,7 +335,7 @@ class TwitchChatEventSubReaderTest {
         client.start(config)
         first.push(welcome)
         advanceUntilIdle()
-        assertEquals(4, subscribeRequests.size)
+        assertEquals(6, subscribeRequests.size)
 
         // session_reconnect → neue URL; Twitch übernimmt die Abos automatisch.
         first.push(reconnect)
@@ -301,7 +346,7 @@ class TwitchChatEventSubReaderTest {
         // Neue Session: kein erneuter Subscribe (Abos wandern mit).
         second.push(welcome)
         advanceUntilIdle()
-        assertEquals(4, subscribeRequests.size)
+        assertEquals(6, subscribeRequests.size)
         client.stop()
     }
 
@@ -316,7 +361,7 @@ class TwitchChatEventSubReaderTest {
         client.start(config)
         first.push(welcome)
         advanceUntilIdle()
-        assertEquals(4, subscribeRequests.size)
+        assertEquals(6, subscribeRequests.size)
 
         // Harte Trennung ohne session_reconnect → neue Session braucht ein Abo.
         first.drop()
@@ -325,7 +370,7 @@ class TwitchChatEventSubReaderTest {
         assertEquals(TwitchChatEventSubReader.DEFAULT_EVENTSUB_URL, second.connectedUrl)
         second.push(welcome)
         advanceUntilIdle()
-        assertEquals(8, subscribeRequests.size)
+        assertEquals(12, subscribeRequests.size)
         client.stop()
     }
 }

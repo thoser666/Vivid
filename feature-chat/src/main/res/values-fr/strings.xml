@@ -9,6 +9,24 @@
     <string name="chat_alert_subscribe">🎉 %1$s s\'abonne (%2$s)</string>
     <string name="chat_alert_subscribe_plain">🎉 %1$s s\'abonne</string>
     <string name="chat_alert_sub_gift"> · cadeau de %1$s</string>
+    <plurals name="chat_alert_gift">
+        <item quantity="one">🎁 %1$s offre %2$d abonnement</item>
+        <item quantity="many">🎁 %1$s offre %2$d abonnements</item>
+        <item quantity="other">🎁 %1$s offre %2$d abonnements</item>
+    </plurals>
+    <plurals name="chat_alert_gift_anonymous">
+        <item quantity="one">🎁 Anonyme offre %1$d abonnement</item>
+        <item quantity="many">🎁 Anonyme offre %1$d abonnements</item>
+        <item quantity="other">🎁 Anonyme offre %1$d abonnements</item>
+    </plurals>
+    <plurals name="chat_alert_gift_cumulative">
+        <item quantity="one"> · %1$d au total</item>
+        <item quantity="many"> · %1$d au total</item>
+        <item quantity="other"> · %1$d au total</item>
+    </plurals>
+    <string name="chat_alert_resub">🔁 %1$s prolonge (%2$s) — mois %3$d</string>
+    <string name="chat_alert_resub_plain">🔁 %1$s prolonge — mois %2$d</string>
+    <string name="chat_alert_resub_streak"> · série de %1$d mois</string>
     <plurals name="chat_alert_raid">
         <item quantity="one">⚔️ Raid de %1$s (%2$d spectateur)</item>
         <item quantity="many">⚔️ Raid de %1$s (%2$d spectateurs)</item>
