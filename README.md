@@ -123,13 +123,13 @@ The About-screen check follows the same rules as [RELEASE.md](RELEASE.md): it on
 ### ✅ Implemented
 
 - 🎛️ **OBS WebSocket Control** - Control OBS Studio directly from your phone (switch scenes, start/stop recording and streaming)
-- 🌐 **Streaming Pipeline** - CameraX-based live streaming to your configured RTMP/SRT ingest (Twitch, YouTube, Kick, or your own server)
+- 🌐 **Streaming Pipeline** - RootEncoder-based live streaming to your configured RTMP/SRT ingest (Twitch, YouTube, Kick, or your own server)
 - 🔗 **Multi-Streaming** - Send the same stream to **two RTMP(S) targets in parallel** (primary + optional secondary): add a secondary URL/key in Settings → Stream („Multi-Streaming (optional)“) and both targets start on Go Live. Each target shows its own status on the streaming screen (bereit / verbinde… / sendet live / fehlgeschlagen), and if one target fails it stops on its own while the other keeps streaming — ideal for cross-streaming to Twitch and YouTube at the same time
 - 🔒 **RTMPS (TLS)** - Encrypted ingest via `rtmps://` (verified against RootEncoder 2.7.5: native TLS handshake, port 443); enabled per-platform or via the TLS toggle, standard port 1935 is auto-normalized to 443
 - ✅ **Go-Live Self-Check** - Before starting the stream, Vivid validates the configured URL and stream key (missing/invalid URL, unsupported protocol, missing key) and shows clear, actionable German messages directly on the streaming screen — blocking errors prevent starting, warnings (e.g. missing key) are shown but don't block
 - 🔍 **Focus Lock** - Toggle autofocus ⇄ infinity lock on the streaming camera to prevent focus hunting (rain drops, dirt on the windshield) during drive/train streams — Moblin #377; works on the actual RootEncoder camera (not just the preview) and can be set before going live
 - 👆 **Camera Controls on the Streaming Preview** - **Tap-to-focus** (single tap), **pinch to zoom** (clamped to the camera's zoom range) and **zoom reset** (double tap) directly on the live preview — gestures drive the real RootEncoder camera, not the preview only. Plus a **stabilization toggle** (optical stabilization preferred, EIS fallback) next to the focus-lock button
-- 💬 **Twitch Chat Integration** - Full Twitch chat data layer via **EventSub (read) + Helix (send), no IRC** — `TwitchChatEventSubReader` (WebSocket `channel.chat.message`) + Helix `POST /chat/messages`; on top of it the chat overlay, the AI chat bot and a full settings screen (see below). Formally ✅ with **Twitch scope** (Beta-Gate): **Kick/YouTube/SOOP + Twitch OAuth browser flow (sending & moderation) = post-beta roadmap**
+- 💬 **Twitch Chat Integration** - Full Twitch chat data layer via **EventSub (read) + Helix (send), no IRC** — `TwitchChatEventSubReader` (WebSocket `channel.chat.message`) + Helix `POST /helix/chat/messages`; on top of it the chat overlay, the AI chat bot and a full settings screen (see below). Formally ✅ with **Twitch scope** (Beta-Gate): **Kick/YouTube/SOOP + Twitch OAuth browser flow (sending & moderation) = post-beta roadmap**
 - 💬 **Twitch Chat Overlay** - Show the chat of any Twitch channel over the live preview (read via Twitch EventSub, no IRC). Configure the channel and toggle the overlay in Settings → **Chat-Overlay**; the latest messages appear bottom-left with each user's Twitch color, **Twitch badges** (Broadcaster/Moderator/Subscriber, fetched via the Helix Chat-Badges API and rendered as CDN images before the username), **inline Twitch emotes** (rendered as CDN images via Coil) and **event alerts** (follows, subscriptions, gift subs, resubs and raids — shown as colored banner lines above the chat, auto-dismissed after a few seconds; the bot token needs `moderator:read:followers` for follows, i.e. the bot must be a moderator, and `channel:read:subscriptions` for subs/gifts/resubs). A test alert can be triggered locally via the `triggerTestAlert` API (or the owner command `!testalert follow|sub|gift|resub|raid`) to verify the overlay before going live. The connection auto-reconnects, and the overlay hides itself as soon as it is disabled in the settings
 - 🤖 **AI Chat Bot** - A fully automated, in-app chat bot (inspired by cloud services like Stream Chat AI): it connects to your Twitch chat when you go live, answers viewers through an LLM of your choice (any OpenAI-compatible endpoint — OpenAI, Gemini, Groq, DeepSeek, or a local Ollama server) and shuts down cleanly when the stream ends. A **mode switch** in the settings picks between **„Bot (wie Moblin)“** (deterministic `!`-commands like `!help`/`!uptime`/`!tts`/`!bot`, no LLM needed) and **„KI autonom“** (the AI decides itself whether and how to reply, including staying silent). `!tts` toggles chat text-to-speech (reads chat messages aloud on the streamer's device, like Moblin's bot). Mentions-only mode, a reply cooldown and a per-minute rate limit keep it from spamming; configurable **limits** protect against spam and LLM cost: a per-viewer cooldown (default 60 s), a per-viewer reply cap per stream, and an hourly reply budget (0 = off for each) — platform-neutral via user id, moderators bypass the per-viewer limits; a **quick-start preset bar** (Locker/Balanced/Streng/Eigene, the last choice is persisted and restored on app start) fills the three limits in one tap, and a **live usage readout** (replies this hour vs. budget, per-stream total, top viewers) lets the streamer watch the cost budget in the settings screen. A **coexistence mode** lets it run side by side with another tool's bot (e.g. Rivulet): other bot logins can be ignored and a command scope (`@vividbot` mention or a custom prefix like `!v!help`) prevents double replies and double actions. An **owner mode (streamer only)** adds exclusive commands — `!start`/`!stop`/`!diag`/`!ask` — that can start/stop the stream, run a diagnostic with recommendations, and query a separate, more powerful owner LLM; only the channel owner (broadcaster badge) and explicitly listed logins (e.g. a second account) can use them, viewers get a hint instead. Auto-connect/auto-shutdown is wired into the streaming foreground service — see [docs/ai-chat-bot.md](docs/ai-chat-bot.md)
 - ⚙️ **Persisted Stream Settings** - Stream URL/key (incl. optional secondary target for multi-streaming) and OBS connection details are stored and reused across sessions
@@ -137,10 +137,7 @@ The About-screen check follows the same rules as [RELEASE.md](RELEASE.md): it on
 - 🕹️ **Web Remote Control** - A small LAN server (port 8080, token-protected) exposes the streaming status via `http://<phone-ip>:8080/status` and allows starting/stopping the stream from any browser in the same network — see [Installation](#-installation)
 - 🔋 **Background Streaming (Foreground Service)** - The stream keeps running when the app is in the background (home button, screen off) **and even if the Activity is destroyed** (recents swipe, rotation): a foreground service with a persistent notification (live status + stop action) and a partial wake lock keeps the encoder and camera alive, and the encoder runs on a view-independent GL pipeline (RootEncoder Context-constructor) so it never depends on the camera preview surface
 - 🔓 **Open Source** - Completely free and open source
-
-### ✅ Implemented
-
-- 🌍 **I18n Support** — all UI strings externalized into per-module `strings.xml` (German default + full English `values-en`), including validator/notification/update-check messages; CI gates enforce externalization and `values` ↔ `values-en` completeness ([docs/i18n-plan.md](docs/i18n-plan.md)). Bot/`!diag` texts are intentionally not localized (streamer language).
+- 🌍 **I18n Support** — all UI strings externalized into per-module `strings.xml` (German default, full English `values-en` and full French `values-fr` — three complete languages), including validator/notification/update-check messages; CI gates enforce externalization and `values` ↔ `values-en` ↔ `values-fr` completeness ([docs/i18n-plan.md](docs/i18n-plan.md)). Bot/`!diag` texts are intentionally not localized (streamer language).
 
 ### 📋 Planned (Roadmap to Moblin parity)
 
@@ -455,7 +452,7 @@ Bild läuft, aber Zuschauer hören nichts? Das sind die häufigsten Ursachen:
 | DI | Hilt + KSP | 2.59.2 / 2.3.11 |
 | Networking | OkHttp / Ktor | 5.3.2 / 3.5.2 |
 | Image Loading | Coil | 2.7.0 |
-| Camera | CameraX (Vorschau) / RootEncoder (RTMP/SRT-Pipeline) | 1.6.1 / 2.7.5 |
+| Camera | RootEncoder (Stream-Pipeline + Vorschau) — CameraX 1.6.1 nur im ungenutzten CameraScreen | 2.7.5 |
 | Media | Media3 (ExoPlayer) | 1.9.0 |
 | Serialization | kotlinx.serialization | 1.11.0 |
 | Code Analysis | Sentry Gradle Plugin | 6.6.0 |
@@ -478,7 +475,7 @@ Status: ✅ implemented · 🚧 in progress · 📋 planned
 | Go-Live Self-Check | ✅ | Validates URL/key before starting, clear error messages |
 | Focus Lock (∞) | ✅ | Autofocus ⇄ infinity lock toggle on the streaming camera (Moblin #377) |
 | Persisted Stream Settings | ✅ | Stream & OBS config across sessions |
-| I18n Support | ✅ | All UI strings externalized (per-module `strings.xml`, German default + full English `values-en`); CI gates: externalization + `values`↔`values-en` completeness + hint-content guard — [docs/i18n-plan.md](docs/i18n-plan.md) |
+| I18n Support | ✅ | All UI strings externalized (per-module `strings.xml`, German default + full English `values-en` + full French `values-fr`); CI gates: externalization + `values`↔`values-en`↔`values-fr` completeness + hint-content guard — [docs/i18n-plan.md](docs/i18n-plan.md) |
 | H.264/H.265, up to 4K/60fps | 📋 | Pipeline in place, quality targets planned |
 | Multi-Network Bonding (SRTLA) | 📋 | SRTLA algorithm to be ported |
 | Chat (Twitch) + Emotes + Moderation | ✅ Twitch-Scope | `feature-chat` — Twitch EventSub reader (`channel.chat.message`) + Helix send (`POST /helix/chat/messages`) + chat overlay over the live preview + **inline Twitch emotes** (CDN rendering via Coil) + **moderation done** (`!ban`/`!timeout`/`!delete`) + AI chat bot done (IRC removed); **Kick/YouTube/SOOP + OAuth (sending/moderation) = post-beta roadmap**, third-party emotes (BTTV/FFZ/7TV) pending |
@@ -522,7 +519,7 @@ Status: ✅ implemented · 🚧 in progress · 📋 planned
 | `core` | Shared utilities and base classes |
 | `domain` | Business logic, models, use cases |
 | `data` | Repositories and data sources |
-| `feature-streaming` | Streaming pipeline (CameraX, encoding) |
+| `feature-streaming` | Streaming pipeline (RootEncoder, encoding) |
 | `feature-chat` | Live chat integration |
 | `feature-settings` | App settings |
 | `feature-widgets` | Stream overlays and widgets |
