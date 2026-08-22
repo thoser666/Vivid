@@ -147,7 +147,7 @@ jobs:
       # ✅ Emulator hochfahren + alle instrumentierten Tests ausführen
       # (Debug-Build, wird von connectedDebugAndroidTest selbst gebaut).
       - name: Run instrumented tests on emulator
-        uses: ReactiveCircus/android-emulator-runner@660ac26f5bd4cb6c1d98b2143e66ded57bee724f # v2.38.0
+        uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
         with:
           api-level: 34
           arch: x86_64
