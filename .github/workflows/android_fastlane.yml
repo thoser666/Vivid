@@ -117,18 +117,29 @@ jobs:
           path: '**/build/test-results/**/*.xml'
 
   # ✅ Instrumentierte UI-Tests (androidTest) auf einem echten Emulator:
-  #   - HelpNavigationTest  → beide Help-Einstiege (Streaming-❓ + About)
+  #   - HelpNavigationTest  → beide Help-Einstiege (Streaming-❓ + About) +
+  #                          externer Doku-Link (ACTION_VIEW-Intent)
   #   - PlayScreenshotsTest → Play-Screenshots per fastlane screengrab
   # Läuft bei jedem Push/PR auf dem Default-Branch. Nutzt die Community-Action
   # reactivecircus/android-emulator-runner (v2.38.0, SHA-gepinnt), die AVD-Erstellung,
   # Boot und Script-Ausführung auf dem ubuntu-Runner übernimmt (KVM falls verfügbar).
   # Keine Signing-Secrets nötig — Debug-Build mit Debug-Key.
+  #
+  # Locale-Matrix (en-US, de-DE): beweist dauerhaft, dass die Suite locale-robust
+  # ist (die Help-Tests lösen Strings über die R-Klassen auf).  Die Emulator-Locale
+  # wird per `-prop persist.sys.locale` gesetzt und im Script per Assertion
+  # verifiziert — schlägt der Proof fehl (Locale nicht aktiv), bricht der Job ab,
+  # damit nie fälschlich ein „locale-robust“-Grün gemeldet wird.
   emulator-tests:
-    name: Instrumented UI Tests (Emulator)
+    name: Instrumented UI Tests (Emulator, ${{ matrix.locale }})
     runs-on: ubuntu-latest
     needs: test
     permissions:
       contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        locale: [en-US, de-DE]
 
     steps:
       - name: Checkout code
@@ -144,25 +155,34 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      # ✅ Emulator hochfahren + alle instrumentierten Tests ausführen
-      # (Debug-Build, wird von connectedDebugAndroidTest selbst gebaut).
-      - name: Run instrumented tests on emulator
+      # ✅ Emulator hochfahren (Locale aus der Matrix) + alle instrumentierten
+      # Tests ausführen (Debug-Build, wird von connectedDebugAndroidTest gebaut).
+      - name: Run instrumented tests on emulator (${{ matrix.locale }})
         uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
         with:
           api-level: 34
           arch: x86_64
           target: google_apis
           force-avd-creation: true
-          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect
+          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -prop persist.sys.locale=${{ matrix.locale }}
           disable-animations: true
           disable-spellchecker: true
-          script: ./gradlew :app:connectedDebugAndroidTest
+          script: |
+            # Locale-Proof: Die effektive Emulator-Locale muss der Matrix-Locale
+            # entsprechen — sonst ist der Lauf kein Beweis für die Locale-Robustheit.
+            ACTUAL=$(adb shell getprop persist.sys.locale | tr -d '\r')
+            echo "→ Emulator-Locale: ${ACTUAL:-<leer>} (erwartet: ${{ matrix.locale }})"
+            if [ -z "$ACTUAL" ] || [ "$ACTUAL" != "${{ matrix.locale }}" ]; then
+              echo "::error::Locale-Proof fehlgeschlagen: erwartet ${{ matrix.locale }}, gefunden '${ACTUAL}'"
+              exit 1
+            fi
+            ./gradlew :app:connectedDebugAndroidTest
 
-      - name: Upload instrumented test reports
+      - name: Upload instrumented test reports (${{ matrix.locale }})
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: instrumented-test-results
+          name: instrumented-test-results-${{ matrix.locale }}
           path: '**/build/outputs/androidTest-results/**/*.xml'
 
   build-debug:
