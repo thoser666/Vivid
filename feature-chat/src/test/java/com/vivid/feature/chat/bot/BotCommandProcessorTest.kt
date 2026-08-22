@@ -237,6 +237,44 @@ class BotCommandProcessorTest {
         )
     }
 
+    // --- !torch: Taschenlampe umschalten (Owner-only, Gate in der Engine) ---
+
+    @Test
+    fun `torch maps to OwnerTorch`() {
+        assertEquals(
+            BotCommandProcessor.Result.OwnerTorch,
+            processor().handle("!torch", null),
+        )
+    }
+
+    @Test
+    fun `torch aliases lantern and flashlight`() {
+        assertEquals(
+            BotCommandProcessor.Result.OwnerTorch,
+            processor().handle("!lantern", null),
+        )
+        assertEquals(
+            BotCommandProcessor.Result.OwnerTorch,
+            processor().handle("!flashlight", null),
+        )
+    }
+
+    @Test
+    fun `torch is case-insensitive`() {
+        assertEquals(
+            BotCommandProcessor.Result.OwnerTorch,
+            processor().handle("!TORCH", null),
+        )
+    }
+
+    @Test
+    fun `torch works with prefix scope`() {
+        assertEquals(
+            BotCommandProcessor.Result.OwnerTorch,
+            processor().handle("!v!torch", null, ChatBotCommandScope.PREFIX, "v"),
+        )
+    }
+
     // --- Moderation (!ban / !timeout / !delete — Owner-only, Gate in der Engine) ---
 
     @Test
@@ -484,7 +522,7 @@ class BotCommandProcessorTest {
         val p = processor()
         assertEquals(
             BotCommandProcessor.Result.Reply(
-                "Verfügbare Befehle: !v!help · !v!uptime · !v!tts · !v!song · !v!next · !v!pause · !v!bot · !v!testalert",
+                "Verfügbare Befehle: !v!help · !v!uptime · !v!tts · !v!song · !v!next · !v!pause · !v!bot · !v!testalert · !v!torch",
             ),
             p.handle("!v!help", null, ChatBotCommandScope.PREFIX, "v"),
         )

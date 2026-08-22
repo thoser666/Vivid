@@ -128,6 +128,7 @@ class ChatBotEngineTest {
         mockk {
             coEvery { start() } just Runs
             every { stop() } just Runs
+            every { toggleTorch() } returns true
             coEvery { diagnostics() } returns StreamDiagnostics(
                 status = status,
                 obsConnected = true,
@@ -273,7 +274,7 @@ class ChatBotEngineTest {
 
         coVerify(exactly = 0) { sender.send("Gerade läuft kein Stream.") }
         coVerify(exactly = 1) {
-            sender.send("Verfügbare Befehle: !v!help · !v!uptime · !v!tts · !v!song · !v!next · !v!pause · !v!bot · !v!testalert")
+            sender.send("Verfügbare Befehle: !v!help · !v!uptime · !v!tts · !v!song · !v!next · !v!pause · !v!bot · !v!testalert · !v!torch")
         }
         engine.stop()
     }
@@ -1170,6 +1171,62 @@ class ChatBotEngineTest {
         advanceUntilIdle()
 
         coVerify(exactly = 1) { control.start() }
+        engine.stop()
+    }
+
+    @Test
+    fun `owner torch command toggles the torch and replies`() = runTest {
+        val control = streamControl()
+        val engine = engine(streamControl = control)
+        val sent = slot<String>()
+        coEvery { sender.send(capture(sent)) } just Runs
+
+        engine.start(messages, config(ownerLogins = setOf("streamer2")), sender, this)
+        messages.emit(chatMessage("!torch", login = "streamer2"))
+        advanceUntilIdle()
+
+        verify { control.toggleTorch() }
+        assertEquals(ChatBotEngine.TORCH_ON_TEXT, sent.captured)
+        engine.stop()
+    }
+
+    @Test
+    fun `torch from a non-owner is rejected`() = runTest {
+        val control = streamControl()
+        val engine = engine(streamControl = control)
+        val sent = slot<String>()
+        coEvery { sender.send(capture(sent)) } just Runs
+
+        engine.start(messages, config(), sender, this)
+        messages.emit(chatMessage("!torch"))
+        advanceUntilIdle()
+
+        verify(exactly = 0) { control.toggleTorch() }
+        assertEquals(ChatBotEngine.OWNER_ONLY_TEXT, sent.captured)
+        engine.stop()
+    }
+
+    @Test
+    fun `torch off reply when toggleTorch returns false`() = runTest {
+        val control = mockk<ChatStreamControl> {
+            coEvery { start() } just Runs
+            every { stop() } just Runs
+            every { toggleTorch() } returns false
+            coEvery { diagnostics() } returns StreamDiagnostics(
+                status = ChatStreamStatus.Idle,
+                obsConnected = true,
+                checks = emptyList(),
+            )
+        }
+        val engine = engine(streamControl = control)
+        val sent = slot<String>()
+        coEvery { sender.send(capture(sent)) } just Runs
+
+        engine.start(messages, config(ownerLogins = setOf("streamer2")), sender, this)
+        messages.emit(chatMessage("!torch", login = "streamer2"))
+        advanceUntilIdle()
+
+        assertEquals(ChatBotEngine.TORCH_OFF_TEXT, sent.captured)
         engine.stop()
     }
 

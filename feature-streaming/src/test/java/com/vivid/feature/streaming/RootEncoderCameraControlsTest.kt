@@ -139,4 +139,56 @@ class RootEncoderCameraControlsTest {
         verify(exactly = 0) { cam.disableVideoStabilization() }
         verify(exactly = 0) { cam.disableOpticalVideoStabilization() }
     }
+
+    // --- Taschenlampe (Torch/Lantern) ---
+
+    @Test
+    fun `hasTorch delegates to isLanternSupported`() {
+        val cam = camera()
+        every { cam.isLanternSupported } returns true
+
+        assertTrue(RootEncoderCameraControls(cam).hasTorch())
+    }
+
+    @Test
+    fun `isTorchEnabled delegates to isLanternEnabled`() {
+        val cam = camera()
+        every { cam.isLanternEnabled } returns true
+
+        assertTrue(RootEncoderCameraControls(cam).isTorchEnabled())
+    }
+
+    @Test
+    fun `enableTorch calls enableLantern and returns true`() {
+        val cam = camera()
+        every { cam.enableLantern() } just runs
+
+        assertTrue(RootEncoderCameraControls(cam).enableTorch())
+        verify { cam.enableLantern() }
+    }
+
+    @Test
+    fun `disableTorch calls disableLantern and returns true`() {
+        val cam = camera()
+        every { cam.disableLantern() } just runs
+
+        assertTrue(RootEncoderCameraControls(cam).disableTorch())
+        verify { cam.disableLantern() }
+    }
+
+    @Test
+    fun `enableTorch returns false when enableLantern throws`() {
+        val cam = camera()
+        every { cam.enableLantern() } throws RuntimeException("no flash")
+
+        assertFalse(RootEncoderCameraControls(cam).enableTorch())
+    }
+
+    @Test
+    fun `disableTorch returns false when disableLantern throws`() {
+        val cam = camera()
+        every { cam.disableLantern() } throws RuntimeException("failed")
+
+        assertFalse(RootEncoderCameraControls(cam).disableTorch())
+    }
 }

@@ -82,6 +82,9 @@ class StreamingEngine @Inject constructor(
     private val _stabilizationEnabled = MutableStateFlow(false)
     val stabilizationEnabled: StateFlow<Boolean> = _stabilizationEnabled.asStateFlow()
 
+    private val _torchEnabled = MutableStateFlow(false)
+    val torchEnabled: StateFlow<Boolean> = _torchEnabled.asStateFlow()
+
     private var cameraControls: CameraControls? = null
     private var stabilizationController: CameraStabilizationController? = null
 
@@ -194,6 +197,7 @@ class StreamingEngine @Inject constructor(
             stabilizationController = CameraStabilizationController(cameraControls!!).also {
                 _stabilizationEnabled.value = it.isEnabled
             }
+            _torchEnabled.value = cameraControls!!.isTorchEnabled()
         }
     }
 
@@ -245,6 +249,24 @@ class StreamingEngine @Inject constructor(
         val changed = controller.toggle()
         if (changed) {
             _stabilizationEnabled.value = controller.isEnabled
+        }
+        return changed
+    }
+
+    /**
+     * Schaltet die Taschenlampe (Torch/Lantern) um — Moblin-Parität.
+     *
+     * @return true, wenn die Kamera den neuen Zustand übernommen hat.
+     */
+    fun toggleTorch(): Boolean {
+        val controls = cameraControls ?: return false
+        val changed = if (controls.isTorchEnabled()) {
+            controls.disableTorch()
+        } else {
+            controls.enableTorch()
+        }
+        if (changed) {
+            _torchEnabled.value = controls.isTorchEnabled()
         }
         return changed
     }

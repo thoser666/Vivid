@@ -256,6 +256,13 @@ class ChatBotEngine @Inject constructor(
                 handleTestAlert(cfg, message, snd, result.type)
                 return
             }
+            is BotCommandProcessor.Result.OwnerTorch -> {
+                handleOwnerAction(cfg, message, snd) {
+                    val nowOn = streamControl.toggleTorch()
+                    if (nowOn) TORCH_ON_TEXT else TORCH_OFF_TEXT
+                }
+                return
+            }
             is BotCommandProcessor.Result.Ban -> {
                 handleModeration(cfg, message, snd) {
                     if (result.userLogin.isBlank()) {
@@ -354,6 +361,11 @@ class ChatBotEngine @Inject constructor(
             is BotCommandProcessor.Result.OwnerDiagnose -> handleOwnerDiagnose(cfg, message, snd)
             is BotCommandProcessor.Result.OwnerAsk -> handleOwnerAsk(cfg, message, snd, result.text)
             is BotCommandProcessor.Result.TestAlert -> handleTestAlert(cfg, message, snd, result.type)
+            is BotCommandProcessor.Result.OwnerTorch ->
+                handleOwnerAction(cfg, message, snd) {
+                    val nowOn = streamControl.toggleTorch()
+                    if (nowOn) TORCH_ON_TEXT else TORCH_OFF_TEXT
+                }
             is BotCommandProcessor.Result.Ban ->
                 handleModeration(cfg, message, snd) {
                     if (result.userLogin.isBlank()) MODERATION_MISSING_USER_TEXT else moderation.ban(result.userLogin)
@@ -841,6 +853,8 @@ class ChatBotEngine @Inject constructor(
         internal const val TEST_ALERT_USAGE_TEXT = "Nutzung: !testalert follow|sub|gift|resub|raid"
         internal const val STREAM_START_TEXT = "▶️ Stream wird gestartet…"
         internal const val STREAM_STOP_TEXT = "⏹ Stream wird gestoppt."
+        internal const val TORCH_ON_TEXT = "🔦 Taschenlampe an."
+        internal const val TORCH_OFF_TEXT = "🔦 Taschenlampe aus."
 
         /** Wie viele Top-Viewer der Live-Verbrauch im Settings-Screen zeigt. */
         internal const val TOP_VIEWERS = 5

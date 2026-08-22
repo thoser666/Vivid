@@ -78,6 +78,9 @@ class BotCommandProcessor @Inject constructor() {
          *  type ist null bei fehlendem/ungültigem Typ → Engine antwortet mit Nutzungs-Hinweis. */
         data class TestAlert(val type: ChatAlertType?) : Result
 
+        /** `!torch` — Taschenlampe umschalten (nur Owner). */
+        data object OwnerTorch : Result
+
         /** Mit `!` beginnendes Token, aber kein bekannter Befehl. */
         data class Unknown(val command: String) : Result
 
@@ -148,6 +151,8 @@ class BotCommandProcessor @Inject constructor() {
             "diag", "diagnose", "status" -> Result.OwnerDiagnose
             "ask" -> Result.OwnerAsk(rest.trim())
             "testalert", "test-alert", "alert" -> Result.TestAlert(parseAlertType(rest))
+            // Owner-Befehl: Taschenlampe umschalten.
+            "torch", "lantern", "flashlight" -> Result.OwnerTorch
             "ban" -> Result.Ban(firstToken(rest).removePrefix("@"))
             "timeout" -> Result.Timeout(firstToken(rest).removePrefix("@"), parseTimeoutDuration(rest))
             "delete" -> Result.Delete(firstToken(rest).toIntOrNull())
@@ -159,7 +164,7 @@ class BotCommandProcessor @Inject constructor() {
     private fun helpText(prefix: String?): String {
         if (prefix.isNullOrBlank()) return HELP_TEXT
         val p = "!${prefix}!"
-        return "Verfügbare Befehle: ${p}help · ${p}uptime · ${p}tts · ${p}song · ${p}next · ${p}pause · ${p}bot · ${p}testalert"
+        return "Verfügbare Befehle: ${p}help · ${p}uptime · ${p}tts · ${p}song · ${p}next · ${p}pause · ${p}bot · ${p}testalert · ${p}torch"
     }
 
     /**
@@ -207,7 +212,7 @@ class BotCommandProcessor @Inject constructor() {
     }
 
     companion object {
-        const val HELP_TEXT = "Verfügbare Befehle: !help · !uptime · !tts · !song · !next · !pause · !bot · !testalert"
+        const val HELP_TEXT = "Verfügbare Befehle: !help · !uptime · !tts · !song · !next · !pause · !bot · !testalert · !torch"
         const val BOT_INFO_TEXT = "Ich bin der Chat-Bot von Vivid 🤖 — alle Befehle: !help"
     }
 }

@@ -37,4 +37,16 @@ interface CameraControls {
 
     /** Deaktiviert optische und digitale Stabilisierung. */
     fun disableStabilization(): Boolean
+
+    /** true, wenn das Gerät eine Taschenlampe (Lantern/Torch) unterstützt. */
+    fun hasTorch(): Boolean
+
+    /** true, wenn die Taschenlampe aktuell eingeschaltet ist. */
+    fun isTorchEnabled(): Boolean
+
+    /** Schaltet die Taschenlampe ein. */
+    fun enableTorch(): Boolean
+
+    /** Schaltet die Taschenlampe aus. */
+    fun disableTorch(): Boolean
 }

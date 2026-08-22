@@ -13,7 +13,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 | 📋 | Geplant (Roadmap) |
 | — | Nicht zutreffend auf Android |
 
-> **Stand:** 2026-08-21 · Aktualisierung: **Beta-Gate 3/3 erreicht** — (1) **17/17 ✅** (Row 80 „Chat-Bot: Media-Player-Steuerung“ ist der 17. Moblin-✅), (2) **Chat-✅** mit Twitch-Scope (Row 77: Twitch-EventSub/Helix + Overlay + KI-Bot; Kick/YouTube/SOOP/OAuth = Post-Beta-Roadmap), (3) **≥1 Widget ✅** (Row 87: Text-/Info-Widget Zeit/GPS/Geschwindigkeit). Beta-Releases veröffentlicht: `v0.5.0-beta` … `v0.5.5-beta` (zuletzt 21.08.2026: Chat-Overlay-Komplettierung + Owner-Moderation); **Chat-Overlay-Zeile komplett ✅** (21.08.2026: Event-Alerts Follow/Sub/Gift/Resub/Raid inkl. Trigger-API — letzter 🚧-Punkt der Overlay-Zeile geschlossen). **Gap-Analyse 21.08.:** Moblin-README (`main`) systematisch gegen den Tracker abgeglichen — **20 fehlende Moblin-Features neu erfasst** (Szenen, Pro-Kamera-Steuerung, Videoquellen, Replays, Bild-/QR-/Akku-/Grid-Widgets, Untertitel-STT, Landscape/Portrait, Viewer-Zähler, Titel/Kategorie, Chat-Anzeige-Details, Poll, Streamer-Browser, adaptive Bitrate, BLE-Sensoren …) → anwendbare Moblin-Features **42 → 62** — Referenzstand: Moblin **33.12.0**
+> **Stand:** 2026-08-22 · Aktualisierung: **Beta-Gate 3/3 erreicht** — (1) **17/17 ✅** (Row 80 „Chat-Bot: Media-Player-Steuerung“ ist der 17. Moblin-✅), (2) **Chat-✅** mit Twitch-Scope (Row 77: Twitch-EventSub/Helix + Overlay + KI-Bot; Kick/YouTube/SOOP/OAuth = Post-Beta-Roadmap), (3) **≥1 Widget ✅** (Row 87: Text-/Info-Widget Zeit/GPS/Geschwindigkeit). Beta-Releases veröffentlicht: `v0.5.0-beta` … `v0.5.5-beta` (zuletzt 21.08.2026: Chat-Overlay-Komplettierung + Owner-Moderation); **Chat-Overlay-Zeile komplett ✅** (21.08.2026: Event-Alerts Follow/Sub/Gift/Resub/Raid inkl. Trigger-API — letzter 🚧-Punkt der Overlay-Zeile geschlossen). **Taschenlampe (Torch) ✅** (22.08.2026: RootEncoder `enableLantern`/`disableLantern` über `CameraControls` + `StreamingEngine.toggleTorch` + Streaming-Screen-Button + Bot-Befehl `!torch` Owner-only). **Gap-Analyse 21.08.:** Moblin-README (`main`) systematisch gegen den Tracker abgeglichen — **20 fehlende Moblin-Features neu erfasst** (Szenen, Pro-Kamera-Steuerung, Videoquellen, Replays, Bild-/QR-/Akku-/Grid-Widgets, Untertitel-STT, Landscape/Portrait, Viewer-Zähler, Titel/Kategorie, Chat-Anzeige-Details, Poll, Streamer-Browser, adaptive Bitrate, BLE-Sensoren …) → anwendbare Moblin-Features **42 → 62** — Referenzstand: Moblin **33.12.0**
 >
 > **Pflege:** Nach jedem Feature-Commit den Status in der jeweiligen Zeile aktualisieren und das Datum oben anpassen.
 >
@@ -30,12 +30,12 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 | OBS-Steuerung | 3 | 0 | 1 | 4 |
 | Chat & Moderation | 3 | 0 | 4 | 7 |
 | Overlays & Widgets | 1 | 1 | 9 | 11 |
-| Kamera & Video | 2 | 0 | 12 | 14 |
+| Kamera & Video | 3 | 0 | 11 | 14 |
 | Audio | 0 | 0 | 3 | 3 |
 | Remote & Companion | 1 | 0 | 3 | 4 |
 | Plattform & Grundlagen | 6 | 0 | 1 | 7 |
 | Zusatz-Features (über Parität) | 2 | 0 | 2 | 4 |
-| **Gesamt** | **23** | **1** | **41** | **65**† |
+| **Gesamt** | **24** | **1** | **40** | **65**† |
 
 † Inkl. 1 n/a-Zeile (Apple-Watch-Companion). Moblin-Zeilen gesamt: 63 (62 anwendbare + 1 n/a). Zusatz-Abschnitt: 3 Vivid-Extras über die Parität hinaus + 1 Moblin-Paritäts-Zeile (BLE-Sensoren, wegen der Widget-Nähe dort einsortiert). Anwendbare Moblin-Features: **62**.
 
@@ -149,7 +149,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 | Manuelle Kamera-Steuerung (Belichtung, Weißabgleich, ISO, Fokus) + Linsen-Auswahl | 📋 | `feature-streaming` | Moblin-Kamera-Settings (Exposure-Bias, White Balance, ISO, Fokus) + Back-Camera-Linsenwahl (Ultraweit/Weit/Tele); RootEncoder `Camera2Base`-Controls erweitern |
 | Bildschirm-Capture + Video-Player als Videoquelle | 📋 | `feature-streaming` | MediaProjection als Videoquelle („Screen capture“) + einfacher Video-Player als Quelle (inkl. Mic) — für Szenen/Streaming |
 | Replays (Aufnahme auf Disk + Wiedergabe) | 📋 | `feature-streaming` | MP4-Aufnahme während des Streams (Record-to-Disk) + Replays speichern/abspielen |
-| Taschenlampe (Torch) | 📋 | `feature-streaming` | Torch-Toggle im Streaming-Screen, per Remote und als Bot-Befehl |
+| Taschenlampe (Torch) | ✅ | `feature-streaming` (`StreamingEngine`, `RootEncoderCameraControls`, `CameraControls`), `feature-chat` (`BotCommandProcessor`, `ChatStreamControl`) | RootEncoder `enableLantern()`/`disableLantern()`/`isLanternEnabled`/`isLanternSupported` über `CameraControls`-Vertrag; `StreamingEngine.toggleTorch()` + `torchEnabled`-StateFlow (Initial-Zustand beim `initializeCamera`); Torch-Button im Streaming-Screen (oben rechts, lokalisiert de/en/fr); **Bot-Befehl `!torch`** (Owner-only, Aliasse `!lantern`/`!flashlight`, über `ChatStreamControl.toggleTorch()` verdrahtet — Bestätigung per Whisper „🔦 Taschenlampe an/aus.“); Unit-Tests (4 CameraControls + 4 Engine + 4 Processor + 3 Engine) |
 | Low-Light-Boost | 📋 | `feature-streaming` | Helligkeits-/Gain-Anhebung bei schlechten Lichtverhältnissen |
 | Externes Display / Cast (Clean HDMI-out) | 📋 | `feature-streaming`, `app` | Video auf einem externen Display (Android Cast / Presentation-API / USB-C-Display) |
 | VTuber / PNGTuber | 📋 | `feature-streaming` | Basis-VTuber/PNGTuber-Modus (Avatar statt Kamera, rudimentärer Lippensync über das Mic) |

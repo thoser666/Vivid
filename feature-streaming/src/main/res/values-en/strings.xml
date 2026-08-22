@@ -10,6 +10,8 @@
     <string name="streaming_retry">Retry</string>
     <string name="streaming_stabilization_on">Stabilization: On</string>
     <string name="streaming_stabilization_off">Stabilization: Off</string>
+    <string name="streaming_torch_on">Torch: On</string>
+    <string name="streaming_torch_off">Torch: Off</string>
     <string name="streaming_focus_inf">Focus: ∞</string>
     <string name="streaming_focus_auto">Focus: Auto</string>
     <string name="streaming_error_prefix">Error: %1$s</string>

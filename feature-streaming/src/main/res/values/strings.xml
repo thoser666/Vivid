@@ -10,6 +10,8 @@
     <string name="streaming_retry">Erneut versuchen</string>
     <string name="streaming_stabilization_on">Stabilisierung: An</string>
     <string name="streaming_stabilization_off">Stabilisierung: Aus</string>
+    <string name="streaming_torch_on">Taschenlampe: An</string>
+    <string name="streaming_torch_off">Taschenlampe: Aus</string>
     <string name="streaming_focus_inf">Fokus: ∞</string>
     <string name="streaming_focus_auto">Fokus: Auto</string>
     <string name="streaming_error_prefix">Fehler: %1$s</string>

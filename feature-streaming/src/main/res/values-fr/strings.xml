@@ -10,6 +10,8 @@
     <string name="streaming_retry">Réessayer</string>
     <string name="streaming_stabilization_on">Stabilisation : activée</string>
     <string name="streaming_stabilization_off">Stabilisation : désactivée</string>
+    <string name="streaming_torch_on">Lampe torche : activée</string>
+    <string name="streaming_torch_off">Lampe torche : désactivée</string>
     <string name="streaming_focus_inf">Mise au point : ∞</string>
     <string name="streaming_focus_auto">Mise au point : auto</string>
     <string name="streaming_error_prefix">Erreur : %1$s</string>

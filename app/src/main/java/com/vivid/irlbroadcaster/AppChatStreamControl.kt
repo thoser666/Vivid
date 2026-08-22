@@ -42,6 +42,8 @@ class AppChatStreamControl @Inject constructor(
         streamControl.stop()
     }
 
+    override fun toggleTorch(): Boolean = streamingEngine.toggleTorch()
+
     override suspend fun diagnostics(): StreamDiagnostics {
         val engineState = streamingEngine.streamingState.value
         val status = when (engineState) {

@@ -48,4 +48,18 @@ class RootEncoderCameraControls(
         }
         return true
     }
+
+    override fun hasTorch(): Boolean = camera.isLanternSupported
+
+    override fun isTorchEnabled(): Boolean = camera.isLanternEnabled
+
+    override fun enableTorch(): Boolean = runCatching {
+        camera.enableLantern()
+        true
+    }.getOrDefault(false)
+
+    override fun disableTorch(): Boolean = runCatching {
+        camera.disableLantern()
+        true
+    }.getOrDefault(false)
 }

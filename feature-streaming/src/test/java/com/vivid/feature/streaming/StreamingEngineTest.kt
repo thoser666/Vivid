@@ -524,4 +524,56 @@ class StreamingEngineTest {
         assertEquals(false, result)
         assertEquals(false, streamingEngine.stabilizationEnabled.value)
     }
+
+    // --- Taschenlampe (Torch/Lantern) ---
+
+    @Test
+    fun `toggleTorch returns false before the camera is initialized`() = runTest {
+        val result = streamingEngine.toggleTorch()
+
+        assertEquals(false, result)
+        assertEquals(false, streamingEngine.torchEnabled.value)
+    }
+
+    @Test
+    fun `toggleTorch enables the torch and updates the state`() = runTest {
+        every { camera.isLanternSupported } returns true
+        every { camera.isLanternEnabled } returns false
+        every { camera.enableLantern() } just runs
+        streamingEngine.initializeCamera()
+
+        val result = streamingEngine.toggleTorch()
+
+        assertEquals(true, result)
+        // After enable, isTorchEnabled() is still false in the mock (no real
+        // state change) — toggleTorch returns true (action succeeded), but
+        // the StateFlow reflects the mock's value. We verify the call instead.
+        verify { camera.enableLantern() }
+    }
+
+    @Test
+    fun `toggleTorch disables an enabled torch`() = runTest {
+        every { camera.isLanternSupported } returns true
+        every { camera.isLanternEnabled } returns true
+        every { camera.disableLantern() } just runs
+        streamingEngine.initializeCamera()
+
+        val result = streamingEngine.toggleTorch()
+
+        assertEquals(true, result)
+        verify { camera.disableLantern() }
+    }
+
+    @Test
+    fun `toggleTorch keeps state false when enableLantern throws`() = runTest {
+        every { camera.isLanternSupported } returns true
+        every { camera.isLanternEnabled } returns false
+        every { camera.enableLantern() } throws RuntimeException("no flash")
+        streamingEngine.initializeCamera()
+
+        val result = streamingEngine.toggleTorch()
+
+        assertEquals(false, result)
+        assertEquals(false, streamingEngine.torchEnabled.value)
+    }
 }

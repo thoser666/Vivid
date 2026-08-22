@@ -67,6 +67,7 @@ fun StreamingScreen(
     val targetStates by streamingEngine.targetStates.collectAsStateWithLifecycle()
     val focusMode by streamingEngine.focusMode.collectAsStateWithLifecycle()
     val stabilizationEnabled by streamingEngine.stabilizationEnabled.collectAsStateWithLifecycle()
+    val torchEnabled by streamingEngine.torchEnabled.collectAsStateWithLifecycle()
     val configIssues by viewModel.configIssues.collectAsStateWithLifecycle()
 
     // Runtime-Permissions (Kamera/Mikro + Notifications) werden beim Go-Live
@@ -250,6 +251,16 @@ fun StreamingScreen(
                     .padding(top = 12.dp, end = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
+                FilledTonalButton(
+                    onClick = { streamingEngine.toggleTorch() },
+                ) {
+                    Text(
+                        stringResource(
+                            if (torchEnabled) R.string.streaming_torch_on else R.string.streaming_torch_off,
+                        ),
+                    )
+                }
+
                 FilledTonalButton(
                     onClick = { streamingEngine.toggleStabilization() },
                 ) {

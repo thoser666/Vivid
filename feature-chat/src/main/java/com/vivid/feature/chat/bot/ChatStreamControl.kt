@@ -79,6 +79,14 @@ interface ChatStreamControl {
     fun stop()
 
     suspend fun diagnostics(): StreamDiagnostics
+
+    /**
+     * Schaltet die Taschenlampe (Torch/Lantern) um.
+     *
+     * @return true, wenn die Taschenlampe eingeschaltet ist; false, wenn sie
+     *   aus ist oder das Gerät keine unterstützt.
+     */
+    fun toggleTorch(): Boolean
 }
 
 /** Fallback, wenn keine Implementierung gebunden ist (Tests / Module ohne Stream-Engine). */
@@ -91,4 +99,6 @@ object NoOpChatStreamControl : ChatStreamControl {
             obsConnected = false,
             checks = emptyList(),
         )
+
+    override fun toggleTorch(): Boolean = false
 }
