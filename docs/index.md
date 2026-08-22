@@ -4,6 +4,7 @@
 
 [📖 Bedienungsanleitung (DE)](https://github.com/thoser666/Vivid/blob/develop/docs/user-guide.md) ·
 [🇬🇧 User Guide (EN)](https://github.com/thoser666/Vivid/blob/develop/docs/user-guide.en.md) ·
+[🇫🇷 Guide utilisateur (FR)](https://github.com/thoser666/Vivid/blob/develop/docs/user-guide.fr.md) ·
 [📦 README](https://github.com/thoser666/Vivid#readme) ·
 [🔒 Datenschutz](https://thoser666.github.io/Vivid/privacy/) ·
 [🤖 Bot-Doku](https://github.com/thoser666/Vivid/blob/develop/docs/ai-chat-bot.md)
@@ -45,6 +46,7 @@
 | [README](https://github.com/thoser666/Vivid#readme) | Features, Setup-Guides, FAQ, Roadmap |
 | [Bedienungsanleitung (DE)](https://github.com/thoser666/Vivid/blob/develop/docs/user-guide.md) | Schritt für Schritt durch die App |
 | [User Guide (EN)](https://github.com/thoser666/Vivid/blob/develop/docs/user-guide.en.md) | English version of the user guide |
+| [Guide utilisateur (FR)](https://github.com/thoser666/Vivid/blob/develop/docs/user-guide.fr.md) | Version française du guide de l'utilisateur |
 | [AI-Chat-Bot-Doku](https://github.com/thoser666/Vivid/blob/develop/docs/ai-chat-bot.md) | Bot-Modi, Owner-Befehle, Koexistenz |
 | [Datenschutzerklärung](https://thoser666.github.io/Vivid/privacy/) | Privacy Policy (Play-Store-Pflicht) |
 | [Issue-Tracker](https://github.com/thoser666/Vivid/issues) | Bugs melden, Features vorschlagen |

@@ -10,7 +10,7 @@ an AI bot, and camera controls in one app — inspired by [Moblin](https://githu
 - 🤖 **Bot docs:** [docs/ai-chat-bot.md](ai-chat-bot.md)
 - 📋 **Roadmap:** [PARITY.md](../PARITY.md) · [RELEASE.md](../RELEASE.md)
 - ❓ **Troubleshooting:** [FAQ in the README](../README.md#-faq--häufige-probleme)
-- 🇩🇪 **Deutsche Version:** [docs/user-guide.md](user-guide.md)
+- 🇩🇪 **Deutsche Version:** [docs/user-guide.md](user-guide.md) · 🇫🇷 **Version française :** [docs/user-guide.fr.md](user-guide.fr.md)
 
 ---
 
