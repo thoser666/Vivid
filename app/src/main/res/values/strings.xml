@@ -22,6 +22,40 @@
     <string name="about_link_repo">Quellcode auf GitHub</string>
     <string name="about_link_open">%1$s öffnen</string>
 
+    <!-- Hilfe-Screen (ui/help/HelpScreen.kt) -->
+    <string name="help_title">Hilfe</string>
+    <string name="help_back">Zurück</string>
+    <string name="help_quick_tips_title">Schnell-Tipps</string>
+    <string name="help_quick_tips_body">• Stream-URL + Key in den Einstellungen hinterlegen, dann „Go Live" tippen.\n• Der Stream läuft im Hintergrund weiter (Notification mit Stop-Button).\n• Tap-to-Focus: einzelner Tipp auf die Vorschau. Pinch-Zoom mit zwei Fingern. Doppeltipp setzt Zoom zurück.\n• Torch/Stabilisierung/Fokus-Lock-Buttons oben rechts.\n• Chat-Overlay: Kanal in Einstellungen → „Overlays &amp; Widgets" aktivieren.\n• Bot-Befehle sind case-insensitive und können mitten im Chat stehen (z. B. „@vividbot !help").\n• OWNER-Befehle (Start/Stop/Diag/Torch) funktionieren nur für den Streamer (Broadcaster-Badge oder Allow-List).</string>
+    <string name="help_bot_commands_title">Bot-Befehle (Quick-Reference)</string>
+    <string name="help_bot_viewer">VIEWER-Befehle (alle Chatter)</string>
+    <string name="help_bot_owner">OWNER-Befehle (nur der Streamer)</string>
+    <string name="help_cmd_help">Verfügbare Befehle anzeigen</string>
+    <string name="help_cmd_uptime">Stream-Dauer anzeigen</string>
+    <string name="help_cmd_tts">Chat-Vorlesen (Text-to-Speech) an/aus</string>
+    <string name="help_cmd_song">Aktueller Titel (Media-Player)</string>
+    <string name="help_cmd_next">Nächster Titel</string>
+    <string name="help_cmd_pause">Wiedergabe pausieren/fortsetzen</string>
+    <string name="help_cmd_bot">Bot-Info anzeigen</string>
+    <string name="help_cmd_start">Stream starten</string>
+    <string name="help_cmd_stop">Stream stoppen</string>
+    <string name="help_cmd_diag">Diagnose-Lauf: Status, OBS, Konfigurations-Checks</string>
+    <string name="help_cmd_ask">Frage an die Owner-KI</string>
+    <string name="help_cmd_testalert">Test-Alert für das Overlay (follow|sub|gift|resub|raid)</string>
+    <string name="help_cmd_torch">Taschenlampe umschalten</string>
+    <string name="help_cmd_ban">Viewer verbannen</string>
+    <string name="help_cmd_timeout">Viewer timeouten (Default 5 Min)</string>
+    <string name="help_cmd_delete">Letzte Nachrichten löschen</string>
+    <string name="help_docs_title">Dokumentation</string>
+    <string name="help_link_guide_de">📖 Bedienungsanleitung (Deutsch)</string>
+    <string name="help_link_guide_en">📖 User Guide (English)</string>
+    <string name="help_link_bot_doc">🤖 KI-Chat-Bot-Dokumentation</string>
+    <string name="help_link_faq">❓ FAQ &amp; Häufige Probleme</string>
+    <string name="help_link_open">%1$s öffnen</string>
+    <string name="help_support_title">Support</string>
+    <string name="help_support_body">Bug gefunden oder Feature-Wunsch? Eröffne ein Issue auf GitHub — wir freuen uns über Feedback!</string>
+    <string name="help_link_issues">GitHub Issues</string>
+
     <!-- Streaming-Foreground-Service (StreamingServiceSupport.kt) -->
     <string name="notif_channel_name">Live-Stream</string>
     <string name="notif_title_live">Vivid sendet live</string>

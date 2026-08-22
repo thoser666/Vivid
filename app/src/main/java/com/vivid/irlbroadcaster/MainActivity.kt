@@ -34,6 +34,7 @@ import com.vivid.feature.settings.ui.SettingsViewModel
 import com.vivid.feature.streaming.ui.StreamingScreen
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.vivid.irlbroadcaster.ui.about.AboutScreen
+import com.vivid.irlbroadcaster.ui.help.HelpScreen
 import com.vivid.irlbroadcaster.ui.theme.VividTheme
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -167,6 +168,9 @@ fun VividAppNavigation() {
         }
         composable("about_route") {
             AboutScreen(navController = navController)
+        }
+        composable("help_route") {
+            HelpScreen(navController = navController)
         }
     }
 }

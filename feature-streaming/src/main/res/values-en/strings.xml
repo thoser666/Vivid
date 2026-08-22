@@ -4,6 +4,7 @@
     <string name="streaming_ui_title">Live Stream</string>
     <string name="streaming_obs_content_desc">Open OBS Control</string>
     <string name="streaming_settings_content_desc">Open Settings</string>
+    <string name="streaming_help_content_desc">Open Help</string>
     <string name="streaming_start">Start Streaming</string>
     <string name="streaming_preparing">Preparing…</string>
     <string name="streaming_stop">Stop Streaming</string>

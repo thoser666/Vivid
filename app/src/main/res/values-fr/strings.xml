@@ -22,6 +22,40 @@
     <string name="about_link_repo">Code source sur GitHub</string>
     <string name="about_link_open">Ouvrir %1$s</string>
 
+    <!-- Écran d'aide (ui/help/HelpScreen.kt) -->
+    <string name="help_title">Aide</string>
+    <string name="help_back">Retour</string>
+    <string name="help_quick_tips_title">Astuces rapides</string>
+    <string name="help_quick_tips_body">• Saisissez l\'URL + la clé de stream dans les paramètres, puis appuyez sur « Go Live ».\n• Le stream continue en arrière-plan (notification avec bouton Arrêter).\n• Mise au point : touchez l\'aperçu. Zoom pincé à deux doigts. Double-tap réinitialise le zoom.\n• Boutons Torche/Stabilisation/Verrouillage mise au point en haut à droite.\n• Overlay de chat : activez-le dans Paramètres → « Overlays &amp; Widgets ».\n• Les commandes du bot ne sont pas sensibles à la casse et peuvent apparaître dans le message (ex. « @vividbot !help »).\n• Les commandes OWNER (Start/Stop/Diag/Torche) ne fonctionnent que pour le streamer (badge diffuseur ou liste autorisée).</string>
+    <string name="help_bot_commands_title">Commandes du bot (référence rapide)</string>
+    <string name="help_bot_viewer">Commandes VIEWER (tous les chateurs)</string>
+    <string name="help_bot_owner">Commandes OWNER (streamer uniquement)</string>
+    <string name="help_cmd_help">Afficher les commandes disponibles</string>
+    <string name="help_cmd_uptime">Afficher la durée du stream</string>
+    <string name="help_cmd_tts">Activer/désactiver la synthèse vocale du chat</string>
+    <string name="help_cmd_song">Titre en cours (lecteur multimédia)</string>
+    <string name="help_cmd_next">Piste suivante</string>
+    <string name="help_cmd_pause">Pause/reprise de la lecture</string>
+    <string name="help_cmd_bot">Afficher les infos du bot</string>
+    <string name="help_cmd_start">Démarrer le stream</string>
+    <string name="help_cmd_stop">Arrêter le stream</string>
+    <string name="help_cmd_diag">Diagnostic : état, OBS, vérifications de config</string>
+    <string name="help_cmd_ask">Poser une question à l\'IA Owner</string>
+    <string name="help_cmd_testalert">Alerte de test pour l\'overlay (follow|sub|gift|resub|raid)</string>
+    <string name="help_cmd_torch">Basculer la lampe torche</string>
+    <string name="help_cmd_ban">Bannir un spectateur</string>
+    <string name="help_cmd_timeout">Exclure temporairement un spectateur (5 min par défaut)</string>
+    <string name="help_cmd_delete">Supprimer les messages récents</string>
+    <string name="help_docs_title">Documentation</string>
+    <string name="help_link_guide_de">📖 Guide de l\'utilisateur (allemand)</string>
+    <string name="help_link_guide_en">📖 Guide de l\'utilisateur (anglais)</string>
+    <string name="help_link_bot_doc">🤖 Documentation du bot IA</string>
+    <string name="help_link_faq">❓ FAQ &amp; Dépannage</string>
+    <string name="help_link_open">Ouvrir %1$s</string>
+    <string name="help_support_title">Support</string>
+    <string name="help_support_body">Un bug ou une demande de fonctionnalité ? Ouvrez un ticket sur GitHub — vos retours sont les bienvenus !</string>
+    <string name="help_link_issues">Tickets GitHub</string>
+
     <!-- Service d'avant-plan de streaming (StreamingServiceSupport.kt) -->
     <string name="notif_channel_name">Stream en direct</string>
     <string name="notif_title_live">Vivid diffuse en direct</string>

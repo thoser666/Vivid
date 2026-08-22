@@ -4,6 +4,7 @@
     <string name="streaming_ui_title">Stream en direct</string>
     <string name="streaming_obs_content_desc">Ouvrir le contrôle OBS</string>
     <string name="streaming_settings_content_desc">Ouvrir les paramètres</string>
+    <string name="streaming_help_content_desc">Ouvrir l\'aide</string>
     <string name="streaming_start">Démarrer le stream</string>
     <string name="streaming_preparing">Préparation…</string>
     <string name="streaming_stop">Arrêter le stream</string>

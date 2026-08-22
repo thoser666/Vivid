@@ -10,6 +10,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.automirrored.filled.Help
 // 1. Importiere ein passendes Icon für die OBS-Steuerung
 import androidx.compose.material.icons.filled.Podcasts // (Ein gutes Icon für "Broadcasting")
 import androidx.compose.material3.*
@@ -131,6 +132,16 @@ fun StreamingScreen(
                         Icon(
                             imageVector = Icons.Default.Podcasts,
                             contentDescription = stringResource(R.string.streaming_obs_content_desc),
+                        )
+                    }
+
+                    // Hilfe-Button
+                    IconButton(onClick = {
+                        navController.navigate("help_route")
+                    }) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Help,
+                            contentDescription = stringResource(R.string.streaming_help_content_desc),
                         )
                     }
 

@@ -22,6 +22,40 @@
     <string name="about_link_repo">Source code on GitHub</string>
     <string name="about_link_open">Open %1$s</string>
 
+    <!-- Help screen (ui/help/HelpScreen.kt) -->
+    <string name="help_title">Help</string>
+    <string name="help_back">Back</string>
+    <string name="help_quick_tips_title">Quick Tips</string>
+    <string name="help_quick_tips_body">• Enter your stream URL + key in Settings, then tap "Go Live".\n• The stream keeps running in the background (notification with Stop button).\n• Tap-to-focus: single tap on the preview. Pinch-to-zoom with two fingers. Double-tap resets zoom.\n• Torch/Stabilization/Focus-Lock buttons in the top-right.\n• Chat overlay: enable in Settings → "Overlays &amp; Widgets".\n• Bot commands are case-insensitive and can appear mid-message (e.g. "@vividbot !help").\n• OWNER commands (Start/Stop/Diag/Torch) only work for the streamer (broadcaster badge or allow-list).</string>
+    <string name="help_bot_commands_title">Bot Commands (Quick Reference)</string>
+    <string name="help_bot_viewer">VIEWER commands (all chatters)</string>
+    <string name="help_bot_owner">OWNER commands (streamer only)</string>
+    <string name="help_cmd_help">Show available commands</string>
+    <string name="help_cmd_uptime">Show stream duration</string>
+    <string name="help_cmd_tts">Toggle chat text-to-speech on/off</string>
+    <string name="help_cmd_song">Current track (media player)</string>
+    <string name="help_cmd_next">Next track</string>
+    <string name="help_cmd_pause">Pause/resume playback</string>
+    <string name="help_cmd_bot">Show bot info</string>
+    <string name="help_cmd_start">Start the stream</string>
+    <string name="help_cmd_stop">Stop the stream</string>
+    <string name="help_cmd_diag">Diagnostics: status, OBS, config checks</string>
+    <string name="help_cmd_ask">Ask the Owner AI a question</string>
+    <string name="help_cmd_testalert">Test alert for the overlay (follow|sub|gift|resub|raid)</string>
+    <string name="help_cmd_torch">Toggle the flashlight</string>
+    <string name="help_cmd_ban">Ban a viewer</string>
+    <string name="help_cmd_timeout">Timeout a viewer (default 5 min)</string>
+    <string name="help_cmd_delete">Delete recent messages</string>
+    <string name="help_docs_title">Documentation</string>
+    <string name="help_link_guide_de">📖 User Guide (German)</string>
+    <string name="help_link_guide_en">📖 User Guide (English)</string>
+    <string name="help_link_bot_doc">🤖 AI Chat Bot documentation</string>
+    <string name="help_link_faq">❓ FAQ &amp; Troubleshooting</string>
+    <string name="help_link_open">Open %1$s</string>
+    <string name="help_support_title">Support</string>
+    <string name="help_support_body">Found a bug or have a feature request? Open an issue on GitHub — we appreciate your feedback!</string>
+    <string name="help_link_issues">GitHub Issues</string>
+
     <!-- Streaming foreground service (StreamingServiceSupport.kt) -->
     <string name="notif_channel_name">Live Stream</string>
     <string name="notif_title_live">Vivid is live</string>

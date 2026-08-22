@@ -139,6 +139,8 @@ Oben rechts im Streaming-Screen gibt es drei Buttons:
 
 > Die Buttons wirken auf die **echte RootEncoder-Kamera** — nicht nur auf die Vorschau.
 
+In der **oberen Leiste** des Streaming-Screens sitzt außerdem ein **❓ Hilfe-Button**, der die In-App-Hilfe öffnet: Kurztipps, Bot-Befehlsübersicht und direkte Links zu dieser Bedienungsanleitung (🇩🇪/🇬🇧), zur Bot-Doku und zum Issue-Tracker.
+
 ---
 
 ## 6. Chat-Overlay

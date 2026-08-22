@@ -4,6 +4,7 @@
     <string name="streaming_ui_title">Live Stream</string>
     <string name="streaming_obs_content_desc">OBS-Steuerung öffnen</string>
     <string name="streaming_settings_content_desc">Einstellungen öffnen</string>
+    <string name="streaming_help_content_desc">Hilfe öffnen</string>
     <string name="streaming_start">Stream starten</string>
     <string name="streaming_preparing">Bereite vor…</string>
     <string name="streaming_stop">Stream beenden</string>
