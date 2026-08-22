@@ -187,12 +187,15 @@ jobs:
             sleep 5
 
             # Locale-Proof: Die EFFEKTIVE Geräte-Konfiguration muss die erwartete
-            # Sprache enthalten (z. B. `…-mnc260-de-rDE-…`), nicht nur der
-            # Settings-Store — sonst ist der Lauf kein Beweis für die
-            # Locale-Robustheit.
+            # Sprache enthalten — nicht nur der Settings-Store, sonst ist der Lauf
+            # kein Beweis für die Locale-Robustheit.  Zwei Formate von
+            # `cmd activity get-config`:
+            #   API ≤ 34:  config: {mcc=310 mnc=260 locale=en_US layoutDirection=0 …}
+            #   API 35+:   config: mcc310-mnc260-de-rDE-ldltr-sw411dp-…
             EXPECTED_LANG=$(echo "${{ matrix.locale }}" | cut -d- -f1)
             CFG=$(adb shell "cmd activity get-config" | tr -d '\r')
-            ACTUAL_LANG=$(echo "$CFG" | sed 's/.*mnc[0-9]*-//' | cut -d- -f1)
+            ACTUAL_LANG=$(echo "$CFG" | sed -nE 's/.*locale=([a-z]{2})([-_][A-Za-z]{2})?.*/\1/p')
+            [ -z "$ACTUAL_LANG" ] && ACTUAL_LANG=$(echo "$CFG" | sed -nE 's/.*-mnc[0-9]+-([a-z]{2})(-[A-Za-z]{2})?-.*/\1/p')
             echo "→ Effektive Geräte-Locale: ${ACTUAL_LANG:-<leer>} (erwartet: $EXPECTED_LANG)"
             if [ -z "$ACTUAL_LANG" ] || [ "$ACTUAL_LANG" != "$EXPECTED_LANG" ]; then
               echo "::error::Locale-Proof fehlgeschlagen: erwartet ${{ matrix.locale }}, Geräte-Config: $CFG"
