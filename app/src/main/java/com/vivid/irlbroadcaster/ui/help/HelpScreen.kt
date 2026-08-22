@@ -233,6 +233,7 @@ private fun HelpLinkRow(label: String, url: String, onOpenUri: (String) -> Unit)
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clickable { onOpenUri(url) }
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
