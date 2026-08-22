@@ -127,9 +127,12 @@ jobs:
   #
   # Locale-Matrix (en-US, de-DE): beweist dauerhaft, dass die Suite locale-robust
   # ist (die Help-Tests lösen Strings über die R-Klassen auf).  Die Emulator-Locale
-  # wird per `-prop persist.sys.locale` gesetzt und im Script per Assertion
-  # verifiziert — schlägt der Proof fehl (Locale nicht aktiv), bricht der Job ab,
-  # damit nie fälschlich ein „locale-robust“-Grün gemeldet wird.
+  # wird über den Settings-Store gesetzt (`settings put system system_locales`)
+  # und per `adb reboot` wirksam — der Emulator akzeptiert seit neueren Versionen
+  # nur noch `qemu.*`-Properties, `-prop persist.sys.locale` wird ignoriert.
+  # Der Locale-Proof prüft danach die EFFEKTIVE Geräte-Konfiguration
+  # (`cmd activity get-config`) — schlägt er fehl, bricht der Job ab, damit nie
+  # fälschlich ein „locale-robust“-Grün gemeldet wird.
   emulator-tests:
     name: Instrumented UI Tests (Emulator, ${{ matrix.locale }})
     runs-on: ubuntu-latest
@@ -164,18 +167,38 @@ jobs:
           arch: x86_64
           target: google_apis
           force-avd-creation: true
-          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -prop persist.sys.locale=${{ matrix.locale }}
+          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect
           disable-animations: true
           disable-spellchecker: true
           script: |
-            # Locale-Proof: Die effektive Emulator-Locale muss der Matrix-Locale
-            # entsprechen — sonst ist der Lauf kein Beweis für die Locale-Robustheit.
-            ACTUAL=$(adb shell getprop persist.sys.locale | tr -d '\r')
-            echo "→ Emulator-Locale: ${ACTUAL:-<leer>} (erwartet: ${{ matrix.locale }})"
-            if [ -z "$ACTUAL" ] || [ "$ACTUAL" != "${{ matrix.locale }}" ]; then
-              echo "::error::Locale-Proof fehlgeschlagen: erwartet ${{ matrix.locale }}, gefunden '${ACTUAL}'"
+            # Locale über den Settings-Store setzen und per adb reboot wirksam machen
+            # (der Framework-Neustart via `stop`/`start` braucht root — reboot geht
+            # auf allen Builds).  Die AVD wird vom Runner frisch erstellt, daher ist
+            # persist.sys.locale hier garantiert ungesetzt.
+            echo "→ Setze System-Locale auf ${{ matrix.locale }} und starte neu …"
+            adb shell "settings put system system_locales ${{ matrix.locale }}"
+            adb reboot
+            adb wait-for-device
+            for i in $(seq 1 60); do
+              B=$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')
+              [ "$B" = "1" ] && break
+              sleep 5
+            done
+            sleep 5
+
+            # Locale-Proof: Die EFFEKTIVE Geräte-Konfiguration muss die erwartete
+            # Sprache enthalten (z. B. `…-mnc260-de-rDE-…`), nicht nur der
+            # Settings-Store — sonst ist der Lauf kein Beweis für die
+            # Locale-Robustheit.
+            EXPECTED_LANG=$(echo "${{ matrix.locale }}" | cut -d- -f1)
+            CFG=$(adb shell "cmd activity get-config" | tr -d '\r')
+            ACTUAL_LANG=$(echo "$CFG" | sed 's/.*mnc[0-9]*-//' | cut -d- -f1)
+            echo "→ Effektive Geräte-Locale: ${ACTUAL_LANG:-<leer>} (erwartet: $EXPECTED_LANG)"
+            if [ -z "$ACTUAL_LANG" ] || [ "$ACTUAL_LANG" != "$EXPECTED_LANG" ]; then
+              echo "::error::Locale-Proof fehlgeschlagen: erwartet ${{ matrix.locale }}, Geräte-Config: $CFG"
               exit 1
             fi
+
             ./gradlew :app:connectedDebugAndroidTest
 
       - name: Upload instrumented test reports (${{ matrix.locale }})
