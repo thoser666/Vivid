@@ -10,6 +10,7 @@ KI-Bot und Kamera-Steuerung in einer App vereint — inspiriert von [Moblin](htt
 - 🤖 **Bot-Doku:** [docs/ai-chat-bot.md](ai-chat-bot.md)
 - 📋 **Roadmap:** [PARITY.md](../PARITY.md) · [RELEASE.md](../RELEASE.md)
 - ❓ **Probleme:** [FAQ in der README](../README.md#-faq--häufige-probleme)
+- 🇬🇧 **English version:** [docs/user-guide.en.md](user-guide.en.md)
 
 ---
 
