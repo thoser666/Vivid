@@ -116,6 +116,55 @@ jobs:
           name: test-results
           path: '**/build/test-results/**/*.xml'
 
+  # ✅ Instrumentierte UI-Tests (androidTest) auf einem echten Emulator:
+  #   - HelpNavigationTest  → beide Help-Einstiege (Streaming-❓ + About)
+  #   - PlayScreenshotsTest → Play-Screenshots per fastlane screengrab
+  # Läuft bei jedem Push/PR auf dem Default-Branch. Nutzt die Community-Action
+  # reactivecircus/android-emulator-runner (v2.38.0, SHA-gepinnt), die AVD-Erstellung,
+  # Boot und Script-Ausführung auf dem ubuntu-Runner übernimmt (KVM falls verfügbar).
+  # Keine Signing-Secrets nötig — Debug-Build mit Debug-Key.
+  emulator-tests:
+    name: Instrumented UI Tests (Emulator)
+    runs-on: ubuntu-latest
+    needs: test
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      # ✅ Emulator hochfahren + alle instrumentierten Tests ausführen
+      # (Debug-Build, wird von connectedDebugAndroidTest selbst gebaut).
+      - name: Run instrumented tests on emulator
+        uses: ReactiveCircus/android-emulator-runner@660ac26f5bd4cb6c1d98b2143e66ded57bee724f # v2.38.0
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          force-avd-creation: true
+          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect
+          disable-animations: true
+          disable-spellchecker: true
+          script: ./gradlew :app:connectedDebugAndroidTest
+
+      - name: Upload instrumented test reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: instrumented-test-results
+          path: '**/build/outputs/androidTest-results/**/*.xml'
+
   build-debug:
     name: Build Debug APK
     runs-on: ubuntu-latest
