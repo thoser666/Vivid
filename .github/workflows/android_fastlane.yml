@@ -171,13 +171,18 @@ jobs:
           disable-animations: true
           disable-spellchecker: true
           script: |
-            # Locale über den Settings-Store setzen und per adb reboot wirksam machen
-            # (der Framework-Neustart via `stop`/`start` braucht root — reboot geht
-            # auf allen Builds).  Die AVD wird vom Runner frisch erstellt, daher ist
-            # persist.sys.locale hier garantiert ungesetzt.
-            echo "→ Setze System-Locale auf ${{ matrix.locale }} und starte neu …"
+            # Locale über den Settings-Store setzen und per Framework-Neustart
+            # wirksam machen.  Kein `adb reboot`: Das lässt den Emulator nach dem
+            # Boot in "device offline" hängen (Boot-Check erreicht nie 1).
+            # Stattdessen Framework-Neustart via `stop`/`start` — das geht auf
+            # dem google_apis-Image (userdebug) mit `adb root` und das Gerät
+            # bleibt verbunden.  Die AVD wird vom Runner frisch erstellt, daher
+            # ist persist.sys.locale hier garantiert ungesetzt.
+            echo "→ Setze System-Locale auf ${{ matrix.locale }} und starte Framework neu …"
+            adb root 2>/dev/null || true
+            adb wait-for-device
             adb shell "settings put system system_locales ${{ matrix.locale }}"
-            adb reboot
+            adb shell "stop && start"
             adb wait-for-device
             for i in $(seq 1 60); do
               B=$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')
