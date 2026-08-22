@@ -16,6 +16,7 @@
     <string name="about_update_available">Update available: %1$s</string>
     <string name="about_whats_new">"What's new"</string>
     <string name="about_release_page">Open release page</string>
+    <string name="about_link_help">Help &amp; User Guide</string>
     <string name="about_link_releases">GitHub Releases</string>
     <string name="about_link_changelog">Changelog</string>
     <string name="about_link_privacy">Privacy Policy</string>

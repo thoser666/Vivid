@@ -16,6 +16,7 @@
     <string name="about_update_available">Mise à jour disponible : %1$s</string>
     <string name="about_whats_new">Nouveautés</string>
     <string name="about_release_page">Aller à la page des versions</string>
+    <string name="about_link_help">Aide &amp; guide de l\'utilisateur</string>
     <string name="about_link_releases">Versions GitHub</string>
     <string name="about_link_changelog">Journal des modifications</string>
     <string name="about_link_privacy">Politique de confidentialité</string>

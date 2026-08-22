@@ -1,5 +1,6 @@
 package com.vivid.irlbroadcaster.ui.about
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,6 +15,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Help
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ErrorOutline
@@ -101,6 +103,7 @@ fun AboutScreen(
 
             LinksCard(
                 onOpenUri = uriHandler::openUri,
+                onOpenHelp = { navController.navigate("help_route") },
             )
 
             Text(
@@ -269,9 +272,11 @@ private fun UpdateResultRow(result: UpdateCheckResult, onOpenRelease: (String) -
 }
 
 @Composable
-private fun LinksCard(onOpenUri: (String) -> Unit) {
+private fun LinksCard(onOpenUri: (String) -> Unit, onOpenHelp: () -> Unit) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(vertical = 4.dp)) {
+            HelpRow(stringResource(R.string.about_link_help), onOpenHelp)
+            HorizontalDivider()
             LinkRow(stringResource(R.string.about_link_releases), Links.RELEASES, onOpenUri)
             HorizontalDivider()
             LinkRow(stringResource(R.string.about_link_changelog), Links.CHANGELOG, onOpenUri)
@@ -292,6 +297,27 @@ private fun cleanReleaseNotes(notes: String): String =
         .replace(Regex("^[-*+]\\s+", RegexOption.MULTILINE), "• ") // Bullets → •
         .replace(Regex("\\*\\*|__|`"), "") // **bold**, __bold__, `code` raus
         .trim()
+
+@Composable
+/** In-App-Navigation zur Hilfe (öffnet keinen externen Browser). */
+private fun HelpRow(label: String, onOpenHelp: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onOpenHelp)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(label, style = MaterialTheme.typography.bodyLarge)
+        Icon(
+            Icons.AutoMirrored.Filled.Help,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp),
+            tint = MaterialTheme.colorScheme.primary,
+        )
+    }
+}
 
 @Composable
 private fun LinkRow(label: String, url: String, onOpenUri: (String) -> Unit) {
