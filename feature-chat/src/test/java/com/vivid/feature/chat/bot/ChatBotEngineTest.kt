@@ -134,6 +134,7 @@ class ChatBotEngineTest {
                 obsConnected = true,
                 checks = listOf(DiagnosticCheck("Stream-URL (primär)", ok = true)),
             )
+            coEvery { fix() } returns emptyList()
         }
 
     @Test
@@ -889,7 +890,7 @@ class ChatBotEngineTest {
         engine.stop()
     }
 
-    // --- !tts: Chat-Text-to-Speech ---
+    // --- !tts: Chat-Text-to-Speech (Owner-only) ---
 
     @Test
     fun `tts command toggles the chat tts and confirms in chat`() = runTest {
@@ -905,8 +906,8 @@ class ChatBotEngineTest {
         val sent = slot<String>()
         coEvery { sender.send(capture(sent)) } just Runs
 
-        engine.start(messages, config(), sender, this)
-        messages.emit(chatMessage("!tts"))
+        engine.start(messages, config(ownerLogins = setOf("streamer2")), sender, this)
+        messages.emit(chatMessage("!tts", login = "streamer2"))
         advanceUntilIdle()
 
         coVerify(exactly = 1) { chatTts.toggle() }
@@ -929,12 +930,34 @@ class ChatBotEngineTest {
         val sent = slot<String>()
         coEvery { sender.send(capture(sent)) } just Runs
 
-        engine.start(messages, config(), sender, this)
-        messages.emit(chatMessage("!tts"))
+        engine.start(messages, config(ownerLogins = setOf("streamer2")), sender, this)
+        messages.emit(chatMessage("!tts", login = "streamer2"))
         advanceUntilIdle()
 
         coVerify(exactly = 1) { chatTts.toggle() }
         assertTrue(sent.captured.contains("AUS"))
+        engine.stop()
+    }
+
+    @Test
+    fun `tts from a viewer is rejected without toggling`() = runTest {
+        val chatTts = mockk<ChatTtsController>()
+        val engine = ChatBotEngine(
+            llmClient = llm,
+            commandProcessor = BotCommandProcessor(),
+            chatTts = chatTts,
+            media = mockk(),
+            chatStreamControl = Optional.empty(),
+        )
+        val sent = slot<String>()
+        coEvery { sender.send(capture(sent)) } just Runs
+
+        engine.start(messages, config(ownerLogins = setOf("streamer2")), sender, this)
+        messages.emit(chatMessage("!tts")) // viewer1, not streamer2
+        advanceUntilIdle()
+
+        coVerify(exactly = 0) { chatTts.toggle() }
+        assertTrue(sent.captured.contains("nur für den Streamer"))
         engine.stop()
     }
 
@@ -1001,8 +1024,8 @@ class ChatBotEngineTest {
         val sent = slot<String>()
         coEvery { sender.send(capture(sent)) } just Runs
 
-        engine.start(messages, config(), sender, this)
-        messages.emit(chatMessage("!next"))
+        engine.start(messages, config(ownerLogins = setOf("streamer2")), sender, this)
+        messages.emit(chatMessage("!next", login = "streamer2"))
         advanceUntilIdle()
 
         coVerify(exactly = 1) { media.skipToNext() }
@@ -1019,8 +1042,8 @@ class ChatBotEngineTest {
         val sent = slot<String>()
         coEvery { sender.send(capture(sent)) } just Runs
 
-        engine.start(messages, config(), sender, this)
-        messages.emit(chatMessage("!pause"))
+        engine.start(messages, config(ownerLogins = setOf("streamer2")), sender, this)
+        messages.emit(chatMessage("!pause", login = "streamer2"))
         advanceUntilIdle()
 
         coVerify(exactly = 1) { media.pause() }
@@ -1037,8 +1060,8 @@ class ChatBotEngineTest {
         val sent = slot<String>()
         coEvery { sender.send(capture(sent)) } just Runs
 
-        engine.start(messages, config(), sender, this)
-        messages.emit(chatMessage("!play"))
+        engine.start(messages, config(ownerLogins = setOf("streamer2")), sender, this)
+        messages.emit(chatMessage("!play", login = "streamer2"))
         advanceUntilIdle()
 
         coVerify(exactly = 1) { media.play() }
@@ -1055,8 +1078,8 @@ class ChatBotEngineTest {
         val sent = slot<String>()
         coEvery { sender.send(capture(sent)) } just Runs
 
-        engine.start(messages, config(), sender, this)
-        messages.emit(chatMessage("!prev"))
+        engine.start(messages, config(ownerLogins = setOf("streamer2")), sender, this)
+        messages.emit(chatMessage("!prev", login = "streamer2"))
         advanceUntilIdle()
 
         coVerify(exactly = 1) { media.skipToPrevious() }
@@ -1072,8 +1095,8 @@ class ChatBotEngineTest {
         val sent = slot<String>()
         coEvery { sender.send(capture(sent)) } just Runs
 
-        engine.start(messages, config(), sender, this)
-        messages.emit(chatMessage("!pause"))
+        engine.start(messages, config(ownerLogins = setOf("streamer2")), sender, this)
+        messages.emit(chatMessage("!pause", login = "streamer2"))
         advanceUntilIdle()
 
         assertEquals(ChatBotEngine.MEDIA_NO_ACCESS_TEXT, sent.captured)
@@ -1227,6 +1250,69 @@ class ChatBotEngineTest {
         advanceUntilIdle()
 
         assertEquals(ChatBotEngine.TORCH_OFF_TEXT, sent.captured)
+        engine.stop()
+    }
+
+    // --- !fix: Auto-fixbare Probleme beheben ---
+
+    @Test
+    fun `fix command executes fix and reports results`() = runTest {
+        val control = mockk<ChatStreamControl> {
+            coEvery { start() } just Runs
+            every { stop() } just Runs
+            every { toggleTorch() } returns true
+            coEvery { diagnostics() } returns StreamDiagnostics(
+                status = ChatStreamStatus.Idle,
+                obsConnected = true,
+                checks = emptyList(),
+            )
+            coEvery { fix() } returns listOf(
+                FixAction("Stream-Neustart", true, "Stream wird neu gestartet"),
+            )
+        }
+        val engine = engine(streamControl = control)
+        val sent = slot<String>()
+        coEvery { sender.send(capture(sent)) } just Runs
+
+        engine.start(messages, config(ownerLogins = setOf("streamer2")), sender, this)
+        messages.emit(chatMessage("!fix", login = "streamer2"))
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { control.fix() }
+        assertTrue(sent.captured.contains("Stream-Neustart"))
+        assertTrue(sent.captured.contains("✅"))
+        engine.stop()
+    }
+
+    @Test
+    fun `fix command reports when nothing to fix`() = runTest {
+        val control = streamControl()
+        val engine = engine(streamControl = control)
+        val sent = slot<String>()
+        coEvery { sender.send(capture(sent)) } just Runs
+
+        engine.start(messages, config(ownerLogins = setOf("streamer2")), sender, this)
+        messages.emit(chatMessage("!fix", login = "streamer2"))
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { control.fix() }
+        assertTrue(sent.captured.contains("Keine auto-fixbaren Probleme"))
+        engine.stop()
+    }
+
+    @Test
+    fun `fix from a non-owner is rejected`() = runTest {
+        val control = streamControl()
+        val engine = engine(streamControl = control)
+        val sent = slot<String>()
+        coEvery { sender.send(capture(sent)) } just Runs
+
+        engine.start(messages, config(ownerLogins = setOf("streamer2")), sender, this)
+        messages.emit(chatMessage("!fix")) // viewer1, not streamer2
+        advanceUntilIdle()
+
+        coVerify(exactly = 0) { control.fix() }
+        assertEquals(ChatBotEngine.OWNER_ONLY_TEXT, sent.captured)
         engine.stop()
     }
 

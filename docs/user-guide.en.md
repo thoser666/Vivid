@@ -319,14 +319,16 @@ See [README → Automatic updates (Obtainium)](../README.md#-automatic-updates-o
 | `!tts` | All | Toggle chat text-to-speech on/off |
 | `!bot` | All | Show bot info |
 | `!song` / `!nowplaying` | All | Current track (media player) |
-| `!next` / `!skip` | All | Next track |
-| `!pause` | All | Pause playback |
-| `!play` | All | Resume playback |
-| `!prev` / `!previous` | All | Previous track |
+| `!next` / `!skip` | Owner + Mod | Next track |
+| `!pause` | Owner + Mod | Pause playback |
+| `!play` | Owner + Mod | Resume playback |
+| `!prev` / `!previous` | Owner + Mod | Previous track |
+| `!tts` | Owner | Toggle chat text-to-speech |
 | `!start` / `!go-live` | Owner | Start the stream |
 | `!stop` / `!end` | Owner | Stop the stream |
 | `!diag` / `!status` | Owner | Run diagnostics |
 | `!ask <question>` | Owner | Ask the Owner AI |
+| `!fix` | Owner | Auto-fix issues |
 | `!testalert <type>` | Owner | Test alert for the overlay |
 | `!torch` | Owner | Toggle the flashlight |
 | `!ban <user>` | Owner | Ban a viewer |

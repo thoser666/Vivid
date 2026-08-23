@@ -68,7 +68,7 @@ data class StreamDiagnostics(
 }
 
 /**
- * Owner-Steuerung des Streams (Start/Stopp + Diagnose). Die Implementierung
+ * Owner-Steuerung des Streams (Start/Stopp + Diagnose + Fix). Die Implementierung
  * liegt in der App (`feature-streaming`-Abhängigkeit); feature-chat kennt nur
  * dieses Interface. Gebunden via Hilt-`@BindsOptionalOf` + App-`@Binds` —
  * ohne Implementierung greift der [NoOpChatStreamControl]-Fallback.
@@ -81,6 +81,16 @@ interface ChatStreamControl {
     suspend fun diagnostics(): StreamDiagnostics
 
     /**
+     * Versucht auto-fixbare Probleme zu beheben. Gibt die durchgeführten
+     * Aktionen zurück (leer = nichts zu fixen).
+     *
+     * Fixbare Aktionen:
+     * - Stream läuft nicht, sollte aber → Neustart
+     * - OBS-Status inkonsistent → Hinweis (kein auto-Reconnect möglich)
+     */
+    suspend fun fix(): List<FixAction>
+
+    /**
      * Schaltet die Taschenlampe (Torch/Lantern) um.
      *
      * @return true, wenn die Taschenlampe eingeschaltet ist; false, wenn sie
@@ -88,6 +98,13 @@ interface ChatStreamControl {
      */
     fun toggleTorch(): Boolean
 }
+
+/** Eine durchgeführte Fix-Aktion. */
+data class FixAction(
+    val label: String,
+    val success: Boolean,
+    val detail: String = "",
+)
 
 /** Fallback, wenn keine Implementierung gebunden ist (Tests / Module ohne Stream-Engine). */
 object NoOpChatStreamControl : ChatStreamControl {
@@ -99,6 +116,8 @@ object NoOpChatStreamControl : ChatStreamControl {
             obsConnected = false,
             checks = emptyList(),
         )
+
+    override suspend fun fix(): List<FixAction> = emptyList()
 
     override fun toggleTorch(): Boolean = false
 }

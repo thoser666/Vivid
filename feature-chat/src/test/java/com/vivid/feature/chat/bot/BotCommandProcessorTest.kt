@@ -222,6 +222,14 @@ class BotCommandProcessorTest {
     }
 
     @Test
+    fun `fix returns owner fix result`() {
+        assertEquals(
+            BotCommandProcessor.Result.OwnerFix,
+            processor().handle("!fix", null),
+        )
+    }
+
+    @Test
     fun `owner commands work inside a message and with the prefix scope`() {
         assertEquals(
             BotCommandProcessor.Result.OwnerStart,

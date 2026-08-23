@@ -81,6 +81,9 @@ class BotCommandProcessor @Inject constructor() {
         /** `!torch` — Taschenlampe umschalten (nur Owner). */
         data object OwnerTorch : Result
 
+        /** `!fix` — auto-fixbare Probleme beheben (nur Owner). */
+        data object OwnerFix : Result
+
         /** Mit `!` beginnendes Token, aber kein bekannter Befehl. */
         data class Unknown(val command: String) : Result
 
@@ -153,6 +156,8 @@ class BotCommandProcessor @Inject constructor() {
             "testalert", "test-alert", "alert" -> Result.TestAlert(parseAlertType(rest))
             // Owner-Befehl: Taschenlampe umschalten.
             "torch", "lantern", "flashlight" -> Result.OwnerTorch
+            // Owner-Befehl: auto-fixbare Probleme beheben.
+            "fix" -> Result.OwnerFix
             "ban" -> Result.Ban(firstToken(rest).removePrefix("@"))
             "timeout" -> Result.Timeout(firstToken(rest).removePrefix("@"), parseTimeoutDuration(rest))
             "delete" -> Result.Delete(firstToken(rest).toIntOrNull())

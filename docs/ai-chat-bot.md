@@ -1,4 +1,4 @@
-# 🤖 AI Chat Bot
+﻿# 🤖 AI Chat Bot
 
 > **Status:** Engine, Twitch sending, LLM client, stream-lifecycle wiring, the mode switch („Bot wie Moblin“ ↔ „KI entscheidet selbst“) **and the full settings screen** (bot account, Twitch token, LLM endpoint/key/model, system prompt, cooldown, mentions-only, rate limit) are **implemented and tested**. Still open: the Twitch OAuth browser flow (until then, paste a chat token — see below).
 
@@ -48,11 +48,11 @@ In den Einstellungen (**„Chat-Bot & KI“ → „Chat-Bot (KI)“**) gibt es e
 |--------|---------|
 | `!help` / `!commands` | Listet die verfügbaren Befehle |
 | `!uptime` | Wie lange der Stream schon läuft (aus dem Stream-Start-Zeitstempel) |
-| `!tts` | **Chat-Text-to-Speech umschalten** (an/aus) — liest Chat-Nachrichten auf dem Gerät des Streamers laut vor |
-| `!song` / `!nowplaying` | Aktuellen Titel melden („Aktuell läuft: Titel – Interpret“) |
-| `!next` / `!skip` | Zum nächsten Titel springen |
-| `!pause` / `!play` | Wiedergabe pausieren / fortsetzen |
-| `!prev` / `!previous` | Zum vorherigen Titel springen |
+| `!tts` | **Chat-Text-to-Speech umschalten** (an/aus) — liest Chat-Nachrichten auf dem Gerät des Streamers laut vor (**Owner-only**) |
+| `!song` / `!nowplaying` | Aktuellen Titel melden („Aktuell läuft: Titel – Interpret") |
+| `!next` / `!skip` | Zum nächsten Titel springen (**Owner + Allow-List + Moderatoren**) |
+| `!pause` / `!play` | Wiedergabe pausieren / fortsetzen (**Owner + Allow-List + Moderatoren**) |
+| `!prev` / `!previous` | Zum vorherigen Titel springen (**Owner + Allow-List + Moderatoren**) |
 | `!bot` | Kurzinfo über den Bot |
 | `!start` / `!go-live` · `!stop` / `!end` · `!diag` / `!status` · `!ask <frage>` · `!testalert <follow\|sub\|gift\|resub\|raid>` · `!torch` | **Owner-Befehle — nur der Streamer** (Broadcaster-Badge oder Allow-List `chat_bot_owner_logins`): Stream starten/stoppen, Diagnose mit Empfehlungen, Frage an die **exklusive Owner-KI** (Fallback: die normale Bot-KI), Test-Alert für das Chat-Overlay, Taschenlampe umschalten — nur während eines aktiven Streams; Viewer erhalten nur einen Hinweis (Details: [Owner-Steuerung](#owner-steuerung-nur-der-streamer)) |
 | `!ban <user>` · `!timeout <user> <minuten?>` · `!delete <anzahl?>` | **Owner-Moderation — nur der Streamer**: Viewer verbannen/timeouten bzw. die letzten N Chat-Nachrichten löschen — über die Twitch-Helix-Moderation-API (Scopes `moderator:manage:banned_users` + `moderator:manage:chat_messages`; der Bot muss Moderator im Kanal sein). Löschbar ist nur, was der Bot gesehen hat (Ringpuffer der letzten 50 IDs). Details: [Owner-Steuerung](#owner-steuerung-nur-der-streamer) |
@@ -154,6 +154,7 @@ Viewer, die einen Owner-Befehl tippen, bekommen nur den Hinweis „⚠️ Dieser
 | Stream stoppen | `!stop` / `!end` | Stoppt den Stream |
 | Diagnose | `!diag` / `!status` | **Diagnose-Lauf:** sammelt deterministisch Stream-Status (inkl. Fehlerursache), OBS-Verbindung und Konfigurations-Checks (URL/Key, Multi-Streaming, Chat-Kanal, Bot-Token, **Whisper-Antwortweg (Client-ID + Token)**, Viewer-/Owner-LLM, **Owner-KI-Quelle** — offen, wenn weder Owner- noch Viewer-LLM konfiguriert sind, **Event-Alerts konfiguriert** — Kanal/Bot-Login/Token/Client-ID gesetzt; Scopes/Mod-Rechte verifiziert Twitch nicht im Check, fehlende Rechte lassen nur den jeweiligen Alert-Typ ausfallen). **Owner-KI exklusiv** → Bewertung + konkrete Empfehlungen; ohne eigene Owner-KI → **Viewer-KI als Fallback**; ohne jede KI → Checkliste direkt im Chat. Die Antwort weist die **KI-Quelle** aus („Auswertung durch: eigene Owner-KI / Viewer-KI (Fallback) / deterministisch“) |
 | Owner-KI fragen | `!ask <frage>` | Stellt die Frage an die **Owner-KI** (exklusiv; ohne eigene Owner-KI Fallback auf die Viewer-KI) mit dem aktuellen Stream-Zustand als Kontext (z. B. „!ask warum stockt der Stream?“) |
+| Auto-Fix | !fix | Führt **auto-fixbare Reparaturen** durch (z. B. Stream-Neustart bei Connection-Fehlern). Zuerst Diagnose, dann Aktionen, optional mit KI-Bewertung der Ergebnisse. Ohne KI: nur die Aktionen auflisten |
 | Moderieren | `!ban <user>` · `!timeout <user> <minuten?>` · `!delete <anzahl?>` | **Chat-Moderation über die Helix-API:** `!ban` verbannt permanent, `!timeout` zeitweilig (Standard 5 Minuten, optional in Minuten, auch `10min`/`10m`), `!delete N` löscht die letzten N Nachrichten, die der Bot gesehen hat (ohne Zahl: alle getrackten). Scopes `moderator:manage:banned_users` / `moderator:manage:chat_messages`; der Bot muss Moderator im Kanal sein (oder der Kanal-Inhaber). Nicht-Owner erhalten nur den Hinweis |
 | Test-Alert | `!testalert <follow\|sub\|gift\|resub\|raid>` | Löst über die **Trigger-API** einen synthetischen Event-Alert im Chat-Overlay aus (erscheint dort sofort, wenn der Streaming-Screen offen ist) — zum Prüfen des Overlay-Renderings vor dem Go-Live, ohne echte Follows/Subs/Raids abzuwarten. Fehlt/ungültig der Typ, antwortet der Bot mit `Nutzung: !testalert follow\|sub\|gift\|resub\|raid`; kein Scope nötig |
 | Taschenlampe | `!torch` (Alias `!lantern`/`!flashlight`) | Schaltet die Taschenlampe (Torch/Lantern) der Stream-Kamera um (RootEncoder `enableLantern`/`disableLantern`); Bestätigung „🔦 Taschenlampe an/aus.“ über den privaten Antwortweg; kein Scope nötig |
@@ -167,12 +168,12 @@ Viewer, die einen Owner-Befehl tippen, bekommen nur den Hinweis „⚠️ Dieser
 
 #### Owner-Scope (wer darf, wann)
 
-| Absender | `!start` / `!stop` / `!diag` / `!ask` · `!testalert` · `!ban` / `!timeout` / `!delete` |
-|----------|---------------------------------------------------------------------|
-| **Kanal-Inhaber** (Broadcaster-Badge `broadcaster/1`) | ✅ immer Owner — kein Eintrag nötig |
-| **Allow-List** (`chat_bot_owner_logins`, z. B. Zweitaccount) | ✅ Owner |
-| **Moderatoren** (ohne Owner-Status) | ❌ nur der Hinweis „⚠️ Dieser Befehl ist nur für den Streamer.“ |
-| **Viewer** | ❌ nur der Hinweis — keine Aktion, kein LLM-Aufruf |
+| Absender | `!start` / `!stop` / `!diag` / `!ask` / `!fix` · `!testalert` · `!tts` · `!ban` / `!timeout` / `!delete` | `!next` / `!pause` / `!play` / `!prev` |
+|----------|---------------------------------------------------------------------|----------------------------------------|
+| **Kanal-Inhaber** (Broadcaster-Badge `broadcaster/1`) | ✅ immer Owner — kein Eintrag nötig | ✅ |
+| **Allow-List** (`chat_bot_owner_logins`, z. B. Zweitaccount) | ✅ Owner | ✅ |
+| **Moderatoren** (ohne Owner-Status) | ❌ nur der Hinweis „⚠️ Dieser Befehl ist nur für den Streamer." | ✅ |
+| **Viewer** | ❌ nur der Hinweis — keine Aktion, kein LLM-Aufruf | ❌ nur der Hinweis |
 
 Der Owner-Scope ist **unabhängig vom Betriebsmodus** (COMMAND/AUTONOMOUS) — Owner-Befehle funktionieren in beiden. Der **Befehlsscope** (ALL/MENTION/PREFIX, siehe [Koexistenz](#koexistenz-mit-anderen-bots-z-b-rivulet)) gilt auch für Owner-Befehle: im MENTION-Scope muss der Owner den Bot ansprechen (`@vividbot !diag`), im PREFIX-Scope die präfixierte Form nutzen.
 

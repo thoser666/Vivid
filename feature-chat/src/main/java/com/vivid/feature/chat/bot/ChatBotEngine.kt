@@ -191,11 +191,13 @@ class ChatBotEngine @Inject constructor(
         )) {
             is BotCommandProcessor.Result.Reply -> result.text
             is BotCommandProcessor.Result.ToggleTts -> {
-                // !tts: Chat-Vorlesen umschalten und im Chat bestätigen.
-                if (canReplyFor(cfg, message.userId, message.isModerator)) {
-                    val nowEnabled = chatTts.toggle()
-                    send(snd, if (nowEnabled) TTS_ON_TEXT else TTS_OFF_TEXT, message)
+                // !tts: Chat-Vorlesen umschalten — nur der Owner (Streamer) darf TTS steuern.
+                if (!isOwner(cfg, message)) {
+                    sendOwnerOnlyHint(snd, message)
+                    return
                 }
+                val nowEnabled = chatTts.toggle()
+                send(snd, if (nowEnabled) TTS_ON_TEXT else TTS_OFF_TEXT, message)
                 return
             }
             is BotCommandProcessor.Result.MediaNowPlaying -> {
@@ -206,27 +208,35 @@ class ChatBotEngine @Inject constructor(
                 return
             }
             is BotCommandProcessor.Result.MediaNext -> {
-                if (canReplyFor(cfg, message.userId, message.isModerator)) {
-                    send(snd, mediaActionReply({ media.skipToNext() }, MEDIA_NEXT_TEXT), message)
+                if (!isAllowedForMedia(cfg, message)) {
+                    sendOwnerOnlyHint(snd, message)
+                    return
                 }
+                send(snd, mediaActionReply({ media.skipToNext() }, MEDIA_NEXT_TEXT), message)
                 return
             }
             is BotCommandProcessor.Result.MediaPause -> {
-                if (canReplyFor(cfg, message.userId, message.isModerator)) {
-                    send(snd, mediaActionReply({ media.pause() }, MEDIA_PAUSE_TEXT), message)
+                if (!isAllowedForMedia(cfg, message)) {
+                    sendOwnerOnlyHint(snd, message)
+                    return
                 }
+                send(snd, mediaActionReply({ media.pause() }, MEDIA_PAUSE_TEXT), message)
                 return
             }
             is BotCommandProcessor.Result.MediaPlay -> {
-                if (canReplyFor(cfg, message.userId, message.isModerator)) {
-                    send(snd, mediaActionReply({ media.play() }, MEDIA_PLAY_TEXT), message)
+                if (!isAllowedForMedia(cfg, message)) {
+                    sendOwnerOnlyHint(snd, message)
+                    return
                 }
+                send(snd, mediaActionReply({ media.play() }, MEDIA_PLAY_TEXT), message)
                 return
             }
             is BotCommandProcessor.Result.MediaPrevious -> {
-                if (canReplyFor(cfg, message.userId, message.isModerator)) {
-                    send(snd, mediaActionReply({ media.skipToPrevious() }, MEDIA_PREVIOUS_TEXT), message)
+                if (!isAllowedForMedia(cfg, message)) {
+                    sendOwnerOnlyHint(snd, message)
+                    return
                 }
+                send(snd, mediaActionReply({ media.skipToPrevious() }, MEDIA_PREVIOUS_TEXT), message)
                 return
             }
             // Owner-Befehle: nur der Streamer (Broadcaster oder Allow-List).
@@ -261,6 +271,10 @@ class ChatBotEngine @Inject constructor(
                     val nowOn = streamControl.toggleTorch()
                     if (nowOn) TORCH_ON_TEXT else TORCH_OFF_TEXT
                 }
+                return
+            }
+            is BotCommandProcessor.Result.OwnerFix -> {
+                handleOwnerFix(cfg, message, snd)
                 return
             }
             is BotCommandProcessor.Result.Ban -> {
@@ -340,6 +354,10 @@ class ChatBotEngine @Inject constructor(
     private fun isOwner(cfg: ChatBotConfig, message: ChatMessage): Boolean =
         cfg.isOwner(message.userLogin, message.isBroadcaster)
 
+    /** Owner + Allow-List + Moderatoren dürfen Media-Steuerungsbefehle ausführen. */
+    private fun isAllowedForMedia(cfg: ChatBotConfig, message: ChatMessage): Boolean =
+        isOwner(cfg, message) || message.isModerator
+
     /**
      * Privat eingegangene Nachrichten (Twitch-Whisper): nur Owner-Befehle
      * werden beantwortet — die Antwort geht als Whisper an den Absender
@@ -366,6 +384,7 @@ class ChatBotEngine @Inject constructor(
                     val nowOn = streamControl.toggleTorch()
                     if (nowOn) TORCH_ON_TEXT else TORCH_OFF_TEXT
                 }
+            is BotCommandProcessor.Result.OwnerFix -> handleOwnerFix(cfg, message, snd)
             is BotCommandProcessor.Result.Ban ->
                 handleModeration(cfg, message, snd) {
                     if (result.userLogin.isBlank()) MODERATION_MISSING_USER_TEXT else moderation.ban(result.userLogin)
@@ -530,6 +549,58 @@ class ChatBotEngine @Inject constructor(
     }
 
     /**
+     * `!fix`: Auto-fixbare Probleme beheben. Zuerst Diagnose, dann Aktionen,
+     * optionally mit KI-Bewertung der Ergebnisse.
+     */
+    private suspend fun handleOwnerFix(cfg: ChatBotConfig, message: ChatMessage, snd: ChatSender) {
+        if (!isOwner(cfg, message)) {
+            sendOwnerOnlyHint(snd, message)
+            return
+        }
+        if (rateLimited(cfg)) return
+
+        // Zuerst Diagnose sammeln
+        val diagnostics = streamControl.diagnostics()
+
+        // Auto-fixbare Aktionen ausführen
+        val actions = streamControl.fix()
+
+        if (actions.isEmpty()) {
+            sendOwnerReply(cfg, snd, message, "✅ Keine auto-fixbaren Probleme gefunden.")
+            return
+        }
+
+        // Ergebnisse zusammenfassen
+        val actionSummary = actions.joinToString("\n") { action ->
+            val icon = if (action.success) "✅" else "⚠️"
+            "$icon ${action.label}: ${action.detail}"
+        }
+
+        val llm = ownerLlm(cfg)
+        val sourceLine = ownerLlmSourceLine(cfg, llm)
+
+        if (llm == null) {
+            // Ohne KI: nur die Aktionen auflisten
+            sendOwnerReply(cfg, snd, message, appendSourceLine("🔧 Fix-Aktionen:\n$actionSummary", sourceLine, cfg))
+            return
+        }
+
+        // Mit KI: Ergebnisse bewerten lassen
+        _state.value = ChatBotState.Thinking
+        try {
+            val reply = llmClient.complete(llm, ownerFixConversation(cfg, diagnostics, actions))
+            val trimmed = trimReply(reply, cfg)
+            if (trimmed.isEmpty() || trimmed.equals(NO_REPLY_MARKER, ignoreCase = true)) return
+            sendOwnerReply(cfg, snd, message, appendSourceLine("🔧 $actionSummary\n\n$trimmed", sourceLine, cfg))
+        } catch (e: Exception) {
+            _logs.tryEmit("Owner-Fix-Auswertung fehlgeschlagen: ${e.message}")
+            sendOwnerReply(cfg, snd, message, appendSourceLine("🔧 Fix-Aktionen:\n$actionSummary", sourceLine, cfg))
+        } finally {
+            _state.value = ChatBotState.Idle
+        }
+    }
+
+    /**
      * Quellen-Zeile für die `!diag`-Ausgabe: zeigt an, welche KI geantwortet
      * hat (eigene Owner-KI, Viewer-KI als Fallback oder deterministisch).
      */
@@ -642,6 +713,27 @@ class ChatBotEngine @Inject constructor(
             LlmMessage(
                 LlmMessage.ROLE_USER,
                 "Aktueller Stream-Zustand:\n${diagnostics.factSheet()}\n\nFrage vom Streamer: $question",
+            ),
+        )
+    }
+
+    /** Konversation für `!fix` mit Owner-KI (Fix-Ergebnisse → Bewertung + Empfehlungen). */
+    private fun ownerFixConversation(
+        cfg: ChatBotConfig,
+        diagnostics: StreamDiagnostics,
+        actions: List<FixAction>,
+    ): List<LlmMessage> = buildList {
+        add(LlmMessage(LlmMessage.ROLE_SYSTEM, ownerSystemPrompt(cfg)))
+        val actionSummary = actions.joinToString("\n") { action ->
+            val icon = if (action.success) "OK" else "FEHLGESCHLAGEN"
+            "$icon ${action.label}: ${action.detail}"
+        }
+        add(
+            LlmMessage(
+                LlmMessage.ROLE_USER,
+                "Auto-Fix wurde durchgeführt. Aktueller Zustand:\n${diagnostics.factSheet()}\n\n" +
+                    "Durchgeführte Aktionen:\n$actionSummary\n\n" +
+                    "Bewerte die Ergebnisse und gib Empfehlungen für weitere Schritte (kompakt, max. ${cfg.maxReplyLength} Zeichen).",
             ),
         )
     }

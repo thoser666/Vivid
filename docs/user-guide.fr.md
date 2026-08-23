@@ -324,14 +324,16 @@ Voir [README → Automatic updates (Obtainium)](../README.md#-automatic-updates-
 | `!tts` | Tous | Lecture du chat (synthèse vocale) on/off |
 | `!bot` | Tous | Afficher les infos du bot |
 | `!song` / `!nowplaying` | Tous | Titre actuel (lecteur multimédia) |
-| `!next` / `!skip` | Tous | Titre suivant |
-| `!pause` | Tous | Mettre en pause la lecture |
-| `!play` | Tous | Reprendre la lecture |
-| `!prev` / `!previous` | Tous | Titre précédent |
+| `!next` / `!skip` | Owner + Mod | Titre suivant |
+| `!pause` | Owner + Mod | Mettre en pause la lecture |
+| `!play` | Owner + Mod | Reprendre la lecture |
+| `!prev` / `!previous` | Owner + Mod | Titre précédent |
+| `!tts` | Owner | Basculer la lecture à haute voix du chat |
 | `!start` / `!go-live` | Owner | Démarrer le stream |
 | `!stop` / `!end` | Owner | Arrêter le stream |
 | `!diag` / `!status` | Owner | Lancement d'un diagnostic |
 | `!ask <question>` | Owner | Question à l'IA owner |
+| `!fix` | Owner | Réparer les problèmes automatiquement |
 | `!testalert <type>` | Owner | Alerte de test pour l'overlay |
 | `!torch` | Owner | Basculer la lampe torche |
 | `!ban <user>` | Owner | Bannir un viewer |

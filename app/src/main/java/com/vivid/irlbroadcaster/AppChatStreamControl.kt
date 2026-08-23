@@ -6,6 +6,7 @@ import com.vivid.core.repository.StreamingRepository
 import com.vivid.feature.chat.bot.ChatStreamControl
 import com.vivid.feature.chat.bot.ChatStreamStatus
 import com.vivid.feature.chat.bot.DiagnosticCheck
+import com.vivid.feature.chat.bot.FixAction
 import com.vivid.feature.chat.bot.StreamDiagnostics
 import com.vivid.feature.streaming.StreamingEngine
 import com.vivid.feature.streaming.StreamingState
@@ -43,6 +44,36 @@ class AppChatStreamControl @Inject constructor(
     }
 
     override fun toggleTorch(): Boolean = streamingEngine.toggleTorch()
+
+    override suspend fun fix(): List<FixAction> {
+        val actions = mutableListOf<FixAction>()
+        val engineState = streamingEngine.streamingState.value
+
+        // Stream läuft nicht, aber Settings sind vorhanden → Neustart
+        if (engineState is StreamingState.Idle) {
+            val settings = settingsRepository.appSettingsFlow.first()
+            if (settings.streamUrl.isNotBlank() && settings.streamKey.isNotBlank()) {
+                try {
+                    streamControl.start()
+                    actions.add(FixAction("Stream-Neustart", true, "Stream wird neu gestartet"))
+                } catch (e: Exception) {
+                    actions.add(FixAction("Stream-Neustart", false, e.message ?: "Unbekannter Fehler"))
+                }
+            }
+        }
+
+        // OBS-Status prüfen (kein auto-Reconnect möglich, nur Hinweis)
+        val obsConnected = streamingRepository.isConnectedToObs.value
+        if (!obsConnected) {
+            actions.add(FixAction(
+                "OBS-Verbindung",
+                false,
+                "OBS nicht verbunden — manueller Reconnect nötig (Settings → OBS-Remote)",
+            ))
+        }
+
+        return actions
+    }
 
     override suspend fun diagnostics(): StreamDiagnostics {
         val engineState = streamingEngine.streamingState.value
