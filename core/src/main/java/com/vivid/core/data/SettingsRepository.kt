@@ -55,6 +55,7 @@ class SettingsRepository @Inject constructor(
         val WIDGET_SHOW_LOCATION = booleanPreferencesKey("widget_show_location")
         val WIDGET_SHOW_SPEED = booleanPreferencesKey("widget_show_speed")
         val WIDGET_SHOW_ALTITUDE = booleanPreferencesKey("widget_show_altitude")
+        val WIDGET_TEMPLATE = stringPreferencesKey("widget_template")
         val SENTRY_ENABLED = booleanPreferencesKey("sentry_enabled")
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val THEME_ACCENT = stringPreferencesKey("theme_accent")
@@ -130,6 +131,7 @@ class SettingsRepository @Inject constructor(
                 showLocation = prefs[PrefKeys.WIDGET_SHOW_LOCATION] ?: true,
                 showSpeed = prefs[PrefKeys.WIDGET_SHOW_SPEED] ?: true,
                 showAltitude = prefs[PrefKeys.WIDGET_SHOW_ALTITUDE] ?: false,
+                template = prefs[PrefKeys.WIDGET_TEMPLATE] ?: "",
             )
         },
     ) { streamData, obsData, chatData, chatBotData, widgetData ->
@@ -176,6 +178,7 @@ class SettingsRepository @Inject constructor(
             widgetShowLocation = widgetData.showLocation,
             widgetShowSpeed = widgetData.showSpeed,
             widgetShowAltitude = widgetData.showAltitude,
+            widgetTemplate = widgetData.template,
         )
     },
         // 6. Flow: Darstellung (Theme-Modus + Akzentfarbe)
@@ -341,6 +344,7 @@ class SettingsRepository @Inject constructor(
         val showLocation: Boolean,
         val showSpeed: Boolean,
         val showAltitude: Boolean,
+        val template: String,
     )
 
     private data class ThemePrefs(
@@ -370,6 +374,7 @@ class SettingsRepository @Inject constructor(
         showLocation: Boolean,
         showSpeed: Boolean,
         showAltitude: Boolean,
+        template: String = "",
     ) {
         dataStore.edit { prefs ->
             prefs[PrefKeys.WIDGET_ENABLED] = enabled
@@ -377,6 +382,14 @@ class SettingsRepository @Inject constructor(
             prefs[PrefKeys.WIDGET_SHOW_LOCATION] = showLocation
             prefs[PrefKeys.WIDGET_SHOW_SPEED] = showSpeed
             prefs[PrefKeys.WIDGET_SHOW_ALTITUDE] = showAltitude
+            prefs[PrefKeys.WIDGET_TEMPLATE] = template
+        }
+    }
+
+    /** Nur das Widget-Template aktualisieren. */
+    suspend fun updateWidgetTemplate(template: String) {
+        dataStore.edit { prefs ->
+            prefs[PrefKeys.WIDGET_TEMPLATE] = template
         }
     }
 }

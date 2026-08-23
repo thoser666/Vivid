@@ -29,6 +29,11 @@ data class TextInfoWidgetUiState(
     val location: String = "",
     val speed: String = "",
     val altitude: String = "",
+    /** optionales Template — wenn gesetzt, wird das resolved Template statt der Einzelfelder angezeigt. */
+    val template: String = "",
+    val resolvedTemplate: String = "",
+    val latitude: Double = 0.0,
+    val longitude: Double = 0.0,
 )
 
 /**
@@ -62,7 +67,7 @@ class TextInfoWidgetViewModel @Inject constructor(
     val uiState: StateFlow<TextInfoWidgetUiState> = _uiState.asStateFlow()
 
     init {
-        // Settings übernehmen (Toggle + sichtbare Felder).
+        // Settings übernehmen (Toggle + sichtbare Felder + Template).
         viewModelScope.launch {
             settingsRepository.appSettingsFlow.collect { settings ->
                 _uiState.update {
@@ -72,8 +77,10 @@ class TextInfoWidgetViewModel @Inject constructor(
                         showLocation = settings.widgetShowLocation,
                         showSpeed = settings.widgetShowSpeed,
                         showAltitude = settings.widgetShowAltitude,
+                        template = settings.widgetTemplate,
                     )
                 }
+                resolveTemplate()
             }
         }
 
@@ -87,14 +94,18 @@ class TextInfoWidgetViewModel @Inject constructor(
                         date = WidgetFormatters.formatDate(t),
                     )
                 }
+                resolveTemplate()
             }
         }
 
-        // Standort: nur sammeln, wenn das Widget aktiv ist und GPS/Geschwindigkeit zeigt.
+        // Standort: nur sammeln, wenn das Widget aktiv ist und GPS/Geschwindigkeit/Template zeigt.
         viewModelScope.launch {
             combine(
                 settingsRepository.appSettingsFlow.map { settings ->
-                    settings.widgetEnabled && (settings.widgetShowLocation || settings.widgetShowSpeed || settings.widgetShowAltitude)
+                    settings.widgetEnabled && (
+                        settings.widgetShowLocation || settings.widgetShowSpeed ||
+                            settings.widgetShowAltitude || settings.widgetTemplate.isNotBlank()
+                        )
                 },
                 locationProvider.locationUpdates(),
             ) { active, location -> active to location }
@@ -109,11 +120,32 @@ class TextInfoWidgetViewModel @Inject constructor(
                                 altitude = WidgetFormatters.formatAltitude(
                                     if (location.hasAltitude) location.altitudeMeters else null,
                                 ),
+                                latitude = location.latitude,
+                                longitude = location.longitude,
                             )
                         }
+                        resolveTemplate()
                     }
                 }
         }
+    }
+
+    /** Aktuelles Template mit den aktuellen Werten auflösen. */
+    private fun resolveTemplate() {
+        val s = _uiState.value
+        if (s.template.isBlank()) {
+            _uiState.update { it.copy(resolvedTemplate = "") }
+            return
+        }
+        val values = WidgetVariableResolver.currentValues(
+            time = s.time,
+            date = s.date,
+            speed = s.speed,
+            altitude = s.altitude,
+            latitude = s.latitude,
+            longitude = s.longitude,
+        )
+        _uiState.update { it.copy(resolvedTemplate = WidgetVariableResolver.resolve(s.template, values)) }
     }
 
     private companion object {

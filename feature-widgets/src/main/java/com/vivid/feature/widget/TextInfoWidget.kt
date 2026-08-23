@@ -47,8 +47,9 @@ fun TextInfoWidget(
     val locationLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { }
-    LaunchedEffect(uiState.enabled, uiState.showLocation, uiState.showSpeed, uiState.showAltitude) {
-        val needsLocation = uiState.enabled && (uiState.showLocation || uiState.showSpeed || uiState.showAltitude)
+    LaunchedEffect(uiState.enabled, uiState.showLocation, uiState.showSpeed, uiState.showAltitude, uiState.template) {
+        val hasTemplate = uiState.template.isNotBlank()
+        val needsLocation = uiState.enabled && (uiState.showLocation || uiState.showSpeed || uiState.showAltitude || hasTemplate)
         if (needsLocation &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) !=
             PackageManager.PERMISSION_GRANTED
@@ -65,41 +66,49 @@ fun TextInfoWidget(
             .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        if (uiState.showTime) {
+        if (uiState.template.isNotBlank() && uiState.resolvedTemplate.isNotBlank()) {
             Text(
-                text = uiState.time,
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
+                text = uiState.resolvedTemplate,
+                style = MaterialTheme.typography.bodySmall,
                 color = Color.White,
             )
-            if (uiState.date.isNotBlank()) {
+        } else {
+            if (uiState.showTime) {
                 Text(
-                    text = uiState.date,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = Color.White.copy(alpha = 0.7f),
+                    text = uiState.time,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                )
+                if (uiState.date.isNotBlank()) {
+                    Text(
+                        text = uiState.date,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Color.White.copy(alpha = 0.7f),
+                    )
+                }
+            }
+            if (uiState.showLocation && uiState.location.isNotBlank()) {
+                Text(
+                    text = stringResource(R.string.widget_location_label, uiState.location),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White,
                 )
             }
-        }
-        if (uiState.showLocation && uiState.location.isNotBlank()) {
-            Text(
-                text = stringResource(R.string.widget_location_label, uiState.location),
-                style = MaterialTheme.typography.bodySmall,
-                color = Color.White,
-            )
-        }
-        if (uiState.showSpeed && uiState.speed.isNotBlank()) {
-            Text(
-                text = stringResource(R.string.widget_speed_label, uiState.speed),
-                style = MaterialTheme.typography.bodySmall,
-                color = Color.White,
-            )
-        }
-        if (uiState.showAltitude && uiState.altitude.isNotBlank()) {
-            Text(
-                text = stringResource(R.string.widget_altitude_label, uiState.altitude),
-                style = MaterialTheme.typography.bodySmall,
-                color = Color.White,
-            )
+            if (uiState.showSpeed && uiState.speed.isNotBlank()) {
+                Text(
+                    text = stringResource(R.string.widget_speed_label, uiState.speed),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White,
+                )
+            }
+            if (uiState.showAltitude && uiState.altitude.isNotBlank()) {
+                Text(
+                    text = stringResource(R.string.widget_altitude_label, uiState.altitude),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White,
+                )
+            }
         }
     }
 }

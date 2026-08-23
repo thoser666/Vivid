@@ -176,4 +176,112 @@ class TextInfoWidgetViewModelTest {
 
         assertEquals("52.5200° N, 13.4050° O", viewModel.uiState.value.location)
     }
+
+    // --- Template-Variablen ---
+
+    @Test
+    fun `empty template does not resolve`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val viewModel = createViewModel(
+            settingsFlow = MutableStateFlow(AppSettings(widgetEnabled = true, widgetTemplate = "")),
+            ticks = listOf(epoch(32)),
+        )
+        runCurrent()
+
+        assertEquals("", viewModel.uiState.value.resolvedTemplate)
+    }
+
+    @Test
+    fun `template with time variable resolves`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val viewModel = createViewModel(
+            settingsFlow = MutableStateFlow(AppSettings(widgetEnabled = true, widgetTemplate = "Time: {time}")),
+            ticks = listOf(epoch(32)),
+        )
+        runCurrent()
+
+        assertEquals("Time: 14:05:32", viewModel.uiState.value.resolvedTemplate)
+    }
+
+    @Test
+    fun `template with speed variable resolves from location`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val viewModel = createViewModel(
+            settingsFlow = MutableStateFlow(
+                AppSettings(widgetEnabled = true, widgetTemplate = "Speed: {speed}"),
+            ),
+            locationFlow = MutableStateFlow(location(speed = 14.5f)),
+            ticks = listOf(epoch(32)),
+        )
+        runCurrent()
+
+        assertEquals("Speed: 52,2 km/h", viewModel.uiState.value.resolvedTemplate)
+    }
+
+    @Test
+    fun `template with multiple variables resolves all`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val viewModel = createViewModel(
+            settingsFlow = MutableStateFlow(
+                AppSettings(widgetEnabled = true, widgetTemplate = "{time} | {speed} | {altitude}"),
+            ),
+            locationFlow = MutableStateFlow(location(speed = 10f).copy(hasAltitude = true, altitudeMeters = 120.0)),
+            ticks = listOf(epoch(32)),
+        )
+        runCurrent()
+
+        assertEquals("14:05:32 | 36,0 km/h | 120 m", viewModel.uiState.value.resolvedTemplate)
+    }
+
+    @Test
+    fun `template with unknown variables keeps them unchanged`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val viewModel = createViewModel(
+            settingsFlow = MutableStateFlow(
+                AppSettings(widgetEnabled = true, widgetTemplate = "{time} | {unknown}"),
+            ),
+            ticks = listOf(epoch(32)),
+        )
+        runCurrent()
+
+        assertEquals("14:05:32 | {unknown}", viewModel.uiState.value.resolvedTemplate)
+    }
+
+    @Test
+    fun `changing template re-resolves`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val settingsFlow = MutableStateFlow(
+            AppSettings(widgetEnabled = true, widgetTemplate = "{time}"),
+        )
+        val viewModel = createViewModel(settingsFlow, ticks = listOf(epoch(32)))
+        runCurrent()
+
+        assertEquals("14:05:32", viewModel.uiState.value.resolvedTemplate)
+
+        settingsFlow.value = AppSettings(widgetEnabled = true, widgetTemplate = "Now: {time}")
+        runCurrent()
+
+        assertEquals("Now: 14:05:32", viewModel.uiState.value.resolvedTemplate)
+    }
+
+    @Test
+    fun `template triggers location updates even without showLocation toggles`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val viewModel = createViewModel(
+            settingsFlow = MutableStateFlow(
+                AppSettings(
+                    widgetEnabled = true,
+                    widgetShowLocation = false,
+                    widgetShowSpeed = false,
+                    widgetShowAltitude = false,
+                    widgetTemplate = "GPS: {lat},{lon}",
+                ),
+            ),
+            locationFlow = MutableStateFlow(location()),
+            ticks = listOf(epoch(32)),
+        )
+        runCurrent()
+
+        assertTrue(viewModel.uiState.value.resolvedTemplate.contains("52.52"))
+    }
 }

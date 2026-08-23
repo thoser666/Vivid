@@ -278,6 +278,7 @@ class SettingsViewModel @Inject constructor(
                 showLocation = currentSettings.widgetShowLocation,
                 showSpeed = currentSettings.widgetShowSpeed,
                 showAltitude = currentSettings.widgetShowAltitude,
+                template = currentSettings.widgetTemplate,
             )
             settingsRepository.updateSentryEnabled(currentSettings.sentryEnabled)
             settingsRepository.updateThemeSettings(

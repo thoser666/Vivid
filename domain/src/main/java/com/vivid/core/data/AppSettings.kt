@@ -88,6 +88,8 @@ data class AppSettings(
     val widgetShowLocation: Boolean = true,
     val widgetShowSpeed: Boolean = true,
     val widgetShowAltitude: Boolean = false,
+    // optionales Template mit Variablen ({time}, {date}, {speed}, {altitude}, {lat}, {lon}).
+    val widgetTemplate: String = "",
     // --- Datenschutz (Sentry) ---
     // Fehler-/Crash-Berichte an Sentry senden (Standard: an). Aus = Opt-out:
     // beforeSend verwirft dann alle Events — es wird nichts an Sentry übertragen.
