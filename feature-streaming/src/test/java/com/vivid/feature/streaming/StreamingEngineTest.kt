@@ -7,6 +7,8 @@ import com.pedro.common.ConnectChecker
 import com.pedro.library.multiple.MultiCamera2
 import com.pedro.library.multiple.MultiType
 import com.pedro.library.view.GlStreamInterface
+import com.vivid.feature.streaming.source.VideoSourceKind
+import com.vivid.feature.streaming.source.VideoSourceRegistry
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.just
@@ -39,7 +41,7 @@ class StreamingEngineTest {
                 return camera
             }
         }
-        streamingEngine = StreamingEngine(cameraFactory)
+        streamingEngine = StreamingEngine(cameraFactory, VideoSourceRegistry())
     }
 
     private fun streamingCameraReady() {
@@ -76,6 +78,7 @@ class StreamingEngineTest {
                     return camera
                 }
             },
+            VideoSourceRegistry(),
         )
 
         streamingEngine.initializeCamera()
@@ -277,6 +280,45 @@ class StreamingEngineTest {
         verify { camera.stopStream(MultiType.RTMP, 1) }
         assertEquals(StreamingState.Idle, streamingEngine.streamingState.value)
         assertNull(streamingEngine.targetStates.value[0].failureReason)
+    }
+
+    // --- S1: Source-Abstraktion (VideoSourceRegistry) ---
+
+    @Test
+    fun `activeSourceKind defaults to CAMERA`() = runTest {
+        streamingEngine.initializeCamera()
+
+        assertEquals(VideoSourceKind.CAMERA, streamingEngine.activeSourceKind.value)
+    }
+
+    @Test
+    fun `switchSource accepts CAMERA and updates the active source`() = runTest {
+        streamingEngine.initializeCamera()
+
+        val result = streamingEngine.switchSource(VideoSourceKind.CAMERA)
+
+        assertEquals(true, result)
+        assertEquals(VideoSourceKind.CAMERA, streamingEngine.activeSourceKind.value)
+    }
+
+    @Test
+    fun `switchSource rejects SCREEN_CAPTURE in S1 and keeps CAMERA active`() = runTest {
+        streamingEngine.initializeCamera()
+
+        val result = streamingEngine.switchSource(VideoSourceKind.SCREEN_CAPTURE)
+
+        assertEquals(false, result)
+        assertEquals(VideoSourceKind.CAMERA, streamingEngine.activeSourceKind.value)
+    }
+
+    @Test
+    fun `switchSource rejects VIDEO_PLAYER in S1 and keeps CAMERA active`() = runTest {
+        streamingEngine.initializeCamera()
+
+        val result = streamingEngine.switchSource(VideoSourceKind.VIDEO_PLAYER)
+
+        assertEquals(false, result)
+        assertEquals(VideoSourceKind.CAMERA, streamingEngine.activeSourceKind.value)
     }
 
     // --- Preview (GL-freier Pfad): attach/detach unabhängig vom Encoder ---

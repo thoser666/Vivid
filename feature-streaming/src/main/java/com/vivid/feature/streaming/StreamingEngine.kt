@@ -9,6 +9,8 @@ import com.pedro.library.base.Camera2Base
 import com.pedro.library.multiple.MultiCamera2
 import com.pedro.library.multiple.MultiType
 import com.pedro.library.view.GlStreamInterface
+import com.vivid.feature.streaming.source.VideoSourceKind
+import com.vivid.feature.streaming.source.VideoSourceRegistry
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -63,6 +65,7 @@ class RtmpCamera2Factory @Inject constructor(
 @Singleton // Die Engine sollte ein Singleton sein, da sie die Kamera steuert
 class StreamingEngine @Inject constructor(
     private val cameraFactory: CameraFactory, // <-- WIR INJIZIEREN EINE FACTORY
+    private val videoSourceRegistry: VideoSourceRegistry, // <-- S1: Source-Abstraktion
 ) {
     private var camera: MultiCamera2? = null
 
@@ -84,6 +87,13 @@ class StreamingEngine @Inject constructor(
 
     private val _torchEnabled = MutableStateFlow(false)
     val torchEnabled: StateFlow<Boolean> = _torchEnabled.asStateFlow()
+
+    /**
+     * S1 (Source-Abstraktion): die aktuell aktive Videoquelle der Engine.
+     * Die Engine spricht nur noch die Registry an statt hart „die Kamera“ —
+     * Screen-Capture/Video-Player-Quellen docken hier ohne Engine-Umbau an.
+     */
+    val activeSourceKind: StateFlow<VideoSourceKind> = videoSourceRegistry.activeKind
 
     private var cameraControls: CameraControls? = null
     private var stabilizationController: CameraStabilizationController? = null
@@ -181,6 +191,15 @@ class StreamingEngine @Inject constructor(
             }
         }
     }
+
+    /**
+     * S1: wechselt die aktive Videoquelle über die [VideoSourceRegistry].
+     *
+     * Nur [VideoSourceKind.CAMERA] ist implementiert; andere Quellen werden mit
+     * false abgelehnt (Zustand bleibt unverändert). Screen-Capture/Video-Player
+     * folgen in S2/S3 über dieselbe Schnittstelle.
+     */
+    fun switchSource(kind: VideoSourceKind): Boolean = videoSourceRegistry.switchTo(kind)
 
     /**
      * Erstellt die Kamera einmalig, view-unabhängig.
