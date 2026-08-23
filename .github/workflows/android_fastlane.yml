@@ -134,11 +134,13 @@ jobs:
   # (`cmd activity get-config`) — schlägt er fehl, bricht der Job ab, damit nie
   # fälschlich ein „locale-robust“-Grün gemeldet wird.
   emulator-tests:
-    name: Instrumented UI Tests (Emulator)
-    # macOS statt ubuntu-latest: GitHub-Hosted-Linux-Runner haben kein KVM,
-    # der Emulator lief dort ohne Hardware-Beschleunigung (-accel off) und
-    # bootete nach 13+ min oder gar nicht (adb-Timeout). macOS bietet
-    # Hypervisor.Framework → Boot in ~1-2 min, stabil.
+    name: Instrumented UI Tests (Emulator, manuell)
+    # Nur manuell per workflow_dispatch lauffähig — GitHub-Hosted-Runner
+    # bieten weder KVM (Linux) noch Hypervisor.Framework (macOS, HVF
+    # HV_UNSUPPORTED): der Emulator bootet dort nicht (7 fehlgeschlagene
+    # CI-Versuche, 0 Testfehler). Die Suite läuft lokal (vivid_play-AVD)
+    # und auf self-hosted-Runnern mit KVM.
+    if: github.event_name == 'workflow_dispatch'
     runs-on: macos-latest
     needs: test
     permissions:
