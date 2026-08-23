@@ -135,7 +135,11 @@ jobs:
   # fälschlich ein „locale-robust“-Grün gemeldet wird.
   emulator-tests:
     name: Instrumented UI Tests (Emulator)
-    runs-on: ubuntu-latest
+    # macOS statt ubuntu-latest: GitHub-Hosted-Linux-Runner haben kein KVM,
+    # der Emulator lief dort ohne Hardware-Beschleunigung (-accel off) und
+    # bootete nach 13+ min oder gar nicht (adb-Timeout). macOS bietet
+    # Hypervisor.Framework → Boot in ~1-2 min, stabil.
+    runs-on: macos-latest
     needs: test
     permissions:
       contents: read
