@@ -492,7 +492,7 @@ Status: ✅ implemented · 🚧 in progress · 📋 planned
 | Deep Linking (`moblin://`) | 📋 | |
 | Scenes (basic) + Auto Scene Switcher | 📋 | Complete stream configs as switchable scenes; video-source widget (multi-cam) |
 | Pro Camera Controls + Lens Selection | 📋 | Manual exposure bias, white balance, ISO, focus; ultra-wide/wide/tele selection |
-| Screen Capture + Video Player as source | 📋 | MediaProjection + basic video player as stream source |
+| Screen Capture + Video Player as source | 📋 | MediaProjection + basic video player as stream source — **S1 source abstraction done** (`VideoSourceKind`/`VideoSource`/`VideoSourceRegistry`, camera active; screen capture S2, video player S3) |
 | Record to Disk (MP4) + Replays | 📋 | Record while streaming; save & play replays |
 | Torch / Low-Light Boost | ✅ | Flashlight toggle via RootEncoder lantern API + `!torch` bot command |
 | External Display (Cast / HDMI-out) | 📋 | Video on an external display via Android Cast/Presentation |
