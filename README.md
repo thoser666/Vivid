@@ -631,6 +631,6 @@ If Vivid helps you with your streaming, please consider:
 
 **Made with ❤️ for the IRL streaming community**
 
-[⬆ Back to Top](#-vivid)
+[⬆ Back to Top](#vivid)
 
 </div>
