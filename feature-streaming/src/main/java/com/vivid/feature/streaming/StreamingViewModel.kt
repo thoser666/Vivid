@@ -2,13 +2,21 @@ package com.vivid.feature.streaming
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.vivid.core.data.SceneRepository
+import com.vivid.core.data.SceneVideoSource
 import com.vivid.core.data.SettingsRepository
+import com.vivid.core.data.StreamScene
+import com.vivid.feature.streaming.scene.AutoSceneSwitcher
+import com.vivid.feature.streaming.scene.SceneController
+import com.vivid.feature.streaming.source.VideoSourceKind
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import java.util.UUID
 import javax.inject.Inject
 
 @HiltViewModel
@@ -16,9 +24,24 @@ class StreamingViewModel @Inject constructor(
     val streamingEngine: StreamingEngine,
     private val settingsRepository: SettingsRepository,
     private val streamingServiceLauncher: StreamingServiceLauncher,
+    private val sceneRepository: SceneRepository,
+    private val sceneController: SceneController,
+    private val autoSceneSwitcher: AutoSceneSwitcher,
 ) : ViewModel() {
 
     private val _configIssues = MutableStateFlow<List<StreamConfigIssue>>(emptyList())
+
+    // --- Szenen (Basic Scenes) + Auto-Scene-Switcher ---
+
+    /** Alle gespeicherten Szenen (Anlage-Reihenfolge). */
+    val scenes: Flow<List<StreamScene>> = sceneRepository.scenesFlow
+
+    /** ID der zuletzt angewendeten Szene (null = keine aktiv). */
+    val activeSceneId: Flow<String?> = sceneRepository.activeSceneIdFlow
+
+    /** Auto-Scene-Switcher: an/aus + Intervall (Sekunden). */
+    val autoSwitchEnabled: StateFlow<Boolean> = autoSceneSwitcher.enabled
+    val autoSwitchIntervalSeconds: StateFlow<Long> = autoSceneSwitcher.intervalSeconds
 
     /**
      * Befunde des Stream-Selbst-Checks (werden vor dem Go-Live im UI angezeigt).
@@ -95,6 +118,64 @@ class StreamingViewModel @Inject constructor(
     fun stopStream() {
         streamingServiceLauncher.stopStreaming()
     }
+
+    // --- Szenen-Aktionen ---
+
+    /**
+     * Speichert die aktuelle Konfiguration (Videoquelle, Widget, Stream-Ziel)
+     * als neue Szene. Ein leerer Name ist ein No-op (die UI erzwingt einen
+     * Namen über den lokalisierten Standardwert).
+     */
+    fun saveScene(name: String) {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty()) return
+        viewModelScope.launch {
+            val settings = settingsRepository.appSettingsFlow.first()
+            val scene = StreamScene(
+                id = UUID.randomUUID().toString(),
+                name = trimmed,
+                videoSource = streamingEngine.activeSourceKind.value.toSceneVideoSource(),
+                widgetEnabled = settings.widgetEnabled,
+                widgetShowTime = settings.widgetShowTime,
+                widgetShowLocation = settings.widgetShowLocation,
+                widgetShowSpeed = settings.widgetShowSpeed,
+                widgetShowAltitude = settings.widgetShowAltitude,
+                widgetTemplate = settings.widgetTemplate,
+                streamUrl = settings.streamUrl,
+                streamKey = settings.streamKey,
+                streamUseTls = settings.streamUseTls,
+            )
+            sceneRepository.saveScene(scene)
+        }
+    }
+
+    /** Wendet eine Szene an (Stream-Ziel, Widget, Videoquelle). */
+    fun applyScene(scene: StreamScene) {
+        viewModelScope.launch { sceneController.applyScene(scene) }
+    }
+
+    /** Löscht eine Szene (inkl. aktiver Markierung, falls sie aktiv war). */
+    fun deleteScene(sceneId: String) {
+        viewModelScope.launch { sceneRepository.deleteScene(sceneId) }
+    }
+
+    /** Auto-Wechsel an/aus. */
+    fun setAutoSwitchEnabled(enabled: Boolean) {
+        autoSceneSwitcher.setEnabled(enabled)
+    }
+
+    /** Auto-Wechsel-Intervall (Sekunden, geclampt auf das Minimum). */
+    fun setAutoSwitchIntervalSeconds(seconds: Long) {
+        autoSceneSwitcher.setIntervalSeconds(seconds)
+    }
+}
+
+/** Engine-Quelle → Szenen-Quelle (das Domain-Modul kennt die Engine nicht). */
+private fun VideoSourceKind.toSceneVideoSource(): SceneVideoSource = when (this) {
+    VideoSourceKind.CAMERA -> SceneVideoSource.CAMERA
+    VideoSourceKind.SCREEN_CAPTURE -> SceneVideoSource.SCREEN_CAPTURE
+    // S3 (Video-Player) ist nicht implementiert — Fallback auf Kamera.
+    VideoSourceKind.VIDEO_PLAYER -> SceneVideoSource.CAMERA
 }
 
 /**

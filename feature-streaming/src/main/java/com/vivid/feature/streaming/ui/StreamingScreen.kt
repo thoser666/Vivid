@@ -9,8 +9,11 @@ import android.view.SurfaceView
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.automirrored.filled.Help
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Settings
 // 1. Importiere ein passendes Icon für die OBS-Steuerung
 import androidx.compose.material.icons.filled.Podcasts // (Ein gutes Icon für "Broadcasting")
 import androidx.compose.material3.*
@@ -20,10 +23,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Lock
@@ -46,6 +52,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
+import com.vivid.core.data.StreamScene
 import com.vivid.core.ui.theme.LocalExtendedColors
 import com.vivid.feature.chat.ui.ChatOverlay
 import com.vivid.feature.widget.TextInfoWidget
@@ -73,6 +80,13 @@ fun StreamingScreen(
     val torchEnabled by streamingEngine.torchEnabled.collectAsStateWithLifecycle()
     val activeSourceKind by streamingEngine.activeSourceKind.collectAsStateWithLifecycle()
     val configIssues by viewModel.configIssues.collectAsStateWithLifecycle()
+
+    // Szenen (Basic Scenes) + Auto-Scene-Switcher: Liste, aktive Szene,
+    // Auto-Wechsel-Zustand — aus SceneRepository/AutoSceneSwitcher.
+    val scenes by viewModel.scenes.collectAsStateWithLifecycle(initialValue = emptyList())
+    val activeSceneId by viewModel.activeSceneId.collectAsStateWithLifecycle(initialValue = null)
+    val autoSwitchEnabled by viewModel.autoSwitchEnabled.collectAsStateWithLifecycle()
+    val autoSwitchIntervalSeconds by viewModel.autoSwitchIntervalSeconds.collectAsStateWithLifecycle()
 
     // Runtime-Permissions (Kamera/Mikro + Notifications) werden beim Go-Live
     // angefordert — der Foreground-Service braucht sie auf Android 13+.
@@ -180,6 +194,23 @@ fun StreamingScreen(
                         )
                     }
                 },
+            )
+        },
+        // Szenen-Leiste (Basic Scenes): immer sichtbar — Chips zum Umschalten,
+        // „+“ zum Speichern der aktuellen Konfiguration, Löschen der aktiven
+        // Szene und der Auto-Scene-Switcher (An/Aus + Intervall).
+        bottomBar = {
+            SceneSwitcherBar(
+                scenes = scenes,
+                activeSceneId = activeSceneId,
+                autoSwitchEnabled = autoSwitchEnabled,
+                autoSwitchIntervalSeconds = autoSwitchIntervalSeconds,
+                isStreaming = streamingState is StreamingState.Streaming,
+                onApplyScene = viewModel::applyScene,
+                onSaveScene = viewModel::saveScene,
+                onDeleteScene = viewModel::deleteScene,
+                onAutoSwitchEnabledChange = viewModel::setAutoSwitchEnabled,
+                onAutoSwitchIntervalChange = viewModel::setAutoSwitchIntervalSeconds,
             )
         },
     ) { paddingValues ->
@@ -521,5 +552,155 @@ private fun TargetStatusRow(state: StreamTargetState) {
             style = MaterialTheme.typography.bodySmall,
             color = color,
         )
+    }
+}
+
+/**
+ * Szenen-Leiste (Moblin: Basic Scenes) als Bottom-Bar des Streaming-Screens.
+ *
+ * - Chips für jede gespeicherte Szene (Tipp = anwenden; während des Streams
+ *   gesperrt, weil die Engine-Quelle nur zwischen Starts gewechselt wird)
+ * - „+“ öffnet die Eingabe für eine neue Szene (Name vorbefüllt, lokalisiert)
+ * - Mülleimer löscht die aktive Szene
+ * - Auto-Scene-Switcher: An/Aus-Toggle + Intervall (Sekunden, Minimum 5 s)
+ */
+@Composable
+private fun SceneSwitcherBar(
+    scenes: List<StreamScene>,
+    activeSceneId: String?,
+    autoSwitchEnabled: Boolean,
+    autoSwitchIntervalSeconds: Long,
+    isStreaming: Boolean,
+    onApplyScene: (StreamScene) -> Unit,
+    onSaveScene: (String) -> Unit,
+    onDeleteScene: (String) -> Unit,
+    onAutoSwitchEnabledChange: (Boolean) -> Unit,
+    onAutoSwitchIntervalChange: (Long) -> Unit,
+) {
+    var adding by remember { mutableStateOf(false) }
+    var sceneName by remember { mutableStateOf("") }
+    // Lokalisierter Standardname (z. B. „Szene 1“) — der Nutzer kann ihn editieren.
+    val defaultSceneName = stringResource(R.string.scene_default_name, scenes.size + 1)
+
+    Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+        ) {
+            if (adding) {
+                // Eingabe-Modus: Name + Speichern/Abbrechen.
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    OutlinedTextField(
+                        value = sceneName,
+                        onValueChange = { sceneName = it },
+                        label = { Text(stringResource(R.string.scene_name_hint)) },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Button(
+                        onClick = {
+                            onSaveScene(sceneName)
+                            sceneName = ""
+                            adding = false
+                        },
+                        enabled = sceneName.isNotBlank(),
+                    ) {
+                        Text(stringResource(R.string.scene_add))
+                    }
+                    IconButton(onClick = {
+                        sceneName = ""
+                        adding = false
+                    }) {
+                        Icon(
+                            imageVector = Icons.Filled.Close,
+                            contentDescription = stringResource(R.string.scene_add_cancel),
+                        )
+                    }
+                }
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        text = stringResource(R.string.scene_bar_title),
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                    if (scenes.isEmpty()) {
+                        Text(
+                            text = stringResource(R.string.scene_empty_hint),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f),
+                        )
+                    } else {
+                        Row(
+                            modifier = Modifier
+                                .weight(1f)
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            scenes.forEach { scene ->
+                                FilterChip(
+                                    selected = scene.id == activeSceneId,
+                                    onClick = { onApplyScene(scene) },
+                                    enabled = !isStreaming,
+                                    label = { Text(scene.name) },
+                                )
+                            }
+                        }
+                    }
+                    FilledTonalIconButton(onClick = {
+                        sceneName = defaultSceneName
+                        adding = true
+                    }) {
+                        Icon(
+                            imageVector = Icons.Filled.Add,
+                            contentDescription = stringResource(R.string.scene_add),
+                        )
+                    }
+                    if (activeSceneId != null) {
+                        FilledTonalIconButton(onClick = { onDeleteScene(activeSceneId) }) {
+                            Icon(
+                                imageVector = Icons.Filled.Delete,
+                                contentDescription = stringResource(R.string.scene_delete_desc),
+                            )
+                        }
+                    }
+                }
+            }
+            // Auto-Scene-Switcher: An/Aus + Intervall (nur bei An editierbar).
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = stringResource(R.string.scene_auto_switch),
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.weight(1f),
+                )
+                OutlinedTextField(
+                    value = autoSwitchIntervalSeconds.toString(),
+                    onValueChange = { raw ->
+                        raw.toLongOrNull()?.let(onAutoSwitchIntervalChange)
+                    },
+                    label = { Text(stringResource(R.string.scene_interval_seconds)) },
+                    singleLine = true,
+                    enabled = autoSwitchEnabled,
+                    modifier = Modifier.width(120.dp),
+                )
+                Switch(
+                    checked = autoSwitchEnabled,
+                    onCheckedChange = onAutoSwitchEnabledChange,
+                    modifier = Modifier.padding(start = 8.dp),
+                )
+            }
+        }
     }
 }

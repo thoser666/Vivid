@@ -1,14 +1,24 @@
 package com.vivid.feature.streaming
 
 import com.vivid.core.data.AppSettings
+import com.vivid.core.data.SceneRepository
+import com.vivid.core.data.SceneVideoSource
 import com.vivid.core.data.SettingsRepository
+import com.vivid.core.data.StreamScene
+import com.vivid.feature.streaming.scene.AutoSceneSwitcher
+import com.vivid.feature.streaming.scene.SceneController
+import com.vivid.feature.streaming.source.VideoSourceKind
+import io.mockk.Runs
+import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
+import io.mockk.just
 import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -35,13 +45,37 @@ class StreamingViewModelTest {
         every { appSettingsFlow } returns MutableStateFlow(settings)
     }
 
+    // Achtung: Felder NICHT wie die Mock-Eigenschaften benennen (scenesFlow/...),
+    // sonst schattiert der Klassen-Feldzugriff in `every { }` die Mock-Property.
+    private val scenesState = MutableStateFlow<List<StreamScene>>(emptyList())
+    private val activeSceneState = MutableStateFlow<String?>(null)
+    private val sceneRepository = mockk<SceneRepository> {
+        every { scenesFlow } returns scenesState
+        every { activeSceneIdFlow } returns activeSceneState
+        coEvery { saveScene(any()) } just Runs
+        coEvery { deleteScene(any()) } just Runs
+    }
+    private val sceneController = mockk<SceneController> {
+        coEvery { applyScene(any()) } just Runs
+    }
+    private val autoSceneSwitcher = mockk<AutoSceneSwitcher> {
+        every { enabled } returns MutableStateFlow(false)
+        every { intervalSeconds } returns MutableStateFlow(60L)
+        every { setEnabled(any()) } just Runs
+        every { setIntervalSeconds(any()) } just Runs
+    }
+
+    private fun viewModel(
+        repository: SettingsRepository = repositoryWith(AppSettings()),
+    ) = StreamingViewModel(engine, repository, launcher, sceneRepository, sceneController, autoSceneSwitcher)
+
     @Test
     fun `startStream uses saved url with appended stream key`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val repository = repositoryWith(
             AppSettings(streamUrl = "rtmp://live.example/app", streamKey = "key-1"),
         )
-        val viewModel = StreamingViewModel(engine, repository, launcher)
+        val viewModel = viewModel(repository)
 
         viewModel.startStream()
         advanceUntilIdle()
@@ -60,7 +94,7 @@ class StreamingViewModelTest {
                 streamUseTls = true,
             ),
         )
-        val viewModel = StreamingViewModel(engine, repository, launcher)
+        val viewModel = viewModel(repository)
 
         viewModel.startStream()
         advanceUntilIdle()
@@ -79,7 +113,7 @@ class StreamingViewModelTest {
                 streamUseTls = true,
             ),
         )
-        val viewModel = StreamingViewModel(engine, repository, launcher)
+        val viewModel = viewModel(repository)
 
         viewModel.startStream()
         advanceUntilIdle()
@@ -94,7 +128,7 @@ class StreamingViewModelTest {
         val repository = repositoryWith(
             AppSettings(streamUrl = "rtmp://live.example/app/key-1", streamKey = "key-1"),
         )
-        val viewModel = StreamingViewModel(engine, repository, launcher)
+        val viewModel = viewModel(repository)
 
         viewModel.startStream()
         advanceUntilIdle()
@@ -109,7 +143,7 @@ class StreamingViewModelTest {
         val repository = repositoryWith(
             AppSettings(streamUrl = "rtmp://live.example/app", streamKey = "live-key"),
         )
-        val viewModel = StreamingViewModel(engine, repository, launcher)
+        val viewModel = viewModel(repository)
 
         viewModel.startStream()
         advanceUntilIdle()
@@ -123,7 +157,7 @@ class StreamingViewModelTest {
         val repository = repositoryWith(
             AppSettings(streamUrl = "rtmp://live.example/app", streamKey = ""),
         )
-        val viewModel = StreamingViewModel(engine, repository, launcher)
+        val viewModel = viewModel(repository)
 
         viewModel.startStream()
         advanceUntilIdle()
@@ -135,7 +169,7 @@ class StreamingViewModelTest {
     fun `startStream with blank url sets error message and does not start`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val repository = repositoryWith(AppSettings())
-        val viewModel = StreamingViewModel(engine, repository, launcher)
+        val viewModel = viewModel(repository)
 
         viewModel.startStream()
         advanceUntilIdle()
@@ -154,7 +188,7 @@ class StreamingViewModelTest {
         val repository = repositoryWith(
             AppSettings(streamUrl = "http://live.example/app", streamKey = "key-1"),
         )
-        val viewModel = StreamingViewModel(engine, repository, launcher)
+        val viewModel = viewModel(repository)
 
         viewModel.startStream()
         advanceUntilIdle()
@@ -175,7 +209,7 @@ class StreamingViewModelTest {
         val repository = repositoryWith(
             AppSettings(streamUrl = "rtmp:///app", streamKey = "key-1"),
         )
-        val viewModel = StreamingViewModel(engine, repository, launcher)
+        val viewModel = viewModel(repository)
 
         viewModel.startStream()
         advanceUntilIdle()
@@ -194,7 +228,7 @@ class StreamingViewModelTest {
         val repository = repositoryWith(
             AppSettings(streamUrl = "rtmp://live.twitch.tv/app", streamKey = ""),
         )
-        val viewModel = StreamingViewModel(engine, repository, launcher)
+        val viewModel = viewModel(repository)
 
         viewModel.startStream()
         advanceUntilIdle()
@@ -208,7 +242,7 @@ class StreamingViewModelTest {
     fun `configIssues is populated on init`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val repository = repositoryWith(AppSettings())
-        val viewModel = StreamingViewModel(engine, repository, launcher)
+        val viewModel = viewModel(repository)
 
         advanceUntilIdle()
 
@@ -222,7 +256,7 @@ class StreamingViewModelTest {
         val repository = mockk<SettingsRepository> {
             every { appSettingsFlow } returns settingsFlow
         }
-        val viewModel = StreamingViewModel(engine, repository, launcher)
+        val viewModel = viewModel(repository)
         advanceUntilIdle()
         assertTrue(viewModel.configIssues.value.any { it.severity == ConfigIssueSeverity.ERROR })
 
@@ -237,7 +271,7 @@ class StreamingViewModelTest {
     fun `stopStream delegates to the engine`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val repository = repositoryWith(AppSettings())
-        val viewModel = StreamingViewModel(engine, repository, launcher)
+        val viewModel = viewModel(repository)
 
         viewModel.stopStream()
 
@@ -258,7 +292,7 @@ class StreamingViewModelTest {
                 secondaryStreamUseTls = true,
             ),
         )
-        val viewModel = StreamingViewModel(engine, repository, launcher)
+        val viewModel = viewModel(repository)
 
         viewModel.startStream()
         advanceUntilIdle()
@@ -284,7 +318,7 @@ class StreamingViewModelTest {
                 secondaryStreamUrl = "  ",
             ),
         )
-        val viewModel = StreamingViewModel(engine, repository, launcher)
+        val viewModel = viewModel(repository)
 
         viewModel.startStream()
         advanceUntilIdle()
@@ -303,7 +337,7 @@ class StreamingViewModelTest {
                 secondaryStreamKey = "key-2",
             ),
         )
-        val viewModel = StreamingViewModel(engine, repository, launcher)
+        val viewModel = viewModel(repository)
 
         viewModel.startStream()
         advanceUntilIdle()
@@ -326,7 +360,7 @@ class StreamingViewModelTest {
                 secondaryStreamUrl = "rtmp://second.example/app",
             ),
         )
-        val viewModel = StreamingViewModel(engine, repository, launcher)
+        val viewModel = viewModel(repository)
 
         advanceUntilIdle()
 
@@ -431,5 +465,101 @@ class StreamingViewModelTest {
             "rtmps://live.example.com:1935/app/key-1",
             buildStreamUrl("rtmps://live.example.com:1935/app", "key-1", useTls = true),
         )
+    }
+
+    // --- Szenen (Basic Scenes) ---
+
+    @Test
+    fun `saveScene captures the current configuration as a scene`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repository = repositoryWith(
+            AppSettings(
+                streamUrl = "rtmp://live.example/app",
+                streamKey = "key-9",
+                streamUseTls = true,
+                widgetEnabled = true,
+                widgetShowTime = false,
+                widgetShowSpeed = false,
+                widgetTemplate = "{time}",
+            ),
+        )
+        every { engine.activeSourceKind } returns MutableStateFlow(VideoSourceKind.SCREEN_CAPTURE)
+        val viewModel = viewModel(repository)
+
+        viewModel.saveScene("Kamera B")
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) {
+            sceneRepository.saveScene(
+                match {
+                    it.name == "Kamera B" &&
+                        it.videoSource == SceneVideoSource.SCREEN_CAPTURE &&
+                        it.streamUrl == "rtmp://live.example/app" &&
+                        it.streamKey == "key-9" &&
+                        it.streamUseTls &&
+                        it.widgetEnabled &&
+                        !it.widgetShowTime &&
+                        !it.widgetShowSpeed &&
+                        it.widgetTemplate == "{time}"
+                },
+            )
+        }
+    }
+
+    @Test
+    fun `saveScene with a blank name is a no-op`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val viewModel = viewModel()
+
+        viewModel.saveScene("   ")
+        advanceUntilIdle()
+
+        coVerify(exactly = 0) { sceneRepository.saveScene(any()) }
+    }
+
+    @Test
+    fun `applyScene delegates to the scene controller`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val viewModel = viewModel()
+        val scene = StreamScene(id = "1", name = "Szene 1")
+
+        viewModel.applyScene(scene)
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { sceneController.applyScene(scene) }
+    }
+
+    @Test
+    fun `deleteScene delegates to the scene repository`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val viewModel = viewModel()
+
+        viewModel.deleteScene("1")
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { sceneRepository.deleteScene("1") }
+    }
+
+    @Test
+    fun `scenes and activeSceneId expose the repository flows`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val viewModel = viewModel()
+
+        scenesState.value = listOf(StreamScene(id = "1", name = "Szene 1"))
+        advanceUntilIdle()
+
+        assertEquals(listOf("1"), viewModel.scenes.first().map { it.id })
+    }
+
+    @Test
+    fun `setAutoSwitchEnabled delegates to the auto scene switcher`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val viewModel = viewModel()
+
+        viewModel.setAutoSwitchEnabled(true)
+        viewModel.setAutoSwitchIntervalSeconds(30)
+
+        verify(exactly = 1) { autoSceneSwitcher.setEnabled(true) }
+        verify(exactly = 1) { autoSceneSwitcher.setIntervalSeconds(30) }
     }
 }

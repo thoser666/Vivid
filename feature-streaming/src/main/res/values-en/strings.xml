@@ -25,6 +25,17 @@
     <string name="streaming_source_screen">Screen</string>
     <string name="streaming_source_screen_active_hint">Screen capture active — your device screen is being streamed.</string>
 
+    <!-- Scenes (basic scenes) + auto scene switcher (StreamingScreen.kt) -->
+    <string name="scene_bar_title">Scenes</string>
+    <string name="scene_empty_hint">No scenes yet — save the current configuration via "+"</string>
+    <string name="scene_name_hint">Scene name</string>
+    <string name="scene_add">Save</string>
+    <string name="scene_add_cancel">Cancel</string>
+    <string name="scene_delete_desc">Delete active scene</string>
+    <string name="scene_default_name">Scene %1$d</string>
+    <string name="scene_auto_switch">Auto switch</string>
+    <string name="scene_interval_seconds">Interval (s)</string>
+
 
     <!-- Playback screen (PlaybackScreen.kt) -->
     <string name="playback_previous">Previous</string>

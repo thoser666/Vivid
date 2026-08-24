@@ -25,6 +25,17 @@
     <string name="streaming_source_screen">Bildschirm</string>
     <string name="streaming_source_screen_active_hint">Screen-Capture aktiv — der Gerätebildschirm wird übertragen.</string>
 
+    <!-- Szenen (Basic Scenes) + Auto-Scene-Switcher (StreamingScreen.kt) -->
+    <string name="scene_bar_title">Szenen</string>
+    <string name="scene_empty_hint">Noch keine Szenen — über „+“ aktuelle Konfiguration speichern</string>
+    <string name="scene_name_hint">Szenenname</string>
+    <string name="scene_add">Speichern</string>
+    <string name="scene_add_cancel">Abbrechen</string>
+    <string name="scene_delete_desc">Aktive Szene löschen</string>
+    <string name="scene_default_name">Szene %1$d</string>
+    <string name="scene_auto_switch">Auto-Wechsel</string>
+    <string name="scene_interval_seconds">Intervall (s)</string>
+
 
     <!-- Playback-Screen (PlaybackScreen.kt) -->
     <string name="playback_previous">Zurück</string>
