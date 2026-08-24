@@ -209,6 +209,11 @@ class SettingsViewModel @Inject constructor(
     fun onChatBotOwnerWhisperRepliesChange(newValue: Boolean) { _uiState.value = _uiState.value.copy(chatBotOwnerWhisperReplies = newValue) }
     fun onChatBotTwitchClientIdChange(newValue: String) { _uiState.value = _uiState.value.copy(chatBotTwitchClientId = newValue) }
 
+    fun onChatBotProfanityEnabledChange(newValue: Boolean) { _uiState.value = _uiState.value.copy(chatBotProfanityEnabled = newValue) }
+    fun onChatBotProfanityCategoriesChange(newValue: String) { _uiState.value = _uiState.value.copy(chatBotProfanityCategories = newValue) }
+    fun onChatBotProfanityCustomWordsChange(newValue: String) { _uiState.value = _uiState.value.copy(chatBotProfanityCustomWords = newValue) }
+    fun onChatBotProfanityExcludedWordsChange(newValue: String) { _uiState.value = _uiState.value.copy(chatBotProfanityExcludedWords = newValue) }
+
     // Datenschutz: Sentry-Fehlerberichte an/aus (Opt-out).
     fun onSentryEnabledChange(newEnabled: Boolean) { _uiState.value = _uiState.value.copy(sentryEnabled = newEnabled) }
 
@@ -310,6 +315,12 @@ class SettingsViewModel @Inject constructor(
                 ownerLlmModel = currentSettings.chatBotOwnerLlmModel,
                 ownerWhisperReplies = currentSettings.chatBotOwnerWhisperReplies,
                 twitchClientId = currentSettings.chatBotTwitchClientId,
+            )
+            settingsRepository.updateProfanitySettings(
+                profanityEnabled = currentSettings.chatBotProfanityEnabled,
+                profanityCategories = currentSettings.chatBotProfanityCategories,
+                profanityCustomWords = currentSettings.chatBotProfanityCustomWords,
+                profanityExcludedWords = currentSettings.chatBotProfanityExcludedWords,
             )
             _saveEvent.emit(Unit)
         }

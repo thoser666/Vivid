@@ -29,6 +29,7 @@ import com.vivid.core.data.AppSettings
 import com.vivid.core.data.ChatBotCommandScope
 import com.vivid.core.data.ChatBotMode
 import com.vivid.feature.chat.bot.ChatBotUsage
+import com.vivid.feature.chat.bot.ProfanityCategory
 
 /**
  * Kategorie „Chat-Bot & KI“: Betriebsmodus, Bot-Konto/LLM, Verhalten,
@@ -409,6 +410,85 @@ fun SettingsChatBotScreen(
             modifier = Modifier.fillMaxWidth(),
         ) {
             Text(stringResource(R.string.chatbot_notification_access_button))
+        }
+
+        // --- Obszönitätsfilter (!ask) ---
+        Text(
+            text = stringResource(R.string.chatbot_profanity_title),
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.padding(top = 8.dp),
+        )
+        Text(
+            text = stringResource(R.string.chatbot_profanity_desc),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(R.string.chatbot_profanity_enabled), modifier = Modifier.weight(1f))
+            Switch(
+                checked = uiState.chatBotProfanityEnabled,
+                onCheckedChange = viewModel::onChatBotProfanityEnabledChange,
+            )
+        }
+
+        if (uiState.chatBotProfanityEnabled) {
+            Text(
+                text = stringResource(R.string.chatbot_profanity_categories),
+                style = MaterialTheme.typography.labelMedium,
+                modifier = Modifier.padding(top = 8.dp),
+            )
+            ProfanityCategory.entries.forEach { cat ->
+                val catLabel = when (cat) {
+                    com.vivid.feature.chat.bot.ProfanityCategory.SLURS -> stringResource(R.string.chatbot_profanity_cat_slurs)
+                    com.vivid.feature.chat.bot.ProfanityCategory.SEXUAL -> stringResource(R.string.chatbot_profanity_cat_sexual)
+                    com.vivid.feature.chat.bot.ProfanityCategory.HOSTILITY -> stringResource(R.string.chatbot_profanity_cat_hostility)
+                    com.vivid.feature.chat.bot.ProfanityCategory.PROFANITY -> stringResource(R.string.chatbot_profanity_cat_profanity)
+                }
+                val isActive = uiState.chatBotProfanityCategories.contains(cat.name)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(catLabel, modifier = Modifier.weight(1f))
+                    Switch(
+                        checked = isActive,
+                        onCheckedChange = { enabled ->
+                            val current = uiState.chatBotProfanityCategories
+                                .split(',')
+                                .map { it.trim() }
+                                .filter { it.isNotBlank() }
+                                .toMutableSet()
+                            if (enabled) current.add(cat.name) else current.remove(cat.name)
+                            viewModel.onChatBotProfanityCategoriesChange(current.joinToString(","))
+                        },
+                    )
+                }
+            }
+
+            OutlinedTextField(
+                value = uiState.chatBotProfanityCustomWords,
+                onValueChange = viewModel::onChatBotProfanityCustomWordsChange,
+                label = { Text(stringResource(R.string.chatbot_profanity_custom_words)) },
+                placeholder = { Text(stringResource(R.string.chatbot_profanity_custom_words_hint)) },
+                singleLine = false,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Text(
+                text = stringResource(R.string.chatbot_profanity_custom_words_desc),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            OutlinedTextField(
+                value = uiState.chatBotProfanityExcludedWords,
+                onValueChange = viewModel::onChatBotProfanityExcludedWordsChange,
+                label = { Text(stringResource(R.string.chatbot_profanity_excluded_words)) },
+                placeholder = { Text(stringResource(R.string.chatbot_profanity_excluded_words_hint)) },
+                singleLine = false,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Text(
+                text = stringResource(R.string.chatbot_profanity_excluded_words_desc),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

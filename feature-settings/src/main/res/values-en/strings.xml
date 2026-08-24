@@ -162,6 +162,22 @@
     <string name="chatbot_media_desc">Media commands (!song / !next / !pause / !play / !prev) control the active music player — for that Vivid needs notification access (it does not read notifications).</string>
     <string name="chatbot_notification_access_button">Enable notification access</string>
 
+    <!-- Profanity filter (!ask) -->
+    <string name="chatbot_profanity_title">Profanity filter (!ask)</string>
+    <string name="chatbot_profanity_desc">Blocks profanity, slurs and hostile language in !ask messages before the AI is called. Based on Twitch AutoMod, Kick and YouTube categories.</string>
+    <string name="chatbot_profanity_enabled">Filter enabled</string>
+    <string name="chatbot_profanity_categories">Active categories</string>
+    <string name="chatbot_profanity_cat_slurs">Slurs / hateful language</string>
+    <string name="chatbot_profanity_cat_sexual">Sexually explicit</string>
+    <string name="chatbot_profanity_cat_hostility">Aggression / threats</string>
+    <string name="chatbot_profanity_cat_profanity">General profanity</string>
+    <string name="chatbot_profanity_custom_words">Custom blocked words</string>
+    <string name="chatbot_profanity_custom_words_hint">e.g. banword1, banword2</string>
+    <string name="chatbot_profanity_custom_words_desc">Additional words (comma-separated) that the filter should detect — on top of the base list.</string>
+    <string name="chatbot_profanity_excluded_words">Excluded words</string>
+    <string name="chatbot_profanity_excluded_words_hint">e.g. butt, mass, classes</string>
+    <string name="chatbot_profanity_excluded_words_desc">Words (comma-separated) that the filter should ignore — for false positives (e.g. English words like "ass", "damn").</string>
+
     <!-- Chat bot quick-start presets (ChatBotLimitPreset.kt) -->
     <string name="preset_locker">Relaxed</string>
     <string name="preset_balanced">Balanced</string>

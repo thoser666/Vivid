@@ -162,6 +162,22 @@
     <string name="chatbot_media_desc">Les commandes média (!song / !next / !pause / !play / !prev) contrôlent le lecteur de musique actif — Vivid doit alors avoir l\'accès aux notifications (il ne lit aucune notification).</string>
     <string name="chatbot_notification_access_button">Activer l\'accès aux notifications</string>
 
+    <!-- Filtre de grossièretés (!ask) -->
+    <string name="chatbot_profanity_title">Filtre de grossièretés (!ask)</string>
+    <string name="chatbot_profanity_desc">Bloque les grossièretés, les insultes et le langage hostile dans les messages !ask avant l\'appel de l\'IA. Basé sur les catégories AutoMod de Twitch, Kick et YouTube.</string>
+    <string name="chatbot_profanity_enabled">Filtre activé</string>
+    <string name="chatbot_profanity_categories">Catégories actives</string>
+    <string name="chatbot_profanity_cat_slurs">Insultes / langage haineux</string>
+    <string name="chatbot_profanity_cat_sexual">Sexuellement explicite</string>
+    <string name="chatbot_profanity_cat_hostility">Agression / menaces</string>
+    <string name="chatbot_profanity_cat_profanity">Grossièretés générales</string>
+    <string name="chatbot_profanity_custom_words">Mots bloqués personnalisés</string>
+    <string name="chatbot_profanity_custom_words_hint">p. ex. motinterdit1, motinterdit2</string>
+    <string name="chatbot_profanity_custom_words_desc">Mots supplémentaires (séparés par des virgules) que le filtre doit détecter — en plus de la liste de base.</string>
+    <string name="chatbot_profanity_excluded_words">Mots exclus</string>
+    <string name="chatbot_profanity_excluded_words_hint">p. ex. butt, mass, classes</string>
+    <string name="chatbot_profanity_excluded_words_desc">Mots (séparés par des virgules) que le filtre doit ignorer — pour les faux positifs (p. ex. mots anglais comme « ass », « damn »).</string>
+
     <!-- Préréglages de démarrage rapide du chat-bot (ChatBotLimitPreset.kt) -->
     <string name="preset_locker">Détendu</string>
     <string name="preset_balanced">Équilibré</string>

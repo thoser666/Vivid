@@ -153,7 +153,7 @@ Viewer, die einen Owner-Befehl tippen, bekommen nur den Hinweis „⚠️ Dieser
 | Stream starten | `!start` / `!go-live` | Startet den Stream mit den gespeicherten Einstellungen (primär + optional zweites Ziel) — gleiche Logik wie die Web-Remote-Control |
 | Stream stoppen | `!stop` / `!end` | Stoppt den Stream |
 | Diagnose | `!diag` / `!status` | **Diagnose-Lauf:** sammelt deterministisch Stream-Status (inkl. Fehlerursache), OBS-Verbindung und Konfigurations-Checks (URL/Key, Multi-Streaming, Chat-Kanal, Bot-Token, **Whisper-Antwortweg (Client-ID + Token)**, Viewer-/Owner-LLM, **Owner-KI-Quelle** — offen, wenn weder Owner- noch Viewer-LLM konfiguriert sind, **Event-Alerts konfiguriert** — Kanal/Bot-Login/Token/Client-ID gesetzt; Scopes/Mod-Rechte verifiziert Twitch nicht im Check, fehlende Rechte lassen nur den jeweiligen Alert-Typ ausfallen). **Owner-KI exklusiv** → Bewertung + konkrete Empfehlungen; ohne eigene Owner-KI → **Viewer-KI als Fallback**; ohne jede KI → Checkliste direkt im Chat. Die Antwort weist die **KI-Quelle** aus („Auswertung durch: eigene Owner-KI / Viewer-KI (Fallback) / deterministisch“) |
-| Owner-KI fragen | `!ask <frage>` | Stellt die Frage an die **Owner-KI** (exklusiv; ohne eigene Owner-KI Fallback auf die Viewer-KI) mit dem aktuellen Stream-Zustand als Kontext (z. B. „!ask warum stockt der Stream?“) |
+| Owner-KI fragen | `!ask <frage>` | Stellt die Frage an die **Owner-KI** (exklusiv; ohne eigene Owner-KI Fallback auf die Viewer-KI) mit dem aktuellen Stream-Zustand als Kontext (z. B. „!ask warum stockt der Stream?“). **Obszoenitaetsfilter:** Nachrichten mit Obszoenitaeten werden vor dem KI-Aufruf blockiert — konfigurierbar per Kategorie (SLURS/SEXUAL/HOSTILITY/PROFANITY), eigene Begriffe und Ausschluss-Liste (False Positives). Erkennt 1337-Speak/Verschleierung (z. B. f.u.c.k, s h i t, b!tch) |
 | Auto-Fix | !fix | Führt **auto-fixbare Reparaturen** durch (z. B. Stream-Neustart bei Connection-Fehlern). Zuerst Diagnose, dann Aktionen, optional mit KI-Bewertung der Ergebnisse. Ohne KI: nur die Aktionen auflisten |
 | Moderieren | `!ban <user>` · `!timeout <user> <minuten?>` · `!delete <anzahl?>` | **Chat-Moderation über die Helix-API:** `!ban` verbannt permanent, `!timeout` zeitweilig (Standard 5 Minuten, optional in Minuten, auch `10min`/`10m`), `!delete N` löscht die letzten N Nachrichten, die der Bot gesehen hat (ohne Zahl: alle getrackten). Scopes `moderator:manage:banned_users` / `moderator:manage:chat_messages`; der Bot muss Moderator im Kanal sein (oder der Kanal-Inhaber). Nicht-Owner erhalten nur den Hinweis |
 | Test-Alert | `!testalert <follow\|sub\|gift\|resub\|raid>` | Löst über die **Trigger-API** einen synthetischen Event-Alert im Chat-Overlay aus (erscheint dort sofort, wenn der Streaming-Screen offen ist) — zum Prüfen des Overlay-Renderings vor dem Go-Live, ohne echte Follows/Subs/Raids abzuwarten. Fehlt/ungültig der Typ, antwortet der Bot mit `Nutzung: !testalert follow\|sub\|gift\|resub\|raid`; kein Scope nötig |
@@ -321,6 +321,10 @@ All bot settings live in the app settings. Fields (DataStore keys):
 | Owner-LLM base URL | `chat_bot_owner_llm_base_url` | `` (default) — eigener Endpunkt für `!ask`/`!diag` |
 | Owner-LLM API key | `chat_bot_owner_llm_api_key` | `` (default) |
 | Owner-LLM model | `chat_bot_owner_llm_model` | `` (default) |
+| **Profanity filter enabled** | `chat_bot_profanity_enabled` | `true` (default) — blocks `!ask` messages with profanity before LLM call |
+| **Profanity categories** | `chat_bot_profanity_categories` | `SLURS,SEXUAL,HOSTILITY,PROFANITY` (default) — comma-separated; toggled per category in settings |
+| **Profanity custom words** | `chat_bot_profanity_custom_words` | `` (default) — additional blocked words (comma-separated) |
+| **Profanity excluded words** | `chat_bot_profanity_excluded_words` | `` (default) — false-positive exceptions (comma-separated, e.g. `ass,damn`) |
 
 Alle Felder sind direkt im **Settings-Screen** (Kategorie **„Chat-Bot & KI“**, Abschnitte „Bot-Konto & LLM“, „Bot-Verhalten“, „Begrenzungen“) editierbar und werden mit „Speichern“ persistiert. Token und API-Key sind als Passwortfelder mit Sichtbarkeits-Toggle (Auge) hinterlegt.
 
@@ -334,6 +338,7 @@ Alle Felder sind direkt im **Settings-Screen** (Kategorie **„Chat-Bot & KI“*
 - **Per-viewer cap** — at most `perViewerMaxReplies` replies per viewer per stream (`0` = unlimited); moderators bypass it.
 - **Hourly budget** — at most `maxRepliesPerHour` replies per rolling hour across all viewers (`0` = unlimited) — the LLM cost ceiling.
 - **Reply cap** — every reply is trimmed to 500 characters and line breaks are collapsed (Twitch's message limit).
+- **Profanity filter** — `!ask` messages are checked against a configurable profanity/blocklist before the LLM is called. Four categories (SLURS, SEXUAL, HOSTILITY, PROFANITY) can be toggled individually; custom words can be added, and false positives excluded. The filter also detects 1337-speak obfuscation (e.g. "f.u.c.k", "s h i t", "b!tch"). When blocked, the sender receives a hint and no LLM call is made.
 - **No echo** — the bot ignores messages it sent itself.
 - **LLM errors** — a failed request is logged (no message is sent) and the bot stays available; it never crashes the stream.
 

@@ -80,6 +80,16 @@ data class AppSettings(
     val chatBotOwnerWhisperReplies: Boolean = true,
     // Twitch-App-Client-ID (Pflicht-Header für die Helix-Whisper-API).
     val chatBotTwitchClientId: String = "",
+    // --- Chat-Bot: Obszönitätsfilter (!ask) ---
+    // Schaltet den Filter ein/aus (Nachrichten mit Obszönitäten werden vor
+    // dem KI-Aufruf blockiert).
+    val chatBotProfanityEnabled: Boolean = true,
+    // Aktive Kategorien (kommasepariert): SLURS, SEXUAL, HOSTILITY, PROFANITY.
+    val chatBotProfanityCategories: String = "SLURS,SEXUAL,HOSTILITY,PROFANITY",
+    // Eigene Begriffe (kommasepariert), zusätzlich zur Basis-Liste.
+    val chatBotProfanityCustomWords: String = "",
+    // Begriffe ausschließen (kommasepariert, False Positives).
+    val chatBotProfanityExcludedWords: String = "",
     // --- Text-/Info-Widget (Overlay) ---
     // Zeigt das Text-/Info-Widget über der Streaming-Vorschau (Uhrzeit, GPS, Geschwindigkeit).
     val widgetEnabled: Boolean = false,

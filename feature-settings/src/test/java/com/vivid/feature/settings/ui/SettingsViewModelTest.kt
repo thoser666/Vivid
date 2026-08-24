@@ -286,6 +286,7 @@ class SettingsViewModelTest {
             coEvery { updateChatSettings(any(), any()) } just runs
             coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
             coEvery { updateWidgetSettings(any(), any(), any(), any(), any(), any()) } just runs
+            coEvery { updateProfanitySettings(any(), any(), any(), any()) } just runs
             coEvery { updateSentryEnabled(any()) } just runs
             coEvery { updateThemeSettings(any(), any()) } just runs
         }
@@ -332,6 +333,7 @@ class SettingsViewModelTest {
             coEvery { updateChatSettings(any(), any()) } just runs
             coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
             coEvery { updateWidgetSettings(any(), any(), any(), any(), any(), any()) } just runs
+            coEvery { updateProfanitySettings(any(), any(), any(), any()) } just runs
             coEvery { updateSentryEnabled(any()) } just runs
             coEvery { updateThemeSettings(any(), any()) } just runs
         }
@@ -373,6 +375,7 @@ class SettingsViewModelTest {
             coEvery { updateChatSettings(any(), any()) } just runs
             coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
             coEvery { updateWidgetSettings(any(), any(), any(), any(), any(), any()) } just runs
+            coEvery { updateProfanitySettings(any(), any(), any(), any()) } just runs
             coEvery { updateSentryEnabled(any()) } just runs
             coEvery { updateThemeSettings(any(), any()) } just runs
         }
@@ -417,6 +420,7 @@ class SettingsViewModelTest {
             coEvery { updateChatSettings(any(), any()) } just runs
             coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
             coEvery { updateWidgetSettings(any(), any(), any(), any(), any(), any()) } just runs
+            coEvery { updateProfanitySettings(any(), any(), any(), any()) } just runs
             coEvery { updateSentryEnabled(any()) } just runs
             coEvery { updateThemeSettings(any(), any()) } just runs
         }
@@ -608,6 +612,7 @@ class SettingsViewModelTest {
             coEvery { updateChatSettings(any(), any()) } just runs
             coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
             coEvery { updateWidgetSettings(any(), any(), any(), any(), any(), any()) } just runs
+            coEvery { updateProfanitySettings(any(), any(), any(), any()) } just runs
             coEvery { updateSentryEnabled(any()) } just runs
             coEvery { updateThemeSettings(any(), any()) } just runs
         }
@@ -903,6 +908,7 @@ class SettingsViewModelTest {
             coEvery { updateChatSettings(any(), any()) } just runs
             coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
             coEvery { updateWidgetSettings(any(), any(), any(), any(), any(), any()) } just runs
+            coEvery { updateProfanitySettings(any(), any(), any(), any()) } just runs
             coEvery { updateSentryEnabled(any()) } just runs
             coEvery { updateThemeSettings(any(), any()) } just runs
         }

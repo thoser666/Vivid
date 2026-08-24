@@ -61,6 +61,7 @@ class ChatBotEngine @Inject constructor(
     private val chatTts: ChatTtsController,
     private val media: ChatMediaPlayer,
     private val chatStreamControl: Optional<ChatStreamControl>,
+    private val profanityFilter: ProfanityFilter = ProfanityFilter(),
 ) {
     /** Uhrenfunktion (für Tests ersetzbar). */
     internal var now: () -> Long = System::currentTimeMillis
@@ -126,6 +127,7 @@ class ChatBotEngine @Inject constructor(
         this.moderation = moderation
         this.alertTrigger = alertTrigger
         this.streamStartedAtMillis = streamStartedAtMillis
+        profanityFilter.configure(config)
         history.clear()
         replyTimes.clear()
         lastReplyAt = 0L
@@ -641,6 +643,12 @@ class ChatBotEngine @Inject constructor(
             sendOwnerReply(cfg, snd, message, OWNER_ASK_EMPTY_TEXT)
             return
         }
+        val profanity = profanityFilter.check(text)
+        if (profanity.blocked) {
+            sendOwnerReply(cfg, snd, message, OWNER_ASK_PROFANITY_TEXT)
+            _logs.tryEmit("Profanity-Filter: Nachricht blockiert (${profanity.reason})")
+            return
+        }
         val llm = ownerLlm(cfg)
         if (llm == null) {
             sendOwnerReply(cfg, snd, message, OWNER_LLM_NOT_CONFIGURED_TEXT)
@@ -938,6 +946,8 @@ class ChatBotEngine @Inject constructor(
 
         internal const val OWNER_ONLY_TEXT = "⚠️ Dieser Befehl ist nur für den Streamer."
         internal const val OWNER_ASK_EMPTY_TEXT = "Bitte gib eine Frage an: !ask <frage>"
+        internal const val OWNER_ASK_PROFANITY_TEXT =
+            "⚠️ Deine Frage enthält unangemessene Sprache und wurde nicht an die KI weitergeleitet."
         internal const val OWNER_LLM_NOT_CONFIGURED_TEXT =
             "⚠️ Keine KI konfiguriert — !ask/!diag brauchen einen LLM-Endpunkt (eigene Owner-KI oder Fallback: die normale Bot-KI)."
         internal const val MODERATION_MISSING_USER_TEXT =

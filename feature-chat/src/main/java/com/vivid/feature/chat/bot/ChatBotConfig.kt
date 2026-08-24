@@ -50,6 +50,11 @@ data class ChatBotConfig(
     val ownerWhisperReplies: Boolean = true,
     // Twitch-App-Client-ID für die Helix-Whisper-API (nur nötig bei Whisper).
     val twitchClientId: String = "",
+    // --- Obszönitätsfilter (!ask) ---
+    val profanityEnabled: Boolean = true,
+    val profanityCategories: Set<ProfanityCategory> = ProfanityCategory.entries.toSet(),
+    val profanityCustomWords: Set<String> = emptySet(),
+    val profanityExcludedWords: Set<String> = emptySet(),
 ) {
     /** Ist die Owner-KI konfiguriert (Endpunkt + Key + Modell)? */
     val isOwnerLlmReady: Boolean
@@ -110,6 +115,21 @@ data class ChatBotConfig(
                     apiKey = settings.chatBotApiKey,
                     model = settings.chatBotModel,
                 ),
+                profanityEnabled = settings.chatBotProfanityEnabled,
+                profanityCategories = settings.chatBotProfanityCategories
+                    .split(',')
+                    .mapNotNull { ProfanityCategory.fromName(it.trim()) }
+                    .toSet(),
+                profanityCustomWords = settings.chatBotProfanityCustomWords
+                    .split(',')
+                    .map { it.trim().lowercase() }
+                    .filter { it.isNotBlank() }
+                    .toSet(),
+                profanityExcludedWords = settings.chatBotProfanityExcludedWords
+                    .split(',')
+                    .map { it.trim().lowercase() }
+                    .filter { it.isNotBlank() }
+                    .toSet(),
             )
     }
 }

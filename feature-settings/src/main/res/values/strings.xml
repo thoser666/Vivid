@@ -166,4 +166,20 @@
     <string name="preset_locker">Locker</string>
     <string name="preset_balanced">Balanced</string>
     <string name="preset_strict">Streng</string>
+
+    <!-- Chat-Bot: Obszönitätsfilter (!ask) -->
+    <string name="chatbot_profanity_title">Obszönitätsfilter (!ask)</string>
+    <string name="chatbot_profanity_desc">Blockiert Obszönitäten, Hassrede und bedrohliche Sprache in !ask-Nachrichten, bevor die KI aufgerufen wird. Basiert auf Twitch AutoMod-, Kick- und YouTube-Kategorien.</string>
+    <string name="chatbot_profanity_enabled">Filter aktiviert</string>
+    <string name="chatbot_profanity_categories">Aktive Kategorien</string>
+    <string name="chatbot_profanity_cat_slurs">Hassrede / Schimpfwörter (Slurs)</string>
+    <string name="chatbot_profanity_cat_sexual">Sexuell explizit</string>
+    <string name="chatbot_profanity_cat_hostility">Aggression / Bedrohung</string>
+    <string name="chatbot_profanity_cat_profanity">Allgemeine Vulgärsprache</string>
+    <string name="chatbot_profanity_custom_words">Eigene blockierte Begriffe</string>
+    <string name="chatbot_profanity_custom_words_hint">z.B. bannwort1, bannwort2</string>
+    <string name="chatbot_profanity_custom_words_desc">Zusätzliche Begriffe (kommasepariert), die der Filter erkennen soll — zusätzlich zur Basis-Liste.</string>
+    <string name="chatbot_profanity_excluded_words">Ausgeschlossene Begriffe</string>
+    <string name="chatbot_profanity_excluded_words_hint">z.B. butt, mass, classes</string>
+    <string name="chatbot_profanity_excluded_words_desc">Begriffe (kommasepariert), die der Filter ignorieren soll — für False Positives (z. B. englische Wörter wie „ass", „damn").</string>
 </resources>

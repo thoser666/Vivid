@@ -50,6 +50,10 @@ class SettingsRepository @Inject constructor(
         val CHAT_BOT_OWNER_LLM_MODEL = stringPreferencesKey("chat_bot_owner_llm_model")
         val CHAT_BOT_OWNER_WHISPER_REPLIES = booleanPreferencesKey("chat_bot_owner_whisper_replies")
         val CHAT_BOT_TWITCH_CLIENT_ID = stringPreferencesKey("chat_bot_twitch_client_id")
+        val CHAT_BOT_PROFANITY_ENABLED = booleanPreferencesKey("chat_bot_profanity_enabled")
+        val CHAT_BOT_PROFANITY_CATEGORIES = stringPreferencesKey("chat_bot_profanity_categories")
+        val CHAT_BOT_PROFANITY_CUSTOM_WORDS = stringPreferencesKey("chat_bot_profanity_custom_words")
+        val CHAT_BOT_PROFANITY_EXCLUDED_WORDS = stringPreferencesKey("chat_bot_profanity_excluded_words")
         val WIDGET_ENABLED = booleanPreferencesKey("widget_enabled")
         val WIDGET_SHOW_TIME = booleanPreferencesKey("widget_show_time")
         val WIDGET_SHOW_LOCATION = booleanPreferencesKey("widget_show_location")
@@ -121,6 +125,10 @@ class SettingsRepository @Inject constructor(
                 ownerLlmModel = prefs[PrefKeys.CHAT_BOT_OWNER_LLM_MODEL] ?: "",
                 ownerWhisperReplies = prefs[PrefKeys.CHAT_BOT_OWNER_WHISPER_REPLIES] ?: true,
                 twitchClientId = prefs[PrefKeys.CHAT_BOT_TWITCH_CLIENT_ID] ?: "",
+                profanityEnabled = prefs[PrefKeys.CHAT_BOT_PROFANITY_ENABLED] ?: true,
+                profanityCategories = prefs[PrefKeys.CHAT_BOT_PROFANITY_CATEGORIES] ?: "SLURS,SEXUAL,HOSTILITY,PROFANITY",
+                profanityCustomWords = prefs[PrefKeys.CHAT_BOT_PROFANITY_CUSTOM_WORDS] ?: "",
+                profanityExcludedWords = prefs[PrefKeys.CHAT_BOT_PROFANITY_EXCLUDED_WORDS] ?: "",
             )
         },
         // Flow für Widget-Daten (Text-/Info-Widget)
@@ -173,6 +181,10 @@ class SettingsRepository @Inject constructor(
             chatBotOwnerLlmModel = chatBotData.ownerLlmModel,
             chatBotOwnerWhisperReplies = chatBotData.ownerWhisperReplies,
             chatBotTwitchClientId = chatBotData.twitchClientId,
+            chatBotProfanityEnabled = chatBotData.profanityEnabled,
+            chatBotProfanityCategories = chatBotData.profanityCategories,
+            chatBotProfanityCustomWords = chatBotData.profanityCustomWords,
+            chatBotProfanityExcludedWords = chatBotData.profanityExcludedWords,
             widgetEnabled = widgetData.enabled,
             widgetShowTime = widgetData.showTime,
             widgetShowLocation = widgetData.showLocation,
@@ -336,6 +348,10 @@ class SettingsRepository @Inject constructor(
         val ownerLlmModel: String,
         val ownerWhisperReplies: Boolean,
         val twitchClientId: String,
+        val profanityEnabled: Boolean,
+        val profanityCategories: String,
+        val profanityCustomWords: String,
+        val profanityExcludedWords: String,
     )
 
     private data class WidgetPrefs(
@@ -390,6 +406,21 @@ class SettingsRepository @Inject constructor(
     suspend fun updateWidgetTemplate(template: String) {
         dataStore.edit { prefs ->
             prefs[PrefKeys.WIDGET_TEMPLATE] = template
+        }
+    }
+
+    /** Chat-Bot Obszönitätsfilter-Einstellungen speichern. */
+    suspend fun updateProfanitySettings(
+        profanityEnabled: Boolean,
+        profanityCategories: String,
+        profanityCustomWords: String,
+        profanityExcludedWords: String,
+    ) {
+        dataStore.edit { prefs ->
+            prefs[PrefKeys.CHAT_BOT_PROFANITY_ENABLED] = profanityEnabled
+            prefs[PrefKeys.CHAT_BOT_PROFANITY_CATEGORIES] = profanityCategories
+            prefs[PrefKeys.CHAT_BOT_PROFANITY_CUSTOM_WORDS] = profanityCustomWords
+            prefs[PrefKeys.CHAT_BOT_PROFANITY_EXCLUDED_WORDS] = profanityExcludedWords
         }
     }
 }
