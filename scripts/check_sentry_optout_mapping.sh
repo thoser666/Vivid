@@ -14,8 +14,12 @@
 #   C2  Mapping ist frischer als die Opt-out-Quellen (kein veralteter Stand)
 #   C3  Fabrik `sentryBeforeSendCallback(...)` wurde inlined (Inline-Record)
 #   C4  Lambda `sentryBeforeSendCallback$lambda$0` existiert als Inline-Record
-#   C5  Die Lambda-Inline-Records liegen innerhalb der Klasse `io.sentry.SentryClient`
-#       (d. h. die Logik ist im SDK-Aufruf-Pfad verankert, nicht weggeschnitten)
+#   C5  Der Lambda-Record teilt seinen Call-Site-Range mit einem
+#       `io.sentry.SentryClient`-Methoden-Record — die Lambda-Logik ist in den
+#       Sentry-Aufrufpfad inlined (nicht weggeschnitten). WICHTIG: R8 attribuiert
+#       die Inline-Records nicht garantiert unter den Klassenblock von
+#       `io.sentry.SentryClient` (seit dem ProfanityFilter-Commit hängen sie ggf.
+#       unter einer anderen Klasse) — der Range-Bezug ist der robuste Nachweis.
 #   C6  Die Fassadenklasse SentryOptOutKt ist entfernt (R8$$REMOVED$$CLASS$$) —
 #       Beweis, dass vollständig inlined (nicht nur umbenannt) wurde
 #
@@ -61,14 +65,18 @@ check_one() {
     return 1
   }
 
-  # C5: Der/die Lambda-Records liegen innerhalb der Klasse io.sentry.SentryClient.
-  local LAMBDA_LINE ENCLOSER
-  LAMBDA_LINE="$(grep -n "$LAMBDA_PATTERN" "$MAPPING" | head -1 | cut -d: -f1)"
-  ENCLOSER="$(awk -v t="$LAMBDA_LINE" 'NR<=t && /^[a-z].* -> /{last=$0} END{print last}' "$MAPPING")"
-  grep -q "^io.sentry.SentryClient -> " <<< "$ENCLOSER" || {
-    echo "❌ [mapping] ($MAPPING) Opt-out-Lambda ist nicht in io.sentry.SentryClient inlined (Kontext: ${ENCLOSER:-unbekannt}) — Logik evtl. weggeschnitten."
+  # C5: Der Lambda-Record teilt den Call-Site-Range mit einem
+  # io.sentry.SentryClient-Record. (Nicht: „nächste Klassen-Zeile davor“ —
+  # R8 attribuiert die Inline-Records seit dem ProfanityFilter-Commit nicht
+  # mehr garantiert unter den Klassenblock von io.sentry.SentryClient.)
+  local LAMBDA_RECORD LAMBDA_RANGE
+  LAMBDA_RECORD="$(grep -m1 "$LAMBDA_PATTERN" "$MAPPING")"
+  # Format des Inline-Records: "    270:283:io.sentry.SentryEvent com.vivid…$lambda$0(…):32:32 -> j"
+  LAMBDA_RANGE="$(printf '%s' "$LAMBDA_RECORD" | sed -E 's/^ *([0-9]+:[0-9]+):.*/\1/')"
+  if [[ -z "$LAMBDA_RANGE" ]] || ! grep -qE "^ *${LAMBDA_RANGE}:[^ ]* io\\.sentry\\.SentryClient\\.[A-Za-z0-9_]+\(" "$MAPPING"; then
+    echo "❌ [mapping] ($MAPPING) Opt-out-Lambda-Record (Range ${LAMBDA_RANGE:-unbekannt}) hat keinen io.sentry.SentryClient-Record im selben Inline-Range — Logik evtl. nicht in den Sentry-Aufrufpfad inlined."
     return 1
-  }
+  fi
 
   # C6: Fassadenklasse vollständig entfernt (Beweis der Inline-Optimierung).
   grep -q "SentryOptOutKt -> R8\\\$\\\$REMOVED\\\$\\\$CLASS" "$MAPPING" || {
@@ -76,7 +84,7 @@ check_one() {
     return 1
   }
 
-  echo "✅ [mapping] ($MAPPING) Sentry-Opt-out-Logik nachgewiesen (Lambda inlined in io.sentry.SentryClient)."
+  echo "✅ [mapping] ($MAPPING) Sentry-Opt-out-Logik nachgewiesen (Lambda-Inline-Record im SentryClient-Aufrufpfad)."
   return 0
 }
 

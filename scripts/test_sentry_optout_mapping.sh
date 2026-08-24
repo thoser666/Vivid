@@ -8,7 +8,7 @@
 #   T2  Mapping fehlt                      -> Exit 1 (C1)
 #   T3  Fabrik-Record fehlt                -> Exit 1 (C3)
 #   T4  Lambda-Record fehlt                -> Exit 1 (C4)
-#   T5  Lambda nicht in SentryClient       -> Exit 1 (C5)
+#   T5  Lambda ohne SentryClient-Range-Bezug -> Exit 1 (C5)
 #   T6  Fassade nicht REMOVED              -> Exit 1 (C6)
 #   T7  Mapping veraltet (älter als Quelle)-> Exit 1 (C2)
 #   T8  Zwei Mappings (release+playRelease, beide ok) -> Exit 0
@@ -22,15 +22,24 @@ trap 'rm -rf "$SANDBOX"' EXIT
 
 PASS=0
 
-# ── Stub-Mapping: bildet die echte R8-Struktur nach ──────────────────────────
+# ── Stub-Mapping: bildet die ECHTE R8-Struktur nach ───────────────────────────
+# Seit dem ProfanityFilter-Commit hängen die Inline-Records NICHT mehr unter
+# dem Klassenblock von io.sentry.SentryClient, sondern am Ende des Blocks einer
+# anderen Klasse (hier: com.vivid.feature.chat.bot.ProfanityFilter). Der
+# Inline-Nachweis (C5) läuft deshalb über den geteilten Call-Site-Range:
+#   270:283 → Lambda UND io.sentry.SentryClient.executeBeforeSendFeedback
+#   392:406 → zweite Inline-Kopie, wieder mit SentryClient-Partner-Record
 stub_mapping() {
   cat <<'EOF'
 # compiler: R8
 com.vivid.irlbroadcaster.SentryOptOutKt -> R8$$REMOVED$$CLASS$$123:
 io.sentry.SentryClient -> io.sentry.u4:
-    23:29:io.sentry.SentryOptions$BeforeSendCallback com.vivid.irlbroadcaster.SentryOptOutKt.sentryBeforeSendCallback(kotlin.jvm.functions.Function0):31:31 -> e
+    22:29:io.sentry.SentryOptions$BeforeSendCallback com.vivid.irlbroadcaster.SentryOptOutKt.sentryBeforeSendCallback(kotlin.jvm.functions.Function0):31:31 -> d
+com.vivid.feature.chat.bot.ProfanityFilter -> wy3:
     270:283:io.sentry.SentryEvent com.vivid.irlbroadcaster.SentryOptOutKt.sentryBeforeSendCallback$lambda$0(kotlin.jvm.functions.Function0,io.sentry.SentryEvent,io.sentry.Hint):32:32 -> j
+    270:283:io.sentry.SentryEvent io.sentry.SentryClient.executeBeforeSendFeedback(io.sentry.SentryEvent,io.sentry.SentryOptions$BeforeSendCallback):31:31 -> q
     392:406:io.sentry.SentryEvent com.vivid.irlbroadcaster.SentryOptOutKt.sentryBeforeSendCallback$lambda$0(kotlin.jvm.functions.Function0,io.sentry.SentryEvent,io.sentry.Hint):32:32 -> l
+    392:406:io.sentry.SentryEvent io.sentry.SentryClient.executeBeforeSendFeedback(io.sentry.SentryEvent,io.sentry.SentryOptions$BeforeSendCallback):31:31 -> r
 EOF
 }
 
@@ -82,10 +91,10 @@ M_NO_LAMBDA="$SANDBOX/mapping-no-lambda.txt"
 stub_mapping | grep -v 'sentryBeforeSendCallback\$lambda\$0' > "$M_NO_LAMBDA"
 expect_fail "T4  Lambda-Record fehlt (C4)" "$M_NO_LAMBDA"
 
-# T5: Lambda existiert, aber außerhalb von SentryClient -> C5
+# T5: Lambda existiert, hat aber keinen SentryClient-Record im selben Range -> C5
 M_OUTSIDE="$SANDBOX/mapping-outside.txt"
-stub_mapping | sed 's/^io.sentry.SentryClient -> /io.sentry.OtherClass -> /' > "$M_OUTSIDE"
-expect_fail "T5  Lambda nicht in SentryClient (C5)" "$M_OUTSIDE"
+stub_mapping | awk 'BEGIN{done=0} /sentryBeforeSendCallback\$lambda\$0/ && !done {sub(/^ *[0-9]+:[0-9]+:/, "999:999:"); done=1} {print}' > "$M_OUTSIDE"
+expect_fail "T5  Lambda ohne SentryClient-Range-Bezug (C5)" "$M_OUTSIDE"
 
 # T6: Fassade nicht als REMOVED markiert -> C6
 M_NO_REMOVED="$SANDBOX/mapping-no-removed.txt"
