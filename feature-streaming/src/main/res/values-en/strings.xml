@@ -21,6 +21,9 @@
     <string name="streaming_target_preparing">connecting…</string>
     <string name="streaming_target_streaming">live</string>
     <string name="streaming_target_failed">failed</string>
+    <string name="streaming_source_camera">Camera</string>
+    <string name="streaming_source_screen">Screen</string>
+    <string name="streaming_source_screen_active_hint">Screen capture active — your device screen is being streamed.</string>
 
 
     <!-- Playback screen (PlaybackScreen.kt) -->

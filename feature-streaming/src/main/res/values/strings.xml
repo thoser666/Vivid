@@ -21,6 +21,9 @@
     <string name="streaming_target_preparing">verbinde…</string>
     <string name="streaming_target_streaming">sendet live</string>
     <string name="streaming_target_failed">fehlgeschlagen</string>
+    <string name="streaming_source_camera">Kamera</string>
+    <string name="streaming_source_screen">Bildschirm</string>
+    <string name="streaming_source_screen_active_hint">Screen-Capture aktiv — der Gerätebildschirm wird übertragen.</string>
 
 
     <!-- Playback-Screen (PlaybackScreen.kt) -->

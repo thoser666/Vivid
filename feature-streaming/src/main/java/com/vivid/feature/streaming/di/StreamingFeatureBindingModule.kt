@@ -4,6 +4,8 @@ import com.vivid.core.remote.StreamControl
 import com.vivid.feature.streaming.CameraFactory
 import com.vivid.feature.streaming.RtmpCamera2Factory
 import com.vivid.feature.streaming.StreamingEngineStreamControl
+import com.vivid.feature.streaming.source.DisplayFactory
+import com.vivid.feature.streaming.source.RtmpDisplay2Factory
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -23,6 +25,12 @@ abstract class StreamingFeatureBindingModule {
     abstract fun bindCameraFactory(
         factoryImpl: RtmpCamera2Factory,
     ): CameraFactory
+
+    @Binds
+    @Singleton
+    abstract fun bindDisplayFactory(
+        factoryImpl: RtmpDisplay2Factory,
+    ): DisplayFactory
 
     @Binds
     @Singleton

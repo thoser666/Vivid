@@ -42,10 +42,11 @@ interface VideoSource {
 
 /**
  * Fabrik für [VideoSource]s, nach [VideoSourceKind] aufgelöst. S1: die Registry
- * nutzt noch keine Fabriken (nur die Kamera ist implementiert); S2/S3 registrieren
- * hier MediaProjection- und Video-Player-Fabriken.
+ * nutzt noch keine Fabriken (nur die Kamera ist implementiert); S2 registriert
+ * hier die Screen-Capture-Quelle, S3 (Video-Player) folgt später über dieselbe
+ * Schnittstelle.
  */
-interface VideoSourceFactory {
+fun interface VideoSourceFactory {
     fun create(kind: VideoSourceKind): VideoSource?
 }
 
@@ -53,25 +54,52 @@ interface VideoSourceFactory {
  * Zentraler Registry für die aktive Videoquelle.
  *
  * S1: Die Kamera ist die einzige implementierte Quelle — ein Wechsel auf
- * Screen-Capture/Video-Player wird mit false abgelehnt, der Zustand bleibt
- * unverändert. Ab S2 wird hier per [VideoSourceFactory]-Lookup die passende
- * Quelle erzeugt und gestartet.
+ * Screen-Capture/Video-Player wurde mit false abgelehnt. Ab S2 werden Quellen
+ * über [registerFactory] nach [VideoSourceKind] registriert; [switchTo] löst die
+ * passende Fabrik auf und macht die erzeugte Quelle aktiv. Eine nicht
+ * registrierte Quelle (z. B. Video-Player vor S3) wird weiterhin abgelehnt.
  */
 @Singleton
 class VideoSourceRegistry @Inject constructor() {
+
+    private val factories = mutableMapOf<VideoSourceKind, VideoSourceFactory>()
 
     private val _activeKind = MutableStateFlow<VideoSourceKind>(VideoSourceKind.CAMERA)
 
     /** Die aktuell aktive Quelle (Default: CAMERA). */
     val activeKind: StateFlow<VideoSourceKind> = _activeKind.asStateFlow()
 
+    private val _activeSource = MutableStateFlow<VideoSource?>(null)
+
+    /** Die aktuell aktive [VideoSource]-Instanz (null für die eingebaute Kamera). */
+    val activeSource: StateFlow<VideoSource?> = _activeSource.asStateFlow()
+
     /**
-     * Wechselt die aktive Quelle. S1: nur [VideoSourceKind.CAMERA] wird akzeptiert,
-     * alles andere wird abgelehnt (false), der Zustand bleibt unverändert.
+     * Registriert eine Fabrik für [kind]. Mehrfach-Registrierung ersetzt die
+     * vorherige Fabrik (z. B. nach einer Neu-Initialisierung der Quelle).
+     */
+    fun registerFactory(kind: VideoSourceKind, factory: VideoSourceFactory) {
+        factories[kind] = factory
+    }
+
+    /**
+     * Wechselt die aktive Quelle.
+     *
+     * Die Kamera ist immer verfügbar. Für andere Quellen wird die registrierte
+     * [VideoSourceFactory] aufgelöst; liefert sie eine Quelle, wird diese aktiv.
+     * Ohne registrierte Fabrik (oder wenn die Fabrik keine Quelle liefert) wird
+     * der Wechsel abgelehnt (false) und der Zustand bleibt unverändert.
      */
     fun switchTo(kind: VideoSourceKind): Boolean {
-        if (kind != VideoSourceKind.CAMERA) return false
+        if (kind == VideoSourceKind.CAMERA) {
+            _activeKind.value = VideoSourceKind.CAMERA
+            _activeSource.value = null
+            return true
+        }
+        val factory = factories[kind] ?: return false
+        val source = factory.create(kind) ?: return false
         _activeKind.value = kind
+        _activeSource.value = source
         return true
     }
 }

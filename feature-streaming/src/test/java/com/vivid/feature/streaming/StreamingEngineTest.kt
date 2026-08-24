@@ -1,12 +1,16 @@
 package com.vivid.feature.streaming
 
+import android.app.Activity
+import android.content.Intent
 import android.view.MotionEvent
 import android.view.Surface
 import android.view.View
 import com.pedro.common.ConnectChecker
 import com.pedro.library.multiple.MultiCamera2
+import com.pedro.library.multiple.MultiDisplay
 import com.pedro.library.multiple.MultiType
 import com.pedro.library.view.GlStreamInterface
+import com.vivid.feature.streaming.source.DisplayFactory
 import com.vivid.feature.streaming.source.VideoSourceKind
 import com.vivid.feature.streaming.source.VideoSourceRegistry
 import io.mockk.coVerify
@@ -26,7 +30,9 @@ class StreamingEngineTest {
 
     private lateinit var camera: MultiCamera2
     private lateinit var glStreamInterface: GlStreamInterface
+    private lateinit var display: MultiDisplay
     private lateinit var cameraFactory: CameraFactory
+    private lateinit var displayFactory: DisplayFactory
     private lateinit var streamingEngine: StreamingEngine
     private var capturedCheckers: List<ConnectChecker> = emptyList()
 
@@ -41,13 +47,23 @@ class StreamingEngineTest {
                 return camera
             }
         }
-        streamingEngine = StreamingEngine(cameraFactory, VideoSourceRegistry())
+        display = mockk(relaxed = true)
+        displayFactory = object : DisplayFactory {
+            override fun create(connectCheckers: List<ConnectChecker>): MultiDisplay = display
+        }
+        streamingEngine = StreamingEngine(cameraFactory, displayFactory, VideoSourceRegistry())
     }
 
     private fun streamingCameraReady() {
         every { camera.isStreaming } returns false
         every { camera.prepareAudio() } returns true
         every { camera.prepareVideo() } returns true
+    }
+
+    private fun screenCaptureReady() {
+        every { display.isStreaming } returns false
+        every { display.prepareAudio() } returns true
+        every { display.prepareVideo() } returns true
     }
 
     @Test
@@ -78,6 +94,7 @@ class StreamingEngineTest {
                     return camera
                 }
             },
+            displayFactory,
             VideoSourceRegistry(),
         )
 
@@ -282,7 +299,7 @@ class StreamingEngineTest {
         assertNull(streamingEngine.targetStates.value[0].failureReason)
     }
 
-    // --- S1: Source-Abstraktion (VideoSourceRegistry) ---
+    // --- S1/S2: Source-Abstraktion (VideoSourceRegistry) ---
 
     @Test
     fun `activeSourceKind defaults to CAMERA`() = runTest {
@@ -302,23 +319,96 @@ class StreamingEngineTest {
     }
 
     @Test
-    fun `switchSource rejects SCREEN_CAPTURE in S1 and keeps CAMERA active`() = runTest {
+    fun `switchSource accepts SCREEN_CAPTURE in S2 and updates the active source`() = runTest {
         streamingEngine.initializeCamera()
 
         val result = streamingEngine.switchSource(VideoSourceKind.SCREEN_CAPTURE)
 
-        assertEquals(false, result)
-        assertEquals(VideoSourceKind.CAMERA, streamingEngine.activeSourceKind.value)
+        assertEquals(true, result)
+        assertEquals(VideoSourceKind.SCREEN_CAPTURE, streamingEngine.activeSourceKind.value)
     }
 
     @Test
-    fun `switchSource rejects VIDEO_PLAYER in S1 and keeps CAMERA active`() = runTest {
+    fun `switchSource rejects VIDEO_PLAYER and keeps CAMERA active`() = runTest {
         streamingEngine.initializeCamera()
 
         val result = streamingEngine.switchSource(VideoSourceKind.VIDEO_PLAYER)
 
         assertEquals(false, result)
         assertEquals(VideoSourceKind.CAMERA, streamingEngine.activeSourceKind.value)
+    }
+
+    @Test
+    fun `switchSource SCREEN_CAPTURE exposes the consent intent`() = runTest {
+        streamingEngine.initializeCamera()
+        val consentIntent: Intent = mockk()
+        every { display.sendIntent() } returns consentIntent
+        streamingEngine.switchSource(VideoSourceKind.SCREEN_CAPTURE)
+
+        val intent = streamingEngine.createScreenCaptureConsentIntent()
+
+        assertEquals(consentIntent, intent)
+    }
+
+    @Test
+    fun `onScreenCaptureConsentResult grants consent with RESULT_OK`() = runTest {
+        streamingEngine.initializeCamera()
+        streamingEngine.switchSource(VideoSourceKind.SCREEN_CAPTURE)
+
+        val granted = streamingEngine.onScreenCaptureConsentResult(Activity.RESULT_OK, mockk())
+
+        assertEquals(true, granted)
+    }
+
+    @Test
+    fun `onScreenCaptureConsentResult keeps consent false when denied`() = runTest {
+        streamingEngine.initializeCamera()
+        streamingEngine.switchSource(VideoSourceKind.SCREEN_CAPTURE)
+
+        val granted = streamingEngine.onScreenCaptureConsentResult(Activity.RESULT_CANCELED, null)
+
+        assertEquals(false, granted)
+    }
+
+    @Test
+    fun `startStream routes to the screen capture source when active`() = runTest {
+        streamingEngine.initializeCamera()
+        streamingEngine.switchSource(VideoSourceKind.SCREEN_CAPTURE)
+        streamingEngine.onScreenCaptureConsentResult(Activity.RESULT_OK, mockk())
+        screenCaptureReady()
+
+        streamingEngine.startStream("rtmp://test.com/app")
+
+        coVerify { display.startStream(MultiType.RTMP, 0, "rtmp://test.com/app") }
+        assertEquals(StreamingState.Preparing, streamingEngine.streamingState.value)
+    }
+
+    @Test
+    fun `startStream on screen capture fails without consent`() = runTest {
+        streamingEngine.initializeCamera()
+        streamingEngine.switchSource(VideoSourceKind.SCREEN_CAPTURE)
+        // Kein Consent erteilt -> prepareAudio/Video werden nicht aufgerufen.
+        every { display.isStreaming } returns false
+
+        streamingEngine.startStream("rtmp://test.com/app")
+
+        assertEquals(StreamingState.Failed("Failed to prepare audio/video"), streamingEngine.streamingState.value)
+        coVerify(exactly = 0) { display.startStream(any(), any(), any()) }
+    }
+
+    @Test
+    fun `stopStream stops the screen capture targets when active`() = runTest {
+        streamingEngine.initializeCamera()
+        streamingEngine.switchSource(VideoSourceKind.SCREEN_CAPTURE)
+        streamingEngine.onScreenCaptureConsentResult(Activity.RESULT_OK, mockk())
+        screenCaptureReady()
+
+        streamingEngine.startStream(listOf("rtmp://a.example/app", "rtmp://b.example/app"))
+        streamingEngine.stopStream()
+
+        verify { display.stopStream(MultiType.RTMP, 0) }
+        verify { display.stopStream(MultiType.RTMP, 1) }
+        assertEquals(StreamingState.Idle, streamingEngine.streamingState.value)
     }
 
     // --- Preview (GL-freier Pfad): attach/detach unabhängig vom Encoder ---

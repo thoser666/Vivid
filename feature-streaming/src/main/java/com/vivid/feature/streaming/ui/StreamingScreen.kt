@@ -36,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
@@ -55,6 +56,7 @@ import com.vivid.feature.streaming.StreamTargetState
 import com.vivid.feature.streaming.StreamTargetStatus
 import com.vivid.feature.streaming.StreamingState
 import com.vivid.feature.streaming.StreamingViewModel
+import com.vivid.feature.streaming.source.VideoSourceKind
 import com.vivid.feature.streaming.R
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -69,6 +71,7 @@ fun StreamingScreen(
     val focusMode by streamingEngine.focusMode.collectAsStateWithLifecycle()
     val stabilizationEnabled by streamingEngine.stabilizationEnabled.collectAsStateWithLifecycle()
     val torchEnabled by streamingEngine.torchEnabled.collectAsStateWithLifecycle()
+    val activeSourceKind by streamingEngine.activeSourceKind.collectAsStateWithLifecycle()
     val configIssues by viewModel.configIssues.collectAsStateWithLifecycle()
 
     // Runtime-Permissions (Kamera/Mikro + Notifications) werden beim Go-Live
@@ -103,6 +106,28 @@ fun StreamingScreen(
         } else {
             permissionDenied = false
             permissionLauncher.launch(missing.toTypedArray())
+        }
+    }
+
+    // S2: Screen-Capture (MediaProjection) — Consent-Dialog und Quellen-Wechsel.
+    // Der System-Dialog „Bildschirm übertragen" wird per Activity-Result gestartet;
+    // das Ergebnis (RESULT_OK + Daten) geht an die Screen-Capture-Quelle der Engine.
+    val screenCaptureLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) { result ->
+        val granted = streamingEngine.onScreenCaptureConsentResult(result.resultCode, result.data)
+        if (!granted) {
+            // Consent verweigert → zurück zur Kamera; die Quelle bleibt für einen
+            // erneuten Versuch erzeugt (Consent wird beim nächsten Toggle neu angefragt).
+            streamingEngine.switchSource(VideoSourceKind.CAMERA)
+        }
+    }
+
+    fun requestScreenCapture() {
+        if (streamingEngine.switchSource(VideoSourceKind.SCREEN_CAPTURE)) {
+            streamingEngine.createScreenCaptureConsentIntent()?.let {
+                screenCaptureLauncher.launch(it)
+            }
         }
     }
 
@@ -168,48 +193,69 @@ fun StreamingScreen(
             // Encoder selbst hängt NICHT an dieser Surface — der Stream läuft
             // deshalb weiter, wenn die Activity (und damit die Vorschau) zerstört
             // wird (Recents-Wischen, Rotation).
-            AndroidView(
-                factory = { context ->
-                    @SuppressLint("ClickableViewAccessibility")
-                    SurfaceView(context).also { view ->
-                        streamingEngine.initializeCamera()
-                        view.holder.addCallback(
-                            object : SurfaceHolder.Callback {
-                                override fun surfaceCreated(holder: SurfaceHolder) {
-                                    streamingEngine.attachPreview(
-                                        holder.surface,
-                                        view.width,
-                                        view.height,
-                                    )
-                                }
+            // S2: Bei aktiver Screen-Capture-Quelle wird keine Kamera-Vorschau
+            // angehängt — stattdessen erscheint ein Platzhalter mit Hinweis.
+            if (activeSourceKind == VideoSourceKind.CAMERA) {
+                AndroidView(
+                    factory = { context ->
+                        @SuppressLint("ClickableViewAccessibility")
+                        SurfaceView(context).also { view ->
+                            streamingEngine.initializeCamera()
+                            view.holder.addCallback(
+                                object : SurfaceHolder.Callback {
+                                    override fun surfaceCreated(holder: SurfaceHolder) {
+                                        streamingEngine.attachPreview(
+                                            holder.surface,
+                                            view.width,
+                                            view.height,
+                                        )
+                                    }
 
-                                override fun surfaceChanged(
-                                    holder: SurfaceHolder,
-                                    format: Int,
-                                    width: Int,
-                                    height: Int,
-                                ) {
-                                    streamingEngine.attachPreview(holder.surface, width, height)
-                                }
+                                    override fun surfaceChanged(
+                                        holder: SurfaceHolder,
+                                        format: Int,
+                                        width: Int,
+                                        height: Int,
+                                    ) {
+                                        streamingEngine.attachPreview(holder.surface, width, height)
+                                    }
 
-                                override fun surfaceDestroyed(holder: SurfaceHolder) {
-                                    streamingEngine.detachPreview()
-                                }
-                            },
-                        )
-                        // Tap-to-Focus (Tipp), Pinch-Zoom und Zoom-Reset (Doppeltipp)
-                        // auf der Kamera-Vorschau (RootEncoder-Kamera, nicht CameraX).
-                        val gestures = StreamingPreviewGestures(
-                            context = context,
-                            onTapToFocus = { v, e -> streamingEngine.tapToFocus(v, e) },
-                            onZoomScale = { scale -> streamingEngine.zoomBy(scale) },
-                            onDoubleTap = { streamingEngine.resetZoom() },
-                        )
-                        view.setOnTouchListener(gestures.onTouch)
-                    }
-                },
-                modifier = Modifier.fillMaxSize(),
-            )
+                                    override fun surfaceDestroyed(holder: SurfaceHolder) {
+                                        streamingEngine.detachPreview()
+                                    }
+                                },
+                            )
+                            // Tap-to-Focus (Tipp), Pinch-Zoom und Zoom-Reset (Doppeltipp)
+                            // auf der Kamera-Vorschau (RootEncoder-Kamera, nicht CameraX).
+                            val gestures = StreamingPreviewGestures(
+                                context = context,
+                                onTapToFocus = { v, e -> streamingEngine.tapToFocus(v, e) },
+                                onZoomScale = { scale -> streamingEngine.zoomBy(scale) },
+                                onDoubleTap = { streamingEngine.resetZoom() },
+                            )
+                            view.setOnTouchListener(gestures.onTouch)
+                        }
+                    },
+                    modifier = Modifier.fillMaxSize(),
+                )
+            } else {
+                // S2: Screen-Capture aktiv — kein Kamera-Bild, stattdessen ein
+                // dunkler Platzhalter, damit klar ist, dass der Gerätebildschirm
+                // (und nicht die Kamera) die Videoquelle ist.
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = stringResource(R.string.streaming_source_screen_active_hint),
+                        style = MaterialTheme.typography.bodyLarge,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = 32.dp),
+                    )
+                }
+            }
 
             Button(
                 onClick = {
@@ -297,6 +343,28 @@ fun StreamingScreen(
                             if (isLocked) R.string.streaming_focus_inf else R.string.streaming_focus_auto,
                         ),
                     )
+                }
+            }
+
+            // S2: Quellen-Umschalter (Kamera / Bildschirm). Screen-Capture fragt
+            // den MediaProjection-Consent an, sobald die Quelle gewechselt wird.
+            Row(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(top = 12.dp, start = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                FilledTonalButton(
+                    onClick = { streamingEngine.switchSource(VideoSourceKind.CAMERA) },
+                    enabled = activeSourceKind != VideoSourceKind.CAMERA,
+                ) {
+                    Text(stringResource(R.string.streaming_source_camera))
+                }
+                FilledTonalButton(
+                    onClick = { requestScreenCapture() },
+                    enabled = activeSourceKind != VideoSourceKind.SCREEN_CAPTURE,
+                ) {
+                    Text(stringResource(R.string.streaming_source_screen))
                 }
             }
 

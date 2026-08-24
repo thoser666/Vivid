@@ -21,6 +21,9 @@
     <string name="streaming_target_preparing">connexion…</string>
     <string name="streaming_target_streaming">en direct</string>
     <string name="streaming_target_failed">échec</string>
+    <string name="streaming_source_camera">Caméra</string>
+    <string name="streaming_source_screen">Écran</string>
+    <string name="streaming_source_screen_active_hint">Capture d\'écran active — l\'écran de l\'appareil est diffusé.</string>
 
 
     <!-- Écran de lecture (PlaybackScreen.kt) -->

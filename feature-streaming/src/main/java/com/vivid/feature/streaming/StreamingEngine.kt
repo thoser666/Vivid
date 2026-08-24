@@ -1,6 +1,7 @@
 package com.vivid.feature.streaming
 
 import android.content.Context
+import android.content.Intent
 import android.view.MotionEvent
 import android.view.Surface
 import android.view.View
@@ -9,6 +10,8 @@ import com.pedro.library.base.Camera2Base
 import com.pedro.library.multiple.MultiCamera2
 import com.pedro.library.multiple.MultiType
 import com.pedro.library.view.GlStreamInterface
+import com.vivid.feature.streaming.source.DisplayFactory
+import com.vivid.feature.streaming.source.ScreenCaptureVideoSource
 import com.vivid.feature.streaming.source.VideoSourceKind
 import com.vivid.feature.streaming.source.VideoSourceRegistry
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -65,9 +68,13 @@ class RtmpCamera2Factory @Inject constructor(
 @Singleton // Die Engine sollte ein Singleton sein, da sie die Kamera steuert
 class StreamingEngine @Inject constructor(
     private val cameraFactory: CameraFactory, // <-- WIR INJIZIEREN EINE FACTORY
+    private val displayFactory: DisplayFactory, // <-- S2: Screen-Capture-Encoder
     private val videoSourceRegistry: VideoSourceRegistry, // <-- S1: Source-Abstraktion
 ) {
     private var camera: MultiCamera2? = null
+
+    /** S2: Screen-Capture-Quelle (MediaProjection), lazy erzeugt (wie die Kamera). */
+    private var screenCaptureSource: ScreenCaptureVideoSource? = null
 
     private val _streamingState = MutableStateFlow<StreamingState>(StreamingState.Idle)
     val streamingState: StateFlow<StreamingState> = _streamingState.asStateFlow()
@@ -193,13 +200,55 @@ class StreamingEngine @Inject constructor(
     }
 
     /**
-     * S1: wechselt die aktive Videoquelle über die [VideoSourceRegistry].
+     * S2: wechselt die aktive Videoquelle über die [VideoSourceRegistry].
      *
-     * Nur [VideoSourceKind.CAMERA] ist implementiert; andere Quellen werden mit
-     * false abgelehnt (Zustand bleibt unverändert). Screen-Capture/Video-Player
-     * folgen in S2/S3 über dieselbe Schnittstelle.
+     * Die Kamera ist immer verfügbar. Screen-Capture (S2) wird beim ersten Wechsel
+     * lazy initialisiert (MultiDisplay + Consent-Flow) und in der Registry
+     * registriert; der Wechsel gelingt, sobald die Quelle verfügbar ist. Der
+     * Video-Player (S3) ist noch nicht implementiert und wird abgelehnt.
      */
-    fun switchSource(kind: VideoSourceKind): Boolean = videoSourceRegistry.switchTo(kind)
+    fun switchSource(kind: VideoSourceKind): Boolean = when (kind) {
+        VideoSourceKind.CAMERA -> videoSourceRegistry.switchTo(VideoSourceKind.CAMERA)
+
+        VideoSourceKind.SCREEN_CAPTURE -> {
+            val source = ensureScreenCaptureSource() ?: return false
+            // Die Quelle ist bereits erzeugt (Engine besitzt Display + Checker) —
+            // die Fabrik liefert genau diese Instanz für SCREEN_CAPTURE.
+            videoSourceRegistry.registerFactory(VideoSourceKind.SCREEN_CAPTURE) { requested ->
+                if (requested == VideoSourceKind.SCREEN_CAPTURE) source else null
+            }
+            videoSourceRegistry.switchTo(VideoSourceKind.SCREEN_CAPTURE)
+        }
+
+        VideoSourceKind.VIDEO_PLAYER -> false
+    }
+
+    /**
+     * S2: erzeugt die Screen-Capture-Quelle einmalig (wie [initializeCamera] für die
+     * Kamera) — ein [MultiDisplay] mit einem ConnectChecker pro Stream-Ziel, der die
+     * Ziel-Status der Engine aktualisiert.
+     */
+    private fun ensureScreenCaptureSource(): ScreenCaptureVideoSource? {
+        if (screenCaptureSource != null) return screenCaptureSource
+        val display = displayFactory.create(List(MAX_STREAM_TARGETS) { createTargetChecker(it) })
+        return ScreenCaptureVideoSource(display).also { screenCaptureSource = it }
+    }
+
+    /**
+     * S2: liefert den MediaProjection-Consent-Intent der Screen-Capture-Quelle
+     * (System-Dialog „Bildschirm übertragen“). null, solange die Quelle nicht
+     * initialisiert ist (vorher [switchSource](SCREEN_CAPTURE) aufrufen).
+     */
+    fun createScreenCaptureConsentIntent(): Intent? = screenCaptureSource?.createConsentIntent()
+
+    /**
+     * S2: übergibt das Ergebnis des MediaProjection-Consent-Dialogs an die
+     * Screen-Capture-Quelle.
+     *
+     * @return true, wenn der Nutzer zugestimmt hat (RESULT_OK + Daten vorhanden).
+     */
+    fun onScreenCaptureConsentResult(resultCode: Int, data: Intent?): Boolean =
+        screenCaptureSource?.onConsentResult(resultCode, data) == true
 
     /**
      * Erstellt die Kamera einmalig, view-unabhängig.
@@ -345,6 +394,25 @@ class StreamingEngine @Inject constructor(
             return
         }
 
+        // S2: Screen-Capture-Pfad — die aktive Quelle ist nicht die Kamera.
+        if (activeSourceKind.value == VideoSourceKind.SCREEN_CAPTURE) {
+            val source = screenCaptureSource ?: return
+            if (source.isActive) return
+
+            _targetStates.value = activeUrls.map { StreamTargetState(it) }
+            _streamingState.value = StreamingState.Preparing
+
+            if (source.start()) {
+                activeUrls.forEachIndexed { index, url ->
+                    source.startStream(index, url)
+                }
+            } else {
+                failStream("Failed to prepare audio/video")
+            }
+            return
+        }
+
+        // Kamera-Pfad (unverändert).
         val cam = camera ?: return
         if (cam.isStreaming) return
 
@@ -358,11 +426,15 @@ class StreamingEngine @Inject constructor(
                 cam.startStream(MultiType.RTMP, index, url)
             }
         } else {
-            val reason = "Failed to prepare audio/video"
-            _streamingState.value = StreamingState.Failed(reason)
-            _targetStates.value = _targetStates.value.map {
-                it.copy(status = StreamTargetStatus.FAILED, failureReason = reason)
-            }
+            failStream("Failed to prepare audio/video")
+        }
+    }
+
+    /** Setzt alle Ziele auf Failed und den Gesamt-Status auf Failed (mit Ursache). */
+    private fun failStream(reason: String) {
+        _streamingState.value = StreamingState.Failed(reason)
+        _targetStates.value = _targetStates.value.map {
+            it.copy(status = StreamTargetStatus.FAILED, failureReason = reason)
         }
     }
 
@@ -388,9 +460,17 @@ class StreamingEngine @Inject constructor(
         ) {
             return
         }
-        val cam = camera ?: return
-        _targetStates.value.forEachIndexed { index, _ ->
-            cam.stopStream(MultiType.RTMP, index)
+        // S2: Die aktive Quelle bestimmt, welcher Encoder gestoppt wird.
+        if (activeSourceKind.value == VideoSourceKind.SCREEN_CAPTURE) {
+            val source = screenCaptureSource ?: return
+            _targetStates.value.forEachIndexed { index, _ ->
+                source.stopStream(index)
+            }
+        } else {
+            val cam = camera ?: return
+            _targetStates.value.forEachIndexed { index, _ ->
+                cam.stopStream(MultiType.RTMP, index)
+            }
         }
         _targetStates.value = _targetStates.value.map {
             it.copy(status = StreamTargetStatus.IDLE, failureReason = null)
