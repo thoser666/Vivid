@@ -1,16 +1,20 @@
 package com.vivid.feature.streaming
 
 import android.app.Activity
+import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.view.MotionEvent
 import android.view.Surface
 import android.view.View
 import com.pedro.common.ConnectChecker
 import com.pedro.library.multiple.MultiCamera2
 import com.pedro.library.multiple.MultiDisplay
+import com.pedro.library.multiple.MultiFromFile
 import com.pedro.library.multiple.MultiType
 import com.pedro.library.view.GlStreamInterface
 import com.vivid.feature.streaming.source.DisplayFactory
+import com.vivid.feature.streaming.source.PlayerFactory
 import com.vivid.feature.streaming.source.VideoSourceKind
 import com.vivid.feature.streaming.source.VideoSourceRegistry
 import io.mockk.coVerify
@@ -31,8 +35,10 @@ class StreamingEngineTest {
     private lateinit var camera: MultiCamera2
     private lateinit var glStreamInterface: GlStreamInterface
     private lateinit var display: MultiDisplay
+    private lateinit var player: MultiFromFile
     private lateinit var cameraFactory: CameraFactory
     private lateinit var displayFactory: DisplayFactory
+    private lateinit var playerFactory: PlayerFactory
     private lateinit var streamingEngine: StreamingEngine
     private var capturedCheckers: List<ConnectChecker> = emptyList()
 
@@ -51,7 +57,17 @@ class StreamingEngineTest {
         displayFactory = object : DisplayFactory {
             override fun create(connectCheckers: List<ConnectChecker>): MultiDisplay = display
         }
-        streamingEngine = StreamingEngine(cameraFactory, displayFactory, VideoSourceRegistry())
+        player = mockk(relaxed = true)
+        playerFactory = object : PlayerFactory {
+            override fun create(connectCheckers: List<ConnectChecker>): MultiFromFile = player
+        }
+        streamingEngine = StreamingEngine(
+            mockk<Context>(relaxed = true),
+            cameraFactory,
+            displayFactory,
+            playerFactory,
+            VideoSourceRegistry(),
+        )
     }
 
     private fun streamingCameraReady() {
@@ -88,6 +104,7 @@ class StreamingEngineTest {
     fun `initializeCamera should only create the camera once`() = runTest {
         var createCount = 0
         streamingEngine = StreamingEngine(
+            mockk<Context>(relaxed = true),
             object : CameraFactory {
                 override fun create(connectCheckers: List<ConnectChecker>): MultiCamera2 {
                     createCount++
@@ -95,6 +112,7 @@ class StreamingEngineTest {
                 }
             },
             displayFactory,
+            playerFactory,
             VideoSourceRegistry(),
         )
 
@@ -329,13 +347,85 @@ class StreamingEngineTest {
     }
 
     @Test
-    fun `switchSource rejects VIDEO_PLAYER and keeps CAMERA active`() = runTest {
+    fun `switchSource accepts VIDEO_PLAYER in S3 and updates the active source`() = runTest {
         streamingEngine.initializeCamera()
 
         val result = streamingEngine.switchSource(VideoSourceKind.VIDEO_PLAYER)
 
-        assertEquals(false, result)
-        assertEquals(VideoSourceKind.CAMERA, streamingEngine.activeSourceKind.value)
+        assertEquals(true, result)
+        assertEquals(VideoSourceKind.VIDEO_PLAYER, streamingEngine.activeSourceKind.value)
+    }
+
+    @Test
+    fun `setVideoPlayerUri prepares the player and reports success`() = runTest {
+        streamingEngine.initializeCamera()
+        val uri: Uri = mockk<Uri>()
+        every { player.prepareVideo(any<Context>(), any<Uri>()) } returns true
+        every { player.prepareAudio(any<Context>(), any<Uri>()) } returns true
+
+        val ok = streamingEngine.setVideoPlayerUri(uri)
+
+        assertEquals(true, ok)
+        verify { player.prepareVideo(any(), uri) }
+        verify { player.prepareAudio(any(), uri) }
+    }
+
+    @Test
+    fun `setVideoPlayerUri reports failure when prepare fails`() = runTest {
+        streamingEngine.initializeCamera()
+        val uri: Uri = mockk<Uri>()
+        every { player.prepareVideo(any<Context>(), any<Uri>()) } returns false
+
+        val ok = streamingEngine.setVideoPlayerUri(uri)
+
+        assertEquals(false, ok)
+    }
+
+    @Test
+    fun `startStream routes to the video player source when active`() = runTest {
+        streamingEngine.initializeCamera()
+        streamingEngine.switchSource(VideoSourceKind.VIDEO_PLAYER)
+        val uri: Uri = mockk<Uri>()
+        every { player.prepareVideo(any<Context>(), any<Uri>()) } returns true
+        every { player.prepareAudio(any<Context>(), any<Uri>()) } returns true
+        streamingEngine.setVideoPlayerUri(uri)
+        every { player.isStreaming } returns false
+
+        streamingEngine.startStream("rtmp://test.com/app")
+
+        coVerify { player.startStream(MultiType.RTMP, 0, "rtmp://test.com/app") }
+        assertEquals(StreamingState.Preparing, streamingEngine.streamingState.value)
+    }
+
+    @Test
+    fun `startStream on video player fails without a set video`() = runTest {
+        streamingEngine.initializeCamera()
+        streamingEngine.switchSource(VideoSourceKind.VIDEO_PLAYER)
+        // Keine Datei gesetzt -> start() liefert false, kein Start.
+        every { player.isStreaming } returns false
+
+        streamingEngine.startStream("rtmp://test.com/app")
+
+        assertEquals(StreamingState.Failed("Failed to prepare audio/video"), streamingEngine.streamingState.value)
+        coVerify(exactly = 0) { player.startStream(any(), any(), any()) }
+    }
+
+    @Test
+    fun `stopStream stops the video player targets when active`() = runTest {
+        streamingEngine.initializeCamera()
+        streamingEngine.switchSource(VideoSourceKind.VIDEO_PLAYER)
+        val uri: Uri = mockk<Uri>()
+        every { player.prepareVideo(any<Context>(), any<Uri>()) } returns true
+        every { player.prepareAudio(any<Context>(), any<Uri>()) } returns true
+        streamingEngine.setVideoPlayerUri(uri)
+        every { player.isStreaming } returns false
+
+        streamingEngine.startStream(listOf("rtmp://a.example/app", "rtmp://b.example/app"))
+        streamingEngine.stopStream()
+
+        verify { player.stopStream(MultiType.RTMP, 0) }
+        verify { player.stopStream(MultiType.RTMP, 1) }
+        assertEquals(StreamingState.Idle, streamingEngine.streamingState.value)
     }
 
     @Test

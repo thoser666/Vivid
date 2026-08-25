@@ -23,7 +23,11 @@
     <string name="streaming_target_failed">failed</string>
     <string name="streaming_source_camera">Camera</string>
     <string name="streaming_source_screen">Screen</string>
+    <string name="streaming_source_video">Video</string>
     <string name="streaming_source_screen_active_hint">Screen capture active — your device screen is being streamed.</string>
+    <string name="streaming_source_video_active_hint">Video player active — the selected file is being streamed.</string>
+    <string name="streaming_source_video_pick">Pick video</string>
+    <string name="streaming_source_video_pick_hint">Choose a video file to stream.</string>
 
     <!-- Scenes (basic scenes) + auto scene switcher (StreamingScreen.kt) -->
     <string name="scene_bar_title">Scenes</string>

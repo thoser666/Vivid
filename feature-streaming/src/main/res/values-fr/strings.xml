@@ -23,7 +23,11 @@
     <string name="streaming_target_failed">échec</string>
     <string name="streaming_source_camera">Caméra</string>
     <string name="streaming_source_screen">Écran</string>
+    <string name="streaming_source_video">Vidéo</string>
     <string name="streaming_source_screen_active_hint">Capture d\'écran active — l\'écran de l\'appareil est diffusé.</string>
+    <string name="streaming_source_video_active_hint">Lecteur vidéo actif — le fichier sélectionné est diffusé.</string>
+    <string name="streaming_source_video_pick">Choisir une vidéo</string>
+    <string name="streaming_source_video_pick_hint">Choisissez un fichier vidéo à diffuser.</string>
 
     <!-- Scènes (scènes de base) + changeur de scènes automatique (StreamingScreen.kt) -->
     <string name="scene_bar_title">Scènes</string>

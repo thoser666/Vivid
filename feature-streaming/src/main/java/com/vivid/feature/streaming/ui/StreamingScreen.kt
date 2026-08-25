@@ -3,6 +3,7 @@ package com.vivid.feature.streaming.ui
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.view.SurfaceHolder
 import android.view.SurfaceView
@@ -145,6 +146,19 @@ fun StreamingScreen(
         }
     }
 
+    // S3: Video-Player (Datei) — der SAF-Picker liefert die Content-Uri, die an
+    // die Video-Player-Quelle der Engine geht. Der Wechsel auf die Quelle passiert
+    // erst nach erfolgreicher Auswahl, damit keine leere Quelle aktiv wird.
+    val videoPickerLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetContent(),
+    ) { uri: Uri? ->
+        if (uri != null) {
+            if (streamingEngine.setVideoPlayerUri(uri)) {
+                streamingEngine.switchSource(VideoSourceKind.VIDEO_PLAYER)
+            }
+        }
+    }
+
     // Re-validiert die Konfiguration, sobald der Screen wieder sichtbar wird
     // (z. B. nach der Rückkehr aus den Einstellungen).
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -270,21 +284,36 @@ fun StreamingScreen(
                     modifier = Modifier.fillMaxSize(),
                 )
             } else {
-                // S2: Screen-Capture aktiv — kein Kamera-Bild, stattdessen ein
-                // dunkler Platzhalter, damit klar ist, dass der Gerätebildschirm
-                // (und nicht die Kamera) die Videoquelle ist.
+                // S2/S3: Screen-Capture bzw. Video-Player aktiv — kein Kamera-Bild,
+                // stattdessen ein dunkler Platzhalter, damit klar ist, dass der
+                // Gerätebildschirm bzw. die Datei (und nicht die Kamera) die
+                // Videoquelle ist.
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .background(MaterialTheme.colorScheme.surfaceVariant),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(
-                        text = stringResource(R.string.streaming_source_screen_active_hint),
-                        style = MaterialTheme.typography.bodyLarge,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(horizontal = 32.dp),
-                    )
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = stringResource(
+                                if (activeSourceKind == VideoSourceKind.VIDEO_PLAYER) {
+                                    R.string.streaming_source_video_active_hint
+                                } else {
+                                    R.string.streaming_source_screen_active_hint
+                                },
+                            ),
+                            style = MaterialTheme.typography.bodyLarge,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(horizontal = 32.dp),
+                        )
+                        if (activeSourceKind == VideoSourceKind.VIDEO_PLAYER) {
+                            Spacer(Modifier.size(12.dp))
+                            Button(onClick = { videoPickerLauncher.launch("video/*") }) {
+                                Text(stringResource(R.string.streaming_source_video_pick))
+                            }
+                        }
+                    }
                 }
             }
 
@@ -396,6 +425,14 @@ fun StreamingScreen(
                     enabled = activeSourceKind != VideoSourceKind.SCREEN_CAPTURE,
                 ) {
                     Text(stringResource(R.string.streaming_source_screen))
+                }
+                // S3: Video-Datei-Quelle — der SAF-Picker startet den Datei-Dialog;
+                // die Quelle wird erst nach erfolgreicher Auswahl aktiv.
+                FilledTonalButton(
+                    onClick = { videoPickerLauncher.launch("video/*") },
+                    enabled = activeSourceKind != VideoSourceKind.VIDEO_PLAYER,
+                ) {
+                    Text(stringResource(R.string.streaming_source_video))
                 }
             }
 

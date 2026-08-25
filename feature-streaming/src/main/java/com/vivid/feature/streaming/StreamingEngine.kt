@@ -2,6 +2,7 @@ package com.vivid.feature.streaming
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.view.MotionEvent
 import android.view.Surface
 import android.view.View
@@ -11,7 +12,9 @@ import com.pedro.library.multiple.MultiCamera2
 import com.pedro.library.multiple.MultiType
 import com.pedro.library.view.GlStreamInterface
 import com.vivid.feature.streaming.source.DisplayFactory
+import com.vivid.feature.streaming.source.PlayerFactory
 import com.vivid.feature.streaming.source.ScreenCaptureVideoSource
+import com.vivid.feature.streaming.source.VideoPlayerVideoSource
 import com.vivid.feature.streaming.source.VideoSourceKind
 import com.vivid.feature.streaming.source.VideoSourceRegistry
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -67,14 +70,19 @@ class RtmpCamera2Factory @Inject constructor(
 
 @Singleton // Die Engine sollte ein Singleton sein, da sie die Kamera steuert
 class StreamingEngine @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val cameraFactory: CameraFactory, // <-- WIR INJIZIEREN EINE FACTORY
     private val displayFactory: DisplayFactory, // <-- S2: Screen-Capture-Encoder
+    private val playerFactory: PlayerFactory, // <-- S3: Video-Datei-Encoder
     private val videoSourceRegistry: VideoSourceRegistry, // <-- S1: Source-Abstraktion
 ) {
     private var camera: MultiCamera2? = null
 
     /** S2: Screen-Capture-Quelle (MediaProjection), lazy erzeugt (wie die Kamera). */
     private var screenCaptureSource: ScreenCaptureVideoSource? = null
+
+    /** S3: Video-Datei-Quelle (MultiFromFile), lazy erzeugt (wie die Kamera). */
+    private var videoPlayerSource: VideoPlayerVideoSource? = null
 
     private val _streamingState = MutableStateFlow<StreamingState>(StreamingState.Idle)
     val streamingState: StateFlow<StreamingState> = _streamingState.asStateFlow()
@@ -204,8 +212,8 @@ class StreamingEngine @Inject constructor(
      *
      * Die Kamera ist immer verfügbar. Screen-Capture (S2) wird beim ersten Wechsel
      * lazy initialisiert (MultiDisplay + Consent-Flow) und in der Registry
-     * registriert; der Wechsel gelingt, sobald die Quelle verfügbar ist. Der
-     * Video-Player (S3) ist noch nicht implementiert und wird abgelehnt.
+     * registriert; der Video-Player (S3) wird beim ersten Wechsel lazy
+     * initialisiert (MultiFromFile, Datei wird über [setVideoPlayerUri] gesetzt).
      */
     fun switchSource(kind: VideoSourceKind): Boolean = when (kind) {
         VideoSourceKind.CAMERA -> videoSourceRegistry.switchTo(VideoSourceKind.CAMERA)
@@ -220,7 +228,13 @@ class StreamingEngine @Inject constructor(
             videoSourceRegistry.switchTo(VideoSourceKind.SCREEN_CAPTURE)
         }
 
-        VideoSourceKind.VIDEO_PLAYER -> false
+        VideoSourceKind.VIDEO_PLAYER -> {
+            val source = ensureVideoPlayerSource() ?: return false
+            videoSourceRegistry.registerFactory(VideoSourceKind.VIDEO_PLAYER) { requested ->
+                if (requested == VideoSourceKind.VIDEO_PLAYER) source else null
+            }
+            videoSourceRegistry.switchTo(VideoSourceKind.VIDEO_PLAYER)
+        }
     }
 
     /**
@@ -233,6 +247,26 @@ class StreamingEngine @Inject constructor(
         val display = displayFactory.create(List(MAX_STREAM_TARGETS) { createTargetChecker(it) })
         return ScreenCaptureVideoSource(display).also { screenCaptureSource = it }
     }
+
+    /**
+     * S3: erzeugt die Video-Datei-Quelle einmalig (wie [initializeCamera] für die
+     * Kamera) — ein [com.pedro.library.multiple.MultiFromFile] mit einem
+     * ConnectChecker pro Stream-Ziel, der die Ziel-Status der Engine aktualisiert.
+     */
+    private fun ensureVideoPlayerSource(): VideoPlayerVideoSource? {
+        if (videoPlayerSource != null) return videoPlayerSource
+        val player = playerFactory.create(List(MAX_STREAM_TARGETS) { createTargetChecker(it) })
+        return VideoPlayerVideoSource(context, player).also { videoPlayerSource = it }
+    }
+
+    /**
+     * S3: setzt die abzuspielende Video-Datei (Content-Uri aus dem SAF-Picker)
+     * für die Video-Player-Quelle.
+     *
+     * @return true, wenn die Datei gesetzt und die Encoder vorbereitet werden konnten.
+     */
+    fun setVideoPlayerUri(uri: Uri): Boolean =
+        ensureVideoPlayerSource()?.setVideo(uri) ?: false
 
     /**
      * S2: liefert den MediaProjection-Consent-Intent der Screen-Capture-Quelle
@@ -412,6 +446,24 @@ class StreamingEngine @Inject constructor(
             return
         }
 
+        // S3: Video-Player-Pfad — die aktive Quelle ist nicht die Kamera.
+        if (activeSourceKind.value == VideoSourceKind.VIDEO_PLAYER) {
+            val source = videoPlayerSource ?: return
+            if (source.isActive) return
+
+            _targetStates.value = activeUrls.map { StreamTargetState(it) }
+            _streamingState.value = StreamingState.Preparing
+
+            if (source.start()) {
+                activeUrls.forEachIndexed { index, url ->
+                    source.startStream(index, url)
+                }
+            } else {
+                failStream("Failed to prepare audio/video")
+            }
+            return
+        }
+
         // Kamera-Pfad (unverändert).
         val cam = camera ?: return
         if (cam.isStreaming) return
@@ -460,9 +512,14 @@ class StreamingEngine @Inject constructor(
         ) {
             return
         }
-        // S2: Die aktive Quelle bestimmt, welcher Encoder gestoppt wird.
+        // S2/S3: Die aktive Quelle bestimmt, welcher Encoder gestoppt wird.
         if (activeSourceKind.value == VideoSourceKind.SCREEN_CAPTURE) {
             val source = screenCaptureSource ?: return
+            _targetStates.value.forEachIndexed { index, _ ->
+                source.stopStream(index)
+            }
+        } else if (activeSourceKind.value == VideoSourceKind.VIDEO_PLAYER) {
+            val source = videoPlayerSource ?: return
             _targetStates.value.forEachIndexed { index, _ ->
                 source.stopStream(index)
             }
