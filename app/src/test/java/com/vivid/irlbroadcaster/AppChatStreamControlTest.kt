@@ -19,6 +19,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
+import java.nio.file.Files
 
 class AppChatStreamControlTest {
 
@@ -51,8 +52,10 @@ class AppChatStreamControlTest {
     ): DiagnosticCheck =
         control(settings, logStore).diagnostics().checks.first { it.label == "Crash-Zusammenfassung" }
 
-    private fun newLogStore(name: String): LogStore =
-        LogStore(File.createTempFile("diag", "").parentFile.resolve(name))
+    private fun newLogStore(dirName: String): LogStore =
+        // Frisches, leeres Verzeichnis pro Testaufruf, damit Tage-Dateien
+        // früherer Läufe die Crash-Zählung nicht verfälschen.
+        LogStore(File(Files.createTempDirectory("diag_store").toFile(), dirName))
 
     private fun crashEntry(daysAgo: Int) = LogEntry(
         timestampMillis = System.currentTimeMillis() - daysAgo * 24L * 60 * 60 * 1000,
