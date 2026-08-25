@@ -59,7 +59,7 @@ Jeder Release durchläuft eine von vier Stufen. Welche Stufe aktiv ist, bestimmt
 
 ## 🗺️ Roadmap (Version → Features)
 
-Welche offenen PARITY-Punkte in welcher Version released werden — Zählerstand: ✅ **25** (Stand 2026-08-23, [PARITY.md](PARITY.md)). **Gap-Analyse 21.08.:** Abgleich gegen die Moblin-README hat **20 fehlende Features** aufgedeckt (Szenen, Pro-Kamera-Steuerung, Videoquellen, Replays, Bild-/QR-/Akku-/Grid-Widgets, Untertitel-STT, Landscape/Portrait, Viewer-Zähler, Titel/Kategorie, Chat-Anzeige-Details, Poll, Streamer-Browser, adaptive Bitrate, BLE-Sensoren …) — anwendbare Moblin-Features jetzt **62**, alle neuen Punkte sind in die Buckets unten einsortiert. Reihenfolge nach dem Prinzip: **erst Gate-Pflichten, dann Nutzer-Sichtbares, dann Streaming-Komfort, zuletzt Protokoll-Ausbau & Plattform** — jedes Release bleibt für sich testbar und läuft über die jeweilige Fastlane-Lane.
+Welche offenen PARITY-Punkte in welcher Version released werden — Zählerstand: ✅ **27** (Stand 2026-08-25, [PARITY.md](PARITY.md)). **Gap-Analyse 21.08.:** Abgleich gegen die Moblin-README hat **20 fehlende Features** aufgedeckt (Szenen, Pro-Kamera-Steuerung, Videoquellen, Replays, Bild-/QR-/Akku-/Grid-Widgets, Untertitel-STT, Landscape/Portrait, Viewer-Zähler, Titel/Kategorie, Chat-Anzeige-Details, Poll, Streamer-Browser, adaptive Bitrate, BLE-Sensoren …) — anwendbare Moblin-Features jetzt **62**, alle neuen Punkte sind in die Buckets unten einsortiert. Reihenfolge nach dem Prinzip: **erst Gate-Pflichten, dann Nutzer-Sichtbares, dann Streaming-Komfort, zuletzt Protokoll-Ausbau & Plattform** — jedes Release bleibt für sich testbar und läuft über die jeweilige Fastlane-Lane.
 
 | Version | Inhalt (PARITY-Punkte) | ✅ nach Release | Gate |
 |---------|------------------------|-----------------|------|
@@ -98,6 +98,7 @@ Der bestehende Server wird um **Konfigurations-Endpunkte** erweitert (gleiche To
 | `GET /widgets` | aktuelle Widget-Konfiguration (Position, sichtbare Felder) |
 | `PUT /widgets` | Widget-Felder/Position ändern |
 | `GET /status` · `POST /start` · `POST /stop` | (existiert bereits) |
+| `GET /logs` | Bearer-Token | letzte App-Log-Zeilen (token-geschützt) — **Basis seit 25.08.:** In-App-Logs (Timber `LogBufferTree` + Redaktions-Filter, Settings-Kategorie „Logs & Diagnose“) liefern den Inhalt; der Endpunkt schließt den offenen Moblin-Remote-Punkt „Logs anzeigen“ |
 
 - **Single Source of Truth bleibt das lokale DataStore:** Der Server schreibt ausschließlich über `SettingsRepository` (validierte Werte) — kein paralleler Config-Speicher.
 - **Web-UI-Scope v1:** Status-Karte, Start/Stop, Settings-Formular (Stream, OBS, Chat, Chat-Bot, Widgets), Widget-Preview-Platzhalter; PWA-fähig (Offline-Startseite, installierbar) — kein Play-Listing, keine zweite Signierung, keine separate Distribution nötig.
