@@ -19,6 +19,13 @@ import java.io.File
 
 private const val TOKEN = "secret-token-123"
 
+// Wiederverwendete Pfade/Testdaten als Konstanten (DeepSource KT-W1042: keine
+// mehrfach wiederholten String-Literale innerhalb einer Datei).
+private const val PATH_START = "/start"
+private const val PATH_LOGS = "/logs"
+private const val MSG_TODAY = "today-entry"
+private const val MSG_OLD = "old-entry"
+
 /** Test-Double für StreamControl, das Start/Stop zählt und den Status liefert. */
 private class FakeStreamControl : StreamControl {
     override val status = MutableStateFlow(RemoteStreamStatus.IDLE)
@@ -82,7 +89,7 @@ class RemoteControlServerTest {
         application {
             remoteControlModule(control, TOKEN, newLogStore())
         }
-        val response = client.post("/start")
+        val response = client.post(PATH_START)
         assertEquals(HttpStatusCode.Unauthorized, response.status)
         assertEquals(0, control.startCount)
     }
@@ -93,7 +100,7 @@ class RemoteControlServerTest {
         application {
             remoteControlModule(control, TOKEN, newLogStore())
         }
-        val response = client.post("/start") {
+        val response = client.post(PATH_START) {
             header(HttpHeaders.Authorization, "Bearer wrong-token")
         }
         assertEquals(HttpStatusCode.Unauthorized, response.status)
@@ -106,7 +113,7 @@ class RemoteControlServerTest {
         application {
             remoteControlModule(control, TOKEN, newLogStore())
         }
-        val response = client.post("/start") {
+        val response = client.post(PATH_START) {
             header(HttpHeaders.Authorization, "Bearer $TOKEN")
         }
         assertEquals(HttpStatusCode.OK, response.status)
@@ -133,7 +140,7 @@ class RemoteControlServerTest {
         application {
             remoteControlModule(FakeStreamControl(), TOKEN, newLogStore())
         }
-        val response = client.get("/logs")
+        val response = client.get(PATH_LOGS)
         assertEquals(HttpStatusCode.Unauthorized, response.status)
     }
 
@@ -142,7 +149,7 @@ class RemoteControlServerTest {
         application {
             remoteControlModule(FakeStreamControl(), TOKEN, newLogStore())
         }
-        val response = client.get("/logs") {
+        val response = client.get(PATH_LOGS) {
             header(HttpHeaders.Authorization, "Bearer wrong-token")
         }
         assertEquals(HttpStatusCode.Unauthorized, response.status)
@@ -155,7 +162,7 @@ class RemoteControlServerTest {
         application {
             remoteControlModule(FakeStreamControl(), TOKEN, store)
         }
-        val response = client.get("/logs") {
+        val response = client.get(PATH_LOGS) {
             header(HttpHeaders.Authorization, "Bearer $TOKEN")
         }
         assertEquals(HttpStatusCode.OK, response.status)
@@ -168,44 +175,44 @@ class RemoteControlServerTest {
     @Test
     fun `logs default days excludes entries older than yesterday`() = testApplication {
         val store = newLogStore("logs_default")
-        seed(store, daysAgo = 0, message = "today-entry")
-        seed(store, daysAgo = 3, message = "old-entry")
+        seed(store, daysAgo = 0, message = MSG_TODAY)
+        seed(store, daysAgo = 3, message = MSG_OLD)
         application {
             remoteControlModule(FakeStreamControl(), TOKEN, store)
         }
-        val response = client.get("/logs") {
+        val response = client.get(PATH_LOGS) {
             header(HttpHeaders.Authorization, "Bearer $TOKEN")
         }
         val body = response.bodyAsText()
-        assertTrue(body.contains("today-entry"))
-        assertTrue(!body.contains("old-entry"))
+        assertTrue(body.contains(MSG_TODAY))
+        assertTrue(!body.contains(MSG_OLD))
     }
 
     @Test
     fun `logs with days parameter widens the window`() = testApplication {
         val store = newLogStore("logs_days")
-        seed(store, daysAgo = 0, message = "today-entry")
-        seed(store, daysAgo = 3, message = "old-entry")
+        seed(store, daysAgo = 0, message = MSG_TODAY)
+        seed(store, daysAgo = 3, message = MSG_OLD)
         application {
             remoteControlModule(FakeStreamControl(), TOKEN, store)
         }
-        val response = client.get("/logs?days=7") {
+        val response = client.get("$PATH_LOGS?days=7") {
             header(HttpHeaders.Authorization, "Bearer $TOKEN")
         }
         val body = response.bodyAsText()
         assertTrue(body.contains("\"days\":7"))
-        assertTrue(body.contains("today-entry"))
-        assertTrue(body.contains("old-entry"))
+        assertTrue(body.contains(MSG_TODAY))
+        assertTrue(body.contains(MSG_OLD))
     }
 
     @Test
     fun `logs clamps days above the maximum`() = testApplication {
         val store = newLogStore("logs_clamp_high")
-        seed(store, daysAgo = 0, message = "today-entry")
+        seed(store, daysAgo = 0, message = MSG_TODAY)
         application {
             remoteControlModule(FakeStreamControl(), TOKEN, store)
         }
-        val response = client.get("/logs?days=5000") {
+        val response = client.get("$PATH_LOGS?days=5000") {
             header(HttpHeaders.Authorization, "Bearer $TOKEN")
         }
         assertEquals(HttpStatusCode.OK, response.status)
@@ -215,12 +222,12 @@ class RemoteControlServerTest {
     @Test
     fun `logs clamps invalid or negative days to the default window`() = testApplication {
         val store = newLogStore("logs_invalid")
-        seed(store, daysAgo = 0, message = "today-entry")
+        seed(store, daysAgo = 0, message = MSG_TODAY)
         application {
             remoteControlModule(FakeStreamControl(), TOKEN, store)
         }
         listOf("?days=abc", "?days=-5").forEach { query ->
-            val response = client.get("/logs$query") {
+            val response = client.get("$PATH_LOGS$query") {
                 header(HttpHeaders.Authorization, "Bearer $TOKEN")
             }
             assertEquals(HttpStatusCode.OK, response.status, "query=$query")
@@ -236,7 +243,7 @@ class RemoteControlServerTest {
         application {
             remoteControlModule(FakeStreamControl(), TOKEN, newLogStore("logs_empty"))
         }
-        val response = client.get("/logs") {
+        val response = client.get(PATH_LOGS) {
             header(HttpHeaders.Authorization, "Bearer $TOKEN")
         }
         assertEquals(HttpStatusCode.OK, response.status)
