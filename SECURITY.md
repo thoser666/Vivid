@@ -2,20 +2,42 @@
 
 ## Supported Versions
 
-Use this section to tell people about which versions of your project are
-currently being supported with security updates.
-
 | Version | Supported          |
 | ------- | ------------------ |
-| 5.1.x   | :white_check_mark: |
-| 5.0.x   | :x:                |
-| 4.0.x   | :white_check_mark: |
-| < 4.0   | :x:                |
+| 0.5.x   | :white_check_mark: |
+| 0.4.x   | :white_check_mark: |
+| < 0.4   | :x:                |
 
 ## Reporting a Vulnerability
 
-Use this section to tell people how to report a vulnerability.
+If you discover a security vulnerability in Vivid, please report it responsibly.
 
-Tell them where to go, how often they can expect to get an update on a
-reported vulnerability, what to expect if the vulnerability is accepted or
-declined, etc.
+**Do not open a public issue.** Instead, please email [vivid.security@proton.me](mailto:vivid.security@proton.me) with:
+
+- A description of the vulnerability
+- Steps to reproduce
+- Potential impact
+- Suggested fix (if any)
+
+### What to expect
+
+- **Acknowledgment** within 48 hours
+- **Initial assessment** within 1 week
+- **Fix or mitigation** for confirmed vulnerabilities will be prioritized
+- You will be credited in the release notes (unless you prefer to remain anonymous)
+
+### Scope
+
+Vivid is an open-source IRL streaming app. Security issues particularly relevant to:
+
+- **Stream keys and OAuth tokens** — must never be logged or exposed
+- **Network communications** — RTMPS/TLS enforcement
+- **Chat bot credentials** — bot OAuth tokens, LLM API keys
+- **Remote control** — LAN-based web remote (no external exposure intended)
+- **Location data** — GPS coordinates used for the text/info widget
+
+### Out of scope
+
+- Social engineering attacks
+- Issues requiring physical access to the user's device
+- Vulnerabilities in third-party dependencies (report these upstream)

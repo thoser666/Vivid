@@ -600,6 +600,7 @@ We welcome contributions! Join our [Discussions](../../discussions) to pitch an 
 
 - 📚 **Documentation**: Check our [Wiki](../../wiki) for detailed guides
 - 🐛 **Bug Reports**: Found an issue? [Report it here](../../issues)
+- 🔒 **Security**: Found a vulnerability? See [SECURITY.md](SECURITY.md) for responsible disclosure
 - 💬 **Discussions**: Join our [community discussions](../../discussions)
 - 💡 **Feature Requests**: Have an idea? [Share it with us](../../issues/new?template=feature_request.md)
 
