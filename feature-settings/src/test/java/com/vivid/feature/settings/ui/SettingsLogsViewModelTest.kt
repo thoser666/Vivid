@@ -160,6 +160,76 @@ class SettingsLogsViewModelTest {
     }
 
     @Test
+    fun `setSearchQuery filtert Nachrichten case-insensitiv per Teilstring`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val buffer = LogBuffer()
+        buffer.add(entry("RTMP-Verbindung hergestellt"))
+        buffer.add(entry("WebSocket verbunden"))
+        buffer.add(entry("rtmp retry geplant"))
+
+        val viewModel = createViewModel(buffer, LogStore(File("unused")))
+        advanceUntilIdle()
+        viewModel.setSearchQuery("  rtmp ")
+        advanceUntilIdle()
+
+        val messages = viewModel.uiState.value.entries.map { it.message }
+        assertEquals(setOf("RTMP-Verbindung hergestellt", "rtmp retry geplant"), messages.toSet())
+        assertEquals("  rtmp ", viewModel.uiState.value.searchQuery)
+    }
+
+    @Test
+    fun `leere oder Blank-Suche zeigt alle Eintraege`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val buffer = LogBuffer()
+        buffer.add(entry("eins"))
+        buffer.add(entry("zwei"))
+
+        val viewModel = createViewModel(buffer, LogStore(File("unused")))
+        advanceUntilIdle()
+        viewModel.setSearchQuery("")
+        advanceUntilIdle()
+        assertEquals(2, viewModel.uiState.value.entries.size)
+
+        viewModel.setSearchQuery("   ")
+        advanceUntilIdle()
+        assertEquals(2, viewModel.uiState.value.entries.size)
+    }
+
+    @Test
+    fun `Suche ohne Treffer liefert leere Liste`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val buffer = LogBuffer()
+        buffer.add(entry("irgendwas"))
+
+        val viewModel = createViewModel(buffer, LogStore(File("unused")))
+        advanceUntilIdle()
+        viewModel.setSearchQuery("existiert-nicht")
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.entries.isEmpty())
+    }
+
+    @Test
+    fun `Suche kombiniert mit Fehlerfilter`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val buffer = LogBuffer()
+        buffer.add(entry("fehler a", level = LogLevel.ERROR))
+        buffer.add(entry("fehler b", level = LogLevel.ERROR))
+        buffer.add(entry("info a"))
+        buffer.add(entry("warn b", level = LogLevel.WARN))
+
+        val viewModel = createViewModel(buffer, LogStore(File("unused")))
+        advanceUntilIdle()
+        viewModel.toggleErrorsOnly()
+        viewModel.setSearchQuery("b")
+        advanceUntilIdle()
+
+        val messages = viewModel.uiState.value.entries.map { it.message }
+        // „warn b“ ist kein Fehler → nur „fehler b“ bleibt.
+        assertEquals(listOf("fehler b"), messages)
+    }
+
+    @Test
     fun `clearLogs leert Puffer und Store`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val buffer = LogBuffer()

@@ -29,14 +29,16 @@ data class LogsUiState(
     val crashCount: Int = 0,
     /** true = nur Fehler/Crashes anzeigen. */
     val errorsOnly: Boolean = false,
+    /** Freitext-Suchfilter über die Log-Nachrichten (case-insensitive Teilstring); leer = kein Filter. */
+    val searchQuery: String = "",
 )
 
 /**
  * ViewModel des Log-Screens: kombiniert den Live-Puffer ([LogBuffer]) mit der
  * persistierten Tages-Historie ([LogStore]) innerhalb der konfigurierbaren
  * Vorhaltezeit, zählt markierte Abstürze ([LogEntry.isCrash]) und erlaubt das
- * Ändern der Vorhaltezeit (Rotation), das Filtern auf Fehler/Crashes sowie das
- * Leeren (Puffer + Dateien).
+ * Ändern der Vorhaltezeit (Rotation), das Filtern auf Fehler/Crashes, das
+ * Durchsuchen der Nachrichten per Freitext-Filter sowie das Leeren (Puffer + Dateien).
  */
 @HiltViewModel
 class SettingsLogsViewModel @Inject constructor(
@@ -48,24 +50,31 @@ class SettingsLogsViewModel @Inject constructor(
     private val retention = MutableStateFlow(LogsDefaults.DEFAULT_RETENTION_DAYS)
     private val history = MutableStateFlow<List<LogEntry>>(emptyList())
     private val errorsOnly = MutableStateFlow(false)
+    private val searchQuery = MutableStateFlow("")
 
     val uiState: StateFlow<LogsUiState> = combine(
         logBuffer.entries,
         retention,
         history,
         errorsOnly,
-    ) { live, ret, hist, onlyErrors ->
+        searchQuery,
+    ) { live, ret, hist, onlyErrors, query ->
         val merged = mergeEntries(hist, live)
-        val filtered = if (onlyErrors) {
+        var filtered = if (onlyErrors) {
             merged.filter { it.isCrash || it.level >= LogLevel.ERROR }
         } else {
             merged
+        }
+        if (query.isNotBlank()) {
+            val needle = query.trim()
+            filtered = filtered.filter { it.message.contains(needle, ignoreCase = true) }
         }
         LogsUiState(
             entries = filtered.sortedByDescending { it.timestampMillis },
             retentionDays = ret,
             crashCount = merged.count { it.isCrash },
             errorsOnly = onlyErrors,
+            searchQuery = query,
         )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, LogsUiState())
 
@@ -93,6 +102,11 @@ class SettingsLogsViewModel @Inject constructor(
     /** Filter „nur Fehler & Crashes“ umschalten. */
     fun toggleErrorsOnly() {
         errorsOnly.value = !errorsOnly.value
+    }
+
+    /** Freitext-Suchfilter setzen (case-insensitiver Teilstring über [LogEntry.message]; leer = aus). */
+    fun setSearchQuery(query: String) {
+        searchQuery.value = query
     }
 
     /** Leert Puffer + persistierte Logs (alle Tage). */

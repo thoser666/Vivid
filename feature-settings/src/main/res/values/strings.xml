@@ -196,6 +196,9 @@
     <string name="logs_retention_title">Vorhaltezeit (Tage)</string>
     <string name="logs_retention_days_unit">Tage</string>
     <string name="logs_retention_hint">Logs wechseln täglich; ältere Einträge werden nach dieser Zeit gelöscht.</string>
+    <string name="logs_search_label">Suchen</string>
+    <string name="logs_search_hint">Nachricht durchsuchen …</string>
+    <string name="logs_search_clear">Suche leeren</string>
     <string name="logs_filter_all">Alle</string>
     <string name="logs_filter_errors">Fehler &amp; Crashes</string>
     <string name="logs_crash_badge">CRASH</string>

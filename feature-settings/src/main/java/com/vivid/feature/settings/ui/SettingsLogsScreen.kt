@@ -17,8 +17,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -101,6 +103,11 @@ fun SettingsLogsScreen(
                 onRetentionChange = viewModel::setRetentionDays,
             )
 
+            SearchField(
+                query = state.searchQuery,
+                onQueryChange = viewModel::setSearchQuery,
+            )
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -159,6 +166,33 @@ fun SettingsLogsScreen(
             }
         }
     }
+}
+
+/** Freitext-Suchfeld über die Log-Nachrichten (case-insensitiv); X leert die Suche. */
+@Composable
+private fun SearchField(
+    query: String,
+    onQueryChange: (String) -> Unit,
+) {
+    OutlinedTextField(
+        value = query,
+        onValueChange = onQueryChange,
+        label = { Text(stringResource(R.string.logs_search_label)) },
+        placeholder = { Text(stringResource(R.string.logs_search_hint)) },
+        singleLine = true,
+        leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+        trailingIcon = {
+            if (query.isNotEmpty()) {
+                IconButton(onClick = { onQueryChange("") }) {
+                    Icon(
+                        imageVector = Icons.Filled.Close,
+                        contentDescription = stringResource(R.string.logs_search_clear),
+                    )
+                }
+            }
+        },
+        modifier = Modifier.fillMaxWidth(),
+    )
 }
 
 /** Vorhaltezeit-Feld (1–30 Tage): speichert bei gültiger Eingabe (Enter/Bestätigen). */

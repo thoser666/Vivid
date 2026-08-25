@@ -196,6 +196,9 @@
     <string name="logs_retention_title">Durée de conservation (jours)</string>
     <string name="logs_retention_days_unit">jours</string>
     <string name="logs_retention_hint">Les journaux tournent chaque jour ; les entrées plus anciennes sont supprimées après cette durée.</string>
+    <string name="logs_search_label">Rechercher</string>
+    <string name="logs_search_hint">Rechercher dans les messages …</string>
+    <string name="logs_search_clear">Effacer la recherche</string>
     <string name="logs_filter_all">Tous</string>
     <string name="logs_filter_errors">Erreurs &amp; plantages</string>
     <string name="logs_crash_badge">CRASH</string>
