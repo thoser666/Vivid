@@ -18,13 +18,24 @@ import org.junit.jupiter.api.io.TempDir
 import java.io.File
 
 private const val TOKEN = "secret-token-123"
+private const val WRONG_TOKEN = "wrong-token"
 
-// Wiederverwendete Pfade/Testdaten als Konstanten (DeepSource KT-W1042: keine
+// Wiederverwendete Pfade/Testdaten als Konstanten (DeepSource KT-5000: keine
 // mehrfach wiederholten String-Literale innerhalb einer Datei).
 private const val PATH_START = "/start"
 private const val PATH_LOGS = "/logs"
 private const val MSG_TODAY = "today-entry"
 private const val MSG_OLD = "old-entry"
+
+/** Authorization-Header mit gültigem Token (KT-5000: kein doppeltes Literal). */
+private fun io.ktor.client.request.HttpRequestBuilder.auth() {
+    header(HttpHeaders.Authorization, "Bearer $TOKEN")
+}
+
+/** Authorization-Header mit falschem Token. */
+private fun io.ktor.client.request.HttpRequestBuilder.badAuth() {
+    header(HttpHeaders.Authorization, "Bearer $WRONG_TOKEN")
+}
 
 /** Test-Double für StreamControl, das Start/Stop zählt und den Status liefert. */
 private class FakeStreamControl : StreamControl {
@@ -101,7 +112,7 @@ class RemoteControlServerTest {
             remoteControlModule(control, TOKEN, newLogStore())
         }
         val response = client.post(PATH_START) {
-            header(HttpHeaders.Authorization, "Bearer wrong-token")
+            badAuth()
         }
         assertEquals(HttpStatusCode.Unauthorized, response.status)
         assertEquals(0, control.startCount)
@@ -114,7 +125,7 @@ class RemoteControlServerTest {
             remoteControlModule(control, TOKEN, newLogStore())
         }
         val response = client.post(PATH_START) {
-            header(HttpHeaders.Authorization, "Bearer $TOKEN")
+            auth()
         }
         assertEquals(HttpStatusCode.OK, response.status)
         assertEquals(1, control.startCount)
@@ -127,7 +138,7 @@ class RemoteControlServerTest {
             remoteControlModule(control, TOKEN, newLogStore())
         }
         val response = client.post("/stop") {
-            header(HttpHeaders.Authorization, "Bearer $TOKEN")
+            auth()
         }
         assertEquals(HttpStatusCode.OK, response.status)
         assertEquals(1, control.stopCount)
@@ -150,7 +161,7 @@ class RemoteControlServerTest {
             remoteControlModule(FakeStreamControl(), TOKEN, newLogStore())
         }
         val response = client.get(PATH_LOGS) {
-            header(HttpHeaders.Authorization, "Bearer wrong-token")
+            badAuth()
         }
         assertEquals(HttpStatusCode.Unauthorized, response.status)
     }
@@ -163,7 +174,7 @@ class RemoteControlServerTest {
             remoteControlModule(FakeStreamControl(), TOKEN, store)
         }
         val response = client.get(PATH_LOGS) {
-            header(HttpHeaders.Authorization, "Bearer $TOKEN")
+            auth()
         }
         assertEquals(HttpStatusCode.OK, response.status)
         val body = response.bodyAsText()
@@ -244,7 +255,7 @@ class RemoteControlServerTest {
             remoteControlModule(FakeStreamControl(), TOKEN, newLogStore("logs_empty"))
         }
         val response = client.get(PATH_LOGS) {
-            header(HttpHeaders.Authorization, "Bearer $TOKEN")
+            auth()
         }
         assertEquals(HttpStatusCode.OK, response.status)
         val body = response.bodyAsText()

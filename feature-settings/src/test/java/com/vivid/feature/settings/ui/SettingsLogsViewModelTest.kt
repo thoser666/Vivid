@@ -25,6 +25,13 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 
+// Wiederverwendete Test-Nachrichten als Konstanten (DeepSource KT-5000: keine
+// mehrfach wiederholten String-Literale innerhalb einer Datei).
+private const val MSG_HISTORY = "historie"
+private const val MSG_LIVE = "live"
+private const val MSG_CRASH = "absturz"
+private const val MSG_ERROR = "fehler"
+
 /**
  * Testet das Log-ViewModel: Kombination aus Live-Puffer und persistierter
  * Tages-Historie (Deduplizierung), Crash-Zähler, Fehler-Filter, Vorhaltezeit
@@ -68,16 +75,16 @@ class SettingsLogsViewModelTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val buffer = LogBuffer()
         val store = LogStore(File.createTempFile("logs", "").parentFile.resolve("vm_logs"))
-        store.add(entry("historie", timestampMillis = 1L))
-        buffer.add(entry("live", timestampMillis = 2L))
+        store.add(entry(MSG_HISTORY, timestampMillis = 1L))
+        buffer.add(entry(MSG_LIVE, timestampMillis = 2L))
         // Derselbe Eintrag in Puffer UND Store — darf nur einmal erscheinen.
-        buffer.add(entry("historie", timestampMillis = 1L))
+        buffer.add(entry(MSG_HISTORY, timestampMillis = 1L))
 
         val viewModel = createViewModel(buffer, store)
         advanceUntilIdle()
 
         val messages = viewModel.uiState.value.entries.map { it.message }
-        assertEquals(setOf("historie", "live"), messages.toSet())
+        assertEquals(setOf(MSG_HISTORY, MSG_LIVE), messages.toSet())
         assertEquals(2, messages.size)
         store.clear()
     }
@@ -87,8 +94,8 @@ class SettingsLogsViewModelTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val buffer = LogBuffer()
         buffer.add(entry("normal"))
-        buffer.add(entry("absturz", isCrash = true))
-        buffer.add(entry("fehler", level = LogLevel.ERROR))
+        buffer.add(entry(MSG_CRASH, isCrash = true))
+        buffer.add(entry(MSG_ERROR, level = LogLevel.ERROR))
 
         val viewModel = createViewModel(buffer, LogStore(File("unused")))
         advanceUntilIdle()
@@ -102,8 +109,8 @@ class SettingsLogsViewModelTest {
         val buffer = LogBuffer()
         buffer.add(entry("info"))
         buffer.add(entry("warn", level = LogLevel.WARN))
-        buffer.add(entry("fehler", level = LogLevel.ERROR))
-        buffer.add(entry("absturz", isCrash = true))
+        buffer.add(entry(MSG_ERROR, level = LogLevel.ERROR))
+        buffer.add(entry(MSG_CRASH, isCrash = true))
 
         val viewModel = createViewModel(buffer, LogStore(File("unused")))
         advanceUntilIdle()
@@ -111,7 +118,7 @@ class SettingsLogsViewModelTest {
         advanceUntilIdle()
 
         val messages = viewModel.uiState.value.entries.map { it.message }
-        assertEquals(setOf("fehler", "absturz"), messages.toSet())
+        assertEquals(setOf(MSG_ERROR, MSG_CRASH), messages.toSet())
         assertTrue(viewModel.uiState.value.errorsOnly)
     }
 
@@ -235,7 +242,7 @@ class SettingsLogsViewModelTest {
         val buffer = LogBuffer()
         val store = LogStore(File.createTempFile("logs", "").parentFile.resolve("vm_clear"))
         store.add(entry("persistiert"))
-        buffer.add(entry("live"))
+        buffer.add(entry(MSG_LIVE))
 
         val viewModel = createViewModel(buffer, store)
         advanceUntilIdle()

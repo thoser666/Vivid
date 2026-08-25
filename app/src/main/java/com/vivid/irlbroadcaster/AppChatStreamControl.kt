@@ -1,5 +1,6 @@
 package com.vivid.irlbroadcaster
 
+import com.vivid.core.data.AppSettings
 import com.vivid.core.data.SettingsRepository
 import com.vivid.core.log.LogStore
 import com.vivid.core.remote.StreamControl
@@ -57,7 +58,7 @@ class AppChatStreamControl @Inject constructor(
             if (settings.streamUrl.isNotBlank() && settings.streamKey.isNotBlank()) {
                 try {
                     streamControl.start()
-                    actions.add(FixAction("Stream-Neustart", true, "Stream wird neu gestartet"))
+                    actions.add(FixAction("Stream-Neustart", true, "Stream wird (neu) gestartet"))
                 } catch (e: Exception) {
                     actions.add(FixAction("Stream-Neustart", false, e.message ?: "Unbekannter Fehler"))
                 }
@@ -87,12 +88,6 @@ class AppChatStreamControl @Inject constructor(
         }
         val settings = settingsRepository.appSettingsFlow.first()
         val obsConnected = streamingRepository.isConnectedToObs.value
-        val viewerLlmReady = settings.chatBotApiBaseUrl.isNotBlank() &&
-            settings.chatBotApiKey.isNotBlank() &&
-            settings.chatBotModel.isNotBlank()
-        val ownerLlmReady = settings.chatBotOwnerLlmBaseUrl.isNotBlank() &&
-            settings.chatBotOwnerLlmApiKey.isNotBlank() &&
-            settings.chatBotOwnerLlmModel.isNotBlank()
         val checks = listOf(
             DiagnosticCheck("Stream-URL (primär)", settings.streamUrl.isNotBlank()),
             DiagnosticCheck("Stream-Key (primär)", settings.streamKey.isNotBlank()),
@@ -107,97 +102,123 @@ class AppChatStreamControl @Inject constructor(
                 "Bot-Login + OAuth-Token",
                 settings.chatBotLogin.isNotBlank() && settings.chatBotOauthToken.isNotBlank(),
             ),
-            // Event-Alerts (Follow/Sub/Raid) im Chat-Overlay: brauchen den Kanal
-            // (Subscription-Condition), Bot-Login + Token (Auth) und die
-            // Client-ID (Helix-API). Die Scopes lassen sich aus den Settings
-            // nicht verifizieren (Twitch gibt keine Scope-Liste im Token
-            // zurück) — der Bot muss Moderator sein (moderator:read:followers)
-            // und der Token channel:read:subscriptions besitzen; fehlende
-            // Rechte lassen nur den jeweiligen Alert-Typ ausfallen (best-effort,
-            // Chat läuft weiter).
-            DiagnosticCheck(
-                "Event-Alerts konfiguriert",
-                settings.chatChannel.isNotBlank() &&
-                    settings.chatBotLogin.isNotBlank() &&
-                    settings.chatBotOauthToken.isNotBlank() &&
-                    settings.chatBotTwitchClientId.isNotBlank(),
-                when {
-                    settings.chatChannel.isBlank() && settings.chatBotLogin.isBlank() &&
-                        settings.chatBotOauthToken.isBlank() && settings.chatBotTwitchClientId.isBlank() ->
-                        "Kanal, Bot-Login, Bot-Token und Client-ID fehlen"
-                    settings.chatChannel.isBlank() -> "Chat-Kanal fehlt"
-                    settings.chatBotLogin.isBlank() -> "Bot-Login fehlt"
-                    settings.chatBotOauthToken.isBlank() -> "Bot-Token fehlt"
-                    settings.chatBotTwitchClientId.isBlank() -> "Twitch-App-Client-ID fehlt"
-                    else ->
-                        "Kanal/Bot/Client-ID gesetzt — Bot muss Moderator sein (Scope " +
-                            "moderator:read:followers) und der Token channel:read:subscriptions " +
-                            "besitzen (für Sub-Alerts)"
-                },
-            ),
-            // Privater Antwortweg (!diag/!ask-Antworten an den Owner): braucht
-            // Client-ID + Bot-Token, wenn der Toggle an ist. Toggle aus = bewusst
-            // öffentliche Antworten → kein offener Punkt.
-            DiagnosticCheck(
-                "Whisper (privater Antwortweg)",
-                !settings.chatBotOwnerWhisperReplies ||
-                    (settings.chatBotTwitchClientId.isNotBlank() && settings.chatBotOauthToken.isNotBlank()),
-                when {
-                    !settings.chatBotOwnerWhisperReplies -> "deaktiviert (Toggle aus) → öffentlich"
-                    settings.chatBotTwitchClientId.isBlank() && settings.chatBotOauthToken.isBlank() ->
-                        "Client-ID + Bot-Token fehlen"
-                    settings.chatBotTwitchClientId.isBlank() -> "Twitch-App-Client-ID fehlt"
-                    settings.chatBotOauthToken.isBlank() -> "Bot-Token fehlt"
-                    else -> "Client-ID + Token gesetzt (Scope user:manage:whispers nötig)"
-                },
-            ),
-            DiagnosticCheck("Viewer-LLM (Endpunkt/Key/Modell)", viewerLlmReady),
-            DiagnosticCheck("Owner-LLM (Endpunkt/Key/Modell)", ownerLlmReady),
-            // KI-Quelle der Owner-Befehle (!diag/!ask): eigene Owner-KI oder
-            // Viewer-KI als Fallback — offen nur, wenn gar keine KI
-            // konfiguriert ist (dann antworten die Befehle deterministisch).
-            DiagnosticCheck(
-                "Owner-KI-Quelle",
-                ownerLlmReady || viewerLlmReady,
-                when {
-                    ownerLlmReady -> "eigene Owner-KI (exklusiv)"
-                    viewerLlmReady -> "Viewer-KI (Fallback)"
-                    else -> "keine KI konfiguriert → deterministisch (Checkliste/Hinweis)"
-                },
-            ),
-            // Crash-Zusammenfassung aus dem tagesbasierten LogStore (gleiche
-            // Vorhaltezeit wie der Log-Screen): ok = keine markierten Abstürze
-            // im Fenster; sonst zählt die Diagnose die 💥-Einträge und verweist
-            // auf den Log-Screen zur Auswertung.
-            run {
-                // Gleiche Vorhaltezeit wie der Log-Screen (1–30 Tage, Default 7);
-                // bewusst lokal geklemmt statt Import aus dem Settings-UI.
-                val retentionDays = settings.logsRetentionDays.coerceIn(1, 30)
-                val crashCount = logStore.load(retentionDays).count { it.isCrash }
-                DiagnosticCheck(
-                    "Crash-Zusammenfassung",
-                    ok = crashCount == 0,
-                    detail = if (crashCount == 0) {
-                        "keine Crashes in den letzten $retentionDays Tagen"
-                    } else {
-                        "$crashCount Crash/Crashes in den letzten $retentionDays Tagen — " +
-                            "Auswertung im Log-Screen (Logs & Diagnose)"
-                    },
-                )
-            },
+            alertsCheck(settings),
+            whisperCheck(settings),
+            DiagnosticCheck("Viewer-LLM (Endpunkt/Key/Modell)", viewerLlmReady(settings)),
+            DiagnosticCheck("Owner-LLM (Endpunkt/Key/Modell)", ownerLlmReady(settings)),
+            ownerKiSourceCheck(settings),
+            crashSummaryCheck(settings),
         )
         return StreamDiagnostics(status = status, obsConnected = obsConnected, checks = checks)
+    }
+
+    // ── Diagnose-Hilfsfunktionen (halten die Methode [diagnostics] klein) ──
+
+    private fun viewerLlmReady(settings: AppSettings): Boolean =
+        settings.chatBotApiBaseUrl.isNotBlank() &&
+            settings.chatBotApiKey.isNotBlank() &&
+            settings.chatBotModel.isNotBlank()
+
+    private fun ownerLlmReady(settings: AppSettings): Boolean =
+        settings.chatBotOwnerLlmBaseUrl.isNotBlank() &&
+            settings.chatBotOwnerLlmApiKey.isNotBlank() &&
+            settings.chatBotOwnerLlmModel.isNotBlank()
+
+    /**
+     * Event-Alerts (Follow/Sub/Raid) im Chat-Overlay: brauchen den Kanal
+     * (Subscription-Condition), Bot-Login + Token (Auth) und die
+     * Client-ID (Helix-API). Die Scopes lassen sich aus den Settings
+     * nicht verifizieren (Twitch gibt keine Scope-Liste im Token
+     * zurück) — der Bot muss Moderator sein (moderator:read:followers)
+     * und der Token channel:read:subscriptions besitzen; fehlende
+     * Rechte lassen nur den jeweiligen Alert-Typ ausfallen (best-effort,
+     * Chat läuft weiter).
+     */
+    private fun alertsCheck(settings: AppSettings): DiagnosticCheck {
+        val ok = settings.chatChannel.isNotBlank() &&
+            settings.chatBotLogin.isNotBlank() &&
+            settings.chatBotOauthToken.isNotBlank() &&
+            settings.chatBotTwitchClientId.isNotBlank()
+        val detail = when {
+            settings.chatChannel.isBlank() && settings.chatBotLogin.isBlank() &&
+                settings.chatBotOauthToken.isBlank() && settings.chatBotTwitchClientId.isBlank() ->
+                "Kanal, Bot-Login, Bot-Token und Client-ID fehlen"
+            settings.chatChannel.isBlank() -> "Chat-Kanal fehlt"
+            settings.chatBotLogin.isBlank() -> "Bot-Login fehlt"
+            settings.chatBotOauthToken.isBlank() -> "Bot-Token fehlt"
+            settings.chatBotTwitchClientId.isBlank() -> "Twitch-App-Client-ID fehlt"
+            else ->
+                "Kanal/Bot/Client-ID gesetzt — Bot muss Moderator sein (Scope " +
+                    "moderator:read:followers) und der Token channel:read:subscriptions " +
+                    "besitzen (für Sub-Alerts)"
+        }
+        return DiagnosticCheck("Event-Alerts konfiguriert", ok, detail)
+    }
+
+    /**
+     * Privater Antwortweg (!diag/!ask-Antworten an den Owner): braucht
+     * Client-ID + Bot-Token, wenn der Toggle an ist. Toggle aus = bewusst
+     * öffentliche Antworten → kein offener Punkt.
+     */
+    private fun whisperCheck(settings: AppSettings): DiagnosticCheck {
+        val ok = !settings.chatBotOwnerWhisperReplies ||
+            (settings.chatBotTwitchClientId.isNotBlank() && settings.chatBotOauthToken.isNotBlank())
+        val detail = when {
+            !settings.chatBotOwnerWhisperReplies -> "deaktiviert (Toggle aus) → öffentlich"
+            settings.chatBotTwitchClientId.isBlank() && settings.chatBotOauthToken.isBlank() ->
+                "Client-ID + Bot-Token fehlen"
+            settings.chatBotTwitchClientId.isBlank() -> "Twitch-App-Client-ID fehlt"
+            settings.chatBotOauthToken.isBlank() -> "Bot-Token fehlt"
+            else -> "Client-ID + Token gesetzt (Scope user:manage:whispers nötig)"
+        }
+        return DiagnosticCheck("Whisper (privater Antwortweg)", ok, detail)
+    }
+
+    /**
+     * KI-Quelle der Owner-Befehle (!diag/!ask): eigene Owner-KI oder
+     * Viewer-KI als Fallback — offen nur, wenn gar keine KI
+     * konfiguriert ist (dann antworten die Befehle deterministisch).
+     */
+    private fun ownerKiSourceCheck(settings: AppSettings): DiagnosticCheck {
+        val ownerReady = ownerLlmReady(settings)
+        val viewerReady = viewerLlmReady(settings)
+        val detail = when {
+            ownerReady -> "eigene Owner-KI (exklusiv)"
+            viewerReady -> "Viewer-KI (Fallback)"
+            else -> "keine KI konfiguriert → deterministisch (Checkliste/Hinweis)"
+        }
+        return DiagnosticCheck("Owner-KI-Quelle", ownerReady || viewerReady, detail)
+    }
+
+    /**
+     * Crash-Zusammenfassung aus dem tagesbasierten LogStore (gleiche
+     * Vorhaltezeit wie der Log-Screen): ok = keine markierten Abstürze
+     * im Fenster; sonst zählt die Diagnose die 💥-Einträge und verweist
+     * auf den Log-Screen zur Auswertung.
+     */
+    private fun crashSummaryCheck(settings: AppSettings): DiagnosticCheck {
+        // Gleiche Vorhaltezeit wie der Log-Screen (1–30 Tage, Default 7);
+        // bewusst lokal geklemmt statt Import aus dem Settings-UI.
+        val retentionDays = settings.logsRetentionDays.coerceIn(1, 30)
+        val crashCount = logStore.load(retentionDays).count { it.isCrash }
+        val detail = if (crashCount == 0) {
+            "keine Crashes in den letzten $retentionDays Tagen"
+        } else {
+            "$crashCount Crash/Crashes in den letzten $retentionDays Tagen — " +
+                "Auswertung im Log-Screen (Logs & Diagnose)"
+        }
+        return DiagnosticCheck("Crash-Zusammenfassung", crashCount == 0, detail)
     }
 }
 
 @Module
 @InstallIn(SingletonComponent::class)
-abstract class ChatStreamControlModule {
+interface ChatStreamControlModule {
 
     /** Konkrete Bindung gewinnt über die @BindsOptionalOf-Deklaration in feature-chat. */
     @Binds
     @Singleton
-    abstract fun bindChatStreamControl(
+    fun bindChatStreamControl(
         impl: AppChatStreamControl,
     ): ChatStreamControl
-}
+}
