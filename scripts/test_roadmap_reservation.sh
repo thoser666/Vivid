@@ -103,8 +103,13 @@ expect_reason "fehlende PARITY.md → konservativ blockiert" reserved_roadmap_re
 expect_reason "echte PARITY.md (Bucket noch offen)" reserved_roadmap_reason "v0.6.0-beta"
 
 # 6) Strukturell: BEIDE Lanes rufen den Guard auf (gleiche Quelle).
+# Achtung: awk-Ausgabe IMMER erst in eine Variable erfassen und DANN grep'en —
+# ein direktes `awk | grep -q` bricht unter pipefail intermittierend ab, weil
+# grep -q nach dem ersten Treffer die Pipe schließt und awk beim Weiterschreiben
+# SIGPIPE bekommt (Exit 141).
 for lane in release_alpha release_beta; do
-  awk "/lane :$lane/,/^  end/" fastlane/Fastfile | grep -q "reserved_roadmap_reason(" \
+  local_body="$(awk "/lane :$lane/,/^  end/" fastlane/Fastfile)"
+  grep -q "reserved_roadmap_reason(" <<< "$local_body" \
     || fail "$lane ruft reserved_roadmap_reason nicht auf (Safety 5)"
 done
 

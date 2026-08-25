@@ -49,13 +49,21 @@ check_case "nightly-Tag (kein Release)"  "nightly-20260818-095427" "beta" "false
 check_case "Müll"                        "vbeta"          "beta"  "false"
 
 # 2) Strukturell: beide Lanes müssen den Guard mit dem korrekten Suffix aufrufen.
+# Achtung: awk-Ausgabe IMMER erst in eine Variable erfassen und DANN grep'en —
+# ein direktes `awk | grep -q` bricht unter pipefail intermittierend ab, weil
+# grep -q nach dem ersten Treffer die Pipe schließt und awk beim Weiterschreiben
+# SIGPIPE bekommt (Exit 141). Der Fehler traf reproduzierbar release_beta, dessen
+# Lane nach dem Treffer deutlich mehr Zeilen hat als release_alpha.
 for lane in release_alpha release_beta; do
-  awk "/lane :$lane/,/^  end/" fastlane/Fastfile | grep -q "stage_suffix_ok?" \
+  local_body="$(awk "/lane :$lane/,/^  end/" fastlane/Fastfile)"
+  grep -q "stage_suffix_ok?" <<< "$local_body" \
     || fail "$lane ruft den Suffix-Guard nicht auf"
 done
-awk '/lane :release_alpha/,/^  end/' fastlane/Fastfile | grep -q 'stage_suffix_ok?(tag, "alpha")' \
+local_alpha="$(awk '/lane :release_alpha/,/^  end/' fastlane/Fastfile)"
+grep -q 'stage_suffix_ok?(tag, "alpha")' <<< "$local_alpha" \
   || fail "release_alpha prüft nicht auf '-alpha'"
-awk '/lane :release_beta/,/^  end/' fastlane/Fastfile | grep -q 'stage_suffix_ok?(tag, "beta")' \
+local_beta="$(awk '/lane :release_beta/,/^  end/' fastlane/Fastfile)"
+grep -q 'stage_suffix_ok?(tag, "beta")' <<< "$local_beta" \
   || fail "release_beta prüft nicht auf '-beta'"
 
 # 3) Syntax beider Ruby-Dateien (require_relative wird nicht ausgeführt).

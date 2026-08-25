@@ -61,17 +61,24 @@ check "nur eigener Tag → nil"             "nil"  highest_other_code "v0.5.1-be
 
 # 4) Strukturell: beide Lanes müssen dieselben Safety-Funktionen mit korrektem
 #    Stufen-Parameter aufrufen (alpha-Track → "alpha", beta-Track → "beta").
+# Achtung: awk-Ausgabe IMMER erst in eine Variable erfassen und DANN grep'en —
+# ein direktes `awk | grep -q` bricht unter pipefail intermittierend ab, weil
+# grep -q nach dem ersten Treffer die Pipe schließt und awk beim Weiterschreiben
+# SIGPIPE bekommt (Exit 141).
 for lane in release_alpha release_beta; do
-  awk "/lane :$lane/,/^  end/" fastlane/Fastfile | grep -q "version_code_for(" \
+  local_body="$(awk "/lane :$lane/,/^  end/" fastlane/Fastfile)"
+  grep -q "version_code_for(" <<< "$local_body" \
     || fail "$lane ruft version_code_for nicht auf (Safety 2)"
-  awk "/lane :$lane/,/^  end/" fastlane/Fastfile | grep -q "highest_stage_code(" \
+  grep -q "highest_stage_code(" <<< "$local_body" \
     || fail "$lane ruft highest_stage_code nicht auf (Safety 3)"
-  awk "/lane :$lane/,/^  end/" fastlane/Fastfile | grep -q "highest_other_code(" \
+  grep -q "highest_other_code(" <<< "$local_body" \
     || fail "$lane ruft highest_other_code nicht auf (Safety 4)"
 done
-awk '/lane :release_alpha/,/^  end/' fastlane/Fastfile | grep -q 'highest_stage_code(all_tags, "alpha")' \
+local_alpha="$(awk '/lane :release_alpha/,/^  end/' fastlane/Fastfile)"
+grep -q 'highest_stage_code(all_tags, "alpha")' <<< "$local_alpha" \
   || fail "release_alpha prüft nicht auf die alpha-Track-Monotonie"
-awk '/lane :release_beta/,/^  end/' fastlane/Fastfile | grep -q 'highest_stage_code(all_tags, "beta")' \
+local_beta="$(awk '/lane :release_beta/,/^  end/' fastlane/Fastfile)"
+grep -q 'highest_stage_code(all_tags, "beta")' <<< "$local_beta" \
   || fail "release_beta prüft nicht auf die beta-Track-Monotonie"
 
 # 5) Windows/cmd.exe-Falle: Backtick-git-Aufrufe mit Single-Quotes (z. B. 'v*')
