@@ -1,6 +1,7 @@
 package com.vivid.irlbroadcaster
 
 import com.vivid.core.data.SettingsRepository
+import com.vivid.core.log.LogStore
 import com.vivid.core.remote.StreamControl
 import com.vivid.core.repository.StreamingRepository
 import com.vivid.feature.chat.bot.ChatStreamControl
@@ -33,6 +34,7 @@ class AppChatStreamControl @Inject constructor(
     private val streamingEngine: StreamingEngine,
     private val streamingRepository: StreamingRepository,
     private val settingsRepository: SettingsRepository,
+    private val logStore: LogStore,
 ) : ChatStreamControl {
 
     override suspend fun start() {
@@ -163,6 +165,26 @@ class AppChatStreamControl @Inject constructor(
                     else -> "keine KI konfiguriert → deterministisch (Checkliste/Hinweis)"
                 },
             ),
+            // Crash-Zusammenfassung aus dem tagesbasierten LogStore (gleiche
+            // Vorhaltezeit wie der Log-Screen): ok = keine markierten Abstürze
+            // im Fenster; sonst zählt die Diagnose die 💥-Einträge und verweist
+            // auf den Log-Screen zur Auswertung.
+            run {
+                // Gleiche Vorhaltezeit wie der Log-Screen (1–30 Tage, Default 7);
+                // bewusst lokal geklemmt statt Import aus dem Settings-UI.
+                val retentionDays = settings.logsRetentionDays.coerceIn(1, 30)
+                val crashCount = logStore.load(retentionDays).count { it.isCrash }
+                DiagnosticCheck(
+                    "Crash-Zusammenfassung",
+                    ok = crashCount == 0,
+                    detail = if (crashCount == 0) {
+                        "keine Crashes in den letzten $retentionDays Tagen"
+                    } else {
+                        "$crashCount Crash/Crashes in den letzten $retentionDays Tagen — " +
+                            "Auswertung im Log-Screen (Logs & Diagnose)"
+                    },
+                )
+            },
         )
         return StreamDiagnostics(status = status, obsConnected = obsConnected, checks = checks)
     }

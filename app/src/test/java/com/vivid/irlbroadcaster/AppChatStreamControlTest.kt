@@ -2,6 +2,9 @@ package com.vivid.irlbroadcaster
 
 import com.vivid.core.data.AppSettings
 import com.vivid.core.data.SettingsRepository
+import com.vivid.core.log.LogEntry
+import com.vivid.core.log.LogLevel
+import com.vivid.core.log.LogStore
 import com.vivid.core.remote.StreamControl
 import com.vivid.core.repository.StreamingRepository
 import com.vivid.feature.chat.bot.DiagnosticCheck
@@ -15,10 +18,11 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 
 class AppChatStreamControlTest {
 
-    private fun control(settings: AppSettings): AppChatStreamControl {
+    private fun control(settings: AppSettings, logStore: LogStore = LogStore(File("unused"))): AppChatStreamControl {
         val streamControl = mockk<StreamControl>()
         val engine = mockk<StreamingEngine> {
             every { streamingState } returns MutableStateFlow(StreamingState.Streaming)
@@ -29,7 +33,7 @@ class AppChatStreamControlTest {
         val settingsRepository = mockk<SettingsRepository> {
             every { appSettingsFlow } returns flowOf(settings)
         }
-        return AppChatStreamControl(streamControl, engine, repository, settingsRepository)
+        return AppChatStreamControl(streamControl, engine, repository, settingsRepository, logStore)
     }
 
     private suspend fun whisperCheck(settings: AppSettings): DiagnosticCheck =
@@ -40,6 +44,23 @@ class AppChatStreamControlTest {
 
     private suspend fun alertsCheck(settings: AppSettings): DiagnosticCheck =
         control(settings).diagnostics().checks.first { it.label == "Event-Alerts konfiguriert" }
+
+    private suspend fun crashSummaryCheck(
+        settings: AppSettings,
+        logStore: LogStore,
+    ): DiagnosticCheck =
+        control(settings, logStore).diagnostics().checks.first { it.label == "Crash-Zusammenfassung" }
+
+    private fun newLogStore(name: String): LogStore =
+        LogStore(File.createTempFile("diag", "").parentFile.resolve(name))
+
+    private fun crashEntry(daysAgo: Int) = LogEntry(
+        timestampMillis = System.currentTimeMillis() - daysAgo * 24L * 60 * 60 * 1000,
+        level = LogLevel.ASSERT,
+        tag = "Crash",
+        message = "boom",
+        isCrash = true,
+    )
 
     private val baseSettings = AppSettings(
         chatBotOwnerWhisperReplies = true,
@@ -205,5 +226,57 @@ class AppChatStreamControlTest {
         assertTrue(diagnostics.factSheet().contains("check:Event-Alerts konfiguriert=ok"))
         val missing = control(alertsBaseSettings.copy(chatBotTwitchClientId = "")).diagnostics()
         assertTrue(missing.factSheet().contains("check:Event-Alerts konfiguriert=MISSING"))
+    }
+
+    // ── Crash-Zusammenfassung (LogStore) ─────────────────────────────────────
+
+    @Test
+    fun `crash summary ok when no crashes are recorded`() = runTest {
+        val store = newLogStore("diag_no_crash")
+        store.add(crashEntry(0).copy(isCrash = false))
+        val check = crashSummaryCheck(baseSettings, store)
+        assertTrue(check.detail, check.ok)
+        assertTrue(check.detail, check.detail.contains("keine Crashes"))
+    }
+
+    @Test
+    fun `crash summary counts crashes within the retention window`() = runTest {
+        val store = newLogStore("diag_crashes")
+        store.add(crashEntry(daysAgo = 0))
+        store.add(crashEntry(daysAgo = 1))
+        val check = crashSummaryCheck(baseSettings, store)
+        assertFalse(check.ok)
+        assertTrue(check.detail, check.detail.startsWith("2 Crash/Crashes"))
+        assertTrue(check.detail, check.detail.contains("Auswertung im Log-Screen"))
+    }
+
+    @Test
+    fun `crash summary respects the retention window`() = runTest {
+        val store = newLogStore("diag_window")
+        // Vorhaltezeit 3 Tage: der Crash von vor 10 Tagen zählt nicht mehr.
+        store.add(crashEntry(daysAgo = 10))
+        val check = crashSummaryCheck(baseSettings.copy(logsRetentionDays = 3), store)
+        assertTrue(check.detail, check.ok)
+        assertTrue(check.detail, check.detail.contains("letzten 3 Tagen"))
+    }
+
+    @Test
+    fun `crash summary clamps an invalid retention setting`() = runTest {
+        val store = newLogStore("diag_clamp")
+        store.add(crashEntry(daysAgo = 20))
+        // Retention 0 → geklemmt auf 1 Tag (heute) → alter Crash zählt nicht mehr.
+        val low = crashSummaryCheck(baseSettings.copy(logsRetentionDays = 0), store)
+        assertTrue(low.detail, low.ok)
+        assertTrue(low.detail, low.detail.contains("letzten 1 Tagen"))
+        // Retention 500 → geklemmt auf 30 Tage → Crash von vor 20 Tagen zählt.
+        val high = crashSummaryCheck(baseSettings.copy(logsRetentionDays = 500), store)
+        assertFalse(high.ok)
+        assertTrue(high.detail, high.detail.contains("letzten 30 Tagen"))
+    }
+
+    @Test
+    fun `crash summary is exposed in the fact sheet`() = runTest {
+        val diagnostics = control(baseSettings).diagnostics()
+        assertTrue(diagnostics.factSheet().contains("check:Crash-Zusammenfassung=ok"))
     }
 }
