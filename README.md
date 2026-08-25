@@ -146,7 +146,7 @@ The About-screen check follows the same rules as [RELEASE.md](RELEASE.md): it on
 - 🎨 **Overlays & Widgets** - Follower/donation alerts, custom graphics and branding; text widgets incl. weather, timer/stopwatch, distance, G-force and road/route variables (altitude, GPS and speed are already implemented — see above); further widget types planned: image widget, QR-code widget, battery indicator (with low-battery chat warning), grid overlay for positioning, and speech-to-text subtitles
 - 📹 **High-Quality Streaming** - Up to 4K resolution at 60fps with H.264/AVC and H.265/HEVC
 - 🔒 **Extended Protocols** - SRTLA, RIST, and WHIP (WebRTC) — RTMPS is already implemented (see below); RTMP-Pull/ingest server mode (community request #407); adaptive bitrate for SRT(LA) + per-connection upload statistics
-- 🎬 **Scenes & Video Sources** - ✅ **Basic scenes implemented** — save and switch complete stream configurations (video source, widget state, stream target) incl. a time-based auto scene switcher; screen capture is done ✅, still open: basic video player (S3) as additional stream source (multi-cam)
+- 🎬 **Scenes & Video Sources** - ✅ **Basic scenes implemented** — save and switch complete stream configurations (video source, widget state, stream target) incl. a time-based auto scene switcher; **screen capture ✅ and video player ✅** as additional stream sources (multi-cam) — the full „Screen Capture + Video Player“ bucket is done
 - 🎛️ **Pro Camera Controls** - Manual exposure bias, white balance, ISO and focus; back-camera lens selection (ultra-wide/wide/tele); torch and low-light boost
 - 📼 **Replays** - Record to disk (MP4) while streaming and save/play replays
 - 🖥️ **Externes Display / Streamer-Browser** - Video on an external display (Android Cast / Presentation) and a built-in browser visible only to the streamer (Moblin feature)
@@ -492,7 +492,7 @@ Status: ✅ implemented · 🚧 in progress · 📋 planned
 | Deep Linking (`moblin://`) | 📋 | |
 | Scenes (basic) + Auto Scene Switcher | ✅ | `StreamScene` + `SceneRepository` (persisted, active scene) + `SceneController` (applies source/widget/stream target) + time-based `AutoSceneSwitcher` (interval ≥ 5 s); scene bar in the streaming screen (chips, save, delete, auto toggle — de/en/fr) — open: rule-based switcher, settings section, scene/source widget, live source switching while streaming |
 | Pro Camera Controls + Lens Selection | 📋 | Manual exposure bias, white balance, ISO, focus; ultra-wide/wide/tele selection |
-| Screen Capture + Video Player as source | 📋 | MediaProjection + basic video player as stream source — **S1 source abstraction + S2 screen capture done** (`VideoSourceKind`/`VideoSource`/`VideoSourceRegistry`, RootEncoder `MultiDisplay` + consent flow + source toggle in the streaming screen; video player S3 open) |
+| Screen Capture + Video Player as source | ✅ | MediaProjection + basic video player as stream source — **bucket done**: `VideoSourceKind`/`VideoSource`/`VideoSourceRegistry` (S1), RootEncoder `MultiDisplay` + consent flow + source toggle (S2), RootEncoder `MultiFromFile` + SAF video picker (S3); all three sources switchable in the streaming screen |
 | Record to Disk (MP4) + Replays | 📋 | Record while streaming; save & play replays |
 | Torch / Low-Light Boost | ✅ | Flashlight toggle via RootEncoder lantern API + `!torch` bot command |
 | External Display (Cast / HDMI-out) | 📋 | Video on an external display via Android Cast/Presentation |
