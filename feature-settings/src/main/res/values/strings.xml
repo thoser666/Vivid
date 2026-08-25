@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <!-- ===== Kategorie-Übersicht (SettingsCategories.kt) ===== -->
     <string name="cat_streaming_title">Streaming &amp; OBS</string>
     <string name="cat_streaming_subtitle">Stream-URL/-Key, Plattform-Vorlagen, Multi-Streaming, OBS-Verbindung</string>
@@ -186,11 +186,20 @@
     <string name="chatbot_profanity_excluded_words_desc">Begriffe (kommasepariert), die der Filter ignorieren soll — für False Positives (z. B. englische Wörter wie „ass", „damn").</string>
 
     <!-- ===== Logs & Diagnose (SettingsLogsScreen.kt) ===== -->
-    <string name="logs_redacted_note">Die letzten 500 App-Log-Zeilen. Stream-Schlüssel, Passwörter und Tokens werden automatisch geschwärzt — sensible Daten verlassen das Gerät nie im Klartext.</string>
+    <string name="logs_redacted_note">Die App-Logs der konfigurierten Vorhaltezeit (tägliche Rotation). Stream-Schlüssel, Passwörter und Tokens werden automatisch geschwärzt — sensible Daten verlassen das Gerät nie im Klartext.</string>
     <string name="logs_empty">Noch keine Logs vorhanden — starte einen Stream oder öffne die App, um Einträge zu sammeln.</string>
     <string name="logs_copy">Kopieren</string>
     <string name="logs_share">Teilen</string>
     <string name="logs_copied">Logs kopiert</string>
     <string name="logs_clip_label">Vivid Logs</string>
     <string name="logs_share_subject">Vivid App-Logs</string>
+    <string name="logs_retention_title">Vorhaltezeit (Tage)</string>
+    <string name="logs_retention_days_unit">Tage</string>
+    <string name="logs_retention_hint">Logs wechseln täglich; ältere Einträge werden nach dieser Zeit gelöscht.</string>
+    <string name="logs_filter_all">Alle</string>
+    <string name="logs_filter_errors">Fehler &amp; Crashes</string>
+    <string name="logs_crash_badge">CRASH</string>
+    <string name="logs_crash_summary" tools:ignore="PluralsCandidate">%1$d Crashes in den letzten %2$d Tagen</string>
+    <string name="logs_today">Heute</string>
+    <string name="logs_yesterday">Gestern</string>
 </resources>

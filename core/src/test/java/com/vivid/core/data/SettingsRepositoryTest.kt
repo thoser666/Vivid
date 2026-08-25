@@ -552,4 +552,52 @@ class SettingsRepositoryTest {
         assertEquals(ThemeMode.SYSTEM, settings.themeMode)
         assertEquals(AccentColor.VIVID_GREEN, settings.themeAccent)
     }
+
+    @Test
+    fun `appSettingsFlow should default log retention to 7 days`() = runTest {
+        val testDataStore = PreferenceDataStoreFactory.create(
+            scope = this,
+            produceFile = { File(tempDir.toFile(), "test_logs_default.preferences_pb") }
+        )
+
+        val settings = SettingsRepository(testDataStore).appSettingsFlow.first()
+
+        assertEquals(7, settings.logsRetentionDays)
+    }
+
+    @Test
+    fun `updateLogsRetentionDays persists the value`() = runTest {
+        val testDataStore = PreferenceDataStoreFactory.create(
+            scope = this,
+            produceFile = { File(tempDir.toFile(), "test_logs_update.preferences_pb") }
+        )
+        val repository = SettingsRepository(testDataStore)
+
+        repository.updateLogsRetentionDays(14)
+        assertEquals(14, repository.appSettingsFlow.first().logsRetentionDays)
+    }
+
+    @Test
+    fun `updateLogsRetentionDays clamps values above 30`() = runTest {
+        val testDataStore = PreferenceDataStoreFactory.create(
+            scope = this,
+            produceFile = { File(tempDir.toFile(), "test_logs_clamp_high.preferences_pb") }
+        )
+        val repository = SettingsRepository(testDataStore)
+
+        repository.updateLogsRetentionDays(99)
+        assertEquals(30, repository.appSettingsFlow.first().logsRetentionDays)
+    }
+
+    @Test
+    fun `updateLogsRetentionDays clamps values below 1`() = runTest {
+        val testDataStore = PreferenceDataStoreFactory.create(
+            scope = this,
+            produceFile = { File(tempDir.toFile(), "test_logs_clamp_low.preferences_pb") }
+        )
+        val repository = SettingsRepository(testDataStore)
+
+        repository.updateLogsRetentionDays(0)
+        assertEquals(1, repository.appSettingsFlow.first().logsRetentionDays)
+    }
 }

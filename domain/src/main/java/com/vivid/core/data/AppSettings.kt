@@ -109,4 +109,8 @@ data class AppSettings(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     // Kuratierte Akzentfarbe (Standard: Vivid-Grün — unverändert gegenüber Stufe 1).
     val themeAccent: AccentColor = AccentColor.VIVID_GREEN,
+    // --- In-App-Logs ---
+    // Vorhaltezeit der täglichen Log-Rotation in Tagen (1–30, Default 7):
+    // Logs wechseln täglich, ältere Tage werden beim Laden/Prune gelöscht.
+    val logsRetentionDays: Int = 7,
 )

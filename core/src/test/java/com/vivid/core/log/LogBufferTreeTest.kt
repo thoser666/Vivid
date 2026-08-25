@@ -66,4 +66,47 @@ class LogBufferTreeTest {
         // Timber hängt den Stacktrace an die Message an — nur der Anfang ist die Meldung.
         assertTrue(entry.message.startsWith("boom"))
     }
+
+    @Test
+    fun `crash markiert den Eintrag als Absturz`() {
+        val buffer = LogBuffer()
+        val tree = LogBufferTree(buffer)
+
+        tree.crash("Vivid", RuntimeException("absturz"))
+
+        val entry = buffer.snapshot().single()
+        assertTrue(entry.isCrash)
+        assertEquals(LogLevel.ASSERT, entry.level)
+        assertTrue(entry.message.contains("absturz"))
+    }
+
+    @Test
+    fun `crash schwaerzt sensible Werte im Stacktrace`() {
+        val buffer = LogBuffer()
+        val tree = LogBufferTree(buffer)
+
+        tree.crash("Vivid", RuntimeException("key=0123456789abcdef0123456789abcdef"))
+
+        val message = buffer.snapshot().single().message
+        assertFalse(message.contains("0123456789abcdef"))
+        assertTrue(message.contains("key=***"))
+    }
+
+    @Test
+    fun `log persistiert in den Store wenn hinterlegt`() {
+        val dir = java.nio.file.Files.createTempDirectory("logtree").toFile()
+        try {
+            val store = LogStore(dir)
+            val buffer = LogBuffer()
+            val tree = LogBufferTree(buffer, store = store)
+
+            tree.crash("Vivid", RuntimeException("boom"))
+
+            val loaded = store.load(retentionDays = 7)
+            assertEquals(1, loaded.size)
+            assertTrue(loaded.single().isCrash)
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
 }

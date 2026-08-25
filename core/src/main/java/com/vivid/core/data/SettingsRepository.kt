@@ -63,6 +63,7 @@ class SettingsRepository @Inject constructor(
         val SENTRY_ENABLED = booleanPreferencesKey("sentry_enabled")
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val THEME_ACCENT = stringPreferencesKey("theme_accent")
+        val LOGS_RETENTION_DAYS = intPreferencesKey("logs_retention_days")
     }
 
     // WICHTIG: Dies ist jetzt der EINZIGE Flow, den das ViewModel braucht.
@@ -202,11 +203,14 @@ class SettingsRepository @Inject constructor(
         },
         // 7. Flow: Sentry-Opt-out (Datenschutz) — Default: an
         dataStore.data.map { prefs -> prefs[PrefKeys.SENTRY_ENABLED] ?: true },
-    ) { settings, themeData, sentryEnabled ->
+        // 8. Flow: In-App-Log-Vorhaltezeit (Tage)
+        dataStore.data.map { prefs -> prefs[PrefKeys.LOGS_RETENTION_DAYS] ?: 7 },
+    ) { settings, themeData, sentryEnabled, logsRetentionDays ->
         settings.copy(
             sentryEnabled = sentryEnabled,
             themeMode = themeData.mode,
             themeAccent = themeData.accent,
+            logsRetentionDays = logsRetentionDays,
         )
     }
 
@@ -406,6 +410,13 @@ class SettingsRepository @Inject constructor(
     suspend fun updateWidgetTemplate(template: String) {
         dataStore.edit { prefs ->
             prefs[PrefKeys.WIDGET_TEMPLATE] = template
+        }
+    }
+
+    /** Vorhaltezeit der täglichen Log-Rotation speichern (1–30 Tage, Default 7). */
+    suspend fun updateLogsRetentionDays(days: Int) {
+        dataStore.edit { prefs ->
+            prefs[PrefKeys.LOGS_RETENTION_DAYS] = days.coerceIn(1, 30)
         }
     }
 

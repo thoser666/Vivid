@@ -9,12 +9,14 @@ import coil.request.ImageRequest
 import com.vivid.core.data.SettingsRepository
 import com.vivid.core.log.LogBuffer
 import com.vivid.core.log.LogBufferTree
+import com.vivid.core.log.LogStore
 import com.vivid.core.remote.RemoteControlServer
 import dagger.hilt.android.HiltAndroidApp
 import io.sentry.android.core.SentryAndroid
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
@@ -30,6 +32,9 @@ class VividApplication : Application(), ImageLoaderFactory {
 
     @Inject
     lateinit var logBuffer: LogBuffer
+
+    @Inject
+    lateinit var logStore: LogStore
 
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -56,11 +61,25 @@ class VividApplication : Application(), ImageLoaderFactory {
         super.onCreate()
         // In-App-Log: Timber-Trees pflanzen, damit die vorhandenen Timber.*-Aufrufe
         // erstmals wirksam werden. DebugTree schreibt in Debug-Builds nach Logcat,
-        // LogBufferTree hält die letzten 500 Zeilen (geschwärzt) für den In-App-Viewer.
+        // LogBufferTree hält die letzten 500 Zeilen (geschwärzt) für den In-App-Viewer
+        // und persistiert sie zusätzlich in die täglichen Log-Dateien (Rotation + Vorhaltezeit).
         if (BuildConfig.DEBUG) {
             Timber.plant(Timber.DebugTree())
         }
-        Timber.plant(LogBufferTree(logBuffer))
+        val logBufferTree = LogBufferTree(logBuffer, store = logStore)
+        Timber.plant(logBufferTree)
+        // Abstürze deutlich markiert ins In-App-Log schreiben (isCrash), bevor der
+        // vorherige Handler (Sentry) den Crash übernimmt — so bleiben sie auswertbar.
+        val previousHandler = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+            runCatching { logBufferTree.crash("Vivid", throwable) }
+            previousHandler?.uncaughtException(thread, throwable)
+        }
+        // Alte Log-Dateien gemäß Vorhaltezeit aufräumen (beim App-Start).
+        applicationScope.launch {
+            val retention = settingsRepository.appSettingsFlow.first().logsRetentionDays
+            logStore.prune(retention)
+        }
         // Sentry explizit initialisieren (Auto-Init im Manifest deaktiviert):
         //  - sendDefaultPii=false → keine IP-/Gerätename-Erhebung
         //  - beforeSend → verwirft alle Events, wenn der Nutzer das

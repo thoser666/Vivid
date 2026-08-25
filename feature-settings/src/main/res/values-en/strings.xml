@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <!-- ===== Category overview (SettingsCategories.kt) ===== -->
     <string name="cat_streaming_title">Streaming &amp; OBS</string>
     <string name="cat_streaming_subtitle">Stream URL/key, platform presets, multi-streaming, OBS connection</string>
@@ -186,11 +186,20 @@
     <string name="preset_strict">Strict</string>
 
     <!-- ===== Logs & Diagnostics (SettingsLogsScreen.kt) ===== -->
-    <string name="logs_redacted_note">The last 500 app log lines. Stream keys, passwords and tokens are automatically redacted — sensitive data never leaves the device in plain text.</string>
+    <string name="logs_redacted_note">The app logs of the configured retention period (daily rotation). Stream keys, passwords and tokens are automatically redacted — sensitive data never leaves the device in plain text.</string>
     <string name="logs_empty">No logs yet — start a stream or use the app to collect entries.</string>
     <string name="logs_copy">Copy</string>
     <string name="logs_share">Share</string>
     <string name="logs_copied">Logs copied</string>
     <string name="logs_clip_label">Vivid Logs</string>
     <string name="logs_share_subject">Vivid app logs</string>
+    <string name="logs_retention_title">Retention (days)</string>
+    <string name="logs_retention_days_unit">days</string>
+    <string name="logs_retention_hint">Logs rotate daily; older entries are deleted after this period.</string>
+    <string name="logs_filter_all">All</string>
+    <string name="logs_filter_errors">Errors &amp; crashes</string>
+    <string name="logs_crash_badge">CRASH</string>
+    <string name="logs_crash_summary" tools:ignore="PluralsCandidate">%1$d crashes in the last %2$d days</string>
+    <string name="logs_today">Today</string>
+    <string name="logs_yesterday">Yesterday</string>
 </resources>
