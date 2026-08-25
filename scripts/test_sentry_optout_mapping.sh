@@ -5,14 +5,18 @@
 #
 # Getestet wird:
 #   T1  Stub mit echter Inline-Struktur    -> Exit 0 (Opt-out-Logik nachgewiesen)
-#   T2  Mapping fehlt                      -> Exit 1 (C1)
+#   T2  Mapping fehlt, expliziter Pfad     -> Exit 1 (C1, streng)
 #   T3  Fabrik-Record fehlt                -> Exit 1 (C3)
 #   T4  Lambda-Record fehlt                -> Exit 1 (C4)
-#   T5  Lambda ohne SentryClient-Range-Bezug -> Exit 1 (C5)
+#   T5  Lambda hat keinen SentryClient-Range-Bezug  -> Exit 1 (C5)
 #   T6  Fassade nicht REMOVED              -> Exit 1 (C6)
 #   T7  Mapping veraltet (älter als Quelle)-> Exit 1 (C2)
 #   T8  Zwei Mappings (release+playRelease, beide ok) -> Exit 0
-#   T9  Zwei Mappings, eines fehlt         -> Exit 1
+#   T9  Zwei Mappings, eines fehlt (explizit) -> Exit 1 (streng)
+#   T10 Default-Modus, beide Kanäle vorhanden   -> Exit 0
+#   T11 Default-Modus, playRelease fehlt        -> Exit 0 + Warnung „nicht gebaut“ (weich)
+#   T12 Default-Modus, beide Kanäle fehlen      -> Exit 0 + Warnung „nicht gebaut“ (weich)
+#   T13 --strict, Kanal fehlt                   -> Exit 1 (hart)
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}" )" && pwd)"
@@ -124,16 +128,72 @@ else
   exit 1
 fi
 
-# T9: Zwei Mappings, eines fehlt -> Exit 1 (Multi-Mapping-Modus)
+# T9: Zwei Mappings, eines fehlt (explizite Pfade = streng) -> Exit 1
 set +e
 bash "$CHECK" "$M_REL" "$SANDBOX/playRelease-fehlt.txt" >/dev/null 2>&1
 RC_DUAL_MISSING=$?
 set -e
 if [[ "$RC_DUAL_MISSING" != "0" ]]; then
-  echo "✅ T9  Zwei Mappings, eines fehlt (Exit $RC_DUAL_MISSING)"
+  echo "✅ T9  Zwei Mappings, eines fehlt (explizit, Exit $RC_DUAL_MISSING)"
   PASS=$((PASS + 1))
 else
-  echo "❌ FAIL: T9 (Check lief mit Exit 0, obwohl ein Mapping fehlt)"
+  echo "❌ FAIL: T9 (Check lief mit Exit 0, obwohl ein explizites Mapping fehlt)"
+  exit 1
+fi
+
+# T10: Default-Modus (keine Argumente), beide Kanäle vorhanden -> Exit 0
+M_DEF_REL="$SANDBOX/def-release.txt"
+M_DEF_PLAY="$SANDBOX/def-playRelease.txt"
+stub_mapping > "$M_DEF_REL"
+stub_mapping > "$M_DEF_PLAY"
+set +e
+MAPPING_RELEASE="$M_DEF_REL" MAPPING_PLAYRELEASE="$M_DEF_PLAY" bash "$CHECK" >/dev/null 2>&1
+RC_DEF_OK=$?
+set -e
+if [[ "$RC_DEF_OK" == "0" ]]; then
+  echo "✅ T10 Default-Modus, beide Kanäle vorhanden (Exit 0)"
+  PASS=$((PASS + 1))
+else
+  echo "❌ FAIL: T10 (Default-Modus lief mit Exit $RC_DEF_OK, obwohl beide Mappings ok sind)"
+  exit 1
+fi
+
+# T11: Default-Modus, playRelease fehlt -> Exit 0 + „nicht gebaut“-Warnung (weich!)
+set +e
+OUT_DEF_MISSING="$(MAPPING_RELEASE="$M_DEF_REL" MAPPING_PLAYRELEASE="$SANDBOX/playRelease-fehlt.txt" bash "$CHECK" 2>&1)"
+RC_DEF_MISSING=$?
+set -e
+if [[ "$RC_DEF_MISSING" == "0" ]] && grep -q "nicht gebaut" <<<"$OUT_DEF_MISSING"; then
+  echo "✅ T11 Default-Modus, playRelease fehlt -> Exit 0 + Warnung „nicht gebaut“"
+  PASS=$((PASS + 1))
+else
+  echo "❌ FAIL: T11 (Exit $RC_DEF_MISSING, Ausgabe: $(echo "$OUT_DEF_MISSING" | tail -1))"
+  exit 1
+fi
+
+# T12: Default-Modus, beide Kanäle fehlen -> Exit 0 + Warnung (nichts gebaut)
+set +e
+OUT_DEF_BOTH="$(MAPPING_RELEASE="$SANDBOX/rel-fehlt.txt" MAPPING_PLAYRELEASE="$SANDBOX/play-fehlt.txt" bash "$CHECK" 2>&1)"
+RC_DEF_BOTH=$?
+set -e
+if [[ "$RC_DEF_BOTH" == "0" ]] && grep -q "nicht gebaut" <<<"$OUT_DEF_BOTH"; then
+  echo "✅ T12 Default-Modus, beide Kanäle fehlen -> Exit 0 + Warnung"
+  PASS=$((PASS + 1))
+else
+  echo "❌ FAIL: T12 (Exit $RC_DEF_BOTH, Ausgabe: $(echo "$OUT_DEF_BOTH" | tail -1))"
+  exit 1
+fi
+
+# T13: --strict, ein Kanal fehlt -> Exit 1 (hart)
+set +e
+MAPPING_RELEASE="$M_DEF_REL" MAPPING_PLAYRELEASE="$SANDBOX/play-fehlt.txt" bash "$CHECK" --strict >/dev/null 2>&1
+RC_STRICT=$?
+set -e
+if [[ "$RC_STRICT" != "0" ]]; then
+  echo "✅ T13 --strict, Kanal fehlt -> Exit $RC_STRICT (hart)"
+  PASS=$((PASS + 1))
+else
+  echo "❌ FAIL: T13 (--strict lief mit Exit 0, obwohl ein Kanal fehlt)"
   exit 1
 fi
 

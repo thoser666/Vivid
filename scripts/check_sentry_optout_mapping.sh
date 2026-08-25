@@ -24,9 +24,22 @@
 #       Beweis, dass vollständig inlined (nicht nur umbenannt) wurde
 #
 # Aufruf:
-#   bash scripts/check_sentry_optout_mapping.sh                  # release + playRelease (Default)
+#   bash scripts/check_sentry_optout_mapping.sh                  # Default: release + playRelease
 #   bash scripts/check_sentry_optout_mapping.sh <pfad> [<pfad>…] # nur die genannten Mappings
-# Exit-Code 0 = Opt-out-Logik in ALLEN geprüften Mappings nachgewiesen; 1 = mind. ein Nachweis fehlgeschlagen.
+#   bash scripts/check_sentry_optout_mapping.sh --strict         # fehlendes Mapping = harter Fehler
+#
+# Unterscheidung „Kanal nicht gebaut“ vs. „Nachweis fehlgeschlagen“:
+#   - Default (ohne Argumente): Ein fehlendes Mapping (Kanal nie gebaut) ist KEIN
+#     harter Fehler — die vorhandenen Kanäle werden geprüft, der fehlende wird mit
+#     „⚠️ nicht gebaut“ übersprungen (Exit 0, solange alle vorhandenen grün sind).
+#   - Streng (--strict oder explizite Pfad-Argumente): Der Aufrufer fordert den
+#     Kanal explizit an — fehlendes Mapping ist ein harter Fehler (Exit 1).
+#   - „Nachweis fehlgeschlagen“ (Mapping vorhanden, aber C2–C6 scheitern) ist
+#     IMMER ein harter Fehler — unabhängig vom Modus.
+# Die Default-Pfade sind per Env überschreibbar (MAPPING_RELEASE/MAPPING_PLAYRELEASE),
+# damit die Default-Semantik offline gegen Sandbox-Dateien getestet werden kann.
+# Exit-Code 0 = alle vorhandenen Mappings nachgewiesen (fehlende übersprungen);
+#             1 = mind. ein Nachweis fehlgeschlagen bzw. (streng) Kanal nicht gebaut.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -39,11 +52,17 @@ check_one() {
   local MAPPING="$1"
   local rc=0
 
-  # C1: Mapping vorhanden?
-  [[ -f "$MAPPING" ]] || {
-    echo "❌ [mapping] ($MAPPING) Kein Mapping — zuerst Release-Build ausführen (PRE_PUSH_RELEASE=1 git push bzw. ./gradlew assembleRelease / bundlePlayRelease)."
-    return 1
-  }
+  # C1: Mapping vorhanden? — unterscheidet „Kanal nicht gebaut“ (weich, Default)
+  # von „Nachweis fehlgeschlagen“ (hart). Streng nur mit --strict/expliziten Pfaden.
+  if [[ ! -f "$MAPPING" ]]; then
+    if [[ "$STRICT" == "1" ]]; then
+      echo "❌ [mapping] ($MAPPING) Kanal NICHT GEBAUT — kein Mapping vorhanden (Release-Build ausführen: ./gradlew assembleRelease bundlePlayRelease bzw. :app:minifyReleaseWithR8 :app:minifyPlayReleaseWithR8)."
+      return 1
+    fi
+    echo "⚠️ [mapping] ($MAPPING) Kanal nicht gebaut — Nachweis übersprungen (Release-Build ist optional; vollständiger Nachweis: PRE_PUSH_RELEASE=1 git push)."
+    MISSING_COUNT=$((MISSING_COUNT + 1))
+    return 0
+  fi
 
   # C2: Mapping nicht älter als die Opt-out-Quellen?
   if [[ -f "$SRC_OPTOUT" && "$MAPPING" -ot "$SRC_OPTOUT" ]] || \
@@ -88,13 +107,28 @@ check_one() {
   return 0
 }
 
-# Default: BEIDE Release-Kanäle. Explizite Pfade: nur die genannten.
+# Modus: Default (weich) vs. streng (--strict bzw. explizite Pfade).
+STRICT=0
+MISSING_COUNT=0
 if [[ $# -ge 1 ]]; then
-  MAPPINGS=("$@")
+  MAPPINGS=()
+  for arg in "$@"; do
+    if [[ "$arg" == "--strict" ]]; then
+      STRICT=1
+    else
+      MAPPINGS+=("$arg")
+    fi
+  done
+  # Explizit genannte Kanäle: Der Aufrufer fordert sie an — fehlend = hart.
+  STRICT=1
 else
+  MAPPINGS=()
+fi
+if [[ ${#MAPPINGS[@]} -eq 0 ]]; then
+  # Default: BEIDE Release-Kanäle (Pfade per Env überschreibbar für Tests).
   MAPPINGS=(
-    "app/build/outputs/mapping/release/mapping.txt"       # release — APK
-    "app/build/outputs/mapping/playRelease/mapping.txt"   # playRelease — AAB
+    "${MAPPING_RELEASE:-app/build/outputs/mapping/release/mapping.txt}"       # release — APK
+    "${MAPPING_PLAYRELEASE:-app/build/outputs/mapping/playRelease/mapping.txt}"   # playRelease — AAB
   )
 fi
 
@@ -104,8 +138,12 @@ for M in "${MAPPINGS[@]}"; do
 done
 
 if [[ "$RC" == "0" ]]; then
-  echo "✅ [mapping] Alle ${#MAPPINGS[@]} Release-Kanäle: Opt-out-Logik nachgewiesen."
+  if [[ "$MISSING_COUNT" -gt 0 ]]; then
+    echo "✅ [mapping] Alle $(( ${#MAPPINGS[@]} - MISSING_COUNT )) gebauten Kanäle: Opt-out-Logik nachgewiesen; $MISSING_COUNT Kanal/Kanäle nicht gebaut (übersprungen)."
+  else
+    echo "✅ [mapping] Alle ${#MAPPINGS[@]} Release-Kanäle: Opt-out-Logik nachgewiesen."
+  fi
 else
-  echo "❌ [mapping] Mindestens ein Release-Kanal ohne Nachweis — siehe oben."
+  echo "❌ [mapping] Mindestens ein Kanal ohne Nachweis — siehe oben."
 fi
 exit "$RC"

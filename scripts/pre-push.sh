@@ -13,6 +13,9 @@
 # Der Mapping-Check (check_sentry_optout_mapping.sh) läuft automatisch, wenn ein
 # frisches Release-Mapping vorliegt (nach PRE_PUSH_RELEASE=1 garantiert) und
 # weist nach, dass die Sentry-Opt-out-Logik im R8-Release-Build enthalten ist.
+# Semantik: Ohne Release-Build weich — fehlende Kanäle meldet der Check selbst
+# als „nicht gebaut“ (übersprungen), nur echte Nachweis-Fehlschläge sind rot.
+# Nach PRE_PUSH_RELEASE=1 streng (--strict): beide Mappings müssen existieren.
 #
 # Die Release-Builds (assembleRelease + bundlePlayRelease) sind OPTIONAL: sie
 # laufen R8/ProGuard + Resource-Shrinking und fangen so Signatur-/ProGuard-
@@ -85,15 +88,18 @@ run bash scripts/test_roadmap_reservation.sh
 
 echo "▶ [pre-push] Sentry-Opt-out-Mapping-Check (scripts/check_sentry_optout_mapping.sh)"
 if [[ "${PRE_PUSH_RELEASE:-0}" == "1" ]]; then
-  run bash scripts/check_sentry_optout_mapping.sh
+  # Nach PRE_PUSH_RELEASE=1 sind BEIDE Mappings garantiert gebaut → streng:
+  # fehlendes Mapping = harter Fehler (kein stilles Überspringen).
+  run bash scripts/check_sentry_optout_mapping.sh --strict
 else
+  # Ohne Release-Build weich: fehlende Kanäle meldet der Check als „nicht gebaut“
+  # (übersprungen); Exit 1 hier = echter Nachweis-Fehlschlag auf vorhandenem Mapping.
   if [[ "$DRY_RUN" == "1" ]]; then
     echo "   [dry-run] bash scripts/check_sentry_optout_mapping.sh"
   elif bash scripts/check_sentry_optout_mapping.sh; then
     :
   else
-    echo "   ⚠️  Kein frisches Release-Mapping — Opt-out-Nachweis übersprungen."
-    echo "      Für den vollständigen Nachweis: PRE_PUSH_RELEASE=1 git push"
+    echo "   ⚠️  Mapping-Nachweis fehlgeschlagen — Release-Build erneut ausführen (PRE_PUSH_RELEASE=1 bash scripts/pre-push.sh)."
   fi
 fi
 
