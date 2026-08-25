@@ -25,12 +25,10 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 
-// Wiederverwendete Test-Nachrichten als Konstanten (DeepSource KT-5000: keine
-// mehrfach wiederholten String-Literale innerhalb einer Datei).
+// Wiederverwendete Test-Nachrichten als Konstanten (DeepSource KT-W1042:
+// keine mehrfach wiederholten String-Literale innerhalb einer Datei).
 private const val MSG_HISTORY = "historie"
 private const val MSG_LIVE = "live"
-private const val MSG_CRASH = "absturz"
-private const val MSG_ERROR = "fehler"
 
 /**
  * Testet das Log-ViewModel: Kombination aus Live-Puffer und persistierter
@@ -94,8 +92,8 @@ class SettingsLogsViewModelTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val buffer = LogBuffer()
         buffer.add(entry("normal"))
-        buffer.add(entry(MSG_CRASH, isCrash = true))
-        buffer.add(entry(MSG_ERROR, level = LogLevel.ERROR))
+        buffer.add(entry("crash-flag", isCrash = true))
+        buffer.add(entry("error-flag", level = LogLevel.ERROR))
 
         val viewModel = createViewModel(buffer, LogStore(File("unused")))
         advanceUntilIdle()
@@ -109,8 +107,8 @@ class SettingsLogsViewModelTest {
         val buffer = LogBuffer()
         buffer.add(entry("info"))
         buffer.add(entry("warn", level = LogLevel.WARN))
-        buffer.add(entry(MSG_ERROR, level = LogLevel.ERROR))
-        buffer.add(entry(MSG_CRASH, isCrash = true))
+        buffer.add(entry("error-level", level = LogLevel.ERROR))
+        buffer.add(entry("crash-markiert", isCrash = true))
 
         val viewModel = createViewModel(buffer, LogStore(File("unused")))
         advanceUntilIdle()
@@ -118,7 +116,7 @@ class SettingsLogsViewModelTest {
         advanceUntilIdle()
 
         val messages = viewModel.uiState.value.entries.map { it.message }
-        assertEquals(setOf(MSG_ERROR, MSG_CRASH), messages.toSet())
+        assertEquals(setOf("error-level", "crash-markiert"), messages.toSet())
         assertTrue(viewModel.uiState.value.errorsOnly)
     }
 

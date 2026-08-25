@@ -27,12 +27,12 @@ private const val PATH_LOGS = "/logs"
 private const val MSG_TODAY = "today-entry"
 private const val MSG_OLD = "old-entry"
 
-/** Authorization-Header mit gültigem Token (KT-5000: kein doppeltes Literal). */
+/** Authorization-Header mit gültigem Token (KT-W1042: kein doppeltes Literal). */
 private fun io.ktor.client.request.HttpRequestBuilder.auth() {
     header(HttpHeaders.Authorization, "Bearer $TOKEN")
 }
 
-/** Authorization-Header mit falschem Token. */
+/** Authorization-Header mit falschem Token (nur ein Vorkommen des Templates). */
 private fun io.ktor.client.request.HttpRequestBuilder.badAuth() {
     header(HttpHeaders.Authorization, "Bearer $WRONG_TOKEN")
 }
@@ -192,7 +192,7 @@ class RemoteControlServerTest {
             remoteControlModule(FakeStreamControl(), TOKEN, store)
         }
         val response = client.get(PATH_LOGS) {
-            header(HttpHeaders.Authorization, "Bearer $TOKEN")
+            auth()
         }
         val body = response.bodyAsText()
         assertTrue(body.contains(MSG_TODAY))
@@ -208,7 +208,7 @@ class RemoteControlServerTest {
             remoteControlModule(FakeStreamControl(), TOKEN, store)
         }
         val response = client.get("$PATH_LOGS?days=7") {
-            header(HttpHeaders.Authorization, "Bearer $TOKEN")
+            auth()
         }
         val body = response.bodyAsText()
         assertTrue(body.contains("\"days\":7"))
@@ -224,7 +224,7 @@ class RemoteControlServerTest {
             remoteControlModule(FakeStreamControl(), TOKEN, store)
         }
         val response = client.get("$PATH_LOGS?days=5000") {
-            header(HttpHeaders.Authorization, "Bearer $TOKEN")
+            auth()
         }
         assertEquals(HttpStatusCode.OK, response.status)
         assertTrue(response.bodyAsText().contains("\"days\":${RemoteControlServer.MAX_LOG_DAYS}"))
@@ -239,7 +239,7 @@ class RemoteControlServerTest {
         }
         listOf("?days=abc", "?days=-5").forEach { query ->
             val response = client.get("$PATH_LOGS$query") {
-                header(HttpHeaders.Authorization, "Bearer $TOKEN")
+                auth()
             }
             assertEquals(HttpStatusCode.OK, response.status, "query=$query")
             assertTrue(
