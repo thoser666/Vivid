@@ -1,5 +1,6 @@
 package com.vivid.core.remote
 
+import com.vivid.core.log.LogStore
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
@@ -32,18 +33,44 @@ data class RemoteActionResponse(
     val ok: Boolean,
 )
 
+/** Ein einzelner Log-Eintrag in der `GET /logs`-Antwort (bereits geschwärzt). */
+@Serializable
+data class RemoteLogEntry(
+    val timestampMillis: Long,
+    val level: String,
+    val tag: String,
+    val message: String,
+    val isCrash: Boolean,
+)
+
+/** Antwort für `GET /logs?days=N`. */
+@Serializable
+data class RemoteLogsResponse(
+    /** Angefragter (geclampter) Zeitraum in Tagen. */
+    val days: Int,
+    /** Anzahl der gelieferten Einträge. */
+    val count: Int,
+    val entries: List<RemoteLogEntry>,
+)
+
 /**
  * Startet die Web-Remote-Control über LAN.
  *
- * Endpunkte (alle mit `Authorization: Bearer <token>` für Aktionen):
- *  - `GET  /status`   → aktueller Stream-Status als JSON
- *  - `POST /start`    → Stream mit gespeicherten Einstellungen starten
- *  - `POST /stop`     → Stream stoppen
+ * Endpunkte (`Authorization: Bearer <token>` für Aktionen und Logs):
+ *  - `GET  /status`          → aktueller Stream-Status als JSON
+ *  - `POST /start`           → Stream mit gespeicherten Einstellungen starten
+ *  - `POST /stop`            → Stream stoppen
+ *  - `GET  /logs?days=N`     → Log-Tage aus dem [LogStore] als JSON
+ *
+ * `/logs` liefert ausschließlich die bereits durch den [com.vivid.core.log.LogRedactor]
+ * geschwärzten Einträge des tagesbasierten [LogStore] — Stream-Keys, Tokens und
+ * Passwörter verlassen das Gerät also auch über diesen Endpunkt nie im Klartext.
  */
 @Singleton
 class RemoteControlServer @Inject constructor(
     private val streamControl: StreamControl,
     private val tokenStore: RemoteControlTokenStore,
+    private val logStore: LogStore,
 ) {
     private var server: EmbeddedServer<*, *>? = null
 
@@ -61,7 +88,7 @@ class RemoteControlServer @Inject constructor(
             port = port,
             host = "0.0.0.0",
         ) {
-            remoteControlModule(streamControl, token)
+            remoteControlModule(streamControl, token, logStore)
         }
         newServer.start(wait = false)
         server = newServer
@@ -75,6 +102,15 @@ class RemoteControlServer @Inject constructor(
 
     companion object {
         const val DEFAULT_PORT = 8080
+
+        /** Default-Zeitraum für `/logs`, wenn kein/ungültiger `days`-Parameter kommt. */
+        const val DEFAULT_LOG_DAYS = 1
+
+        /** Untere Grenze für `days` (heute). */
+        const val MIN_LOG_DAYS = 1
+
+        /** Obere Grenze für `days` — deckt die maximale Vorhaltezeit (30 Tage) ab. */
+        const val MAX_LOG_DAYS = 30
     }
 }
 
@@ -85,6 +121,7 @@ class RemoteControlServer @Inject constructor(
 fun Application.remoteControlModule(
     streamControl: StreamControl,
     token: String,
+    logStore: LogStore,
 ) {
     install(ContentNegotiation) {
         json(Json { encodeDefaults = true })
@@ -108,6 +145,28 @@ fun Application.remoteControlModule(
             }
             streamControl.stop()
             call.respond(RemoteActionResponse(ok = true))
+        }
+        get("/logs") {
+            if (!call.isAuthorized(token)) {
+                call.respond(HttpStatusCode.Unauthorized)
+                return@get
+            }
+            val days = call.request.queryParameters["days"]?.toIntOrNull()
+                ?: RemoteControlServer.DEFAULT_LOG_DAYS
+            val clamped = days.coerceIn(
+                RemoteControlServer.MIN_LOG_DAYS,
+                RemoteControlServer.MAX_LOG_DAYS,
+            )
+            val entries = logStore.load(clamped).map { entry ->
+                RemoteLogEntry(
+                    timestampMillis = entry.timestampMillis,
+                    level = entry.level.name,
+                    tag = entry.tag,
+                    message = entry.message,
+                    isCrash = entry.isCrash,
+                )
+            }
+            call.respond(RemoteLogsResponse(days = clamped, count = entries.size, entries = entries))
         }
     }
 }
