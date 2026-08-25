@@ -3,6 +3,7 @@ package com.vivid.feature.settings.ui
 import com.vivid.feature.settings.R
 import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Palette
@@ -67,6 +68,12 @@ object SettingsCategories {
             subtitleRes = R.string.cat_about_subtitle,
             icon = Icons.Filled.Info,
             route = "settings_about",
+        ),
+        SettingsCategory(
+            titleRes = R.string.cat_logs_title,
+            subtitleRes = R.string.cat_logs_subtitle,
+            icon = Icons.Filled.BugReport,
+            route = "settings_logs",
         ),
     )
 }

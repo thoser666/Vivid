@@ -13,6 +13,8 @@
     <string name="cat_remote_subtitle">Web-Remote-Control (LAN), Sentry-Fehlerberichte</string>
     <string name="cat_about_title">Über &amp; Updates</string>
     <string name="cat_about_subtitle">Version, Update-Badge, Release-Info</string>
+    <string name="cat_logs_title">Logs &amp; Diagnose</string>
+    <string name="cat_logs_subtitle">App-Logs ansehen, kopieren, teilen — Schlüssel &amp; Tokens sind geschwärzt</string>
 
     <!-- ===== Übersichts-Screen (SettingsScreen.kt) ===== -->
     <string name="settings_title">Einstellungen</string>
@@ -182,4 +184,13 @@
     <string name="chatbot_profanity_excluded_words">Ausgeschlossene Begriffe</string>
     <string name="chatbot_profanity_excluded_words_hint">z.B. butt, mass, classes</string>
     <string name="chatbot_profanity_excluded_words_desc">Begriffe (kommasepariert), die der Filter ignorieren soll — für False Positives (z. B. englische Wörter wie „ass", „damn").</string>
+
+    <!-- ===== Logs & Diagnose (SettingsLogsScreen.kt) ===== -->
+    <string name="logs_redacted_note">Die letzten 500 App-Log-Zeilen. Stream-Schlüssel, Passwörter und Tokens werden automatisch geschwärzt — sensible Daten verlassen das Gerät nie im Klartext.</string>
+    <string name="logs_empty">Noch keine Logs vorhanden — starte einen Stream oder öffne die App, um Einträge zu sammeln.</string>
+    <string name="logs_copy">Kopieren</string>
+    <string name="logs_share">Teilen</string>
+    <string name="logs_copied">Logs kopiert</string>
+    <string name="logs_clip_label">Vivid Logs</string>
+    <string name="logs_share_subject">Vivid App-Logs</string>
 </resources>

@@ -13,6 +13,8 @@
     <string name="cat_remote_subtitle">Web remote control (LAN), Sentry error reports</string>
     <string name="cat_about_title">About &amp; Updates</string>
     <string name="cat_about_subtitle">Version, update badge, release info</string>
+    <string name="cat_logs_title">Logs &amp; Diagnostics</string>
+    <string name="cat_logs_subtitle">View, copy, share app logs — keys &amp; tokens are redacted</string>
 
     <!-- ===== Overview screen (SettingsScreen.kt) ===== -->
     <string name="settings_title">Settings</string>
@@ -182,4 +184,13 @@
     <string name="preset_locker">Relaxed</string>
     <string name="preset_balanced">Balanced</string>
     <string name="preset_strict">Strict</string>
+
+    <!-- ===== Logs & Diagnostics (SettingsLogsScreen.kt) ===== -->
+    <string name="logs_redacted_note">The last 500 app log lines. Stream keys, passwords and tokens are automatically redacted — sensitive data never leaves the device in plain text.</string>
+    <string name="logs_empty">No logs yet — start a stream or use the app to collect entries.</string>
+    <string name="logs_copy">Copy</string>
+    <string name="logs_share">Share</string>
+    <string name="logs_copied">Logs copied</string>
+    <string name="logs_clip_label">Vivid Logs</string>
+    <string name="logs_share_subject">Vivid app logs</string>
 </resources>

@@ -13,6 +13,8 @@
     <string name="cat_remote_subtitle">Télécommande web (LAN), rapports d\'erreur Sentry</string>
     <string name="cat_about_title">À propos &amp; mises à jour</string>
     <string name="cat_about_subtitle">Version, badge de mise à jour, infos de version</string>
+    <string name="cat_logs_title">Journaux &amp; diagnostic</string>
+    <string name="cat_logs_subtitle">Afficher, copier, partager les journaux — clés &amp; jetons sont masqués</string>
 
     <!-- ===== Écran d'aperçu (SettingsScreen.kt) ===== -->
     <string name="settings_title">Paramètres</string>
@@ -182,4 +184,13 @@
     <string name="preset_locker">Détendu</string>
     <string name="preset_balanced">Équilibré</string>
     <string name="preset_strict">Strict</string>
+
+    <!-- ===== Journaux & diagnostic (SettingsLogsScreen.kt) ===== -->
+    <string name="logs_redacted_note">Les 500 dernières lignes de journal de l\'application. Clés de streaming, mots de passe et jetons sont automatiquement masqués — les données sensibles ne quittent jamais l\'appareil en clair.</string>
+    <string name="logs_empty">Aucun journal pour l\'instant — démarre un stream ou utilise l\'application pour collecter des entrées.</string>
+    <string name="logs_copy">Copier</string>
+    <string name="logs_share">Partager</string>
+    <string name="logs_copied">Journaux copiés</string>
+    <string name="logs_clip_label">Journaux Vivid</string>
+    <string name="logs_share_subject">Journaux de l\'application Vivid</string>
 </resources>

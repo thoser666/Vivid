@@ -26,6 +26,7 @@ import com.vivid.feature.playback.PlaybackScreen
 import com.vivid.feature.settings.ui.SettingsAboutScreen
 import com.vivid.feature.settings.ui.SettingsAppearanceScreen
 import com.vivid.feature.settings.ui.SettingsChatBotScreen
+import com.vivid.feature.settings.ui.SettingsLogsScreen
 import com.vivid.feature.settings.ui.SettingsOverlaysScreen
 import com.vivid.feature.settings.ui.SettingsRemotePrivacyScreen
 import com.vivid.feature.settings.ui.SettingsScreen
@@ -130,6 +131,11 @@ fun VividAppNavigation() {
                 uiState = uiState,
                 viewModel = viewModel,
                 botUsage = botUsage,
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable("settings_logs") {
+            SettingsLogsScreen(
                 onBack = { navController.popBackStack() },
             )
         }

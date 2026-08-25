@@ -3,6 +3,7 @@ package com.vivid.core.di
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import com.google.gson.Gson
+import com.vivid.core.log.LogBuffer
 import com.vivid.core.network.KtorClientFactory
 import com.vivid.core.update.DataStoreUpdateCheckCache
 import com.vivid.core.update.GitHubReleasesApi
@@ -48,5 +49,12 @@ object ProvisionModule {
     @Singleton
     fun provideUpdateCheckCache(dataStore: DataStore<Preferences>): UpdateCheckCache {
         return DataStoreUpdateCheckCache(dataStore)
+    }
+
+    @Provides
+    @Singleton
+    fun provideLogBuffer(): LogBuffer {
+        // Dieselbe Instanz, die VividApplication in den Timber-Tree pflanzt.
+        return LogBuffer.instance
     }
 }

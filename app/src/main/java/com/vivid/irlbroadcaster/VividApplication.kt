@@ -2,10 +2,13 @@ package com.vivid.irlbroadcaster
 
 import android.app.Application
 import coil.ImageLoader
+import com.vivid.BuildConfig
 import coil.ImageLoaderFactory
 import coil.disk.DiskCache
 import coil.request.ImageRequest
 import com.vivid.core.data.SettingsRepository
+import com.vivid.core.log.LogBuffer
+import com.vivid.core.log.LogBufferTree
 import com.vivid.core.remote.RemoteControlServer
 import dagger.hilt.android.HiltAndroidApp
 import io.sentry.android.core.SentryAndroid
@@ -24,6 +27,9 @@ class VividApplication : Application(), ImageLoaderFactory {
 
     @Inject
     lateinit var settingsRepository: SettingsRepository
+
+    @Inject
+    lateinit var logBuffer: LogBuffer
 
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -48,6 +54,13 @@ class VividApplication : Application(), ImageLoaderFactory {
 
     override fun onCreate() {
         super.onCreate()
+        // In-App-Log: Timber-Trees pflanzen, damit die vorhandenen Timber.*-Aufrufe
+        // erstmals wirksam werden. DebugTree schreibt in Debug-Builds nach Logcat,
+        // LogBufferTree hält die letzten 500 Zeilen (geschwärzt) für den In-App-Viewer.
+        if (BuildConfig.DEBUG) {
+            Timber.plant(Timber.DebugTree())
+        }
+        Timber.plant(LogBufferTree(logBuffer))
         // Sentry explizit initialisieren (Auto-Init im Manifest deaktiviert):
         //  - sendDefaultPii=false → keine IP-/Gerätename-Erhebung
         //  - beforeSend → verwirft alle Events, wenn der Nutzer das
