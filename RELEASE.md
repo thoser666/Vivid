@@ -98,7 +98,7 @@ Der bestehende Server wird um **Konfigurations-Endpunkte** erweitert (gleiche To
 | `GET /widgets` | aktuelle Widget-Konfiguration (Position, sichtbare Felder) |
 | `PUT /widgets` | Widget-Felder/Position ändern |
 | `GET /status` · `POST /start` · `POST /stop` | (existiert bereits) |
-| `GET /logs` | Bearer-Token | letzte App-Log-Zeilen (token-geschützt) — **Basis seit 25.08.:** In-App-Logs (Timber `LogBufferTree` + Redaktions-Filter, Settings-Kategorie „Logs & Diagnose“) liefern den Inhalt; der Endpunkt schließt den offenen Moblin-Remote-Punkt „Logs anzeigen“ |
+| `GET /logs` | Bearer-Token | letzte App-Log-Zeilen (token-geschützt) — **Basis seit 25.08.:** In-App-Logs (Timber `LogBufferTree` + `LogStore` mit **täglicher Rotation + konfigurierbarer Vorhaltezeit** 1–30 Tage, **Crash-Markierung** via Default-Uncaught-Exception-Handler, Redaktions-Filter; Settings-Kategorie „Logs & Diagnose“) liefern den Inhalt; der Endpunkt schließt den offenen Moblin-Remote-Punkt „Logs anzeigen“ |
 
 - **Single Source of Truth bleibt das lokale DataStore:** Der Server schreibt ausschließlich über `SettingsRepository` (validierte Werte) — kein paralleler Config-Speicher.
 - **Web-UI-Scope v1:** Status-Karte, Start/Stop, Settings-Formular (Stream, OBS, Chat, Chat-Bot, Widgets), Widget-Preview-Platzhalter; PWA-fähig (Offline-Startseite, installierbar) — kein Play-Listing, keine zweite Signierung, keine separate Distribution nötig.
