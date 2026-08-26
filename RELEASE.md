@@ -141,10 +141,52 @@ Vergleich der Voraussetzungen für den ersten Upload (Stand 08/2026, Vivid ist M
 
 1. **Primär: Google Play** — größte Reichweite und das einzige Beta-Tester-Programm; die 12-Tester/14-Tage-Regel betrifft nur **production**, alpha/beta-Upload nicht. Der 25-$-Aufwand + Konto-Verifizierung ist der Einstieg (P0).
 2. **Bereits aktiv: GitHub Releases + Obtainium** — der bestehende Beta-Kanal, unabhängig von Play.
-3. **Post-Beta, optional: eigener F-Droid-Repo-Server** — gleiche APKs mit **deinem** Release-Key, sofortige Updates, kein Review, keine Antifeature-Listung (eigene Kuratierung). Ideal für das FOSS-Publikum; Sentry-Off-Variante nicht zwingend nötig, aber möglich.
-4. **Später (etablierte App): F-Droid-Hauptrepo** — setzt eine **Sentry-freie Build-Variante** voraus (sonst Tracking-Antifeature) und akzeptiert, dass F-Droid selbst signiert (die eigene Release-Signatur-Pipeline gilt dort nicht). IzzyOnDroid ist ein leichterer Zwischenschritt mit denselben Einschränkungen.
+3. **✅ Aktiv: Eigener F-Droid-Repo-Server (GitHub Pages)** — gleiche APKs mit **deinem** Release-Key, sofortige Updates, kein Review, keine Antifeature-Listung (eigene Kuratierung). Ideal für das FOSS-Publikum; Sentry-Off-Variante nicht zwingend nötig, aber möglich. **URL:** `https://thoser666.github.io/fdroid/repo`
+4. **Post-Beta, optional: F-Droid-Hauptrepo** — setzt eine **Sentry-freie Build-Variante** voraus (sonst Tracking-Antifeature) und akzeptiert, dass F-Droid selbst signiert (die eigene Release-Signatur-Pipeline gilt dort nicht). IzzyOnDroid ist ein leichterer Zwischenschritt mit denselben Einschränkungen.
 
 **Konsequenz für die Roadmap:** Play bleibt der Gate-Pfad (v1.0-stable „Play-Store-Unterlagen“); F-Droid ist ein **Zusatzkanal** nach dem ersten Play-Upload, kein Ersatz für die Beta-Tester-Auslieferung.
+
+## 📦 Eigener F-Droid-Repo-Server (GitHub Pages)
+
+**Status: ✅ Aktiv** — Das eigene F-Droid-Repository ist auf GitHub Pages gehostet und wird bei jedem Release automatisch aktualisiert.
+
+**URL:** `https://thoser666.github.io/fdroid/repo`
+
+**Vorteile:**
+- ✅ **Zukunftssicher** —不受 Google-Sideloading-Einschränkungen ab Sep 2026 betroffen
+- ✅ **Sofortige Updates** — Jedes Release wird automatisch im Repo veröffentlicht
+- ✅ **Kein Review nötig** — Ihr kontrolliert den Inhalt selbst
+- ✅ **Sichere Signaturen** — Gleicher Release-Key wie bei GitHub Releases
+- ✅ **FOSS-kompatibel** — Vivid ist MIT-lizenziert, passt perfekt zu F-Droid
+- ✅ **Kostenlos** — GitHub Pages ist kostenlos
+
+**Nutzer-Installation:**
+1. F-Droid App installieren (falls nicht vorhanden)
+2. F-Droid → Einstellungen → Repositories → `+`
+3. URL eingeben: `https://thoser666.github.io/fdroid/repo`
+4. Name vergeben: `Vivid (schnelle Updates)`
+5. Fertig — Updates erscheinen automatisch
+
+**Technische Details:**
+- **Workflow:** `.github/workflows/fdroid-repo.yml` (Release-Trigger + wöchentlich)
+- **Config:** `fdroid/config.yml`
+- **Hosting:** GitHub Pages (kostenlos, automatisch)
+- **Secrets:** `F_DROID_KEYSTORE`, `F_DROID_KEY_ALIAS`, `F_DROID_KEY_PASSWORD`, `F_DROID_KEY_DNAME` (einmalig hinterlegen)
+
+**Unterschied zum F-Droid-Hauptrepo:**
+| Aspekt | Eigener Repo-Server | F-Droid Hauptrepo |
+|---|---|---|
+| **Wartezeit** | Sofort | 2-8 Wochen Review |
+| **Signatur** | Dein Key | F-Droid-Key (anderes Signing!) |
+| **Sentry** | ✅ bleibt aktiv | ❌ muss aus (sonst Tracking) |
+| **Updates** | Sofort | Tage-Wochen Verzögerung |
+| **Reichweite** | Nur mit URL | In F-Droid-App sichtbar |
+
+**Nächste Schritte:**
+1. Secrets in GitHub hinterlegen (einmalig)
+2. Ersten Release auslösen → Repo wird automatisch erstellt
+3. Nutzer-URL in README/Anleitung dokumentieren
+4. (Optional) F-Droid-Hauptrepo vorbereiten (Post-Beta, Sentry-freie Variante)
 
 ## 🧪 Erster Beta-Build (Plan)
 

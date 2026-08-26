@@ -1,0 +1,190 @@
+name: F-Droid Repository
+
+on:
+  # Trigger on new releases
+  release:
+    types: [published]
+  
+  # Weekly update check
+  schedule:
+    - cron: '0 4 * * 1'
+  
+  # Manual trigger
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build (e.g., v0.5.7-beta)'
+        required: false
+        default: 'latest'
+
+# Permissions for GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Ensure only one deployment at a time
+concurrency:
+  group: fdroid-pages
+  cancel-in-progress: true
+
+jobs:
+  build-repo:
+    name: Build F-Droid Repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install fdroidserver
+        run: |
+          pip install fdroidserver
+      
+      - name: Initialize F-Droid repository
+        run: |
+          cd fdroid
+          # Initialize repo with config
+          fdroid init
+          
+          # Update config with secrets (via environment variables)
+          sed -i "s/keydname:.*/keydname: ${{ secrets.F_DROID_KEY_DNAME }}/" config.yml
+          sed -i "s/keyalias:.*/keyalias: ${{ secrets.F_DROID_KEY_ALIAS }}/" config.yml
+          sed -i "s/keystorepass:.*/keystorepass: ${{ secrets.F_DROID_KEY_PASSWORD }}/" config.yml
+          sed -i "s/keypass:.*/keypass: ${{ secrets.F_DROID_KEY_PASSWORD }}/" config.yml
+      
+      - name: Determine version to build
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.version }}" != "latest" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          elif [ "${{ github.event_name }}" = "release" ]; then
+            VERSION="${{ github.event.release.tag_name }}"
+          else
+            VERSION=$(gh release list --limit 1 --json tagName -q '.[0].tagName')
+          fi
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "Building version: $VERSION"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Download APK from GitHub Release
+        run: |
+          cd fdroid
+          mkdir -p repo
+          gh release download ${{ steps.version.outputs.VERSION }} \
+            --pattern "*.apk" \
+            --pattern "!*-unsigned.apk" \
+            --dir ./repo/ \
+            --skip-existing
+          
+          # List downloaded APKs
+          ls -la repo/
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Build F-Droid repository
+        run: |
+          cd fdroid
+          fdroid update -v
+          
+          # Verify repository was created
+          if [ ! -f "repo/index.xml" ]; then
+            echo "Error: Repository index.xml not created"
+            exit 1
+          fi
+          
+          echo "Repository built successfully"
+          ls -la repo/
+      
+      - name: Copy repository to deploy directory
+        run: |
+          mkdir -p deploy
+          cp -r fdroid/repo/* deploy/
+          
+          # Create a simple index.html for the repository root
+          cat > deploy/index.html << 'EOF'
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Vivid F-Droid Repository</title>
+              <style>
+                  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; line-height: 1.6; }
+                  h1 { color: #2563eb; }
+                  .card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin: 20px 0; }
+                  a { color: #2563eb; text-decoration: none; }
+                  a:hover { text-decoration: underline; }
+                  .step { margin: 10px 0; padding: 10px; background: white; border-radius: 4px; }
+                  code { background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-family: monospace; }
+              </style>
+          </head>
+          <body>
+              <h1>Vivid F-Droid Repository</h1>
+              <p>Add this repository to your F-Droid client to receive updates automatically.</p>
+              
+              <div class="card">
+                  <h2>Repository URL</h2>
+                  <p><code>https://thoser666.github.io/fdroid/repo</code></p>
+              </div>
+              
+              <div class="card">
+                  <h2>How to Add</h2>
+                  <ol>
+                      <li>Open F-Droid app</li>
+                      <li>Go to Settings → Repositories</li>
+                      <li>Tap the + button</li>
+                      <li>Paste the URL above</li>
+                      <li>Give it a name (e.g., "Vivid")</li>
+                      <li>Tap "Add"</li>
+                  </ol>
+              </div>
+              
+              <div class="card">
+                  <h2>About</h2>
+                  <p>This repository provides pre-built APKs of Vivid, an open-source IRL streaming app with chat bot and AI features.</p>
+                  <p><strong>Note:</strong> This build includes Sentry for crash reporting. For a fully FOSS build without telemetry, use the official F-Droid repository.</p>
+              </div>
+              
+              <div class="card">
+                  <h2>Links</h2>
+                  <ul>
+                      <li><a href="https://github.com/thoser666/Vivid">Source Code</a></li>
+                      <li><a href="https://github.com/thoser666/Vivid/releases">Releases</a></li>
+                      <li><a href="https://thoser666.github.io/Vivid/">Documentation</a></li>
+                      <li><a href="https://thoser666.github.io/Vivid/privacy/">Privacy Policy</a></li>
+                  </ul>
+              </div>
+          </body>
+          </html>
+      
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v2
+        with:
+          path: deploy
+  
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build-repo
+    runs-on: ubuntu-latest
+    
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v2
+        with:
+          artifact_name: github-pages
+          pages_source_path: deploy

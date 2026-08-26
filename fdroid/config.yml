@@ -1,0 +1,58 @@
+# F-Droid Repository Configuration for Vivid
+# Documentation: https://f-droid.org/docs/Configuring-a-Repository/
+
+# Repository metadata
+repo_name: Vivid
+repo_icon: fdroid-icon.png
+repo_description: "Vivid - Open Source IRL Streaming App with Chat Bot & AI Features"
+
+# Repository URL (will be hosted on GitHub Pages)
+repo_url: https://thoser666.github.io/fdroid/repo
+
+# Signing configuration
+# These values will be provided via GitHub Secrets
+# keydname: CN=Vivid, O=Vivid, L=Unknown, ST=Unknown, C=US
+# keyalias: vivid
+# keystorepass: [FROM_SECRET]
+# keypass: [FROM_SECRET]
+
+# Build configuration
+# We don't build from source - we distribute pre-built APKs
+# This is faster and allows us to keep Sentry enabled
+
+# Package metadata
+Categories:
+  - Internet
+  - Entertainment
+  - Multimedia
+
+License: MIT
+
+# Anti-features (what users should know about)
+# Sentry is used for crash reporting - this is a trade-off
+# Users who want fully FOSS should use the F-Droid main repo
+AntiFeatures:
+  - Tracking
+    # Sentry is used for crash reporting
+    # Disabled in F-Droid main repo build
+
+# Source code
+SourceCode: https://github.com/thoser666/Vivid
+Issues: https://github.com/thoser666/Vivid/issues
+
+# Changelog
+Changelog: https://github.com/thoser666/Vivid/releases
+
+# Web site
+WebSite: https://thoser666.github.io/Vivid/
+
+# Donate
+Donate: https://github.com/sponsors/thoser666
+
+# Flavors
+# We only distribute the main flavor
+Builds:
+  - versionName: latest
+    versionCode: 0
+    apk: https://github.com/thoser666/Vivid/releases/latest/download/app-release.apk
+    isPrimary: true

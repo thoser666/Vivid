@@ -92,29 +92,45 @@ After installation, Vivid asks for **camera** and **microphone** permissions whe
 
 > ✅ **Go-Live Self-Check:** Before starting, Vivid validates the configured URL and stream key on the streaming screen and shows clear messages (e.g. *"Keine Stream-URL konfiguriert"*, *"Nicht unterstütztes Protokoll"*, missing stream key). Blocking problems prevent the start; warnings are shown but don't block.
 
-### 🔄 Automatic updates (Obtainium)
+### 🔄 Automatic updates (F-Droid Repository)
 
-To keep Vivid up to date automatically, use [**Obtainium**](https://obtainium.imranr.dev/):
+**Empfohlen für Android 14+:** Nutzen Sie unser offizielles F-Droid-Repository für automatische Updates:
 
-1. Install Obtainium from [obtainium.imranr.dev](https://obtainium.imranr.dev/) (or its own GitHub releases)
-2. Tap **+** → enter `https://github.com/thoser666/Vivid` as the source
-3. It auto-detects GitHub Releases — pick your channel:
-   - **Stable only:** track the latest release (disable *"Include pre-releases"*)
-   - **Nightly:** enable *"Include pre-releases"* to follow every feature build
-4. Tap **Add** — Obtainium now checks for updates and installs them automatically
+1. Installieren Sie [F-Droid](https://f-droid.org/packages/org.fdroid.fdroid/) (falls nicht vorhanden)
+2. Öffnen Sie F-Droid → **Einstellungen** → **Repositories**
+3. Tippen Sie auf **+** und fügen Sie hinzu:
+   - **URL:** `https://thoser666.github.io/fdroid/repo`
+   - **Name:** Vivid (schnelle Updates)
+4. Tippen Sie **Fertig** und warten Sie auf die Synchronisation
+5. Installieren Sie Vivid über das neue Repository
 
-Because every APK is signed with the same key, updates (including nightly → stable and vice versa) install seamlessly over the previous version.
+**✅ Vorteile:** Updates erscheinen automatisch, kein manueller Download nötig, zukunftssicher ab Android 14+ (Google schränkt Sideloading ein).
 
-**🧪 Testing the update flow**
+**📝 Hinweis:** Dieses Build enthält Sentry für Crash-Reporting. Für ein vollständig FOSS-Build ohne Telemetrie verwenden Sie das offizielle F-Droid-Repository (wenn verfügbar).
 
-1. Install an **older nightly** APK from the [Releases](../../releases) page (e.g. the previous build)
-2. Open **Settings** — the installed version is shown at the bottom, and an „⬆ Update verfügbar: …“ badge appears automatically if a newer build exists
-3. Add the app in Obtainium as described above (**Include pre-releases** on for nightly)
-4. (Optional) In **Settings → „Über Vivid & Updates“** tap **„Nach Updates suchen“** to see the latest GitHub release
-5. In Obtainium tap **Update** — the newer APK installs over the old one (same signing key)
-6. Reopen **Settings** — the version number has increased and the badge is gone ✅
+### 📲 Alternative: Automatic updates (Obtainium)
 
-The About-screen check follows the same rules as [RELEASE.md](RELEASE.md): it only suggests **newer** versions (nightly → nightly/alpha/beta/stable, never a downgrade).
+Für Benutzer, die Obtainium bevorzugen:
+
+1. Installieren Sie Obtainium von [obtainium.imranr.dev](https://obtainium.imranr.dev/) (oder eigenen GitHub Releases)
+2. Tippen Sie **+** → geben Sie `https://github.com/thoser666/Vivid` als Quelle ein
+3. Es erkennt automatisch GitHub Releases — wählen Sie Ihren Kanal:
+   - **Nur Stable:** Neueste Version verfolgen ("Include pre-releases" deaktiviert)
+   - **Nightly:** "Include pre-releases" aktivieren, um jeden Feature-Build zu verfolgen
+4. Tippen Sie **Hinzufügen** — Obtainium prüft jetzt automatisch auf Updates und installiert sie
+
+Da jedes APK mit demselben Schlüssel signiert ist, werden Updates (einschließlich Nightly → Stable und umgekehrt) nahtlos über die vorherige Version installiert.
+
+**🧪 Update-Flow testen**
+
+1. Installieren Sie ein **älteres Nightly** APK von der [Releases](../../releases)-Seite (z.B. den vorherigen Build)
+2. Öffnen Sie **Einstellungen** — die installierte Version wird unten angezeigt, und ein „⬆ Update verfügbar: …" Badge erscheint automatisch, wenn ein neuerer Build existiert
+3. Fügen Sie die App in Obtainium wie oben beschrieben hinzu (**Include pre-releases** für nightly aktiviert)
+4. (Optional) In **Einstellungen → „Über Vivid & Updates"** tippen Sie auf **„Nach Updates suchen"**, um den neuesten GitHub-Release zu sehen
+5. In Obtainium tippen Sie **Update** — das neuere APK wird über die alte Version installiert (gleicher Signatur-Schlüssel)
+6. Öffnen Sie erneut **Einstellungen** — die Versionsnummer hat sich erhöht und das Badge ist verschwunden ✅
+
+Die Überprüfung auf dem Über-Bildschirm folgt denselben Regeln wie in [RELEASE.md](RELEASE.md): Es schlägt nur **neuere** Versionen vor (nightly → nightly/alpha/beta/stable, nie ein Downgrade).
 
 ---
 
