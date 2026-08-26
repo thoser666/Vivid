@@ -104,8 +104,7 @@ After installation, Vivid asks for **camera** and **microphone** permissions whe
 
 1. Install [F-Droid](https://f-droid.org/packages/org.fdroid.fdroid/) (falls nicht vorhanden)
 2. Open F-Droid → **Settings** → **Repositories**
-3. Tap auf **+** und fügen Sie hinzu:
-   - **URL:** `https://thoser666.github.io/fdroid/repo`
+3. Tap auf **+** und fügen Sie hinzu:    - **URL:** `https://thoser666.github.io/Vivid/fdroid/repo`
    - **Name:** Vivid (schnelle Updates)
 4. Tap **Done** und warten Sie auf die Synchronisation
 5. Install Vivid über das neue Repository

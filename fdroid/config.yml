@@ -7,7 +7,7 @@ repo_icon: fdroid-icon.png
 repo_description: "Vivid - Open Source IRL Streaming App with Chat Bot & AI Features"
 
 # Repository URL (will be hosted on GitHub Pages)
-repo_url: https://thoser666.github.io/fdroid/repo
+repo_url: https://thoser666.github.io/Vivid/fdroid/repo
 
 # Signing configuration
 # These values will be provided via GitHub Secrets

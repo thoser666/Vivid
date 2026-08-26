@@ -141,7 +141,7 @@ Vergleich der Voraussetzungen für den ersten Upload (Stand 08/2026, Vivid ist M
 
 1. **Primär: Google Play** — größte Reichweite und das einzige Beta-Tester-Programm; die 12-Tester/14-Tage-Regel betrifft nur **production**, alpha/beta-Upload nicht. Der 25-$-Aufwand + Konto-Verifizierung ist der Einstieg (P0).
 2. **Bereits aktiv: GitHub Releases + Obtainium** — der bestehende Beta-Kanal, unabhängig von Play.
-3. **✅ Aktiv: Eigener F-Droid-Repo-Server (GitHub Pages)** — gleiche APKs mit **deinem** Release-Key, sofortige Updates, kein Review, keine Antifeature-Listung (eigene Kuratierung). Ideal für das FOSS-Publikum; Sentry-Off-Variante nicht zwingend nötig, aber möglich. **URL:** `https://thoser666.github.io/fdroid/repo`
+3. **✅ Aktiv: Eigener F-Droid-Repo-Server (GitHub Pages)** — gleiche APKs mit **deinem** Release-Key, sofortige Updates, kein Review, keine Antifeature-Listung (eigene Kuratierung). Ideal für das FOSS-Publikum; Sentry-Off-Variante nicht zwingend nötig, aber möglich. **URL:** `https://thoser666.github.io/Vivid/fdroid/repo`
 4. **Post-Beta, optional: F-Droid-Hauptrepo** — setzt eine **Sentry-freie Build-Variante** voraus (sonst Tracking-Antifeature) und akzeptiert, dass F-Droid selbst signiert (die eigene Release-Signatur-Pipeline gilt dort nicht). IzzyOnDroid ist ein leichterer Zwischenschritt mit denselben Einschränkungen.
 
 **Konsequenz für die Roadmap:** Play bleibt der Gate-Pfad (v1.0-stable „Play-Store-Unterlagen“); F-Droid ist ein **Zusatzkanal** nach dem ersten Play-Upload, kein Ersatz für die Beta-Tester-Auslieferung.
@@ -150,7 +150,7 @@ Vergleich der Voraussetzungen für den ersten Upload (Stand 08/2026, Vivid ist M
 
 **Status: ✅ Aktiv** — Das eigene F-Droid-Repository ist auf GitHub Pages gehostet und wird bei jedem Release automatisch aktualisiert.
 
-**URL:** `https://thoser666.github.io/fdroid/repo`
+**URL:** `https://thoser666.github.io/Vivid/fdroid/repo`
 
 **Vorteile:**
 - ✅ **Zukunftssicher** —不受 Google-Sideloading-Einschränkungen ab Sep 2026 betroffen
@@ -163,7 +163,7 @@ Vergleich der Voraussetzungen für den ersten Upload (Stand 08/2026, Vivid ist M
 **Nutzer-Installation:**
 1. F-Droid App installieren (falls nicht vorhanden)
 2. F-Droid → Einstellungen → Repositories → `+`
-3. URL eingeben: `https://thoser666.github.io/fdroid/repo`
+3. URL eingeben: `https://thoser666.github.io/Vivid/fdroid/repo`
 4. Name vergeben: `Vivid (schnelle Updates)`
 5. Fertig — Updates erscheinen automatisch
 
