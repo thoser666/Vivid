@@ -179,7 +179,7 @@ Die Überprüfung auf dem Über-Bildschirm folgt denselben Regeln wie in [RELEAS
 
 ## 🛣️ Roadmap
 
-**Current stage: Beta** — the [Beta-Gate is formally reached](RELEASE.md) (17/17 Moblin parity ✅, Twitch chat ✅ with scope, ≥1 widget ✅); the first beta `v0.5.1-beta` shipped (current: `v0.5.5-beta`). Open checklists for the current stage:
+**Current stage: Beta** — the [Beta-Gate is formally reached](RELEASE.md) (17/17 Moblin parity ✅, Twitch chat ✅ with scope, ≥1 widget ✅); current: `v0.5.8-beta.1` with F-Droid repo. Open checklists for the current stage:
 
 - 🧪 **[Beta-Build-Checkliste](RELEASE.md#-erster-beta-build-plan)** — Beta-Gate-Bedingungen + Play-Unterlagen + ≥2 manuelle Tester (abhakbare Liste in RELEASE.md)
 - ✅ **[Play-Vorbereitung P0–P2](RELEASE.md#-play-vorbereitung-priorisierte-abhakliste-mit-zeitaufwand)** — Master-Checkliste für den ersten Play-Upload (Secrets, Console, Screenshots, Tester; ~4–5 h einmalig; Fortschritt live in [Issue #116](https://github.com/thoser666/Vivid/issues/116))
