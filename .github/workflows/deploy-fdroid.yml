@@ -88,8 +88,8 @@ jobs:
           # Decode keystore from secret
           echo "$F_DROID_KEYSTORE" | base64 -d > keystore.p12
           
-          # Create config with signing key AND metadata
-          cat > config.yml << 'EOF'
+          # Create config with signing key AND metadata (no leading spaces!)
+          cat > config.yml << EOF
           builds_dir: repo
           repo_url: https://thoser666.github.io/Vivid/fdroid/repo
           repo_name: Vivid
@@ -106,10 +106,6 @@ jobs:
             - Internet
             - Entertainment
             - Multimedia
-          EOF
-          
-          # Add signing config (need variable substitution)
-          cat >> config.yml << EOF
           keystorepass: ${F_DROID_KEY_PASSWORD}
           keypass: ${F_DROID_KEY_PASSWORD}
           repo_keyalias: ${F_DROID_KEY_ALIAS}
@@ -120,14 +116,8 @@ jobs:
           mkdir -p metadata/com.vivid/en-US/changelogs
           
           # Create metadata files that fdroid update will pick up
-          cat > metadata/com.vivid/en-US/title.txt << 'EOF'
-          Vivid
-          EOF
-          
-          cat > metadata/com.vivid/en-US/short_description.txt << 'EOF'
-          Open source IRL streaming app with chat bot and AI features
-          EOF
-          
+          echo "Vivid" > metadata/com.vivid/en-US/title.txt
+          echo "Open source IRL streaming app with chat bot and AI features" > metadata/com.vivid/en-US/short_description.txt
           cat > metadata/com.vivid/en-US/full_description.txt << 'EOF'
           Vivid is an open-source IRL streaming application for Android.
           
