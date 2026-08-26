@@ -21,7 +21,7 @@ data class SendChatResult(
 )
 
 /** Fehler beim Senden einer Chat-Nachricht (Ursache als Message, fürs Bot-Log). */
-class TwitchSendChatException(message: String, cause: Throwable? = null) : Exception(message, cause)
+class TwitchSendChatException(override val message: String, cause: Throwable? = null) : Exception(message, cause)
 
 /**
  * Sendet öffentliche Chat-Nachrichten über die **Helix-API**

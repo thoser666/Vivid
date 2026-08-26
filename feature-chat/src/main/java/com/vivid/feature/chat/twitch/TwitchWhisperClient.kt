@@ -38,7 +38,7 @@ data class TwitchWhisperConfig(
 }
 
 /** Fehler beim Senden eines Twitch-Whispers (Ursache als Message, fürs Bot-Log). */
-class TwitchWhisperException(message: String, cause: Throwable? = null) : Exception(message, cause)
+class TwitchWhisperException(override val message: String, cause: Throwable? = null) : Exception(message, cause)
 
 /**
  * Sendet private Nachrichten (Whispers) über die Twitch-Helix-API an einen

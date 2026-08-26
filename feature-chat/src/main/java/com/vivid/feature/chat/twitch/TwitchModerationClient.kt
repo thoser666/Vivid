@@ -15,7 +15,7 @@ import javax.inject.Singleton
 import kotlinx.serialization.Serializable
 
 /** Fehler bei einer Twitch-Moderation (Ursache als Message, fürs Bot-Log). */
-class TwitchModerationException(message: String, cause: Throwable? = null) : Exception(message, cause)
+class TwitchModerationException(override val message: String, cause: Throwable? = null) : Exception(message, cause)
 
 /**
  * Führt Moderation-Aktionen über die **Helix-API** aus — die Umsetzung der

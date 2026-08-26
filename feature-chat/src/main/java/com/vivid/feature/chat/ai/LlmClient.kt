@@ -29,7 +29,7 @@ interface LlmClient {
     suspend fun complete(config: LlmConfig, messages: List<LlmMessage>): String
 }
 
-class LlmException(message: String, cause: Throwable? = null) : Exception(message, cause)
+class LlmException(override val message: String, cause: Throwable? = null) : Exception(message, cause)
 
 /**
  * OpenAI-kompatibler Chat-Completions-Client. Funktioniert mit jedem Endpunkt,
