@@ -110,6 +110,9 @@ jobs:
           mkdir -p deploy
           cp -r fdroid/repo/* deploy/
           
+          # Copy QR code from docs
+          cp docs/fdroid-repo-qr.svg deploy/qr.svg
+          
           # Create a simple index.html for the repository root
           cat > deploy/index.html << 'EOF'
           <!DOCTYPE html>
@@ -126,11 +129,21 @@ jobs:
                   a:hover { text-decoration: underline; }
                   .step { margin: 10px 0; padding: 10px; background: white; border-radius: 4px; }
                   code { background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-family: monospace; }
+                  .qr-container { text-align: center; margin: 20px 0; }
+                  .qr-container img { max-width: 200px; height: auto; }
               </style>
           </head>
           <body>
               <h1>Vivid F-Droid Repository</h1>
               <p>Add this repository to your F-Droid client to receive updates automatically.</p>
+              
+              <div class="card">
+                  <h2>📱 QR Code</h2>
+                  <div class="qr-container">
+                      <img src="qr.svg" alt="F-Droid Repository QR Code">
+                      <p>Scan this QR code with your F-Droid app to add the repository</p>
+                  </div>
+              </div>
               
               <div class="card">
                   <h2>Repository URL</h2>
@@ -143,7 +156,7 @@ jobs:
                       <li>Open F-Droid app</li>
                       <li>Go to Settings → Repositories</li>
                       <li>Tap the + button</li>
-                      <li>Paste the URL above</li>
+                      <li>Paste the URL above or scan the QR code</li>
                       <li>Give it a name (e.g., "Vivid")</li>
                       <li>Tap "Add"</li>
                   </ol>

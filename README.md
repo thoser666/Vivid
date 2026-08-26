@@ -96,6 +96,12 @@ After installation, Vivid asks for **camera** and **microphone** permissions whe
 
 **Empfohlen für Android 14+:** Nutzen Sie unser offizielles F-Droid-Repository für automatische Updates:
 
+**📱 Schnellstart mit QR-Code:**
+
+<p align="center">
+  <img src="docs/fdroid-repo-qr.svg" alt="F-Droid Repository QR Code" width="200">
+</p>
+
 1. Installieren Sie [F-Droid](https://f-droid.org/packages/org.fdroid.fdroid/) (falls nicht vorhanden)
 2. Öffnen Sie F-Droid → **Einstellungen** → **Repositories**
 3. Tippen Sie auf **+** und fügen Sie hinzu:
