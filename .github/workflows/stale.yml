@@ -1,0 +1,80 @@
+name: Stale Issues Management
+
+on:
+  schedule:
+    # Runs every day at 06:00 UTC
+    - cron: '0 6 * * *'
+  
+  # Allow manual trigger for testing
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Close stale issues
+        uses: actions/stale@286e5c090198bfb1e692f56e4c2942c80f0ea951 # v9
+        with:
+          # Issue configuration
+          days-before-stale: 30
+          days-before-close: 7
+          stale-issue-label: 'stale'
+          stale-pr-label: 'stale'
+          
+          # Exempt labels - issues with these labels are never marked stale
+          exempt-issue-labels: 'pinned,security,bug,enhancement,good first issue,help wanted,blocked,beta,release,documentation,dependencies,question'
+          exempt-pr-labels: 'pinned,security,bug,enhancement,good first issue,help wanted,blocked,beta,release,documentation,dependencies'
+          
+          # Comments
+          stale-issue-message: >
+            Dieses Issue wurde als veraltet markiert, da es seit 30 Tagen keine Aktivitäten gab.
+            Es wird in 7 Tagen automatisch geschlossen, falls keine weiteren Aktivitäten erfolgen.
+            
+            Falls dieses Issue immer noch relevant ist, kommentiere bitte, damit es wieder geöffnet wird.
+            Alternativ kann es auch mit dem `pinned` Label versehen werden, um es dauerhaft zu erhalten.
+            
+            This issue has been automatically marked as stale because it has not had
+            recent activity. It will be closed in 7 days if no further activity occurs.
+            
+            If this issue is still relevant, please leave a comment to reopen it.
+            Alternatively, you can label it as `pinned` to keep it open indefinitely.
+          
+          close-issue-message: >
+            Dieses Issue wurde aufgrund fehlender Aktivitäten geschlossen.
+            Es kann jederzeit wieder geöffnet werden, falls das Problem weiterhin besteht.
+            
+            Thank you for your contributions to Vivid!
+          
+          stale-pr-message: >
+            This pull request has been automatically marked as stale because it has not had
+            recent activity. It will be closed in 7 days if no further activity occurs.
+            Thank you for your contributions.
+          
+          close-pr-message: >
+            This pull request was closed due to inactivity. It can be reopened if needed.
+            Thank you for your contribution to Vivid!
+          
+          # Operations to run when marking stale
+          operations-per-run: 30
+          
+          # Only process issues, not PRs (set to false to include PRs)
+          # only-issues: true
+          
+          # Optional: exempt issues from projects
+          exempt-all-milestones: false
+          exempt-all-projects: false
+
+      - name: Summary
+        run: |
+          echo "✅ Stale issue management completed"
+          echo ""
+          echo "Configuration:"
+          echo "- Issues marked stale after: 30 days of inactivity"
+          echo "- Issues closed after: 7 days of inactivity after being marked stale"
+          echo "- Exempt labels: pinned, security, bug, enhancement, good first issue, help wanted, blocked, beta, release, documentation, dependencies, question"
+          echo "- Operations per run: 30"
+          echo ""
+          echo "Note: This workflow runs daily at 06:00 UTC."

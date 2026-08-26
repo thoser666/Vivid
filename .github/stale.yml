@@ -1,0 +1,112 @@
+# Configuration for probot-stale - https://github.com/probot/stale
+
+# Number of days of inactivity before an issue becomes stale
+daysUntilStale: 30
+
+# Number of days of inactivity before a stale issue is closed
+daysUntilClose: 7
+
+# Only issues or pull requests with all of these labels are checked if stale.
+# Defaults to `[]` (disabled).
+onlyLabels: []
+
+# Issues or PRs with these labels will never be considered stale.
+exemptLabels:
+  - pinned
+  - security
+  - bug
+  - enhancement
+  - "good first issue"
+  - "help wanted"
+  - blocked
+  - beta
+  - release
+  - documentation
+  - dependencies
+  - question
+
+# Set to true to ignore issues in a project (defaults to false)
+exemptProjects: false
+
+# Set to true to ignore issues in a milestone (defaults to false)
+exemptMilestones: false
+
+# Set to true to ignore issues with an assignee (defaults to false)
+exemptAssignees: false
+
+# Label to use when marking as stale
+staleLabel: stale
+
+# Comment to post when marking as stale. Set to `false` to disable
+markComment: >
+  Dieses Issue wurde als veraltet markiert, da es seit 30 Tagen keine Aktivitäten gab.
+  Es wird in 7 Tagen automatisch geschlossen, falls keine weiteren Aktivitäten erfolgen.
+  
+  Falls dieses Issue immer noch relevant ist, kommentiere bitte, damit es wieder geöffnet wird.
+  Alternativ kann es auch mit dem `pinned` Label versehen werden, um es dauerhaft zu erhalten.
+  
+  This issue has been automatically marked as stale because it has not had
+  recent activity. It will be closed in 7 days if no further activity occurs.
+  
+  If this issue is still relevant, please leave a comment to reopen it.
+  Alternatively, you can label it as `pinned` to keep it open indefinitely.
+
+# Comment to post when closing a stale issue. Set to `false` to disable
+closeComment: >
+  Dieses Issue wurde aufgrund fehlender Aktivitäten geschlossen.
+  Es kann jederzeit wieder geöffnet werden, falls das Problem weiterhin besteht.
+  
+  Thank you for your contributions to Vivid!
+
+# Limit the number of actions per hour (default 30)
+limitPerRun: 30
+
+# Limit to only `issues` or `pulls`
+only: issues
+
+# Optional configuration specific to stale issues
+exemptIssueLabels: "pinned,security,bug,enhancement,good first issue,help wanted,blocked,beta,release,documentation,dependencies,question"
+
+# Custom stale label (default is `stale`)
+# staleLabel: stale
+
+# Enable auto-close for stale issues
+# Set to `false` to disable auto-closing
+# enableClose: true
+
+# Custom close comment
+# closeComment: false
+
+# Custom stale comment
+# markComment: >
+#   This issue is stale because it has been open for 30 days with no activity.
+#   Remove the stale label or comment on the issue otherwise this will be closed in 7 days.
+
+# Exempt all project cards
+# exemptProjectCards: false
+
+# Only check issues with milestones
+# onlyMilestones: false
+
+# Only check issues with assignees
+# onlyAssignees: false
+
+# Only check issues with labels
+# onlyLabels: []
+
+# Exempt issues with labels
+# exemptLabels:
+#   - pinned
+#   - security
+
+# Days before issue is considered stale
+# daysUntilStale: 30
+
+# Days before stale issue is closed
+# daysUntilClose: 7
+
+# Limit number of actions per hour
+# limitPerRun: 30
+
+# Limit to issues only
+# only: issues

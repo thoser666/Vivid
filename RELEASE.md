@@ -469,6 +469,27 @@ Die `publish_release`-Lane (`fastlane/Fastfile`) wendet bei fehlgeschlagenem `gh
 > - **Secret-Guard:** ✅ (keine ungeschützten Secrets).
 > - **Optional (Post-Play-Release):** Sentry↔GitHub-Integration (app.sentry.io → Settings → Integrations → GitHub) verknüpft Crash-Issues mit „suspect commits" — erst sinnvoll, wenn echte Releases via Play laufen; kein Code-Aufwand, nur 1× im Dashboard verknüpfen.
 
+## 🧹 Automatisches Issue-Management (Stale Bot)
+
+Das Projekt nutzt den **Stale GitHub App** für automatisches Issue-Management. Inaktive Issues werden nach **30 Tagen** als `stale` markiert und nach weiteren **7 Tagen** automatisch geschlossen.
+
+**Konfiguration** (`.github/stale.yml` + `.github/workflows/stale.yml`):
+- **Inaktivitäts-Timeout:** 30 Tage (Issues ohne Aktivitäten)
+- **Schließ-Timeout:** 7 Tage nach `stale`-Markierung
+- **Exempt-Labels:** Issues mit Labels wie `pinned`, `security`, `bug`, `enhancement`, `good first issue`, `help wanted`, `blocked`, `beta`, `release`, `documentation`, `dependencies`, `question` werden nie als `stale` markiert
+- **Ausführung:** Täglich um 06:00 UTC + manuell per `workflow_dispatch`
+- **Limit:** 30 Aktionen pro Durchlauf (verhindert Rate-Limits)
+
+**Für Entwickler/Tester:**
+- Issue wird als `stale` markiert → Kommentar hinterlassen oder `pinned`-Label setzen
+- Issue wird geschlossen → Issue neu öffnen bei Bedarf
+- Wichtiges Issue direkt mit passendem Label versehen (z.B. `bug`, `enhancement`)
+
+**Vorteile für das Projekt:**
+- Saubere Issue-Liste (keine veralteten, nicht mehr relevanten Issues)
+- Weniger manueller Auftwand für Issue-Verwaltung
+- Bessere Übersicht über aktuelle Probleme und Wünsche
+
 
 ## 🔒 CI-Härtung: Pinned Actions (Supply-Chain)
 
