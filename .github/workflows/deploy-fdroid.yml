@@ -88,7 +88,7 @@ jobs:
           # Decode keystore from secret
           echo "$F_DROID_KEYSTORE" | base64 -d > keystore.p12
           
-          # Create config with signing key AND metadata (no leading spaces!)
+          # Create config with signing key (no metadata - we'll add it manually)
           cat > config.yml << EOF
           builds_dir: repo
           repo_url: https://thoser666.github.io/Vivid/fdroid/repo
@@ -96,56 +96,10 @@ jobs:
           repo_description: "Vivid - Open Source IRL Streaming App with Chat Bot & AI Features"
           repo_icon: icon.png
           archive_older: 0
-          SourceCode: https://github.com/thoser666/Vivid
-          Issues: https://github.com/thoser666/Vivid/issues
-          WebSite: https://thoser666.github.io/Vivid/
-          Changelog: https://github.com/thoser666/Vivid/releases
-          Donate: https://github.com/sponsors/thoser666
-          License: MIT
-          Categories:
-            - Internet
-            - Entertainment
-            - Multimedia
           keystorepass: ${F_DROID_KEY_PASSWORD}
           keypass: ${F_DROID_KEY_PASSWORD}
           repo_keyalias: ${F_DROID_KEY_ALIAS}
           keydname: ${F_DROID_KEY_DNAME}
-          EOF
-          
-          # Create metadata directory for the app
-          mkdir -p metadata/com.vivid/en-US/changelogs
-          
-          # Create metadata files that fdroid update will pick up
-          echo "Vivid" > metadata/com.vivid/en-US/title.txt
-          echo "Open source IRL streaming app with chat bot and AI features" > metadata/com.vivid/en-US/short_description.txt
-          cat > metadata/com.vivid/en-US/full_description.txt << 'EOF'
-          Vivid is an open-source IRL streaming application for Android.
-          
-          Features:
-          - Live streaming via RTMP/SRT to Twitch, YouTube, Kick, and custom platforms
-          - Real-time chat overlay with badges and emotes
-          - AI-powered chat bot with configurable responses
-          - Owner remote control commands
-          - Dark mode with AMOLED support
-          - Multi-language support (English, German, French)
-          - Scene management and auto-switching
-          - Real-time GPS overlay (altitude, speed, coordinates)
-          - Custom RTMP/SRT endpoints
-          
-          Open Source: https://github.com/thoser666/Vivid
-          Issues: https://github.com/thoser666/Vivid/issues
-          EOF
-          
-          cat > metadata/com.vivid/en-US/changelogs/5072.txt << 'EOF'
-          - Chat overlay with badges and emotes
-          - AI chat bot with configurable responses
-          - Owner remote control commands
-          - Dark mode with AMOLED support
-          - Multi-language support (EN, DE, FR)
-          - Text widget with live data
-          - In-app help documentation
-          - Torch control
-          - Fix: Settings page scrolling
           EOF
           
           # Generate repo index
@@ -156,6 +110,38 @@ jobs:
             echo "Error: Repository index.xml not created"
             exit 1
           fi
+          
+          # Add metadata to index.xml using Python
+          python3 << 'PYTHON_SCRIPT'
+          import xml.etree.ElementTree as ET
+          import re
+          
+          # Read the current index.xml
+          with open('repo/index.xml', 'r') as f:
+              content = f.read()
+          
+          # Add metadata to application element
+          # Find the application element and replace empty tags
+          metadata = {
+              '<summary></summary>': '<summary>Open source IRL streaming app with chat bot and AI features</summary>',
+              '<desc>No description available</desc>': '<desc>Vivid is an open-source IRL streaming application for Android. Features include live streaming via RTMP/SRT to Twitch, YouTube, Kick, and custom platforms, real-time chat overlay with badges and emotes, AI-powered chat bot with configurable responses, owner remote control commands, dark mode with AMOLED support, multi-language support (English, German, French), scene management and auto-switching, real-time GPS overlay, and custom RTMP/SRT endpoints.</desc>',
+              '<license>Unknown</license>': '<license>MIT</license>',
+              '<web></web>': '<web>https://thoser666.github.io/Vivid/</web>',
+              '<source></source>': '<source>https://github.com/thoser666/Vivid</source>',
+              '<tracker></tracker>': '<tracker>https://github.com/thoser666/Vivid/issues</tracker>',
+              '<categories>fdroid</categories>': '<categories>Internet,Entertainment,Multimedia</categories>',
+              '<category>fdroid</category>': '<category>Internet</category>',
+          }
+          
+          for old, new in metadata.items():
+              content = content.replace(old, new)
+          
+          # Write the updated index.xml
+          with open('repo/index.xml', 'w') as f:
+              f.write(content)
+          
+          print("Successfully updated index.xml with metadata")
+          PYTHON_SCRIPT
           
           echo "Repository built successfully"
           ls -la repo/
