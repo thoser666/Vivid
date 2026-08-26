@@ -61,15 +61,29 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
-      - name: Download APK from GitHub Release
+      - name: Download last 5 release APKs
         run: |
           cd fdroid
           mkdir -p repo
-          gh release download ${{ steps.version.outputs.VERSION }} \
-            --pattern "*.apk" \
-            --pattern "*-unsigned.apk" \
-            --dir ./repo/ \
-            --skip-existing
+          
+          # Download the 5 most recent release APKs
+          # Each release's APK is named app-release.apk, so we prefix with the
+          # tag name to keep filenames unique in the shared repo/ directory.
+          i=0
+          for TAG in $(gh release list --limit 5 --json tagName -q '.[].tagName'); do
+            i=$((i + 1))
+            TMP="/tmp/apk_$i"
+            mkdir -p "$TMP"
+            gh release download "$TAG" \
+              --pattern "*.apk" \
+              --pattern "*-unsigned.apk" \
+              --dir "$TMP/" \
+              --skip-existing || true
+            for f in "$TMP"/*.apk; do
+              [ -e "$f" ] || continue
+              cp "$f" "repo/${TAG}_$(basename "$f")"
+            done
+          done
           
           echo "Downloaded APKs:"
           ls -la repo/
@@ -95,6 +109,8 @@ jobs:
           repo_name: Vivid
           repo_description: "Vivid - Open Source IRL Streaming App with Chat Bot & AI Features"
           repo_icon: icon.png
+          # Keep all downloaded versions in the main repo (no archiving):
+          # the last 5 release APKs are freshly downloaded on every run.
           archive_older: 0
           keystorepass: ${F_DROID_KEY_PASSWORD}
           keypass: ${F_DROID_KEY_PASSWORD}
@@ -178,6 +194,6 @@ jobs:
           if git diff --cached --quiet; then
             echo "No changes to commit"
           else
-            git commit -m "chore: update F-Droid repository for ${{ steps.version.outputs.VERSION }}"
+            git commit -m "chore: update F-Droid repository (last 5 versions)"
             git push
           fi

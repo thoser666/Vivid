@@ -172,6 +172,7 @@ Vergleich der Voraussetzungen für den ersten Upload (Stand 08/2026, Vivid ist M
 - **Config:** `fdroid/config.yml`
 - **Hosting:** GitHub Pages (kostenlos, automatisch)
 - **Secrets:** `F_DROID_KEYSTORE`, `F_DROID_KEY_ALIAS`, `F_DROID_KEY_PASSWORD`, `F_DROID_KEY_DNAME` (einmalig hinterlegen)
+- **Versionen im Haupt-Repo:** Die **letzten 5 Releases** werden ins Haupt-Repo aufgenommen (kein Archiv) — Nutzer können damit auf frühere Versionen zurückrollen, falls ein neues Release Probleme macht. Ältere Versionen bleiben als GitHub-Releases herunterladbar.
 
 **Unterschied zum F-Droid-Hauptrepo:**
 | Aspekt | Eigener Repo-Server | F-Droid Hauptrepo |
