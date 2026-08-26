@@ -142,11 +142,11 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
-          # Check if there are changes
-          if git diff --quiet docs/fdroid/; then
+          # Check for new or changed files (git diff misses untracked dirs)
+          git add docs/fdroid/
+          if git diff --cached --quiet; then
             echo "No changes to commit"
           else
-            git add docs/fdroid/
             git commit -m "chore: update F-Droid repository for ${{ steps.version.outputs.VERSION }}"
             git push
           fi
