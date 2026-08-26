@@ -474,7 +474,7 @@ platform :android do
         "versionCode" => version_code
       }
     )
-    aab = lane_context[SharedValues::GRADLE_AAB_OUTPUT_PATH] || "app/build/outputs/bundle/standardPlayRelease/app-standard-play-release.aab"
+    aab = lane_context[SharedValues::GRADLE_AAB_OUTPUT_PATH] || "app/build/outputs/bundle/standardPlayRelease/app-standard-playRelease.aab"
     UI.user_error!("AAB not found: #{aab}") unless File.exist?(aab)
     UI.message("AAB: #{aab} (#{File.size(aab)} bytes)")
 

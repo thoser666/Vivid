@@ -55,7 +55,7 @@ export UPLOAD_KEY_PASSWORD="$KEY_PASSWORD"
   version_code:1 \
   track:alpha
 
-AAB="app/build/outputs/bundle/standardPlayRelease/app-standard-play-release.aab"
+AAB="app/build/outputs/bundle/standardPlayRelease/app-standard-playRelease.aab"
 if [ ! -f "$AAB" ]; then
   echo "::error::AAB nicht erzeugt: $AAB"
   exit 1
