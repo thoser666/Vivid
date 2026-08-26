@@ -189,6 +189,42 @@ Vergleich der Voraussetzungen für den ersten Upload (Stand 08/2026, Vivid ist M
 3. Nutzer-URL in README/Anleitung dokumentieren
 4. (Optional) F-Droid-Hauptrepo vorbereiten (Post-Beta, Sentry-freie Variante)
 
+### 🗄️ Archivierungs-Strategie
+
+| Parameter | Wert | Bedeutung |
+|-----------|------|-----------|
+| **`archive_older`** | `0` | Kein Archiv — alle im Haupt-Repo bleibenden Versionen liegen im Hauptrepo |
+| **Max. Versionen** | `5` | Der Workflow lädt die **letzten 5 Releases** ins Hauptrepo |
+| **Archiv-URL** | — | Nicht aktiv (alle Versionen im Hauptrepo) |
+| **Ältere Releases** | GitHub Releases | Alle früheren Versionen bleiben als GitHub-Releases herunterladbar |
+
+**Ablauf bei jedem Release:**
+1. Workflow lädt die **5 neuesten APKs** herunter (mit Tag-Präfix für eindeutige Dateinamen)
+2. `fdroid update` generiert den Index mit allen 5 Versionen
+3. GitHub Pages deployet das aktualisierte Repo
+4. F-Droid Clients erhalten die 5 Versionen zum Auswählen/Downgraden
+
+**Warum 5 Versionen?**
+- **Rollback-Sicherheit**: Bei Problemen mit einem neuen Releases können Nutzer sofort zur vorherigen Version wechseln
+- **Testflexibilität**: Tester können verschiedene Versionen vergleichen
+- **Übersichtlichkeit**: Mehr als 5 Versionen würden den Index aufblähen, ohne Mehrwert
+
+**Änderung der Anzahl:**
+```yaml
+# In .github/workflows/deploy-fdroid.yml:
+# Zeile "--limit 5" anpassen, z.B. auf 3 oder 10
+gh release list --limit 5 --json tagName
+```
+
+**ArchivePolicy in Metadata (alternativ):**
+Falls archivierung **zeitbasiert** statt anzahlbasiert gewünscht ist, kann in `metadata/com.vivid.yml` ergänzt werden:
+```yaml
+ArchivePolicy: 90  # Tage nach denen Versionen archiviert werden
+```
+Bei `archive_older: 0` wird diese Einstellung ignoriert.
+
+---
+
 ## 📦 F-Droid Hauptrepo (FOSS-Build ohne Sentry)
 
 **Status: ✅ Vorbereitet** — Die FOSS-Variante ist implementiert und kann für das F-Droid-Hauptrepo eingereicht werden.
