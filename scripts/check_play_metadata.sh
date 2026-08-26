@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Prüft die Vollständigkeit der Google-Play-Store-Metadaten
 # (fastlane/metadata/android) — als CI-Gate vor einem Play-Upload und als
-# laufender Check in android.yml:
+# laufender Check in android-ci.yml:
 #
 #   ✅ Icon        : images/icon.png — PNG, exakt 512×512
 #   ✅ Screenshots : images/phoneScreenshots/ — ≥ 2 PNG/JPEG, Seitenverhältnis

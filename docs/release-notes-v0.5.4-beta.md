@@ -65,4 +65,4 @@ In den Stream-Einstellungen gibt es jetzt eine **vierte Vorlage „Benutzerdefin
 - `app/src/main/java/com/vivid/irlbroadcaster/ui/theme/Theme.kt`: `ThemeMode`/`AccentColor`-Enums, `accentPalettes` (6 Akzente, M3-TonalSpot), `VividAmoledColorScheme`, `VividTheme(darkTheme, amoled, accent)`; Persistenz via `SettingsRepository` (`theme_mode`/`theme_accent`), live angewendet in `MainActivity` — `VividThemeTest`, `ThemeModeTest`, `AccentColorTest` u. a.
 - `feature-widgets`: Höhenmeter (`WidgetFormatters`), Tests erweitert
 - I18n: `scripts/check_i18n.sh` prüft jetzt **6 Module** in **3 Sprachen** (values ↔ values-en ↔ values-fr); `scripts/test_check_i18n.sh` (5 Fixtures); Plan: [docs/i18n-plan.md](../docs/i18n-plan.md)
-- CI: `scripts/check_parity_log.sh` + `scripts/test_parity_log.sh`, `scripts/test_roadmap_reservation.sh` in Pre-Push-Gate und android.yml
+- CI: `scripts/check_parity_log.sh` + `scripts/test_parity_log.sh`, `scripts/test_roadmap_reservation.sh` in Pre-Push-Gate und android-ci.yml

@@ -6,7 +6,7 @@
 #     Negativ 1: fehlendes Icon → Exit 1
 #     Negativ 2: zu wenige/verkehrte Screenshots → Exit 1
 #     Negativ 3: fehlende Locale-Datei → Exit 1
-# Läuft im CI (android.yml) und lokal: bash scripts/test_play_metadata.sh
+# Läuft im CI (android-ci.yml) und lokal: bash scripts/test_play_metadata.sh
 set -euo pipefail
 
 cd "$(dirname "$0")/.."

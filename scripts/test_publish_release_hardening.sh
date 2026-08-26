@@ -14,7 +14,7 @@
 #   S7 Tag bleibt immer    → Beweis: stabiler Pfad führt NIE eine Tag-Löschung
 #                            aus (Command-Log + statischer Source-Guard)
 #
-# Läuft im CI (android_fastlane.yml, Job "Self-Test publish_release (Hardening)")
+# Läuft im CI (release-pipeline.yml, Job "Self-Test publish_release (Hardening)")
 # und lokal: bash scripts/test_publish_release_hardening.sh  (Exit 0 = grün)
 set -euo pipefail
 

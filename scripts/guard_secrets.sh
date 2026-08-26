@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Guard: verhindert, dass Keystores/Secrets ins Git-Repo gelangen.
-# Läuft im CI (android.yml) und lokal — Exit-Code 0 = sauber, 1 = Verstoß.
+# Läuft im CI (android-ci.yml) und lokal — Exit-Code 0 = sauber, 1 = Verstoß.
 #
 # Zwei Schutzebenen:
 #   1) Dateinamen-Guard  : verbotene Dateien (getrackt ODER gestaged)

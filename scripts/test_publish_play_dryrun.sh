@@ -9,7 +9,7 @@
 #      Credential-Guard scheitern — der Upload-Pfad ist ohne Play-Zugang blockiert
 #
 # Damit ist die Lane dauerhaft testbar, bevor echte UPLOAD_*/PLAY_*-Secrets
-# existieren. Läuft im CI (android_fastlane.yml, Job "Self-Test publish_play")
+# existieren. Läuft im CI (release-pipeline.yml, Job "Self-Test publish_play")
 # und lokal: bash scripts/test_publish_play_dryrun.sh  (Exit 0 = grün)
 set -euo pipefail
 

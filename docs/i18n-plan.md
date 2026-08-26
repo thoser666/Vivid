@@ -60,7 +60,7 @@
 4. **Selbsttest:** `scripts/test_check_i18n.sh` (5 Fixtures: sauber grün, hartkodierter String rot, fehlende Übersetzung rot, Hint ohne Owncast rot, Repo-Regression grün) — läuft in Pre-Push und CI.
 5. **Lint:** Android-Lint meldet `HardcodedText`-Warnungen — als `warningsAsErrors` im CI aktiviert.
 
-**Verdrahtung:** `scripts/check_i18n.sh` + `scripts/test_check_i18n.sh` in `scripts/pre-push.sh` (mit Assertionen in `scripts/test_pre_push.sh`) und im `guard-secrets`-Job von `.github/workflows/android.yml`.
+**Verdrahtung:** `scripts/check_i18n.sh` + `scripts/test_check_i18n.sh` in `scripts/pre-push.sh` (mit Assertionen in `scripts/test_pre_push.sh`) und im `guard-secrets`-Job von `.github/workflows/android-ci.yml`.
 
 ## 6. Aufwand & Abgrenzung
 

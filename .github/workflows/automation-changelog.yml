@@ -1,10 +1,10 @@
-name: Update Changelog
+name: Automation / Changelog
 
 on:
   # ⚠️ Limitation: Releases, die die Pipeline per `gh release create` mit
   # GITHUB_TOKEN erstellt, feuern KEIN `release: published`-Event. Die nightly-
   # Pflege passiert deshalb direkt im publish-release-Job von
-  # android_fastlane.yml (Schritt "Update CHANGELOG.md from GitHub releases").
+  # release-pipeline.yml (Schritt "Update CHANGELOG.md from GitHub releases").
   # Dieser Workflow greift hier nur für manuelle/UI-Releases + manuellen Refresh.
   release:
     types: [published]
@@ -23,7 +23,7 @@ jobs:
   update:
     name: Mirror GitHub Releases → CHANGELOG.md
     runs-on: ubuntu-latest
-    # Gleiche Guard-Philosophie wie in android_fastlane.yml: Dependabot
+    # Gleiche Guard-Philosophie wie in release-pipeline.yml: Dependabot
     # (auch per manuellem Merge) stößt keine Automatik an.
     if: github.actor != 'dependabot[bot]'
 
@@ -39,7 +39,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: scripts/update_changelog.sh
 
-      # Der Commit läuft als github-actions[bot] → android_fastlane.yml
+      # Der Commit läuft als github-actions[bot] → release-pipeline.yml
       # überspringt dafür publish-release/verify (Guard unten), sonst gäbe
       # es eine Endlosschleife: Changelog-Commit → Nightly → Release → Changelog.
       - name: Commit and push if changed

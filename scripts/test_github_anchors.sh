@@ -12,7 +12,7 @@
 # im --dump-anchors-Modus auf und vergleicht die berechnete ID mit GitHub.
 # Weicht die Berechnung vom GitHub-Rendering ab → Test schlägt fehl.
 #
-# Läuft im CI (android.yml) und lokal: bash scripts/test_github_anchors.sh
+# Läuft im CI (android-ci.yml) und lokal: bash scripts/test_github_anchors.sh
 set -euo pipefail
 
 cd "$(dirname "$0")/.."

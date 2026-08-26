@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ⚠️ Dieses Skript pflegt CHANGELOG.md automatisch aus den GitHub-Releases.
-# Aufgerufen wird es vom Workflow .github/workflows/update_changelog.yml
+# Aufgerufen wird es vom Workflow .github/workflows/automation-changelog.yml
 # (Trigger: release:published + workflow_dispatch).
 #
 # Verhalten:

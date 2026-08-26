@@ -1,4 +1,4 @@
-name: Android CI with Fastlane
+name: Release Pipeline
 
 on:
   push:
@@ -15,7 +15,7 @@ on:
   schedule:
     - cron: '0 6 * * *'
   # Manuell auslösbar (z. B. zum Testen des Schedule-Pfads):
-  # gh workflow run android_fastlane.yml --ref develop
+  # gh workflow run release-pipeline.yml --ref develop
   workflow_dispatch:
     inputs:
       version:
@@ -93,7 +93,7 @@ jobs:
         run: bundle exec fastlane test
 
       # ✅ Lint & Static Analysis auf ALLEN Modulen — gleicher Standard wie
-      # android.yml (warningsAsErrors in allen Modulen gesetzt). blockt, sobald
+      # android-ci.yml (warningsAsErrors in allen Modulen gesetzt). blockt, sobald
       # eine Warnung/Fehler auftaucht; Build-Release/ Publish hängen an diesem Job.
       - name: Run lint & static analysis
         run: bundle exec fastlane lint

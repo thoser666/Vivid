@@ -1,4 +1,4 @@
-name: OpenSSF Scorecard
+name: Security / Scorecard
 
 on:
   # Runs on pushes to the default branch

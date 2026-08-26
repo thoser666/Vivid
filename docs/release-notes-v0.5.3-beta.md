@@ -57,4 +57,4 @@ Der Twitch-Chat im Overlay rendert Emotes jetzt **inline neben dem Text** als Bi
 
 - `app/src/main/java/com/vivid/irlbroadcaster/ui/theme/Theme.kt`: Vivid-Palette (Light/Dark) + `isSystemInDarkTheme()`, Paletten `internal` testbar; `VividThemeTest` (5 Fälle)
 - `feature-chat`: `InlineEmote` + `parseFromEmotesTag`, EventSub-Fragment-Parsing in `TwitchChatEventSubReader`, Coil-Integration (`coil-compose`, 25 MB Disk-Cache in `VividApplication`), `ChatOverlay` mit `FlowRow`-Segment-Rendering (Text + inline `AsyncImage`); 8 Parser-Tests + 7 Overlay-Segment-Tests
-- CI: `scripts/check_markdown_anchors.sh` + `scripts/test_github_anchors.sh` (Golden-Test, CRLF-resistent) in Pre-Push-Gate und android.yml
+- CI: `scripts/check_markdown_anchors.sh` + `scripts/test_github_anchors.sh` (Golden-Test, CRLF-resistent) in Pre-Push-Gate und android-ci.yml

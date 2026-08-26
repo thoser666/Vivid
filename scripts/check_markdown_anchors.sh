@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Check: validiert alle internen Markdown-Anker im Repo gegen die Ziel-Dateien.
-# Läuft im CI (android.yml) und lokal — Exit-Code 0 = sauber, 1 = toter Anker.
+# Läuft im CI (android-ci.yml) und lokal — Exit-Code 0 = sauber, 1 = toter Anker.
 #
 # Was geprüft wird (externe URLs und GitHub-UI-Links werden übersprungen):
 #   1) [x](#anker)          → Anker muss in DERSELBEN Datei existieren

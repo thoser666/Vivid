@@ -43,7 +43,7 @@ Damit die Opt-out-Logik nie stillschweigend vom Release-Build wegoptimiert wird,
 ## 🔧 Weitere Änderungen seit v0.5.0-beta
 
 - **Play-Vorbereitung (Doku + Tooling):** [PRIVACY.md](../PRIVACY.md) + GitHub-Pages-Hosting (`thoser666.github.io/Vivid/privacy/`), IARC-Content-Rating-Vorlage, Data-Safety-Antworttabelle, Play-Console-Registrierungs-Guide, Store-Strategie (Play vs. F-Droid), `prepare_play_secrets.sh`, Play-Metadaten-Gate, Screengrab-Lane `capture_play_screenshots`
-- **CI-Härtung:** Zwei-Kanal-Mapping-Check (Pre-Push + Fastlane-CI), Play-Metadaten-Selbsttest, sentry-optout-Checker-Selbsttest (9 Fälle) in android.yml
+- **CI-Härtung:** Zwei-Kanal-Mapping-Check (Pre-Push + Fastlane-CI), Play-Metadaten-Selbsttest, sentry-optout-Checker-Selbsttest (9 Fälle) in android-ci.yml
 
 ## 🧪 Testschwerpunkte für Beta-Tester
 

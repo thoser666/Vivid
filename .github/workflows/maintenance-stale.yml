@@ -1,4 +1,4 @@
-name: Stale Issues Management
+name: Maintenance / Stale
 
 on:
   schedule:

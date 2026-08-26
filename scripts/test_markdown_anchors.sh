@@ -7,7 +7,7 @@
 #     Negativ 2 : toter Anker in einer anderen Datei  → Exit 1
 #     Negativ 3 : Ziel-Datei fehlt                     → Exit 1
 #     Negativ 4 : Anker mit #-Präfix-Datei (file.md#) — Datei-Check greift
-# Läuft im CI (android.yml) und lokal: bash scripts/test_markdown_anchors.sh
+# Läuft im CI (android-ci.yml) und lokal: bash scripts/test_markdown_anchors.sh
 set -euo pipefail
 
 cd "$(dirname "$0")/.."

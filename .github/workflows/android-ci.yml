@@ -1,4 +1,4 @@
-name: Android CI
+name: CI
 
 on:
   push:
@@ -99,7 +99,7 @@ jobs:
 
       # Play-Metadaten-Check (bash) — Selbsttest mit Fixture-PNGs: 1 Positiv-
       # + 5 Negativfälle. Der harte Gate-Check läuft im publish-play-Job
-      # (android_fastlane.yml) direkt vor dem Upload.
+      # (release-pipeline.yml) direkt vor dem Upload.
       - name: Test play metadata check
         run: bash scripts/test_play_metadata.sh
 

@@ -9,7 +9,7 @@
 ### 🔒 Security & CI-Härtung (Hauptfokus)
 
 #### CodeQL Security-Scan
-- **CodeQL GitHub Actions Workflow** aktiviert (`.github/workflows/codeql.yml`)
+- **CodeQL GitHub Actions Workflow** aktiviert (`.github/workflows/security-codeql.yml`)
 - SHA-Pinning aller Drittanbieter-Actions für Supply-Chain-Security
 - SARIF-Upload in GitHub Security-Tab
 - **Alle Alerts behoben**: 0 offene Errors/Warnings, 10 False Positives dokumentiert

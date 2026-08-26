@@ -11,7 +11,7 @@
 #                  sind Vorfahren von HEAD)                         -> gruen
 #     P6  Negativ: formatgueltiger, aber NICHT existierender Hash
 #                  (mit --check-exists)                             -> rot
-# Läuft im CI (android.yml) und lokal: bash scripts/test_parity_log.sh
+# Läuft im CI (android-ci.yml) und lokal: bash scripts/test_parity_log.sh
 #
 # Hinweis: Die Fixture-Zeilen sind bewusst ASCII — das Zeichen in der
 # Platzhalter-Spalte (Unicode-Em-Dash) steht nur im heredoc-Inhalt, der von

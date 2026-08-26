@@ -2,7 +2,7 @@
 
 Alle Änderungen an Vivid — **automatisch aus den GitHub-Releases gespiegelt**.
 
-> ⚠️ **Nicht von Hand bearbeiten.** Der generierte Abschnitt (unten, zwischen den beiden Marker-Kommentaren) wird von [`scripts/update_changelog.sh`](scripts/update_changelog.sh) gepflegt — Workflow: [`.github/workflows/update_changelog.yml`](.github/workflows/update_changelog.yml), Trigger: `release: published` + manuell.
+> ⚠️ **Nicht von Hand bearbeiten.** Der generierte Abschnitt (unten, zwischen den beiden Marker-Kommentaren) wird von [`scripts/update_changelog.sh`](scripts/update_changelog.sh) gepflegt — Workflow: [`.github/workflows/automation-changelog.yml`](.github/workflows/automation-changelog.yml), Trigger: `release: published` + manuell.
 
 - 🔗 Aktuelle Releases: <https://github.com/thoser666/Vivid/releases>
 - 📦 Release-Kanäle & Versionsstrategie (nightly → alpha → beta → stable): [RELEASE.md](RELEASE.md)

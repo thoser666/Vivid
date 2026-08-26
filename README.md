@@ -9,7 +9,7 @@
 ![License](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)
 ![GitHub release](https://img.shields.io/github/v/release/thoser666/Vivid?style=for-the-badge)
 ![GitHub stars](https://img.shields.io/github/stars/thoser666/Vivid?style=for-the-badge)
-![CI](https://img.shields.io/github/actions/workflow/status/thoser666/Vivid/android.yml?branch=develop&style=for-the-badge&label=CI)
+![CI](https://img.shields.io/github/actions/workflow/status/thoser666/Vivid/android-ci.yml?branch=develop&style=for-the-badge&label=CI)
 
 **Professional IRL streaming for Android — aiming for full feature parity with Moblin**
 
@@ -573,7 +573,7 @@ cd Vivid
 ./gradlew lintDebug
 ```
 
-Both run automatically in CI (`.github/workflows/android.yml`) on every push and pull request to `develop`/`master`.
+Both run automatically in CI (`.github/workflows/android-ci.yml`) on every push and pull request to `develop`/`master`.
 
 ### Release Builds (Fastlane)
 
@@ -596,9 +596,9 @@ bundle exec fastlane release_github
 bundle exec fastlane release_alpha
 ```
 
-The `android_fastlane.yml` workflow runs these lanes in CI. Two release paths are automated:
+The `release-pipeline.yml` workflow runs these lanes in CI. Two release paths are automated:
 
-- **A scheduled build runs once per day at 06:00 UTC** (and the workflow can be triggered manually via `gh workflow run android_fastlane.yml --ref develop`) — it builds the signed release APK and publishes it as a rolling **`nightly` prerelease** with a version derived from the git tag + CI run number. The nightly release is replaced on each build, so it always contains the latest feature build; since 21.08.2026 it is **built once per day, not on every push** (develop pushes only run tests/builds, no new nightly).
+- **A scheduled build runs once per day at 06:00 UTC** (and the workflow can be triggered manually via `gh workflow run release-pipeline.yml --ref develop`) — it builds the signed release APK and publishes it as a rolling **`nightly` prerelease** with a version derived from the git tag + CI run number. The nightly release is replaced on each build, so it always contains the latest feature build; since 21.08.2026 it is **built once per day, not on every push** (develop pushes only run tests/builds, no new nightly).
 - **Pushing a `v*` tag** (e.g. `git tag v0.2.0 && git push origin v0.2.0`) publishes a **stable GitHub release** with auto-generated notes.
 
 Both release the same signed APK; Obtainium users can track the latest release for stable versions or enable *pre-releases* to follow the nightly builds. If a lockfile update is needed (e.g. a security bump), run `bundle update <gem>` and commit the new `Gemfile.lock`.

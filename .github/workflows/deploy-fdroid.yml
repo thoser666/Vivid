@@ -1,4 +1,4 @@
-name: F-Droid Repository
+name: Deploy / F-Droid
 
 on:
   # Trigger on new releases
