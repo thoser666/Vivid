@@ -40,7 +40,7 @@ KI-Bot und Kamera-Steuerung in einer App vereint — inspiriert von [Moblin](htt
 4. **Installieren** — fertig
 
 **Alternativ mit Obtainium (automatische Updates):**
-Siehe [README → Automatic updates (Obtainium)](../README.md#-automatic-updates-obtainium).
+Siehe [README → Automatic updates (F-Droid Repository)](../README.md#-automatic-updates-f-droid-repository).
 
 > 🔒 Alle offiziellen APKs sind mit demselben Release-Key signiert — Updates installieren nahtlos übereinander.
 
@@ -303,7 +303,7 @@ Der Einstellungen-Screen ist in sechs Kategorien gegliedert (wie Moblin):
 
 ### Automatisch (Obtainium)
 
-Siehe [README → Automatic updates (Obtainium)](../README.md#-automatic-updates-obtainium).
+Siehe [README → Automatic updates (F-Droid Repository)](../README.md#-automatic-updates-f-droid-repository).
 
 ### Manuell
 

@@ -40,7 +40,7 @@ bot IA et contrôle de la caméra dans une seule app — inspirée de [Moblin](h
 4. **Installer** — terminé
 
 **Alternative avec Obtainium (mises à jour automatiques) :**
-Voir [README → Automatic updates (Obtainium)](../README.md#-automatic-updates-obtainium).
+Voir [README → Automatic updates (F-Droid Repository)](../README.md#-automatic-updates-f-droid-repository).
 
 > 🔒 Toutes les APK officielles sont signées avec la même clé de release — les mises à jour s'installent sans problème par-dessus.
 
@@ -302,7 +302,7 @@ L'écran des paramètres est organisé en six catégories (comme Moblin) :
 
 ### Automatique (Obtainium)
 
-Voir [README → Automatic updates (Obtainium)](../README.md#-automatic-updates-obtainium).
+Voir [README → Automatic updates (F-Droid Repository)](../README.md#-automatic-updates-f-droid-repository).
 
 ### Manuelle
 

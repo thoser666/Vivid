@@ -40,7 +40,7 @@ an AI bot, and camera controls in one app — inspired by [Moblin](https://githu
 4. **Install** — done
 
 **Alternatively with Obtainium (automatic updates):**
-See [README → Automatic updates (Obtainium)](../README.md#-automatic-updates-obtainium).
+See [README → Automatic updates (F-Droid Repository)](../README.md#-automatic-updates-f-droid-repository).
 
 > 🔒 All official APKs are signed with the same release key — updates install seamlessly on top of each other.
 
@@ -297,7 +297,7 @@ The settings screen is organized into six categories (like Moblin):
 
 ### Automatic (Obtainium)
 
-See [README → Automatic updates (Obtainium)](../README.md#-automatic-updates-obtainium).
+See [README → Automatic updates (F-Droid Repository)](../README.md#-automatic-updates-f-droid-repository).
 
 ### Manual
 
