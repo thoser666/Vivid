@@ -99,7 +99,7 @@ jobs:
           archive_older: 0
           keystorepass: ${F_DROID_KEY_PASSWORD}
           keypass: ${F_DROID_KEY_PASSWORD}
-          keyalias: ${F_DROID_KEY_ALIAS}
+          repo_keyalias: ${F_DROID_KEY_ALIAS}
           keydname: ${F_DROID_KEY_DNAME}
           YAMLEOF
           
