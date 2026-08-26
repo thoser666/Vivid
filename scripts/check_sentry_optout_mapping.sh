@@ -7,7 +7,7 @@
 #
 # Geprüft werden BEIDE Release-Kanäle:
 #   - release     (APK,  assembleRelease)
-#   - playRelease (AAB,  bundlePlayRelease, Upload-Key-Kanal für Play)
+#   - standardPlayRelease (AAB,  bundleStandardPlayRelease, Upload-Key-Kanal für Play)
 #
 # Nachgewiesen wird pro Mapping (C1–C6):
 #   C1  Mapping-Datei existiert (Release-Build wurde gebaut)
@@ -56,7 +56,7 @@ check_one() {
   # von „Nachweis fehlgeschlagen“ (hart). Streng nur mit --strict/expliziten Pfaden.
   if [[ ! -f "$MAPPING" ]]; then
     if [[ "$STRICT" == "1" ]]; then
-      echo "❌ [mapping] ($MAPPING) Kanal NICHT GEBAUT — kein Mapping vorhanden (Release-Build ausführen: ./gradlew assembleRelease bundlePlayRelease bzw. :app:minifyReleaseWithR8 :app:minifyPlayReleaseWithR8)."
+      echo "❌ [mapping] ($MAPPING) Kanal NICHT GEBAUT — kein Mapping vorhanden (Release-Build ausführen: ./gradlew assembleRelease bundleStandardPlayRelease bzw. :app:minifyReleaseWithR8 :app:minifyPlayReleaseWithR8)."
       return 1
     fi
     echo "⚠️ [mapping] ($MAPPING) Kanal nicht gebaut — Nachweis übersprungen (Release-Build ist optional; vollständiger Nachweis: PRE_PUSH_RELEASE=1 git push)."
@@ -128,7 +128,7 @@ if [[ ${#MAPPINGS[@]} -eq 0 ]]; then
   # Default: BEIDE Release-Kanäle (Pfade per Env überschreibbar für Tests).
   MAPPINGS=(
     "${MAPPING_RELEASE:-app/build/outputs/mapping/release/mapping.txt}"       # release — APK
-    "${MAPPING_PLAYRELEASE:-app/build/outputs/mapping/playRelease/mapping.txt}"   # playRelease — AAB
+    "${MAPPING_PLAYRELEASE:-app/build/outputs/mapping/standardPlayRelease/mapping.txt}"   # standardPlayRelease — AAB
   )
 fi
 

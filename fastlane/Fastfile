@@ -467,14 +467,14 @@ platform :android do
 
     UI.header "Step 3/6: Building AAB with UPLOAD key"
     gradle(
-      task: "bundlePlayRelease",
+      task: "bundleStandardPlayRelease",
       flags: "--stacktrace --no-daemon",
       properties: {
         "versionName" => version_name,
         "versionCode" => version_code
       }
     )
-    aab = lane_context[SharedValues::GRADLE_AAB_OUTPUT_PATH] || "app/build/outputs/bundle/playRelease/app-playRelease.aab"
+    aab = lane_context[SharedValues::GRADLE_AAB_OUTPUT_PATH] || "app/build/outputs/bundle/standardPlayRelease/app-standard-play-release.aab"
     UI.user_error!("AAB not found: #{aab}") unless File.exist?(aab)
     UI.message("AAB: #{aab} (#{File.size(aab)} bytes)")
 

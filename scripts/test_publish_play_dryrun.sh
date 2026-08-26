@@ -2,7 +2,7 @@
 # Selbsttest der publish_play-Lane OHNE Play-Zugang (dry_run=true):
 #   1. lokalen Wegwerf-Keystore erzeugen (keytool, deterministische Test-Passwörter)
 #   2. UPLOAD_*-Env-Variablen auf den Test-Keystore setzen (keine echten Secrets nötig)
-#   3. `fastlane publish_play dry_run:true` — baut bundlePlayRelease und verifiziert
+#   3. `fastlane publish_play dry_run:true` — baut bundleStandardPlayRelease und verifiziert
 #      die AAB-Signatur per keytool gegen den Upload-Key (harter Fail bei Mismatch)
 #   4. Assert: AAB existiert und Fingerprint (AAB-Signer == Upload-Key) stimmt
 #   5. Negativtest: publish_play OHNE dry_run und ohne Play-Credentials muss am
@@ -43,7 +43,7 @@ keytool -genkeypair -v \
   -storepass "$KEYSTORE_PASSWORD" -keypass "$KEY_PASSWORD" \
   -dname "CN=Vivid Test Upload, O=Vivid, C=DE" >/dev/null
 
-echo "==> publish_play dry_run:true (bundlePlayRelease + keytool-Verifikation)"
+echo "==> publish_play dry_run:true (bundleStandardPlayRelease + keytool-Verifikation)"
 export UPLOAD_KEYSTORE_PATH="$KEYSTORE"
 export UPLOAD_KEYSTORE_PASSWORD="$KEYSTORE_PASSWORD"
 export UPLOAD_KEY_ALIAS="$KEY_ALIAS"
@@ -55,7 +55,7 @@ export UPLOAD_KEY_PASSWORD="$KEY_PASSWORD"
   version_code:1 \
   track:alpha
 
-AAB="app/build/outputs/bundle/playRelease/app-playRelease.aab"
+AAB="app/build/outputs/bundle/standardPlayRelease/app-standard-play-release.aab"
 if [ ! -f "$AAB" ]; then
   echo "::error::AAB nicht erzeugt: $AAB"
   exit 1

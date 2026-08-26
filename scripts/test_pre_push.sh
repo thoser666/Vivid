@@ -35,11 +35,11 @@ if grep -q "assembleRelease" <<< "$out"; then
   fail "assembleRelease erscheint ohne PRE_PUSH_RELEASE=1 im Dry-Run"
 fi
 if grep -q "bundlePlayRelease" <<< "$out"; then
-  fail "bundlePlayRelease erscheint ohne PRE_PUSH_RELEASE=1 im Dry-Run"
+  fail "bundleStandardPlayRelease erscheint ohne PRE_PUSH_RELEASE=1 im Dry-Run"
 fi
 out_release="$(PRE_PUSH_RELEASE=1 bash scripts/pre-push.sh --dry-run)"
 grep -q "assembleRelease" <<< "$out_release" || fail "assembleRelease fehlt im Dry-Run mit PRE_PUSH_RELEASE=1"
-grep -q "bundlePlayRelease" <<< "$out_release" || fail "bundlePlayRelease fehlt im Dry-Run mit PRE_PUSH_RELEASE=1"
+grep -q "bundleStandardPlayRelease" <<< "$out_release" || fail "bundleStandardPlayRelease fehlt im Dry-Run mit PRE_PUSH_RELEASE=1"
 
 [[ -f scripts/install-git-hooks.sh ]] || fail "scripts/install-git-hooks.sh fehlt"
 

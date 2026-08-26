@@ -56,8 +56,8 @@ fi
 # damit der anschließende Mapping-Check (release + playRelease) frische Mappings
 # vorfindet: assembleRelease (APK) + bundlePlayRelease (AAB, Upload-Key-Kanal).
 if [[ "${PRE_PUSH_RELEASE:-0}" == "1" ]]; then
-  echo "▶ [pre-push] Release-Builds (R8/ProGuard, PRE_PUSH_RELEASE=1: ./gradlew assembleRelease bundlePlayRelease)"
-  run ./gradlew assembleRelease bundlePlayRelease --console=plain
+  echo "▶ [pre-push] Release-Builds (R8/ProGuard, PRE_PUSH_RELEASE=1: ./gradlew assembleRelease bundleStandardPlayRelease)"
+  run ./gradlew assembleRelease bundleStandardPlayRelease --console=plain
 fi
 
 # Automatischer Mapping-Check: weist nach, dass die Sentry-Opt-out-Logik in
