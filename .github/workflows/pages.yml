@@ -17,6 +17,7 @@ on:
     paths:
       - 'PRIVACY.md'
       - 'docs/index.md'
+      - 'docs/fdroid/**'
   workflow_dispatch:
 
 permissions:
