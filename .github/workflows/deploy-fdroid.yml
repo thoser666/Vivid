@@ -117,7 +117,7 @@ jobs:
           EOF
           
           # Create metadata directory for the app
-          mkdir -p metadata/com.vivid/en-US
+          mkdir -p metadata/com.vivid/en-US/changelogs
           
           # Create metadata files that fdroid update will pick up
           cat > metadata/com.vivid/en-US/title.txt << 'EOF'
