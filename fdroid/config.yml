@@ -10,7 +10,7 @@ repo_description: "Vivid - Open Source IRL Streaming App with Chat Bot & AI Feat
 repo_url: https://thoser666.github.io/Vivid/fdroid/repo
 
 # Signing configuration
-# These values will be provided via GitHub Secrets
+# These values are provided via GitHub Secrets
 # keydname: CN=Vivid, O=Vivid, L=Unknown, ST=Unknown, C=US
 # keyalias: vivid
 # keystorepass: [FROM_SECRET]
@@ -20,39 +20,44 @@ repo_url: https://thoser666.github.io/Vivid/fdroid/repo
 # We don't build from source - we distribute pre-built APKs
 # This is faster and allows us to keep Sentry enabled
 
-# Package metadata
+# Source code
+SourceCode: https://github.com/thoser666/Vivid
+Issues: https://github.com/thoser666/Vivid/issues
+WebSite: https://thoser666.github.io/Vivid/
+Changelog: https://github.com/thoser666/Vivid/releases
+Donate: https://github.com/sponsors/thoser666
+License: MIT
 Categories:
   - Internet
   - Entertainment
   - Multimedia
 
-License: MIT
+# Anti-features are NOT set here because:
+# 1. Sentry can be disabled by the user (opt-out toggle in Settings)
+# 2. F-Droid filters apps with AntiFeatures by default
+# 3. The FOSS build (for F-Droid main repo) has Sentry completely removed
 
-# Anti-features (what users should know about)
-# Sentry is used for crash reporting - this is a trade-off
-# Users who want fully FOSS should use the F-Droid main repo
-AntiFeatures:
-  - Tracking
-    # Sentry is used for crash reporting
-    # Disabled in F-Droid main repo build
-
-# Source code
-SourceCode: https://github.com/thoser666/Vivid
-Issues: https://github.com/thoser666/Vivid/issues
-
-# Changelog
-Changelog: https://github.com/thoser666/Vivid/releases
-
-# Web site
-WebSite: https://thoser666.github.io/Vivid/
-
-# Donate
-Donate: https://github.com/sponsors/thoser666
-
-# Flavors
-# We only distribute the main flavor
+# Flavors - we only distribute the main flavor
 Builds:
   - versionName: latest
     versionCode: 0
     apk: https://github.com/thoser666/Vivid/releases/latest/download/app-release.apk
     isPrimary: true
+    name: Vivid - IRL Streaming
+    Summary: Open source IRL streaming app with chat bot and AI features
+    Description: |
+      Vivid is an open-source IRL streaming application for Android.
+      
+      Features:
+      - Live streaming via RTMP/SRT to Twitch, YouTube, Kick, and custom platforms
+      - Real-time chat overlay with badges and emotes
+      - AI-powered chat bot with configurable responses
+      - Owner remote control commands
+      - Dark mode with AMOLED support
+      - Multi-language support (English, German, French)
+      - Scene management and auto-switching
+      - Real-time GPS overlay (altitude, speed, coordinates)
+      - Custom RTMP/SRT endpoints
+      
+      Open Source: https://github.com/thoser666/Vivid
+      Issues: https://github.com/thoser666/Vivid/issues
