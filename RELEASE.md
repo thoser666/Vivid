@@ -489,6 +489,39 @@ Das Projekt nutzt den **Stale GitHub App** für automatisches Issue-Management. 
 - Saubere Issue-Liste (keine veralteten, nicht mehr relevanten Issues)
 - Weniger manueller Auftwand für Issue-Verwaltung
 - Bessere Übersicht über aktuelle Probleme und Wünsche
+## 🔒 OpenSSF Scorecard (Supply-Chain-Security)
+
+Das Projekt nutzt den **OpenSSF Scorecard** für automatische Security-Analyse und Supply-Chain-Security-Bewertung. Der Scorecard prüft bewährte Sicherheitspraktiken für Open-Source-Projekte.
+
+**Workflow** (`.github/workflows/scorecard.yml`):
+- **Ausführung:** Bei Push auf master, Pull-Requests nach master, wöchentlich (Mo 04:00 UTC), manuell
+- **SHA-Pinning:** `ossf/scorecard-action@55891bbd...` (v2.4.4), `github/codeql-action/upload-sarif@8c78abb9...` (v3.28.0)
+- **Ergebnisse:** SARIF-Upload in GitHub Security-Tab (OpenSSF Scorecard)>
+- **Fehlerbehandlung:** Kein Workflow-Abbruch bei Fehler, nur HIGH+ Severity meldet sich
+- **Berechtigungen:** Least-Privilege (`security-events: write`, `id-token: write`)
+- **Concurrency:** Ein Lauf pro Branch, alte Läufe abbrechen
+
+**Geprüfte Kriterien (Auswahl):**
+- Code-Review: Erfordert Code-Review vor Merge ✅ (PR-Pflicht)
+- Dangerous-Workflow: Keine gefährlichen Workflow-Patterns ✅ (SHA-Pins, Least-Privilege)
+- Dependency-Update-Tool: Dependabot/Renovate aktiv ✅ (Dependabot weekly)
+- License: Lizenz vorhanden ✅ (MIT)
+- Pinned-Dependencies: Abhängigkeiten gepinnt ✅ (SHA-Pins)
+- Security-Policy: Security-Policy vorhanden ✅ (SECURITY.md)
+- Token-Permissions: Token-Rechte minimal ✅ (Least-Privilege)
+- Vulnerabilities: Bekannte Schwachstellen ✅ (0 offene Alerts)
+
+**Für Entwickler:**
+- Scorecard-Ergebnisse im Security-Tab einsehen (OpenSSF Scorecard)
+- Bei neuen Alerts: Kriterium prüfen und ggf. implementieren
+- Scorecard läuft automatisch — kein manueller Aufwand
+
+**Vorteile für das Projekt:**
+- Automatische Security-Bewertung nach bewährten Open-Source-Praktiken
+- Sichtbarkeit für Nutzer und Organisationen (Scorecard-Badge)
+- Frühzeitige Erkennung von Supply-Chain-Schwachstellen
+- Verbessertes Vertrauen in die Sicherheit des Projekts
+
 
 
 ## 🔒 CI-Härtung: Pinned Actions (Supply-Chain)

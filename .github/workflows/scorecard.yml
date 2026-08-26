@@ -1,0 +1,109 @@
+name: OpenSSF Scorecard
+
+on:
+  # Runs on pushes to the default branch
+  push:
+    branches: [master]
+  
+  # Runs on pull requests to the default branch
+  pull_request:
+    branches: [master]
+  
+  # Runs weekly on Monday at 04:00 UTC (same as CodeQL)
+  schedule:
+    - cron: '0 4 * * 1'
+  
+  # Allow manual trigger for testing
+  workflow_dispatch:
+
+# Default permissions for the Scorecard action
+permissions:
+  security-events: write
+
+# Only one run at a time per branch
+concurrency:
+  group: scorecard-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analysis:
+    name: Security Analysis
+    runs-on: ubuntu-latest
+    
+    # Required for the Scorecard SARIF upload
+    permissions:
+      security-events: write
+      id-token: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+          with:
+            persist-credentials: false
+      
+      - name: Run Scorecard analysis
+        uses: ossf/scorecard-action@55891bbd73f2425e97637d96e306fc9d491d0b21 # v2.4.4
+        with:
+          # Results file path
+          results_file: results.sarif
+          
+          # Results format
+          results_format: sarif
+          
+          # Upload results to GitHub Security tab
+          upload-artifact: false
+          
+          # Publish results to GitHub Security tab
+          publish_results: true
+          
+          # Enable all checks (default)
+          # enable_checks: ""
+          
+          # Disable specific checks (optional)
+          # disable_checks: ""
+          
+          # Publish results to OSSF Scorecard dashboard
+          # dashboard_url: https://securityscorecards.dev
+          
+          # Show detailed check results
+          show-detailed-results: false
+          
+          # Fail the workflow if a check fails
+          fail_on_severity: HIGH
+          
+          # Fail the workflow on any check failure
+          fail_on_error: false
+      
+      - name: Upload SARIF results to GitHub Security
+        uses: github/codeql-action/upload-sarif@8c78abb9b62512e3c45dea6559ffd924ed8549c8 # v3.28.0
+        with:
+          sarif_file: results.sarif
+          category: openssf-scorecard
+      
+      - name: Display Scorecard summary
+        if: always()
+        run: |
+          echo "=== OpenSSF Scorecard Analysis Complete ==="
+          echo ""
+          echo "The Scorecard analysis has been completed."
+          echo "Results are available in the GitHub Security tab."
+          echo ""
+          echo "To view detailed results:"
+          echo "1. Go to the repository's Security tab"
+          echo "2. Look for 'OpenSSF Scorecard' in the Security Overview"
+          echo "3. Click on the latest scan to see detailed findings"
+          echo ""
+          echo "For more information about OpenSSF Scorecard, visit:"
+          echo "https://securityscorecards.dev/"
+          echo ""
+          echo "Key checks performed:"
+          echo "- Code-Review: Does the project require code reviews?"
+          echo "- Dangerous-Workflow: Are there dangerous workflow patterns?"
+          echo "- Dependency-Update-Tool: Is Dependabot/Renovate enabled?"
+          echo "- Fuzzing: Is the project fuzzed?"
+          echo "- License: Does the project have a license?"
+          echo "- Pinned-Dependencies: Are dependencies pinned?"
+          echo "- Security-Policy: Does the project have a security policy?"
+          echo "- Signed-Releases: Are releases signed?"
+          echo "- Token-Permissions: Are token permissions set correctly?"
+          echo "- Vulnerabilities: Are there known vulnerabilities?"
