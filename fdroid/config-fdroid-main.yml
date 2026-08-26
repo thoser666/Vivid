@@ -1,0 +1,47 @@
+# F-Droid Main Repository Configuration for Vivid (FOSS Build)
+# This configuration is for the official F-Droid repository
+# It builds from source WITHOUT Sentry (fully FOSS compliant)
+
+# Repository metadata
+repo_name: Vivid (F-Droid)
+repo_icon: fdroid-icon.png
+repo_description: "Vivid - Open Source IRL Streaming App (FOSS Build, no tracking)"
+
+# Package metadata
+Categories:
+  - Internet
+  - Entertainment
+  - Multimedia
+
+License: MIT
+
+# Anti-features: NONE (this is a fully FOSS build)
+# No Tracking, no NonFreeNet, no NonFreeInternet
+AntiFeatures: {}
+
+# Source code
+SourceCode: https://github.com/thoser666/Vivid
+Issues: https://github.com/thoser666/Vivid/issues
+
+# Changelog
+Changelog: https://github.com/thoser666/Vivid/releases
+
+# Web site
+WebSite: https://thoser666.github.io/Vivid/
+
+# Donate
+Donate: https://github.com/sponsors/thoser666
+
+# Build configuration for F-Droid
+# This builds from source without Sentry
+AutoUpdate: true
+Builds:
+  - versionName: latest
+    versionCode: 0
+    commit: HEAD
+    # Build with FOSS flavor (no Sentry)
+    gradle:
+      - clean
+      - assembleStandardRelease
+    # No APK export - F-Droid builds from source
+    # The APK will be signed with F-Droid's key

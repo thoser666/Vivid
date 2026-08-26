@@ -84,16 +84,22 @@ class VividApplication : Application(), ImageLoaderFactory {
         //  - sendDefaultPii=false → keine IP-/Gerätename-Erhebung
         //  - beforeSend → verwirft alle Events, wenn der Nutzer das
         //    Fehler-Reporting in den Settings deaktiviert hat (Opt-out)
-        SentryAndroid.init(this) { options ->
-            // JavaBean-Accessor: isSendDefaultPii (keine IP-/Gerätename-Erhebung)
-            options.isSendDefaultPii = false
-            options.beforeSend = sentryBeforeSendCallback { sentryEnabled }
-        }
-        // Opt-out-Stand live verfolgen (für beforeSend).
-        applicationScope.launch {
-            settingsRepository.appSettingsFlow.collect { settings ->
-                sentryEnabled = settings.sentryEnabled
+        //  - FOSS_BUILD → kein Sentry für F-Droid (kein Tracking, kein Telemetry)
+        if (!BuildConfig.FOSS_BUILD) {
+            SentryAndroid.init(this) { options ->
+                // JavaBean-Accessor: isSendDefaultPii (keine IP-/Gerätename-Erhebung)
+                options.isSendDefaultPii = false
+                options.beforeSend = sentryBeforeSendCallback { sentryEnabled }
             }
+            // Opt-out-Stand live verfolgen (für beforeSend).
+            applicationScope.launch {
+                settingsRepository.appSettingsFlow.collect { settings ->
+                    sentryEnabled = settings.sentryEnabled
+                }
+            }
+        } else {
+            // FOSS Build: Sentry deaktiviert für F-Droid-Konformität
+            Timber.i("FOSS build - Sentry disabled for F-Droid compliance")
         }
         // Web-Remote-Control über LAN starten — fehlertolerant, damit ein
         // Port-Konflikt die App nicht crashen lässt.

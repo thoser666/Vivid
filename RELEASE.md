@@ -188,6 +188,67 @@ Vergleich der Voraussetzungen für den ersten Upload (Stand 08/2026, Vivid ist M
 3. Nutzer-URL in README/Anleitung dokumentieren
 4. (Optional) F-Droid-Hauptrepo vorbereiten (Post-Beta, Sentry-freie Variante)
 
+## 📦 F-Droid Hauptrepo (FOSS-Build ohne Sentry)
+
+**Status: ✅ Vorbereitet** — Die FOSS-Variante ist implementiert und kann für das F-Droid-Hauptrepo eingereicht werden.
+
+**Was ist ein FOSS-Build?**
+- ✅ **Kein Sentry** — Kein Crash-Reporting, kein Tracking, kein Telemetry
+- ✅ **Kein Antifeature** — Kein "Tracking"-Label in F-Droid
+- ✅ **Vollständig Open Source** — Alle Abhängigkeiten sind FOSS-kompatibel
+- ✅ **MIT-lizenziert** — Erfüllt F-Droid-Richtlinien
+
+**Technische Umsetzung:**
+- **Build-Variante:** `fossRelease` (Product Flavor: `foss` + Build Type: `release`)
+- **Application ID:** `com.vivid.foss` (getrennt von der Standard-Version)
+- **Sentry-Plugin:** Wird nur für Standard-Builds geladen
+- **VividApplication:** Nutzt `BuildConfig.FOSS_BUILD` Flag
+- **SentryOptOut:** No-op Implementierung für FOSS-Builds
+
+**Build-Befehl:**
+```bash
+./gradlew assembleFossRelease
+```
+
+**Unterschiede zur Standard-Version:**
+| Feature | Standard | FOSS (F-Droid) |
+|---|---|---|
+| **Sentry** | ✅ Aktiv (Opt-out möglich) | ❌ Deaktiviert |
+| **Crash-Reporting** | ✅ An (kann deaktiviert werden) | ❌ Aus |
+| **Tracking** | ❌ Keines (PII deaktiviert) | ❌ Keines |
+| **Application ID** | `com.vivid` | `com.vivid.foss` |
+| **Signing** | Dein Release-Key | F-Droid-Key |
+| **Updates** | Sofort (GitHub/Obtainium) | Tage-Wochen (F-Droid Review) |
+
+**Für das F-Droid-Hauptrepo einreichen:**
+1. **FOSS-Build testen:** `./gradlew assembleFossRelease`
+2. **Metadaten vorbereiten:** `fdroid/config-fdroid-main.yml`
+3. **MR an F-Droid erstellen:** https://gitlab.com/fdroid/fdroiddata/-/merge_requests
+4. **Review abwarten:** 2-8 Wochen
+5. **Veröffentlichung:** Sobald der MR gemergt ist
+
+**Vorteile des F-Droid-Hauptrepos:**
+- ✅ **Sichtbarkeit** — In der F-Droid-App sichtbar (Nische, aber treue Nutzer)
+- ✅ **Vertrauen** — F-Droid-Review gibt Sicherheit
+- ✅ **Kein Antifeature** — Kein "Tracking"-Label
+- ✅ **FOSS-Fans** — Erreicht Nutzer, die Wert auf Freiheit legen
+
+**Nachteile:**
+- ❌ **Wartezeit** — 2-8 Wochen Review
+- ❌ **Anderer Key** — Nutzer müssen App neu installieren
+- ❌ **Kein Sentry** — Kein Crash-Reporting (nur In-App-Logs)
+- ❌ **Wartung** — F-Droid pflegt das Repo
+
+**Empfehlung:**
+- **Post-Beta einreichen** — Sobald die App stabil ist
+- **Parallele Veröffentlichung** — Zusätzlich zum eigenen Repo-Server
+- **Nutzer informieren** — Über Unterschiede (Sentry vs. FOSS)
+
+**Dokumentation:**
+- `fdroid/config-fdroid-main.yml` — F-Droid-Konfiguration
+- `app/src/foss/` — FOSS-spezifische Quelldateien
+- `app/build.gradle.kts` — Build-Flavor-Konfiguration
+
 ## 🧪 Erster Beta-Build (Plan)
 
 > 🧭 **Übersicht:** Diese Checkliste ist Teil der [README-Roadmap](README.md#️-roadmap) (Ebene „Current stage: Beta“) — dort sind auch die laufenden Arbeitspakete (In Progress) und die Post-Beta-Buckets auf einen Blick.

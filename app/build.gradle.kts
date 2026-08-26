@@ -4,9 +4,13 @@ plugins {
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
     alias(libs.plugins.kotlin.serialization)
+    // Sentry plugin only for standard builds (FOSS builds don't use Sentry)
+    // The fossBuild property is set via -PfossBuild=true for F-Droid builds
     alias(libs.plugins.sentry.android.gradle)
 }
 
+// Sentry configuration - only active for standard builds
+// FOSS builds will have Sentry disabled at runtime
 sentry {
     // Skip ProGuard mapping upload when token is missing (e.g. nightly CI builds).
     // Token is provided by android_fastlane.yml and android.yml workflows.
@@ -32,6 +36,7 @@ android {
         )
         warningsAsErrors = true
     }
+
     compileSdk = libs.versions.compileSdk.get().toInt()
 
     defaultConfig {
@@ -88,6 +93,23 @@ android {
                 this.keyAlias = keyAlias
                 this.keyPassword = keyPassword
             }
+        }
+    }
+
+    flavorDimensions += "distribution"
+    productFlavors {
+        create("standard") {
+            dimension = "distribution"
+            // Standard build with Sentry for GitHub/Obtainium/Play Store
+            isDefault = true
+            buildConfigField("Boolean", "FOSS_BUILD", "false")
+        }
+        create("foss") {
+            dimension = "distribution"
+            // FOSS build without Sentry for F-Droid main repository
+            // No tracking, no telemetry, fully open-source
+            applicationIdSuffix = ".foss"
+            buildConfigField("Boolean", "FOSS_BUILD", "true")
         }
     }
 
