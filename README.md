@@ -53,7 +53,7 @@ This README tracks that progress honestly: the [Features](#-features) section ma
     <img src="docs/install-quickstart.svg" alt="Vivid install quickstart" width="720">
   </a>
   <br>
-  <em>📄 One-page quickstart: <a href="docs/install-quickstart.svg">Installations-Infografik (SVG)</a></em>
+  <em>📄 One-page quickstart: <a href="docs/install-quickstart.svg">Installation Infographic (SVG)</a></em>
 </p>
 
 ### Step 1: Pick your release channel
@@ -88,53 +88,53 @@ Android blocks APKs from outside the Play Store by default. On first launch of t
 
 After installation, Vivid asks for **camera** and **microphone** permissions when you tap **Go Live** (notifications are requested too on Android 13+ — they power the streaming status notification). Then follow the [Platform Setup Guides](#-platform-setup-guides) to connect Twitch, YouTube, Kick, or your own server.
 
-> 🔋 **Background streaming:** While streaming, a persistent notification („Vivid sendet live“) with a **Stop** action keeps the stream alive when you leave the app or turn the screen off. The encoder runs **independent of the camera preview surface** (GL-free pipeline), so the stream also continues if you swipe Vivid away from the recents list or rotate the device — the preview simply reappears when you reopen the app. Tap the notification's Stop button (or the Stop button in the app) to end the stream.
+> 🔋 **Background streaming:** While streaming, a persistent notification ("Vivid is streaming") with a **Stop** action keeps the stream alive when you leave the app or turn the screen off. The encoder runs **independent of the camera preview surface** (GL-free pipeline), so the stream also continues if you swipe Vivid away from the recents list or rotate the device — the preview simply reappears when you reopen the app. Tap the notification's Stop button (or the Stop button in the app) to end the stream.
 
 > ✅ **Go-Live Self-Check:** Before starting, Vivid validates the configured URL and stream key on the streaming screen and shows clear messages (e.g. *"Keine Stream-URL konfiguriert"*, *"Nicht unterstütztes Protokoll"*, missing stream key). Blocking problems prevent the start; warnings are shown but don't block.
 
 ### 🔄 Automatic updates (F-Droid Repository)
 
-**Empfohlen für Android 14+:** Nutzen Sie unser offizielles F-Droid-Repository für automatische Updates:
+**Recommended for Android 14+:** Use our official F-Droid repository for automatic updates:
 
-**📱 Schnellstart mit QR-Code:**
+**📱 Quick Start with QR Code:**
 
 <p align="center">
   <img src="docs/fdroid-repo-qr.svg" alt="F-Droid Repository QR Code" width="200">
 </p>
 
-1. Installieren Sie [F-Droid](https://f-droid.org/packages/org.fdroid.fdroid/) (falls nicht vorhanden)
-2. Öffnen Sie F-Droid → **Einstellungen** → **Repositories**
-3. Tippen Sie auf **+** und fügen Sie hinzu:
+1. Install [F-Droid](https://f-droid.org/packages/org.fdroid.fdroid/) (falls nicht vorhanden)
+2. Open F-Droid → **Settings** → **Repositories**
+3. Tap auf **+** und fügen Sie hinzu:
    - **URL:** `https://thoser666.github.io/fdroid/repo`
    - **Name:** Vivid (schnelle Updates)
-4. Tippen Sie **Fertig** und warten Sie auf die Synchronisation
-5. Installieren Sie Vivid über das neue Repository
+4. Tap **Done** und warten Sie auf die Synchronisation
+5. Install Vivid über das neue Repository
 
-**✅ Vorteile:** Updates erscheinen automatisch, kein manueller Download nötig, zukunftssicher ab Android 14+ (Google schränkt Sideloading ein).
+**✅ Benefits:** Updates erscheinen automatisch, kein manueller Download nötig, zukunftssicher ab Android 14+ (Google schränkt Sideloading ein).
 
-**📝 Hinweis:** Dieses Build enthält Sentry für Crash-Reporting. Für ein vollständig FOSS-Build ohne Telemetrie verwenden Sie das offizielle F-Droid-Repository (wenn verfügbar).
+**📝 Note:** Dieses Build enthält Sentry für Crash-Reporting. Für ein vollständig FOSS-Build ohne Telemetrie verwenden Sie das offizielle F-Droid-Repository (wenn verfügbar).
 
 ### 📲 Alternative: Automatic updates (Obtainium)
 
 Für Benutzer, die Obtainium bevorzugen:
 
-1. Installieren Sie Obtainium von [obtainium.imranr.dev](https://obtainium.imranr.dev/) (oder eigenen GitHub Releases)
-2. Tippen Sie **+** → geben Sie `https://github.com/thoser666/Vivid` als Quelle ein
+1. Install Obtainium von [obtainium.imranr.dev](https://obtainium.imranr.dev/) (oder eigenen GitHub Releases)
+2. Tap **+** → geben Sie `https://github.com/thoser666/Vivid` als Quelle ein
 3. Es erkennt automatisch GitHub Releases — wählen Sie Ihren Kanal:
    - **Nur Stable:** Neueste Version verfolgen ("Include pre-releases" deaktiviert)
    - **Nightly:** "Include pre-releases" aktivieren, um jeden Feature-Build zu verfolgen
-4. Tippen Sie **Hinzufügen** — Obtainium prüft jetzt automatisch auf Updates und installiert sie
+4. Tap **Hinzufügen** — Obtainium prüft jetzt automatisch auf Updates und installiert sie
 
 Da jedes APK mit demselben Schlüssel signiert ist, werden Updates (einschließlich Nightly → Stable und umgekehrt) nahtlos über die vorherige Version installiert.
 
 **🧪 Update-Flow testen**
 
-1. Installieren Sie ein **älteres Nightly** APK von der [Releases](../../releases)-Seite (z.B. den vorherigen Build)
-2. Öffnen Sie **Einstellungen** — die installierte Version wird unten angezeigt, und ein „⬆ Update verfügbar: …" Badge erscheint automatisch, wenn ein neuerer Build existiert
+1. Install ein **älteres Nightly** APK von der [Releases](../../releases)-Seite (z.B. den vorherigen Build)
+2. Open **Settings** — die installierte Version wird unten angezeigt, und ein „⬆ Update verfügbar: …" Badge erscheint automatisch, wenn ein neuerer Build existiert
 3. Fügen Sie die App in Obtainium wie oben beschrieben hinzu (**Include pre-releases** für nightly aktiviert)
-4. (Optional) In **Einstellungen → „Über Vivid & Updates"** tippen Sie auf **„Nach Updates suchen"**, um den neuesten GitHub-Release zu sehen
+4. (Optional) In **Settings → „Über Vivid & Updates"** tippen Sie auf **„Nach Updates suchen"**, um den neuesten GitHub-Release zu sehen
 5. In Obtainium tippen Sie **Update** — das neuere APK wird über die alte Version installiert (gleicher Signatur-Schlüssel)
-6. Öffnen Sie erneut **Einstellungen** — die Versionsnummer hat sich erhöht und das Badge ist verschwunden ✅
+6. Open erneut **Settings** — die Versionsnummer hat sich erhöht und das Badge ist verschwunden ✅
 
 Die Überprüfung auf dem Über-Bildschirm folgt denselben Regeln wie in [RELEASE.md](RELEASE.md): Es schlägt nur **neuere** Versionen vor (nightly → nightly/alpha/beta/stable, nie ein Downgrade).
 
@@ -155,7 +155,7 @@ Die Überprüfung auf dem Über-Bildschirm folgt denselben Regeln wie in [RELEAS
 - 💬 **Twitch Chat Overlay** - Show the chat of any Twitch channel over the live preview (read via Twitch EventSub, no IRC). Configure the channel and toggle the overlay in Settings → **Chat-Overlay**; the latest messages appear bottom-left with each user's Twitch color, **Twitch badges** (Broadcaster/Moderator/Subscriber, fetched via the Helix Chat-Badges API and rendered as CDN images before the username), **inline Twitch emotes** (rendered as CDN images via Coil) and **event alerts** (follows, subscriptions, gift subs, resubs and raids — shown as colored banner lines above the chat, auto-dismissed after a few seconds; the bot token needs `moderator:read:followers` for follows, i.e. the bot must be a moderator, and `channel:read:subscriptions` for subs/gifts/resubs). A test alert can be triggered locally via the `triggerTestAlert` API (or the owner command `!testalert follow|sub|gift|resub|raid`) to verify the overlay before going live. The connection auto-reconnects, and the overlay hides itself as soon as it is disabled in the settings
 - 🤖 **AI Chat Bot** - A fully automated, in-app chat bot (inspired by cloud services like Stream Chat AI): it connects to your Twitch chat when you go live, answers viewers through an LLM of your choice (any OpenAI-compatible endpoint — OpenAI, Gemini, Groq, DeepSeek, or a local Ollama server) and shuts down cleanly when the stream ends. A **mode switch** in the settings picks between **„Bot (wie Moblin)“** (deterministic `!`-commands like `!help`/`!uptime`/`!tts`/`!bot`, no LLM needed) and **„KI autonom“** (the AI decides itself whether and how to reply, including staying silent). `!tts` toggles chat text-to-speech (owner-only, reads chat messages aloud on the streamer's device, like Moblin's bot). Media commands (`!next`/`!pause`/`!play`/`!prev`) control the music player (owner + moderators). Mentions-only mode, a reply cooldown and a per-minute rate limit keep it from spamming; configurable **limits** protect against spam and LLM cost: a per-viewer cooldown (default 60 s), a per-viewer reply cap per stream, and an hourly reply budget (0 = off for each) — platform-neutral via user id, moderators bypass the per-viewer limits; a **quick-start preset bar** (Locker/Balanced/Streng/Eigene, the last choice is persisted and restored on app start) fills the three limits in one tap, and a **live usage readout** (replies this hour vs. budget, per-stream total, top viewers) lets the streamer watch the cost budget in the settings screen. A **coexistence mode** lets it run side by side with another tool's bot (e.g. Rivulet): other bot logins can be ignored and a command scope (`@vividbot` mention or a custom prefix like `!v!help`) prevents double replies and double actions. An **owner mode (streamer only)** adds exclusive commands — `!start`/`!stop`/`!diag`/`!ask`/`!fix`/`!torch` — that can start/stop the stream, run a diagnostic with recommendations, query a separate, more powerful owner LLM, and toggle the flashlight, only the channel owner (broadcaster badge) and explicitly listed logins (e.g. a second account) can use them, viewers get a hint instead. Auto-connect/auto-shutdown is wired into the streaming foreground service — see [docs/ai-chat-bot.md](docs/ai-chat-bot.md)
 - ⚙️ **Persisted Stream Settings** - Stream URL/key (incl. optional secondary target for multi-streaming) and OBS connection details are stored and reused across sessions
-- 🔄 **In-App Update Check** - Settings shows the installed version + an „Update verfügbar“ badge; the About screen (Settings → „Über Vivid & Updates“) adds a manual check against GitHub Releases — ideal for verifying Obtainium updates. Results are cached for 1 hour (DataStore), so opening Settings does not hammer the GitHub API rate limit; the manual check in About always refreshes and shows the **release notes** of the newest build
+- 🔄 **In-App Update Check** - Settings shows the installed version + an „Update verfügbar“ badge; the About screen (Settings → "About Vivid & Updates") adds a manual check against GitHub Releases — ideal for verifying Obtainium updates. Results are cached for 1 hour (DataStore), so opening Settings does not hammer the GitHub API rate limit; the manual check in About always refreshes and shows the **release notes** of the newest build
 - 📋 **In-App Logs (Logs & Diagnose)** - A Settings category „Logs & Diagnose“ with **daily log rotation and a configurable retention period** (1–30 days, default 7): each calendar day is stored in its own app-internal log file, older days are pruned automatically (also on app start). **Crashes are clearly marked** — the default uncaught-exception handler writes them with a red CRASH badge (redacted stacktrace) before handing them to Sentry, and the screen shows day sections (Today/Yesterday/date), an „errors & crashes“ filter and a crash summary („X crashes in the last Y days“) so you can analyze and fix recurring failures. Copy/share/clear works across all retained days. Timber trees are planted in the app (`DebugTree` for Logcat in debug builds + a `LogBufferTree` ring buffer + persistent `LogStore`), and a **redaction filter** strips stream keys, RTMP URLs, OAuth/LLM/Twitch tokens and passwords before anything is stored or shown — sensitive data never leaves the device in cleartext. This is the foundation for the open remote „logs“ item of the Web Remote Control (later served token-protected via the LAN server)
 - 🕹️ **Web Remote Control** - A small LAN server (port 8080, token-protected) exposes the streaming status via `http://<phone-ip>:8080/status` and allows starting/stopping the stream from any browser in the same network — see [Installation](#-installation)
 - 🔋 **Background Streaming (Foreground Service)** - The stream keeps running when the app is in the background (home button, screen off) **and even if the Activity is destroyed** (recents swipe, rotation): a foreground service with a persistent notification (live status + stop action) and a partial wake lock keeps the encoder and camera alive, and the encoder runs on a view-independent GL pipeline (RootEncoder Context-constructor) so it never depends on the camera preview surface
@@ -257,10 +257,10 @@ Vivid streams **protocol-based** (RTMP / RTMPS / SRT) — you are *not* limited 
   <em>📄 One-page quickstart: <a href="docs/obs-setup-quickstart.svg">OBS-Setup-Infografik (SVG)</a></em>
 </p>
 
-1. **In OBS aktivieren:** Extras → **WebSocket-Server-Einstellungen** → *„WebSocket-Server aktivieren“* anhaken
+1. **In OBS aktivieren:** Extras → **WebSocket-Server-Settings** → *"Enable WebSocket server"* anhaken
 2. **Port & Passwort:** Standard-Port `4455` behalten, optional ein **Passwort** setzen (wenn keins gesetzt ist, das Feld in Vivid leer lassen)
 3. **IP ermitteln:** LAN-IP des OBS-Rechners (Windows: `ipconfig`, Mac/Linux: `ip addr`) — Handy und PC müssen im **selben WLAN** sein
-4. **In Vivid verbinden:** OBS-Steuerung → ⚙️ Einstellungen → Host = IP, Port = `4455`, Passwort + *„Secure connection (wss://)“* passend zum Setup (LAN = ws://, Remote = wss://)
+4. **In Vivid verbinden:** OBS-Steuerung → ⚙️ Settings → Host = IP, Port = `4455`, Passwort + *„Secure connection (wss://)“* passend zum Setup (LAN = ws://, Remote = wss://)
 
 > 🧪 Probleme beim Verbinden? Siehe die [OBS-FAQ-Einträge](#-faq--häufige-probleme) (Verbindung schlägt fehl, Passwort, ws:// vs. wss://).
 
@@ -285,8 +285,8 @@ Vivid streams **protocol-based** (RTMP / RTMPS / SRT) — you are *not* limited 
 Vivid startet einen kleinen **LAN-Server** (Port **8080**), über den du den Stream-Status abfragen und den Stream starten/stoppen kannst — praktisch, wenn das Handy als Kamera läuft und du vom Laptop steuern willst:
 
 1. **Handy und Laptop ins selbe WLAN** bringen
-2. **Token holen:** In Vivid unter **Einstellungen → Web-Remote-Control** steht dein **Remote-Token** (wird einmalig erzeugt und gespeichert)
-3. **IP ermitteln:** LAN-IP des Handys (Android: **Einstellungen → WLAN → Verbundenes Netz → Details**)
+2. **Token holen:** In Vivid unter **Settings → Web-Remote-Control** steht dein **Remote-Token** (wird einmalig erzeugt und gespeichert)
+3. **IP ermitteln:** LAN-IP des Handys (Android: **Settings → WLAN → Verbundenes Netz → Details**)
 4. **Status abfragen (ohne Token):**
 
    ```bash
@@ -303,7 +303,7 @@ Vivid startet einen kleinen **LAN-Server** (Port **8080**), über den du den Str
 
 > 🔒 Der Server läuft nur, solange die App geöffnet ist, und Aktionen benötigen das Token — im selben WLAN ist die Verbindung unverschlüsselt (wie bei OBS ws://), außerhalb des LAN nicht erreichbar.
 
-> ℹ️ **Android 17 (API 37):** Seit `targetSdk 37` verlangt Android die **„Zugriff auf lokale Netzwerke“-Berechtigung** (`ACCESS_LOCAL_NETWORK`) für LAN-Server. Falls `/status` nicht erreichbar ist, in Vivid unter **Einstellungen → Web-Remote-Control** auf **„LAN-Zugriff für Remote-Control erlauben“** tippen (der Server startet danach automatisch neu).
+> ℹ️ **Android 17 (API 37):** Seit `targetSdk 37` verlangt Android die **"Access local network" permission** (`ACCESS_LOCAL_NETWORK`) für LAN-Server. Falls `/status` nicht erreichbar ist, in Vivid unter **Settings → Web-Remote-Control** auf **"Allow LAN access for remote control"** tippen (der Server startet danach automatisch neu).
 
 </details>
 
@@ -312,7 +312,7 @@ Vivid startet einen kleinen **LAN-Server** (Port **8080**), über den du den Str
 ## ❓ FAQ — Häufige Probleme
 
 <details>
-<summary><strong>🔧 „App not installed“ beim Installieren</strong></summary>
+<summary><strong>🔧 "App not installed" when installing</strong></summary>
 
 Meistens ist der Download beschädigt oder unvollständig:
 
@@ -321,26 +321,26 @@ Meistens ist der Download beschädigt oder unvollständig:
 3. Prüfe, dass die Datei **~7 MB** groß ist (eine deutlich kleinere Datei ist ein fehlgeschlagener Download)
 4. Versuche es erneut — wenn der Fehler bleibt, installiere über Obtainium (unten), das die Datei verifiziert herunterlädt
 
-> Falls du Vivid von einer **älteren Version** aktualisierst und der Fehler weiterhin auftritt: Deinstalliere zuerst die alte Version (Achtung: Stream-Einstellungen gehen dabei verloren) und installiere dann neu.
+> Falls du Vivid von einer **älteren Version** aktualisierst und der Fehler weiterhin auftritt: Deinstalliere zuerst die alte Version (Achtung: Stream-Settings gehen dabei verloren) und installiere dann neu.
 
 </details>
 
 <details>
-<summary><strong>📥 „Unbekannte Quelle nicht erlaubt“ / Installations-Button ist grau</strong></summary>
+<summary><strong>📥 "Unknown source not allowed" / Installations-Button ist grau</strong></summary>
 
 Android blockiert APKs außerhalb des Play Stores standardmäßig:
 
-1. Beim ersten Installationsversuch erscheint ein Hinweis → tippe auf **Einstellungen**
+1. Beim ersten Installationsversuch erscheint ein Note → tippe auf **Settings**
 2. Erlaube dem verwendeten Browser / Dateimanager, **unbekannte Apps zu installieren**
-3. Gehe zurück und tippe erneut auf **Installieren**
-4. Falls kein Hinweis erscheint: **Einstellungen → Apps → [Browser/Dateimanager] → Unbekannte Apps installieren** → erlauben
+3. Go back and tap **Install** again
+4. Falls kein Note erscheint: **Settings → Apps → [Browser/Dateimanager] → Unbekannte Apps installieren** → erlauben
 
 </details>
 
 <details>
 <summary><strong>🎥 „Kein Bild“ / Kamera bleibt schwarz beim Streaming</strong></summary>
 
-1. Prüfe die **Kamera-Berechtigung**: Einstellungen → Apps → Vivid → Berechtigungen → Kamera = **Erlauben** (nicht „Nur während der Nutzung“ kann bei Hintergrund-Streaming Probleme machen)
+1. Prüfe die **Kamera-Berechtigung**: Settings → Apps → Vivid → Berechtigungen → Kamera = **Erlauben** (nicht „Nur während der Nutzung“ kann bei Hintergrund-Streaming Probleme machen)
 2. Teste die Kamera in einer anderen App (z. B. der Standard-Kamera-App) — wenn sie dort auch schwarz ist, liegt es am Gerät
 3. Falls du mehrere Kameras hast: Wähle in Vivid die **richtige Kamera** (Front-/Rückkamera) aus
 4. Starte den Stream neu (Stop → Go Live)
@@ -355,7 +355,7 @@ Android blockiert APKs außerhalb des Play Stores standardmäßig:
 1. **Signal prüfen:** Mobiles Internet + WiFi — wechsle notfalls den Netzwerktyp und teste erneut
 2. **Ingest-Server wechseln:** Wähle in Vivid einen anderen RTMP/SRT-Server deiner Plattform (z. B. einen näher gelegenen)
 3. **Stream-Key prüfen:** Ein falscher oder abgelaufener Stream-Key führt zum Abbruch nach wenigen Sekunden — neu kopieren (auf Twitch wird der Key bei jedem Zurücksetzen ungültig)
-4. **OBS-Steuerung deaktivieren:** Wenn du OBS nicht benutzt, entferne die OBS-Verbindungsdaten in den Einstellungen — eine fehlgeschlagene OBS-Verbindung kann den Stream-Start blockieren
+4. **OBS-Steuerung deaktivieren:** Wenn du OBS nicht benutzt, entferne die OBS-Verbindungsdaten in den Settings — eine fehlgeschlagene OBS-Verbindung kann den Stream-Start blockieren
 5. **Latenz erhöhen:** Bei SRT kann eine höhere Latenz (200–500 ms) instabile Verbindungen glätten
 
 > 📡 **Tipp für unterwegs:** Ein stabilerer Upload als der nötige ist wichtiger als die maximale Auflösung — senke Qualität/Auflösung bei schwachem Signal, statt den Stream abreißen zu lassen.
@@ -377,12 +377,12 @@ Android blockiert APKs außerhalb des Play Stores standardmäßig:
 
 Vivid kann OBS Studio nur steuern, wenn der **WebSocket-Server in OBS aktiv** und Vivid im selben Netzwerk erreichbar ist:
 
-1. **WebSocket-Server aktivieren:** In OBS unter **Extras → WebSocket-Server-Einstellungen** → Haken bei *„WebSocket-Server aktivieren“* setzen. Erst dann lauscht OBS auf Verbindungen.
+1. **WebSocket-Server aktivieren:** In OBS unter **Extras → WebSocket-Server-Settings** → Haken bei *"Enable WebSocket server"* setzen. Erst dann lauscht OBS auf Verbindungen.
 2. **Host prüfen:** In Vivid die **IP-Adresse des OBS-Rechners** eintragen (z. B. `192.168.1.50`) — `localhost` funktioniert nur, wenn OBS auf demselben Gerät läuft. IP unter Windows mit `ipconfig`, unter macOS/Linux mit `ip addr` herausfinden.
-3. **Port prüfen:** Standard ist **4455** — in OBS (WebSocket-Server-Einstellungen) nachsehen, ob ein anderer Port konfiguriert ist, und denselben in Vivid eintragen.
+3. **Port prüfen:** Standard ist **4455** — in OBS (WebSocket-Server-Settings) nachsehen, ob ein anderer Port konfiguriert ist, und denselben in Vivid eintragen.
 4. **Gleiches Netzwerk:** Handy und OBS-Rechner müssen im **selben WLAN/LAN** sein (bzw. über VPN verbunden) — prüfe, ob z. B. das Handy im Mobilfunknetz hängt.
 5. **Firewall:** Die Windows-Firewall muss eingehende Verbindungen auf Port 4455 erlauben (der OBS-Installer legt meist eine Regel an — nach Updates prüfen).
-6. **Passwort & TLS:** Stimmen Passwort und die Option *„Secure connection (wss://)“* mit den OBS-Einstellungen überein? Siehe die nächsten beiden FAQ-Einträge.
+6. **Passwort & TLS:** Stimmen Passwort und die Option *„Secure connection (wss://)“* mit den OBS-Settings überein? Siehe die nächsten beiden FAQ-Einträge.
 
 > 🧪 **Schnelltest:** Öffne im Browser auf dem Handy `ws://<OBS-IP>:4455` — erscheint eine Meldung, dass die Verbindung hergestellt wurde (auch wenn sie danach geschlossen wird), ist OBS erreichbar und das Problem liegt an Passwort/TLS.
 
@@ -393,10 +393,10 @@ Vivid kann OBS Studio nur steuern, wenn der **WebSocket-Server in OBS aktiv** un
 
 OBS zeigt das WebSocket-Passwort **nie wieder an** — du kannst es nur neu setzen:
 
-1. In OBS: **Extras → WebSocket-Server-Einstellungen** öffnen
+1. In OBS: **Extras → WebSocket-Server-Settings** öffnen
 2. Haken bei **„Passwort aktivieren“** setzen (falls noch nicht geschehen) und ein **neues Passwort** eingeben
 3. **OK** klicken — das neue Passwort gilt sofort
-4. In Vivid unter **OBS-Einstellungen** das neue Passwort eintragen und erneut verbinden
+4. In Vivid unter **OBS-Settings** das neue Passwort eintragen und erneut verbinden
 
 > ⚠️ **Kein Passwort in OBS gesetzt?** Dann lasse das Passwort-Feld in Vivid **leer** — ein eingegebenes, falsches Passwort führt zum Abbruch der Verbindung. Umgekehrt: Verlangt OBS ein Passwort und Vivid hat keins, bricht die Verbindung ebenfalls ab (Vivid bricht die Verbindung bewusst ab, statt unauthentifiziert weiterzumachen).
 
@@ -407,7 +407,7 @@ OBS zeigt das WebSocket-Passwort **nie wieder an** — du kannst es nur neu setz
 <details>
 <summary><strong>🔐 OBS: ws:// oder wss://? (Secure connection)</strong></summary>
 
-Die Option **„Secure connection (wss://)“** in den OBS-Einstellungen von Vivid muss zum OBS-Setup passen:
+Die Option **„Secure connection (wss://)“** in den OBS-Settings von Vivid muss zum OBS-Setup passen:
 
 | Verbindung | Wann verwenden | OBS-Voraussetzung |
 |------------|----------------|-------------------|
@@ -427,9 +427,9 @@ Die Option **„Secure connection (wss://)“** in den OBS-Einstellungen von Viv
 
 Bild läuft, aber Zuschauer hören nichts? Das sind die häufigsten Ursachen:
 
-1. **Mikrofon-Berechtigung prüfen:** Einstellungen → Apps → Vivid → Berechtigungen → **Mikrofon = Erlauben** — ohne sie startet der Audio-Encoder nicht (Vivid zeigt „Failed to prepare audio/video“)
+1. **Mikrofon-Berechtigung prüfen:** Settings → Apps → Vivid → Berechtigungen → **Mikrofon = Erlauben** — ohne sie startet der Audio-Encoder nicht (Vivid zeigt „Failed to prepare audio/video“)
 2. **Mikrofon ist belegt:** Android gibt das Mikrofon nur an **eine** App gleichzeitig — schließe andere Apps, die es nutzen (Anrufe, Sprachassistent, andere Streaming-/Aufnahme-Apps), und starte den Stream neu
-3. **Bluetooth trennen:** Ist ein BT-Headset/Headset verbunden, nutzt Android dessen Mikrofon — für IRL-Streaming das Bluetooth-Gerät trennen oder in den Bluetooth-Einstellungen aufs Handy-Mikrofon umstellen
+3. **Bluetooth trennen:** Ist ein BT-Headset/Headset verbunden, nutzt Android dessen Mikrofon — für IRL-Streaming das Bluetooth-Gerät trennen oder in den Bluetooth-Settings aufs Handy-Mikrofon umstellen
 4. **Lautstärke:** Prüfe die **Media-Lautstärke** (nicht nur Klingelton) — bei 0 ist auch das Streaming stumm
 5. **Neu starten:** Nach Berechtigungs-/Bluetooth-Änderungen hilft ein kompletter App-Neustart (Stream stoppen → App beenden → neu starten)
 
@@ -458,7 +458,7 @@ Bild läuft, aber Zuschauer hören nichts? Das sind die häufigsten Ursachen:
 1. In Obtainium den Vivid-Eintrag öffnen → **⋮-Menü → „App-Daten aktualisieren“** (Refresh), danach „Aktualisieren“ tippen
 2. Bleibt die Anzeige falsch: **Eintrag löschen** und neu hinzufügen mit exakt `https://github.com/thoser666/Vivid`
 3. **Pre-Releases-Toggle:** Für Beta/Alpha **nicht** nötig — diese Releases sind auf GitHub als normale Releases markiert (kein Pre-Release-Flag). Nur für **Nightly-Builds** den Toggle aktivieren
-4. **Gegenprobe in der App:** Settings → „Über Vivid & Updates“ → „Nach Updates suchen“ zeigt die echte neueste GitHub-Version — weicht Obtainium davon ab, liegt es am Eintrag, nicht an Vivid
+4. **Gegenprobe in der App:** Settings → "About Vivid & Updates" → "Check for updates" zeigt die echte neueste GitHub-Version — weicht Obtainium davon ab, liegt es am Eintrag, nicht an Vivid
 
 </details>
 
