@@ -38,39 +38,24 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-          with:
-            persist-credentials: false
+        with:
+          persist-credentials: false
       
       - name: Run Scorecard analysis
         uses: ossf/scorecard-action@55891bbd73f2425e97637d96e306fc9d491d0b21 # v2.4.4
         with:
           # Results file path
           results_file: results.sarif
-          
           # Results format
           results_format: sarif
-          
           # Upload results to GitHub Security tab
           upload-artifact: false
-          
           # Publish results to GitHub Security tab
           publish_results: true
-          
-          # Enable all checks (default)
-          # enable_checks: ""
-          
-          # Disable specific checks (optional)
-          # disable_checks: ""
-          
-          # Publish results to OSSF Scorecard dashboard
-          # dashboard_url: https://securityscorecards.dev
-          
           # Show detailed check results
-          show-detailed-results: false
-          
+          show_detailed_results: false
           # Fail the workflow if a check fails
           fail_on_severity: HIGH
-          
           # Fail the workflow on any check failure
           fail_on_error: false
       
