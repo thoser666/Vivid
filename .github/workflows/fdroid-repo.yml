@@ -77,20 +77,34 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
       - name: Build F-Droid repository
+        env:
+          F_DROID_KEYSTORE: ${{ secrets.F_DROID_KEYSTORE }}
+          F_DROID_KEY_ALIAS: ${{ secrets.F_DROID_KEY_ALIAS }}
+          F_DROID_KEY_PASSWORD: ${{ secrets.F_DROID_KEY_PASSWORD }}
+          F_DROID_KEY_DNAME: ${{ secrets.F_DROID_KEY_DNAME }}
         run: |
           cd fdroid
           
-          # Initialize repo config
-          cat > config.yml << 'YAMLEOF'
+          # Decode keystore from secret
+          echo "$F_DROID_KEYSTORE" | base64 -d > keystore.p12
+          
+          # Create config with signing key
+          # Copy icon for repo
+          cp ../fastlane/metadata/android/images/icon.png ../fastlane/metadata/android/images/icon.png.bak 2>/dev/null || true
+          
+          cat > config.yml << YAMLEOF
           builds_dir: repo
           repo_url: https://thoser666.github.io/Vivid/fdroid/repo
           repo_name: Vivid
-          repo_icon: ../docs/icon.png
           archive_older: 0
+          keystorepass: ${F_DROID_KEY_PASSWORD}
+          keypass: ${F_DROID_KEY_PASSWORD}
+          keyalias: ${F_DROID_KEY_ALIAS}
+          keydname: ${F_DROID_KEY_DNAME}
           YAMLEOF
           
-          # Generate repo index
-          fdroid update -v
+          # Generate repo index with metadata creation
+          fdroid update --create-metadata -v
           
           # Verify repository was created
           if [ ! -f "repo/index.xml" ]; then
@@ -100,6 +114,9 @@ jobs:
           
           echo "Repository built successfully"
           ls -la repo/
+          
+          # Cleanup keystore
+          rm -f keystore.p12
       
       - name: Copy to docs/fdroid
         run: |
