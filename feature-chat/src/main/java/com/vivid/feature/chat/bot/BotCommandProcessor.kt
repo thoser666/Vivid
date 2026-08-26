@@ -217,7 +217,7 @@ class BotCommandProcessor @Inject constructor() {
     }
 
     companion object {
-        const val HELP_TEXT = "Verfügbare Befehle: !help · !uptime · !tts · !song · !next · !pause · !bot · !testalert · !torch"
+        const val HELP_TEXT = "Verfügbare Befehle: !help · !uptime · !song · !next · !pause · !bot | Owner: !tts · !testalert · !torch"
         const val BOT_INFO_TEXT = "Ich bin der Chat-Bot von Vivid 🤖 — alle Befehle: !help"
     }
 }

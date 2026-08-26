@@ -125,7 +125,6 @@ private fun BotCommandsCard() {
             )
             BotCommandRow("!help / !commands", stringResource(R.string.help_cmd_help))
             BotCommandRow("!uptime", stringResource(R.string.help_cmd_uptime))
-            BotCommandRow("!tts", stringResource(R.string.help_cmd_tts))
             BotCommandRow("!song / !nowplaying", stringResource(R.string.help_cmd_song))
             BotCommandRow("!next / !skip", stringResource(R.string.help_cmd_next))
             BotCommandRow("!pause / !play", stringResource(R.string.help_cmd_pause))
@@ -137,6 +136,7 @@ private fun BotCommandsCard() {
                 color = MaterialTheme.colorScheme.tertiary,
                 fontWeight = FontWeight.SemiBold,
             )
+            BotCommandRow("!tts", stringResource(R.string.help_cmd_tts))
             BotCommandRow("!start / !go-live", stringResource(R.string.help_cmd_start))
             BotCommandRow("!stop / !end", stringResource(R.string.help_cmd_stop))
             BotCommandRow("!diag / !status", stringResource(R.string.help_cmd_diag))
