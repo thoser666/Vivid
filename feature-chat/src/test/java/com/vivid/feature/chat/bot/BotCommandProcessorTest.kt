@@ -530,7 +530,7 @@ class BotCommandProcessorTest {
         val p = processor()
         assertEquals(
             BotCommandProcessor.Result.Reply(
-                "Verfügbare Befehle: !v!help · !v!uptime · !v!tts · !v!song · !v!next · !v!pause · !v!bot · !v!testalert · !v!torch · !v!filter",
+                "Verfügbare Befehle: !v!help · !v!uptime · !v!tts · !v!song · !v!next · !v!pause · !v!bot · !v!testalert · !v!torch · !v!filter · !v!boost",
             ),
             p.handle("!v!help", null, ChatBotCommandScope.PREFIX, "v"),
         )
@@ -635,6 +635,36 @@ class BotCommandProcessorTest {
         assertEquals(
             BotCommandProcessor.Result.Filter("noise"),
             processor().handle("@vividbot !filter noise please", null),
+        )
+    }
+
+    // --- !boost: Low-Light-Boost (Owner-only, Gate in der Engine) ---
+
+    @Test
+    fun `boost maps to OwnerBoost`() {
+        assertEquals(
+            BotCommandProcessor.Result.OwnerBoost,
+            processor().handle("!boost", null),
+        )
+    }
+
+    @Test
+    fun `boost aliases lowlight and low-light`() {
+        assertEquals(
+            BotCommandProcessor.Result.OwnerBoost,
+            processor().handle("!lowlight", null),
+        )
+        assertEquals(
+            BotCommandProcessor.Result.OwnerBoost,
+            processor().handle("!low-light", null),
+        )
+    }
+
+    @Test
+    fun `boost is case-insensitive`() {
+        assertEquals(
+            BotCommandProcessor.Result.OwnerBoost,
+            processor().handle("!BOOST", null),
         )
     }
 }

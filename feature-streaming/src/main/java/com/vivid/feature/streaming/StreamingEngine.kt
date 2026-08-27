@@ -109,6 +109,12 @@ class StreamingEngine @Inject constructor(
     /** Der aktuell aktive Video-Filter. */
     val activeFilter: StateFlow<VideoFilter> = filterController.activeFilter
 
+    // Low-Light-Boost: software-basierte Helligkeitsanhebung (1.5x Gain)
+    private val lowLightBoostController = LowLightBoostController()
+
+    /** Ob der Low-Light-Boost aktiv ist. */
+    val lowLightBoostEnabled: StateFlow<Boolean> = lowLightBoostController.enabled
+
     /**
      * S1 (Source-Abstraktion): die aktuell aktive Videoquelle der Engine.
      * Die Engine spricht nur noch die Registry an statt hart „die Kamera“ —
@@ -143,6 +149,24 @@ class StreamingEngine @Inject constructor(
     /** Setzt den Filter-Zustand zurück (z.B. beim Stoppen des Streams). */
     fun resetVideoFilter() {
         filterController.resetFilterState()
+    }
+
+    /**
+     * Schaltet den Low-Light-Boost um (Helligkeitsanhebung via OpenGL-Brightness-Filter).
+     * Der Boost funktioniert auf allen Videoquellen (Kamera, Screen-Capture, Video-Player).
+     *
+     * @return true, wenn der Boost jetzt aktiv ist.
+     */
+    fun toggleLowLightBoost(): Boolean {
+        val gl = camera?.glInterface as? GlStreamInterface ?: return false
+        return lowLightBoostController.toggle { render ->
+            if (render == null) gl.clearFilters() else gl.setFilter(render)
+        }
+    }
+
+    /** Setzt den Low-Light-Boost-Zustand zurück (z.B. beim Stoppen des Streams). */
+    fun resetLowLightBoost() {
+        lowLightBoostController.resetState()
     }
 
     /** Preview-Surface der Activity, die an die interne GL-Pipeline angehängt wird. */

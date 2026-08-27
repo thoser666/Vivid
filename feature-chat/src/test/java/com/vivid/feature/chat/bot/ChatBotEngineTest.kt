@@ -129,6 +129,8 @@ class ChatBotEngineTest {
             coEvery { start() } just Runs
             every { stop() } just Runs
             every { toggleTorch() } returns true
+            every { toggleLowLightBoost() } returns true
+            every { setVideoFilter(any()) } returns emptyList()
             coEvery { diagnostics() } returns StreamDiagnostics(
                 status = status,
                 obsConnected = true,
@@ -275,7 +277,7 @@ class ChatBotEngineTest {
 
         coVerify(exactly = 0) { sender.send("Gerade läuft kein Stream.") }
         coVerify(exactly = 1) {
-            sender.send("Verfügbare Befehle: !v!help · !v!uptime · !v!tts · !v!song · !v!next · !v!pause · !v!bot · !v!testalert · !v!torch · !v!filter")
+            sender.send("Verfügbare Befehle: !v!help · !v!uptime · !v!tts · !v!song · !v!next · !v!pause · !v!bot · !v!testalert · !v!torch · !v!filter · !v!boost")
         }
         engine.stop()
     }
@@ -1250,6 +1252,66 @@ class ChatBotEngineTest {
         advanceUntilIdle()
 
         assertEquals(ChatBotEngine.TORCH_OFF_TEXT, sent.captured)
+        engine.stop()
+    }
+
+    // --- !boost: Low-Light-Boost umschalten ---
+
+    @Test
+    fun `owner boost command toggles boost and replies`() = runTest {
+        val control = streamControl()
+        val engine = engine(streamControl = control)
+        val sent = slot<String>()
+        coEvery { sender.send(capture(sent)) } just Runs
+
+        engine.start(messages, config(ownerLogins = setOf("streamer2")), sender, this)
+        messages.emit(chatMessage("!boost", login = "streamer2"))
+        advanceUntilIdle()
+
+        verify { control.toggleLowLightBoost() }
+        assertEquals(ChatBotEngine.BOOST_ON_TEXT, sent.captured)
+        engine.stop()
+    }
+
+    @Test
+    fun `boost from a non-owner is rejected`() = runTest {
+        val control = streamControl()
+        val engine = engine(streamControl = control)
+        val sent = slot<String>()
+        coEvery { sender.send(capture(sent)) } just Runs
+
+        engine.start(messages, config(), sender, this)
+        messages.emit(chatMessage("!boost"))
+        advanceUntilIdle()
+
+        verify(exactly = 0) { control.toggleLowLightBoost() }
+        assertEquals(ChatBotEngine.OWNER_ONLY_TEXT, sent.captured)
+        engine.stop()
+    }
+
+    @Test
+    fun `boost off reply when toggleLowLightBoost returns false`() = runTest {
+        val control = mockk<ChatStreamControl> {
+            coEvery { start() } just Runs
+            every { stop() } just Runs
+            every { toggleTorch() } returns true
+            every { toggleLowLightBoost() } returns false
+            every { setVideoFilter(any()) } returns emptyList()
+            coEvery { diagnostics() } returns StreamDiagnostics(
+                status = ChatStreamStatus.Idle,
+                obsConnected = true,
+                checks = emptyList(),
+            )
+        }
+        val engine = engine(streamControl = control)
+        val sent = slot<String>()
+        coEvery { sender.send(capture(sent)) } just Runs
+
+        engine.start(messages, config(ownerLogins = setOf("streamer2")), sender, this)
+        messages.emit(chatMessage("!boost", login = "streamer2"))
+        advanceUntilIdle()
+
+        assertEquals(ChatBotEngine.BOOST_OFF_TEXT, sent.captured)
         engine.stop()
     }
 

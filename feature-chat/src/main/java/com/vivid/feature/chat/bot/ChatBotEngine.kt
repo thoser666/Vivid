@@ -286,6 +286,13 @@ class ChatBotEngine @Inject constructor(
                 }
                 return
             }
+            is BotCommandProcessor.Result.OwnerBoost -> {
+                handleOwnerAction(cfg, message, snd) {
+                    val nowOn = streamControl.toggleLowLightBoost()
+                    if (nowOn) BOOST_ON_TEXT else BOOST_OFF_TEXT
+                }
+                return
+            }
             is BotCommandProcessor.Result.Ban -> {
                 handleModeration(cfg, message, snd) {
                     if (result.userLogin.isBlank()) {
@@ -394,6 +401,11 @@ class ChatBotEngine @Inject constructor(
                     if (nowOn) TORCH_ON_TEXT else TORCH_OFF_TEXT
                 }
             is BotCommandProcessor.Result.OwnerFix -> handleOwnerFix(cfg, message, snd)
+            is BotCommandProcessor.Result.OwnerBoost ->
+                handleOwnerAction(cfg, message, snd) {
+                    val nowOn = streamControl.toggleLowLightBoost()
+                    if (nowOn) BOOST_ON_TEXT else BOOST_OFF_TEXT
+                }
             is BotCommandProcessor.Result.Ban ->
                 handleModeration(cfg, message, snd) {
                     if (result.userLogin.isBlank()) MODERATION_MISSING_USER_TEXT else moderation.ban(result.userLogin)
@@ -965,6 +977,8 @@ class ChatBotEngine @Inject constructor(
         internal const val TORCH_ON_TEXT = "🔦 Taschenlampe an."
         internal const val TORCH_OFF_TEXT = "🔦 Taschenlampe aus."
         internal const val FILTER_RESPONSE_TEXT = "🎨 Filter: {filters} | !filter <name> zum Wechseln"
+        internal const val BOOST_ON_TEXT = "☀️ Low-Light-Boost AN — Bild wird aufgehellt."
+        internal const val BOOST_OFF_TEXT = "🌙 Low-Light-Boost AUS."
 
         /** Wie viele Top-Viewer der Live-Verbrauch im Settings-Screen zeigt. */
         internal const val TOP_VIEWERS = 5

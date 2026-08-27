@@ -105,6 +105,13 @@ interface ChatStreamControl {
      * @return Die Liste der verfügbaren Filter-Namen (für den Hinweis-Text).
      */
     fun setVideoFilter(filterName: String?): List<String>
+
+    /**
+     * Schaltet den Low-Light-Boost (Helligkeitsanhebung) um.
+     *
+     * @return true, wenn der Boost jetzt aktiv ist.
+     */
+    fun toggleLowLightBoost(): Boolean
 }
 
 /** Eine durchgeführte Fix-Aktion. */
@@ -130,4 +137,6 @@ object NoOpChatStreamControl : ChatStreamControl {
     override fun toggleTorch(): Boolean = false
 
     override fun setVideoFilter(filterName: String?): List<String> = emptyList()
+
+    override fun toggleLowLightBoost(): Boolean = false
 }

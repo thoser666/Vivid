@@ -81,6 +81,7 @@ fun StreamingScreen(
     val torchEnabled by streamingEngine.torchEnabled.collectAsStateWithLifecycle()
     val activeSourceKind by streamingEngine.activeSourceKind.collectAsStateWithLifecycle()
     val activeFilter by streamingEngine.activeFilter.collectAsStateWithLifecycle()
+    val lowLightBoostEnabled by streamingEngine.lowLightBoostEnabled.collectAsStateWithLifecycle()
     val configIssues by viewModel.configIssues.collectAsStateWithLifecycle()
 
     // Szenen (Basic Scenes) + Auto-Scene-Switcher: Liste, aktive Szene,
@@ -415,6 +416,17 @@ fun StreamingScreen(
                         stringResource(
                             R.string.streaming_filter_label,
                             stringResource(activeFilter.labelRes),
+                        ),
+                    )
+                }
+
+                // Low-Light-Boost: software-basierte Helligkeitsanhebung (1.5x Gain).
+                FilledTonalButton(
+                    onClick = { streamingEngine.toggleLowLightBoost() },
+                ) {
+                    Text(
+                        stringResource(
+                            if (lowLightBoostEnabled) R.string.streaming_boost_on else R.string.streaming_boost_off,
                         ),
                     )
                 }

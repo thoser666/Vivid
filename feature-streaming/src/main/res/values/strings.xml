@@ -56,6 +56,10 @@
     <string name="streaming_filter_content_desc">Video-Filter wechseln</string>
     <string name="streaming_filter_label">Filter: %1$s</string>
 
+    <!-- Low-Light-Boost (LowLightBoostController.kt) -->
+    <string name="streaming_boost_on">Boost: An</string>
+    <string name="streaming_boost_off">Boost: Aus</string>
+
     <!-- Playback-Screen (PlaybackScreen.kt) -->
     <string name="playback_previous">Zurück</string>
     <string name="playback_play_pause">Play/Pause</string>

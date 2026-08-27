@@ -88,6 +88,9 @@ class BotCommandProcessor @Inject constructor() {
          *  Ohne Argument → nächster Filter; mit Name → spezifischer Filter. */
         data class Filter(val filterName: String?) : Result
 
+        /** `!boost` — Low-Light-Boost umschalten (nur Owner). */
+        data object OwnerBoost : Result
+
         /** Mit `!` beginnendes Token, aber kein bekannter Befehl. */
         data class Unknown(val command: String) : Result
 
@@ -164,6 +167,8 @@ class BotCommandProcessor @Inject constructor() {
             "fix" -> Result.OwnerFix
             // Owner-Befehl: Video-Effekt umschalten/anzeigen.
             "filter", "fx" -> Result.Filter(firstToken(rest).ifBlank { null })
+            // Owner-Befehl: Low-Light-Boost umschalten.
+            "boost", "lowlight", "low-light" -> Result.OwnerBoost
             "ban" -> Result.Ban(firstToken(rest).removePrefix("@"))
             "timeout" -> Result.Timeout(firstToken(rest).removePrefix("@"), parseTimeoutDuration(rest))
             "delete" -> Result.Delete(firstToken(rest).toIntOrNull())
@@ -175,7 +180,7 @@ class BotCommandProcessor @Inject constructor() {
     private fun helpText(prefix: String?): String {
         if (prefix.isNullOrBlank()) return HELP_TEXT
         val p = "!${prefix}!"
-        return "Verfügbare Befehle: ${p}help · ${p}uptime · ${p}tts · ${p}song · ${p}next · ${p}pause · ${p}bot · ${p}testalert · ${p}torch · ${p}filter"
+        return "Verfügbare Befehle: ${p}help · ${p}uptime · ${p}tts · ${p}song · ${p}next · ${p}pause · ${p}bot · ${p}testalert · ${p}torch · ${p}filter · ${p}boost"
     }
 
     /**
@@ -223,7 +228,7 @@ class BotCommandProcessor @Inject constructor() {
     }
 
     companion object {
-        const val HELP_TEXT = "Verfügbare Befehle: !help · !uptime · !song · !next · !pause · !bot | Owner: !tts · !testalert · !torch · !filter"
+        const val HELP_TEXT = "Verfügbare Befehle: !help · !uptime · !song · !next · !pause · !bot | Owner: !tts · !testalert · !torch · !filter · !boost"
         const val BOT_INFO_TEXT = "Ich bin der Chat-Bot von Vivid 🤖 — alle Befehle: !help"
     }
 }

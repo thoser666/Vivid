@@ -61,6 +61,8 @@ class AppChatStreamControl @Inject constructor(
         return filters.map { it.name }
     }
 
+    override fun toggleLowLightBoost(): Boolean = streamingEngine.toggleLowLightBoost()
+
     override suspend fun fix(): List<FixAction> {
         val actions = mutableListOf<FixAction>()
         val engineState = streamingEngine.streamingState.value

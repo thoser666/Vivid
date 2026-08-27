@@ -518,7 +518,7 @@ Status: ✅ implemented · 🚧 in progress · 📋 planned
 | Screen Capture + Video Player as source | ✅ | MediaProjection + basic video player as stream source — **bucket done**: `VideoSourceKind`/`VideoSource`/`VideoSourceRegistry` (S1), RootEncoder `MultiDisplay` + consent flow + source toggle (S2), RootEncoder `MultiFromFile` + SAF video picker (S3); all three sources switchable in the streaming screen |
 | Record to Disk (MP4) + Replays | 📋 | Record while streaming; save & play replays |
 | Video Effects (Grayscale, Sepia, Noise, …) | ✅ | 11 OpenGL filters via RootEncoder `setFilter`/`GlFilter`, cycle button in streaming screen, `!filter` owner bot command, i18n de/en/fr |
-| Torch / Low-Light Boost | ✅ | Flashlight toggle via RootEncoder lantern API + `!torch` bot command |
+| Torch / Low-Light Boost | ✅ | Torch: RootEncoder lantern API + `!torch` bot command. Low-Light Boost: software brightness filter (1.5x gain via GLSL) + `!boost` bot command — works on all video sources |
 | External Display (Cast / HDMI-out) | 📋 | Video on an external display via Android Cast/Presentation |
 | VTuber / PNGTuber | 📋 | Basic avatar instead of the camera |
 | Image / QR / Battery / Grid Widgets | 📋 | Image + QR code on stream, battery indicator (+ low-battery chat warning), grid overlay for positioning |
