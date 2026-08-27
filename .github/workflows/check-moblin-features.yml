@@ -1,0 +1,48 @@
+name: Check Moblin Features
+
+on:
+  schedule:
+    # Wöchentlich: Montag 06:00 UTC
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+jobs:
+  check-moblin:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Check Moblin features
+        id: check
+        run: |
+          chmod +x scripts/check_moblin_features.sh
+          if bash scripts/check_moblin_features.sh; then
+            echo "status=ok" >> "$GITHUB_OUTPUT"
+          else
+            echo "status=new_features" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create issue if new features found
+        if: steps.check.outputs.status == 'new_features'
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('/tmp/report.md', 'utf8').toString();
+            
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `🔍 Moblin-Feature-Check: Neue Features erkannt (${new Date().toISOString().split('T')[0]})`,
+              body: `## Automatischer Moblin-Feature-Check\n\n${report}\n\n---\n*Erstellt von automatischem Weekly-Check workflow*`,
+              labels: ['parity', 'moblin', 'automated']
+            });
+
+      - name: Summary
+        run: |
+          if [ "${{ steps.check.outputs.status }}" = "ok" ]; then
+            echo "✅ Keine neuen Moblin-Features gefunden — PARITY.md ist aktuell." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "⚠️ Neue Moblin-Features erkannt — siehe erstelltes Issue." >> "$GITHUB_STEP_SUMMARY"
+          fi
