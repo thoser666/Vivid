@@ -226,7 +226,7 @@ Drei einstellbare Limits (alle `0` = aus):
 
 > Owner = Broadcaster-Badge **oder** Allow-List (`chat_bot_owner_logins` in den Settings).
 > Antworten gehen per **Whisper** (privat), wenn der Toggle aktiv ist.
-> Viewer-Befehle: `!help`, `!uptime`, `!tts`, `!song`, `!next`, `!pause`, `!bot`.
+> Viewer-Befehle: `!help`, `!uptime`, `!song`, `!next`, `!pause`, `!bot`.
 
 ### 7.5 Koexistenz mit anderen Bots
 
@@ -322,7 +322,7 @@ Siehe [README → Automatic updates (F-Droid Repository)](../README.md#-automati
 |---|---|---|
 | `!help` / `!commands` / `!hilfe` | Alle | Verfügbare Befehle anzeigen |
 | `!uptime` | Alle | Stream-Dauer anzeigen |
-| `!tts` | Alle | Chat-Vorlesen (Text-to-Speech) an/aus |
+| `!tts` | Owner | Chat-Vorlesen (Text-to-Speech) an/aus |
 | `!bot` | Alle | Bot-Info anzeigen |
 | `!song` / `!nowplaying` | Alle | Aktueller Titel (Media-Player) |
 | `!next` / `!skip` | Alle | Nächster Titel |
