@@ -293,6 +293,32 @@ class ChatBotEngine @Inject constructor(
                 }
                 return
             }
+            is BotCommandProcessor.Result.Lut -> {
+                handleOwnerAction(cfg, message, snd) {
+                    val presetIndex = parseLutPreset(result.presetName)
+                    val changed = streamControl.setLutPreset(presetIndex)
+                    if (changed) {
+                        val name = LUT_PRESET_NAMES.getOrElse(presetIndex) { "Unknown" }
+                        LUT_RESPONSE_TEXT.replace("{name}", name)
+                    } else {
+                        LUT_NO_CHANGE_TEXT
+                    }
+                }
+                return
+            }
+            is BotCommandProcessor.Result.ColorSpace -> {
+                handleOwnerAction(cfg, message, snd) {
+                    val spaceIndex = parseColorSpace(result.spaceName)
+                    val changed = streamControl.setColorSpace(spaceIndex)
+                    if (changed) {
+                        val name = COLOR_SPACE_NAMES.getOrElse(spaceIndex) { "Unknown" }
+                        COLOR_SPACE_RESPONSE_TEXT.replace("{name}", name)
+                    } else {
+                        COLOR_SPACE_NO_CHANGE_TEXT
+                    }
+                }
+                return
+            }
             is BotCommandProcessor.Result.Ban -> {
                 handleModeration(cfg, message, snd) {
                     if (result.userLogin.isBlank()) {
@@ -946,6 +972,30 @@ class ChatBotEngine @Inject constructor(
         }
     }
 
+    /**
+     * Parst den LUT-Preset-Namen aus einem Bot-Befehl.
+     * 0=NONE, 1=WARM, 2=COOL; unbekannt → 0 (NONE).
+     */
+    private fun parseLutPreset(name: String?): Int = when (name?.lowercase()?.trim()) {
+        "warm", "amber" -> 1
+        "cool", "blau", "blue" -> 2
+        "none", "off", "aus", "passthrough" -> 0
+        null -> 1 // ohne Argument → WARM
+        else -> 0
+    }
+
+    /**
+     * Parst den Color-Space-Namen aus einem Bot-Befehl.
+     * 0=sRGB, 1=P3, 2=Log; unbekannt → 0 (sRGB).
+     */
+    private fun parseColorSpace(name: String?): Int = when (name?.lowercase()?.trim()) {
+        "srgb", "srgb" -> 0
+        "p3", "display-p3", "displayp3" -> 1
+        "log", "apple-log", "applelog" -> 2
+        null -> 0 // ohne Argument → sRGB
+        else -> 0
+    }
+
     companion object {
         /**
          * Marker, mit dem das LLM im AUTONOMOUS-Modus signalisiert, dass es
@@ -979,6 +1029,14 @@ class ChatBotEngine @Inject constructor(
         internal const val FILTER_RESPONSE_TEXT = "🎨 Filter: {filters} | !filter <name> zum Wechseln"
         internal const val BOOST_ON_TEXT = "☀️ Low-Light-Boost AN — Bild wird aufgehellt."
         internal const val BOOST_OFF_TEXT = "🌙 Low-Light-Boost AUS."
+
+        internal const val LUT_RESPONSE_TEXT = "🎬 3D-LUT: {name} | !lut warm|cool|none zum Wechseln"
+        internal const val LUT_NO_CHANGE_TEXT = "🎬 3D-LUT: bereits aktiv."
+        internal const val COLOR_SPACE_RESPONSE_TEXT = "🖥️ Color-Space: {name} | !colorspace srgb|p3|log zum Wechseln"
+        internal const val COLOR_SPACE_NO_CHANGE_TEXT = "🖥️ Color-Space: bereits eingestellt."
+
+        internal val LUT_PRESET_NAMES = mapOf(0 to "None (Passthrough)", 1 to "Warm (Amber)", 2 to "Cool (Blau)")
+        internal val COLOR_SPACE_NAMES = mapOf(0 to "sRGB", 1 to "Display P3", 2 to "Apple Log")
 
         /** Wie viele Top-Viewer der Live-Verbrauch im Settings-Screen zeigt. */
         internal const val TOP_VIEWERS = 5

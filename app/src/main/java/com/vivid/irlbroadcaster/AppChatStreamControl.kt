@@ -63,6 +63,24 @@ class AppChatStreamControl @Inject constructor(
 
     override fun toggleLowLightBoost(): Boolean = streamingEngine.toggleLowLightBoost()
 
+    override fun setLutPreset(presetIndex: Int): Boolean {
+        val preset = when (presetIndex) {
+            1 -> com.vivid.feature.streaming.LutPreset.WARM
+            2 -> com.vivid.feature.streaming.LutPreset.COOL
+            else -> com.vivid.feature.streaming.LutPreset.NONE
+        }
+        return streamingEngine.setLutPreset(preset)
+    }
+
+    override fun setColorSpace(spaceIndex: Int): Boolean {
+        val space = when (spaceIndex) {
+            1 -> com.vivid.feature.streaming.ColorSpace.DISPLAY_P3
+            2 -> com.vivid.feature.streaming.ColorSpace.APPLE_LOG
+            else -> com.vivid.feature.streaming.ColorSpace.SRGB
+        }
+        return streamingEngine.setColorSpace(space)
+    }
+
     override suspend fun fix(): List<FixAction> {
         val actions = mutableListOf<FixAction>()
         val engineState = streamingEngine.streamingState.value

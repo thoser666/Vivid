@@ -82,6 +82,8 @@ fun StreamingScreen(
     val activeSourceKind by streamingEngine.activeSourceKind.collectAsStateWithLifecycle()
     val activeFilter by streamingEngine.activeFilter.collectAsStateWithLifecycle()
     val lowLightBoostEnabled by streamingEngine.lowLightBoostEnabled.collectAsStateWithLifecycle()
+    val activeLutPreset by streamingEngine.activeLutPreset.collectAsStateWithLifecycle()
+    val activeColorSpace by streamingEngine.activeColorSpace.collectAsStateWithLifecycle()
     val configIssues by viewModel.configIssues.collectAsStateWithLifecycle()
 
     // Szenen (Basic Scenes) + Auto-Scene-Switcher: Liste, aktive Szene,
@@ -427,6 +429,47 @@ fun StreamingScreen(
                     Text(
                         stringResource(
                             if (lowLightBoostEnabled) R.string.streaming_boost_on else R.string.streaming_boost_off,
+                        ),
+                    )
+                }
+
+                // 3D-LUT: Farbton-Presets (Warm/Cool) — PoC für Color-Spaces + 3D-LUTs.
+                FilledTonalButton(
+                    onClick = {
+                        val nextPreset = when (activeLutPreset) {
+                            com.vivid.feature.streaming.LutPreset.NONE -> com.vivid.feature.streaming.LutPreset.WARM
+                            com.vivid.feature.streaming.LutPreset.WARM -> com.vivid.feature.streaming.LutPreset.COOL
+                            com.vivid.feature.streaming.LutPreset.COOL -> com.vivid.feature.streaming.LutPreset.NONE
+                        }
+                        streamingEngine.setLutPreset(nextPreset)
+                    },
+                ) {
+                    Text(
+                        stringResource(
+                            when (activeLutPreset) {
+                                com.vivid.feature.streaming.LutPreset.NONE -> R.string.streaming_lut_none
+                                com.vivid.feature.streaming.LutPreset.WARM -> R.string.streaming_lut_warm
+                                com.vivid.feature.streaming.LutPreset.COOL -> R.string.streaming_lut_cool
+                            },
+                        ),
+                    )
+                }
+
+                // Color-Space: Gamma-Korrektur-Auswahl (sRGB/P3/Log) — PoC.
+                FilledTonalButton(
+                    onClick = {
+                        val nextSpace = when (activeColorSpace) {
+                            com.vivid.feature.streaming.ColorSpace.SRGB -> com.vivid.feature.streaming.ColorSpace.DISPLAY_P3
+                            com.vivid.feature.streaming.ColorSpace.DISPLAY_P3 -> com.vivid.feature.streaming.ColorSpace.APPLE_LOG
+                            com.vivid.feature.streaming.ColorSpace.APPLE_LOG -> com.vivid.feature.streaming.ColorSpace.SRGB
+                        }
+                        streamingEngine.setColorSpace(nextSpace)
+                    },
+                ) {
+                    Text(
+                        stringResource(
+                            R.string.streaming_color_space_label,
+                            stringResource(activeColorSpace.labelRes),
                         ),
                     )
                 }

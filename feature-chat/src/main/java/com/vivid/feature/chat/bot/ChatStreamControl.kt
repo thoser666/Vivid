@@ -112,6 +112,22 @@ interface ChatStreamControl {
      * @return true, wenn der Boost jetzt aktiv ist.
      */
     fun toggleLowLightBoost(): Boolean
+
+    /**
+     * Setzt den 3D-LUT-Preset (Color-Spaces + 3D-LUTs).
+     * 0=NONE, 1=WARM, 2=COOL.
+     *
+     * @return true, wenn sich der Zustand geändert hat.
+     */
+    fun setLutPreset(presetIndex: Int): Boolean
+
+    /**
+     * Setzt den Color-Space (Gamma-Korrektur).
+     * 0=sRGB, 1=Display P3, 2=Apple Log.
+     *
+     * @return true, wenn sich der Zustand geändert hat.
+     */
+    fun setColorSpace(spaceIndex: Int): Boolean
 }
 
 /** Eine durchgeführte Fix-Aktion. */
@@ -139,4 +155,8 @@ object NoOpChatStreamControl : ChatStreamControl {
     override fun setVideoFilter(filterName: String?): List<String> = emptyList()
 
     override fun toggleLowLightBoost(): Boolean = false
+
+    override fun setLutPreset(presetIndex: Int): Boolean = false
+
+    override fun setColorSpace(spaceIndex: Int): Boolean = false
 }

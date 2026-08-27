@@ -115,6 +115,15 @@ class StreamingEngine @Inject constructor(
     /** Ob der Low-Light-Boost aktiv ist. */
     val lowLightBoostEnabled: StateFlow<Boolean> = lowLightBoostController.enabled
 
+    // Color-Spaces + 3D-LUTs: Farbraum-Auswahl und LUT-Presets
+    private val lutController = LutController()
+
+    /** Der aktive LUT-Preset. */
+    val activeLutPreset: StateFlow<LutPreset> = lutController.activePreset
+
+    /** Der aktive Color-Space. */
+    val activeColorSpace: StateFlow<ColorSpace> = lutController.activeColorSpace
+
     /**
      * S1 (Source-Abstraktion): die aktuell aktive Videoquelle der Engine.
      * Die Engine spricht nur noch die Registry an statt hart „die Kamera“ —
@@ -169,12 +178,35 @@ class StreamingEngine @Inject constructor(
         lowLightBoostController.resetState()
     }
 
-    /** Preview-Surface der Activity, die an die interne GL-Pipeline angehängt wird. */
-    private data class PreviewRequest(val surface: Surface, val width: Int, val height: Int)
+    /**
+     * Setzt den 3D-LUT-Preset (Color-Spaces + 3D-LUTs Roadmap-Bucket).
+     * Die Filter wirken auf den Encoder-Pfad (Vorschau + gestreamtes Video).
+     *
+     * @return true, wenn sich der Zustand geändert hat.
+     */
+    fun setLutPreset(preset: LutPreset): Boolean {
+        val gl = camera?.glInterface as? GlStreamInterface ?: return false
+        return lutController.setPreset(preset, LUT_SIZE) { render ->
+            if (render == null) gl.clearFilters() else gl.setFilter(render)
+        }
+    }
 
-    // Die zuletzt gemeldete Preview-Surface. Wird beim Start (nach prepareVideo)
-    // angehängt bzw. sofort, wenn die GL-Pipeline bereits läuft (Rotation/Recreate).
-    private var previewRequest: PreviewRequest? = null
+    /**
+     * Setzt den Color-Space (ändert die Gamma-Korrektur des LUT-Filters).
+     *
+     * @return true, wenn sich der Zustand geändert hat.
+     */
+    fun setColorSpace(colorSpace: ColorSpace): Boolean {
+        val gl = camera?.glInterface as? GlStreamInterface ?: return false
+        return lutController.setColorSpace(colorSpace, LUT_SIZE) { render ->
+            if (render == null) gl.clearFilters() else gl.setFilter(render)
+        }
+    }
+
+    /** Setzt den LUT-Zustand zurück (z.B. beim Stoppen des Streams). */
+    fun resetLut() {
+        lutController.resetState()
+    }
 
     companion object {
         /**
@@ -185,7 +217,18 @@ class StreamingEngine @Inject constructor(
          * ConnectCheckern (Kamera darf dabei nicht neu gestartet werden).
          */
         const val MAX_STREAM_TARGETS = 2
+
+        /** LUT-Größe: 16×16×16 = 4096 Einträge (gute Balance aus Qualität und Performance). */
+        const val LUT_SIZE = 16
     }
+
+    /** Preview-Surface der Activity, die an die interne GL-Pipeline angehängt wird. */
+    private data class PreviewRequest(val surface: Surface, val width: Int, val height: Int)
+
+    // Die zuletzt gemeldete Preview-Surface. Wird beim Start (nach prepareVideo)
+    // angehängt bzw. sofort, wenn die GL-Pipeline bereits läuft (Rotation/Recreate).
+    private var previewRequest: PreviewRequest? = null
+
 
     /**
      * Erstellt einen ConnectChecker für ein Stream-Ziel. Jeder Checker kennt

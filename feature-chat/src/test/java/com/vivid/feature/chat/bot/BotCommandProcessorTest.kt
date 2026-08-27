@@ -530,7 +530,7 @@ class BotCommandProcessorTest {
         val p = processor()
         assertEquals(
             BotCommandProcessor.Result.Reply(
-                "Verfügbare Befehle: !v!help · !v!uptime · !v!tts · !v!song · !v!next · !v!pause · !v!bot · !v!testalert · !v!torch · !v!filter · !v!boost",
+                "Verfügbare Befehle: !v!help · !v!uptime · !v!tts · !v!song · !v!next · !v!pause · !v!bot · !v!testalert · !v!torch · !v!filter · !v!boost · !v!lut · !v!colorspace",
             ),
             p.handle("!v!help", null, ChatBotCommandScope.PREFIX, "v"),
         )
@@ -665,6 +665,58 @@ class BotCommandProcessorTest {
         assertEquals(
             BotCommandProcessor.Result.OwnerBoost,
             processor().handle("!BOOST", null),
+        )
+    }
+
+    // --- !lut (3D-LUT-Preset) ---
+
+    @Test
+    fun `lut without args returns Lut with null name`() {
+        assertEquals(
+            BotCommandProcessor.Result.Lut(null),
+            processor().handle("!lut", null),
+        )
+    }
+
+    @Test
+    fun `lut with name returns Lut with name`() {
+        assertEquals(
+            BotCommandProcessor.Result.Lut("warm"),
+            processor().handle("!lut warm", null),
+        )
+    }
+
+    @Test
+    fun `lut is case-insensitive`() {
+        assertEquals(
+            BotCommandProcessor.Result.Lut("cool"),
+            processor().handle("!LUT cool", null),
+        )
+    }
+
+    // --- !colorspace (Color-Space-Auswahl) ---
+
+    @Test
+    fun `colorspace without args returns ColorSpace with null name`() {
+        assertEquals(
+            BotCommandProcessor.Result.ColorSpace(null),
+            processor().handle("!colorspace", null),
+        )
+    }
+
+    @Test
+    fun `colorspace with name returns ColorSpace with name`() {
+        assertEquals(
+            BotCommandProcessor.Result.ColorSpace("p3"),
+            processor().handle("!colorspace p3", null),
+        )
+    }
+
+    @Test
+    fun `cs alias works for colorspace`() {
+        assertEquals(
+            BotCommandProcessor.Result.ColorSpace("log"),
+            processor().handle("!cs log", null),
         )
     }
 }

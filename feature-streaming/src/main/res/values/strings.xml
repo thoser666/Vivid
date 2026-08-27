@@ -60,6 +60,15 @@
     <string name="streaming_boost_on">Boost: An</string>
     <string name="streaming_boost_off">Boost: Aus</string>
 
+    <!-- Color-Spaces + 3D-LUTs (LutController.kt, ColorSpace.kt) -->
+    <string name="streaming_lut_none">Kein LUT</string>
+    <string name="streaming_lut_warm">LUT: Warm</string>
+    <string name="streaming_lut_cool">LUT: Cool</string>
+    <string name="color_space_srgb">sRGB</string>
+    <string name="color_space_p3">Display P3</string>
+    <string name="color_space_apple_log">Apple Log</string>
+    <string name="streaming_color_space_label">Farbraum: %1$s</string>
+
     <!-- Playback-Screen (PlaybackScreen.kt) -->
     <string name="playback_previous">Zurück</string>
     <string name="playback_play_pause">Play/Pause</string>

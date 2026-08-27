@@ -188,7 +188,7 @@ Die Überprüfung auf dem Über-Bildschirm folgt denselben Regeln wie in [RELEAS
 **Post-Beta roadmap buckets** (full detail + open tasks in [PARITY.md](PARITY.md)):
 
 - 💬 **[Multi-Plattform-Chat (Kick, YouTube, SOOP)](PARITY.md#-roadmap-bucket-multi-plattform-chat-kick-youtube-soop)** — platform adapters (YouTube innertube with anonymous reading, Kick Pusher WebSocket + GraphQL, SOOP) + OAuth login (PKCE), parallel sessions for multi-streaming
-- 🎨 **[Color-Spaces + 3D-LUTs](PARITY.md#-roadmap-bucket-color-spaces--3d-luts)** — sRGB/P3/Log video color spaces + PNG 3D-LUTs (Hald CLUT) in the stream pipeline
+- 🎨 **[Color-Spaces + 3D-LUTs](PARITY.md#-roadmap-bucket-color-spaces--3d-luts)** — PoC: sRGB/P3/Apple Log color spaces + 3D-LUT Hald-CLUT GLSL shader in stream pipeline; !lut/!colorspace bot commands
 - 📋 **Remaining Moblin-parity features** (SRTLA bonding, H.264/H.265 up to 4K/60fps, RIST/WHIP, RTMP ingest, emotes, more widgets, …) — see the [Planned features](#-planned-roadmap-to-moblin-parity) list and the per-feature [Parity Status](#-parity-status) table
 - 🆕 **Moblin-Gap-Analyse (21.08.)** — systematic comparison against the Moblin README surfaced **20 missing features**, now tracked in [PARITY.md](PARITY.md): scenes & video sources, pro camera controls (exposure/WB/ISO/lens), replays/record-to-disk, image/QR/battery/grid widgets, speech-to-text subtitles, landscape/portrait, viewer count, title/category, chat display details, chat polls, streamer browser, adaptive bitrate, BLE sensors — applicable Moblin features: **62**
 

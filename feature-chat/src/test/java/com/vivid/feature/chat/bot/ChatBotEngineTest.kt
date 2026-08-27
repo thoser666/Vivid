@@ -131,6 +131,8 @@ class ChatBotEngineTest {
             every { toggleTorch() } returns true
             every { toggleLowLightBoost() } returns true
             every { setVideoFilter(any()) } returns emptyList()
+            every { setLutPreset(any()) } returns true
+            every { setColorSpace(any()) } returns true
             coEvery { diagnostics() } returns StreamDiagnostics(
                 status = status,
                 obsConnected = true,
@@ -277,7 +279,7 @@ class ChatBotEngineTest {
 
         coVerify(exactly = 0) { sender.send("Gerade läuft kein Stream.") }
         coVerify(exactly = 1) {
-            sender.send("Verfügbare Befehle: !v!help · !v!uptime · !v!tts · !v!song · !v!next · !v!pause · !v!bot · !v!testalert · !v!torch · !v!filter · !v!boost")
+            sender.send("Verfügbare Befehle: !v!help · !v!uptime · !v!tts · !v!song · !v!next · !v!pause · !v!bot · !v!testalert · !v!torch · !v!filter · !v!boost · !v!lut · !v!colorspace")
         }
         engine.stop()
     }
