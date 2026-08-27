@@ -84,6 +84,10 @@ class BotCommandProcessor @Inject constructor() {
         /** `!fix` — auto-fixbare Probleme beheben (nur Owner). */
         data object OwnerFix : Result
 
+        /** `!filter [name]` — Video-Effekt umschalten/anzeigen (nur Owner).
+         *  Ohne Argument → nächster Filter; mit Name → spezifischer Filter. */
+        data class Filter(val filterName: String?) : Result
+
         /** Mit `!` beginnendes Token, aber kein bekannter Befehl. */
         data class Unknown(val command: String) : Result
 
@@ -158,6 +162,8 @@ class BotCommandProcessor @Inject constructor() {
             "torch", "lantern", "flashlight" -> Result.OwnerTorch
             // Owner-Befehl: auto-fixbare Probleme beheben.
             "fix" -> Result.OwnerFix
+            // Owner-Befehl: Video-Effekt umschalten/anzeigen.
+            "filter", "fx" -> Result.Filter(firstToken(rest).ifBlank { null })
             "ban" -> Result.Ban(firstToken(rest).removePrefix("@"))
             "timeout" -> Result.Timeout(firstToken(rest).removePrefix("@"), parseTimeoutDuration(rest))
             "delete" -> Result.Delete(firstToken(rest).toIntOrNull())
@@ -169,7 +175,7 @@ class BotCommandProcessor @Inject constructor() {
     private fun helpText(prefix: String?): String {
         if (prefix.isNullOrBlank()) return HELP_TEXT
         val p = "!${prefix}!"
-        return "Verfügbare Befehle: ${p}help · ${p}uptime · ${p}tts · ${p}song · ${p}next · ${p}pause · ${p}bot · ${p}testalert · ${p}torch"
+        return "Verfügbare Befehle: ${p}help · ${p}uptime · ${p}tts · ${p}song · ${p}next · ${p}pause · ${p}bot · ${p}testalert · ${p}torch · ${p}filter"
     }
 
     /**
@@ -217,7 +223,7 @@ class BotCommandProcessor @Inject constructor() {
     }
 
     companion object {
-        const val HELP_TEXT = "Verfügbare Befehle: !help · !uptime · !song · !next · !pause · !bot | Owner: !tts · !testalert · !torch"
+        const val HELP_TEXT = "Verfügbare Befehle: !help · !uptime · !song · !next · !pause · !bot | Owner: !tts · !testalert · !torch · !filter"
         const val BOT_INFO_TEXT = "Ich bin der Chat-Bot von Vivid 🤖 — alle Befehle: !help"
     }
 }

@@ -279,6 +279,13 @@ class ChatBotEngine @Inject constructor(
                 handleOwnerFix(cfg, message, snd)
                 return
             }
+            is BotCommandProcessor.Result.Filter -> {
+                handleOwnerAction(cfg, message, snd) {
+                    val filters = streamControl.setVideoFilter(result.filterName)
+                    FILTER_RESPONSE_TEXT.replace("{filters}", filters.joinToString(", "))
+                }
+                return
+            }
             is BotCommandProcessor.Result.Ban -> {
                 handleModeration(cfg, message, snd) {
                     if (result.userLogin.isBlank()) {
@@ -957,6 +964,7 @@ class ChatBotEngine @Inject constructor(
         internal const val STREAM_STOP_TEXT = "⏹ Stream wird gestoppt."
         internal const val TORCH_ON_TEXT = "🔦 Taschenlampe an."
         internal const val TORCH_OFF_TEXT = "🔦 Taschenlampe aus."
+        internal const val FILTER_RESPONSE_TEXT = "🎨 Filter: {filters} | !filter <name> zum Wechseln"
 
         /** Wie viele Top-Viewer der Live-Verbrauch im Settings-Screen zeigt. */
         internal const val TOP_VIEWERS = 5

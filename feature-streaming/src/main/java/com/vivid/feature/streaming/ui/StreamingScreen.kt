@@ -80,6 +80,7 @@ fun StreamingScreen(
     val stabilizationEnabled by streamingEngine.stabilizationEnabled.collectAsStateWithLifecycle()
     val torchEnabled by streamingEngine.torchEnabled.collectAsStateWithLifecycle()
     val activeSourceKind by streamingEngine.activeSourceKind.collectAsStateWithLifecycle()
+    val activeFilter by streamingEngine.activeFilter.collectAsStateWithLifecycle()
     val configIssues by viewModel.configIssues.collectAsStateWithLifecycle()
 
     // Szenen (Basic Scenes) + Auto-Scene-Switcher: Liste, aktive Szene,
@@ -401,6 +402,19 @@ fun StreamingScreen(
                     Text(
                         stringResource(
                             if (isLocked) R.string.streaming_focus_inf else R.string.streaming_focus_auto,
+                        ),
+                    )
+                }
+
+                // Video-Effekte: Filter-Button zeigt den aktuellen Filter an und
+                // wechselt zum nächsten bei Klick (zirkulär durch die Liste).
+                FilledTonalButton(
+                    onClick = { streamingEngine.nextVideoFilter() },
+                ) {
+                    Text(
+                        stringResource(
+                            R.string.streaming_filter_label,
+                            stringResource(activeFilter.labelRes),
                         ),
                     )
                 }

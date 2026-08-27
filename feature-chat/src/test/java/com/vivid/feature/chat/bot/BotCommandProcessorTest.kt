@@ -530,7 +530,7 @@ class BotCommandProcessorTest {
         val p = processor()
         assertEquals(
             BotCommandProcessor.Result.Reply(
-                "Verfügbare Befehle: !v!help · !v!uptime · !v!tts · !v!song · !v!next · !v!pause · !v!bot · !v!testalert · !v!torch",
+                "Verfügbare Befehle: !v!help · !v!uptime · !v!tts · !v!song · !v!next · !v!pause · !v!bot · !v!testalert · !v!torch · !v!filter",
             ),
             p.handle("!v!help", null, ChatBotCommandScope.PREFIX, "v"),
         )
@@ -593,6 +593,48 @@ class BotCommandProcessorTest {
         assertEquals(
             BotCommandProcessor.Result.Reply(BotCommandProcessor.HELP_TEXT),
             p.handle("!help", null, ChatBotCommandScope.ALL, "v", "vividbot"),
+        )
+    }
+
+    // --- !filter (Video-Effekte) ---
+
+    @Test
+    fun `filter without args returns Filter with null name`() {
+        assertEquals(
+            BotCommandProcessor.Result.Filter(null),
+            processor().handle("!filter", null),
+        )
+    }
+
+    @Test
+    fun `filter with name returns Filter with name`() {
+        assertEquals(
+            BotCommandProcessor.Result.Filter("SEPIA"),
+            processor().handle("!filter SEPIA", null),
+        )
+    }
+
+    @Test
+    fun `fx alias works like filter`() {
+        assertEquals(
+            BotCommandProcessor.Result.Filter(null),
+            processor().handle("!fx", null),
+        )
+    }
+
+    @Test
+    fun `filter is case-insensitive in dispatch`() {
+        assertEquals(
+            BotCommandProcessor.Result.Filter("grayscale"),
+            processor().handle("!filter grayscale", null),
+        )
+    }
+
+    @Test
+    fun `filter in middle of message`() {
+        assertEquals(
+            BotCommandProcessor.Result.Filter("noise"),
+            processor().handle("@vividbot !filter noise please", null),
         )
     }
 }

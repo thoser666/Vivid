@@ -97,6 +97,14 @@ interface ChatStreamControl {
      *   aus ist oder das Gerät keine unterstützt.
      */
     fun toggleTorch(): Boolean
+
+    /**
+     * Setzt den Video-Filter (OpenGL-Effekt) auf den angegebenen Namen.
+     * Unbekannte Namen werden ignoriert.
+     *
+     * @return Die Liste der verfügbaren Filter-Namen (für den Hinweis-Text).
+     */
+    fun setVideoFilter(filterName: String?): List<String>
 }
 
 /** Eine durchgeführte Fix-Aktion. */
@@ -120,4 +128,6 @@ object NoOpChatStreamControl : ChatStreamControl {
     override suspend fun fix(): List<FixAction> = emptyList()
 
     override fun toggleTorch(): Boolean = false
+
+    override fun setVideoFilter(filterName: String?): List<String> = emptyList()
 }

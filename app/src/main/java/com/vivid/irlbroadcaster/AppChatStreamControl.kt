@@ -48,6 +48,19 @@ class AppChatStreamControl @Inject constructor(
 
     override fun toggleTorch(): Boolean = streamingEngine.toggleTorch()
 
+    override fun setVideoFilter(filterName: String?): List<String> {
+        val filters = com.vivid.feature.streaming.VideoFilter.entries
+        if (filterName.isNullOrBlank()) {
+            streamingEngine.nextVideoFilter()
+        } else {
+            val match = filters.find { it.name.equals(filterName, ignoreCase = true) }
+            if (match != null) {
+                streamingEngine.setVideoFilter(match)
+            }
+        }
+        return filters.map { it.name }
+    }
+
     override suspend fun fix(): List<FixAction> {
         val actions = mutableListOf<FixAction>()
         val engineState = streamingEngine.streamingState.value

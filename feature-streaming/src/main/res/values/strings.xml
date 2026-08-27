@@ -41,6 +41,21 @@
     <string name="scene_interval_seconds">Intervall (s)</string>
 
 
+    <!-- Video-Effekte (VideoFilter.kt) -->
+    <string name="video_filter_none">Kein Filter</string>
+    <string name="video_filter_grayscale">Graustufen</string>
+    <string name="video_filter_sepia">Sepia</string>
+    <string name="video_filter_noise">Rauschen</string>
+    <string name="video_filter_negative">Negativ</string>
+    <string name="video_filter_edge_detection">Kanten</string>
+    <string name="video_filter_cartoon">Cartoon</string>
+    <string name="video_filter_pixelated">Pixeliert</string>
+    <string name="video_filter_blur">Unschärfe</string>
+    <string name="video_filter_beauty">Schönheit</string>
+    <string name="video_filter_duotone">Duotone</string>
+    <string name="streaming_filter_content_desc">Video-Filter wechseln</string>
+    <string name="streaming_filter_label">Filter: %1$s</string>
+
     <!-- Playback-Screen (PlaybackScreen.kt) -->
     <string name="playback_previous">Zurück</string>
     <string name="playback_play_pause">Play/Pause</string>

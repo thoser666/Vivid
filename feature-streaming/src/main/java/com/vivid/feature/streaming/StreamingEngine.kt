@@ -103,6 +103,12 @@ class StreamingEngine @Inject constructor(
     private val _torchEnabled = MutableStateFlow(false)
     val torchEnabled: StateFlow<Boolean> = _torchEnabled.asStateFlow()
 
+    // Video-Effekte: OpenGL-Filter (Graustufen, Sepia, Rauschen, …)
+    private val filterController = VideoFilterController()
+
+    /** Der aktuell aktive Video-Filter. */
+    val activeFilter: StateFlow<VideoFilter> = filterController.activeFilter
+
     /**
      * S1 (Source-Abstraktion): die aktuell aktive Videoquelle der Engine.
      * Die Engine spricht nur noch die Registry an statt hart „die Kamera“ —
@@ -112,6 +118,32 @@ class StreamingEngine @Inject constructor(
 
     private var cameraControls: CameraControls? = null
     private var stabilizationController: CameraStabilizationController? = null
+
+    /**
+     * Wendet einen Video-Filter (OpenGL-Effekt) auf die GL-Pipeline an.
+     * Der Effekt wirkt auf Vorschau + Encoder (gestreamtes Video).
+     *
+     * @return true, wenn der Filter erfolgreich gesetzt wurde.
+     */
+    fun setVideoFilter(filter: VideoFilter): Boolean {
+        val gl = camera?.glInterface as? GlStreamInterface ?: return false
+        return filterController.setFilter(filter) { render ->
+            if (render == null) gl.clearFilters() else gl.setFilter(render)
+        }
+    }
+
+    /** Wechselt zum nächsten Filter in der Liste (zirkulär). */
+    fun nextVideoFilter(): VideoFilter {
+        val gl = camera?.glInterface as? GlStreamInterface ?: return filterController.activeFilter.value
+        return filterController.nextFilter { render ->
+            if (render == null) gl.clearFilters() else gl.setFilter(render)
+        }
+    }
+
+    /** Setzt den Filter-Zustand zurück (z.B. beim Stoppen des Streams). */
+    fun resetVideoFilter() {
+        filterController.resetFilterState()
+    }
 
     /** Preview-Surface der Activity, die an die interne GL-Pipeline angehängt wird. */
     private data class PreviewRequest(val surface: Surface, val width: Int, val height: Int)

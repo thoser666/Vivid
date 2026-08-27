@@ -275,7 +275,7 @@ class ChatBotEngineTest {
 
         coVerify(exactly = 0) { sender.send("Gerade läuft kein Stream.") }
         coVerify(exactly = 1) {
-            sender.send("Verfügbare Befehle: !v!help · !v!uptime · !v!tts · !v!song · !v!next · !v!pause · !v!bot · !v!testalert · !v!torch")
+            sender.send("Verfügbare Befehle: !v!help · !v!uptime · !v!tts · !v!song · !v!next · !v!pause · !v!bot · !v!testalert · !v!torch · !v!filter")
         }
         engine.stop()
     }
