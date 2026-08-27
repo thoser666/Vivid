@@ -1,5 +1,6 @@
 # built application files
 *.apk
+!docs/fdroid/repo/*.apk
 *.ap_
 *.aab
 *.aar
