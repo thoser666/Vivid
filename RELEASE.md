@@ -645,7 +645,7 @@ Vivid nutzt mehrere GitHub Apps und Workflows für automatisierte Prozesse:
 | **Dependabot Auto-Merge** | Minor/Patch Updates automatisch mergen | ✅ aktiv |
 | **Moblin-Feature-Check** | Wöchentlicher Vergleich mit Moblin-Features | ✅ aktiv |
 | **CodeQL** | Security-Scanning (Kotlin/Java) | ✅ aktiv |
-| **Snyk** | Dependency-Analyse (CVEs, Schwachstellen) | 🟡 Workflow aktiv, Token ausstehend |
+| **Snyk** | Dependency-Analyse (CVEs, Schwachstellen) | ✅ aktiv |
 | **OpenSSF Scorecard** | Supply-Chain-Security-Bewertung | ✅ aktiv |
 | **Changelog-Spiegel** | CHANGELOG.md aus GitHub Releases aktualisieren | ✅ aktiv |
 
@@ -800,7 +800,7 @@ Das Projekt nutzt den **OpenSSF Scorecard** für automatische Security-Analyse u
 
 ## 🔍 Snyk Security Scanning (Dependency-Analyse)
 
-**Status:** 🟡 Workflow aktiv, SNYK_TOKEN ausstehend
+**Status:** ✅ Aktiv (SNYK_TOKEN gesetzt)
 
 Snyk analysiert Dependencies auf bekannte Schwachstellen (CVEs) und erstellt PRs zur Behebung. Die Integration ergänzt Dependabot (Updates) und CodeQL (Code-Scanning) um eine **tiefe Dependency-Analyse**.
 
@@ -837,7 +837,7 @@ Snyk analysiert Dependencies auf bekannte Schwachstellen (CVEs) und erstellt PRs
 |---------|--------|
 | Snyk-Konto | ⏳ Ausstehend |
 | API-Token generiert | ⏳ Ausstehend |
-| SNYK_TOKEN in GitHub Secrets | ❌ Fehlt |
+| SNYK_TOKEN in GitHub Secrets | ✅ Gesetzt (28.08.2026) |
 | Snyk GitHub App installiert | ⏳ Ausstehend |
 
 **Empfehlung:**
