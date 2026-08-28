@@ -101,6 +101,8 @@ fastlane/test_output
 *.jks
 # Keystore credentials (Klartext-Passwörter — niemals committen)
 keystore.properties
+# F-Droid Keystore (sensible Signing-Keys)
+.fdroid-keystore/
 
 # ===== Lokale Build-/Tool-Artefakte & Temp-Dateien (im Repo-Root abgelegt) =====
 # Gradle-User-Home-Kopien (GRADLE_USER_HOME zeigt zeitweise auf das Projektroot)
