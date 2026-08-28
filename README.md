@@ -551,6 +551,10 @@ Status: ✅ implemented · 🚧 in progress · 📋 planned
 
 ### Building from Source
 
+**Requirements:**
+- **JDK 17** (minimum) — required by Android Gradle Plugin 9.x
+- **JDK 25** (recommended, LTS) — newest long-term support version, works perfectly with Gradle 9.7.0
+
 ```bash
 # Clone the repository
 git clone https://github.com/thoser666/Vivid.git
