@@ -1,18 +1,73 @@
-# To get started with Dependabot version updates, you'll need to specify which
-# package ecosystems to update and where the package manifests are located.
-# Please see the documentation for all configuration options:
-# https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+# Dependabot Configuration for Vivid
+# Docs: https://docs.github.com/en/code-security/dependabot/dependabot-version-updates
 
 version: 2
 updates:
-  - package-ecosystem: "gradle" # See documentation for possible values
-    directory: "/" # Location of package manifests
+  # Gradle Dependencies (libs.versions.toml)
+  - package-ecosystem: "gradle"
+    directory: "/"
     schedule:
       interval: "weekly"
-  # Pinned Actions automatisch per PR aktualisieren (siehe RELEASE.md:
-  # Abschnitt 'CI-Haertung: Pinned Actions' -> Update-Fahrplan).
-  # Dependabot liest die `# vX`-Provenienz-Kommentare und zieht SHA + Kommentar gemeinsam.
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Berlin"
+    # Gruppierung Reduziert PR-Aufwand
+    groups:
+      # Kotlin Dependencies (stdlib, plugin, serialization)
+      kotlin:
+        patterns:
+          - "org.jetbrains.kotlin"
+          - "org.jetbrains.kotlinx"
+      # Compose Dependencies (BOM, UI, Material)
+      compose:
+        patterns:
+          - "androidx.compose"
+      # AndroidX Core (lifecycle, activity, navigation)
+      androidx:
+        patterns:
+          - "androidx.*"
+        exclude-patterns:
+          - "androidx.compose"
+      # Testing Dependencies
+      testing:
+        patterns:
+          - "junit*"
+          - "mockk*"
+          - "mockito*"
+          - "espresso*"
+          - "turbine"
+      # Networking Dependencies
+      networking:
+        patterns:
+          - "io.ktor"
+          - "com.squareup.okhttp3"
+      # Media Dependencies
+      media:
+        patterns:
+          - "androidx.media3"
+          - "io.coil-kt"
+    # Labels für bessere Übersicht
+    labels:
+      - "dependencies"
+      - "gradle"
+    # Commit-Message-Prefix
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+
+  # GitHub Actions (SHA-Pins)
   - package-ecosystem: "github-actions"
-    directory: "/" # .github/workflows wird standardmaessig gescannt
+    directory: "/"
     schedule:
       interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Berlin"
+    # SHA-Pins werden automatisch erkannt
+    # Dependabot liest die `# vX`-Kommentare
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "ci"
+      include: "scope"

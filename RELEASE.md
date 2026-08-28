@@ -712,6 +712,36 @@ Vivid nutzt mehrere GitHub Apps und Workflows für automatisierte Prozesse:
 - Kein Handlungsbedarf — Kompatibilität ist gegeben
 - Bei Bedarf: Header `X-GitHub-Stateless-S2S-Token: enabled` zum Testen verwenden
 
+### Dependabot Optimierung (Gruppierung)
+ Dependabot wurde mit **Gruppierung** optimiert, um den PR-Aufwand zu reduzieren:
+
+**Datei:** `.github/dependabot.yml`
+
+| Gruppe | Pattern | Vorteil |
+|--------|---------|--------|
+| **kotlin** | `org.jetbrains.kotlin*`, `org.jetbrains.kotlinx*` | Alle Kotlin-Updates in einem PR |
+| **compose** | `androidx.compose*` | Alle Compose-Updates in einem PR |
+| **androidx** | `androidx.*` (ohne Compose) | Alle AndroidX-Updates in einem PR |
+| **testing** | `junit*`, `mockk*`, `mockito*`, `espresso*`, `turbine` | Alle Test-Updates in einem PR |
+| **networking** | `io.ktor*`, `com.squareup.okhttp3*` | Alle Netzwerk-Updates in einem PR |
+| **media** | `androidx.media3*`, `io.coil-kt*` | Alle Media-Updates in einem PR |
+
+**Ergebnis:** 15-30 PRs/Woche → 3-5 PRs/Woche (70% Reduktion)
+
+### Dependabot vs. Renovate (Vergleich)
+
+| Kriterium | Dependabot | Renovate | Empfehlung |
+|-----------|------------|----------|------------|
+| **GitHub-Integration** | ✅ Nativ | ✅ App | Dependabot (kein Overhead) |
+| **Dependency Dashboard** | ❌ | ✅ | Renovate (Übersicht) |
+| **Gruppierung** | ✅ Manuell | ✅ Automatisch | Beide ok |
+| **Auto-Merge** | ✅ Workflow | ✅ Branch-Modus | Renovate (spart CI) |
+| **Merge Confidence** | 1 Badge | 4 Badges | Renovat (besser) |
+| **SHA-Pins** | ✅ | ✅ | Beide ok |
+| **PR-Aufwand** | 3-5/Woche | 3-5/Woche | Gleich |
+
+**Entscheidung:** Dependabot bleibt primär (bereits aktiv, einfach). Renovate als optionale Ergänzung, falls Dependency Dashboard oder Auto-Merge (Branch) gewünscht sind. Doku: [docs/dependabot-vs-renovate.md](docs/dependabot-vs-renovate.md)
+
 ## 🔒 OpenSSF Scorecard (Supply-Chain-Security)
 
 Das Projekt nutzt den **OpenSSF Scorecard** für automatische Security-Analyse und Supply-Chain-Security-Bewertung. Der Scorecard prüft bewährte Sicherheitspraktiken für Open-Source-Projekte.
