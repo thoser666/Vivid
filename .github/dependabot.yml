@@ -12,40 +12,48 @@ updates:
       time: "06:00"
       timezone: "Europe/Berlin"
     # Gruppierung Reduziert PR-Aufwand
+    # WICHTIG: Dependabot braucht exakte Paketnamen, keine Wildcards!
     groups:
       # Kotlin Dependencies (stdlib, plugin, serialization)
       kotlin:
         patterns:
-          - "org.jetbrains.kotlin"
-          - "org.jetbrains.kotlinx"
+          - "org.jetbrains.kotlin*"
+          - "org.jetbrains.kotlinx*"
       # Compose Dependencies (BOM, UI, Material)
       compose:
         patterns:
-          - "androidx.compose"
-      # AndroidX Core (lifecycle, activity, navigation)
+          - "androidx.compose*"
+      # AndroidX Core (lifecycle, activity, navigation, constraintlayout)
+      # ACHTUNG: Nur exakte Packages, die NICHT in andere Gruppen gehören!
       androidx:
         patterns:
-          - "androidx.*"
-        exclude-patterns:
-          - "androidx.compose"
+          - "androidx.core*"
+          - "androidx.lifecycle*"
+          - "androidx.activity*"
+          - "androidx.navigation*"
+          - "androidx.hilt*"
+          - "androidx.constraintlayout*"
+          - "androidx.datastore*"
+          - "androidx.arch*"
+          - "androidx.test*"
       # Testing Dependencies
       testing:
         patterns:
           - "junit*"
-          - "mockk*"
-          - "mockito*"
-          - "espresso*"
-          - "turbine"
+          - "io.mockk*"
+          - "org.mockito*"
+          - "androidx.test*"
+          - "app.cash.turbine*"
       # Networking Dependencies
       networking:
         patterns:
-          - "io.ktor"
-          - "com.squareup.okhttp3"
+          - "io.ktor*"
+          - "com.squareup.okhttp3*"
       # Media Dependencies
       media:
         patterns:
-          - "androidx.media3"
-          - "io.coil-kt"
+          - "androidx.media3*"
+          - "io.coil-kt*"
     # Labels für bessere Übersicht
     labels:
       - "dependencies"
