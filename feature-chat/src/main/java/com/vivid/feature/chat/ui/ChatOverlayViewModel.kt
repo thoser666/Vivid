@@ -179,6 +179,5 @@ class ChatOverlayViewModel @Inject constructor(
 
     override fun onCleared() {
         chatReader.stop()
-        super.onCleared()
     }
 }

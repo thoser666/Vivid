@@ -645,7 +645,7 @@ Vivid nutzt mehrere GitHub Apps und Workflows für automatisierte Prozesse:
 | **Dependabot Auto-Merge** | Minor/Patch Updates automatisch mergen | ✅ aktiv |
 | **Moblin-Feature-Check** | Wöchentlicher Vergleich mit Moblin-Features | ✅ aktiv |
 | **CodeQL** | Security-Scanning (Kotlin/Java) | ✅ aktiv |
-| **Snyk** | Dependency-Analyse (CVEs, Schwachstellen) | 🟡 konfiguriert, App ausstehend |
+| **Snyk** | Dependency-Analyse (CVEs, Schwachstellen) | 🟡 Workflow aktiv, Token ausstehend |
 | **OpenSSF Scorecard** | Supply-Chain-Security-Bewertung | ✅ aktiv |
 | **Changelog-Spiegel** | CHANGELOG.md aus GitHub Releases aktualisieren | ✅ aktiv |
 
@@ -800,7 +800,7 @@ Das Projekt nutzt den **OpenSSF Scorecard** für automatische Security-Analyse u
 
 ## 🔍 Snyk Security Scanning (Dependency-Analyse)
 
-**Status:** 🟡 Konfiguration vorhanden, App-Installation ausstehend
+**Status:** 🟡 Workflow aktiv, SNYK_TOKEN ausstehend
 
 Snyk analysiert Dependencies auf bekannte Schwachstellen (CVEs) und erstellt PRs zur Behebung. Die Integration ergänzt Dependabot (Updates) und CodeQL (Code-Scanning) um eine **tiefe Dependency-Analyse**.
 
@@ -822,7 +822,7 @@ Snyk analysiert Dependencies auf bekannte Schwachstellen (CVEs) und erstellt PRs
 **Voraussetzung: SNYK_TOKEN**
 
 1. **Snyk-Konto erstellen:** https://app.snyk.io (kostenlos für Open Source)
-2. **API-Token generieren:** Account Settings → API Token → kopieren
+2. **API-Token generieren:** Account Settings → API Token → kopieren
 3. **GitHub-Secret setzen:**
    ```bash
    gh secret set SNYK_TOKEN --body "dein-snyk-token"
@@ -831,6 +831,14 @@ Snyk analysiert Dependencies auf bekannte Schwachstellen (CVEs) und erstellt PRs
    - https://github.com/marketplace/snyk
    - App auf Repository installieren
    - Ermöglicht: Auto-Fix-PRs, PR-Checks, Dashboard-Integration
+
+**Aktueller Stand:**
+| Schritt | Status |
+|---------|--------|
+| Snyk-Konto | ⏳ Ausstehend |
+| API-Token generiert | ⏳ Ausstehend |
+| SNYK_TOKEN in GitHub Secrets | ❌ Fehlt |
+| Snyk GitHub App installiert | ⏳ Ausstehend |
 
 **Empfehlung:**
 - ✅ **Dependabot** bleibt primär (Version-Updates, SHA-Pins)
