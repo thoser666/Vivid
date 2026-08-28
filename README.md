@@ -470,6 +470,7 @@ Bild läuft, aber Zuschauer hören nichts? Das sind die häufigsten Ursachen:
 |------|-----------|---------|
 | Language | Kotlin | 2.2.20 |
 | Build | Android Gradle Plugin | 9.3.1 |
+| JDK | Eclipse Temurin (LTS) | 25 |
 | SDK | minSdk / compile+target | 24 / 37 |
 | UI | Jetpack Compose (BOM) | 2025.09.00 |
 | DI | Hilt + KSP | 2.59.2 / 2.3.11 |
