@@ -65,11 +65,11 @@ jobs:
           # fehlen die historischen Objekte lokal.
           fetch-depth: 0
 
-      - name: Set up JDK 17
+      - name: Set up JDK 25 (LTS)
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
           distribution: temurin
-          java-version: 17
+          java-version: 25
           cache: gradle
 
       - name: Grant executable permission to gradlew
@@ -200,11 +200,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Set up JDK 17
+      - name: Set up JDK 25 (LTS)
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
           distribution: temurin
-          java-version: 17
+          java-version: 25
           cache: gradle
 
       # ── Keystore dekodieren (KEYSTORE_* Secrets, identisch zum fastlane-Workflow) ──

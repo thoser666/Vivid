@@ -32,11 +32,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
-      - name: Set up JDK 17
+      - name: Set up JDK 25 (LTS)
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: "25"
 
       # SHA-Pins (Supply-Chain), konsistent mit der CI-Härtung in RELEASE.md:
       # Alle drei Actions stammen aus demselben Release-Tag v4.37.8.
