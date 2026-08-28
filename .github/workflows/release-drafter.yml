@@ -1,0 +1,49 @@
+# Release Drafter
+# Erstellt und aktualisiert automatisch Draft-Releases basierend auf gemergten PRs
+# Docs: https://github.com/release-drafter/release-drafter
+
+name: Release Drafter
+
+on:
+  push:
+    branches:
+      - develop
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: read
+
+concurrency:
+  group: release-drafter
+  cancel-in-progress: false
+
+jobs:
+  update_release_draft:
+    runs-on: ubuntu-latest
+    # Kein Release für Dependabot-Merges (Loop-Schutz)
+    if: github.actor != 'dependabot[bot]' && github.actor != 'github-actions[bot]'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Release Drafter
+        uses: release-drafter/release-drafter@db9f09bc5f39d4b7b15789d0e4e2e64095e70716 # v6.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          config-name: release-drafter.yml
+          commitish: develop
+          disable-autolabeler: false
+
+      - name: Summary
+        run: |
+          echo "✅ Release Drafter aktualisiert" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Draft-Release wird bei jedem PR-Merge aktualisiert." >> "$GITHUB_STEP_SUMMARY"
+          echo "Label: feature/enhancement → Minor, bug/fix → Patch, major/breaking-change → Major" >> "$GITHUB_STEP_SUMMARY"

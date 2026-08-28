@@ -629,6 +629,89 @@ Das Projekt nutzt den **Stale GitHub App** für automatisches Issue-Management. 
 - Saubere Issue-Liste (keine veralteten, nicht mehr relevanten Issues)
 - Weniger manueller Auftwand für Issue-Verwaltung
 - Bessere Übersicht über aktuelle Probleme und Wünsche
+
+## 🤖 GitHub Apps & Automatisierung
+
+Vivid nutzt mehrere GitHub Apps und Workflows für automatisierte Prozesse:
+
+### Übersicht
+
+| App/Workflow | Zweck | Status |
+|--------------|-------|--------|
+| **Dependabot** | Dependency-Updates (github-actions, weekly) | ✅ aktiv |
+| **Stale Bot** | Inaktive Issues schließen (30+7 Tage) | ✅ aktiv |
+| **Release Drafter** | Draft-Releases aus PR-Labels erstellen | ✅ aktiv |
+| **Dependabot Auto-Merge** | Minor/Patch Updates automatisch mergen | ✅ aktiv |
+| **Moblin-Feature-Check** | Wöchentlicher Vergleich mit Moblin-Features | ✅ aktiv |
+| **CodeQL** | Security-Scanning (Kotlin/Java) | ✅ aktiv |
+| **OpenSSF Scorecard** | Supply-Chain-Security-Bewertung | ✅ aktiv |
+| **Changelog-Spiegel** | CHANGELOG.md aus GitHub Releases aktualisieren | ✅ aktiv |
+
+### Release Drafter
+
+**Zweck:** Erstellt automatisch ein Draft-Release basierend auf gemergten PRs mit Labels.
+
+**Funktionsweise:**
+- PRs mit Label `feature`/`enhancement` → Minor-Version
+- PRs mit Label `bug`/`fix` → Patch-Version
+- PRs mit Label `major`/`breaking-change` → Major-Version
+- Automatische Kategorisierung: Features, Bugfixes, Security, Dependencies, Documentation
+
+**Dateien:**
+- `.github/release-drafter.yml` — Konfiguration
+- `.github/workflows/release-drafter.yml` — Workflow
+
+**Verwendung:**
+- Bei jedem PR-Merge auf `develop` wird das Draft-Release aktualisiert
+- Vor dem Release: Draft-Release in der GitHub-UI veröffentlichen
+- Labels werden automatisch erkannt (Autolabeler aktiv)
+
+**Label-Zuordnung:**
+| Label | Kategorie | Version |
+|-------|-----------|----------|
+| `feature`, `enhancement`, `new-feature` | 🚀 Features | Minor |
+| `bug`, `fix`, `bugfix` | 🐛 Bugfixes | Patch |
+| `security`, `dependency` | 🔒 Security | Patch |
+| `dependencies`, `deps` | 📦 Dependencies | Patch |
+| `documentation`, `docs` | 📝 Documentation | Patch |
+| `major`, `breaking-change` | ⚠️ Breaking | Major |
+
+### Dependabot Auto-Merge
+
+**Zweck:** Automatisiert den Merge von Dependabot-PRs (Minor/Patch) nach grüner CI.
+
+**Funktionsweise:**
+1. Dependabot erstellt PR für Dependency-Update
+2. CI läuft (Tests, Lint, Mapping-Checks)
+3. Bei grüner CI: PR wird automatisch genehmigt + gemergt (squash)
+4. Major-Updates erfordern manuellen Review
+
+**Datei:** `.github/workflows/dependabot-auto-merge.yml`
+ungit **Sicherheit:**
+- Nur Minor/Patch Updates werden automatisch gemergt
+- CI muss grün sein (Tests + Lint)
+- Major-Updates bleiben als Draft für manuellen Review
+- Dependabot-PRs werden per squash gemergt (saubere Historie)
+
+### Stateless Token Kompatibilität
+
+> 📋 **Hinweis (Stand 28.08.2026):** GitHub rollt seit April 2026 ein neues Token-Format für App-Installation-Tokens aus: **stateless JWT-format Tokens** (`ghs_`-präfix, ~520 Zeichen) ersetzen nach und nach die bisherigen stateful opaque Tokens.
+
+**Vivid ist vollständig kompatibel:**
+- ✅ **Keine hardcoded Token-Längen** — alle Workflows nutzen `GITHUB_TOKEN` (kein Custom-App-Token)
+- ✅ **Keine Token-Validierung** — Workflows lesen/verwenden Tokens nur als opaque Strings
+- ✅ **Keine DB-Speicherung** — Tokens werden nicht persistiert
+
+**Wann relevant?**
+- Falls wir irgendwann eine **eigene GitHub App** bauen (z. B. für Release-Drafter, Moblin-Check)
+- Die neuen stateless Tokens sind länger (~520 Zeichen) und haben zwei Punkte (JWT-Format)
+- Empfohlene Regex: `ghs_[A-Za-z0-9\.\-_]{36,}`
+
+**Derzeitiger Stand:**
+- Wir nutzen **keine** GitHub App Installation Tokens (nur `GITHUB_TOKEN` + PATs)
+- Kein Handlungsbedarf — Kompatibilität ist gegeben
+- Bei Bedarf: Header `X-GitHub-Stateless-S2S-Token: enabled` zum Testen verwenden
+
 ## 🔒 OpenSSF Scorecard (Supply-Chain-Security)
 
 Das Projekt nutzt den **OpenSSF Scorecard** für automatische Security-Analyse und Supply-Chain-Security-Bewertung. Der Scorecard prüft bewährte Sicherheitspraktiken für Open-Source-Projekte.

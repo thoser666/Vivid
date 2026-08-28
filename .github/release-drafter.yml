@@ -1,0 +1,111 @@
+# Release Drafter Configuration
+# Erstellt Draft-Releases aus gemergten PRs mit Labels
+# Docs: https://github.com/release-drafter/release-drafter
+
+name-template: 'Vivid v$RESOLVED_VERSION'
+tag-template: 'v$RESOLVED_VERSION'
+
+categories:
+  - title: '🚀 Features'
+    labels:
+      - 'feature'
+      - 'enhancement'
+      - 'new-feature'
+  - title: '🐛 Bugfixes'
+    labels:
+      - 'bug'
+      - 'fix'
+      - 'bugfix'
+  - title: '🔒 Security'
+    labels:
+      - 'security'
+      - 'dependency'
+  - title: '📦 Dependencies'
+    labels:
+      - 'dependencies'
+      - 'deps'
+  - title: '📝 Documentation'
+    labels:
+      - 'documentation'
+      - 'docs'
+  - title: '🧹 Maintenance'
+    labels:
+      - 'chore'
+      - 'maintenance'
+      - 'refactor'
+  - title: '🧪 Tests'
+    labels:
+      - 'test'
+      - 'tests'
+
+change-template: '- $TITLE @$AUTHOR (#$NUMBER)'
+change-title-escapes: '\<*_&'
+
+no-changes-template: 'Keine Änderungen seit dem letzten Release.'
+
+version-resolver:
+  major:
+    labels:
+      - 'major'
+      - 'breaking-change'
+  minor:
+    labels:
+      - 'feature'
+      - 'enhancement'
+      - 'new-feature'
+  patch:
+    labels:
+      - 'bug'
+      - 'fix'
+      - 'bugfix'
+      - 'security'
+      - 'dependency'
+      - 'dependencies'
+      - 'deps'
+      - 'chore'
+      - 'maintenance'
+      - 'documentation'
+      - 'docs'
+  default: patch
+
+autolabeler:
+  - label: 'bug'
+    title:
+      - '/fix/i'
+      - '/bug/i'
+  - label: 'feature'
+    title:
+      - '/add/i'
+      - '/implement/i'
+      - '/feat/i'
+  - label: 'documentation'
+    title:
+      - '/docs?/i'
+      - '/readme/i'
+  - label: 'dependencies'
+    title:
+      - '/bump/i'
+      - '/dependabot/i'
+    branch:
+      - '/dependabot/i'
+
+template: |
+  ## Änderungen
+
+  $CHANGES
+
+  ## Contributors
+
+  $CONTRIBUTORS
+
+exclude-labels:
+  - 'skip-changelog'
+  - 'automated'
+
+filter-by-commitish: true
+commitish: develop
+
+version-template: '$MAJOR.$MINOR.$PATCH'
+
+categories-template: |
+  $CHANGES
