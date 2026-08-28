@@ -30,13 +30,13 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 # JAVA_HOME automatisch setzen, falls nicht konfiguriert oder ungültig
+# Bevorzugte Reihenfolge: JDK 25 (neuestes LTS) → 21 → 17 (Minimum)
 if [[ -z "${JAVA_HOME:-}" ]] || [[ ! -d "$JAVA_HOME" ]]; then
-  # Versuche JDK 17, dann 21, dann 25 zu finden
-  for ver in 17 21 25; do
+  for ver in 25 21 17; do
     for dir in "/c/Program Files/Eclipse Adoptium/jdk-${ver}" "/c/Program Files/OpenJDK/jdk-${ver}" "/c/Program Files/Java/jdk-${ver}"; do
       if [[ -d "$dir" ]]; then
         export JAVA_HOME="$dir"
-        echo "▶ [pre-push] JAVA_HOME gesetzt: $JAVA_HOME"
+        echo "▶ [pre-push] JAVA_HOME gesetzt: $JAVA_HOME (JDK ${ver})"
         break 2
       fi
     done
