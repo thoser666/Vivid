@@ -51,11 +51,12 @@ jobs:
 
       - name: Upload Snyk results to GitHub Code Scanning
         uses: github/codeql-action/upload-sarif@4dd16135b69a43b6c8efb853346f8437d92d3c93 # v3.26.6
-        if: always()
+        if: always() && hashFiles('snyk-results.sarif') != ''
         with:
           sarif_file: snyk-results.sarif
 
       - name: Summary
+        if: always()
         run: |
           echo "## Snyk Security Scan" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
@@ -64,6 +65,11 @@ jobs:
           echo "| Trigger | ${{ github.event_name }} |" >> "$GITHUB_STEP_SUMMARY"
           echo "| Branch | ${{ github.ref_name }} |" >> "$GITHUB_STEP_SUMMARY"
           echo "| Severity Threshold | high |" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f snyk-results.sarif ]; then
+            echo "| SARIF-Upload | ✅ |" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "| SARIF-Upload | ⚠️ Keine Datei (Snyk-Fehler oder keine Vulnerabilities) |" >> "$GITHUB_STEP_SUMMARY"
+          fi
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "Ergebnisse werden im Security-Tab → Code Scanning angezeigt." >> "$GITHUB_STEP_SUMMARY"
 
