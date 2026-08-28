@@ -6,7 +6,7 @@
 | **Tag** | `v0.5.9-beta` |
 | **Branch** | `develop` |
 | **Veröffentlicht** | über `fastlane release_beta` → CI baut signiert und publiziert als GitHub-Release (Latest) |
-| **Signiert mit** | Release-Key (SHA-256 `b31b8119…`, siehe [RELEASE.md](../RELEASE.md#-referenz-fingerprint-release-key)) |
+| **Signiert mit** | Release-Key (SHA-256 `b31b8119…`, siehe [RELEASE.md](../RELEASE.md#referenz-fingerprint-release-key)) |
 
 ## Was ist neu in v0.5.9-beta
 
