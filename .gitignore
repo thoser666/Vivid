@@ -119,6 +119,8 @@ gradle/gradle-daemon-jvm.properties
 
 # Freebuff-Agent-Workspace (lokale DB/Logs)
 /.freebuff/
+# Dashboard-Generierung (auto-generiert, aber im Repo sichtbar)
+!/.freebuff/vivid-status.html
 
 # Test-Artefakte
 /core/test.preferences_pb

@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vivid — Projektstatus</title>
+<style>
+  :root {
+    --bg: #0b0f1a; --bg2: #101726; --card: #151d30; --card2: #1b2438;
+    --border: #24304d; --text: #e6ecf7; --muted: #8b98b3;
+    --accent: #3ddc84; --accent2: #4f8cff; --warn: #ffb84d; --danger: #ff5d6c; --ok: #3ddc84;
+    --mono: ui-monospace, "Cascadia Code", Consolas, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    background: radial-gradient(1000px 500px at 85% -10%, rgba(79,140,255,.12), transparent 60%),
+      radial-gradient(800px 400px at -10% 20%, rgba(61,220,132,.08), transparent 60%), var(--bg);
+    color: var(--text); min-height: 100vh; padding: 32px 20px 64px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  header { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 8px; }
+  h1 { font-size: 30px; font-weight: 800; letter-spacing: -0.5px; }
+  h1 .dot { color: var(--accent); }
+  .sub { color: var(--muted); margin-top: 6px; font-size: 14px; }
+  .meta { text-align: right; font-size: 12px; color: var(--muted); font-family: var(--mono); }
+  .meta b { color: var(--accent); }
+  .badges { display: flex; gap: 8px; flex-wrap: wrap; margin: 16px 0 28px; }
+  .badge {
+    font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 999px;
+    border: 1px solid var(--border); background: var(--card); color: var(--text); font-family: var(--mono);
+  }
+  .badge.green { border-color: rgba(61,220,132,.4); color: var(--ok); background: rgba(61,220,132,.08); }
+  .badge.yellow { border-color: rgba(255,184,77,.4); color: var(--warn); background: rgba(255,184,77,.08); }
+  .badge.blue { border-color: rgba(79,140,255,.4); color: var(--accent2); background: rgba(79,140,255,.08); }
+
+  section { margin-bottom: 30px; }
+  h2 {
+    font-size: 13px; text-transform: uppercase; letter-spacing: 2px; color: var(--muted);
+    margin-bottom: 14px; display: flex; align-items: center; gap: 10px;
+  }
+  h2::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+  .card {
+    background: linear-gradient(180deg, var(--card), var(--card2));
+    border: 1px solid var(--border); border-radius: 14px; padding: 18px;
+    transition: transform .15s ease, border-color .15s ease;
+  }
+  .card:hover { transform: translateY(-2px); border-color: #33436b; }
+  .card h3 { font-size: 15px; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+  .card p, .card li { font-size: 13px; color: var(--muted); line-height: 1.6; }
+  .card ul { list-style: none; }
+  .card ul li { padding: 4px 0; border-bottom: 1px dashed rgba(36,48,77,.6); }
+  .card ul li:last-child { border-bottom: none; }
+  .card ul li b { color: var(--text); font-weight: 600; }
+  .kv { display: grid; grid-template-columns: 110px 1fr; gap: 6px 12px; font-size: 13px; }
+  .kv .k { color: var(--muted); }
+  .kv .v { color: var(--text); font-family: var(--mono); font-size: 12.5px; word-break: break-word; }
+
+  .module { display: flex; align-items: center; gap: 14px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--card); margin-bottom: 8px; }
+  .module .name { font-family: var(--mono); font-size: 13px; font-weight: 700; width: 180px; flex-shrink: 0; }
+  .module .bar { flex: 1; height: 8px; border-radius: 999px; background: #0d1424; overflow: hidden; }
+  .module .fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--accent2), var(--accent)); }
+  .module .fill.low { background: linear-gradient(90deg, var(--warn), var(--danger)); }
+  .module .fill.mid { background: linear-gradient(90deg, var(--warn), var(--accent)); }
+  .module .count { font-family: var(--mono); font-size: 12px; color: var(--muted); min-width: 120px; text-align: right; }
+  .module .tag { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; padding: 3px 8px; border-radius: 6px; flex-shrink: 0; }
+  .tag.placeholder { background: rgba(255,93,108,.12); color: var(--danger); }
+  .tag.wip { background: rgba(255,184,77,.12); color: var(--warn); }
+  .tag.live { background: rgba(61,220,132,.12); color: var(--ok); }
+
+  .gitstat { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
+  .stat { text-align: center; padding: 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--card); }
+  .stat .num { font-size: 28px; font-weight: 800; font-family: var(--mono); }
+  .stat .num.green { color: var(--ok); }
+  .stat .num.yellow { color: var(--warn); }
+  .stat .num.red { color: var(--danger); }
+  .stat .lbl { font-size: 12px; color: var(--muted); margin-top: 6px; }
+
+  footer { text-align: center; font-size: 12px; color: var(--muted); margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--border); }
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div>
+    <h1>Vivid<span class="dot">.</span></h1>
+    <div class="sub">IRL-Streaming-App — Auto-generiertes Projekt-Dashboard</div>
+  </div>
+  <div class="meta">
+    <div>Stand: <b>2026-08-28 04:34 UTC</b></div>
+    <div>Branch: <b>develop</b></div>
+    <div>Commit: <b>4f65b16</b></div>
+  </div>
+</header>
+
+<div class="badges">
+  <span class="badge green">1067 Commits</span>
+  <span class="badge green">233 Kotlin-Dateien</span>
+  <span class="badge blue">AGP 9.3.2</span>
+  <span class="badge blue">Kotlin 2.2.20</span>
+  <span class="badge blue">Compose BOM 2026.08.00</span>
+</div>
+<section>
+  <h2>Module &amp; Reifegrad</h2>
+  <div class="module">
+    <span class="name">:core</span>
+    <div class="bar"><div class="fill" style="width:100%"></div></div>
+    <span class="count">60 Dateien · Basis</span>
+    <span class="tag live">aktiv</span>
+  </div>
+  <div class="module">
+    <span class="name">:feature-streaming</span>
+    <div class="bar"><div class="fill" style="width:86%"></div></div>
+    <span class="count">52 Dateien · Kamera/Stream</span>
+    <span class="tag live">aktiv</span>
+  </div>
+  <div class="module">
+    <span class="name">:feature-chat</span>
+    <div class="bar"><div class="fill" style="width:80%"></div></div>
+    <span class="count">48 Dateien · Chat/Bot</span>
+    <span class="tag live">aktiv</span>
+  </div>
+  <div class="module">
+    <span class="name">:app</span>
+    <div class="bar"><div class="fill mid" style="width:36%"></div></div>
+    <span class="count">22 Dateien · Einstieg</span>
+    <span class="tag live">aktiv</span>
+  </div>
+  <div class="module">
+    <span class="name">:feature-settings</span>
+    <div class="bar"><div class="fill mid" style="width:33%"></div></div>
+    <span class="count">20 Dateien · Einstellungen</span>
+    <span class="tag live">aktiv</span>
+  </div>
+  <div class="module">
+    <span class="name">:domain</span>
+    <div class="bar"><div class="fill mid" style="width:25%"></div></div>
+    <span class="count">15 Dateien · Domäne</span>
+    <span class="tag live">aktiv</span>
+  </div>
+  <div class="module">
+    <span class="name">:feature-obs-control</span>
+    <div class="bar"><div class="fill low" style="width:13%"></div></div>
+    <span class="count">8 Dateien · OBS WS</span>
+    <span class="tag wip">in Arbeit</span>
+  </div>
+  <div class="module">
+    <span class="name">:feature-widgets</span>
+    <div class="bar"><div class="fill low" style="width:11%"></div></div>
+    <span class="count">7 Dateien · Widgets</span>
+    <span class="tag wip">in Arbeit</span>
+  </div>
+  <div class="module">
+    <span class="name">:data</span>
+    <div class="bar"><div class="fill low" style="width:5%"></div></div>
+    <span class="count">1 Dateien · Daten</span>
+    <span class="tag wip">früh</span>
+  </div>
+</section>
+<section>
+  <h2>Git-Zustand</h2>
+  <div class="gitstat">
+    <div class="stat"><div class="num yellow">3</div><div class="lbl">Uncommitted Dateien</div></div>
+    <div class="stat"><div class="num yellow">3</div><div class="lbl">Untracked Dateien</div></div>
+    <div class="stat"><div class="num green">OK</div><div class="lbl">Letzter Commit: 4f65b16</div></div>
+  </div>
+  <div class="card" style="margin-top:14px">
+    <h3>Letzter Commit</h3>
+    <p><code>4f65b16</code> — feat(ci): add version catalog consistency check</p>
+  </div>
+</section>
+<footer>
+  Vivid · Stand 2026-08-28 · Automatisch generiert via scripts/generate_status_dashboard.sh
+</footer>
+
+</div>
+</body>
+</html>
