@@ -228,6 +228,18 @@ git add docs/cert-example.txt
 git commit -qm ok
 check "T16 CERTIFICATE-Block (kein PRIVATE KEY) -> Exit 0" 0 bash "$GUARD"
 
+# T17: CRLF-Zeilenenden am Ende von Werten werden ignoriert
+# (typisch fuer Dependabot-PRs mit Windows-Zeilenenden)
+setup_repo
+mkdir -p docs
+echo -ne 'storePassword = keystorePassword
+' > docs/play-signing.md
+echo -ne 'keyPassword = keyPassword
+' >> docs/play-signing.md
+git add docs/play-signing.md
+git commit -qm ok
+check "T17 CRLF-Zeilenenden bei Variablen -> Exit 0" 0 bash "$GUARD"
+
 # ── Ergebnis ─────────────────────────────────────────────────────────────────
 echo "----------------------------------------"
 echo "guard_secrets.sh: $PASS bestanden, $FAIL fehlgeschlagen"

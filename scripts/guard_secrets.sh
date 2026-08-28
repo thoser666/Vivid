@@ -101,17 +101,19 @@ if git ls-files | grep -q .; then
     [ -z "$1" ] && return 0
     # Anführungszeichen abstreifen (storePassword = "<store-password>")
     local v="${1#\"}"; v="${v%\"}"; v="${v#\'}"; v="${v%\'}"
+    # CRLF am Ende entfernen (Windows-Zeilenenden aus Dependabot-PRs etc.)
+    v="$(echo "$v" | tr -d '\r')"
     echo "$v" | grep -qE '^<|^\.\.\.$|^\$|^(keystorePassword|keyPassword|keystorePath|keyAlias)$'
   }
   while IFS=: read -r f rest; do
     # rest enthält "Zeile:Text" — Wert hinter '=' extrahieren
     line="${rest%%:*}"
     text="${rest#*:}"
-    value="$(echo "$text" | sed -n 's/^[[:space:]]*storePassword[[:space:]]*=[[:space:]]*//p' | head -1)"
+    value="$(echo "$text" | tr -d '\r' | sed -n 's/^[[:space:]]*storePassword[[:space:]]*=[[:space:]]*//p' | head -1)"
     if ! is_placeholder "$value"; then
       violation "Klartext storePassword" "$f:$line"
     fi
-    value="$(echo "$text" | sed -n 's/^[[:space:]]*keyPassword[[:space:]]*=[[:space:]]*//p' | head -1)"
+    value="$(echo "$text" | tr -d '\r' | sed -n 's/^[[:space:]]*keyPassword[[:space:]]*=[[:space:]]*//p' | head -1)"
     if ! is_placeholder "$value"; then
       violation "Klartext keyPassword" "$f:$line"
     fi
