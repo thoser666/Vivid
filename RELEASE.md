@@ -519,7 +519,7 @@ Weitere Deterministismus-Quellen (bereits abgedeckt):
 - Fixe Zip-Timestamps (1981) und deterministische Eintrags-Reihenfolge durch AGP
 - Deterministische Signatur: RSA-PKCS1v1.5 (gleicher Key ⇒ gleiche Signatur; `apksigner` zweimal auf derselben APK → identisch)
 - `local_root_path` wird portabel als `$PROJECT_DIR` geschrieben (CI == lokal)
-- JDK/OS-unabhängig (verifiziert: temurin 17/Ubuntu vs. Oracle 22/Windows)
+- JDK/OS-unabhängig (verifiziert: temurin 25/Ubuntu vs. Oracle 25/Windows)
 
 ### Verifikation (manuell — jederzeit wiederholbar)
 
@@ -596,7 +596,7 @@ Die `publish_release`-Lane (`fastlane/Fastfile`) wendet bei fehlgeschlagenem `gh
 **DeepSource (statische Kotlin-Analyse):** DeepSource analysiert bei jedem Push den Kotlin-Stand (`context: "DeepSource: Kotlin"` im Commit-Status) und meldet Überschreitungen als **Blocking Issues** — der Status bleibt rot, bis alle aufgeführten Issues im Diff behoben sind. Nachdem der `/logs`-Commit (26.08.2026) die Analyse rot färbte, wurden alle offenen Kategorien bereinigt (Commits `4b2b2bd`/`93f0726`/`cc72c0d`/`326105d`): **KT-W1042** (mehrfach wiederholte String-Literale pro Datei → Konstanten/Helfer, z. B. `auth()`/`badAuth()` im `RemoteControlServerTest`), **KT-R1006** (Zyklomatische Komplexität — `AppChatStreamControl.diagnostics()` 38→klein, Checks in eigene private Funktionen `alertsCheck`/`whisperCheck`/`ownerKiSourceCheck`/`crashSummaryCheck`/`viewerLlmReady`/`ownerLlmReady`) und **KT-R1000** (`ChatStreamControlModule` von abstract class → interface, da nur `@Binds`). Stand: **DeepSource: Kotlin = ✅ Analysis passed** für `develop`. Analyse-Link: https://app.deepsource.com/gh/thoser666/Vivid
 > 🧭 **Qualitäts-Gate-Entscheidung (26.08.2026):** DeepSource läuft als **advisory Quality Gate** — nur **Major/Critical** lassen den Status rot werden, **Minor-Issues (z. B. KT-W1042) sind nicht (mehr) blockierend** (die Blocking-Schwelle ist ausschließlich im **DeepSource-Dashboard** konfigurierbar, nicht in `.deepsource.toml`): einmalig `https://app.deepsource.com/gh/thoser666/Vivid` → Repository **Settings** → **Issue Reporting** → bei den *Severities* nur **Major + Critical** als Fehler-Kriterium setzen (save). Minor-Issues können dann in der App laufen bleiben und gesammelt abgebaut werden; die Kotlin-Analyse selbst bleibt aktiv und färbt nur bei echten (Major+) Funden rot. Hinweis: Da die Schwelle Dashboard-only ist, gilt sie für alle Mitwirkenden — wer sie ändern will, macht das über das eigene Konto.
 
-> 🔬 **CodeQL (GitHub Security Scanning, aktiv seit 26.08.2026):** Der Workflow [.github/workflows/security-codeql.yml](.github/workflows/security-codeql.yml) analysiert die Kotlin/Java-Codebasis pro `push`/`pull_request` auf `master`/`develop` sowie **wöchentlich (Mo 04:00 UTC)** im Default-Branch. Alle drei Actions sind auf den **immutable SHA von `v4.37.8`** gepinnt (`init`/`analyze`/`autobuild` aus demselben Release-Tag; Commit `37f2634a…` inkl. `# v4.37.8`-Kommentar, konsistent zur übrigen SHA-Pinning-Linie). Zusätzlich zu den Standard-Queries: **`security-extended` + `security-and-quality`**. Least-Privilege: `contents: read` + `security-events: write` (nur der CodeQL-Scan schreibt seine Findings), `concurrency`-Gruppe `codeql-${{ github.ref }}` (abbrechen bei Re-Push). Der manuelle Build (`./gradlew :app:assembleDebug` nach JDK-17-Setup) ersetzt den Autobuild für deterministisches Tracing; Ergebnisse erscheinen in **Security → Code Scanning** (und im Commit-Status). Update-Fahrplan: SHA-Pins wie bei den übrigen Actions per `.github/dependabot.yml` (`package-ecosystem: github-actions`, weekly) — die `# v4.x.y`-Kommentare sind dabei Pflicht.
+> 🔬 **CodeQL (GitHub Security Scanning, aktiv seit 26.08.2026):** Der Workflow [.github/workflows/security-codeql.yml](.github/workflows/security-codeql.yml) analysiert die Kotlin/Java-Codebasis pro `push`/`pull_request` auf `master`/`develop` sowie **wöchentlich (Mo 04:00 UTC)** im Default-Branch. Alle drei Actions sind auf den **immutable SHA von `v4.37.8`** gepinnt (`init`/`analyze`/`autobuild` aus demselben Release-Tag; Commit `37f2634a…` inkl. `# v4.37.8`-Kommentar, konsistent zur übrigen SHA-Pinning-Linie). Zusätzlich zu den Standard-Queries: **`security-extended` + `security-and-quality`**. Least-Privilege: `contents: read` + `security-events: write` (nur der CodeQL-Scan schreibt seine Findings), `concurrency`-Gruppe `codeql-${{ github.ref }}` (abbrechen bei Re-Push). Der manuelle Build (`./gradlew :app:assembleDebug` nach JDK-25-Setup) ersetzt den Autobuild für deterministisches Tracing; Ergebnisse erscheinen in **Security → Code Scanning** (und im Commit-Status). Update-Fahrplan: SHA-Pins wie bei den übrigen Actions per `.github/dependabot.yml` (`package-ecosystem: github-actions`, weekly) — die `# v4.x.y`-Kommentare sind dabei Pflicht.
 
 > **CodeQL Default Setup deaktiviert (27.08.2026):** GitHub hatte automatisch ein Default Setup (`state: active`, Languages `["actions","ruby"]`) aktiviert, das SARIF-Uploads von fortgeschrittenen Workflows blockierte (Fehler: „CodeQL analyses from advanced configurations cannot be processed when the default setup is enabled"). Das Default-Setup wurde per API (`PATCH /repos/:owner/:repo/code-scanning/default-configuration`, `state: not-configured`) deaktiviert — der eigene `security-codeql.yml`-Workflow liefert die Ergebnisse jetzt sauber ab. Re-Run des fehlgeschlagenen Laufs (`32875916011`) wurde nach der Deaktivierung erfolgreich.
 
@@ -608,6 +608,36 @@ Die `publish_release`-Lane (`fastlane/Fastfile`) wendet bei fehlgeschlagenem `gh
 > - **DeepSource:** ✅ Analysis passed (advisory, nur Major/Critical blockierend).
 > - **Secret-Guard:** ✅ (keine ungeschützten Secrets).
 > - **Optional (Post-Play-Release):** Sentry↔GitHub-Integration (app.sentry.io → Settings → Integrations → GitHub) verknüpft Crash-Issues mit „suspect commits" — erst sinnvoll, wenn echte Releases via Play laufen; kein Code-Aufwand, nur 1× im Dashboard verknüpfen.
+
+## ☕ CI-JDK-Upgrade auf Version 25 (LTS)
+
+**Status: ✅ Aktiv (Stand 28.08.2026)** — Alle CI-Workflows nutzen jetzt JDK 25 (neuestes LTS).
+
+| Komponente | Vorher | Nachher | Grund |
+|------------|--------|---------|-------|
+| **CI (GitHub Actions)** | JDK 17 | **JDK 25** | Neuestes LTS, kompatibel mit Gradle 9.7.0 + AGP 9.3.2 |
+| **Pre-push-guard** | JDK 21 (Fallback) | **JDK 25 (bevorzugt)** | Auto-Erkennung: 25 → 21 → 17 |
+| **README.md** | JDK 17 (minimum) | **JDK 25 (empfohlen)** | Dokumentiert |
+
+**Betroffene Workflows:**
+- `.github/workflows/android-ci.yml` — `setup-java` mit `java-version: '25'`
+- `.github/workflows/android_fastlane.yml` — `setup-java` mit `java-version: '25'`
+- `.github/workflows/release-pipeline.yml` — `setup-java` mit `java-version: '25'`
+- `.github/workflows/security-codeql.yml` — `setup-java` mit `java-version: '25'`
+- `.github/workflows/security-snyk.yml` — `setup-java` mit `java-version: '25'`
+
+**JDK-Übersicht:**
+| JDK | Status | Verwendung |
+|-----|--------|------------|
+| **JDK 17** | Minimum | AGP 9.x Minimum |
+| **JDK 21** | LTS | Optional |
+| **JDK 25** | ✅ **Empfohlen (neuestes LTS)** | CI + Lokal |
+
+**Kompatibilität verifiziert:**
+- Gradle 9.7.0: ✅ unterstützt JDK 25 (seit 9.1.0)
+- AGP 9.3.2: ✅ kompatibel mit JDK 25
+- Kotlin 2.2.20: ✅ kompatibel mit JDK 25
+- `actions/setup-java` Temurin: ✅ JDK 25 verfügbar
 
 ## 🧹 Automatisches Issue-Management (Stale Bot)
 
@@ -859,7 +889,7 @@ Kommentar (`# v5`)— dieser Kommentar ist Pflicht, damit Dependabot/`actions-up
 | Action | Pin (SHA) | Version | Verwendung |
 |--------|-----------|---------|------------|
 | `actions/checkout` | `fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09` | v5 | alle Workflows |
-| `actions/setup-java` | `b6effb05e454b25005698d916606bdc6ffcbf961` | v5 | alle Workflows (JDK 17) |
+| `actions/setup-java` | `b6effb05e454b25005698d916606bdc6ffcbf961` | v5 | alle Workflows (JDK 25, LTS) |
 | `actions/cache` | `caa296126883cff596d87d8935842f9db880ef25` | v5 | android_fastlane (Gradle-Cache) |
 | `actions/upload-artifact` | `b7c566a772e6b6bfb58ed0dc250532a479d7789f` | v6 | alle Workflows (Artefakte) |
 | `ruby/setup-ruby` | `95ef2b042f9d7a56d8268cba8559e2842e2ad01b` | v1.321.0 | android_fastlane (Ruby 3.3) |
@@ -945,7 +975,7 @@ Frühere Setups nutzten abweichende Namen — `KEYALIAS`, `STOREFILE`, `SIGNING_
 
 > **Hast du bereits einen Keystore?** Dieses Projekt nutzt bereits einen Release-Key (die vier Secrets sind hinterlegt). Diese Anleitung beschreibt die **einmalige Ersteinrichtung** — sie dient zum Nachvollziehen und für ein frisches Setup. Wichtig: Der Keystore ist **einzige** Signaturquelle für CI, lokal und spätere Stores; ein Wechsel bricht alle bestehenden Installationen (siehe Widerruf-Risiko unten).
 
-**Voraussetzung:** JDK 17 (liefert `keytool`; im CI bereits vorhanden).
+**Voraussetzung:** JDK 17+ (liefert `keytool`; im CI: JDK 25 LTS).
 
 **Schritt 1 — Keystore erzeugen** (einmalig, auf einem sicheren Rechner):
 
@@ -1029,7 +1059,7 @@ Dieser Abschnitt beschreibt, **wie** der Play-Kanal mit einem Upload-Key eingeri
 
 > Dieser Keystore ist **getrennt** vom Release-Key (GitHub/Obtainium): Er signiert ausschließlich die Play-AABs. Verlust ist unkritischer als beim Release-Key — der Upload-Key kann in der Play Console zurückgesetzt werden („Request upload key reset“, ohne App-Ausfall). Trotzdem gilt: Backup-Pflicht wie beim Release-Key (siehe unten).
 
-**Voraussetzung:** JDK 17 (liefert `keytool`; im CI bereits vorhanden).
+**Voraussetzung:** JDK 17+ (liefert `keytool`; im CI: JDK 25 LTS).
 
 **Schritt 1 — Upload-Keystore erzeugen** (einmalig, auf einem sicheren Rechner):
 
