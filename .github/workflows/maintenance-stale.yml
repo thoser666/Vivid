@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Close stale issues
-        uses: actions/stale@286e5c090198bfb1e692f56e4c2942c80f0ea951 # v9
+        uses: actions/stale@4391f3da665fdf50b6810c1a66712fb9ba21aa93 # v11.0.0
         with:
           # Issue configuration
           days-before-stale: 30
