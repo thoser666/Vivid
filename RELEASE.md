@@ -921,6 +921,59 @@ Bump immer den gepeelten Commit `refs/tags/<tag>^{}` verwenden.
 4. **Grundregel:** nie einen Tag als `uses:`-Referenz einführen— Tags sind beweglich; nur 
    SHA-Pins mit Provenienz-Kommentar sind zulässig.
 
+### 🔍 SHA-Verifikation (28.08.2026)
+
+Alle SHA-Pins wurden am 28.08.2026 gegen die GitHub-API verifiziert. Ergebnis: **32 von 32 Action-Referenzen gültig**.
+
+**Verifikations-Methode:**
+```bash
+# Pro SHA prüfen:
+gh api repos/<owner>/<repo>/git/ref/tags/<tag> --jq '.object.sha'
+
+# Bei annotierten Tags (type=tag): dereferenzieren
+gh api repos/<owner>/<repo>/git/tags/<sha> --jq '.object.sha'
+```
+
+**Gefundene und korrigierte Fehler:**
+
+| Workflow | Action | Vorher (ungültig) | Nachher (korrekt) | Version |
+|----------|--------|-------------------|-------------------|----------|
+| `release-drafter.yml` | `release-drafter/release-drafter` | `db9f09bc...` | `6a93d829...` | v6.4.0 |
+| `maintenance-stale.yml` | `actions/stale` | `286e5c09...` | `4391f3da...` | v11.0.0 |
+| `security-snyk.yml` | `github/codeql-action/upload-sarif` | `4dd16135...` | `6ba5c05d...` | v3.26.6 |
+
+**Vollständige SHA-Liste (28.08.2026):**
+
+| Action | SHA | Version | Workflows |
+|--------|-----|---------|-----------|
+| `actions/checkout` | `3d3c42e5aac5ba805825da76410c181273ba90b1` | v7.0.1 | android-ci, release-pipeline, deploy-fdroid, deploy-pages, security-scorecard |
+| `actions/checkout` | `11bd71901bbe5b1630ceea73d27597364c9af683` | v4.2.2 | check-moblin-features, dependabot-auto-merge, release-drafter, security-snyk |
+| `actions/checkout` | `fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09` | v5 | security-codeql |
+| `actions/setup-java` | `b6effb05e454b25005698d916606bdc6ffcbf961` | v5 | android-ci, release-pipeline, security-codeql, security-snyk |
+| `actions/upload-artifact` | `043fb46d1a93c77aae656e7c1c64a875d1fc6a0a` | v7.0.1 | android-ci, release-pipeline |
+| `actions/cache` | `55cc8345863c7cc4c66a329aec7e433d2d1c52a9` | v6.1.0 | release-pipeline |
+| `actions/configure-pages` | `45bfe0192ca1faeb007ade9deae92b16b8254a0d` | v6.0.0 | deploy-pages |
+| `actions/upload-pages-artifact` | `fc324d3547104276b827a68afc52ff2a11cc49c9` | v5.0.0 | deploy-pages |
+| `actions/deploy-pages` | `cd2ce8fcbc39b97be8ca5fce6e763baed58fa128` | v5.0.0 | deploy-pages |
+| `actions/setup-python` | `5fda3b95a4ea91299a34e894583c3862153e4b97` | v7.0.0 | deploy-fdroid |
+| `actions/github-script` | `60a0d83039c74a4aee543508d2ffcb1c3799cdea` | v7.0.1 | check-moblin-features |
+| `actions/stale` | `4391f3da665fdf50b6810c1a66712fb9ba21aa93` | v11.0.0 | maintenance-stale |
+| `ruby/setup-ruby` | `95ef2b042f9d7a56d8268cba8559e2842e2ad01b` | v1.321.0 | release-pipeline |
+| `dependabot/fetch-metadata` | `d7267f607e9d3fb96fc2fbe83e0af444713e90b7` | v2.3.0 | dependabot-auto-merge |
+| `ReactiveCircus/android-emulator-runner` | `a421e43855164a8197daf9d8d40fe71c6996bb0d` | v2.38.0 | release-pipeline |
+| `snyk/actions/gradle-jdk17` | `12140f4059e244892ae643824a95459a102120dd` | master | security-snyk |
+| `github/codeql-action/init` | `37f2634a92ba38a0926ef79a0748ac8ae7d95ab2` | v4.37.8 | security-codeql |
+| `github/codeql-action/analyze` | `37f2634a92ba38a0926ef79a0748ac8ae7d95ab2` | v4.37.8 | security-codeql |
+| `github/codeql-action/upload-sarif` | `6ba5c05dce207b48ae07f8791b4313069c63fc2b` | v3.26.6 | security-snyk |
+| `github/codeql-action/upload-sarif` | `8c78abb9b62512e3c45dea6559ffd924ed8549c8` | v3.28.0 | security-scorecard |
+| `ossf/scorecard-action` | `55891bbd73f2425e97637d96e306fc9d491d0b21` | v2.4.4 | security-scorecard |
+| `release-drafter/release-drafter` | `6a93d829887aa2e0748befe2e808c66c0ec6e4c7` | v6.4.0 | release-drafter |
+
+**Häufige Fehlerquellen:**
+- **Annotierte Tags:** `git ls-remote` liefert die Tag-Objekt-SHA, nicht den Commit-SHA. GitHub Actions akzeptiert nur Commit-SHAs. Fix: `gh api repos/<repo>/git/tags/<tag-sha> --jq '.object.sha'`
+- **Veraltete SHAs:** Tags werden neu getaggt (z.B. bei Security-Fixes). SHA-Update-Pflicht bei Dependabot-PRs.
+- **Falsche Repos:** Manche Actions haben Forks mit eigenen Tags. Immer das Original-Repo prüfen.
+
 ### 🚧 Ausstehend: Kotlin-Update auf 2.4.20 (stabil)
 
 Der direkte Dependabot-Alert `kotlin-gradle-plugin` (unsafe Deserialization im Kotlin Build Cache, Dependabot #63) ist mit `tolerable_risk` dismissed. Die erste gepatchte Version ist **2.4.20-Beta1**; die **stabile 2.4.20** erscheint laut [Kotlin-Release-Fahrplan](https://kotlinlang.org/docs/releases.html) im **September 2026**. Bis dahin bleibt der Alert dismissed (Build-Tooling-only, kein App-Runtime-Risiko).
