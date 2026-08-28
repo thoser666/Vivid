@@ -29,6 +29,20 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
+# JAVA_HOME automatisch setzen, falls nicht konfiguriert oder ungültig
+if [[ -z "${JAVA_HOME:-}" ]] || [[ ! -d "$JAVA_HOME" ]]; then
+  # Versuche JDK 17, dann 21, dann 25 zu finden
+  for ver in 17 21 25; do
+    for dir in "/c/Program Files/Eclipse Adoptium/jdk-${ver}" "/c/Program Files/OpenJDK/jdk-${ver}" "/c/Program Files/Java/jdk-${ver}"; do
+      if [[ -d "$dir" ]]; then
+        export JAVA_HOME="$dir"
+        echo "▶ [pre-push] JAVA_HOME gesetzt: $JAVA_HOME"
+        break 2
+      fi
+    done
+  done
+fi
+
 DRY_RUN=0
 for arg in "$@"; do
   if [[ "$arg" == "--dry-run" ]]; then
