@@ -35,7 +35,6 @@ jetbrainsKotlinJvm = "2.2.20"
 ksp-version = "2.3.11"
 lifecycleViewmodelKtx = "2.9.4"
 loggingInterceptor = "5.3.2"
-materialIconsExtended = "1.7.8"
 media3 = "1.11.0"
 mockitoCore = "5.23.0"
 mockitoKotlin = "6.3.0"
@@ -51,7 +50,7 @@ sentryGradlePlugin = "6.6.0"
 # --- Compose ---
 androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
-androidx-compose-material-icons-extended = { module = "androidx.compose.material:material-icons-extended", version.ref = "materialIconsExtended" }
+androidx-compose-material-icons-extended = { module = "androidx.compose.material:material-icons-extended" }
 androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3" }
 androidx-datastore-preferences-core = { module = "androidx.datastore:datastore-preferences-core", version.ref = "datastorePreferencesCore" }
 androidx-ui = { group = "androidx.compose.ui", name = "ui" }
