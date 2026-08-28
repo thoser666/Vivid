@@ -70,64 +70,29 @@ updates:
 
 ### Renovate-Konfiguration (empfohlen)
 
-```json
-{
-  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    "config:recommended",
-    ":semanticCommits",
-    "group:allNonMajor"
-  ],
-  "schedule": ["every weekend"],
-  "timezone": "Europe/Berlin",
-  "prConcurrentLimit": 10,
-  "prHourlyLimit": 2,
-  "packageRules": [
-    {
-      "description": "Android Gradle Plugin",
-      "matchDepNames": [
-        "com.android.application",
-        "com.android.library"
-      ],
-      "groupName": "Android Gradle Plugin",
-      "automerge": true
-    },
-    {
-      "description": "Kotlin Dependencies",
-      "matchPackagePatterns": ["^org.jetbrains.kotlin"],
-      "groupName": "Kotlin Dependencies",
-      "automerge": true
-    },
-    {
-      "description": "Compose Dependencies",
-      "matchPackagePatterns": ["^androidx.compose"],
-      "groupName": "Compose Dependencies",
-      "automerge": true
-    },
-    {
-      "description": "AndroidX Core",
-      "matchPackagePatterns": ["^androidx."],
-      "excludePackagePatterns": ["^androidx.compose"],
-      "groupName": "AndroidX Core",
-      "automerge": true
-    },
-    {
-      "description": "Ktor Dependencies",
-      "matchPackagePatterns": ["^io.ktor"],
-      "groupName": "Ktor Dependencies",
-      "automerge": false
-    },
-    {
-      "description": "Testing Dependencies",
-      "matchPackagePatterns": ["junit", "mockk", "mockito", "espresso", "turbine"],
-      "groupName": "Testing Dependencies",
-      "automerge": true
-    },
-    {
-      "description": "Security Updates",
-      "matchUpdateTypes": ["minor", "patch"],
-      "automerge": true
-    },
+Die vollständige Konfiguration liegt in `renovate.json` im Repo-Root. Hier die wichtigsten Features:
+
+| Feature | Wert | Bedeutung |
+|---------|------|-----------|
+| **Schedule** | `every weekend` | PRs nur am Wochenende |
+| **Timezone** | `Europe/Berlin` | Zeitzone für Schedule |
+| **prConcurrentLimit** | `10` | Max. 10 offene PRs |
+| **prHourlyLimit** | `2` | Max. 2 PRs pro Stunde |
+| **Automerge** | `branch` | Direktes Mergen ohne PR |
+
+**Gruppierung:**
+| Gruppe | Pattern | Automerge |
+|--------|---------|-----------|
+| Android Gradle Plugin | `com.android.application`, `com.android.library` | ✅ Branch |
+| Kotlin Dependencies | `org.jetbrains.kotlin*` | ✅ Branch |
+| Compose Dependencies | `androidx.compose*` | ✅ Branch |
+| AndroidX Core | `androidx.*` (ohne Compose) | ✅ Branch |
+| Hilt Dependencies | `com.google.dagger*` | ✅ Branch |
+| Ktor Dependencies | `io.ktor*` | ❌ Manuell |
+| Testing Dependencies | `junit*`, `mockk*`, `mockito*`, `espresso*` | ✅ Branch |
+| RootEncoder Dependencies | `com.github.pedroSG94*` | ❌ Manuell |
+
+**Detaillierte Anleitung:** [docs/renovate-setup.md](renovate-setup.md)
     {
       "description": "Major Updates",
       "matchUpdateTypes": ["major"],

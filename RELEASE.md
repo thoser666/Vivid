@@ -639,6 +639,7 @@ Vivid nutzt mehrere GitHub Apps und Workflows für automatisierte Prozesse:
 | App/Workflow | Zweck | Status |
 |--------------|-------|--------|
 | **Dependabot** | Dependency-Updates (github-actions, weekly) | ✅ aktiv |
+| **Renovate** | Dependency-Updates (gruppiert, Auto-Merge) | 🟡 konfiguriert, App ausstehend |
 | **Stale Bot** | Inaktive Issues schließen (30+7 Tage) | ✅ aktiv |
 | **Release Drafter** | Draft-Releases aus PR-Labels erstellen | ✅ aktiv |
 | **Dependabot Auto-Merge** | Minor/Patch Updates automatisch mergen | ✅ aktiv |
@@ -742,6 +743,27 @@ Vivid nutzt mehrere GitHub Apps und Workflows für automatisierte Prozesse:
 | **PR-Aufwand** | 3-5/Woche | 3-5/Woche | Gleich |
 
 **Entscheidung:** Dependabot bleibt primär (bereits aktiv, einfach). Renovate als optionale Ergänzung, falls Dependency Dashboard oder Auto-Merge (Branch) gewünscht sind. Doku: [docs/dependabot-vs-renovate.md](docs/dependabot-vs-renovate.md)
+
+### Renovate (optionale Ergänzung)
+
+**Status:** 🟡 Konfiguration vorhanden, App-Installation ausstehend
+
+Renovate bietet **Dependency Dashboard** und **Auto-Merge (Branch-Modus)** —两Features, die Dependabot nicht hat.
+
+**Datei:** `renovate.json` (Repo-Root)
+
+**Vorteile ggü. Dependabot:**
+- ✅ **Dependency Dashboard** — eine Issue als Übersicht
+- ✅ **Auto-Merge (Branch)** — spart CI-Zeit (kein PR nötig)
+- ✅ **Merge Confidence Badges** — 4 Metriken
+- ✅ **Automatische Gruppierung** — zusammenhängende Updates in einem PR
+
+**Setup:**
+1. Mend Renovate App installieren: https://github.com/marketplace/renovate
+2. Onboarding-PR mergen
+3. `renovate.json` wird automatisch erkannt
+
+**Detaillierte Anleitung:** [docs/renovate-setup.md](docs/renovate-setup.md)
 
 ## 🔒 OpenSSF Scorecard (Supply-Chain-Security)
 

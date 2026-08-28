@@ -1,0 +1,101 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":semanticCommits",
+    "group:allNonMajor"
+  ],
+  "description": "Renovate configuration for Vivid - Android/Kotlin/Compose project",
+  "schedule": ["every weekend"],
+  "timezone": "Europe/Berlin",
+  "prConcurrentLimit": 10,
+  "prHourlyLimit": 2,
+  "packageRules": [
+    {
+      "description": "Android Gradle Plugin (AGP)",
+      "matchDepNames": [
+        "com.android.application",
+        "com.android.library"
+      ],
+      "groupName": "Android Gradle Plugin",
+      "automerge": true,
+      "automergeType": "branch",
+      "labels": ["dependencies", "android"]
+    },
+    {
+      "description": "Kotlin Dependencies (stdlib, plugin, serialization)",
+      "matchPackagePatterns": ["^org.jetbrains.kotlin"],
+      "groupName": "Kotlin Dependencies",
+      "automerge": true,
+      "automergeType": "branch",
+      "labels": ["dependencies", "kotlin"]
+    },
+    {
+      "description": "Compose Dependencies (BOM, UI, Material)",
+      "matchPackagePatterns": ["^androidx.compose"],
+      "groupName": "Compose Dependencies",
+      "automerge": true,
+      "automergeType": "branch",
+      "labels": ["dependencies", "compose"]
+    },
+    {
+      "description": "AndroidX Core (lifecycle, activity, navigation)",
+      "matchPackagePatterns": ["^androidx\\."],
+      "excludePackagePatterns": ["^androidx.compose"],
+      "groupName": "AndroidX Core",
+      "automerge": true,
+      "automergeType": "branch",
+      "labels": ["dependencies", "androidx"]
+    },
+    {
+      "description": "Hilt/Dagger Dependencies",
+      "matchPackagePatterns": ["^com.google.dagger"],
+      "groupName": "Hilt Dependencies",
+      "automerge": true,
+      "automergeType": "branch",
+      "labels": ["dependencies", "hilt"]
+    },
+    {
+      "description": "Ktor Dependencies (Client & Server)",
+      "matchPackagePatterns": ["^io.ktor"],
+      "groupName": "Ktor Dependencies",
+      "automerge": false,
+      "labels": ["dependencies", "ktor"]
+    },
+    {
+      "description": "Testing Dependencies (JUnit, MockK, Espresso)",
+      "matchPackagePatterns": ["junit", "mockk", "mockito", "espresso", "turbine"],
+      "groupName": "Testing Dependencies",
+      "automerge": true,
+      "automergeType": "branch",
+      "labels": ["dependencies", "testing"]
+    },
+    {
+      "description": "RootEncoder Dependencies",
+      "matchPackagePatterns": ["^com.github.pedroSG94"],
+      "groupName": "RootEncoder Dependencies",
+      "automerge": false,
+      "labels": ["dependencies", "rootencoder"]
+    },
+    {
+      "description": "Security Updates (always automerge)",
+      "matchUpdateTypes": ["minor", "patch"],
+      "automerge": true,
+      "automergeType": "branch"
+    },
+    {
+      "description": "Major Updates (require manual review)",
+      "matchUpdateTypes": ["major"],
+      "automerge": false,
+      "labels": ["breaking-change"]
+    }
+  ],
+  "ignoreDeps": [
+    "com.android.tools.build:gradle"
+  ],
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "labels": ["security"]
+  },
+  "requireConfig": "required"
+}
