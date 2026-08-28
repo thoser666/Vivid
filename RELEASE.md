@@ -644,6 +644,7 @@ Vivid nutzt mehrere GitHub Apps und Workflows für automatisierte Prozesse:
 | **Dependabot Auto-Merge** | Minor/Patch Updates automatisch mergen | ✅ aktiv |
 | **Moblin-Feature-Check** | Wöchentlicher Vergleich mit Moblin-Features | ✅ aktiv |
 | **CodeQL** | Security-Scanning (Kotlin/Java) | ✅ aktiv |
+| **Snyk** | Dependency-Analyse (CVEs, Schwachstellen) | 🟡 konfiguriert, App ausstehend |
 | **OpenSSF Scorecard** | Supply-Chain-Security-Bewertung | ✅ aktiv |
 | **Changelog-Spiegel** | CHANGELOG.md aus GitHub Releases aktualisieren | ✅ aktiv |
 
@@ -775,7 +776,46 @@ Das Projekt nutzt den **OpenSSF Scorecard** für automatische Security-Analyse u
 - Frühzeitige Erkennung von Supply-Chain-Schwachstellen
 - Verbessertes Vertrauen in die Sicherheit des Projekts
 
+## 🔍 Snyk Security Scanning (Dependency-Analyse)
 
+**Status:** 🟡 Konfiguration vorhanden, App-Installation ausstehend
+
+Snyk analysiert Dependencies auf bekannte Schwachstellen (CVEs) und erstellt PRs zur Behebung. Die Integration ergänzt Dependabot (Updates) und CodeQL (Code-Scanning) um eine **tiefe Dependency-Analyse**.
+
+**Unterschied zu Dependabot:**
+| Aspekt | Dependabot | Snyk |
+|--------|------------|------|
+| **Fokus** | Version-Updates | Schwachstellen (CVEs) |
+| **Ergebnis** | Update-PRs | Security-Alerts + Fix-PRs |
+| **Code Scanning** | ❌ | ✅ (SARIF-Upload) |
+| **Dashboard** | ❌ | ✅ (app.snyk.io) |
+| **Kosten** | Kostenlos | Kostenlos (Open Source) |
+
+**Workflow** (`.github/workflows/security-snyk.yml`):
+- **Bei Push/PR:** `snyk test` mit `--severity-threshold=high` (nur High/Critical)
+- **Wöchentlich (Mo 04:00 UTC):** `snyk monitor` aktualisiert das Dashboard
+- **SARIF-Upload:** Ergebnisse im Security-Tab → Code Scanning
+- **SHA-Pinning:** Snyk Action auf Commit-SHA gepinnt
+
+**Voraussetzung: SNYK_TOKEN**
+
+1. **Snyk-Konto erstellen:** https://app.snyk.io (kostenlos für Open Source)
+2. **API-Token generieren:** Account Settings → API Token → kopieren
+3. **GitHub-Secret setzen:**
+   ```bash
+   gh secret set SNYK_TOKEN --body "dein-snyk-token"
+   ```
+4. **Optional: Snyk GitHub App installieren** (für automatische Fix-PRs):
+   - https://github.com/marketplace/snyk
+   - App auf Repository installieren
+   - Ermöglicht: Auto-Fix-PRs, PR-Checks, Dashboard-Integration
+
+**Empfehlung:**
+- ✅ **Dependabot** bleibt primär (Version-Updates, SHA-Pins)
+- ✅ **Snyk** als ergänzende Security-Analyse (CVEs, tiefere Prüfung)
+- ✅ **CodeQL** für Code-Scanning (Sicherheitslappen im Code)
+
+**Doku:** https://docs.snyk.io/developer-tools/integrations
 
 ## 🔒 CI-Härtung: Pinned Actions (Supply-Chain)
 
