@@ -143,6 +143,15 @@ jobs:
       - name: Check parity log
         run: bash scripts/check_parity_log.sh --check-exists
 
+      # Version-Catalog-Consistency: prüft, dass alle Artefakte desselben
+      # Maven-Groups denselben version.ref verwenden (keine vergessenen
+      # Version-Keys, die beim B-Update zu inkonsistenten Versionen führen).
+      - name: Test version catalog consistency
+        run: bash scripts/test_check_version_catalog.sh
+
+      - name: Check version catalog consistency
+        run: bash scripts/check_version_catalog.sh
+
       # Geteilte Release-Safety (Ruby) — Selbsttest: versionCode-Ableitung,
       # Track-Monotonie (kein Downgrade) und Quer-Track-Vergleich; strukturell
       # wird geprüft, dass release_alpha UND release_beta dieselben Funktionen

@@ -139,4 +139,14 @@ run bash scripts/check_parity_log.sh --check-exists
 echo "▶ [pre-push] PARITY-Log-Guard-Selbsttest (scripts/test_parity_log.sh)"
 run bash scripts/test_parity_log.sh
 
+# Version-Catalog-Consistency: prüft, dass alle Artefakte desselben Maven-Groups
+# denselben version.ref verwenden (keine vergessenen Version-Keys).
+echo "▶ [pre-push] Version-Catalog-Check (scripts/check_version_catalog.sh)"
+run bash scripts/check_version_catalog.sh
+
+# Version-Catalog-Check-Selbsttest (Fixtures): beweist, dass konsistente Catalogs
+# grün und inkonsistente rot gemeldet werden.
+echo "▶ [pre-push] Version-Catalog-Check-Selbsttest (scripts/test_check_version_catalog.sh)"
+run bash scripts/test_check_version_catalog.sh
+
 echo "✅ [pre-push] Alle Checks grün — Push freigegeben."
