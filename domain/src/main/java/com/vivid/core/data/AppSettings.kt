@@ -109,6 +109,11 @@ data class AppSettings(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     // Kuratierte Akzentfarbe (Standard: Vivid-Grün — unverändert gegenüber Stufe 1).
     val themeAccent: AccentColor = AccentColor.VIVID_GREEN,
+    // --- Third-Party-Emotes (Chat-Overlay) ---
+    // Welche Third-Party-Emote-Quellen aktiv sind (Standard: alle drei).
+    val emotesBttvEnabled: Boolean = true,
+    val emotesFfzEnabled: Boolean = true,
+    val emotes7tvEnabled: Boolean = true,
     // --- In-App-Logs ---
     // Vorhaltezeit der täglichen Log-Rotation in Tagen (1–30, Default 7):
     // Logs wechseln täglich, ältere Tage werden beim Laden/Prune gelöscht.

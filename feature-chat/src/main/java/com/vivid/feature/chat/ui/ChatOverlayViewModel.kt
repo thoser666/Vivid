@@ -8,6 +8,7 @@ import com.vivid.feature.chat.model.ChatAlertType
 import com.vivid.feature.chat.model.ChatBadge
 import com.vivid.feature.chat.model.ChatConnectionState
 import com.vivid.feature.chat.model.ChatMessage
+import com.vivid.feature.chat.emotes.EmoteSource
 import com.vivid.feature.chat.emotes.ThirdPartyEmote
 import com.vivid.feature.chat.emotes.ThirdPartyEmoteService
 import com.vivid.feature.chat.twitch.TwitchBadgeClient
@@ -106,6 +107,19 @@ class ChatOverlayViewModel @Inject constructor(
                     // invalidieren, damit ihre Antworten nicht mehr ankommen.
                     badgeLoadChannel = null
                     chatReader.stop()
+                }
+
+                // Third-Party-Emote-Quellen aus den Settings synchronisieren.
+                val activeSources = mutableSetOf<EmoteSource>()
+                if (settings.emotesBttvEnabled) activeSources.add(EmoteSource.BTTV)
+                if (settings.emotesFfzEnabled) activeSources.add(EmoteSource.FFZ)
+                if (settings.emotes7tvEnabled) activeSources.add(EmoteSource.SEVENTV)
+                val previousSources = emoteService.activeSources.value
+                emoteService.setActiveSources(activeSources)
+                // Bei Quellen-Änderung Cache leeren und neu laden.
+                if (activeSources != previousSources && enabled && channel.isNotBlank() && configured) {
+                    emoteService.invalidateCache(channel)
+                    loadThirdPartyEmotes(channel)
                 }
                 _uiState.update {
                     it.copy(

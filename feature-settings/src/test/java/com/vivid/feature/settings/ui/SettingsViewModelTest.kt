@@ -287,6 +287,7 @@ class SettingsViewModelTest {
             coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
             coEvery { updateWidgetSettings(any(), any(), any(), any(), any(), any()) } just runs
             coEvery { updateProfanitySettings(any(), any(), any(), any()) } just runs
+            coEvery { updateEmoteSettings(any(), any(), any()) } just runs
             coEvery { updateSentryEnabled(any()) } just runs
             coEvery { updateThemeSettings(any(), any()) } just runs
         }
@@ -334,6 +335,7 @@ class SettingsViewModelTest {
             coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
             coEvery { updateWidgetSettings(any(), any(), any(), any(), any(), any()) } just runs
             coEvery { updateProfanitySettings(any(), any(), any(), any()) } just runs
+            coEvery { updateEmoteSettings(any(), any(), any()) } just runs
             coEvery { updateSentryEnabled(any()) } just runs
             coEvery { updateThemeSettings(any(), any()) } just runs
         }
@@ -376,6 +378,7 @@ class SettingsViewModelTest {
             coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
             coEvery { updateWidgetSettings(any(), any(), any(), any(), any(), any()) } just runs
             coEvery { updateProfanitySettings(any(), any(), any(), any()) } just runs
+            coEvery { updateEmoteSettings(any(), any(), any()) } just runs
             coEvery { updateSentryEnabled(any()) } just runs
             coEvery { updateThemeSettings(any(), any()) } just runs
         }
@@ -421,6 +424,7 @@ class SettingsViewModelTest {
             coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
             coEvery { updateWidgetSettings(any(), any(), any(), any(), any(), any()) } just runs
             coEvery { updateProfanitySettings(any(), any(), any(), any()) } just runs
+            coEvery { updateEmoteSettings(any(), any(), any()) } just runs
             coEvery { updateSentryEnabled(any()) } just runs
             coEvery { updateThemeSettings(any(), any()) } just runs
         }
@@ -613,6 +617,7 @@ class SettingsViewModelTest {
             coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
             coEvery { updateWidgetSettings(any(), any(), any(), any(), any(), any()) } just runs
             coEvery { updateProfanitySettings(any(), any(), any(), any()) } just runs
+            coEvery { updateEmoteSettings(any(), any(), any()) } just runs
             coEvery { updateSentryEnabled(any()) } just runs
             coEvery { updateThemeSettings(any(), any()) } just runs
         }
@@ -909,6 +914,7 @@ class SettingsViewModelTest {
             coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
             coEvery { updateWidgetSettings(any(), any(), any(), any(), any(), any()) } just runs
             coEvery { updateProfanitySettings(any(), any(), any(), any()) } just runs
+            coEvery { updateEmoteSettings(any(), any(), any()) } just runs
             coEvery { updateSentryEnabled(any()) } just runs
             coEvery { updateThemeSettings(any(), any()) } just runs
         }
@@ -925,6 +931,68 @@ class SettingsViewModelTest {
             repository.updateThemeSettings(
                 themeMode = ThemeMode.AMOLED,
                 accentColor = AccentColor.TEAL,
+            )
+        }
+    }
+
+    @Test
+    fun `emote toggles update uiState`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // Defaults: alle aktiv
+        assertTrue(viewModel.uiState.value.emotesBttvEnabled)
+        assertTrue(viewModel.uiState.value.emotesFfzEnabled)
+        assertTrue(viewModel.uiState.value.emotes7tvEnabled)
+
+        viewModel.onEmotesBttvChange(false)
+        assertFalse(viewModel.uiState.value.emotesBttvEnabled)
+        assertTrue(viewModel.uiState.value.emotesFfzEnabled)
+
+        viewModel.onEmotesFfzChange(false)
+        assertFalse(viewModel.uiState.value.emotesFfzEnabled)
+
+        viewModel.onEmotes7tvChange(false)
+        assertFalse(viewModel.uiState.value.emotes7tvEnabled)
+
+        // Zurückschalten
+        viewModel.onEmotesBttvChange(true)
+        assertTrue(viewModel.uiState.value.emotesBttvEnabled)
+    }
+
+    @Test
+    fun `saveSettings persists emote settings`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repository = mockk<SettingsRepository> {
+            every { appSettingsFlow } returns MutableStateFlow(AppSettings())
+            coEvery { updateStreamSettings(any(), any(), any()) } just runs
+            coEvery { updateSecondaryStreamSettings(any(), any(), any()) } just runs
+            coEvery { updateObsSettings(any(), any(), any(), any()) } just runs
+            coEvery { updateChatSettings(any(), any()) } just runs
+            coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
+            coEvery { updateWidgetSettings(any(), any(), any(), any(), any(), any()) } just runs
+            coEvery { updateProfanitySettings(any(), any(), any(), any()) } just runs
+            coEvery { updateEmoteSettings(any(), any(), any()) } just runs
+            coEvery { updateSentryEnabled(any()) } just runs
+            coEvery { updateThemeSettings(any(), any()) } just runs
+            coEvery { updateEmoteSettings(any(), any(), any()) } just runs
+        }
+
+        val viewModel = createViewModel(repository)
+        advanceUntilIdle()
+
+        viewModel.onEmotesBttvChange(false)
+        viewModel.onEmotesFfzChange(false)
+        viewModel.onEmotes7tvChange(true)
+        viewModel.saveSettings()
+        advanceUntilIdle()
+
+        coVerify {
+            repository.updateEmoteSettings(
+                bttvEnabled = false,
+                ffzEnabled = false,
+                sevenTvEnabled = true,
             )
         }
     }

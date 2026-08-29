@@ -84,6 +84,11 @@
     <string name="overlays_widget_location">Coordonnées GPS</string>
     <string name="overlays_widget_speed">Vitesse</string>
     <string name="overlays_widget_altitude">Altitude</string>
+    <string name="overlays_emotes_title">Emotes tierces</string>
+    <string name="overlays_emotes_desc">Afficher des emotes supplémentaires provenant de bases de données communautaires dans l\'overlay de chat. Chaque source peut être activée/désactivée individuellement.</string>
+    <string name="overlays_emotes_bttv">BetterTTV (BTTV)</string>
+    <string name="overlays_emotes_ffz">FrankerFaceZ (FFZ)</string>
+    <string name="overlays_emotes_7tv">7TV</string>
 
     <!-- ===== Remote & confidentialité (SettingsRemotePrivacyScreen.kt) ===== -->
     <string name="remote_section_title">Télécommande web</string>

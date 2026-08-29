@@ -110,5 +110,43 @@ fun SettingsOverlaysScreen(
                 onCheckedChange = viewModel::onWidgetShowAltitudeChange,
             )
         }
+
+        // Third-Party-Emotes (BTTV/FFZ/7TV)
+        Text(stringResource(R.string.overlays_emotes_title), style = MaterialTheme.typography.titleLarge)
+        Text(
+            text = stringResource(R.string.overlays_emotes_desc),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(stringResource(R.string.overlays_emotes_bttv), modifier = Modifier.weight(1f))
+            Switch(
+                checked = uiState.emotesBttvEnabled,
+                onCheckedChange = viewModel::onEmotesBttvChange,
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(stringResource(R.string.overlays_emotes_ffz), modifier = Modifier.weight(1f))
+            Switch(
+                checked = uiState.emotesFfzEnabled,
+                onCheckedChange = viewModel::onEmotesFfzChange,
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(stringResource(R.string.overlays_emotes_7tv), modifier = Modifier.weight(1f))
+            Switch(
+                checked = uiState.emotes7tvEnabled,
+                onCheckedChange = viewModel::onEmotes7tvChange,
+            )
+        }
     }
 }

@@ -214,6 +214,11 @@ class SettingsViewModel @Inject constructor(
     fun onChatBotProfanityCustomWordsChange(newValue: String) { _uiState.value = _uiState.value.copy(chatBotProfanityCustomWords = newValue) }
     fun onChatBotProfanityExcludedWordsChange(newValue: String) { _uiState.value = _uiState.value.copy(chatBotProfanityExcludedWords = newValue) }
 
+    // Third-Party-Emotes: Quellen ein-/ausschalten.
+    fun onEmotesBttvChange(newValue: Boolean) { _uiState.value = _uiState.value.copy(emotesBttvEnabled = newValue) }
+    fun onEmotesFfzChange(newValue: Boolean) { _uiState.value = _uiState.value.copy(emotesFfzEnabled = newValue) }
+    fun onEmotes7tvChange(newValue: Boolean) { _uiState.value = _uiState.value.copy(emotes7tvEnabled = newValue) }
+
     // Datenschutz: Sentry-Fehlerberichte an/aus (Opt-out).
     fun onSentryEnabledChange(newEnabled: Boolean) { _uiState.value = _uiState.value.copy(sentryEnabled = newEnabled) }
 
@@ -315,6 +320,11 @@ class SettingsViewModel @Inject constructor(
                 ownerLlmModel = currentSettings.chatBotOwnerLlmModel,
                 ownerWhisperReplies = currentSettings.chatBotOwnerWhisperReplies,
                 twitchClientId = currentSettings.chatBotTwitchClientId,
+            )
+            settingsRepository.updateEmoteSettings(
+                bttvEnabled = currentSettings.emotesBttvEnabled,
+                ffzEnabled = currentSettings.emotesFfzEnabled,
+                sevenTvEnabled = currentSettings.emotes7tvEnabled,
             )
             settingsRepository.updateProfanitySettings(
                 profanityEnabled = currentSettings.chatBotProfanityEnabled,

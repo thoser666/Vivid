@@ -64,6 +64,9 @@ class SettingsRepository @Inject constructor(
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val THEME_ACCENT = stringPreferencesKey("theme_accent")
         val LOGS_RETENTION_DAYS = intPreferencesKey("logs_retention_days")
+        val EMOTES_BTTV_ENABLED = booleanPreferencesKey("emotes_bttv_enabled")
+        val EMOTES_FFZ_ENABLED = booleanPreferencesKey("emotes_ffz_enabled")
+        val EMOTES_7TV_ENABLED = booleanPreferencesKey("emotes_7tv_enabled")
     }
 
     // WICHTIG: Dies ist jetzt der EINZIGE Flow, den das ViewModel braucht.
@@ -205,12 +208,23 @@ class SettingsRepository @Inject constructor(
         dataStore.data.map { prefs -> prefs[PrefKeys.SENTRY_ENABLED] ?: true },
         // 8. Flow: In-App-Log-Vorhaltezeit (Tage)
         dataStore.data.map { prefs -> prefs[PrefKeys.LOGS_RETENTION_DAYS] ?: 7 },
-    ) { settings, themeData, sentryEnabled, logsRetentionDays ->
+        // 9. Flow: Third-Party-Emote-Quellen (BTTV/FFZ/7TV)
+        dataStore.data.map { prefs ->
+            EmotePrefs(
+                bttvEnabled = prefs[PrefKeys.EMOTES_BTTV_ENABLED] ?: true,
+                ffzEnabled = prefs[PrefKeys.EMOTES_FFZ_ENABLED] ?: true,
+                sevenTvEnabled = prefs[PrefKeys.EMOTES_7TV_ENABLED] ?: true,
+            )
+        },
+    ) { settings, themeData, sentryEnabled, logsRetentionDays, emotePrefs ->
         settings.copy(
             sentryEnabled = sentryEnabled,
             themeMode = themeData.mode,
             themeAccent = themeData.accent,
             logsRetentionDays = logsRetentionDays,
+            emotesBttvEnabled = emotePrefs.bttvEnabled,
+            emotesFfzEnabled = emotePrefs.ffzEnabled,
+            emotes7tvEnabled = emotePrefs.sevenTvEnabled,
         )
     }
 
@@ -372,6 +386,12 @@ class SettingsRepository @Inject constructor(
         val accent: AccentColor,
     )
 
+    private data class EmotePrefs(
+        val bttvEnabled: Boolean,
+        val ffzEnabled: Boolean,
+        val sevenTvEnabled: Boolean,
+    )
+
     /** Sentry-Opt-out speichern (false = keine Fehlerberichte senden). */
     suspend fun updateSentryEnabled(enabled: Boolean) {
         dataStore.edit { prefs ->
@@ -417,6 +437,19 @@ class SettingsRepository @Inject constructor(
     suspend fun updateLogsRetentionDays(days: Int) {
         dataStore.edit { prefs ->
             prefs[PrefKeys.LOGS_RETENTION_DAYS] = days.coerceIn(1, 30)
+        }
+    }
+
+    /** Third-Party-Emote-Quellen (BTTV/FFZ/7TV) speichern. */
+    suspend fun updateEmoteSettings(
+        bttvEnabled: Boolean,
+        ffzEnabled: Boolean,
+        sevenTvEnabled: Boolean,
+    ) {
+        dataStore.edit { prefs ->
+            prefs[PrefKeys.EMOTES_BTTV_ENABLED] = bttvEnabled
+            prefs[PrefKeys.EMOTES_FFZ_ENABLED] = ffzEnabled
+            prefs[PrefKeys.EMOTES_7TV_ENABLED] = sevenTvEnabled
         }
     }
 
