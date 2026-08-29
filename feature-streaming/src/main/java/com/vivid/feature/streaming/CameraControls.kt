@@ -49,4 +49,24 @@ interface CameraControls {
 
     /** Schaltet die Taschenlampe aus. */
     fun disableTorch(): Boolean
+
+    // --- Manuelle Kamera-Steuerung ---
+
+    /** true, wenn der manuelle Fokusabstand unterstützt wird. */
+    fun hasManualFocus(): Boolean
+
+    /** Aktueller Fokusabstand (0.0 = Unendlich, höhere Werte = näher). */
+    fun getFocusDistance(): Float
+
+    /** Setzt den Fokusabstand (0.0 = Unendlich, höhere Werte = näher). */
+    fun setFocusDistance(distance: Float)
+
+    /** Verfügbare Kamera-IDs (z.B. Rückkamera(s), Frontkamera). */
+    fun getAvailableCameraIds(): List<String>
+
+    /** Aktuelle Kamera-ID. */
+    fun getCurrentCameraId(): String
+
+    /** Wechselt auf die Kamera mit der angegebenen ID. */
+    fun selectCamera(cameraId: String): Boolean
 }

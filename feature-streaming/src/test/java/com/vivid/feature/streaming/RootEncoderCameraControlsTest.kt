@@ -191,4 +191,46 @@ class RootEncoderCameraControlsTest {
 
         assertFalse(RootEncoderCameraControls(cam).disableTorch())
     }
+
+    // --- Manuelle Kamera-Steuerung ---
+
+    @Test
+    fun `hasManualFocus returns true`() {
+        val cam = camera()
+        assertTrue(RootEncoderCameraControls(cam).hasManualFocus())
+    }
+
+    @Test
+    fun `setFocusDistance delegates to camera`() {
+        val cam = camera()
+
+        RootEncoderCameraControls(cam).setFocusDistance(0.5f)
+
+        verify { cam.setFocusDistance(0.5f) }
+    }
+
+    @Test
+    fun `getCurrentCameraId delegates to camera`() {
+        val cam = camera()
+        every { cam.currentCameraId } returns "0"
+
+        assertEquals("0", RootEncoderCameraControls(cam).getCurrentCameraId())
+    }
+
+    @Test
+    fun `getAvailableCameraIds returns current camera id`() {
+        val cam = camera()
+        every { cam.currentCameraId } returns "0"
+
+        val ids = RootEncoderCameraControls(cam).getAvailableCameraIds()
+        assertEquals(1, ids.size)
+        assertEquals("0", ids[0])
+    }
+
+    @Test
+    fun `selectCamera returns false`() {
+        val cam = camera()
+
+        assertFalse(RootEncoderCameraControls(cam).selectCamera("1"))
+    }
 }

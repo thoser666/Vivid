@@ -134,6 +134,9 @@ class StreamingEngine @Inject constructor(
     private var cameraControls: CameraControls? = null
     private var stabilizationController: CameraStabilizationController? = null
 
+    // --- Manuelle Kamera-Steuerung ---
+    private var manualCameraController: ManualCameraController? = null
+
     /**
      * Wendet einen Video-Filter (OpenGL-Effekt) auf die GL-Pipeline an.
      * Der Effekt wirkt auf Vorschau + Encoder (gestreamtes Video).
@@ -399,6 +402,12 @@ class StreamingEngine @Inject constructor(
                 _stabilizationEnabled.value = it.isEnabled
             }
             _torchEnabled.value = cameraControls!!.isTorchEnabled()
+
+            // Manuelle Kamera-Steuerung initialisieren
+            val lensController = CameraLensController(cameraControls!!)
+            manualCameraController = ManualCameraController(cameraControls!!, lensController).also {
+                it.syncState()
+            }
         }
     }
 
@@ -471,6 +480,22 @@ class StreamingEngine @Inject constructor(
         }
         return changed
     }
+
+    // --- Manuelle Kamera-Steuerung ---
+
+    /**
+     * Setzt den manuellen Fokusabstand.
+     * @param distance 0.0 = Unendlich, höhere Werte = näher.
+     */
+    fun setManualFocusDistance(distance: Float) {
+        manualCameraController?.setFocusDistance(distance)
+    }
+
+    /** Wechselt auf die Linse mit der angegebenen ID. */
+    fun selectLens(lensId: String): Boolean = manualCameraController?.selectLens(lensId) ?: false
+
+    /** Verfügbare Linsen. */
+    fun getAvailableLenses(): List<LensInfo> = manualCameraController?.getAvailableLenses() ?: emptyList()
 
     /**
      * Adapter, der nur die Fokus-Steuerung der [Camera2Base] (MultiCamera2)
