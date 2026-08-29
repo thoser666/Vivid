@@ -41,13 +41,36 @@
 
 ## 🔗 Nützliche Links
 
+### 📚 Dokumentation
+
 | Link | Inhalt |
 |---|---|
 | [README](https://github.com/thoser666/Vivid#readme) | Features, Setup-Guides, FAQ, Roadmap |
 | [Bedienungsanleitung (DE)](https://github.com/thoser666/Vivid/blob/develop/docs/user-guide.md) | Schritt für Schritt durch die App |
 | [User Guide (EN)](https://github.com/thoser666/Vivid/blob/develop/docs/user-guide.en.md) | English version of the user guide |
 | [Guide utilisateur (FR)](https://github.com/thoser666/Vivid/blob/develop/docs/user-guide.fr.md) | Version française du guide de l'utilisateur |
+
+### 🤖 Features
+
+| Link | Inhalt |
+|---|---|
 | [AI-Chat-Bot-Doku](https://github.com/thoser666/Vivid/blob/develop/docs/ai-chat-bot.md) | Bot-Modi, Owner-Befehle, Koexistenz |
+| [Architektur-Übersicht](https://github.com/thoser666/Vivid/blob/develop/docs/architecture/overview.md) | Technische Modulstruktur |
+
+### 🎓 Tutorials
+
+| Link | Inhalt |
+|---|---|
+| [Ersten Stream starten](https://github.com/thoser666/Vivid/blob/develop/docs/tutorials/first-stream.md) | Schritt-für-Schritt zum ersten IRL-Stream |
+| [Chat-Overlay einrichten](https://github.com/thoser666/Vivid/blob/develop/docs/tutorials/chat-overlay-setup.md) | Twitch-Chat in der Vorschau anzeigen |
+| [OBS-Integration](https://github.com/thoser666/Vivid/blob/develop/docs/tutorials/obs-integration.md) | OBS Studio aus Vivid steuern |
+
+### 🔧 Hilfe
+
+| Link | Inhalt |
+|---|---|
+| [FAQ: Häufige Probleme](https://github.com/thoser666/Vivid/blob/develop/docs/faq/common-issues.md) | Antworten auf häufige Fragen |
+| [Troubleshooting: Stream-Probleme](https://github.com/thoser666/Vivid/blob/develop/docs/troubleshooting/stream-issues.md) | Stream-Probleme lösen |
 | [Datenschutzerklärung](https://thoser666.github.io/Vivid/privacy/) | Privacy Policy (Play-Store-Pflicht) |
 | [Issue-Tracker](https://github.com/thoser666/Vivid/issues) | Bugs melden, Features vorschlagen |
 
