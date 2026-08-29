@@ -185,6 +185,17 @@
     <string name="chatbot_profanity_excluded_words_hint">z.B. butt, mass, classes</string>
     <string name="chatbot_profanity_excluded_words_desc">Begriffe (kommasepariert), die der Filter ignorieren soll — für False Positives (z. B. englische Wörter wie „ass", „damn").</string>
 
+    <!-- ===== Kamera-Steuerung (SettingsCameraScreen.kt) ===== -->
+    <string name="camera_section_title">Kamera-Steuerung</string>
+    <string name="camera_section_desc">Manueller Fokus und Linsen-Auswahl (Ultraweit/Weit/Tele)</string>
+    <string name="camera_focus_title">Fokus</string>
+    <string name="camera_focus_desc">Stelle den Fokusabstand manuell ein — 0 = Unendlich (Landschaft), 10 = Makro (Nahaufnahme).</string>
+    <string name="camera_focus_far">Unendlich</string>
+    <string name="camera_focus_near">Makro</string>
+    <string name="camera_focus_not_supported">Manueller Fokus wird von diesem Gerät nicht unterstützt.</string>
+    <string name="camera_lens_title">Linse</string>
+    <string name="camera_lens_desc">Wähle die Kamera-Linse — die Verfügbarkeit hängt vom Gerät ab.</string>
+
     <!-- ===== Logs & Diagnose (SettingsLogsScreen.kt) ===== -->
     <string name="logs_redacted_note">Die App-Logs der konfigurierten Vorhaltezeit (tägliche Rotation). Stream-Schlüssel, Passwörter und Tokens werden automatisch geschwärzt — sensible Daten verlassen das Gerät nie im Klartext.</string>
     <string name="logs_empty">Noch keine Logs vorhanden — starte einen Stream oder öffne die App, um Einträge zu sammeln.</string>

@@ -25,6 +25,7 @@ import com.vivid.feature.obscontrol.ui.ObsControlScreen
 import com.vivid.feature.playback.PlaybackScreen
 import com.vivid.feature.settings.ui.SettingsAboutScreen
 import com.vivid.feature.settings.ui.SettingsAppearanceScreen
+import com.vivid.feature.settings.ui.SettingsCameraScreen
 import com.vivid.feature.settings.ui.SettingsChatBotScreen
 import com.vivid.feature.settings.ui.SettingsLogsScreen
 import com.vivid.feature.settings.ui.SettingsOverlaysScreen
@@ -104,6 +105,9 @@ fun VividAppNavigation() {
                 viewModel = viewModel,
                 onBack = { navController.popBackStack() },
             )
+        }
+        composable("settings_camera") {
+            SettingsCameraScreen()
         }
         composable("settings_appearance") {
             val viewModel: SettingsViewModel = hiltViewModel()

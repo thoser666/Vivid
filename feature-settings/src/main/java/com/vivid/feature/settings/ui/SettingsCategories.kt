@@ -4,6 +4,7 @@ import com.vivid.feature.settings.R
 import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Palette
@@ -38,6 +39,12 @@ object SettingsCategories {
             subtitleRes = R.string.cat_streaming_subtitle,
             icon = Icons.Filled.Videocam,
             route = "settings_streaming",
+        ),
+        SettingsCategory(
+            titleRes = R.string.camera_section_title,
+            subtitleRes = R.string.camera_section_desc,
+            icon = Icons.Filled.CameraAlt,
+            route = "settings_camera",
         ),
         SettingsCategory(
             titleRes = R.string.cat_appearance_title,

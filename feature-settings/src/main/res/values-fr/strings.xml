@@ -185,6 +185,17 @@
     <string name="preset_balanced">Équilibré</string>
     <string name="preset_strict">Strict</string>
 
+    <!-- ===== Contrôles caméra (SettingsCameraScreen.kt) ===== -->
+    <string name="camera_section_title">Contrôles caméra</string>
+    <string name="camera_section_desc">Mise au point manuelle et sélection de l\'objectif (Ultra-grand angle/Grand angle/Télé)</string>
+    <string name="camera_focus_title">Mise au point</string>
+    <string name="camera_focus_desc">Réglez la distance de mise au point manuellement — 0 = infini (paysage), 10 = macro (gros plan).</string>
+    <string name="camera_focus_far">Infini</string>
+    <string name="camera_focus_near">Macro</string>
+    <string name="camera_focus_not_supported">La mise au point manuelle n\'est pas prise en charge sur cet appareil.</string>
+    <string name="camera_lens_title">Objectif</string>
+    <string name="camera_lens_desc">Sélectionnez l\'objectif caméra — la disponibilité dépend de l\'appareil.</string>
+
     <!-- ===== Journaux & diagnostic (SettingsLogsScreen.kt) ===== -->
     <string name="logs_redacted_note">Les journaux de l\'application sur la durée de conservation configurée (rotation quotidienne). Clés de streaming, mots de passe et jetons sont automatiquement masqués — les données sensibles ne quittent jamais l\'appareil en clair.</string>
     <string name="logs_empty">Aucun journal pour l\'instant — démarre un stream ou utilise l\'application pour collecter des entrées.</string>

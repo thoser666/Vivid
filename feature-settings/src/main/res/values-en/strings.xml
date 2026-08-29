@@ -185,6 +185,17 @@
     <string name="preset_balanced">Balanced</string>
     <string name="preset_strict">Strict</string>
 
+    <!-- ===== Camera Controls (SettingsCameraScreen.kt) ===== -->
+    <string name="camera_section_title">Camera Controls</string>
+    <string name="camera_section_desc">Manual focus and lens selection (Ultra-wide/Wide/Tele)</string>
+    <string name="camera_focus_title">Focus</string>
+    <string name="camera_focus_desc">Set the focus distance manually — 0 = infinity (landscape), 10 = macro (close-up).</string>
+    <string name="camera_focus_far">Infinity</string>
+    <string name="camera_focus_near">Macro</string>
+    <string name="camera_focus_not_supported">Manual focus is not supported on this device.</string>
+    <string name="camera_lens_title">Lens</string>
+    <string name="camera_lens_desc">Select the camera lens — availability depends on the device.</string>
+
     <!-- ===== Logs & Diagnostics (SettingsLogsScreen.kt) ===== -->
     <string name="logs_redacted_note">The app logs of the configured retention period (daily rotation). Stream keys, passwords and tokens are automatically redacted — sensitive data never leaves the device in plain text.</string>
     <string name="logs_empty">No logs yet — start a stream or use the app to collect entries.</string>

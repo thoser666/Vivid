@@ -515,7 +515,7 @@ Status: ✅ implemented · 🚧 in progress · 📋 planned
 | Game Controller Support | 📋 | |
 | Deep Linking (`moblin://`) | 📋 | |
 | Scenes (basic) + Auto Scene Switcher | ✅ | `StreamScene` + `SceneRepository` (persisted, active scene) + `SceneController` (applies source/widget/stream target) + time-based `AutoSceneSwitcher` (interval ≥ 5 s); scene bar in the streaming screen (chips, save, delete, auto toggle — de/en/fr) — open: rule-based switcher, settings section, scene/source widget, live source switching while streaming |
-| Pro Camera Controls + Lens Selection | 🚧 | Manual focus distance + lens selection (wide/ultra-wide/tele) implemented; exposure/white balance lock pending RootEncoder upgrade |
+| Pro Camera Controls + Lens Selection | 🚧 | Manual focus distance + lens selection (wide/ultra-wide/tele) implemented with UI (Settings screen); exposure/white balance lock pending RootEncoder upgrade |
 | Screen Capture + Video Player as source | ✅ | MediaProjection + basic video player as stream source — **bucket done**: `VideoSourceKind`/`VideoSource`/`VideoSourceRegistry` (S1), RootEncoder `MultiDisplay` + consent flow + source toggle (S2), RootEncoder `MultiFromFile` + SAF video picker (S3); all three sources switchable in the streaming screen |
 | Record to Disk (MP4) + Replays | 📋 | Record while streaming; save & play replays |
 | Video Effects (Grayscale, Sepia, Noise, …) | ✅ | 11 OpenGL filters via RootEncoder `setFilter`/`GlFilter`, cycle button in streaming screen, `!filter` owner bot command, i18n de/en/fr |
