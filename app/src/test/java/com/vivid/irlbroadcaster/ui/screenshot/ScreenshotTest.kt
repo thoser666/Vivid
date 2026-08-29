@@ -1,9 +1,6 @@
 package com.vivid.irlbroadcaster.ui.screenshot
 
-import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Test
-import org.junit.runner.RunWith
-import org.robolectric.annotation.GraphicsMode
 
 /**
  * Roborazzi Screenshot-Tests für Theme-Varianten.
@@ -11,7 +8,7 @@ import org.robolectric.annotation.GraphicsMode
  * ⚠️ INAKTIV — Roborazzi-Konfiguration vorhanden, aber Tests können
  * aktuell nicht ausgeführt werden wegen Inkompatibilität:
  *   - Roborazzi 1.72.0 + Robolectric 4.14.1 + AGP 9.3.2 + JDK 25
- *   - ComposeView kann unter diesen Bedingungen kein WindowRecomposer finden
+ *   - ComposeView kann unter diesen Bedingungen keinen WindowRecomposer finden
  *   - `captureRoboImage()` auf Views schlägt mit "not attached to a window" fehl
  *
  * Status: github.com/takahirom/roborazzi/issues/830 (AGP 9 + Gradle 9)
@@ -24,9 +21,11 @@ import org.robolectric.annotation.GraphicsMode
  *   ./gradlew :app:recordRoborazziStandardDebug
  *   ./gradlew :app:verifyRoborazziStandardDebug
  *   ./gradlew :app:compareRoborazziStandardDebug
+ *
+ * Hinweis: Kein @RunWith(AndroidJUnit4) oder @GraphicsMode hier —
+ * das triggert das Roborazzi-Framework und verursacht ASM/ClassReader-Fehler
+ * in der CI, auch wenn der Test nur assert(true) macht.
  */
-@RunWith(AndroidJUnit4::class)
-@GraphicsMode(GraphicsMode.Mode.NATIVE)
 class ScreenshotTest {
 
     @Test
