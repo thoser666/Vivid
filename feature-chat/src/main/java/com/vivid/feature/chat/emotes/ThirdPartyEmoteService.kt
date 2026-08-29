@@ -23,9 +23,6 @@ import javax.inject.Singleton
  */
 @Singleton
 class ThirdPartyEmoteService @Inject constructor() {
-    companion object {
-        private const val TAG = "ThirdPartyEmoteService"
-    }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -93,7 +90,7 @@ class ThirdPartyEmoteService @Inject constructor() {
             cache.put(channelId, sorted)
             _emotes.value = _emotes.value + (channelId to sorted)
 
-            Timber.d(TAG, "Loaded ${sorted.size} third-party emotes for channel $channelId")
+            Timber.d("Loaded %d third-party emotes for channel %s", sorted.size, channelId)
         }
     }
 

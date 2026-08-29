@@ -79,6 +79,9 @@ dependencies {
     // Image Loading (Inline-Emotes im Chat-Overlay)
     implementation(libs.coil.compose)
 
+    // Logging
+    implementation(libs.timber)
+
     // Testing
     testImplementation(libs.junit.jupiter.api)
     testImplementation(libs.junit.jupiter.params)
