@@ -207,7 +207,7 @@ To test the overlay before streaming:
 
 ---
 
-## 7. AI Chat Bot
+## 8. AI Chat Bot
 
 The bot connects automatically on **Go Live** and shuts down when the **stream ends**. The full guide is in [docs/ai-chat-bot.md](ai-chat-bot.md).
 
@@ -265,7 +265,7 @@ If another bot runs in the same channel (e.g. Rivulet):
 
 ---
 
-## 8. Control OBS Studio
+## 9. Control OBS Studio
 
 Vivid can control OBS Studio via **WebSocket** (switch scenes, start/stop recording and streaming).
 
@@ -290,7 +290,7 @@ settings screen — host, port, and password are automatically filled in.
 
 ---
 
-## 9. Web Remote Control
+## 10. Web Remote Control
 
 Control the stream from any browser on the same Wi-Fi:
 
@@ -312,7 +312,7 @@ Control the stream from any browser on the same Wi-Fi:
 
 ---
 
-## 10. Settings — The Six Categories
+## 11. Settings — The Seven Categories
 
 The settings screen is organized into six categories (like Moblin):
 
@@ -327,7 +327,7 @@ The settings screen is organized into six categories (like Moblin):
 
 ---
 
-## 11. Updates
+## 12. Updates
 
 ### Automatic (Obtainium)
 

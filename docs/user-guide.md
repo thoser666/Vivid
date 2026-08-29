@@ -212,7 +212,7 @@ Um das Overlay vor dem Stream zu testen:
 
 ---
 
-## 7. KI-Chat-Bot
+## 8. KI-Chat-Bot
 
 Der Bot verbindet sich automatisch beim **Go Live** mit dem Twitch-Chat und fährt bei
 **Streamende** herunter. Die vollständige Anleitung steht in [docs/ai-chat-bot.md](ai-chat-bot.md).
@@ -271,7 +271,7 @@ Läuft ein anderer Bot im selben Kanal (z. B. Rivulet):
 
 ---
 
-## 8. OBS Studio steuern
+## 9. OBS Studio steuern
 
 Vivid kann OBS Studio über **WebSocket** steuern (Szenen wechseln, Recording/Stream starten/stoppen).
 
@@ -296,7 +296,7 @@ Einstellungen-Screen importieren — Host, Port und Passwort werden automatisch 
 
 ---
 
-## 9. Web-Remote-Control
+## 10. Web-Remote-Control
 
 Steuere den Stream von jedem Browser im selben WLAN:
 
@@ -318,7 +318,7 @@ Steuere den Stream von jedem Browser im selben WLAN:
 
 ---
 
-## 10. Einstellungen — Die sechs Kategorien
+## 11. Einstellungen — Die sieben Kategorien
 
 Der Einstellungen-Screen ist in sechs Kategorien gegliedert (wie Moblin):
 
@@ -333,7 +333,7 @@ Der Einstellungen-Screen ist in sechs Kategorien gegliedert (wie Moblin):
 
 ---
 
-## 11. Updates
+## 12. Updates
 
 ### Automatisch (Obtainium)
 

@@ -211,7 +211,7 @@ Pour tester l'overlay avant le stream :
 
 ---
 
-## 7. Chat-bot IA
+## 8. Chat-bot IA
 
 Le bot se connecte automatiquement au chat Twitch au **Go Live** et s'arrête à la
 **fin du stream**. Le guide complet se trouve dans [docs/ai-chat-bot.md](ai-chat-bot.md).
@@ -270,7 +270,7 @@ Si un autre bot tourne sur la même chaîne (p. ex. Rivulet) :
 
 ---
 
-## 8. Contrôler OBS Studio
+## 9. Contrôler OBS Studio
 
 Vivid peut piloter OBS Studio via **WebSocket** (changer de scène, démarrer/arrêter l'enregistrement/le stream).
 
@@ -295,7 +295,7 @@ l'écran des paramètres — hôte, port et mot de passe sont repris automatique
 
 ---
 
-## 9. Télécommande web
+## 10. Télécommande web
 
 Pilote le stream depuis n'importe quel navigateur du même Wi-Fi :
 
@@ -317,7 +317,7 @@ Pilote le stream depuis n'importe quel navigateur du même Wi-Fi :
 
 ---
 
-## 10. Paramètres — Les six catégories
+## 11. Paramètres — Les sept catégories
 
 L'écran des paramètres est organisé en six catégories (comme Moblin) :
 
@@ -332,7 +332,7 @@ L'écran des paramètres est organisé en six catégories (comme Moblin) :
 
 ---
 
-## 11. Mises à jour
+## 12. Mises à jour
 
 ### Automatique (Obtainium)
 
