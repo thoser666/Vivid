@@ -7,8 +7,10 @@ plugins {
     // Sentry plugin only for standard builds (FOSS builds don't use Sentry)
     // The fossBuild property is set via -PfossBuild=true for F-Droid builds
     alias(libs.plugins.sentry.android.gradle)
-    // Roborazzi plugin temporarily disabled due to AGP 9.x compatibility
-    // alias(libs.plugins.roborazzi)
+    // Roborazzi: Screenshot-Testing (visuelle Regression)
+    // Voraussetzung: Roborazzi >= 1.65.0 mit Gradle 9 + AGP 9.x
+    // separateOutputDirs behebt den Race-Condition-Bug (#830) unter Gradle 9.
+    alias(libs.plugins.roborazzi)
 }
 
 // Sentry configuration - only active for standard builds
@@ -17,6 +19,12 @@ sentry {
     // Skip ProGuard mapping upload when token is missing (e.g. nightly CI builds).
     // Token is provided by android_fastlane.yml and android.yml workflows.
     autoUploadProguardMapping.set(System.getenv("SENTRY_AUTH_TOKEN") != null)
+}
+
+// Roborazzi: separate output dirs per variant (behebt Gradle 9 race condition)
+@OptIn(com.github.takahirom.roborazzi.ExperimentalRoborazziApi::class)
+roborazzi {
+    separateOutputDirs.set(true)
 }
 
 android {
@@ -162,6 +170,8 @@ android {
         buildConfig = true
     }
 
+
+
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -232,6 +242,14 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.mockk)
     testImplementation(libs.kotlinx.coroutines.test)
+    // Roborazzi: Screenshot-Testing (JVM-unit-test, kein Emulator nötig)
+    testImplementation(libs.roborazzi.core)
+    testImplementation(libs.roborazzi.compose)
+    testImplementation(libs.roborazzi.junit.rule)
+    // Compose UI Test für Robolectric (erstellt ComposeRule in unit tests)
+    testImplementation(libs.androidx.ui.test.junit4)
+    // Robolectric: Android-Framework-Emulation für JVM-basierte UI-Tests
+    testImplementation(libs.robolectric.core)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.espresso.intents)

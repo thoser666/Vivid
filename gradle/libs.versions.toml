@@ -36,6 +36,8 @@ rootencoder = "2.7.5"
 turbine = "1.2.1"
 ktor = "3.5.2"
 sentryGradlePlugin = "6.6.0"
+roborazzi = "1.72.0"
+robolectric = "4.14.1"
 
 [libraries]
 # --- Compose ---
@@ -112,6 +114,12 @@ rootencoder-encoder = { module = "com.github.pedroSG94.RootEncoder:encoder", ver
 rootencoder-library = { module = "com.github.pedroSG94.RootEncoder:library", version.ref = "rootencoder" }
 rootencoder-rtmp = { module = "com.github.pedroSG94.RootEncoder:rtmp", version.ref = "rootencoder" }
 
+# Roborazzi (Screenshot-Testing)
+roborazzi-core = { group = "io.github.takahirom.roborazzi", name = "roborazzi", version.ref = "roborazzi" }
+roborazzi-compose = { group = "io.github.takahirom.roborazzi", name = "roborazzi-compose", version.ref = "roborazzi" }
+roborazzi-junit-rule = { group = "io.github.takahirom.roborazzi", name = "roborazzi-junit-rule", version.ref = "roborazzi" }
+robolectric-core = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
+
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
@@ -122,3 +130,4 @@ hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt-version" }
 compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 android-library = { id = "com.android.library", version.ref = "agp" }
 sentry-android-gradle = { id = "io.sentry.android.gradle", version.ref = "sentryGradlePlugin" }
+roborazzi = { id = "io.github.takahirom.roborazzi", version.ref = "roborazzi" }
