@@ -8,6 +8,7 @@ import com.vivid.feature.chat.model.ChatAlertType
 import com.vivid.feature.chat.model.ChatBadge
 import com.vivid.feature.chat.model.ChatConnectionState
 import com.vivid.feature.chat.model.ChatMessage
+import com.vivid.feature.chat.emotes.ThirdPartyEmoteService
 import com.vivid.feature.chat.twitch.TwitchBadgeClient
 import com.vivid.feature.chat.twitch.TwitchChatEventSubReader
 import io.mockk.Runs
@@ -63,6 +64,9 @@ class ChatOverlayViewModelTest {
         coEvery { load(any()) } returns badges
     }
 
+    /** ThirdPartyEmoteService-Stub. */
+    private fun emoteService(): ThirdPartyEmoteService = ThirdPartyEmoteService()
+
     /** Voll konfiguriert (Kanal + Bot-Zugangsdaten für EventSub). */
     private fun settings(
         enabled: Boolean = true,
@@ -101,7 +105,7 @@ class ChatOverlayViewModelTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val reader = reader()
         val settings = MutableStateFlow(settings(channel = " MeinKanal "))
-        val viewModel = ChatOverlayViewModel(reader, repository(settings), badgeClient())
+        val viewModel = ChatOverlayViewModel(reader, repository(settings), badgeClient(), emoteService())
         advanceUntilIdle()
 
         verify(exactly = 1) {
@@ -125,7 +129,7 @@ class ChatOverlayViewModelTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val reader = reader()
         val settings = MutableStateFlow(settings(enabled = false))
-        val viewModel = ChatOverlayViewModel(reader, repository(settings), badgeClient())
+        val viewModel = ChatOverlayViewModel(reader, repository(settings), badgeClient(), emoteService())
         advanceUntilIdle()
 
         verify(exactly = 0) { reader.start(any()) }
@@ -138,7 +142,7 @@ class ChatOverlayViewModelTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val reader = reader()
         val settings = MutableStateFlow(settings(channel = "  "))
-        val viewModel = ChatOverlayViewModel(reader, repository(settings), badgeClient())
+        val viewModel = ChatOverlayViewModel(reader, repository(settings), badgeClient(), emoteService())
         advanceUntilIdle()
 
         verify(exactly = 0) { reader.start(any()) }
@@ -151,7 +155,7 @@ class ChatOverlayViewModelTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val reader = reader()
         val settings = MutableStateFlow(settings(botLogin = ""))
-        val viewModel = ChatOverlayViewModel(reader, repository(settings), badgeClient())
+        val viewModel = ChatOverlayViewModel(reader, repository(settings), badgeClient(), emoteService())
         advanceUntilIdle()
 
         verify(exactly = 0) { reader.start(any()) }
@@ -165,7 +169,7 @@ class ChatOverlayViewModelTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val reader = reader()
         val settings = MutableStateFlow(settings(channel = "kanalA"))
-        val viewModel = ChatOverlayViewModel(reader, repository(settings), badgeClient())
+        val viewModel = ChatOverlayViewModel(reader, repository(settings), badgeClient(), emoteService())
         advanceUntilIdle()
 
         settings.value = settings(channel = "kanalB")
@@ -182,7 +186,7 @@ class ChatOverlayViewModelTest {
         val messageFlow = MutableSharedFlow<ChatMessage>(extraBufferCapacity = 64)
         val reader = reader(messageFlow = messageFlow)
         val settings = MutableStateFlow(settings())
-        val viewModel = ChatOverlayViewModel(reader, repository(settings), badgeClient())
+        val viewModel = ChatOverlayViewModel(reader, repository(settings), badgeClient(), emoteService())
         advanceUntilIdle()
 
         messageFlow.tryEmit(chatMessage("hallo"))
@@ -198,7 +202,7 @@ class ChatOverlayViewModelTest {
         val messageFlow = MutableSharedFlow<ChatMessage>(extraBufferCapacity = 64)
         val reader = reader(messageFlow = messageFlow)
         val settings = MutableStateFlow(settings())
-        val viewModel = ChatOverlayViewModel(reader, repository(settings), badgeClient())
+        val viewModel = ChatOverlayViewModel(reader, repository(settings), badgeClient(), emoteService())
         advanceUntilIdle()
 
         repeat(ChatOverlayViewModel.MAX_MESSAGES + 5) { i ->
@@ -217,7 +221,7 @@ class ChatOverlayViewModelTest {
         val messageFlow = MutableSharedFlow<ChatMessage>(extraBufferCapacity = 64)
         val reader = reader(messageFlow = messageFlow)
         val settings = MutableStateFlow(settings())
-        val viewModel = ChatOverlayViewModel(reader, repository(settings), badgeClient())
+        val viewModel = ChatOverlayViewModel(reader, repository(settings), badgeClient(), emoteService())
         advanceUntilIdle()
 
         messageFlow.tryEmit(chatMessage("hallo"))
@@ -237,7 +241,7 @@ class ChatOverlayViewModelTest {
         val stateFlow = MutableStateFlow<ChatConnectionState>(ChatConnectionState.Disconnected)
         val reader = reader(stateFlow = stateFlow)
         val settings = MutableStateFlow(settings())
-        val viewModel = ChatOverlayViewModel(reader, repository(settings), badgeClient())
+        val viewModel = ChatOverlayViewModel(reader, repository(settings), badgeClient(), emoteService())
         advanceUntilIdle()
 
         stateFlow.value = ChatConnectionState.Connecting
@@ -261,7 +265,7 @@ class ChatOverlayViewModelTest {
         val badgeClient = badgeClient(badgeMap)
         val reader = reader()
         val settings = MutableStateFlow(settings())
-        val viewModel = ChatOverlayViewModel(reader, repository(settings), badgeClient)
+        val viewModel = ChatOverlayViewModel(reader, repository(settings), badgeClient, emoteService())
         advanceUntilIdle()
 
         coVerify(exactly = 1) {
@@ -278,7 +282,7 @@ class ChatOverlayViewModelTest {
         )
         val reader = reader()
         val settings = MutableStateFlow(settings())
-        val viewModel = ChatOverlayViewModel(reader, repository(settings), badgeClient)
+        val viewModel = ChatOverlayViewModel(reader, repository(settings), badgeClient, emoteService())
         advanceUntilIdle()
         assertTrue(viewModel.uiState.value.badges.isNotEmpty())
 
@@ -296,7 +300,7 @@ class ChatOverlayViewModelTest {
         }
         val reader = reader()
         val settings = MutableStateFlow(settings())
-        val viewModel = ChatOverlayViewModel(reader, repository(settings), badgeClient)
+        val viewModel = ChatOverlayViewModel(reader, repository(settings), badgeClient, emoteService())
         advanceUntilIdle()
 
         // Kein Crash, keine Badges — das Overlay läuft trotzdem (leere Map).
@@ -322,7 +326,7 @@ class ChatOverlayViewModelTest {
         }
         val reader = reader()
         val settings = MutableStateFlow(settings(channel = "kanalA"))
-        val viewModel = ChatOverlayViewModel(reader, repository(settings), badgeClient)
+        val viewModel = ChatOverlayViewModel(reader, repository(settings), badgeClient, emoteService())
         runCurrent() // Load für Kanal A startet (suspended im delay)
         assertEquals(emptyMap<String, ChatBadge>(), viewModel.uiState.value.badges)
 
@@ -350,7 +354,7 @@ class ChatOverlayViewModelTest {
         }
         val reader = reader()
         val settings = MutableStateFlow(settings())
-        val viewModel = ChatOverlayViewModel(reader, repository(settings), badgeClient)
+        val viewModel = ChatOverlayViewModel(reader, repository(settings), badgeClient, emoteService())
         runCurrent() // Load startet, noch in-flight
 
         settings.value = settings(enabled = false)
@@ -370,7 +374,7 @@ class ChatOverlayViewModelTest {
         val alertFlow = MutableSharedFlow<ChatAlert>(extraBufferCapacity = 64)
         val reader = reader(alertsFlow = alertFlow)
         val settings = MutableStateFlow(settings())
-        val viewModel = ChatOverlayViewModel(reader, repository(settings), badgeClient())
+        val viewModel = ChatOverlayViewModel(reader, repository(settings), badgeClient(), emoteService())
         advanceUntilIdle()
 
         repeat(ChatOverlayViewModel.MAX_ALERTS + 2) { i ->
@@ -404,7 +408,7 @@ class ChatOverlayViewModelTest {
         val alertFlow = MutableSharedFlow<ChatAlert>(extraBufferCapacity = 64)
         val reader = reader(alertsFlow = alertFlow)
         val settings = MutableStateFlow(settings())
-        val viewModel = ChatOverlayViewModel(reader, repository(settings), badgeClient())
+        val viewModel = ChatOverlayViewModel(reader, repository(settings), badgeClient(), emoteService())
         advanceUntilIdle()
 
         alertFlow.tryEmit(
@@ -431,7 +435,7 @@ class ChatOverlayViewModelTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val reader = reader()
         val settings = MutableStateFlow(settings())
-        val viewModel = ChatOverlayViewModel(reader, repository(settings), badgeClient())
+        val viewModel = ChatOverlayViewModel(reader, repository(settings), badgeClient(), emoteService())
         advanceUntilIdle()
 
         viewModel.triggerTestAlert(ChatAlertType.FOLLOW)

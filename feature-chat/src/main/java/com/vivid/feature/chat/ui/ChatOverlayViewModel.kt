@@ -8,6 +8,8 @@ import com.vivid.feature.chat.model.ChatAlertType
 import com.vivid.feature.chat.model.ChatBadge
 import com.vivid.feature.chat.model.ChatConnectionState
 import com.vivid.feature.chat.model.ChatMessage
+import com.vivid.feature.chat.emotes.ThirdPartyEmote
+import com.vivid.feature.chat.emotes.ThirdPartyEmoteService
 import com.vivid.feature.chat.twitch.TwitchBadgeClient
 import com.vivid.feature.chat.twitch.TwitchChatEventSubReader
 import com.vivid.feature.chat.twitch.TwitchEventSubConfig
@@ -25,6 +27,7 @@ class ChatOverlayViewModel @Inject constructor(
     private val chatReader: TwitchChatEventSubReader,
     private val settingsRepository: SettingsRepository,
     private val badgeClient: TwitchBadgeClient,
+    private val emoteService: ThirdPartyEmoteService,
 ) : ViewModel() {
 
     companion object {
@@ -51,6 +54,8 @@ class ChatOverlayViewModel @Inject constructor(
          * geladen; ohne Badge-Daten zeigt das Overlay nur den Usernamen.
          */
         val badges: Map<String, ChatBadge> = emptyMap(),
+        /** Third-Party-Emotes (BTTV/FFZ/7TV) als Name→URL-Map. */
+        val thirdPartyEmotes: Map<String, String> = emptyMap(),
         /**
          * Event-Alerts (Follow/Sub/Raid) aus dem EventSub-WebSocket — max.
          * [MAX_ALERTS] gleichzeitig, jeder verschwindet nach [ALERT_TTL_MS]
@@ -95,6 +100,7 @@ class ChatOverlayViewModel @Inject constructor(
                     )
                     chatReader.start(config)
                     loadBadges(config)
+                    loadThirdPartyEmotes(config.channel)
                 } else {
                     // Stopp/fehlende Konfiguration: laufende Badge-Loads
                     // invalidieren, damit ihre Antworten nicht mehr ankommen.
@@ -173,6 +179,22 @@ class ChatOverlayViewModel @Inject constructor(
             val badges = runCatching { badgeClient.load(config) }.getOrDefault(emptyMap())
             if (badgeLoadChannel == config.channel) {
                 _uiState.update { it.copy(badges = badges) }
+            }
+        }
+    }
+
+    /**
+     * Lädt Third-Party-Emotes (BTTV/FFZ/7TV) für den Kanal.
+     * Fehler sind unkritisch: das Overlay zeigt dann nur Twitch-Emotes.
+     */
+    private fun loadThirdPartyEmotes(channelId: String) {
+        viewModelScope.launch {
+            emoteService.loadEmotes(channelId)
+            // Emotes als Name→URL-Map im UI-State speichern
+            emoteService.emotes.collect { emoteMap ->
+                val channelEmotes = emoteMap[channelId] ?: emptyList()
+                val emoteNameToUrl = channelEmotes.associate { it.name to it.url }
+                _uiState.update { it.copy(thirdPartyEmotes = emoteNameToUrl) }
             }
         }
     }

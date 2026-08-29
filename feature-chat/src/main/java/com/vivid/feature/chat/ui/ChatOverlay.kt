@@ -34,6 +34,7 @@ import coil.compose.AsyncImage
 import com.vivid.feature.chat.R
 import com.vivid.feature.chat.model.ChatAlert
 import com.vivid.feature.chat.model.ChatAlertType
+import com.vivid.feature.chat.emotes.ThirdPartyEmote
 import com.vivid.feature.chat.model.ChatBadge
 import com.vivid.feature.chat.model.ChatConnectionState
 import com.vivid.feature.chat.model.ChatMessage
@@ -80,7 +81,7 @@ fun ChatOverlay(
             )
         } else {
             uiState.messages.takeLast(6).forEach { message ->
-                ChatMessageRow(message, uiState.badges)
+                ChatMessageRow(message, uiState.badges, uiState.thirdPartyEmotes)
             }
         }
     }
@@ -190,11 +191,15 @@ private fun tierLabel(tier: String): String? = when (tier) {
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ChatMessageRow(message: ChatMessage, badges: Map<String, ChatBadge>) {
+private fun ChatMessageRow(
+    message: ChatMessage,
+    badges: Map<String, ChatBadge>,
+    thirdPartyEmotes: Map<String, String> = emptyMap(),
+) {
     val nameColor = message.color?.let(::parseHexColor) ?: Color(0xFFB39DDB)
     val emoteSizeDp = with(LocalDensity.current) { 14.sp.toDp() }
     val badgeSizeDp = with(LocalDensity.current) { 18.sp.toDp() }
-    val segments = parseMessageSegments(message.text, message.inlineEmotes)
+    val segments = parseMessageSegments(message.text, message.inlineEmotes, thirdPartyEmotes)
 
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(2.dp),
@@ -243,31 +248,53 @@ private fun ChatMessageRow(message: ChatMessage, badges: Map<String, ChatBadge>)
                         contentScale = ContentScale.Fit,
                     )
                 }
+                is MessageSegment.ThirdPartyEmote -> {
+                    AsyncImage(
+                        model = segment.url,
+                        contentDescription = segment.name,
+                        modifier = Modifier
+                            .width(emoteSizeDp)
+                            .height(emoteSizeDp)
+                            .clip(RoundedCornerShape(2.dp)),
+                        contentScale = ContentScale.Fit,
+                    )
+                }
             }
         }
     }
 }
 
-/** Segmente einer Chat-Nachricht: reiner Text oder ein Inline-Emote. */
+/** Segmente einer Chat-Nachricht: reiner Text, Twitch-Inline-Emote oder Third-Party-Emote. */
 internal sealed interface MessageSegment {
     data class Text(val text: String) : MessageSegment
     data class Emote(val emote: InlineEmote) : MessageSegment
+    data class ThirdPartyEmote(val name: String, val url: String) : MessageSegment
 }
 
 /**
  * Zerlegt den Klartext einer Chat-Nachricht in [MessageSegment]e, indem
  * [inlineEmotes] an ihren Positionen aus dem Text herausgeschnitten werden.
+ * Zusätzlich werden Third-Party-Emotes (BTTV/FFZ/7TV) aus [thirdPartyEmotes]
+ * als Inline-Emote erkannt.
  */
 internal fun parseMessageSegments(
     text: String,
     inlineEmotes: List<InlineEmote>,
+    thirdPartyEmotes: Map<String, String> = emptyMap(),
 ): List<MessageSegment> {
-    if (inlineEmotes.isEmpty()) return listOf(MessageSegment.Text(text))
+    if (inlineEmotes.isEmpty() && thirdPartyEmotes.isEmpty()) {
+        return listOf(MessageSegment.Text(text))
+    }
     val segments = mutableListOf<MessageSegment>()
     var cursor = 0
+
+    // Zuerst Twitch-Inline-Emotes (haben explizite Positionen)
     for (emote in inlineEmotes) {
         if (emote.start > cursor && emote.start <= text.length) {
-            segments.add(MessageSegment.Text(text.substring(cursor, emote.start)))
+            // Text zwischen dem letzten Cursor und dem Emote
+            val textBefore = text.substring(cursor, emote.start)
+            // Third-Party-Emotes im Text davor parsen
+            segments.addAll(parseThirdPartyEmotesInText(textBefore, thirdPartyEmotes))
         }
         if (emote.end < text.length) {
             segments.add(MessageSegment.Emote(emote))
@@ -277,10 +304,61 @@ internal fun parseMessageSegments(
             cursor = text.length
         }
     }
+
+    // Rest-Text nach den letzten Twitch-Emotes
     if (cursor < text.length) {
-        segments.add(MessageSegment.Text(text.substring(cursor)))
+        val remainingText = text.substring(cursor)
+        segments.addAll(parseThirdPartyEmotesInText(remainingText, thirdPartyEmotes))
     }
-    return segments
+
+    return segments.ifEmpty { listOf(MessageSegment.Text(text)) }
+}
+
+/**
+ * Parst Third-Party-Emotes in einem Text-Block.
+ * Ersetzt Emote-Namen durch [ThirdPartyEmote]-Segmente.
+ */
+private fun parseThirdPartyEmotesInText(
+    text: String,
+    thirdPartyEmotes: Map<String, String>,
+): List<MessageSegment> {
+    if (thirdPartyEmotes.isEmpty() || text.isBlank()) {
+        return listOf(MessageSegment.Text(text))
+    }
+
+    val segments = mutableListOf<MessageSegment>()
+    var remaining = text
+
+    // Emote-Namen nach Länge absteigend sortieren
+    val sortedEmotes = thirdPartyEmotes.entries.sortedByDescending { it.key.length }
+
+    while (remaining.isNotEmpty()) {
+        var found = false
+        for ((name, url) in sortedEmotes) {
+            if (remaining.startsWith(name, ignoreCase = true)) {
+                segments.add(MessageSegment.ThirdPartyEmote(name, url))
+                remaining = remaining.removePrefix(name)
+                found = true
+                break
+            }
+        }
+        if (!found) {
+            // Zeichen zum nächsten Emote oder Rest-Text
+            val nextEmoteIndex = sortedEmotes.minOfOrNull { (name, _) ->
+                remaining.indexOf(name, ignoreCase = true).takeIf { it >= 0 } ?: Int.MAX_VALUE
+            } ?: Int.MAX_VALUE
+
+            if (nextEmoteIndex == Int.MAX_VALUE) {
+                segments.add(MessageSegment.Text(remaining))
+                break
+            } else if (nextEmoteIndex > 0) {
+                segments.add(MessageSegment.Text(remaining.substring(0, nextEmoteIndex)))
+                remaining = remaining.removeRange(0, nextEmoteIndex)
+            }
+        }
+    }
+
+    return segments.ifEmpty { listOf(MessageSegment.Text(text)) }
 }
 
 private fun parseHexColor(hex: String): Color? =
