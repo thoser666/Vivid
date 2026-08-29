@@ -15,10 +15,11 @@ import org.junit.Test
 class SettingsCategoriesTest {
 
     @Test
-    fun `alle sieben Kategorien vorhanden - in Anzeige-Reihenfolge`() {
+    fun `alle acht Kategorien vorhanden - in Anzeige-Reihenfolge`() {
         assertEquals(
             listOf(
                 R.string.cat_streaming_title,
+                R.string.camera_section_title,
                 R.string.cat_appearance_title,
                 R.string.cat_overlays_title,
                 R.string.cat_chatbot_title,
@@ -33,7 +34,7 @@ class SettingsCategoriesTest {
     @Test
     fun `jede Kategorie hat eine eindeutige Route mit korrektem Präfix`() {
         val routes = SettingsCategories.all.map { it.route }
-        assertEquals(7, routes.size)
+        assertEquals(8, routes.size)
         assertEquals(routes.size, routes.toSet().size) // keine Duplikate
         routes.forEach { route ->
             assertTrue("Route '$route' muss mit 'settings_' beginnen", route.startsWith("settings_"))
@@ -50,9 +51,10 @@ class SettingsCategoriesTest {
     }
 
     @Test
-    fun `Kernrouten enthalten Streaming Appearance ChatBot Remote und About`() {
+    fun `Kernrouten enthalten Streaming Camera Appearance ChatBot Remote und About`() {
         val routes = SettingsCategories.all.map { it.route }.toSet()
         assertTrue(routes.contains("settings_streaming"))
+        assertTrue(routes.contains("settings_camera"))
         assertTrue(routes.contains("settings_appearance"))
         assertTrue(routes.contains("settings_overlays"))
         assertTrue(routes.contains("settings_chatbot"))
