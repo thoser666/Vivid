@@ -7,6 +7,8 @@ plugins {
     // Sentry plugin only for standard builds (FOSS builds don't use Sentry)
     // The fossBuild property is set via -PfossBuild=true for F-Droid builds
     alias(libs.plugins.sentry.android.gradle)
+    // Roborazzi plugin temporarily disabled due to AGP 9.x compatibility
+    // alias(libs.plugins.roborazzi)
 }
 
 // Sentry configuration - only active for standard builds
