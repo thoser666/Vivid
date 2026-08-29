@@ -186,7 +186,7 @@ The Twitch chat overlay shows your channel's chat **over the streaming preview**
 
 ### 7.2 What You Need
 
-The overlay reads the chat via **Twitch EventSub** (not IRC). It needs the **bot credentials** (see [AI Chat Bot](#7-ai-chat-bot) → Bot Login + OAuth Token):
+The overlay reads the chat via **Twitch EventSub** (not IRC). It needs the **bot credentials** (see [AI Chat Bot](#8-ai-chat-bot) → Bot Login + OAuth Token):
 - The bot token needs the scope `user:read:chat`
 - For event alerts (Follows/Subs): the bot must be a **moderator** in the channel (`moderator:read:followers`) and have `channel:read:subscriptions`
 

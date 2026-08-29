@@ -189,7 +189,7 @@ L'overlay de chat Twitch affiche le chat de ta chaîne **au-dessus de l'aperçu 
 ### 7.2 Ce qu'il te faut
 
 L'overlay lit le chat via **Twitch EventSub** (pas IRC). Pour cela, il faut les
-**identifiants du bot** (voir [Chat-bot IA](#7-chat-bot-ia) → login du bot + jeton OAuth) :
+**identifiants du bot** (voir [Chat-bot IA](#8-chat-bot-ia) → login du bot + jeton OAuth) :
 - Le jeton du bot doit contenir le scope `user:read:chat`
 - Pour les alertes d'événements (follows/subs) : le bot doit être **modérateur** de la chaîne (`moderator:read:followers`)
   et posséder `channel:read:subscriptions`

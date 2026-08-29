@@ -190,7 +190,7 @@ Das Twitch-Chat-Overlay zeigt den Chat deines Kanals **über der Streaming-Vorsc
 ### 7.2 Was du brauchst
 
 Das Overlay liest den Chat über **Twitch EventSub** (nicht IRC). Dafür braucht es die
-**Bot-Zugangsdaten** (siehe [KI-Chat-Bot](#7-ki-chat-bot) → Bot-Login + OAuth-Token):
+**Bot-Zugangsdaten** (siehe [KI-Chat-Bot](#8-ki-chat-bot) → Bot-Login + OAuth-Token):
 - Der Bot-Token muss den Scope `user:read:chat` enthalten
 - Für Event-Alerts (Follows/Subs): Bot muss **Moderator** im Kanal sein (`moderator:read:followers`)
   und `channel:read:subscriptions` besitzen
