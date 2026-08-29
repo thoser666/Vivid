@@ -21,12 +21,13 @@ an AI bot, and camera controls in one app — inspired by [Moblin](https://githu
 3. [Configure Your Stream](#3-configure-your-stream)
 4. [Go Live](#4-go-live)
 5. [Camera Controls (Tap-to-Focus, Zoom, Stabilization, Torch)](#5-camera-controls)
-6. [Chat Overlay](#6-chat-overlay)
-7. [AI Chat Bot](#7-ai-chat-bot)
-8. [Control OBS Studio](#8-control-obs-studio)
-9. [Web Remote Control (Control the Stream from a Browser)](#9-web-remote-control)
-10. [Settings — The Six Categories](#10-settings--the-six-categories)
-11. [Updates](#11-updates)
+6. [Manual Camera Controls (Focus, Lens Selection)](#6-manual-camera-controls)
+7. [Chat Overlay](#7-chat-overlay)
+8. [AI Chat Bot](#8-ai-chat-bot)
+9. [Control OBS Studio](#9-control-obs-studio)
+10. [Web Remote Control (Control the Stream from a Browser)](#10-web-remote-control)
+11. [Settings — The Seven Categories](#11-settings--the-seven-categories)
+12. [Updates](#12-updates)
 
 ---
 
@@ -140,17 +141,50 @@ Three buttons in the top-right of the streaming screen:
 
 ---
 
-## 6. Chat Overlay
+## 6. Manual Camera Controls
+
+For detailed control over focus and lens selection:
+
+1. **Settings** → **"Camera Controls"**
+
+### 6.1 Focus
+
+- **Focus Slider** (0–10): Set the focus distance manually
+  - **0 = Infinity** (landscape, wide shots)
+  - **10 = Macro** (close-ups, details)
+- The setting acts directly on the camera and survives stream start/stop
+
+### 6.2 Lens Selection
+
+If your device has multiple cameras (e.g., ultra-wide/wide/tele):
+
+| Lens | Typical Use |
+|------|-------------|
+| **Ultra-wide** | Wide landscapes, group photos |
+| **Wide** (default) | Everyday, street streaming |
+| **Tele** | Detail shots, sports, distant objects |
+
+> Availability depends on the device — not all cameras offer all lenses.
+
+### 6.3 Tips
+
+- **Tap-to-Focus** on the preview temporarily overrides the manual setting
+- **Focus Lock** (button top-right) holds the current focus
+- For **drive/train streams**: Focus to infinity + enable stabilization
+
+---
+
+## 7. Chat Overlay
 
 The Twitch chat overlay shows your channel's chat **over the streaming preview**.
 
-### 6.1 Enable
+### 7.1 Enable
 
 1. **Settings** → **"Overlays & Widgets"**
 2. Toggle **Chat Overlay** on
 3. Enter your **Chat Channel** (your Twitch channel name, e.g. `thoser666`)
 
-### 6.2 What You Need
+### 7.2 What You Need
 
 The overlay reads the chat via **Twitch EventSub** (not IRC). It needs the **bot credentials** (see [AI Chat Bot](#7-ai-chat-bot) → Bot Login + OAuth Token):
 - The bot token needs the scope `user:read:chat`

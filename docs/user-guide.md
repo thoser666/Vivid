@@ -21,12 +21,13 @@ KI-Bot und Kamera-Steuerung in einer App vereint — inspiriert von [Moblin](htt
 3. [Stream konfigurieren](#3-stream-konfigurieren)
 4. [Go Live](#4-go-live)
 5. [Kamera-Steuerung (Tap-to-Focus, Zoom, Stabilisierung, Taschenlampe)](#5-kamera-steuerung)
-6. [Chat-Overlay](#6-chat-overlay)
-7. [KI-Chat-Bot](#7-ki-chat-bot)
-8. [OBS Studio steuern](#8-obs-studio-steuern)
-9. [Web-Remote-Control (Stream per Browser steuern)](#9-web-remote-control)
-10. [Einstellungen — Die sechs Kategorien](#10-einstellungen--die-sechs-kategorien)
-11. [Updates](#11-updates)
+6. [Manuelle Kamera-Steuerung (Fokus, Linsen-Auswahl)](#6-manuelle-kamera-steuerung)
+7. [Chat-Overlay](#7-chat-overlay)
+8. [KI-Chat-Bot](#8-ki-chat-bot)
+9. [OBS Studio steuern](#9-obs-studio-steuern)
+10. [Web-Remote-Control (Stream per Browser steuern)](#10-web-remote-control)
+11. [Einstellungen — Die sechs Kategorien](#11-einstellungen--die-sieben-kategorien)
+12. [Updates](#12-updates)
 
 ---
 
@@ -143,17 +144,50 @@ In der **oberen Leiste** des Streaming-Screens sitzt außerdem ein **❓ Hilfe-B
 
 ---
 
-## 6. Chat-Overlay
+## 6. Manuelle Kamera-Steuerung
+
+Für detaillierte Kontrolle über Fokus und Linsen-Auswahl:
+
+1. **Einstellungen** → **„Kamera-Steuerung"**
+
+### 6.1 Fokus
+
+- **Fokus-Slider** (0–10): Stelle den Fokusabstand manuell ein
+  - **0 = Unendlich** (Landschaft, weite Aufnahmen)
+  - **10 = Makro** (Nahaufnahmen, Details)
+- Die Einstellung wirkt direkt auf die Kamera und überlebt Stream-Start/Stop
+
+### 6.2 Linsen-Auswahl
+
+Wenn dein Gerät mehrere Kameras hat (z. B. Ultraweit/Weit/Tele):
+
+| Linse | Typischer Einsatz |
+|-------|-------------------|
+| **Ultraweit** | Breite Landschaften, Gruppenfotos |
+| **Weit** (Standard) | Alltag, Street-Streaming |
+| **Tele** | Detailaufnahmen, Sport, Entferntes |
+
+> Die Verfügbarkeit hängt vom Gerät ab — nicht alle Kameras bieten alle Linsen.
+
+### 6.3 Tipps
+
+- **Tap-to-Focus** auf der Vorschau überschreibt die manuelle Einstellung temporär
+- **Fokus-Lock** (Button oben rechts) hält den aktuellen Fokus fest
+- Für **Drive-/Train-Streams**: Fokus auf Unendlich + Stabilisierung an
+
+---
+
+## 7. Chat-Overlay
 
 Das Twitch-Chat-Overlay zeigt den Chat deines Kanals **über der Streaming-Vorschau**.
 
-### 6.1 Aktivieren
+### 7.1 Aktivieren
 
 1. **Einstellungen** → **„Overlays & Widgets"**
 2. **Chat-Overlay** einschalten
 3. **Chat-Kanal** eintragen (dein Twitch-Kanalname, z. B. `thoser666`)
 
-### 6.2 Was du brauchst
+### 7.2 Was du brauchst
 
 Das Overlay liest den Chat über **Twitch EventSub** (nicht IRC). Dafür braucht es die
 **Bot-Zugangsdaten** (siehe [KI-Chat-Bot](#7-ki-chat-bot) → Bot-Login + OAuth-Token):
@@ -161,7 +195,7 @@ Das Overlay liest den Chat über **Twitch EventSub** (nicht IRC). Dafür braucht
 - Für Event-Alerts (Follows/Subs): Bot muss **Moderator** im Kanal sein (`moderator:read:followers`)
   und `channel:read:subscriptions` besitzen
 
-### 6.3 Was das Overlay zeigt
+### 7.3 Was das Overlay zeigt
 
 - Die letzten Chat-Nachrichten unten links (mit Twitch-Farbe pro User)
 - **Twitch-Badges** (Broadcaster/Mod/Sub) vor dem Username als CDN-Bilder
@@ -170,7 +204,7 @@ Das Overlay liest den Chat über **Twitch EventSub** (nicht IRC). Dafür braucht
   - 🟢 Follow · 🟣 Sub · 🔵 Gift-Sub · 🟦 Resub · 🟠 Raid
   - Automatisch ausgeblendet nach 10 Sekunden
 
-### 6.4 Test-Alert (vor dem Go Live)
+### 7.4 Test-Alert (vor dem Go Live)
 
 Um das Overlay vor dem Stream zu testen:
 - **`!testalert follow`** (oder `sub`, `gift`, `resub`, `raid`) im Chat tippen (Owner-only)
@@ -183,14 +217,14 @@ Um das Overlay vor dem Stream zu testen:
 Der Bot verbindet sich automatisch beim **Go Live** mit dem Twitch-Chat und fährt bei
 **Streamende** herunter. Die vollständige Anleitung steht in [docs/ai-chat-bot.md](ai-chat-bot.md).
 
-### 7.1 Modus wählen
+### 8.1 Modus wählen
 
 | Modus | Beschreibung |
 |---|---|
 | **Bot (wie Moblin)** | Deterministische `!`-Befehle (`!help`, `!uptime`, `!tts`, `!bot`) — **kein LLM nötig** |
 | **KI autonom** | Die KI entscheidet selbst, ob und wie sie antwortet (inkl. bewusstem Schweigen) |
 
-### 7.2 Einrichtung
+### 8.2 Einrichtung
 
 **Einstellungen** → **„Chat-Bot & KI"**:
 
@@ -199,7 +233,7 @@ Der Bot verbindet sich automatisch beim **Go Live** mit dem Twitch-Chat und fäh
 3. **Twitch-App-Client-ID** (für EventSub + Helix)
 4. Für den KI-Modus: **LLM-Basis-URL**, **API-Key** und **Modell** eintragen (OpenAI-kompatibel → OpenAI, Gemini, Groq, DeepSeek, Ollama im LAN)
 
-### 7.3 Begrenzungen (Kosten-Schutz)
+### 8.3 Begrenzungen (Kosten-Schutz)
 
 Drei einstellbare Limits (alle `0` = aus):
 - **Per-Viewer-Cooldown** (Default 60 s) — ein Viewer bekommt nicht öfter als X Sekunden eine Antwort
@@ -210,7 +244,7 @@ Drei einstellbare Limits (alle `0` = aus):
 
 **Live-Verbrauch** im Settings-Screen: Antworten/Stunde (vs. Budget), Stream-Total, Top-Viewer.
 
-### 7.4 Owner-Befehle (nur der Streamer)
+### 8.4 Owner-Befehle (nur der Streamer)
 
 | Befehl | Wirkung |
 |---|---|
@@ -228,7 +262,7 @@ Drei einstellbare Limits (alle `0` = aus):
 > Antworten gehen per **Whisper** (privat), wenn der Toggle aktiv ist.
 > Viewer-Befehle: `!help`, `!uptime`, `!song`, `!next`, `!pause`, `!bot`.
 
-### 7.5 Koexistenz mit anderen Bots
+### 8.5 Koexistenz mit anderen Bots
 
 Läuft ein anderer Bot im selben Kanal (z. B. Rivulet):
 - **`chat_bot_ignore_bots`**: Andere Bot-Logins komplett ignorieren

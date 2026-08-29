@@ -21,12 +21,13 @@ bot IA et contrôle de la caméra dans une seule app — inspirée de [Moblin](h
 3. [Configurer le stream](#3-configurer-le-stream)
 4. [Go Live](#4-go-live)
 5. [Contrôle de la caméra (tap-to-focus, zoom, stabilisation, lampe torche)](#5-contrôle-de-la-caméra)
-6. [Overlay de chat](#6-overlay-de-chat)
-7. [Chat-bot IA](#7-chat-bot-ia)
-8. [Contrôler OBS Studio](#8-contrôler-obs-studio)
-9. [Télécommande web (piloter le stream depuis un navigateur)](#9-télécommande-web)
-10. [Paramètres — les six catégories](#10-paramètres--les-six-catégories)
-11. [Mises à jour](#11-mises-à-jour)
+6. [Contrôle manuel de la caméra (mise au point, sélection de l'objectif)](#6-contrôle-manuel-de-la-caméra)
+7. [Overlay de chat](#7-overlay-de-chat)
+8. [Chat-bot IA](#8-chat-bot-ia)
+9. [Contrôler OBS Studio](#9-contrôler-obs-studio)
+10. [Télécommande web (piloter le stream depuis un navigateur)](#10-télécommande-web)
+11. [Paramètres — les sept catégories](#11-paramètres--les-sept-catégories)
+12. [Mises à jour](#12-mises-à-jour)
 
 ---
 
@@ -142,17 +143,50 @@ Dans la **barre supérieure** de l'écran de streaming se trouve aussi un bouton
 
 ---
 
-## 6. Overlay de chat
+## 6. Contrôle manuel de la caméra
+
+Pour un contrôle détaillé de la mise au point et de la sélection de l'objectif :
+
+1. **Paramètres** → **« Contrôles caméra »**
+
+### 6.1 Mise au point
+
+- **Curseur de mise au point** (0–10) : Réglez la distance de mise au point manuellement
+  - **0 = Infini** (paysage, prises de vue larges)
+  - **10 = Macro** (gros plans, détails)
+- Le réglage agit directement sur la caméra et survit au démarrage/arrêt du stream
+
+### 6.2 Sélection de l'objectif
+
+Si votre appareil possède plusieurs caméras (par ex. ultra-grand angle/grand angle/télé) :
+
+| Objectif | Utilisation typique |
+|----------|-------------------|
+| **Ultra-grand angle** | Paysages larges, photos de groupe |
+| **Grand angle** (par défaut) | Quotidien, streaming de rue |
+| **Télé** |prises de vue de détail, sport, objets éloignés |
+
+> La disponibilité dépend de l'appareil — toutes les caméras n'offrent pas tous les objectifs.
+
+### 6.3 Conseils
+
+- Le **tap-to-focus** sur l'aperçu rem temporairement le réglage manuel
+- Le **verrou de mise au point** (bouton en haut à droite) maintient la mise au point actuelle
+- Pour les **streams en voiture/train** : mise au point à l'infini + stabilisation activée
+
+---
+
+## 7. Overlay de chat
 
 L'overlay de chat Twitch affiche le chat de ta chaîne **au-dessus de l'aperçu du stream**.
 
-### 6.1 Activer
+### 7.1 Activer
 
 1. **Paramètres** → **« Overlays & widgets »**
 2. Activer **l'overlay de chat**
 3. Saisir le **canal de chat** (ton nom de chaîne Twitch, p. ex. `thoser666`)
 
-### 6.2 Ce qu'il te faut
+### 7.2 Ce qu'il te faut
 
 L'overlay lit le chat via **Twitch EventSub** (pas IRC). Pour cela, il faut les
 **identifiants du bot** (voir [Chat-bot IA](#7-chat-bot-ia) → login du bot + jeton OAuth) :
