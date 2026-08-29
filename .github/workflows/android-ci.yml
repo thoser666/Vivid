@@ -80,6 +80,10 @@ jobs:
       - name: Run unit tests (all modules)
         run: ./gradlew testDebugUnitTest
 
+      # App-Modul: Standard-Flavor Tests (inkl. Design-Compliance-Tests)
+      - name: Run app standard flavor tests
+        run: ./gradlew :app:testStandardDebugUnitTest
+
       - name: Run lint & static analysis
         run: ./gradlew lintDebug
 
