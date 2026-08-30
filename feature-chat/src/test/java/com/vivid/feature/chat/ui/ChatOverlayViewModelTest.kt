@@ -80,7 +80,15 @@ class ChatOverlayViewModelTest {
         chatBotTwitchClientId = "cid-abc",
     )
 
-    private fun chatMessage(text: String, index: Int = 0): ChatMessage = ChatMessage(
+    private fun chatMessage(
+        text: String,
+        index: Int = 0,
+        isAction: Boolean = false,
+        replyParentMessageId: String? = null,
+        replyParentUserLogin: String? = null,
+        replyParentMessagePreview: String? = null,
+        bitsAmount: Int = 0,
+    ): ChatMessage = ChatMessage(
         id = "id-$index",
         channel = "kanal",
         userId = "user-$index",
@@ -93,6 +101,11 @@ class ChatOverlayViewModelTest {
         timestamp = 0L,
         isModerator = false,
         isSubscriber = false,
+        isAction = isAction,
+        replyParentMessageId = replyParentMessageId,
+        replyParentUserLogin = replyParentUserLogin,
+        replyParentMessagePreview = replyParentMessagePreview,
+        bitsAmount = bitsAmount,
     )
 
     @AfterEach
@@ -441,5 +454,81 @@ class ChatOverlayViewModelTest {
         viewModel.triggerTestAlert(ChatAlertType.FOLLOW)
 
         verify(exactly = 1) { reader.triggerTestAlert(ChatAlertType.FOLLOW) }
+    }
+
+    @Test
+    fun `reply message contains parent info`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val messageFlow = MutableSharedFlow<ChatMessage>(extraBufferCapacity = 64)
+        val reader = reader(messageFlow = messageFlow)
+        val settings = MutableStateFlow(settings())
+        val viewModel = ChatOverlayViewModel(reader, repository(settings), badgeClient(), emoteService())
+        advanceUntilIdle()
+
+        val replyMsg = chatMessage(
+            text = "Antwort auf dich",
+            index = 0,
+            replyParentMessageId = "parent-123",
+            replyParentUserLogin = "originaluser",
+            replyParentMessagePreview = "Das ist die Originalnachricht",
+        )
+        messageFlow.tryEmit(replyMsg)
+        runCurrent()
+
+        val msg = viewModel.uiState.value.messages.first()
+        assertEquals("parent-123", msg.replyParentMessageId)
+        assertEquals("originaluser", msg.replyParentUserLogin)
+        assertEquals("Das ist die Originalnachricht", msg.replyParentMessagePreview)
+    }
+
+    @Test
+    fun `bits message contains bitsAmount`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val messageFlow = MutableSharedFlow<ChatMessage>(extraBufferCapacity = 64)
+        val reader = reader(messageFlow = messageFlow)
+        val settings = MutableStateFlow(settings())
+        val viewModel = ChatOverlayViewModel(reader, repository(settings), badgeClient(), emoteService())
+        advanceUntilIdle()
+
+        val bitsMsg = chatMessage(text = "cheer100 Hallo", index = 0, bitsAmount = 100)
+        messageFlow.tryEmit(bitsMsg)
+        runCurrent()
+
+        assertEquals(100, viewModel.uiState.value.messages.first().bitsAmount)
+    }
+
+    @Test
+    fun `action message is marked as isAction`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val messageFlow = MutableSharedFlow<ChatMessage>(extraBufferCapacity = 64)
+        val reader = reader(messageFlow = messageFlow)
+        val settings = MutableStateFlow(settings())
+        val viewModel = ChatOverlayViewModel(reader, repository(settings), badgeClient(), emoteService())
+        advanceUntilIdle()
+
+        val actionMsg = chatMessage(text = "pinnt die Nachricht", index = 0, isAction = true)
+        messageFlow.tryEmit(actionMsg)
+        runCurrent()
+
+        assertTrue(viewModel.uiState.value.messages.first().isAction)
+    }
+
+    @Test
+    fun `normal message has no reply or bits`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val messageFlow = MutableSharedFlow<ChatMessage>(extraBufferCapacity = 64)
+        val reader = reader(messageFlow = messageFlow)
+        val settings = MutableStateFlow(settings())
+        val viewModel = ChatOverlayViewModel(reader, repository(settings), badgeClient(), emoteService())
+        advanceUntilIdle()
+
+        val normalMsg = chatMessage(text = "Hallo Welt", index = 0)
+        messageFlow.tryEmit(normalMsg)
+        runCurrent()
+
+        val msg = viewModel.uiState.value.messages.first()
+        assertEquals(0, msg.bitsAmount)
+        assertFalse(msg.isAction)
+        assertEquals(null, msg.replyParentMessageId)
     }
 }

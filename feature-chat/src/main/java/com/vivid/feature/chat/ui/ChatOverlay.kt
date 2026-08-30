@@ -23,6 +23,7 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
@@ -204,6 +205,16 @@ private fun ChatMessageRow(
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(2.dp),
     ) {
+        // Reply-Indikator: Pfeil + Name der Eltern-Nachricht (wenn vorhanden)
+        if (message.replyParentUserLogin != null) {
+            Text(
+                text = "↩ ${message.replyParentUserLogin}: ",
+                style = MaterialTheme.typography.labelSmall,
+                color = Color(0xFF90CAF9),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
         // Twitch-Badges (Broadcaster, Moderator, Subscriber, …)
         message.badges.forEach { key ->
             badges[key]?.let { badge ->
@@ -219,10 +230,17 @@ private fun ChatMessageRow(
             }
         }
         // Username (direkt nach den Badges)
+        val displayName = if (message.isAction) "* ${message.displayName}" else message.displayName
         Text(
             text = buildAnnotatedString {
-                withStyle(SpanStyle(color = nameColor, fontWeight = FontWeight.Bold)) {
-                    append("${message.displayName}: ")
+                if (message.isAction) {
+                    withStyle(SpanStyle(color = nameColor, fontWeight = FontWeight.Normal, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)) {
+                        append("$displayName ")
+                    }
+                } else {
+                    withStyle(SpanStyle(color = nameColor, fontWeight = FontWeight.Bold)) {
+                        append("${message.displayName}: ")
+                    }
                 }
             },
             style = MaterialTheme.typography.bodySmall,
@@ -234,7 +252,7 @@ private fun ChatMessageRow(
                     Text(
                         text = segment.text,
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color.White,
+                        color = if (message.isAction) Color(0xFFB0BEC5) else Color.White,
                     )
                 }
                 is MessageSegment.Emote -> {
@@ -260,6 +278,15 @@ private fun ChatMessageRow(
                     )
                 }
             }
+        }
+        // Bits-Anzeige (Cheer): Stern-Symbol + Anzahl der Bits
+        if (message.bitsAmount > 0) {
+            Text(
+                text = "⭐${message.bitsAmount}",
+                style = MaterialTheme.typography.labelSmall,
+                color = Color(0xFFFFB74D),
+                fontWeight = FontWeight.Bold,
+            )
         }
     }
 }

@@ -218,6 +218,32 @@ class TwitchChatEventSubReader @Inject constructor(
         val badges = event.badges.map { "${it.set_id}/${it.id}" }
         val login = event.chatter_user_login.trim().lowercase()
         val emotesTag = buildEmotesTag(event.message.fragments)
+        // /me-Nachrichten: Text beginnt mit "/me ", message_type ist "text"
+        val isAction = event.message_type == "action" ||
+            event.message.text.trimStart().startsWith("/me ")
+        val rawText = if (isAction) {
+            event.message.text.trimStart().removePrefix("/me ").trim()
+        } else {
+            event.message.text.trim()
+        }
+        // Bits: Cheer-Amount aus dem Event + Summe der Cheermote-Fragmente
+        val eventBits = event.cheer?.bits_amount ?: 0
+        val fragmentBits = event.message.fragments
+            .filter { it.type == "cheermote" && it.cheermote != null }
+            .sumOf { it.cheermote!!.bits }
+        val totalBits = maxOf(eventBits, fragmentBits)
+        // Reply: Eltern-Nachricht (gekürzt auf 80 Zeichen)
+        val replyParent = event.reply?.let {
+            val preview = it.parent_message_body
+                .takeIf { body -> body.isNotBlank() }
+                ?.take(80)
+            ReplyInfo(
+                messageId = it.parent_message_id,
+                userLogin = it.parent_user_login,
+                userName = it.parent_user_name,
+                preview = preview,
+            )
+        }
         return ChatMessage(
             id = event.message_id,
             channel = event.broadcaster_user_login.ifBlank { cfg.channel }.lowercase(),
@@ -225,7 +251,7 @@ class TwitchChatEventSubReader @Inject constructor(
             userLogin = login,
             displayName = event.chatter_user_name.ifBlank { login },
             color = event.color?.takeIf { it.isNotBlank() },
-            text = event.message.text.trim(),
+            text = rawText,
             badges = badges,
             emotesTag = emotesTag,
             timestamp = parseTimestamp(event.message_timestamp),
@@ -234,8 +260,21 @@ class TwitchChatEventSubReader @Inject constructor(
             isBroadcaster = event.badges.any { it.set_id == "broadcaster" },
             isWhisper = false,
             inlineEmotes = InlineEmote.parseFromEmotesTag(emotesTag),
+            isAction = isAction,
+            replyParentMessageId = replyParent?.messageId,
+            replyParentUserLogin = replyParent?.userLogin,
+            replyParentMessagePreview = replyParent?.preview,
+            bitsAmount = totalBits,
         )
     }
+
+    /** Datenklasse für Reply-Informationen (lokal, nicht serialisierbar). */
+    private data class ReplyInfo(
+        val messageId: String,
+        val userLogin: String,
+        val userName: String,
+        val preview: String?,
+    )
 
     /** Emote-Fragments → IRC-`emotesTag`-Format (`id:start-end,start2-end2/id2:…`). */
     private fun buildEmotesTag(fragments: List<ChatEventFragment>): String {
@@ -574,6 +613,10 @@ internal data class ChatMessageEvent(
     val badges: List<ChatEventBadge> = emptyList(),
     val message_type: String = "",
     val message_timestamp: String = "",
+    // Bits/Cheer: Enthält die Anzahl der Bits, die mit dieser Nachricht geschickt wurden.
+    val cheer: ChatEventCheer? = null,
+    // Reply: Enthält Informationen über die Eltern-Nachricht, auf die geantwortet wird.
+    val reply: ChatEventReply? = null,
 )
 
 @Serializable
@@ -587,6 +630,15 @@ internal data class ChatEventFragment(
     val type: String = "",
     val text: String = "",
     val emote: ChatEventEmote? = null,
+    val cheermote: ChatEventCheermote? = null,
+)
+
+/** Cheermote-Metadaten aus einem Fragment (Bits): */
+@Serializable
+internal data class ChatEventCheermote(
+    val prefix: String = "",
+    val bits: Int = 0,
+    val tier: Int = 0,
 )
 
 @Serializable
@@ -601,6 +653,22 @@ internal data class ChatEventBadge(
     val set_id: String = "",
     val id: String = "",
     val info: String = "",
+)
+
+/** Bits/Cheer-Informationen aus dem EventSub Event ("cheer"): */
+@Serializable
+internal data class ChatEventCheer(
+    val bits_amount: Int = 0,
+)
+
+/** Reply-Informationen aus dem EventSub Event ("reply"): */
+@Serializable
+internal data class ChatEventReply(
+    val parent_message_id: String = "",
+    val parent_message_body: String = "",
+    val parent_user_id: String = "",
+    val parent_user_login: String = "",
+    val parent_user_name: String = "",
 )
 
 // --- Helix-Subscribe-Condition für channel.chat.message ---
