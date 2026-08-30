@@ -30,17 +30,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - name: Set up JDK 25 (LTS)
-        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
-        with:
-          java-version: '25'
-          distribution: 'temurin'
-          cache: gradle
-
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
-
       - name: Run Snyk test
+        # Snyk gradle-jdk17 bringt eigenes JDK 17 mit — kein setup-java nötig,
+        # da JAVA_HOME (JDK 25) den Container-Internals widerspricht.
         uses: snyk/actions/gradle-jdk17@12140f4059e244892ae643824a95459a102120dd # master
         continue-on-error: true
         env:
@@ -80,17 +72,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - name: Set up JDK 25 (LTS)
-        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
-        with:
-          java-version: '25'
-          distribution: 'temurin'
-          cache: gradle
-
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
-
       - name: Run Snyk monitor
+        # Snyk gradle-jdk17 bringt eigenes JDK 17 mit — kein setup-java nötig.
         uses: snyk/actions/gradle-jdk17@12140f4059e244892ae643824a95459a102120dd # master
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
