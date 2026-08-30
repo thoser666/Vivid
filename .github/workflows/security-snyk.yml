@@ -38,7 +38,11 @@ jobs:
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
-          args: --severity-threshold=high --all-projects --sarif-file-output=snyk-results.sarif
+          # --all-projects entfernt: erzeugt mehrere SARIF-Runs (pro Manifest),
+          # was gegen das GitHub-Code-Scanning-Limit (1 Run pro Upload) verstößt.
+          # Gradle-Dependencies werden automatisch erkannt; Ruby Gems sind
+          # für Security-Relevantität unbedeutend.
+          args: --severity-threshold=high --sarif-file-output=snyk-results.sarif
 
       - name: Upload Snyk results to GitHub Code Scanning
         uses: github/codeql-action/upload-sarif@6ba5c05dce207b48ae07f8791b4313069c63fc2b # v3.26.6
