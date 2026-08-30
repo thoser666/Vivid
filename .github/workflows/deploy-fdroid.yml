@@ -29,7 +29,7 @@ jobs:
   build-repo:
     name: Build F-Droid Repository
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     
     steps:
       - name: Checkout repository
@@ -61,17 +61,33 @@ jobs:
           echo "Building version: $VERSION"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Restore persistent archive from git
+        run: |
+          # The archive/ directory is committed to git (docs/fdroid/archive) so that
+          # older versions survive from run to run on GitHub Pages. Restore it into
+          # the working copy before fdroid update merges fresh APKs into it.
+          cd fdroid
+          mkdir -p archive
+          if [ -d "../docs/fdroid/archive" ]; then
+            cp -n "../docs/fdroid/archive/"*.apk archive/ 2>/dev/null || true
+            echo "Restored existing archive APKs:"
+            ls -la archive/ 2>/dev/null || echo "  (no existing archive APKs)"
+          else
+            echo "No existing archive yet (first run)."
+          fi
       
-      - name: Download last 5 release APKs
+      - name: Download all release APKs
         run: |
           cd fdroid
           mkdir -p repo
           
-          # Download the 5 most recent release APKs
-          # Each release's APK is named app-release.apk, so we prefix with the
-          # tag name to keep filenames unique in the shared repo/ directory.
+          # Download APKs from ALL semver releases. fdroid update will move the
+          # newest archive_older versions into repo/ and all older ones into
+          # archive/ automatically. Each release's APK is prefixed with the tag
+          # name to keep filenames unique in the shared directories.
           i=0
-          for TAG in $(gh release list --limit 5 --json tagName -q '.[].tagName'); do
+          for TAG in $(gh release list --limit 50 --json tagName -q '.[].tagName' | grep -E '^v?[0-9]+\.[0-9]+\.[0-9]+' || true); do
             i=$((i + 1))
             TMP="/tmp/apk_$i"
             mkdir -p "$TMP"
@@ -82,16 +98,20 @@ jobs:
               --skip-existing || true
             for f in "$TMP"/*.apk; do
               [ -e "$f" ] || continue
+              # Skip debug builds (0.0.1-alpha ships app-debug.apk)
+              case "$(basename "$f")" in
+                *debug*) echo "Skipping debug APK: $(basename "$f")"; continue;;
+              esac
               cp "$f" "repo/${TAG}_$(basename "$f")"
             done
           done
           
-          echo "Downloaded APKs:"
+          echo "Downloaded APKs into repo/:"
           ls -la repo/
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
-      - name: Build F-Droid repository
+      - name: Build F-Droid repository (repo + archive)
         env:
           F_DROID_KEYSTORE: ${{ secrets.F_DROID_KEYSTORE }}
           F_DROID_KEY_ALIAS: ${{ secrets.F_DROID_KEY_ALIAS }}
@@ -103,16 +123,22 @@ jobs:
           # Decode keystore from secret
           echo "$F_DROID_KEYSTORE" | base64 -d > keystore.p12
           
-          # Create config with signing key
+          # Create config with signing key and the ARCHIVE repository.
+          # archive_older controls how many versions stay in the main repo;
+          # all older ones are moved to archive/ by fdroid update. Setting
+          # archive_url + archive_name makes the F-Droid client recognise the
+          # separate archive repository (fixes "no archive" warning).
           cat > config.yml << EOF
           builds_dir: repo
           repo_url: https://thoser666.github.io/Vivid/fdroid/repo
           repo_name: Vivid
           repo_description: "Vivid - Open Source IRL Streaming App with Chat Bot & AI Features"
           repo_icon: icon.png
-          # Keep all downloaded versions in the main repo (no archiving):
-          # the last 5 release APKs are freshly downloaded on every run.
-          archive_older: 0
+          archive_older: 5
+          archive_url: https://thoser666.github.io/Vivid/fdroid/archive
+          archive_name: Vivid Archive
+          archive_description: "Older versions of Vivid, kept available for downgrades and fallback."
+          archive_icon: icon.png
           keystorepass: ${F_DROID_KEY_PASSWORD}
           keypass: ${F_DROID_KEY_PASSWORD}
           repo_keyalias: ${F_DROID_KEY_ALIAS}
@@ -151,29 +177,50 @@ jobs:
           Changelog: https://github.com/thoser666/Vivid/releases
           EOF
           
-          # Generate repo index (fdroid reads metadata from YAML files automatically)
+          # Generate both indices (repo/ + archive/). fdroid update reads the
+          # existing archive/ dir, merges fresh APKs, moves older ones there
+          # and writes index files for both repositories.
           fdroid update -v
           
-          # Verify repository was created
+          # Verify main repository was created
           if [ ! -f "repo/index.xml" ]; then
             echo "Error: Repository index.xml not created"
             exit 1
           fi
           
-          echo "Repository built successfully"
+          echo "Main repository built successfully"
           ls -la repo/
+          
+          echo ""
+          echo "Archive repository:"
+          if [ -d archive ] && ls archive/*.apk 1>/dev/null 2>&1; then
+            ls -la archive/
+            if [ ! -f "archive/index.xml" ]; then
+              echo "Error: Archive index.xml not created"
+              exit 1
+            fi
+          else
+            echo "  (no archived versions yet - keep at least $((5+1)) releases to populate it)"
+          fi
           
           # Cleanup keystore
           rm -f keystore.p12
       
       - name: Copy to docs/fdroid
         run: |
-          # Ensure docs/fdroid/repo exists
-          rm -rf docs/fdroid
+          # Ensure docs/fdroid exists
           mkdir -p docs/fdroid
           
-          # Copy repo files
-          cp -r fdroid/repo docs/fdroid/
+          # Refresh repo (freshly built each run)
+          rm -rf docs/fdroid/repo
+          cp -r fdroid/repo docs/fdroid/repo
+          
+          # Refresh archive (newer APKs appended; older APKs persisted via git)
+          rm -rf docs/fdroid/archive
+          if [ -d fdroid/archive ]; then
+            mkdir -p docs/fdroid/archive
+            cp -r fdroid/archive/. docs/fdroid/archive/
+          fi
           
           # Copy QR code
           cp docs/fdroid-repo-qr.svg docs/fdroid/qr.svg
@@ -184,17 +231,22 @@ jobs:
           echo ""
           echo "Files in docs/fdroid/repo:"
           ls -la docs/fdroid/repo/
+          if [ -d docs/fdroid/archive ]; then
+            echo ""
+            echo "Files in docs/fdroid/archive:"
+            ls -la docs/fdroid/archive/
+          fi
       
       - name: Commit and push
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
-          # Check for new or changed files (git diff misses untracked dirs)
+          # Stage repo and archive (incl. new APKs + archive index)
           git add docs/fdroid/
           if git diff --cached --quiet; then
             echo "No changes to commit"
           else
-            git commit -m "chore: update F-Droid repository (last 5 versions)"
+            git commit -m "chore: update F-Droid repository (repo: latest 5, archive: all older versions)"
             git push
           fi

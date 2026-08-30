@@ -9,6 +9,16 @@ repo_description: "Vivid - Open Source IRL Streaming App with Chat Bot & AI Feat
 # Repository URL (will be hosted on GitHub Pages)
 repo_url: https://thoser666.github.io/Vivid/fdroid/repo
 
+# Archive repository: older versions are moved here by `fdroid update`
+# (archive_older controls how many stay in the main repo).
+# The F-Droid client uses these to offer the separate archive repository
+# (fixes the "repository seems to have no archive" warning).
+archive_older: 5
+archive_url: https://thoser666.github.io/Vivid/fdroid/archive
+archive_name: Vivid Archive
+archive_description: "Older versions of Vivid, kept available for downgrades and fallback."
+archive_icon: fdroid-icon.png
+
 # Signing configuration
 # These values are provided via GitHub Secrets
 # keydname: CN=Vivid, O=Vivid, L=Unknown, ST=Unknown, C=US

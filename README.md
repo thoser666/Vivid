@@ -111,6 +111,8 @@ After installation, Vivid asks for **camera** and **microphone** permissions whe
 
 **✅ Benefits:** Updates erscheinen automatisch, kein manueller Download nötig, zukunftssicher ab Android 14+ (Google schränkt Sideloading ein).
 
+**🗄️ Archive:** Das Repository enthält zusätzlich ein separates **Archiv** mit allen älteren Versionen (`https://thoser666.github.io/Vivid/fdroid/archive`). Der F-Droid-Client erkennt es automatisch — ältere Versionen bleiben für Downgrades und als Fallback installierbar.
+
 **📝 Note:** Dieses Build enthält Sentry für Crash-Reporting. Für ein vollständig FOSS-Build ohne Telemetrie verwenden Sie das offizielle F-Droid-Repository (wenn verfügbar).
 
 ### 📲 Alternative: Automatic updates (Obtainium)

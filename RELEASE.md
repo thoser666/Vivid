@@ -172,7 +172,8 @@ Vergleich der Voraussetzungen für den ersten Upload (Stand 08/2026, Vivid ist M
 - **Config:** `fdroid/config.yml`
 - **Hosting:** GitHub Pages (kostenlos, automatisch)
 - **Secrets:** `F_DROID_KEYSTORE`, `F_DROID_KEY_ALIAS`, `F_DROID_KEY_PASSWORD`, `F_DROID_KEY_DNAME` (einmalig hinterlegen)
-- **Versionen im Haupt-Repo:** Die **letzten 5 Releases** werden ins Haupt-Repo aufgenommen (kein Archiv) — Nutzer können damit auf frühere Versionen zurückrollen, falls ein neues Release Probleme macht. Ältere Versionen bleiben als GitHub-Releases herunterladbar.
+- **Haupt-Repo (`/repo`):** Die **letzten 5 Releases** — schnell für Updates, Rollback möglich
+- **Archiv-Repo (`/archive`):** **Alle älteren Versionen** — persistent, für Downgrades und als Fallback
 
 **Unterschied zum F-Droid-Hauptrepo:**
 | Aspekt | Eigener Repo-Server | F-Droid Hauptrepo |
@@ -189,31 +190,37 @@ Vergleich der Voraussetzungen für den ersten Upload (Stand 08/2026, Vivid ist M
 3. Nutzer-URL in README/Anleitung dokumentieren
 4. (Optional) F-Droid-Hauptrepo vorbereiten (Post-Beta, Sentry-freie Variante)
 
-### 🗄️ Archivierungs-Strategie
+### 🗄️ Archivierungs-Strategie (Haupt-Repo + Archiv-Repo)
+
+Das eigene Repository besteht aus **zwei getrennten F-Droid-Repos**, die der Client automatisch zusammen erkennt:
 
 | Parameter | Wert | Bedeutung |
 |-----------|------|-----------|
-| **`archive_older`** | `0` | Kein Archiv — alle im Haupt-Repo bleibenden Versionen liegen im Hauptrepo |
-| **Max. Versionen** | `5` | Der Workflow lädt die **letzten 5 Releases** ins Hauptrepo |
-| **Archiv-URL** | — | Nicht aktiv (alle Versionen im Hauptrepo) |
-| **Ältere Releases** | GitHub Releases | Alle früheren Versionen bleiben als GitHub-Releases herunterladbar |
+| **`archive_older`** | `5` | Anzahl der Versionen, die im **Haupt-Repo** bleiben |
+| **`archive_url`** | `https://thoser666.github.io/Vivid/fdroid/archive` | URL des separaten Archiv-Repos |
+| **`archive_name`** | `Vivid Archive` | Anzeigename des Archiv-Repos im Client |
+| **Haupt-Repo** | `repo/` | Die **letzten 5** semver-Releases (frisch, für Updates/Rollback) |
+| **Archiv-Repo** | `archive/` | **Alle älteren** Versionen (persistent über git, Downgrade/Fallback) |
+
+> **Warum so?** Ohne ein separates Archiv-Repo zeigt der F-Droid-Client die Meldung *„Diese Paketquelle scheint kein Archiv zu haben“*. Mit `archive_older: 5` + `archive_url` erzeugt `fdroid update` ein echtes Archiv, das der Client unter den **Repository-Einstellungen ➜ Archiv** erkennt und lädt.
 
 **Ablauf bei jedem Release:**
-1. Workflow lädt die **5 neuesten APKs** herunter (mit Tag-Präfix für eindeutige Dateinamen)
-2. `fdroid update` generiert den Index mit allen 5 Versionen
-3. GitHub Pages deployet das aktualisierte Repo
-4. F-Droid Clients erhalten die 5 Versionen zum Auswählen/Downgraden
+1. Workflow lädt **alle** semver-Release-APKs (nicht nur 5)
+2. Persistentes Archiv wird aus `docs/fdroid/archive` (git) wiederhergestellt
+3. `fdroid update` mit `archive_older: 5` **verschiebt** die 5 neuesten ins `repo/` und **alle älteren automatisch ins `archive/`**
+4. `fdroid update` schreibt zwei Indizes (`repo/index.xml` + `archive/index.xml`)
+5. `docs/fdroid/{repo,archive}` werden committed und über GitHub Pages ausgeliefert
+6. Der F-Droid-Client erkennt beide Repos — Updates kommen aus `repo/`, ältere Versionen aus `archive/`
 
-**Warum 5 Versionen?**
-- **Rollback-Sicherheit**: Bei Problemen mit einem neuen Releases können Nutzer sofort zur vorherigen Version wechseln
-- **Testflexibilität**: Tester können verschiedene Versionen vergleichen
-- **Übersichtlichkeit**: Mehr als 5 Versionen würden den Index aufblähen, ohne Mehrwert
+**Wichtige Details:**
+- **Persistenz:** Das `archive/`-Verzeichnis wird im git-Repo (unter `docs/fdroid/archive`) gespeichert, damit ältere Versionen von Lauf zu Lauf erhalten bleiben (GitHub Pages löscht nichts, aber der Workflow baut `docs/fdroid` bei jedem Lauf neu auf — das Archiv wird aus dem vergangenen Commit wiederhergestellt).
+- **Nur echte Releases:** Debug-Builds (z.B. `app-debug.apk` von `0.0.1-alpha`) werden beim Herunterladen übersprungen.
+- **Dateinamen:** APKs erhalten ein Tag-Präfix (`vX.Y.Z_app-release.apk`), damit mehrere Versionen parallel in `repo/`/`archive/` liegen können.
 
-**Änderung der Anzahl:**
+**Anzahl der Haupt-Repo-Versionen ändern:**
 ```yaml
-# In .github/workflows/deploy-fdroid.yml:
-# Zeile "--limit 5" anpassen, z.B. auf 3 oder 10
-gh release list --limit 5 --json tagName
+# In .github/workflows/deploy-fdroid.yml (config.yml im Build-Schritt):
+archive_older: 5   # z.B. 3 oder 10 — bestimmt, wie viele im Haupt-Repo bleiben
 ```
 
 **ArchivePolicy in Metadata (alternativ):**
@@ -221,7 +228,7 @@ Falls archivierung **zeitbasiert** statt anzahlbasiert gewünscht ist, kann in `
 ```yaml
 ArchivePolicy: 90  # Tage nach denen Versionen archiviert werden
 ```
-Bei `archive_older: 0` wird diese Einstellung ignoriert.
+Da hier bereits `archive_older: 5` (anzahlbasiert) aktiv ist, übersteuert `ArchivePolicy` dieses Verhalten nur, wenn es explizit gesetzt wird.
 
 ---
 

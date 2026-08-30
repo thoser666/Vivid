@@ -91,4 +91,4 @@ Der `foss`-Flavor (`com.vivid.foss`) ist vollständig frei von proprietärem Tra
 - ✅ **Kein Sentry** — kein Error-Reporting, kein Telemetry
 - ✅ **Keine Analytics** — keine Nutzungsstatistiken
 - ✅ **Open-Source-only Dependencies** — alle Abhängigkeiten sind OSI-zertifiziert
-- ✅ **Eigener Repo-Server** — `https://thoser666.github.io/Vivid/fdroid/repo` (letzte 5 Versionen)
+- ✅ **Eigener Repo-Server** — `https://thoser666.github.io/Vivid/fdroid/repo` (letzte 5 Versionen) plus Archiv `https://thoser666.github.io/Vivid/fdroid/archive` (alle älteren Versionen)
