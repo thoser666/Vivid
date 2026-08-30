@@ -1,11 +1,14 @@
 package com.vivid.feature.settings.ui
 
 import com.vivid.feature.settings.R
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.width
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Slider
 import androidx.compose.ui.unit.dp
+import com.vivid.core.data.ChatOverlayPosition
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
@@ -222,6 +225,44 @@ fun SettingsOverlaysScreen(
             Switch(
                 checked = uiState.chatOverlayShowTimestamp,
                 onCheckedChange = viewModel::onChatOverlayShowTimestampChange,
+            )
+        }
+
+        // Position
+        Text(stringResource(R.string.overlays_position_title), style = MaterialTheme.typography.titleLarge)
+        Text(
+            text = stringResource(R.string.overlays_position_desc),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            FilterChip(
+                selected = uiState.chatOverlayPosition == ChatOverlayPosition.TOP_START,
+                onClick = { viewModel.onChatOverlayPositionChange(ChatOverlayPosition.TOP_START) },
+                label = { Text(stringResource(R.string.overlays_position_top_start)) },
+            )
+            FilterChip(
+                selected = uiState.chatOverlayPosition == ChatOverlayPosition.TOP_END,
+                onClick = { viewModel.onChatOverlayPositionChange(ChatOverlayPosition.TOP_END) },
+                label = { Text(stringResource(R.string.overlays_position_top_end)) },
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            FilterChip(
+                selected = uiState.chatOverlayPosition == ChatOverlayPosition.BOTTOM_START,
+                onClick = { viewModel.onChatOverlayPositionChange(ChatOverlayPosition.BOTTOM_START) },
+                label = { Text(stringResource(R.string.overlays_position_bottom_start)) },
+            )
+            FilterChip(
+                selected = uiState.chatOverlayPosition == ChatOverlayPosition.BOTTOM_END,
+                onClick = { viewModel.onChatOverlayPositionChange(ChatOverlayPosition.BOTTOM_END) },
+                label = { Text(stringResource(R.string.overlays_position_bottom_end)) },
             )
         }
 

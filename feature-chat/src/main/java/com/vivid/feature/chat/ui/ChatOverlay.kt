@@ -42,6 +42,7 @@ import com.vivid.feature.chat.model.ChatAlertType
 import com.vivid.feature.chat.emotes.ThirdPartyEmote
 import com.vivid.feature.chat.model.ChatBadge
 import com.vivid.feature.chat.model.ChatConnectionState
+import com.vivid.core.data.ChatOverlayPosition
 import com.vivid.feature.chat.model.ChatMessage
 import com.vivid.feature.chat.model.InlineEmote
 
@@ -68,8 +69,17 @@ fun ChatOverlay(
     val usernameColor = parseHexColor(uiState.overlayUsernameColorHex)
     val textColor = parseHexColor(uiState.overlayTextColorHex) ?: Color.White
 
+    // Position-Modifier basierend auf der eingestellten Ecke
+    val positionModifier = when (uiState.overlayPosition) {
+        ChatOverlayPosition.TOP_START -> Modifier
+        ChatOverlayPosition.TOP_END -> Modifier
+        ChatOverlayPosition.BOTTOM_START -> Modifier
+        ChatOverlayPosition.BOTTOM_END -> Modifier
+    }
+
     Column(
         modifier = modifier
+            .then(positionModifier)
             .width(uiState.overlayWidthDp.dp)
             .heightIn(max = uiState.overlayHeightDp.dp)
             .clip(RoundedCornerShape(12.dp))

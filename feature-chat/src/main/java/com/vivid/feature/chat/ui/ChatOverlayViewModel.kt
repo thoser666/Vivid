@@ -2,6 +2,7 @@ package com.vivid.feature.chat.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.vivid.core.data.ChatOverlayPosition
 import com.vivid.core.data.SettingsRepository
 import com.vivid.feature.chat.model.ChatAlert
 import com.vivid.feature.chat.model.ChatAlertType
@@ -77,6 +78,8 @@ class ChatOverlayViewModel @Inject constructor(
         val overlayUsernameColorHex: String = "#B39DDB",
         val overlayTextColorHex: String = "#FFFFFF",
         val overlayBackgroundColorHex: String = "#000000",
+        // Chat-Overlay-Position
+        val overlayPosition: ChatOverlayPosition = ChatOverlayPosition.TOP_END,
     )
 
     private val _uiState = MutableStateFlow(ChatOverlayUiState())
@@ -159,6 +162,7 @@ class ChatOverlayViewModel @Inject constructor(
                         overlayUsernameColorHex = settings.chatOverlayUsernameColorHex,
                         overlayTextColorHex = settings.chatOverlayTextColorHex,
                         overlayBackgroundColorHex = settings.chatOverlayBackgroundColorHex,
+                        overlayPosition = settings.chatOverlayPosition,
                     )
                 }
             }

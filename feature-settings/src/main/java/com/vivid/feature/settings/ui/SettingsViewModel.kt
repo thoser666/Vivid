@@ -8,6 +8,7 @@ import com.vivid.core.data.AccentColor
 import com.vivid.core.data.AppSettings // Importiert die vollständige Klasse
 import com.vivid.core.data.ChatBotCommandScope
 import com.vivid.core.data.ChatBotMode
+import com.vivid.core.data.ChatOverlayPosition
 import com.vivid.core.data.SettingsRepository
 import com.vivid.core.data.ThemeMode
 import com.vivid.core.remote.RemoteControlServer
@@ -234,6 +235,9 @@ class SettingsViewModel @Inject constructor(
     fun onChatOverlayTextColorChange(newValue: String) { _uiState.value = _uiState.value.copy(chatOverlayTextColorHex = newValue) }
     fun onChatOverlayBackgroundColorChange(newValue: String) { _uiState.value = _uiState.value.copy(chatOverlayBackgroundColorHex = newValue) }
 
+    // Chat-Overlay-Position.
+    fun onChatOverlayPositionChange(newValue: ChatOverlayPosition) { _uiState.value = _uiState.value.copy(chatOverlayPosition = newValue) }
+
     // Datenschutz: Sentry-Fehlerberichte an/aus (Opt-out).
     fun onSentryEnabledChange(newEnabled: Boolean) { _uiState.value = _uiState.value.copy(sentryEnabled = newEnabled) }
 
@@ -354,6 +358,7 @@ class SettingsViewModel @Inject constructor(
                 textColorHex = currentSettings.chatOverlayTextColorHex,
                 backgroundColorHex = currentSettings.chatOverlayBackgroundColorHex,
             )
+            settingsRepository.updateChatOverlayPosition(currentSettings.chatOverlayPosition)
             settingsRepository.updateProfanitySettings(
                 profanityEnabled = currentSettings.chatBotProfanityEnabled,
                 profanityCategories = currentSettings.chatBotProfanityCategories,

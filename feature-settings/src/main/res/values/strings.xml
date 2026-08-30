@@ -99,6 +99,12 @@
     <string name="overlays_layout_background_alpha">Hintergrund: %1$d%% deckend</string>
     <string name="overlays_layout_font_size">Schriftgröße: %1$d sp</string>
     <string name="overlays_layout_show_timestamp">Zeitstempel anzeigen</string>
+    <string name="overlays_position_title">Position</string>
+    <string name="overlays_position_desc">Position des Chat-Overlays auf dem Screen.</string>
+    <string name="overlays_position_top_start">Oben links</string>
+    <string name="overlays_position_top_end">Oben rechts</string>
+    <string name="overlays_position_bottom_start">Unten links</string>
+    <string name="overlays_position_bottom_end">Unten rechts</string>
     <string name="overlays_colors_title">Farben</string>
     <string name="overlays_colors_desc">Username-, Text- und Hintergrund-Farbe des Chat-Overlays anpassen (Hex-Format #RRGGBB).</string>
     <string name="overlays_colors_username">Username-Farbe</string>

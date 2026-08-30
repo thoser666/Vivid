@@ -133,6 +133,8 @@ data class AppSettings(
     val chatOverlayTextColorHex: String = "#FFFFFF",
     // Overlay-Hintergrund-Farbe (Hex, Standard: #000000 = Schwarz).
     val chatOverlayBackgroundColorHex: String = "#000000",
+    // Position des Chat-Overlays (Standard: oben-rechts).
+    val chatOverlayPosition: ChatOverlayPosition = ChatOverlayPosition.TOP_END,
     // --- In-App-Logs ---
     // Vorhaltezeit der täglichen Log-Rotation in Tagen (1–30, Default 7):
     // Logs wechseln täglich, ältere Tage werden beim Laden/Prune gelöscht.

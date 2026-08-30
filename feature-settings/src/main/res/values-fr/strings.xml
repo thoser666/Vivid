@@ -99,6 +99,12 @@
     <string name="overlays_layout_background_alpha">Arrière-plan : %1$d%% opaque</string>
     <string name="overlays_layout_font_size">Taille du texte : %1$d sp</string>
     <string name="overlays_layout_show_timestamp">Afficher l\'horodatage</string>
+    <string name="overlays_position_title">Position</string>
+    <string name="overlays_position_desc">Position de l\'overlay de chat sur l\'écran.</string>
+    <string name="overlays_position_top_start">En haut à gauche</string>
+    <string name="overlays_position_top_end">En haut à droite</string>
+    <string name="overlays_position_bottom_start">En bas à gauche</string>
+    <string name="overlays_position_bottom_end">En bas à droite</string>
     <string name="overlays_colors_title">Couleurs</string>
     <string name="overlays_colors_desc">Personnaliser la couleur du nom d\'utilisateur, du texte et de l\'arrière-plan de l\'overlay de chat (format hexadécimal #RRGGBB).</string>
     <string name="overlays_colors_username">Couleur du nom d\'utilisateur</string>

@@ -99,6 +99,12 @@
     <string name="overlays_layout_background_alpha">Background: %1$d%% opaque</string>
     <string name="overlays_layout_font_size">Font size: %1$d sp</string>
     <string name="overlays_layout_show_timestamp">Show timestamp</string>
+    <string name="overlays_position_title">Position</string>
+    <string name="overlays_position_desc">Position of the chat overlay on the screen.</string>
+    <string name="overlays_position_top_start">Top left</string>
+    <string name="overlays_position_top_end">Top right</string>
+    <string name="overlays_position_bottom_start">Bottom left</string>
+    <string name="overlays_position_bottom_end">Bottom right</string>
     <string name="overlays_colors_title">Colors</string>
     <string name="overlays_colors_desc">Customize username, text and background color of the chat overlay (hex format #RRGGBB).</string>
     <string name="overlays_colors_username">Username color</string>

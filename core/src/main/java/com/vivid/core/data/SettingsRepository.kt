@@ -76,6 +76,7 @@ class SettingsRepository @Inject constructor(
         val CHAT_OVERLAY_USERNAME_COLOR_HEX = stringPreferencesKey("chat_overlay_username_color_hex")
         val CHAT_OVERLAY_TEXT_COLOR_HEX = stringPreferencesKey("chat_overlay_text_color_hex")
         val CHAT_OVERLAY_BACKGROUND_COLOR_HEX = stringPreferencesKey("chat_overlay_background_color_hex")
+        val CHAT_OVERLAY_POSITION = stringPreferencesKey("chat_overlay_position")
     }
 
     // WICHTIG: Dies ist jetzt der EINZIGE Flow, den das ViewModel braucht.
@@ -232,6 +233,7 @@ class SettingsRepository @Inject constructor(
                 chatOverlayUsernameColorHex = prefs[PrefKeys.CHAT_OVERLAY_USERNAME_COLOR_HEX] ?: "#B39DDB",
                 chatOverlayTextColorHex = prefs[PrefKeys.CHAT_OVERLAY_TEXT_COLOR_HEX] ?: "#FFFFFF",
                 chatOverlayBackgroundColorHex = prefs[PrefKeys.CHAT_OVERLAY_BACKGROUND_COLOR_HEX] ?: "#000000",
+                chatOverlayPosition = ChatOverlayPosition.fromName(prefs[PrefKeys.CHAT_OVERLAY_POSITION]),
             )
         },
     ) { settings, themeData, sentryEnabled, logsRetentionDays, emotePrefs ->
@@ -252,6 +254,7 @@ class SettingsRepository @Inject constructor(
             chatOverlayUsernameColorHex = emotePrefs.chatOverlayUsernameColorHex,
             chatOverlayTextColorHex = emotePrefs.chatOverlayTextColorHex,
             chatOverlayBackgroundColorHex = emotePrefs.chatOverlayBackgroundColorHex,
+            chatOverlayPosition = emotePrefs.chatOverlayPosition,
         )
     }
 
@@ -426,6 +429,7 @@ class SettingsRepository @Inject constructor(
         val chatOverlayUsernameColorHex: String,
         val chatOverlayTextColorHex: String,
         val chatOverlayBackgroundColorHex: String,
+        val chatOverlayPosition: ChatOverlayPosition,
     )
 
     /** Sentry-Opt-out speichern (false = keine Fehlerberichte senden). */
@@ -523,6 +527,13 @@ class SettingsRepository @Inject constructor(
             prefs[PrefKeys.CHAT_OVERLAY_USERNAME_COLOR_HEX] = usernameColorHex.takeIf { it.startsWith("#") && it.length == 7 } ?: "#B39DDB"
             prefs[PrefKeys.CHAT_OVERLAY_TEXT_COLOR_HEX] = textColorHex.takeIf { it.startsWith("#") && it.length == 7 } ?: "#FFFFFF"
             prefs[PrefKeys.CHAT_OVERLAY_BACKGROUND_COLOR_HEX] = backgroundColorHex.takeIf { it.startsWith("#") && it.length == 7 } ?: "#000000"
+        }
+    }
+
+    /** Chat-Overlay-Position speichern. */
+    suspend fun updateChatOverlayPosition(position: ChatOverlayPosition) {
+        dataStore.edit { prefs ->
+            prefs[PrefKeys.CHAT_OVERLAY_POSITION] = position.name
         }
     }
 
