@@ -20,6 +20,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
@@ -320,7 +321,8 @@ private fun ChatMessageRow(
         }
         // Zeitstempel (optional)
         if (showTimestamp && message.timestamp > 0) {
-            val timeStr = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
+            val locale = LocalLocale.current.platformLocale
+            val timeStr = java.text.SimpleDateFormat("HH:mm", locale)
                 .format(java.util.Date(message.timestamp))
             Text(
                 text = timeStr,
