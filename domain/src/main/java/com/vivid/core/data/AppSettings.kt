@@ -114,6 +114,8 @@ data class AppSettings(
     val emotesBttvEnabled: Boolean = true,
     val emotesFfzEnabled: Boolean = true,
     val emotes7tvEnabled: Boolean = true,
+    // Gelöschte Nachrichten im Chat-Overlay ausblenden (Standard: an).
+    val chatOverlayHideDeleted: Boolean = true,
     // --- In-App-Logs ---
     // Vorhaltezeit der täglichen Log-Rotation in Tagen (1–30, Default 7):
     // Logs wechseln täglich, ältere Tage werden beim Laden/Prune gelöscht.

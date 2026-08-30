@@ -89,6 +89,9 @@
     <string name="overlays_emotes_bttv">BetterTTV (BTTV)</string>
     <string name="overlays_emotes_ffz">FrankerFaceZ (FFZ)</string>
     <string name="overlays_emotes_7tv">7TV</string>
+    <string name="overlays_deleted_title">Messages supprimés</string>
+    <string name="overlays_deleted_desc">Masquer ou estomper les messages supprimés dans l\'overlay de chat. Nécessite les privilèges de modérateur pour le compte du bot.</string>
+    <string name="overlays_deleted_hide">Masquer les messages supprimés</string>
 
     <!-- ===== Remote & confidentialité (SettingsRemotePrivacyScreen.kt) ===== -->
     <string name="remote_section_title">Télécommande web</string>

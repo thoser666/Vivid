@@ -63,6 +63,10 @@ class ChatOverlayViewModel @Inject constructor(
          * automatisch wieder.
          */
         val alerts: List<ChatAlert> = emptyList(),
+        /** IDs gelöschter Nachrichten (vom EventSub Topic `channel.chat.message_delete`). */
+        val deletedMessageIds: Set<String> = emptySet(),
+        /** Gelöschte Nachrichten ausblenden statt ausgrauen. */
+        val hideDeleted: Boolean = true,
     )
 
     private val _uiState = MutableStateFlow(ChatOverlayUiState())
@@ -133,6 +137,9 @@ class ChatOverlayViewModel @Inject constructor(
                         // Alerts gehören zum vorherigen Kanal — bei Wechsel/Stopp
                         // sofort entfernen (TTL-Entfernung läuft sonst weiter).
                         alerts = if (contextChanged) emptyList() else it.alerts,
+                        // Gelöschte Nachrichten: bei Kanalwechsel zurücksetzen
+                        deletedMessageIds = if (contextChanged) emptySet() else it.deletedMessageIds,
+                        hideDeleted = settings.chatOverlayHideDeleted,
                     )
                 }
             }
@@ -163,6 +170,15 @@ class ChatOverlayViewModel @Inject constructor(
         viewModelScope.launch {
             chatReader.state.collect { connection ->
                 _uiState.update { it.copy(connection = connection) }
+            }
+        }
+        // Gelöschte Nachrichten (EventSub: channel.chat.message_delete)
+        // sammeln und im UI-State markieren.
+        viewModelScope.launch {
+            chatReader.deletedMessageIds.collect { deletedId ->
+                _uiState.update { state ->
+                    state.copy(deletedMessageIds = state.deletedMessageIds + deletedId)
+                }
             }
         }
     }

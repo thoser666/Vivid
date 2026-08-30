@@ -123,8 +123,8 @@ class TwitchChatEventSubReaderTest {
         sockets.first().push(welcome)
         advanceUntilIdle()
 
-        // Chat + Follow + Subscribe + Gift + Resub + Raid = 6 Subscriptions auf derselben Session.
-        assertEquals(6, subscribeRequests.size)
+        // Chat + Follow + Subscribe + Gift + Resub + Raid + MessageDelete = 7 Subscriptions auf derselben Session.
+        assertEquals(7, subscribeRequests.size)
         val chat = subscribeRequests[0]
         assertTrue(chat.contains("\"type\":\"channel.chat.message\""), chat)
         assertTrue(chat.contains("\"version\":\"1\""), chat)
@@ -335,7 +335,7 @@ class TwitchChatEventSubReaderTest {
         client.start(config)
         first.push(welcome)
         advanceUntilIdle()
-        assertEquals(6, subscribeRequests.size)
+        assertEquals(7, subscribeRequests.size)
 
         // session_reconnect → neue URL; Twitch übernimmt die Abos automatisch.
         first.push(reconnect)
@@ -346,7 +346,7 @@ class TwitchChatEventSubReaderTest {
         // Neue Session: kein erneuter Subscribe (Abos wandern mit).
         second.push(welcome)
         advanceUntilIdle()
-        assertEquals(6, subscribeRequests.size)
+        assertEquals(7, subscribeRequests.size)
         client.stop()
     }
 
@@ -361,7 +361,7 @@ class TwitchChatEventSubReaderTest {
         client.start(config)
         first.push(welcome)
         advanceUntilIdle()
-        assertEquals(6, subscribeRequests.size)
+        assertEquals(7, subscribeRequests.size)
 
         // Harte Trennung ohne session_reconnect → neue Session braucht ein Abo.
         first.drop()
@@ -370,7 +370,7 @@ class TwitchChatEventSubReaderTest {
         assertEquals(TwitchChatEventSubReader.DEFAULT_EVENTSUB_URL, second.connectedUrl)
         second.push(welcome)
         advanceUntilIdle()
-        assertEquals(12, subscribeRequests.size)
+        assertEquals(14, subscribeRequests.size)
         client.stop()
     }
 }

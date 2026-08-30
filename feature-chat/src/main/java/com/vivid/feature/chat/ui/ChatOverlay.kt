@@ -81,8 +81,21 @@ fun ChatOverlay(
                 color = Color.White.copy(alpha = 0.7f),
             )
         } else {
-            uiState.messages.takeLast(6).forEach { message ->
-                ChatMessageRow(message, uiState.badges, uiState.thirdPartyEmotes)
+            val visibleMessages = uiState.messages.filter { msg ->
+                if (uiState.hideDeleted && uiState.deletedMessageIds.contains(msg.id)) {
+                    false
+                } else {
+                    true
+                }
+            }
+            visibleMessages.takeLast(6).forEach { message ->
+                val isDeleted = uiState.deletedMessageIds.contains(message.id)
+                ChatMessageRow(
+                    message = message,
+                    badges = uiState.badges,
+                    thirdPartyEmotes = uiState.thirdPartyEmotes,
+                    isDeleted = isDeleted,
+                )
             }
         }
     }
@@ -196,8 +209,11 @@ private fun ChatMessageRow(
     message: ChatMessage,
     badges: Map<String, ChatBadge>,
     thirdPartyEmotes: Map<String, String> = emptyMap(),
+    isDeleted: Boolean = false,
 ) {
-    val nameColor = message.color?.let(::parseHexColor) ?: Color(0xFFB39DDB)
+    val nameColor = if (isDeleted) Color(0xFF666666) else (message.color?.let(::parseHexColor) ?: Color(0xFFB39DDB))
+    val textColor = if (isDeleted) Color(0xFF666666) else Color.White
+    val deletedAlpha = if (isDeleted) 0.5f else 1f
     val emoteSizeDp = with(LocalDensity.current) { 14.sp.toDp() }
     val badgeSizeDp = with(LocalDensity.current) { 18.sp.toDp() }
     val segments = parseMessageSegments(message.text, message.inlineEmotes, thirdPartyEmotes)
@@ -252,7 +268,7 @@ private fun ChatMessageRow(
                     Text(
                         text = segment.text,
                         style = MaterialTheme.typography.bodySmall,
-                        color = if (message.isAction) Color(0xFFB0BEC5) else Color.White,
+                        color = if (isDeleted) Color(0xFF666666) else if (message.isAction) Color(0xFFB0BEC5) else Color.White,
                     )
                 }
                 is MessageSegment.Emote -> {

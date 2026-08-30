@@ -67,6 +67,7 @@ class SettingsRepository @Inject constructor(
         val EMOTES_BTTV_ENABLED = booleanPreferencesKey("emotes_bttv_enabled")
         val EMOTES_FFZ_ENABLED = booleanPreferencesKey("emotes_ffz_enabled")
         val EMOTES_7TV_ENABLED = booleanPreferencesKey("emotes_7tv_enabled")
+        val CHAT_OVERLAY_HIDE_DELETED = booleanPreferencesKey("chat_overlay_hide_deleted")
     }
 
     // WICHTIG: Dies ist jetzt der EINZIGE Flow, den das ViewModel braucht.
@@ -214,6 +215,7 @@ class SettingsRepository @Inject constructor(
                 bttvEnabled = prefs[PrefKeys.EMOTES_BTTV_ENABLED] ?: true,
                 ffzEnabled = prefs[PrefKeys.EMOTES_FFZ_ENABLED] ?: true,
                 sevenTvEnabled = prefs[PrefKeys.EMOTES_7TV_ENABLED] ?: true,
+                chatOverlayHideDeleted = prefs[PrefKeys.CHAT_OVERLAY_HIDE_DELETED] ?: true,
             )
         },
     ) { settings, themeData, sentryEnabled, logsRetentionDays, emotePrefs ->
@@ -225,6 +227,7 @@ class SettingsRepository @Inject constructor(
             emotesBttvEnabled = emotePrefs.bttvEnabled,
             emotesFfzEnabled = emotePrefs.ffzEnabled,
             emotes7tvEnabled = emotePrefs.sevenTvEnabled,
+            chatOverlayHideDeleted = emotePrefs.chatOverlayHideDeleted,
         )
     }
 
@@ -390,6 +393,7 @@ class SettingsRepository @Inject constructor(
         val bttvEnabled: Boolean,
         val ffzEnabled: Boolean,
         val sevenTvEnabled: Boolean,
+        val chatOverlayHideDeleted: Boolean,
     )
 
     /** Sentry-Opt-out speichern (false = keine Fehlerberichte senden). */
@@ -450,6 +454,13 @@ class SettingsRepository @Inject constructor(
             prefs[PrefKeys.EMOTES_BTTV_ENABLED] = bttvEnabled
             prefs[PrefKeys.EMOTES_FFZ_ENABLED] = ffzEnabled
             prefs[PrefKeys.EMOTES_7TV_ENABLED] = sevenTvEnabled
+        }
+    }
+
+    /** Gelöschte Nachrichten im Chat-Overlay ausblenden. */
+    suspend fun updateChatOverlayHideDeleted(hideDeleted: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[PrefKeys.CHAT_OVERLAY_HIDE_DELETED] = hideDeleted
         }
     }
 

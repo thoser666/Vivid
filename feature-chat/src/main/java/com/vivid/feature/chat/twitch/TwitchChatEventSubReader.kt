@@ -83,6 +83,17 @@ class TwitchChatEventSubReader @Inject constructor(
     )
     val alerts: Flow<ChatAlert> = _alerts.asSharedFlow()
 
+    /**
+     * Gelöschte Nachrichten — vom EventSub-Topic `channel.chat.message_delete`
+     * geliefert. Enthält die IDs gelöschter Nachrichten, die vom
+     * [ChatOverlayViewModel] gefiltert bzw. ausgegraut werden.
+     */
+    private val _deletedMessageIds = MutableSharedFlow<String>(
+        extraBufferCapacity = 128,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST,
+    )
+    val deletedMessageIds: Flow<String> = _deletedMessageIds.asSharedFlow()
+
     private val json = Json { ignoreUnknownKeys = true }
 
     private var socketJob: Job? = null
@@ -193,6 +204,10 @@ class TwitchChatEventSubReader @Inject constructor(
                     }
                     // channel.chat.message (auch wenn subscription_type fehlt,
                     // z. B. in Fixtures) → Chat-Nachricht.
+                    CHAT_MESSAGE_DELETE_SUBSCRIPTION_TYPE -> {
+                        val event = json.decodeFromJsonElement<ChatMessageDeleteEvent>(eventJson)
+                        _deletedMessageIds.tryEmit(event.message_id)
+                    }
                     else -> {
                         val event = json.decodeFromJsonElement<ChatMessageEvent>(eventJson)
                         val text = event.message.text.trim()
@@ -383,6 +398,19 @@ class TwitchChatEventSubReader @Inject constructor(
                 ),
             )
         }
+        // channel.chat.message_delete: Bot muss Moderator sein, um gelöschte
+        // Nachrichten zu empfangen. Scope: moderator:read:chat_messages.
+        runCatching {
+            postSubscription(
+                cfg, sessionId,
+                type = CHAT_MESSAGE_DELETE_SUBSCRIPTION_TYPE,
+                version = CHAT_MESSAGE_DELETE_SUBSCRIPTION_VERSION,
+                condition = ChatMessageDeleteCondition(
+                    broadcaster_user_id = broadcasterUserId,
+                    user_id = botUserId,
+                ),
+            )
+        }
     }
 
     /**
@@ -510,6 +538,8 @@ class TwitchChatEventSubReader @Inject constructor(
         private const val RESUB_SUBSCRIPTION_VERSION = "1"
         private const val RAID_SUBSCRIPTION_TYPE = "channel.raid"
         private const val RAID_SUBSCRIPTION_VERSION = "1"
+        private const val CHAT_MESSAGE_DELETE_SUBSCRIPTION_TYPE = "channel.chat.message_delete"
+        private const val CHAT_MESSAGE_DELETE_SUBSCRIPTION_VERSION = "1"
     }
 }
 
@@ -675,6 +705,27 @@ internal data class ChatEventReply(
 
 @Serializable
 internal data class ChatEventSubCondition(
+    val broadcaster_user_id: String,
+    val user_id: String,
+)
+
+// --- channel.chat.message_delete: Event für gelöschte Nachrichten ---
+
+@Serializable
+internal data class ChatMessageDeleteEvent(
+    val broadcaster_user_id: String = "",
+    val broadcaster_user_login: String = "",
+    val broadcaster_user_name: String = "",
+    val user_id: String = "",
+    val user_login: String = "",
+    val user_name: String = "",
+    val message_id: String = "",
+    val message_timestamp: String = "",
+)
+
+// Helix-Subscribe-Condition für channel.chat.message_delete
+@Serializable
+internal data class ChatMessageDeleteCondition(
     val broadcaster_user_id: String,
     val user_id: String,
 )

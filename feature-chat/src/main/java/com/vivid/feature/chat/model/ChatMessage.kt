@@ -35,4 +35,6 @@ data class ChatMessage(
     val replyParentMessagePreview: String? = null,
     // Anzahl der Bits, die mit dieser Nachricht geschickt wurden (Cheer). 0 = kein Cheer.
     val bitsAmount: Int = 0,
+    // true, wenn die Nachricht als gelöscht markiert wurde (EventSub: channel.chat.message_delete).
+    val isDeleted: Boolean = false,
 )

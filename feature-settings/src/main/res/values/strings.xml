@@ -89,6 +89,9 @@
     <string name="overlays_emotes_bttv">BetterTTV (BTTV)</string>
     <string name="overlays_emotes_ffz">FrankerFaceZ (FFZ)</string>
     <string name="overlays_emotes_7tv">7TV</string>
+    <string name="overlays_deleted_title">Gelöschte Nachrichten</string>
+    <string name="overlays_deleted_desc">Gelöschte Nachrichten im Chat-Overlay ausblenden oder ausgrauen. Erfordert Moderator-Rechte des Bot-Kontos.</string>
+    <string name="overlays_deleted_hide">Gelöschte Nachrichten ausblenden</string>
 
     <!-- ===== Remote & Datenschutz (SettingsRemotePrivacyScreen.kt) ===== -->
     <string name="remote_section_title">Web-Remote-Control</string>

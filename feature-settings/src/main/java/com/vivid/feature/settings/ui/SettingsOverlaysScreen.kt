@@ -148,5 +148,23 @@ fun SettingsOverlaysScreen(
                 onCheckedChange = viewModel::onEmotes7tvChange,
             )
         }
+
+        // Gelöschte Nachrichten
+        Text(stringResource(R.string.overlays_deleted_title), style = MaterialTheme.typography.titleLarge)
+        Text(
+            text = stringResource(R.string.overlays_deleted_desc),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(stringResource(R.string.overlays_deleted_hide), modifier = Modifier.weight(1f))
+            Switch(
+                checked = uiState.chatOverlayHideDeleted,
+                onCheckedChange = viewModel::onChatOverlayHideDeletedChange,
+            )
+        }
     }
 }

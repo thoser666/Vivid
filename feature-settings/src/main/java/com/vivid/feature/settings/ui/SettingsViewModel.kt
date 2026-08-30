@@ -219,6 +219,9 @@ class SettingsViewModel @Inject constructor(
     fun onEmotesFfzChange(newValue: Boolean) { _uiState.value = _uiState.value.copy(emotesFfzEnabled = newValue) }
     fun onEmotes7tvChange(newValue: Boolean) { _uiState.value = _uiState.value.copy(emotes7tvEnabled = newValue) }
 
+    // Gelöschte Nachrichten: ausblenden (true) oder ausgrauen (false).
+    fun onChatOverlayHideDeletedChange(newValue: Boolean) { _uiState.value = _uiState.value.copy(chatOverlayHideDeleted = newValue) }
+
     // Datenschutz: Sentry-Fehlerberichte an/aus (Opt-out).
     fun onSentryEnabledChange(newEnabled: Boolean) { _uiState.value = _uiState.value.copy(sentryEnabled = newEnabled) }
 
@@ -326,6 +329,7 @@ class SettingsViewModel @Inject constructor(
                 ffzEnabled = currentSettings.emotesFfzEnabled,
                 sevenTvEnabled = currentSettings.emotes7tvEnabled,
             )
+            settingsRepository.updateChatOverlayHideDeleted(currentSettings.chatOverlayHideDeleted)
             settingsRepository.updateProfanitySettings(
                 profanityEnabled = currentSettings.chatBotProfanityEnabled,
                 profanityCategories = currentSettings.chatBotProfanityCategories,

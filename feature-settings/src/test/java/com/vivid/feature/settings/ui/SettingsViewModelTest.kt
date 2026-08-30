@@ -288,6 +288,7 @@ class SettingsViewModelTest {
             coEvery { updateWidgetSettings(any(), any(), any(), any(), any(), any()) } just runs
             coEvery { updateProfanitySettings(any(), any(), any(), any()) } just runs
             coEvery { updateEmoteSettings(any(), any(), any()) } just runs
+            coEvery { updateChatOverlayHideDeleted(any()) } just runs
             coEvery { updateSentryEnabled(any()) } just runs
             coEvery { updateThemeSettings(any(), any()) } just runs
         }
@@ -336,6 +337,7 @@ class SettingsViewModelTest {
             coEvery { updateWidgetSettings(any(), any(), any(), any(), any(), any()) } just runs
             coEvery { updateProfanitySettings(any(), any(), any(), any()) } just runs
             coEvery { updateEmoteSettings(any(), any(), any()) } just runs
+            coEvery { updateChatOverlayHideDeleted(any()) } just runs
             coEvery { updateSentryEnabled(any()) } just runs
             coEvery { updateThemeSettings(any(), any()) } just runs
         }
@@ -379,6 +381,7 @@ class SettingsViewModelTest {
             coEvery { updateWidgetSettings(any(), any(), any(), any(), any(), any()) } just runs
             coEvery { updateProfanitySettings(any(), any(), any(), any()) } just runs
             coEvery { updateEmoteSettings(any(), any(), any()) } just runs
+            coEvery { updateChatOverlayHideDeleted(any()) } just runs
             coEvery { updateSentryEnabled(any()) } just runs
             coEvery { updateThemeSettings(any(), any()) } just runs
         }
@@ -425,6 +428,7 @@ class SettingsViewModelTest {
             coEvery { updateWidgetSettings(any(), any(), any(), any(), any(), any()) } just runs
             coEvery { updateProfanitySettings(any(), any(), any(), any()) } just runs
             coEvery { updateEmoteSettings(any(), any(), any()) } just runs
+            coEvery { updateChatOverlayHideDeleted(any()) } just runs
             coEvery { updateSentryEnabled(any()) } just runs
             coEvery { updateThemeSettings(any(), any()) } just runs
         }
@@ -618,6 +622,7 @@ class SettingsViewModelTest {
             coEvery { updateWidgetSettings(any(), any(), any(), any(), any(), any()) } just runs
             coEvery { updateProfanitySettings(any(), any(), any(), any()) } just runs
             coEvery { updateEmoteSettings(any(), any(), any()) } just runs
+            coEvery { updateChatOverlayHideDeleted(any()) } just runs
             coEvery { updateSentryEnabled(any()) } just runs
             coEvery { updateThemeSettings(any(), any()) } just runs
         }
@@ -915,6 +920,7 @@ class SettingsViewModelTest {
             coEvery { updateWidgetSettings(any(), any(), any(), any(), any(), any()) } just runs
             coEvery { updateProfanitySettings(any(), any(), any(), any()) } just runs
             coEvery { updateEmoteSettings(any(), any(), any()) } just runs
+            coEvery { updateChatOverlayHideDeleted(any()) } just runs
             coEvery { updateSentryEnabled(any()) } just runs
             coEvery { updateThemeSettings(any(), any()) } just runs
         }
@@ -974,6 +980,7 @@ class SettingsViewModelTest {
             coEvery { updateWidgetSettings(any(), any(), any(), any(), any(), any()) } just runs
             coEvery { updateProfanitySettings(any(), any(), any(), any()) } just runs
             coEvery { updateEmoteSettings(any(), any(), any()) } just runs
+            coEvery { updateChatOverlayHideDeleted(any()) } just runs
             coEvery { updateSentryEnabled(any()) } just runs
             coEvery { updateThemeSettings(any(), any()) } just runs
             coEvery { updateEmoteSettings(any(), any(), any()) } just runs

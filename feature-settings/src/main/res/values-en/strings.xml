@@ -89,6 +89,9 @@
     <string name="overlays_emotes_bttv">BetterTTV (BTTV)</string>
     <string name="overlays_emotes_ffz">FrankerFaceZ (FFZ)</string>
     <string name="overlays_emotes_7tv">7TV</string>
+    <string name="overlays_deleted_title">Deleted messages</string>
+    <string name="overlays_deleted_desc">Hide or dim deleted messages in the chat overlay. Requires moderator privileges for the bot account.</string>
+    <string name="overlays_deleted_hide">Hide deleted messages</string>
 
     <!-- ===== Remote & Privacy (SettingsRemotePrivacyScreen.kt) ===== -->
     <string name="remote_section_title">Web remote control</string>
