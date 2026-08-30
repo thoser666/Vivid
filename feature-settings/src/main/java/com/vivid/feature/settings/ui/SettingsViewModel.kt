@@ -222,6 +222,13 @@ class SettingsViewModel @Inject constructor(
     // Gelöschte Nachrichten: ausblenden (true) oder ausgrauen (false).
     fun onChatOverlayHideDeletedChange(newValue: Boolean) { _uiState.value = _uiState.value.copy(chatOverlayHideDeleted = newValue) }
 
+    // Chat-Overlay-Layout-Einstellungen.
+    fun onChatOverlayWidthChange(newValue: Int) { _uiState.value = _uiState.value.copy(chatOverlayWidthDp = newValue.coerceIn(100, 400)) }
+    fun onChatOverlayHeightChange(newValue: Int) { _uiState.value = _uiState.value.copy(chatOverlayHeightDp = newValue.coerceIn(100, 600)) }
+    fun onChatOverlayBackgroundAlphaChange(newValue: Float) { _uiState.value = _uiState.value.copy(chatOverlayBackgroundAlpha = newValue.coerceIn(0f, 1f)) }
+    fun onChatOverlayFontSizeChange(newValue: Int) { _uiState.value = _uiState.value.copy(chatOverlayFontSizeSp = newValue.coerceIn(8, 20)) }
+    fun onChatOverlayShowTimestampChange(newValue: Boolean) { _uiState.value = _uiState.value.copy(chatOverlayShowTimestamp = newValue) }
+
     // Datenschutz: Sentry-Fehlerberichte an/aus (Opt-out).
     fun onSentryEnabledChange(newEnabled: Boolean) { _uiState.value = _uiState.value.copy(sentryEnabled = newEnabled) }
 
@@ -330,6 +337,13 @@ class SettingsViewModel @Inject constructor(
                 sevenTvEnabled = currentSettings.emotes7tvEnabled,
             )
             settingsRepository.updateChatOverlayHideDeleted(currentSettings.chatOverlayHideDeleted)
+            settingsRepository.updateChatOverlayLayout(
+                widthDp = currentSettings.chatOverlayWidthDp,
+                heightDp = currentSettings.chatOverlayHeightDp,
+                backgroundAlpha = currentSettings.chatOverlayBackgroundAlpha,
+                fontSizeSp = currentSettings.chatOverlayFontSizeSp,
+                showTimestamp = currentSettings.chatOverlayShowTimestamp,
+            )
             settingsRepository.updateProfanitySettings(
                 profanityEnabled = currentSettings.chatBotProfanityEnabled,
                 profanityCategories = currentSettings.chatBotProfanityCategories,

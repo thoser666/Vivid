@@ -67,6 +67,12 @@ class ChatOverlayViewModel @Inject constructor(
         val deletedMessageIds: Set<String> = emptySet(),
         /** Gelöschte Nachrichten ausblenden statt ausgrauen. */
         val hideDeleted: Boolean = true,
+        // Chat-Layout-Einstellungen
+        val overlayWidthDp: Int = 240,
+        val overlayHeightDp: Int = 300,
+        val overlayBackgroundAlpha: Float = 0.5f,
+        val overlayFontSizeSp: Int = 12,
+        val overlayShowTimestamp: Boolean = true,
     )
 
     private val _uiState = MutableStateFlow(ChatOverlayUiState())
@@ -140,6 +146,12 @@ class ChatOverlayViewModel @Inject constructor(
                         // Gelöschte Nachrichten: bei Kanalwechsel zurücksetzen
                         deletedMessageIds = if (contextChanged) emptySet() else it.deletedMessageIds,
                         hideDeleted = settings.chatOverlayHideDeleted,
+                        // Chat-Layout-Einstellungen
+                        overlayWidthDp = settings.chatOverlayWidthDp,
+                        overlayHeightDp = settings.chatOverlayHeightDp,
+                        overlayBackgroundAlpha = settings.chatOverlayBackgroundAlpha,
+                        overlayFontSizeSp = settings.chatOverlayFontSizeSp,
+                        overlayShowTimestamp = settings.chatOverlayShowTimestamp,
                     )
                 }
             }

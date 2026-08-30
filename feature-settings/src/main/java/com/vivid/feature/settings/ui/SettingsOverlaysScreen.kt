@@ -3,6 +3,7 @@ package com.vivid.feature.settings.ui
 import com.vivid.feature.settings.R
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.Slider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
@@ -164,6 +165,61 @@ fun SettingsOverlaysScreen(
             Switch(
                 checked = uiState.chatOverlayHideDeleted,
                 onCheckedChange = viewModel::onChatOverlayHideDeletedChange,
+            )
+        }
+
+        // Chat-Layout-Einstellungen
+        Text(stringResource(R.string.overlays_layout_title), style = MaterialTheme.typography.titleLarge)
+        Text(
+            text = stringResource(R.string.overlays_layout_desc),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        // Breite
+        Text(stringResource(R.string.overlays_layout_width, uiState.chatOverlayWidthDp))
+        Slider(
+            value = uiState.chatOverlayWidthDp.toFloat(),
+            onValueChange = { viewModel.onChatOverlayWidthChange(it.toInt()) },
+            valueRange = 100f..400f,
+            steps = 5,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        // Höhe
+        Text(stringResource(R.string.overlays_layout_height, uiState.chatOverlayHeightDp))
+        Slider(
+            value = uiState.chatOverlayHeightDp.toFloat(),
+            onValueChange = { viewModel.onChatOverlayHeightChange(it.toInt()) },
+            valueRange = 100f..600f,
+            steps = 9,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        // Hintergrund-Transparenz
+        Text(stringResource(R.string.overlays_layout_background_alpha, (uiState.chatOverlayBackgroundAlpha * 100).toInt()))
+        Slider(
+            value = uiState.chatOverlayBackgroundAlpha,
+            onValueChange = { viewModel.onChatOverlayBackgroundAlphaChange(it) },
+            valueRange = 0f..1f,
+            steps = 9,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        // Schriftgröße
+        Text(stringResource(R.string.overlays_layout_font_size, uiState.chatOverlayFontSizeSp))
+        Slider(
+            value = uiState.chatOverlayFontSizeSp.toFloat(),
+            onValueChange = { viewModel.onChatOverlayFontSizeChange(it.toInt()) },
+            valueRange = 8f..20f,
+            steps = 5,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        // Zeitstempel
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(stringResource(R.string.overlays_layout_show_timestamp), modifier = Modifier.weight(1f))
+            Switch(
+                checked = uiState.chatOverlayShowTimestamp,
+                onCheckedChange = viewModel::onChatOverlayShowTimestampChange,
             )
         }
     }

@@ -68,6 +68,11 @@ class SettingsRepository @Inject constructor(
         val EMOTES_FFZ_ENABLED = booleanPreferencesKey("emotes_ffz_enabled")
         val EMOTES_7TV_ENABLED = booleanPreferencesKey("emotes_7tv_enabled")
         val CHAT_OVERLAY_HIDE_DELETED = booleanPreferencesKey("chat_overlay_hide_deleted")
+        val CHAT_OVERLAY_WIDTH_DP = intPreferencesKey("chat_overlay_width_dp")
+        val CHAT_OVERLAY_HEIGHT_DP = intPreferencesKey("chat_overlay_height_dp")
+        val CHAT_OVERLAY_BACKGROUND_ALPHA = floatPreferencesKey("chat_overlay_background_alpha")
+        val CHAT_OVERLAY_FONT_SIZE_SP = intPreferencesKey("chat_overlay_font_size_sp")
+        val CHAT_OVERLAY_SHOW_TIMESTAMP = booleanPreferencesKey("chat_overlay_show_timestamp")
     }
 
     // WICHTIG: Dies ist jetzt der EINZIGE Flow, den das ViewModel braucht.
@@ -216,6 +221,11 @@ class SettingsRepository @Inject constructor(
                 ffzEnabled = prefs[PrefKeys.EMOTES_FFZ_ENABLED] ?: true,
                 sevenTvEnabled = prefs[PrefKeys.EMOTES_7TV_ENABLED] ?: true,
                 chatOverlayHideDeleted = prefs[PrefKeys.CHAT_OVERLAY_HIDE_DELETED] ?: true,
+                chatOverlayWidthDp = prefs[PrefKeys.CHAT_OVERLAY_WIDTH_DP] ?: 240,
+                chatOverlayHeightDp = prefs[PrefKeys.CHAT_OVERLAY_HEIGHT_DP] ?: 300,
+                chatOverlayBackgroundAlpha = prefs[PrefKeys.CHAT_OVERLAY_BACKGROUND_ALPHA] ?: 0.5f,
+                chatOverlayFontSizeSp = prefs[PrefKeys.CHAT_OVERLAY_FONT_SIZE_SP] ?: 12,
+                chatOverlayShowTimestamp = prefs[PrefKeys.CHAT_OVERLAY_SHOW_TIMESTAMP] ?: true,
             )
         },
     ) { settings, themeData, sentryEnabled, logsRetentionDays, emotePrefs ->
@@ -228,6 +238,11 @@ class SettingsRepository @Inject constructor(
             emotesFfzEnabled = emotePrefs.ffzEnabled,
             emotes7tvEnabled = emotePrefs.sevenTvEnabled,
             chatOverlayHideDeleted = emotePrefs.chatOverlayHideDeleted,
+            chatOverlayWidthDp = emotePrefs.chatOverlayWidthDp,
+            chatOverlayHeightDp = emotePrefs.chatOverlayHeightDp,
+            chatOverlayBackgroundAlpha = emotePrefs.chatOverlayBackgroundAlpha,
+            chatOverlayFontSizeSp = emotePrefs.chatOverlayFontSizeSp,
+            chatOverlayShowTimestamp = emotePrefs.chatOverlayShowTimestamp,
         )
     }
 
@@ -394,6 +409,11 @@ class SettingsRepository @Inject constructor(
         val ffzEnabled: Boolean,
         val sevenTvEnabled: Boolean,
         val chatOverlayHideDeleted: Boolean,
+        val chatOverlayWidthDp: Int,
+        val chatOverlayHeightDp: Int,
+        val chatOverlayBackgroundAlpha: Float,
+        val chatOverlayFontSizeSp: Int,
+        val chatOverlayShowTimestamp: Boolean,
     )
 
     /** Sentry-Opt-out speichern (false = keine Fehlerberichte senden). */
@@ -461,6 +481,23 @@ class SettingsRepository @Inject constructor(
     suspend fun updateChatOverlayHideDeleted(hideDeleted: Boolean) {
         dataStore.edit { prefs ->
             prefs[PrefKeys.CHAT_OVERLAY_HIDE_DELETED] = hideDeleted
+        }
+    }
+
+    /** Chat-Overlay-Layout-Einstellungen speichern. */
+    suspend fun updateChatOverlayLayout(
+        widthDp: Int,
+        heightDp: Int,
+        backgroundAlpha: Float,
+        fontSizeSp: Int,
+        showTimestamp: Boolean,
+    ) {
+        dataStore.edit { prefs ->
+            prefs[PrefKeys.CHAT_OVERLAY_WIDTH_DP] = widthDp.coerceIn(100, 400)
+            prefs[PrefKeys.CHAT_OVERLAY_HEIGHT_DP] = heightDp.coerceIn(100, 600)
+            prefs[PrefKeys.CHAT_OVERLAY_BACKGROUND_ALPHA] = backgroundAlpha.coerceIn(0f, 1f)
+            prefs[PrefKeys.CHAT_OVERLAY_FONT_SIZE_SP] = fontSizeSp.coerceIn(8, 20)
+            prefs[PrefKeys.CHAT_OVERLAY_SHOW_TIMESTAMP] = showTimestamp
         }
     }
 

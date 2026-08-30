@@ -116,6 +116,17 @@ data class AppSettings(
     val emotes7tvEnabled: Boolean = true,
     // Gelöschte Nachrichten im Chat-Overlay ausblenden (Standard: an).
     val chatOverlayHideDeleted: Boolean = true,
+    // --- Chat-Layout-Einstellungen (Overlay) ---
+    // Breite des Chat-Overlays in dp (100–400, Standard: 240).
+    val chatOverlayWidthDp: Int = 240,
+    // Maximale Höhe des Chat-Overlays in dp (100–600, Standard: 300).
+    val chatOverlayHeightDp: Int = 300,
+    // Hintergrund-Alpha (0.0–1.0, Standard: 0.5 = halbtransparent).
+    val chatOverlayBackgroundAlpha: Float = 0.5f,
+    // Schriftgröße in sp (8–20, Standard: 12).
+    val chatOverlayFontSizeSp: Int = 12,
+    // Zeitstempel anzeigen (Standard: an).
+    val chatOverlayShowTimestamp: Boolean = true,
     // --- In-App-Logs ---
     // Vorhaltezeit der täglichen Log-Rotation in Tagen (1–30, Default 7):
     // Logs wechseln täglich, ältere Tage werden beim Laden/Prune gelöscht.

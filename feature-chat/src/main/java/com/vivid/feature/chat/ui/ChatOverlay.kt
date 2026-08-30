@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
@@ -27,6 +28,8 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -56,11 +59,16 @@ fun ChatOverlay(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     if (!uiState.enabled) return
 
+    val fontSize = uiState.overlayFontSizeSp.sp
+    val emoteSize = with(LocalDensity.current) { (uiState.overlayFontSizeSp - 2).sp.toDp() }
+    val badgeSize = with(LocalDensity.current) { (uiState.overlayFontSizeSp + 6).sp.toDp() }
+
     Column(
         modifier = modifier
-            .widthIn(max = 240.dp)
+            .width(uiState.overlayWidthDp.dp)
+            .heightIn(max = uiState.overlayHeightDp.dp)
             .clip(RoundedCornerShape(12.dp))
-            .background(Color.Black.copy(alpha = 0.5f))
+            .background(Color.Black.copy(alpha = uiState.overlayBackgroundAlpha))
             .padding(horizontal = 10.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
@@ -95,6 +103,10 @@ fun ChatOverlay(
                     badges = uiState.badges,
                     thirdPartyEmotes = uiState.thirdPartyEmotes,
                     isDeleted = isDeleted,
+                    fontSize = fontSize,
+                    emoteSize = emoteSize,
+                    badgeSize = badgeSize,
+                    showTimestamp = uiState.overlayShowTimestamp,
                 )
             }
         }
@@ -210,12 +222,14 @@ private fun ChatMessageRow(
     badges: Map<String, ChatBadge>,
     thirdPartyEmotes: Map<String, String> = emptyMap(),
     isDeleted: Boolean = false,
+    fontSize: TextUnit = 12.sp,
+    emoteSize: Dp = 14.dp,
+    badgeSize: Dp = 18.dp,
+    showTimestamp: Boolean = true,
 ) {
     val nameColor = if (isDeleted) Color(0xFF666666) else (message.color?.let(::parseHexColor) ?: Color(0xFFB39DDB))
     val textColor = if (isDeleted) Color(0xFF666666) else Color.White
     val deletedAlpha = if (isDeleted) 0.5f else 1f
-    val emoteSizeDp = with(LocalDensity.current) { 14.sp.toDp() }
-    val badgeSizeDp = with(LocalDensity.current) { 18.sp.toDp() }
     val segments = parseMessageSegments(message.text, message.inlineEmotes, thirdPartyEmotes)
 
     FlowRow(
@@ -225,7 +239,7 @@ private fun ChatMessageRow(
         if (message.replyParentUserLogin != null) {
             Text(
                 text = "↩ ${message.replyParentUserLogin}: ",
-                style = MaterialTheme.typography.labelSmall,
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = fontSize * 0.8f),
                 color = Color(0xFF90CAF9),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -238,8 +252,8 @@ private fun ChatMessageRow(
                     model = badge.imageUrl,
                     contentDescription = badge.title,
                     modifier = Modifier
-                        .width(badgeSizeDp)
-                        .height(badgeSizeDp)
+                        .width(badgeSize)
+                        .height(badgeSize)
                         .clip(RoundedCornerShape(2.dp)),
                     contentScale = ContentScale.Fit,
                 )
@@ -250,7 +264,7 @@ private fun ChatMessageRow(
         Text(
             text = buildAnnotatedString {
                 if (message.isAction) {
-                    withStyle(SpanStyle(color = nameColor, fontWeight = FontWeight.Normal, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)) {
+                    withStyle(SpanStyle(color = nameColor, fontWeight = FontWeight.Normal, fontStyle = FontStyle.Italic)) {
                         append("$displayName ")
                     }
                 } else {
@@ -259,7 +273,7 @@ private fun ChatMessageRow(
                     }
                 }
             },
-            style = MaterialTheme.typography.bodySmall,
+            style = MaterialTheme.typography.bodySmall.copy(fontSize = fontSize),
         )
         // Textsegmente und Emotes im Wechsel
         segments.forEach { segment ->
@@ -267,7 +281,7 @@ private fun ChatMessageRow(
                 is MessageSegment.Text -> {
                     Text(
                         text = segment.text,
-                        style = MaterialTheme.typography.bodySmall,
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = fontSize),
                         color = if (isDeleted) Color(0xFF666666) else if (message.isAction) Color(0xFFB0BEC5) else Color.White,
                     )
                 }
@@ -276,8 +290,8 @@ private fun ChatMessageRow(
                         model = segment.emote.url,
                         contentDescription = segment.emote.id,
                         modifier = Modifier
-                            .width(emoteSizeDp)
-                            .height(emoteSizeDp)
+                            .width(emoteSize)
+                            .height(emoteSize)
                             .clip(RoundedCornerShape(2.dp)),
                         contentScale = ContentScale.Fit,
                     )
@@ -287,8 +301,8 @@ private fun ChatMessageRow(
                         model = segment.url,
                         contentDescription = segment.name,
                         modifier = Modifier
-                            .width(emoteSizeDp)
-                            .height(emoteSizeDp)
+                            .width(emoteSize)
+                            .height(emoteSize)
                             .clip(RoundedCornerShape(2.dp)),
                         contentScale = ContentScale.Fit,
                     )
@@ -299,9 +313,19 @@ private fun ChatMessageRow(
         if (message.bitsAmount > 0) {
             Text(
                 text = "⭐${message.bitsAmount}",
-                style = MaterialTheme.typography.labelSmall,
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = fontSize * 0.8f),
                 color = Color(0xFFFFB74D),
                 fontWeight = FontWeight.Bold,
+            )
+        }
+        // Zeitstempel (optional)
+        if (showTimestamp && message.timestamp > 0) {
+            val timeStr = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
+                .format(java.util.Date(message.timestamp))
+            Text(
+                text = timeStr,
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = fontSize * 0.7f),
+                color = Color.White.copy(alpha = 0.5f),
             )
         }
     }

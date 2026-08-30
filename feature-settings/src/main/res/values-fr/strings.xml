@@ -92,6 +92,13 @@
     <string name="overlays_deleted_title">Messages supprimés</string>
     <string name="overlays_deleted_desc">Masquer ou estomper les messages supprimés dans l\'overlay de chat. Nécessite les privilèges de modérateur pour le compte du bot.</string>
     <string name="overlays_deleted_hide">Masquer les messages supprimés</string>
+    <string name="overlays_layout_title">Disposition du chat</string>
+    <string name="overlays_layout_desc">Personnaliser la largeur, la hauteur, la transparence, la taille du texte et l\'horodatage de l\'overlay de chat.</string>
+    <string name="overlays_layout_width">Largeur : %1$d dp</string>
+    <string name="overlays_layout_height">Hauteur : %1$d dp</string>
+    <string name="overlays_layout_background_alpha">Arrière-plan : %1$d%% opaque</string>
+    <string name="overlays_layout_font_size">Taille du texte : %1$d sp</string>
+    <string name="overlays_layout_show_timestamp">Afficher l\'horodatage</string>
 
     <!-- ===== Remote & confidentialité (SettingsRemotePrivacyScreen.kt) ===== -->
     <string name="remote_section_title">Télécommande web</string>
