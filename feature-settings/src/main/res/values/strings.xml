@@ -99,6 +99,11 @@
     <string name="overlays_layout_background_alpha">Hintergrund: %1$d%% deckend</string>
     <string name="overlays_layout_font_size">Schriftgröße: %1$d sp</string>
     <string name="overlays_layout_show_timestamp">Zeitstempel anzeigen</string>
+    <string name="overlays_colors_title">Farben</string>
+    <string name="overlays_colors_desc">Username-, Text- und Hintergrund-Farbe des Chat-Overlays anpassen (Hex-Format #RRGGBB).</string>
+    <string name="overlays_colors_username">Username-Farbe</string>
+    <string name="overlays_colors_text">Text-Farbe</string>
+    <string name="overlays_colors_background">Hintergrund-Farbe</string>
 
     <!-- ===== Remote & Datenschutz (SettingsRemotePrivacyScreen.kt) ===== -->
     <string name="remote_section_title">Web-Remote-Control</string>

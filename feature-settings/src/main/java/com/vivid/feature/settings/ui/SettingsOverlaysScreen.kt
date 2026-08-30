@@ -3,7 +3,9 @@ package com.vivid.feature.settings.ui
 import com.vivid.feature.settings.R
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Slider
+import androidx.compose.ui.unit.dp
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
@@ -220,6 +222,56 @@ fun SettingsOverlaysScreen(
             Switch(
                 checked = uiState.chatOverlayShowTimestamp,
                 onCheckedChange = viewModel::onChatOverlayShowTimestampChange,
+            )
+        }
+
+        // Farben
+        Text(stringResource(R.string.overlays_colors_title), style = MaterialTheme.typography.titleLarge)
+        Text(
+            text = stringResource(R.string.overlays_colors_desc),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        // Username-Farbe
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(stringResource(R.string.overlays_colors_username), modifier = Modifier.weight(1f))
+            OutlinedTextField(
+                value = uiState.chatOverlayUsernameColorHex,
+                onValueChange = viewModel::onChatOverlayUsernameColorChange,
+                label = { Text("#RRGGBB") },
+                singleLine = true,
+                modifier = Modifier.width(120.dp),
+            )
+        }
+        // Text-Farbe
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(stringResource(R.string.overlays_colors_text), modifier = Modifier.weight(1f))
+            OutlinedTextField(
+                value = uiState.chatOverlayTextColorHex,
+                onValueChange = viewModel::onChatOverlayTextColorChange,
+                label = { Text("#RRGGBB") },
+                singleLine = true,
+                modifier = Modifier.width(120.dp),
+            )
+        }
+        // Hintergrund-Farbe
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(stringResource(R.string.overlays_colors_background), modifier = Modifier.weight(1f))
+            OutlinedTextField(
+                value = uiState.chatOverlayBackgroundColorHex,
+                onValueChange = viewModel::onChatOverlayBackgroundColorChange,
+                label = { Text("#RRGGBB") },
+                singleLine = true,
+                modifier = Modifier.width(120.dp),
             )
         }
     }

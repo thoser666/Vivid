@@ -73,6 +73,9 @@ class SettingsRepository @Inject constructor(
         val CHAT_OVERLAY_BACKGROUND_ALPHA = floatPreferencesKey("chat_overlay_background_alpha")
         val CHAT_OVERLAY_FONT_SIZE_SP = intPreferencesKey("chat_overlay_font_size_sp")
         val CHAT_OVERLAY_SHOW_TIMESTAMP = booleanPreferencesKey("chat_overlay_show_timestamp")
+        val CHAT_OVERLAY_USERNAME_COLOR_HEX = stringPreferencesKey("chat_overlay_username_color_hex")
+        val CHAT_OVERLAY_TEXT_COLOR_HEX = stringPreferencesKey("chat_overlay_text_color_hex")
+        val CHAT_OVERLAY_BACKGROUND_COLOR_HEX = stringPreferencesKey("chat_overlay_background_color_hex")
     }
 
     // WICHTIG: Dies ist jetzt der EINZIGE Flow, den das ViewModel braucht.
@@ -226,6 +229,9 @@ class SettingsRepository @Inject constructor(
                 chatOverlayBackgroundAlpha = prefs[PrefKeys.CHAT_OVERLAY_BACKGROUND_ALPHA] ?: 0.5f,
                 chatOverlayFontSizeSp = prefs[PrefKeys.CHAT_OVERLAY_FONT_SIZE_SP] ?: 12,
                 chatOverlayShowTimestamp = prefs[PrefKeys.CHAT_OVERLAY_SHOW_TIMESTAMP] ?: true,
+                chatOverlayUsernameColorHex = prefs[PrefKeys.CHAT_OVERLAY_USERNAME_COLOR_HEX] ?: "#B39DDB",
+                chatOverlayTextColorHex = prefs[PrefKeys.CHAT_OVERLAY_TEXT_COLOR_HEX] ?: "#FFFFFF",
+                chatOverlayBackgroundColorHex = prefs[PrefKeys.CHAT_OVERLAY_BACKGROUND_COLOR_HEX] ?: "#000000",
             )
         },
     ) { settings, themeData, sentryEnabled, logsRetentionDays, emotePrefs ->
@@ -243,6 +249,9 @@ class SettingsRepository @Inject constructor(
             chatOverlayBackgroundAlpha = emotePrefs.chatOverlayBackgroundAlpha,
             chatOverlayFontSizeSp = emotePrefs.chatOverlayFontSizeSp,
             chatOverlayShowTimestamp = emotePrefs.chatOverlayShowTimestamp,
+            chatOverlayUsernameColorHex = emotePrefs.chatOverlayUsernameColorHex,
+            chatOverlayTextColorHex = emotePrefs.chatOverlayTextColorHex,
+            chatOverlayBackgroundColorHex = emotePrefs.chatOverlayBackgroundColorHex,
         )
     }
 
@@ -414,6 +423,9 @@ class SettingsRepository @Inject constructor(
         val chatOverlayBackgroundAlpha: Float,
         val chatOverlayFontSizeSp: Int,
         val chatOverlayShowTimestamp: Boolean,
+        val chatOverlayUsernameColorHex: String,
+        val chatOverlayTextColorHex: String,
+        val chatOverlayBackgroundColorHex: String,
     )
 
     /** Sentry-Opt-out speichern (false = keine Fehlerberichte senden). */
@@ -498,6 +510,19 @@ class SettingsRepository @Inject constructor(
             prefs[PrefKeys.CHAT_OVERLAY_BACKGROUND_ALPHA] = backgroundAlpha.coerceIn(0f, 1f)
             prefs[PrefKeys.CHAT_OVERLAY_FONT_SIZE_SP] = fontSizeSp.coerceIn(8, 20)
             prefs[PrefKeys.CHAT_OVERLAY_SHOW_TIMESTAMP] = showTimestamp
+        }
+    }
+
+    /** Chat-Overlay-Farben speichern. */
+    suspend fun updateChatOverlayColors(
+        usernameColorHex: String,
+        textColorHex: String,
+        backgroundColorHex: String,
+    ) {
+        dataStore.edit { prefs ->
+            prefs[PrefKeys.CHAT_OVERLAY_USERNAME_COLOR_HEX] = usernameColorHex.takeIf { it.startsWith("#") && it.length == 7 } ?: "#B39DDB"
+            prefs[PrefKeys.CHAT_OVERLAY_TEXT_COLOR_HEX] = textColorHex.takeIf { it.startsWith("#") && it.length == 7 } ?: "#FFFFFF"
+            prefs[PrefKeys.CHAT_OVERLAY_BACKGROUND_COLOR_HEX] = backgroundColorHex.takeIf { it.startsWith("#") && it.length == 7 } ?: "#000000"
         }
     }
 

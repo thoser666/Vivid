@@ -229,6 +229,11 @@ class SettingsViewModel @Inject constructor(
     fun onChatOverlayFontSizeChange(newValue: Int) { _uiState.value = _uiState.value.copy(chatOverlayFontSizeSp = newValue.coerceIn(8, 20)) }
     fun onChatOverlayShowTimestampChange(newValue: Boolean) { _uiState.value = _uiState.value.copy(chatOverlayShowTimestamp = newValue) }
 
+    // Chat-Overlay-Farben.
+    fun onChatOverlayUsernameColorChange(newValue: String) { _uiState.value = _uiState.value.copy(chatOverlayUsernameColorHex = newValue) }
+    fun onChatOverlayTextColorChange(newValue: String) { _uiState.value = _uiState.value.copy(chatOverlayTextColorHex = newValue) }
+    fun onChatOverlayBackgroundColorChange(newValue: String) { _uiState.value = _uiState.value.copy(chatOverlayBackgroundColorHex = newValue) }
+
     // Datenschutz: Sentry-Fehlerberichte an/aus (Opt-out).
     fun onSentryEnabledChange(newEnabled: Boolean) { _uiState.value = _uiState.value.copy(sentryEnabled = newEnabled) }
 
@@ -343,6 +348,11 @@ class SettingsViewModel @Inject constructor(
                 backgroundAlpha = currentSettings.chatOverlayBackgroundAlpha,
                 fontSizeSp = currentSettings.chatOverlayFontSizeSp,
                 showTimestamp = currentSettings.chatOverlayShowTimestamp,
+            )
+            settingsRepository.updateChatOverlayColors(
+                usernameColorHex = currentSettings.chatOverlayUsernameColorHex,
+                textColorHex = currentSettings.chatOverlayTextColorHex,
+                backgroundColorHex = currentSettings.chatOverlayBackgroundColorHex,
             )
             settingsRepository.updateProfanitySettings(
                 profanityEnabled = currentSettings.chatBotProfanityEnabled,

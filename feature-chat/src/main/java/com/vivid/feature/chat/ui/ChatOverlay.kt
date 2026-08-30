@@ -64,12 +64,16 @@ fun ChatOverlay(
     val emoteSize = with(LocalDensity.current) { (uiState.overlayFontSizeSp - 2).sp.toDp() }
     val badgeSize = with(LocalDensity.current) { (uiState.overlayFontSizeSp + 6).sp.toDp() }
 
+    val bgColor = parseHexColor(uiState.overlayBackgroundColorHex) ?: Color.Black
+    val usernameColor = parseHexColor(uiState.overlayUsernameColorHex)
+    val textColor = parseHexColor(uiState.overlayTextColorHex) ?: Color.White
+
     Column(
         modifier = modifier
             .width(uiState.overlayWidthDp.dp)
             .heightIn(max = uiState.overlayHeightDp.dp)
             .clip(RoundedCornerShape(12.dp))
-            .background(Color.Black.copy(alpha = uiState.overlayBackgroundAlpha))
+            .background(bgColor.copy(alpha = uiState.overlayBackgroundAlpha))
             .padding(horizontal = 10.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
@@ -108,6 +112,8 @@ fun ChatOverlay(
                     emoteSize = emoteSize,
                     badgeSize = badgeSize,
                     showTimestamp = uiState.overlayShowTimestamp,
+                    defaultUsernameColor = usernameColor,
+                    defaultTextColor = textColor,
                 )
             }
         }
@@ -227,9 +233,11 @@ private fun ChatMessageRow(
     emoteSize: Dp = 14.dp,
     badgeSize: Dp = 18.dp,
     showTimestamp: Boolean = true,
+    defaultUsernameColor: Color? = null,
+    defaultTextColor: Color = Color.White,
 ) {
-    val nameColor = if (isDeleted) Color(0xFF666666) else (message.color?.let(::parseHexColor) ?: Color(0xFFB39DDB))
-    val textColor = if (isDeleted) Color(0xFF666666) else Color.White
+    val nameColor = if (isDeleted) Color(0xFF666666) else (message.color?.let(::parseHexColor) ?: defaultUsernameColor ?: Color(0xFFB39DDB))
+    val textColor = if (isDeleted) Color(0xFF666666) else defaultTextColor
     val deletedAlpha = if (isDeleted) 0.5f else 1f
     val segments = parseMessageSegments(message.text, message.inlineEmotes, thirdPartyEmotes)
 

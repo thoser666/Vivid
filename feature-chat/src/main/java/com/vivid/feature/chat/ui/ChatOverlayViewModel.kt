@@ -73,6 +73,10 @@ class ChatOverlayViewModel @Inject constructor(
         val overlayBackgroundAlpha: Float = 0.5f,
         val overlayFontSizeSp: Int = 12,
         val overlayShowTimestamp: Boolean = true,
+        // Chat-Overlay-Farben
+        val overlayUsernameColorHex: String = "#B39DDB",
+        val overlayTextColorHex: String = "#FFFFFF",
+        val overlayBackgroundColorHex: String = "#000000",
     )
 
     private val _uiState = MutableStateFlow(ChatOverlayUiState())
@@ -152,6 +156,9 @@ class ChatOverlayViewModel @Inject constructor(
                         overlayBackgroundAlpha = settings.chatOverlayBackgroundAlpha,
                         overlayFontSizeSp = settings.chatOverlayFontSizeSp,
                         overlayShowTimestamp = settings.chatOverlayShowTimestamp,
+                        overlayUsernameColorHex = settings.chatOverlayUsernameColorHex,
+                        overlayTextColorHex = settings.chatOverlayTextColorHex,
+                        overlayBackgroundColorHex = settings.chatOverlayBackgroundColorHex,
                     )
                 }
             }

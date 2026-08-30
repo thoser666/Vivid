@@ -99,6 +99,11 @@
     <string name="overlays_layout_background_alpha">Arrière-plan : %1$d%% opaque</string>
     <string name="overlays_layout_font_size">Taille du texte : %1$d sp</string>
     <string name="overlays_layout_show_timestamp">Afficher l\'horodatage</string>
+    <string name="overlays_colors_title">Couleurs</string>
+    <string name="overlays_colors_desc">Personnaliser la couleur du nom d\'utilisateur, du texte et de l\'arrière-plan de l\'overlay de chat (format hexadécimal #RRGGBB).</string>
+    <string name="overlays_colors_username">Couleur du nom d\'utilisateur</string>
+    <string name="overlays_colors_text">Couleur du texte</string>
+    <string name="overlays_colors_background">Couleur de l\'arrière-plan</string>
 
     <!-- ===== Remote & confidentialité (SettingsRemotePrivacyScreen.kt) ===== -->
     <string name="remote_section_title">Télécommande web</string>

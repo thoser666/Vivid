@@ -127,6 +127,12 @@ data class AppSettings(
     val chatOverlayFontSizeSp: Int = 12,
     // Zeitstempel anzeigen (Standard: an).
     val chatOverlayShowTimestamp: Boolean = true,
+    // Username-Farbe (Hex, Standard: #B39DDB = Hell-Lila).
+    val chatOverlayUsernameColorHex: String = "#B39DDB",
+    // Text-Farbe (Hex, Standard: #FFFFFF = Weiß).
+    val chatOverlayTextColorHex: String = "#FFFFFF",
+    // Overlay-Hintergrund-Farbe (Hex, Standard: #000000 = Schwarz).
+    val chatOverlayBackgroundColorHex: String = "#000000",
     // --- In-App-Logs ---
     // Vorhaltezeit der täglichen Log-Rotation in Tagen (1–30, Default 7):
     // Logs wechseln täglich, ältere Tage werden beim Laden/Prune gelöscht.
