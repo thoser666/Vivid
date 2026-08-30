@@ -8,8 +8,9 @@ name: Deploy / GitHub Pages
 # (Workflow konvertiert beide Markdown-Quellen per Python markdown-Paket
 #  und deployt docs/ via actions/configure-pages + upload-pages-artifact +
 #  deploy-pages).
-# Trigger: wenn PRIVACY.md oder docs/index.md sich ändern (oder manuell
-# via workflow_dispatch).
+# Trigger: wenn PRIVACY.md oder docs/index.md oder docs/fdroid/** sich ändern,
+# manuell via workflow_dispatch, oder nach erfolgreichem Abschluss des
+# deploy-fdroid-Workflows (siehe workflow_run-Block unten).
 
 on:
   push:
@@ -19,6 +20,19 @@ on:
       - 'docs/index.md'
       - 'docs/fdroid/**'
   workflow_dispatch:
+  # Der deploy-fdroid-Workflow committet die frisch gebauten F-Droid-Repos
+  # (docs/fdroid/**) mit dem GitHub-Actions-Token. Solche Bot-Commits lösen
+  # aber KEINE nachgelagerten `push`-Workflows aus (GitHub verhindert damit
+  # Endlosschleifen) - der `push.paths`-Trigger oben greift daher nie nach
+  # einem F-Droid-Update. Stattdessen reagieren wir explizit auf den
+  # erfolgreichen Abschluss des deploy-fdroid-Workflows. workflow_run laeuft
+  # immer auf dem Default-Branch (develop), was den frischen docs/fdroid-
+  # Stand aufgreift.
+  workflow_run:
+    workflows:
+      - 'Deploy / F-Droid'
+    types:
+      - completed
 
 permissions:
   contents: read
