@@ -92,6 +92,7 @@
     <string name="overlays_deleted_title">Gelöschte Nachrichten</string>
     <string name="overlays_deleted_desc">Gelöschte Nachrichten im Chat-Overlay ausblenden oder ausgrauen. Erfordert Moderator-Rechte des Bot-Kontos.</string>
     <string name="overlays_deleted_hide">Gelöschte Nachrichten ausblenden</string>
+    <string name="overlays_animate_new_messages">Neue Nachrichten animieren</string>
     <string name="overlays_layout_title">Chat-Layout</string>
     <string name="overlays_layout_desc">Breite, Höhe, Transparenz, Schriftgröße und Zeitstempel des Chat-Overlays anpassen.</string>
     <string name="overlays_layout_width">Breite: %1$d dp</string>

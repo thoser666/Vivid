@@ -173,6 +173,18 @@ fun SettingsOverlaysScreen(
             )
         }
 
+        // Animation für neue Nachrichten
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(stringResource(R.string.overlays_animate_new_messages), modifier = Modifier.weight(1f))
+            Switch(
+                checked = uiState.chatOverlayAnimateNewMessages,
+                onCheckedChange = viewModel::onChatOverlayAnimateNewMessagesChange,
+            )
+        }
+
         // Chat-Layout-Einstellungen
         Text(stringResource(R.string.overlays_layout_title), style = MaterialTheme.typography.titleLarge)
         Text(

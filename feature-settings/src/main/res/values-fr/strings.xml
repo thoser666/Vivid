@@ -92,6 +92,7 @@
     <string name="overlays_deleted_title">Messages supprimés</string>
     <string name="overlays_deleted_desc">Masquer ou estomper les messages supprimés dans l\'overlay de chat. Nécessite les privilèges de modérateur pour le compte du bot.</string>
     <string name="overlays_deleted_hide">Masquer les messages supprimés</string>
+    <string name="overlays_animate_new_messages">Animer les nouveaux messages</string>
     <string name="overlays_layout_title">Disposition du chat</string>
     <string name="overlays_layout_desc">Personnaliser la largeur, la hauteur, la transparence, la taille du texte et l\'horodatage de l\'overlay de chat.</string>
     <string name="overlays_layout_width">Largeur : %1$d dp</string>

@@ -289,6 +289,8 @@ class SettingsViewModelTest {
             coEvery { updateProfanitySettings(any(), any(), any(), any()) } just runs
             coEvery { updateEmoteSettings(any(), any(), any()) } just runs
             coEvery { updateChatOverlayHideDeleted(any()) } just runs
+            coEvery { updateChatOverlayAnimateNewMessages(any()) } just runs
+            coEvery { updateChatOverlayAnimateNewMessages(any()) } just runs
             coEvery { updateChatOverlayLayout(any(), any(), any(), any(), any()) } just runs
             coEvery { updateChatOverlayColors(any(), any(), any()) } just runs
             coEvery { updateChatOverlayPosition(any()) } just runs
@@ -341,6 +343,7 @@ class SettingsViewModelTest {
             coEvery { updateProfanitySettings(any(), any(), any(), any()) } just runs
             coEvery { updateEmoteSettings(any(), any(), any()) } just runs
             coEvery { updateChatOverlayHideDeleted(any()) } just runs
+            coEvery { updateChatOverlayAnimateNewMessages(any()) } just runs
             coEvery { updateChatOverlayLayout(any(), any(), any(), any(), any()) } just runs
             coEvery { updateChatOverlayColors(any(), any(), any()) } just runs
             coEvery { updateChatOverlayPosition(any()) } just runs
@@ -388,6 +391,7 @@ class SettingsViewModelTest {
             coEvery { updateProfanitySettings(any(), any(), any(), any()) } just runs
             coEvery { updateEmoteSettings(any(), any(), any()) } just runs
             coEvery { updateChatOverlayHideDeleted(any()) } just runs
+            coEvery { updateChatOverlayAnimateNewMessages(any()) } just runs
             coEvery { updateChatOverlayLayout(any(), any(), any(), any(), any()) } just runs
             coEvery { updateChatOverlayColors(any(), any(), any()) } just runs
             coEvery { updateChatOverlayPosition(any()) } just runs
@@ -438,6 +442,7 @@ class SettingsViewModelTest {
             coEvery { updateProfanitySettings(any(), any(), any(), any()) } just runs
             coEvery { updateEmoteSettings(any(), any(), any()) } just runs
             coEvery { updateChatOverlayHideDeleted(any()) } just runs
+            coEvery { updateChatOverlayAnimateNewMessages(any()) } just runs
             coEvery { updateChatOverlayLayout(any(), any(), any(), any(), any()) } just runs
             coEvery { updateChatOverlayColors(any(), any(), any()) } just runs
             coEvery { updateChatOverlayPosition(any()) } just runs
@@ -635,6 +640,7 @@ class SettingsViewModelTest {
             coEvery { updateProfanitySettings(any(), any(), any(), any()) } just runs
             coEvery { updateEmoteSettings(any(), any(), any()) } just runs
             coEvery { updateChatOverlayHideDeleted(any()) } just runs
+            coEvery { updateChatOverlayAnimateNewMessages(any()) } just runs
             coEvery { updateChatOverlayLayout(any(), any(), any(), any(), any()) } just runs
             coEvery { updateChatOverlayColors(any(), any(), any()) } just runs
             coEvery { updateChatOverlayPosition(any()) } just runs
@@ -936,6 +942,7 @@ class SettingsViewModelTest {
             coEvery { updateProfanitySettings(any(), any(), any(), any()) } just runs
             coEvery { updateEmoteSettings(any(), any(), any()) } just runs
             coEvery { updateChatOverlayHideDeleted(any()) } just runs
+            coEvery { updateChatOverlayAnimateNewMessages(any()) } just runs
             coEvery { updateChatOverlayLayout(any(), any(), any(), any(), any()) } just runs
             coEvery { updateChatOverlayColors(any(), any(), any()) } just runs
             coEvery { updateChatOverlayPosition(any()) } just runs
@@ -999,6 +1006,7 @@ class SettingsViewModelTest {
             coEvery { updateProfanitySettings(any(), any(), any(), any()) } just runs
             coEvery { updateEmoteSettings(any(), any(), any()) } just runs
             coEvery { updateChatOverlayHideDeleted(any()) } just runs
+            coEvery { updateChatOverlayAnimateNewMessages(any()) } just runs
             coEvery { updateChatOverlayLayout(any(), any(), any(), any(), any()) } just runs
             coEvery { updateChatOverlayColors(any(), any(), any()) } just runs
             coEvery { updateChatOverlayPosition(any()) } just runs

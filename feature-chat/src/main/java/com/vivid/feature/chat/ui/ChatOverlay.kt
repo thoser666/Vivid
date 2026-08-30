@@ -30,6 +30,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -113,18 +116,27 @@ fun ChatOverlay(
             }
             visibleMessages.takeLast(6).forEach { message ->
                 val isDeleted = uiState.deletedMessageIds.contains(message.id)
-                ChatMessageRow(
-                    message = message,
-                    badges = uiState.badges,
-                    thirdPartyEmotes = uiState.thirdPartyEmotes,
-                    isDeleted = isDeleted,
-                    fontSize = fontSize,
-                    emoteSize = emoteSize,
-                    badgeSize = badgeSize,
-                    showTimestamp = uiState.overlayShowTimestamp,
-                    defaultUsernameColor = usernameColor,
-                    defaultTextColor = textColor,
-                )
+                AnimatedVisibility(
+                    visible = true,
+                    enter = if (uiState.overlayAnimateNewMessages) {
+                        fadeIn(animationSpec = tween(durationMillis = 300))
+                    } else {
+                        fadeIn(animationSpec = tween(durationMillis = 0))
+                    },
+                ) {
+                    ChatMessageRow(
+                        message = message,
+                        badges = uiState.badges,
+                        thirdPartyEmotes = uiState.thirdPartyEmotes,
+                        isDeleted = isDeleted,
+                        fontSize = fontSize,
+                        emoteSize = emoteSize,
+                        badgeSize = badgeSize,
+                        showTimestamp = uiState.overlayShowTimestamp,
+                        defaultUsernameColor = usernameColor,
+                        defaultTextColor = textColor,
+                    )
+                }
             }
         }
     }

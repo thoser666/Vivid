@@ -80,6 +80,8 @@ class ChatOverlayViewModel @Inject constructor(
         val overlayBackgroundColorHex: String = "#000000",
         // Chat-Overlay-Position
         val overlayPosition: ChatOverlayPosition = ChatOverlayPosition.TOP_END,
+        // Fade-In-Animation für neue Nachrichten
+        val overlayAnimateNewMessages: Boolean = true,
     )
 
     private val _uiState = MutableStateFlow(ChatOverlayUiState())
@@ -163,6 +165,7 @@ class ChatOverlayViewModel @Inject constructor(
                         overlayTextColorHex = settings.chatOverlayTextColorHex,
                         overlayBackgroundColorHex = settings.chatOverlayBackgroundColorHex,
                         overlayPosition = settings.chatOverlayPosition,
+                        overlayAnimateNewMessages = settings.chatOverlayAnimateNewMessages,
                     )
                 }
             }

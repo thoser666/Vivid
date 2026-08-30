@@ -116,6 +116,8 @@ data class AppSettings(
     val emotes7tvEnabled: Boolean = true,
     // Gelöschte Nachrichten im Chat-Overlay ausblenden (Standard: an).
     val chatOverlayHideDeleted: Boolean = true,
+    // Fade-In-Animation für neue Nachrichten im Chat-Overlay (Standard: an).
+    val chatOverlayAnimateNewMessages: Boolean = true,
     // --- Chat-Layout-Einstellungen (Overlay) ---
     // Breite des Chat-Overlays in dp (100–400, Standard: 240).
     val chatOverlayWidthDp: Int = 240,

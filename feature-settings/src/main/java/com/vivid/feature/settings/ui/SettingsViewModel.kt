@@ -223,6 +223,9 @@ class SettingsViewModel @Inject constructor(
     // Gelöschte Nachrichten: ausblenden (true) oder ausgrauen (false).
     fun onChatOverlayHideDeletedChange(newValue: Boolean) { _uiState.value = _uiState.value.copy(chatOverlayHideDeleted = newValue) }
 
+    // Fade-In-Animation für neue Nachrichten.
+    fun onChatOverlayAnimateNewMessagesChange(newValue: Boolean) { _uiState.value = _uiState.value.copy(chatOverlayAnimateNewMessages = newValue) }
+
     // Chat-Overlay-Layout-Einstellungen.
     fun onChatOverlayWidthChange(newValue: Int) { _uiState.value = _uiState.value.copy(chatOverlayWidthDp = newValue.coerceIn(100, 400)) }
     fun onChatOverlayHeightChange(newValue: Int) { _uiState.value = _uiState.value.copy(chatOverlayHeightDp = newValue.coerceIn(100, 600)) }
@@ -346,6 +349,7 @@ class SettingsViewModel @Inject constructor(
                 sevenTvEnabled = currentSettings.emotes7tvEnabled,
             )
             settingsRepository.updateChatOverlayHideDeleted(currentSettings.chatOverlayHideDeleted)
+            settingsRepository.updateChatOverlayAnimateNewMessages(currentSettings.chatOverlayAnimateNewMessages)
             settingsRepository.updateChatOverlayLayout(
                 widthDp = currentSettings.chatOverlayWidthDp,
                 heightDp = currentSettings.chatOverlayHeightDp,

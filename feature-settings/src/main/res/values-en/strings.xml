@@ -92,6 +92,7 @@
     <string name="overlays_deleted_title">Deleted messages</string>
     <string name="overlays_deleted_desc">Hide or dim deleted messages in the chat overlay. Requires moderator privileges for the bot account.</string>
     <string name="overlays_deleted_hide">Hide deleted messages</string>
+    <string name="overlays_animate_new_messages">Animate new messages</string>
     <string name="overlays_layout_title">Chat layout</string>
     <string name="overlays_layout_desc">Customize width, height, transparency, font size and timestamp of the chat overlay.</string>
     <string name="overlays_layout_width">Width: %1$d dp</string>
