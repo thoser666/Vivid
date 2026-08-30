@@ -104,6 +104,7 @@
     <string name="overlays_colors_username">Username-Farbe</string>
     <string name="overlays_colors_text">Text-Farbe</string>
     <string name="overlays_colors_background">Hintergrund-Farbe</string>
+    <string name="overlays_color_hint">#RRGGBB</string>
 
     <!-- ===== Remote & Datenschutz (SettingsRemotePrivacyScreen.kt) ===== -->
     <string name="remote_section_title">Web-Remote-Control</string>

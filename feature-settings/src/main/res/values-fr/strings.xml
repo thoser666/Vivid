@@ -104,6 +104,7 @@
     <string name="overlays_colors_username">Couleur du nom d\'utilisateur</string>
     <string name="overlays_colors_text">Couleur du texte</string>
     <string name="overlays_colors_background">Couleur de l\'arrière-plan</string>
+    <string name="overlays_color_hint">#RRGGBB</string>
 
     <!-- ===== Remote & confidentialité (SettingsRemotePrivacyScreen.kt) ===== -->
     <string name="remote_section_title">Télécommande web</string>

@@ -241,7 +241,7 @@ fun SettingsOverlaysScreen(
             OutlinedTextField(
                 value = uiState.chatOverlayUsernameColorHex,
                 onValueChange = viewModel::onChatOverlayUsernameColorChange,
-                label = { Text("#RRGGBB") },
+                label = { Text(stringResource(R.string.overlays_color_hint)) },
                 singleLine = true,
                 modifier = Modifier.width(120.dp),
             )
@@ -255,7 +255,7 @@ fun SettingsOverlaysScreen(
             OutlinedTextField(
                 value = uiState.chatOverlayTextColorHex,
                 onValueChange = viewModel::onChatOverlayTextColorChange,
-                label = { Text("#RRGGBB") },
+                label = { Text(stringResource(R.string.overlays_color_hint)) },
                 singleLine = true,
                 modifier = Modifier.width(120.dp),
             )
@@ -269,7 +269,7 @@ fun SettingsOverlaysScreen(
             OutlinedTextField(
                 value = uiState.chatOverlayBackgroundColorHex,
                 onValueChange = viewModel::onChatOverlayBackgroundColorChange,
-                label = { Text("#RRGGBB") },
+                label = { Text(stringResource(R.string.overlays_color_hint)) },
                 singleLine = true,
                 modifier = Modifier.width(120.dp),
             )
