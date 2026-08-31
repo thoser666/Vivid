@@ -105,7 +105,8 @@ class BatteryWidgetViewModelTest {
             isCharging = true,
             settingsFlow = settingsFlow,
         )
-        testScheduler.advanceUntilIdle()
+        // Advance past the settings collection + first battery read
+        testScheduler.advanceTimeBy(1_000)
 
         val state = vm.uiState.value
         assertEquals(42, state.level)
