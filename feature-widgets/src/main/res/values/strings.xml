@@ -4,4 +4,7 @@
     <string name="widget_location_label">📍 %1$s</string>
     <string name="widget_speed_label">🚗 %1$s</string>
     <string name="widget_altitude_label">⛰️ %1$s</string>
+
+    <!-- Bild-Widget (Logo/Wasserzeichen) -->
+    <string name="image_widget_description">Stream-Overlay-Bild</string>
 </resources>

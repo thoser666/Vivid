@@ -2,6 +2,8 @@ package com.vivid.feature.widget
 
 import android.net.Uri
 import androidx.compose.foundation.layout.size
+import androidx.compose.ui.res.stringResource
+import com.vivid.feature.widgets.R
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -77,7 +79,7 @@ fun ImageWidget(
             .data(Uri.parse(uiState.uri))
             .crossfade(true)
             .build(),
-        contentDescription = "Stream overlay image",
+        contentDescription = stringResource(R.string.image_widget_description),
         modifier = modifier
             .size(uiState.sizeDp.dp)
             .alpha(uiState.opacity),
