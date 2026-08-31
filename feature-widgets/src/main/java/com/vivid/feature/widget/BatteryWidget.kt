@@ -86,6 +86,8 @@ class BatteryWidgetViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(BatteryWidgetUiState())
     val uiState: StateFlow<BatteryWidgetUiState> = _uiState.asStateFlow()
 
+    private var batteryPollingJob: kotlinx.coroutines.Job? = null
+
     init {
         // Settings übernehmen.
         viewModelScope.launch {
@@ -101,15 +103,20 @@ class BatteryWidgetViewModel @Inject constructor(
             }
         }
 
-        // Akku-Level alle 30 Sekunden aktualisieren (nur wenn aktiviert).
+        // Akku-Polling starten/stoppen je nach enabled-Status.
         viewModelScope.launch {
             uiState.collect { state ->
-                if (state.enabled) {
-                    while (true) {
-                        val (level, charging) = batteryLevelReader()
-                        _uiState.update { it.copy(level = level, isCharging = charging) }
-                        delay(30_000L)
+                if (state.enabled && batteryPollingJob == null) {
+                    batteryPollingJob = launch {
+                        while (true) {
+                            val (level, charging) = batteryLevelReader()
+                            _uiState.update { it.copy(level = level, isCharging = charging) }
+                            delay(30_000L)
+                        }
                     }
+                } else if (!state.enabled && batteryPollingJob != null) {
+                    batteryPollingJob?.cancel()
+                    batteryPollingJob = null
                 }
             }
         }

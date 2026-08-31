@@ -99,7 +99,12 @@ class BatteryWidgetViewModelTest {
 
     @Test
     fun `battery level is read from system`() = runTest {
-        val vm = createViewModel(batteryLevel = 42, isCharging = true)
+        val settingsFlow = MutableStateFlow(AppSettings(batteryEnabled = true))
+        val vm = createViewModel(
+            batteryLevel = 42,
+            isCharging = true,
+            settingsFlow = settingsFlow,
+        )
         testScheduler.advanceUntilIdle()
 
         val state = vm.uiState.value
