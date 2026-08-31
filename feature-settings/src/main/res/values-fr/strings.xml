@@ -115,15 +115,15 @@
 
     <!-- Widget batterie -->
     <string name="overlays_grid_title">Grille (positionnement)</string>
-    <string name="overlays_grid_desc">Afficher une grille sur l'aperçu pour faciliter le positionnement des widgets et des images.</string>
+    <string name="overlays_grid_desc">Afficher une grille sur l\'aperçu pour faciliter le positionnement des widgets et des images.</string>
     <string name="overlays_grid_enabled">Afficher la grille</string>
     <string name="overlays_grid_spacing">Espacement de la grille : %1$d dp</string>
 
     <string name="overlays_image_title">Widget image (logo / filigrane)</string>
-    <string name="overlays_image_desc">Afficher une image sur le stream — logo, filigrane ou superposition. Sélectionner l'image via le sélecteur SAF (URI définie via le champ texte).</string>
+    <string name="overlays_image_desc">Afficher une image sur le stream — logo, filigrane ou superposition. Sélectionner l\'image via le sélecteur SAF (URI définie via le champ texte).</string>
     <string name="overlays_image_enabled">Afficher le widget image</string>
-    <string name="overlays_image_uri">URI de l'image</string>
-    <string name="overlays_image_size">Taille de l'image : %1$d dp</string>
+    <string name="overlays_image_uri">URI de l\'image</string>
+    <string name="overlays_image_size">Taille de l\'image : %1$d dp</string>
     <string name="overlays_image_opacity">Opacité : %1$d%%</string>
 
     <string name="overlays_battery_title">Affichage batterie</string>
