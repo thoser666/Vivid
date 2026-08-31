@@ -1,3 +1,5 @@
+import java.time.Duration
+
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.hilt)
@@ -27,6 +29,11 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+}
+
+tasks.withType<Test>().configureEach {
+    // Failsafe: kill hanging tests after 10 min (CI deadlock protection)
+    timeout.set(Duration.ofMinutes(10))
 }
 
 dependencies {

@@ -101,12 +101,16 @@ class BatteryWidgetViewModel @Inject constructor(
             }
         }
 
-        // Akku-Level alle 30 Sekunden aktualisieren.
+        // Akku-Level alle 30 Sekunden aktualisieren (nur wenn aktiviert).
         viewModelScope.launch {
-            while (true) {
-                val (level, charging) = batteryLevelReader()
-                _uiState.update { it.copy(level = level, isCharging = charging) }
-                delay(30_000L)
+            uiState.collect { state ->
+                if (state.enabled) {
+                    while (true) {
+                        val (level, charging) = batteryLevelReader()
+                        _uiState.update { it.copy(level = level, isCharging = charging) }
+                        delay(30_000L)
+                    }
+                }
             }
         }
     }
