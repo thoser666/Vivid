@@ -72,7 +72,7 @@ class SettingsLogsViewModelTest {
     fun `uiState zeigt Puffer und Store-Historie dedupliziert`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val buffer = LogBuffer()
-        val store = LogStore(File.createTempFile("logs", "").parentFile.resolve("vm_logs"))
+        val store = LogStore(File.createTempFile("logs", "").parentFile!!.resolve("vm_logs"))
         store.add(entry(MSG_HISTORY, timestampMillis = 1L))
         buffer.add(entry(MSG_LIVE, timestampMillis = 2L))
         // Derselbe Eintrag in Puffer UND Store — darf nur einmal erscheinen.
@@ -124,7 +124,7 @@ class SettingsLogsViewModelTest {
     fun `setRetentionDays persistiert und aktualisiert`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val buffer = LogBuffer()
-        val store = LogStore(File.createTempFile("logs", "").parentFile.resolve("vm_ret"))
+        val store = LogStore(File.createTempFile("logs", "").parentFile!!.resolve("vm_ret"))
         val repository = mockk<SettingsRepository> {
             every { appSettingsFlow } returns MutableStateFlow(AppSettings(logsRetentionDays = 7))
             coEvery { updateLogsRetentionDays(any()) } returns Unit
@@ -238,7 +238,7 @@ class SettingsLogsViewModelTest {
     fun `clearLogs leert Puffer und Store`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val buffer = LogBuffer()
-        val store = LogStore(File.createTempFile("logs", "").parentFile.resolve("vm_clear"))
+        val store = LogStore(File.createTempFile("logs", "").parentFile!!.resolve("vm_clear"))
         store.add(entry("persistiert"))
         buffer.add(entry(MSG_LIVE))
 

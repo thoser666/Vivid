@@ -39,7 +39,7 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class SettingsViewModelTest {
 
-    private fun repository() = mockk<SettingsRepository> {
+    private fun repository() = mockk<SettingsRepository>(relaxed = true) {
         every { appSettingsFlow } returns MutableStateFlow(AppSettings())
     }
 
@@ -278,7 +278,7 @@ class SettingsViewModelTest {
     @Test
     fun `saveSettings persists stream and obs settings and emits the save event`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val repository = mockk<SettingsRepository> {
+        val repository = mockk<SettingsRepository>(relaxed = true) {
             every { appSettingsFlow } returns MutableStateFlow(AppSettings())
             coEvery { updateStreamSettings(any(), any(), any()) } just runs
             coEvery { updateSecondaryStreamSettings(any(), any(), any()) } just runs
@@ -333,7 +333,7 @@ class SettingsViewModelTest {
     @Test
     fun `saveSettings persists the chat bot enable state and mode switch`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val repository = mockk<SettingsRepository> {
+        val repository = mockk<SettingsRepository>(relaxed = true) {
             every { appSettingsFlow } returns MutableStateFlow(AppSettings())
             coEvery { updateStreamSettings(any(), any(), any()) } just runs
             coEvery { updateSecondaryStreamSettings(any(), any(), any()) } just runs
@@ -382,7 +382,7 @@ class SettingsViewModelTest {
     @Test
     fun `widget toggles update the ui state and persist on save`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val repository = mockk<SettingsRepository> {
+        val repository = mockk<SettingsRepository>(relaxed = true) {
             every { appSettingsFlow } returns MutableStateFlow(AppSettings())
             coEvery { updateStreamSettings(any(), any(), any()) } just runs
             coEvery { updateSecondaryStreamSettings(any(), any(), any()) } just runs
@@ -434,7 +434,7 @@ class SettingsViewModelTest {
     @Test
     fun `battery settings update the ui state and persist on save`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val repository = mockk<SettingsRepository> {
+        val repository = mockk<SettingsRepository>(relaxed = true) {
             every { appSettingsFlow } returns MutableStateFlow(AppSettings())
             coEvery { updateStreamSettings(any(), any(), any()) } just runs
             coEvery { updateSecondaryStreamSettings(any(), any(), any()) } just runs
@@ -524,7 +524,7 @@ class SettingsViewModelTest {
     @Test
     fun `sentry toggle updates the ui state and persists on save`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val repository = mockk<SettingsRepository> {
+        val repository = mockk<SettingsRepository>(relaxed = true) {
             every { appSettingsFlow } returns MutableStateFlow(AppSettings())
             coEvery { updateStreamSettings(any(), any(), any()) } just runs
             coEvery { updateSecondaryStreamSettings(any(), any(), any()) } just runs
@@ -723,7 +723,7 @@ class SettingsViewModelTest {
     @Test
     fun `saveSettings persists the complete chat bot configuration`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val repository = mockk<SettingsRepository> {
+        val repository = mockk<SettingsRepository>(relaxed = true) {
             every { appSettingsFlow } returns MutableStateFlow(AppSettings())
             coEvery { updateStreamSettings(any(), any(), any()) } just runs
             coEvery { updateSecondaryStreamSettings(any(), any(), any()) } just runs
@@ -1026,7 +1026,7 @@ class SettingsViewModelTest {
     @Test
     fun `saveSettings persists the theme settings`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val repository = mockk<SettingsRepository> {
+        val repository = mockk<SettingsRepository>(relaxed = true) {
             every { appSettingsFlow } returns MutableStateFlow(AppSettings())
             coEvery { updateStreamSettings(any(), any(), any()) } just runs
             coEvery { updateSecondaryStreamSettings(any(), any(), any()) } just runs
@@ -1091,7 +1091,7 @@ class SettingsViewModelTest {
     @Test
     fun `saveSettings persists emote settings`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val repository = mockk<SettingsRepository> {
+        val repository = mockk<SettingsRepository>(relaxed = true) {
             every { appSettingsFlow } returns MutableStateFlow(AppSettings())
             coEvery { updateStreamSettings(any(), any(), any()) } just runs
             coEvery { updateSecondaryStreamSettings(any(), any(), any()) } just runs

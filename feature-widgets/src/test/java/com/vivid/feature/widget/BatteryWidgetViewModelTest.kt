@@ -7,6 +7,7 @@ import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -31,12 +32,14 @@ class BatteryWidgetViewModelTest {
         batteryLevel: Int = 75,
         isCharging: Boolean = false,
         settingsFlow: MutableStateFlow<AppSettings> = MutableStateFlow(AppSettings()),
+        ticks: List<Unit> = listOf(Unit),
     ): BatteryWidgetViewModel {
         val vm = BatteryWidgetViewModel(
             context = mockk(relaxed = true),
             settingsRepository = settings(settingsFlow),
         )
         vm.batteryLevelReader = { batteryLevel to isCharging }
+        vm.ticker = { flowOf(*ticks.toTypedArray()) }
         return vm
     }
 

@@ -32,9 +32,11 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -83,6 +85,19 @@ class BatteryWidgetViewModel @Inject constructor(
     /** Test-Hook: Batterie-Reader kann durch Test-Funktion ersetzt werden. */
     internal var batteryLevelReader: BatteryLevelReader = { systemBatteryLevel(context) }
 
+    /**
+     * Polling-Quelle für Akku-Updates. Standard: alle 30 Sekunden abfragen.
+     * Tests ersetzen sie durch einen endlichen Flow, damit der Test-Scheduler nicht endlos weiterläuft.
+     */
+    internal var ticker: () -> Flow<Unit> = ::defaultTicker
+
+    private fun defaultTicker(): Flow<Unit> = flow {
+        while (true) {
+            emit(Unit)
+            delay(30_000L)
+        }
+    }
+
     private val _uiState = MutableStateFlow(BatteryWidgetUiState())
     val uiState: StateFlow<BatteryWidgetUiState> = _uiState.asStateFlow()
 
@@ -108,10 +123,9 @@ class BatteryWidgetViewModel @Inject constructor(
             uiState.collect { state ->
                 if (state.enabled && batteryPollingJob == null) {
                     batteryPollingJob = launch {
-                        while (true) {
+                        ticker().collect {
                             val (level, charging) = batteryLevelReader()
                             _uiState.update { it.copy(level = level, isCharging = charging) }
-                            delay(30_000L)
                         }
                     }
                 } else if (!state.enabled && batteryPollingJob != null) {
