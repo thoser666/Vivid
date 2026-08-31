@@ -28,6 +28,10 @@
     <string name="streaming_source_video_active_hint">Video player active — the selected file is being streamed.</string>
     <string name="streaming_source_video_pick">Pick video</string>
     <string name="streaming_source_video_pick_hint">Choose a video file to stream.</string>
+    <plurals name="twitch_viewers_count">
+        <item quantity="one">%1$d viewer</item>
+        <item quantity="other">%1$d viewers</item>
+    </plurals>
 
     <!-- Scenes (basic scenes) + auto scene switcher (StreamingScreen.kt) -->
     <string name="scene_bar_title">Scenes</string>

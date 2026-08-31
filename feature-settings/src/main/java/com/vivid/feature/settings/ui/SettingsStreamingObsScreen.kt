@@ -4,6 +4,7 @@ import com.vivid.feature.settings.R
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -12,9 +13,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.vivid.core.data.AppSettings
+import com.vivid.feature.chat.twitch.TwitchChannelUiState
+import com.vivid.feature.chat.twitch.TwitchChannelViewModel
 
 /**
  * Kategorie „Streaming & OBS“: Stream-URL/-Key (inkl. Plattform-Vorlagen),
@@ -24,6 +28,8 @@ import com.vivid.core.data.AppSettings
 fun SettingsStreamingObsScreen(
     uiState: AppSettings,
     viewModel: SettingsViewModel,
+    twitchViewModel: TwitchChannelViewModel,
+    twitchState: TwitchChannelUiState,
     onBack: () -> Unit,
 ) {
     SettingsSectionScaffold(
@@ -73,6 +79,72 @@ fun SettingsStreamingObsScreen(
             Switch(
                 checked = uiState.streamUseTls,
                 onCheckedChange = viewModel::onStreamUseTlsChange,
+            )
+        }
+
+        // Twitch-Kanalintegration: Live-Viewer sowie Titel/Kategorie über Helix.
+        Text(stringResource(R.string.twitch_channel_title), style = MaterialTheme.typography.titleLarge)
+        Text(
+            text = stringResource(R.string.twitch_channel_desc),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        SecretField(
+            value = uiState.twitchChannelOauthToken,
+            onValueChange = viewModel::onTwitchChannelOauthTokenChange,
+            labelRes = R.string.twitch_channel_oauth_label,
+        )
+        OutlinedTextField(
+            value = uiState.twitchStreamTitle,
+            onValueChange = viewModel::onTwitchStreamTitleChange,
+            label = { Text(stringResource(R.string.twitch_stream_title_label)) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        OutlinedTextField(
+            value = uiState.twitchStreamCategory,
+            onValueChange = viewModel::onTwitchStreamCategoryChange,
+            label = { Text(stringResource(R.string.twitch_stream_category_label)) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Button(
+                onClick = twitchViewModel::refresh,
+                enabled = !twitchState.loading,
+            ) {
+                Text(stringResource(R.string.twitch_refresh_viewers))
+            }
+            twitchState.streamInfo?.let { info ->
+                Text(pluralStringResource(R.plurals.twitch_viewers_count, info.viewerCount, info.viewerCount))
+            }
+        }
+        Button(
+            onClick = {
+                twitchViewModel.updateChannelInfo(
+                    title = uiState.twitchStreamTitle,
+                    category = uiState.twitchStreamCategory,
+                )
+            },
+            enabled = !twitchState.saving &&
+                (uiState.twitchStreamTitle.isNotBlank() || uiState.twitchStreamCategory.isNotBlank()),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(
+                stringResource(
+                    if (twitchState.saving) R.string.twitch_saving else R.string.twitch_update_channel,
+                ),
+            )
+        }
+        twitchState.error?.let { error ->
+            Text(
+                text = error,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall,
             )
         }
 

@@ -6,7 +6,7 @@
     <string name="cat_appearance_title">Appearance</string>
     <string name="cat_appearance_subtitle">Theme mode (Light/Dark/AMOLED), accent color</string>
     <string name="cat_overlays_title">Overlays &amp; Widgets</string>
-    <string name="cat_overlays_subtitle">Twitch chat overlay, text/info widget (time/GPS/speed)</string>
+    <string name="cat_overlays_subtitle">Twitch chat, text/info, image, QR code, battery and grid widgets</string>
     <string name="cat_chatbot_title">Chat Bot &amp; AI</string>
     <string name="cat_chatbot_subtitle">Mode, bot account/LLM, limits, owner access, media commands</string>
     <string name="cat_remote_title">Remote &amp; Privacy</string>
@@ -58,6 +58,18 @@
     <string name="stream_url_hint">Free ingest URL: accepts any RTMP(S) or SRT target, e.g. Owncast or your own server. The platform presets above are just shortcuts.</string>
     <string name="stream_key_label">Stream key</string>
     <string name="stream_tls_label">Secure connection (RTMPS)</string>
+    <string name="twitch_channel_title">Twitch channel control</string>
+    <string name="twitch_channel_desc">Read live viewers and update the stream title and category through the Twitch Helix API. Changes require a broadcaster token with channel:manage:broadcast.</string>
+    <string name="twitch_channel_oauth_label">Twitch broadcaster OAuth token</string>
+    <string name="twitch_stream_title_label">Stream title</string>
+    <string name="twitch_stream_category_label">Category</string>
+    <string name="twitch_refresh_viewers">Refresh viewers</string>
+    <plurals name="twitch_viewers_count">
+        <item quantity="one">%1$d viewer</item>
+        <item quantity="other">%1$d viewers</item>
+    </plurals>
+    <string name="twitch_update_channel">Set title/category</string>
+    <string name="twitch_saving">Updating…</string>
     <string name="multi_streaming_title">Multi-streaming (optional)</string>
     <string name="multi_streaming_desc">Second stream target: the signal is sent to both targets simultaneously. Leave empty to use only the primary target.</string>
     <string name="secondary_url_label">Second stream URL</string>
@@ -125,6 +137,14 @@
     <string name="overlays_image_uri">Image URI</string>
     <string name="overlays_image_size">Image size: %1$d dp</string>
     <string name="overlays_image_opacity">Opacity: %1$d%%</string>
+
+    <string name="overlays_qr_title">QR Code Widget</string>
+    <string name="overlays_qr_desc">Display a QR code for donations, social profiles, or any link over the streaming preview. The code is generated locally; the content is not sent to a QR service.</string>
+    <string name="overlays_qr_enabled">Show QR code</string>
+    <string name="overlays_qr_content">Link or text</string>
+    <string name="overlays_qr_content_hint">https://example.com/donate</string>
+    <string name="overlays_qr_size">QR code size: %1$d dp</string>
+    <string name="overlays_qr_opacity">QR code opacity: %1$d%%</string>
 
     <string name="overlays_battery_title">Battery Display</string>
     <string name="overlays_battery_desc">Shows battery status as an overlay on the streaming preview. A warning is displayed when the battery is low.</string>

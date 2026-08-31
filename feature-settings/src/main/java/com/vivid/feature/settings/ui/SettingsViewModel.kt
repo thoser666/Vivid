@@ -171,6 +171,11 @@ class SettingsViewModel @Inject constructor(
     fun onChatChannelChange(newChannel: String) { _uiState.value = _uiState.value.copy(chatChannel = newChannel) }
     fun onChatOverlayEnabledChange(newEnabled: Boolean) { _uiState.value = _uiState.value.copy(chatOverlayEnabled = newEnabled) }
 
+    // Twitch-Kanalinformationen (Helix): Viewerzahl sowie Titel/Kategorie.
+    fun onTwitchChannelOauthTokenChange(newValue: String) { _uiState.value = _uiState.value.copy(twitchChannelOauthToken = newValue) }
+    fun onTwitchStreamTitleChange(newValue: String) { _uiState.value = _uiState.value.copy(twitchStreamTitle = newValue) }
+    fun onTwitchStreamCategoryChange(newValue: String) { _uiState.value = _uiState.value.copy(twitchStreamCategory = newValue) }
+
     // Text-/Info-Widget-Einstellungen (Overlay: Uhrzeit/GPS/Geschwindigkeit).
     fun onWidgetEnabledChange(newEnabled: Boolean) { _uiState.value = _uiState.value.copy(widgetEnabled = newEnabled) }
     fun onWidgetShowTimeChange(newValue: Boolean) { _uiState.value = _uiState.value.copy(widgetShowTime = newValue) }
@@ -251,6 +256,12 @@ class SettingsViewModel @Inject constructor(
     fun onImageWidgetSizeChange(newValue: Int) { _uiState.value = _uiState.value.copy(imageWidgetSizeDp = newValue.coerceIn(20, 400)) }
     fun onImageWidgetOpacityChange(newValue: Float) { _uiState.value = _uiState.value.copy(imageWidgetOpacity = newValue.coerceIn(0f, 1f)) }
 
+    // QR-Code-Widget (Spenden-/Social-Links).
+    fun onQrCodeWidgetEnabledChange(newValue: Boolean) { _uiState.value = _uiState.value.copy(qrCodeWidgetEnabled = newValue) }
+    fun onQrCodeWidgetContentChange(newValue: String) { _uiState.value = _uiState.value.copy(qrCodeWidgetContent = newValue.take(2048)) }
+    fun onQrCodeWidgetSizeChange(newValue: Int) { _uiState.value = _uiState.value.copy(qrCodeWidgetSizeDp = newValue.coerceIn(120, 600)) }
+    fun onQrCodeWidgetOpacityChange(newValue: Float) { _uiState.value = _uiState.value.copy(qrCodeWidgetOpacity = newValue.coerceIn(0f, 1f)) }
+
     // Akku-Anzeige-Widget.
     fun onBatteryEnabledChange(newValue: Boolean) { _uiState.value = _uiState.value.copy(batteryEnabled = newValue) }
     fun onBatteryShowIconChange(newValue: Boolean) { _uiState.value = _uiState.value.copy(batteryShowIcon = newValue) }
@@ -320,6 +331,12 @@ class SettingsViewModel @Inject constructor(
                 channel = currentSettings.chatChannel,
                 overlayEnabled = currentSettings.chatOverlayEnabled,
             )
+            settingsRepository.updateTwitchChannelSettings(
+                channel = currentSettings.chatChannel,
+                oauthToken = currentSettings.twitchChannelOauthToken,
+                title = currentSettings.twitchStreamTitle,
+                category = currentSettings.twitchStreamCategory,
+            )
             settingsRepository.updateWidgetSettings(
                 enabled = currentSettings.widgetEnabled,
                 showTime = currentSettings.widgetShowTime,
@@ -343,6 +360,12 @@ class SettingsViewModel @Inject constructor(
                 uri = currentSettings.imageWidgetUri,
                 sizeDp = currentSettings.imageWidgetSizeDp,
                 opacity = currentSettings.imageWidgetOpacity,
+            )
+            settingsRepository.updateQrCodeWidgetSettings(
+                enabled = currentSettings.qrCodeWidgetEnabled,
+                content = currentSettings.qrCodeWidgetContent,
+                sizeDp = currentSettings.qrCodeWidgetSizeDp,
+                opacity = currentSettings.qrCodeWidgetOpacity,
             )
             settingsRepository.updateSentryEnabled(currentSettings.sentryEnabled)
             settingsRepository.updateThemeSettings(

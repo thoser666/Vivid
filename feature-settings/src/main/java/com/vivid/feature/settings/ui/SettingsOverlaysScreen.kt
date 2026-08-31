@@ -355,6 +355,48 @@ fun SettingsOverlaysScreen(
             modifier = Modifier.fillMaxWidth(),
         )
 
+        // QR-Code-Widget für Spenden-/Social-Links
+        Text(stringResource(R.string.overlays_qr_title), style = MaterialTheme.typography.titleLarge)
+        Text(
+            text = stringResource(R.string.overlays_qr_desc),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(stringResource(R.string.overlays_qr_enabled), modifier = Modifier.weight(1f))
+            Switch(
+                checked = uiState.qrCodeWidgetEnabled,
+                onCheckedChange = viewModel::onQrCodeWidgetEnabledChange,
+            )
+        }
+        OutlinedTextField(
+            value = uiState.qrCodeWidgetContent,
+            onValueChange = viewModel::onQrCodeWidgetContentChange,
+            label = { Text(stringResource(R.string.overlays_qr_content)) },
+            placeholder = { Text(stringResource(R.string.overlays_qr_content_hint)) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Text(stringResource(R.string.overlays_qr_size, uiState.qrCodeWidgetSizeDp))
+        Slider(
+            value = uiState.qrCodeWidgetSizeDp.toFloat(),
+            onValueChange = { viewModel.onQrCodeWidgetSizeChange(it.toInt()) },
+            valueRange = 120f..600f,
+            steps = 23,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Text(stringResource(R.string.overlays_qr_opacity, (uiState.qrCodeWidgetOpacity * 100).toInt()))
+        Slider(
+            value = uiState.qrCodeWidgetOpacity,
+            onValueChange = viewModel::onQrCodeWidgetOpacityChange,
+            valueRange = 0f..1f,
+            steps = 9,
+            modifier = Modifier.fillMaxWidth(),
+        )
+
         // Akku-Anzeige-Widget
         Text(stringResource(R.string.overlays_battery_title), style = MaterialTheme.typography.titleLarge)
         Text(

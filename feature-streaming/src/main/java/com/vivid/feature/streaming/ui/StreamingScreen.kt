@@ -42,6 +42,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -55,9 +56,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.vivid.core.data.StreamScene
 import com.vivid.core.ui.theme.LocalExtendedColors
+import com.vivid.feature.chat.twitch.TwitchChannelUiState
+import com.vivid.feature.chat.twitch.TwitchChannelViewModel
 import com.vivid.feature.chat.ui.ChatOverlay
 import com.vivid.feature.widget.GridOverlay
 import com.vivid.feature.widget.ImageWidget
+import com.vivid.feature.widget.QrCodeWidget
 import com.vivid.feature.widget.TextInfoWidget
 import com.vivid.feature.streaming.ConfigIssueSeverity
 import com.vivid.feature.streaming.FocusMode
@@ -74,6 +78,7 @@ import com.vivid.feature.streaming.R
 fun StreamingScreen(
     navController: NavController,
     viewModel: StreamingViewModel = hiltViewModel(),
+    twitchViewModel: TwitchChannelViewModel = hiltViewModel(),
 ) {
     val streamingEngine = viewModel.streamingEngine
     val streamingState by streamingEngine.streamingState.collectAsStateWithLifecycle()
@@ -87,6 +92,17 @@ fun StreamingScreen(
     val activeLutPreset by streamingEngine.activeLutPreset.collectAsStateWithLifecycle()
     val activeColorSpace by streamingEngine.activeColorSpace.collectAsStateWithLifecycle()
     val configIssues by viewModel.configIssues.collectAsStateWithLifecycle()
+    val twitchState by twitchViewModel.uiState.collectAsStateWithLifecycle()
+
+    // Viewerzahl während eines laufenden Twitch-Streams periodisch aktualisieren.
+    LaunchedEffect(streamingState is StreamingState.Streaming) {
+        if (streamingState is StreamingState.Streaming) {
+            while (true) {
+                twitchViewModel.refresh()
+                kotlinx.coroutines.delay(TWITCH_REFRESH_INTERVAL_MS)
+            }
+        }
+    }
 
     // Szenen (Basic Scenes) + Auto-Scene-Switcher: Liste, aktive Szene,
     // Auto-Wechsel-Zustand — aus SceneRepository/AutoSceneSwitcher.
@@ -343,6 +359,31 @@ fun StreamingScreen(
                 Text(buttonText)
             }
 
+            // Twitch-Status: Viewerzahl und Stream-Metadaten als kompakte Anzeige.
+            twitchState.streamInfo?.let { info ->
+                Surface(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = 12.dp),
+                    shape = MaterialTheme.shapes.medium,
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(pluralStringResource(R.plurals.twitch_viewers_count, info.viewerCount, info.viewerCount))
+                        Text(
+                            text = info.category.ifBlank { info.title },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+
             // Per-Ziel-Status (Multi-Streaming): zeigt jedes Ziel mit aktuellem Zustand.
             if (targetStates.isNotEmpty() && streamingState !is StreamingState.Idle) {
                 Surface(
@@ -579,9 +620,19 @@ fun StreamingScreen(
                     .align(Alignment.TopStart)
                     .padding(start = 12.dp, top = 12.dp),
             )
+
+            // QR-Code-Widget: Spenden-/Social-Link über der Vorschau.
+            QrCodeWidget(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(end = 12.dp, top = 12.dp),
+            )
+
         }
     }
 }
+
+private const val TWITCH_REFRESH_INTERVAL_MS = 30_000L
 
 /** Zeigt einen einzelnen Selbst-Check-Befund mit passendem Icon und Farbe an. */
 @Composable

@@ -78,8 +78,14 @@ data class AppSettings(
     // user:manage:whispers haben und die Client-ID unten gesetzt sein; sonst
     // fällt die Antwort auf den öffentlichen Chat zurück.
     val chatBotOwnerWhisperReplies: Boolean = true,
-    // Twitch-App-Client-ID (Pflicht-Header für die Helix-Whisper-API).
+    // Twitch-App-Client-ID (Pflicht-Header für die Helix-API).
     val chatBotTwitchClientId: String = "",
+    // OAuth-Token des Broadcasters für Kanal-Metadaten (Scope channel:manage:broadcast).
+    // Leer = abwärtskompatibler Fallback auf den Chat-Bot-Token.
+    val twitchChannelOauthToken: String = "",
+    // Zuletzt gesetzter Twitch-Streamtitel und die Kategorie (nur als UI-Voreinstellung).
+    val twitchStreamTitle: String = "",
+    val twitchStreamCategory: String = "",
     // --- Chat-Bot: Obszönitätsfilter (!ask) ---
     // Schaltet den Filter ein/aus (Nachrichten mit Obszönitäten werden vor
     // dem KI-Aufruf blockiert).
@@ -160,6 +166,12 @@ data class AppSettings(
     val imageWidgetSizeDp: Int = 100,
     // Transparenz (0.0–1.0, Standard: 0.8).
     val imageWidgetOpacity: Float = 0.8f,
+    // --- QR-Code-Widget (Spenden-/Social-Links) ---
+    // Zeigt einen lokal generierten QR-Code als Stream-Overlay an.
+    val qrCodeWidgetEnabled: Boolean = false,
+    val qrCodeWidgetContent: String = "",
+    val qrCodeWidgetSizeDp: Int = 180,
+    val qrCodeWidgetOpacity: Float = 0.95f,
     // --- In-App-Logs ---
     // Vorhaltezeit der täglichen Log-Rotation in Tagen (1–30, Default 7):
     // Logs wechseln täglich, ältere Tage werden beim Laden/Prune gelöscht.

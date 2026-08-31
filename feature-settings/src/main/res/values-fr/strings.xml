@@ -6,7 +6,7 @@
     <string name="cat_appearance_title">Apparence</string>
     <string name="cat_appearance_subtitle">Mode de design (clair/sombre/AMOLED), couleur d\'accent</string>
     <string name="cat_overlays_title">Overlays &amp; widgets</string>
-    <string name="cat_overlays_subtitle">Overlay de chat Twitch, widget texte/info (heure/GPS/vitesse)</string>
+    <string name="cat_overlays_subtitle">Chat Twitch, widgets texte/info, image, code QR, batterie et grille</string>
     <string name="cat_chatbot_title">Chat-bot &amp; IA</string>
     <string name="cat_chatbot_subtitle">Mode de fonctionnement, compte de bot/LLM, limites, accès propriétaire, commandes média</string>
     <string name="cat_remote_title">Remote &amp; confidentialité</string>
@@ -58,6 +58,19 @@
     <string name="stream_url_hint">URL d\'ingest libre : accepte toute cible RTMP(S) ou SRT, p. ex. Owncast ou votre propre serveur. Les modèles de plateforme ci-dessus ne sont que des préréglages.</string>
     <string name="stream_key_label">Clé de stream</string>
     <string name="stream_tls_label">Connexion sécurisée (RTMPS)</string>
+    <string name="twitch_channel_title">Contrôle de la chaîne Twitch</string>
+    <string name="twitch_channel_desc">Lire le nombre de spectateurs et mettre à jour le titre et la catégorie via l\'API Twitch Helix. Les modifications nécessitent un jeton de diffuseur avec channel:manage:broadcast.</string>
+    <string name="twitch_channel_oauth_label">Jeton OAuth du diffuseur Twitch</string>
+    <string name="twitch_stream_title_label">Titre du stream</string>
+    <string name="twitch_stream_category_label">Catégorie</string>
+    <string name="twitch_refresh_viewers">Actualiser les spectateurs</string>
+    <plurals name="twitch_viewers_count">
+        <item quantity="one">%1$d spectateur</item>
+        <item quantity="other">%1$d spectateurs</item>
+        <item quantity="many">%1$d spectateurs</item>
+    </plurals>
+    <string name="twitch_update_channel">Définir le titre/la catégorie</string>
+    <string name="twitch_saving">Mise à jour…</string>
     <string name="multi_streaming_title">Multi-streaming (optionnel)</string>
     <string name="multi_streaming_desc">Deuxième cible de stream : le signal est envoyé simultanément aux deux cibles. Laissez vide pour n\'utiliser que la cible principale.</string>
     <string name="secondary_url_label">Deuxième URL de stream</string>
@@ -125,6 +138,14 @@
     <string name="overlays_image_uri">URI de l\'image</string>
     <string name="overlays_image_size">Taille de l\'image : %1$d dp</string>
     <string name="overlays_image_opacity">Opacité : %1$d%%</string>
+
+    <string name="overlays_qr_title">Widget code QR</string>
+    <string name="overlays_qr_desc">Affichez un code QR pour les dons, les profils sociaux ou tout autre lien sur l’aperçu du stream. Le code est généré localement ; le contenu n’est pas envoyé à un service QR.</string>
+    <string name="overlays_qr_enabled">Afficher le code QR</string>
+    <string name="overlays_qr_content">Lien ou texte</string>
+    <string name="overlays_qr_content_hint">https://example.com/don</string>
+    <string name="overlays_qr_size">Taille du code QR : %1$d dp</string>
+    <string name="overlays_qr_opacity">Opacité du code QR : %1$d%%</string>
 
     <string name="overlays_battery_title">Affichage batterie</string>
     <string name="overlays_battery_desc">Affiche l\'état de la batterie en superposition sur l\'aperçu du stream. Un avertissement s\'affiche lorsque la batterie est faible.</string>

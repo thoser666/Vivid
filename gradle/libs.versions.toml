@@ -38,6 +38,7 @@ ktor = "3.5.2"
 sentryGradlePlugin = "6.6.0"
 roborazzi = "1.72.0"
 robolectric = "4.14.1"
+zxing = "3.5.3"
 
 [libraries]
 # --- Compose ---
@@ -119,6 +120,7 @@ roborazzi-core = { group = "io.github.takahirom.roborazzi", name = "roborazzi", 
 roborazzi-compose = { group = "io.github.takahirom.roborazzi", name = "roborazzi-compose", version.ref = "roborazzi" }
 roborazzi-junit-rule = { group = "io.github.takahirom.roborazzi", name = "roborazzi-junit-rule", version.ref = "roborazzi" }
 robolectric-core = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
+zxing-core = { module = "com.google.zxing:core", version.ref = "zxing" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

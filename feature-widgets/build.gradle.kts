@@ -71,6 +71,9 @@ dependencies {
     // Coil for Image loading
     implementation(libs.coil.compose)
 
+    // QR-Code-Generierung
+    implementation(libs.zxing.core)
+
     // Testing
     testImplementation(libs.junit)
     testImplementation(libs.mockk)

@@ -7,4 +7,5 @@
 
     <!-- Bild-Widget (Logo/Wasserzeichen) -->
     <string name="image_widget_description">Stream-Overlay-Bild</string>
+    <string name="qr_code_widget_description">QR-Code-Overlay</string>
 </resources>

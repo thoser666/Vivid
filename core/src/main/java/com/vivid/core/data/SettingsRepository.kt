@@ -50,6 +50,9 @@ class SettingsRepository @Inject constructor(
         val CHAT_BOT_OWNER_LLM_MODEL = stringPreferencesKey("chat_bot_owner_llm_model")
         val CHAT_BOT_OWNER_WHISPER_REPLIES = booleanPreferencesKey("chat_bot_owner_whisper_replies")
         val CHAT_BOT_TWITCH_CLIENT_ID = stringPreferencesKey("chat_bot_twitch_client_id")
+        val TWITCH_CHANNEL_OAUTH_TOKEN = stringPreferencesKey("twitch_channel_oauth_token")
+        val TWITCH_STREAM_TITLE = stringPreferencesKey("twitch_stream_title")
+        val TWITCH_STREAM_CATEGORY = stringPreferencesKey("twitch_stream_category")
         val CHAT_BOT_PROFANITY_ENABLED = booleanPreferencesKey("chat_bot_profanity_enabled")
         val CHAT_BOT_PROFANITY_CATEGORIES = stringPreferencesKey("chat_bot_profanity_categories")
         val CHAT_BOT_PROFANITY_CUSTOM_WORDS = stringPreferencesKey("chat_bot_profanity_custom_words")
@@ -70,6 +73,10 @@ class SettingsRepository @Inject constructor(
         val IMAGE_WIDGET_URI = stringPreferencesKey("image_widget_uri")
         val IMAGE_WIDGET_SIZE_DP = intPreferencesKey("image_widget_size_dp")
         val IMAGE_WIDGET_OPACITY = floatPreferencesKey("image_widget_opacity")
+        val QR_CODE_WIDGET_ENABLED = booleanPreferencesKey("qr_code_widget_enabled")
+        val QR_CODE_WIDGET_CONTENT = stringPreferencesKey("qr_code_widget_content")
+        val QR_CODE_WIDGET_SIZE_DP = intPreferencesKey("qr_code_widget_size_dp")
+        val QR_CODE_WIDGET_OPACITY = floatPreferencesKey("qr_code_widget_opacity")
         val SENTRY_ENABLED = booleanPreferencesKey("sentry_enabled")
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val THEME_ACCENT = stringPreferencesKey("theme_accent")
@@ -121,6 +128,9 @@ class SettingsRepository @Inject constructor(
             ChatPrefs(
                 channel = prefs[PrefKeys.CHAT_CHANNEL] ?: "",
                 overlayEnabled = prefs[PrefKeys.CHAT_OVERLAY_ENABLED] ?: false,
+                twitchChannelOauthToken = prefs[PrefKeys.TWITCH_CHANNEL_OAUTH_TOKEN] ?: "",
+                twitchStreamTitle = prefs[PrefKeys.TWITCH_STREAM_TITLE] ?: "",
+                twitchStreamCategory = prefs[PrefKeys.TWITCH_STREAM_CATEGORY] ?: "",
             )
         },
         // Flow für Chat-Bot-Daten
@@ -175,6 +185,10 @@ class SettingsRepository @Inject constructor(
                 imageWidgetUri = prefs[PrefKeys.IMAGE_WIDGET_URI] ?: "",
                 imageWidgetSizeDp = prefs[PrefKeys.IMAGE_WIDGET_SIZE_DP] ?: 100,
                 imageWidgetOpacity = prefs[PrefKeys.IMAGE_WIDGET_OPACITY] ?: 0.8f,
+                qrCodeWidgetEnabled = prefs[PrefKeys.QR_CODE_WIDGET_ENABLED] ?: false,
+                qrCodeWidgetContent = prefs[PrefKeys.QR_CODE_WIDGET_CONTENT] ?: "",
+                qrCodeWidgetSizeDp = prefs[PrefKeys.QR_CODE_WIDGET_SIZE_DP] ?: 180,
+                qrCodeWidgetOpacity = prefs[PrefKeys.QR_CODE_WIDGET_OPACITY] ?: 0.95f,
             )
         },
     ) { streamData, obsData, chatData, chatBotData, widgetData ->
@@ -216,6 +230,9 @@ class SettingsRepository @Inject constructor(
             chatBotOwnerLlmModel = chatBotData.ownerLlmModel,
             chatBotOwnerWhisperReplies = chatBotData.ownerWhisperReplies,
             chatBotTwitchClientId = chatBotData.twitchClientId,
+            twitchChannelOauthToken = chatData.twitchChannelOauthToken,
+            twitchStreamTitle = chatData.twitchStreamTitle,
+            twitchStreamCategory = chatData.twitchStreamCategory,
             chatBotProfanityEnabled = chatBotData.profanityEnabled,
             chatBotProfanityCategories = chatBotData.profanityCategories,
             chatBotProfanityCustomWords = chatBotData.profanityCustomWords,
@@ -235,6 +252,10 @@ class SettingsRepository @Inject constructor(
                 imageWidgetUri = widgetData.imageWidgetUri,
                 imageWidgetSizeDp = widgetData.imageWidgetSizeDp,
                 imageWidgetOpacity = widgetData.imageWidgetOpacity,
+                qrCodeWidgetEnabled = widgetData.qrCodeWidgetEnabled,
+                qrCodeWidgetContent = widgetData.qrCodeWidgetContent,
+                qrCodeWidgetSizeDp = widgetData.qrCodeWidgetSizeDp,
+                qrCodeWidgetOpacity = widgetData.qrCodeWidgetOpacity,
             )
         },
         // 6. Flow: Darstellung (Theme-Modus + Akzentfarbe)
@@ -328,6 +349,21 @@ class SettingsRepository @Inject constructor(
         }
     }
 
+    /** Twitch-Kanalzugang und zuletzt gesetzte Stream-Metadaten speichern. */
+    suspend fun updateTwitchChannelSettings(
+        channel: String,
+        oauthToken: String,
+        title: String,
+        category: String,
+    ) {
+        dataStore.edit { prefs ->
+            prefs[PrefKeys.CHAT_CHANNEL] = channel.trim()
+            prefs[PrefKeys.TWITCH_CHANNEL_OAUTH_TOKEN] = oauthToken
+            prefs[PrefKeys.TWITCH_STREAM_TITLE] = title
+            prefs[PrefKeys.TWITCH_STREAM_CATEGORY] = category
+        }
+    }
+
     suspend fun updateChatBotSettings(
         enabled: Boolean,
         apiBaseUrl: String,
@@ -401,6 +437,9 @@ class SettingsRepository @Inject constructor(
     private data class ChatPrefs(
         val channel: String,
         val overlayEnabled: Boolean,
+        val twitchChannelOauthToken: String,
+        val twitchStreamTitle: String,
+        val twitchStreamCategory: String,
     )
 
     private data class ChatBotPrefs(
@@ -451,6 +490,10 @@ class SettingsRepository @Inject constructor(
         val imageWidgetUri: String,
         val imageWidgetSizeDp: Int,
         val imageWidgetOpacity: Float,
+        val qrCodeWidgetEnabled: Boolean,
+        val qrCodeWidgetContent: String,
+        val qrCodeWidgetSizeDp: Int,
+        val qrCodeWidgetOpacity: Float,
     )
 
     private data class ThemePrefs(
@@ -554,6 +597,21 @@ class SettingsRepository @Inject constructor(
             prefs[PrefKeys.IMAGE_WIDGET_URI] = uri
             prefs[PrefKeys.IMAGE_WIDGET_SIZE_DP] = sizeDp.coerceIn(20, 400)
             prefs[PrefKeys.IMAGE_WIDGET_OPACITY] = opacity.coerceIn(0f, 1f)
+        }
+    }
+
+    /** QR-Code-Widget-Einstellungen speichern. */
+    suspend fun updateQrCodeWidgetSettings(
+        enabled: Boolean,
+        content: String,
+        sizeDp: Int,
+        opacity: Float,
+    ) {
+        dataStore.edit { prefs ->
+            prefs[PrefKeys.QR_CODE_WIDGET_ENABLED] = enabled
+            prefs[PrefKeys.QR_CODE_WIDGET_CONTENT] = content.trim().take(2048)
+            prefs[PrefKeys.QR_CODE_WIDGET_SIZE_DP] = sizeDp.coerceIn(120, 600)
+            prefs[PrefKeys.QR_CODE_WIDGET_OPACITY] = opacity.coerceIn(0f, 1f)
         }
     }
 

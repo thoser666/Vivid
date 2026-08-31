@@ -415,6 +415,28 @@ class SettingsRepositoryTest {
     }
 
     @Test
+    fun `appSettingsFlow should return the saved qr code widget settings`() = runTest {
+        val testDataStore = PreferenceDataStoreFactory.create(
+            scope = this,
+            produceFile = { File(tempDir.toFile(), "test_qr_code_widget.preferences_pb") }
+        )
+        val repository = SettingsRepository(testDataStore)
+
+        repository.updateQrCodeWidgetSettings(
+            enabled = true,
+            content = "  https://example.com/donate  ",
+            sizeDp = 720,
+            opacity = 1.2f,
+        )
+        val settings = repository.appSettingsFlow.first()
+
+        assertEquals(true, settings.qrCodeWidgetEnabled)
+        assertEquals("https://example.com/donate", settings.qrCodeWidgetContent)
+        assertEquals(600, settings.qrCodeWidgetSizeDp)
+        assertEquals(1.0f, settings.qrCodeWidgetOpacity)
+    }
+
+    @Test
     fun `appSettingsFlow should default sentry reporting to enabled`() = runTest {
         val testDataStore = PreferenceDataStoreFactory.create(
             scope = this,

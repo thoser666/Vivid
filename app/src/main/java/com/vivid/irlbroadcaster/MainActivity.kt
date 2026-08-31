@@ -33,6 +33,7 @@ import com.vivid.feature.settings.ui.SettingsRemotePrivacyScreen
 import com.vivid.feature.settings.ui.SettingsScreen
 import com.vivid.feature.settings.ui.SettingsStreamingObsScreen
 import com.vivid.feature.settings.ui.SettingsViewModel
+import com.vivid.feature.chat.twitch.TwitchChannelViewModel
 import com.vivid.feature.streaming.ui.StreamingScreen
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.vivid.irlbroadcaster.ui.about.AboutScreen
@@ -99,10 +100,14 @@ fun VividAppNavigation() {
         }
         composable("settings_streaming") {
             val viewModel: SettingsViewModel = hiltViewModel()
+            val twitchViewModel: TwitchChannelViewModel = hiltViewModel()
             val uiState by viewModel.uiState.collectAsState()
+            val twitchState by twitchViewModel.uiState.collectAsState()
             SettingsStreamingObsScreen(
                 uiState = uiState,
                 viewModel = viewModel,
+                twitchViewModel = twitchViewModel,
+                twitchState = twitchState,
                 onBack = { navController.popBackStack() },
             )
         }

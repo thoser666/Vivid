@@ -284,6 +284,7 @@ class SettingsViewModelTest {
             coEvery { updateSecondaryStreamSettings(any(), any(), any()) } just runs
             coEvery { updateObsSettings(any(), any(), any(), any()) } just runs
             coEvery { updateChatSettings(any(), any()) } just runs
+            coEvery { updateTwitchChannelSettings(any(), any(), any(), any()) } just runs
             coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
             coEvery { updateWidgetSettings(any(), any(), any(), any(), any(), any()) } just runs
             coEvery { updateProfanitySettings(any(), any(), any(), any()) } just runs
@@ -313,6 +314,9 @@ class SettingsViewModelTest {
         viewModel.onObsPasswordChange("pw")
         viewModel.onChatChannelChange("meinKanal")
         viewModel.onChatOverlayEnabledChange(true)
+        viewModel.onTwitchChannelOauthTokenChange("oauth:broadcaster")
+        viewModel.onTwitchStreamTitleChange("Live in Berlin")
+        viewModel.onTwitchStreamCategoryChange("Just Chatting")
 
         val events = mutableListOf<Unit>()
         val collector = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
@@ -326,6 +330,14 @@ class SettingsViewModelTest {
         coVerify { repository.updateSecondaryStreamSettings("rtmp://live-second/app", "key-8", true) }
         coVerify { repository.updateObsSettings("obs.example.com", "4455", "pw", false) }
         coVerify { repository.updateChatSettings("meinKanal", true) }
+        coVerify {
+            repository.updateTwitchChannelSettings(
+                channel = "meinKanal",
+                oauthToken = "oauth:broadcaster",
+                title = "Live in Berlin",
+                category = "Just Chatting",
+            )
+        }
         assertEquals(1, events.size)
         collector.cancel()
     }
@@ -339,6 +351,7 @@ class SettingsViewModelTest {
             coEvery { updateSecondaryStreamSettings(any(), any(), any()) } just runs
             coEvery { updateObsSettings(any(), any(), any(), any()) } just runs
             coEvery { updateChatSettings(any(), any()) } just runs
+            coEvery { updateTwitchChannelSettings(any(), any(), any(), any()) } just runs
             coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
             coEvery { updateWidgetSettings(any(), any(), any(), any(), any(), any()) } just runs
             coEvery { updateProfanitySettings(any(), any(), any(), any()) } just runs
@@ -388,6 +401,7 @@ class SettingsViewModelTest {
             coEvery { updateSecondaryStreamSettings(any(), any(), any()) } just runs
             coEvery { updateObsSettings(any(), any(), any(), any()) } just runs
             coEvery { updateChatSettings(any(), any()) } just runs
+            coEvery { updateTwitchChannelSettings(any(), any(), any(), any()) } just runs
             coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
             coEvery { updateWidgetSettings(any(), any(), any(), any(), any(), any()) } just runs
             coEvery { updateProfanitySettings(any(), any(), any(), any()) } just runs
@@ -440,6 +454,7 @@ class SettingsViewModelTest {
             coEvery { updateSecondaryStreamSettings(any(), any(), any()) } just runs
             coEvery { updateObsSettings(any(), any(), any(), any()) } just runs
             coEvery { updateChatSettings(any(), any()) } just runs
+            coEvery { updateTwitchChannelSettings(any(), any(), any(), any()) } just runs
             coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
             coEvery { updateWidgetSettings(any(), any(), any(), any(), any(), any()) } just runs
             coEvery { updateProfanitySettings(any(), any(), any(), any()) } just runs
@@ -495,6 +510,7 @@ class SettingsViewModelTest {
             coEvery { updateSecondaryStreamSettings(any(), any(), any()) } just runs
             coEvery { updateObsSettings(any(), any(), any(), any()) } just runs
             coEvery { updateChatSettings(any(), any()) } just runs
+            coEvery { updateTwitchChannelSettings(any(), any(), any(), any()) } just runs
             coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
             coEvery { updateWidgetSettings(any(), any(), any(), any(), any(), any()) } just runs
             coEvery { updateProfanitySettings(any(), any(), any(), any()) } just runs
@@ -530,6 +546,7 @@ class SettingsViewModelTest {
             coEvery { updateSecondaryStreamSettings(any(), any(), any()) } just runs
             coEvery { updateObsSettings(any(), any(), any(), any()) } just runs
             coEvery { updateChatSettings(any(), any()) } just runs
+            coEvery { updateTwitchChannelSettings(any(), any(), any(), any()) } just runs
             coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
             coEvery { updateWidgetSettings(any(), any(), any(), any(), any(), any()) } just runs
             coEvery { updateProfanitySettings(any(), any(), any(), any()) } just runs
@@ -729,6 +746,7 @@ class SettingsViewModelTest {
             coEvery { updateSecondaryStreamSettings(any(), any(), any()) } just runs
             coEvery { updateObsSettings(any(), any(), any(), any()) } just runs
             coEvery { updateChatSettings(any(), any()) } just runs
+            coEvery { updateTwitchChannelSettings(any(), any(), any(), any()) } just runs
             coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
             coEvery { updateWidgetSettings(any(), any(), any(), any(), any(), any()) } just runs
             coEvery { updateProfanitySettings(any(), any(), any(), any()) } just runs
@@ -1032,6 +1050,7 @@ class SettingsViewModelTest {
             coEvery { updateSecondaryStreamSettings(any(), any(), any()) } just runs
             coEvery { updateObsSettings(any(), any(), any(), any()) } just runs
             coEvery { updateChatSettings(any(), any()) } just runs
+            coEvery { updateTwitchChannelSettings(any(), any(), any(), any()) } just runs
             coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
             coEvery { updateWidgetSettings(any(), any(), any(), any(), any(), any()) } just runs
             coEvery { updateProfanitySettings(any(), any(), any(), any()) } just runs
@@ -1097,6 +1116,7 @@ class SettingsViewModelTest {
             coEvery { updateSecondaryStreamSettings(any(), any(), any()) } just runs
             coEvery { updateObsSettings(any(), any(), any(), any()) } just runs
             coEvery { updateChatSettings(any(), any()) } just runs
+            coEvery { updateTwitchChannelSettings(any(), any(), any(), any()) } just runs
             coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
             coEvery { updateWidgetSettings(any(), any(), any(), any(), any(), any()) } just runs
             coEvery { updateProfanitySettings(any(), any(), any(), any()) } just runs
