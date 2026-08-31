@@ -29,7 +29,11 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const report = fs.readFileSync('/tmp/report.md', 'utf8').toString();
+            // Der Report wird vom Check-Skript nach report.md im
+            // Arbeitsverzeichnis (Repo-Root) geschrieben, NICHT nach
+            // /tmp/report.md - letzteres existiert dort nie und würde den
+            // github-script-Step mit ENOENT crashen.
+            const report = fs.readFileSync('report.md', 'utf8').toString();
             
             await github.rest.issues.create({
               owner: context.repo.owner,

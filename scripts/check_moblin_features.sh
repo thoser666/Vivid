@@ -77,9 +77,9 @@ NEW_FEATURES=0
     else
         echo "**✅ Keine neuen Features gefunden — PARITY.md ist aktuell.**"
     fi
-} > "$TMP_DIR/report.txt"
+} > "report.md"
 
-cat "$TMP_DIR/report.txt"
+cat "report.md"
 
 if [ "$NEW_FEATURES" -gt 0 ]; then
     echo ""
