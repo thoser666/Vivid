@@ -66,6 +66,10 @@ class SettingsRepository @Inject constructor(
         val BATTERY_LOW_THRESHOLD = intPreferencesKey("battery_low_threshold")
         val GRID_OVERLAY_ENABLED = booleanPreferencesKey("grid_overlay_enabled")
         val GRID_OVERLAY_SPACING_DP = intPreferencesKey("grid_overlay_spacing_dp")
+        val IMAGE_WIDGET_ENABLED = booleanPreferencesKey("image_widget_enabled")
+        val IMAGE_WIDGET_URI = stringPreferencesKey("image_widget_uri")
+        val IMAGE_WIDGET_SIZE_DP = intPreferencesKey("image_widget_size_dp")
+        val IMAGE_WIDGET_OPACITY = floatPreferencesKey("image_widget_opacity")
         val SENTRY_ENABLED = booleanPreferencesKey("sentry_enabled")
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val THEME_ACCENT = stringPreferencesKey("theme_accent")
@@ -167,6 +171,10 @@ class SettingsRepository @Inject constructor(
                 batteryLowThresholdPercent = prefs[PrefKeys.BATTERY_LOW_THRESHOLD] ?: 15,
                 gridOverlayEnabled = prefs[PrefKeys.GRID_OVERLAY_ENABLED] ?: false,
                 gridOverlaySpacingDp = prefs[PrefKeys.GRID_OVERLAY_SPACING_DP] ?: 40,
+                imageWidgetEnabled = prefs[PrefKeys.IMAGE_WIDGET_ENABLED] ?: false,
+                imageWidgetUri = prefs[PrefKeys.IMAGE_WIDGET_URI] ?: "",
+                imageWidgetSizeDp = prefs[PrefKeys.IMAGE_WIDGET_SIZE_DP] ?: 100,
+                imageWidgetOpacity = prefs[PrefKeys.IMAGE_WIDGET_OPACITY] ?: 0.8f,
             )
         },
     ) { streamData, obsData, chatData, chatBotData, widgetData ->
@@ -223,6 +231,10 @@ class SettingsRepository @Inject constructor(
             batteryShowPercent = widgetData.batteryShowPercent,                batteryLowThresholdPercent = widgetData.batteryLowThresholdPercent,
                 gridOverlayEnabled = widgetData.gridOverlayEnabled,
                 gridOverlaySpacingDp = widgetData.gridOverlaySpacingDp,
+                imageWidgetEnabled = widgetData.imageWidgetEnabled,
+                imageWidgetUri = widgetData.imageWidgetUri,
+                imageWidgetSizeDp = widgetData.imageWidgetSizeDp,
+                imageWidgetOpacity = widgetData.imageWidgetOpacity,
             )
         },
         // 6. Flow: Darstellung (Theme-Modus + Akzentfarbe)
@@ -435,6 +447,10 @@ class SettingsRepository @Inject constructor(
         val batteryLowThresholdPercent: Int,
         val gridOverlayEnabled: Boolean,
         val gridOverlaySpacingDp: Int,
+        val imageWidgetEnabled: Boolean,
+        val imageWidgetUri: String,
+        val imageWidgetSizeDp: Int,
+        val imageWidgetOpacity: Float,
     )
 
     private data class ThemePrefs(
@@ -523,6 +539,21 @@ class SettingsRepository @Inject constructor(
         dataStore.edit { prefs ->
             prefs[PrefKeys.GRID_OVERLAY_ENABLED] = enabled
             prefs[PrefKeys.GRID_OVERLAY_SPACING_DP] = spacingDp.coerceIn(10, 100)
+        }
+    }
+
+    /** Bild-Widget-Einstellungen speichern. */
+    suspend fun updateImageWidgetSettings(
+        enabled: Boolean,
+        uri: String,
+        sizeDp: Int,
+        opacity: Float,
+    ) {
+        dataStore.edit { prefs ->
+            prefs[PrefKeys.IMAGE_WIDGET_ENABLED] = enabled
+            prefs[PrefKeys.IMAGE_WIDGET_URI] = uri
+            prefs[PrefKeys.IMAGE_WIDGET_SIZE_DP] = sizeDp.coerceIn(20, 400)
+            prefs[PrefKeys.IMAGE_WIDGET_OPACITY] = opacity.coerceIn(0f, 1f)
         }
     }
 

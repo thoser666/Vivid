@@ -401,5 +401,49 @@ fun SettingsOverlaysScreen(
             steps = 8,
             modifier = Modifier.fillMaxWidth(),
         )
+
+        // Bild-Widget (Logo/Wasserzeichen)
+        Text(stringResource(R.string.overlays_image_title), style = MaterialTheme.typography.titleLarge)
+        Text(
+            text = stringResource(R.string.overlays_image_desc),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(stringResource(R.string.overlays_image_enabled), modifier = Modifier.weight(1f))
+            Switch(
+                checked = uiState.imageWidgetEnabled,
+                onCheckedChange = viewModel::onImageWidgetEnabledChange,
+            )
+        }
+        // Bild-URI (nur lesbar, wird über SAF-Picker gesetzt)
+        OutlinedTextField(
+            value = uiState.imageWidgetUri,
+            onValueChange = viewModel::onImageWidgetUriChange,
+            label = { Text(stringResource(R.string.overlays_image_uri)) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        // Bildgröße
+        Text(stringResource(R.string.overlays_image_size, uiState.imageWidgetSizeDp))
+        Slider(
+            value = uiState.imageWidgetSizeDp.toFloat(),
+            onValueChange = { viewModel.onImageWidgetSizeChange(it.toInt()) },
+            valueRange = 20f..400f,
+            steps = 37,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        // Transparenz
+        Text(stringResource(R.string.overlays_image_opacity, (uiState.imageWidgetOpacity * 100).toInt()))
+        Slider(
+            value = uiState.imageWidgetOpacity,
+            onValueChange = { viewModel.onImageWidgetOpacityChange(it) },
+            valueRange = 0f..1f,
+            steps = 9,
+            modifier = Modifier.fillMaxWidth(),
+        )
     }
 }

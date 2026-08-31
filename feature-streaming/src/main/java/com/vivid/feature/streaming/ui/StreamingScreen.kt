@@ -57,6 +57,7 @@ import com.vivid.core.data.StreamScene
 import com.vivid.core.ui.theme.LocalExtendedColors
 import com.vivid.feature.chat.ui.ChatOverlay
 import com.vivid.feature.widget.GridOverlay
+import com.vivid.feature.widget.ImageWidget
 import com.vivid.feature.widget.TextInfoWidget
 import com.vivid.feature.streaming.ConfigIssueSeverity
 import com.vivid.feature.streaming.FocusMode
@@ -571,6 +572,13 @@ fun StreamingScreen(
 
             // Grid-Overlay: Raster zur Widget-Positionierung (nur wenn aktiviert).
             GridOverlay()
+
+            // Bild-Widget: Logo/Wasserzeichen über der Vorschau (nur wenn aktiviert und URI gesetzt).
+            ImageWidget(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(start = 12.dp, top = 12.dp),
+            )
         }
     }
 }

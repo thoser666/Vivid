@@ -151,6 +151,15 @@ data class AppSettings(
     val gridOverlayEnabled: Boolean = false,
     // Rasterabstand in dp (Standard: 40).
     val gridOverlaySpacingDp: Int = 40,
+    // --- Bild-Widget (Logo/Wasserzeichen) ---
+    // Ein Bild auf dem Stream anzeigen (Logo, Wasserzeichen, Overlays).
+    val imageWidgetEnabled: Boolean = false,
+    // Content-URI des ausgewählten Bildes (SAF).
+    val imageWidgetUri: String = "",
+    // Größe des Bildes in dp (Standard: 100).
+    val imageWidgetSizeDp: Int = 100,
+    // Transparenz (0.0–1.0, Standard: 0.8).
+    val imageWidgetOpacity: Float = 0.8f,
     // --- In-App-Logs ---
     // Vorhaltezeit der täglichen Log-Rotation in Tagen (1–30, Default 7):
     // Logs wechseln täglich, ältere Tage werden beim Laden/Prune gelöscht.

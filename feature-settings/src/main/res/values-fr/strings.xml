@@ -119,6 +119,13 @@
     <string name="overlays_grid_enabled">Afficher la grille</string>
     <string name="overlays_grid_spacing">Espacement de la grille : %1$d dp</string>
 
+    <string name="overlays_image_title">Widget image (logo / filigrane)</string>
+    <string name="overlays_image_desc">Afficher une image sur le stream — logo, filigrane ou superposition. Sélectionner l'image via le sélecteur SAF (URI définie via le champ texte).</string>
+    <string name="overlays_image_enabled">Afficher le widget image</string>
+    <string name="overlays_image_uri">URI de l'image</string>
+    <string name="overlays_image_size">Taille de l'image : %1$d dp</string>
+    <string name="overlays_image_opacity">Opacité : %1$d%%</string>
+
     <string name="overlays_battery_title">Affichage batterie</string>
     <string name="overlays_battery_desc">Affiche l\'état de la batterie en superposition sur l\'aperçu du stream. Un avertissement s\'affiche lorsque la batterie est faible.</string>
     <string name="overlays_battery_enabled">Afficher la batterie</string>

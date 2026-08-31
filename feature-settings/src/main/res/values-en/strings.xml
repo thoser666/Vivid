@@ -119,6 +119,13 @@
     <string name="overlays_grid_enabled">Show grid overlay</string>
     <string name="overlays_grid_spacing">Grid spacing: %1$d dp</string>
 
+    <string name="overlays_image_title">Image Widget (Logo/Watermark)</string>
+    <string name="overlays_image_desc">Display an image on the stream — logo, watermark, or overlay. Select image via SAF picker (URI set via text field).</string>
+    <string name="overlays_image_enabled">Show image widget</string>
+    <string name="overlays_image_uri">Image URI</string>
+    <string name="overlays_image_size">Image size: %1$d dp</string>
+    <string name="overlays_image_opacity">Opacity: %1$d%%</string>
+
     <string name="overlays_battery_title">Battery Display</string>
     <string name="overlays_battery_desc">Shows battery status as an overlay on the streaming preview. A warning is displayed when the battery is low.</string>
     <string name="overlays_battery_enabled">Show battery display</string>

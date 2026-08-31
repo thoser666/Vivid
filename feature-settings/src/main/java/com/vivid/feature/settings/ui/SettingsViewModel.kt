@@ -245,6 +245,12 @@ class SettingsViewModel @Inject constructor(
     fun onGridOverlayEnabledChange(newValue: Boolean) { _uiState.value = _uiState.value.copy(gridOverlayEnabled = newValue) }
     fun onGridOverlaySpacingChange(newValue: Int) { _uiState.value = _uiState.value.copy(gridOverlaySpacingDp = newValue.coerceIn(10, 100)) }
 
+    // Bild-Widget (Logo/Wasserzeichen).
+    fun onImageWidgetEnabledChange(newValue: Boolean) { _uiState.value = _uiState.value.copy(imageWidgetEnabled = newValue) }
+    fun onImageWidgetUriChange(newValue: String) { _uiState.value = _uiState.value.copy(imageWidgetUri = newValue) }
+    fun onImageWidgetSizeChange(newValue: Int) { _uiState.value = _uiState.value.copy(imageWidgetSizeDp = newValue.coerceIn(20, 400)) }
+    fun onImageWidgetOpacityChange(newValue: Float) { _uiState.value = _uiState.value.copy(imageWidgetOpacity = newValue.coerceIn(0f, 1f)) }
+
     // Akku-Anzeige-Widget.
     fun onBatteryEnabledChange(newValue: Boolean) { _uiState.value = _uiState.value.copy(batteryEnabled = newValue) }
     fun onBatteryShowIconChange(newValue: Boolean) { _uiState.value = _uiState.value.copy(batteryShowIcon = newValue) }
@@ -331,6 +337,12 @@ class SettingsViewModel @Inject constructor(
             settingsRepository.updateGridOverlaySettings(
                 enabled = currentSettings.gridOverlayEnabled,
                 spacingDp = currentSettings.gridOverlaySpacingDp,
+            )
+            settingsRepository.updateImageWidgetSettings(
+                enabled = currentSettings.imageWidgetEnabled,
+                uri = currentSettings.imageWidgetUri,
+                sizeDp = currentSettings.imageWidgetSizeDp,
+                opacity = currentSettings.imageWidgetOpacity,
             )
             settingsRepository.updateSentryEnabled(currentSettings.sentryEnabled)
             settingsRepository.updateThemeSettings(
