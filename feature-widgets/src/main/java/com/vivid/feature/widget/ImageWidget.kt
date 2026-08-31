@@ -1,6 +1,6 @@
 package com.vivid.feature.widget
 
-import android.net.Uri
+import androidx.core.net.toUri
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.res.stringResource
 import com.vivid.feature.widgets.R
@@ -76,7 +76,7 @@ fun ImageWidget(
 
     AsyncImage(
         model = ImageRequest.Builder(LocalContext.current)
-            .data(Uri.parse(uiState.uri))
+            .data(uiState.uri.toUri())
             .crossfade(true)
             .build(),
         contentDescription = stringResource(R.string.image_widget_description),
