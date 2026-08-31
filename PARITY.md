@@ -243,6 +243,19 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 
 ---
 
+## 🎯 Roadmap-Milestones
+
+| Milestone | Version | Ziel | Features |
+|-----------|---------|------|----------|
+| **M1: Core Streaming Enhancement** | v0.6.0 | Twitch-Integration + interaktive Chat-Features | Twitch-Integration (Viewer-Anzahl, Titel/Kategorie), Chat-Poll, QR-Code-Widget, Slideshow Widget |
+| **M2: Advanced Camera & Video** | v0.7.0 | Pro-Kamera-Steuerung + verbesserte Videoqualität | Untertitel (Speech-to-Text), OBS Audio-Levels, 4K/60fps + HEVC, Replays (Record-to-Disk) |
+| **M3: Multi-Platform & Pro Features** | v0.8.0 | Multi-Plattform-Chat + erweiterte Streaming-Features | Multi-Platform Chat (Kick, YouTube, SOOP), Adaptive Bitrate, SRTLA Bonding, Streamer-Browser |
+| **M4: Polish & Ecosystem** | v0.9.0 | UI/UX-Verbesserungen + Integrationen | Landscape/Portrait, VTuber/PNGTuber, Externes Display/Cast, BLE-Sensoren |
+
+> **Aktueller Stand:** 29 ✅ / 4 🚧 / 34 📋 von 67 Features. Nächstes Ziel: M1 (v0.6.0) mit Twitch-Integration.
+
+---
+
 ## 🔄 Aktualisierungslog
 
 | Datum | Commit | Änderung |

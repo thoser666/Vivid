@@ -182,19 +182,31 @@ Die Überprüfung auf dem Über-Bildschirm folgt denselben Regeln wie in [RELEAS
 
 ## 🛣️ Roadmap
 
-**Current stage: Beta** — the [Beta-Gate is formally reached](RELEASE.md) (17/17 Moblin parity ✅, Twitch chat ✅ with scope, ≥1 widget ✅); current: `v0.5.8-beta.1` with F-Droid repo. Open checklists for the current stage:
+**Current stage: Beta** — the [Beta-Gate is formally reached](RELEASE.md) (17/17 Moblin parity ✅, Twitch chat ✅ with scope, ≥1 widget ✅); current: `v0.5.8-beta.1` with F-Droid repo.
 
-- 🧪 **[Beta-Build-Checkliste](RELEASE.md#-erster-beta-build-plan)** — Beta-Gate-Bedingungen + Play-Unterlagen + ≥2 manuelle Tester (abhakbare Liste in RELEASE.md)
-- ✅ **[Play-Vorbereitung P0–P2](RELEASE.md#-play-vorbereitung-priorisierte-abhakliste-mit-zeitaufwand)** — Master-Checkliste für den ersten Play-Upload (Secrets, Console, Screenshots, Tester; ~4–5 h einmalig; Fortschritt live in [Issue #116](https://github.com/thoser666/Vivid/issues/116))
+### 🎯 Milestones
 
-**Post-Beta roadmap buckets** (full detail + open tasks in [PARITY.md](PARITY.md)):
+| Milestone | Version | Ziel | Features |
+|-----------|---------|------|----------|
+| **M1: Core Streaming Enhancement** | v0.6.0 | Twitch-Integration + interaktive Chat-Features | Twitch-Integration (Viewer-Anzahl, Titel/Kategorie), Chat-Poll, QR-Code-Widget, Slideshow Widget |
+| **M2: Advanced Camera & Video** | v0.7.0 | Pro-Kamera-Steuerung + verbesserte Videoqualität | Untertitel (Speech-to-Text), OBS Audio-Levels, 4K/60fps + HEVC, Replays (Record-to-Disk) |
+| **M3: Multi-Platform & Pro Features** | v0.8.0 | Multi-Plattform-Chat + erweiterte Streaming-Features | Multi-Platform Chat (Kick, YouTube, SOOP), Adaptive Bitrate, SRTLA Bonding, Streamer-Browser |
+| **M4: Polish & Ecosystem** | v0.9.0 | UI/UX-Verbesserungen + Integrationen | Landscape/Portrait, VTuber/PNGTuber, Externes Display/Cast, BLE-Sensoren |
 
-- 💬 **[Multi-Plattform-Chat (Kick, YouTube, SOOP)](PARITY.md#-roadmap-bucket-multi-plattform-chat-kick-youtube-soop)** — platform adapters (YouTube innertube with anonymous reading, Kick Pusher WebSocket + GraphQL, SOOP) + OAuth login (PKCE), parallel sessions for multi-streaming
-- 🎨 **[Color-Spaces + 3D-LUTs](PARITY.md#-roadmap-bucket-color-spaces--3d-luts)** — PoC: sRGB/P3/Apple Log color spaces + 3D-LUT Hald-CLUT GLSL shader in stream pipeline; !lut/!colorspace bot commands
-- 📋 **Remaining Moblin-parity features** (SRTLA bonding, H.264/H.265 up to 4K/60fps, RIST/WHIP, RTMP ingest, emotes, more widgets, …) — see the [Planned features](#-planned-roadmap-to-moblin-parity) list and the per-feature [Parity Status](#-parity-status) table
-- 🆕 **Moblin-Gap-Analyse (21.08.)** — systematic comparison against the Moblin README surfaced **20 missing features**, now tracked in [PARITY.md](PARITY.md): scenes & video sources, pro camera controls (exposure/WB/ISO/lens), replays/record-to-disk, image/QR/battery/grid widgets, speech-to-text subtitles, landscape/portrait, viewer count, title/category, chat display details, chat polls, streamer browser, adaptive bitrate, BLE sensors — applicable Moblin features: **62**
+> **Aktueller Stand:** 29 ✅ / 4 🚧 / 34 📋 von 67 Features. Nächstes Ziel: M1 (v0.6.0) mit Twitch-Integration.
 
-Release stages & criteria (nightly → alpha → beta → stable) and the versioning strategy: **[RELEASE.md](RELEASE.md)**.
+### Offene Checklists
+
+- 🧪 **[Beta-Build-Checkliste](RELEASE.md#-erster-beta-build-plan)** — Beta-Gate-Bedingungen + Play-Unterlagen + ≥2 manuelle Tester
+- ✅ **[Play-Vorbereitung P0–P2](RELEASE.md#-play-vorbereitung-priorisierte-abhakliste-mit-zeitaufwand)** — Master-Checkliste für den ersten Play-Upload
+
+### Post-Beta Roadmap Buckets
+
+- 💬 **[Multi-Plattform-Chat (Kick, YouTube, SOOP)](PARITY.md#-roadmap-bucket-multi-plattform-chat-kick-youtube-soop)** — platform adapters + OAuth login
+- 🎨 **[Color-Spaces + 3D-LUTs](PARITY.md#-roadmap-bucket-color-spaces--3d-luts)** — PoC: sRGB/P3/Apple Log + 3D-LUT shader
+- 📋 **Remaining Moblin-parity features** — see [PARITY.md](PARITY.md) for full detail
+
+Release stages & criteria: **[RELEASE.md](RELEASE.md)**.
 
 ## 📋 Platform Setup Guides
 
