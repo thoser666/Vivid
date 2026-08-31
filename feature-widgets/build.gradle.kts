@@ -61,6 +61,9 @@ dependencies {
     // ConstraintLayout for Compose (für Widget-Positionierung)
     implementation(libs.androidx.constraintlayout)
 
+    // Coil for Image loading
+    implementation(libs.coil.compose)
+
     // Testing
     testImplementation(libs.junit)
     testImplementation(libs.mockk)
