@@ -530,7 +530,7 @@ class BotCommandProcessorTest {
         val p = processor()
         assertEquals(
             BotCommandProcessor.Result.Reply(
-                "Verfügbare Befehle: !v!help · !v!uptime · !v!tts · !v!song · !v!next · !v!pause · !v!bot · !v!testalert · !v!torch · !v!filter · !v!boost · !v!battery · !v!lut · !v!colorspace",
+                "Verfügbare Befehle: !v!help · !v!uptime · !v!song · !v!next · !v!pause · !v!bot · !v!vote | Owner: !v!tts · !v!testalert · !v!torch · !v!filter · !v!boost · !v!battery · !v!lut · !v!colorspace · !v!poll · !v!pollend",
             ),
             p.handle("!v!help", null, ChatBotCommandScope.PREFIX, "v"),
         )
@@ -743,6 +743,38 @@ class BotCommandProcessorTest {
         assertEquals(
             BotCommandProcessor.Result.ColorSpace("p3"),
             processor().handle("!colorspace p3", null),
+        )
+    }
+
+    // --- Chat-Poll-Befehle ---
+
+    @Test
+    fun `poll parses question and pipe-separated options`() {
+        assertEquals(
+            BotCommandProcessor.Result.Poll("Wohin heute?", listOf("Berg", "See")),
+            processor().handle("!poll Wohin heute? | Berg | See", null),
+        )
+    }
+
+    @Test
+    fun `vote preserves the full selection text`() {
+        assertEquals(
+            BotCommandProcessor.Result.Vote("Option Zwei"),
+            processor().handle("!vote Option Zwei", null),
+        )
+    }
+
+    @Test
+    fun `pollend aliases map to PollEnd`() {
+        assertEquals(BotCommandProcessor.Result.PollEnd, processor().handle("!pollend", null))
+        assertEquals(BotCommandProcessor.Result.PollEnd, processor().handle("!endpoll", null))
+    }
+
+    @Test
+    fun `poll commands work with prefix scope`() {
+        assertEquals(
+            BotCommandProcessor.Result.Poll("Frage", listOf("Ja", "Nein")),
+            processor().handle("!v!poll Frage | Ja | Nein", null, ChatBotCommandScope.PREFIX, "v"),
         )
     }
 

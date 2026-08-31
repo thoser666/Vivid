@@ -62,6 +62,15 @@ class BotCommandProcessor @Inject constructor() {
          *  count ist optional (z. B. `!delete 5` für die letzten 5 Nachrichten). */
         data class Delete(val count: Int?) : Result
 
+        /** `!poll Frage | Option A | Option B` — Poll starten (Owner-only). */
+        data class Poll(val question: String, val options: List<String>) : Result
+
+        /** `!vote 1` oder `!vote Option A` — in den aktiven Poll abstimmen. */
+        data class Vote(val selection: String) : Result
+
+        /** `!pollend` — aktiven Poll beenden und Ergebnis ausgeben (Owner-only). */
+        data object PollEnd : Result
+
         /** `!start` / `!go-live` — Stream starten (nur Owner). */
         data object OwnerStart : Result
 
@@ -188,15 +197,27 @@ class BotCommandProcessor @Inject constructor() {
             "ban" -> Result.Ban(firstToken(rest).removePrefix("@"))
             "timeout" -> Result.Timeout(firstToken(rest).removePrefix("@"), parseTimeoutDuration(rest))
             "delete" -> Result.Delete(firstToken(rest).toIntOrNull())
+            "poll" -> parsePoll(rest)
+            "vote" -> Result.Vote(rest.trim())
+            "pollend", "endpoll", "end-poll" -> Result.PollEnd
             "bot" -> Result.Reply(BOT_INFO_TEXT)
             else -> Result.Unknown(command)
         }
+
+    /** Zerlegt `!poll Frage | Option A | Option B` in Frage und Optionen. */
+    private fun parsePoll(rest: String): Result.Poll {
+        val parts = rest.split('|').map(String::trim)
+        return Result.Poll(
+            question = parts.firstOrNull().orEmpty(),
+            options = parts.drop(1),
+        )
+    }
 
     /** Hilfe-Text: Im PREFIX-Scope mit dem eigenen Präfix (z. B. `!v!help`). */
     private fun helpText(prefix: String?): String {
         if (prefix.isNullOrBlank()) return HELP_TEXT
         val p = "!${prefix}!"
-        return "Verfügbare Befehle: ${p}help · ${p}uptime · ${p}tts · ${p}song · ${p}next · ${p}pause · ${p}bot · ${p}testalert · ${p}torch · ${p}filter · ${p}boost · ${p}battery · ${p}lut · ${p}colorspace"
+        return "Verfügbare Befehle: ${p}help · ${p}uptime · ${p}song · ${p}next · ${p}pause · ${p}bot · ${p}vote | Owner: ${p}tts · ${p}testalert · ${p}torch · ${p}filter · ${p}boost · ${p}battery · ${p}lut · ${p}colorspace · ${p}poll · ${p}pollend"
     }
 
     /**
@@ -244,7 +265,7 @@ class BotCommandProcessor @Inject constructor() {
     }
 
     companion object {
-        const val HELP_TEXT = "Verfügbare Befehle: !help · !uptime · !song · !next · !pause · !bot | Owner: !tts · !testalert · !torch · !filter · !boost · !battery · !lut · !colorspace"
+        const val HELP_TEXT = "Verfügbare Befehle: !help · !uptime · !song · !next · !pause · !bot · !vote | Owner: !tts · !testalert · !torch · !filter · !boost · !battery · !lut · !colorspace · !poll · !pollend"
         const val BOT_INFO_TEXT = "Ich bin der Chat-Bot von Vivid 🤖 — alle Befehle: !help"
     }
 }

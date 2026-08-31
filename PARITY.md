@@ -28,7 +28,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 | Streaming & Protokolle | 5 | 0 | 5 | 10 |
 | Netzwerk-Bonding | 0 | 0 | 1 | 1 |
 | OBS-Steuerung | 3 | 0 | 1 | 4 |
-| Chat & Moderation | 3 | 3 | 1 | 7 |
+| Chat & Moderation | 4 | 3 | 0 | 7 |
 | Overlays & Widgets | 3 | 2 | 6 | 11 |
 | Kamera & Video | 4 | 1 | 9 | 14 |
 | Audio | 0 | 0 | 3 | 3 |
@@ -81,7 +81,8 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 | Chat-Bot: Media-Player-Steuerung (generisch via MediaSession, z. B. Apple Music/Spotify) | ✅ | `feature-chat` (`media`) | Android-Adaption der Apple-Music-Steuerung aus Moblin 33.12.0: `ChatMediaController` steuert den aktiven Media-Player über `MediaSessionManager.getActiveSessions` → `MediaController.TransportControls` (bevorzugt playing/paused/buffering-Session); Kommandos `!song`/`!nowplaying`, `!next`/`!skip`, `!pause`, `!play`, `!prev`/`!previous` (case-insensitive); **Voraussetzung:** Benachrichtigungszugriff via `MediaNotificationListener` (leerer Zugriffs-Marker, liest keine Benachrichtigungen) — ohne Zugriff antwortet der Bot mit einem Hinweis; Button „Benachrichtigungszugriff aktivieren“ im Settings-Screen |
 | Twitch-Integration: Viewer-Anzahl, Stream-Titel/Kategorie setzen, Start Ads | 🚧 | `feature-chat`/`feature-settings`/`feature-streaming` | **Viewerzahl + Titel/Kategorie implementiert:** `TwitchChannelClient` liest die Live-Viewer via Helix `GET /streams` und setzt Titel/Kategorie via `PATCH /channels`; Kategorien werden über `GET /search/categories` in eine Game-ID aufgelöst. `TwitchChannelViewModel` bindet Abruf/Updates an Settings und Streaming-Screen, mit 30-s-Aktualisierung während eines laufenden Streams. Tests für Erfolg, Offline-Kanal, Auth-Fehler, fehlende Konfiguration und Update-Fehler vorhanden. **Offen:** Start-Ads/Hype-Train-Anzeige sowie Twitch-OAuth-Browser-Flow; derzeit ist ein Broadcaster-OAuth-Token mit `channel:manage:broadcast` erforderlich (Fallback auf den Bot-Token). |
 | Chat-Anzeige-Details (gelöschte Nachrichten, Replies, /me, Bits, Layout, Animation) | ✅ | `feature-chat` | **Vollständig (30.08.):** Reply-Indikator (↩ + Username der Eltern-Nachricht) via EventSub `reply`-Objekt, Bits-Anzeige (⭐ + Anzahl) via `cheer`-Objekt + Cheermote-Fragmente, `/me`-Styling (kursiv, grau) via `message_type`/`/me`-Präfix. **Gelöschte Nachrichten** via EventSub `channel.chat.message_delete` (Bot muss Moderator sein) mit Toggle zum Ausblenden/Ausgrauen. **Chat-Layout-Einstellungen:** Breite (100–400 dp), Höhe (100–600 dp), Hintergrund-Transparenz (0–100%), Schriftgröße (8–20 sp), Zeitstempel-Anzeige — alles als Slider/Switch in den Overlays-Settings (de/en/fr). **Fade-In-Animation** für neue Nachrichten (300ms, Toggle in Settings). ChatOverlay rendert alle Features inline mit anpassbarem Layout. |
-| Chat-Poll (Simple Poll) | 📋 | `feature-chat` | Moblin-Chat-Poll: Bot stellt eine Frage mit Antwortoptionen, Viewer stimmen per Chat ab |
+| Chat-Poll (Simple Poll) | ✅ | `feature-chat` | **Implementiert:** Owner startet mit `!poll Frage \| Option A \| Option B` (2–4 Optionen), Viewer stimmen mit `!vote <Nummer>` oder `!vote <Text>` ab, pro `userId` genau eine Stimme; `!pollend` gibt die Ergebnisse aus. Flüchtiger Poll-Zustand, der bei Stream-Ende/-Start verworfen wird; Validierung von Frage, Optionsanzahl, Länge und Duplikaten; Tests für Parser, Lifecycle, Doppelstimmen und Engine-Integration. |
+
 
 ### 💬 Roadmap-Bucket: Multi-Plattform-Chat (Kick, YouTube, SOOP)
 
@@ -247,12 +248,12 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 
 | Milestone | Version | Ziel | Features |
 |-----------|---------|------|----------|
-| **M1: Core Streaming Enhancement** | v0.6.0 | Interaktive Chat- und Overlay-Features | Chat-Poll, QR-Code-Widget, Slideshow Widget, Twitch-OAuth-Browser-Flow und optionale Start-Ads |
+| **M1: Core Streaming Enhancement** | v0.6.0 | Interaktive Chat- und Overlay-Features | Slideshow Widget, Twitch-OAuth-Browser-Flow und optionale Start-Ads (Chat-Poll und QR-Code-Widget implementiert) |
 | **M2: Advanced Camera & Video** | v0.7.0 | Pro-Kamera-Steuerung + verbesserte Videoqualität | Untertitel (Speech-to-Text), OBS Audio-Levels, 4K/60fps + HEVC, Replays (Record-to-Disk) |
 | **M3: Multi-Platform & Pro Features** | v0.8.0 | Multi-Plattform-Chat + erweiterte Streaming-Features | Multi-Platform Chat (Kick, YouTube, SOOP), Adaptive Bitrate, SRTLA Bonding, Streamer-Browser |
 | **M4: Polish & Ecosystem** | v0.9.0 | UI/UX-Verbesserungen + Integrationen | Landscape/Portrait, VTuber/PNGTuber, Externes Display/Cast, BLE-Sensoren |
 
-> **Aktueller Stand:** 30 ✅ / 5 🚧 / 32 📋 von 67 Features. Nächstes Ziel: M1 (v0.6.0) mit Chat-Poll, Slideshow-Widget, Twitch-OAuth und optionalen Start-Ads.
+> **Aktueller Stand:** 31 ✅ / 5 🚧 / 31 📋 von 67 Features. Nächstes Ziel: M1 (v0.6.0) mit Slideshow-Widget, Twitch-OAuth und optionalen Start-Ads.
 
 ---
 

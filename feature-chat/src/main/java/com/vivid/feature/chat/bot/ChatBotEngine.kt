@@ -87,6 +87,7 @@ class ChatBotEngine @Inject constructor(
     private var sender: ChatSender? = null
     private var moderation: ChatModeration = NoOpChatModeration
     private var alertTrigger: ChatAlertTrigger = NoOpChatAlertTrigger
+    private val pollManager = ChatPollManager()
     private var streamStartedAtMillis = 0L
     private var lastBatteryWarningAt = 0L
 
@@ -138,6 +139,7 @@ class ChatBotEngine @Inject constructor(
         userReplyCounts.clear()
         userReplyNames.clear()
         recentMessageIds.clear()
+        pollManager.end()
         totalRepliesThisStream = 0
         updateUsage()
         _state.value = ChatBotState.Idle
@@ -178,6 +180,7 @@ class ChatBotEngine @Inject constructor(
         userReplyCounts.clear()
         userReplyNames.clear()
         recentMessageIds.clear()
+        pollManager.end()
         totalRepliesThisStream = 0
         updateUsage()
         _state.value = ChatBotState.Disabled
@@ -379,6 +382,18 @@ class ChatBotEngine @Inject constructor(
                 }
                 return
             }
+            is BotCommandProcessor.Result.Poll -> {
+                handlePollStart(cfg, message, snd, result)
+                return
+            }
+            is BotCommandProcessor.Result.Vote -> {
+                handlePollVote(cfg, message, snd, result.selection)
+                return
+            }
+            BotCommandProcessor.Result.PollEnd -> {
+                handlePollEnd(cfg, message, snd)
+                return
+            }
             is BotCommandProcessor.Result.Unknown ->
                 if (cfg.mode == ChatBotMode.COMMAND) {
                     "Unbekannter Befehl „${result.command}“ — Tipp: !help"
@@ -412,6 +427,66 @@ class ChatBotEngine @Inject constructor(
             _state.value = ChatBotState.Idle
         }
     }
+
+    /** Startet einen Poll aus dem Chat; nur Owner dürfen die Frage festlegen. */
+    private suspend fun handlePollStart(
+        cfg: ChatBotConfig,
+        message: ChatMessage,
+        snd: ChatSender,
+        command: BotCommandProcessor.Result.Poll,
+    ) {
+        if (!isOwner(cfg, message)) {
+            sendOwnerOnlyHint(snd, message)
+            return
+        }
+        if (rateLimited(cfg)) return
+        when (val result = pollManager.start(command.question, command.options)) {
+            ChatPollManager.StartResult.Started -> {
+                val poll = pollManager.current ?: return
+                sendOwnerReply(cfg, snd, message, pollStartedText(poll))
+            }
+            ChatPollManager.StartResult.AlreadyActive ->
+                sendOwnerReply(cfg, snd, message, POLL_ALREADY_ACTIVE_TEXT)
+            is ChatPollManager.StartResult.Invalid ->
+                sendOwnerReply(cfg, snd, message, "❌ Poll ungültig: ${result.reason}")
+        }
+    }
+
+    /** Nimmt genau eine Stimme pro stabiler Viewer-ID an. */
+    private suspend fun handlePollVote(
+        cfg: ChatBotConfig,
+        message: ChatMessage,
+        snd: ChatSender,
+        selection: String,
+    ) {
+        // Auch Vote-Bestätigungen und Fehlermeldungen unterliegen dem globalen
+        // Rate-Limit sowie den Per-Viewer-Limits.
+        if (!canReplyFor(cfg, message.userId, message.isModerator)) return
+        when (val result = pollManager.vote(message.userId, selection)) {
+            ChatPollManager.VoteResult.NoActivePoll -> send(snd, POLL_NOT_ACTIVE_TEXT, message)
+            ChatPollManager.VoteResult.AlreadyVoted -> send(snd, POLL_ALREADY_VOTED_TEXT, message)
+            ChatPollManager.VoteResult.InvalidOption -> send(snd, POLL_INVALID_OPTION_TEXT, message)
+            is ChatPollManager.VoteResult.Accepted -> send(snd, "✅ Stimme gezählt: ${result.option}", message)
+        }
+    }
+
+    /** Beendet den aktiven Poll und gibt eine kompakte Ergebnisliste aus. */
+    private suspend fun handlePollEnd(cfg: ChatBotConfig, message: ChatMessage, snd: ChatSender) {
+        if (!isOwner(cfg, message)) {
+            sendOwnerOnlyHint(snd, message)
+            return
+        }
+        if (rateLimited(cfg)) return
+        val poll = pollManager.end()
+        sendOwnerReply(cfg, snd, message, poll?.let(::pollResultText) ?: POLL_NOT_ACTIVE_TEXT)
+    }
+
+    private fun pollStartedText(poll: ChatPollManager.Poll): String =
+        "📊 Poll gestartet: ${poll.question} | " + poll.options.mapIndexed { index, option -> "${index + 1}: $option" }.joinToString(" · ")
+
+    private fun pollResultText(poll: ChatPollManager.Poll): String =
+        "📊 Poll beendet: ${poll.question} | " + poll.options.mapIndexed { index, option -> "$option: ${poll.votes[index]}" }.joinToString(" · ") +
+            " | Stimmen: ${poll.totalVotes}"
 
     /** „Aktuell läuft …“ oder ein Hinweis, wenn nichts läuft / kein Zugriff. */
     private fun mediaStatusReply(): String = when {
@@ -1064,6 +1139,10 @@ class ChatBotEngine @Inject constructor(
             "⚠️ Keine KI konfiguriert — !ask/!diag brauchen einen LLM-Endpunkt (eigene Owner-KI oder Fallback: die normale Bot-KI)."
         internal const val MODERATION_MISSING_USER_TEXT =
             "Bitte gib einen Benutzernamen an, z. B. !ban <user> oder !timeout <user> <minuten?>"
+        internal const val POLL_ALREADY_ACTIVE_TEXT = "⚠️ Es läuft bereits ein Poll. Beende ihn zuerst mit !pollend."
+        internal const val POLL_NOT_ACTIVE_TEXT = "⚠️ Es läuft gerade kein Poll."
+        internal const val POLL_ALREADY_VOTED_TEXT = "⚠️ Deine Stimme wurde bereits gezählt."
+        internal const val POLL_INVALID_OPTION_TEXT = "⚠️ Ungültige Option. Stimme mit !vote <Nummer> oder !vote <Text> ab."
         internal const val TEST_ALERT_USAGE_TEXT = "Nutzung: !testalert follow|sub|gift|resub|raid"
         internal const val STREAM_START_TEXT = "▶️ Stream wird gestartet…"
         internal const val STREAM_STOP_TEXT = "⏹ Stream wird gestoppt."

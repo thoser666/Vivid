@@ -283,7 +283,7 @@ class ChatBotEngineTest {
 
         coVerify(exactly = 0) { sender.send("Gerade läuft kein Stream.") }
         coVerify(exactly = 1) {
-            sender.send("Verfügbare Befehle: !v!help · !v!uptime · !v!tts · !v!song · !v!next · !v!pause · !v!bot · !v!testalert · !v!torch · !v!filter · !v!boost · !v!battery · !v!lut · !v!colorspace")
+            sender.send("Verfügbare Befehle: !v!help · !v!uptime · !v!song · !v!next · !v!pause · !v!bot · !v!vote | Owner: !v!tts · !v!testalert · !v!torch · !v!filter · !v!boost · !v!battery · !v!lut · !v!colorspace · !v!poll · !v!pollend")
         }
         engine.stop()
     }
@@ -2097,6 +2097,88 @@ class ChatBotEngineTest {
 
         coVerify(exactly = 1) { moderation.ban("troll1") }
         assertTrue(sent.captured.contains("Moderation fehlgeschlagen"))
+        engine.stop()
+    }
+
+    // --- Chat-Poll (!poll / !vote / !pollend) ---
+
+    @Test
+    fun `poll can be started voted on and ended by the owner`() = runTest {
+        val control = streamControl()
+        val engine = engine(streamControl = control)
+        val sent = mutableListOf<String>()
+        coEvery { sender.send(any()) } answers { sent += firstArg<String>() }
+
+        engine.start(messages, config(ownerLogins = setOf("streamer2"), replyCooldownMillis = 0), sender, this)
+        messages.emit(chatMessage("!poll Wohin heute? | Berg | See", login = "streamer2"))
+        advanceUntilIdle()
+        messages.emit(chatMessage("!vote 2", login = "viewer1"))
+        advanceUntilIdle()
+        messages.emit(chatMessage("!pollend", login = "streamer2"))
+        advanceUntilIdle()
+
+        assertEquals(3, sent.size)
+        assertTrue(sent[0].contains("Poll gestartet: Wohin heute?"))
+        assertTrue(sent[1].contains("Stimme gezählt: See"))
+        assertTrue(sent[2].contains("See: 1"))
+        assertTrue(sent[2].contains("Stimmen: 1"))
+        engine.stop()
+    }
+
+    @Test
+    fun `poll start and end are owner-only`() = runTest {
+        val control = streamControl()
+        val engine = engine(streamControl = control)
+        val sent = mutableListOf<String>()
+        coEvery { sender.send(any()) } answers { sent += firstArg<String>() }
+
+        engine.start(messages, config(ownerLogins = setOf("streamer2"), replyCooldownMillis = 0), sender, this)
+        messages.emit(chatMessage("!poll Frage | Ja | Nein", login = "viewer1"))
+        advanceUntilIdle()
+        messages.emit(chatMessage("!pollend", login = "viewer1"))
+        advanceUntilIdle()
+
+        assertEquals(2, sent.size)
+        assertEquals(ChatBotEngine.OWNER_ONLY_TEXT, sent[0])
+        assertEquals(ChatBotEngine.OWNER_ONLY_TEXT, sent[1])
+        engine.stop()
+    }
+
+    @Test
+    fun `duplicate poll votes are acknowledged only once`() = runTest {
+        val engine = engine(streamControl = streamControl())
+        val sent = mutableListOf<String>()
+        coEvery { sender.send(any()) } answers { sent += firstArg<String>() }
+
+        engine.start(messages, config(ownerLogins = setOf("streamer2"), replyCooldownMillis = 0), sender, this)
+        messages.emit(chatMessage("!poll Frage | Ja | Nein", login = "streamer2"))
+        advanceUntilIdle()
+        messages.emit(chatMessage("!vote 1", login = "viewer1"))
+        advanceUntilIdle()
+        messages.emit(chatMessage("!vote 2", login = "viewer1"))
+        advanceUntilIdle()
+
+        assertEquals(3, sent.size)
+        assertTrue(sent[2].contains("bereits gezählt"))
+        engine.stop()
+    }
+
+    @Test
+    fun `poll commands work in command mode without an llm`() = runTest {
+        val engine = engine(streamControl = streamControl())
+        coEvery { sender.send(any()) } just Runs
+
+        engine.start(
+            messages,
+            config(mode = ChatBotMode.COMMAND, ownerLogins = setOf("streamer2"), replyCooldownMillis = 0),
+            sender,
+            this,
+        )
+        messages.emit(chatMessage("!poll Frage | A | B", login = "streamer2"))
+        advanceUntilIdle()
+
+        coVerify(exactly = 0) { llm.complete(any(), any()) }
+        coVerify { sender.send(any()) }
         engine.stop()
     }
 

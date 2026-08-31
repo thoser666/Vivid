@@ -168,7 +168,7 @@ Die Überprüfung auf dem Über-Bildschirm folgt denselben Regeln wie in [RELEAS
 ### 📋 Planned (Roadmap to Moblin parity)
 
 - 📡 **Multi-Network Bonding (SRTLA)** - Combine WiFi and mobile data for rock-solid streams
-- 💬 **Chat Extensions** - Emotes (BTTV/FFZ/7TV) plus chat polish: chat polls and chat display details (hide/gray out deleted messages, replies, `/me` styling, cheered bits, adjustable overlay layout) — **Viewer count and setting the Twitch stream title/category are implemented**; note: moderation (`!ban`/`!timeout`/`!delete`), chat-bot **media player control** via MediaSession (Apple Music, Spotify, etc.; adapted from Moblin 33.12.0) and the **AI chat bot** itself are already implemented (see above)
+- 💬 **Chat Extensions** - Emotes (BTTV/FFZ/7TV) plus chat polish: **chat polls are implemented** (`!poll`/`!vote`/`!pollend`), and chat display details (hide/gray out deleted messages, replies, `/me` styling, cheered bits, adjustable overlay layout) — **Viewer count and setting the Twitch stream title/category are implemented**; note: moderation (`!ban`/`!timeout`/`!delete`), chat-bot **media player control** via MediaSession (Apple Music, Spotify, etc.; adapted from Moblin 33.12.0) and the **AI chat bot** itself are already implemented (see above)
 - 🎨 **Overlays & Widgets** - Follower/donation alerts, custom graphics and branding; text widgets incl. weather, timer/stopwatch, distance, G-force and road/route variables (altitude, GPS and speed are already implemented — see above); implemented widgets include the image widget, QR-code widget, battery indicator (with low-battery chat warning) and grid overlay for positioning; further widget types and speech-to-text subtitles remain planned
 - 📹 **High-Quality Streaming** - Up to 4K resolution at 60fps with H.264/AVC and H.265/HEVC
 - 🔒 **Extended Protocols** - SRTLA, RIST, and WHIP (WebRTC) — RTMPS is already implemented (see below); RTMP-Pull/ingest server mode (community request #407); adaptive bitrate for SRT(LA) + per-connection upload statistics
@@ -183,18 +183,18 @@ Die Überprüfung auf dem Über-Bildschirm folgt denselben Regeln wie in [RELEAS
 
 ## 🛣️ Roadmap
 
-**Current stage: Beta** — the [Beta-Gate is formally reached](RELEASE.md) (17/17 Moblin parity ✅, Twitch chat ✅ with scope, ≥1 widget ✅); current: `v0.5.8-beta.1` with F-Droid repo. Twitch viewer count and channel metadata updates are now in progress; the remaining M1 items are chat polls, QR/slideshow widgets, OAuth and optional ads.
+**Current stage: Beta** — the [Beta-Gate is formally reached](RELEASE.md) (17/17 Moblin parity ✅, Twitch chat ✅ with scope, ≥1 widget ✅); current: `v0.5.8-beta.1` with F-Droid repo. The remaining M1 items are the Slideshow Widget, Twitch OAuth browser flow and optional start ads.
 
 ### 🎯 Milestones
 
 | Milestone | Version | Ziel | Features |
 |-----------|---------|------|----------|
-| **M1: Core Streaming Enhancement** | v0.6.0 | Interaktive Chat- und Overlay-Features | Chat-Poll, QR-Code-Widget, Slideshow Widget, Twitch-OAuth-Browser-Flow und optionale Start-Ads (Viewerzahl/Titel/Kategorie bereits implementiert) |
+| **M1: Core Streaming Enhancement** | v0.6.0 | Interaktive Chat- und Overlay-Features | Slideshow Widget, Twitch-OAuth-Browser-Flow und optionale Start-Ads (Chat-Poll, QR-Code-Widget und Viewerzahl/Titel/Kategorie implementiert) |
 | **M2: Advanced Camera & Video** | v0.7.0 | Pro-Kamera-Steuerung + verbesserte Videoqualität | Untertitel (Speech-to-Text), OBS Audio-Levels, 4K/60fps + HEVC, Replays (Record-to-Disk) |
 | **M3: Multi-Platform & Pro Features** | v0.8.0 | Multi-Plattform-Chat + erweiterte Streaming-Features | Multi-Platform Chat (Kick, YouTube, SOOP), Adaptive Bitrate, SRTLA Bonding, Streamer-Browser |
 | **M4: Polish & Ecosystem** | v0.9.0 | UI/UX-Verbesserungen + Integrationen | Landscape/Portrait, VTuber/PNGTuber, Externes Display/Cast, BLE-Sensoren |
 
-> **Aktueller Stand:** 29 ✅ / 5 🚧 / 33 📋 von 67 Features. Nächstes Ziel: M1 (v0.6.0) mit Chat-Poll, QR-/Slideshow-Widget, Twitch-OAuth und optionalen Start-Ads.
+> **Aktueller Stand:** 31 ✅ / 5 🚧 / 31 📋 von 67 Features. Nächstes Ziel: M1 (v0.6.0) mit Slideshow-Widget, Twitch-OAuth und optionalen Start-Ads.
 
 ### Offene Checklists
 
@@ -543,7 +543,7 @@ Status: ✅ implemented · 🚧 in progress · 📋 planned
 | Speech-to-Text Subtitles | 📋 | Live subtitles from the mic as overlay |
 | Twitch: Viewer Count, Title/Category, Ads | 🚧 | `feature-chat`, `feature-settings`, `feature-streaming` | Viewerzahl via Helix `GET /streams` (alle 30 s während des Streams) und Titel/Kategorie via `PATCH /channels` mit Kategorieauflösung über `GET /search/categories` sind implementiert und getestet; Start-Ads/Hype-Train bleiben offen |
 | Chat Display Details (deleted msgs, replies, /me, bits) | 📋 | Hide/gray out deleted messages, show replies, `/me` styling, cheered bits, adjustable layout |
-| Chat Poll | 📋 | Simple chat polls via the bot |
+| Chat Poll | ✅ | `feature-chat` | Owner startet mit `!poll Frage \| Option A \| Option B` (2–4 Optionen), Viewer stimmen einmalig mit `!vote <Nummer>` oder `!vote <Text>` ab; `!pollend` gibt das Ergebnis aus. Flüchtiger, validierter Poll-Zustand pro Stream. |
 | Adaptive Bitrate (SRT/SRTLA) + Upload Stats | 📋 | Dynamic bitrate + per-connection statistics |
 | Streamer Browser | 📋 | Built-in browser, visible to the streamer only |
 | Landscape / Portrait | 📋 | Landscape 0/180 (gravity-down video) + portrait UI with landscape video |

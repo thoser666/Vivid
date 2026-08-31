@@ -54,6 +54,9 @@ In den Einstellungen (**„Chat-Bot & KI“ → „Chat-Bot (KI)“**) gibt es e
 | `!pause` / `!play` | Wiedergabe pausieren / fortsetzen (**Owner + Allow-List + Moderatoren**) |
 | `!prev` / `!previous` | Zum vorherigen Titel springen (**Owner + Allow-List + Moderatoren**) |
 | `!bot` | Kurzinfo über den Bot |
+| `!poll <frage> \| <option A> \| <option B> [\| <option C> [\| <option D>]]` | **Owner-only:** Startet einen Chat-Poll mit 2–4 validierten Optionen |
+| `!vote <nummer|text>` | Gibt die eigene Stimme im aktiven Poll ab; pro `userId` nur einmal |
+| `!pollend` / `!endpoll` | **Owner-only:** Beendet den Poll und veröffentlicht die Ergebnisse |
 | `!start` / `!go-live` · `!stop` / `!end` · `!diag` / `!status` · `!ask <frage>` · `!testalert <follow\|sub\|gift\|resub\|raid>` · `!torch` · `!filter <name>` · `!boost` · `!battery` · `!lut` · `!colorspace` | **Owner-Befehle — nur der Streamer** (Broadcaster-Badge oder Allow-List `chat_bot_owner_logins`): Stream starten/stoppen, Diagnose mit Empfehlungen, Frage an die **exklusive Owner-KI** (Fallback: die normale Bot-KI), Test-Alert für das Chat-Overlay, Taschenlampe umschalten, Video-Filter wechseln, Low-Light-Boost umschalten, 3D-LUT-Preset wechseln, Color-Space wechseln — nur während eines aktiven Streams; Viewer erhalten nur einen Hinweis (Details: [Owner-Steuerung](#owner-steuerung-nur-der-streamer)) |
 | `!ban <user>` · `!timeout <user> <minuten?>` · `!delete <anzahl?>` | **Owner-Moderation — nur der Streamer**: Viewer verbannen/timeouten bzw. die letzten N Chat-Nachrichten löschen — über die Twitch-Helix-Moderation-API (Scopes `moderator:manage:banned_users` + `moderator:manage:chat_messages`; der Bot muss Moderator im Kanal sein). Löschbar ist nur, was der Bot gesehen hat (Ringpuffer der letzten 50 IDs). Details: [Owner-Steuerung](#owner-steuerung-nur-der-streamer) |
 | `!<unbekannt>` | COMMAND: Hinweis „Unbekannter Befehl … — Tipp: !help“ · AUTONOMOUS: die KI entscheidet |
@@ -167,9 +170,10 @@ Viewer, die einen Owner-Befehl tippen, bekommen nur den Hinweis „⚠️ Dieser
 #### Befehls-Syntax (Referenz)
 
 - **Case-insensitive:** `!START` = `!start`; Befehle können **mitten in der Nachricht** stehen (`@vividbot !diag bitte`).
-- **Parameter:** `!ask` übernimmt alles nach dem Befehlstoken als Frage (`!ask warum stockt der Stream?` → Text `warum stockt der Stream?`); `!ban`/`!timeout` nehmen das erste Token als Benutzernamen (`@` optional, wird gestrippt), `!timeout` optional ein zweites Token als Minuten (auch `10min`/`10m`); `!delete` optional einen Zähler (ohne Zähler = alle getrackten Nachrichten). Fehlt der Benutzername, antwortet der Bot mit einem Hinweis.
+- **Parameter:** `!ask` übernimmt alles nach dem Befehlstoken als Frage (`!ask warum stockt der Stream?` → Text `warum stockt der Stream?`); `!ban`/`!timeout` nehmen das erste Token als Benutzernamen (`@` optional, wird gestrippt), `!timeout` optional ein zweites Token als Minuten (auch `10min`/`10m`); `!delete` optional einen Zähler (ohne Zähler = alle getrackten Nachrichten). `!poll` verwendet `|` als Trennzeichen (`!poll Wohin? \| Berg \| See`) und akzeptiert 2–4 eindeutige Optionen; `!vote` akzeptiert die Nummer (1-basiert) oder den exakten Optionstext; jede `userId` darf pro Poll nur einmal abstimmen. Fehlt der Benutzername, antwortet der Bot mit einem Hinweis.
 - **PREFIX-Scope:** präfixierte Formen `!v!start` / `!v!stop` / `!v!diag` / `!v!ask <frage>` · `!v!testalert <follow\|sub\|raid>` · `!v!torch` · `!v!filter` · `!v!boost` · `!v!battery` · `!v!lut` · `!v!colorspace` / `!v!cs` · `!v!ban <user>` / `!v!timeout <user> <minuten?>` / `!v!delete <anzahl?>` (Präfix `v`) — die generischen `!`-Formen gehören dann dem anderen Bot (Koexistenz-Modus).
-- **Verfügbarkeit:** nur während eines aktiven Streams (der Bot verbindet sich nur bei Go-Live) und nur, wenn der Bot selbst konfiguriert und im Chat ist.
+- **PREFIX-Scope für Polls:** `!v!poll Frage \| Ja \| Nein`, `!v!vote 1` und `!v!pollend`; generische Befehle gehören im PREFIX-Modus dem anderen Bot.
+- **Verfügbarkeit:** nur während eines aktiven Streams (der Bot verbindet sich nur bei Go-Live) und nur, wenn der Bot selbst konfiguriert und im Chat ist. Der Poll-Zustand ist flüchtig und wird bei Stream-Ende/-Start verworfen.
 
 #### Owner-Scope (wer darf, wann)
 
@@ -261,6 +265,7 @@ Implemented & unit-tested:
 Still open (next milestones):
 
 - **Twitch OAuth browser flow** (until then, paste a chat token — see below).
+- ✅ **Chat-Polls** (`!poll`/`!vote`/`!pollend`, Owner-Gate, einmalige Stimmen pro `userId`, 2–4 Optionen) — done.
 - Provider presets (one-tap LLM provider config).
 
 ## Prerequisites
