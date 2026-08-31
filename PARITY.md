@@ -29,13 +29,13 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 | Netzwerk-Bonding | 0 | 0 | 1 | 1 |
 | OBS-Steuerung | 3 | 0 | 1 | 4 |
 | Chat & Moderation | 3 | 2 | 2 | 7 |
-| Overlays & Widgets | 1 | 2 | 8 | 11 |
+| Overlays & Widgets | 2 | 2 | 7 | 11 |
 | Kamera & Video | 4 | 1 | 9 | 14 |
 | Audio | 0 | 0 | 3 | 3 |
 | Remote & Companion | 1 | 0 | 3 | 4 |
 | Plattform & Grundlagen | 6 | 0 | 1 | 7 |
 | Zusatz-Features (über Parität) | 3 | 0 | 2 | 5 |
-| **Gesamt** | **28** | **4** | **35** | **67**† |
+| **Gesamt** | **29** | **4** | **34** | **67**† |
 
 † Inkl. 1 n/a-Zeile (Apple-Watch-Companion). Moblin-Zeilen gesamt: 63 (62 anwendbare + 1 n/a). Zusatz-Abschnitt: 4 Vivid-Extras über die Parität hinaus + 1 Moblin-Paritäts-Zeile (BLE-Sensoren, wegen der Widget-Nähe dort einsortiert). Anwendbare Moblin-Features: **62**.
 
@@ -131,7 +131,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 | Scoreboards (Padel, Golf, Volleyball) | 📋 | `feature-widgets` | Datenmodelle + Renderer; **Open Task:** Golf-Scoreboard ([#326](https://github.com/eerimoq/moblin/issues/326)) — Spielernamen, Loch, Par, Punktestand, Auto-Total, horizontale/vertikale Layouts |
 | Bild-Widget (Image) | 📋 | `feature-widgets` | Ein Bild auf den Stream legen (Position/Skalierung) — Basis für Overlays und die Bild-Widget-Effekte |
 | QR-Code-Widget | 📋 | `feature-widgets` | QR-Code auf dem Stream anzeigen (z. B. Spenden-/Social-Link) |
-| Akku-Anzeige (Battery) + Low-Battery-Warnung an den Chat | 📋 | `feature-widgets`, `feature-chat` | Batterie-Status als Overlay (Lade-Icon, optional Prozent) + periodische Chat-Warnung bei niedrigem Akku (Moblin-Bot-Befehl) |
+| Akku-Anzeige (Battery) + Low-Battery-Warnung an den Chat | ✅ | `feature-widgets`, `feature-chat` | **Vollständig (31.08.):** `BatteryWidget`-Composable liest Batteriestatus aus System-Broadcast (Level, Lade-Status), rendert Icon + Prozentwert mit Low-Battery-Warnung (rot unter Schwelle); `BatteryWidgetViewModel` aktualisiert alle 30 s; Schwellenwert (5–50 %) konfigurierbar; Toggle + Icon/Prozent/Schwelle-Settings in Overlays-Kategorie (de/en/fr); i18n de/en/fr. **Bot-Befehl `!battery`** (Alias `!akku`, Owner-only) zeigt den Akkustand als Chat-Nachricht; periodische Low-Battery-Warnung alle 10 Min (Schwellenwert `batteryLowThresholdPercent`); `ChatStreamControl.getBatteryLevel()` + `ChatBotConfig.batteryLowThresholdPercent`. Unit-Tests: 4× BotCommandProcessor + 6× BatteryWidgetViewModel + 2× SettingsViewModel = 12 Battery-Tests; ai-chat-bot.md aktualisiert |
 | Grid-Overlay (Positionierung) | 📋 | `feature-widgets` | Raster auf der Vorschau einblenden für einfacheres Positionieren von Widgets/Bildern |
 | Slideshow Widget (Bildwechsel) | 📋 | `feature-widgets` | Automatischer Bildwechsel auf dem Stream (konfigurierbares Intervall); Moblin: „Slideshow widget“ |
 | Chat Emote Combo Widget | 📋 | `feature-widgets` | Emote-Kombinationen auf dem Stream anzeigen (z. B. „Feier-Emote“ bei raid); Moblin: „Chat emote combo widget“ |

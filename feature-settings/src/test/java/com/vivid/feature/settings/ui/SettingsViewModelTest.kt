@@ -294,6 +294,7 @@ class SettingsViewModelTest {
             coEvery { updateChatOverlayLayout(any(), any(), any(), any(), any()) } just runs
             coEvery { updateChatOverlayColors(any(), any(), any()) } just runs
             coEvery { updateChatOverlayPosition(any()) } just runs
+            coEvery { updateBatterySettings(any(), any(), any(), any()) } just runs
             coEvery { updateSentryEnabled(any()) } just runs
             coEvery { updateThemeSettings(any(), any()) } just runs
         }
@@ -347,6 +348,7 @@ class SettingsViewModelTest {
             coEvery { updateChatOverlayLayout(any(), any(), any(), any(), any()) } just runs
             coEvery { updateChatOverlayColors(any(), any(), any()) } just runs
             coEvery { updateChatOverlayPosition(any()) } just runs
+            coEvery { updateBatterySettings(any(), any(), any(), any()) } just runs
             coEvery { updateSentryEnabled(any()) } just runs
             coEvery { updateThemeSettings(any(), any()) } just runs
         }
@@ -395,6 +397,7 @@ class SettingsViewModelTest {
             coEvery { updateChatOverlayLayout(any(), any(), any(), any(), any()) } just runs
             coEvery { updateChatOverlayColors(any(), any(), any()) } just runs
             coEvery { updateChatOverlayPosition(any()) } just runs
+            coEvery { updateBatterySettings(any(), any(), any(), any()) } just runs
             coEvery { updateSentryEnabled(any()) } just runs
             coEvery { updateThemeSettings(any(), any()) } just runs
         }
@@ -429,6 +432,96 @@ class SettingsViewModelTest {
     }
 
     @Test
+    fun `battery settings update the ui state and persist on save`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repository = mockk<SettingsRepository> {
+            every { appSettingsFlow } returns MutableStateFlow(AppSettings())
+            coEvery { updateStreamSettings(any(), any(), any()) } just runs
+            coEvery { updateSecondaryStreamSettings(any(), any(), any()) } just runs
+            coEvery { updateObsSettings(any(), any(), any(), any()) } just runs
+            coEvery { updateChatSettings(any(), any()) } just runs
+            coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
+            coEvery { updateWidgetSettings(any(), any(), any(), any(), any(), any()) } just runs
+            coEvery { updateProfanitySettings(any(), any(), any(), any()) } just runs
+            coEvery { updateEmoteSettings(any(), any(), any()) } just runs
+            coEvery { updateChatOverlayHideDeleted(any()) } just runs
+            coEvery { updateChatOverlayAnimateNewMessages(any()) } just runs
+            coEvery { updateChatOverlayLayout(any(), any(), any(), any(), any()) } just runs
+            coEvery { updateChatOverlayColors(any(), any(), any()) } just runs
+            coEvery { updateChatOverlayPosition(any()) } just runs
+            coEvery { updateBatterySettings(any(), any(), any(), any()) } just runs
+            coEvery { updateSentryEnabled(any()) } just runs
+            coEvery { updateThemeSettings(any(), any()) } just runs
+        }
+
+        val viewModel = createViewModel(repository)
+        advanceUntilIdle()
+
+        // Defaults: Battery aus, Icon+Prozent an, Schwelle 15%.
+        assertEquals(false, viewModel.uiState.value.batteryEnabled)
+        assertEquals(true, viewModel.uiState.value.batteryShowIcon)
+        assertEquals(true, viewModel.uiState.value.batteryShowPercent)
+        assertEquals(15, viewModel.uiState.value.batteryLowThresholdPercent)
+
+        viewModel.onBatteryEnabledChange(true)
+        viewModel.onBatteryShowIconChange(false)
+        viewModel.onBatteryShowPercentChange(true)
+        viewModel.onBatteryLowThresholdChange(25)
+
+        assertEquals(true, viewModel.uiState.value.batteryEnabled)
+        assertEquals(false, viewModel.uiState.value.batteryShowIcon)
+        assertEquals(true, viewModel.uiState.value.batteryShowPercent)
+        assertEquals(25, viewModel.uiState.value.batteryLowThresholdPercent)
+
+        viewModel.saveSettings()
+        advanceUntilIdle()
+
+        coVerify {
+            repository.updateBatterySettings(
+                enabled = true,
+                showIcon = false,
+                showPercent = true,
+                lowThresholdPercent = 25,
+            )
+        }
+    }
+
+    @Test
+    fun `battery threshold is clamped to 5-50 range`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repository = mockk<SettingsRepository> {
+            every { appSettingsFlow } returns MutableStateFlow(AppSettings())
+            coEvery { updateStreamSettings(any(), any(), any()) } just runs
+            coEvery { updateSecondaryStreamSettings(any(), any(), any()) } just runs
+            coEvery { updateObsSettings(any(), any(), any(), any()) } just runs
+            coEvery { updateChatSettings(any(), any()) } just runs
+            coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
+            coEvery { updateWidgetSettings(any(), any(), any(), any(), any(), any()) } just runs
+            coEvery { updateProfanitySettings(any(), any(), any(), any()) } just runs
+            coEvery { updateEmoteSettings(any(), any(), any()) } just runs
+            coEvery { updateChatOverlayHideDeleted(any()) } just runs
+            coEvery { updateChatOverlayAnimateNewMessages(any()) } just runs
+            coEvery { updateChatOverlayLayout(any(), any(), any(), any(), any()) } just runs
+            coEvery { updateChatOverlayColors(any(), any(), any()) } just runs
+            coEvery { updateChatOverlayPosition(any()) } just runs
+            coEvery { updateBatterySettings(any(), any(), any(), any()) } just runs
+            coEvery { updateSentryEnabled(any()) } just runs
+            coEvery { updateThemeSettings(any(), any()) } just runs
+        }
+
+        val viewModel = createViewModel(repository)
+        advanceUntilIdle()
+
+        // Zu niedrig → 5
+        viewModel.onBatteryLowThresholdChange(0)
+        assertEquals(5, viewModel.uiState.value.batteryLowThresholdPercent)
+
+        // Zu hoch → 50
+        viewModel.onBatteryLowThresholdChange(100)
+        assertEquals(50, viewModel.uiState.value.batteryLowThresholdPercent)
+    }
+
+    @Test
     fun `sentry toggle updates the ui state and persists on save`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val repository = mockk<SettingsRepository> {
@@ -446,6 +539,7 @@ class SettingsViewModelTest {
             coEvery { updateChatOverlayLayout(any(), any(), any(), any(), any()) } just runs
             coEvery { updateChatOverlayColors(any(), any(), any()) } just runs
             coEvery { updateChatOverlayPosition(any()) } just runs
+            coEvery { updateBatterySettings(any(), any(), any(), any()) } just runs
             coEvery { updateSentryEnabled(any()) } just runs
             coEvery { updateThemeSettings(any(), any()) } just runs
         }
@@ -644,6 +738,7 @@ class SettingsViewModelTest {
             coEvery { updateChatOverlayLayout(any(), any(), any(), any(), any()) } just runs
             coEvery { updateChatOverlayColors(any(), any(), any()) } just runs
             coEvery { updateChatOverlayPosition(any()) } just runs
+            coEvery { updateBatterySettings(any(), any(), any(), any()) } just runs
             coEvery { updateSentryEnabled(any()) } just runs
             coEvery { updateThemeSettings(any(), any()) } just runs
         }
@@ -946,6 +1041,7 @@ class SettingsViewModelTest {
             coEvery { updateChatOverlayLayout(any(), any(), any(), any(), any()) } just runs
             coEvery { updateChatOverlayColors(any(), any(), any()) } just runs
             coEvery { updateChatOverlayPosition(any()) } just runs
+            coEvery { updateBatterySettings(any(), any(), any(), any()) } just runs
             coEvery { updateSentryEnabled(any()) } just runs
             coEvery { updateThemeSettings(any(), any()) } just runs
         }
@@ -1010,6 +1106,7 @@ class SettingsViewModelTest {
             coEvery { updateChatOverlayLayout(any(), any(), any(), any(), any()) } just runs
             coEvery { updateChatOverlayColors(any(), any(), any()) } just runs
             coEvery { updateChatOverlayPosition(any()) } just runs
+            coEvery { updateBatterySettings(any(), any(), any(), any()) } just runs
             coEvery { updateSentryEnabled(any()) } just runs
             coEvery { updateThemeSettings(any(), any()) } just runs
             coEvery { updateEmoteSettings(any(), any(), any()) } just runs

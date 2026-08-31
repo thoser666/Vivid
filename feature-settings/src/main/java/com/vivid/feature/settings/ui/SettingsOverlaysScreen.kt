@@ -327,5 +327,52 @@ fun SettingsOverlaysScreen(
                 modifier = Modifier.width(120.dp),
             )
         }
+
+        // Akku-Anzeige-Widget
+        Text(stringResource(R.string.overlays_battery_title), style = MaterialTheme.typography.titleLarge)
+        Text(
+            text = stringResource(R.string.overlays_battery_desc),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(stringResource(R.string.overlays_battery_enabled), modifier = Modifier.weight(1f))
+            Switch(
+                checked = uiState.batteryEnabled,
+                onCheckedChange = viewModel::onBatteryEnabledChange,
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(stringResource(R.string.overlays_battery_show_icon), modifier = Modifier.weight(1f))
+            Switch(
+                checked = uiState.batteryShowIcon,
+                onCheckedChange = viewModel::onBatteryShowIconChange,
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(stringResource(R.string.overlays_battery_show_percent), modifier = Modifier.weight(1f))
+            Switch(
+                checked = uiState.batteryShowPercent,
+                onCheckedChange = viewModel::onBatteryShowPercentChange,
+            )
+        }
+        // Low-Battery-Schwelle
+        Text(stringResource(R.string.overlays_battery_threshold, uiState.batteryLowThresholdPercent))
+        Slider(
+            value = uiState.batteryLowThresholdPercent.toFloat(),
+            onValueChange = { viewModel.onBatteryLowThresholdChange(it.toInt()) },
+            valueRange = 5f..50f,
+            steps = 8,
+            modifier = Modifier.fillMaxWidth(),
+        )
     }
 }

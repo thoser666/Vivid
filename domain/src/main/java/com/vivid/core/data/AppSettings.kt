@@ -100,6 +100,15 @@ data class AppSettings(
     val widgetShowAltitude: Boolean = false,
     // optionales Template mit Variablen ({time}, {date}, {speed}, {altitude}, {lat}, {lon}).
     val widgetTemplate: String = "",
+    // --- Akku-Anzeige-Widget (Overlay) ---
+    // Zeigt den Batteriestatus als Overlay über der Streaming-Vorschau.
+    val batteryEnabled: Boolean = false,
+    // Lade-Icon anzeigen (Standard: an).
+    val batteryShowIcon: Boolean = true,
+    // Prozentwert anzeigen (Standard: an).
+    val batteryShowPercent: Boolean = true,
+    // Schwellenwert für Low-Battery-Warnung im Chat (in %, Standard: 15).
+    val batteryLowThresholdPercent: Int = 15,
     // --- Datenschutz (Sentry) ---
     // Fehler-/Crash-Berichte an Sentry senden (Standard: an). Aus = Opt-out:
     // beforeSend verwirft dann alle Events — es wird nichts an Sentry übertragen.

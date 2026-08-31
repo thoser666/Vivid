@@ -113,6 +113,14 @@
     <string name="overlays_colors_background">Background color</string>
     <string name="overlays_color_hint">#RRGGBB</string>
 
+    <!-- Battery widget -->
+    <string name="overlays_battery_title">Battery Display</string>
+    <string name="overlays_battery_desc">Shows battery status as an overlay on the streaming preview. A warning is displayed when the battery is low.</string>
+    <string name="overlays_battery_enabled">Show battery display</string>
+    <string name="overlays_battery_show_icon">Show charging icon</string>
+    <string name="overlays_battery_show_percent">Show percentage</string>
+    <string name="overlays_battery_threshold">Low battery threshold: %1$d%%</string>
+
     <!-- ===== Remote & Privacy (SettingsRemotePrivacyScreen.kt) ===== -->
     <string name="remote_section_title">Web remote control</string>
     <string name="remote_reachable_desc">Reachable on the same Wi-Fi at http://&lt;DEVICE-IP&gt;:%1$d/status — actions via Authorization: Bearer &lt;token&gt;.</string>

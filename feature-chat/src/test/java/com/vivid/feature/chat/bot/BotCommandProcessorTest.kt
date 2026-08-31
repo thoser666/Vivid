@@ -668,6 +668,40 @@ class BotCommandProcessorTest {
         )
     }
 
+    // --- !battery (Akku-Anzeige) ---
+
+    @Test
+    fun `battery maps to OwnerBattery`() {
+        assertEquals(
+            BotCommandProcessor.Result.OwnerBattery,
+            processor().handle("!battery", null),
+        )
+    }
+
+    @Test
+    fun `battery alias akku`() {
+        assertEquals(
+            BotCommandProcessor.Result.OwnerBattery,
+            processor().handle("!akku", null),
+        )
+    }
+
+    @Test
+    fun `battery is case-insensitive`() {
+        assertEquals(
+            BotCommandProcessor.Result.OwnerBattery,
+            processor().handle("!BATTERY", null),
+        )
+    }
+
+    @Test
+    fun `battery works with prefix scope`() {
+        assertEquals(
+            BotCommandProcessor.Result.OwnerBattery,
+            processor().handle("!v!battery", null, ChatBotCommandScope.PREFIX, "v"),
+        )
+    }
+
     // --- !lut (3D-LUT-Preset) ---
 
     @Test

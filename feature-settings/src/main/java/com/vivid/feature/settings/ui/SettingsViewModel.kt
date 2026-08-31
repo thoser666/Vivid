@@ -241,6 +241,12 @@ class SettingsViewModel @Inject constructor(
     // Chat-Overlay-Position.
     fun onChatOverlayPositionChange(newValue: ChatOverlayPosition) { _uiState.value = _uiState.value.copy(chatOverlayPosition = newValue) }
 
+    // Akku-Anzeige-Widget.
+    fun onBatteryEnabledChange(newValue: Boolean) { _uiState.value = _uiState.value.copy(batteryEnabled = newValue) }
+    fun onBatteryShowIconChange(newValue: Boolean) { _uiState.value = _uiState.value.copy(batteryShowIcon = newValue) }
+    fun onBatteryShowPercentChange(newValue: Boolean) { _uiState.value = _uiState.value.copy(batteryShowPercent = newValue) }
+    fun onBatteryLowThresholdChange(newValue: Int) { _uiState.value = _uiState.value.copy(batteryLowThresholdPercent = newValue.coerceIn(5, 50)) }
+
     // Datenschutz: Sentry-Fehlerberichte an/aus (Opt-out).
     fun onSentryEnabledChange(newEnabled: Boolean) { _uiState.value = _uiState.value.copy(sentryEnabled = newEnabled) }
 
@@ -311,6 +317,12 @@ class SettingsViewModel @Inject constructor(
                 showSpeed = currentSettings.widgetShowSpeed,
                 showAltitude = currentSettings.widgetShowAltitude,
                 template = currentSettings.widgetTemplate,
+            )
+            settingsRepository.updateBatterySettings(
+                enabled = currentSettings.batteryEnabled,
+                showIcon = currentSettings.batteryShowIcon,
+                showPercent = currentSettings.batteryShowPercent,
+                lowThresholdPercent = currentSettings.batteryLowThresholdPercent,
             )
             settingsRepository.updateSentryEnabled(currentSettings.sentryEnabled)
             settingsRepository.updateThemeSettings(

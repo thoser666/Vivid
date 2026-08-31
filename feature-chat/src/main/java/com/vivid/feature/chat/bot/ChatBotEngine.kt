@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 enum class ChatBotState {
@@ -81,11 +82,13 @@ class ChatBotEngine @Inject constructor(
     val logs: SharedFlow<String> = _logs.asSharedFlow()
 
     private var collectorJob: Job? = null
+    private var batteryWarningJob: Job? = null
     private var config: ChatBotConfig? = null
     private var sender: ChatSender? = null
     private var moderation: ChatModeration = NoOpChatModeration
     private var alertTrigger: ChatAlertTrigger = NoOpChatAlertTrigger
     private var streamStartedAtMillis = 0L
+    private var lastBatteryWarningAt = 0L
 
     // Ringpuffer der zuletzt gesehenen Kanal-Nachrichten-IDs — Grundlage für
     // `!delete <anzahl>` (gelöscht werden kann nur, was der Bot gesehen hat).
@@ -141,11 +144,29 @@ class ChatBotEngine @Inject constructor(
         collectorJob = scope.launch {
             messages.collect { message -> process(message) }
         }
+        // Periodische Low-Battery-Warnung alle 5 Minuten.
+        batteryWarningJob = scope.launch {
+            while (true) {
+                delay(BATTERY_CHECK_INTERVAL_MS)
+                val level = streamControl.getBatteryLevel()
+                if (level >= 0 && level <= (config?.batteryLowThresholdPercent ?: 15)) {
+                    // Nur warnen, wenn die letzte Warnung mindestens 10 Minuten zurückliegt.
+                    val elapsed = now() - lastBatteryWarningAt
+                    if (elapsed >= BATTERY_WARNING_COOLDOWN_MS) {
+                        lastBatteryWarningAt = now()
+                        val warning = BATTERY_LOW_WARNING.replace("{level}", level.toString())
+                        sender?.send(warning)
+                    }
+                }
+            }
+        }
     }
 
     fun stop() {
         collectorJob?.cancel()
         collectorJob = null
+        batteryWarningJob?.cancel()
+        batteryWarningJob = null
         config = null
         sender = null
         moderation = NoOpChatModeration
@@ -293,6 +314,17 @@ class ChatBotEngine @Inject constructor(
                 }
                 return
             }
+            is BotCommandProcessor.Result.OwnerBattery -> {
+                handleOwnerAction(cfg, message, snd) {
+                    val level = streamControl.getBatteryLevel()
+                    if (level >= 0) {
+                        BATTERY_LEVEL_TEXT.replace("{level}", level.toString())
+                    } else {
+                        BATTERY_UNAVAILABLE_TEXT
+                    }
+                }
+                return
+            }
             is BotCommandProcessor.Result.Lut -> {
                 handleOwnerAction(cfg, message, snd) {
                     val presetIndex = parseLutPreset(result.presetName)
@@ -431,6 +463,15 @@ class ChatBotEngine @Inject constructor(
                 handleOwnerAction(cfg, message, snd) {
                     val nowOn = streamControl.toggleLowLightBoost()
                     if (nowOn) BOOST_ON_TEXT else BOOST_OFF_TEXT
+                }
+            is BotCommandProcessor.Result.OwnerBattery ->
+                handleOwnerAction(cfg, message, snd) {
+                    val level = streamControl.getBatteryLevel()
+                    if (level >= 0) {
+                        BATTERY_LEVEL_TEXT.replace("{level}", level.toString())
+                    } else {
+                        BATTERY_UNAVAILABLE_TEXT
+                    }
                 }
             is BotCommandProcessor.Result.Ban ->
                 handleModeration(cfg, message, snd) {
@@ -1029,6 +1070,14 @@ class ChatBotEngine @Inject constructor(
         internal const val FILTER_RESPONSE_TEXT = "🎨 Filter: {filters} | !filter <name> zum Wechseln"
         internal const val BOOST_ON_TEXT = "☀️ Low-Light-Boost AN — Bild wird aufgehellt."
         internal const val BOOST_OFF_TEXT = "🌙 Low-Light-Boost AUS."
+
+        internal const val BATTERY_LEVEL_TEXT = "🔋 Akkustand: {level}%"
+        internal const val BATTERY_UNAVAILABLE_TEXT = "🔋 Akkustand nicht verfügbar."
+        internal const val BATTERY_LOW_WARNING = "⚠️ Akku niedrig ({level}%) — bitte laden!"
+        /** Wie oft der Akku geprüft wird (5 Minuten). */
+        internal const val BATTERY_CHECK_INTERVAL_MS = 5 * 60 * 1000L
+        /** Mindestabstand zwischen zwei Low-Battery-Warnungen (10 Minuten). */
+        internal const val BATTERY_WARNING_COOLDOWN_MS = 10 * 60 * 1000L
 
         internal const val LUT_RESPONSE_TEXT = "🎬 3D-LUT: {name} | !lut warm|cool|none zum Wechseln"
         internal const val LUT_NO_CHANGE_TEXT = "🎬 3D-LUT: bereits aktiv."

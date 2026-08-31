@@ -119,10 +119,8 @@ keystore.properties
 # Von Gradle generiert (updateDaemonJvm) — lokal, nicht committen
 gradle/gradle-daemon-jvm.properties
 
-# Freebuff-Agent-Workspace (lokale DB/Logs)
+# Freebuff-Agent-Workspace (lokale DB/Logs, auto-generiert)
 /.freebuff/
-# Dashboard-Generierung (auto-generiert, aber im Repo sichtbar)
-!/.freebuff/vivid-status.html
 
 # Test-Artefakte
 /core/test.preferences_pb

@@ -128,6 +128,13 @@ interface ChatStreamControl {
      * @return true, wenn sich der Zustand geändert hat.
      */
     fun setColorSpace(spaceIndex: Int): Boolean
+
+    /**
+     * Gibt den aktuellen Batteriestand zurück.
+     *
+     * @return Batterie-Level in Prozent (0–100) oder -1, wenn nicht verfügbar.
+     */
+    fun getBatteryLevel(): Int
 }
 
 /** Eine durchgeführte Fix-Aktion. */
@@ -159,4 +166,6 @@ object NoOpChatStreamControl : ChatStreamControl {
     override fun setLutPreset(presetIndex: Int): Boolean = false
 
     override fun setColorSpace(spaceIndex: Int): Boolean = false
+
+    override fun getBatteryLevel(): Int = -1
 }

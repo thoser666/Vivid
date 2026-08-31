@@ -55,6 +55,9 @@ data class ChatBotConfig(
     val profanityCategories: Set<ProfanityCategory> = ProfanityCategory.entries.toSet(),
     val profanityCustomWords: Set<String> = emptySet(),
     val profanityExcludedWords: Set<String> = emptySet(),
+    // --- Akku-Warnung ---
+    // Schwellenwert für die automatische Low-Battery-Warnung im Chat (in %).
+    val batteryLowThresholdPercent: Int = 15,
 ) {
     /** Ist die Owner-KI konfiguriert (Endpunkt + Key + Modell)? */
     val isOwnerLlmReady: Boolean
@@ -130,6 +133,7 @@ data class ChatBotConfig(
                     .map { it.trim().lowercase() }
                     .filter { it.isNotBlank() }
                     .toSet(),
+                batteryLowThresholdPercent = settings.batteryLowThresholdPercent,
             )
     }
 }

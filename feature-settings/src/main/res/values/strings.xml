@@ -113,6 +113,14 @@
     <string name="overlays_colors_background">Hintergrund-Farbe</string>
     <string name="overlays_color_hint">#RRGGBB</string>
 
+    <!-- Akku-Anzeige-Widget -->
+    <string name="overlays_battery_title">Akku-Anzeige</string>
+    <string name="overlays_battery_desc">Zeigt den Batteriestatus als Overlay über der Streaming-Vorschau. Bei niedrigem Akku wird eine Warnung angezeigt.</string>
+    <string name="overlays_battery_enabled">Akku-Anzeige anzeigen</string>
+    <string name="overlays_battery_show_icon">Lade-Icon anzeigen</string>
+    <string name="overlays_battery_show_percent">Prozentwert anzeigen</string>
+    <string name="overlays_battery_threshold">Low-Battery-Schwelle: %1$d%%</string>
+
     <!-- ===== Remote & Datenschutz (SettingsRemotePrivacyScreen.kt) ===== -->
     <string name="remote_section_title">Web-Remote-Control</string>
     <string name="remote_reachable_desc">Im gleichen WLAN erreichbar unter http://&lt;GERÄTE-IP&gt;:%1$d/status — Aktionen via Authorization: Bearer &lt;token&gt;.</string>

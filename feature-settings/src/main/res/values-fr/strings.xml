@@ -113,6 +113,14 @@
     <string name="overlays_colors_background">Couleur de l\'arrière-plan</string>
     <string name="overlays_color_hint">#RRGGBB</string>
 
+    <!-- Widget batterie -->
+    <string name="overlays_battery_title">Affichage batterie</string>
+    <string name="overlays_battery_desc">Affiche l\'état de la batterie en superposition sur l\'aperçu du stream. Un avertissement s\'affiche lorsque la batterie est faible.</string>
+    <string name="overlays_battery_enabled">Afficher la batterie</string>
+    <string name="overlays_battery_show_icon">Afficher l\'icône de charge</string>
+    <string name="overlays_battery_show_percent">Afficher le pourcentage</string>
+    <string name="overlays_battery_threshold">Seuil batterie faible : %1$d%%</string>
+
     <!-- ===== Remote & confidentialité (SettingsRemotePrivacyScreen.kt) ===== -->
     <string name="remote_section_title">Télécommande web</string>
     <string name="remote_reachable_desc">Accessible dans le même WLAN sous http://&lt;IP-DU-APPAREIL&gt;:%1$d/status — actions via Authorization: Bearer &lt;token&gt;.</string>

@@ -60,6 +60,10 @@ class SettingsRepository @Inject constructor(
         val WIDGET_SHOW_SPEED = booleanPreferencesKey("widget_show_speed")
         val WIDGET_SHOW_ALTITUDE = booleanPreferencesKey("widget_show_altitude")
         val WIDGET_TEMPLATE = stringPreferencesKey("widget_template")
+        val BATTERY_ENABLED = booleanPreferencesKey("battery_enabled")
+        val BATTERY_SHOW_ICON = booleanPreferencesKey("battery_show_icon")
+        val BATTERY_SHOW_PERCENT = booleanPreferencesKey("battery_show_percent")
+        val BATTERY_LOW_THRESHOLD = intPreferencesKey("battery_low_threshold")
         val SENTRY_ENABLED = booleanPreferencesKey("sentry_enabled")
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val THEME_ACCENT = stringPreferencesKey("theme_accent")
@@ -155,6 +159,10 @@ class SettingsRepository @Inject constructor(
                 showSpeed = prefs[PrefKeys.WIDGET_SHOW_SPEED] ?: true,
                 showAltitude = prefs[PrefKeys.WIDGET_SHOW_ALTITUDE] ?: false,
                 template = prefs[PrefKeys.WIDGET_TEMPLATE] ?: "",
+                batteryEnabled = prefs[PrefKeys.BATTERY_ENABLED] ?: false,
+                batteryShowIcon = prefs[PrefKeys.BATTERY_SHOW_ICON] ?: true,
+                batteryShowPercent = prefs[PrefKeys.BATTERY_SHOW_PERCENT] ?: true,
+                batteryLowThresholdPercent = prefs[PrefKeys.BATTERY_LOW_THRESHOLD] ?: 15,
             )
         },
     ) { streamData, obsData, chatData, chatBotData, widgetData ->
@@ -206,6 +214,10 @@ class SettingsRepository @Inject constructor(
             widgetShowSpeed = widgetData.showSpeed,
             widgetShowAltitude = widgetData.showAltitude,
             widgetTemplate = widgetData.template,
+            batteryEnabled = widgetData.batteryEnabled,
+            batteryShowIcon = widgetData.batteryShowIcon,
+            batteryShowPercent = widgetData.batteryShowPercent,
+            batteryLowThresholdPercent = widgetData.batteryLowThresholdPercent,
         )
     },
         // 6. Flow: Darstellung (Theme-Modus + Akzentfarbe)
@@ -412,6 +424,10 @@ class SettingsRepository @Inject constructor(
         val showSpeed: Boolean,
         val showAltitude: Boolean,
         val template: String,
+        val batteryEnabled: Boolean,
+        val batteryShowIcon: Boolean,
+        val batteryShowPercent: Boolean,
+        val batteryLowThresholdPercent: Int,
     )
 
     private data class ThemePrefs(
@@ -474,6 +490,21 @@ class SettingsRepository @Inject constructor(
     suspend fun updateWidgetTemplate(template: String) {
         dataStore.edit { prefs ->
             prefs[PrefKeys.WIDGET_TEMPLATE] = template
+        }
+    }
+
+    /** Akku-Anzeige-Widget-Einstellungen speichern. */
+    suspend fun updateBatterySettings(
+        enabled: Boolean,
+        showIcon: Boolean,
+        showPercent: Boolean,
+        lowThresholdPercent: Int,
+    ) {
+        dataStore.edit { prefs ->
+            prefs[PrefKeys.BATTERY_ENABLED] = enabled
+            prefs[PrefKeys.BATTERY_SHOW_ICON] = showIcon
+            prefs[PrefKeys.BATTERY_SHOW_PERCENT] = showPercent
+            prefs[PrefKeys.BATTERY_LOW_THRESHOLD] = lowThresholdPercent.coerceIn(5, 50)
         }
     }
 

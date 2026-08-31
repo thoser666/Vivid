@@ -91,6 +91,9 @@ class BotCommandProcessor @Inject constructor() {
         /** `!boost` — Low-Light-Boost umschalten (nur Owner). */
         data object OwnerBoost : Result
 
+        /** `!battery` — Akkustand anzeigen (nur Owner). */
+        data object OwnerBattery : Result
+
         /** `!lut [warm|cool|none]` — 3D-LUT-Preset wechseln (nur Owner).
          *  Ohne Argument → nächster Preset; mit Name → spezifischer Preset. */
         data class Lut(val presetName: String?) : Result
@@ -176,6 +179,8 @@ class BotCommandProcessor @Inject constructor() {
             "filter", "fx" -> Result.Filter(firstToken(rest).ifBlank { null })
             // Owner-Befehl: Low-Light-Boost umschalten.
             "boost", "lowlight", "low-light" -> Result.OwnerBoost
+            // Owner-Befehl: Akkustand anzeigen.
+            "battery", "akku" -> Result.OwnerBattery
             // Owner-Befehl: 3D-LUT-Preset wechseln.
             "lut" -> Result.Lut(firstToken(rest).ifBlank { null })
             // Owner-Befehl: Color-Space wechseln.
@@ -191,7 +196,7 @@ class BotCommandProcessor @Inject constructor() {
     private fun helpText(prefix: String?): String {
         if (prefix.isNullOrBlank()) return HELP_TEXT
         val p = "!${prefix}!"
-        return "Verfügbare Befehle: ${p}help · ${p}uptime · ${p}tts · ${p}song · ${p}next · ${p}pause · ${p}bot · ${p}testalert · ${p}torch · ${p}filter · ${p}boost · ${p}lut · ${p}colorspace"
+        return "Verfügbare Befehle: ${p}help · ${p}uptime · ${p}tts · ${p}song · ${p}next · ${p}pause · ${p}bot · ${p}testalert · ${p}torch · ${p}filter · ${p}boost · ${p}battery · ${p}lut · ${p}colorspace"
     }
 
     /**
@@ -239,7 +244,7 @@ class BotCommandProcessor @Inject constructor() {
     }
 
     companion object {
-        const val HELP_TEXT = "Verfügbare Befehle: !help · !uptime · !song · !next · !pause · !bot | Owner: !tts · !testalert · !torch · !filter · !boost · !lut · !colorspace"
+        const val HELP_TEXT = "Verfügbare Befehle: !help · !uptime · !song · !next · !pause · !bot | Owner: !tts · !testalert · !torch · !filter · !boost · !battery · !lut · !colorspace"
         const val BOT_INFO_TEXT = "Ich bin der Chat-Bot von Vivid 🤖 — alle Befehle: !help"
     }
 }

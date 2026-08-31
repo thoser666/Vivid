@@ -31,6 +31,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class AppChatStreamControl @Inject constructor(
+    @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context,
     private val streamControl: StreamControl,
     private val streamingEngine: StreamingEngine,
     private val streamingRepository: StreamingRepository,
@@ -79,6 +80,16 @@ class AppChatStreamControl @Inject constructor(
             else -> com.vivid.feature.streaming.ColorSpace.SRGB
         }
         return streamingEngine.setColorSpace(space)
+    }
+
+    override fun getBatteryLevel(): Int {
+        val intent = context.registerReceiver(
+            null,
+            android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED),
+        )
+        val level = intent?.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1) ?: -1
+        val scale = intent?.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, -1) ?: -1
+        return if (level >= 0 && scale > 0) (level * 100 / scale) else -1
     }
 
     override suspend fun fix(): List<FixAction> {
