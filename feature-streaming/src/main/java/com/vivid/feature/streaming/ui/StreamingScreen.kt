@@ -56,6 +56,7 @@ import androidx.navigation.NavController
 import com.vivid.core.data.StreamScene
 import com.vivid.core.ui.theme.LocalExtendedColors
 import com.vivid.feature.chat.ui.ChatOverlay
+import com.vivid.feature.widget.GridOverlay
 import com.vivid.feature.widget.TextInfoWidget
 import com.vivid.feature.streaming.ConfigIssueSeverity
 import com.vivid.feature.streaming.FocusMode
@@ -567,6 +568,9 @@ fun StreamingScreen(
                     .align(Alignment.BottomEnd)
                     .padding(end = 12.dp, bottom = 84.dp),
             )
+
+            // Grid-Overlay: Raster zur Widget-Positionierung (nur wenn aktiviert).
+            GridOverlay()
         }
     }
 }

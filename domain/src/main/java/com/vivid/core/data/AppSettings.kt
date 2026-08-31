@@ -146,6 +146,11 @@ data class AppSettings(
     val chatOverlayBackgroundColorHex: String = "#000000",
     // Position des Chat-Overlays (Standard: oben-rechts).
     val chatOverlayPosition: ChatOverlayPosition = ChatOverlayPosition.TOP_END,
+    // --- Grid-Overlay (Positionierung) ---
+    // Raster auf der Vorschau einblenden für einfacheres Positionieren von Widgets/Bildern.
+    val gridOverlayEnabled: Boolean = false,
+    // Rasterabstand in dp (Standard: 40).
+    val gridOverlaySpacingDp: Int = 40,
     // --- In-App-Logs ---
     // Vorhaltezeit der täglichen Log-Rotation in Tagen (1–30, Default 7):
     // Logs wechseln täglich, ältere Tage werden beim Laden/Prune gelöscht.

@@ -328,6 +328,33 @@ fun SettingsOverlaysScreen(
             )
         }
 
+        // Grid-Overlay (Positionierung)
+        Text(stringResource(R.string.overlays_grid_title), style = MaterialTheme.typography.titleLarge)
+        Text(
+            text = stringResource(R.string.overlays_grid_desc),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(stringResource(R.string.overlays_grid_enabled), modifier = Modifier.weight(1f))
+            Switch(
+                checked = uiState.gridOverlayEnabled,
+                onCheckedChange = viewModel::onGridOverlayEnabledChange,
+            )
+        }
+        // Rasterabstand
+        Text(stringResource(R.string.overlays_grid_spacing, uiState.gridOverlaySpacingDp))
+        Slider(
+            value = uiState.gridOverlaySpacingDp.toFloat(),
+            onValueChange = { viewModel.onGridOverlaySpacingChange(it.toInt()) },
+            valueRange = 10f..100f,
+            steps = 17,
+            modifier = Modifier.fillMaxWidth(),
+        )
+
         // Akku-Anzeige-Widget
         Text(stringResource(R.string.overlays_battery_title), style = MaterialTheme.typography.titleLarge)
         Text(

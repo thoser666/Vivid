@@ -114,6 +114,11 @@
     <string name="overlays_color_hint">#RRGGBB</string>
 
     <!-- Akku-Anzeige-Widget -->
+    <string name="overlays_grid_title">Grid-Overlay (Positionierung)</string>
+    <string name="overlays_grid_desc">Raster auf der Vorschau einblenden für einfacheres Positionieren von Widgets und Bildern.</string>
+    <string name="overlays_grid_enabled">Grid-Overlay anzeigen</string>
+    <string name="overlays_grid_spacing">Rasterabstand: %1$d dp</string>
+
     <string name="overlays_battery_title">Akku-Anzeige</string>
     <string name="overlays_battery_desc">Zeigt den Batteriestatus als Overlay über der Streaming-Vorschau. Bei niedrigem Akku wird eine Warnung angezeigt.</string>
     <string name="overlays_battery_enabled">Akku-Anzeige anzeigen</string>

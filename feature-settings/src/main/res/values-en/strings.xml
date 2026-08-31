@@ -114,6 +114,11 @@
     <string name="overlays_color_hint">#RRGGBB</string>
 
     <!-- Battery widget -->
+    <string name="overlays_grid_title">Grid Overlay (Positioning)</string>
+    <string name="overlays_grid_desc">Display a grid on the preview for easier positioning of widgets and images.</string>
+    <string name="overlays_grid_enabled">Show grid overlay</string>
+    <string name="overlays_grid_spacing">Grid spacing: %1$d dp</string>
+
     <string name="overlays_battery_title">Battery Display</string>
     <string name="overlays_battery_desc">Shows battery status as an overlay on the streaming preview. A warning is displayed when the battery is low.</string>
     <string name="overlays_battery_enabled">Show battery display</string>

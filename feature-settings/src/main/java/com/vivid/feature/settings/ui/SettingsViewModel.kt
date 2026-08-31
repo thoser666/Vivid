@@ -241,6 +241,10 @@ class SettingsViewModel @Inject constructor(
     // Chat-Overlay-Position.
     fun onChatOverlayPositionChange(newValue: ChatOverlayPosition) { _uiState.value = _uiState.value.copy(chatOverlayPosition = newValue) }
 
+    // Grid-Overlay (Positionierung).
+    fun onGridOverlayEnabledChange(newValue: Boolean) { _uiState.value = _uiState.value.copy(gridOverlayEnabled = newValue) }
+    fun onGridOverlaySpacingChange(newValue: Int) { _uiState.value = _uiState.value.copy(gridOverlaySpacingDp = newValue.coerceIn(10, 100)) }
+
     // Akku-Anzeige-Widget.
     fun onBatteryEnabledChange(newValue: Boolean) { _uiState.value = _uiState.value.copy(batteryEnabled = newValue) }
     fun onBatteryShowIconChange(newValue: Boolean) { _uiState.value = _uiState.value.copy(batteryShowIcon = newValue) }
@@ -323,6 +327,10 @@ class SettingsViewModel @Inject constructor(
                 showIcon = currentSettings.batteryShowIcon,
                 showPercent = currentSettings.batteryShowPercent,
                 lowThresholdPercent = currentSettings.batteryLowThresholdPercent,
+            )
+            settingsRepository.updateGridOverlaySettings(
+                enabled = currentSettings.gridOverlayEnabled,
+                spacingDp = currentSettings.gridOverlaySpacingDp,
             )
             settingsRepository.updateSentryEnabled(currentSettings.sentryEnabled)
             settingsRepository.updateThemeSettings(

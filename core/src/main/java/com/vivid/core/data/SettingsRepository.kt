@@ -64,6 +64,8 @@ class SettingsRepository @Inject constructor(
         val BATTERY_SHOW_ICON = booleanPreferencesKey("battery_show_icon")
         val BATTERY_SHOW_PERCENT = booleanPreferencesKey("battery_show_percent")
         val BATTERY_LOW_THRESHOLD = intPreferencesKey("battery_low_threshold")
+        val GRID_OVERLAY_ENABLED = booleanPreferencesKey("grid_overlay_enabled")
+        val GRID_OVERLAY_SPACING_DP = intPreferencesKey("grid_overlay_spacing_dp")
         val SENTRY_ENABLED = booleanPreferencesKey("sentry_enabled")
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val THEME_ACCENT = stringPreferencesKey("theme_accent")
@@ -163,6 +165,8 @@ class SettingsRepository @Inject constructor(
                 batteryShowIcon = prefs[PrefKeys.BATTERY_SHOW_ICON] ?: true,
                 batteryShowPercent = prefs[PrefKeys.BATTERY_SHOW_PERCENT] ?: true,
                 batteryLowThresholdPercent = prefs[PrefKeys.BATTERY_LOW_THRESHOLD] ?: 15,
+                gridOverlayEnabled = prefs[PrefKeys.GRID_OVERLAY_ENABLED] ?: false,
+                gridOverlaySpacingDp = prefs[PrefKeys.GRID_OVERLAY_SPACING_DP] ?: 40,
             )
         },
     ) { streamData, obsData, chatData, chatBotData, widgetData ->
@@ -216,10 +220,11 @@ class SettingsRepository @Inject constructor(
             widgetTemplate = widgetData.template,
             batteryEnabled = widgetData.batteryEnabled,
             batteryShowIcon = widgetData.batteryShowIcon,
-            batteryShowPercent = widgetData.batteryShowPercent,
-            batteryLowThresholdPercent = widgetData.batteryLowThresholdPercent,
-        )
-    },
+            batteryShowPercent = widgetData.batteryShowPercent,                batteryLowThresholdPercent = widgetData.batteryLowThresholdPercent,
+                gridOverlayEnabled = widgetData.gridOverlayEnabled,
+                gridOverlaySpacingDp = widgetData.gridOverlaySpacingDp,
+            )
+        },
         // 6. Flow: Darstellung (Theme-Modus + Akzentfarbe)
         dataStore.data.map { prefs ->
             ThemePrefs(
@@ -428,6 +433,8 @@ class SettingsRepository @Inject constructor(
         val batteryShowIcon: Boolean,
         val batteryShowPercent: Boolean,
         val batteryLowThresholdPercent: Int,
+        val gridOverlayEnabled: Boolean,
+        val gridOverlaySpacingDp: Int,
     )
 
     private data class ThemePrefs(
@@ -505,6 +512,17 @@ class SettingsRepository @Inject constructor(
             prefs[PrefKeys.BATTERY_SHOW_ICON] = showIcon
             prefs[PrefKeys.BATTERY_SHOW_PERCENT] = showPercent
             prefs[PrefKeys.BATTERY_LOW_THRESHOLD] = lowThresholdPercent.coerceIn(5, 50)
+        }
+    }
+
+    /** Grid-Overlay-Einstellungen speichern. */
+    suspend fun updateGridOverlaySettings(
+        enabled: Boolean,
+        spacingDp: Int,
+    ) {
+        dataStore.edit { prefs ->
+            prefs[PrefKeys.GRID_OVERLAY_ENABLED] = enabled
+            prefs[PrefKeys.GRID_OVERLAY_SPACING_DP] = spacingDp.coerceIn(10, 100)
         }
     }
 
