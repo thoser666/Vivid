@@ -34,7 +34,7 @@ class AppChatStreamControlTest {
         val settingsRepository = mockk<SettingsRepository> {
             every { appSettingsFlow } returns flowOf(settings)
         }
-        return AppChatStreamControl(streamControl, engine, repository, settingsRepository, logStore)
+        return AppChatStreamControl(mockk(relaxed = true), streamControl, engine, repository, settingsRepository, logStore)
     }
 
     private suspend fun whisperCheck(settings: AppSettings): DiagnosticCheck =
