@@ -88,6 +88,8 @@ class ChatBotEngineTest {
         // Standard aus, damit die bestehenden Owner-Tests den öffentlichen
         // Weg (sender.send) prüfen; Whisper-Tests aktivieren ihn explizit.
         ownerWhisperReplies: Boolean = false,
+        // Battery-Warning in Tests standardmäßig deaktiviert (while(true)-Loop).
+        batteryLowThresholdPercent: Int = 0,
     ): ChatBotConfig = ChatBotConfig(
         channel = "channel",
         login = login,
@@ -110,6 +112,7 @@ class ChatBotEngineTest {
             model = ownerLlmModel,
         ),
         ownerWhisperReplies = ownerWhisperReplies,
+        batteryLowThresholdPercent = batteryLowThresholdPercent,
         llm = LlmConfig(baseUrl = "https://llm.example", apiKey = apiKey, model = "model"),
     )
 
@@ -133,6 +136,7 @@ class ChatBotEngineTest {
             every { setVideoFilter(any()) } returns emptyList()
             every { setLutPreset(any()) } returns true
             every { setColorSpace(any()) } returns true
+            every { getBatteryLevel() } returns 100
             coEvery { diagnostics() } returns StreamDiagnostics(
                 status = status,
                 obsConnected = true,
@@ -279,7 +283,7 @@ class ChatBotEngineTest {
 
         coVerify(exactly = 0) { sender.send("Gerade läuft kein Stream.") }
         coVerify(exactly = 1) {
-            sender.send("Verfügbare Befehle: !v!help · !v!uptime · !v!tts · !v!song · !v!next · !v!pause · !v!bot · !v!testalert · !v!torch · !v!filter · !v!boost · !v!lut · !v!colorspace")
+            sender.send("Verfügbare Befehle: !v!help · !v!uptime · !v!tts · !v!song · !v!next · !v!pause · !v!bot · !v!testalert · !v!torch · !v!filter · !v!boost · !v!battery · !v!lut · !v!colorspace")
         }
         engine.stop()
     }
@@ -1239,6 +1243,7 @@ class ChatBotEngineTest {
             coEvery { start() } just Runs
             every { stop() } just Runs
             every { toggleTorch() } returns false
+            every { getBatteryLevel() } returns 100
             coEvery { diagnostics() } returns StreamDiagnostics(
                 status = ChatStreamStatus.Idle,
                 obsConnected = true,
@@ -1299,6 +1304,7 @@ class ChatBotEngineTest {
             every { toggleTorch() } returns true
             every { toggleLowLightBoost() } returns false
             every { setVideoFilter(any()) } returns emptyList()
+            every { getBatteryLevel() } returns 100
             coEvery { diagnostics() } returns StreamDiagnostics(
                 status = ChatStreamStatus.Idle,
                 obsConnected = true,
@@ -1325,6 +1331,7 @@ class ChatBotEngineTest {
             coEvery { start() } just Runs
             every { stop() } just Runs
             every { toggleTorch() } returns true
+            every { getBatteryLevel() } returns 100
             coEvery { diagnostics() } returns StreamDiagnostics(
                 status = ChatStreamStatus.Idle,
                 obsConnected = true,
@@ -1409,6 +1416,7 @@ class ChatBotEngineTest {
         val control = mockk<ChatStreamControl> {
             coEvery { start() } just Runs
             every { stop() } just Runs
+            every { getBatteryLevel() } returns 100
             coEvery { diagnostics() } returns StreamDiagnostics(
                 status = ChatStreamStatus.Streaming,
                 obsConnected = false,
@@ -1444,6 +1452,7 @@ class ChatBotEngineTest {
         val control = mockk<ChatStreamControl> {
             coEvery { start() } just Runs
             every { stop() } just Runs
+            every { getBatteryLevel() } returns 100
             coEvery { diagnostics() } returns StreamDiagnostics(
                 status = ChatStreamStatus.Streaming,
                 obsConnected = false,

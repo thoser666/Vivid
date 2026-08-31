@@ -530,7 +530,7 @@ class BotCommandProcessorTest {
         val p = processor()
         assertEquals(
             BotCommandProcessor.Result.Reply(
-                "Verfügbare Befehle: !v!help · !v!uptime · !v!tts · !v!song · !v!next · !v!pause · !v!bot · !v!testalert · !v!torch · !v!filter · !v!boost · !v!lut · !v!colorspace",
+                "Verfügbare Befehle: !v!help · !v!uptime · !v!tts · !v!song · !v!next · !v!pause · !v!bot · !v!testalert · !v!torch · !v!filter · !v!boost · !v!battery · !v!lut · !v!colorspace",
             ),
             p.handle("!v!help", null, ChatBotCommandScope.PREFIX, "v"),
         )

@@ -144,18 +144,20 @@ class ChatBotEngine @Inject constructor(
         collectorJob = scope.launch {
             messages.collect { message -> process(message) }
         }
-        // Periodische Low-Battery-Warnung alle 5 Minuten.
-        batteryWarningJob = scope.launch {
-            while (true) {
-                delay(BATTERY_CHECK_INTERVAL_MS)
-                val level = streamControl.getBatteryLevel()
-                if (level >= 0 && level <= (config?.batteryLowThresholdPercent ?: 15)) {
-                    // Nur warnen, wenn die letzte Warnung mindestens 10 Minuten zurückliegt.
-                    val elapsed = now() - lastBatteryWarningAt
-                    if (elapsed >= BATTERY_WARNING_COOLDOWN_MS) {
-                        lastBatteryWarningAt = now()
-                        val warning = BATTERY_LOW_WARNING.replace("{level}", level.toString())
-                        sender?.send(warning)
+        // Periodische Low-Battery-Warnung (nur wenn Schwellenwert > 0).
+        if ((config?.batteryLowThresholdPercent ?: 0) > 0) {
+            batteryWarningJob = scope.launch {
+                while (true) {
+                    delay(BATTERY_CHECK_INTERVAL_MS)
+                    val level = streamControl.getBatteryLevel()
+                    if (level >= 0 && level <= (config?.batteryLowThresholdPercent ?: 15)) {
+                        // Nur warnen, wenn die letzte Warnung mindestens 10 Minuten zurückliegt.
+                        val elapsed = now() - lastBatteryWarningAt
+                        if (elapsed >= BATTERY_WARNING_COOLDOWN_MS) {
+                            lastBatteryWarningAt = now()
+                            val warning = BATTERY_LOW_WARNING.replace("{level}", level.toString())
+                            sender?.send(warning)
+                        }
                     }
                 }
             }
