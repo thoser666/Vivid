@@ -183,18 +183,18 @@ Die Überprüfung auf dem Über-Bildschirm folgt denselben Regeln wie in [RELEAS
 
 ## 🛣️ Roadmap
 
-**Current stage: Beta** — the [Beta-Gate is formally reached](RELEASE.md) (17/17 Moblin parity ✅, Twitch chat ✅ with scope, ≥1 widget ✅); current: `v0.5.8-beta.1` with F-Droid repo. M1 is functionally complete: Slideshow Widget, Twitch OAuth browser flow (PKCE) and optional Twitch start ads are implemented.
+**Current stage: Beta** — the [Beta-Gate is formally reached](RELEASE.md) (17/17 Moblin parity ✅, Twitch chat ✅ with scope, ≥1 widget ✅); current: `v0.5.8-beta.1` with F-Droid repo. M1 is functionally complete: Slideshow Widget, Twitch OAuth browser flow (PKCE) and optional Twitch start ads are implemented. The next focus is production hardening, Hype Train support and multi-platform chat.
 
 ### 🎯 Milestones
 
 | Milestone | Version | Ziel | Features |
 |-----------|---------|------|----------|
-| **M1: Core Streaming Enhancement** | v0.6.0 | Interaktive Chat- und Overlay-Features | Slideshow Widget, Twitch-OAuth-Browser-Flow und optionale Start-Ads (Chat-Poll, QR-Code-Widget und Viewerzahl/Titel/Kategorie implementiert) |
+| **M1: Core Streaming Enhancement** | v0.6.0 | Interaktive Chat- und Overlay-Features | ✅ Abgeschlossen: Slideshow-Widget, Twitch-OAuth-Browser-Flow und optionale Start-Ads |
 | **M2: Advanced Camera & Video** | v0.7.0 | Pro-Kamera-Steuerung + verbesserte Videoqualität | Untertitel (Speech-to-Text), OBS Audio-Levels, 4K/60fps + HEVC, Replays (Record-to-Disk) |
 | **M3: Multi-Platform & Pro Features** | v0.8.0 | Multi-Plattform-Chat + erweiterte Streaming-Features | Multi-Platform Chat (Kick, YouTube, SOOP), Adaptive Bitrate, SRTLA Bonding, Streamer-Browser |
 | **M4: Polish & Ecosystem** | v0.9.0 | UI/UX-Verbesserungen + Integrationen | Landscape/Portrait, VTuber/PNGTuber, Externes Display/Cast, BLE-Sensoren |
 
-> **Aktueller Stand:** 31 ✅ / 5 🚧 / 31 📋 von 67 Features. Nächstes Ziel: M1 (v0.6.0) mit Slideshow-Widget, Twitch-OAuth und optionalen Start-Ads.
+> **Aktueller Stand:** 34 ✅ / 5 🚧 / 28 📋 von 67 Features. **M1 (v0.6.0) ist abgeschlossen:** Slideshow-Widget, Twitch-OAuth und optionale Start-Ads sind implementiert.
 
 ### Offene Checklists
 

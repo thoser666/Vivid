@@ -248,12 +248,12 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 
 | Milestone | Version | Ziel | Features |
 |-----------|---------|------|----------|
-| **M1: Core Streaming Enhancement** | v0.6.0 | Interaktive Chat- und Overlay-Features | Slideshow Widget, Twitch-OAuth-Browser-Flow und optionale Start-Ads (Chat-Poll und QR-Code-Widget implementiert) |
+| **M1: Core Streaming Enhancement** | v0.6.0 | Interaktive Chat- und Overlay-Features | ✅ Abgeschlossen: Slideshow Widget, Twitch-OAuth-Browser-Flow und optionale Start-Ads |
 | **M2: Advanced Camera & Video** | v0.7.0 | Pro-Kamera-Steuerung + verbesserte Videoqualität | Untertitel (Speech-to-Text), OBS Audio-Levels, 4K/60fps + HEVC, Replays (Record-to-Disk) |
 | **M3: Multi-Platform & Pro Features** | v0.8.0 | Multi-Plattform-Chat + erweiterte Streaming-Features | Multi-Platform Chat (Kick, YouTube, SOOP), Adaptive Bitrate, SRTLA Bonding, Streamer-Browser |
 | **M4: Polish & Ecosystem** | v0.9.0 | UI/UX-Verbesserungen + Integrationen | Landscape/Portrait, VTuber/PNGTuber, Externes Display/Cast, BLE-Sensoren |
 
-> **Aktueller Stand:** 31 ✅ / 5 🚧 / 31 📋 von 67 Features. Nächstes Ziel: M1 (v0.6.0) mit Slideshow-Widget, Twitch-OAuth und optionalen Start-Ads.
+> **Aktueller Stand:** 34 ✅ / 5 🚧 / 28 📋 von 67 Features. **M1 (v0.6.0) ist abgeschlossen.**
 
 ---
 
@@ -261,6 +261,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 
 | Datum | Commit | Änderung |
 |-------|--------|----------|
+| 2026-09-01 | `97d3946` | **M1 abgeschlossen:** Slideshow-Widget, Twitch-PKCE-OAuth/Deep-Link und optionale Start-Ads ergänzt; Tests, Lokalisierung und Dokumentation aktualisiert. |
 | 2026-08-31 | `c13612a` | **Twitch-Kanalsteuerung: Viewerzahl + Stream-Metadaten**: `TwitchChannelClient` liest Viewer via Helix `GET /streams`, löst Kategorien über `GET /search/categories` auf und setzt Titel/Kategorie mit `PATCH /channels`. `TwitchChannelViewModel` bindet die Operationen an Settings und Streaming-Screen; Viewer werden während eines laufenden Streams alle 30 Sekunden aktualisiert. Settings-Persistenz, de/en/fr-Lokalisierung sowie Client-/ViewModel-Fehler- und Erfolgstests ergänzt. Start-Ads, Hype-Train und OAuth-Browser-Flow bleiben offen. |
 | 2026-08-30 | `f03e8c1` | **F-Droid: separates Archiv-Repository** (Infrastruktur, kein Feature): Eigener F-Droid-Repo-Server bekommt neben `repo/` (letzte 5 Versionen) ein persistentes **`archive/`** mit allen älteren Versionen (`https://thoser666.github.io/Vivid/fdroid/archive`) — behebt die Client-Meldung „Diese Paketquelle scheint kein Archiv zu haben“; `deploy-fdroid.yml` lädt jetzt ALLE semver-Release-APKs (statt nur 5), stellt das Archiv aus `docs/fdroid/archive` (git, persistiert über GitHub Pages) wieder her, überspringt Debug-Builds; `archive_older: 5` + `archive_url`/`archive_name`/`archive_description`/`archive_icon` in `fdroid/config.yml`; gleichzeitige Erzeugung von `repo/index.xml` + `archive/index.xml` via `fdroid update`; Doku: RELEASE.md (Archivierungs-Strategie umgeschrieben), README.md + SECURITY.md (Archiv-Link), release-notes-v0.5.12-beta.md |
 | 2026-08-30 | `97e004a` | **Chat-Anzeige-Details (Teil 4): Fade-In-Animation** (PARITY Row „Chat-Anzeige-Details…“ erweitert): `chatOverlayAnimateNewMessages`-Setting (DataStore-Key `chat_overlay_animate_new_messages`, Default an), `ChatOverlay` rendert neue Nachrichten mit `AnimatedVisibility` + `fadeIn(300ms)` wenn aktiviert, Toggle „Neue Nachrichten animieren“ in Overlays-Settings, i18n de/en/fr (`overlays_animate_new_messages`); Tests: `SettingsViewModelTest` Mocks erweitert |

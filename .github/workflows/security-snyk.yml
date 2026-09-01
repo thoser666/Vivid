@@ -42,13 +42,13 @@ jobs:
           # was gegen das GitHub-Code-Scanning-Limit (1 Run pro Upload) verstößt.
           # Gradle-Dependencies werden automatisch erkannt; Ruby Gems sind
           # für Security-Relevantität unbedeutend.
-          args: --severity-threshold=high --sarif-file-output=snyk-results.sarif
+          args: --severity-threshold=high --sarif-file-output=./snyk-results.sarif
 
       - name: Upload Snyk results to GitHub Code Scanning
         uses: github/codeql-action/upload-sarif@6ba5c05dce207b48ae07f8791b4313069c63fc2b # v3.26.6
-        if: always() && hashFiles('snyk-results.sarif') != ''
+        if: always() && hashFiles('**/snyk-results.sarif') != ''
         with:
-          sarif_file: snyk-results.sarif
+          sarif_file: ./snyk-results.sarif
 
       - name: Summary
         if: always()

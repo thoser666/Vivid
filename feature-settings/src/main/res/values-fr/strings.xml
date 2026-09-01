@@ -18,7 +18,7 @@
 
     <!-- ===== Écran d'aperçu (SettingsScreen.kt) ===== -->
     <string name="settings_title">Paramètres</string>
-    <string name="settings_subtitle">Choisissez une catégorie — les champs ne sont appliqués qu\'à l\'enregistrement.</string>
+    <string name="settings_subtitle">Choisissez une catégorie — les champs ne sont appliqués qu\'à l’enregistrement.</string>
     <string name="settings_version">Version %1$s</string>
     <string name="settings_update_available">· ⬆ Mise à jour disponible : %1$s</string>
     <string name="settings_up_to_date">· à jour</string>
@@ -59,7 +59,7 @@
     <string name="stream_key_label">Clé de stream</string>
     <string name="stream_tls_label">Connexion sécurisée (RTMPS)</string>
     <string name="twitch_channel_title">Contrôle de la chaîne Twitch</string>
-    <string name="twitch_channel_desc">Lire le nombre de spectateurs et mettre à jour le titre et la catégorie via l\'API Twitch Helix. Les modifications nécessitent un jeton de diffuseur avec channel:manage:broadcast.</string>
+    <string name="twitch_channel_desc">Lire le nombre de spectateurs et mettre à jour le titre et la catégorie via l’API Twitch Helix. Les modifications nécessitent un jeton de diffuseur avec channel:manage:broadcast.</string>
     <string name="twitch_channel_oauth_label">Jeton OAuth du diffuseur Twitch</string>
     <string name="twitch_stream_title_label">Titre du stream</string>
     <string name="twitch_stream_category_label">Catégorie</string>
@@ -87,56 +87,56 @@
 
     <!-- ===== Overlays & widgets (SettingsOverlaysScreen.kt) ===== -->
     <string name="overlays_chat_title">Overlay de chat</string>
-    <string name="overlays_chat_desc">Affiche le chat Twitch de la chaîne indiquée au-dessus de l\'aperçu du stream (lecture anonyme).</string>
+    <string name="overlays_chat_desc">Affiche le chat Twitch de la chaîne indiquée au-dessus de l’aperçu du stream (lecture anonyme).</string>
     <string name="overlays_channel_label">Chaîne Twitch (sans #)</string>
-    <string name="overlays_chat_enabled">Afficher l\'overlay de chat</string>
+    <string name="overlays_chat_enabled">Afficher l’overlay de chat</string>
     <string name="overlays_widget_title">Widget texte/info</string>
-    <string name="overlays_widget_desc">Affiche l\'heure, les coordonnées GPS et la vitesse en overlay en bas à droite au-dessus de l\'aperçu du stream. Pour le GPS/la vitesse, l\'autorisation de localisation est requise.</string>
+    <string name="overlays_widget_desc">Affiche l’heure, les coordonnées GPS et la vitesse en overlay en bas à droite au-dessus de l’aperçu du stream. Pour le GPS/la vitesse, l’autorisation de localisation est requise.</string>
     <string name="overlays_widget_enabled">Afficher le widget</string>
     <string name="overlays_widget_time">Heure</string>
     <string name="overlays_widget_location">Coordonnées GPS</string>
     <string name="overlays_widget_speed">Vitesse</string>
     <string name="overlays_widget_altitude">Altitude</string>
     <string name="overlays_emotes_title">Emotes tierces</string>
-    <string name="overlays_emotes_desc">Afficher des emotes supplémentaires provenant de bases de données communautaires dans l\'overlay de chat. Chaque source peut être activée/désactivée individuellement.</string>
+    <string name="overlays_emotes_desc">Afficher des emotes supplémentaires provenant de bases de données communautaires dans l’overlay de chat. Chaque source peut être activée/désactivée individuellement.</string>
     <string name="overlays_emotes_bttv">BetterTTV (BTTV)</string>
     <string name="overlays_emotes_ffz">FrankerFaceZ (FFZ)</string>
     <string name="overlays_emotes_7tv">7TV</string>
     <string name="overlays_deleted_title">Messages supprimés</string>
-    <string name="overlays_deleted_desc">Masquer ou estomper les messages supprimés dans l\'overlay de chat. Nécessite les privilèges de modérateur pour le compte du bot.</string>
+    <string name="overlays_deleted_desc">Masquer ou estomper les messages supprimés dans l’overlay de chat. Nécessite les privilèges de modérateur pour le compte du bot.</string>
     <string name="overlays_deleted_hide">Masquer les messages supprimés</string>
     <string name="overlays_animate_new_messages">Animer les nouveaux messages</string>
     <string name="overlays_layout_title">Disposition du chat</string>
-    <string name="overlays_layout_desc">Personnaliser la largeur, la hauteur, la transparence, la taille du texte et l\'horodatage de l\'overlay de chat.</string>
+    <string name="overlays_layout_desc">Personnaliser la largeur, la hauteur, la transparence, la taille du texte et l’horodatage de l’overlay de chat.</string>
     <string name="overlays_layout_width">Largeur : %1$d dp</string>
     <string name="overlays_layout_height">Hauteur : %1$d dp</string>
     <string name="overlays_layout_background_alpha">Arrière-plan : %1$d%% opaque</string>
     <string name="overlays_layout_font_size">Taille du texte : %1$d sp</string>
-    <string name="overlays_layout_show_timestamp">Afficher l\'horodatage</string>
+    <string name="overlays_layout_show_timestamp">Afficher l’horodatage</string>
     <string name="overlays_position_title">Position</string>
-    <string name="overlays_position_desc">Position de l\'overlay de chat sur l\'écran.</string>
+    <string name="overlays_position_desc">Position de l’overlay de chat sur l’écran.</string>
     <string name="overlays_position_top_start">En haut à gauche</string>
     <string name="overlays_position_top_end">En haut à droite</string>
     <string name="overlays_position_bottom_start">En bas à gauche</string>
     <string name="overlays_position_bottom_end">En bas à droite</string>
     <string name="overlays_colors_title">Couleurs</string>
-    <string name="overlays_colors_desc">Personnaliser la couleur du nom d\'utilisateur, du texte et de l\'arrière-plan de l\'overlay de chat (format hexadécimal #RRGGBB).</string>
+    <string name="overlays_colors_desc">Personnaliser la couleur du nom d\'utilisateur, du texte et de l’arrière-plan de l’overlay de chat (format hexadécimal #RRGGBB).</string>
     <string name="overlays_colors_username">Couleur du nom d\'utilisateur</string>
     <string name="overlays_colors_text">Couleur du texte</string>
-    <string name="overlays_colors_background">Couleur de l\'arrière-plan</string>
+    <string name="overlays_colors_background">Couleur de l’arrière-plan</string>
     <string name="overlays_color_hint">#RRGGBB</string>
 
     <!-- Widget batterie -->
     <string name="overlays_grid_title">Grille (positionnement)</string>
-    <string name="overlays_grid_desc">Afficher une grille sur l\'aperçu pour faciliter le positionnement des widgets et des images.</string>
+    <string name="overlays_grid_desc">Afficher une grille sur l’aperçu pour faciliter le positionnement des widgets et des images.</string>
     <string name="overlays_grid_enabled">Afficher la grille</string>
     <string name="overlays_grid_spacing">Espacement de la grille : %1$d dp</string>
 
     <string name="overlays_image_title">Widget image (logo / filigrane)</string>
-    <string name="overlays_image_desc">Afficher une image sur le stream — logo, filigrane ou superposition. Sélectionner l\'image via le sélecteur SAF (URI définie via le champ texte).</string>
+    <string name="overlays_image_desc">Afficher une image sur le stream — logo, filigrane ou superposition. Sélectionner l’image via le sélecteur SAF (URI définie via le champ texte).</string>
     <string name="overlays_image_enabled">Afficher le widget image</string>
-    <string name="overlays_image_uri">URI de l\'image</string>
-    <string name="overlays_image_size">Taille de l\'image : %1$d dp</string>
+    <string name="overlays_image_uri">URI de l’image</string>
+    <string name="overlays_image_size">Taille de l’image : %1$d dp</string>
     <string name="overlays_image_opacity">Opacité : %1$d%%</string>
 
     <string name="overlays_qr_title">Widget code QR</string>
@@ -155,9 +155,9 @@
     <string name="overlays_slideshow_interval">Changement d’image : %1$d s</string>
     <string name="overlays_slideshow_size">Taille : %1$d dp</string>
     <string name="overlays_battery_title">Affichage batterie</string>
-    <string name="overlays_battery_desc">Affiche l\'état de la batterie en superposition sur l\'aperçu du stream. Un avertissement s\'affiche lorsque la batterie est faible.</string>
+    <string name="overlays_battery_desc">Affiche l’état de la batterie en superposition sur l’aperçu du stream. Un avertissement s\'affiche lorsque la batterie est faible.</string>
     <string name="overlays_battery_enabled">Afficher la batterie</string>
-    <string name="overlays_battery_show_icon">Afficher l\'icône de charge</string>
+    <string name="overlays_battery_show_icon">Afficher l’icône de charge</string>
     <string name="overlays_battery_show_percent">Afficher le pourcentage</string>
     <string name="overlays_battery_threshold">Seuil batterie faible : %1$d%%</string>
 
@@ -166,10 +166,10 @@
     <string name="remote_reachable_desc">Accessible dans le même WLAN sous http://&lt;IP-DU-APPAREIL&gt;:%1$d/status — actions via Authorization: Bearer &lt;token&gt;.</string>
     <string name="remote_token_label">Jeton de télécommande</string>
     <string name="remote_token_loading">Chargement du jeton…</string>
-    <string name="remote_permission_button">Autoriser l\'accès LAN pour la télécommande</string>
+    <string name="remote_permission_button">Autoriser l’accès LAN pour la télécommande</string>
     <string name="privacy_section_title">Confidentialité &amp; rapports d\'erreur</string>
     <string name="privacy_sentry_toggle">Envoyer les rapports d\'erreur (Sentry)</string>
-    <string name="privacy_sentry_desc">Envoie des rapports d\'erreur à Sentry en cas de plantage (activé par défaut). Aucune capture d\'écran n\'est prise ; les informations sur l\'appareil/IP sont désactivées. Désactivé = rien n\'est transmis à Sentry. Détails : PRIVACY.md dans le dépôt.</string>
+    <string name="privacy_sentry_desc">Envoie des rapports d\'erreur à Sentry en cas de plantage (activé par défaut). Aucune capture d\'écran n\'est prise ; les informations sur l’appareil/IP sont désactivées. Désactivé = rien n\'est transmis à Sentry. Détails : PRIVACY.md dans le dépôt.</string>
 
     <!-- ===== À propos & mises à jour (SettingsAboutScreen.kt) ===== -->
     <string name="about_version">Version %1$s</string>
@@ -217,32 +217,32 @@
     <string name="chatbot_scope_mention">Mention uniquement</string>
     <string name="chatbot_scope_prefix">Propre préfixe</string>
     <string name="chatbot_scope_all_desc">Chaque commande ! est traitée (par défaut, comme le bot de Moblin).</string>
-    <string name="chatbot_scope_mention_desc">Uniquement les commandes qui s\'adressent directement au bot (p. ex. @vividbot !help) — les commandes génériques restent à l\'autre bot.</string>
-    <string name="chatbot_scope_prefix_desc">Uniquement les commandes avec votre propre préfixe (p. ex. !v!help) — les commandes génériques restent à l\'autre bot.</string>
+    <string name="chatbot_scope_mention_desc">Uniquement les commandes qui s\'adressent directement au bot (p. ex. @vividbot !help) — les commandes génériques restent à l’autre bot.</string>
+    <string name="chatbot_scope_prefix_desc">Uniquement les commandes avec votre propre préfixe (p. ex. !v!help) — les commandes génériques restent à l’autre bot.</string>
     <string name="chatbot_prefix_label">Propre préfixe de commande (p. ex. v → !v!help)</string>
     <string name="chatbot_owner_title">Accès propriétaire (streamer uniquement)</string>
     <string name="chatbot_owner_desc">Seuls vous (et les logins inscrits) pouvez utiliser les commandes propriétaire !start, !stop, !diag et !ask pendant un stream actif — les spectateurs ne voient qu\'une indication. Le propriétaire de la chaîne est automatiquement propriétaire (badge Broadcaster) ; ajoutez ici d\'autres logins, p. ex. votre deuxième compte.</string>
     <string name="chatbot_owner_logins_label">Logins propriétaire (séparés par des virgules, sans @)</string>
-    <string name="chatbot_owner_llm_desc">IA propriétaire (optionnelle, exclusive aux commandes du streamer) : !ask et les recommandations de diagnostic de !diag passent par cet endpoint. Sans IA propriétaire, les commandes retombent en secours sur l\'IA normale du bot (si celle-ci manque aussi, !diag fournit directement la checklist et !ask une indication).</string>
+    <string name="chatbot_owner_llm_desc">IA propriétaire (optionnelle, exclusive aux commandes du streamer) : !ask et les recommandations de diagnostic de !diag passent par cet endpoint. Sans IA propriétaire, les commandes retombent en secours sur l’IA normale du bot (si celle-ci manque aussi, !diag fournit directement la checklist et !ask une indication).</string>
     <string name="chatbot_owner_llm_url_label">URL de base API LLM propriétaire (compatible OpenAI)</string>
     <string name="chatbot_owner_llm_key_label">Clé API LLM propriétaire</string>
     <string name="chatbot_owner_llm_model_label">Modèle LLM propriétaire</string>
     <string name="chatbot_owner_source_label">Source IA pour les commandes propriétaire : %1$s</string>
     <string name="owner_source_owner">IA propriétaire propre (exclusive)</string>
-    <string name="owner_source_owner_desc">!ask/!diag passent par l\'endpoint LLM propriétaire configuré — les messages des spectateurs ne l\'atteignent jamais.</string>
+    <string name="owner_source_owner_desc">!ask/!diag passent par l’endpoint LLM propriétaire configuré — les messages des spectateurs ne l’atteignent jamais.</string>
     <string name="owner_source_viewer_fallback">IA des spectateurs (secours)</string>
-    <string name="owner_source_viewer_fallback_desc">Aucune IA propriétaire configurée — les commandes utilisent l\'IA normale du bot avec le contexte propriétaire.</string>
+    <string name="owner_source_viewer_fallback_desc">Aucune IA propriétaire configurée — les commandes utilisent l’IA normale du bot avec le contexte propriétaire.</string>
     <string name="owner_source_deterministic">déterministe (sans IA)</string>
     <string name="owner_source_deterministic_desc">Ni IA propriétaire ni IA des spectateurs configurée — !diag fournit directement la checklist, !ask une indication.</string>
     <string name="chatbot_owner_whisper">Envoyer les réponses en privé (whisper)</string>
-    <string name="chatbot_owner_whisper_desc">Les réponses propriétaire (!start/!stop/!diag/!ask) arrivent par whisper Twitch au lieu du chat public. Pour cela, le jeton du bot a besoin du scope user:manage:whispers et de l\'ID client de l\'application Twitch ci-dessous ; si le whisper échoue (p. ex. le destinataire bloque les inconnus), le bot répond publiquement.</string>
-    <string name="chatbot_client_id_label">ID client de l\'application Twitch (pour whisper)</string>
-    <string name="chatbot_media_desc">Les commandes média (!song / !next / !pause / !play / !prev) contrôlent le lecteur de musique actif — Vivid doit alors avoir l\'accès aux notifications (il ne lit aucune notification).</string>
-    <string name="chatbot_notification_access_button">Activer l\'accès aux notifications</string>
+    <string name="chatbot_owner_whisper_desc">Les réponses propriétaire (!start/!stop/!diag/!ask) arrivent par whisper Twitch au lieu du chat public. Pour cela, le jeton du bot a besoin du scope user:manage:whispers et de l’ID client de l’application Twitch ci-dessous ; si le whisper échoue (p. ex. le destinataire bloque les inconnus), le bot répond publiquement.</string>
+    <string name="chatbot_client_id_label">ID client de l’application Twitch (pour whisper)</string>
+    <string name="chatbot_media_desc">Les commandes média (!song / !next / !pause / !play / !prev) contrôlent le lecteur de musique actif — Vivid doit alors avoir l’accès aux notifications (il ne lit aucune notification).</string>
+    <string name="chatbot_notification_access_button">Activer l’accès aux notifications</string>
 
     <!-- Filtre de grossièretés (!ask) -->
     <string name="chatbot_profanity_title">Filtre de grossièretés (!ask)</string>
-    <string name="chatbot_profanity_desc">Bloque les grossièretés, les insultes et le langage hostile dans les messages !ask avant l\'appel de l\'IA. Basé sur les catégories AutoMod de Twitch, Kick et YouTube.</string>
+    <string name="chatbot_profanity_desc">Bloque les grossièretés, les insultes et le langage hostile dans les messages !ask avant l’appel de l’IA. Basé sur les catégories AutoMod de Twitch, Kick et YouTube.</string>
     <string name="chatbot_profanity_enabled">Filtre activé</string>
     <string name="chatbot_profanity_categories">Catégories actives</string>
     <string name="chatbot_profanity_cat_slurs">Insultes / langage haineux</string>
@@ -263,23 +263,23 @@
 
     <!-- ===== Contrôles caméra (SettingsCameraScreen.kt) ===== -->
     <string name="camera_section_title">Contrôles caméra</string>
-    <string name="camera_section_desc">Mise au point manuelle et sélection de l\'objectif (Ultra-grand angle/Grand angle/Télé)</string>
+    <string name="camera_section_desc">Mise au point manuelle et sélection de l’objectif (Ultra-grand angle/Grand angle/Télé)</string>
     <string name="camera_focus_title">Mise au point</string>
     <string name="camera_focus_desc">Réglez la distance de mise au point manuellement — 0 = infini (paysage), 10 = macro (gros plan).</string>
     <string name="camera_focus_far">Infini</string>
     <string name="camera_focus_near">Macro</string>
     <string name="camera_focus_not_supported">La mise au point manuelle n\'est pas prise en charge sur cet appareil.</string>
     <string name="camera_lens_title">Objectif</string>
-    <string name="camera_lens_desc">Sélectionnez l\'objectif caméra — la disponibilité dépend de l\'appareil.</string>
+    <string name="camera_lens_desc">Sélectionnez l’objectif caméra — la disponibilité dépend de l’appareil.</string>
 
     <!-- ===== Journaux & diagnostic (SettingsLogsScreen.kt) ===== -->
-    <string name="logs_redacted_note">Les journaux de l\'application sur la durée de conservation configurée (rotation quotidienne). Clés de streaming, mots de passe et jetons sont automatiquement masqués — les données sensibles ne quittent jamais l\'appareil en clair.</string>
-    <string name="logs_empty">Aucun journal pour l\'instant — démarre un stream ou utilise l\'application pour collecter des entrées.</string>
+    <string name="logs_redacted_note">Les journaux de l’application sur la durée de conservation configurée (rotation quotidienne). Clés de streaming, mots de passe et jetons sont automatiquement masqués — les données sensibles ne quittent jamais l’appareil en clair.</string>
+    <string name="logs_empty">Aucun journal pour l’instant — démarre un stream ou utilise l’application pour collecter des entrées.</string>
     <string name="logs_copy">Copier</string>
     <string name="logs_share">Partager</string>
     <string name="logs_copied">Journaux copiés</string>
     <string name="logs_clip_label">Journaux Vivid</string>
-    <string name="logs_share_subject">Journaux de l\'application Vivid</string>
+    <string name="logs_share_subject">Journaux de l’application Vivid</string>
     <string name="logs_retention_title">Durée de conservation (jours)</string>
     <string name="logs_retention_days_unit">jours</string>
     <string name="logs_retention_hint">Les journaux tournent chaque jour ; les entrées plus anciennes sont supprimées après cette durée.</string>
