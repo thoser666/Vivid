@@ -183,7 +183,7 @@ Die Überprüfung auf dem Über-Bildschirm folgt denselben Regeln wie in [RELEAS
 
 ## 🛣️ Roadmap
 
-**Current stage: Beta** — the [Beta-Gate is formally reached](RELEASE.md) (17/17 Moblin parity ✅, Twitch chat ✅ with scope, ≥1 widget ✅); current: `v0.5.8-beta.1` with F-Droid repo. The remaining M1 items are the Slideshow Widget, Twitch OAuth browser flow and optional start ads.
+**Current stage: Beta** — the [Beta-Gate is formally reached](RELEASE.md) (17/17 Moblin parity ✅, Twitch chat ✅ with scope, ≥1 widget ✅); current: `v0.5.8-beta.1` with F-Droid repo. M1 is functionally complete: Slideshow Widget, Twitch OAuth browser flow (PKCE) and optional Twitch start ads are implemented.
 
 ### 🎯 Milestones
 

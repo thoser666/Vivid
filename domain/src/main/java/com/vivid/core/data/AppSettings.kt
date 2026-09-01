@@ -172,6 +172,12 @@ data class AppSettings(
     val qrCodeWidgetContent: String = "",
     val qrCodeWidgetSizeDp: Int = 180,
     val qrCodeWidgetOpacity: Float = 0.95f,
+    // --- Slideshow-Widget ---
+    val slideshowWidgetEnabled: Boolean = false,
+    val slideshowWidgetUris: String = "",
+    val slideshowWidgetIntervalSeconds: Int = 30,
+    val slideshowWidgetSizeDp: Int = 240,
+    val slideshowWidgetOpacity: Float = 1f,
     // --- In-App-Logs ---
     // Vorhaltezeit der täglichen Log-Rotation in Tagen (1–30, Default 7):
     // Logs wechseln täglich, ältere Tage werden beim Laden/Prune gelöscht.

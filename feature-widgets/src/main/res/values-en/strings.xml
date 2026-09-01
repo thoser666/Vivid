@@ -7,5 +7,6 @@
 
     <!-- Image widget (logo/watermark) -->
     <string name="image_widget_description">Stream overlay image</string>
+    <string name="slideshow_widget_description">Slideshow image</string>
     <string name="qr_code_widget_description">QR code overlay</string>
 </resources>

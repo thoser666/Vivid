@@ -18,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.vivid.core.data.AppSettings
+import androidx.compose.material3.OutlinedTextField
 
 /**
  * Kategorie „Overlays & Widgets“: Twitch-Chat-Overlay über der Vorschau und
@@ -394,6 +395,45 @@ fun SettingsOverlaysScreen(
             onValueChange = viewModel::onQrCodeWidgetOpacityChange,
             valueRange = 0f..1f,
             steps = 9,
+            modifier = Modifier.fillMaxWidth(),
+        )
+
+        // Slideshow-Widget
+        Text(stringResource(R.string.overlays_slideshow_title), style = MaterialTheme.typography.titleLarge)
+        Text(
+            text = stringResource(R.string.overlays_slideshow_desc),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(R.string.overlays_slideshow_enabled), modifier = Modifier.weight(1f))
+            Switch(
+                checked = uiState.slideshowWidgetEnabled,
+                onCheckedChange = viewModel::onSlideshowWidgetEnabledChange,
+            )
+        }
+        OutlinedTextField(
+            value = uiState.slideshowWidgetUris,
+            onValueChange = viewModel::onSlideshowWidgetUrisChange,
+            label = { Text(stringResource(R.string.overlays_slideshow_uris)) },
+            placeholder = { Text(stringResource(R.string.overlays_slideshow_uris_hint)) },
+            minLines = 3,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Text(stringResource(R.string.overlays_slideshow_interval, uiState.slideshowWidgetIntervalSeconds))
+        Slider(
+            value = uiState.slideshowWidgetIntervalSeconds.toFloat(),
+            onValueChange = { viewModel.onSlideshowWidgetIntervalChange(it.toInt()) },
+            valueRange = 5f..300f,
+            steps = 58,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Text(stringResource(R.string.overlays_slideshow_size, uiState.slideshowWidgetSizeDp))
+        Slider(
+            value = uiState.slideshowWidgetSizeDp.toFloat(),
+            onValueChange = { viewModel.onSlideshowWidgetSizeChange(it.toInt()) },
+            valueRange = 120f..600f,
+            steps = 23,
             modifier = Modifier.fillMaxWidth(),
         )
 

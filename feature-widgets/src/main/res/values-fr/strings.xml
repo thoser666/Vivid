@@ -7,5 +7,6 @@
 
     <!-- Widget image (logo/filigrane) -->
     <string name="image_widget_description">Image de superposition du stream</string>
+    <string name="slideshow_widget_description">Image du diaporama</string>
     <string name="qr_code_widget_description">Code QR en superposition</string>
 </resources>

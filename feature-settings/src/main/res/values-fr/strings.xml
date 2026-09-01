@@ -147,6 +147,13 @@
     <string name="overlays_qr_size">Taille du code QR : %1$d dp</string>
     <string name="overlays_qr_opacity">Opacité du code QR : %1$d%%</string>
 
+    <string name="overlays_slideshow_title">Widget diaporama</string>
+    <string name="overlays_slideshow_desc">Fait défiler automatiquement des images locales sur le stream.</string>
+    <string name="overlays_slideshow_enabled">Activer le diaporama</string>
+    <string name="overlays_slideshow_uris">URI des images</string>
+    <string name="overlays_slideshow_uris_hint">Une URI de contenu par ligne ou séparée par des points-virgules</string>
+    <string name="overlays_slideshow_interval">Changement d’image : %1$d s</string>
+    <string name="overlays_slideshow_size">Taille : %1$d dp</string>
     <string name="overlays_battery_title">Affichage batterie</string>
     <string name="overlays_battery_desc">Affiche l\'état de la batterie en superposition sur l\'aperçu du stream. Un avertissement s\'affiche lorsque la batterie est faible.</string>
     <string name="overlays_battery_enabled">Afficher la batterie</string>

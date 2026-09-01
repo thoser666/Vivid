@@ -77,6 +77,11 @@ class SettingsRepository @Inject constructor(
         val QR_CODE_WIDGET_CONTENT = stringPreferencesKey("qr_code_widget_content")
         val QR_CODE_WIDGET_SIZE_DP = intPreferencesKey("qr_code_widget_size_dp")
         val QR_CODE_WIDGET_OPACITY = floatPreferencesKey("qr_code_widget_opacity")
+        val SLIDESHOW_WIDGET_ENABLED = booleanPreferencesKey("slideshow_widget_enabled")
+        val SLIDESHOW_WIDGET_URIS = stringPreferencesKey("slideshow_widget_uris")
+        val SLIDESHOW_WIDGET_INTERVAL_SECONDS = intPreferencesKey("slideshow_widget_interval_seconds")
+        val SLIDESHOW_WIDGET_SIZE_DP = intPreferencesKey("slideshow_widget_size_dp")
+        val SLIDESHOW_WIDGET_OPACITY = floatPreferencesKey("slideshow_widget_opacity")
         val SENTRY_ENABLED = booleanPreferencesKey("sentry_enabled")
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val THEME_ACCENT = stringPreferencesKey("theme_accent")
@@ -189,6 +194,11 @@ class SettingsRepository @Inject constructor(
                 qrCodeWidgetContent = prefs[PrefKeys.QR_CODE_WIDGET_CONTENT] ?: "",
                 qrCodeWidgetSizeDp = prefs[PrefKeys.QR_CODE_WIDGET_SIZE_DP] ?: 180,
                 qrCodeWidgetOpacity = prefs[PrefKeys.QR_CODE_WIDGET_OPACITY] ?: 0.95f,
+                slideshowWidgetEnabled = prefs[PrefKeys.SLIDESHOW_WIDGET_ENABLED] ?: false,
+                slideshowWidgetUris = prefs[PrefKeys.SLIDESHOW_WIDGET_URIS] ?: "",
+                slideshowWidgetIntervalSeconds = prefs[PrefKeys.SLIDESHOW_WIDGET_INTERVAL_SECONDS] ?: 30,
+                slideshowWidgetSizeDp = prefs[PrefKeys.SLIDESHOW_WIDGET_SIZE_DP] ?: 240,
+                slideshowWidgetOpacity = prefs[PrefKeys.SLIDESHOW_WIDGET_OPACITY] ?: 1f,
             )
         },
     ) { streamData, obsData, chatData, chatBotData, widgetData ->
@@ -256,6 +266,11 @@ class SettingsRepository @Inject constructor(
                 qrCodeWidgetContent = widgetData.qrCodeWidgetContent,
                 qrCodeWidgetSizeDp = widgetData.qrCodeWidgetSizeDp,
                 qrCodeWidgetOpacity = widgetData.qrCodeWidgetOpacity,
+                slideshowWidgetEnabled = widgetData.slideshowWidgetEnabled,
+                slideshowWidgetUris = widgetData.slideshowWidgetUris,
+                slideshowWidgetIntervalSeconds = widgetData.slideshowWidgetIntervalSeconds,
+                slideshowWidgetSizeDp = widgetData.slideshowWidgetSizeDp,
+                slideshowWidgetOpacity = widgetData.slideshowWidgetOpacity,
             )
         },
         // 6. Flow: Darstellung (Theme-Modus + Akzentfarbe)
@@ -494,6 +509,11 @@ class SettingsRepository @Inject constructor(
         val qrCodeWidgetContent: String,
         val qrCodeWidgetSizeDp: Int,
         val qrCodeWidgetOpacity: Float,
+        val slideshowWidgetEnabled: Boolean,
+        val slideshowWidgetUris: String,
+        val slideshowWidgetIntervalSeconds: Int,
+        val slideshowWidgetSizeDp: Int,
+        val slideshowWidgetOpacity: Float,
     )
 
     private data class ThemePrefs(
@@ -612,6 +632,23 @@ class SettingsRepository @Inject constructor(
             prefs[PrefKeys.QR_CODE_WIDGET_CONTENT] = content.trim().take(2048)
             prefs[PrefKeys.QR_CODE_WIDGET_SIZE_DP] = sizeDp.coerceIn(120, 600)
             prefs[PrefKeys.QR_CODE_WIDGET_OPACITY] = opacity.coerceIn(0f, 1f)
+        }
+    }
+
+    /** Slideshow-Widget-Einstellungen speichern. */
+    suspend fun updateSlideshowWidgetSettings(
+        enabled: Boolean,
+        uris: String,
+        intervalSeconds: Int,
+        sizeDp: Int,
+        opacity: Float,
+    ) {
+        dataStore.edit { prefs ->
+            prefs[PrefKeys.SLIDESHOW_WIDGET_ENABLED] = enabled
+            prefs[PrefKeys.SLIDESHOW_WIDGET_URIS] = uris.trim().take(16_384)
+            prefs[PrefKeys.SLIDESHOW_WIDGET_INTERVAL_SECONDS] = intervalSeconds.coerceIn(5, 3600)
+            prefs[PrefKeys.SLIDESHOW_WIDGET_SIZE_DP] = sizeDp.coerceIn(120, 600)
+            prefs[PrefKeys.SLIDESHOW_WIDGET_OPACITY] = opacity.coerceIn(0f, 1f)
         }
     }
 

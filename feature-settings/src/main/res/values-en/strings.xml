@@ -146,6 +146,13 @@
     <string name="overlays_qr_size">QR code size: %1$d dp</string>
     <string name="overlays_qr_opacity">QR code opacity: %1$d%%</string>
 
+    <string name="overlays_slideshow_title">Slideshow widget</string>
+    <string name="overlays_slideshow_desc">Rotate local images automatically as a stream overlay.</string>
+    <string name="overlays_slideshow_enabled">Enable slideshow</string>
+    <string name="overlays_slideshow_uris">Image URIs</string>
+    <string name="overlays_slideshow_uris_hint">One content URI per line or separated by semicolons</string>
+    <string name="overlays_slideshow_interval">Image change: %1$d s</string>
+    <string name="overlays_slideshow_size">Size: %1$d dp</string>
     <string name="overlays_battery_title">Battery Display</string>
     <string name="overlays_battery_desc">Shows battery status as an overlay on the streaming preview. A warning is displayed when the battery is low.</string>
     <string name="overlays_battery_enabled">Show battery display</string>

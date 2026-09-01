@@ -146,6 +146,13 @@
     <string name="overlays_qr_size">QR-Code-Größe: %1$d dp</string>
     <string name="overlays_qr_opacity">QR-Code-Transparenz: %1$d%%</string>
 
+    <string name="overlays_slideshow_title">Slideshow-Widget</string>
+    <string name="overlays_slideshow_desc">Wechselt lokale Bilder automatisch als Stream-Overlay.</string>
+    <string name="overlays_slideshow_enabled">Slideshow aktivieren</string>
+    <string name="overlays_slideshow_uris">Bild-URIs</string>
+    <string name="overlays_slideshow_uris_hint">Eine Content-URI pro Zeile oder mit Semikolon getrennt</string>
+    <string name="overlays_slideshow_interval">Bildwechsel: %1$d s</string>
+    <string name="overlays_slideshow_size">Größe: %1$d dp</string>
     <string name="overlays_battery_title">Akku-Anzeige</string>
     <string name="overlays_battery_desc">Zeigt den Batteriestatus als Overlay über der Streaming-Vorschau. Bei niedrigem Akku wird eine Warnung angezeigt.</string>
     <string name="overlays_battery_enabled">Akku-Anzeige anzeigen</string>

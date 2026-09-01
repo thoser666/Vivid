@@ -62,6 +62,7 @@ import com.vivid.feature.chat.ui.ChatOverlay
 import com.vivid.feature.widget.GridOverlay
 import com.vivid.feature.widget.ImageWidget
 import com.vivid.feature.widget.QrCodeWidget
+import com.vivid.feature.widget.SlideshowWidget
 import com.vivid.feature.widget.TextInfoWidget
 import com.vivid.feature.streaming.ConfigIssueSeverity
 import com.vivid.feature.streaming.FocusMode
@@ -626,6 +627,13 @@ fun StreamingScreen(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(end = 12.dp, top = 12.dp),
+            )
+
+            // Slideshow-Widget: lokale Bildrotation über der Vorschau.
+            SlideshowWidget(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .padding(12.dp),
             )
 
         }

@@ -262,6 +262,13 @@ class SettingsViewModel @Inject constructor(
     fun onQrCodeWidgetSizeChange(newValue: Int) { _uiState.value = _uiState.value.copy(qrCodeWidgetSizeDp = newValue.coerceIn(120, 600)) }
     fun onQrCodeWidgetOpacityChange(newValue: Float) { _uiState.value = _uiState.value.copy(qrCodeWidgetOpacity = newValue.coerceIn(0f, 1f)) }
 
+    // Slideshow-Widget.
+    fun onSlideshowWidgetEnabledChange(newValue: Boolean) { _uiState.value = _uiState.value.copy(slideshowWidgetEnabled = newValue) }
+    fun onSlideshowWidgetUrisChange(newValue: String) { _uiState.value = _uiState.value.copy(slideshowWidgetUris = newValue.take(16_384)) }
+    fun onSlideshowWidgetIntervalChange(newValue: Int) { _uiState.value = _uiState.value.copy(slideshowWidgetIntervalSeconds = newValue.coerceIn(5, 3600)) }
+    fun onSlideshowWidgetSizeChange(newValue: Int) { _uiState.value = _uiState.value.copy(slideshowWidgetSizeDp = newValue.coerceIn(120, 600)) }
+    fun onSlideshowWidgetOpacityChange(newValue: Float) { _uiState.value = _uiState.value.copy(slideshowWidgetOpacity = newValue.coerceIn(0f, 1f)) }
+
     // Akku-Anzeige-Widget.
     fun onBatteryEnabledChange(newValue: Boolean) { _uiState.value = _uiState.value.copy(batteryEnabled = newValue) }
     fun onBatteryShowIconChange(newValue: Boolean) { _uiState.value = _uiState.value.copy(batteryShowIcon = newValue) }
@@ -366,6 +373,13 @@ class SettingsViewModel @Inject constructor(
                 content = currentSettings.qrCodeWidgetContent,
                 sizeDp = currentSettings.qrCodeWidgetSizeDp,
                 opacity = currentSettings.qrCodeWidgetOpacity,
+            )
+            settingsRepository.updateSlideshowWidgetSettings(
+                enabled = currentSettings.slideshowWidgetEnabled,
+                uris = currentSettings.slideshowWidgetUris,
+                intervalSeconds = currentSettings.slideshowWidgetIntervalSeconds,
+                sizeDp = currentSettings.slideshowWidgetSizeDp,
+                opacity = currentSettings.slideshowWidgetOpacity,
             )
             settingsRepository.updateSentryEnabled(currentSettings.sentryEnabled)
             settingsRepository.updateThemeSettings(
