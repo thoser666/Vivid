@@ -9,10 +9,27 @@ import java.security.SecureRandom
 
 data class TwitchOAuthAuthorizationRequest(val url: String, val state: String, val verifier: String)
 data class TwitchOAuthCallback(val code: String?, val state: String?, val error: String?)
+data class TwitchOAuthTokenRequest(
+    val clientId: String,
+    val clientSecret: String? = null,
+    val code: String,
+    val redirectUri: String = TwitchOAuth.REDIRECT_URI,
+    val verifier: String,
+)
+
+data class TwitchOAuthTokenResponse(
+    val accessToken: String,
+    val refreshToken: String,
+    val expiresInSeconds: Long,
+    val scopes: List<String> = emptyList(),
+)
+
+class TwitchOAuthException(message: String) : IllegalArgumentException(message)
 
 object TwitchOAuth {
     const val REDIRECT_URI = "vivid://oauth/twitch"
     const val AUTHORIZATION_ENDPOINT = "https://id.twitch.tv/oauth2/authorize"
+    const val TOKEN_ENDPOINT = "https://id.twitch.tv/oauth2/token"
     private const val BASE64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
 
     fun authorizationRequest(clientId: String, scopes: List<String>, random: SecureRandom = SecureRandom()): TwitchOAuthAuthorizationRequest {
@@ -30,16 +47,38 @@ object TwitchOAuth {
     }
 
     fun parseCallback(uri: String): TwitchOAuthCallback {
-        val query = URI(uri).rawQuery.orEmpty().split('&').filter { it.isNotBlank() }.mapNotNull { pair ->
+        val parsed = URI(uri)
+        require(parsed.scheme == "vivid" && parsed.host == "oauth" && parsed.path == "/twitch") {
+            "Unexpected Twitch OAuth callback URI"
+        }
+        val query = parsed.rawQuery.orEmpty().split('&').filter { it.isNotBlank() }.mapNotNull { pair ->
             val parts = pair.split('=', limit = 2)
             if (parts.size != 2) null else decode(parts[0]) to decode(parts[1])
         }.toMap()
         return TwitchOAuthCallback(query["code"], query["state"], query["error"] ?: query["error_description"])
     }
 
-    @Suppress("NewApi")
+    fun validateCallback(callback: TwitchOAuthCallback, expectedState: String): String {
+        if (callback.error != null) throw TwitchOAuthException("Twitch OAuth abgelehnt: ${callback.error}")
+        if (callback.state.isNullOrBlank() || !MessageDigest.isEqual(
+                callback.state.toByteArray(StandardCharsets.UTF_8),
+                expectedState.toByteArray(StandardCharsets.UTF_8),
+            )
+        ) {
+            throw TwitchOAuthException("Ungültiger OAuth-State; Anmeldung verworfen.")
+        }
+        return callback.code?.takeIf { it.isNotBlank() }
+            ?: throw TwitchOAuthException("Twitch OAuth lieferte keinen Authorization-Code.")
+    }
+
+    fun tokenRequest(clientId: String, code: String, verifier: String, clientSecret: String? = null): TwitchOAuthTokenRequest {
+        if (clientId.isBlank() || code.isBlank() || verifier.isBlank()) {
+            throw TwitchOAuthException("Client-ID, Code und PKCE-Verifier dürfen nicht leer sein.")
+        }
+        return TwitchOAuthTokenRequest(clientId.trim(), clientSecret?.trim()?.takeIf { it.isNotEmpty() }, code, REDIRECT_URI, verifier)
+    }
+
     private fun encode(value: String): String = URLEncoder.encode(value, "UTF-8")
-    @Suppress("NewApi")
     private fun decode(value: String): String = URLDecoder.decode(value, "UTF-8")
 
     private fun encodeUrl(bytes: ByteArray): String {
@@ -49,18 +88,11 @@ object TwitchOAuth {
         for (byte in bytes) {
             value = (value shl 8) or (byte.toInt() and 0xff)
             bits += 8
-            while (bits >= 0) {
-                out.append(BASE64[(value shr bits) and 0x3f])
-                bits -= 6
-            }
+            while (bits >= 0) { out.append(BASE64[(value shr bits) and 0x3f]); bits -= 6 }
         }
         if (bits > -6) out.append(BASE64[((value shl 8) shr (bits + 8)) and 0x3f])
         return out.toString()
     }
 
-    private fun randomBytes(random: SecureRandom, size: Int): String {
-        val bytes = ByteArray(size)
-        random.nextBytes(bytes)
-        return encodeUrl(bytes)
-    }
+    private fun randomBytes(random: SecureRandom, size: Int): String = ByteArray(size).also(random::nextBytes).let(::encodeUrl)
 }
