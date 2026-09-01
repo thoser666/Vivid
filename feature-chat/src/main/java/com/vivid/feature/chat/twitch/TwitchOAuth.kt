@@ -64,9 +64,7 @@ object TwitchOAuth {
                 callback.state.toByteArray(StandardCharsets.UTF_8),
                 expectedState.toByteArray(StandardCharsets.UTF_8),
             )
-        ) {
-            throw TwitchOAuthException("Ungültiger OAuth-State; Anmeldung verworfen.")
-        }
+        ) throw TwitchOAuthException("Ungültiger OAuth-State; Anmeldung verworfen.")
         return callback.code?.takeIf { it.isNotBlank() }
             ?: throw TwitchOAuthException("Twitch OAuth lieferte keinen Authorization-Code.")
     }
@@ -76,6 +74,17 @@ object TwitchOAuth {
             throw TwitchOAuthException("Client-ID, Code und PKCE-Verifier dürfen nicht leer sein.")
         }
         return TwitchOAuthTokenRequest(clientId.trim(), clientSecret?.trim()?.takeIf { it.isNotEmpty() }, code, REDIRECT_URI, verifier)
+    }
+
+    fun validateTokenResponse(
+        accessToken: String,
+        refreshToken: String,
+        expiresInSeconds: Long,
+        scopes: List<String> = emptyList(),
+    ): TwitchOAuthTokenResponse {
+        if (accessToken.isBlank() || refreshToken.isBlank()) throw TwitchOAuthException("Twitch lieferte kein vollständiges Token-Paar.")
+        if (expiresInSeconds <= 0) throw TwitchOAuthException("Twitch lieferte eine ungültige Token-Laufzeit.")
+        return TwitchOAuthTokenResponse(accessToken.trim(), refreshToken.trim(), expiresInSeconds, scopes)
     }
 
     private fun encode(value: String): String = URLEncoder.encode(value, "UTF-8")

@@ -183,7 +183,7 @@ Die Überprüfung auf dem Über-Bildschirm folgt denselben Regeln wie in [RELEAS
 
 ## 🛣️ Roadmap
 
-**Current stage: Beta** — the [Beta-Gate is formally reached](RELEASE.md) (17/17 Moblin parity ✅, Twitch chat ✅ with scope, ≥1 widget ✅); current: `v0.5.8-beta.1` with F-Droid repo. M1 is functionally complete: Slideshow Widget, Twitch OAuth browser flow (PKCE) and optional Twitch start ads are implemented. OAuth callbacks validate the custom scheme and state before accepting a code; token exchange/persistence remains the next hardening step. The next focus is production hardening, Hype Train support and multi-platform chat.
+**Current stage: Beta** — the [Beta-Gate is formally reached](RELEASE.md) (17/17 Moblin parity ✅, Twitch chat ✅ with scope, ≥1 widget ✅); current: `v0.5.8-beta.1` with F-Droid repo. M1 is functionally complete: Slideshow Widget, Twitch OAuth browser flow (PKCE) and optional Twitch start ads are implemented. OAuth callbacks validate the custom scheme, state and PKCE flow before accepting a code; the token exchange must be performed by the app's authenticated transport and tokens must not be logged or embedded in source. The next focus is production hardening, Hype Train support and multi-platform chat.
 
 ### 🎯 Milestones
 

@@ -32,6 +32,17 @@ class TwitchOAuthTest {
     }
 
     @Test
+    fun `rejects incomplete token responses`() {
+        assertThrows(TwitchOAuthException::class.java) {
+            TwitchOAuth.validateTokenResponse("", "refresh", 3600)
+        }
+        assertThrows(TwitchOAuthException::class.java) {
+            TwitchOAuth.validateTokenResponse("access", "refresh", 0)
+        }
+        assertEquals("access", TwitchOAuth.validateTokenResponse("access", "refresh", 3600).accessToken)
+    }
+
+    @Test
     fun `parses successful and failed callbacks`() {
         val success = TwitchOAuth.parseCallback("vivid://oauth/twitch?code=abc&state=xyz")
         assertEquals("abc", success.code)
