@@ -88,6 +88,10 @@ Der `LogRedactor` schwärzt sensible Werte **bevor** sie in den `LogBuffer` gela
 
 Der Workflow `.github/workflows/security-snyk.yml` verwendet seit September 2026 nicht mehr die abgekündigte `snyk/actions/gradle-jdk17`-Docker-Action. Stattdessen werden JDK 17, `snyk/actions/setup@v1.0.0` und die Snyk-CLI direkt verwendet. Die CLI erhält gültige Verzeichnisnamen (`build,.gradle`) statt eines nicht unterstützten Glob-Musters. Test und Monitor haben jeweils ein 20-Minuten-Timeout; SARIF wird nur hochgeladen, wenn die CLI tatsächlich eine Datei erzeugt. Der Offline-Guard `scripts/test_snyk_workflow.sh` prüft diese Vorgaben.
 
+### Transitive Dependency-Härtung
+
+`settings.gradle.kts` erzwingt für bekannte transitive Snyk-Fundstellen sichere Patchstände: Netty `4.1.137.Final`, Commons Lang `3.18.0` und Bouncy Castle `1.85`. Die Constraints gelten für alle Konfigurationen, einschließlich Android-Test-/Tooling-Abhängigkeiten. `scripts/test_dependency_security_constraints.sh` schützt die zentrale Konfiguration gegen versehentliches Entfernen.
+
 ### F-Droid / FOSS-Build
 
 Der `foss`-Flavor (`com.vivid.foss`) ist vollständig frei von proprietärem Tracking:

@@ -14,6 +14,7 @@ dependencyResolutionManagement {
     }
 }
 
+
 rootProject.name = "Vivid"
 include(":app")
 include(":core")
