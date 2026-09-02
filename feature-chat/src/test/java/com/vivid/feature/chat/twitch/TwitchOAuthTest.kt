@@ -2,6 +2,13 @@ package com.vivid.feature.chat.twitch
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertThrows
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.respond
+import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.headersOf
+import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -29,6 +36,37 @@ class TwitchOAuthTest {
         assertThrows(IllegalArgumentException::class.java) {
             TwitchOAuth.parseCallback("https://example.com/callback?code=abc")
         }
+    }
+
+    @Test
+    fun `exchanges authorization code as form request`() = runTest {
+        var requestBody = ""
+        val http = HttpClient(MockEngine { request ->
+            requestBody = request.body.toString()
+            respond(
+                """{"access_token":"access","refresh_token":"refresh","expires_in":3600,"scope":["user:read:chat"]}""",
+                HttpStatusCode.OK,
+                headersOf(HttpHeaders.ContentType, "application/json"),
+            )
+        })
+        val result = TwitchOAuth.exchangeCode(http, TwitchOAuth.tokenRequest("client", "code", "verifier"))
+        assertEquals("access", result.accessToken)
+        assertEquals("refresh", result.refreshToken)
+        assertTrue(requestBody.isNotBlank())
+        http.close()
+    }
+
+    @Test
+    fun `rejects unsuccessful token exchange`() = runTest {
+        val http = HttpClient(MockEngine { request ->
+            respond("{}", HttpStatusCode.BadRequest)
+        })
+        assertThrows(TwitchOAuthException::class.java) {
+            kotlinx.coroutines.runBlocking {
+                TwitchOAuth.exchangeCode(http, TwitchOAuth.tokenRequest("client", "code", "verifier"))
+            }
+        }
+        http.close()
     }
 
     @Test

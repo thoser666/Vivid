@@ -1,5 +1,15 @@
 package com.vivid.feature.chat.twitch
 
+import io.ktor.client.HttpClient
+import io.ktor.client.request.forms.submitForm
+import io.ktor.client.request.forms.FormDataContent
+import io.ktor.client.statement.bodyAsText
+import io.ktor.http.ContentType
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.Parameters
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 import java.net.URI
 import java.net.URLDecoder
 import java.net.URLEncoder
@@ -26,11 +36,20 @@ data class TwitchOAuthTokenResponse(
 
 class TwitchOAuthException(message: String) : IllegalArgumentException(message)
 
+@Serializable
+private data class TwitchTokenPayload(
+    @SerialName("access_token") val accessToken: String = "",
+    @SerialName("refresh_token") val refreshToken: String = "",
+    @SerialName("expires_in") val expiresInSeconds: Long = 0,
+    val scope: List<String> = emptyList(),
+)
+
 object TwitchOAuth {
     const val REDIRECT_URI = "vivid://oauth/twitch"
     const val AUTHORIZATION_ENDPOINT = "https://id.twitch.tv/oauth2/authorize"
     const val TOKEN_ENDPOINT = "https://id.twitch.tv/oauth2/token"
     private const val BASE64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+    private val json = Json { ignoreUnknownKeys = true }
 
     fun authorizationRequest(clientId: String, scopes: List<String>, random: SecureRandom = SecureRandom()): TwitchOAuthAuthorizationRequest {
         require(clientId.isNotBlank()) { "clientId must not be blank" }
@@ -61,8 +80,7 @@ object TwitchOAuth {
     fun validateCallback(callback: TwitchOAuthCallback, expectedState: String): String {
         if (callback.error != null) throw TwitchOAuthException("Twitch OAuth abgelehnt: ${callback.error}")
         if (callback.state.isNullOrBlank() || !MessageDigest.isEqual(
-                callback.state.toByteArray(StandardCharsets.UTF_8),
-                expectedState.toByteArray(StandardCharsets.UTF_8),
+                callback.state.toByteArray(StandardCharsets.UTF_8), expectedState.toByteArray(StandardCharsets.UTF_8),
             )
         ) throw TwitchOAuthException("Ungültiger OAuth-State; Anmeldung verworfen.")
         return callback.code?.takeIf { it.isNotBlank() }
@@ -76,12 +94,33 @@ object TwitchOAuth {
         return TwitchOAuthTokenRequest(clientId.trim(), clientSecret?.trim()?.takeIf { it.isNotEmpty() }, code, REDIRECT_URI, verifier)
     }
 
-    fun validateTokenResponse(
-        accessToken: String,
-        refreshToken: String,
-        expiresInSeconds: Long,
-        scopes: List<String> = emptyList(),
-    ): TwitchOAuthTokenResponse {
+    suspend fun exchangeCode(http: HttpClient, request: TwitchOAuthTokenRequest): TwitchOAuthTokenResponse {
+        val response = http.submitForm(
+            url = TOKEN_ENDPOINT,
+            formParameters = Parameters.build {
+                append("client_id", request.clientId)
+                request.clientSecret?.let { append("client_secret", it) }
+                append("code", request.code)
+                append("grant_type", "authorization_code")
+                append("redirect_uri", request.redirectUri)
+                append("code_verifier", request.verifier)
+            },
+        )
+        val body = response.bodyAsText()
+        if (response.status != HttpStatusCode.OK) {
+            throw TwitchOAuthException("Twitch-Token-Austausch fehlgeschlagen (HTTP ${response.status.value}).")
+        }
+        return try {
+            val payload = json.decodeFromString<TwitchTokenPayload>(body)
+            validateTokenResponse(payload.accessToken, payload.refreshToken, payload.expiresInSeconds, payload.scope)
+        } catch (error: TwitchOAuthException) {
+            throw error
+        } catch (_: Exception) {
+            throw TwitchOAuthException("Twitch lieferte eine ungültige Token-Antwort.")
+        }
+    }
+
+    fun validateTokenResponse(accessToken: String, refreshToken: String, expiresInSeconds: Long, scopes: List<String> = emptyList()): TwitchOAuthTokenResponse {
         if (accessToken.isBlank() || refreshToken.isBlank()) throw TwitchOAuthException("Twitch lieferte kein vollständiges Token-Paar.")
         if (expiresInSeconds <= 0) throw TwitchOAuthException("Twitch lieferte eine ungültige Token-Laufzeit.")
         return TwitchOAuthTokenResponse(accessToken.trim(), refreshToken.trim(), expiresInSeconds, scopes)
@@ -89,7 +128,6 @@ object TwitchOAuth {
 
     private fun encode(value: String): String = URLEncoder.encode(value, "UTF-8")
     private fun decode(value: String): String = URLDecoder.decode(value, "UTF-8")
-
     private fun encodeUrl(bytes: ByteArray): String {
         val out = StringBuilder((bytes.size * 4 + 2) / 3)
         var value = 0
@@ -102,6 +140,5 @@ object TwitchOAuth {
         if (bits > -6) out.append(BASE64[((value shl 8) shr (bits + 8)) and 0x3f])
         return out.toString()
     }
-
     private fun randomBytes(random: SecureRandom, size: Int): String = ByteArray(size).also(random::nextBytes).let(::encodeUrl)
 }
