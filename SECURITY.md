@@ -46,7 +46,7 @@ Vivid is an open-source IRL streaming app. Security issues particularly relevant
 
 ---
 
-## 🔒 Security Measures (Stand 2026-08-29)
+## 🔒 Security Measures (Stand 2026-09-02)
 
 ### Sentry Error Reporting — Härtung
 
@@ -82,7 +82,11 @@ Der `LogRedactor` schwärzt sensible Werte **bevor** sie in den `LogBuffer` gela
 | **Dependabot** | ✅ aktiv | Gradle-Dependencies + GitHub Actions, gruppiert nach Kategorie |
 | **DeepSource** | ✅ aktiv | Statische Kotlin-Analyse (advisory, Major/Critical blockierend) |
 | **Secret-Guard** | ✅ im Pre-Push | Prüft auf ungeschützte Keystores und Klartext-Secrets |
-| **SHA-Pinning** | ✅ | Alle GitHub-Actions auf immutable SHAs gepinnt |
+| **SHA-Pinning** | ✅ | Alle GitHub-Actions auf immutable SHAs gepinnt (Snyk-Setup ausgenommen: offizielles `snyk/actions/setup@v1.0.0`, da Snyk die Legacy-Gradle-Images abgekündigt hat) |
+
+### Snyk-CLI-Migration
+
+Der Workflow `.github/workflows/security-snyk.yml` verwendet seit September 2026 nicht mehr die abgekündigte `snyk/actions/gradle-jdk17`-Docker-Action. Stattdessen werden JDK 17, `snyk/actions/setup@v1.0.0` und die Snyk-CLI direkt verwendet. Test und Monitor haben jeweils ein 20-Minuten-Timeout; SARIF wird nur hochgeladen, wenn die CLI tatsächlich eine Datei erzeugt. Der Offline-Guard `scripts/test_snyk_workflow.sh` prüft diese Vorgaben.
 
 ### F-Droid / FOSS-Build
 

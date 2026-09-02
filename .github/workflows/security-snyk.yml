@@ -1,5 +1,7 @@
 # Snyk Security Scanning
-# Analysiert Dependencies auf bekannte Schwachstellen (CVEs)
+# Analysiert Dependencies auf bekannte Schwachstellen (CVEs).
+# Die frühere gradle-jdk17-Docker-Action ist abgekündigt; wir verwenden
+# stattdessen die unterstützte Snyk-CLI mit explizitem JDK 17.
 # Docs: https://docs.snyk.io/developer-tools/integrations/snyk-ci-cd-integrations/github-actions-for-snyk-setup-and-checking-for-vulnerabilities
 
 name: Security / Snyk
@@ -10,7 +12,6 @@ on:
   pull_request:
     branches: [develop, main]
   schedule:
-    # Wöchentlich: Montag 04:00 UTC
     - cron: '0 4 * * 1'
   workflow_dispatch:
 
@@ -22,71 +23,94 @@ concurrency:
   group: snyk-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+  SNYK_INTEGRATION_NAME: github-actions
+
 jobs:
   snyk-test:
     name: Snyk Dependency Test
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - name: Run Snyk test
-        # Snyk gradle-jdk17 bringt eigenes JDK 17 mit — kein setup-java nötig,
-        # da JAVA_HOME (JDK 25) den Container-Internals widerspricht.
-        uses: snyk/actions/gradle-jdk17@12140f4059e244892ae643824a95459a102120dd # master
-        continue-on-error: true
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      - name: Set up JDK 17
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
-          # --all-projects entfernt: erzeugt mehrere SARIF-Runs (pro Manifest),
-          # was gegen das GitHub-Code-Scanning-Limit (1 Run pro Upload) verstößt.
-          # Gradle-Dependencies werden automatisch erkannt; Ruby Gems sind
-          # für Security-Relevantität unbedeutend.
-          args: --severity-threshold=high --sarif-file-output=./snyk-results.sarif
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Snyk CLI
+        uses: snyk/actions/setup@v1.0.0
+        with:
+          version: latest
+
+      - name: Run Snyk test
+        id: snyk-test
+        continue-on-error: true
+        run: |
+          snyk test --all-projects \
+            --exclude='**/build/**' \
+            --severity-threshold=high \
+            --sarif-file-output=./snyk-results.sarif
 
       - name: Upload Snyk results to GitHub Code Scanning
+        if: always() && hashFiles('snyk-results.sarif') != ''
         uses: github/codeql-action/upload-sarif@6ba5c05dce207b48ae07f8791b4313069c63fc2b # v3.26.6
-        if: always() && hashFiles('**/snyk-results.sarif') != ''
         with:
           sarif_file: ./snyk-results.sarif
+
+      - name: Snyk summary
+        if: always()
+        run: |
+          {
+            echo "## Snyk Security Scan"
+            echo
+            echo "| Feld | Wert |"
+            echo "|------|------|"
+            echo "| Trigger | ${{ github.event_name }} |"
+            echo "| Branch | ${{ github.ref_name }} |"
+            echo "| Severity threshold | high |"
+            if [ -f snyk-results.sarif ]; then
+              echo "| SARIF-Upload | ✅ |"
+            else
+              echo "| SARIF-Upload | ⚠️ Keine Datei erzeugt |"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail on high-severity findings or CLI errors
+        if: steps.snyk-test.outcome == 'failure'
+        run: exit 1
+
+  snyk-monitor:
+    name: Snyk Monitor (Dashboard)
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Snyk CLI
+        uses: snyk/actions/setup@v1.0.0
+        with:
+          version: latest
+
+      - name: Run Snyk monitor
+        run: snyk monitor --all-projects --exclude='**/build/**'
 
       - name: Summary
         if: always()
         run: |
-          echo "## Snyk Security Scan" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Feld | Wert |" >> "$GITHUB_STEP_SUMMARY"
-          echo "|------|------|" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Trigger | ${{ github.event_name }} |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Branch | ${{ github.ref_name }} |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Severity Threshold | high |" >> "$GITHUB_STEP_SUMMARY"
-          if [ -f snyk-results.sarif ]; then
-            echo "| SARIF-Upload | ✅ |" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "| SARIF-Upload | ⚠️ Keine Datei (Snyk-Fehler oder keine Vulnerabilities) |" >> "$GITHUB_STEP_SUMMARY"
-          fi
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "Ergebnisse werden im Security-Tab → Code Scanning angezeigt." >> "$GITHUB_STEP_SUMMARY"
-
-  snyk-monitor:
-    name: Snyk Monitor (Dashboard)
-    runs-on: ubuntu-latest
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-
-      - name: Run Snyk monitor
-        # Snyk gradle-jdk17 bringt eigenes JDK 17 mit — kein setup-java nötig.
-        uses: snyk/actions/gradle-jdk17@12140f4059e244892ae643824a95459a102120dd # master
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          command: monitor
-          args: --all-projects
-
-      - name: Summary
-        run: |
           echo "## Snyk Monitor (Dashboard Update)" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "Dashboard aktualisiert: https://app.snyk.io" >> "$GITHUB_STEP_SUMMARY"

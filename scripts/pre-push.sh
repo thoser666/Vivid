@@ -24,6 +24,9 @@
 echo "▶ [pre-push] Play-Checklisten-Selbsttest (scripts/test_play_checklist.sh)"
 bash scripts/test_play_checklist.sh
 
+echo "▶ [pre-push] Snyk-Workflow-Selbsttest (scripts/test_snyk_workflow.sh)"
+bash scripts/test_snyk_workflow.sh
+
 # KEYSTORE_*/UPLOAD_*-Secrets auf den Debug-Keystore zurück (gleiches Verhalten
 # wie in der CI ohne Secrets).
 #
