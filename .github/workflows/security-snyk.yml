@@ -53,7 +53,7 @@ jobs:
         continue-on-error: true
         run: |
           snyk test --all-projects \
-            --exclude=build,\.gradle \
+            --exclude=build,.gradle \
             --severity-threshold=high \
             --sarif-file-output=./snyk-results.sarif
 
@@ -107,7 +107,7 @@ jobs:
           version: latest
 
       - name: Run Snyk monitor
-        run: snyk monitor --all-projects --exclude='**/build/**'
+        run: snyk monitor --all-projects --exclude=build,.gradle
 
       - name: Summary
         if: always()
