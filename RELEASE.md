@@ -1407,7 +1407,7 @@ Der `supply`-Upload (`publish_play`) lädt nur APK/AAB + Metadaten (Titel, Besch
 
 Master-Checkliste für den Weg zum ersten Play-Upload — **Reihenfolge = kritischer Pfad**, Aufwand pro Schritt (einmalig, realistisch). Details stehen in den verlinkten Abschnitten; der **Testplan darunter** ist die Ausführung.
 
-> 🐙 **Tracking:** Der Fortschritt wird in [Issue #116](https://github.com/thoser666/Vivid/issues/116) abgehakt (19 abhakbare Task-Liste, P0–P2) — die Checkliste hier ist die Quelle, das Issue das Live-Tracking.
+> 🐙 **Tracking:** Der Fortschritt wird in [Issue #116](https://github.com/thoser666/Vivid/issues/116) abgehakt (19 abhakbare Task-Liste, P0–P2) — die Checkliste hier ist die Quelle, das Issue das Live-Tracking. Der Offline-Regressionstest `scripts/test_play_checklist.sh` prüft bei jedem Pre-Push, dass kein kritischer P0–P2-Schritt aus der Dokumentation verschwindet.
 
 > **Gesamt: ~4–5 h Hands-on** (einmalig) + **2–5 Werktage Kontoverifizierung, danach 1 h–7 Tage Tester-Freigabe** (Production zusätzlich: 12-Tester/14-Tage-Closed-Test). Der GitHub-/Obtainium-Beta ist von **keinem** dieser Punkte abhängig — die betreffen nur den Play-Kanal.
 >

@@ -20,6 +20,10 @@
 # Die Release-Builds (assembleRelease + bundlePlayRelease) sind OPTIONAL: sie
 # laufen R8/ProGuard + Resource-Shrinking und fangen so Signatur-/ProGuard-
 # Probleme lokal, bevor sie die CI erreichen. Signierung fällt ohne die
+# Play-Checkliste offline prüfen (keine Credentials oder Netzwerkanfragen)
+echo "▶ [pre-push] Play-Checklisten-Selbsttest (scripts/test_play_checklist.sh)"
+bash scripts/test_play_checklist.sh
+
 # KEYSTORE_*/UPLOAD_*-Secrets auf den Debug-Keystore zurück (gleiches Verhalten
 # wie in der CI ohne Secrets).
 #
