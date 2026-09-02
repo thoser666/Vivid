@@ -86,7 +86,7 @@ Der `LogRedactor` schwärzt sensible Werte **bevor** sie in den `LogBuffer` gela
 
 ### Snyk-CLI-Migration
 
-Der Workflow `.github/workflows/security-snyk.yml` verwendet seit September 2026 nicht mehr die abgekündigte `snyk/actions/gradle-jdk17`-Docker-Action. Stattdessen werden JDK 17, `snyk/actions/setup@v1.0.0` und die Snyk-CLI direkt verwendet. Test und Monitor haben jeweils ein 20-Minuten-Timeout; SARIF wird nur hochgeladen, wenn die CLI tatsächlich eine Datei erzeugt. Der Offline-Guard `scripts/test_snyk_workflow.sh` prüft diese Vorgaben.
+Der Workflow `.github/workflows/security-snyk.yml` verwendet seit September 2026 nicht mehr die abgekündigte `snyk/actions/gradle-jdk17`-Docker-Action. Stattdessen werden JDK 17, `snyk/actions/setup@v1.0.0` und die Snyk-CLI direkt verwendet. Die CLI erhält gültige Verzeichnisnamen (`build,.gradle`) statt eines nicht unterstützten Glob-Musters. Test und Monitor haben jeweils ein 20-Minuten-Timeout; SARIF wird nur hochgeladen, wenn die CLI tatsächlich eine Datei erzeugt. Der Offline-Guard `scripts/test_snyk_workflow.sh` prüft diese Vorgaben.
 
 ### F-Droid / FOSS-Build
 

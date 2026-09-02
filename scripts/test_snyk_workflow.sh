@@ -9,6 +9,7 @@ for marker in \
   'snyk/actions/setup@v1.0.0' \
   'snyk test --all-projects' \
   'snyk monitor --all-projects' \
+  '--exclude=build,\\.gradle' \
   'actions/setup-java@' \
   "java-version: '17'" \
   'timeout-minutes: 20' \
