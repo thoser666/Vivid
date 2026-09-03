@@ -65,7 +65,9 @@ class ReplayStorage(
         val files = directory.listFiles { file ->
             file.isFile && file.extension.equals("mp4", ignoreCase = true)
         }.orEmpty().sortedByDescending { it.lastModified() }
-        files.drop(maxFiles).forEach { it.delete() }
+        files.drop(maxFiles).forEach { stale ->
+            if (!stale.delete() && stale.exists()) stale.deleteOnExit()
+        }
     }
 
     fun list(): List<File> = directory.listFiles { file ->
@@ -94,7 +96,7 @@ class ReplayController(
         if (_state.value is ReplayState.Recording) return false
         val file = storage.nextFile(nowMillis)
         if (!recorder.start(file)) {
-            file.delete()
+            if (!file.delete() && file.exists()) file.deleteOnExit()
             return false
         }
         _state.value = ReplayState.Recording(file)
