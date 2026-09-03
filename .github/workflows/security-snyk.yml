@@ -45,7 +45,7 @@ jobs:
           cache: gradle
 
       - name: Set up Snyk CLI
-        uses: snyk/actions/setup@v1.0.0
+        uses: snyk/actions/setup@9adf32b1121593767fc3c057af55b55db032dc04 # v1.0.0
         with:
           version: latest
 
@@ -105,7 +105,7 @@ jobs:
           cache: gradle
 
       - name: Set up Snyk CLI
-        uses: snyk/actions/setup@v1.0.0
+        uses: snyk/actions/setup@9adf32b1121593767fc3c057af55b55db032dc04 # v1.0.0
         with:
           version: latest
 

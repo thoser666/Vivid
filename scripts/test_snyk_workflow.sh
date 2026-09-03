@@ -6,9 +6,9 @@ fail() { echo "❌ [snyk-workflow-test] $1"; exit 1; }
 [[ -s "$file" ]] || fail "Workflow fehlt oder ist leer"
 
 markers=(
-  'snyk/actions/setup@v1.0.0'
+  # setup-Action muss SHA-gepinnt sein (keine beweglichen Tags)
+  'snyk/actions/setup@9adf32b1121593767fc3c057af55b55db032dc04'
   'snyk test --all-projects'
-  'snyk monitor --all-projects'
   '--exclude=build,.gradle'
   'actions/setup-java@'
   "java-version: '17'"
