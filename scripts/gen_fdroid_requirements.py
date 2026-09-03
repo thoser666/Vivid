@@ -276,9 +276,24 @@ def main():
 
     out = Path(".github/requirements/fdroidserver-requirements.txt")
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
+    content = "\n".join(lines) + "\n"
 
-    print(f"OK: {len(entries)} packages, {hash_count} hashes -> {out}")
+    # --check: Datei gegen die frisch generierte Closure vergleichen
+    # (Drift-Test, überschreibt nichts). Verdrahtet in
+    # scripts/test_pip_pinning.sh, damit eine veraltete Closure den
+    # Pre-Push-Gate blockiert.
+    if "--check" in sys.argv[1:]:
+        current = out.read_text(encoding="utf-8") if out.exists() else ""
+        if current != content:
+            errors.append(
+                f"{out} ist nicht aktuell — bitte neu generieren "
+                f"(python scripts/gen_fdroid_requirements.py) und committen")
+        else:
+            print(f"CHECK OK: {out} byte-identisch "
+                  f"({len(entries)} packages, {hash_count} hashes)")
+    else:
+        out.write_text(content, encoding="utf-8", newline="\n")
+        print(f"OK: {len(entries)} packages, {hash_count} hashes -> {out}")
     for w in warnings:
         print(f"WARNUNG: {w}", file=sys.stderr)
     for e in errors:
