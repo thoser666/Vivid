@@ -111,6 +111,10 @@ Verbleibende Scorecard-Hinweise (Repository-Einstellungen bzw. bewusst versionie
 
 `settings.gradle.kts` erzwingt für bekannte transitive Snyk-Fundstellen sichere Patchstände: Netty `4.1.137.Final`, Commons Lang `3.18.0` und Bouncy Castle `1.85`. Die Constraints gelten für alle Konfigurationen, einschließlich Android-Test-/Tooling-Abhängigkeiten. `scripts/test_dependency_security_constraints.sh` schützt die zentrale Konfiguration gegen versehentliches Entfernen.
 
+### Netzwerk-Sicherheit (Cleartext blockiert)
+
+`app/src/main/res/xml/network_security_config.xml` setzt `cleartextTrafficPermitted="false"` für den Base-Config — Cleartext-HTTP ist damit auf **allen** Android-Versionen explizit blockiert (auf API < 28 war er implizit erlaubt; das Manifest-Attribut `android:networkSecurityConfig` verweist darauf). Der RTMP/RTMPS-Stream läuft über RootEncoders eigene Sockets und ist davon nicht betroffen; alle HTTP-APIs (Twitch, Sentry, GitHub, Emote-CDNs) nutzen ausschließlich HTTPS. Hintergrund: SonarCloud-Security-Hotspot `xml:S5332` („usesCleartextTraffic implicitly enabled for older Android versions").
+
 ### F-Droid / FOSS-Build
 
 Der `foss`-Flavor (`com.vivid.foss`) ist vollständig frei von proprietärem Tracking:
