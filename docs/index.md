@@ -56,6 +56,7 @@
 |---|---|
 | [AI-Chat-Bot-Doku](https://github.com/thoser666/Vivid/blob/develop/docs/ai-chat-bot.md) | Bot-Modi, Owner-Befehle, Koexistenz |
 | [Architektur-Übersicht](https://github.com/thoser666/Vivid/blob/develop/docs/architecture/overview.md) | Technische Modulstruktur |
+| [CII-Best-Practices-Checkliste](https://github.com/thoser666/Vivid/blob/develop/docs/cii-best-practices-badge.md) | OpenSSF-Badge-Kriterien gegen den Projektstand geprüft |
 
 ### 🎓 Tutorials
 
