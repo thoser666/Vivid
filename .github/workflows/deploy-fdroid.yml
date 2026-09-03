@@ -47,15 +47,10 @@ jobs:
           python-version: '3.12'
       
       - name: Install fdroidserver
-        # SHA-256-verifizierte Installation (Scorecard PinnedDependencies):
-        # fdroidserver 2.4.5 als sdist: erst per --require-hashes mit fixem
-        # SHA256 herunterladen (Scorecard PinnedDependencies), dann die
-        # verifizierte Datei installieren. Transitive Dependencies bleiben
-        # vom Resolver (nicht schreibrelevante Build-Zeit-Abhängigkeit).
-        run: |
-          echo 'fdroidserver==2.4.5 --hash=sha256:f9b52646264c732678e32e37e23a995db20cc61d45622dda5830ce23255547f4' > /tmp/requirements-fdroid.txt
-          pip download --require-hashes --no-deps -d /tmp/fdroid-verified -r /tmp/requirements-fdroid.txt
-          pip install /tmp/fdroid-verified/fdroidserver-2.4.5.tar.gz
+        # Vollständig hash-gepinnt (Scorecard PinnedDependencies): fdroidserver
+        # 2.4.5 + komplette transitive Closure, generiert für ubuntu-latest /
+        # CPython 3.12 von scripts/gen_fdroid_requirements.py.
+        run: pip install --require-hashes -r .github/requirements/fdroidserver-requirements.txt
       
       - name: Determine version to build
         id: version

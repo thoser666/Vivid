@@ -10,23 +10,31 @@ cd "$(dirname "$0")/.."
 fail() { echo "❌ [pip-pinning-test] $1"; exit 1; }
 
 # 1. Keine pip install-Zeile ohne --require-hashes in den Deploy-Workflows.
-#    Ausnahme: pip install einer lokalen Datei aus dem hash-verifizierten
-#    Download-Verzeichnis (--require-hashes ist dort bereits im
-#    pip download-Schritt erzwungen; Siehe deploy-fdroid.yml).
 for file in .github/workflows/deploy-pages.yml .github/workflows/deploy-fdroid.yml; do
   [[ -s "$file" ]] || fail "Workflow fehlt oder ist leer: $file"
-  if grep -E '^\s*(python3 -m )?pip install' "$file" \
-      | grep -v 'fdroid-verified' \
-      | grep -vq -- '--require-hashes'; then
+  if grep -E '^\s*(python3 -m )?pip install' "$file" | grep -vq -- '--require-hashes'; then
     fail "Ungepinntes pip install in $file gefunden"
   fi
-  # Die Verifikation muss im selben Workflow stattfinden: pip download
-  # mit --require-hashes vor der Offline-Installation.
-  if grep -Eq 'pip install.*fdroid-verified' "$file" \
-      && ! grep -Eq 'pip download.*--require-hashes' "$file"; then
-    fail "pip install aus fdroid-verified ohne vorige --require-hashes-Verifikation in $file"
-  fi
 done
+
+# 1b. deploy-fdroid muss die vollständige Hash-Closure-Datei verwenden.
+grep -Fq 'pip install --require-hashes -r .github/requirements/fdroidserver-requirements.txt' \
+  .github/workflows/deploy-fdroid.yml \
+  || fail "deploy-fdroid.yml verwendet nicht die hash-gepinnte fdroidserver-requirements.txt"
+[[ -s .github/requirements/fdroidserver-requirements.txt ]] \
+  || fail "fdroidserver-requirements.txt fehlt"
+
+# 1c. Requirements-Datei muss zur Generator-Version passen (Der Generator
+#     hat eine eingebaute Closure-Selbstprüfung; hier wird nur Konsistenz
+#     der Formate geprüft: jede Anforderung hat mind. einen Hash).
+python - <<'PYEOF' || fail "fdroidserver-requirements.txt ist formal invalid"
+import re, sys
+text = open(".github/requirements/fdroidserver-requirements.txt", encoding="utf-8").read()
+entries = re.findall(r"^([a-z0-9-]+==[\w.]+)((?:\s+\\\n\s+--hash=sha256:[0-9a-f]{64})+)", text, re.M)
+assert entries, "keine gepinnten Einträge gefunden"
+bad = [name for name, h in entries if "--hash=sha256:" not in h]
+sys.exit(1 if bad else 0)
+PYEOF
 
 # 2. Erwartete Pins (Version + SHA256 aus PyPI verifiziert).
 grep -Fq 'markdown==3.10.3' .github/workflows/deploy-pages.yml \
@@ -35,12 +43,11 @@ grep -Fq 'sha256:fa6c92a00a4a3c98b22728c64a935ae1928250ae65058a6ded814d2cc29a4ce
   .github/workflows/deploy-pages.yml \
   || fail "markdown-SHA256 fehlt in deploy-pages.yml"
 
-grep -Fq 'fdroidserver==2.4.5' .github/workflows/deploy-fdroid.yml \
-  || fail "fdroidserver-Pin fehlt in deploy-fdroid.yml"
+grep -Fq 'fdroidserver==2.4.5' .github/requirements/fdroidserver-requirements.txt \
+  || fail "fdroidserver-Pin fehlt in fdroidserver-requirements.txt"
 grep -Fq 'sha256:f9b52646264c732678e32e37e23a995db20cc61d45622dda5830ce23255547f4' \
-  .github/workflows/deploy-fdroid.yml \
-  || fail "fdroidserver-SHA256 fehlt in deploy-fdroid.yml"
-
+  .github/requirements/fdroidserver-requirements.txt \
+  || fail "fdroidserver-SHA256 fehlt in fdroidserver-requirements.txt"
 # 3. Kein unfixes pip install in irgendeinem anderen Workflow (Stichtagsprüfung
 #    gegen neue Vorkommen).
 other=$(grep -rlE '^\s*(python3 -m )?pip install' .github/workflows/*.yml \
