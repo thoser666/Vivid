@@ -3,11 +3,11 @@ name: Security / Scorecard
 on:
   # Runs on pushes to the default branch
   push:
-    branches: [master]
+    branches: [develop]
   
   # Runs on pull requests to the default branch
   pull_request:
-    branches: [master]
+    branches: [develop]
   
   # Runs weekly on Monday at 04:00 UTC (same as CodeQL)
   schedule:
