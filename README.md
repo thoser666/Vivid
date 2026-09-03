@@ -10,6 +10,7 @@
 ![GitHub release](https://img.shields.io/github/v/release/thoser666/Vivid?style=for-the-badge)
 ![GitHub stars](https://img.shields.io/github/stars/thoser666/Vivid?style=for-the-badge)
 ![CI](https://img.shields.io/github/actions/workflow/status/thoser666/Vivid/android-ci.yml?branch=develop&style=for-the-badge&label=CI)
+![OpenSSF Best Practices](https://bestpractices.dev/projects/PLACEHOLDER_ID/badge) <!-- nach der Registrierung auf bestpractices.dev: PLACEHOLDER_ID durch die vergebene Projekt-ID ersetzen -->
 
 **Professional IRL streaming for Android — aiming for full feature parity with Moblin**
 
@@ -35,7 +36,7 @@
 - 📖 **User guide:** [English](docs/user-guide.en.md) · [Français](docs/user-guide.fr.md) · [Deutsch](docs/user-guide.md) — plus [tutorials](docs/tutorials/), [FAQ](docs/faq/common-issues.md) and [troubleshooting](docs/troubleshooting/)
 - 🛠 **Build from source:** `./gradlew assembleFossDebug` (Gradle 9.4 wrapper, JDK 25; `foss` flavor is fully open-source, the `standard` flavor adds optional Sentry)
 - 🤝 **Contribute:** bugs and features via [Issues](../../issues), code via pull requests to `develop` — see [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow, required checks, and the local pre-push gate; every contribution follows our [Code of Conduct](CODE_OF_CONDUCT.md)
-- 🔒 **Security:** please report vulnerabilities privately via [SECURITY.md](SECURITY.md)
+- 🔒 **Security:** please report vulnerabilities privately via [SECURITY.md](SECURITY.md) — the project's full security posture (supply-chain hardening, OpenSSF Scorecard context) is documented there; the [CII Best Practices checklist](docs/cii-best-practices-badge.md) maps every badge criterion to its evidence
 
 ---
 

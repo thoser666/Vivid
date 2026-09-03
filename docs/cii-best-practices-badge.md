@@ -33,9 +33,24 @@
 1. https://www.bestpractices.dev/en/projects/new öffnen
 2. Mit GitHub-Konto (thoser666) anmelden
 3. Repo-URL eintragen: `https://github.com/thoser666/Vivid`
-4. Kriterien durchgehen — diese Datei liefert je Kriterium Status + Evidenz
-5. Nach Erreichen von ≥ 90 % der MUST-/SHOULD-Kriterien (Passing-Level):
-   Badge-HTML aus dem Portal in README.md einbetten
+4. Kriterien durchgehen — diese Datei liefert je Kriterium Status + Evidenz;
+   N/A-Begründungen sind unten vorgeformt und können 1:1 übernommen werden
+5. Nach dem Speichern vergibt das Portal eine **Projekt-ID** (Zahl in der URL,
+   z. B. `…/projects/1234`). Dann nur noch:
+
+   ```bash
+   # Projekt-ID einsetzen und committen:
+   #   README.md → https://bestpractices.dev/projects/PLACEHOLDER_ID/badge
+   sed -i 's/PLACEHOLDER_ID/<NEUE_ID>/' README.md
+   git add README.md && git commit -m "docs: activate OpenSSF badge (<NEUE_ID>)" && git push
+   ```
+
+   Die Badge-Zeile ist bereits im README vorbereitet (Zeile unter dem
+   CI-Badge, mit HTML-Kommentar-Anweisung direkt daneben). Badge-Formate
+   für andere Kontexte:
+   - Flach: `https://bestpractices.dev/projects/<ID>/badge`
+   - Für die Projektseite: `https://bestpractices.dev/en/projects/<ID>.json`
+     (Metadaten) — empfohlen als Verweis zusätzlich zur Checkliste
 
 ---
 
