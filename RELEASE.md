@@ -624,7 +624,7 @@ Die `publish_release`-Lane (`fastlane/Fastfile`) wendet bei fehlgeschlagenem `gh
 
 | Komponente | Vorher | Nachher | Grund |
 |------------|--------|---------|-------|
-| **CI (GitHub Actions)** | JDK 17 | **JDK 25** | Neuestes LTS, kompatibel mit Gradle 9.7.0 + AGP 9.3.2 |
+| **CI (GitHub Actions)** | JDK 17 | **JDK 25** | Neuestes LTS, kompatibel mit Gradle 9.7.0 + AGP 9.4.0 |
 | **Pre-push-guard** | JDK 21 (Fallback) | **JDK 25 (bevorzugt)** | Auto-Erkennung: 25 → 21 → 17 |
 | **README.md** | JDK 17 (minimum) | **JDK 25 (empfohlen)** | Dokumentiert |
 
@@ -644,9 +644,22 @@ Die `publish_release`-Lane (`fastlane/Fastfile`) wendet bei fehlgeschlagenem `gh
 
 **Kompatibilität verifiziert:**
 - Gradle 9.7.0: ✅ unterstützt JDK 25 (seit 9.1.0)
-- AGP 9.3.2: ✅ kompatibel mit JDK 25
+- AGP 9.4.0: ✅ kompatibel mit JDK 25
 - Kotlin 2.2.20: ✅ kompatibel mit JDK 25
 - `actions/setup-java` Temurin: ✅ JDK 25 verfügbar
+
+### AGP 9.4.0 (September 2026)
+
+Upgrade von AGP 9.3.2 auf **9.4.0** (`gradle/libs.versions.toml`, `agp = "9.4.0"`). Voraussetzungen und Verifikation:
+
+- **Gradle-Minimum:** AGP 9.4.0 erfordert Gradle ≥ 9.6.0 — Projekt nutzt Gradle 9.7.0 ✅
+- **API-Level:** AGP 9.4 unterstützt compileSdk 37 — Projekt: 37 ✅
+- **Konfiguration:** Alle 9 Module konfigurieren ohne Deprecation-/Sync-Warnungen (`gradlew projects --warning-mode all`)
+- **Build:** `:app:assembleFossDebug` grün; einzige Warnungen sind die bereits bekannten `hiltViewModel`-Deprecations (Migration auf `androidx.hilt.lifecycle.viewmodel.compose`, AGP-unabhängig)
+- **Tests:** feature-streaming- und core-Suiten grün
+- **Keine Suppress-Flags nötig:** `gradle.properties` enthält keine AGP-Kompatibilitäts-Workarounds
+
+Unverändert: Roborazzi-Screenshot-Tests bleiben inaktiv (Blocker ist die Robolectric/JDK-25-Recomposer-Kombination, nicht AGP).
 
 ## 🧹 Automatisches Issue-Management (Stale Bot)
 
