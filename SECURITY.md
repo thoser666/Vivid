@@ -96,7 +96,13 @@ Die Code-Scanning-/Scorecard-Fundstellen zu GitHub-Workflows sind seit September
 - **Keine PR-Titel-Interpolation:** Der Dependabot-Auto-Merge-Workflow übergibt den PR-Titel als Step-Environment (`PR_TITLE: ${{ github.event.pull_request.title }}`) und verarbeitet ihn ausschließlich als quoted Shell-Variable — kein direktes `${{ }}`-Interpolieren in Shell-Strings (Script-Injection-Risiko).
 - **Regressions-Schutz:** `scripts/test_workflow_security.sh` (Teil des Pre-Push-Gates) prüft beide Vorgaben offline und verhindert das Wiedereinchecken unsicherer Muster.
 
-Verbleibende Scorecard-Hinweise (Pinned Dependencies für Python-Pakete, Branch Protection, Fuzzing) betreffen Repository-Einstellungen bzw. bewusst versionierte Build-Artefakte (F-Droid-Index, Gradle-Wrapper-JAR) und sind kein Anwendungscode.
+**Scorecard-Alert-Abgleich (03.09.2026):** Nach dem Hardenings-Push wurden die 9 TokenPermissions-Alerts und der kritische PR-Titel-Injection-Alert durch die frische Scorecard-Analyse automatisch geschlossen. Zusätzlich behoben: `security-scorecard.yml` triggerte auf `master` statt auf dem Default-Branch `develop` (Alerts konnten nie refreshen) und `snyk/actions/setup` ist jetzt SHA-gepinnt (`9adf32b`, verifiziert). Die drei Kotlin-Compiler-Fehlalarme (`tmp0_other_with_cast`, `$stable`-Shadowing) wurden als False Positive dismissiert — dokumentiert im Alert-Kommentar.
+
+Verbleibende Scorecard-Hinweise (Repository-Einstellungen bzw. bewusst versionierte Artefakte, kein Anwendungscode):
+
+- **BinaryArtifacts (#34–#40):** F-Droid-Index-JARs (`docs/fdroid/{repo,archive}`) und der Gradle-Wrapper sind erforderliche, absichtlich versionierte Artefakte.
+- **BranchProtection (#23), CodeReview (#44), Fuzzing (#43), CIIBestPractices (#45):** GitHub-Repo-Einstellungen bzw. Prozess-Themen, keine Quellcode-Änderungen.
+- **PinnedDependencies (#41–#42):** `pip install` in deploy-pages/deploy-fdroid — die Pakete sind auf feste Versionen gesetzt; ein SHA-256-Pinning der Wheel-Artefakte ist als Härtungsschritt offen.
 
 ### Transitive Dependency-Härtung
 
