@@ -306,6 +306,7 @@ jobs:
     # workflows-Berechtigung nötig.
     permissions:
       contents: write
+      pull-requests: write
 
     steps:
       - name: Checkout code
@@ -377,11 +378,19 @@ jobs:
             echo "CHANGELOG.md unverändert — nichts zu committen"
             exit 0
           fi
+          # Branch Protection verbietet direkte Bot-Pushes auf develop →
+          # Branch mit Zeitstempel + PR; gemergt wird manuell (GITHUB_TOKEN-PRs
+          # können sich nicht selbst mergen).
+          BRANCH="chore/changelog-$(date +%Y%m%d%H%M%S)"
+          git checkout -b "$BRANCH"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add CHANGELOG.md
           git commit -m "docs: Update CHANGELOG from GitHub releases"
-          git push origin HEAD:develop
+          git push origin "$BRANCH"
+          gh pr create --base develop --head "$BRANCH" \
+            --title "docs: Update CHANGELOG from GitHub releases" \
+            --body "Automatische CHANGELOG-Spiegelung nach Release-Veröffentlichung. Zum Übernehmen mergen (erforderliche Checks laufen im PR)."
 
   # ✅ Reproduzierbarkeits-Check: veröffentlichtes nightly-APK gegen einen frischen
   # Build desselben Commits vergleichen (Hash-Vergleich). Gleiche Parameter

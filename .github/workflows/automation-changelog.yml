@@ -24,6 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pull-requests: write
     # Gleiche Guard-Philosophie wie in release-pipeline.yml: Dependabot
     # (auch per manuellem Merge) stößt keine Automatik an.
     if: github.actor != 'dependabot[bot]'
@@ -43,7 +44,12 @@ jobs:
       # Der Commit läuft als github-actions[bot] → release-pipeline.yml
       # überspringt dafür publish-release/verify (Guard unten), sonst gäbe
       # es eine Endlosschleife: Changelog-Commit → Nightly → Release → Changelog.
-      - name: Commit and push if changed
+      # Branch Protection verbietet direkte Bot-Pushes auf develop → Branch +
+      # PR; gemergt wird manuell (GITHUB_TOKEN-PRs können sich nicht selbst
+      # mergen, und der Solo-Betreuer kann mit Admin-Bypass direkt pushen).
+      - name: Commit to PR if changed
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if git diff --quiet CHANGELOG.md; then
             echo "CHANGELOG.md unverändert — nichts zu committen"
@@ -51,6 +57,11 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          BRANCH="chore/changelog-update-$(date +%Y%m%d%H%M%S)"
+          git checkout -b "$BRANCH"
           git add CHANGELOG.md
           git commit -m "docs: Update CHANGELOG from GitHub releases"
-          git push origin HEAD:develop
+          git push origin "$BRANCH"
+          gh pr create --base develop --head "$BRANCH" \
+            --title "docs: Update CHANGELOG from GitHub releases" \
+            --body "Automatische CHANGELOG-Spiegelung von GitHub Releases. Zum Übernehmen mergen (erforderliche Checks laufen im PR)."

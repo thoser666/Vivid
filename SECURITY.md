@@ -101,7 +101,10 @@ Die Code-Scanning-/Scorecard-Fundstellen zu GitHub-Workflows sind seit September
 Verbleibende Scorecard-Hinweise (Repository-Einstellungen bzw. bewusst versionierte Artefakte, kein Anwendungscode):
 
 - **BinaryArtifacts (#34–#40):** F-Droid-Index-JARs (`docs/fdroid/{repo,archive}`) und der Gradle-Wrapper sind erforderliche, absichtlich versionierte Artefakte.
-- **BranchProtection (#23), CodeReview (#44), Fuzzing (#43), CIIBestPractices (#45):** GitHub-Repo-Einstellungen bzw. Prozess-Themen, keine Quellcode-Änderungen.
+- **BranchProtection (#23): ✅ behoben (03.09.2026)** — Branch-Protection auf `develop` erweitert: Required Reviews (1, `dismiss_stale_reviews`, `require_last_push_approval`), Strict Required Checks (`Build & Test`, `Secret Guard`), Required Linear History, Required Conversation Resolution, Force-Push/Deletion verboten. Admins behalten den Bypass (Solo-Maintainer; sonst Deadlock, da PR-Autoren nicht sich selbst approven können).
+- **CodeReview (#44): 🚧 teilweise** — Required Reviews sind jetzt aktiv (siehe BranchProtection), aber Scorecard verlangt zusätzlich Branch-Protection auf der Default-Branch plus all-*-/OOO-Reviewer-Konfiguration; der Rest ist Solo-Repo-bedingt offen.
+- **Fuzzing (#43), CIIBestPractices (#45):** Prozess-/Einrichtungsthemen, keine Quellcode-Änderungen.
+- **Bot-Pushes → PRs:** Direkte `git push` auf `develop` durch Workflows sind durch die Protection unzulässig; `automation-changelog.yml`, `release-pipeline.yml` (Changelog-Schritt) und `deploy-fdroid.yml` erstellen jetzt Branch + PR, gemergt wird manuell (GITHUB_TOKEN-PRs können sich nicht selbst mergen; Solo-Betreuer mergt mit Admin-Bypass).
 - **PinnedDependencies (#41–#42): ✅ behoben (03.09.2026)** — `pip install` in deploy-pages/deploy-fdroid ist jetzt SHA-256-verifiziert (`--require-hashes`): markdown `3.10.3` (Wheel-Hash verifiziert) und fdroidserver `2.4.5` (sdist-Hash verifiziert; Download mit `--require-hashes`, Installation der verifizierten Datei — das sdist hat keine hash-pinnbaren transiten Wheel-Abhängigkeiten). Der Guard `scripts/test_pip_pinning.sh` (Teil des Pre-Push-Gates) erzwingt die Hash-Pflicht für alle pip-Installationen in den Workflows und die Download→Verify→Install-Sequenz.
 
 ### Transitive Dependency-Härtung
