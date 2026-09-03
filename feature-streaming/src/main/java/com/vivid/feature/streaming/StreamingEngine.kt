@@ -528,6 +528,14 @@ class StreamingEngine @Inject constructor(
     val exposureRange: StateFlow<IntRange?>
         get() = manualCameraController?.exposureRange ?: MutableStateFlow(null)
 
+    /** true, wenn die automatische Belichtung aktiv ist. */
+    val autoExposureEnabled: StateFlow<Boolean>
+        get() = manualCameraController?.autoExposureEnabled ?: MutableStateFlow(true)
+
+    /** true, wenn der automatische Weißabgleich aktiv ist. */
+    val autoWhiteBalanceEnabled: StateFlow<Boolean>
+        get() = manualCameraController?.autoWhiteBalanceEnabled ?: MutableStateFlow(true)
+
     /** Schaltet die automatische Belichtung. */
     fun setAutoExposure(enabled: Boolean): Boolean =
         manualCameraController?.setAutoExposure(enabled) ?: false
@@ -539,6 +547,10 @@ class StreamingEngine @Inject constructor(
     /** Schaltet den automatischen Weißabgleich. */
     fun setAutoWhiteBalance(enabled: Boolean): Boolean =
         manualCameraController?.setAutoWhiteBalance(enabled) ?: false
+
+    /** true, wenn die Kamera den automatischen Weißabgleich steuern kann. */
+    fun hasWhiteBalanceControl(): Boolean =
+        manualCameraController?.hasWhiteBalanceControl() ?: false
 
     /** true, wenn ISO auf RootEncoder 2.7.5 separat steuerbar ist (derzeit nein). */
     fun hasIsoControl(): Boolean = manualCameraController?.hasIsoControl() ?: false

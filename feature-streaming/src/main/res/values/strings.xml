@@ -96,6 +96,13 @@
     <string name="streaming_replay_record">Aufnahme</string>
     <string name="streaming_replay_stop">Aufnahme beenden</string>
 
+    <!-- Belichtung + Weißabgleich (StreamingScreen.kt) -->
+    <string name="streaming_exposure_label">Belichtung %1$d</string>
+    <string name="streaming_auto_exposure_on">Belichtung: Auto</string>
+    <string name="streaming_auto_exposure_off">Belichtung: Manuell</string>
+    <string name="streaming_auto_wb_on">Weißabgleich: Auto</string>
+    <string name="streaming_auto_wb_off">Weißabgleich: Aus</string>
+
     <!-- Selbst-Check (StreamConfigValidator.kt) -->
     <string name="stream_secondary_label">Zweites Ziel: </string>
     <string name="stream_error_no_url">Keine Stream-URL konfiguriert. Bitte in den Einstellungen hinterlegen.</string>

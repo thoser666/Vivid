@@ -97,6 +97,13 @@
     <string name="streaming_replay_record">Enregistrer</string>
     <string name="streaming_replay_stop">Arrêter l\'enregistrement</string>
 
+    <!-- Exposition et balance des blancs (StreamingScreen.kt) -->
+    <string name="streaming_exposure_label">Exposition %1$d</string>
+    <string name="streaming_auto_exposure_on">Exposition : Auto</string>
+    <string name="streaming_auto_exposure_off">Exposition : Manuel</string>
+    <string name="streaming_auto_wb_on">Balance des blancs : Auto</string>
+    <string name="streaming_auto_wb_off">Balance des blancs : Désactivée</string>
+
     <!-- Auto-contrôle (StreamConfigValidator.kt) -->
     <string name="stream_secondary_label">Deuxième cible : </string>
     <string name="stream_error_no_url">Aucune URL de stream configurée. Veuillez la renseigner dans les paramètres.</string>

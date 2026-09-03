@@ -73,6 +73,9 @@ class ManualCameraController(
     /** true, wenn EV als separater Parameter verfügbar ist; Belichtung nutzt stattdessen [exposureRange]. */
     fun hasEvControl(): Boolean = controls.hasExposureControl()
 
+    /** true, wenn der automatische Weißabgleich über die Kamera steuerbar ist. */
+    fun hasWhiteBalanceControl(): Boolean = controls.hasWhiteBalanceControl()
+
     /** Wechselt auf die angegebene Linse. */
     fun selectLens(lensId: String): Boolean {
         val success = lensController.selectLens(lensId)

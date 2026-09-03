@@ -26,7 +26,9 @@ import io.mockk.verify
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
@@ -797,5 +799,74 @@ class StreamingEngineTest {
 
         assertEquals(false, result)
         assertEquals(false, streamingEngine.torchEnabled.value)
+    }
+
+    // --- Belichtung + Weißabgleich (Streaming-Screen-Regler) ---
+
+    @Test
+    fun `exposure range is synced from the camera after initialization`() = runTest {
+        every { camera.minExposure } returns -3
+        every { camera.maxExposure } returns 3
+        streamingEngine.initializeCamera()
+
+        assertEquals(-3..3, streamingEngine.exposureRange.value)
+    }
+
+    @Test
+    fun `exposure range stays null when the camera reports an invalid range`() = runTest {
+        every { camera.minExposure } returns 5
+        every { camera.maxExposure } returns -5
+        streamingEngine.initializeCamera()
+
+        assertNull(streamingEngine.exposureRange.value)
+    }
+
+    @Test
+    fun `setExposure forwards to the camera and updates the state`() = runTest {
+        every { camera.minExposure } returns -3
+        every { camera.maxExposure } returns 3
+        streamingEngine.initializeCamera()
+
+        val ok = streamingEngine.setExposure(2)
+
+        assertTrue(ok)
+        assertEquals(2, streamingEngine.exposure.value)
+        verify { camera.setExposure(2) }
+    }
+
+    @Test
+    fun `setAutoExposure toggles the state`() = runTest {
+        every { camera.isAutoExposureEnabled } returns true
+        every { camera.enableAutoExposure() } returns true
+        streamingEngine.initializeCamera()
+
+        assertTrue(streamingEngine.setAutoExposure(false))
+        assertFalse(streamingEngine.autoExposureEnabled.value)
+        assertTrue(streamingEngine.setAutoExposure(true))
+        assertTrue(streamingEngine.autoExposureEnabled.value)
+    }
+
+    @Test
+    fun `setAutoWhiteBalance toggles the state when the camera supports it`() = runTest {
+        every { camera.autoWhiteBalanceModesAvailable } returns listOf(1, 2)
+        every { camera.isAutoWhiteBalanceEnabled } returns true
+        every { camera.enableAutoWhiteBalance(any()) } returns true
+        streamingEngine.initializeCamera()
+
+        assertTrue(streamingEngine.hasWhiteBalanceControl())
+        assertTrue(streamingEngine.setAutoWhiteBalance(false))
+        assertFalse(streamingEngine.autoWhiteBalanceEnabled.value)
+        assertTrue(streamingEngine.setAutoWhiteBalance(true))
+        assertTrue(streamingEngine.autoWhiteBalanceEnabled.value)
+    }
+
+    @Test
+    fun `white balance control is unavailable without camera modes`() = runTest {
+        every { camera.autoWhiteBalanceModesAvailable } returns emptyList()
+        every { camera.isAutoWhiteBalanceEnabled } returns true
+        streamingEngine.initializeCamera()
+
+        // UI-Gate: Ohne verfügbare Auto-Modi blendet der Screen den WB-Toggle aus.
+        assertFalse(streamingEngine.hasWhiteBalanceControl())
     }
 }

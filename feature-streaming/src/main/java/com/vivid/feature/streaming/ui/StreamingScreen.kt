@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -96,6 +97,10 @@ fun StreamingScreen(
     val activeLutPreset by streamingEngine.activeLutPreset.collectAsStateWithLifecycle()
     val activeColorSpace by streamingEngine.activeColorSpace.collectAsStateWithLifecycle()
     val replayState by streamingEngine.replayState.collectAsStateWithLifecycle()
+    val exposure by streamingEngine.exposure.collectAsStateWithLifecycle()
+    val exposureRange by streamingEngine.exposureRange.collectAsStateWithLifecycle()
+    val autoExposureEnabled by streamingEngine.autoExposureEnabled.collectAsStateWithLifecycle()
+    val autoWhiteBalanceEnabled by streamingEngine.autoWhiteBalanceEnabled.collectAsStateWithLifecycle()
     val configIssues by viewModel.configIssues.collectAsStateWithLifecycle()
     val twitchState by twitchViewModel.uiState.collectAsStateWithLifecycle()
 
@@ -564,6 +569,59 @@ fun StreamingScreen(
                             },
                         ),
                     )
+                }
+            }
+
+            // Belichtung + Weißabgleich: Capability-aware Regler unterhalb der
+            // Quellen-Umschalter. Der EV-Slider erscheint nur, wenn die Kamera
+            // einen Belichtungsbereich anbietet; die Auto-Toggles nur, wenn die
+            // jeweilige Steuerung existiert.
+            val hasWhiteBalance = streamingEngine.hasWhiteBalanceControl()
+            if (exposureRange != null || hasWhiteBalance) {
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(top = 60.dp, end = 16.dp)
+                        .widthIn(max = 220.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    exposureRange?.let { range ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = stringResource(R.string.streaming_exposure_label, exposure),
+                                style = MaterialTheme.typography.labelSmall,
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Slider(
+                                value = exposure.toFloat(),
+                                onValueChange = { streamingEngine.setExposure(it.toInt()) },
+                                valueRange = range.first.toFloat()..range.last.toFloat(),
+                                steps = (range.last - range.first - 1).coerceAtLeast(0),
+                                enabled = autoExposureEnabled,
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                        FilledTonalButton(
+                            onClick = { streamingEngine.setAutoExposure(!autoExposureEnabled) },
+                        ) {
+                            Text(
+                                stringResource(
+                                    if (autoExposureEnabled) R.string.streaming_auto_exposure_on else R.string.streaming_auto_exposure_off,
+                                ),
+                            )
+                        }
+                    }
+                    if (hasWhiteBalance) {
+                        FilledTonalButton(
+                            onClick = { streamingEngine.setAutoWhiteBalance(!autoWhiteBalanceEnabled) },
+                        ) {
+                            Text(
+                                stringResource(
+                                    if (autoWhiteBalanceEnabled) R.string.streaming_auto_wb_on else R.string.streaming_auto_wb_off,
+                                ),
+                            )
+                        }
+                    }
                 }
             }
 

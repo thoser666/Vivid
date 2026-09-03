@@ -96,6 +96,13 @@
     <string name="streaming_replay_record">Record</string>
     <string name="streaming_replay_stop">Stop recording</string>
 
+    <!-- Exposure + white balance (StreamingScreen.kt) -->
+    <string name="streaming_exposure_label">Exposure %1$d</string>
+    <string name="streaming_auto_exposure_on">Exposure: Auto</string>
+    <string name="streaming_auto_exposure_off">Exposure: Manual</string>
+    <string name="streaming_auto_wb_on">White balance: Auto</string>
+    <string name="streaming_auto_wb_off">White balance: Off</string>
+
     <!-- Self-check (StreamConfigValidator.kt) -->
     <string name="stream_secondary_label">Second target: </string>
     <string name="stream_error_no_url">No stream URL configured. Please add it in the settings.</string>
