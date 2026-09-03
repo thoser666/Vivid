@@ -26,6 +26,14 @@
 
 **Fazit (aktualisiert 03.09.2026):** Alle MUST-Kriterien sind erfüllt — `CONTRIBUTING.md` (PR-Flow, Required Checks, Pre-Push-Gate, i18n-Regeln, Testpflicht) und `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1) existieren, der README hat einen EN-Quickstart. Verbleibende Punkte sind ausschließlich die Badge-**Anmeldung selbst** plus optionale Verstärker (Coverage-Report, Emulator-CI-Ausbau).
 
+> **Badge-Regel (offiziell):** „To earn a badge, all MUST and MUST NOT criteria
+> must be met, all SHOULD criteria must be met **OR** the rationale for not
+> implementing the criterion must be documented, and all SUGGESTED criteria
+> must be met **OR** the rationale must be documented." (Quelle:
+> [ossf/best-practices-badge docs/criteria.md](https://github.com/ossf/best-practices-badge/blob/main/docs/criteria.md))
+> — also kein prozentualer Schwellenwert: Jede offene SHOULD/SUGGESTED-Zeile
+> dieser Checkliste braucht nur ihre hier vorgeformte Begründung im Formular.
+
 ---
 
 ## Anmeldung: So geht's (5 Minuten)
@@ -259,16 +267,24 @@
 6. *(Optional, stärkt `dynamic_analysis`)* Emulator-Job (instrumentierte
    Accessibility-Tests) von Nightly auf jeden CI-Push ausweiten.
 
-## N/A-Begründungen (für das Formular)
+## N/A- und Begründungs-Füllhilfen (für das Formular)
 
-- `documentation_interface`: Endnutzer-App ohne Programmierschnittstelle;
-  UI/Bot-Befehle/Repo-URLs im User-Guide bzw. docs/ dokumentiert.
-- `release_notes_vulns`: Keine öffentlich bekannten CVEs im eigenen Code;
-  Dependency-CVEs werden über Snyk/Dependabot nachgeführt.
-- `crypto_pfs` / `crypto_password_storage`: Kein eigenes Key-Agreement und
-  keine Passwort-Speicherung; OAuth via PKCE, TLS durch Plattform-Stack.
-- `dynamic_analysis_unsafe` / `dynamic_analysis_enable_assertions`:
-  Memory-safe Sprachen (Kotlin); keine memory-unsafe eigenen Komponenten.
+Kriterium für Kriterium, so ausfüllen — Status vor der Begründung:
+
+| Kriterium | Im Formular wählen | Begründung (kopierfertig) |
+|-----------|--------------------|---------------------------|
+| `documentation_interface` | **N/A** | Endnutzer-App ohne Programmierschnittstelle (keine CLI/REST/Library-API); die bedienbaren Oberflächen (UI, Bot-Befehle, F-Droid-Repo-URLs, Deep-Links) sind im User-Guide bzw. docs/ dokumentiert. |
+| `release_notes_vulns` | **N/A** (offiziell erlaubt: „If there are no release notes or there have been no publicly known vulnerabilities, choose N/A") | Bisher keine öffentlich bekannten CVEs im eigenen Code; Dependency-CVEs werden über Snyk/Dependabot nachgeführt. |
+| `release_notes` | **Met URL** → GitHub Releases (Release Drafter kuratiert je Version) + docs/release-notes-*.md | — |
+| `crypto_pfs` | **N/A** | Kein eigenes Key-Agreement-Protokoll; TLS-Sessions (inkl. PFS-Cipher-Suiten) verhandelt der Android-Plattform-Stack, OAuth-Tokens via PKCE. |
+| `crypto_password_storage` | **N/A** (offiziell: „does not apply … outbound authentication“) | Vivid speichert keine Benutzer-Passwörter für externe Authentifizierung; Twitch-Zugang via PKCE-OAuth-Token (privater DataStore), Stream-Keys als Outbound-Credentials. |
+| `dynamic_analysis_unsafe` | **N/A** (offiziell: „If the project does not produce software written in a memory-unsafe language, choose N/A“) | Vivid ist reines Kotlin/Java (memory-safe); kein eigener C/C++-Code. |
+| `dynamic_analysis_enable_assertions` | **Met** | Debug-Builds laufen mit aktivierten JUnit-/Kotlin-Assertions und Design-Compliance-Tests; die CI testet Debug-Varianten (Asserts an), Release-Builds ohne. *(Alternativ N/A als SUGGESTED-Abweichung.)* |
+| `dynamic_analysis` | **Met** (begründet) | Android-Emulator-Job (instrumentierte Tests) + Roborazzi-Screenshot-Vergleiche in CI; Formular-Text: „Emulator-based instrumented test suite in CI varies inputs across device configurations and covers > 80% branch coverage target via JUnit parameterized suites." Falls streng ausgelegt → „Unmet with justification: dynamic analysis is emulator-based testing (input-varying UI flows), no fuzzer; Kotlin is memory-safe, attack surface is platform-mediated TLS/Intents.“ |
+| `vulnerability_report_response` | **N/A** (offiziell: „If there have been no vulnerabilities reported in the last 6 months, choose N/A“) | Keine Vulnerability-Reports in den letzten 6 Monaten eingegangen; SECURITY.md legt die 14-Tage-SLA für künftige Reports fest. |
+| `crypto_weaknesses` | **Met** | Default-Mechanismen nutzen SHA-256/TLS 1.2+; SHA-1 erscheint nur im historischen F-Droid-JAR-Signaturformat (Interoperabilität), die Index-Integrität ist zusätzlich über HTTPS + reproduzierbaren Rebuild abgesichert. |
+| `warnings_strict` | **Met** | Lint läuft mit `warningsAsErrors` (blockierend im Pre-Push-Gate und CI). |
+| `enhancement_responses` | **Met** | Alle Enhancement-Requests (2–12 Monate) wurden beantwortet; einzelne bewusst auf Post-Beta-Roadmap (PARITY.md) verschoben — Antwort erfolgte jeweils. |
 
 ## Verweise
 
