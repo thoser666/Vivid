@@ -10,10 +10,21 @@ cd "$(dirname "$0")/.."
 fail() { echo "❌ [pip-pinning-test] $1"; exit 1; }
 
 # 1. Keine pip install-Zeile ohne --require-hashes in den Deploy-Workflows.
+#    Ausnahme: pip install einer lokalen Datei aus dem hash-verifizierten
+#    Download-Verzeichnis (--require-hashes ist dort bereits im
+#    pip download-Schritt erzwungen; Siehe deploy-fdroid.yml).
 for file in .github/workflows/deploy-pages.yml .github/workflows/deploy-fdroid.yml; do
   [[ -s "$file" ]] || fail "Workflow fehlt oder ist leer: $file"
-  if grep -E '^\s*(python3 -m )?pip install' "$file" | grep -vq -- '--require-hashes'; then
+  if grep -E '^\s*(python3 -m )?pip install' "$file" \
+      | grep -v 'fdroid-verified' \
+      | grep -vq -- '--require-hashes'; then
     fail "Ungepinntes pip install in $file gefunden"
+  fi
+  # Die Verifikation muss im selben Workflow stattfinden: pip download
+  # mit --require-hashes vor der Offline-Installation.
+  if grep -Eq 'pip install.*fdroid-verified' "$file" \
+      && ! grep -Eq 'pip download.*--require-hashes' "$file"; then
+    fail "pip install aus fdroid-verified ohne vorige --require-hashes-Verifikation in $file"
   fi
 done
 

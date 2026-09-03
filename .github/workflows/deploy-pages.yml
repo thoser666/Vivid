@@ -53,10 +53,10 @@ jobs:
         # den GitHub-Runnern nicht vorinstalliert). Ergebnis: docs/index.html
         # und docs/privacy/index.html mit gemeinsamer Navigation.
         # Das Wheel ist SHA-256-verifiziert (--require-hashes, Scorecard
-        # PinnedDependencies): markdown 3.10.3, py3-none-any.
+        # PinnedDependencies): markdown 3.10.3, py3-none-any. Requirements
+        # als Einzeiler (Version + Hash in einer Zeile, keine Fortsetzung).
         run: |
-          printf 'markdown==3.10.3 \\
-    --hash=sha256:fa6c92a00a4a3c98b22728c64a935ae1928250ae65058a6ded814d2cc29a4cea\n' > /tmp/requirements-pages.txt
+          echo 'markdown==3.10.3 --hash=sha256:fa6c92a00a4a3c98b22728c64a935ae1928250ae65058a6ded814d2cc29a4cea' > /tmp/requirements-pages.txt
           python3 -m pip install --quiet --require-hashes -r /tmp/requirements-pages.txt
           python3 - <<'PYEOF'
           import markdown, pathlib
