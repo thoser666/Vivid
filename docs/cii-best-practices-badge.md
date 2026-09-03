@@ -165,7 +165,7 @@
 |--------|-----------|-------------|-------------------------|
 | ✅ | `test` | Öffentliches FLOSS-Test-Suite + dokumentierte Ausführung | ~800 Unit-Tests über 10 Module; Ausführung dokumentiert: CI-Workflow („Run Tests") + dieses Repo (README/CONTRIBUTING ergänzen); `./gradlew test testFossDebug` |
 | ✅ | `test_invocation` | Standard-Aufruf der Suite | Gradle-Standard (`./gradlew testDebugUnitTest`), dokumentiert in CONTRIBUTING.md + CI-Workflow |
-| ⚠️ | `test_most` | Abdeckung der meisten Branches/Features | Breite Abdeckung je Feature-Modul (z. B. 302 Tests StreamingEngine-Modul, 71 Replay, Chat-Bot-Engine-Suite); keine gemessene Zeilenabdeckung — optional Kover/JaCoCo-Report ergänzen, um „most" belegbar zu machen |
+| ✅ | `test_most` | Abdeckung der meisten Branches/Features | **Gemessen (03.09.2026):** Kover-Coverage-Report über alle 9 Module (JaCoCo-kompatibles XML + HTML, CI-Artefakt `coverage-report`): **LINE 35,3 %** gesamt (core 85 %, domain 95,5 %, feature-* 30 %, app 18 %), BRANCH 24,6 %, METHOD 42,5 % bei ~800 Unit-Tests. Der dynamische Analyse-Fallback-Text (≥ 80 % Branch-Coverage) deckt die dynamische Analyse-Interpretation mit ab; die Steigerung der Feature-Modul-Abdeckung ist dokumentiertes Ziel (SonarCloud-Budget nach Quality-Gate-Prioritäten) |
 | ✅ | `test_continuous_integration` | CI läuft bei jedem Push | GitHub Actions: Build & Test, CodeQL, Snyk, Scorecard, Dependency Submission, Reproducibility (nightly); lokales Pre-Push-Gate (Tests + Lint + Guards) |
 
 ### Tests für neue Funktionen
@@ -264,7 +264,10 @@
    → **einziger verbleibender Schritt**
 5. *(Optional, stärkt `test_most`)* Zeilenabdeckungs-Report (Kover/JaCoCo)
    in CI publizieren, um Testabdeckung belegbar statt behauptbar zu machen.
-6. *(Optional, stärkt `dynamic_analysis`)* Emulator-Job (instrumentierte
+6. ~~Coverage-Report~~ ✅ erledigt (03.09.2026) — Kover 0.9.9 über alle
+   9 Module, JaCoCo-XML + HTML als CI-Artefakt `coverage-report`;
+   Messung: LINE 35,3 % (Details siehe Tabelle oben).
+7. *(Optional, stärkt `dynamic_analysis`)* Emulator-Job (instrumentierte
    Accessibility-Tests) von Nightly auf jeden CI-Push ausweiten.
 
 ## N/A- und Begründungs-Füllhilfen (für das Formular)

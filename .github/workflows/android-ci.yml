@@ -94,6 +94,22 @@ jobs:
       - name: Run lint & static analysis
         run: ./gradlew lintDebug
 
+      # Coverage über alle Module (Kover, Wurzelmodul als Merging-Modul):
+      # JaCoCo-kompatibles XML als test_most-Beleg (OpenSSF CII Badge) —
+      # Artefakt enthält HTML-Report + XML. Läuft nach den Tests; die
+      # Coverage-Tasks re-run Tests nur inkrementell (Up-to-date-Checks).
+      - name: Generate coverage report (Kover)
+        run: ./gradlew :koverXmlReport :koverHtmlReport
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: coverage-report
+          path: |
+            build/reports/kover/html/
+            build/reports/kover/report.xml
+          retention-days: 30
+
       # Changelog-Generator (bash) — deterministischer Test ohne Netzwerk (Fake-gh)
       - name: Test changelog script
         run: bash scripts/test_update_changelog.sh
