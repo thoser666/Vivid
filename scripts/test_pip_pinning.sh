@@ -36,6 +36,12 @@ bad = [name for name, h in entries if "--hash=sha256:" not in h]
 sys.exit(1 if bad else 0)
 PYEOF
 
+# 1d. Drift-Test: gepinnte Closure muss zur aktuellen Generator-Logik
+#     byte-identisch reproduzierbar sein (fängt veraltete Pins ab, wenn
+#     sich Abhängigkeiten auf PyPI ändern oder MANUAL_DEPS erweitert wird).
+python scripts/gen_fdroid_requirements.py --check >/dev/null 2>&1 \
+  || fail "fdroidserver-requirements.txt ist nicht mehr reproduzierbar — neu generieren und committen"
+
 # 2. Erwartete Pins (Version + SHA256 aus PyPI verifiziert).
 grep -Fq 'markdown==3.10.3' .github/workflows/deploy-pages.yml \
   || fail "markdown-Pin fehlt in deploy-pages.yml"
