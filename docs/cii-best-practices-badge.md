@@ -17,17 +17,14 @@
 
 | Kategorie | MUST | SHOULD |
 |-----------|------|--------|
-| Basics | ✅ 4/5 | ✅ 1/1 |
+| Basics | ✅ 5/5 | ✅ 1/1 |
 | Change Control | ✅ 8/8 | ✅ 3/3 |
 | Reporting | ✅ 3/4 | ⚠️ 3/4 |
 | Quality | ✅ 5/5 | ⚠️ 6/8 |
 | Security | ✅ 13/13 | ⚠️ 9/13 |
 | Analysis | ✅ 3/4 | ⚠️ 5/7 |
 
-**Fazit:** Einziger echter MUST-Blocker ist `contribution`
-(fehlendes `CONTRIBUTING.md`). Alle übrigen offenen Punkte sind
-SHOULD-Kriterien oder Dokumentations-Nachschärfen — Vivid kann die
-Anmeldung unmittelbar nach der CONTRIBUTING-Ergänzung wagen.
+**Fazit (aktualisiert 03.09.2026):** Alle MUST-Kriterien sind erfüllt — `CONTRIBUTING.md` (PR-Flow, Required Checks, Pre-Push-Gate, i18n-Regeln, Testpflicht) und `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1) existieren, der README hat einen EN-Quickstart. Verbleibende Punkte sind ausschließlich die Badge-**Anmeldung selbst** plus optionale Verstärker (Coverage-Report, Emulator-CI-Ausbau).
 
 ---
 
@@ -49,9 +46,9 @@ Anmeldung unmittelbar nach der CONTRIBUTING-Ergänzung wagen.
 | Status | Kriterium | Anforderung | Evidenz / offener Punkt |
 |--------|-----------|-------------|-------------------------|
 | ✅ | `description_good` | Website beschreibt knapp, was die Software tut | README.md („Android version of the open-source Moblin IRL streaming app") + GitHub Pages (docs/index.md) |
-| ⚠️ | `interact` | Website erklärt: Beziehen, Feedback, Beiträge | Beziehen ✅ (README + F-Droid-Repo), Feedback ✅ (Issues-Verweis), **Beiträge ❌ — `CONTRIBUTING.md` fehlt** |
-| ❌→⚠️ | `contribution` | Beitragsprozess erklärt (z. B. PR-Flow) | **Blocker: CONTRIBUTING.md erstellen** (PR-Flow, Branch develop, Required Checks, Pre-Push-Gate, i18n-Regeln de/en/fr) |
-| ⚠️ | `contribution_requirements` | Anforderungen an Beiträge dokumentiert (Coding-Standards) | Im Zuge von CONTRIBUTING.md: ktlint/Lint-Regeln, Testpflicht für neue Features, Commit-Stil |
+| ✅ | `interact` | Website erklärt: Beziehen, Feedback, Beiträge | Beziehen ✅ (README + F-Droid-Repo), Feedback ✅ (Issues/Discussions), Beiträge ✅ ([CONTRIBUTING.md](../CONTRIBUTING.md)) |
+| ✅ | `contribution` | Beitragsprozess erklärt (z. B. PR-Flow) | ✅ [CONTRIBUTING.md](../CONTRIBUTING.md): PR-Flow gegen `develop`, Required Checks, Pre-Push-Gate, Commit-Stil (DE + EN) |
+| ✅ | `contribution_requirements` | Anforderungen an Beiträge dokumentiert (Coding-Standards) | ✅ CONTRIBUTING.md: Modulstruktur, i18n-Regeln (de/en/fr-Parität, I18n-Guard), Lint `warningsAsErrors`, Testpflicht, Commit-Stil |
 
 ### FLOSS-Lizenz
 
@@ -74,7 +71,7 @@ Anmeldung unmittelbar nach der CONTRIBUTING-Ergänzung wagen.
 |--------|-----------|-------------|---------|
 | ✅ | `sites_https` | Website/Repo/Downloads über HTTPS | github.com, thoser666.github.io (Pages erzwingt TLS), F-Droid-Repo via HTTPS |
 | ✅ | `discussion` | Suchbare Diskussions-/Issue-Mechanismen ohne proprietäre Clients | GitHub Issues (+ ggf. Discussions); Board-Kommunikation über Issue-Kommentare |
-| ⚠️ | `english` | Doku auf Englisch + Bug-Reports auf Englisch möglich | Code/Kommentare/CI/Commits: Englisch ✅; Issue-Vorlagen akzeptieren Englisch ✅; **primäre README/Doku ist Deutsch** (EN/FR-Guides existieren: docs/user-guide.en.md, user-guide.fr.md). Abschärfen: README um EN-Kurzabschnitt + Sprachlinks ergänzen |
+| ✅ | `english` | Doku auf Englisch + Bug-Reports auf Englisch möglich | README mit EN-Quickstart; User-Guide EN/FR; Issues/Discussions akzeptieren Englisch; Code/CI/Commits Englisch (primäre Doku bleibt zweisprachig DE/EN) |
 | ✅ | `maintained` | Projekt wird aktiv gepflegt | Kontinuierliche Commits/Releases (Beta-Serie v0.5.x, Stand 2026-09) |
 
 ---
@@ -144,7 +141,7 @@ Anmeldung unmittelbar nach der CONTRIBUTING-Ergänzung wagen.
 | Status | Kriterium | Anforderung | Evidenz / offener Punkt |
 |--------|-----------|-------------|-------------------------|
 | ✅ | `test` | Öffentliches FLOSS-Test-Suite + dokumentierte Ausführung | ~800 Unit-Tests über 10 Module; Ausführung dokumentiert: CI-Workflow („Run Tests") + dieses Repo (README/CONTRIBUTING ergänzen); `./gradlew test testFossDebug` |
-| ⚠️ | `test_invocation` | Standard-Aufruf der Suite | Gradle-Standard (`./gradlew test`); in CONTRIBUTING.md noch explizit nennen |
+| ✅ | `test_invocation` | Standard-Aufruf der Suite | Gradle-Standard (`./gradlew testDebugUnitTest`), dokumentiert in CONTRIBUTING.md + CI-Workflow |
 | ⚠️ | `test_most` | Abdeckung der meisten Branches/Features | Breite Abdeckung je Feature-Modul (z. B. 302 Tests StreamingEngine-Modul, 71 Replay, Chat-Bot-Engine-Suite); keine gemessene Zeilenabdeckung — optional Kover/JaCoCo-Report ergänzen, um „most" belegbar zu machen |
 | ✅ | `test_continuous_integration` | CI läuft bei jedem Push | GitHub Actions: Build & Test, CodeQL, Snyk, Scorecard, Dependency Submission, Reproducibility (nightly); lokales Pre-Push-Gate (Tests + Lint + Guards) |
 
@@ -154,7 +151,7 @@ Anmeldung unmittelbar nach der CONTRIBUTING-Ergänzung wagen.
 |--------|-----------|-------------|---------|
 | ✅ | `test_policy` | Richtlinie: neue Funktionalität ⇒ Tests | De-facto-Policy, konsequent gelebt (PARITY.md-Log weist je Feature Tests aus); in CONTRIBUTING.md verschriftlichen |
 | ✅ | `tests_are_added` | Beleg für die letzten großen Änderungen | PARITY-Log 2026-09-03: Belichtungs-/Weißabgleich-UI (6× Engine-Tests), Replay-Library (10×), fdroidserver-Closure-Guard — jedes Feature mit Tests |
-| ⚠️ | `tests_documented_added` | Test-Policy in den Beitrags-Instructions | Mit CONTRIBUTING.md abdecken |
+| ✅ | `tests_documented_added` | Test-Policy in den Beitrags-Instructions | ✅ CONTRIBUTING.md „Test policy/Testpflicht" (inkl. Regressionstest-Pflicht für Bugfixes) |
 
 ### Compiler-Flags / Linter
 
@@ -229,23 +226,19 @@ Anmeldung unmittelbar nach der CONTRIBUTING-Ergänzung wagen.
 
 ---
 
-## Offene Punkte vor der Anmeldung (priorisiert)
+## Offene Punkte vor der Anmeldung (aktualisiert 03.09.2026)
 
-1. **`CONTRIBUTING.md` erstellen** (blockiert `contribution`, `interact`, `contribution_requirements`, `tests_documented_added`):
-   PR-Flow (fork → branch → PR auf `develop`), Required Checks nennen
-   („Build & Test", „Secret Guard"), Pre-Push-Gate (`./gradlew test
-   testFossDebug lint` + Guards), i18n-Regeln (de/en/fr-Parität,
-   `check_i18n_parity`), Commit-Stil, Testpflicht für neue Features,
-   Security-Reporting-Verweis auf SECURITY.md.
-2. **README internationalisieren (leicht):** EN-Kurzabschnitt oben
-   (What/Why/Install/Contribute-Link) + Links auf `docs/user-guide.en.md`
-   — stärkt `english` und `interact`.
-3. **`CODE_OF_CONDUCT.md`** (Contributor Covenant v2.1, deutsch/englisch
-   zweisprachig) — kein Kern-Kriterium auf Passing, aber Standard-Erwartung
-   und birgt keine Kosten.
+1. ~~`CONTRIBUTING.md` erstellen~~ ✅ erledigt — PR-Flow, Required Checks
+   („Secret Guard", „Build & Test"), Pre-Push-Gate, i18n-Regeln,
+   Testpflicht, Commit-Stil (bilingual DE/EN).
+2. ~~README internationalisieren~~ ✅ erledigt — EN-Quickstart-Abschnitt
+   (What/Install/Build/Contribute/Security) mit Sprachlinks oben im README.
+3. ~~`CODE_OF_CONDUCT.md`~~ ✅ erledigt — Contributor Covenant v2.1,
+   zweisprachig DE/EN, verlinkt aus CONTRIBUTING.md.
 4. **Badge-Anmeldung** auf bestpractices.dev mit dieser Datei als
    Arbeitsvorlage durchklicken; danach Badge-Zeile in README.md
    (`https://bestpractices.dev/projects/<id>/badge`) und Verweis hierher.
+   → **einziger verbleibender Schritt**
 5. *(Optional, stärkt `test_most`)* Zeilenabdeckungs-Report (Kover/JaCoCo)
    in CI publizieren, um Testabdeckung belegbar statt behauptbar zu machen.
 6. *(Optional, stärkt `dynamic_analysis`)* Emulator-Job (instrumentierte

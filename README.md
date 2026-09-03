@@ -19,9 +19,23 @@
   </a>
 </p>
 
-[📲 Install](#-installation) • [📥 Download APK](../../releases) • [📖 User Guide](docs/user-guide.md) ([🇬🇧 EN](docs/user-guide.en.md) · [🇫🇷 FR](docs/user-guide.fr.md)) • [🤖 AI Chat Bot](docs/ai-chat-bot.md) • [📝 Changelog](CHANGELOG.md) • [📚 Documentation](../../wiki) • [🐛 Report Bug](../../issues) • [💬 Discussions](../../discussions)
+[📲 Install](#-installation) • [📥 Download APK](../../releases) • [📖 User Guide](docs/user-guide.md) ([🇬🇧 EN](docs/user-guide.en.md) · [🇫🇷 FR](docs/user-guide.fr.md)) • [🤖 AI Chat Bot](docs/ai-chat-bot.md) • [🤝 Contribute](CONTRIBUTING.md) • [📝 Changelog](CHANGELOG.md) • [📚 Documentation](../../wiki) • [🐛 Report Bug](../../issues) • [💬 Discussions](../../discussions)
 
 </div>
+
+---
+
+## 🇬🇧 English quick start
+
+**What it is:** Vivid is the Android version of [Moblin](https://moblin.github.io), the open-source IRL streaming app — a professional multi-camera streaming client for Twitch (RTMP/RTMPS) with chat overlay, AI chat bot, widgets, scenes, replays, and manual camera controls, built with Kotlin/Compose and RootEncoder.
+
+**Get started:**
+
+- 📲 **Install:** grab the latest APK from [Releases](../../releases) or add the [F-Droid repository](#-automatic-updates-f-droid-repository) for automatic updates (APK 24+)
+- 📖 **User guide:** [English](docs/user-guide.en.md) · [Français](docs/user-guide.fr.md) · [Deutsch](docs/user-guide.md) — plus [tutorials](docs/tutorials/), [FAQ](docs/faq/common-issues.md) and [troubleshooting](docs/troubleshooting/)
+- 🛠 **Build from source:** `./gradlew assembleFossDebug` (Gradle 9.4 wrapper, JDK 25; `foss` flavor is fully open-source, the `standard` flavor adds optional Sentry)
+- 🤝 **Contribute:** bugs and features via [Issues](../../issues), code via pull requests to `develop` — see [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow, required checks, and the local pre-push gate; every contribution follows our [Code of Conduct](CODE_OF_CONDUCT.md)
+- 🔒 **Security:** please report vulnerabilities privately via [SECURITY.md](SECURITY.md)
 
 ---
 
