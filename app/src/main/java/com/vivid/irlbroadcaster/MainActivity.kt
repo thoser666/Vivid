@@ -23,6 +23,7 @@ import com.vivid.core.data.ThemeMode
 import com.vivid.core.data.resolveDark
 import com.vivid.feature.obscontrol.ui.ObsControlScreen
 import com.vivid.feature.playback.PlaybackScreen
+import com.vivid.feature.streaming.ui.ReplayLibraryScreen
 import com.vivid.feature.settings.ui.SettingsAboutScreen
 import com.vivid.feature.settings.ui.SettingsAppearanceScreen
 import com.vivid.feature.settings.ui.SettingsCameraScreen
@@ -83,6 +84,9 @@ fun VividAppNavigation() {
         composable("playback/{streamUrl}") { backStackEntry ->
             val streamUrl = backStackEntry.arguments?.getString("streamUrl")
             PlaybackScreen(navController, streamUrl)
+        }
+        composable("replay_library") {
+            ReplayLibraryScreen(navController)
         }
         composable(
             route = "settings_route?versionName={versionName}",

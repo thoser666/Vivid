@@ -79,6 +79,24 @@
     <string name="playback_play_pause">Lecture/Pause</string>
     <string name="playback_next">Suivant</string>
 
+    <!-- Bibliothèque de replays (ReplayLibraryScreen.kt) -->
+    <string name="replay_library_title">Replays</string>
+    <string name="replay_library_back">Retour</string>
+    <string name="replay_library_empty">Aucun replay pour le moment — lance un enregistrement via le bouton d\'enregistrement de l\'écran de streaming.</string>
+    <string name="replay_library_play">Lire</string>
+    <string name="replay_library_share">Partager</string>
+    <string name="replay_library_delete">Supprimer</string>
+    <string name="replay_library_delete_all">Tout supprimer</string>
+    <string name="replay_library_delete_title">Supprimer le replay ?</string>
+    <string name="replay_library_delete_text">« %1$s » sera définitivement supprimé.</string>
+    <string name="replay_library_delete_confirm">Supprimer</string>
+    <string name="replay_library_delete_cancel">Annuler</string>
+    <string name="replay_library_close_player">Fermer</string>
+
+    <!-- Enregistrement de replay (StreamingScreen.kt) -->
+    <string name="streaming_replay_record">Enregistrer</string>
+    <string name="streaming_replay_stop">Arrêter l\'enregistrement</string>
+
     <!-- Auto-contrôle (StreamConfigValidator.kt) -->
     <string name="stream_secondary_label">Deuxième cible : </string>
     <string name="stream_error_no_url">Aucune URL de stream configurée. Veuillez la renseigner dans les paramètres.</string>

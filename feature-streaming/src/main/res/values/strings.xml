@@ -78,6 +78,24 @@
     <string name="playback_play_pause">Play/Pause</string>
     <string name="playback_next">Weiter</string>
 
+    <!-- Replay-Bibliothek (ReplayLibraryScreen.kt) -->
+    <string name="replay_library_title">Replays</string>
+    <string name="replay_library_back">Zurück</string>
+    <string name="replay_library_empty">Noch keine Replays — starte eine Aufnahme über den Aufnahme-Button im Streaming-Screen.</string>
+    <string name="replay_library_play">Abspielen</string>
+    <string name="replay_library_share">Teilen</string>
+    <string name="replay_library_delete">Löschen</string>
+    <string name="replay_library_delete_all">Alle löschen</string>
+    <string name="replay_library_delete_title">Replay löschen?</string>
+    <string name="replay_library_delete_text">„%1$s“ wird endgültig gelöscht.</string>
+    <string name="replay_library_delete_confirm">Löschen</string>
+    <string name="replay_library_delete_cancel">Abbrechen</string>
+    <string name="replay_library_close_player">Schließen</string>
+
+    <!-- Replay-Aufnahme (StreamingScreen.kt) -->
+    <string name="streaming_replay_record">Aufnahme</string>
+    <string name="streaming_replay_stop">Aufnahme beenden</string>
+
     <!-- Selbst-Check (StreamConfigValidator.kt) -->
     <string name="stream_secondary_label">Zweites Ziel: </string>
     <string name="stream_error_no_url">Keine Stream-URL konfiguriert. Bitte in den Einstellungen hinterlegen.</string>

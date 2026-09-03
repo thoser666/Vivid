@@ -33,8 +33,10 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
+import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -66,6 +68,7 @@ import com.vivid.feature.widget.SlideshowWidget
 import com.vivid.feature.widget.TextInfoWidget
 import com.vivid.feature.streaming.ConfigIssueSeverity
 import com.vivid.feature.streaming.FocusMode
+import com.vivid.feature.streaming.ReplayState
 import com.vivid.feature.streaming.StreamConfigIssue
 import com.vivid.feature.streaming.StreamTargetState
 import com.vivid.feature.streaming.StreamTargetStatus
@@ -92,6 +95,7 @@ fun StreamingScreen(
     val lowLightBoostEnabled by streamingEngine.lowLightBoostEnabled.collectAsStateWithLifecycle()
     val activeLutPreset by streamingEngine.activeLutPreset.collectAsStateWithLifecycle()
     val activeColorSpace by streamingEngine.activeColorSpace.collectAsStateWithLifecycle()
+    val replayState by streamingEngine.replayState.collectAsStateWithLifecycle()
     val configIssues by viewModel.configIssues.collectAsStateWithLifecycle()
     val twitchState by twitchViewModel.uiState.collectAsStateWithLifecycle()
 
@@ -218,6 +222,16 @@ fun StreamingScreen(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.Help,
                             contentDescription = stringResource(R.string.streaming_help_content_desc),
+                        )
+                    }
+
+                    // Replay-Bibliothek: gespeicherte MP4-Aufnahmen ansehen/verwalten.
+                    IconButton(onClick = {
+                        navController.navigate("replay_library")
+                    }) {
+                        Icon(
+                            imageVector = Icons.Default.VideoLibrary,
+                            contentDescription = stringResource(R.string.replay_library_title),
                         )
                     }
 
@@ -514,6 +528,40 @@ fun StreamingScreen(
                         stringResource(
                             R.string.streaming_color_space_label,
                             stringResource(activeColorSpace.labelRes),
+                        ),
+                    )
+                }
+
+                // Replay-Aufnahme: lokale MP4 parallel zum Stream (nur bei aktiver
+                // Kamera-Quelle verfügbar, da die Aufnahme am Camera-Muxer hängt).
+                FilledTonalButton(
+                    onClick = {
+                        if (replayState is ReplayState.Recording) {
+                            streamingEngine.stopReplay()
+                        } else {
+                            streamingEngine.startReplay()
+                        }
+                    },
+                    enabled = activeSourceKind == VideoSourceKind.CAMERA,
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.FiberManualRecord,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = if (replayState is ReplayState.Recording) {
+                            MaterialTheme.colorScheme.error
+                        } else {
+                            LocalContentColor.current
+                        },
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        stringResource(
+                            if (replayState is ReplayState.Recording) {
+                                R.string.streaming_replay_stop
+                            } else {
+                                R.string.streaming_replay_record
+                            },
                         ),
                     )
                 }

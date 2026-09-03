@@ -3,6 +3,9 @@ package com.vivid.feature.streaming.di
 import com.vivid.core.remote.StreamControl
 import com.vivid.feature.streaming.CameraFactory
 import com.vivid.feature.streaming.RtmpCamera2Factory
+import com.vivid.feature.streaming.ReplayLibrary
+import com.vivid.feature.streaming.ReplayStorage
+import com.vivid.feature.streaming.replayStorage
 import com.vivid.feature.streaming.StreamingEngineStreamControl
 import com.vivid.feature.streaming.source.DisplayFactory
 import com.vivid.feature.streaming.source.PlayerFactory
@@ -55,4 +58,10 @@ object StreamingFeatureScopeModule {
     @Singleton
     fun provideStreamControlScope(): CoroutineScope =
         CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    @Provides
+    @Singleton
+    fun provideReplayLibrary(
+        @dagger.hilt.android.qualifiers.ApplicationContext context: android.content.Context,
+    ): ReplayLibrary = ReplayLibrary(replayStorage(context))
 }

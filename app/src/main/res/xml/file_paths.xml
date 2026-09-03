@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- FileProvider-Pfade: Replays werden über den FileProvider geteilt,
+     damit Empfänger-Apps (Messenger, Mail, Cloud) die Datei lesen können,
+     ohne dass die App Speicher-Permissions braucht. -->
+<paths>
+    <files-path
+        name="replays"
+        path="replays/" />
+</paths>

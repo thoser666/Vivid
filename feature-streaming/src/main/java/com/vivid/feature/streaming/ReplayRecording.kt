@@ -42,7 +42,7 @@ class RootEncoderReplayRecorder(
  * Aufnahmen behalten; die Dateien bleiben app-intern und werden nicht exportiert.
  */
 class ReplayStorage(
-    private val directory: File,
+    val directory: File,
     private val maxFiles: Int = DEFAULT_MAX_FILES,
 ) {
     init {
