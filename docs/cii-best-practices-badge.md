@@ -289,6 +289,109 @@ Kriterium für Kriterium, so ausfüllen — Status vor der Begründung:
 | `warnings_strict` | **Met** | Lint läuft mit `warningsAsErrors` (blockierend im Pre-Push-Gate und CI). |
 | `enhancement_responses` | **Met** | Alle Enhancement-Requests (2–12 Monate) wurden beantwortet; einzelne bewusst auf Post-Beta-Roadmap (PARITY.md) verschoben — Antwort erfolgte jeweils. |
 
+## Antwortbogen (in Formular-Reihenfolge, alle 67 Passing-Kriterien)
+
+Radio-Button-Optionen im Formular: `Met` / `Met URL` / `Met justification` /
+`N/A` / `Unmet` / `Unmet justification`. „Selbstauskunft“-Zeilen muss der
+Maintainer vor dem Speichern inhaltlich bestätigen.
+
+### Basics
+
+| # | Kriterium | Auswahl | Wert / URL / Begründung |
+|---|-----------|---------|--------------------------|
+| 1 | `description_good` | Met URL | `https://github.com/thoser666/Vivid` — README: „Professional IRL streaming for Android — aiming for full feature parity with Moblin“ |
+| 2 | `interact` | Met URL | README.md — Install/User-Guide/Contribute/Issues/Discussions-Links (inkl. EN-Quickstart) |
+| 3 | `contribution` | Met URL | `CONTRIBUTING.md` — PR-Flow gegen `develop`, Required Checks, Pre-Push-Gate |
+| 4 | `contribution_requirements` | Met URL | `CONTRIBUTING.md` — Modulstruktur, i18n-Regeln, Testpflicht, Commit-Stil |
+| 5 | `floss_license` | Met | MIT-Lizenz |
+| 6 | `floss_license_osi` | Met | MIT ist OSI-approved |
+| 7 | `license_location` | Met URL | `LICENSE` im Repo-Root |
+| 8 | `documentation_basics` | Met URL | `docs/user-guide.md` (+EN/FR), Tutorials, FAQ, Troubleshooting — Install/Start/Nutzung inkl. Sicherheitshinweisen |
+| 9 | `documentation_interface` | N/A | Endnutzer-App ohne Programmierschnittstelle (keine CLI/REST/Library-API); bedienbare Oberflächen (UI, Bot-Befehle, F-Droid-Repo-URLs, Deep-Links) im User-Guide/docs dokumentiert |
+| 10 | `sites_https` | Met URL | `https://github.com/thoser666/Vivid`, `https://thoser666.github.io/Vivid/` — alles TLS |
+| 11 | `discussion` | Met URL | GitHub Issues + Discussions (suchbar, URL-adressierbar, kein proprietärer Client) |
+| 12 | `english` | Met | EN-Quickstart im README, User-Guide EN/FR, Issues auf Englisch willkommen, Code/CI/Commits englisch |
+| 13 | `maintained` | Met | Kontinuierliche Commits + Beta-Releases (Stand 2026-09), aktive Issue-Bearbeitung |
+
+### Change Control
+
+| # | Kriterium | Auswahl | Wert / URL / Begründung |
+|---|-----------|---------|--------------------------|
+| 14 | `repo_public` | Met URL | `https://github.com/thoser666/Vivid` |
+| 15 | `repo_track` | Met | Git-Historie (Was/Wer/Wann) |
+| 16 | `repo_interim` | Met | Kontinuierliche Commits zwischen Releases; Branch Protection (Linear History) |
+| 17 | `repo_distributed` | Met | git |
+| 18 | `version_unique` | Met | SemVer + Pre-Release-Suffixe (v0.5.0-alpha … v0.5.12-beta) |
+| 19 | `version_semver` | Met | SemVer |
+| 20 | `version_tags` | Met URL | GitHub-Tags + Releases je Version |
+| 21 | `release_notes` | Met URL | GitHub Releases (Release Drafter, kuratiert) + `docs/release-notes-*.md` je Version |
+| 22 | `release_notes_vulns` | N/A | Keine öffentlich bekannten CVEs im eigenen Code (offiziell erlaubt); Dependency-CVEs via Snyk/Dependabot |
+
+### Reporting
+
+| # | Kriterium | Auswahl | Wert / URL / Begründung |
+|---|-----------|---------|--------------------------|
+| 23 | `report_process` | Met URL | GitHub Issues |
+| 24 | `report_tracker` | Met URL | GitHub Issues |
+| 25 | `report_responses` | Met | Alle Bug-Reports (2–12 Monate) beantwortet (#116 u. a.) |
+| 26 | `enhancement_responses` | Met | Alle Enhancement-Requests beantwortet; Verweise auf Roadmap (PARITY.md) zählen als Antwort |
+| 27 | `report_archive` | Met URL | GitHub Issues (persistent + suchbar) |
+| 28 | `vulnerability_report_process` | Met URL | `SECURITY.md` („Reporting a Vulnerability“) + GitHub-Tab „Security“ |
+| 29 | `vulnerability_report_private` | Met URL | GitHub Private Vulnerability Reporting aktiviert; Weg in SECURITY.md beschrieben |
+| 30 | `vulnerability_report_response` | N/A | Keine Vulnerability-Reports in den letzten 6 Monaten (offiziell erlaubt); 14-Tage-SLA in SECURITY.md fixiert |
+
+### Quality
+
+| # | Kriterium | Auswahl | Wert / URL / Begründung |
+|---|-----------|---------|--------------------------|
+| 31 | `build` | Met URL | Gradle Wrapper 9.7.1, `./gradlew assembleDebug`; CI-Build grün, Reproducibility-Check nightly |
+| 32 | `build_common_tools` | Met | Gradle/Kotlin/AGP (Standard-Toolchain) |
+| 33 | `build_floss_tools` | Met | Vollständige FOSS-Toolchain (foss-Flavor für F-Droid) |
+| 34 | `test` | Met URL | ~800 Unit-Tests in `src/test` je Modul; Ausführung dokumentiert in CONTRIBUTING.md + CI-Workflow |
+| 35 | `test_invocation` | Met | `./gradlew testDebugUnitTest` (Gradle-Standard) |
+| 36 | `test_most` | Met justification *(SUGGESTED)* | Gemessen via Kover-Report (CI-Artefakt `coverage-report`): LINE 35,3 %, BRANCH 24,6 %, METHOD 42,5 % über alle 9 Module (core 85 %, domain 95,5 %); Steigerung Feature-Module ist dokumentiertes Ziel |
+| 37 | `test_continuous_integration` | Met | GitHub Actions bei jedem Push (Build & Test, Security-Suite); lokales Pre-Push-Gate |
+| 38 | `test_policy` | Met | Testpflicht für neue Features (CONTRIBUTING.md) |
+| 39 | `tests_are_added` | Met URL | PARITY.md-Log dokumentiert Tests je Feature (z. B. 6× Engine, 10× Replay, 71× Streaming) |
+| 40 | `tests_documented_added` | Met | CONTRIBUTING.md „Test policy/Testpflicht“ |
+| 41 | `warnings` | Met | Android Lint + Kotlin-Compiler-Warnungen im Gate/CI |
+| 42 | `warnings_fixed` | Met | Lint blockierend (`warningsAsErrors`); Findings werden behoben (Beleg: configuration-aware-String-Fix) |
+| 43 | `warnings_strict` | Met | `warningsAsErrors` aktiv |
+
+### Security
+
+| # | Kriterium | Auswahl | Wert / URL / Begründung |
+|---|-----------|---------|--------------------------|
+| 44 | `know_secure_design` | Met *(Selbstauskunft)* | Primary developer wendet Saltzer/Schroeder-Prinzipien an: fail-safe defaults (Cleartext blockiert), least privilege (Workflow-Permissions), Allowlist-Validierung (`StreamConfigValidator`), kleiner Angriffsvektor (FileProvider statt Welt-Lesezugriff) |
+| 45 | `know_common_errors` | Met *(Selbstauskunft)* | Bekannte Fehlerklassen + Gegenmaßnahmen umgesetzt: Injection (Bot-Eingaben gefiltert), MITM (HTTPS/Hash-Pinning), Credential-Leaks (Log-Redactor, Secret-Guard), Intent-Exposure (FileProvider) |
+| 46 | `crypto_published` | Met | Nur TLS/RTMPS/PKCE — keine proprietären Protokolle |
+| 47 | `crypto_call` | Met | Keine eigene Krypto; Plattform-JCA/TLS-Stack |
+| 48 | `crypto_floss` | Met | Android-Plattform-Stack ist FLOSS |
+| 49 | `crypto_keylength` | Met | Plattform-TLS verhandelt NIST-konforme Defaults; App konfiguriert keine schwächeren Keylengths |
+| 50 | `crypto_working` | Met | Keine gebrochenen Algorithmen in Default-Mechanismen; Hashes überall SHA-256 (F-Droid-Index-Signierung SHA256RSA, pip-Pinning) |
+| 51 | `crypto_weaknesses` | Met | TLS 1.2+/SHA-256; kein SHA-1/CBC in eigenen Security-Pfaden |
+| 52 | `crypto_pfs` | N/A | Kein eigenes Key-Agreement-Protokoll; PFS-Cipher-Suiten kommen vom Plattform-TLS |
+| 53 | `crypto_password_storage` | N/A | Keine Inbound-Passwort-Authentifizierung; Twitch via PKCE-OAuth-Tokens (Outbound-Credentials) |
+| 54 | `crypto_random` | Met | PKCE-Code-Verifier via `java.security.SecureRandom`; keine unsicheren Generatoren |
+| 55 | `delivery_mitm` | Met | HTTPS überall; F-Droid-Index zusätzlich signiert |
+| 56 | `delivery_unsigned` | Met | Keine Hashes über HTTP ohne Signatur; pip `--require-hashes`, SHA-gepinnte Actions |
+| 57 | `vulnerabilities_fixed_60_days` | Met | Keine offenen Medium+-Vulnerabilities (SonarCloud 0 Bugs/Vulns, CodeQL/Snyk grün, Stand 2026-09-03) |
+| 58 | `vulnerabilities_critical_fixed` | Met | Historie: S899- und S5332-Fixes am selben Tag |
+| 59 | `no_leaked_credentials` | Met | Secret-Guard (CI + Pre-Push), Secret-Scanning, keine Leaks |
+
+### Analysis
+
+| # | Kriterium | Auswahl | Wert / URL / Begründung |
+|---|-----------|---------|--------------------------|
+| 60 | `static_analysis` | Met URL | SonarCloud + CodeQL + Android Lint bei jedem Push; blockierendes Quality Gate |
+| 61 | `static_analysis_common_vulnerabilities` | Met | CodeQL-Security-Queries, SonarCloud-Security-Hotspots, Snyk |
+| 62 | `static_analysis_fixed` | Met | Findings werden zeitnah behoben (S899, S5332 — jeweils am selben Tag) |
+| 63 | `static_analysis_often` | Met | Analyse bei jedem Push auf develop |
+| 64 | `dynamic_analysis` | Met justification *(SUGGESTED)* | Emulator-basierte instrumentierte Tests (input-variierte UI-Flows, Accessibility-/Screenshot-Suiten) + Roborazzi in CI; kein Fuzzer (Kotlin memory-safe, Angriffsfläche plattformvermittelt) |
+| 65 | `dynamic_analysis_unsafe` | N/A | Vivid ist memory-safe (Kotlin/Java); kein eigener C/C++-Code |
+| 66 | `dynamic_analysis_enable_assertions` | Met | CI testet Debug-Varianten (Assertions aktiviert), Release-Builds ohne |
+| 67 | `dynamic_analysis_fixed` | Met | Keine Medium+-Findings aus dynamischer Analyse; Emulator-Suiten grün |
+
 ## Verweise
 
 - Kriterienkatalog: https://www.bestpractices.dev/en/criteria/0
