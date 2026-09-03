@@ -62,4 +62,40 @@ grep -Fq 'Modifier.alpha(deletedAlpha)' feature-chat/src/main/java/com/vivid/fea
 grep -Fq 'color = if (message.isAction) Color(0xFFB0BEC5) else textColor' feature-chat/src/main/java/com/vivid/feature/chat/ui/ChatOverlay.kt \
   || fail "Configured chat text color is not applied"
 
-echo "✅ [workflow-security-test] Permissions, PR input handling, and ChatOverlay findings are guarded."
+# Gradle Wrapper validation must run in CI, SHA-pinned, before the first
+# gradlew invocation (scorecard BinaryArtifacts #40 assurance).
+wrapper_step=$(grep -B1 -A2 -F 'gradle/actions/wrapper-validation@' .github/workflows/android-ci.yml || true)
+[[ -n "$wrapper_step" ]] \
+  || fail "android-ci.yml must run gradle/actions/wrapper-validation"
+echo "$wrapper_step" | grep -Eq 'gradle/actions/wrapper-validation@[0-9a-f]{40}' \
+  || fail "gradle/actions/wrapper-validation must be pinned to a full 40-char commit SHA"
+first_gradle_use=$(grep -n -m1 'run: \./gradlew\|gradle/actions/setup-gradle' .github/workflows/android-ci.yml | cut -d: -f1)
+validation_line=$(grep -n 'gradle/actions/wrapper-validation@' .github/workflows/android-ci.yml | cut -d: -f1)
+[[ -n "$first_gradle_use" && -n "$validation_line" && "$validation_line" -lt "$first_gradle_use" ]] \
+  || fail "wrapper-validation must run before the first gradlew invocation"
+
+# Scorecard maintainer annotations must exist, stay valid YAML, and only
+# use the official reason vocabulary (ossf/scorecard config/README.md).
+[[ -s .github/scorecard.yml ]] \
+  || fail ".github/scorecard.yml (maintainer annotations) is missing"
+python - <<'PYEOF' || fail "scorecard.yml annotations are invalid"
+import sys
+import yaml
+
+doc = yaml.safe_load(open(".github/scorecard.yml", encoding="utf-8"))
+annotations = doc.get("annotations") or []
+assert annotations, "no annotations present"
+allowed = {"test-data", "remediated", "not-applicable", "not-supported", "not-detected"}
+required = {"binary-artifacts", "fuzzing"}
+covered = set()
+for entry in annotations:
+    checks = entry.get("checks") or []
+    reasons = entry.get("reasons") or []
+    assert checks and reasons, "annotation without checks or reasons"
+    covered.update(checks)
+    for r in reasons:
+        assert r.get("reason") in allowed, f"invalid reason: {r.get('reason')}"
+assert required <= covered, f"missing annotations for: {sorted(required - covered)}"
+PYEOF
+
+echo "✅ [workflow-security-test] Permissions, PR input handling, ChatOverlay findings, wrapper validation, and scorecard annotations are guarded."

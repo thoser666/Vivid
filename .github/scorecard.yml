@@ -1,0 +1,59 @@
+# OpenSSF Scorecard — Maintainer Annotations
+#
+# Diese Datei ändert KEINE numerischen Check-Scores. Sie sorgt dafür, dass
+# Scorecard-Ergebnisse (Code-Scanning-Alerts, scorecard.dev-Viewer,
+# CLI --show-annotations) einen von den Maintainern verifizierten Kontext
+# neben dem Finding anzeigen — statt eines unerklärten Fehlschlags.
+#
+# Schema + Annotation-Vokabular (test-data, remediated, not-applicable,
+# not-supported, not-detected): ossf/scorecard config/README.md.
+# Datei-Speicherorte laut Doku: Repo-Root (scorecard.yml), .scorecard.yml
+# oder .github/scorecard.yml (hier verwendet).
+#
+# Zugehörige Analyse der offenen Alerts: SECURITY.md (Scorecard-Abschnitt).
+annotations:
+  # Alerts #34–#39: docs/fdroid/{repo,archive}/{entry,index,index-v1}.jar
+  - checks:
+      - binary-artifacts
+    reasons:
+      # JARs sind verteilte Artefakte, kein Review-objekt: Das sind die
+      # SIGNIERTEN F-Droid-Distributions-Indizes (JAR-gewrapptes JSON +
+      # abgetrennte Signatur), die der F-Droid-Client von festen URLs
+      # bezieht (…/fdroid/repo/index.jar, …/fdroid/archive/index-v1.jar).
+      # Sie müssen dort liegen, damit Bestands-Installationen weiter
+      # funktionieren — Umsiedeln nach GitHub Releases würde die
+      # Client-URLs brechen.
+      - reason: not-applicable
+      # Integrität ist trotzdem abgesichert: der deploy-fdroid-Workflow
+      # baut die Indizes reproduziell aus dem APK-Bestand (wöchentlich,
+      # PR-basiert auf develop), die JARs werden vom F-Droid-Client
+      # signaturverifiziert, und der Supply-Chain ist anderweitig
+      # gehärtet (pip --require-hashes-Closure, SHA-gepinnte Actions,
+      # Wrapper-Validierung in CI). Warnung vor manueller Manipulation:
+      # die JARs niemals direkt im Repo editieren.
+      - reason: remediated
+
+  # Alert #40: gradle/wrapper/gradle-wrapper.jar
+  - checks:
+      - binary-artifacts
+    reasons:
+      # Der Wrapper-JAR ist der Gradle-Bootstrap (erzeugt keine App-Artefakte,
+      # sondern startet den Build). Er ist byte-identisch mit dem von Gradle
+      # verteilten Wrapper seiner Version; die CI validiert jede Ausführung
+      # gegen die offizielle Gradle-Wrapper-Checksummen-DB (Job „Build & Test",
+      # Step „Validate Gradle Wrapper", gradle/actions/wrapper-validation).
+      # Scorecard hat keine Erkennung für diese Validierung — hier als
+      # Kontext dokumentiert.
+      - reason: not-supported
+
+  # Alert #43: Fuzzing (Score 0, „no fuzzer integrations found")
+  - checks:
+      - fuzzing
+    reasons:
+      # Scorecard erkennt ausschließlich Go (libFuzzer/go-fuzz), Haskell,
+      # JavaScript/Jazzer und Erlang sowie C/C++ über OSS-Fuzz-Integration.
+      # Vivid ist eine reine Kotlin/Android-App (memory-safe, kein C/C++
+      # im eigenen Code); es existiert keine Scorecard-erkennbare
+      # Fuzzer-Kategorie für Android/JVM-UI-Apps. Ein echter Fuzzer würde
+      # den Score daher nicht verändern.
+      - reason: not-applicable
