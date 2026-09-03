@@ -75,6 +75,13 @@ jobs:
       - name: Grant executable permission to gradlew
         run: chmod +x ./gradlew
 
+      # Supply-Chain-Härtung: validiert die Checksumme von gradle-wrapper.jar
+      # gegen die offizielle Gradle-Wrapper-DB und schlägt bei unbekannten
+      # JARs fehl (Scorecard BinaryArtifacts #40-Anlass, echte Assurance
+      # für den Wrapper). Muss vor dem ersten ./gradlew-Aufruf laufen.
+      - name: Validate Gradle Wrapper
+        uses: gradle/actions/wrapper-validation@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+
       # Debug-Variante deckt alle Module ab (app, core, data, domain, feature-*);
       # Tests liegen in src/test — keine Release-Varianten-Tests im Projekt.
       - name: Run unit tests (all modules)
