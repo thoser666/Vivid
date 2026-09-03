@@ -75,6 +75,13 @@ jobs:
       - name: Grant executable permission to gradlew
         run: chmod +x ./gradlew
 
+      # Supply-Chain-Härtung: validiert die Checksumme von gradle-wrapper.jar
+      # gegen die offizielle Gradle-Wrapper-DB und schlägt bei unbekannten
+      # JARs fehl (Scorecard BinaryArtifacts #40-Anlass, echte Assurance
+      # für den Wrapper). Muss vor dem ersten ./gradlew-Aufruf laufen.
+      - name: Validate Gradle Wrapper
+        uses: gradle/actions/wrapper-validation@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+
       # Debug-Variante deckt alle Module ab (app, core, data, domain, feature-*);
       # Tests liegen in src/test — keine Release-Varianten-Tests im Projekt.
       - name: Run unit tests (all modules)
@@ -86,6 +93,22 @@ jobs:
 
       - name: Run lint & static analysis
         run: ./gradlew lintDebug
+
+      # Coverage über alle Module (Kover, Wurzelmodul als Merging-Modul):
+      # JaCoCo-kompatibles XML als test_most-Beleg (OpenSSF CII Badge) —
+      # Artefakt enthält HTML-Report + XML. Läuft nach den Tests; die
+      # Coverage-Tasks re-run Tests nur inkrementell (Up-to-date-Checks).
+      - name: Generate coverage report (Kover)
+        run: ./gradlew :koverXmlReport :koverHtmlReport
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: coverage-report
+          path: |
+            build/reports/kover/html/
+            build/reports/kover/report.xml
+          retention-days: 30
 
       # Changelog-Generator (bash) — deterministischer Test ohne Netzwerk (Fake-gh)
       - name: Test changelog script

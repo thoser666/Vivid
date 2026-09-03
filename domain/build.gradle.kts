@@ -1,5 +1,6 @@
 plugins {
     alias(libs.plugins.android.library)
+    alias(libs.plugins.kover)
     // Das Serialization-Plugin ist das einzige, das hier wirklich gebraucht wird
     alias(libs.plugins.kotlin.serialization)
 }
