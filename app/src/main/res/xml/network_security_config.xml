@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Netzwerk-Sicherheit (SonarCloud xml:S5332): Cleartext-HTTP ist für ALLE
+     Android-Versionen explizit blockiert — auf API < 28 wäre er implizit
+     erlaubt. Der RTMP/RTMPS-Stream läuft über RootEncoders eigene Sockets
+     (betroffene Layer: nur der Java-HTTP-Stack); HTTPS-APIs (Twitch,
+     Sentry, Coil-Emotes, GitHub) sind unangetastet. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+</network-security-config>
