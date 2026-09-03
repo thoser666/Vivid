@@ -16,10 +16,9 @@ on:
   # Allow manual trigger for testing
   workflow_dispatch:
 
-# Default permissions for the Scorecard action
-permissions:
-  security-events: write
+permissions: {}
 
+# Security permissions are scoped to the analysis job below.
 # Only one run at a time per branch
 concurrency:
   group: scorecard-${{ github.ref }}

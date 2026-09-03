@@ -30,6 +30,9 @@ bash scripts/test_snyk_workflow.sh
 echo "▶ [pre-push] Dependency-Security-Selbsttest (scripts/test_dependency_security_constraints.sh)"
 bash scripts/test_dependency_security_constraints.sh
 
+echo "▶ [pre-push] Workflow-Security-Selbsttest (scripts/test_workflow_security.sh)"
+bash scripts/test_workflow_security.sh
+
 # KEYSTORE_*/UPLOAD_*-Secrets auf den Debug-Keystore zurück (gleiches Verhalten
 # wie in der CI ohne Secrets).
 #

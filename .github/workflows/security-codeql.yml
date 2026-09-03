@@ -9,11 +9,9 @@ on:
     # Wöchentlich Mo 04:00 UTC — Default-Branch-Scan unabhängig von PRs.
     - cron: "0 4 * * 1"
 
-# Least privilege: Lesen für den Checkout, Schreiben nur für Security-Events.
-permissions:
-  contents: read
-  security-events: write
+permissions: {}
 
+# Permissions are scoped to the analysis job below.
 # Ein aktiver Lauf pro Branch/PR — bei Re-Push wird der alte abgebrochen.
 concurrency:
   group: codeql-${{ github.ref }}
@@ -23,6 +21,9 @@ jobs:
   analyze:
     name: Analyze (Kotlin/Java)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
     timeout-minutes: 360
     strategy:
       fail-fast: false

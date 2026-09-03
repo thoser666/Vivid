@@ -88,6 +88,16 @@ Der `LogRedactor` schwärzt sensible Werte **bevor** sie in den `LogBuffer` gela
 
 Der Workflow `.github/workflows/security-snyk.yml` verwendet seit September 2026 nicht mehr die abgekündigte `snyk/actions/gradle-jdk17`-Docker-Action. Stattdessen werden JDK 17, `snyk/actions/setup@v1.0.0` und die Snyk-CLI direkt verwendet. Die CLI erhält gültige Verzeichnisnamen (`build,.gradle`) statt eines nicht unterstützten Glob-Musters. Test und Monitor haben jeweils ein 20-Minuten-Timeout; SARIF wird nur hochgeladen, wenn die CLI tatsächlich eine Datei erzeugt. Der Offline-Guard `scripts/test_snyk_workflow.sh` prüft diese Vorgaben.
 
+### Workflow-Härtung (Code-Scanning-Alerts)
+
+Die Code-Scanning-/Scorecard-Fundstellen zu GitHub-Workflows sind seit September 2026 im Quelltext behoben:
+
+- **Least-Privilege-Permissions:** Workflows mit Schreibrechten definieren `permissions: {}` auf Top-Level (alles verweigert) und vergeben die benötigten Rechte (`contents: write`, `security-events: write`, `pull-requests: write`) nur in dem Job, der sie braucht.
+- **Keine PR-Titel-Interpolation:** Der Dependabot-Auto-Merge-Workflow übergibt den PR-Titel als Step-Environment (`PR_TITLE: ${{ github.event.pull_request.title }}`) und verarbeitet ihn ausschließlich als quoted Shell-Variable — kein direktes `${{ }}`-Interpolieren in Shell-Strings (Script-Injection-Risiko).
+- **Regressions-Schutz:** `scripts/test_workflow_security.sh` (Teil des Pre-Push-Gates) prüft beide Vorgaben offline und verhindert das Wiedereinchecken unsicherer Muster.
+
+Verbleibende Scorecard-Hinweise (Pinned Dependencies für Python-Pakete, Branch Protection, Fuzzing) betreffen Repository-Einstellungen bzw. bewusst versionierte Build-Artefakte (F-Droid-Index, Gradle-Wrapper-JAR) und sind kein Anwendungscode.
+
 ### Transitive Dependency-Härtung
 
 `settings.gradle.kts` erzwingt für bekannte transitive Snyk-Fundstellen sichere Patchstände: Netty `4.1.137.Final`, Commons Lang `3.18.0` und Bouncy Castle `1.85`. Die Constraints gelten für alle Konfigurationen, einschließlich Android-Test-/Tooling-Abhängigkeiten. `scripts/test_dependency_security_constraints.sh` schützt die zentrale Konfiguration gegen versehentliches Entfernen.

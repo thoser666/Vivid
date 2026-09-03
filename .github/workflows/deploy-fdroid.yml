@@ -17,18 +17,19 @@ on:
         required: false
         default: 'latest'
 
+permissions: {}
+
 # Only one run at a time
 concurrency:
   group: fdroid-repo
   cancel-in-progress: true
 
-permissions:
-  contents: write
-
 jobs:
   build-repo:
     name: Build F-Droid Repository
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     timeout-minutes: 45
     
     steps:

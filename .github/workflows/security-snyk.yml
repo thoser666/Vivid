@@ -15,9 +15,7 @@ on:
     - cron: '0 4 * * 1'
   workflow_dispatch:
 
-permissions:
-  contents: read
-  security-events: write
+permissions: {}
 
 concurrency:
   group: snyk-${{ github.ref }}
@@ -31,6 +29,9 @@ jobs:
   snyk-test:
     name: Snyk Dependency Test
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
     timeout-minutes: 20
     steps:
       - name: Checkout code
@@ -89,6 +90,8 @@ jobs:
     name: Snyk Monitor (Dashboard)
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     timeout-minutes: 20
     steps:
       - name: Checkout code

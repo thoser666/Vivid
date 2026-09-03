@@ -228,9 +228,169 @@ class RootEncoderCameraControlsTest {
     }
 
     @Test
-    fun `selectCamera returns false`() {
+    fun `selectCamera delegates to switchCamera`() {
         val cam = camera()
 
-        assertFalse(RootEncoderCameraControls(cam).selectCamera("1"))
+        assertTrue(RootEncoderCameraControls(cam).selectCamera("1"))
+        verify { cam.switchCamera("1") }
+    }
+
+    @Test
+    fun `selectCamera returns false when switchCamera fails`() {
+        val cam = camera()
+        every { cam.switchCamera("9") } throws RuntimeException("camera busy")
+
+        assertFalse(RootEncoderCameraControls(cam).selectCamera("9"))
+    }
+
+    // --- Belichtung und Weißabgleich ---
+
+    @Test
+    fun `hasExposureControl is true when the camera offers a non-empty range`() {
+        val cam = camera()
+        every { cam.minExposure } returns -3
+        every { cam.maxExposure } returns 3
+
+        assertTrue(RootEncoderCameraControls(cam).hasExposureControl())
+    }
+
+    @Test
+    fun `hasExposureControl is false when min equals max`() {
+        val cam = camera()
+        every { cam.minExposure } returns 0
+        every { cam.maxExposure } returns 0
+
+        assertFalse(RootEncoderCameraControls(cam).hasExposureControl())
+    }
+
+    @Test
+    fun `getExposure delegates to the camera`() {
+        val cam = camera()
+        every { cam.exposure } returns 2
+
+        assertEquals(2, RootEncoderCameraControls(cam).getExposure())
+    }
+
+    @Test
+    fun `getExposure maps the camera limits to an IntRange`() {
+        val cam = camera()
+        every { cam.minExposure } returns -6
+        every { cam.maxExposure } returns 6
+
+        assertEquals(-6..6, RootEncoderCameraControls(cam).getExposureRange())
+    }
+
+    @Test
+    fun `getExposureRange is null for an invalid range`() {
+        val cam = camera()
+        every { cam.minExposure } returns 5
+        every { cam.maxExposure } returns -5
+
+        assertNull(RootEncoderCameraControls(cam).getExposureRange())
+    }
+
+    @Test
+    fun `setExposure delegates for an in-range value`() {
+        val cam = camera()
+        every { cam.minExposure } returns -3
+        every { cam.maxExposure } returns 3
+
+        assertTrue(RootEncoderCameraControls(cam).setExposure(2))
+        verify { cam.setExposure(2) }
+    }
+
+    @Test
+    fun `setExposure rejects values outside the supported range`() {
+        val cam = camera()
+        every { cam.minExposure } returns -3
+        every { cam.maxExposure } returns 3
+
+        assertFalse(RootEncoderCameraControls(cam).setExposure(10))
+        verify(exactly = 0) { cam.setExposure(any()) }
+    }
+
+    @Test
+    fun `isAutoExposureEnabled delegates to the camera`() {
+        val cam = camera()
+        every { cam.isAutoExposureEnabled } returns false
+
+        assertFalse(RootEncoderCameraControls(cam).isAutoExposureEnabled())
+    }
+
+    @Test
+    fun `enableAutoExposure delegates and returns the camera result`() {
+        val cam = camera()
+        every { cam.enableAutoExposure() } returns true
+
+        assertTrue(RootEncoderCameraControls(cam).enableAutoExposure())
+        verify { cam.enableAutoExposure() }
+    }
+
+    @Test
+    fun `disableAutoExposure delegates and returns true`() {
+        val cam = camera()
+
+        assertTrue(RootEncoderCameraControls(cam).disableAutoExposure())
+        verify { cam.disableAutoExposure() }
+    }
+
+    @Test
+    fun `hasWhiteBalanceControl is true when auto modes exist`() {
+        val cam = camera()
+        every { cam.autoWhiteBalanceModesAvailable } returns listOf(0, 1)
+
+        assertTrue(RootEncoderCameraControls(cam).hasWhiteBalanceControl())
+    }
+
+    @Test
+    fun `hasWhiteBalanceControl is false without auto modes`() {
+        val cam = camera()
+        every { cam.autoWhiteBalanceModesAvailable } returns emptyList()
+
+        assertFalse(RootEncoderCameraControls(cam).hasWhiteBalanceControl())
+    }
+
+    @Test
+    fun `enableAutoWhiteBalance uses the first available mode`() {
+        val cam = camera()
+        every { cam.autoWhiteBalanceModesAvailable } returns listOf(2, 5)
+        every { cam.enableAutoWhiteBalance(2) } returns true
+
+        assertTrue(RootEncoderCameraControls(cam).enableAutoWhiteBalance())
+        verify { cam.enableAutoWhiteBalance(2) }
+    }
+
+    @Test
+    fun `enableAutoWhiteBalance returns false without available modes`() {
+        val cam = camera()
+        every { cam.autoWhiteBalanceModesAvailable } returns emptyList()
+
+        assertFalse(RootEncoderCameraControls(cam).enableAutoWhiteBalance())
+    }
+
+    @Test
+    fun `disableAutoWhiteBalance delegates and returns true`() {
+        val cam = camera()
+
+        assertTrue(RootEncoderCameraControls(cam).disableAutoWhiteBalance())
+        verify { cam.disableAutoWhiteBalance() }
+    }
+
+    @Test
+    fun `getWhiteBalanceModesAvailable maps the camera list`() {
+        val cam = camera()
+        every { cam.autoWhiteBalanceModesAvailable } returns listOf(1, 2, 3)
+
+        assertEquals(listOf(1, 2, 3), RootEncoderCameraControls(cam).getWhiteBalanceModesAvailable())
+    }
+
+    @Test
+    fun `exposure helpers fail gracefully when the camera throws`() {
+        val cam = camera()
+        every { cam.minExposure } throws RuntimeException("not prepared")
+
+        assertFalse(RootEncoderCameraControls(cam).hasExposureControl())
+        assertNull(RootEncoderCameraControls(cam).getExposureRange())
+        assertFalse(RootEncoderCameraControls(cam).setExposure(0))
     }
 }

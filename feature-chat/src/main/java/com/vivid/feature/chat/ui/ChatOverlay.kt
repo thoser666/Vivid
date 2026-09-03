@@ -16,6 +16,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -264,6 +265,7 @@ private fun ChatMessageRow(
     val segments = parseMessageSegments(message.text, message.inlineEmotes, thirdPartyEmotes)
 
     FlowRow(
+        modifier = Modifier.alpha(deletedAlpha),
         horizontalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         // Reply-Indikator: Pfeil + Name der Eltern-Nachricht (wenn vorhanden)
@@ -313,7 +315,7 @@ private fun ChatMessageRow(
                     Text(
                         text = segment.text,
                         style = MaterialTheme.typography.bodySmall.copy(fontSize = fontSize),
-                        color = if (isDeleted) Color(0xFF666666) else if (message.isAction) Color(0xFFB0BEC5) else Color.White,
+                        color = if (message.isAction) Color(0xFFB0BEC5) else textColor,
                     )
                 }
                 is MessageSegment.Emote -> {

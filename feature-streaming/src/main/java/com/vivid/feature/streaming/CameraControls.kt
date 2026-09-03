@@ -69,4 +69,42 @@ interface CameraControls {
 
     /** Wechselt auf die Kamera mit der angegebenen ID. */
     fun selectCamera(cameraId: String): Boolean
+
+    // --- Belichtung und Weißabgleich ---
+
+    /** true, wenn die Kamera einen veränderbaren Belichtungsbereich anbietet. */
+    fun hasExposureControl(): Boolean
+
+    /** Aktueller Belichtungswert (EV-Stufe der Camera2-API). */
+    fun getExposure(): Int
+
+    /** Unterstützter Belichtungsbereich inklusive Grenzwerte. */
+    fun getExposureRange(): IntRange?
+
+    /** Setzt die Belichtungsstufe. */
+    fun setExposure(value: Int): Boolean
+
+    /** true, wenn die automatische Belichtung aktiv ist. */
+    fun isAutoExposureEnabled(): Boolean
+
+    /** Aktiviert die automatische Belichtung. */
+    fun enableAutoExposure(): Boolean
+
+    /** Deaktiviert die automatische Belichtung für manuelle Belichtung. */
+    fun disableAutoExposure(): Boolean
+
+    /** true, wenn der Weißabgleich über die Kamera-API steuerbar ist. */
+    fun hasWhiteBalanceControl(): Boolean
+
+    /** true, wenn der automatische Weißabgleich aktiv ist. */
+    fun isAutoWhiteBalanceEnabled(): Boolean
+
+    /** Aktiviert den automatischen Weißabgleich. */
+    fun enableAutoWhiteBalance(): Boolean
+
+    /** Sperrt den automatischen Weißabgleich. */
+    fun disableAutoWhiteBalance(): Boolean
+
+    /** Verfügbare automatische Weißabgleich-Modi. */
+    fun getWhiteBalanceModesAvailable(): List<Int>
 }

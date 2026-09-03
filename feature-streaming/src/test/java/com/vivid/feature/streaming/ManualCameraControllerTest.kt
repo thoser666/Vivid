@@ -65,16 +65,77 @@ class ManualCameraControllerTest {
         assertEquals(2, result.size)
     }
 
+    // --- Belichtung und Weißabgleich ---
+
+    @Test
+    fun `setExposure updates state only when the camera accepts the value`() {
+        every { controls.setExposure(2) } returns true
+        every { controls.setExposure(50) } returns false
+
+        assertTrue(controller.setExposure(2))
+        assertEquals(2, controller.exposure.value)
+
+        assertFalse(controller.setExposure(50))
+        assertEquals(2, controller.exposure.value)
+    }
+
+    @Test
+    fun `setAutoExposure toggles state only on success`() {
+        every { controls.disableAutoExposure() } returns true
+        every { controls.enableAutoExposure() } returns false
+
+        assertTrue(controller.setAutoExposure(false))
+        assertFalse(controller.autoExposureEnabled.value)
+
+        assertFalse(controller.setAutoExposure(true))
+        assertFalse(controller.autoExposureEnabled.value)
+    }
+
+    @Test
+    fun `setAutoWhiteBalance toggles state only on success`() {
+        every { controls.disableAutoWhiteBalance() } returns true
+        every { controls.enableAutoWhiteBalance() } returns false
+
+        assertTrue(controller.setAutoWhiteBalance(false))
+        assertFalse(controller.autoWhiteBalanceEnabled.value)
+
+        assertFalse(controller.setAutoWhiteBalance(true))
+        assertFalse(controller.autoWhiteBalanceEnabled.value)
+    }
+
+    @Test
+    fun `ISO is not exposed and EV maps to the exposure control`() {
+        every { controls.hasExposureControl() } returns true
+
+        assertFalse(controller.hasIsoControl())
+        assertTrue(controller.hasEvControl())
+    }
+
+    @Test
+    fun `hasEvControl is false without exposure control`() {
+        every { controls.hasExposureControl() } returns false
+
+        assertFalse(controller.hasEvControl())
+    }
+
     // --- syncState ---
 
     @Test
     fun `syncState updates all state flows`() {
         every { controls.getFocusDistance() } returns 0.3f
         every { lensController.getCurrentLens() } returns CameraLensController.LensType.TELE
+        every { controls.getExposureRange() } returns -3..3
+        every { controls.getExposure() } returns 1
+        every { controls.isAutoExposureEnabled() } returns false
+        every { controls.isAutoWhiteBalanceEnabled() } returns false
 
         controller.syncState()
 
         assertEquals(0.3f, controller.focusDistance.value)
         assertEquals(CameraLensController.LensType.TELE, controller.currentLens.value)
+        assertEquals(-3..3, controller.exposureRange.value)
+        assertEquals(1, controller.exposure.value)
+        assertFalse(controller.autoExposureEnabled.value)
+        assertFalse(controller.autoWhiteBalanceEnabled.value)
     }
 }

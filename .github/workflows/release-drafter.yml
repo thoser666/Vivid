@@ -15,9 +15,7 @@ on:
       - synchronize
   workflow_dispatch:
 
-permissions:
-  contents: write
-  pull-requests: read
+permissions: {}
 
 concurrency:
   group: release-drafter
@@ -26,6 +24,9 @@ concurrency:
 jobs:
   update_release_draft:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: read
     # Kein Release für Dependabot-Merges (Loop-Schutz)
     if: github.actor != 'dependabot[bot]' && github.actor != 'github-actions[bot]'
     steps:

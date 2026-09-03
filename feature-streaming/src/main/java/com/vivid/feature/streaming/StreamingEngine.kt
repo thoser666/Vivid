@@ -133,6 +133,12 @@ class StreamingEngine @Inject constructor(
 
     private var cameraControls: CameraControls? = null
     private var stabilizationController: CameraStabilizationController? = null
+    private var replayController: ReplayController? = null
+    private val idleReplayState = MutableStateFlow<ReplayState>(ReplayState.Idle)
+
+    /** Zustand der lokalen MP4-Replay-Aufnahme. */
+    val replayState: StateFlow<ReplayState>
+        get() = replayController?.state ?: idleReplayState
 
     // --- Manuelle Kamera-Steuerung ---
     private var manualCameraController: ManualCameraController? = null
@@ -496,6 +502,49 @@ class StreamingEngine @Inject constructor(
 
     /** Verfügbare Linsen. */
     fun getAvailableLenses(): List<LensInfo> = manualCameraController?.getAvailableLenses() ?: emptyList()
+
+    /** Startet eine lokale MP4-Aufnahme parallel zum Stream. */
+    fun startReplay(nowMillis: Long = System.currentTimeMillis()): Boolean {
+        val controller = replayController ?: ReplayController(
+            storage = replayStorage(context),
+            recorder = RootEncoderReplayRecorder(camera ?: return false),
+        ).also { replayController = it }
+        return controller.start(nowMillis)
+    }
+
+    /** Stoppt die lokale Replay-Aufnahme und gibt die Datei zurück. */
+    fun stopReplay(): java.io.File? = replayController?.stop()
+
+    /** Entfernt alte Replay-Dateien gemäß der Aufbewahrungsgrenze. */
+    fun pruneReplays() {
+        replayController?.prune()
+    }
+
+    /** Aktuelle manuelle Belichtungsstufe. */
+    val exposure: StateFlow<Int>
+        get() = manualCameraController?.exposure ?: MutableStateFlow(0)
+
+    /** Unterstützter Belichtungsbereich oder null. */
+    val exposureRange: StateFlow<IntRange?>
+        get() = manualCameraController?.exposureRange ?: MutableStateFlow(null)
+
+    /** Schaltet die automatische Belichtung. */
+    fun setAutoExposure(enabled: Boolean): Boolean =
+        manualCameraController?.setAutoExposure(enabled) ?: false
+
+    /** Setzt die Belichtungsstufe. */
+    fun setExposure(value: Int): Boolean =
+        manualCameraController?.setExposure(value) ?: false
+
+    /** Schaltet den automatischen Weißabgleich. */
+    fun setAutoWhiteBalance(enabled: Boolean): Boolean =
+        manualCameraController?.setAutoWhiteBalance(enabled) ?: false
+
+    /** true, wenn ISO auf RootEncoder 2.7.5 separat steuerbar ist (derzeit nein). */
+    fun hasIsoControl(): Boolean = manualCameraController?.hasIsoControl() ?: false
+
+    /** true, wenn der EV-Regler über den Camera2-Belichtungsbereich abgebildet werden kann. */
+    fun hasEvControl(): Boolean = manualCameraController?.hasEvControl() ?: false
 
     /**
      * Adapter, der nur die Fokus-Steuerung der [Camera2Base] (MultiCamera2)

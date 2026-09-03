@@ -32,6 +32,47 @@ class ManualCameraController(
     private val _currentLens = MutableStateFlow(CameraLensController.LensType.WIDE)
     val currentLens: StateFlow<CameraLensController.LensType> = _currentLens.asStateFlow()
 
+    // --- Belichtung und Weißabgleich ---
+
+    private val _exposure = MutableStateFlow(0)
+    val exposure: StateFlow<Int> = _exposure.asStateFlow()
+
+    private val _exposureRange = MutableStateFlow<IntRange?>(null)
+    val exposureRange: StateFlow<IntRange?> = _exposureRange.asStateFlow()
+
+    private val _autoExposureEnabled = MutableStateFlow(true)
+    val autoExposureEnabled: StateFlow<Boolean> = _autoExposureEnabled.asStateFlow()
+
+    private val _autoWhiteBalanceEnabled = MutableStateFlow(true)
+    val autoWhiteBalanceEnabled: StateFlow<Boolean> = _autoWhiteBalanceEnabled.asStateFlow()
+
+    /** Setzt die Belichtungsstufe, wenn die Kamera den Wert unterstützt. */
+    fun setExposure(value: Int): Boolean {
+        if (!controls.setExposure(value)) return false
+        _exposure.value = value
+        return true
+    }
+
+    /** Schaltet die automatische Belichtung aus oder wieder ein. */
+    fun setAutoExposure(enabled: Boolean): Boolean {
+        val changed = if (enabled) controls.enableAutoExposure() else controls.disableAutoExposure()
+        if (changed) _autoExposureEnabled.value = enabled
+        return changed
+    }
+
+    /** Schaltet den automatischen Weißabgleich aus oder wieder ein. */
+    fun setAutoWhiteBalance(enabled: Boolean): Boolean {
+        val changed = if (enabled) controls.enableAutoWhiteBalance() else controls.disableAutoWhiteBalance()
+        if (changed) _autoWhiteBalanceEnabled.value = enabled
+        return changed
+    }
+
+    /** true, wenn ISO auf dem aktiven Kamera-Backend separat steuerbar ist. */
+    fun hasIsoControl(): Boolean = false
+
+    /** true, wenn EV als separater Parameter verfügbar ist; Belichtung nutzt stattdessen [exposureRange]. */
+    fun hasEvControl(): Boolean = controls.hasExposureControl()
+
     /** Wechselt auf die angegebene Linse. */
     fun selectLens(lensId: String): Boolean {
         val success = lensController.selectLens(lensId)
@@ -55,5 +96,9 @@ class ManualCameraController(
     fun syncState() {
         _focusDistance.value = controls.getFocusDistance()
         _currentLens.value = lensController.getCurrentLens()
+        _exposureRange.value = controls.getExposureRange()
+        _exposure.value = controls.getExposure()
+        _autoExposureEnabled.value = controls.isAutoExposureEnabled()
+        _autoWhiteBalanceEnabled.value = controls.isAutoWhiteBalanceEnabled()
     }
 }

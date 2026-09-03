@@ -10,8 +10,7 @@ on:
     types: [published]
   workflow_dispatch:
 
-permissions:
-  contents: write
+permissions: {}
 
 # Serialisiert: zwei gleichzeitige Release-Events dürfen nicht um denselben
 # Commit auf develop kämpfen.
@@ -23,6 +22,8 @@ jobs:
   update:
     name: Mirror GitHub Releases → CHANGELOG.md
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     # Gleiche Guard-Philosophie wie in release-pipeline.yml: Dependabot
     # (auch per manuellem Merge) stößt keine Automatik an.
     if: github.actor != 'dependabot[bot]'

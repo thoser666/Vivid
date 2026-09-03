@@ -84,9 +84,63 @@ class RootEncoderCameraControls(
     }.getOrDefault("unknown")
 
     override fun selectCamera(cameraId: String): Boolean = runCatching {
-        // Camera2Base doesn't expose a direct selectCamera method
-        // This would require accessing the internal Camera2ApiManager
-        // For now, return false as lens switching isn't directly supported
-        false
+        camera.switchCamera(cameraId)
+        true
     }.getOrDefault(false)
+
+    // --- Belichtung und Weißabgleich ---
+
+    override fun hasExposureControl(): Boolean = runCatching {
+        camera.getMinExposure() < camera.getMaxExposure()
+    }.getOrDefault(false)
+
+    override fun getExposure(): Int = runCatching { camera.getExposure() }.getOrDefault(0)
+
+    override fun getExposureRange(): IntRange? = runCatching {
+        val min = camera.getMinExposure()
+        val max = camera.getMaxExposure()
+        if (min <= max) min..max else null
+    }.getOrNull()
+
+    override fun setExposure(value: Int): Boolean = runCatching {
+        val range = getExposureRange() ?: return false
+        if (value !in range) return false
+        camera.setExposure(value)
+        true
+    }.getOrDefault(false)
+
+    override fun isAutoExposureEnabled(): Boolean = runCatching {
+        camera.isAutoExposureEnabled
+    }.getOrDefault(true)
+
+    override fun enableAutoExposure(): Boolean = runCatching {
+        camera.enableAutoExposure()
+    }.getOrDefault(false)
+
+    override fun disableAutoExposure(): Boolean = runCatching {
+        camera.disableAutoExposure()
+        true
+    }.getOrDefault(false)
+
+    override fun hasWhiteBalanceControl(): Boolean = runCatching {
+        camera.getAutoWhiteBalanceModesAvailable().isNotEmpty()
+    }.getOrDefault(false)
+
+    override fun isAutoWhiteBalanceEnabled(): Boolean = runCatching {
+        camera.isAutoWhiteBalanceEnabled
+    }.getOrDefault(true)
+
+    override fun enableAutoWhiteBalance(): Boolean = runCatching {
+        val mode = camera.getAutoWhiteBalanceModesAvailable().firstOrNull() ?: return false
+        camera.enableAutoWhiteBalance(mode)
+    }.getOrDefault(false)
+
+    override fun disableAutoWhiteBalance(): Boolean = runCatching {
+        camera.disableAutoWhiteBalance()
+        true
+    }.getOrDefault(false)
+
+    override fun getWhiteBalanceModesAvailable(): List<Int> = runCatching {
+        camera.getAutoWhiteBalanceModesAvailable()
+    }.getOrDefault(emptyList())
 }
