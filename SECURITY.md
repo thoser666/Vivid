@@ -102,7 +102,7 @@ Verbleibende Scorecard-Hinweise (Repository-Einstellungen bzw. bewusst versionie
 
 - **BinaryArtifacts (#34–#40):** F-Droid-Index-JARs (`docs/fdroid/{repo,archive}`) und der Gradle-Wrapper sind erforderliche, absichtlich versionierte Artefakte.
 - **BranchProtection (#23), CodeReview (#44), Fuzzing (#43), CIIBestPractices (#45):** GitHub-Repo-Einstellungen bzw. Prozess-Themen, keine Quellcode-Änderungen.
-- **PinnedDependencies (#41–#42):** `pip install` in deploy-pages/deploy-fdroid — die Pakete sind auf feste Versionen gesetzt; ein SHA-256-Pinning der Wheel-Artefakte ist als Härtungsschritt offen.
+- **PinnedDependencies (#41–#42): ✅ behoben (03.09.2026)** — `pip install` in deploy-pages/deploy-fdroid ist jetzt SHA-256-verifiziert (`--require-hashes`): markdown `3.10.3` (Wheel-Hash verifiziert) und fdroidserver `2.4.5` (sdist-Hash verifiziert). Der Guard `scripts/test_pip_pinning.sh` (Teil des Pre-Push-Gates) erzwingt die Hash-Pflicht für alle pip-Installationen in den Workflows.
 
 ### Transitive Dependency-Härtung
 

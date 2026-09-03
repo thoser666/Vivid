@@ -46,7 +46,13 @@ jobs:
           python-version: '3.12'
       
       - name: Install fdroidserver
-        run: pip install fdroidserver
+        # SHA-256-verifizierte Installation (Scorecard PinnedDependencies):
+        # fdroidserver 2.4.5 als sdist mit fixem Hash; Transitive Dependencies
+        # bleiben vom Resolver (nicht schreibrelevante Build-Zeit-Abhängigkeit).
+        run: |
+          printf 'fdroidserver==2.4.5 \\
+    --hash=sha256:f9b52646264c732678e32e37e23a995db20cc61d45622dda5830ce23255547f4\n' > /tmp/requirements-fdroid.txt
+          pip install --require-hashes -r /tmp/requirements-fdroid.txt
       
       - name: Determine version to build
         id: version
