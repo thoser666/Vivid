@@ -170,7 +170,7 @@ Sektionen gespeichert sind, springt das Passing-Badge auf grün.
 |--------|-----------|-------------|-------------------------|
 | ✅ | `test` | Öffentliches FLOSS-Test-Suite + dokumentierte Ausführung | ~800 Unit-Tests über 10 Module; Ausführung dokumentiert: CI-Workflow („Run Tests") + dieses Repo (README/CONTRIBUTING ergänzen); `./gradlew test testFossDebug` |
 | ✅ | `test_invocation` | Standard-Aufruf der Suite | Gradle-Standard (`./gradlew testDebugUnitTest`), dokumentiert in CONTRIBUTING.md + CI-Workflow |
-| ✅ | `test_most` | Abdeckung der meisten Branches/Features | **Gemessen (03.09.2026):** Kover-Coverage-Report über alle 9 Module (JaCoCo-kompatibles XML + HTML, CI-Artefakt `coverage-report`): **LINE 35,3 %** gesamt (core 85 %, domain 95,5 %, feature-* 30 %, app 18 %), BRANCH 24,6 %, METHOD 42,5 % bei ~800 Unit-Tests. Der dynamische Analyse-Fallback-Text (≥ 80 % Branch-Coverage) deckt die dynamische Analyse-Interpretation mit ab; die Steigerung der Feature-Modul-Abdeckung ist dokumentiertes Ziel (SonarCloud-Budget nach Quality-Gate-Prioritäten) |
+| ✅ | `test_most` | Abdeckung der meisten Branches/Features | **Gemessen (04.09.2026):** Kover-Coverage-Report über alle 9 Module (JaCoCo-kompatibles XML + HTML, CI-Artefakt `coverage-report`): **LINE 35,3 %** gesamt (core 85 %, domain 95,5 %, feature-* 30 %, app 18 %), BRANCH 24,6 %, METHOD 42,5 % bei ~800 Unit-Tests. **Ausbau (04.09.):** feature-streaming kritische Pfade +9 Tests → Modul LINE 48,3 %, BRANCH 51,1 %, StreamingEngine 99,5 %, LUT-Companion 100 %. Der dynamische Analyse-Fallback-Text (≥ 80 % Branch-Coverage) deckt die dynamische Analyse-Interpretation mit ab; die Steigerung der Feature-Modul-Abdeckung ist dokumentiertes Ziel (SonarCloud-Budget nach Quality-Gate-Prioritäten) |
 | ✅ | `test_continuous_integration` | CI läuft bei jedem Push | GitHub Actions: Build & Test, CodeQL, Snyk, Scorecard, Dependency Submission, Reproducibility (nightly); lokales Pre-Push-Gate (Tests + Lint + Guards) |
 
 ### Tests für neue Funktionen
@@ -354,7 +354,7 @@ Maintainer vor dem Speichern inhaltlich bestätigen.
 | 33 | `build_floss_tools` | Met | Vollständige FOSS-Toolchain (foss-Flavor für F-Droid) |
 | 34 | `test` | Met URL | ~800 Unit-Tests in `src/test` je Modul; Ausführung dokumentiert in CONTRIBUTING.md + CI-Workflow |
 | 35 | `test_invocation` | Met | `./gradlew testDebugUnitTest` (Gradle-Standard) |
-| 36 | `test_most` | Met justification *(SUGGESTED)* | Gemessen via Kover-Report (CI-Artefakt `coverage-report`): LINE 35,3 %, BRANCH 24,6 %, METHOD 42,5 % über alle 9 Module (core 85 %, domain 95,5 %); Steigerung Feature-Module ist dokumentiertes Ziel |
+| 36 | `test_most` | Met justification *(SUGGESTED)* | Gemessen via Kover-Report (CI-Artefakt `coverage-report`): LINE 35,3 % gesamt, BRANCH 24,6 %, METHOD 42,5 % über alle 9 Module (core 85 %, domain 95,5 %); kritischste Pfade: StreamingEngine 99,5 % LINE, feature-streaming BRANCH 51,1 % (04.09.2026); Steigerung der übrigen Feature-Module ist dokumentiertes Ziel |
 | 37 | `test_continuous_integration` | Met | GitHub Actions bei jedem Push (Build & Test, Security-Suite); lokales Pre-Push-Gate |
 | 38 | `test_policy` | Met | Testpflicht für neue Features (CONTRIBUTING.md) |
 | 39 | `tests_are_added` | Met URL | PARITY.md-Log dokumentiert Tests je Feature (z. B. 6× Engine, 10× Replay, 71× Streaming) |
