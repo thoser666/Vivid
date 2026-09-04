@@ -33,7 +33,10 @@ echo "   Moblin-Features gefunden: $MOBLIN_COUNT"
 
 echo "▶ [moblin-check] Lade PARITY.md..."
 
-PARITY_COUNT=$(grep -cE "^\| [A-ZÄÖÜa-zäöü]" "$PARITY_FILE" 2>/dev/null || echo 0)
+# grep -c gibt bei 0 Treffern "0" UND Exit 1 zurueck - das `|| echo 0`
+# wuerde daher eine zweite Zeile anhaengen. Deshalb: Zuweisung mit explizitem
+# Fallback statt ODER-Kette.
+PARITY_COUNT=$(grep -cE "^\| [A-ZÄÖÜa-zäöü]" "$PARITY_FILE" 2>/dev/null) || PARITY_COUNT=0
 echo "   PARITY-Features gefunden: $PARITY_COUNT"
 
 echo "▶ [moblin-check] Vergleiche Features..."
@@ -90,8 +93,15 @@ NEW_FEATURES=0
         done <<< "$keywords"
         
         if [ "$found" -eq 0 ]; then
-            echo "- ❌ **$feature**"
             NEW_FEATURES=$((NEW_FEATURES + 1))
+            echo "### $NEW_FEATURES. $feature"
+            echo ""
+            echo "❌ Noch nicht im PARITY-Tracker. Antwortbogen (Kriterien: docs/vision.md):"
+            echo ""
+            echo "- [ ] **Vision-Check (5 Fragen):** Streamer-Nutzen · Mobile-Realität · Parität/Ökosystem · Wartbarkeit · FOSS — Ergebnis: ☐ Aufnehmen ☐ Zurückstellen ☐ Ablehnen"
+            echo "- [ ] **Feature-Familie / vermuteter PARITY-Bucket:** ___"
+            echo "- [ ] **Ziel-Milestone:** ☐ M2 ☐ M3 ☐ M4 ☐ Backlog"
+            echo ""
         fi
     done < "$TMP_DIR/moblin_features.txt"
     
@@ -99,7 +109,7 @@ NEW_FEATURES=0
     if [ "$NEW_FEATURES" -gt 0 ]; then
         echo "**$NEW_FEATURES neue/vollständig fehlende Features gefunden.**"
         echo ""
-        echo "→ Vorschlag: Gap-Analyse durchführen und PARITY.md aktualisieren."
+        echo "→ Vorschlag: Jedes Finding unten mit dem Vision-Antwortbogen bewerten (docs/vision.md), dann PARITY.md aktualisieren oder dokumentiert ablehnen."
     else
         echo "**✅ Keine neuen Features gefunden — PARITY.md ist aktuell.**"
     fi
