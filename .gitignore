@@ -133,3 +133,4 @@ gradle/gradle-daemon-jvm.properties
 
 # Ausgabe des Moblin-Feature-Checks (CI-Artefakt, kein Repo-Inhalt)
 /report.md
+.kotlin/
