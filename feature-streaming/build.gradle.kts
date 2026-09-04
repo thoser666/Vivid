@@ -33,6 +33,9 @@ android {
         unitTests.all {
             it.useJUnitPlatform()
         }
+        // Robolectric: gemergtes Manifest + Ressourcen in die JVM-Tests laden
+        // (nötig für FileProvider-Metadaten im shareIntent-Test)
+        unitTests.isIncludeAndroidResources = true
     }
 }
 
@@ -88,4 +91,12 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.turbine)
     testImplementation(libs.androidx.core.testing)
+
+    // Robolectric: echte android.graphics.Bitmap/Intent/FileProvider-APIs auf der JVM.
+    // Robolectric ist JUnit4-basiert -> läuft hier über den Vintage-Engine auf der
+    // JUnit-Platform (das Modul testet ansonsten mit Jupiter).
+    testImplementation(libs.junit)
+    testImplementation(libs.robolectric.core)
+    testImplementation(libs.androidx.test.core)
+    testRuntimeOnly(libs.junit.vintage.engine)
 }

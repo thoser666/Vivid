@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- FileProvider-Pfade für die Robolectric-Tests: root-path "/" kanonisiert
+     plattformübergreifend zur Laufwerks-/Dateisystemwurzel (Windows: "C:\",
+     Linux: "/") und matcht damit jede Testdatei — nötig, weil Robolectric
+     Temp-Pfade außerhalb der Prozess-CWD legt. Gilt nur im Test, nicht in der App. -->
+<paths>
+    <root-path
+        name="test-root"
+        path="/" />
+</paths>
