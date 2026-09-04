@@ -115,4 +115,9 @@ dependencies {
     testImplementation(libs.robolectric.core)
     testImplementation(libs.androidx.test.core)
     testRuntimeOnly(libs.junit.vintage.engine)
+
+    // Compose-UI-Tests unter Robolectric: createComposeRule() + Semantics-Tree
+    // (ui-test-manifest registriert die ComponentActivity für die Test-Regel).
+    testImplementation(libs.androidx.ui.test.junit4)
+    debugImplementation(libs.androidx.ui.test.manifest)
 }

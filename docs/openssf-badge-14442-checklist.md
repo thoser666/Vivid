@@ -177,9 +177,9 @@ Legende: **M** = MUST, **S** = SHOULD, **G** = SUGGESTED. (N/A) = nicht zutreffe
 | `tests_documented_added` | S | **Met URL** | `https://github.com/thoser666/Vivid/blob/develop/CONTRIBUTING.md` (test obligation per feature) |
 | `automated_integration_testing` | S | **Met** | Instrumented/emulator test job in CI varies inputs across device configurations (androidTest + Robolectric suites). |
 | `regression_tests_added50` | S | **Met** | At least half of proposed regression tests are added with fixes (verified in PR review). |
-| `test_statement_coverage80` | S | **Uj** | Measured via Kover: LINE 35.3 % overall (core 85 %, domain 95.5 %); coverage increase is a documented goal (docs/cii-best-practices-badge.md). |
+| `test_statement_coverage80` | S | **Uj** | Measured via Kover (merged, 9 modules): LINE 47.2 % overall after the Robolectric-Compose round (feature-streaming 66.6 %, help 100 %, about 61.7 %); 80 % statement coverage is a documented goal (docs/cii-best-practices-badge.md). |
 | `test_branch_coverage80` | S | **Uj** | Measured via Kover: BRANCH 24.6 % overall; critical paths (StreamingEngine 99.5 %) covered — increase documented as goal. |
-| `test_statement_coverage90` | S | **Uj** | See `test_statement_coverage80` — measured LINE 35.3 %; documented goal. |
+| `test_statement_coverage90` | S | **Uj** | See `test_statement_coverage80` — measured LINE 47.2 %; documented goal. |
 | `warnings_strict` | S | **Met** | Lint runs with `warningsAsErrors = true` (blocking in pre-push gate and CI). |
 | `external_dependencies` | S | **Met** | Complete dependency list in Gradle version catalog (`gradle/libs.versions.toml`); monitored via Dependabot + Snyk. |
 | `dependency_monitoring` | S | **Met** | Dependabot + Renovate (auto-PRs) and Snyk vulnerability monitoring in CI. |

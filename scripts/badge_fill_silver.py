@@ -182,9 +182,10 @@ GROUP_TESTING = [
     ("tests_documented_added", "Met",
      f"{DOC_CONTRIBUTING} documents the test obligation for change proposals (tests required per feature)."),
     ("test_statement_coverage80", "Unmet",
-     "Currently measured at ~48% statement coverage module-wide (Kover report in CI; core 85%, domain 95%, "
-     "features ~30%). Actively raising coverage toward 80%: Robolectric suites added for streaming "
-     "(48.6%) and UI composables are the next target."),
+     "Currently measured at 47.2% line coverage overall (Kover merged report in CI; core 89%, "
+     "feature-streaming 66.6% after the Robolectric-Compose round, help UI 100%, about 62%; "
+     "feature-settings and feature-widgets remain the main gaps). Actively raising coverage toward 80%; "
+     "next targets are settings/widgets UI coverage."),
 ]
 
 # Chunk 9: security & crypto (MUST, justification required)
