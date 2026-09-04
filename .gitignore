@@ -130,3 +130,6 @@ gradle/gradle-daemon-jvm.properties
 
 # Sync-/Backup-Tool-Konfliktkopien (Name clash / Delete conflict)
 *(# *)*
+
+# Ausgabe des Moblin-Feature-Checks (CI-Artefakt, kein Repo-Inhalt)
+/report.md

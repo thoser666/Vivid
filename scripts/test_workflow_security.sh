@@ -45,6 +45,33 @@ grep -Fq 'printf' "$file" \
 grep -Fq '$PR_TITLE' "$file" \
   || fail "Pull-request title must be consumed through the environment"
 
+# Moblin weekly check: the github-script step must dedup open issues, otherwise
+# every run creates a new (false-positive) issue.
+file=.github/workflows/check-moblin-features.yml
+grep -Fq 'issues.listForRepo' "$file" \
+  || fail "check-moblin github-script must list open moblin issues before creating a new one"
+grep -Fq 'issues.createComment' "$file" \
+  || fail "check-moblin github-script must comment on the existing issue instead of duplicating"
+
+# The comparison script filters bare URL rows (not features), maps common
+# English feature words onto the German PARITY vocabulary ("battery" -> "akku")
+# and strips plural-s - otherwise tracked features are reported as missing
+# ("Battery indicator", "Take snapshots") and every weekly run files a
+# false-positive issue.
+file=scripts/check_moblin_features.sh
+grep -Eq "grep -Ev '\^https\?://'" "$file" \
+  || fail "moblin check must filter bare URL rows"
+grep -Fq 'variants="$variants akku"' "$file" \
+  || fail "moblin check must map English keywords onto German PARITY terms"
+grep -Fq 'variants="$variants ${kw%s}"' "$file" \
+  || fail "moblin check must try the singular form alongside the plural"
+grep -Eq 'break 2' "$file" \
+  || fail "moblin check must stop at the first characteristic keyword hit"
+grep -Fq 'take|this|that|with|from|into' "$file" \
+  || fail "moblin check must filter generic words to avoid substring false alarms"
+grep -Fq 'variants="$variants auflösung"' "$file" \
+  || fail "moblin check must map resolution onto the German PARITY term"
+
 # Security scanning jobs retain only the permission needed for SARIF upload.
 grep -A5 -F 'snyk-test:' .github/workflows/security-snyk.yml \
   | grep -Fq 'security-events: write' \
