@@ -50,8 +50,12 @@ Sektionen gespeichert sind, springt das Passing-Badge auf grün.
 
 **Restschritte (ca. 30–45 Minuten):**
 
-1. `https://www.bestpractices.dev/en/projects/14442/edit` öffnen
-   (angemeldet als thoser666)
+1. Zuerst **anmelden** (GitHub-OAuth als thoser666, oben rechts). Ohne Login
+   rendert das Portal das Formular nur **lesend mit ausgegrauten Feldern**.
+2. Dann das Edit-Formular öffnen:
+   `https://www.bestpractices.dev/en/projects/14442/passing/edit`
+   (⚠️ nicht `/edit` — das gibt 404; der Link „Edit“ auf der Projektseite
+   führt automatisch auf die richtige URL)
 2. Sektion für Sektion durchgehen und den **Antwortbogen** unten
    („in Formular-Reihenfolge, alle 67 Passing-Kriterien“) übernehmen —
    Radio-Button-Auswahl + kopierfertige Werte/Begründungen stehen je Zeile
