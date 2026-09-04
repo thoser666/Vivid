@@ -134,3 +134,6 @@ gradle/gradle-daemon-jvm.properties
 # Ausgabe des Moblin-Feature-Checks (CI-Artefakt, kein Repo-Inhalt)
 /report.md
 .kotlin/
+
+# Badge-Portal-Session-Cookie (nur lokal, niemals committen)
+/.badge_session
