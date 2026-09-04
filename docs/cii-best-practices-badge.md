@@ -36,29 +36,34 @@
 
 ---
 
-## Anmeldung: So geht's (5 Minuten)
+## Anmeldung: Status + Restschritte
 
-1. https://www.bestpractices.dev/en/projects/new öffnen
-2. Mit GitHub-Konto (thoser666) anmelden
-3. Repo-URL eintragen: `https://github.com/thoser666/Vivid`
-4. Kriterien durchgehen — diese Datei liefert je Kriterium Status + Evidenz;
-   N/A-Begründungen sind unten vorgeformt und können 1:1 übernommen werden
-5. Nach dem Speichern vergibt das Portal eine **Projekt-ID** (Zahl in der URL,
-   z. B. `…/projects/1234`). Dann nur noch:
+**✅ Projekt angelegt (04.09.2026):** [Projekt 14442](https://www.bestpractices.dev/en/projects/14442)
+(`badge_level = in_progress`, `badge_percentage_0 = 22 %`). Die Badge-Zeile im
+README ist auf die echte ID umgestellt.
 
-   ```bash
-   # Projekt-ID einsetzen und committen:
-   #   README.md → https://bestpractices.dev/projects/PLACEHOLDER_ID/badge
-   sed -i 's/PLACEHOLDER_ID/<NEUE_ID>/' README.md
-   git add README.md && git commit -m "docs: activate OpenSSF badge (<NEUE_ID>)" && git push
-   ```
+**⚠️ Offen: Formular vollständig ausfüllen.** Bisher sind nur ~15 Kriterien
+beantwortet (Basics komplett, Change Control teilweise) — der Rest steht auf
+unbeantwortet (`?`), daher zeigen Reporting/Quality/Security/Analysis rot.
+Der Formular-Editor bearbeitet die Sektionen einzeln; erst wenn **alle**
+Sektionen gespeichert sind, springt das Passing-Badge auf grün.
 
-   Die Badge-Zeile ist bereits im README vorbereitet (Zeile unter dem
-   CI-Badge, mit HTML-Kommentar-Anweisung direkt daneben). Badge-Formate
-   für andere Kontexte:
-   - Flach: `https://bestpractices.dev/projects/<ID>/badge`
-   - Für die Projektseite: `https://bestpractices.dev/en/projects/<ID>.json`
-     (Metadaten) — empfohlen als Verweis zusätzlich zur Checkliste
+**Restschritte (ca. 30–45 Minuten):**
+
+1. `https://www.bestpractices.dev/en/projects/14442/edit` öffnen
+   (angemeldet als thoser666)
+2. Sektion für Sektion durchgehen und den **Antwortbogen** unten
+   („in Formular-Reihenfolge, alle 67 Passing-Kriterien“) übernehmen —
+   Radio-Button-Auswahl + kopierfertige Werte/Begründungen stehen je Zeile
+3. Empfohlene Zusatzfelder (SUGGESTED, für Vivid trivial):
+   `homepage_url` = `https://thoser666.github.io/Vivid/`,
+   `report_url` = `https://github.com/thoser666/Vivid/issues`,
+   `crypto_used_network`/`crypto_tls12` = Met (Plattform-TLS)
+4. **Jede Sektion speichern** (der Editor speichert pro Sektion — nicht erst
+   am Ende!); danach prüfen: Projektseite muss `badge_percentage_0 = 100 %`
+   und Badge-Level **passing** zeigen
+5. Silver-only-Kriterien (`test_statement_coverage80`, `two_person_review`,
+   `require_2FA`, …) dürfen leer/Unmet bleiben — die blockieren Passing nicht
 
 ---
 

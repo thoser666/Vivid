@@ -10,7 +10,7 @@
 ![GitHub release](https://img.shields.io/github/v/release/thoser666/Vivid?style=for-the-badge)
 ![GitHub stars](https://img.shields.io/github/stars/thoser666/Vivid?style=for-the-badge)
 ![CI](https://img.shields.io/github/actions/workflow/status/thoser666/Vivid/android-ci.yml?branch=develop&style=for-the-badge&label=CI)
-![OpenSSF Best Practices](https://bestpractices.dev/projects/PLACEHOLDER_ID/badge) <!-- nach der Registrierung auf bestpractices.dev: PLACEHOLDER_ID durch die vergebene Projekt-ID ersetzen -->
+![OpenSSF Best Practices](https://bestpractices.dev/projects/14442/badge)
 
 **Professional IRL streaming for Android — aiming for full feature parity with Moblin**
 
