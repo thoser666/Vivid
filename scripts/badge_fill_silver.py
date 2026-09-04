@@ -30,6 +30,7 @@ import http.cookiejar
 import json
 import re
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -70,10 +71,9 @@ GROUP_GOV = [
      "responsibilities: maintainer merges and releases, contributors open issues/PRs, CI enforces gates. "
      "Role assignments are visible in GitHub (thoser666 = owner/admin)."),
     ("access_continuity", "Met",
-     "Continuity: the GitHub repository, Actions secrets, F-Droid signing and release credentials are "
-     "administered by the maintainer account with documented procedures (CONTRIBUTING.md release flow, "
-     "SECURITY.md); the repository itself is public so any successor can fork and continue; releases are "
-     "reproducible from source via CI."),
+     f"{DOC_CONTRIBUTING} and {DOC_SECURITY} document continuity: repository, CI, secrets and release "
+     "procedures are code and docs in the public repo, so any successor can fork and continue within a "
+     "week of losing the maintainer; credentials are GitHub-administered."),
 ]
 
 # Chunk 2: documentation (MUST; roadmap/architecture/security/quick_start/achievements URL required, current text)
@@ -317,8 +317,9 @@ def build_opener_with_cookie(cookie_value: str) -> urllib.request.OpenerDirector
 
 
 def fetch(opener: urllib.request.OpenerDirector, url: str, data: bytes | None = None,
-          headers: dict[str, str] | None = None) -> tuple[int, urllib.parse.ParseResult, str, dict[str, str]]:
-    req = urllib.request.Request(url, data=data, headers=headers or {})
+          headers: dict[str, str] | None = None,
+          method: str | None = None) -> tuple[int, urllib.parse.ParseResult, str, dict[str, str]]:
+    req = urllib.request.Request(url, data=data, headers=headers or {}, method=method)
     try:
         with opener.open(req, timeout=60) as resp:
             body = resp.read().decode("utf-8", errors="replace")
@@ -366,6 +367,20 @@ def encode_form(group_name: str, entries: list[tuple[str, str, str]], csrf: str)
     return data
 
 
+def _cache_busted_status_map() -> dict[str, str]:
+    """Fetch project JSON with a cache-buster; retry briefly on CDN lag."""
+    last: dict[str, str] = {}
+    for attempt in range(4):
+        status, _, body, _ = fetch(
+            urllib.request.build_opener(), f"{JSON_URL}?cb={int(time.time() * 1000)}-{attempt}"
+        )
+        if status == 200:
+            last = json.loads(body)
+            return last
+        time.sleep(1.5)
+    return last
+
+
 def apply_group(opener: urllib.request.OpenerDirector, csrf: str, group_name: str,
                 entries: list[tuple[str, str, str]]) -> tuple[int, list[str], str]:
     """Send one chunk, then verify against the project JSON.
@@ -376,8 +391,12 @@ def apply_group(opener: urllib.request.OpenerDirector, csrf: str, group_name: st
     Returns (landed_count, missing_criteria, possibly_refreshed_csrf).
     """
     data = encode_form(group_name, entries, csrf)
+    # IMPORTANT: the sectioned edit URL is the real update endpoint
+    # (routes.rb: match 'projects/:id/:section/edit' => 'projects#update').
+    # PATCHing /projects/:id instead renders/silently discards the change.
     status, final, body, _ = fetch(
-        opener, f"{BASE}/projects/{PROJECT_ID}", data=data,
+        opener, EDIT_URL, data=data,
+        method="PATCH",
         headers={
             "Content-Type": "application/x-www-form-urlencoded",
             "X-CSRF-Token": csrf,
@@ -385,11 +404,16 @@ def apply_group(opener: urllib.request.OpenerDirector, csrf: str, group_name: st
             "User-Agent": "vivid-badge-fill/1.0 (local script)",
         },
     )
+    if status == 404:
+        sys.exit(f"[{group_name}] HTTP 404 - PATCH route not reached. This is a script bug "
+                 "(wrong method/URL); please report it.")
+    if status >= 500:
+        sys.exit(f"[{group_name}] HTTP {status} server error - aborting.")
     if status in (401, 403) or (status in (301, 302, 303) and "/login" in (final.path or "")):
         sys.exit(f"[{group_name}] HTTP {status} -> session expired. Re-export the cookie and re-run "
                  "(already-saved chunks are simply re-sent, which is harmless).")
     if status == 409:
-        print(f"  [{group_name}] HTTP 409 conflict (repo_url change guard) - skip.", file=sys.stderr)
+        print(f"  [{group_name}] HTTP 409 conflict (stale lock/repo_url guard) - skip.", file=sys.stderr)
         return 0, [c for c, _, _ in entries], csrf
 
     # Refresh CSRF token if the response carries a fresh one.
@@ -398,15 +422,22 @@ def apply_group(opener: urllib.request.OpenerDirector, csrf: str, group_name: st
     if m and m.group(1) != csrf:
         new_csrf = m.group(1)
 
-    # Authoritative verification: what actually landed?
-    status_map = fetch_status_map()
+    # Authoritative verification: what actually landed? (CDN lag tolerated
+    # with a short retry loop; a criterion counts as landed when the stored
+    # status equals what we sent.)
     landed, missing = 0, []
-    for crit, want, _just in entries:
-        got = status_map.get(f"{crit}_status")
-        if got == want:
-            landed += 1
-        else:
-            missing.append(f"{crit} (want {want}, have {got})")
+    for attempt in range(3):
+        status_map = _cache_busted_status_map()
+        landed, missing = 0, []
+        for crit, want, _just in entries:
+            got = status_map.get(f"{crit}_status")
+            if got == want:
+                landed += 1
+            else:
+                missing.append(f"{crit} (want {want}, have {got})")
+        if not missing:
+            break
+        time.sleep(2)
     if missing:
         text = re.sub(r"<script.*?</script>", " ", body, flags=re.S)
         text = re.sub(r"<[^>]+>", " ", text)
