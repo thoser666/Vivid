@@ -42,6 +42,9 @@ dependencies {
     implementation(project(":core"))
     implementation(project(":domain"))
 
+    // Persistence (verschlüsselte Twitch-OAuth-Token-Speicherung)
+    implementation(libs.androidx.datastore.preferences)
+
     // Compose
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.material3)

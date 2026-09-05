@@ -27,6 +27,12 @@ data class TwitchOAuthTokenRequest(
     val verifier: String,
 )
 
+data class TwitchOAuthRefreshRequest(
+    val clientId: String,
+    val refreshToken: String,
+    val clientSecret: String? = null,
+)
+
 data class TwitchOAuthTokenResponse(
     val accessToken: String,
     val refreshToken: String,
@@ -106,9 +112,36 @@ object TwitchOAuth {
                 append("code_verifier", request.verifier)
             },
         )
+        return parseTokenResponse(response, "Twitch-Token-Austausch fehlgeschlagen")
+    }
+
+    /**
+     * Tauscht ein gültiges Refresh-Token gegen ein frisches Token-Paar
+     * (`grant_type=refresh_token`).
+     */
+    suspend fun refreshAccessToken(http: HttpClient, request: TwitchOAuthRefreshRequest): TwitchOAuthTokenResponse {
+        if (request.clientId.isBlank() || request.refreshToken.isBlank()) {
+            throw TwitchOAuthException("Client-ID und Refresh-Token dürfen nicht leer sein.")
+        }
+        val response = http.submitForm(
+            url = TOKEN_ENDPOINT,
+            formParameters = Parameters.build {
+                append("client_id", request.clientId)
+                request.clientSecret?.let { append("client_secret", it) }
+                append("refresh_token", request.refreshToken)
+                append("grant_type", "refresh_token")
+            },
+        )
+        return parseTokenResponse(response, "Twitch-Token-Refresh fehlgeschlagen")
+    }
+
+    private suspend fun parseTokenResponse(
+        response: io.ktor.client.statement.HttpResponse,
+        failureMessage: String,
+    ): TwitchOAuthTokenResponse {
         val body = response.bodyAsText()
         if (response.status != HttpStatusCode.OK) {
-            throw TwitchOAuthException("Twitch-Token-Austausch fehlgeschlagen (HTTP ${response.status.value}).")
+            throw TwitchOAuthException("$failureMessage (HTTP ${response.status.value}).")
         }
         return try {
             val payload = json.decodeFromString<TwitchTokenPayload>(body)

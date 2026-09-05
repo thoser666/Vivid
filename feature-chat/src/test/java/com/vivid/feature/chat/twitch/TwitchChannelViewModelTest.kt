@@ -42,6 +42,10 @@ class TwitchChannelViewModelTest {
         coEvery { updateTwitchChannelSettings(any(), any(), any(), any()) } just runs
     }
 
+    private fun tokenStore(session: TwitchTokenSession? = null): TwitchTokenStore = mockk {
+        coEvery { loadSession() } returns session
+    }
+
     @Test
     fun `refresh exposes live stream information`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
@@ -51,7 +55,7 @@ class TwitchChannelViewModelTest {
                 TwitchChannelConfig("streamer", "oauth:bot-token", "client-id"),
             )
         } returns TwitchStreamInfo(42, "Live in Berlin", "Just Chatting")
-        val viewModel = TwitchChannelViewModel(repository(), client)
+        val viewModel = TwitchChannelViewModel(repository(), client, tokenStore())
 
         viewModel.refresh()
         advanceUntilIdle()
@@ -68,6 +72,7 @@ class TwitchChannelViewModelTest {
         val viewModel = TwitchChannelViewModel(
             repository(AppSettings(chatChannel = "streamer")),
             client,
+            tokenStore(),
         )
 
         viewModel.refresh()
@@ -82,7 +87,7 @@ class TwitchChannelViewModelTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val client = mockk<TwitchChannelClient>()
         coEvery { client.getStreamInfo(any()) } throws TwitchChannelException("Rate-Limit")
-        val viewModel = TwitchChannelViewModel(repository(), client)
+        val viewModel = TwitchChannelViewModel(repository(), client, tokenStore())
 
         viewModel.refresh()
         advanceUntilIdle()
@@ -92,12 +97,40 @@ class TwitchChannelViewModelTest {
     }
 
     @Test
+    fun `refresh prefers the securely stored oauth session over settings`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val client = mockk<TwitchChannelClient>()
+        coEvery {
+            client.getStreamInfo(TwitchChannelConfig("streamer", "stored-access", "client-id"))
+        } returns TwitchStreamInfo(3, "Gespeichert", "Games")
+        val viewModel = TwitchChannelViewModel(
+            repository(),
+            client,
+            tokenStore(
+                TwitchTokenSession(
+                    accessToken = "stored-access",
+                    refreshToken = "stored-refresh",
+                    expiresAtMillis = System.currentTimeMillis() + 60_000L,
+                ),
+            ),
+        )
+
+        viewModel.refresh()
+        advanceUntilIdle()
+
+        coVerify {
+            client.getStreamInfo(TwitchChannelConfig("streamer", "stored-access", "client-id"))
+        }
+        assertEquals(TwitchStreamInfo(3, "Gespeichert", "Games"), viewModel.uiState.value.streamInfo)
+    }
+
+    @Test
     fun `update sets channel metadata and persists the successful values`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val repository = repository()
         val client = mockk<TwitchChannelClient>()
         coEvery { client.updateChannelInfo(any(), " Neuer Titel ", " Just Chatting ") } just runs
-        val viewModel = TwitchChannelViewModel(repository, client)
+        val viewModel = TwitchChannelViewModel(repository, client, tokenStore())
 
         viewModel.updateChannelInfo(" Neuer Titel ", " Just Chatting ")
         advanceUntilIdle()
@@ -126,7 +159,7 @@ class TwitchChannelViewModelTest {
         val repository = repository()
         val client = mockk<TwitchChannelClient>()
         coEvery { client.updateChannelInfo(any(), any(), any()) } throws TwitchChannelException("Scope fehlt")
-        val viewModel = TwitchChannelViewModel(repository, client)
+        val viewModel = TwitchChannelViewModel(repository, client, tokenStore())
 
         viewModel.updateChannelInfo("Titel", "Kategorie")
         advanceUntilIdle()

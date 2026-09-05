@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Assertions.assertThrows
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
+import io.ktor.client.engine.mock.toByteArray
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
@@ -64,6 +65,56 @@ class TwitchOAuthTest {
         assertThrows(TwitchOAuthException::class.java) {
             kotlinx.coroutines.runBlocking {
                 TwitchOAuth.exchangeCode(http, TwitchOAuth.tokenRequest("client", "code", "verifier"))
+            }
+        }
+        http.close()
+    }
+
+    @Test
+    fun `refreshes the token via the token endpoint`() = runTest {
+        var requestBody = ""
+        val http = HttpClient(MockEngine { request ->
+            requestBody = request.body.toByteArray().toString(Charsets.UTF_8)
+            respond(
+                """{"access_token":"new-access","refresh_token":"new-refresh","expires_in":7200,"scope":["channel:manage:broadcast"]}""",
+                HttpStatusCode.OK,
+                headersOf(HttpHeaders.ContentType, "application/json"),
+            )
+        })
+        val result = TwitchOAuth.refreshAccessToken(
+            http,
+            TwitchOAuthRefreshRequest(clientId = "client", refreshToken = "old-refresh"),
+        )
+        assertEquals("new-access", result.accessToken)
+        assertEquals("new-refresh", result.refreshToken)
+        assertTrue(requestBody.contains("grant_type=refresh_token"))
+        assertTrue(requestBody.contains("refresh_token=old-refresh"))
+        assertTrue(requestBody.contains("client_id=client"))
+        http.close()
+    }
+
+    @Test
+    fun `rejects a refresh with blank credentials`() = runTest {
+        val http = HttpClient(MockEngine { respond("", HttpStatusCode.OK) })
+        assertThrows(TwitchOAuthException::class.java) {
+            kotlinx.coroutines.runBlocking {
+                TwitchOAuth.refreshAccessToken(http, TwitchOAuthRefreshRequest("", ""))
+            }
+        }
+        http.close()
+    }
+
+    @Test
+    fun `rejects a failed refresh response`() = runTest {
+        val http = HttpClient(MockEngine { request ->
+            respond("""{"message":"Invalid refresh token"}""", HttpStatusCode.BadRequest)
+        })
+        assertThrows(TwitchOAuthException::class.java) {
+            kotlinx.coroutines.runBlocking {
+                TwitchOAuth.refreshAccessToken(
+                    http,
+                    TwitchOAuthRefreshRequest(clientId = "client", refreshToken = "expired-refresh"),
+                )
             }
         }
         http.close()
