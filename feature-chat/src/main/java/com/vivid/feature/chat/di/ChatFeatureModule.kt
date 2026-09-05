@@ -7,8 +7,12 @@ import com.vivid.feature.chat.bot.ChatTtsSpeaker
 import com.vivid.feature.chat.bot.AndroidTtsSpeaker
 import com.vivid.feature.chat.media.ChatMediaController
 import com.vivid.feature.chat.media.ChatMediaPlayer
+import com.vivid.feature.chat.twitch.AndroidKeystoreTokenCipher
+import com.vivid.feature.chat.twitch.DataStoreTwitchTokenStore
 import com.vivid.feature.chat.twitch.EventSubSocketFactory
 import com.vivid.feature.chat.twitch.OkHttpEventSubSocketFactory
+import com.vivid.feature.chat.twitch.TokenCipher
+import com.vivid.feature.chat.twitch.TwitchTokenStore
 import dagger.Binds
 import dagger.BindsOptionalOf
 import dagger.Module
@@ -52,6 +56,20 @@ abstract class ChatFeatureModule {
     abstract fun bindChatMediaPlayer(
         player: ChatMediaController,
     ): ChatMediaPlayer
+
+    /** Verschlüsselung für die Twitch-OAuth-Token-Persistenz (Android Keystore). */
+    @Binds
+    @Singleton
+    abstract fun bindTokenCipher(
+        cipher: AndroidKeystoreTokenCipher,
+    ): TokenCipher
+
+    /** Persistenz der Twitch-OAuth-Session (verschlüsselt über [TokenCipher]). */
+    @Binds
+    @Singleton
+    abstract fun bindTwitchTokenStore(
+        store: DataStoreTwitchTokenStore,
+    ): TwitchTokenStore
 
     /**
      * Owner-Steuerung des Streams: optional gebunden, damit feature-chat und
