@@ -39,11 +39,34 @@ jobs:
             // /tmp/report.md - letzteres existiert dort nie und würde den
             // github-script-Step mit ENOENT crashen.
             const report = fs.readFileSync('report.md', 'utf8').toString();
-            
+            const title = `🔍 Moblin-Feature-Check: Neue Features erkannt (${new Date().toISOString().split('T')[0]})`;
+
+            // Dedup: Nur ein offenes Moblin-Check-Issue gleichzeitig.
+            // Ohne diesen Guard würde der wöchentliche Lauf jedes Mal ein
+            // neues (Fehlalarm-)Issue anlegen.
+            const open = await github.paginate(github.rest.issues.listForRepo, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'moblin',
+              per_page: 100
+            });
+            if (open.length > 0) {
+              const first = open[0];
+              core.notice(`Open Moblin-Check issue already exists: #${first.number} (${open.length} total) - skipping creation.`);
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: first.number,
+                body: `## Aktueller Lauf (${new Date().toISOString().split('T')[0]})\n\n${report}`
+              });
+              return;
+            }
+
             await github.rest.issues.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              title: `🔍 Moblin-Feature-Check: Neue Features erkannt (${new Date().toISOString().split('T')[0]})`,
+              title: title,
               body: `## Automatischer Moblin-Feature-Check\n\n${report}\n\n---\n*Erstellt von automatischem Weekly-Check workflow*`,
               labels: ['parity', 'moblin', 'automated']
             });

@@ -108,6 +108,21 @@ class ReplayLibraryViewModelTest {
     }
 
     @Test
+    fun `dismissDelete clears the candidate without deleting the file`() = runTest {
+        val file = newFile("replay-dismiss.mp4")
+        viewModel.refresh()
+        advanceUntilIdle()
+        val item = viewModel.uiState.value.items.first { it.name == "replay-dismiss.mp4" }
+
+        viewModel.requestDelete(item)
+        assertEquals(item, viewModel.uiState.value.deleteCandidate)
+
+        viewModel.dismissDelete()
+        assertTrue(file.exists())
+        assertNull(viewModel.uiState.value.deleteCandidate)
+    }
+
+    @Test
     fun `confirmDelete without candidate is a no-op`() = runTest {
         viewModel.confirmDelete()
         advanceUntilIdle()
@@ -135,6 +150,11 @@ class ReplayLibraryViewModelTest {
 
         assertNull(viewModel.shareIntent(item))
     }
+
+    // Hinweis: Der shareIntent-Happy-Path (FileProvider-Uri + ACTION_SEND-Intent)
+    // braucht android.content.Intent/Uri — android.jar-Systemklassen kann MockK
+    // im JVM-Unit-Test nicht instrumentieren. Der Pfad ist Robolectric-
+    // instrumentiertem Test vorbehalten (siehe PARITY-Log Coverage-Ausbau).
 
     @Test
     fun `delete rejects files outside the replay directory`() {

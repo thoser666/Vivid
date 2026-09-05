@@ -1,5 +1,8 @@
 package com.vivid.feature.streaming
 
+import android.graphics.Bitmap
+import com.pedro.encoder.input.gl.render.filters.BaseFilterRender
+import io.mockk.mockk
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
@@ -116,5 +119,32 @@ class LutControllerTest {
         // but the controller handles null gracefully
         val render = LutController.createLutRender(LutPreset.WARM, 16, ColorSpace.SRGB)
         // In a pure JVM test without GL context, this might be null
+    }
+
+    @Test
+    fun `setPreset COOL selects the cool preset`() {
+        var applied: BaseFilterRender? = null
+        val changed = controller.setPreset(LutPreset.COOL, 16) { applied = it }
+
+        assertTrue(changed)
+        assertEquals(LutPreset.COOL, controller.activePreset.value)
+        // Im JVM-Test schlägt die Bitmap-Erzeugung fehl -> Controller fängt
+        // die Exception und wendet null an (Filter-Reset statt Absturz).
+        assertNull(applied)
+    }
+
+    @Test
+    fun `loadCustomLut without a real bitmap fails gracefully`() {
+        val bitmap = mockk<Bitmap>(relaxed = true)
+        var applied = false
+
+        // Ohne GL-Context wirft der HaldClutFilterRender-Konstruktor
+        // (android.opengl.Matrix ist nicht gemockt) — der Controller
+        // muss das abfangen und false liefern.
+        val result = controller.loadCustomLut(bitmap, 16) { applied = true }
+
+        assertFalse(result)
+        assertFalse(applied)
+        assertEquals(LutPreset.NONE, controller.activePreset.value)
     }
 }
