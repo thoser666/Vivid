@@ -3,6 +3,7 @@ require "json"
 require "fileutils"
 require_relative "stage_suffix"
 require_relative "release_safety"
+require_relative "build_retry"
 default_platform(:android)
 
 platform :android do
@@ -32,10 +33,14 @@ platform :android do
 
   desc "Build release APK"
   lane :build_release do
-    gradle(
-      task: "assembleRelease",
-      flags: "--stacktrace --no-daemon"
-    )
+    # Retry-Härtung gegen transiente Netz-/API-Fehler (z. B. Sentry-Mapping-Upload
+    # im Build, Dependency-Downloads) — siehe fastlane/build_retry.rb.
+    BuildRetry.with_gradle_retry("Release-Build (assembleRelease)") do
+      gradle(
+        task: "assembleRelease",
+        flags: "--stacktrace --no-daemon"
+      )
+    end
   end
 
   desc "Run tests and build debug"
@@ -241,14 +246,23 @@ platform :android do
       version_code = run_raw
     end
 
-    gradle(
-      task: "assembleRelease",
-      flags: "--stacktrace --no-daemon",
-      properties: {
-        "versionName" => version_name,
-        "versionCode" => version_code
-      }
-    )
+    # Härtung: Retry gegen transiente Fehler (Netz/API) — der Sentry-Mapping-Upload
+    # (Gradle-Task uploadSentryProguardMappings*) läuft IM Build und kann an
+    # SSL-/Netzwerk-Hüpfern des Runners scheitern (Vorfall 05.09.2026, v0.5.12-beta:
+    # "SSL connect error" nach 5:48 min Buildzeit, Run 33952343595). Der Gradle-
+    # Cache macht den Retry günstig: nur der fehlgeschlagene Task läuft erneut.
+    # Deterministische Fehler (Kompilierung, Keystore, Signatur) werden NICHT
+    # retried — nichts wird maskiert, der Run bleibt bei echten Bugs rot.
+    BuildRetry.with_gradle_retry("Release-Build (assembleRelease)") do
+      gradle(
+        task: "assembleRelease",
+        flags: "--stacktrace --no-daemon",
+        properties: {
+          "versionName" => version_name,
+          "versionCode" => version_code
+        }
+      )
+    end
 
     # Sentry: Das Gradle-Plugin (autoUploadProguardMapping) lädt die ProGuard-Mapping
     # Datei bereits automatisch bei jedem Release-Build hoch — mit der UUID, die es
@@ -466,14 +480,18 @@ platform :android do
     UI.message("Play upload: #{version_name} (#{version_code}) -> track #{track}")
 
     UI.header "Step 3/6: Building AAB with UPLOAD key"
-    gradle(
-      task: "bundleStandardPlayRelease",
-      flags: "--stacktrace --no-daemon",
-      properties: {
-        "versionName" => version_name,
-        "versionCode" => version_code
-      }
-    )
+    # Gleiche Retry-Härtung wie release_github (Sentry-Upload im Build, transiente
+    # Netzfehler) — siehe fastlane/build_retry.rb.
+    BuildRetry.with_gradle_retry("Play-AAB-Build (bundleStandardPlayRelease)") do
+      gradle(
+        task: "bundleStandardPlayRelease",
+        flags: "--stacktrace --no-daemon",
+        properties: {
+          "versionName" => version_name,
+          "versionCode" => version_code
+        }
+      )
+    end
     aab = lane_context[SharedValues::GRADLE_AAB_OUTPUT_PATH] || "app/build/outputs/bundle/standardPlayRelease/app-standard-playRelease.aab"
     UI.user_error!("AAB not found: #{aab}") unless File.exist?(aab)
     UI.message("AAB: #{aab} (#{File.size(aab)} bytes)")

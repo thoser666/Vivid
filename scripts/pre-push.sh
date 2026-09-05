@@ -109,6 +109,13 @@ run bash scripts/test_stage_suffix_guard.sh
 echo "▶ [pre-push] Release-Safety (scripts/test_release_safety.sh)"
 run bash scripts/test_release_safety.sh
 
+# Build-Retry-Härtung (Ruby, offline): Klassifikation transienter Fehler
+# (SSL/Netz/Sentry-Mapping-Upload) vs. deterministische, Retry-Zähler und
+# Backoff — release-grade Gradle-Builds dürfen an Netz-Hüpfern nicht mehr
+# scheitern (Vorfall 05.09.2026: Beta-Release rot nach 5:48 min Buildzeit).
+echo "▶ [pre-push] Build-Retry-Härtung (scripts/test_build_retry.sh)"
+run bash scripts/test_build_retry.sh
+
 # Roadmap-Reservierung (Ruby, offline): v0.6.0-beta wird abgelehnt, solange das
 # Streaming-Erweiterungs-Bucket (RIST/WHIP/RTMP-Pull/4K-HEVC/SRTLA) in PARITY.md
 # nicht vollständig ✅ ist — die Bucket-Nummerierung darf nicht vorzeitig belegt
