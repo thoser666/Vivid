@@ -10,7 +10,9 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import io.ktor.serialization.kotlinx.json.json
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.mockk
+import io.mockk.slot
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -21,9 +23,16 @@ import org.junit.jupiter.api.Test
 class TwitchChannelClientTest {
     private val config = TwitchChannelConfig("streamer", "oauth:token", "client-id")
 
+    private fun tokenStore(session: TwitchTokenSession? = null): TwitchTokenStore = mockk {
+        coEvery { loadSession() } returns session
+        coEvery { saveSession(any()) } returns Unit
+        coEvery { clear() } returns Unit
+    }
+
     private fun client(
         responses: MutableList<String>,
         broadcasterId: String? = "123",
+        store: TwitchTokenStore = tokenStore(),
     ): TwitchChannelClient {
         val userClient = mockk<TwitchWhisperClient> {
             coEvery { resolveUserId(any(), "streamer") } returns broadcasterId
@@ -49,6 +58,7 @@ class TwitchChannelClientTest {
         return TwitchChannelClient(
             http = HttpClient(engine) { install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) } },
             whisperClient = userClient,
+            tokenStore = store,
         )
     }
 
@@ -114,7 +124,7 @@ class TwitchChannelClientTest {
                 headers = headersOf(HttpHeaders.ContentType, "application/json"),
             )
         }) { install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) } }
-        val channelClient = TwitchChannelClient(http, userClient)
+        val channelClient = TwitchChannelClient(http, userClient, tokenStore())
 
         assertEquals(null, channelClient.getStreamInfo(config))
     }
@@ -127,11 +137,97 @@ class TwitchChannelClientTest {
         val http = HttpClient(MockEngine {
             respond("", status = HttpStatusCode.Unauthorized)
         })
-        val channelClient = TwitchChannelClient(http, userClient)
+        val channelClient = TwitchChannelClient(http, userClient, tokenStore())
 
         val exception = assertThrows(TwitchChannelException::class.java) {
             kotlinx.coroutines.runBlocking { channelClient.getStreamInfo(config) }
         }
         assertTrue(exception.message.orEmpty().contains("401"))
+    }
+
+    @Test
+    fun `refreshes the token and retries once after a 401`() = runTest {
+        val userClient = mockk<TwitchWhisperClient> {
+            coEvery { resolveUserId(any(), "streamer") } returns "123"
+        }
+        val saved = slot<TwitchTokenSession>()
+        var streamsCalls = 0
+        val store = mockk<TwitchTokenStore> {
+            coEvery { loadSession() } returns TwitchTokenSession(
+                accessToken = "stale-token",
+                refreshToken = "refresh-token",
+                expiresAtMillis = 0L,
+            )
+            coEvery { saveSession(capture(saved)) } returns Unit
+        }
+        val engine = MockEngine { request ->
+            when {
+                request.url.encodedPath.endsWith("/streams") -> {
+                    if (streamsCalls > 0) {
+                        respond(
+                            """{"data":[{"viewer_count":7,"title":"Fresh","game_name":"Games"}]}""",
+                            headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                        )
+                    } else {
+                        streamsCalls++
+                        respond("", status = HttpStatusCode.Unauthorized)
+                    }
+                }
+                else -> respond(
+                    """{"access_token":"fresh-token","refresh_token":"fresh-refresh","expires_in":3600,"scope":["channel:manage:broadcast"]}""",
+                    headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                )
+            }
+        }
+        val channelClient = TwitchChannelClient(
+            http = HttpClient(engine) { install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) } },
+            whisperClient = userClient,
+            tokenStore = store,
+        )
+
+        val info = channelClient.getStreamInfo(config)
+
+        assertEquals(TwitchStreamInfo(7, "Fresh", "Games"), info)
+        assertEquals("fresh-token", saved.captured.accessToken)
+        assertEquals("fresh-refresh", saved.captured.refreshToken)
+        coVerify(exactly = 1) { store.saveSession(any()) }
+    }
+
+    @Test
+    fun `rethrows the 401 when no session is stored`() = runTest {
+        val userClient = mockk<TwitchWhisperClient> {
+            coEvery { resolveUserId(any(), "streamer") } returns "123"
+        }
+        val http = HttpClient(MockEngine {
+            respond("", status = HttpStatusCode.Unauthorized)
+        })
+        val channelClient = TwitchChannelClient(http, userClient, tokenStore())
+
+        val exception = assertThrows(TwitchChannelException::class.java) {
+            kotlinx.coroutines.runBlocking { channelClient.getStreamInfo(config) }
+        }
+
+        assertTrue(exception.message.orEmpty().contains("401"))
+    }
+
+    @Test
+    fun `rethrows the 401 when the stored session has no refresh token`() = runTest {
+        val userClient = mockk<TwitchWhisperClient> {
+            coEvery { resolveUserId(any(), "streamer") } returns "123"
+        }
+        val store = tokenStore(
+            TwitchTokenSession(accessToken = "stale-token", refreshToken = "", expiresAtMillis = 0L),
+        )
+        val http = HttpClient(MockEngine {
+            respond("", status = HttpStatusCode.Unauthorized)
+        })
+        val channelClient = TwitchChannelClient(http, userClient, store)
+
+        val exception = assertThrows(TwitchChannelException::class.java) {
+            kotlinx.coroutines.runBlocking { channelClient.getStreamInfo(config) }
+        }
+
+        assertTrue(exception.message.orEmpty().contains("401"))
+        coVerify(exactly = 0) { store.saveSession(any()) }
     }
 }

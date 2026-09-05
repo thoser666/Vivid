@@ -27,11 +27,16 @@ data class TwitchChannelUiState(
  * Viewer werden nur auf ausdrückliche Anfrage geladen; die Streaming-UI kann
  * [refresh] in einem sichtbaren Lifecycle-Effect periodisch ausführen. Dadurch
  * gibt es im Hintergrund keine Netzwerkaktivität und Tests bleiben deterministisch.
+ *
+ * Bevorzugt werden die verschlüsselt gespeicherten OAuth-Tokens aus
+ * [TwitchTokenStore] verwendet (Fallback: die Klartext-Settings-Werte für
+ * bestehende Installationen ohne gültige Session).
  */
 @HiltViewModel
 class TwitchChannelViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val channelClient: TwitchChannelClient,
+    private val tokenStore: TwitchTokenStore,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(TwitchChannelUiState())
     val uiState: StateFlow<TwitchChannelUiState> = _uiState.asStateFlow()
@@ -100,11 +105,15 @@ class TwitchChannelViewModel @Inject constructor(
         }
     }
 
-    private fun AppSettings.channelConfig(): TwitchChannelConfig = TwitchChannelConfig(
-        channel = chatChannel.trim(),
+    private suspend fun AppSettings.channelConfig(): TwitchChannelConfig {
         // Der dedizierte Broadcaster-Token ist optional; bestehende Installationen
-        // können zunächst den bereits hinterlegten Bot-Token verwenden.
-        oauthToken = twitchChannelOauthToken.ifBlank { chatBotOauthToken },
-        clientId = chatBotTwitchClientId,
-    )
+        // können zunächst den bereits hinterlegten Bot-Token verwenden. Liegt eine
+        // verschlüsselte OAuth-Session vor, gewinnt deren (ggf. erneuertes) Access-Token.
+        val storedAccess = tokenStore.loadSession()?.accessToken?.takeIf { it.isNotBlank() }
+        return TwitchChannelConfig(
+            channel = chatChannel.trim(),
+            oauthToken = storedAccess ?: twitchChannelOauthToken.ifBlank { chatBotOauthToken },
+            clientId = chatBotTwitchClientId,
+        )
+    }
 }
