@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.Podcasts // (Ein gutes Icon für "
 import androidx.compose.material3.*
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.widthIn
@@ -84,6 +85,10 @@ fun StreamingScreen(
     navController: NavController,
     viewModel: StreamingViewModel = hiltViewModel(),
     twitchViewModel: TwitchChannelViewModel = hiltViewModel(),
+    // Overlays (Chat + Widgets) als Slot: Die Kinder holen ihre ViewModels
+    // selbst per hiltViewModel() — der Slot erlaubt Tests/Embedding, sie durch
+    // eigenen Inhalt zu ersetzen (Default = [DefaultStreamingOverlay]).
+    overlayContent: @Composable BoxScope.() -> Unit = { DefaultStreamingOverlay() },
 ) {
     val streamingEngine = viewModel.streamingEngine
     val streamingState by streamingEngine.streamingState.collectAsStateWithLifecycle()
@@ -702,48 +707,51 @@ fun StreamingScreen(
                 }
             }
 
-            // Chat-Overlay (Twitch): unterhalb der Status-Box links unten,
-            // blendet sich bei deaktiviertem Overlay automatisch aus.
-            ChatOverlay(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(start = 12.dp, bottom = 84.dp),
-            )
-
-            // Text-/Info-Widget (Uhrzeit/GPS/Geschwindigkeit): rechts unten,
-            // gegenüber dem Chat-Overlay, damit sich beide nicht überlappen.
-            TextInfoWidget(
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(end = 12.dp, bottom = 84.dp),
-            )
-
-            // Grid-Overlay: Raster zur Widget-Positionierung (nur wenn aktiviert).
-            GridOverlay()
-
-            // Bild-Widget: Logo/Wasserzeichen über der Vorschau (nur wenn aktiviert und URI gesetzt).
-            ImageWidget(
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(start = 12.dp, top = 12.dp),
-            )
-
-            // QR-Code-Widget: Spenden-/Social-Link über der Vorschau.
-            QrCodeWidget(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(end = 12.dp, top = 12.dp),
-            )
-
-            // Slideshow-Widget: lokale Bildrotation über der Vorschau.
-            SlideshowWidget(
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .padding(12.dp),
-            )
+            // Chat-Overlay + Widgets: als Slot ausgelagert (siehe Parameter-Doku).
+            overlayContent()
 
         }
     }
+}
+
+/**
+ * Standard-Overlay-Inhalt des Streaming-Screens: Chat-Overlay (Twitch) links
+ * unten, Text-/Info-Widget rechts unten, Grid/Bild/QR/Slideshow über der
+ * Vorschau. Jedes Kind blendet sich bei deaktivierter Einstellung selbst aus.
+ */
+@Composable
+private fun BoxScope.DefaultStreamingOverlay() {
+    ChatOverlay(
+        modifier = Modifier
+            .align(Alignment.BottomStart)
+            .padding(start = 12.dp, bottom = 84.dp),
+    )
+
+    TextInfoWidget(
+        modifier = Modifier
+            .align(Alignment.BottomEnd)
+            .padding(end = 12.dp, bottom = 84.dp),
+    )
+
+    GridOverlay()
+
+    ImageWidget(
+        modifier = Modifier
+            .align(Alignment.TopStart)
+            .padding(start = 12.dp, top = 12.dp),
+    )
+
+    QrCodeWidget(
+        modifier = Modifier
+            .align(Alignment.TopEnd)
+            .padding(end = 12.dp, top = 12.dp),
+    )
+
+    SlideshowWidget(
+        modifier = Modifier
+            .align(Alignment.Center)
+            .padding(12.dp),
+    )
 }
 
 private const val TWITCH_REFRESH_INTERVAL_MS = 30_000L

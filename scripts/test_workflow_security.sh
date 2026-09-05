@@ -45,6 +45,57 @@ grep -Fq 'printf' "$file" \
 grep -Fq '$PR_TITLE' "$file" \
   || fail "Pull-request title must be consumed through the environment"
 
+# Moblin weekly check: the github-script step must dedup open issues, otherwise
+# every run creates a new (false-positive) issue.
+file=.github/workflows/check-moblin-features.yml
+grep -Fq 'issues.listForRepo' "$file" \
+  || fail "check-moblin github-script must list open moblin issues before creating a new one"
+grep -Fq 'issues.createComment' "$file" \
+  || fail "check-moblin github-script must comment on the existing issue instead of duplicating"
+
+# The comparison script filters bare URL rows (not features), maps common
+# English feature words onto the German PARITY vocabulary ("battery" -> "akku")
+# and strips plural-s - otherwise tracked features are reported as missing
+# ("Battery indicator", "Take snapshots") and every weekly run files a
+# false-positive issue.
+file=scripts/check_moblin_features.sh
+grep -Eq "grep -Ev '\^https\?://'" "$file" \
+  || fail "moblin check must filter bare URL rows"
+grep -Fq 'variants="$variants akku"' "$file" \
+  || fail "moblin check must map English keywords onto German PARITY terms"
+grep -Fq 'variants="$variants ${kw%s}"' "$file" \
+  || fail "moblin check must try the singular form alongside the plural"
+grep -Eq 'break 2' "$file" \
+  || fail "moblin check must stop at the first characteristic keyword hit"
+grep -Fq 'take|this|that|with|from|into' "$file" \
+  || fail "moblin check must filter generic words to avoid substring false alarms"
+grep -Fq 'variants="$variants auflösung"' "$file" \
+  || fail "moblin check must map resolution onto the German PARITY term"
+
+# Moblin findings must carry the vision.md answer sheet so new features are
+# evaluated against the project vision, not just listed.
+grep -Fq 'docs/vision.md' scripts/check_moblin_features.sh \
+  || fail "moblin check report must reference the vision criteria"
+grep -Fq 'Vision-Check' scripts/check_moblin_features.sh \
+  || fail "moblin check report must contain the vision answer sheet"
+
+# Community triage: least privilege, pinned action, and an idempotency
+# marker so each enhancement issue receives the vision checklist at most once.
+file=.github/workflows/community-requests.yml
+[[ -f "$file" ]] || fail "community-requests.yml must exist"
+head -20 "$file" | grep -Fq 'permissions: {}' \
+  || fail "community-requests workflow must default-deny permissions"
+grep -A3 'triage:' "$file" | grep -Fq 'issues: write' \
+  || fail "community-requests triage job must retain only issues write"
+grep -Fq 'actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea' "$file" \
+  || fail "community-requests github-script must be SHA-pinned"
+grep -Fq 'community-triage -->' "$file" \
+  || fail "community-requests comment must carry an idempotency marker"
+grep -Fq "labels: 'enhancement'" "$file" \
+  || fail "community-requests must target enhancement issues only"
+grep -Fq 'docs/vision.md' "$file" \
+  || fail "community-requests must reference the vision criteria"
+
 # Security scanning jobs retain only the permission needed for SARIF upload.
 grep -A5 -F 'snyk-test:' .github/workflows/security-snyk.yml \
   | grep -Fq 'security-events: write' \

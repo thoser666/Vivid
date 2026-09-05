@@ -130,3 +130,10 @@ gradle/gradle-daemon-jvm.properties
 
 # Sync-/Backup-Tool-Konfliktkopien (Name clash / Delete conflict)
 *(# *)*
+
+# Ausgabe des Moblin-Feature-Checks (CI-Artefakt, kein Repo-Inhalt)
+/report.md
+.kotlin/
+
+# Badge-Portal-Session-Cookie (nur lokal, niemals committen)
+/.badge_session
