@@ -46,3 +46,13 @@
 
 ## 🔗 Links
 - [GitHub Release](https://github.com/thoser666/Vivid/releases/tag/v0.5.12-beta)
+
+## 🗄️ F-Droid-Archiv-Repository
+
+Das eigene F-Droid-Repository (`https://thoser666.github.io/Vivid/fdroid/repo`) hat jetzt ein **separates Archiv-Repository** ([f03e8c1]):
+
+- **Zwei getrennte Repos:** `repo/` (die letzten 5 Release-Versionen, schnell für Updates) + `archive/` (**alle älteren Versionen**, persistent für Downgrades/Fallback)
+- **`archive_older: 5`** — `fdroid update` verschiebt automatisch die 5 neuesten in `repo/` und alle älteren ins `archive/`
+- **`archive_url` / `archive_name`** — der F-Droid-Client erkennt und zeigt das Archiv jetzt korrekt (Einstellungen ➜ Repository ➜ Archiv)
+- **Persistenz:** Das `archive/`-Verzeichnis wird im git-Repo (unter `docs/fdroid/archive`) gespeichert und bei jedem Lauf wiederhergestellt — ältere Versionen gehen nicht verloren
+- **Nutzer-Vorteile:** Downgrades zu älteren Versionen möglich, Fallback für alte Android-Geräte, keine „kein Archiv“-Warnung mehr im Client
