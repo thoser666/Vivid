@@ -658,6 +658,27 @@ jobs:
       - name: Run publish_release hardening self-test
         run: bash scripts/test_publish_release_hardening.sh
 
+  # ✅ Selbsttest: Retry-Härtung der release-grade Gradle-Builds
+  # (fastlane/build_retry.rb — Vorfall 05.09.2026: Beta-Release scheiterte an
+  # transientem SSL-Fehler im Sentry-Mapping-Upload-Task nach 5:48 min
+  # Buildzeit). Prüft Klassifikation (transient vs. deterministisch),
+  # Retry-Zähler, Backoff-Delays und statisch, dass ALLE release-grade
+  # gradle-Aufrufe gewrappt sind. Plain Ruby, keine Fastlane-/GitHub-Zugriffe.
+  test-build-retry:
+    name: Self-Test Build-Retry (Hardening)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1.321.0
+        with:
+          ruby-version: '3.3'
+      - name: Run build retry self-test
+        run: bash scripts/test_build_retry.sh
+
   publish-play:
     name: Publish to Google Play
     runs-on: ubuntu-latest
