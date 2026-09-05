@@ -36,29 +36,38 @@
 
 ---
 
-## Anmeldung: So geht's (5 Minuten)
+## Anmeldung: Status + Restschritte
 
-1. https://www.bestpractices.dev/en/projects/new öffnen
-2. Mit GitHub-Konto (thoser666) anmelden
-3. Repo-URL eintragen: `https://github.com/thoser666/Vivid`
-4. Kriterien durchgehen — diese Datei liefert je Kriterium Status + Evidenz;
-   N/A-Begründungen sind unten vorgeformt und können 1:1 übernommen werden
-5. Nach dem Speichern vergibt das Portal eine **Projekt-ID** (Zahl in der URL,
-   z. B. `…/projects/1234`). Dann nur noch:
+**✅ Projekt angelegt (04.09.2026):** [Projekt 14442](https://www.bestpractices.dev/en/projects/14442)
+(`badge_level = in_progress`, `badge_percentage_0 = 22 %`). Die Badge-Zeile im
+README ist auf die echte ID umgestellt.
 
-   ```bash
-   # Projekt-ID einsetzen und committen:
-   #   README.md → https://bestpractices.dev/projects/PLACEHOLDER_ID/badge
-   sed -i 's/PLACEHOLDER_ID/<NEUE_ID>/' README.md
-   git add README.md && git commit -m "docs: activate OpenSSF badge (<NEUE_ID>)" && git push
-   ```
+**⚠️ Offen: Formular vollständig ausfüllen.** Bisher sind nur ~15 Kriterien
+beantwortet (Basics komplett, Change Control teilweise) — der Rest steht auf
+unbeantwortet (`?`), daher zeigen Reporting/Quality/Security/Analysis rot.
+Der Formular-Editor bearbeitet die Sektionen einzeln; erst wenn **alle**
+Sektionen gespeichert sind, springt das Passing-Badge auf grün.
 
-   Die Badge-Zeile ist bereits im README vorbereitet (Zeile unter dem
-   CI-Badge, mit HTML-Kommentar-Anweisung direkt daneben). Badge-Formate
-   für andere Kontexte:
-   - Flach: `https://bestpractices.dev/projects/<ID>/badge`
-   - Für die Projektseite: `https://bestpractices.dev/en/projects/<ID>.json`
-     (Metadaten) — empfohlen als Verweis zusätzlich zur Checkliste
+**Restschritte (ca. 30–45 Minuten):**
+
+1. Zuerst **anmelden** (GitHub-OAuth als thoser666, oben rechts). Ohne Login
+   rendert das Portal das Formular nur **lesend mit ausgegrauten Feldern**.
+2. Dann das Edit-Formular öffnen:
+   `https://www.bestpractices.dev/en/projects/14442/passing/edit`
+   (⚠️ nicht `/edit` — das gibt 404; der Link „Edit“ auf der Projektseite
+   führt automatisch auf die richtige URL)
+2. Sektion für Sektion durchgehen und den **Antwortbogen** unten
+   („in Formular-Reihenfolge, alle 67 Passing-Kriterien“) übernehmen —
+   Radio-Button-Auswahl + kopierfertige Werte/Begründungen stehen je Zeile
+3. Empfohlene Zusatzfelder (SUGGESTED, für Vivid trivial):
+   `homepage_url` = `https://thoser666.github.io/Vivid/`,
+   `report_url` = `https://github.com/thoser666/Vivid/issues`,
+   `crypto_used_network`/`crypto_tls12` = Met (Plattform-TLS)
+4. **Jede Sektion speichern** (der Editor speichert pro Sektion — nicht erst
+   am Ende!); danach prüfen: Projektseite muss `badge_percentage_0 = 100 %`
+   und Badge-Level **passing** zeigen
+5. Silver-only-Kriterien (`test_statement_coverage80`, `two_person_review`,
+   `require_2FA`, …) dürfen leer/Unmet bleiben — die blockieren Passing nicht
 
 ---
 
@@ -165,7 +174,7 @@
 |--------|-----------|-------------|-------------------------|
 | ✅ | `test` | Öffentliches FLOSS-Test-Suite + dokumentierte Ausführung | ~800 Unit-Tests über 10 Module; Ausführung dokumentiert: CI-Workflow („Run Tests") + dieses Repo (README/CONTRIBUTING ergänzen); `./gradlew test testFossDebug` |
 | ✅ | `test_invocation` | Standard-Aufruf der Suite | Gradle-Standard (`./gradlew testDebugUnitTest`), dokumentiert in CONTRIBUTING.md + CI-Workflow |
-| ✅ | `test_most` | Abdeckung der meisten Branches/Features | **Gemessen (03.09.2026):** Kover-Coverage-Report über alle 9 Module (JaCoCo-kompatibles XML + HTML, CI-Artefakt `coverage-report`): **LINE 35,3 %** gesamt (core 85 %, domain 95,5 %, feature-* 30 %, app 18 %), BRANCH 24,6 %, METHOD 42,5 % bei ~800 Unit-Tests. Der dynamische Analyse-Fallback-Text (≥ 80 % Branch-Coverage) deckt die dynamische Analyse-Interpretation mit ab; die Steigerung der Feature-Modul-Abdeckung ist dokumentiertes Ziel (SonarCloud-Budget nach Quality-Gate-Prioritäten) |
+| ✅ | `test_most` | Abdeckung der meisten Branches/Features | **Gemessen (04.09.2026):** Kover-Coverage-Report über alle 9 Module (JaCoCo-kompatibles XML + HTML, CI-Artefakt `coverage-report`): **LINE 35,3 %** gesamt (core 85 %, domain 95,5 %, feature-* 30 %, app 18 %), BRANCH 24,6 %, METHOD 42,5 % bei ~800 Unit-Tests. **Ausbau (04.09.):** feature-streaming kritische Pfade +9 Tests → Modul LINE 48,3 %, BRANCH 51,1 %, StreamingEngine 99,5 %, LUT-Companion 100 %. **Robolectric-Integration (04.09., 2. Runde):** echte Android-Framework-Tests im Modul (Bitmap.createBitmap, FileProvider, Intent) via Robolectric 4.14.1 (SDK-34-Pin) über JUnit-Vintage auf der JUnit-Platform; LUT-Bitmap-Pfade mit Pixel-Verifikation, loadCustomLut-Happy-Path, shareIntent-Verdrahtung (Linux-gated: androidx-FileProvider-Separator-Bug verhindert Windows-JVM-Läufe) → Modul LINE 48,6 %, HaldClut-Companion + LutController 100 %. Der dynamische Analyse-Fallback-Text (≥ 80 % Branch-Coverage) deckt die dynamische Analyse-Interpretation mit ab; die Steigerung der Feature-Modul-Abdeckung ist dokumentiertes Ziel (SonarCloud-Budget nach Quality-Gate-Prioritäten). **Robolectric-Compose-Runde (04.09., 3. Runde):** 19 neue Compose-UI-Tests unter Robolectric (StreamingScreen 7, ReplayLibraryScreen 6, PlaybackScreen 2, AboutScreen 2, HelpScreen 2) — UI-Testbarkeit über neuen `overlayContent`-Slot am StreamingScreen (Overlays als Composable-Slot statt harter hiltViewModel-Kinder); gemessen (Kover-Merge aller 9 Module): **LINE 47,2 % gesamt**, feature-streaming **66,6 %** (vorher ~48 %), app help 100 %/about 61,7 %; Compose-UI-Tests laufen auf AGP 9.x + JDK 25 (ASM-9.10.1-Force für die Unit-Test-Runtime, Plain-`Application` statt VividApplication wegen Ktor-Port-Kollision zwischen Test-Workern) |
 | ✅ | `test_continuous_integration` | CI läuft bei jedem Push | GitHub Actions: Build & Test, CodeQL, Snyk, Scorecard, Dependency Submission, Reproducibility (nightly); lokales Pre-Push-Gate (Tests + Lint + Guards) |
 
 ### Tests für neue Funktionen
@@ -349,7 +358,7 @@ Maintainer vor dem Speichern inhaltlich bestätigen.
 | 33 | `build_floss_tools` | Met | Vollständige FOSS-Toolchain (foss-Flavor für F-Droid) |
 | 34 | `test` | Met URL | ~800 Unit-Tests in `src/test` je Modul; Ausführung dokumentiert in CONTRIBUTING.md + CI-Workflow |
 | 35 | `test_invocation` | Met | `./gradlew testDebugUnitTest` (Gradle-Standard) |
-| 36 | `test_most` | Met justification *(SUGGESTED)* | Gemessen via Kover-Report (CI-Artefakt `coverage-report`): LINE 35,3 %, BRANCH 24,6 %, METHOD 42,5 % über alle 9 Module (core 85 %, domain 95,5 %); Steigerung Feature-Module ist dokumentiertes Ziel |
+| 36 | `test_most` | Met justification *(SUGGESTED)* | Gemessen via Kover-Report (CI-Artefakt `coverage-report`): LINE 47,2 % gesamt (Robolectric-Compose-Runde 04.09.2026, vorher 35,3 %), BRANCH/METHOD siehe Report; feature-streaming 66,6 %, app help 100 %, about 61,7 %; StreamingEngine 99,5 % LINE, LUT-/Robolectric-Pfade 100 %; Steigerung der übrigen Feature-Module ist dokumentiertes Ziel |
 | 37 | `test_continuous_integration` | Met | GitHub Actions bei jedem Push (Build & Test, Security-Suite); lokales Pre-Push-Gate |
 | 38 | `test_policy` | Met | Testpflicht für neue Features (CONTRIBUTING.md) |
 | 39 | `tests_are_added` | Met URL | PARITY.md-Log dokumentiert Tests je Feature (z. B. 6× Engine, 10× Replay, 71× Streaming) |

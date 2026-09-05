@@ -7,7 +7,8 @@
 [🇫🇷 Guide utilisateur (FR)](https://github.com/thoser666/Vivid/blob/develop/docs/user-guide.fr.md) ·
 [📦 README](https://github.com/thoser666/Vivid#readme) ·
 [🔒 Datenschutz](https://thoser666.github.io/Vivid/privacy/) ·
-[🤖 Bot-Doku](https://github.com/thoser666/Vivid/blob/develop/docs/ai-chat-bot.md)
+[🤖 Bot-Doku](https://github.com/thoser666/Vivid/blob/develop/docs/ai-chat-bot.md) ·
+[🎯 Vision & Feature-Kriterien](https://github.com/thoser666/Vivid/blob/develop/docs/vision.md)
 
 ---
 

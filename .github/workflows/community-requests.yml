@@ -1,0 +1,92 @@
+name: Community Request Triage
+
+# Wöchentlicher Triage: An jedem offenen Enhancement-Issue wird genau
+# einmal ein "Vision-Check"-Kommentar gepostet (Idempotenz über Marker),
+# damit Wünsche systematisch an docs/vision.md (5-Fragen-Check) gemessen
+# werden. Die Entscheidung bleibt beim Maintainer - die Automatisierung
+# liefert nur Struktur und Vollständigkeit.
+on:
+  schedule:
+    # Wöchentlich: Montag 07:00 UTC (nach dem Moblin-Check um 06:00)
+    - cron: '0 7 * * 1'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Triage open enhancement issues
+        id: triage
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            // Marker macht den Kommentar idempotent: Auch wenn das Label
+            // entfernt und spaeter wieder gesetzt wird, wird nie doppelt
+            // gepostet.
+            const MARKER = '<!-- community-triage -->';
+            const criteria = [
+              ['Streamer-Nutzen', 'Macht es IRL-Streams direkt besser - Bild, Audio, Chat-Interaktion, Zuverlaessigkeit?'],
+              ['Mobile-Realitaet', 'Ist es auf einem Smartphone (Akku, Mobilfunk, einhaendig) sinnvoll nutzbar?'],
+              ['Paritaet/Oekosystem', 'Schliesst es eine Moblin-Luecke oder staerkt das Twitch-Streaming-Oekosystem?'],
+              ['Wartbarkeit', 'Kann ein kleines Team es bauen und halten - keine proprietaren Abhaengigkeiten, kein Geraete-Zoo?'],
+              ['FOSS-Kompatibilitaet', 'Laeuft es im foss-Flavor ohne Closed-Source-Pflicht?']
+            ];
+            const criteriaList = criteria
+              .map(([name, question]) => '- [ ] **' + name + ':** ' + question)
+              .join('\n');
+
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'enhancement',
+              per_page: 100
+            });
+
+            let triaged = 0;
+            for (const issue of issues) {
+              // Pull Requests tauchen in der Issues-API auf, sind aber
+              // keine Feature-Wuensche.
+              if (issue.pull_request) continue;
+
+              const comments = await github.paginate(github.rest.issues.listComments, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                per_page: 100
+              });
+              if (comments.some((c) => c.body && c.body.includes(MARKER))) continue;
+
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                body: [
+                  MARKER,
+                  '## 🎯 Vision-Check für diesen Wunsch',
+                  '',
+                  'Bewerte diesen Wunsch anhand der [Vision & Feature-Kriterien](docs/vision.md) (5-Fragen-Check):',
+                  '',
+                  criteriaList,
+                  '',
+                  '**Ergebnis:** ☐ Aufnehmen (Roadmap-Milestone) · ☐ Zurückstellen (Backlog mit Begründung) · ☐ Ablehnen (dokumentiert)',
+                  '',
+                  '💡 *Hinweis: Diese Einschätzung hilft bei der Roadmap-Pflege - die Entscheidung trifft der Maintainer. Danke für deinen Beitrag!*'
+                ].join('\n')
+              });
+              triaged++;
+              core.notice('Vision-Check an #' + issue.number + ' gepostet: ' + issue.title);
+            }
+
+            core.setOutput('triaged', String(triaged));
+            if (triaged === 0) {
+              core.notice('Alle offenen Enhancement-Issues sind bereits triaged.');
+            }
+
+      - name: Summary
+        run: |
+          echo "🎯 Vision-Checks gepostet: ${{ steps.triage.outputs.triaged }} (Kriterien: docs/vision.md)" >> "$GITHUB_STEP_SUMMARY"
