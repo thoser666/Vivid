@@ -127,7 +127,7 @@ fi
 if [[ ${#MAPPINGS[@]} -eq 0 ]]; then
   # Default: BEIDE Release-Kanäle (Pfade per Env überschreibbar für Tests).
   MAPPINGS=(
-    "${MAPPING_RELEASE:-app/build/outputs/mapping/release/mapping.txt}"       # release — APK
+    "${MAPPING_RELEASE:-app/build/outputs/mapping/standardRelease/mapping.txt}"   # standardRelease — APK (standard-Flavor, seit Flavors standard/foss)
     "${MAPPING_PLAYRELEASE:-app/build/outputs/mapping/standardPlayRelease/mapping.txt}"   # standardPlayRelease — AAB
   )
 fi

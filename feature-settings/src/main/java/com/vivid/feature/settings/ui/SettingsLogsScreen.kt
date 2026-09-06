@@ -43,6 +43,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -247,7 +248,11 @@ private fun LogList(logs: List<LogEntry>, modifier: Modifier = Modifier) {
     val grouped = logs.groupBy { LogDates.dayKey(it.timestampMillis) }.toSortedMap(compareByDescending { it })
 
     LazyColumn(
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier
+            .fillMaxSize()
+            // Test-Naht: UI-Tests scrollen per performScrollToNode gezielt zu
+            // Einträgen (LazyColumn komponiert nur sichtbare Items).
+            .testTag("logs_list"),
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         grouped.forEach { (dayKey, dayEntries) ->

@@ -97,7 +97,7 @@ assert_count "S1.4 state" 1
 
 echo "== S2: Re-Run bei komplettem Release → Skip (kein neues Create)"
 reset_state
-seed_release '{"tagName":"v9.9.9-test","isDraft":false,"assets":[{"name":"app-release.apk"}]}'
+seed_release '{"tagName":"v9.9.9-test","isDraft":false,"assets":[{"name":"app-standard-release.apk"}]}'
 OUT=$(ruby "$HARNESS" 2>&1) || true
 assert_has "S2.1 skip" "already exists and is complete - skipping"
 assert_has "S2.2 lane ok" "LANE_OK"
