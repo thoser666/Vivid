@@ -39,7 +39,14 @@ jobs:
         with:
           ref: develop
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          # Root-Fix CI-Suppression: Bot-Branch per USER-Credential pushen
+          # (nicht GITHUB_TOKEN) — sonst unterdrückt GitHub die
+          # pull_request-Workflows auf dem Bot-PR und die Pflicht-Checks
+          # (Build & Test, Secret Guard) laufen nie (Vorfall PRs #142/#143).
+          # Fallback: GITHUB_TOKEN (altes Verhalten, mit ::warning::-Hinweis
+          # im PR-Step). Secret anlegen: gh secret set AUTOMATION_TOKEN
+          # (Fine-grained PAT: Contents + Pull requests RW auf dieses Repo).
+          token: ${{ secrets.AUTOMATION_TOKEN || secrets.GITHUB_TOKEN }}
       
       - name: Setup Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -242,10 +249,20 @@ jobs:
             ls -la docs/fdroid/archive/
           fi
       
+      # Branch Protection verbietet direkte Bot-Pushes auf develop →
+      # Branch + PR; gemergt wird manuell (Squash hält die History linear).
+      # Push + PR-Open laufen über das USER-Credential (AUTOMATION_TOKEN),
+      # damit GitHub die Pflicht-Checks auf dem Bot-PR NICHT unterdrückt
+      # (GITHUB_TOKEN-Ereignisse feuern keine pull_request-Workflows —
+      # Root-cause der leeren Check-Suiten auf Bot-PRs #140/#142/#143).
       - name: Commit to PR
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.AUTOMATION_TOKEN || secrets.GITHUB_TOKEN }}
+          HAS_AUTOMATION_TOKEN: ${{ secrets.AUTOMATION_TOKEN != '' }}
         run: |
+          if [ "$HAS_AUTOMATION_TOKEN" != "true" ]; then
+            echo "::warning::AUTOMATION_TOKEN ist nicht gesetzt — Bot-PR entsteht per GITHUB_TOKEN-Fallback. GitHub unterdrückt dann die Pflicht-Checks (Build & Test, Secret Guard) auf diesem PR (Rekursions-Schutz). Einmalig anlegen: gh secret set AUTOMATION_TOKEN --body <PAT> — Fine-grained PAT mit Contents+Pull requests (RW) auf dieses Repo."
+          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           # Stage repo and archive (incl. new APKs + archive index)
@@ -254,9 +271,6 @@ jobs:
             echo "No changes to commit"
             exit 0
           fi
-          # Branch Protection verbietet direkte Bot-Pushes auf develop →
-          # Branch + PR; gemergt wird manuell (GITHUB_TOKEN-PRs können sich
-          # nicht selbst mergen; Squash hält die History linear).
           BRANCH="chore/fdroid-repo-update-$(date +%Y%m%d%H%M%S)"
           git checkout -b "$BRANCH"
           git commit -m "chore: update F-Droid repository (repo: latest 5, archive: all older versions)"
