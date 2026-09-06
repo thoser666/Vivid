@@ -35,6 +35,14 @@ jobs:
         with:
           ref: develop
           fetch-depth: 0
+          # Root-Fix CI-Suppression: Der Bot-Branch muss mit einem USER-Credential
+          # gepusht werden (nicht GITHUB_TOKEN) — sonst unterdrückt GitHub die
+          # pull_request-Workflows auf dem Bot-PR und die Pflicht-Checks
+          # (Build & Test, Secret Guard) laufen nie (Vorfall PRs #142/#143).
+          # Fallback: GITHUB_TOKEN (altes Verhalten, mit ::warning::-Hinweis
+          # im PR-Step). Secret anlegen: gh secret set AUTOMATION_TOKEN
+          # (Fine-grained PAT: Contents + Pull requests RW auf dieses Repo).
+          token: ${{ secrets.AUTOMATION_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: Update CHANGELOG.md from GitHub releases
         env:
@@ -44,13 +52,21 @@ jobs:
       # Der Commit läuft als github-actions[bot] → release-pipeline.yml
       # überspringt dafür publish-release/verify (Guard unten), sonst gäbe
       # es eine Endlosschleife: Changelog-Commit → Nightly → Release → Changelog.
+      # (Der Loop-Guard hängt am Commit-AUTHOR, nicht am Push-Credential —
+      # der Author bleibt daher github-actions[bot].)
       # Branch Protection verbietet direkte Bot-Pushes auf develop → Branch +
-      # PR; gemergt wird manuell (GITHUB_TOKEN-PRs können sich nicht selbst
-      # mergen, und der Solo-Betreuer kann mit Admin-Bypass direkt pushen).
+      # PR; gemergt wird manuell (der Solo-Betreuer kann mit Admin-Bypass
+      # direkt pushen).
+      # Push + PR-Open laufen über das USER-Credential (AUTOMATION_TOKEN),
+      # damit die Pflicht-Checks auf dem PR laufen — siehe Checkout oben.
       - name: Commit to PR if changed
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.AUTOMATION_TOKEN || secrets.GITHUB_TOKEN }}
+          HAS_AUTOMATION_TOKEN: ${{ secrets.AUTOMATION_TOKEN != '' }}
         run: |
+          if [ "$HAS_AUTOMATION_TOKEN" != "true" ]; then
+            echo "::warning::AUTOMATION_TOKEN ist nicht gesetzt — Bot-PR entsteht per GITHUB_TOKEN-Fallback. GitHub unterdrückt dann die Pflicht-Checks (Build & Test, Secret Guard) auf diesem PR (Rekursions-Schutz). Einmalig anlegen: gh secret set AUTOMATION_TOKEN --body <PAT> — Fine-grained PAT mit Contents+Pull requests (RW) auf dieses Repo."
+          fi
           if git diff --quiet CHANGELOG.md; then
             echo "CHANGELOG.md unverändert — nichts zu committen"
             exit 0

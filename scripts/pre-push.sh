@@ -33,6 +33,9 @@ bash scripts/test_dependency_security_constraints.sh
 echo "▶ [pre-push] Workflow-Security-Selbsttest (scripts/test_workflow_security.sh)"
 bash scripts/test_workflow_security.sh
 
+echo "▶ [pre-push] Bot-PR-Credential-Selbsttest (scripts/test_bot_pr_credentials.sh)"
+bash scripts/test_bot_pr_credentials.sh
+
 echo "▶ [pre-push] pip-Pinning-Selbsttest (scripts/test_pip_pinning.sh)"
 bash scripts/test_pip_pinning.sh
 
