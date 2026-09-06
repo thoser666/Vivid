@@ -9,6 +9,22 @@ plugins {
 android {
     namespace = "com.vivid.feature.settings"
 
+    // Robolectric 4.14.1 bündelt ein älteres ASM, das JDK-25-Klassendateien
+    // (major version 69) nicht lesen kann — beim Instrumentieren crasht es mit
+    // "Unsupported class file major version 69". Neuere ASM wird für die
+    // Unit-Test-Runtime erzwungen (gleicher Workaround wie in feature-streaming).
+    configurations.configureEach {
+        if (name.contains("UnitTestRuntimeClasspath")) {
+            resolutionStrategy {
+                force("org.ow2.asm:asm:9.10.1")
+                force("org.ow2.asm:asm-tree:9.10.1")
+                force("org.ow2.asm:asm-commons:9.10.1")
+                force("org.ow2.asm:asm-util:9.10.1")
+                force("org.ow2.asm:asm-analysis:9.10.1")
+            }
+        }
+    }
+
     lint {
         disable += setOf("GradleDependency", "NewerVersionAvailable", "AndroidGradlePluginVersion", "OldTargetApi")
         warningsAsErrors = true
@@ -27,6 +43,12 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    testOptions {
+        // Robolectric: gemergtes Manifest + Ressourcen in die JVM-Tests laden
+        // (nötig für Compose-UI-Tests mit String-Ressourcen).
+        unitTests.isIncludeAndroidResources = true
     }
 }
 
@@ -68,5 +90,11 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.mockk)
     testImplementation(libs.kotlinx.coroutines.test)
+
+    // Robolectric-Compose-UI-Tests (JVM): echte Ressourcen + Semantics-Tree.
+    testImplementation(libs.robolectric.core)
+    testImplementation(libs.androidx.test.core)
+    testImplementation(libs.androidx.ui.test.junit4)
+    debugImplementation(libs.androidx.ui.test.manifest)
     debugImplementation(libs.androidx.ui.tooling)
 }
