@@ -29,6 +29,9 @@
 #   T9 Orphan-Rollback      → scheitert der PR-Create, wird der Bot-Branch
 #                            automatisch gelöscht (Vorfall: 3 Orphan-Branches
 #                            aus den 403-Runs 34021546368/34022706363/34023536729)
+#   T10 Rebase-Härtung      → Changelog-Mirror rebaset auf weitergelaufenes
+#                            develop; bei Konflikt Neugenerierung (Vorfall
+#                            CONFLICTING-PR #149)
 #
 # Läuft im CI (android-ci.yml, Job "Build & Test") und lokal:
 # bash scripts/test_bot_pr_credentials.sh  (Exit 0 = grün)
@@ -37,7 +40,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR/.." || exit 1
 
-echo "▶ [test_bot_pr_credentials] Szenarien T1–T9"
+echo "▶ [test_bot_pr_credentials] Szenarien T1–T10"
 
 FAILED=0
 check() {
@@ -135,6 +138,22 @@ for f in .github/workflows/automation-changelog.yml \
     "$f" '::error::PR-Create fehlgeschlagen — Rollback'
   check "T9.4 exit 1 nach Rollback ($(basename "$f"))" \
     "$f" 'kein Orphan)'
+done
+
+# T10: Rebase-Härtung der Changelog-Mirror-Workflows — während des Runs
+# gemergte develop-Commits lassen den Bot-PR sonst als CONFLICTING zurück
+# (Vorfall #149). Guard: fetch nach dem Commit, Ancestor-Check HEAD~1 vs.
+# origin/develop, Rebase mit Konflikt-Fallback (Neugenerierung).
+for f in .github/workflows/automation-changelog.yml \
+         .github/workflows/release-pipeline.yml; do
+  check "T10.1 Rebase-Ancestor-Check ($(basename "$f"))" \
+    "$f" 'merge-base --is-ancestor "HEAD~1" origin/develop'
+  check "T10.2 Rebase-Aufruf ($(basename "$f"))" \
+    "$f" 'git rebase origin/develop'
+  check "T10.3 Konflikt-Fallback: abort + Neugenerierung ($(basename "$f"))" \
+    "$f" 'git rebase --abort'
+  check "T10.4 ::notice:: bei weitergelaufenem develop ($(basename "$f"))" \
+    "$f" '::notice::develop ist während des Runs weitergelaufen'
 done
 
 echo ""

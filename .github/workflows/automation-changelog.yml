@@ -77,6 +77,29 @@ jobs:
           git checkout -b "$BRANCH"
           git add CHANGELOG.md
           git commit -m "docs: Update CHANGELOG from GitHub releases"
+          # Rebase-Härtung: Während dieses Runs gemergte develop-Commits
+          # (v. a. andere Bot-PRs, die dieselben CHANGELOG-Zeilen ändern)
+          # lassen den PR sonst als CONFLICTING zurück (Vorfall #149).
+          # HEAD~1 ist der develop-Stand vom Job-Start; origin/develop wird
+          # frisch geholt — bewegt, wird der Commit rebaset. Konflikt →
+          # abort + Neugenerierung auf dem neuen Stand (Skript ist idempotent
+          # und liest Releases frisch von der API) — Konflikt ausgeschlossen.
+          git fetch origin develop
+          if ! git merge-base --is-ancestor "HEAD~1" origin/develop; then
+            echo "::notice::develop ist während des Runs weitergelaufen — Rebase auf $(git rev-parse --short origin/develop)"
+            if ! git rebase origin/develop; then
+              echo "::warning::Rebase-Konflikt — CHANGELOG wird auf dem neuen develop neu generiert"
+              git rebase --abort
+              git reset --hard origin/develop
+              bash scripts/update_changelog.sh
+              git add CHANGELOG.md
+              if git diff --cached --quiet; then
+                echo "Nach Neugenerierung: keine Änderungen mehr — kein PR nötig"
+                exit 0
+              fi
+              git commit -m "docs: Update CHANGELOG from GitHub releases"
+            fi
+          fi
           git push origin "$BRANCH"
           # REST statt `gh pr create` (GraphQL createPullRequest): Fine-grained
           # PATs scheitern an der GraphQL-Mutation auch mit korrekter
