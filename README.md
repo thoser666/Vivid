@@ -209,7 +209,7 @@ Die Überprüfung auf dem Über-Bildschirm folgt denselben Regeln wie in [RELEAS
 | **M3: Multi-Platform & Pro Features** | v0.8.0 | Multi-Plattform-Chat + erweiterte Streaming-Features | Multi-Platform Chat (Kick, YouTube, SOOP), Adaptive Bitrate, SRTLA Bonding, Streamer-Browser |
 | **M4: Polish & Ecosystem** | v0.9.0 | UI/UX-Verbesserungen + Integrationen | Landscape/Portrait, VTuber/PNGTuber, Externes Display/Cast, BLE-Sensoren |
 
-> **Aktueller Stand:** 34 ✅ / 5 🚧 / 28 📋 von 67 Features. **M1 (v0.6.0) ist abgeschlossen:** Slideshow-Widget, Twitch-OAuth und optionale Start-Ads sind implementiert.
+> **Aktueller Stand:** 34 ✅ / 5 🚧 / 28 📋 von 67 Features. **M1 ist abgeschlossen und ausgeliefert** (via v0.5.12-beta): Slideshow-Widget, Twitch-OAuth und optionale Start-Ads sind implementiert.
 
 ### Offene Checklists
 
