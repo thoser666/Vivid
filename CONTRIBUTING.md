@@ -128,7 +128,15 @@ Zusätzlich löst jeder Push die Security-Suite aus (CodeQL, Snyk, OpenSSF Score
 
 #### Bot-PRs und die Check-Suppression
 
-GitHub unterdrückt `pull_request`-Workflows auf PRs, deren Branch mit `GITHUB_TOKEN` gepusht wurde (Rekursions-Schutz) — die Required Checks würden auf Bot-PRs nie laufen. Deshalb pushen alle Automatiken (Changelog-Spiegel, F-Droid-Repo-Update) ihre Branches über das **User-Credential** `AUTOMATION_TOKEN` (Fallback `GITHUB_TOKEN` mit `::warning::`-Hinweis im Run-Log). Regressionstest: `scripts/test_bot_pr_credentials.sh` (Teil des Pre-Push-Gates). Falls auf einem Bot-PR doch mal Checks fehlen: leeren Trigger-Commit auf den PR-Branch pushen (feuert `synchronize` → volle Check-Suite).
+GitHub unterdrückt `pull_request`-Workflows auf PRs, deren Branch mit `GITHUB_TOKEN` gepusht wurde (Rekursions-Schutz) — die Required Checks würden auf Bot-PRs nie laufen. Deshalb pushen alle Automatiken (Changelog-Spiegel, F-Droid-Repo-Update) ihre Branches über das **User-Credential** `AUTOMATION_TOKEN` (Fallback `GITHUB_TOKEN` mit `::warning::`-Hinweis im Run-Log). Regressionstest: `scripts/test_bot_pr_credentials.sh` (Teil des Pre-Push-Gates).
+
+**Erkenntnisse vom 06.09.2026 (drei Fehlversuch-Klassen, alle dokumentiert in der Praxis verifiziert):**
+
+1. **Classic-PAT statt Fine-grained PAT.** Der Fine-grained PAT scheiterte in drei Stufen despite korrekter UI-Konfiguration: ohne Repository-Access auf Vivid → Push-403; ohne `Pull requests: RW` → PR-Create-403; **mit beidem weiterhin 403** beim PR-Create (`Resource not accessible by personal access token`, Runs 34021546368/34022706363/34023536729 — Push via Contents:RW funktionierte, der REST-PR-Create nicht). Ein **Classic-PAT mit `repo`-Scope** (https://github.com/settings/tokens/new) funktioniert in allen Stufen. Bei Token-Problemen also: erst prüfen, **welcher** Token im Secret steckt (Permission-Edits gelten nur für den editierten Token!), dann ggf. Classic-PAT verwenden.
+2. **REST statt `gh pr create`.** `gh pr create` nutzt die GraphQL-Mutation `createPullRequest`, die von Fine-grained PATs auch mit korrekter Permission häufig abgelehnt wird. Alle drei Bot-Workflows erstellen PRs deshalb per REST: `gh api repos/${{ github.repository }}/pulls -f title=… -f head=… -f base=… -F body=…` (deplekt-fdroid.yml, automation-changelog.yml, Changelog-Mirror in release-pipeline.yml). Guard im Selbsttest (T7/T8).
+3. **Vollautomatik-Kette (verifiziert):** Branch-Push per PAT → REST-PR-Create → Pflicht-Checks (Build & Test, Secret Guard) laufen automatisch → Merge per `--admin` (Review-Pflicht umgangen). Belege: PRs #146–#150 an einem Tag.
+
+Historischer Hand-Fix, falls beide Automatik-Ebenen fallen: leeren Trigger-Commit auf den Bot-PR-Branch pushen (feuert `synchronize` → volle Check-Suite).
 
 ### Pre-Push-Gate (CI lokal ausführen)
 
