@@ -81,4 +81,13 @@ jobs:
           # REST statt `gh pr create` (GraphQL createPullRequest): Fine-grained
           # PATs scheitern an der GraphQL-Mutation auch mit korrekter
           # Pull-requests-Permission — der REST-Endpoint funktioniert.
-          gh api repos/${{ github.repository }}/pulls -f title="docs: Update CHANGELOG from GitHub releases" -f head="$BRANCH" -f base=develop -F body="Automatische CHANGELOG-Spiegelung von GitHub Releases. Zum Übernehmen mergen (erforderliche Checks laufen im PR)."
+          # Rollback-Härtung: Scheitert der PR-Create, bleibt der bereits
+          # gepushte Branch als Orphan zurück → Branch löschen, dann laut
+          # abbrechen (siehe Orphan-Vorfall der Runs 34021546368/34022706363).
+          if ! gh api repos/${{ github.repository }}/pulls -f title="docs: Update CHANGELOG from GitHub releases" -f head="$BRANCH" -f base=develop -F body="Automatische CHANGELOG-Spiegelung von GitHub Releases. Zum Übernehmen mergen (erforderliche Checks laufen im PR)."; then
+            echo "::error::PR-Create fehlgeschlagen — Rollback: Bot-Branch $BRANCH wird gelöscht (kein Orphan)"
+            gh api -X DELETE "repos/${{ github.repository }}/git/refs/heads/$BRANCH" \
+              || echo "::warning::Branch-Rollback fehlgeschlagen — manuell löschen: gh api -X DELETE repos/${{ github.repository }}/git/refs/heads/$BRANCH"
+            exit 1
+          fi
+          echo "✅ Bot-PR erstellt ($BRANCH)"

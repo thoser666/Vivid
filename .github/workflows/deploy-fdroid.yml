@@ -279,4 +279,14 @@ jobs:
           # PATs scheitern an der GraphQL-Mutation auch mit korrekter
           # Pull-requests-Permission ("Resource not accessible by personal
           # access token", Run 34022706363) — der REST-Endpoint funktioniert.
-          gh api repos/${{ github.repository }}/pulls -f title="chore: update F-Droid repository" -f head="$BRANCH" -f base=develop -F body="Automatische F-Droid-Index-Aktualisierung (repo: latest 5, archive: alle älteren Versionen). Zum Übernehmen mergen (erforderliche Checks laufen im PR)."
+          # Rollback-Härtung (Orphan-Vorfall der Runs 34021546368/34022706363/
+          # 34023536729): Scheitert der PR-Create (Permission, Netz), bleibt der
+          # bereits gepushte Branch als Orphan zurück → Branch löschen, dann
+          # laut abbrechen.
+          if ! gh api repos/${{ github.repository }}/pulls -f title="chore: update F-Droid repository" -f head="$BRANCH" -f base=develop -F body="Automatische F-Droid-Index-Aktualisierung (repo: latest 5, archive: alle älteren Versionen). Zum Übernehmen mergen (erforderliche Checks laufen im PR)."; then
+            echo "::error::PR-Create fehlgeschlagen — Rollback: Bot-Branch $BRANCH wird gelöscht (kein Orphan)"
+            gh api -X DELETE "repos/${{ github.repository }}/git/refs/heads/$BRANCH" \
+              || echo "::warning::Branch-Rollback fehlgeschlagen — manuell löschen: gh api -X DELETE repos/${{ github.repository }}/git/refs/heads/$BRANCH"
+            exit 1
+          fi
+          echo "✅ Bot-PR erstellt ($BRANCH)"

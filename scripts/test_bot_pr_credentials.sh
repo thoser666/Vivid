@@ -26,6 +26,9 @@
 #   T7 kein `gh pr create`  → GraphQL-Mutation scheitert an Fine-grained PATs;
 #                            alle 3 Dateien nutzen stattdessen REST
 #   T8 REST-PR-Create       → `gh api repos/.../pulls` in allen 3 Dateien
+#   T9 Orphan-Rollback      → scheitert der PR-Create, wird der Bot-Branch
+#                            automatisch gelöscht (Vorfall: 3 Orphan-Branches
+#                            aus den 403-Runs 34021546368/34022706363/34023536729)
 #
 # Läuft im CI (android-ci.yml, Job "Build & Test") und lokal:
 # bash scripts/test_bot_pr_credentials.sh  (Exit 0 = grün)
@@ -34,7 +37,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR/.." || exit 1
 
-echo "▶ [test_bot_pr_credentials] Szenarien T1–T8"
+echo "▶ [test_bot_pr_credentials] Szenarien T1–T9"
 
 FAILED=0
 check() {
@@ -115,6 +118,23 @@ for f in .github/workflows/automation-changelog.yml \
   fi
   check "T8 REST-PR-Create ($(basename "$f"))" \
     "$f" 'gh api repos/\$\{\{ github\.repository \}\}/pulls -f title='
+done
+
+# T9: Orphan-Rollback — scheitert der PR-Create, muß der Bot-Branch gelöscht
+# werden (Vorfall: die 403-Runs hinterließen jeweils Orphan-Branches, die
+# manuell per API geräumt werden mußten). Guard: if !-Wrap um den REST-Call,
+# DELETE-Ref-Call, ::error::-Ankündigung, exit 1 danach.
+for f in .github/workflows/automation-changelog.yml \
+         .github/workflows/deploy-fdroid.yml \
+         .github/workflows/release-pipeline.yml; do
+  check "T9.1 PR-Create in if !-Rollback-Wrap ($(basename "$f"))" \
+    "$f" 'if ! gh api repos/\$\{\{ github\.repository \}\}/pulls -f title='
+  check "T9.2 Branch-DELETE im Rollback ($(basename "$f"))" \
+    "$f" 'git/refs/heads/\$BRANCH'
+  check "T9.3 Rollback-::error::($(basename "$f"))" \
+    "$f" '::error::PR-Create fehlgeschlagen — Rollback'
+  check "T9.4 exit 1 nach Rollback ($(basename "$f"))" \
+    "$f" 'kein Orphan)'
 done
 
 echo ""
