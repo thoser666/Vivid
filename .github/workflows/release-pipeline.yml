@@ -120,9 +120,10 @@ jobs:
   #   - HelpNavigationTest  → beide Help-Einstiege (Streaming-❓ + About) +
   #                          externer Doku-Link (ACTION_VIEW-Intent)
   #   - PlayScreenshotsTest → Play-Screenshots per fastlane screengrab
-  # Läuft bei jedem Push/PR auf dem Default-Branch. Nutzt die Community-Action
+  # Läuft manuell (workflow_dispatch) per Matrix auf beiden Runner-Architekturen.
+  # Nutzt die Community-Action
   # reactivecircus/android-emulator-runner (v2.38.0, SHA-gepinnt), die AVD-Erstellung,
-  # Boot und Script-Ausführung auf dem ubuntu-Runner übernimmt (KVM falls verfügbar).
+  # Boot und Script-Ausführung übernimmt.
   # Keine Signing-Secrets nötig — Debug-Build mit Debug-Key.
   #
   # Locale-Matrix (en-US, de-DE): beweist dauerhaft, dass die Suite locale-robust
@@ -134,17 +135,36 @@ jobs:
   # (`cmd activity get-config`) — schlägt er fehl, bricht der Job ab, damit nie
   # fälschlich ein „locale-robust“-Grün gemeldet wird.
   emulator-tests:
-    name: Instrumented UI Tests (Emulator, manuell)
-    # Nur manuell per workflow_dispatch lauffähig — GitHub-Hosted-Runner
-    # bieten weder KVM (Linux) noch Hypervisor.Framework (macOS, HVF
-    # HV_UNSUPPORTED): der Emulator bootet dort nicht (7 fehlgeschlagene
-    # CI-Versuche, 0 Testfehler). Die Suite läuft lokal (vivid_play-AVD)
-    # und auf self-hosted-Runnern mit KVM.
+    name: Instrumented UI Tests (${{ matrix.name }})
+    # Nur manuell per workflow_dispatch lauffähig. Matrix (Vorfall 06.09.2026,
+    # Run 34009482168: Job lief allein auf macos-latest/arm64 und crashte beim
+    # Emulator-Boot mit `qemu-system-aarch64: failed to initialize HVF:
+    # HV_UNSUPPORTED`):
+    #   - ubuntu-x86_64: authority-fähig — GitHub-hosted Linux-Runner bieten
+    #     KVM für Android-Workloads (Changelog 02.04.2024); der udev-perms-Step
+    #     ist Pflicht, sonst fällt der Emulator auf -accel off zurück
+    #     (Boot-Timeout — die früheren Linux-Fehlschläge ohne einen Testfehler).
+    #   - macos-arm64: experimentell (continue-on-error) — HVF auf den Arm64-
+    #     Images derzeit HV_UNSUPPORTED; sobald das Image wieder bootet,
+    #     meldet sich die Leg von selbst grün.
     if: github.event_name == 'workflow_dispatch'
-    runs-on: macos-latest
     needs: test
     permissions:
       contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: ubuntu-x86_64
+            os: ubuntu-latest
+            arch: x86_64
+            experimental: false
+          - name: macos-arm64
+            os: macos-latest
+            arch: arm64-v8a
+            experimental: true
+    runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.experimental }}
 
     steps:
       - name: Checkout code
@@ -156,6 +176,33 @@ jobs:
           java-version: '25'
           distribution: 'temurin'
           cache: gradle
+
+      # ✅ KVM für Android-Workloads freischalten (GitHub-Changelog 02.04.2024):
+      # ohne diese udev-Regel ist /dev/kvm nicht beschreibbar und der Emulator
+      # fällt auf Software-Acceleration zurück (-accel off → Boot-Timeout).
+      - name: Enable KVM group perms
+        if: runner.os == 'Linux'
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      # ✅ Accel-Diagnostik: Nachweis, dass KVM wirklich nutzbar ist — schlägt
+      # das fehl, scheitert der Job hier statt im Boot-Timeout (klare Ursache).
+      - name: Verify KVM acceleration available
+        if: runner.os == 'Linux'
+        run: |
+          if [ -e /dev/kvm ]; then
+            echo "✅ /dev/kvm vorhanden"
+            if [ ! -w /dev/kvm ]; then
+              echo "::error::/dev/kvm nicht beschreibbar — udev-Regel greift nicht"
+              exit 1
+            fi
+            echo "✅ /dev/kvm beschreibbar (KVM-Hardware-Acceleration aktiv)"
+          else
+            echo "::error::/dev/kvm fehlt — Emulator würde auf -accel off laufen (Boot-Timeout)"
+            exit 1
+          fi
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
@@ -171,12 +218,13 @@ jobs:
         uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
         with:
           api-level: 34
-          arch: arm64-v8a
+          arch: ${{ matrix.arch }}
           target: google_apis
           force-avd-creation: true
           emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect
           disable-animations: true
           disable-spellchecker: true
+          emulator-boot-timeout: 900
           script: |
             ./gradlew :app:connectedDebugAndroidTest
 
@@ -184,7 +232,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: instrumented-test-results
+          name: instrumented-test-results-${{ matrix.name }}
           path: '**/build/outputs/androidTest-results/**/*.xml'
 
   build-debug:
@@ -713,6 +761,23 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Run verify-reproducibility self-test
         run: bash scripts/test_verify_reproducibility.sh
+
+  # ✅ Regressionstest: der Emulator-Test-Job (emulator-tests) muss beide
+  # Runner-Architekturen abdecken — x86_64 authority-fähig mit KVM-Enablement
+  # (udev-perms + /dev/kvm-Verifikation), arm64 experimentell (Vorfall
+  # 06.09.2026: `HVF: HV_UNSUPPORTED` auf macos-latest/arm64; Linux scheiterte
+  # ohne udev-perms am Boot-Timeout via -accel off). Grep-basiert, offline.
+  # (scripts/test_emulator_matrix.sh)
+  test-emulator-matrix:
+    name: Self-Test Emulator-Matrix (Arch-Abdeckung)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Run emulator matrix self-test
+        run: bash scripts/test_emulator_matrix.sh
 
   publish-play:
     name: Publish to Google Play

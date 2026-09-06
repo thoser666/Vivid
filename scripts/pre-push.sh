@@ -125,6 +125,13 @@ run bash scripts/test_build_retry.sh
 echo "▶ [pre-push] Verify-Reproducibility-Selbsttest (scripts/test_verify_reproducibility.sh)"
 run bash scripts/test_verify_reproducibility.sh
 
+# Emulator-Matrix (grep-basiert, offline): der Instrumented-UI-Tests-Job muss
+# beide Runner-Architekturen abdecken — x86_64 authority-fähig mit KVM-
+# Enablement, arm64 experimentell (Vorfall 06.09.2026: HVF HV_UNSUPPORTED auf
+# macos-latest/arm64, Boot-Timeout ohne udev-perms auf Linux).
+echo "▶ [pre-push] Emulator-Matrix-Selbsttest (scripts/test_emulator_matrix.sh)"
+run bash scripts/test_emulator_matrix.sh
+
 # Roadmap-Reservierung (Ruby, offline): v0.6.0-beta wird abgelehnt, solange das
 # Streaming-Erweiterungs-Bucket (RIST/WHIP/RTMP-Pull/4K-HEVC/SRTLA) in PARITY.md
 # nicht vollständig ✅ ist — die Bucket-Nummerierung darf nicht vorzeitig belegt
