@@ -272,14 +272,14 @@ platform :android do
     # sein (android_fastlane.yml publish-release), sonst wird der Upload übersprungen.
     UI.message("Sentry mapping upload: Gradle plugin autoUploadProguardMapping=#{ENV["SENTRY_AUTH_TOKEN"] ? true : false}") if ENV["SENTRY_AUTH_TOKEN"]
 
-    apk = lane_context[SharedValues::GRADLE_APK_OUTPUT_PATH] || "app/build/outputs/apk/release/app-release.apk"
+    apk = lane_context[SharedValues::GRADLE_APK_OUTPUT_PATH] || "app/build/outputs/apk/standard/release/app-standard-release.apk"
     UI.message("APK path: #{apk}, exists: #{File.exist?(apk)}")
     publish_release(options.merge(apk: apk, version_name: version_name))
   end
 
   desc "Publish a pre-built release APK as a GitHub release (requires gh + GH_TOKEN, pre-built APK)"
   lane :publish_release do |options|
-    apk = options[:apk] || lane_context[SharedValues::GRADLE_APK_OUTPUT_PATH] || "app/build/outputs/apk/release/app-release.apk"
+    apk = options[:apk] || lane_context[SharedValues::GRADLE_APK_OUTPUT_PATH] || "app/build/outputs/apk/standard/release/app-standard-release.apk"
     ref_type = ENV["GITHUB_REF_TYPE"].to_s
     ref_name = ENV["GITHUB_REF_NAME"].to_s
     stable = options[:tag] || (ref_type == "tag" && ref_name.start_with?("v"))
@@ -375,8 +375,8 @@ platform :android do
       # relative Pfade scheitern in der CI, weil fastlane dort nicht aus
       # dem Repo-Root läuft (File.exist? lieferte false, Assets fehlten).
       UI.message("Creating nightly release…")
-      mapping = lane_context[SharedValues::GRADLE_MAPPING_TXT_OUTPUT_PATH] || ENV["GRADLE_MAPPING_TXT_OUTPUT_PATH"] || "app/build/outputs/mapping/release/mapping.txt"
-      metadata = lane_context[SharedValues::GRADLE_OUTPUT_JSON_OUTPUT_PATH] || ENV["GRADLE_OUTPUT_JSON_OUTPUT_PATH"] || "app/build/outputs/apk/release/output-metadata.json"
+      mapping = lane_context[SharedValues::GRADLE_MAPPING_TXT_OUTPUT_PATH] || ENV["GRADLE_MAPPING_TXT_OUTPUT_PATH"] || "app/build/outputs/mapping/standardRelease/mapping.txt"
+      metadata = lane_context[SharedValues::GRADLE_OUTPUT_JSON_OUTPUT_PATH] || ENV["GRADLE_OUTPUT_JSON_OUTPUT_PATH"] || "app/build/outputs/apk/standard/release/output-metadata.json"
       assets = [apk]
       assets << mapping if File.exist?(mapping)
       assets << metadata if File.exist?(metadata)

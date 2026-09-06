@@ -119,6 +119,12 @@ run bash scripts/test_release_safety.sh
 echo "▶ [pre-push] Build-Retry-Härtung (scripts/test_build_retry.sh)"
 run bash scripts/test_build_retry.sh
 
+# Verify-Reproducibility (grep-basiert, offline): der nightly-Verify-Job muss
+# die flavor-korrekten Asset-Namen/Rebuild-Pfade nutzen (Vorfall 06.09.2026:
+# "app-release.apk fehlt im Release" — Asset heißt app-standard-release.apk).
+echo "▶ [pre-push] Verify-Reproducibility-Selbsttest (scripts/test_verify_reproducibility.sh)"
+run bash scripts/test_verify_reproducibility.sh
+
 # Roadmap-Reservierung (Ruby, offline): v0.6.0-beta wird abgelehnt, solange das
 # Streaming-Erweiterungs-Bucket (RIST/WHIP/RTMP-Pull/4K-HEVC/SRTLA) in PARITY.md
 # nicht vollständig ✅ ist — die Bucket-Nummerierung darf nicht vorzeitig belegt

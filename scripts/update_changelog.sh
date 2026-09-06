@@ -84,7 +84,7 @@ while read -r tag; do
     entry+=$'\n\n'"$body"
   fi
   case "$tag" in
-    nightly-*) entry+=$'\n\n**Artefakte:** `app-release.apk` · `mapping.txt` · `output-metadata.json`' ;;
+    nightly-*) entry+=$'\n\n**Artefakte:** `app-standard-release.apk` · `mapping.txt` · `output-metadata.json`' ;;
   esac
 
   if [ -z "$new_entries" ]; then

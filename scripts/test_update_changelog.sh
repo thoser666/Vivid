@@ -130,7 +130,7 @@ check "T2 neues nightly eingefuegt" grep -q "0.2.0-nightly.99" "$SANDBOX/t2.md"
 check "T2 Nightly-Badge" grep -q '\*\*Nightly\*\*' "$SANDBOX/t2.md"
 check "T2 Alpha-Eintrag" grep -q "v0.3.0-alpha" "$SANDBOX/t2.md"
 check "T2 Stable-Eintrag" grep -q "v0.2.0" "$SANDBOX/t2.md"
-check "T2 Artefakte-Zeile (nightly)" grep -q "app-release.apk" "$SANDBOX/t2.md"
+check "T2 Artefakte-Zeile (nightly)" grep -q "app-standard-release.apk" "$SANDBOX/t2.md"
 check "T2 geloeschtes Nightly bleibt" grep -q "nightly-20260809-0800" "$SANDBOX/t2.md"
 
 line_new="$(grep -n "nightly-20260811-0000" "$SANDBOX/t2.md" | head -1 | cut -d: -f1)"
