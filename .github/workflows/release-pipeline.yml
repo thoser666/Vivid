@@ -369,7 +369,15 @@ jobs:
       # wird vom Job-Guard oben übersprungen → keine Endlosschleife.
       - name: Update CHANGELOG.md from GitHub releases
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Root-Fix CI-Suppression (Vorfall PRs #142/#143): Push + PR-Open
+          # müssen per USER-Credential laufen (AUTOMATION_TOKEN) — sonst
+          # unterdrückt GitHub die pull_request-Workflows auf dem Bot-PR und
+          # die Pflicht-Checks (Build & Test, Secret Guard) laufen nie.
+          # Fallback: GITHUB_TOKEN (altes Verhalten, mit ::warning::-Hinweis).
+          # Bewusst NUR hier scoped (git remote set-url) — der Rest des Jobs
+          # (Tag-Push, Release-Create) bleibt beim Checkout-Token.
+          GH_TOKEN: ${{ secrets.AUTOMATION_TOKEN || secrets.GITHUB_TOKEN }}
+          HAS_AUTOMATION_TOKEN: ${{ secrets.AUTOMATION_TOKEN != '' }}
         run: |
           git fetch origin develop
           git checkout -B changelog-update origin/develop
@@ -379,14 +387,20 @@ jobs:
             exit 0
           fi
           # Branch Protection verbietet direkte Bot-Pushes auf develop →
-          # Branch mit Zeitstempel + PR; gemergt wird manuell (GITHUB_TOKEN-PRs
-          # können sich nicht selbst mergen).
+          # Branch mit Zeitstempel + PR; gemergt wird manuell. (Der Loop-Guard
+          # in release-pipeline.yml hängt am Commit-AUTHOR — bleibt
+          # github-actions[bot], unabhängig vom Push-Credential.)
           BRANCH="chore/changelog-$(date +%Y%m%d%H%M%S)"
           git checkout -b "$BRANCH"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add CHANGELOG.md
           git commit -m "docs: Update CHANGELOG from GitHub releases"
+          if [ "$HAS_AUTOMATION_TOKEN" != "true" ]; then
+            echo "::warning::AUTOMATION_TOKEN ist nicht gesetzt — Bot-PR entsteht per GITHUB_TOKEN-Fallback. GitHub unterdrückt dann die Pflicht-Checks (Build & Test, Secret Guard) auf diesem PR (Rekursions-Schutz). Einmalig anlegen: gh secret set AUTOMATION_TOKEN --body <PAT> — Fine-grained PAT mit Contents+Pull requests (RW) auf dieses Repo."
+          fi
+          # User-Credential NUR für diesen Push aktivieren (kein Checkout-Wechsel):
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
           git push origin "$BRANCH"
           gh pr create --base develop --head "$BRANCH" \
             --title "docs: Update CHANGELOG from GitHub releases" \

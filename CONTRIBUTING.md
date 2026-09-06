@@ -126,6 +126,10 @@ Jeder PR muss diese Checks bestehen:
 
 Zusätzlich löst jeder Push die Security-Suite aus (CodeQL, Snyk, OpenSSF Scorecard, SonarCloud) — Findings dort sind Release-Blocker, keine Vorschläge.
 
+#### Bot-PRs und die Check-Suppression
+
+GitHub unterdrückt `pull_request`-Workflows auf PRs, deren Branch mit `GITHUB_TOKEN` gepusht wurde (Rekursions-Schutz) — die Required Checks würden auf Bot-PRs nie laufen. Deshalb pushen alle Automatiken (Changelog-Spiegel, F-Droid-Repo-Update) ihre Branches über das **User-Credential** `AUTOMATION_TOKEN` (Fallback `GITHUB_TOKEN` mit `::warning::`-Hinweis im Run-Log). Regressionstest: `scripts/test_bot_pr_credentials.sh` (Teil des Pre-Push-Gates). Falls auf einem Bot-PR doch mal Checks fehlen: leeren Trigger-Commit auf den PR-Branch pushen (feuert `synchronize` → volle Check-Suite).
+
 ### Pre-Push-Gate (CI lokal ausführen)
 
 ```bash
