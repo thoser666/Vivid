@@ -5,8 +5,11 @@
 # GITHUB_TOKEN pushen, erzeugen PRs, auf denen GitHub die pull_request-
 # Workflows unterdrückt (Rekursions-Schutz) — die Pflicht-Checks
 # "Build & Test" und "Secret Guard" laufen nie und der PR bleibt BLOCKED.
-# Fix: Push + `gh pr create` laufen über ein USER-Credential
-# (Secret AUTOMATION_TOKEN, Fallback GITHUB_TOKEN mit ::warning::).
+# Fix: Push läuft über ein USER-Credential (Secret AUTOMATION_TOKEN, Fallback
+# GITHUB_TOKEN mit ::warning::); der PR-Create läuft per REST (`gh api .../pulls`),
+# weil `gh pr create` die GraphQL-Mutation createPullRequest nutzt, an der
+# Fine-grained PATs auch mit korrekter Pull-requests-Permission scheitern
+# ("Resource not accessible by personal access token", Run 34022706363).
 #
 # Geprüfte Szenarien:
 #   T1 checkout token      → Bot-PR-Workflows checken mit AUTOMATION_TOKEN-
@@ -20,6 +23,9 @@
 #                            GH_TOKEN (scoped, kein Checkout-Token-Swap)
 #   T6 F-Droid-Kommentar-Duplikat → der alte Inline-Kommentarblock wurde
 #                            entfernt (kein doppeltes "Branch Protection verbietet")
+#   T7 kein `gh pr create`  → GraphQL-Mutation scheitert an Fine-grained PATs;
+#                            alle 3 Dateien nutzen stattdessen REST
+#   T8 REST-PR-Create       → `gh api repos/.../pulls` in allen 3 Dateien
 #
 # Läuft im CI (android-ci.yml, Job "Build & Test") und lokal:
 # bash scripts/test_bot_pr_credentials.sh  (Exit 0 = grün)
@@ -28,7 +34,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR/.." || exit 1
 
-echo "▶ [test_bot_pr_credentials] Szenarien T1–T6"
+echo "▶ [test_bot_pr_credentials] Szenarien T1–T8"
 
 FAILED=0
 check() {
@@ -92,6 +98,24 @@ else
   echo "  ❌ T6 fdroid: Branch-Protection-Kommentarblock doppelt"
   FAILED=1
 fi
+
+# T7+T8: PR-Create per REST statt `gh pr create` — die GraphQL-Mutation
+# createPullRequest ist mit Fine-grained PATs nicht nutzbar, auch mit
+# korrekter Pull-requests-Permission (Run 34022706363).
+for f in .github/workflows/automation-changelog.yml \
+         .github/workflows/deploy-fdroid.yml \
+         .github/workflows/release-pipeline.yml; do
+  # Nur echte Kommando-Zeilen zählen (Zeilenanfang) — nicht Erwähnungen in
+  # Kommentaren ("REST statt gh pr create …").
+  if ! grep -qE '^[[:space:]]*gh pr create' "$f"; then
+    echo "  ✅ T7 kein gh pr create ($(basename "$f"))"
+  else
+    echo "  ❌ T7 gh pr create noch vorhanden ($(basename "$f")) — GraphQL-Mutation scheitert an Fine-grained PATs"
+    FAILED=1
+  fi
+  check "T8 REST-PR-Create ($(basename "$f"))" \
+    "$f" 'gh api repos/\$\{\{ github\.repository \}\}/pulls -f title='
+done
 
 echo ""
 if [ "$FAILED" -eq 0 ]; then

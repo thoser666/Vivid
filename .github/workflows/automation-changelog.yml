@@ -78,6 +78,7 @@ jobs:
           git add CHANGELOG.md
           git commit -m "docs: Update CHANGELOG from GitHub releases"
           git push origin "$BRANCH"
-          gh pr create --base develop --head "$BRANCH" \
-            --title "docs: Update CHANGELOG from GitHub releases" \
-            --body "Automatische CHANGELOG-Spiegelung von GitHub Releases. Zum Übernehmen mergen (erforderliche Checks laufen im PR)."
+          # REST statt `gh pr create` (GraphQL createPullRequest): Fine-grained
+          # PATs scheitern an der GraphQL-Mutation auch mit korrekter
+          # Pull-requests-Permission — der REST-Endpoint funktioniert.
+          gh api repos/${{ github.repository }}/pulls -f title="docs: Update CHANGELOG from GitHub releases" -f head="$BRANCH" -f base=develop -F body="Automatische CHANGELOG-Spiegelung von GitHub Releases. Zum Übernehmen mergen (erforderliche Checks laufen im PR)."

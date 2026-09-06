@@ -275,6 +275,8 @@ jobs:
           git checkout -b "$BRANCH"
           git commit -m "chore: update F-Droid repository (repo: latest 5, archive: all older versions)"
           git push origin "$BRANCH"
-          gh pr create --base develop --head "$BRANCH" \
-            --title "chore: update F-Droid repository" \
-            --body "Automatische F-Droid-Index-Aktualisierung (repo: latest 5, archive: alle älteren Versionen). Zum Übernehmen mergen (erforderliche Checks laufen im PR)."
+          # REST statt `gh pr create` (GraphQL createPullRequest): Fine-grained
+          # PATs scheitern an der GraphQL-Mutation auch mit korrekter
+          # Pull-requests-Permission ("Resource not accessible by personal
+          # access token", Run 34022706363) — der REST-Endpoint funktioniert.
+          gh api repos/${{ github.repository }}/pulls -f title="chore: update F-Droid repository" -f head="$BRANCH" -f base=develop -F body="Automatische F-Droid-Index-Aktualisierung (repo: latest 5, archive: alle älteren Versionen). Zum Übernehmen mergen (erforderliche Checks laufen im PR)."
