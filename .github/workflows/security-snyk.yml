@@ -60,7 +60,7 @@ jobs:
 
       - name: Upload Snyk results to GitHub Code Scanning
         if: always() && hashFiles('snyk-results.sarif') != ''
-        uses: github/codeql-action/upload-sarif@6ba5c05dce207b48ae07f8791b4313069c63fc2b # v3.26.6
+        uses: github/codeql-action/upload-sarif@db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28 # v4.37.8
         with:
           sarif_file: ./snyk-results.sarif
 
