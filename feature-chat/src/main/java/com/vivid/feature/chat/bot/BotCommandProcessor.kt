@@ -213,12 +213,9 @@ class BotCommandProcessor @Inject constructor() {
         )
     }
 
-    /** Hilfe-Text: Im PREFIX-Scope mit dem eigenen Präfix (z. B. `!v!help`). */
-    private fun helpText(prefix: String?): String {
-        if (prefix.isNullOrBlank()) return HELP_TEXT
-        val p = "!${prefix}!"
-        return "Verfügbare Befehle: ${p}help · ${p}uptime · ${p}song · ${p}next · ${p}pause · ${p}bot · ${p}vote | Owner: ${p}tts · ${p}testalert · ${p}torch · ${p}filter · ${p}boost · ${p}battery · ${p}lut · ${p}colorspace · ${p}poll · ${p}pollend"
-    }
+    /** Hilfe-Text: Im PREFIX-Scope mit dem eigenen Präfix (z. B. `!v!help`).
+     *  Generiert aus dem [BotCommandsCatalog] — Single Source of Truth. */
+    private fun helpText(prefix: String?): String = BotCommandsCatalog.helpText(prefix)
 
     /**
      * Erstes Token des Rest-Strings als Alert-Typ für `!testalert` — erlaubt
@@ -265,7 +262,14 @@ class BotCommandProcessor @Inject constructor() {
     }
 
     companion object {
-        const val HELP_TEXT = "Verfügbare Befehle: !help · !uptime · !song · !next · !pause · !bot · !vote | Owner: !tts · !testalert · !torch · !filter · !boost · !battery · !lut · !colorspace · !poll · !pollend"
+        /**
+         * Hilfe-Text (Antwort auf `!help`). Abgeleitet aus dem
+         * [BotCommandsCatalog] — derselbe Katalog speist die In-App-Hilfe
+         * und die Doku-Guards; der Text kann nicht mehr vom tatsächlichen
+         * Befehlssatz abweichen (stabil gehalten durch
+         * `BotCommandsCatalogTest.helpTextIsStable`).
+         */
+        val HELP_TEXT: String = BotCommandsCatalog.helpText()
         const val BOT_INFO_TEXT = "Ich bin der Chat-Bot von Vivid 🤖 — alle Befehle: !help"
     }
 }

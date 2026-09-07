@@ -197,6 +197,12 @@ run bash scripts/check_parity_log.sh --check-exists
 echo "▶ [pre-push] Bot-Befehls-Doku-Guard (scripts/check_bot_commands_doc.sh)"
 run bash scripts/check_bot_commands_doc.sh
 
+echo "▶ [pre-push] Wiki-Sync-Generierungs-Selbsttest (scripts/test_wiki_sync.sh)"
+run bash scripts/test_wiki_sync.sh
+
+echo "▶ [pre-push] CodeQL-Kotlin-Wächter-Selbsttest (scripts/test_codeql_guard.sh)"
+run bash scripts/test_codeql_guard.sh
+
 # PARITY-Log-Guard-Selbsttest (Fixtures): beweist, dass Platzhalter „—" und
 # ungültige Hashes rot gemeldet werden und saubere Logs grün bleiben.
 echo "▶ [pre-push] PARITY-Log-Guard-Selbsttest (scripts/test_parity_log.sh)"

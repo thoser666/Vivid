@@ -166,10 +166,11 @@ Für einen einzelnen Push umgehen: `git push --no-verify` (die CI gated weiterhi
 
 ### Doku-Guards (Handbuch & Wiki aktuell halten)
 
-Die Dokumentation kann nicht mehr unbemerkt veralten — zwei Guards erzwingen das:
+Die Dokumentation kann nicht mehr unbemerkt veralten — drei Guards erzwingen das:
 
 - **Bot-Befehls-Guard** (`scripts/check_bot_commands_doc.sh`, Teil des Pre-Push-Gates + CI): Die Quick-Reference in [docs/user-guide.md](docs/user-guide.md) (DE) ist die gepflegte Referenz — **jeder neue Bot-Befehl** aus `BotCommandProcessor.dispatch()` muss in **allen drei Sprachen** (DE/EN/FR) dokumentiert sein, sonst ist die CI rot. Wichtig: auch die *Wer?*-Spalte korrekt pflegen (Owner vs. Owner+Mod vs. Alle — steht in `docs/ai-chat-bot.md` bzw. im Code).
-- **Wiki-Sync** (`.github/workflows/automation-wiki-sync.yml`): Die GitHub-Wiki-Startseite ist **nicht handgepflegt** — sie wird aus `docs/user-guide.md` generiert (`scripts/sync_wiki.sh`) und bei jeder Änderung an Handbuch oder Bot-Code automatisch neu gepusht. Wiki-Edits werden beim nächsten Sync überschrieben; Doku-Änderungen gehören immer ins Repo (PR gegen `develop`).
+- **Bot-Befehls-Katalog** (`BotCommandsCatalog` in feature-chat): Der In-App-Hilfe-Screen rendert seine Befehlszeilen **direkt aus dem Katalog**, der auch den `!help`-Antworttext erzeugt — kein dritter Hardcode mehr. `BotCommandsCatalogTest` beweist per `handle()`, dass jeder Katalog-Name von der dispatch()-Tabelle akzeptiert wird; ein Robolectric-Test verlangt für jeden Eintrag eine lokalisierte Beschreibung (`help_cmd_*`) in allen Sprachen. **Neuer Befehl = Katalog-Eintrag + dispatch-Zeile + `help_cmd_*`-Strings, mehr nicht.**
+- **Wiki-Sync** (`.github/workflows/automation-wiki-sync.yml`): Die GitHub-Wiki-Seiten (Home mit DE-Quick-Reference, `User-Guide-EN`, `User-Guide-FR` als vollständige Mirrors) sind **nicht handgepflegt** — sie werden aus den drei Handbüchern generiert (`scripts/sync_wiki.sh`) und bei jeder Änderung an Handbuch oder Bot-Code automatisch neu gepusht. Wiki-Edits werden beim nächsten Sync überschrieben; Doku-Änderungen gehören immer ins Repo (PR gegen `develop`).
 
 ### Commit-Stil
 

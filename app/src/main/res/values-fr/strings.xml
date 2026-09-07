@@ -36,7 +36,9 @@
     <string name="help_cmd_tts">Activer/désactiver la synthèse vocale du chat</string>
     <string name="help_cmd_song">Titre en cours (lecteur multimédia)</string>
     <string name="help_cmd_next">Piste suivante</string>
-    <string name="help_cmd_pause">Pause/reprise de la lecture</string>
+    <string name="help_cmd_pause">Mettre la lecture en pause</string>
+    <string name="help_cmd_play">Reprendre la lecture</string>
+    <string name="help_cmd_prev">Piste précédente</string>
     <string name="help_cmd_bot">Afficher les infos du bot</string>
     <string name="help_cmd_start">Démarrer le stream</string>
     <string name="help_cmd_stop">Arrêter le stream</string>
@@ -47,6 +49,15 @@
     <string name="help_cmd_ban">Bannir un spectateur</string>
     <string name="help_cmd_timeout">Exclure temporairement un spectateur (5 min par défaut)</string>
     <string name="help_cmd_delete">Supprimer les messages récents</string>
+    <string name="help_cmd_vote">Voter dans le sondage actif</string>
+    <string name="help_cmd_fix">Corriger les problèmes auto-corrigibles</string>
+    <string name="help_cmd_filter">Basculer/afficher le filtre vidéo</string>
+    <string name="help_cmd_boost">Basculer le boost faible luminosité</string>
+    <string name="help_cmd_battery">Afficher le niveau de batterie</string>
+    <string name="help_cmd_lut">Changer de preset LUT 3D</string>
+    <string name="help_cmd_colorspace">Changer d\'espace colorimétrique</string>
+    <string name="help_cmd_poll">Lancer un sondage (question | option A | option B)</string>
+    <string name="help_cmd_pollend">Terminer le sondage actif et afficher les résultats</string>
     <string name="help_docs_title">Documentation</string>
     <string name="help_link_guide_de">📖 Guide de l\'utilisateur (allemand)</string>
     <string name="help_link_guide_en">📖 Guide de l\'utilisateur (anglais)</string>

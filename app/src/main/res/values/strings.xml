@@ -36,7 +36,9 @@
     <string name="help_cmd_tts">Chat-Vorlesen (Text-to-Speech) an/aus</string>
     <string name="help_cmd_song">Aktueller Titel (Media-Player)</string>
     <string name="help_cmd_next">Nächster Titel</string>
-    <string name="help_cmd_pause">Wiedergabe pausieren/fortsetzen</string>
+    <string name="help_cmd_pause">Wiedergabe pausieren</string>
+    <string name="help_cmd_play">Wiedergabe fortsetzen</string>
+    <string name="help_cmd_prev">Vorheriger Titel</string>
     <string name="help_cmd_bot">Bot-Info anzeigen</string>
     <string name="help_cmd_start">Stream starten</string>
     <string name="help_cmd_stop">Stream stoppen</string>
@@ -47,6 +49,15 @@
     <string name="help_cmd_ban">Viewer verbannen</string>
     <string name="help_cmd_timeout">Viewer timeouten (Default 5 Min)</string>
     <string name="help_cmd_delete">Letzte Nachrichten löschen</string>
+    <string name="help_cmd_vote">Im aktiven Poll abstimmen</string>
+    <string name="help_cmd_fix">Auto-fixbare Probleme beheben</string>
+    <string name="help_cmd_filter">Video-Effekt umschalten/anzeigen</string>
+    <string name="help_cmd_boost">Low-Light-Boost umschalten</string>
+    <string name="help_cmd_battery">Akkustand anzeigen</string>
+    <string name="help_cmd_lut">3D-LUT-Preset wechseln</string>
+    <string name="help_cmd_colorspace">Color-Space wechseln</string>
+    <string name="help_cmd_poll">Poll starten (Frage | Option A | Option B)</string>
+    <string name="help_cmd_pollend">Aktiven Poll beenden und Ergebnis anzeigen</string>
     <string name="help_docs_title">Dokumentation</string>
     <string name="help_link_guide_de">📖 Bedienungsanleitung (Deutsch)</string>
     <string name="help_link_guide_en">📖 User Guide (English)</string>

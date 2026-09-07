@@ -1,0 +1,79 @@
+# CodeQL-Kotlin-Wächter: meldet automatisch, wenn das Kotlin-2.4.20-Re-Upgrade
+# wieder möglich ist (Issue #110).
+#
+# Hintergrund: Kotlin 2.4.20 wurde in a8766e5 revertiert, weil CodeQL Kotlin
+# 2.4.20 GA noch nicht extrahieren kann (github/codeql#22404). Dieser
+# wöchentliche Lauf fragt den Issue-Status ab (scripts/
+# check_codeql_kotlin_support.sh) und kommentiert #110 genau einmal, sobald
+# CodeQL GA-Support liefert — das Re-Upgrade bleibt so nicht unbemerkt.
+#
+# Sicherheit: Top-Level-Permissions leer (deny-by-default), Job nur
+# issues: write (Kommentar auf eigenem Issue), Checkout SHA-gepinnt,
+# persist-credentials: false. Kaputte API-Antworten oder Netzwerk-Flakiness
+# sind neutral (exit 0) — geplante Läufe scheitern nicht an Transientem.
+#
+# Selbsttest: scripts/test_codeql_guard.sh (läuft im Pre-Push-Gate + CI).
+
+name: Automation / CodeQL Kotlin Guard
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Wöchentlich Do 06:10 UTC — CodeQL-Extractor-Support landet typischerweise
+    # mit CLI-Releases; ein wöchentlicher Takt reicht völlig.
+    - cron: '10 6 * * 4'
+
+permissions: {}
+
+concurrency:
+  group: codeql-kotlin-guard-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  guard:
+    name: Check Kotlin 2.4.20 CodeQL support
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    outputs:
+      reupgrade_due: ${{ steps.guard.outputs.reupgrade_due }}
+    steps:
+      - name: Checkout (develop)
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+
+      - name: Check CodeQL Kotlin support
+        id: guard
+        run: |
+          bash scripts/check_codeql_kotlin_support.sh; rc=$?
+          case "$rc" in
+            0)  echo "reupgrade_due=false" >> "$GITHUB_OUTPUT" ;;
+            10) echo "reupgrade_due=true"  >> "$GITHUB_OUTPUT" ;;
+            *)  exit "$rc" ;;
+          esac
+
+      - name: Comment on issue #110 when re-upgrade is due
+        if: steps.guard.outputs.reupgrade_due == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          MARKER="[codeql-kotlin-guard]"
+          if gh issue view 110 --json comments --jq '.comments[].body' | grep -Fq "$MARKER"; then
+            echo "Kommentar existiert bereits — kein Duplikat."
+            exit 0
+          fi
+          gh issue comment 110 --body-file - <<'BODY'
+          [codeql-kotlin-guard] 🚨 **Kotlin-2.4.20-Re-Upgrade ist wieder möglich.**
+
+          Der Wächter (Workflow `automation-codeql-kotlin.yml`) hat festgestellt:
+          [github/codeql#22404](https://github.com/github/codeql/issues/22404) wurde
+          geschlossen — CodeQL unterstützt Kotlin 2.4.20 GA jetzt offiziell.
+
+          Nächste Schritte:
+          - `kotlin` in `gradle/libs.versions.toml` auf `2.4.20` anheben (KSP 2.3.11 ist
+            seit 2.3.0 von der Kotlin-Version entkoppelt und bleibt)
+          - CI inkl. CodeQL grün verifizieren (Referenz: Revert `a8766e5`)
+          - `RELEASE.md` (Ausstehend-Sektion) und Issue schließen
+          BODY

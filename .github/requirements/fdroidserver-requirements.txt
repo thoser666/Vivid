@@ -5,9 +5,9 @@
 # der Eltern-Pakete. Erneuern mit:
 #   python scripts/gen_fdroid_requirements.py
 #
-alembic==1.19.1 \
-    --hash=sha256:b39018cb3d9413a19cbd54cf3c02ad33998641f0538eb77413a488a21c3e14be \
-    --hash=sha256:e0fca0518118c78acc493e31bcb5402f190057aaf6df8b5b95ce94c4789cf648
+alembic==1.19.2 \
+    --hash=sha256:32d553dcd577e6fe5c3c63e91468526d35e4dcecafe865d7db4e9b328fa93cb2 \
+    --hash=sha256:297950a8a91f6770eb82bfbce9bea55c728b90a5386c6e81430191a319d138b0
 androguard==4.1.4 \
     --hash=sha256:6265a6d4007401cf5a62a98fa99a1c2994644d4311da031a5398efe3bcaa63b0 \
     --hash=sha256:1e117ee4574366a2d7376b8c858433ad724b0a29e4036d9f1a9fda4372180267
@@ -77,9 +77,9 @@ fdroidserver==2.4.5 \
 gitdb==4.0.12 \
     --hash=sha256:67073e15955400952c6565cc3e707c554a4eea2e428946f7a4c162fab9bd9bcf \
     --hash=sha256:5ef71f855d191a3326fcfbc0d5da835f26b13fbcba60c32c21091c349ffdb571
-gitpython==3.1.61 \
-    --hash=sha256:8ab28c9da863cdd9e7d7694ec46cf3e6c9a12d8a30a1acd3447aec11975d530c \
-    --hash=sha256:f51c24d8c0f733a195447385f5774a5dfe8767f5acfd7994a33755644c6ecc95
+gitpython==3.1.62 \
+    --hash=sha256:7002251225e10e29d2e1f49e6532613fe5d5d9f0b6f1f02997a52b38fe56899e \
+    --hash=sha256:1791de66309bc0c7cfca40bf8d2e3de7ca091cbf94e6051be1ad0722c61062af
 greenlet==3.5.5 \
     --hash=sha256:55272212cbc5f43d1d723725ab931f1939969b7e9523882ca58b55061769d053 \
     --hash=sha256:655bca754a2ef4efcb0eb48a94d3f4593536d0f3d48f8ed44343c01d16a92f95 \

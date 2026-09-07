@@ -33,6 +33,44 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.vivid.R
+import com.vivid.feature.chat.bot.BotCommandsCatalog
+
+/**
+ * Zuordnung Katalog-Primary → lokalisierte Beschreibung. Der Katalog
+ * ([BotCommandsCatalog]) ist die Single Source of Truth für den Befehlssatz;
+ * die Beschreibungen leben als Ressourcen in allen drei Sprachen. Der
+ * Robolectric-Test [HelpScreenRobolectricTest] beweist, dass jede Katalog-
+ * Zeile gerendert wird und jede Beschreibung existiert.
+ */
+internal val botCommandDescriptions: Map<String, Int> = mapOf(
+    "help" to R.string.help_cmd_help,
+    "uptime" to R.string.help_cmd_uptime,
+    "song" to R.string.help_cmd_song,
+    "next" to R.string.help_cmd_next,
+    "pause" to R.string.help_cmd_pause,
+    "play" to R.string.help_cmd_play,
+    "prev" to R.string.help_cmd_prev,
+    "bot" to R.string.help_cmd_bot,
+    "vote" to R.string.help_cmd_vote,
+    "tts" to R.string.help_cmd_tts,
+    "start" to R.string.help_cmd_start,
+    "stop" to R.string.help_cmd_stop,
+    "diag" to R.string.help_cmd_diag,
+    "ask" to R.string.help_cmd_ask,
+    "testalert" to R.string.help_cmd_testalert,
+    "torch" to R.string.help_cmd_torch,
+    "fix" to R.string.help_cmd_fix,
+    "filter" to R.string.help_cmd_filter,
+    "boost" to R.string.help_cmd_boost,
+    "battery" to R.string.help_cmd_battery,
+    "lut" to R.string.help_cmd_lut,
+    "colorspace" to R.string.help_cmd_colorspace,
+    "ban" to R.string.help_cmd_ban,
+    "timeout" to R.string.help_cmd_timeout,
+    "delete" to R.string.help_cmd_delete,
+    "poll" to R.string.help_cmd_poll,
+    "pollend" to R.string.help_cmd_pollend,
+)
 
 /** Link-Ziele für den Hilfe-Screen. */
 private object HelpLinks {
@@ -123,12 +161,9 @@ private fun BotCommandsCard() {
                 color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.SemiBold,
             )
-            BotCommandRow("!help / !commands", stringResource(R.string.help_cmd_help))
-            BotCommandRow("!uptime", stringResource(R.string.help_cmd_uptime))
-            BotCommandRow("!song / !nowplaying", stringResource(R.string.help_cmd_song))
-            BotCommandRow("!next / !skip", stringResource(R.string.help_cmd_next))
-            BotCommandRow("!pause / !play", stringResource(R.string.help_cmd_pause))
-            BotCommandRow("!bot", stringResource(R.string.help_cmd_bot))
+            for (entry in BotCommandsCatalog.all.filterNot { it.ownerOnly }) {
+                BotCommandRow(entry.display, stringResource(botCommandDescriptions.getValue(entry.primary)))
+            }
             Spacer(modifier = Modifier.size(4.dp))
             Text(
                 text = stringResource(R.string.help_bot_owner),
@@ -136,16 +171,9 @@ private fun BotCommandsCard() {
                 color = MaterialTheme.colorScheme.tertiary,
                 fontWeight = FontWeight.SemiBold,
             )
-            BotCommandRow("!tts", stringResource(R.string.help_cmd_tts))
-            BotCommandRow("!start / !go-live", stringResource(R.string.help_cmd_start))
-            BotCommandRow("!stop / !end", stringResource(R.string.help_cmd_stop))
-            BotCommandRow("!diag / !status", stringResource(R.string.help_cmd_diag))
-            BotCommandRow("!ask <frage>", stringResource(R.string.help_cmd_ask))
-            BotCommandRow("!testalert <type>", stringResource(R.string.help_cmd_testalert))
-            BotCommandRow("!torch", stringResource(R.string.help_cmd_torch))
-            BotCommandRow("!ban <user>", stringResource(R.string.help_cmd_ban))
-            BotCommandRow("!timeout <user> <min?>", stringResource(R.string.help_cmd_timeout))
-            BotCommandRow("!delete <count?>", stringResource(R.string.help_cmd_delete))
+            for (entry in BotCommandsCatalog.all.filter { it.ownerOnly }) {
+                BotCommandRow(entry.display, stringResource(botCommandDescriptions.getValue(entry.primary)))
+            }
         }
     }
 }
