@@ -1,39 +1,46 @@
-# Vivid v0.5.13-beta\r
-\r
-**Veröffentlicht:** 6. September 2026\r
-\r
-Patch-Beta in der laufenden Minor-Linie (kein Roadmap-Bucket abgeschlossen — `v0.6.0` bleibt dem Streaming-Erweiterungs-Bucket reserviert, siehe [RELEASE.md](../RELEASE.md)).\r
-\r
-## ✨ Neue Features\r
-\r
-### Twitch-Integration\r
-- **Verschlüsselte Token-Persistenz:** Twitch-OAuth-Token werden jetzt AES/GCM-verschlüsselt über den Android-Keystore persistiert statt im Klartext-DataStore ([a3d2001])\r
-- **Automatischer Token-Refresh:** Abgelaufene Tokens werden transparent erneuert; 401-Antworten lösen einen Refresh-Retry aus ([a3d2001])\r
-\r
-## 🔒 Security\r
-- **Token-at-Rest-Verschlüsselung:** Neuer `TokenCipher`-Contract (`AesGcmTokenCipher` + `AndroidKeystoreTokenCipher`) — Key-Handling komplett im Android-Keystore, keine Klartext-Token mehr auf dem Gerät ([a3d2001])\r
-- **CodeQL-Action-Pins vereinheitlicht:** Alle `github/codeql-action`-Steps (init/analyze/upload-sarif) pinnen dieselbe v4.37.8-Commit-SHA — behebt die GitHub-Warnung zu inkonsistenten Action-Versionen ([e2f0788])\r
-\r
-## 🛠️ CI & Infrastruktur\r
-- **Bot-PR-Vollautomatik:** Bot-Branches werden per `AUTOMATION_TOKEN` (User-Credential statt `GITHUB_TOKEN`) gepusht — Pflicht-Checks laufen auf Bot-PRs automatisch; PR-Erstellung via REST statt GraphQL; Classic-PAT statt Fine-grained ([95dc1dd], [4356da2])\r
-- **Orphan-Rollback:** Scheitert der PR-Create in einem Bot-Workflow, wird der Bot-Branch automatisch gelöscht — keine verwaisten Branches mehr ([2ddfcee])\r
-- **Changelog-Mirror-Rebase:** Bot-PRs werden vor dem PR-Create gegen ein weitergelaufenes develop gerebt; bei Konflikt wird der Changelog neu generiert — keine `CONFLICTING`-Bot-PRs mehr ([f050a90])\r
-- **Verify-Reproducibility-Fix:** Nightly-Verify lädt das flavor-korrekte `app-standard-release.apk` statt `app-release.apk` ([719cd07])\r
-- **Emulator-Matrix:** Instrumentierte UI-Tests laufen auf beiden Runner-Architekturen (ubuntu-x86_64 mit KVM, macos-arm64 experimentell) ([2a48cb1])\r
-\r
-## 📊 Quality & Testing\r
-- **Robolectric-Compose-Coverage-Runde 2:** 27 neue UI-Tests für Settings-Screens und Widgets; Gesamt-Coverage **47,2 % → 69,3 %** (LINE, Kover-Merge aller 9 Module) ([009972a])\r
-- **Nebenfund behoben:** Doppelter `verticalScroll` im SettingsCameraScreen (Production-Bug unter Infinity-Constraints) ([009972a])\r
-\r
-## 📊 Statistik\r
-- **Commits seit v0.5.12-beta:** 30\r
-- **Coverage:** 47,2 % → 69,3 % (LINE, Kover-Merge)\r
-- **Badges:** OpenSSF Best Practices **Passing** ✅ (Silver-Anlauf läuft)\r
-\r
-## 🔗 Links\r
-- [GitHub Release](https://github.com/thoser666/Vivid/releases/tag/v0.5.13-beta)\r
-- [Vollständiger Vergleich](https://github.com/thoser666/Vivid/compare/v0.5.12-beta...v0.5.13-beta)\r
-\r
----\r
-\r
-*Hinweis: Die meisten dieser Änderungen sind Infrastruktur-/Security-Arbeit — das sichtbarste Nutzer-Feature (verschlüsselte Twitch-Token) wirkt transparent im Hintergrund. Das nächste Feature-Beta ist `v0.6.0-beta` (Streaming-Erweiterung: RIST/WHIP/RTMP/4K/SRTLA, Roadmap-reserviert).*\r
+# Vivid v0.5.13-beta
+
+**Veröffentlicht:** 7. September 2026
+
+M1-Abschluss als Patch-Beta: Das **Core Streaming Enhancement**-Milestone ist fertig und ausgeliefert. Diese Version dokumentiert die finalen Feinheiten rund um die M1-Features (Slideshow-Widget, Twitch-OAuth-Browser-Flow mit PKCE und optionale Start-Ads) sowie die Infrastruktur-Härtungen, die in der letzten Woche eingefallen sind (Bot-PR-Vollautomatik, Orphan-Rollback, Rebase-Härtung, CodeQL-Action-Versions-Pins, Sentry-Retry).
+
+> **Hinweis zur Versionsnummer:** `v0.6.0` bleibt dem noch offenen **Streaming-Erweiterungs-Bucket** (RIST, WHIP, RTMP-Pull, 4K/HEVC, SRTLA-Bonding, adaptive Bitrate etc.) reserviert. M1 ist deshalb als Patch-Beta in der laufenden `0.5.x`-Linie ausgeliefert – nicht als Feature-Beta `v0.6.0-beta`. Siehe [RELEASE.md](../RELEASE.md) → Roadmap → Nummerierung.
+
+## ✨ Neue Features (M1-Abschluss)
+
+### Slideshow-Widget (komplett)
+- Stream-Overlay: Bildfolge mit einstellbarer Geschwindigkeit und Pause/Weiter
+- Asset-Auswahl über SAF, wie bei den anderen Bild-Widgets
+- Overlay-Positionierung wie im Grid-Overlay (Ecken, Größe, Deckkraft)
+
+### Twitch-OAuth-Browser-Flow (PKCE, komplett)
+- Authorization-Code-Flow mit Proof Key for Code Exchange
+- Callback-Verifizierung: Custom-URI-Schema, `state` und PKCE-Verifier werden vor dem Code-Austausch geprüft
+- Token-Austausch über HTTPS mit Twitch (keine Token-Leaks, keine Log-Ausgabe)
+
+### Optionale Start-Ads (Twitch)
+- Streamer kann Start-Ads im Twitch-Backend aktivieren/deaktivieren
+- Status wird im App-UI gespiegelt, keine verdeckten Netzwerk-Aktivitäten
+
+### Release- & Infra-Prozess (sichtbar für Tester)
+- **Bot-PRs laufen jetzt vollautomatisch** (Push per `AUTOMATION_TOKEN` → REST-PR-Create → automatische Pflicht-Checks), validiert durch PRs #146–#150
+- **Orphan-Rollback**: Scheitert der PR-Create, wird der Bot-Branch automatisch gelöscht (kein verwaister Branch mehr)
+- **Rebase-Härtung im Changelog-Mirror**: Laufen zwei Changelog-Bot-PRs parallel, wird der neuere automatisch rebased, damit kein `CONFLICTING`-PR entsteht
+- **CodeQL-Action pinnen**: `init`/`analyze`/`upload-sarif` nutzen jetzt einheitliche Action-Version (keine Versions-Warnung mehr im Workflow)
+- **Sentry-Upload** gegen transiente Netzwerkfehler gehärtet (Retry mit Backoff)
+
+## 🐛 Bugfixes & Hygiene
+- CodeQL-Workflow-Warnung „not all `github/codeql-action` steps use the same version“ behoben (alle Steps auf dieselbe Pin-Position)
+- Keine funktionalen App-Bugfixe in dieser Version – die Nutzer-Funktionen sind bereits in v0.5.12-beta enthalten; diese Version dient dem sauberen M1-Abschluss und der Prozess-Dokumentation.
+
+## 📊 Statistik
+- **Commits seit v0.5.12-beta:** 30+
+- **Geänderte Dateien:** 20+ (inkl. Dokumentation, Workflows, Selbsttests)
+- **Neue Unit-/Selbsttests:** Release-Safety- und Bot-PR-Selbsttests erweitert (Rebase, Orphan-Rollback, CodeQL-Pins)
+- **PARITY-Status:** M1 (Core Streaming Enhancement) ✅ ausgeliefert
+
+## 🔗 Links
+- [GitHub Release](https://github.com/thoser666/Vivid/releases/tag/v0.5.13-beta)
+- [Vollständiger Vergleich](https://github.com/thoser666/Vivid/compare/v0.5.12-beta...v0.5.13-beta)
+
+> **Nächster Schritt:** Nach M1-Abschluss ist der Fokus auf **M2 (Advanced Camera & Video)** gerichtet – Untertitel (Speech-to-Text), OBS Audio-Levels, 4K/60fps + HEVC sowie Replays (Record-to-Disk). Der Streaming-Erweiterungs-Bucket (v0.6.0) ist der nächste große Feature-Bucket nach M2.

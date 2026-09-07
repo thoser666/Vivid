@@ -72,8 +72,19 @@ android {
         targetSdk = libs.versions.targetSdk.get().toInt()
         // Overridable via -PversionCode= / -PversionName= (CI nightly/stable builds);
         // defaults keep local builds stable.
-        versionCode = (project.findProperty("versionCode") as String?)?.toIntOrNull() ?: 1
-        versionName = (project.findProperty("versionName") as String?) ?: "1.0"
+        val resolvedVersionName = (project.findProperty("versionName") as String?) ?: rootProject.file("VERSION").readText().trim()
+        versionName = resolvedVersionName
+        fun derivedVersionCode(versionName: String): Int {
+            val cleaned = versionName.removePrefix("v")
+            val base: String = if (cleaned.contains('-')) cleaned.substringBefore('-') else cleaned
+            val parts = base.split('.')
+            val major = parts.getOrElse(0) { "0" }.toIntOrNull() ?: 0
+            val minor = parts.getOrElse(1) { "0" }.toIntOrNull() ?: 0
+            val patch = parts.getOrElse(2) { "0" }.toIntOrNull() ?: 0
+            return major * 1_000_000 + minor * 1_000 + patch * 10 + 4
+        }
+        val resolvedVersionCode = (project.findProperty("versionCode") as String?)?.toIntOrNull() ?: derivedVersionCode(resolvedVersionName)
+        versionCode = resolvedVersionCode
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 

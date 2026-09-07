@@ -39,6 +39,9 @@ bash scripts/test_bot_pr_credentials.sh
 echo "▶ [pre-push] pip-Pinning-Selbsttest (scripts/test_pip_pinning.sh)"
 bash scripts/test_pip_pinning.sh
 
+echo "▶ [pre-push] Version-Code-Fallback-Selbsttest (scripts/test_version_fallback.rb)"
+ruby scripts/test_version_fallback.rb
+
 # KEYSTORE_*/UPLOAD_*-Secrets auf den Debug-Keystore zurück (gleiches Verhalten
 # wie in der CI ohne Secrets).
 #

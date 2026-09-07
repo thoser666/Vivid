@@ -193,6 +193,13 @@ jobs:
       - name: Test fastlane roadmap reservation guard
         run: bash scripts/test_roadmap_reservation.sh
 
+      # Version-Fallback (Ruby) — Selbsttest: app/build.gradle.kts leitet den
+      # Default-versionCode aus VERSION mit demselben Schema ab wie
+      # fastlane/release_safety.rb (major*1e6 + minor*1e3 + patch*10 + stage);
+      # 8 Referenzfälle verhindern ein Auseinanderlaufen der beiden Pfade.
+      - name: Test version-code fallback
+        run: ruby scripts/test_version_fallback.rb
+
       # ── Optional: Code‑Scanning / Security‑Events ──
       # - name: Run CodeQL
       #   uses: github/codeql-action/init@v2
