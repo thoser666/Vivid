@@ -635,6 +635,10 @@ bundle exec fastlane release_github
 bundle exec fastlane release_alpha
 ```
 
+#### Version source of truth
+
+`app/build.gradle.kts` reads the default `versionName` from the [`VERSION`](VERSION) file and derives a fallback `versionCode` with the **same schema as Fastlane** (`major*1,000,000 + minor*1,000 + patch*10 + stage`; `0.5.13-beta` → `5132`). The Ruby self-test [`scripts/test_version_fallback.rb`](scripts/test_version_fallback.rb) re-implements that schema and runs in the pre-push gate and CI, so the Gradle fallback and `fastlane/release_safety.rb` can never drift apart. Fastlane remains authoritative for release builds — the Gradle fallback only covers plain `./gradlew` builds without Fastlane.
+
 The `release-pipeline.yml` workflow runs these lanes in CI. Two release paths are automated:
 
 - **A scheduled build runs once per day at 06:00 UTC** (and the workflow can be triggered manually via `gh workflow run release-pipeline.yml --ref develop`) — it builds the signed release APK and publishes it as a rolling **`nightly` prerelease** with a version derived from the git tag + CI run number. The nightly release is replaced on each build, so it always contains the latest feature build; since 21.08.2026 it is **built once per day, not on every push** (develop pushes only run tests/builds, no new nightly).
