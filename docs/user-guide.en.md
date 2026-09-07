@@ -350,7 +350,6 @@ See [README → Automatic updates (F-Droid Repository)](../README.md#-automatic-
 |---|---|---|
 | `!help` / `!commands` / `!hilfe` | All | Show available commands |
 | `!uptime` | All | Show stream duration |
-
 | `!bot` | All | Show bot info |
 | `!song` / `!nowplaying` | All | Current track (media player) |
 | `!next` / `!skip` | Owner + Mod | Next track |
@@ -365,6 +364,15 @@ See [README → Automatic updates (F-Droid Repository)](../README.md#-automatic-
 | `!fix` | Owner | Auto-fix issues |
 | `!testalert <type>` | Owner | Test alert for the overlay |
 | `!torch` | Owner | Toggle the flashlight |
+| `!fix` | Owner | Auto-fix issues |
+| `!filter <name>` | Owner | Toggle/show video effect |
+| `!boost` | Owner | Toggle low-light boost |
+| `!battery` / `!akku` | Owner | Show battery level |
+| `!lut <name?>` | Owner | Switch 3D LUT preset |
+| `!colorspace <name?>` | Owner | Switch color space |
+| `!poll <question> \| <A> \| <B> [\| <C> [\| <D>]]` | Owner | Start a chat poll (2–4 options) |
+| `!vote <number\|text>` | All | Vote in the active poll |
+| `!pollend` / `!endpoll` | Owner | End poll + announce results |
 | `!ban <user>` | Owner | Ban a viewer |
 | `!timeout <user> <min?>` | Owner | Timeout a viewer |
 | `!delete <count?>` | Owner | Delete messages |

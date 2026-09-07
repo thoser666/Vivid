@@ -22,6 +22,7 @@ require_top_level_empty_permissions() {
 # Workflows with write access keep it at the smallest job scope.
 for file in \
   .github/workflows/automation-changelog.yml \
+  .github/workflows/automation-wiki-sync.yml \
   .github/workflows/check-moblin-features.yml \
   .github/workflows/dependabot-auto-merge.yml \
   .github/workflows/deploy-fdroid.yml \

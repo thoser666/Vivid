@@ -170,6 +170,13 @@ jobs:
       - name: Check parity log
         run: bash scripts/check_parity_log.sh --check-exists
 
+      # Bot-Befehls-Doku-Guard: jeder kanonische Befehl aus BotCommandProcessor
+      # (Source of Truth) muss in der Quick-Reference aller drei Handbuch-
+      # sprachen (DE/EN/FR) stehen — verhindert, dass neue Bot-Befehle an der
+      # Doku vorbeishippen (Vorfall 2026-09-07: !tts & Co. fehlten im Handbuch).
+      - name: Check bot commands documentation
+        run: bash scripts/check_bot_commands_doc.sh
+
       # Version-Catalog-Consistency: prüft, dass alle Artefakte desselben
       # Maven-Groups denselben version.ref verwenden (keine vergessenen
       # Version-Keys, die beim B-Update zu inkonsistenten Versionen führen).
