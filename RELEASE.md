@@ -1000,15 +1000,16 @@ gh api repos/<owner>/<repo>/git/tags/<sha> --jq '.object.sha'
 - **Veraltete SHAs:** Tags werden neu getaggt (z.B. bei Security-Fixes). SHA-Update-Pflicht bei Dependabot-PRs.
 - **Falsche Repos:** Manche Actions haben Forks mit eigenen Tags. Immer das Original-Repo prüfen.
 
-### ✅ Erledigt: Kotlin-Update auf 2.4.20 (stabil) — 07.09.2026
+### 🚧 Blockiert: Kotlin-Update auf 2.4.20 (stabil)
 
-Der direkte Dependabot-Alert `kotlin-gradle-plugin` (unsafe Deserialization im Kotlin Build Cache, Dependabot #63) ist mit dem Update auf **2.4.20** (erste gepatchte Version, `>= 2.4.20-Beta1`) geschlossen. Issue [#110](https://github.com/thoser666/Vivid/issues/110) dokumentiert den Ablauf.
+Der direkte Dependabot-Alert `kotlin-gradle-plugin` (unsafe Deserialization im Kotlin Build Cache, Dependabot #63) bleibt dismissed. Die erste gepatchte Version ist **2.4.20-Beta1**; die **stabile 2.4.20** ist seit September 2026 auf Maven Central verfügbar.
 
-**Was umgesetzt wurde:**
-- `kotlin` und `jetbrainsKotlinJvm` in `gradle/libs.versions.toml` auf `2.4.20` angehoben — Compose-Compiler und Serialization alignen automatisch (`version.ref = "kotlin"`).
-- **KSP** bleibt auf `2.3.11` — KSP ist seit 2.3.0 von der Kotlin-Version entkoppelt; 2.3.11 ist die aktuelle Release-Version und läuft mit Kotlin 2.4.20.
-- Voller Testlauf lokal bestanden: `./gradlew testDebugUnitTest` + `lintDebug` (CI-Mirror folgt beim Push).
-- Verifikation, dass Dependabot den Alert #63 automatisch schließt: nach dem Push im Security-Tab prüfen.
+**⚠️ Blocker (Stand 07.09.2026):** CodeQL unterstützt Kotlin 2.4.20 **GA noch nicht** — der Kotlin-Extractor bricht mit `Kotlin version 2.4.20 is too recent. CodeQL currently supports versions below 2.4.20` ab (nur 2.4.20-RC2 ist als Dev-Default supported, GA bewusst blockiert; Tracking: [github/codeql#22404](https://github.com/github/codeql/issues/22404)). Der Versuch (Issue [#110](https://github.com/thoser666/Vivid/issues/110), Commit `e5cd592`) brach den CodeQL-Workflow → Revert auf 2.4.10 (letzte CodeQL-kompatible Version, CI grün).
+
+**Beim Re-Upgrade (sobald codeql#22404 gemerged ist):**
+- `kotlin` und `jetbrainsKotlinJvm` in `gradle/libs.versions.toml` auf `2.4.20` anheben — Compose-Compiler und Serialization alignen automatisch (`version.ref = "kotlin"`).
+- **KSP** bleibt auf `2.3.11` (seit 2.3.0 von der Kotlin-Version entkoppelt; bei Bedarf aktualisieren).
+- Voller Testlauf Pflicht (lokal + CI): `./gradlew testDebugUnitTest` + `lintDebug` — danach verifizieren, dass Dependabot den Alert #63 automatisch schließt.
 
 ## 🔑 Signing-Secrets (CI)
 
