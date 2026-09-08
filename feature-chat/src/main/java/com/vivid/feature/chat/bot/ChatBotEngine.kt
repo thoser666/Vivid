@@ -597,7 +597,7 @@ class ChatBotEngine @Inject constructor(
     }
 
     /**
-     * `!testalert <follow|sub|raid>`: löst über die [ChatAlertTrigger]-Schnitt-
+     * `!testalert <follow|sub|gift|resub|raid|hype>`: löst über die [ChatAlertTrigger]-Schnitt-
      * stelle einen synthetischen Event-Alert aus (erscheint im Chat-Overlay),
      * damit der Streamer vor dem Go-Live das Overlay-Rendering prüfen kann.
      * Owner-Gate + Rate-Limit wie bei den anderen Owner-Befehlen; ohne/ungülti-
@@ -640,6 +640,7 @@ class ChatBotEngine @Inject constructor(
             ChatAlertType.GIFT_SUB -> "gift"
             ChatAlertType.RESUB -> "resub"
             ChatAlertType.RAID -> "raid"
+            ChatAlertType.HYPE_TRAIN -> "hype train"
         }
         return "✅ Test-Alert ($label) ausgelöst — erscheint im Chat-Overlay, sobald der Streaming-Screen offen ist."
     }
@@ -1143,7 +1144,7 @@ class ChatBotEngine @Inject constructor(
         internal const val POLL_NOT_ACTIVE_TEXT = "⚠️ Es läuft gerade kein Poll."
         internal const val POLL_ALREADY_VOTED_TEXT = "⚠️ Deine Stimme wurde bereits gezählt."
         internal const val POLL_INVALID_OPTION_TEXT = "⚠️ Ungültige Option. Stimme mit !vote <Nummer> oder !vote <Text> ab."
-        internal const val TEST_ALERT_USAGE_TEXT = "Nutzung: !testalert follow|sub|gift|resub|raid"
+        internal const val TEST_ALERT_USAGE_TEXT = "Nutzung: !testalert follow|sub|gift|resub|raid|hype"
         internal const val STREAM_START_TEXT = "▶️ Stream wird gestartet…"
         internal const val STREAM_STOP_TEXT = "⏹ Stream wird gestoppt."
         internal const val TORCH_ON_TEXT = "🔦 Taschenlampe an."

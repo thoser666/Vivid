@@ -44,7 +44,7 @@
     <string name="help_cmd_stop">Stream stoppen</string>
     <string name="help_cmd_diag">Diagnose-Lauf: Status, OBS, Konfigurations-Checks</string>
     <string name="help_cmd_ask">Frage an die Owner-KI</string>
-    <string name="help_cmd_testalert">Test-Alert für das Overlay (follow|sub|gift|resub|raid)</string>
+    <string name="help_cmd_testalert">Test-Alert für das Overlay (follow|sub|gift|resub|raid|hype)</string>
     <string name="help_cmd_torch">Taschenlampe umschalten</string>
     <string name="help_cmd_ban">Viewer verbannen</string>
     <string name="help_cmd_timeout">Viewer timeouten (Default 5 Min)</string>

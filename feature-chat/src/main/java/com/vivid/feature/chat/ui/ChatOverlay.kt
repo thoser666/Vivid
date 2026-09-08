@@ -158,6 +158,8 @@ private fun AlertRow(alert: ChatAlert) {
         ChatAlertType.GIFT_SUB -> Color(0xFF4DD0E1)
         ChatAlertType.RESUB -> Color(0xFF64B5F6)
         ChatAlertType.RAID -> Color(0xFFFFB74D)
+        // Hype-Train: kräftiges Lila (Twitch-Hype-Train-Brandfarbe).
+        ChatAlertType.HYPE_TRAIN -> Color(0xFFD500F9)
     }
     val text = when (alert.type) {
         ChatAlertType.FOLLOW -> stringResource(R.string.chat_alert_follow, alert.displayName)
@@ -221,6 +223,27 @@ private fun AlertRow(alert: ChatAlert) {
             alert.displayName,
             alert.detail.viewerCount,
         )
+        ChatAlertType.HYPE_TRAIN -> {
+            val level = alert.detail.hypeTrainLevel
+            val progress = alert.detail.hypeTrainProgress
+            val goal = alert.detail.hypeTrainGoal
+            when {
+                // end-Event: „beendet" (Level, falls das Event es noch liefert).
+                alert.detail.hypeTrainEnded && level > 0 ->
+                    stringResource(R.string.chat_alert_hype_train_end, level)
+                alert.detail.hypeTrainEnded ->
+                    stringResource(R.string.chat_alert_hype_train_active)
+                // Aktiver Train mit Level + Fortschritt (progress/goal > 0).
+                level > 0 && goal > 0 -> stringResource(
+                    R.string.chat_alert_hype_train,
+                    level,
+                    progress.coerceIn(0, goal),
+                    goal,
+                )
+                // begin ohne konkreten Level/Fortschritt (z. B. Test-Alert).
+                else -> stringResource(R.string.chat_alert_hype_train_active)
+            }
+        }
     }
     Text(
         text = text,

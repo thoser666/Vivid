@@ -1,10 +1,10 @@
 package com.vivid.feature.chat.model
 
 /**
- * Typ eines Chat-Overlay-Alerts (Follow/Sub/Gift-Sub/Resub/Raid) — die
- * Events, die Twitch über EventSub als eigene Subscription-Typen liefert
+ * Typ eines Chat-Overlay-Alerts (Follow/Sub/Gift-Sub/Resub/Raid/Hype-Train) —
+ * die Events, die Twitch über EventSub als eigene Subscription-Typen liefert
  * (`channel.follow`, `channel.subscribe`, `channel.subscription.gift`,
- * `channel.subscription.message`, `channel.raid`).
+ * `channel.subscription.message`, `channel.raid`, `channel.hype_train.*`).
  */
 enum class ChatAlertType {
     FOLLOW,
@@ -12,6 +12,7 @@ enum class ChatAlertType {
     GIFT_SUB,
     RESUB,
     RAID,
+    HYPE_TRAIN,
 }
 
 /**
@@ -52,6 +53,11 @@ data class ChatAlert(
  *   User-Felder — das Overlay zeigt den lokalisierten „Anonym“-Namen).
  * @param months Kumulierte Sub-Monate beim Resub (`cumulative_months`).
  * @param streakMonths Aktuelle Monats-Serie (`streak_months`; 0 wenn keine).
+ * @param hypeTrainLevel Aktuelles Level des Hype-Trains (`level`).
+ * @param hypeTrainProgress Fortschritt im aktuellen Level (`progress`).
+ * @param hypeTrainGoal Punkt-Ziel des aktuellen Levels (`goal`).
+ * @param hypeTrainEnded true beim `channel.hype_train.end`-Event — das Overlay
+ *   entfernt den Banner dann, statt ihn per TTL auszublenden.
  */
 data class AlertDetail(
     val tier: String = "",
@@ -62,4 +68,8 @@ data class AlertDetail(
     val isAnonymous: Boolean = false,
     val months: Int = 0,
     val streakMonths: Int = 0,
+    val hypeTrainLevel: Int = 0,
+    val hypeTrainProgress: Int = 0,
+    val hypeTrainGoal: Int = 0,
+    val hypeTrainEnded: Boolean = false,
 )

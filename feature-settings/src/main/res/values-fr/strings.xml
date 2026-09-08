@@ -109,6 +109,9 @@
     <string name="overlays_deleted_desc">Masquer ou estomper les messages supprimés dans l’overlay de chat. Nécessite les privilèges de modérateur pour le compte du bot.</string>
     <string name="overlays_deleted_hide">Masquer les messages supprimés</string>
     <string name="overlays_animate_new_messages">Animer les nouveaux messages</string>
+    <string name="overlays_hype_train_title">Hype Train</string>
+    <string name="overlays_hype_train_desc">Afficher les événements Hype Train (EventSub channel.hype_train.*) comme bannière dans l’overlay de chat. Sans le scope channel:read:hype_train, seul cet affichage est ignoré ; le chat et les alertes continuent.</string>
+    <string name="overlays_hype_train_enabled">Afficher le Hype Train dans l’overlay</string>
     <string name="overlays_layout_title">Disposition du chat</string>
     <string name="overlays_layout_desc">Personnaliser la largeur, la hauteur, la transparence, la taille du texte et l’horodatage de l’overlay de chat.</string>
     <string name="overlays_layout_width">Largeur : %1$d dp</string>

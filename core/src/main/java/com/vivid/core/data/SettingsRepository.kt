@@ -92,6 +92,7 @@ class SettingsRepository @Inject constructor(
         val EMOTES_7TV_ENABLED = booleanPreferencesKey("emotes_7tv_enabled")
         val CHAT_OVERLAY_HIDE_DELETED = booleanPreferencesKey("chat_overlay_hide_deleted")
         val CHAT_OVERLAY_ANIMATE_NEW_MESSAGES = booleanPreferencesKey("chat_overlay_animate_new_messages")
+        val CHAT_OVERLAY_HYPE_TRAIN_ENABLED = booleanPreferencesKey("chat_overlay_hype_train_enabled")
         val CHAT_OVERLAY_WIDTH_DP = intPreferencesKey("chat_overlay_width_dp")
         val CHAT_OVERLAY_HEIGHT_DP = intPreferencesKey("chat_overlay_height_dp")
         val CHAT_OVERLAY_BACKGROUND_ALPHA = floatPreferencesKey("chat_overlay_background_alpha")
@@ -295,6 +296,7 @@ class SettingsRepository @Inject constructor(
                 sevenTvEnabled = prefs[PrefKeys.EMOTES_7TV_ENABLED] ?: true,
                 chatOverlayHideDeleted = prefs[PrefKeys.CHAT_OVERLAY_HIDE_DELETED] ?: true,
                 chatOverlayAnimateNewMessages = prefs[PrefKeys.CHAT_OVERLAY_ANIMATE_NEW_MESSAGES] ?: true,
+                chatOverlayHypeTrainEnabled = prefs[PrefKeys.CHAT_OVERLAY_HYPE_TRAIN_ENABLED] ?: true,
                 chatOverlayWidthDp = prefs[PrefKeys.CHAT_OVERLAY_WIDTH_DP] ?: 240,
                 chatOverlayHeightDp = prefs[PrefKeys.CHAT_OVERLAY_HEIGHT_DP] ?: 300,
                 chatOverlayBackgroundAlpha = prefs[PrefKeys.CHAT_OVERLAY_BACKGROUND_ALPHA] ?: 0.5f,
@@ -317,6 +319,7 @@ class SettingsRepository @Inject constructor(
             emotes7tvEnabled = emotePrefs.sevenTvEnabled,
             chatOverlayHideDeleted = emotePrefs.chatOverlayHideDeleted,
             chatOverlayAnimateNewMessages = emotePrefs.chatOverlayAnimateNewMessages,
+            chatOverlayHypeTrainEnabled = emotePrefs.chatOverlayHypeTrainEnabled,
             chatOverlayWidthDp = emotePrefs.chatOverlayWidthDp,
             chatOverlayHeightDp = emotePrefs.chatOverlayHeightDp,
             chatOverlayBackgroundAlpha = emotePrefs.chatOverlayBackgroundAlpha,
@@ -531,6 +534,7 @@ class SettingsRepository @Inject constructor(
         val sevenTvEnabled: Boolean,
         val chatOverlayHideDeleted: Boolean,
         val chatOverlayAnimateNewMessages: Boolean,
+        val chatOverlayHypeTrainEnabled: Boolean,
         val chatOverlayWidthDp: Int,
         val chatOverlayHeightDp: Int,
         val chatOverlayBackgroundAlpha: Float,
@@ -694,6 +698,13 @@ class SettingsRepository @Inject constructor(
     suspend fun updateChatOverlayAnimateNewMessages(animate: Boolean) {
         dataStore.edit { prefs ->
             prefs[PrefKeys.CHAT_OVERLAY_ANIMATE_NEW_MESSAGES] = animate
+        }
+    }
+
+    /** Hype-Train-Banner im Chat-Overlay ein-/ausschalten. */
+    suspend fun updateChatOverlayHypeTrainEnabled(enabled: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[PrefKeys.CHAT_OVERLAY_HYPE_TRAIN_ENABLED] = enabled
         }
     }
 

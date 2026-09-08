@@ -186,6 +186,24 @@ fun SettingsOverlaysScreen(
             )
         }
 
+        // Hype-Train-Anzeige im Chat-Overlay
+        Text(stringResource(R.string.overlays_hype_train_title), style = MaterialTheme.typography.titleLarge)
+        Text(
+            text = stringResource(R.string.overlays_hype_train_desc),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(stringResource(R.string.overlays_hype_train_enabled), modifier = Modifier.weight(1f))
+            Switch(
+                checked = uiState.chatOverlayHypeTrainEnabled,
+                onCheckedChange = viewModel::onChatOverlayHypeTrainEnabledChange,
+            )
+        }
+
         // Chat-Layout-Einstellungen
         Text(stringResource(R.string.overlays_layout_title), style = MaterialTheme.typography.titleLarge)
         Text(

@@ -108,6 +108,9 @@
     <string name="overlays_deleted_desc">Hide or dim deleted messages in the chat overlay. Requires moderator privileges for the bot account.</string>
     <string name="overlays_deleted_hide">Hide deleted messages</string>
     <string name="overlays_animate_new_messages">Animate new messages</string>
+    <string name="overlays_hype_train_title">Hype Train</string>
+    <string name="overlays_hype_train_desc">Show hype train events (EventSub channel.hype_train.*) as a banner in the chat overlay. Without the channel:read:hype_train scope only this display is skipped; chat and alerts keep running.</string>
+    <string name="overlays_hype_train_enabled">Show hype train in the overlay</string>
     <string name="overlays_layout_title">Chat layout</string>
     <string name="overlays_layout_desc">Customize width, height, transparency, font size and timestamp of the chat overlay.</string>
     <string name="overlays_layout_width">Width: %1$d dp</string>

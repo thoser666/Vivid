@@ -44,7 +44,7 @@
     <string name="help_cmd_stop">Stop the stream</string>
     <string name="help_cmd_diag">Diagnostics: status, OBS, config checks</string>
     <string name="help_cmd_ask">Ask the Owner AI a question</string>
-    <string name="help_cmd_testalert">Test alert for the overlay (follow|sub|gift|resub|raid)</string>
+    <string name="help_cmd_testalert">Test alert for the overlay (follow|sub|gift|resub|raid|hype)</string>
     <string name="help_cmd_torch">Toggle the flashlight</string>
     <string name="help_cmd_ban">Ban a viewer</string>
     <string name="help_cmd_timeout">Timeout a viewer (default 5 min)</string>

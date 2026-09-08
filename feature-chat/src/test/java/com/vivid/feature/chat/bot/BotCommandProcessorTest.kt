@@ -397,6 +397,10 @@ class BotCommandProcessorTest {
             BotCommandProcessor.Result.TestAlert(ChatAlertType.RESUB),
             processor().handle("!testalert resub", null),
         )
+        assertEquals(
+            BotCommandProcessor.Result.TestAlert(ChatAlertType.HYPE_TRAIN),
+            processor().handle("!testalert hype", null),
+        )
     }
 
     @Test
@@ -424,6 +428,14 @@ class BotCommandProcessorTest {
         assertEquals(
             BotCommandProcessor.Result.TestAlert(ChatAlertType.RESUB),
             processor().handle("!alert resubscribe", null),
+        )
+        assertEquals(
+            BotCommandProcessor.Result.TestAlert(ChatAlertType.HYPE_TRAIN),
+            processor().handle("!test-alert hype-train", null),
+        )
+        assertEquals(
+            BotCommandProcessor.Result.TestAlert(ChatAlertType.HYPE_TRAIN),
+            processor().handle("!alert HYPE_TRAIN", null),
         )
     }
 

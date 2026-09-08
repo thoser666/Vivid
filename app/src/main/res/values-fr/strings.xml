@@ -44,7 +44,7 @@
     <string name="help_cmd_stop">Arrêter le stream</string>
     <string name="help_cmd_diag">Diagnostic : état, OBS, vérifications de config</string>
     <string name="help_cmd_ask">Poser une question à l\'IA Owner</string>
-    <string name="help_cmd_testalert">Alerte de test pour l\'overlay (follow|sub|gift|resub|raid)</string>
+    <string name="help_cmd_testalert">Alerte de test pour l\'overlay (follow|sub|gift|resub|raid|hype)</string>
     <string name="help_cmd_torch">Basculer la lampe torche</string>
     <string name="help_cmd_ban">Bannir un spectateur</string>
     <string name="help_cmd_timeout">Exclure temporairement un spectateur (5 min par défaut)</string>

@@ -219,9 +219,9 @@ class BotCommandProcessor @Inject constructor() {
 
     /**
      * Erstes Token des Rest-Strings als Alert-Typ für `!testalert` — erlaubt
-     * `follow`, `sub`/`subscribe`, `gift`/`giftsub`, `resub`, `raid`
-     * (case-insensitive); null bei fehlendem/ungültigem Typ (Engine antwortet
-     * mit Nutzungs-Hinweis).
+     * `follow`, `sub`/`subscribe`, `gift`/`giftsub`, `resub`, `raid`,
+     * `hype`/`hypetrain` (case-insensitive); null bei fehlendem/ungültigem
+     * Typ (Engine antwortet mit Nutzungs-Hinweis).
      */
     private fun parseAlertType(rest: String): ChatAlertType? = when (firstToken(rest).lowercase()) {
         "follow", "follower" -> ChatAlertType.FOLLOW
@@ -229,6 +229,7 @@ class BotCommandProcessor @Inject constructor() {
         "gift", "giftsub", "gift-sub", "gift_sub" -> ChatAlertType.GIFT_SUB
         "resub", "resubscribe" -> ChatAlertType.RESUB
         "raid" -> ChatAlertType.RAID
+        "hype", "hypetrain", "hype-train", "hype_train" -> ChatAlertType.HYPE_TRAIN
         else -> null
     }
 

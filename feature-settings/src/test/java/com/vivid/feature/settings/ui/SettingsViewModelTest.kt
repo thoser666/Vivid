@@ -1149,4 +1149,38 @@ class SettingsViewModelTest {
             )
         }
     }
+
+    @Test
+    fun `hype train toggle updates uiState`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // Default: Hype-Train-Banner an.
+        assertTrue(viewModel.uiState.value.chatOverlayHypeTrainEnabled)
+
+        viewModel.onChatOverlayHypeTrainEnabledChange(false)
+        assertFalse(viewModel.uiState.value.chatOverlayHypeTrainEnabled)
+
+        viewModel.onChatOverlayHypeTrainEnabledChange(true)
+        assertTrue(viewModel.uiState.value.chatOverlayHypeTrainEnabled)
+    }
+
+    @Test
+    fun `saveSettings persists the hype train toggle`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repository = mockk<SettingsRepository>(relaxed = true) {
+            every { appSettingsFlow } returns MutableStateFlow(AppSettings())
+            coEvery { updateChatOverlayHypeTrainEnabled(any()) } just runs
+        }
+
+        val viewModel = createViewModel(repository)
+        advanceUntilIdle()
+
+        viewModel.onChatOverlayHypeTrainEnabledChange(false)
+        viewModel.saveSettings()
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { repository.updateChatOverlayHypeTrainEnabled(false) }
+    }
 }

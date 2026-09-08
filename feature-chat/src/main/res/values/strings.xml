@@ -28,4 +28,7 @@
         <item quantity="one">⚔️ Raid von %1$s (%2$d Viewer)</item>
         <item quantity="other">⚔️ Raid von %1$s (%2$d Viewer)</item>
     </plurals>
+    <string name="chat_alert_hype_train">🚂 Hype-Train Level %1$d — %2$d/%3$d</string>
+    <string name="chat_alert_hype_train_active">🚂 Hype-Train aktiv</string>
+    <string name="chat_alert_hype_train_end">🚂 Hype-Train Level %1$d beendet</string>
 </resources>

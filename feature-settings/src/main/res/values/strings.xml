@@ -108,6 +108,9 @@
     <string name="overlays_deleted_desc">Gelöschte Nachrichten im Chat-Overlay ausblenden oder ausgrauen. Erfordert Moderator-Rechte des Bot-Kontos.</string>
     <string name="overlays_deleted_hide">Gelöschte Nachrichten ausblenden</string>
     <string name="overlays_animate_new_messages">Neue Nachrichten animieren</string>
+    <string name="overlays_hype_train_title">Hype-Train</string>
+    <string name="overlays_hype_train_desc">Hype-Train-Events (EventSub channel.hype_train.*) als Banner im Chat-Overlay anzeigen. Ohne den Scope channel:read:hype_train fällt nur diese Anzeige aus, Chat und Alerts laufen weiter.</string>
+    <string name="overlays_hype_train_enabled">Hype-Train im Overlay anzeigen</string>
     <string name="overlays_layout_title">Chat-Layout</string>
     <string name="overlays_layout_desc">Breite, Höhe, Transparenz, Schriftgröße und Zeitstempel des Chat-Overlays anpassen.</string>
     <string name="overlays_layout_width">Breite: %1$d dp</string>

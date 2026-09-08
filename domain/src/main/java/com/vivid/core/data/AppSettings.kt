@@ -133,6 +133,9 @@ data class AppSettings(
     val chatOverlayHideDeleted: Boolean = true,
     // Fade-In-Animation für neue Nachrichten im Chat-Overlay (Standard: an).
     val chatOverlayAnimateNewMessages: Boolean = true,
+    // Hype-Train-Banner im Chat-Overlay anzeigen (EventSub channel.hype_train.*).
+    // Standard: an; das Umstellen blendet den laufenden Banner sofort ein/aus.
+    val chatOverlayHypeTrainEnabled: Boolean = true,
     // --- Chat-Layout-Einstellungen (Overlay) ---
     // Breite des Chat-Overlays in dp (100–400, Standard: 240).
     val chatOverlayWidthDp: Int = 240,
