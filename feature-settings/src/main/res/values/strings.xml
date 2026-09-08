@@ -58,6 +58,9 @@
     <string name="stream_url_hint">Freie Ingest-URL: akzeptiert beliebige RTMP(S)- oder SRT-Ziele, z. B. Owncast oder einen eigenen Server. Die Plattform-Vorlagen oben sind nur Presets.</string>
     <string name="stream_key_label">Stream-Schlüssel</string>
     <string name="stream_tls_label">Sichere Verbindung (RTMPS)</string>
+    <string name="replay_audio_title">Replay-Aufnahme</string>
+    <string name="replay_audio_desc">Lokale MP4-Aufnahme parallel zum Stream (Aufnahme-Button im Streaming-Screen).</string>
+    <string name="replay_audio_enabled">Ton in Replays aufnehmen</string>
     <string name="twitch_channel_title">Twitch-Kanalsteuerung</string>
     <string name="twitch_channel_desc">Viewerzahl lesen sowie Stream-Titel und Kategorie über die Twitch-Helix-API aktualisieren. Für Änderungen wird ein Broadcaster-Token mit channel:manage:broadcast benötigt.</string>
     <string name="twitch_channel_oauth_label">Twitch-Broadcaster-OAuth-Token</string>

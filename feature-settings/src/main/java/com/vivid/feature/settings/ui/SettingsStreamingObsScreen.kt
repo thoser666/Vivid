@@ -17,6 +17,7 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.vivid.core.data.AppSettings
+import com.vivid.core.data.ReplayAudioMode
 import com.vivid.feature.chat.twitch.TwitchChannelUiState
 import com.vivid.feature.chat.twitch.TwitchChannelViewModel
 
@@ -79,6 +80,28 @@ fun SettingsStreamingObsScreen(
             Switch(
                 checked = uiState.streamUseTls,
                 onCheckedChange = viewModel::onStreamUseTlsChange,
+            )
+        }
+
+        // Replay-Aufnahme (Record-to-Disk): Audio-Konfiguration der MP4.
+        Text(stringResource(R.string.replay_audio_title), style = MaterialTheme.typography.titleLarge)
+        Text(
+            text = stringResource(R.string.replay_audio_desc),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(stringResource(R.string.replay_audio_enabled), modifier = Modifier.weight(1f))
+            Switch(
+                checked = uiState.replayAudioMode == ReplayAudioMode.ALL,
+                onCheckedChange = { checked ->
+                    viewModel.onReplayAudioModeChange(
+                        if (checked) ReplayAudioMode.ALL else ReplayAudioMode.VIDEO_ONLY,
+                    )
+                },
             )
         }
 

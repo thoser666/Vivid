@@ -7,9 +7,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.io.File
 import javax.inject.Inject
@@ -20,6 +22,8 @@ data class ReplayItem(
     val name: String,
     val sizeBytes: Long,
     val lastModified: Long,
+    /** Pfad des Thumbnail-JPEGs (null = noch nicht geladen oder nicht erzeugbar). */
+    val thumbnailPath: String? = null,
 )
 
 /** UI-Zustand der Replay-Bibliothek. */
@@ -36,22 +40,39 @@ data class ReplayLibraryUiState(
  * ViewModel der Replay-Bibliothek: lädt die MP4-Liste, löscht Einträge
  * (einzeln/alles) und erzeugt den Share-Intent. Die Wiedergabe selbst
  * rendert [com.vivid.feature.playback.StreamPlayer] mit der FileProvider-Uri.
+ * Thumbnails werden pro Eintrag asynchron geladen/erzeugt (Dispatchers.IO).
  */
 @HiltViewModel
 class ReplayLibraryViewModel @Inject constructor(
     private val library: ReplayLibrary,
+    private val thumbnails: ReplayThumbnailStore,
     @ApplicationContext private val appContext: Context,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ReplayLibraryUiState())
     val uiState: StateFlow<ReplayLibraryUiState> = _uiState.asStateFlow()
 
-    /** Lädt die Replays neu. */
+    /** Lädt die Replays neu (Liste sofort, Thumbnails asynchron pro Eintrag). */
     fun refresh() {
         _uiState.value = _uiState.value.copy(loading = true)
         viewModelScope.launch {
             val items = library.items().map(::toItem)
             _uiState.value = _uiState.value.copy(items = items, loading = false)
+            // Thumbnails asynchron nachschieben: pro Eintrag ein IO-Job, das UI
+            // aktualisiert sich jeweils, wenn das JPEG bereitsteht.
+            items.forEach { item ->
+                launch(Dispatchers.IO) {
+                    val thumb = runCatching { thumbnails.loadOrCreate(item.file) }.getOrNull()
+                    val path = thumb?.absolutePath
+                    _uiState.update { state ->
+                        state.copy(
+                            items = state.items.map {
+                                if (it.file == item.file) it.copy(thumbnailPath = path) else it
+                            },
+                        )
+                    }
+                }
+            }
         }
     }
 

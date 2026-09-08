@@ -58,6 +58,9 @@
     <string name="stream_url_hint">URL d\'ingest libre : accepte toute cible RTMP(S) ou SRT, p. ex. Owncast ou votre propre serveur. Les modèles de plateforme ci-dessus ne sont que des préréglages.</string>
     <string name="stream_key_label">Clé de stream</string>
     <string name="stream_tls_label">Connexion sécurisée (RTMPS)</string>
+    <string name="replay_audio_title">Enregistrement des replays</string>
+    <string name="replay_audio_desc">Enregistrement MP4 local en parallèle du stream (bouton d\'enregistrement dans l\'écran de streaming).</string>
+    <string name="replay_audio_enabled">Enregistrer l\'audio dans les replays</string>
     <string name="twitch_channel_title">Contrôle de la chaîne Twitch</string>
     <string name="twitch_channel_desc">Lire le nombre de spectateurs et mettre à jour le titre et la catégorie via l’API Twitch Helix. Les modifications nécessitent un jeton de diffuseur avec channel:manage:broadcast.</string>
     <string name="twitch_channel_oauth_label">Jeton OAuth du diffuseur Twitch</string>

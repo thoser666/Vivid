@@ -178,6 +178,10 @@ data class AppSettings(
     val slideshowWidgetIntervalSeconds: Int = 30,
     val slideshowWidgetSizeDp: Int = 240,
     val slideshowWidgetOpacity: Float = 1f,
+    // --- Replay-Aufnahme (Record-to-Disk) ---
+    // Audio-Konfiguration der MP4-Replays: ALL = Bild + Ton (Standard),
+    // VIDEO_ONLY = nur Bild (keine Audiospur in der Aufnahme).
+    val replayAudioMode: ReplayAudioMode = ReplayAudioMode.ALL,
     // --- In-App-Logs ---
     // Vorhaltezeit der täglichen Log-Rotation in Tagen (1–30, Default 7):
     // Logs wechseln täglich, ältere Tage werden beim Laden/Prune gelöscht.

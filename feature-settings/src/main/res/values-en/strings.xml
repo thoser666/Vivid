@@ -58,6 +58,9 @@
     <string name="stream_url_hint">Free ingest URL: accepts any RTMP(S) or SRT target, e.g. Owncast or your own server. The platform presets above are just shortcuts.</string>
     <string name="stream_key_label">Stream key</string>
     <string name="stream_tls_label">Secure connection (RTMPS)</string>
+    <string name="replay_audio_title">Replay recording</string>
+    <string name="replay_audio_desc">Local MP4 recording in parallel to the stream (record button in the streaming screen).</string>
+    <string name="replay_audio_enabled">Record audio in replays</string>
     <string name="twitch_channel_title">Twitch channel control</string>
     <string name="twitch_channel_desc">Read live viewers and update the stream title and category through the Twitch Helix API. Changes require a broadcaster token with channel:manage:broadcast.</string>
     <string name="twitch_channel_oauth_label">Twitch broadcaster OAuth token</string>

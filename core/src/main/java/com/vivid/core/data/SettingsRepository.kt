@@ -83,6 +83,7 @@ class SettingsRepository @Inject constructor(
         val SLIDESHOW_WIDGET_SIZE_DP = intPreferencesKey("slideshow_widget_size_dp")
         val SLIDESHOW_WIDGET_OPACITY = floatPreferencesKey("slideshow_widget_opacity")
         val SENTRY_ENABLED = booleanPreferencesKey("sentry_enabled")
+        val REPLAY_AUDIO_MODE = stringPreferencesKey("replay_audio_mode")
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val THEME_ACCENT = stringPreferencesKey("theme_accent")
         val LOGS_RETENTION_DAYS = intPreferencesKey("logs_retention_days")
@@ -199,6 +200,7 @@ class SettingsRepository @Inject constructor(
                 slideshowWidgetIntervalSeconds = prefs[PrefKeys.SLIDESHOW_WIDGET_INTERVAL_SECONDS] ?: 30,
                 slideshowWidgetSizeDp = prefs[PrefKeys.SLIDESHOW_WIDGET_SIZE_DP] ?: 240,
                 slideshowWidgetOpacity = prefs[PrefKeys.SLIDESHOW_WIDGET_OPACITY] ?: 1f,
+                replayAudioMode = ReplayAudioMode.fromName(prefs[PrefKeys.REPLAY_AUDIO_MODE]),
             )
         },
     ) { streamData, obsData, chatData, chatBotData, widgetData ->
@@ -269,8 +271,9 @@ class SettingsRepository @Inject constructor(
                 slideshowWidgetEnabled = widgetData.slideshowWidgetEnabled,
                 slideshowWidgetUris = widgetData.slideshowWidgetUris,
                 slideshowWidgetIntervalSeconds = widgetData.slideshowWidgetIntervalSeconds,
-                slideshowWidgetSizeDp = widgetData.slideshowWidgetSizeDp,
-                slideshowWidgetOpacity = widgetData.slideshowWidgetOpacity,
+            slideshowWidgetSizeDp = widgetData.slideshowWidgetSizeDp,
+            slideshowWidgetOpacity = widgetData.slideshowWidgetOpacity,
+            replayAudioMode = widgetData.replayAudioMode,
             )
         },
         // 6. Flow: Darstellung (Theme-Modus + Akzentfarbe)
@@ -514,6 +517,7 @@ class SettingsRepository @Inject constructor(
         val slideshowWidgetIntervalSeconds: Int,
         val slideshowWidgetSizeDp: Int,
         val slideshowWidgetOpacity: Float,
+        val replayAudioMode: ReplayAudioMode,
     )
 
     private data class ThemePrefs(
@@ -542,6 +546,13 @@ class SettingsRepository @Inject constructor(
     suspend fun updateSentryEnabled(enabled: Boolean) {
         dataStore.edit { prefs ->
             prefs[PrefKeys.SENTRY_ENABLED] = enabled
+        }
+    }
+
+    /** Audio-Konfiguration der Replay-Aufnahme speichern. */
+    suspend fun updateReplayAudioMode(mode: ReplayAudioMode) {
+        dataStore.edit { prefs ->
+            prefs[PrefKeys.REPLAY_AUDIO_MODE] = mode.name
         }
     }
 
