@@ -202,7 +202,7 @@ The overlay reads the chat via **Twitch EventSub** (not IRC). It needs the **bot
 ### 6.4 Test Alert (Before Going Live)
 
 To test the overlay before streaming:
-- Type **`!testalert follow`** (or `sub`, `gift`, `resub`, `raid`) in chat (owner-only)
+- Type **`!testalert follow`** (or `sub`, `gift`, `resub`, `raid`, `hype`) in chat (owner-only)
 - The alert appears immediately in the overlay
 
 ---
@@ -246,7 +246,7 @@ Three configurable limits (all `0` = off):
 | `!stop` / `!end` | Stop the stream |
 | `!diag` / `!status` | Diagnostics: stream status, OBS, 11 config checks + AI recommendation |
 | `!ask <question>` | Question to the exclusive Owner AI (fallback: viewer AI, otherwise deterministic) |
-| `!testalert <type>` | Test alert for the overlay (`follow`/`sub`/`gift`/`resub`/`raid`) |
+| `!testalert <type>` | Test alert for the overlay (`follow`/`sub`/`gift`/`resub`/`raid`/`hype`) |
 | `!torch` | Toggle the flashlight (alias: `!lantern`/`!flashlight`) |
 | `!ban <user>` | Ban a viewer |
 | `!timeout <user> <min?>` | Timeout a viewer (default 5 min) |

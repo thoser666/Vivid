@@ -206,7 +206,7 @@ L'overlay lit le chat via **Twitch EventSub** (pas IRC). Pour cela, il faut les
 ### 6.4 Alerte de test (avant le Go Live)
 
 Pour tester l'overlay avant le stream :
-- Saisir **`!testalert follow`** (ou `sub`, `gift`, `resub`, `raid`) dans le chat (owner uniquement)
+- Saisir **`!testalert follow`** (ou `sub`, `gift`, `resub`, `raid`, `hype`) dans le chat (owner uniquement)
 - L'alerte apparaît immédiatement dans l'overlay
 
 ---
@@ -251,7 +251,7 @@ Trois limites réglables (toutes `0` = désactivées) :
 | `!stop` / `!end` | Arrêter le stream |
 | `!diag` / `!status` | Diagnostic : statut du stream, OBS, 11 vérifications de configuration + recommandation IA |
 | `!ask <question>` | Question à l'IA owner exclusive (repli : IA des viewers, sinon déterministe) |
-| `!testalert <type>` | Alerte de test pour l'overlay (`follow`/`sub`/`gift`/`resub`/`raid`) |
+| `!testalert <type>` | Alerte de test pour l'overlay (`follow`/`sub`/`gift`/`resub`/`raid`/`hype`) |
 | `!torch` | Basculer la lampe torche (alias : `!lantern`/`!flashlight`) |
 | `!ban <user>` | Bannir un viewer |
 | `!timeout <user> <min?>` | Timeout d'un viewer (défaut 5 min) |
