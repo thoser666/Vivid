@@ -204,7 +204,8 @@ class MediaMetadataReplayThumbnailStore @Inject constructor() : ReplayThumbnailS
         if (!replay.isFile || replay.length() == 0L) return null
 
         return runCatching {
-            MediaMetadataRetriever().use { retriever ->
+            val retriever = MediaMetadataRetriever()
+            try {
                 retriever.setDataSource(replay.absolutePath)
                 val bitmap = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
                     retriever.getScaledFrameAtTime(
@@ -216,12 +217,17 @@ class MediaMetadataReplayThumbnailStore @Inject constructor() : ReplayThumbnailS
                 } else {
                     retriever.getFrameAtTime(SNAPSHOT_TIME_US, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
                 }
-                bitmap ?: return@use null
-                FileOutputStream(thumb).use { out ->
-                    bitmap.compress(CompressFormat.JPEG, JPEG_QUALITY, out)
+                if (bitmap != null) {
+                    FileOutputStream(thumb).use { out ->
+                        bitmap.compress(CompressFormat.JPEG, JPEG_QUALITY, out)
+                    }
+                    bitmap.recycle()
+                    thumb
+                } else {
+                    null
                 }
-                bitmap.recycle()
-                thumb
+            } finally {
+                retriever.release()
             }
         }.getOrNull()
     }
