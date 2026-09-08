@@ -184,6 +184,9 @@ class SettingsViewModel @Inject constructor(
     fun onWidgetShowSpeedChange(newValue: Boolean) { _uiState.value = _uiState.value.copy(widgetShowSpeed = newValue) }
     fun onWidgetShowAltitudeChange(newValue: Boolean) { _uiState.value = _uiState.value.copy(widgetShowAltitude = newValue) }
 
+    /** Text-Widget-Template (mit {var}-Platzhaltern); hartes Längenlimit wie bei QR-Content. */
+    fun onWidgetTemplateChange(newValue: String) { _uiState.value = _uiState.value.copy(widgetTemplate = newValue.take(256)) }
+
     // Replay-Aufnahme: Audio-Konfiguration (Bild + Ton oder nur Bild).
     fun onReplayAudioModeChange(newMode: ReplayAudioMode) { _uiState.value = _uiState.value.copy(replayAudioMode = newMode) }
 

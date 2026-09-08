@@ -58,6 +58,7 @@ dependencies {
     implementation(project(":domain"))
     // Live-Zählerstand des Chat-Bots (Settings-Screen: Kosten-Budget beobachten).
     implementation(project(":feature-chat"))
+    implementation(project(":feature-widgets"))
 
     // Compose
     implementation(platform(libs.androidx.compose.bom))

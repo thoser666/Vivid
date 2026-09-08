@@ -100,6 +100,10 @@
     <string name="overlays_widget_location">Coordonnées GPS</string>
     <string name="overlays_widget_speed">Vitesse</string>
     <string name="overlays_widget_altitude">Altitude</string>
+    <string name="overlays_widget_template_label">Modèle du widget</string>
+    <string name="overlays_widget_template_desc">Texte personnalisé avec des variables au lieu des interrupteurs individuels. Variables disponibles : {time} (heure), {date} (date), {speed} (vitesse), {altitude} (altitude), {lat}/{lon} (coordonnées GPS). Modèle vide = mode interrupteurs.</string>
+    <string name="overlays_widget_template_placeholder">p. ex. {time} — {speed} km/h</string>
+    <string name="overlays_widget_template_preview">Aperçu : %1$s</string>
     <string name="overlays_emotes_title">Emotes tierces</string>
     <string name="overlays_emotes_desc">Afficher des emotes supplémentaires provenant de bases de données communautaires dans l’overlay de chat. Chaque source peut être activée/désactivée individuellement.</string>
     <string name="overlays_emotes_bttv">BetterTTV (BTTV)</string>

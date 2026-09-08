@@ -99,6 +99,10 @@
     <string name="overlays_widget_location">GPS-Koordinaten</string>
     <string name="overlays_widget_speed">Geschwindigkeit</string>
     <string name="overlays_widget_altitude">Höhe</string>
+    <string name="overlays_widget_template_label">Widget-Template</string>
+    <string name="overlays_widget_template_desc">Eigener Text mit Platzhaltern statt der Einzelschalter. Verfügbare Platzhalter: {time} (Uhrzeit), {date} (Datum), {speed} (Geschwindigkeit), {altitude} (Höhe), {lat}/{lon} (GPS-Koordinaten). Leeres Template = Einzelschalter-Modus.</string>
+    <string name="overlays_widget_template_placeholder">z. B. {time} — {speed} km/h</string>
+    <string name="overlays_widget_template_preview">Vorschau: %1$s</string>
     <string name="overlays_emotes_title">Third-Party-Emotes</string>
     <string name="overlays_emotes_desc">Zusätzliche Emotes aus Community-Datenbanken im Chat-Overlay anzeigen. Jede Quelle kann einzeln aktiviert/deaktiviert werden.</string>
     <string name="overlays_emotes_bttv">BetterTTV (BTTV)</string>

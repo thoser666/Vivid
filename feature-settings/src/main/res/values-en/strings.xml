@@ -99,6 +99,10 @@
     <string name="overlays_widget_location">GPS coordinates</string>
     <string name="overlays_widget_speed">Speed</string>
     <string name="overlays_widget_altitude">Altitude</string>
+    <string name="overlays_widget_template_label">Widget template</string>
+    <string name="overlays_widget_template_desc">Custom text with placeholders instead of the individual toggles. Available placeholders: {time} (time), {date} (date), {speed} (speed), {altitude} (altitude), {lat}/{lon} (GPS coordinates). Empty template = toggle mode.</string>
+    <string name="overlays_widget_template_placeholder">e. g. {time} — {speed} km/h</string>
+    <string name="overlays_widget_template_preview">Preview: %1$s</string>
     <string name="overlays_emotes_title">Third-party emotes</string>
     <string name="overlays_emotes_desc">Show additional emotes from community databases in the chat overlay. Each source can be enabled/disabled individually.</string>
     <string name="overlays_emotes_bttv">BetterTTV (BTTV)</string>
