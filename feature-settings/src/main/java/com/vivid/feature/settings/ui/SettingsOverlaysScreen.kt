@@ -2,9 +2,12 @@ package com.vivid.feature.settings.ui
 
 import com.vivid.feature.settings.R
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.width
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Slider
 import androidx.compose.ui.unit.dp
@@ -18,12 +21,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.vivid.core.data.AppSettings
+import com.vivid.feature.widget.WidgetVariableResolver
 import androidx.compose.material3.OutlinedTextField
+
+/** Template-Variablen, die per Chip in das Text-Widget-Template eingefügt werden können. */
+private val TEMPLATE_VARIABLES = listOf("{time}", "{date}", "{speed}", "{altitude}", "{lat}", "{lon}")
 
 /**
  * Kategorie „Overlays & Widgets“: Twitch-Chat-Overlay über der Vorschau und
  * das Text-/Info-Widget (Uhrzeit/GPS/Geschwindigkeit).
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SettingsOverlaysScreen(
     uiState: AppSettings,
@@ -118,6 +126,58 @@ fun SettingsOverlaysScreen(
             )
         }
 
+        // Template-Editor: benutzerdefiniertes Template mit {var}-Platzhaltern.
+        // Ein leeres Template schaltet auf den Toggle-Modus zurück (siehe TextInfoWidget).
+        Text(stringResource(R.string.overlays_widget_template_label), style = MaterialTheme.typography.titleMedium)
+        Text(
+            text = stringResource(R.string.overlays_widget_template_desc),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        OutlinedTextField(
+            value = uiState.widgetTemplate,
+            onValueChange = viewModel::onWidgetTemplateChange,
+            label = { Text(stringResource(R.string.overlays_widget_template_label)) },
+            placeholder = { Text(stringResource(R.string.overlays_widget_template_placeholder)) },
+            singleLine = false,
+            minLines = 1,
+            maxLines = 4,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        // Variable-Chips: Klick fügt den Platzhalter ans Template-Ende an.
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            TEMPLATE_VARIABLES.forEach { variable ->
+                AssistChip(
+                    onClick = {
+                        viewModel.onWidgetTemplateChange(uiState.widgetTemplate + variable)
+                    },
+                    label = { Text(variable) },
+                )
+            }
+        }
+        // Live-Vorschau: resolved Template mit Beispielwerten (gleicher Resolver
+        // wie das echte Widget — eine Quelle der Wahrheit).
+        val preview = WidgetVariableResolver.resolve(
+            uiState.widgetTemplate,
+            WidgetVariableResolver.currentValues(
+                time = "14:05:32",
+                date = "17.08.2026",
+                speed = "52.3 km/h",
+                altitude = "120 m",
+                latitude = 52.52,
+                longitude = 13.405,
+            ),
+        )
+        if (uiState.widgetTemplate.isNotBlank()) {
+            Text(
+                text = stringResource(R.string.overlays_widget_template_preview, preview),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
+
         // Third-Party-Emotes (BTTV/FFZ/7TV)
         Text(stringResource(R.string.overlays_emotes_title), style = MaterialTheme.typography.titleLarge)
         Text(
@@ -183,6 +243,24 @@ fun SettingsOverlaysScreen(
             Switch(
                 checked = uiState.chatOverlayAnimateNewMessages,
                 onCheckedChange = viewModel::onChatOverlayAnimateNewMessagesChange,
+            )
+        }
+
+        // Hype-Train-Anzeige im Chat-Overlay
+        Text(stringResource(R.string.overlays_hype_train_title), style = MaterialTheme.typography.titleLarge)
+        Text(
+            text = stringResource(R.string.overlays_hype_train_desc),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(stringResource(R.string.overlays_hype_train_enabled), modifier = Modifier.weight(1f))
+            Switch(
+                checked = uiState.chatOverlayHypeTrainEnabled,
+                onCheckedChange = viewModel::onChatOverlayHypeTrainEnabledChange,
             )
         }
 

@@ -61,9 +61,18 @@ class ChatOverlayViewModel @Inject constructor(
         /**
          * Event-Alerts (Follow/Sub/Raid) aus dem EventSub-WebSocket — max.
          * [MAX_ALERTS] gleichzeitig, jeder verschwindet nach [ALERT_TTL_MS]
-         * automatisch wieder.
+         * automatisch wieder. Hype-Train-Banner (DETAIL [ChatAlertType.HYPE_TRAIN])
+         * sind davon ausgenommen: begin/progress ersetzen in place, erst das
+         * end-Event entfernt sie.
          */
         val alerts: List<ChatAlert> = emptyList(),
+        /**
+         * Hype-Train-Banner im Chat-Overlay anzeigen (Standard: an). Regelt
+         * nur die Anzeige — die EventSub-Subscriptions laufen unabhängig
+         * davon weiter, damit das Umstellen während eines laufenden Trains
+         * den Banner sofort ein-/ausblendet.
+         */
+        val hypeTrainEnabled: Boolean = true,
         /** IDs gelöschter Nachrichten (vom EventSub Topic `channel.chat.message_delete`). */
         val deletedMessageIds: Set<String> = emptySet(),
         /** Gelöschte Nachrichten ausblenden statt ausgrauen. */
@@ -155,6 +164,7 @@ class ChatOverlayViewModel @Inject constructor(
                         // Gelöschte Nachrichten: bei Kanalwechsel zurücksetzen
                         deletedMessageIds = if (contextChanged) emptySet() else it.deletedMessageIds,
                         hideDeleted = settings.chatOverlayHideDeleted,
+                        hypeTrainEnabled = settings.chatOverlayHypeTrainEnabled,
                         // Chat-Layout-Einstellungen
                         overlayWidthDp = settings.chatOverlayWidthDp,
                         overlayHeightDp = settings.chatOverlayHeightDp,
@@ -181,14 +191,31 @@ class ChatOverlayViewModel @Inject constructor(
         // Event-Alerts aufnehmen (begrenzt) und nach Ablauf der TTL wieder
         // entfernen. Entfernt wird per ID-Gleichheit — die IDs der Alerts sind
         // eindeutig, ein TTL-Timer löscht also nie fremde Alerts mit.
+        // Hype-Train-Banner sind bewusst von der TTL ausgenommen: Solange der
+        // Train läuft (begin/progress, gleiche Alerts-ID pro Event-ID), bleibt
+        // der Banner stehen und wird in place aktualisiert; erst das end-Event
+        // entfernt ihn. Das Settings-Toggle blendet ihn dabei nur ein/aus.
         viewModelScope.launch {
             chatReader.alerts.collect { alert ->
                 _uiState.update { state ->
-                    state.copy(alerts = (state.alerts + alert).takeLast(MAX_ALERTS))
+                    if (alert.type == ChatAlertType.HYPE_TRAIN) {
+                        if (!state.hypeTrainEnabled || alert.detail.hypeTrainEnded) {
+                            // Toggle aus → ausblenden; end → Banner entfernen.
+                            state.copy(alerts = state.alerts.filterNot { it.id == alert.id })
+                        } else {
+                            // begin/progress → in place ersetzen, kein Duplikat.
+                            val withoutOld = state.alerts.filterNot { it.id == alert.id }
+                            state.copy(alerts = (withoutOld + alert).takeLast(MAX_ALERTS))
+                        }
+                    } else {
+                        state.copy(alerts = (state.alerts + alert).takeLast(MAX_ALERTS))
+                    }
                 }
-                viewModelScope.launch {
-                    delay(ALERT_TTL_MS)
-                    _uiState.update { state -> state.copy(alerts = state.alerts - alert) }
+                if (alert.type != ChatAlertType.HYPE_TRAIN) {
+                    viewModelScope.launch {
+                        delay(ALERT_TTL_MS)
+                        _uiState.update { state -> state.copy(alerts = state.alerts - alert) }
+                    }
                 }
             }
         }

@@ -36,17 +36,28 @@
     <string name="help_cmd_tts">Toggle chat text-to-speech on/off</string>
     <string name="help_cmd_song">Current track (media player)</string>
     <string name="help_cmd_next">Next track</string>
-    <string name="help_cmd_pause">Pause/resume playback</string>
+    <string name="help_cmd_pause">Pause playback</string>
+    <string name="help_cmd_play">Resume playback</string>
+    <string name="help_cmd_prev">Previous track</string>
     <string name="help_cmd_bot">Show bot info</string>
     <string name="help_cmd_start">Start the stream</string>
     <string name="help_cmd_stop">Stop the stream</string>
     <string name="help_cmd_diag">Diagnostics: status, OBS, config checks</string>
     <string name="help_cmd_ask">Ask the Owner AI a question</string>
-    <string name="help_cmd_testalert">Test alert for the overlay (follow|sub|gift|resub|raid)</string>
+    <string name="help_cmd_testalert">Test alert for the overlay (follow|sub|gift|resub|raid|hype)</string>
     <string name="help_cmd_torch">Toggle the flashlight</string>
     <string name="help_cmd_ban">Ban a viewer</string>
     <string name="help_cmd_timeout">Timeout a viewer (default 5 min)</string>
     <string name="help_cmd_delete">Delete recent messages</string>
+    <string name="help_cmd_vote">Vote in the active poll</string>
+    <string name="help_cmd_fix">Fix auto-fixable issues</string>
+    <string name="help_cmd_filter">Toggle/show video filter</string>
+    <string name="help_cmd_boost">Toggle low-light boost</string>
+    <string name="help_cmd_battery">Show battery level</string>
+    <string name="help_cmd_lut">Switch 3D LUT preset</string>
+    <string name="help_cmd_colorspace">Switch color space</string>
+    <string name="help_cmd_poll">Start a poll (question | option A | option B)</string>
+    <string name="help_cmd_pollend">End the active poll and show results</string>
     <string name="help_docs_title">Documentation</string>
     <string name="help_link_guide_de">📖 User Guide (German)</string>
     <string name="help_link_guide_en">📖 User Guide (English)</string>
@@ -56,6 +67,9 @@
     <string name="help_support_title">Support</string>
     <string name="help_support_body">Found a bug or have a feature request? Open an issue on GitHub — we appreciate your feedback!</string>
     <string name="help_link_issues">GitHub Issues</string>
+    <string name="help_owner_commands_title">Owner Commands (Shortcuts)</string>
+    <string name="help_owner_commands_body">Shortcuts for the streamer (owner-only): !start/!stop, !diag/!status, !ask &lt;question&gt;, !fix, !filter, !boost, !battery, !lut, !colorspace, !poll/!vote/!pollend, !ban/!timeout/!delete. Full reference: In-app help (internal) and docs/ai-chat-bot.md.</string>
+    <string name="help_docs_placeholder">Note: This help is generated from the command catalog — if a command is missing, add it in code / BotCommandProcessor / catalog, not only here.</string>
 
     <!-- Streaming foreground service (StreamingServiceSupport.kt) -->
     <string name="notif_channel_name">Live Stream</string>

@@ -123,8 +123,9 @@ class TwitchChatEventSubReaderTest {
         sockets.first().push(welcome)
         advanceUntilIdle()
 
-        // Chat + Follow + Subscribe + Gift + Resub + Raid + MessageDelete = 7 Subscriptions auf derselben Session.
-        assertEquals(7, subscribeRequests.size)
+        // Chat + Follow + Subscribe + Gift + Resub + Raid + MessageDelete
+        // + Hype-Train (begin/progress/end) = 10 Subscriptions auf derselben Session.
+        assertEquals(10, subscribeRequests.size)
         val chat = subscribeRequests[0]
         assertTrue(chat.contains("\"type\":\"channel.chat.message\""), chat)
         assertTrue(chat.contains("\"version\":\"1\""), chat)
@@ -141,6 +142,11 @@ class TwitchChatEventSubReaderTest {
         assertTrue(bodies.contains("\"condition\":{\"broadcaster_user_id\":\"222\"}"), bodies)
         assertTrue(bodies.contains("\"type\":\"channel.raid\""), bodies)
         assertTrue(bodies.contains("\"condition\":{\"to_broadcaster_user_id\":\"222\",\"from_broadcaster_user_id\":\"\"}"), bodies)
+        // Hype-Train: begin/progress/end (v1, nur broadcaster_user_id als Condition)
+        assertTrue(bodies.contains("\"type\":\"channel.hype_train.begin\""), bodies)
+        assertTrue(bodies.contains("\"type\":\"channel.hype_train.progress\""), bodies)
+        assertTrue(bodies.contains("\"type\":\"channel.hype_train.end\""), bodies)
+        assertTrue(bodies.contains("\"condition\":{\"broadcaster_user_id\":\"222\"}"), bodies)
         // Nach erfolgreichem Subscribe gilt der Chat als verbunden.
         assertEquals(ChatConnectionState.Connected("thoser666"), client.state.value)
         client.stop()
@@ -301,6 +307,49 @@ class TwitchChatEventSubReaderTest {
     }
 
     @Test
+    fun `emits hype train begin progress and end as alerts with the same id`() = runTest {
+        val sockets = mutableListOf(FakeEventSubSocket())
+        val client = client(this, sockets, mutableListOf(), testScheduler)
+        val begin =
+            """{"metadata":{"message_type":"notification","subscription_type":"channel.hype_train.begin","message_id":"ht1"},"payload":{"subscription":{},"event":{"id":"train-42","broadcaster_user_id":"222","broadcaster_user_login":"thoser666","broadcaster_user_name":"Thoser666","level":1,"total":700,"progress":230,"goal":350,"started_at":"2026-08-22T10:00:00Z","expires_at":"2026-08-22T10:05:00Z"}}}"""
+        val progress =
+            """{"metadata":{"message_type":"notification","subscription_type":"channel.hype_train.progress","message_id":"ht2"},"payload":{"subscription":{},"event":{"id":"train-42","broadcaster_user_id":"222","broadcaster_user_login":"thoser666","broadcaster_user_name":"Thoser666","level":1,"total":700,"progress":340,"goal":350,"started_at":"2026-08-22T10:00:00Z","expires_at":"2026-08-22T10:05:00Z"}}}"""
+        val end =
+            """{"metadata":{"message_type":"notification","subscription_type":"channel.hype_train.end","message_id":"ht3"},"payload":{"subscription":{},"event":{"id":"train-42","broadcaster_user_id":"222","broadcaster_user_login":"thoser666","broadcaster_user_name":"Thoser666","level":1,"total":700,"started_at":"2026-08-22T10:00:00Z","expires_at":"2026-08-22T10:05:00Z","ended_at":"2026-08-22T10:05:00Z","cooldown_ends_at":"2026-08-22T10:35:00Z"}}}"""
+
+        client.alerts.test {
+            client.start(config)
+            sockets.first().push(welcome)
+            sockets.first().push(begin)
+            sockets.first().push(progress)
+            sockets.first().push(end)
+            advanceUntilIdle()
+
+            // begin und progress teilen sich dieselbe Alert-ID → das ViewModel
+            // ersetzt den Banner in place; end markiert ihn als beendet.
+            val b = awaitItem()
+            assertEquals(ChatAlertType.HYPE_TRAIN, b.type)
+            assertEquals("hypetrain-train-42", b.id)
+            assertEquals(1, b.detail.hypeTrainLevel)
+            assertEquals(230, b.detail.hypeTrainProgress)
+            assertEquals(350, b.detail.hypeTrainGoal)
+            assertFalse(b.detail.hypeTrainEnded)
+            val p = awaitItem()
+            assertEquals("hypetrain-train-42", p.id)
+            assertEquals(1, p.detail.hypeTrainLevel)
+            assertEquals(340, p.detail.hypeTrainProgress)
+            assertFalse(p.detail.hypeTrainEnded)
+            val e = awaitItem()
+            assertEquals("hypetrain-train-42", e.id)
+            assertTrue(e.detail.hypeTrainEnded)
+            // progress/goal sind beim end-Event leer → Defaults 0.
+            assertEquals(0, e.detail.hypeTrainGoal)
+            client.stop()
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     fun `trigger test alert emits a synthetic alert on the alerts flow`() = runTest {
         val sockets = mutableListOf(FakeEventSubSocket())
         val client = client(this, sockets, mutableListOf(), testScheduler)
@@ -335,7 +384,7 @@ class TwitchChatEventSubReaderTest {
         client.start(config)
         first.push(welcome)
         advanceUntilIdle()
-        assertEquals(7, subscribeRequests.size)
+        assertEquals(10, subscribeRequests.size)
 
         // session_reconnect → neue URL; Twitch übernimmt die Abos automatisch.
         first.push(reconnect)
@@ -346,7 +395,7 @@ class TwitchChatEventSubReaderTest {
         // Neue Session: kein erneuter Subscribe (Abos wandern mit).
         second.push(welcome)
         advanceUntilIdle()
-        assertEquals(7, subscribeRequests.size)
+        assertEquals(10, subscribeRequests.size)
         client.stop()
     }
 
@@ -361,7 +410,7 @@ class TwitchChatEventSubReaderTest {
         client.start(config)
         first.push(welcome)
         advanceUntilIdle()
-        assertEquals(7, subscribeRequests.size)
+        assertEquals(10, subscribeRequests.size)
 
         // Harte Trennung ohne session_reconnect → neue Session braucht ein Abo.
         first.drop()
@@ -370,7 +419,7 @@ class TwitchChatEventSubReaderTest {
         assertEquals(TwitchChatEventSubReader.DEFAULT_EVENTSUB_URL, second.connectedUrl)
         second.push(welcome)
         advanceUntilIdle()
-        assertEquals(14, subscribeRequests.size)
+        assertEquals(20, subscribeRequests.size)
         client.stop()
     }
 }

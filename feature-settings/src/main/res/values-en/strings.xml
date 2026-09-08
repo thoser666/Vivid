@@ -58,6 +58,9 @@
     <string name="stream_url_hint">Free ingest URL: accepts any RTMP(S) or SRT target, e.g. Owncast or your own server. The platform presets above are just shortcuts.</string>
     <string name="stream_key_label">Stream key</string>
     <string name="stream_tls_label">Secure connection (RTMPS)</string>
+    <string name="replay_audio_title">Replay recording</string>
+    <string name="replay_audio_desc">Local MP4 recording in parallel to the stream (record button in the streaming screen).</string>
+    <string name="replay_audio_enabled">Record audio in replays</string>
     <string name="twitch_channel_title">Twitch channel control</string>
     <string name="twitch_channel_desc">Read live viewers and update the stream title and category through the Twitch Helix API. Changes require a broadcaster token with channel:manage:broadcast.</string>
     <string name="twitch_channel_oauth_label">Twitch broadcaster OAuth token</string>
@@ -96,6 +99,10 @@
     <string name="overlays_widget_location">GPS coordinates</string>
     <string name="overlays_widget_speed">Speed</string>
     <string name="overlays_widget_altitude">Altitude</string>
+    <string name="overlays_widget_template_label">Widget template</string>
+    <string name="overlays_widget_template_desc">Custom text with placeholders instead of the individual toggles. Available placeholders: {time} (time), {date} (date), {speed} (speed), {altitude} (altitude), {lat}/{lon} (GPS coordinates). Empty template = toggle mode.</string>
+    <string name="overlays_widget_template_placeholder">e. g. {time} — {speed} km/h</string>
+    <string name="overlays_widget_template_preview">Preview: %1$s</string>
     <string name="overlays_emotes_title">Third-party emotes</string>
     <string name="overlays_emotes_desc">Show additional emotes from community databases in the chat overlay. Each source can be enabled/disabled individually.</string>
     <string name="overlays_emotes_bttv">BetterTTV (BTTV)</string>
@@ -105,6 +112,9 @@
     <string name="overlays_deleted_desc">Hide or dim deleted messages in the chat overlay. Requires moderator privileges for the bot account.</string>
     <string name="overlays_deleted_hide">Hide deleted messages</string>
     <string name="overlays_animate_new_messages">Animate new messages</string>
+    <string name="overlays_hype_train_title">Hype Train</string>
+    <string name="overlays_hype_train_desc">Show hype train events (EventSub channel.hype_train.*) as a banner in the chat overlay. Without the channel:read:hype_train scope only this display is skipped; chat and alerts keep running.</string>
+    <string name="overlays_hype_train_enabled">Show hype train in the overlay</string>
     <string name="overlays_layout_title">Chat layout</string>
     <string name="overlays_layout_desc">Customize width, height, transparency, font size and timestamp of the chat overlay.</string>
     <string name="overlays_layout_width">Width: %1$d dp</string>

@@ -133,6 +133,9 @@ data class AppSettings(
     val chatOverlayHideDeleted: Boolean = true,
     // Fade-In-Animation für neue Nachrichten im Chat-Overlay (Standard: an).
     val chatOverlayAnimateNewMessages: Boolean = true,
+    // Hype-Train-Banner im Chat-Overlay anzeigen (EventSub channel.hype_train.*).
+    // Standard: an; das Umstellen blendet den laufenden Banner sofort ein/aus.
+    val chatOverlayHypeTrainEnabled: Boolean = true,
     // --- Chat-Layout-Einstellungen (Overlay) ---
     // Breite des Chat-Overlays in dp (100–400, Standard: 240).
     val chatOverlayWidthDp: Int = 240,
@@ -178,6 +181,10 @@ data class AppSettings(
     val slideshowWidgetIntervalSeconds: Int = 30,
     val slideshowWidgetSizeDp: Int = 240,
     val slideshowWidgetOpacity: Float = 1f,
+    // --- Replay-Aufnahme (Record-to-Disk) ---
+    // Audio-Konfiguration der MP4-Replays: ALL = Bild + Ton (Standard),
+    // VIDEO_ONLY = nur Bild (keine Audiospur in der Aufnahme).
+    val replayAudioMode: ReplayAudioMode = ReplayAudioMode.ALL,
     // --- In-App-Logs ---
     // Vorhaltezeit der täglichen Log-Rotation in Tagen (1–30, Default 7):
     // Logs wechseln täglich, ältere Tage werden beim Laden/Prune gelöscht.

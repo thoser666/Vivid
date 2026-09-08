@@ -1,0 +1,12 @@
+# Guard-Konsistenz über Betriebssysteme hinweg:
+# Die Pre-Push-Guards (check_bot_commands_doc.sh, check_parity_log.sh,
+# check_i18n.sh, check_markdown_anchors.sh) verlassen sich auf LF-Zeilenenden
+# bei sed-Endpattern (^...$). Windows-Worktrees (core.autocrlf=true) würden
+# diese durch CRLF brechen. Die betroffenen Dateien werden deshalb immer mit
+# LF ausgecheckt — unabhängig vom Betriebssystem.
+*.sh text eol=lf
+*.rb text eol=lf
+PARITY.md text eol=lf
+README.md text eol=lf
+docs/*.md text eol=lf
+feature-chat/src/main/java/com/vivid/feature/chat/bot/BotCommandProcessor.kt text eol=lf

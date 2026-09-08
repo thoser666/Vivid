@@ -207,7 +207,7 @@ Das Overlay liest den Chat über **Twitch EventSub** (nicht IRC). Dafür braucht
 ### 7.4 Test-Alert (vor dem Go Live)
 
 Um das Overlay vor dem Stream zu testen:
-- **`!testalert follow`** (oder `sub`, `gift`, `resub`, `raid`) im Chat tippen (Owner-only)
+- **`!testalert follow`** (oder `sub`, `gift`, `resub`, `raid`, `hype`) im Chat tippen (Owner-only)
 - Der Alert erscheint sofort im Overlay
 
 ---
@@ -252,7 +252,7 @@ Drei einstellbare Limits (alle `0` = aus):
 | `!stop` / `!end` | Stream stoppen |
 | `!diag` / `!status` | Diagnose-Lauf: Stream-Status, OBS, 11 Konfigurations-Checks + KI-Empfehlung |
 | `!ask <frage>` | Frage an die exklusive Owner-KI (Fallback: Viewer-KI, sonst deterministisch) |
-| `!testalert <type>` | Test-Alert für das Overlay (`follow`/`sub`/`gift`/`resub`/`raid`) |
+| `!testalert <type>` | Test-Alert für das Overlay (`follow`/`sub`/`gift`/`resub`/`raid`/`hype`) |
 | `!torch` | Taschenlampe umschalten (Alias: `!lantern`/`!flashlight`) |
 | `!ban <user>` | Viewer verbannen |
 | `!timeout <user> <min?>` | Viewer timeouten (Default 5 Min) |
@@ -359,16 +359,25 @@ Siehe [README → Automatic updates (F-Droid Repository)](../README.md#-automati
 | `!tts` | Owner | Chat-Vorlesen (Text-to-Speech) an/aus |
 | `!bot` | Alle | Bot-Info anzeigen |
 | `!song` / `!nowplaying` | Alle | Aktueller Titel (Media-Player) |
-| `!next` / `!skip` | Alle | Nächster Titel |
-| `!pause` | Alle | Wiedergabe pausieren |
-| `!play` | Alle | Wiedergabe fortsetzen |
-| `!prev` / `!previous` | Alle | Vorheriger Titel |
+| `!next` / `!skip` | Owner + Mod | Nächster Titel |
+| `!pause` | Owner + Mod | Wiedergabe pausieren |
+| `!play` | Owner + Mod | Wiedergabe fortsetzen |
+| `!prev` / `!previous` | Owner + Mod | Vorheriger Titel |
 | `!start` / `!go-live` | Owner | Stream starten |
 | `!stop` / `!end` | Owner | Stream stoppen |
 | `!diag` / `!status` | Owner | Diagnose-Lauf |
 | `!ask <frage>` | Owner | Frage an die Owner-KI |
 | `!testalert <type>` | Owner | Test-Alert für das Overlay |
 | `!torch` | Owner | Taschenlampe umschalten |
+| `!fix` | Owner | Auto-fixbare Probleme beheben |
+| `!filter <name>` | Owner | Video-Effekt umschalten/anzeigen |
+| `!boost` | Owner | Low-Light-Boost umschalten |
+| `!battery` / `!akku` | Owner | Akkustand anzeigen |
+| `!lut <name?>` | Owner | 3D-LUT-Preset wechseln |
+| `!colorspace <name?>` | Owner | Color-Space wechseln |
+| `!poll <frage> \| <A> \| <B> [\| <C> [\| <D>]]` | Owner | Chat-Umfrage starten (2–4 Optionen) |
+| `!vote <nummer\|text>` | Alle | Stimme in der aktiven Umfrage abgeben |
+| `!pollend` / `!endpoll` | Owner | Umfrage beenden + Ergebnis bekanntgeben |
 | `!ban <user>` | Owner | Viewer verbannen |
 | `!timeout <user> <min?>` | Owner | Viewer timeouten |
 | `!delete <count?>` | Owner | Nachrichten löschen |

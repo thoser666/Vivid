@@ -1734,6 +1734,24 @@ class ChatBotEngineTest {
         engine.stop()
     }
 
+    @Test
+    fun `owner test alert triggers a hype train alert with a readable label`() = runTest {
+        val trigger = mockk<ChatAlertTrigger> {
+            every { triggerTestAlert(any()) } just Runs
+        }
+        val engine = engine()
+        val sent = slot<String>()
+        coEvery { sender.send(capture(sent)) } just Runs
+
+        engine.start(messages, config(ownerLogins = setOf("streamer2")), sender, this, alertTrigger = trigger)
+        messages.emit(chatMessage("!testalert hype", login = "streamer2"))
+        advanceUntilIdle()
+
+        verify(exactly = 1) { trigger.triggerTestAlert(ChatAlertType.HYPE_TRAIN) }
+        assertTrue(sent.captured.contains("Test-Alert (hype train) ausgelöst"))
+        engine.stop()
+    }
+
     // --- Privater Antwortweg: Owner-Antworten per Twitch-Whisper statt PRIVMSG ---
 
     @Test

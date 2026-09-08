@@ -4,7 +4,9 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import com.vivid.feature.chat.bot.BotCommandsCatalog
 import io.mockk.mockk
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -54,5 +56,70 @@ class HelpScreenRobolectricTest {
         composeRule.onNodeWithText("!help / !commands").assertExists()
         composeRule.onNodeWithText("!uptime").assertExists()
         composeRule.onNodeWithText("!start / !go-live").assertExists()
+    }
+
+    @Test
+    fun `every catalog command row is rendered`() {
+        composeRule.setContent {
+            HelpScreen(navController = mockk(relaxed = true))
+        }
+
+        // Katalog ↔ UI: Jeder Katalog-Eintrag erscheint mit seiner Display-Form.
+        for (entry in BotCommandsCatalog.all) {
+            composeRule.onNodeWithText(entry.display).assertExists()
+        }
+    }
+
+    @Test
+    fun `media and owner commands previously missing from help are present`() {
+        composeRule.setContent {
+            HelpScreen(navController = mockk(relaxed = true))
+        }
+
+        // Regression: Diese Befehle fehlten vor der Katalog-Umstellung in der
+        // In-App-Hilfe komplett (Hardcode-Liste war nie aktualisiert worden).
+        composeRule.onNodeWithText("!battery").assertExists()
+        composeRule.onNodeWithText("!lut [warm|cool|none]").assertExists()
+        composeRule.onNodeWithText("!poll Frage | Option A | Option B").assertExists()
+        composeRule.onNodeWithText("!prev / !previous").assertExists()
+        composeRule.onNodeWithText("!play").assertExists()
+    }
+
+    @Test
+    fun `owner shortcuts card and docs placeholder are rendered`() {
+        composeRule.setContent {
+            HelpScreen(navController = mockk(relaxed = true))
+        }
+
+        // Owner-Shortcuts-Karte + Hinweis, dass die Hilfe katalog-getrieben ist:
+        // Neue Befehle gehören in den Katalog (Code), nicht in diesen Screen.
+        composeRule.onNodeWithText("Owner Commands (Shortcuts)").assertExists()
+        composeRule.onNodeWithText("!filter [name]").assertExists()
+        composeRule.onNodeWithText("!colorspace [srgb|p3|log]").assertExists()
+        composeRule.onNodeWithText(
+            "Note: This help is generated from the command catalog",
+            substring = true,
+        ).assertExists()
+    }
+
+    @Test
+    fun `description map covers every catalog primary`() {
+        // Katalog ↔ Strings: Kein Katalog-Eintrag ohne lokalisierte Beschreibung.
+        val missing = BotCommandsCatalog.all.map { it.primary } - botCommandDescriptions.keys
+        assertTrue(
+            "Beschreibung fehlt für: $missing (help_cmd_* anlegen)",
+            missing.isEmpty(),
+        )
+        assertEqualsCatalogSize()
+    }
+
+    /** Keine toten Beschreibungs-Einträge: Map nicht größer als Katalog. */
+    private fun assertEqualsCatalogSize() {
+        val catalogPrimaries = BotCommandsCatalog.all.map { it.primary }.toSet()
+        val stale = botCommandDescriptions.keys - catalogPrimaries
+        assertTrue(
+            "Beschreibungs-Einträge ohne Katalog-Eintrag: $stale",
+            stale.isEmpty(),
+        )
     }
 }

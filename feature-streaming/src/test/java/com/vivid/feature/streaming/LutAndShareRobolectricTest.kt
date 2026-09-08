@@ -1,6 +1,7 @@
 package com.vivid.feature.streaming
 
 import androidx.test.core.app.ApplicationProvider
+import io.mockk.mockk
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -73,6 +74,7 @@ class LutAndShareRobolectricTest {
         val library = ReplayLibrary(ReplayStorage(tempDir, maxFiles = 3))
         val viewModel = ReplayLibraryViewModel(
             library = library,
+            thumbnails = mockk(),
             appContext = ApplicationProvider.getApplicationContext(),
         )
         val item = ReplayItem(
@@ -101,6 +103,7 @@ class LutAndShareRobolectricTest {
         val library = ReplayLibrary(ReplayStorage(tempDir, maxFiles = 3))
         val viewModel = ReplayLibraryViewModel(
             library = library,
+            thumbnails = mockk(),
             appContext = ApplicationProvider.getApplicationContext(),
         )
         val ghost = java.io.File(tempDir, "gone.mp4")

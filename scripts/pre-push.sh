@@ -190,6 +190,28 @@ run bash scripts/test_github_anchors.sh
 echo "▶ [pre-push] PARITY-Log-Guard (scripts/check_parity_log.sh)"
 run bash scripts/check_parity_log.sh --check-exists
 
+# Bot-Befehls-Doku-Guard: jeder kanonische Befehl aus BotCommandProcessor
+# (Source of Truth) muss in der Quick-Reference aller drei Handbuch-Sprachen
+# (DE/EN/FR) stehen — verhindert, dass neue Bot-Befehle an der Doku
+# vorbeishippen (Vorfall 2026-09-07: !tts & Co. fehlten im Handbuch).
+echo "▶ [pre-push] Bot-Befehls-Doku-Guard (scripts/check_bot_commands_doc.sh)"
+run bash scripts/check_bot_commands_doc.sh
+
+echo "▶ [pre-push] Wiki-Sync-Generierungs-Selbsttest (scripts/test_wiki_sync.sh)"
+run bash scripts/test_wiki_sync.sh
+
+echo "▶ [pre-push] CodeQL-Kotlin-Wächter-Selbsttest (scripts/test_codeql_guard.sh)"
+run bash scripts/test_codeql_guard.sh
+
+# Security-Loop-Guard (bash): release-grade Sicherheitsregeln der Pipeline
+# (Keystore-Härtung, Signatur-Check, Reproduzierbarkeit, Sentry-Opt-out,
+# Bot-Credential-Warnung) müssen vorhanden bleiben — plus Fixture-Selbsttest.
+echo "▶ [pre-push] Security-Loop-Selbsttest (scripts/test_security_loop.sh)"
+run bash scripts/test_security_loop.sh
+
+echo "▶ [pre-push] Security-Loop-Guard (scripts/check_security_loop.sh)"
+run bash scripts/check_security_loop.sh
+
 # PARITY-Log-Guard-Selbsttest (Fixtures): beweist, dass Platzhalter „—" und
 # ungültige Hashes rot gemeldet werden und saubere Logs grün bleiben.
 echo "▶ [pre-push] PARITY-Log-Guard-Selbsttest (scripts/test_parity_log.sh)"

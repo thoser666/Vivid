@@ -202,6 +202,21 @@ class TwitchChatEventSubReader @Inject constructor(
                         val event = json.decodeFromJsonElement<RaidEvent>(eventJson)
                         _alerts.tryEmit(toRaidAlert(event))
                     }
+                    // Hype-Train: begin/progress aktualisieren den Banner
+                    // (gleiche id), end markiert ihn als beendet (Overlay
+                    // entfernt ihn darüber, kein TTL-Timeout).
+                    HYPE_TRAIN_BEGIN_SUBSCRIPTION_TYPE -> {
+                        val event = json.decodeFromJsonElement<HypeTrainEvent>(eventJson)
+                        _alerts.tryEmit(toHypeTrainAlert(event, ended = false))
+                    }
+                    HYPE_TRAIN_PROGRESS_SUBSCRIPTION_TYPE -> {
+                        val event = json.decodeFromJsonElement<HypeTrainEvent>(eventJson)
+                        _alerts.tryEmit(toHypeTrainAlert(event, ended = false))
+                    }
+                    HYPE_TRAIN_END_SUBSCRIPTION_TYPE -> {
+                        val event = json.decodeFromJsonElement<HypeTrainEvent>(eventJson)
+                        _alerts.tryEmit(toHypeTrainAlert(event, ended = true))
+                    }
                     // channel.chat.message (auch wenn subscription_type fehlt,
                     // z. B. in Fixtures) → Chat-Nachricht.
                     CHAT_MESSAGE_DELETE_SUBSCRIPTION_TYPE -> {
@@ -411,6 +426,33 @@ class TwitchChatEventSubReader @Inject constructor(
                 ),
             )
         }
+        // Hype-Train: begin/progress/end getrennt subscriben (Scope:
+        // channel:read:hype_train) — fehlt der Scope, fällt nur diese
+        // Feature-Gruppe aus, Chat und Alerts laufen weiter.
+        runCatching {
+            postSubscription(
+                cfg, sessionId,
+                type = HYPE_TRAIN_BEGIN_SUBSCRIPTION_TYPE,
+                version = HYPE_TRAIN_SUBSCRIPTION_VERSION,
+                condition = HypeTrainEventSubCondition(broadcaster_user_id = broadcasterUserId),
+            )
+        }
+        runCatching {
+            postSubscription(
+                cfg, sessionId,
+                type = HYPE_TRAIN_PROGRESS_SUBSCRIPTION_TYPE,
+                version = HYPE_TRAIN_SUBSCRIPTION_VERSION,
+                condition = HypeTrainEventSubCondition(broadcaster_user_id = broadcasterUserId),
+            )
+        }
+        runCatching {
+            postSubscription(
+                cfg, sessionId,
+                type = HYPE_TRAIN_END_SUBSCRIPTION_TYPE,
+                version = HYPE_TRAIN_SUBSCRIPTION_VERSION,
+                condition = HypeTrainEventSubCondition(broadcaster_user_id = broadcasterUserId),
+            )
+        }
     }
 
     /**
@@ -517,6 +559,27 @@ class TwitchChatEventSubReader @Inject constructor(
         detail = AlertDetail(viewerCount = event.viewers),
     )
 
+    /**
+     * Hype-Train-Alert aus einem `channel.hype_train.*`-Event. begin/progress
+     * und end desselben Trains tragen dieselbe Twitch-Event-ID → die id ist
+     * `"hypetrain-<id>"` — das ViewModel ersetzt/entfernt damit den Banner in
+     * place (kein Duplikat, kein TTL-Timeout).
+     */
+    private fun toHypeTrainAlert(event: HypeTrainEvent, ended: Boolean): ChatAlert = ChatAlert(
+        id = "hypetrain-${event.id}",
+        type = ChatAlertType.HYPE_TRAIN,
+        // Der Hype-Train gehört zum Kanal (kein einzelner User) — für die
+        // Anzeige nicht genutzt, aber für Konsistenz gefüllt.
+        displayName = event.broadcaster_user_name.ifBlank { event.broadcaster_user_login }.ifBlank { "?" },
+        timestamp = System.currentTimeMillis(),
+        detail = AlertDetail(
+            hypeTrainLevel = event.level,
+            hypeTrainProgress = event.progress,
+            hypeTrainGoal = event.goal,
+            hypeTrainEnded = ended,
+        ),
+    )
+
     private fun backoffMillis(attempt: Int): Long {
         val factor = 1L shl attempt.coerceAtMost(5)
         return (1_000L * factor).coerceAtMost(30_000L)
@@ -540,6 +603,10 @@ class TwitchChatEventSubReader @Inject constructor(
         private const val RAID_SUBSCRIPTION_VERSION = "1"
         private const val CHAT_MESSAGE_DELETE_SUBSCRIPTION_TYPE = "channel.chat.message_delete"
         private const val CHAT_MESSAGE_DELETE_SUBSCRIPTION_VERSION = "1"
+        private const val HYPE_TRAIN_BEGIN_SUBSCRIPTION_TYPE = "channel.hype_train.begin"
+        private const val HYPE_TRAIN_PROGRESS_SUBSCRIPTION_TYPE = "channel.hype_train.progress"
+        private const val HYPE_TRAIN_END_SUBSCRIPTION_TYPE = "channel.hype_train.end"
+        private const val HYPE_TRAIN_SUBSCRIPTION_VERSION = "1"
     }
 }
 
@@ -612,6 +679,28 @@ internal data class RaidEvent(
     val viewers: Int = 0,
 )
 
+/**
+ * Event für die Hype-Train-Topics (`channel.hype_train.begin`/`progress`/
+ * `end`). `top_contributions` wird nicht modelliert (Json ignoriert unbekannte
+ * Schlüssel rekursiv). begin und progress liefern `level`/`progress`/`goal`,
+ * end liefert `ended_at` — `progress`/`goal` sind dann leer/0.
+ */
+@Serializable
+internal data class HypeTrainEvent(
+    val id: String = "",
+    val broadcaster_user_id: String = "",
+    val broadcaster_user_login: String = "",
+    val broadcaster_user_name: String = "",
+    val level: Int = 0,
+    val total: Int = 0,
+    val progress: Int = 0,
+    val goal: Int = 0,
+    val started_at: String = "",
+    val expires_at: String = "",
+    val ended_at: String = "",
+    val cooldown_ends_at: String = "",
+)
+
 // --- Helix-Subscribe-Conditions für die Event-Alert-Topics ---
 
 @Serializable
@@ -628,6 +717,10 @@ internal data class RaidEventSubCondition(
     val to_broadcaster_user_id: String,
     val from_broadcaster_user_id: String,
 )
+
+// Helix-Subscribe-Condition für die Hype-Train-Topics (nur broadcaster_user_id)
+@Serializable
+internal data class HypeTrainEventSubCondition(val broadcaster_user_id: String)
 
 @Serializable
 internal data class ChatMessageEvent(

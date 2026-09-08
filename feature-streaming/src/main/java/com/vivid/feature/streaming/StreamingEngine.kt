@@ -134,6 +134,9 @@ class StreamingEngine @Inject constructor(
     private var cameraControls: CameraControls? = null
     private var stabilizationController: CameraStabilizationController? = null
     private var replayController: ReplayController? = null
+
+    /** Audio-Modus, mit dem der aktuelle [replayController] erzeugt wurde. */
+    private var lastReplayIncludeAudio: Boolean? = null
     private val idleReplayState = MutableStateFlow<ReplayState>(ReplayState.Idle)
 
     /** Zustand der lokalen MP4-Replay-Aufnahme. */
@@ -503,12 +506,22 @@ class StreamingEngine @Inject constructor(
     /** Verfügbare Linsen. */
     fun getAvailableLenses(): List<LensInfo> = manualCameraController?.getAvailableLenses() ?: emptyList()
 
-    /** Startet eine lokale MP4-Aufnahme parallel zum Stream. */
-    fun startReplay(nowMillis: Long = System.currentTimeMillis()): Boolean {
-        val controller = replayController ?: ReplayController(
-            storage = replayStorage(context),
-            recorder = RootEncoderReplayRecorder(camera ?: return false),
-        ).also { replayController = it }
+    /**
+     * Startet eine lokale MP4-Aufnahme parallel zum Stream.
+     *
+     * @param includeAudio true = Bild + Ton (Standard), false = nur Bild
+     *   (ReplayAudioMode.VIDEO_ONLY — der Muxer schreibt keine Audiospur).
+     */
+    fun startReplay(nowMillis: Long = System.currentTimeMillis(), includeAudio: Boolean = true): Boolean {
+        val camera = camera ?: return false
+        val controller = replayController?.takeIf { lastReplayIncludeAudio == includeAudio }
+            ?: ReplayController(
+                storage = replayStorage(context),
+                recorder = TrackControlledReplayRecorder(camera, includeAudio = includeAudio),
+            ).also {
+                replayController = it
+                lastReplayIncludeAudio = includeAudio
+            }
         return controller.start(nowMillis)
     }
 

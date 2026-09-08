@@ -22,6 +22,8 @@ require_top_level_empty_permissions() {
 # Workflows with write access keep it at the smallest job scope.
 for file in \
   .github/workflows/automation-changelog.yml \
+  .github/workflows/automation-codeql-kotlin.yml \
+  .github/workflows/automation-wiki-sync.yml \
   .github/workflows/check-moblin-features.yml \
   .github/workflows/dependabot-auto-merge.yml \
   .github/workflows/deploy-fdroid.yml \
@@ -31,6 +33,23 @@ for file in \
   .github/workflows/security-snyk.yml; do
   require_top_level_empty_permissions "$file"
 done
+
+# CodeQL-Kotlin guard: the issue comment must be idempotent (dedup by marker),
+# otherwise every weekly run after CodeQL ships 2.4.20 support spams #110.
+file=.github/workflows/automation-codeql-kotlin.yml
+[[ -f "$file" ]] || fail "automation-codeql-kotlin.yml must exist"
+grep -Eq 'actions/checkout@[0-9a-f]{40}' "$file" \
+  || fail "codeql-kotlin guard checkout must be SHA-pinned"
+grep -Fq 'persist-credentials: false' "$file" \
+  || fail "codeql-kotlin guard checkout must not persist credentials"
+grep -Fq 'issues: write' "$file" \
+  || fail "codeql-kotlin guard job must declare its issues write scope"
+grep -Fq 'grep -Fq "$MARKER"' "$file" \
+  || fail "codeql-kotlin guard comment must dedup by marker before posting"
+grep -Fq '[codeql-kotlin-guard]' "$file" \
+  || fail "codeql-kotlin guard comment must carry the dedup marker"
+grep -Fq 'scripts/check_codeql_kotlin_support.sh' "$file" \
+  || fail "codeql-kotlin guard must run the guard script"
 
 # The PR title is data passed through the environment, never interpolated into a
 # run script. This is the concrete regression for CodeQL DangerousWorkflowID #24.

@@ -427,11 +427,13 @@ class SettingsViewModelTest {
         viewModel.onWidgetShowTimeChange(false)
         viewModel.onWidgetShowLocationChange(true)
         viewModel.onWidgetShowSpeedChange(false)
+        viewModel.onWidgetTemplateChange("{time} | {speed} km/h")
 
         assertEquals(true, viewModel.uiState.value.widgetEnabled)
         assertEquals(false, viewModel.uiState.value.widgetShowTime)
         assertEquals(true, viewModel.uiState.value.widgetShowLocation)
         assertEquals(false, viewModel.uiState.value.widgetShowSpeed)
+        assertEquals("{time} | {speed} km/h", viewModel.uiState.value.widgetTemplate)
 
         viewModel.saveSettings()
         advanceUntilIdle()
@@ -441,8 +443,43 @@ class SettingsViewModelTest {
                 enabled = true,
                 showTime = false,
                 showLocation = true,
-                showSpeed = false, showAltitude = any())
+                showSpeed = false, showAltitude = any(),
+                template = "{time} | {speed} km/h")
         }
+    }
+
+    @Test
+    fun `widget template change truncates oversized input`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repository = mockk<SettingsRepository>(relaxed = true) {
+            every { appSettingsFlow } returns MutableStateFlow(AppSettings())
+            coEvery { updateStreamSettings(any(), any(), any()) } just runs
+            coEvery { updateSecondaryStreamSettings(any(), any(), any()) } just runs
+            coEvery { updateObsSettings(any(), any(), any(), any()) } just runs
+            coEvery { updateChatSettings(any(), any()) } just runs
+            coEvery { updateTwitchChannelSettings(any(), any(), any(), any()) } just runs
+            coEvery { updateChatBotSettings(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } just runs
+            coEvery { updateWidgetSettings(any(), any(), any(), any(), any(), any()) } just runs
+            coEvery { updateProfanitySettings(any(), any(), any(), any()) } just runs
+            coEvery { updateEmoteSettings(any(), any(), any()) } just runs
+            coEvery { updateChatOverlayHideDeleted(any()) } just runs
+            coEvery { updateChatOverlayAnimateNewMessages(any()) } just runs
+            coEvery { updateChatOverlayLayout(any(), any(), any(), any(), any()) } just runs
+            coEvery { updateChatOverlayColors(any(), any(), any()) } just runs
+            coEvery { updateChatOverlayPosition(any()) } just runs
+            coEvery { updateBatterySettings(any(), any(), any(), any()) } just runs
+            coEvery { updateSentryEnabled(any()) } just runs
+            coEvery { updateThemeSettings(any(), any()) } just runs
+        }
+
+        val viewModel = createViewModel(repository)
+        advanceUntilIdle()
+
+        // 300 Zeichen: der Handler kürzt hart auf 256 (gleiches Muster wie QR-Content).
+        val oversized = "{time}".repeat(50) // 300 chars
+        viewModel.onWidgetTemplateChange(oversized)
+
+        assertEquals(256, viewModel.uiState.value.widgetTemplate.length)
     }
 
     @Test
@@ -1148,5 +1185,39 @@ class SettingsViewModelTest {
                 sevenTvEnabled = true,
             )
         }
+    }
+
+    @Test
+    fun `hype train toggle updates uiState`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // Default: Hype-Train-Banner an.
+        assertTrue(viewModel.uiState.value.chatOverlayHypeTrainEnabled)
+
+        viewModel.onChatOverlayHypeTrainEnabledChange(false)
+        assertFalse(viewModel.uiState.value.chatOverlayHypeTrainEnabled)
+
+        viewModel.onChatOverlayHypeTrainEnabledChange(true)
+        assertTrue(viewModel.uiState.value.chatOverlayHypeTrainEnabled)
+    }
+
+    @Test
+    fun `saveSettings persists the hype train toggle`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repository = mockk<SettingsRepository>(relaxed = true) {
+            every { appSettingsFlow } returns MutableStateFlow(AppSettings())
+            coEvery { updateChatOverlayHypeTrainEnabled(any()) } just runs
+        }
+
+        val viewModel = createViewModel(repository)
+        advanceUntilIdle()
+
+        viewModel.onChatOverlayHypeTrainEnabledChange(false)
+        viewModel.saveSettings()
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { repository.updateChatOverlayHypeTrainEnabled(false) }
     }
 }

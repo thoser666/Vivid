@@ -170,6 +170,13 @@ jobs:
       - name: Check parity log
         run: bash scripts/check_parity_log.sh --check-exists
 
+      # Bot-Befehls-Doku-Guard: jeder kanonische Befehl aus BotCommandProcessor
+      # (Source of Truth) muss in der Quick-Reference aller drei Handbuch-
+      # sprachen (DE/EN/FR) stehen — verhindert, dass neue Bot-Befehle an der
+      # Doku vorbeishippen (Vorfall 2026-09-07: !tts & Co. fehlten im Handbuch).
+      - name: Check bot commands documentation
+        run: bash scripts/check_bot_commands_doc.sh
+
       # Version-Catalog-Consistency: prüft, dass alle Artefakte desselben
       # Maven-Groups denselben version.ref verwenden (keine vergessenen
       # Version-Keys, die beim B-Update zu inkonsistenten Versionen führen).
@@ -199,6 +206,28 @@ jobs:
       # 8 Referenzfälle verhindern ein Auseinanderlaufen der beiden Pfade.
       - name: Test version-code fallback
         run: ruby scripts/test_version_fallback.rb
+
+      # Wiki-Sync (Bash) — Selbsttest: sync_wiki.sh generiert alle drei
+      # Wiki-Seiten (Home + User-Guide-EN + User-Guide-FR) CRLF-normalisiert
+      # und verlinkt die Sprach-Seiten; fehlende Handbücher werden erkannt.
+      - name: Test wiki sync generation
+        run: bash scripts/test_wiki_sync.sh
+
+      # CodeQL-Kotlin-Wächter (Bash) — Selbsttest: Fixtures beweisen, dass
+      # github/codeql#22404-open → blockiert (0), closed/completed → Re-Upgrade
+      # fällig (10 + Warnung + Summary), API-Ausfall neutral (0) bleibt.
+      - name: Test CodeQL-Kotlin guard
+        run: bash scripts/test_codeql_guard.sh
+
+      # Security-Loop (Bash) — Selbsttest: die release-grade Sicherheitsregeln
+      # der Pipeline (Keystore-Härtung, Signatur-Check, Reproduzierbarkeit,
+      # Sentry-Opt-out, Bot-Credential-Warnung) müssen vorhanden bleiben;
+      # Fixtures beweisen, dass jede entfernte Regel rot meldet.
+      - name: Test security loop guard
+        run: bash scripts/test_security_loop.sh
+
+      - name: Check security loop
+        run: bash scripts/check_security_loop.sh
 
       # ── Optional: Code‑Scanning / Security‑Events ──
       # - name: Run CodeQL

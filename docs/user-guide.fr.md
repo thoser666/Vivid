@@ -206,7 +206,7 @@ L'overlay lit le chat via **Twitch EventSub** (pas IRC). Pour cela, il faut les
 ### 6.4 Alerte de test (avant le Go Live)
 
 Pour tester l'overlay avant le stream :
-- Saisir **`!testalert follow`** (ou `sub`, `gift`, `resub`, `raid`) dans le chat (owner uniquement)
+- Saisir **`!testalert follow`** (ou `sub`, `gift`, `resub`, `raid`, `hype`) dans le chat (owner uniquement)
 - L'alerte apparaît immédiatement dans l'overlay
 
 ---
@@ -251,7 +251,7 @@ Trois limites réglables (toutes `0` = désactivées) :
 | `!stop` / `!end` | Arrêter le stream |
 | `!diag` / `!status` | Diagnostic : statut du stream, OBS, 11 vérifications de configuration + recommandation IA |
 | `!ask <question>` | Question à l'IA owner exclusive (repli : IA des viewers, sinon déterministe) |
-| `!testalert <type>` | Alerte de test pour l'overlay (`follow`/`sub`/`gift`/`resub`/`raid`) |
+| `!testalert <type>` | Alerte de test pour l'overlay (`follow`/`sub`/`gift`/`resub`/`raid`/`hype`) |
 | `!torch` | Basculer la lampe torche (alias : `!lantern`/`!flashlight`) |
 | `!ban <user>` | Bannir un viewer |
 | `!timeout <user> <min?>` | Timeout d'un viewer (défaut 5 min) |
@@ -355,7 +355,6 @@ Voir [README → Automatic updates (F-Droid Repository)](../README.md#-automatic
 |---|---|---|
 | `!help` / `!commands` / `!hilfe` | Tous | Afficher les commandes disponibles |
 | `!uptime` | Tous | Afficher la durée du stream |
-
 | `!bot` | Tous | Afficher les infos du bot |
 | `!song` / `!nowplaying` | Tous | Titre actuel (lecteur multimédia) |
 | `!next` / `!skip` | Owner + Mod | Titre suivant |
@@ -370,6 +369,15 @@ Voir [README → Automatic updates (F-Droid Repository)](../README.md#-automatic
 | `!fix` | Owner | Réparer les problèmes automatiquement |
 | `!testalert <type>` | Owner | Alerte de test pour l'overlay |
 | `!torch` | Owner | Basculer la lampe torche |
+| `!fix` | Owner | Réparer les problèmes automatiquement |
+| `!filter <nom>` | Owner | Basculer/afficher l'effet vidéo |
+| `!boost` | Owner | Basculer le boost faible luminosité |
+| `!battery` / `!akku` | Owner | Afficher le niveau de batterie |
+| `!lut <nom?>` | Owner | Changer de preset LUT 3D |
+| `!colorspace <nom?>` | Owner | Changer d'espace colorimétrique |
+| `!poll <question> \| <A> \| <B> [\| <C> [\| <D>]]` | Owner | Lancer un sondage chat (2–4 options) |
+| `!vote <numéro\|texte>` | Tous | Voter dans le sondage actif |
+| `!pollend` / `!endpoll` | Owner | Terminer le sondage + annoncer les résultats |
 | `!ban <user>` | Owner | Bannir un viewer |
 | `!timeout <user> <min?>` | Owner | Timeout d'un viewer |
 | `!delete <count?>` | Owner | Supprimer des messages |

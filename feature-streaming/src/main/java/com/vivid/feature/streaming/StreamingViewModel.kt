@@ -2,10 +2,12 @@ package com.vivid.feature.streaming
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.vivid.core.data.ReplayAudioMode
 import com.vivid.core.data.SceneRepository
 import com.vivid.core.data.SceneVideoSource
 import com.vivid.core.data.SettingsRepository
 import com.vivid.core.data.StreamScene
+import com.vivid.feature.streaming.ReplayState
 import com.vivid.feature.streaming.scene.AutoSceneSwitcher
 import com.vivid.feature.streaming.scene.SceneController
 import com.vivid.feature.streaming.source.VideoSourceKind
@@ -117,6 +119,24 @@ class StreamingViewModel @Inject constructor(
 
     fun stopStream() {
         streamingServiceLauncher.stopStreaming()
+    }
+
+    // --- Replay-Aufnahme (Record-to-Disk) ---
+
+    /**
+     * Startet/stoppt die lokale MP4-Aufnahme. Beim Start wird die gespeicherte
+     * Audio-Konfiguration (ReplayAudioMode) berücksichtigt: VIDEO_ONLY erzeugt
+     * eine Aufnahme ohne Audiospur.
+     */
+    fun toggleReplay() {
+        viewModelScope.launch {
+            if (streamingEngine.replayState.value is ReplayState.Recording) {
+                streamingEngine.stopReplay()
+            } else {
+                val settings = settingsRepository.appSettingsFlow.first()
+                streamingEngine.startReplay(includeAudio = settings.replayAudioMode == ReplayAudioMode.ALL)
+            }
+        }
     }
 
     // --- Szenen-Aktionen ---

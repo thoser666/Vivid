@@ -10,29 +10,36 @@ import java.io.File
  * Die Klasse enthält keine Android-Abhängigkeiten und ist vollständig
  * per Unit-Test prüfbar.
  */
-class ReplayLibrary(private val storage: ReplayStorage) {
+class ReplayLibrary(
+    private val storage: ReplayStorage,
+    private val thumbnails: ReplayThumbnailStore? = null,
+) {
 
     /** Alle gespeicherten Replays, neueste zuerst. */
     fun items(): List<File> = storage.list()
 
     /**
      * Löscht ein einzelnes Replay. Aus Sicherheitsgründen werden nur Dateien
-     * innerhalb des Replay-Verzeichnisses akzeptiert.
+     * innerhalb des Replay-Verzeichnisses akzeptiert. Das zugehörige Thumbnail
+     * wird mitgelöscht.
      *
      * @return true, wenn die Datei gelöscht wurde (oder fehlte).
      */
     fun delete(file: File): Boolean {
         if (!isInsideStorage(file)) return false
+        thumbnails?.deleteThumbnail(file)
         return if (file.exists()) file.delete() else true
     }
 
     /**
      * Löscht alle Replays und gibt die Anzahl der gelöschten Dateien zurück.
      * Dateien, die sich nicht löschen ließen, werden ignoriert (nicht gezählt).
+     * Die zugehörigen Thumbnails werden ebenfalls entfernt.
      */
     fun deleteAll(): Int {
         var deleted = 0
         items().forEach { file ->
+            thumbnails?.deleteThumbnail(file)
             if (file.delete()) deleted++
         }
         return deleted

@@ -20,7 +20,7 @@
   </a>
 </p>
 
-[📲 Install](#-installation) • [📥 Download APK](../../releases) • [📖 User Guide](docs/user-guide.md) ([🇬🇧 EN](docs/user-guide.en.md) · [🇫🇷 FR](docs/user-guide.fr.md)) • [🤖 AI Chat Bot](docs/ai-chat-bot.md) • [🤝 Contribute](CONTRIBUTING.md) • [📝 Changelog](CHANGELOG.md) • [📚 Documentation](../../wiki) • [🐛 Report Bug](../../issues) • [💬 Discussions](../../discussions)
+[📲 Install](#-installation) • [📥 Download APK](../../releases) • [📖 User Guide](docs/user-guide.md) ([🇬🇧 EN](docs/user-guide.en.md) · [🇫🇷 FR](docs/user-guide.fr.md)) • [🤖 AI Chat Bot](docs/ai-chat-bot.md) • [🤝 Contribute](CONTRIBUTING.md) • [📝 Changelog](CHANGELOG.md) • [📚 Documentation](docs/user-guide.md) (DE/EN/FR Handbuch + [docs/ai-chat-bot.md](docs/ai-chat-bot.md) + [GitHub-Wiki](../../wiki) per Doku-Sync synchron) • [🐛 Report Bug](../../issues) • [💬 Discussions](../../discussions)
 
 </div>
 
@@ -36,7 +36,7 @@
 - 📖 **User guide:** [English](docs/user-guide.en.md) · [Français](docs/user-guide.fr.md) · [Deutsch](docs/user-guide.md) — plus [tutorials](docs/tutorials/), [FAQ](docs/faq/common-issues.md) and [troubleshooting](docs/troubleshooting/)
 - 🛠 **Build from source:** `./gradlew assembleFossDebug` (Gradle 9.4 wrapper, JDK 25; `foss` flavor is fully open-source, the `standard` flavor adds optional Sentry)
 - 🤝 **Contribute:** bugs and features via [Issues](../../issues), code via pull requests to `develop` — see [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow, required checks, and the local pre-push gate; every contribution follows our [Code of Conduct](CODE_OF_CONDUCT.md)
-- 🔒 **Security:** please report vulnerabilities privately via [SECURITY.md](SECURITY.md) — the project's full security posture (supply-chain hardening, OpenSSF Scorecard context) is documented there; the [CII Best Practices checklist](docs/cii-best-practices-badge.md) maps every badge criterion to its evidence
+- 🔒 **Security:** please report vulnerabilities privately via [SECURITY.md](SECURITY.md) — the project's full security posture (supply-chain hardening, OpenSSF Scorecard context) is documented there; the [CII Best Practices checklist](docs/cii-best-practices-badge.md) maps every badge criterion to its evidence; a **Security-Loop guard** (`scripts/check_security_loop.sh`, part of the pre-push gate + CI + release pipeline) keeps the release-grade security rules (keystore hardening, signature checks, reproducibility, Sentry opt-out proof) structurally present
 
 ---
 
@@ -209,7 +209,7 @@ Die Überprüfung auf dem Über-Bildschirm folgt denselben Regeln wie in [RELEAS
 | **M3: Multi-Platform & Pro Features** | v0.8.0 | Multi-Plattform-Chat + erweiterte Streaming-Features | Multi-Platform Chat (Kick, YouTube, SOOP), Adaptive Bitrate, SRTLA Bonding, Streamer-Browser |
 | **M4: Polish & Ecosystem** | v0.9.0 | UI/UX-Verbesserungen + Integrationen | Landscape/Portrait, VTuber/PNGTuber, Externes Display/Cast, BLE-Sensoren |
 
-> **Aktueller Stand:** 34 ✅ / 5 🚧 / 28 📋 von 67 Features. **M1 ist abgeschlossen und ausgeliefert** (via v0.5.12-beta): Slideshow-Widget, Twitch-OAuth und optionale Start-Ads sind implementiert.
+> **Aktueller Stand:** 36 ✅ / 4 🚧 / 27 📋 von 67 Features. **M1 ist abgeschlossen und ausgeliefert** (via v0.5.12-beta): Slideshow-Widget, Twitch-OAuth und optionale Start-Ads sind implementiert.
 
 ### Offene Checklists
 
@@ -549,14 +549,14 @@ Status: ✅ implemented · 🚧 in progress · 📋 planned
 | Scenes (basic) + Auto Scene Switcher | ✅ | `StreamScene` + `SceneRepository` (persisted, active scene) + `SceneController` (applies source/widget/stream target) + time-based `AutoSceneSwitcher` (interval ≥ 5 s); scene bar in the streaming screen (chips, save, delete, auto toggle — de/en/fr) — open: rule-based switcher, settings section, scene/source widget, live source switching while streaming |
 | Pro Camera Controls + Lens Selection | 🚧 | Manual focus distance + lens selection (wide/ultra-wide/tele) implemented with UI (Settings screen); exposure/white balance lock pending RootEncoder upgrade |
 | Screen Capture + Video Player as source | ✅ | MediaProjection + basic video player as stream source — **bucket done**: `VideoSourceKind`/`VideoSource`/`VideoSourceRegistry` (S1), RootEncoder `MultiDisplay` + consent flow + source toggle (S2), RootEncoder `MultiFromFile` + SAF video picker (S3); all three sources switchable in the streaming screen |
-| Record to Disk (MP4) + Replays | 📋 | Record while streaming; save & play replays |
+| Record to Disk (MP4) + Replays | ✅ | MP4-Recording parallel zum Stream, Replay-Bibliothek (Liste, Inline-Wiedergabe, Löschen, Teilen), Audio-Konfiguration (`ReplayAudioMode` ALL/VIDEO_ONLY) + Thumbnail-Vorschauen (08.09.); offen: Replay als Szenen-Quelle |
 | Video Effects (Grayscale, Sepia, Noise, …) | ✅ | 11 OpenGL filters via RootEncoder `setFilter`/`GlFilter`, cycle button in streaming screen, `!filter` owner bot command, i18n de/en/fr |
 | Torch / Low-Light Boost | ✅ | Torch: RootEncoder lantern API + `!torch` bot command. Low-Light Boost: software brightness filter (1.5x gain via GLSL) + `!boost` bot command — works on all video sources |
 | External Display (Cast / HDMI-out) | 📋 | Video on an external display via Android Cast/Presentation |
 | VTuber / PNGTuber | 📋 | Basic avatar instead of the camera |
 | Image / QR / Battery / Grid Widgets | 🚧 | Image, QR code, battery indicator (+ low-battery chat warning) and grid overlay are implemented; additional widget types remain planned |
 | Speech-to-Text Subtitles | 📋 | Live subtitles from the mic as overlay |
-| Twitch: Viewer Count, Title/Category, Ads | 🚧 | `feature-chat`, `feature-settings`, `feature-streaming` | Viewerzahl via Helix `GET /streams` (alle 30 s während des Streams) und Titel/Kategorie via `PATCH /channels` mit Kategorieauflösung über `GET /search/categories` sind implementiert und getestet; OAuth-Token-Persistenz verschlüsselt im Keystore mit automatischem `401`-Refresh ist implementiert; Start-Ads/Hype-Train bleiben offen |
+| Twitch: Viewer Count, Title/Category, Ads | ✅ | `feature-chat`, `feature-settings`, `feature-streaming` | Viewerzahl via Helix `GET /streams` (alle 30 s während des Streams) und Titel/Kategorie via `PATCH /channels` mit Kategorieauflösung über `GET /search/categories` sind implementiert und getestet; OAuth-Token-Persistenz verschlüsselt im Keystore mit automatischem `401`-Refresh ist implementiert; Start-Ads laufen über Helix. **Hype-Train-Anzeige ✅ (08.09.):** EventSub `channel.hype_train.begin/progress/end` (Scope `channel:read:hype_train`), Banner im Chat-Overlay mit Level + Fortschritt, wird per end beendet, Settings-Toggle + `!testalert hype` |
 | Chat Display Details (deleted msgs, replies, /me, bits) | 📋 | Hide/gray out deleted messages, show replies, `/me` styling, cheered bits, adjustable layout |
 | Chat Poll | ✅ | `feature-chat` | Owner startet mit `!poll Frage \| Option A \| Option B` (2–4 Optionen), Viewer stimmen einmalig mit `!vote <Nummer>` oder `!vote <Text>` ab; `!pollend` gibt das Ergebnis aus. Flüchtiger, validierter Poll-Zustand pro Stream. |
 | Adaptive Bitrate (SRT/SRTLA) + Upload Stats | 📋 | Dynamic bitrate + per-connection statistics |

@@ -58,6 +58,9 @@
     <string name="stream_url_hint">Freie Ingest-URL: akzeptiert beliebige RTMP(S)- oder SRT-Ziele, z. B. Owncast oder einen eigenen Server. Die Plattform-Vorlagen oben sind nur Presets.</string>
     <string name="stream_key_label">Stream-Schlüssel</string>
     <string name="stream_tls_label">Sichere Verbindung (RTMPS)</string>
+    <string name="replay_audio_title">Replay-Aufnahme</string>
+    <string name="replay_audio_desc">Lokale MP4-Aufnahme parallel zum Stream (Aufnahme-Button im Streaming-Screen).</string>
+    <string name="replay_audio_enabled">Ton in Replays aufnehmen</string>
     <string name="twitch_channel_title">Twitch-Kanalsteuerung</string>
     <string name="twitch_channel_desc">Viewerzahl lesen sowie Stream-Titel und Kategorie über die Twitch-Helix-API aktualisieren. Für Änderungen wird ein Broadcaster-Token mit channel:manage:broadcast benötigt.</string>
     <string name="twitch_channel_oauth_label">Twitch-Broadcaster-OAuth-Token</string>
@@ -96,6 +99,10 @@
     <string name="overlays_widget_location">GPS-Koordinaten</string>
     <string name="overlays_widget_speed">Geschwindigkeit</string>
     <string name="overlays_widget_altitude">Höhe</string>
+    <string name="overlays_widget_template_label">Widget-Template</string>
+    <string name="overlays_widget_template_desc">Eigener Text mit Platzhaltern statt der Einzelschalter. Verfügbare Platzhalter: {time} (Uhrzeit), {date} (Datum), {speed} (Geschwindigkeit), {altitude} (Höhe), {lat}/{lon} (GPS-Koordinaten). Leeres Template = Einzelschalter-Modus.</string>
+    <string name="overlays_widget_template_placeholder">z. B. {time} — {speed} km/h</string>
+    <string name="overlays_widget_template_preview">Vorschau: %1$s</string>
     <string name="overlays_emotes_title">Third-Party-Emotes</string>
     <string name="overlays_emotes_desc">Zusätzliche Emotes aus Community-Datenbanken im Chat-Overlay anzeigen. Jede Quelle kann einzeln aktiviert/deaktiviert werden.</string>
     <string name="overlays_emotes_bttv">BetterTTV (BTTV)</string>
@@ -105,6 +112,9 @@
     <string name="overlays_deleted_desc">Gelöschte Nachrichten im Chat-Overlay ausblenden oder ausgrauen. Erfordert Moderator-Rechte des Bot-Kontos.</string>
     <string name="overlays_deleted_hide">Gelöschte Nachrichten ausblenden</string>
     <string name="overlays_animate_new_messages">Neue Nachrichten animieren</string>
+    <string name="overlays_hype_train_title">Hype-Train</string>
+    <string name="overlays_hype_train_desc">Hype-Train-Events (EventSub channel.hype_train.*) als Banner im Chat-Overlay anzeigen. Ohne den Scope channel:read:hype_train fällt nur diese Anzeige aus, Chat und Alerts laufen weiter.</string>
+    <string name="overlays_hype_train_enabled">Hype-Train im Overlay anzeigen</string>
     <string name="overlays_layout_title">Chat-Layout</string>
     <string name="overlays_layout_desc">Breite, Höhe, Transparenz, Schriftgröße und Zeitstempel des Chat-Overlays anpassen.</string>
     <string name="overlays_layout_width">Breite: %1$d dp</string>

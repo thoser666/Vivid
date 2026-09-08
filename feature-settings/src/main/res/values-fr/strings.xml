@@ -58,6 +58,9 @@
     <string name="stream_url_hint">URL d\'ingest libre : accepte toute cible RTMP(S) ou SRT, p. ex. Owncast ou votre propre serveur. Les modèles de plateforme ci-dessus ne sont que des préréglages.</string>
     <string name="stream_key_label">Clé de stream</string>
     <string name="stream_tls_label">Connexion sécurisée (RTMPS)</string>
+    <string name="replay_audio_title">Enregistrement des replays</string>
+    <string name="replay_audio_desc">Enregistrement MP4 local en parallèle du stream (bouton d\'enregistrement dans l\'écran de streaming).</string>
+    <string name="replay_audio_enabled">Enregistrer l\'audio dans les replays</string>
     <string name="twitch_channel_title">Contrôle de la chaîne Twitch</string>
     <string name="twitch_channel_desc">Lire le nombre de spectateurs et mettre à jour le titre et la catégorie via l’API Twitch Helix. Les modifications nécessitent un jeton de diffuseur avec channel:manage:broadcast.</string>
     <string name="twitch_channel_oauth_label">Jeton OAuth du diffuseur Twitch</string>
@@ -97,6 +100,10 @@
     <string name="overlays_widget_location">Coordonnées GPS</string>
     <string name="overlays_widget_speed">Vitesse</string>
     <string name="overlays_widget_altitude">Altitude</string>
+    <string name="overlays_widget_template_label">Modèle du widget</string>
+    <string name="overlays_widget_template_desc">Texte personnalisé avec des variables au lieu des interrupteurs individuels. Variables disponibles : {time} (heure), {date} (date), {speed} (vitesse), {altitude} (altitude), {lat}/{lon} (coordonnées GPS). Modèle vide = mode interrupteurs.</string>
+    <string name="overlays_widget_template_placeholder">p. ex. {time} — {speed} km/h</string>
+    <string name="overlays_widget_template_preview">Aperçu : %1$s</string>
     <string name="overlays_emotes_title">Emotes tierces</string>
     <string name="overlays_emotes_desc">Afficher des emotes supplémentaires provenant de bases de données communautaires dans l’overlay de chat. Chaque source peut être activée/désactivée individuellement.</string>
     <string name="overlays_emotes_bttv">BetterTTV (BTTV)</string>
@@ -106,6 +113,9 @@
     <string name="overlays_deleted_desc">Masquer ou estomper les messages supprimés dans l’overlay de chat. Nécessite les privilèges de modérateur pour le compte du bot.</string>
     <string name="overlays_deleted_hide">Masquer les messages supprimés</string>
     <string name="overlays_animate_new_messages">Animer les nouveaux messages</string>
+    <string name="overlays_hype_train_title">Hype Train</string>
+    <string name="overlays_hype_train_desc">Afficher les événements Hype Train (EventSub channel.hype_train.*) comme bannière dans l’overlay de chat. Sans le scope channel:read:hype_train, seul cet affichage est ignoré ; le chat et les alertes continuent.</string>
+    <string name="overlays_hype_train_enabled">Afficher le Hype Train dans l’overlay</string>
     <string name="overlays_layout_title">Disposition du chat</string>
     <string name="overlays_layout_desc">Personnaliser la largeur, la hauteur, la transparence, la taille du texte et l’horodatage de l’overlay de chat.</string>
     <string name="overlays_layout_width">Largeur : %1$d dp</string>

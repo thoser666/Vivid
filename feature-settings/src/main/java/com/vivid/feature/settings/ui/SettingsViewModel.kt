@@ -9,6 +9,7 @@ import com.vivid.core.data.AppSettings // Importiert die vollständige Klasse
 import com.vivid.core.data.ChatBotCommandScope
 import com.vivid.core.data.ChatBotMode
 import com.vivid.core.data.ChatOverlayPosition
+import com.vivid.core.data.ReplayAudioMode
 import com.vivid.core.data.SettingsRepository
 import com.vivid.core.data.ThemeMode
 import com.vivid.core.remote.RemoteControlServer
@@ -183,6 +184,12 @@ class SettingsViewModel @Inject constructor(
     fun onWidgetShowSpeedChange(newValue: Boolean) { _uiState.value = _uiState.value.copy(widgetShowSpeed = newValue) }
     fun onWidgetShowAltitudeChange(newValue: Boolean) { _uiState.value = _uiState.value.copy(widgetShowAltitude = newValue) }
 
+    /** Text-Widget-Template (mit {var}-Platzhaltern); hartes Längenlimit wie bei QR-Content. */
+    fun onWidgetTemplateChange(newValue: String) { _uiState.value = _uiState.value.copy(widgetTemplate = newValue.take(256)) }
+
+    // Replay-Aufnahme: Audio-Konfiguration (Bild + Ton oder nur Bild).
+    fun onReplayAudioModeChange(newMode: ReplayAudioMode) { _uiState.value = _uiState.value.copy(replayAudioMode = newMode) }
+
     // Chat-Bot-Einstellungen.
     fun onChatBotEnabledChange(newEnabled: Boolean) { _uiState.value = _uiState.value.copy(chatBotEnabled = newEnabled) }
     fun onChatBotModeChange(newMode: ChatBotMode) { _uiState.value = _uiState.value.copy(chatBotMode = newMode) }
@@ -227,6 +234,9 @@ class SettingsViewModel @Inject constructor(
 
     // Gelöschte Nachrichten: ausblenden (true) oder ausgrauen (false).
     fun onChatOverlayHideDeletedChange(newValue: Boolean) { _uiState.value = _uiState.value.copy(chatOverlayHideDeleted = newValue) }
+
+    // Hype-Train-Banner im Chat-Overlay anzeigen (Standard: an).
+    fun onChatOverlayHypeTrainEnabledChange(newValue: Boolean) { _uiState.value = _uiState.value.copy(chatOverlayHypeTrainEnabled = newValue) }
 
     // Fade-In-Animation für neue Nachrichten.
     fun onChatOverlayAnimateNewMessagesChange(newValue: Boolean) { _uiState.value = _uiState.value.copy(chatOverlayAnimateNewMessages = newValue) }
@@ -382,6 +392,7 @@ class SettingsViewModel @Inject constructor(
                 opacity = currentSettings.slideshowWidgetOpacity,
             )
             settingsRepository.updateSentryEnabled(currentSettings.sentryEnabled)
+            settingsRepository.updateReplayAudioMode(currentSettings.replayAudioMode)
             settingsRepository.updateThemeSettings(
                 themeMode = currentSettings.themeMode,
                 accentColor = currentSettings.themeAccent,
@@ -418,6 +429,7 @@ class SettingsViewModel @Inject constructor(
                 sevenTvEnabled = currentSettings.emotes7tvEnabled,
             )
             settingsRepository.updateChatOverlayHideDeleted(currentSettings.chatOverlayHideDeleted)
+            settingsRepository.updateChatOverlayHypeTrainEnabled(currentSettings.chatOverlayHypeTrainEnabled)
             settingsRepository.updateChatOverlayAnimateNewMessages(currentSettings.chatOverlayAnimateNewMessages)
             settingsRepository.updateChatOverlayLayout(
                 widthDp = currentSettings.chatOverlayWidthDp,

@@ -2,9 +2,12 @@ package com.vivid.feature.settings.ui
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToNode
 import androidx.navigation.NavHostController
 import com.vivid.core.data.AppSettings
 import com.vivid.core.data.ThemeMode
@@ -147,6 +150,49 @@ class SettingsScreensRobolectricTest {
         composeRule.onNodeWithText("Overlays & Widgets").assertIsDisplayed()
         composeRule.onNodeWithText("Chat overlay").assertIsDisplayed()
         composeRule.onNodeWithText("Text/info widget").assertIsDisplayed()
+    }
+
+    @Test
+    fun `overlays template editor inserts variables via chips and shows resolved preview`() {
+        val viewModel = settingsViewModel()
+        composeRule.setContent {
+            SettingsOverlaysScreen(
+                uiState = AppSettings(),
+                viewModel = viewModel,
+                onBack = {},
+            )
+        }
+        // Template-Sektion liegt unterhalb des Falzes — zum Widget-Template-Feld
+        // scrollen (Aktion muss auf dem scrollbaren Container selbst passieren).
+        composeRule.onNode(hasScrollAction())
+            .performScrollToNode(hasText("Widget template"))
+
+        // Chip-Klicks hängen den Platzhalter ans Template-Ende an (uiState bleibt
+        // im Test fixiert — der Aufruf basiert auf dem übergebenen Zustand).
+        // Vor jedem Klick scrollen: performClick scrollt nicht selbst.
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("{speed}"))
+        composeRule.onAllNodesWithText("{speed}")[0].performClick()
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("{lat}"))
+        composeRule.onAllNodesWithText("{lat}")[0].performClick()
+        verify { viewModel.onWidgetTemplateChange("{speed}") }
+        verify { viewModel.onWidgetTemplateChange("{lat}") }
+
+        // Platzhalter-Beschreibung listet alle 6 Variablen auf.
+        composeRule.onNodeWithText(
+            "Custom text with placeholders instead of the individual toggles. Available placeholders: {time} (time), {date} (date), {speed} (speed), {altitude} (altitude), {lat}/{lon} (GPS coordinates). Empty template = toggle mode.",
+        ).assertExists()
+    }
+
+    @Test
+    fun `overlays template preview resolves variables with sample values`() {
+        composeRule.setContent {
+            SettingsOverlaysScreen(
+                uiState = AppSettings(widgetTemplate = "{time} | {speed}"),
+                viewModel = settingsViewModel(),
+                onBack = {},
+            )
+        }
+        composeRule.onNodeWithText("Preview: 14:05:32 | 52.3 km/h").assertExists()
     }
 
     // --- Chat-Bot & KI ------------------------------------------------------

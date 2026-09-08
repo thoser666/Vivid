@@ -1,0 +1,62 @@
+# Wiki-Sync: hält die GitHub-Wiki-Startseite automatisch aktuell.
+#
+# Generiert Home.md aus der Source of Truth im Repo (docs/user-guide.md DE —
+# dieselbe Tabelle, die scripts/check_bot_commands_doc.sh gegen den
+# BotCommandProcessor-Code prüft) und pusht sie nach
+# thoser666/Vivid.wiki.git. Damit kann das Wiki nicht mehr veralten:
+#   - Handbuch-Änderung → Wiki folgt automatisch
+#   - Neuer Bot-Befehl   → Guard erzwingt Doku-Update → Wiki folgt mit
+#
+# Warum direkt pushen statt PR? Das Wiki ist ein separates Git-Repository
+# (Vivid.wiki.git) ohne Branch-Schutz und ohne PR-Workflow — ein PR wäre
+# dort gar nicht möglich. Kein Orphan-Risiko: Scheitert der Push, bleibt
+# der alte Wiki-Stand unverändert bestehen (idempotent beim nächsten Lauf).
+#
+# Token: AUTOMATION_TOKEN (Classic-PAT, repo-Scope deckt das Wiki-Repo mit
+# ab); Fallback GITHUB_TOKEN. pushed Wiki-Commits triggern KEINE Actions
+# (GitHub-Regel: Wiki-Pushes lösen keine Workflows aus) — keine Rekursion.
+
+name: Automation / Wiki Sync
+
+on:
+  push:
+    branches: [develop]
+    paths:
+      - 'docs/user-guide.md'
+      - 'docs/user-guide.en.md'
+      - 'docs/user-guide.fr.md'
+      - 'docs/ai-chat-bot.md'
+      - 'feature-chat/src/main/java/com/vivid/feature/chat/bot/BotCommandProcessor.kt'
+      - 'scripts/sync_wiki.sh'
+      - '.github/workflows/automation-wiki-sync.yml'
+  workflow_dispatch:
+  schedule:
+    # Wöchentlicher Sicherheitsnetz-Lauf (Di 05:20 UTC) — fängt manuelle
+    # Wiki-Edits ab, die vom Sync überschrieben werden.
+    - cron: '20 5 * * 2'
+
+permissions: {}
+
+concurrency:
+  group: wiki-sync-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: Sync wiki Home page
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (develop)
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+
+      - name: Generate + push wiki Home
+        env:
+          AUTOMATION_TOKEN: ${{ secrets.AUTOMATION_TOKEN || secrets.GITHUB_TOKEN }}
+          HAS_AUTOMATION_TOKEN: ${{ secrets.AUTOMATION_TOKEN != '' }}
+        run: |
+          if [ "$HAS_AUTOMATION_TOKEN" != "true" ]; then
+            echo "::warning::AUTOMATION_TOKEN ist nicht gesetzt — Wiki-Push läuft per GITHUB_TOKEN-Fallback. Falls der Push abgelehnt wird (Wiki-Repos akzeptieren GITHUB_TOKEN i. d. R.), einmalig: gh secret set AUTOMATION_TOKEN --body <Classic-PAT mit repo-Scope>."
+          fi
+          bash scripts/sync_wiki.sh --push

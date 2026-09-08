@@ -21,8 +21,10 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.jupiter.api.AfterEach
@@ -75,6 +77,26 @@ class ChatOverlayViewModelTest {
         chatBotLogin = botLogin,
         chatBotOauthToken = "tok123",
         chatBotTwitchClientId = "cid-abc",
+    )
+
+    /** Hype-Train-Alert wie vom Reader: dieselbe ID für begin/progress/end. */
+    private fun hypeAlert(
+        id: String,
+        level: Int = 1,
+        progress: Int = 0,
+        goal: Int = 0,
+        ended: Boolean = false,
+    ) = ChatAlert(
+        id = "hypetrain-$id",
+        type = ChatAlertType.HYPE_TRAIN,
+        displayName = "Kanal",
+        timestamp = System.currentTimeMillis(),
+        detail = AlertDetail(
+            hypeTrainLevel = level,
+            hypeTrainProgress = progress,
+            hypeTrainGoal = goal,
+            hypeTrainEnded = ended,
+        ),
     )
 
     @AfterEach
@@ -147,5 +169,101 @@ class ChatOverlayViewModelTest {
         settings.value = settings.value.copy(chatChannel = "channel2")
         advanceUntilIdle()
         assertTrue(vm.uiState.value.deletedMessageIds.isEmpty())
+    }
+
+    // --- Hype-Train-Banner ---
+
+    @Test
+    fun `hypeTrainEnabled default is true`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val vm = createViewModel(MutableStateFlow(settings()))
+        advanceUntilIdle()
+        assertTrue(vm.uiState.value.hypeTrainEnabled)
+    }
+
+    @Test
+    fun `hypeTrainEnabled reads from settings`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val settings = MutableStateFlow(settings().copy(chatOverlayHypeTrainEnabled = false))
+        val vm = createViewModel(settings)
+        advanceUntilIdle()
+        assertFalse(vm.uiState.value.hypeTrainEnabled)
+    }
+
+    @Test
+    fun `hype train progress replaces the banner in place`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val alertsFlow = MutableSharedFlow<ChatAlert>(extraBufferCapacity = 64)
+        val vm = createViewModel(MutableStateFlow(settings()), reader(alertsFlow = alertsFlow))
+        advanceUntilIdle()
+
+        alertsFlow.tryEmit(hypeAlert("t1", level = 1, progress = 100, goal = 350))
+        alertsFlow.tryEmit(hypeAlert("t1", level = 1, progress = 340, goal = 350))
+        advanceUntilIdle()
+
+        val alerts = vm.uiState.value.alerts
+        assertEquals(1, alerts.size)
+        assertEquals("hypetrain-t1", alerts[0].id)
+        assertEquals(340, alerts[0].detail.hypeTrainProgress)
+        assertEquals(350, alerts[0].detail.hypeTrainGoal)
+    }
+
+    @Test
+    fun `hype train end removes the banner from the overlay`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val alertsFlow = MutableSharedFlow<ChatAlert>(extraBufferCapacity = 64)
+        val vm = createViewModel(MutableStateFlow(settings()), reader(alertsFlow = alertsFlow))
+        advanceUntilIdle()
+
+        alertsFlow.tryEmit(hypeAlert("t1", level = 1, progress = 340, goal = 350))
+        advanceUntilIdle()
+        assertEquals(1, vm.uiState.value.alerts.size)
+
+        alertsFlow.tryEmit(hypeAlert("t1", level = 1, ended = true))
+        advanceUntilIdle()
+        assertTrue(vm.uiState.value.alerts.isEmpty())
+    }
+
+    @Test
+    fun `hype train banner survives the alert ttl`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val alertsFlow = MutableSharedFlow<ChatAlert>(extraBufferCapacity = 64)
+        val vm = createViewModel(MutableStateFlow(settings()), reader(alertsFlow = alertsFlow))
+        advanceUntilIdle()
+
+        alertsFlow.tryEmit(
+            ChatAlert(id = "follow-1", type = ChatAlertType.FOLLOW, displayName = "X", timestamp = 0L),
+        )
+        alertsFlow.tryEmit(hypeAlert("t1", level = 1, progress = 100, goal = 350))
+        runCurrent()
+        assertEquals(2, vm.uiState.value.alerts.size)
+
+        // Nach der TTL verschwindet der Follow-Alert, der Hype-Train bleibt.
+        testScheduler.advanceTimeBy(ChatOverlayViewModel.ALERT_TTL_MS + 1_000)
+        advanceUntilIdle()
+
+        assertEquals(1, vm.uiState.value.alerts.size)
+        assertEquals("hypetrain-t1", vm.uiState.value.alerts[0].id)
+    }
+
+    @Test
+    fun `hype train alerts are skipped while the toggle is off`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val alertsFlow = MutableSharedFlow<ChatAlert>(extraBufferCapacity = 64)
+        val settings = MutableStateFlow(settings().copy(chatOverlayHypeTrainEnabled = false))
+        val vm = createViewModel(settings, reader(alertsFlow = alertsFlow))
+        advanceUntilIdle()
+
+        alertsFlow.tryEmit(
+            ChatAlert(id = "follow-1", type = ChatAlertType.FOLLOW, displayName = "X", timestamp = 0L),
+        )
+        alertsFlow.tryEmit(hypeAlert("t1", level = 1, progress = 100, goal = 350))
+        runCurrent()
+
+        assertEquals(1, vm.uiState.value.alerts.size)
+        assertEquals("follow-1", vm.uiState.value.alerts[0].id)
+
+        // Restliche TTL-Timer ablaufen lassen (keine schwebenden Koroutinen).
+        advanceUntilIdle()
     }
 }

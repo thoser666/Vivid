@@ -1000,15 +1000,16 @@ gh api repos/<owner>/<repo>/git/tags/<sha> --jq '.object.sha'
 - **Veraltete SHAs:** Tags werden neu getaggt (z.B. bei Security-Fixes). SHA-Update-Pflicht bei Dependabot-PRs.
 - **Falsche Repos:** Manche Actions haben Forks mit eigenen Tags. Immer das Original-Repo prüfen.
 
-### 🚧 Ausstehend: Kotlin-Update auf 2.4.20 (stabil)
+### 🚧 Blockiert: Kotlin-Update auf 2.4.20 (stabil)
 
-Der direkte Dependabot-Alert `kotlin-gradle-plugin` (unsafe Deserialization im Kotlin Build Cache, Dependabot #63) ist mit `tolerable_risk` dismissed. Die erste gepatchte Version ist **2.4.20-Beta1**; die **stabile 2.4.20** erscheint laut [Kotlin-Release-Fahrplan](https://kotlinlang.org/docs/releases.html) im **September 2026**. Bis dahin bleibt der Alert dismissed (Build-Tooling-only, kein App-Runtime-Risiko).
+Der direkte Dependabot-Alert `kotlin-gradle-plugin` (unsafe Deserialization im Kotlin Build Cache, Dependabot #63) bleibt dismissed. Die erste gepatchte Version ist **2.4.20-Beta1**; die **stabile 2.4.20** ist seit September 2026 auf Maven Central verfügbar.
 
-**Beim Update dann:**
+**⚠️ Blocker (Stand 07.09.2026):** CodeQL unterstützt Kotlin 2.4.20 **GA noch nicht** — der Kotlin-Extractor bricht mit `Kotlin version 2.4.20 is too recent. CodeQL currently supports versions below 2.4.20` ab (nur 2.4.20-RC2 ist als Dev-Default supported, GA bewusst blockiert; Tracking: [github/codeql#22404](https://github.com/github/codeql/issues/22404)). Der Versuch (Issue [#110](https://github.com/thoser666/Vivid/issues/110), Commit `e5cd592`) brach den CodeQL-Workflow → Revert auf 2.4.10 (letzte CodeQL-kompatible Version, CI grün).
+
+**Beim Re-Upgrade (sobald codeql#22404 gemerged ist):**
 - `kotlin` und `jetbrainsKotlinJvm` in `gradle/libs.versions.toml` auf `2.4.20` anheben — Compose-Compiler und Serialization alignen automatisch (`version.ref = "kotlin"`).
-- **KSP** (`ksp-version = "2.3.11"`) auf die zu Kotlin 2.4.20 passende Version heben (KSP folgt der Kotlin-Version).
-- Voller Testlauf Pflicht (CI-Mirror): `./gradlew testDebugUnitTest` + `lintDebug` — danach verifizieren, dass Dependabot den Alert #63 automatisch schließt.
-- Dependabot (gradle, weekly) öffnet den Update-PR automatisch, sobald 2.4.20 stabil auf Maven Central ist.
+- **KSP** bleibt auf `2.3.11` (seit 2.3.0 von der Kotlin-Version entkoppelt; bei Bedarf aktualisieren).
+- Voller Testlauf Pflicht (lokal + CI): `./gradlew testDebugUnitTest` + `lintDebug` — danach verifizieren, dass Dependabot den Alert #63 automatisch schließt.
 
 ## 🔑 Signing-Secrets (CI)
 
