@@ -697,6 +697,14 @@ jobs:
       - name: Verify Sentry opt-out logic in release mapping
         run: bash scripts/check_sentry_optout_mapping.sh app/build/outputs/mapping/standardRelease/mapping.txt
 
+      # ✅ Security-Loop-Check: release-grade Guards (Workflow-Security-
+      # Selbsttest + Secret-Guard) laufen zusätzlich direkt am Release-Mapping —
+      # die Regeln der Pipeline bleiben gegen bekannte Findings validierbar.
+      - name: Check Security Loop
+        run: |
+          bash scripts/check_security_loop.sh
+          bash scripts/check_security_loop.sh app/build/outputs/mapping/standardRelease/mapping.txt
+
   # ✅ Selbsttest der publish_play-Lane OHNE Play-Zugang (dry_run=true):
   # erzeugt einen lokalen Wegwerf-Keystore (keytool), baut bundleStandardPlayRelease und
   # verifiziert die AAB-Signatur per keytool gegen den Test-Key - kein Upload,
@@ -738,6 +746,10 @@ jobs:
       # (Lambda inlined in io.sentry.SentryClient). Kostet keine Extra-Build-Zeit.
       - name: Verify Sentry opt-out logic in standardPlayRelease mapping
         run: bash scripts/check_sentry_optout_mapping.sh app/build/outputs/mapping/standardPlayRelease/mapping.txt
+
+      # ✅ Security-Loop-Check für den Play-Kanal: gleiche Guards, Play-Mapping.
+      - name: Check Security Loop (Play channel)
+        run: bash scripts/check_security_loop.sh app/build/outputs/mapping/standardPlayRelease/mapping.txt
 
   # ✅ Regressionstest: gehärtete stabile Release-Publizierung (publish_release,
   # if-stable) lokal gegen einen Mock-gh — prüft Skip/Delete+Recreate/Retry/

@@ -67,6 +67,9 @@
     <string name="help_support_title">Support</string>
     <string name="help_support_body">Bug gefunden oder Feature-Wunsch? Eröffne ein Issue auf GitHub — wir freuen uns über Feedback!</string>
     <string name="help_link_issues">GitHub Issues</string>
+    <string name="help_owner_commands_title">Owner-Befehle (Shortcuts)</string>
+    <string name="help_owner_commands_body">Kurzbefehle für den Streamer (Owner-only): !start/!stop, !diag/!status, !ask &lt;Frage&gt;, !fix, !filter, !boost, !battery, !lut, !colorspace, !poll/!vote/!pollend, !ban/!timeout/!delete. Vollständige Referenz: In-App-Hilfe (intern) und docs/ai-chat-bot.md.</string>
+    <string name="help_docs_placeholder">Hinweis: Diese Hilfe wird aus dem Katalog generiert — fehlende Befehle bitte im Code / BotCommandProcessor / Katalog anlegen, nicht nur hier.</string>
 
     <!-- Streaming-Foreground-Service (StreamingServiceSupport.kt) -->
     <string name="notif_channel_name">Live-Stream</string>

@@ -20,7 +20,7 @@
   </a>
 </p>
 
-[📲 Install](#-installation) • [📥 Download APK](../../releases) • [📖 User Guide](docs/user-guide.md) ([🇬🇧 EN](docs/user-guide.en.md) · [🇫🇷 FR](docs/user-guide.fr.md)) • [🤖 AI Chat Bot](docs/ai-chat-bot.md) • [🤝 Contribute](CONTRIBUTING.md) • [📝 Changelog](CHANGELOG.md) • [📚 Documentation](../../wiki) • [🐛 Report Bug](../../issues) • [💬 Discussions](../../discussions)
+[📲 Install](#-installation) • [📥 Download APK](../../releases) • [📖 User Guide](docs/user-guide.md) ([🇬🇧 EN](docs/user-guide.en.md) · [🇫🇷 FR](docs/user-guide.fr.md)) • [🤖 AI Chat Bot](docs/ai-chat-bot.md) • [🤝 Contribute](CONTRIBUTING.md) • [📝 Changelog](CHANGELOG.md) • [📚 Documentation](docs/user-guide.md) (DE/EN/FR Handbuch + [docs/ai-chat-bot.md](docs/ai-chat-bot.md) + [GitHub-Wiki](../../wiki) per Doku-Sync synchron) • [🐛 Report Bug](../../issues) • [💬 Discussions](../../discussions)
 
 </div>
 
@@ -36,7 +36,7 @@
 - 📖 **User guide:** [English](docs/user-guide.en.md) · [Français](docs/user-guide.fr.md) · [Deutsch](docs/user-guide.md) — plus [tutorials](docs/tutorials/), [FAQ](docs/faq/common-issues.md) and [troubleshooting](docs/troubleshooting/)
 - 🛠 **Build from source:** `./gradlew assembleFossDebug` (Gradle 9.4 wrapper, JDK 25; `foss` flavor is fully open-source, the `standard` flavor adds optional Sentry)
 - 🤝 **Contribute:** bugs and features via [Issues](../../issues), code via pull requests to `develop` — see [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow, required checks, and the local pre-push gate; every contribution follows our [Code of Conduct](CODE_OF_CONDUCT.md)
-- 🔒 **Security:** please report vulnerabilities privately via [SECURITY.md](SECURITY.md) — the project's full security posture (supply-chain hardening, OpenSSF Scorecard context) is documented there; the [CII Best Practices checklist](docs/cii-best-practices-badge.md) maps every badge criterion to its evidence
+- 🔒 **Security:** please report vulnerabilities privately via [SECURITY.md](SECURITY.md) — the project's full security posture (supply-chain hardening, OpenSSF Scorecard context) is documented there; the [CII Best Practices checklist](docs/cii-best-practices-badge.md) maps every badge criterion to its evidence; a **Security-Loop guard** (`scripts/check_security_loop.sh`, part of the pre-push gate + CI + release pipeline) keeps the release-grade security rules (keystore hardening, signature checks, reproducibility, Sentry opt-out proof) structurally present
 
 ---
 

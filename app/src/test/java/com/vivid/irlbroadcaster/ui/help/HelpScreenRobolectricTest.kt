@@ -86,6 +86,23 @@ class HelpScreenRobolectricTest {
     }
 
     @Test
+    fun `owner shortcuts card and docs placeholder are rendered`() {
+        composeRule.setContent {
+            HelpScreen(navController = mockk(relaxed = true))
+        }
+
+        // Owner-Shortcuts-Karte + Hinweis, dass die Hilfe katalog-getrieben ist:
+        // Neue Befehle gehören in den Katalog (Code), nicht in diesen Screen.
+        composeRule.onNodeWithText("Owner Commands (Shortcuts)").assertExists()
+        composeRule.onNodeWithText("!filter [name]").assertExists()
+        composeRule.onNodeWithText("!colorspace [srgb|p3|log]").assertExists()
+        composeRule.onNodeWithText(
+            "Note: This help is generated from the command catalog",
+            substring = true,
+        ).assertExists()
+    }
+
+    @Test
     fun `description map covers every catalog primary`() {
         // Katalog ↔ Strings: Kein Katalog-Eintrag ohne lokalisierte Beschreibung.
         val missing = BotCommandsCatalog.all.map { it.primary } - botCommandDescriptions.keys

@@ -219,6 +219,16 @@ jobs:
       - name: Test CodeQL-Kotlin guard
         run: bash scripts/test_codeql_guard.sh
 
+      # Security-Loop (Bash) — Selbsttest: die release-grade Sicherheitsregeln
+      # der Pipeline (Keystore-Härtung, Signatur-Check, Reproduzierbarkeit,
+      # Sentry-Opt-out, Bot-Credential-Warnung) müssen vorhanden bleiben;
+      # Fixtures beweisen, dass jede entfernte Regel rot meldet.
+      - name: Test security loop guard
+        run: bash scripts/test_security_loop.sh
+
+      - name: Check security loop
+        run: bash scripts/check_security_loop.sh
+
       # ── Optional: Code‑Scanning / Security‑Events ──
       # - name: Run CodeQL
       #   uses: github/codeql-action/init@v2

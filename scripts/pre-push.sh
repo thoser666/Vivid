@@ -203,6 +203,15 @@ run bash scripts/test_wiki_sync.sh
 echo "▶ [pre-push] CodeQL-Kotlin-Wächter-Selbsttest (scripts/test_codeql_guard.sh)"
 run bash scripts/test_codeql_guard.sh
 
+# Security-Loop-Guard (bash): release-grade Sicherheitsregeln der Pipeline
+# (Keystore-Härtung, Signatur-Check, Reproduzierbarkeit, Sentry-Opt-out,
+# Bot-Credential-Warnung) müssen vorhanden bleiben — plus Fixture-Selbsttest.
+echo "▶ [pre-push] Security-Loop-Selbsttest (scripts/test_security_loop.sh)"
+run bash scripts/test_security_loop.sh
+
+echo "▶ [pre-push] Security-Loop-Guard (scripts/check_security_loop.sh)"
+run bash scripts/check_security_loop.sh
+
 # PARITY-Log-Guard-Selbsttest (Fixtures): beweist, dass Platzhalter „—" und
 # ungültige Hashes rot gemeldet werden und saubere Logs grün bleiben.
 echo "▶ [pre-push] PARITY-Log-Guard-Selbsttest (scripts/test_parity_log.sh)"

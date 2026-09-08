@@ -67,6 +67,9 @@
     <string name="help_support_title">Support</string>
     <string name="help_support_body">Un bug ou une demande de fonctionnalité ? Ouvrez un ticket sur GitHub — vos retours sont les bienvenus !</string>
     <string name="help_link_issues">Tickets GitHub</string>
+    <string name="help_owner_commands_title">Commandes owner (Raccourcis)</string>
+    <string name="help_owner_commands_body">Raccourcis pour le streamer (uniquement owner) : !start/!stop, !diag/!status, !ask &lt;question&gt;, !fix, !filter, !boost, !battery, !lut, !colorspace, !poll/!vote/!pollend, !ban/!timeout/!delete. Référence complète : aide intégrée (interne) et docs/ai-chat-bot.md.</string>
+    <string name="help_docs_placeholder">Note : cette aide est générée à partir du catalogue des commandes — si une commande manque, ajoutez-la dans le code / BotCommandProcessor / catalogue, pas seulement ici.</string>
 
     <!-- Service d'avant-plan de streaming (StreamingServiceSupport.kt) -->
     <string name="notif_channel_name">Stream en direct</string>

@@ -118,6 +118,17 @@ fun HelpScreen(navController: NavHostController) {
             // Externe Doku-Links
             DocsLinksCard(onOpenUri = uriHandler::openUri)
 
+            // Owner-Befehle (Shortcuts)
+            OwnerCommandsCard(onOpenUri = uriHandler::openUri)
+
+            // Dokumentations-Platzhalter
+            Text(
+                text = stringResource(R.string.help_docs_placeholder),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            )
+
             // Support
             SupportCard(onOpenUri = uriHandler::openUri)
         }
@@ -196,6 +207,30 @@ private fun BotCommandRow(command: String, description: String) {
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+    }
+}
+
+@Composable
+private fun OwnerCommandsCard(onOpenUri: (String) -> Unit) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(vertical = 4.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.help_owner_commands_title),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            )
+            Text(
+                text = stringResource(R.string.help_owner_commands_body),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            )
+            HelpLinkRow(stringResource(R.string.help_link_issues), HelpLinks.ISSUES, onOpenUri)
+        }
     }
 }
 
