@@ -41,6 +41,7 @@ class ReplayLibraryViewModelTest {
         library = ReplayLibrary(storage)
         viewModel = ReplayLibraryViewModel(
             library = library,
+            thumbnails = mockk(),
             appContext = mockk {
                 every { packageName } returns "com.vivid.test"
             },
