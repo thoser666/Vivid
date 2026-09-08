@@ -30,5 +30,5 @@
     </plurals>
     <string name="chat_alert_hype_train">🚂 Hype-Train Level %1$d — %2$d/%3$d</string>
     <string name="chat_alert_hype_train_active">🚂 Hype-Train aktiv</string>
-    <string name="chat_alert_hype_train_end">🚂 Hype-Train Level %1$d beendet</string>
+    <string name="chat_alert_hype_train_end">🚂 Hype-Train beendet — Level %1$d</string>
 </resources>
