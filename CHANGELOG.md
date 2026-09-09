@@ -9,6 +9,41 @@ Alle Änderungen an Vivid — **automatisch aus den GitHub-Releases gespiegelt**
 - 🎯 Feature-Tracking: [PARITY.md](PARITY.md)
 
 <!-- CHANGELOG-START -->
+## 🌙 **Nightly** 0.5.13-nightly.213 — 2026-09-09
+
+[GitHub-Release](https://github.com/thoser666/Vivid/releases/tag/nightly-20260909-104512)
+
+Nightly feature build — installable via Obtainium (enable pre-releases).
+
+**Artefakte:** `app-standard-release.apk` · `mapping.txt` · `output-metadata.json`
+
+## 🌙 **Nightly** 0.5.13-nightly.203 — 2026-09-08
+
+[GitHub-Release](https://github.com/thoser666/Vivid/releases/tag/nightly-20260908-103615)
+
+Nightly feature build — installable via Obtainium (enable pre-releases).
+
+**Artefakte:** `app-standard-release.apk` · `mapping.txt` · `output-metadata.json`
+
+## 🌙 **Nightly** 0.5.13-nightly.198 — 2026-09-07
+
+[GitHub-Release](https://github.com/thoser666/Vivid/releases/tag/nightly-20260907-112907)
+
+Nightly feature build — installable via Obtainium (enable pre-releases).
+
+**Artefakte:** `app-standard-release.apk` · `mapping.txt` · `output-metadata.json`
+
+## 🟡 **Beta** v0.5.13-beta — 2026-09-06
+
+[GitHub-Release](https://github.com/thoser666/Vivid/releases/tag/v0.5.13-beta)
+
+## What's Changed
+* docs: Update CHANGELOG from GitHub releases by @thoser666 in https://github.com/thoser666/Vivid/pull/148
+* docs: Update CHANGELOG from GitHub releases by @thoser666 in https://github.com/thoser666/Vivid/pull/150
+
+
+**Full Changelog**: https://github.com/thoser666/Vivid/compare/nightly-20260906-101604...v0.5.13-beta
+
 ## 🌙 **Nightly** 0.5.12-nightly.184 — 2026-09-06
 
 [GitHub-Release](https://github.com/thoser666/Vivid/releases/tag/nightly-20260906-101604)
