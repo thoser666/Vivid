@@ -5,9 +5,11 @@ import com.pedro.common.ConnectChecker
 import com.pedro.library.multiple.MultiCamera2
 import com.pedro.library.multiple.MultiDisplay
 import com.pedro.library.multiple.MultiFromFile
+import com.pedro.library.multiple.MultiType
 import com.pedro.library.view.GlStreamInterface
 import com.vivid.feature.streaming.source.DisplayFactory
 import com.vivid.feature.streaming.source.PlayerFactory
+import com.vivid.feature.streaming.source.VideoSourceKind
 import com.vivid.feature.streaming.source.VideoSourceRegistry
 import io.mockk.every
 import io.mockk.mockk
@@ -46,6 +48,10 @@ class StreamingEngineFiltersTest {
     private lateinit var cameraFactory: CameraFactory
     private lateinit var displayFactory: DisplayFactory
     private lateinit var playerFactory: PlayerFactory
+
+    /** Der gemockte RootEncoder-Player hinter der PlayerFactory (Replay-Quelle). */
+    private lateinit var replayPlayer: MultiFromFile
+
     private lateinit var streamingEngine: StreamingEngine
 
     @BeforeEach
@@ -63,8 +69,9 @@ class StreamingEngineFiltersTest {
         displayFactory = object : DisplayFactory {
             override fun create(connectCheckers: List<ConnectChecker>): MultiDisplay = mockk(relaxed = true)
         }
+        replayPlayer = mockk(relaxed = true)
         playerFactory = object : PlayerFactory {
-            override fun create(connectCheckers: List<ConnectChecker>): MultiFromFile = mockk(relaxed = true)
+            override fun create(connectCheckers: List<ConnectChecker>): MultiFromFile = replayPlayer
         }
         streamingEngine = StreamingEngine(
             context,
@@ -133,6 +140,49 @@ class StreamingEngineFiltersTest {
         assertNull(streamingEngine.stopReplay())
         streamingEngine.pruneReplays()
         assertEquals(ReplayState.Idle, streamingEngine.replayState.first())
+    }
+
+    @Test
+    fun `useReplayAsSource switches to the replay source and exposes the file`() {
+        val file = File(tempDir, "replay-use.mp4").apply { writeText("x") }
+        every { replayPlayer.prepareVideo(file.absolutePath) } returns true
+        every { replayPlayer.prepareAudio(file.absolutePath) } returns true
+
+        val ok = streamingEngine.useReplayAsSource(file)
+
+        assertTrue(ok)
+        assertEquals(VideoSourceKind.REPLAY, streamingEngine.activeSourceKind.value)
+        assertEquals(file, streamingEngine.activeReplayFile)
+    }
+
+    @Test
+    fun `useReplayAsSource keeps the previous source when the file cannot be prepared`() {
+        val file = File(tempDir, "replay-bad.mp4").apply { writeText("x") }
+        every { replayPlayer.prepareVideo(file.absolutePath) } returns false
+
+        val ok = streamingEngine.useReplayAsSource(file)
+
+        assertFalse(ok)
+        assertEquals(VideoSourceKind.CAMERA, streamingEngine.activeSourceKind.value)
+        assertNull(streamingEngine.activeReplayFile)
+    }
+
+    @Test
+    fun `replay source streams and stops via the engine`() {
+        val file = File(tempDir, "replay-stream.mp4").apply { writeText("x") }
+        every { replayPlayer.prepareVideo(file.absolutePath) } returns true
+        every { replayPlayer.prepareAudio(file.absolutePath) } returns true
+        streamingEngine.useReplayAsSource(file)
+
+        streamingEngine.startStream("rtmp://live.example/app")
+
+        assertEquals(StreamingState.Preparing, streamingEngine.streamingState.value)
+        verify { replayPlayer.startStream(MultiType.RTMP, 0, "rtmp://live.example/app") }
+
+        streamingEngine.stopStream()
+
+        assertEquals(StreamingState.Idle, streamingEngine.streamingState.value)
+        verify { replayPlayer.stopStream(MultiType.RTMP, 0) }
     }
 
     @Test

@@ -6,6 +6,7 @@ import android.net.Uri
 import android.view.MotionEvent
 import android.view.Surface
 import android.view.View
+import java.io.File
 import com.pedro.common.ConnectChecker
 import com.pedro.library.base.Camera2Base
 import com.pedro.library.multiple.MultiCamera2
@@ -13,6 +14,7 @@ import com.pedro.library.multiple.MultiType
 import com.pedro.library.view.GlStreamInterface
 import com.vivid.feature.streaming.source.DisplayFactory
 import com.vivid.feature.streaming.source.PlayerFactory
+import com.vivid.feature.streaming.source.ReplayVideoSource
 import com.vivid.feature.streaming.source.ScreenCaptureVideoSource
 import com.vivid.feature.streaming.source.VideoPlayerVideoSource
 import com.vivid.feature.streaming.source.VideoSourceKind
@@ -83,6 +85,9 @@ class StreamingEngine @Inject constructor(
 
     /** S3: Video-Datei-Quelle (MultiFromFile), lazy erzeugt (wie die Kamera). */
     private var videoPlayerSource: VideoPlayerVideoSource? = null
+
+    /** Replay-als-Quelle (MultiFromFile, Loop-Modus), lazy erzeugt (wie die Kamera). */
+    private var replaySource: ReplayVideoSource? = null
 
     private val _streamingState = MutableStateFlow<StreamingState>(StreamingState.Idle)
     val streamingState: StateFlow<StreamingState> = _streamingState.asStateFlow()
@@ -346,6 +351,14 @@ class StreamingEngine @Inject constructor(
             }
             videoSourceRegistry.switchTo(VideoSourceKind.VIDEO_PLAYER)
         }
+
+        VideoSourceKind.REPLAY -> {
+            val source = ensureReplaySource() ?: return false
+            videoSourceRegistry.registerFactory(VideoSourceKind.REPLAY) { requested ->
+                if (requested == VideoSourceKind.REPLAY) source else null
+            }
+            videoSourceRegistry.switchTo(VideoSourceKind.REPLAY)
+        }
     }
 
     /**
@@ -371,6 +384,17 @@ class StreamingEngine @Inject constructor(
     }
 
     /**
+     * Erzeugt die Replay-Quelle einmalig (wie [ensureVideoPlayerSource] für den
+     * Video-Player) — ein [com.pedro.library.multiple.MultiFromFile] mit einem
+     * ConnectChecker pro Stream-Ziel, der die Ziel-Status der Engine aktualisiert.
+     */
+    private fun ensureReplaySource(): ReplayVideoSource? {
+        if (replaySource != null) return replaySource
+        val player = playerFactory.create(List(MAX_STREAM_TARGETS) { createTargetChecker(it) })
+        return ReplayVideoSource(context, player).also { replaySource = it }
+    }
+
+    /**
      * S3: setzt die abzuspielende Video-Datei (Content-Uri aus dem SAF-Picker)
      * für die Video-Player-Quelle.
      *
@@ -378,6 +402,23 @@ class StreamingEngine @Inject constructor(
      */
     fun setVideoPlayerUri(uri: Uri): Boolean =
         ensureVideoPlayerSource()?.setVideo(uri) ?: false
+
+    /**
+     * Setzt die abzuspielende Replay-Datei für die Replay-Quelle und wechselt auf
+     * sie. Schlägt die Vorbereitung fehl (korrupte/fehlende Datei), bleibt die
+     * aktive Quelle unverändert.
+     *
+     * @return true, wenn die Datei gesetzt wurde und die Quelle aktiv ist.
+     */
+    fun useReplayAsSource(file: File): Boolean {
+        val source = ensureReplaySource() ?: return false
+        if (!source.setReplay(file)) return false
+        return switchSource(VideoSourceKind.REPLAY)
+    }
+
+    /** Die Replay-Datei der aktiven Replay-Quelle (null, wenn keine aktiv/geladen). */
+    val activeReplayFile: File?
+        get() = replaySource?.replayFile
 
     /**
      * S2: liefert den MediaProjection-Consent-Intent der Screen-Capture-Quelle
@@ -662,6 +703,24 @@ class StreamingEngine @Inject constructor(
             return
         }
 
+        // Replay-als-Quelle-Pfad — aktive Quelle ist eine Replay-Datei (Loop).
+        if (activeSourceKind.value == VideoSourceKind.REPLAY) {
+            val source = replaySource ?: return
+            if (source.isActive) return
+
+            _targetStates.value = activeUrls.map { StreamTargetState(it) }
+            _streamingState.value = StreamingState.Preparing
+
+            if (source.start()) {
+                activeUrls.forEachIndexed { index, url ->
+                    source.startStream(index, url)
+                }
+            } else {
+                failStream("Failed to prepare audio/video")
+            }
+            return
+        }
+
         // Kamera-Pfad (unverändert).
         val cam = camera ?: return
         if (cam.isStreaming) return
@@ -718,6 +777,11 @@ class StreamingEngine @Inject constructor(
             }
         } else if (activeSourceKind.value == VideoSourceKind.VIDEO_PLAYER) {
             val source = videoPlayerSource ?: return
+            _targetStates.value.forEachIndexed { index, _ ->
+                source.stopStream(index)
+            }
+        } else if (activeSourceKind.value == VideoSourceKind.REPLAY) {
+            val source = replaySource ?: return
             _targetStates.value.forEachIndexed { index, _ ->
                 source.stopStream(index)
             }

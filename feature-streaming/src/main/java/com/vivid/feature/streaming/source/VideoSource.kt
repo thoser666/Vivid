@@ -19,6 +19,8 @@ enum class VideoSourceKind {
     CAMERA,
     SCREEN_CAPTURE,
     VIDEO_PLAYER,
+    /** Gespeicherte Replay-Aufnahme (MP4) als Quelle — wird in Dauerschleife gestreamt. */
+    REPLAY,
 }
 
 /**

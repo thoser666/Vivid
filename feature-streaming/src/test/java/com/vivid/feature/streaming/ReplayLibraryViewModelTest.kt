@@ -32,6 +32,7 @@ class ReplayLibraryViewModelTest {
 
     private lateinit var storage: ReplayStorage
     private lateinit var library: ReplayLibrary
+    private lateinit var streamingEngine: StreamingEngine
     private lateinit var viewModel: ReplayLibraryViewModel
 
     @BeforeEach
@@ -39,12 +40,14 @@ class ReplayLibraryViewModelTest {
         Dispatchers.setMain(StandardTestDispatcher())
         storage = ReplayStorage(tempDir, maxFiles = 3)
         library = ReplayLibrary(storage)
+        streamingEngine = mockk(relaxed = true)
         viewModel = ReplayLibraryViewModel(
             library = library,
             thumbnails = mockk(),
             appContext = mockk {
                 every { packageName } returns "com.vivid.test"
             },
+            streamingEngine = streamingEngine,
         )
     }
 
@@ -143,6 +146,38 @@ class ReplayLibraryViewModelTest {
 
         assertEquals(0, viewModel.uiState.value.items.size)
         assertTrue(File(tempDir, "keep.txt").exists())
+    }
+
+    @Test
+    fun `useAsSource delegates to the engine and records the confirmation`() = runTest {
+        val file = newFile("replay-src.mp4")
+        viewModel.refresh()
+        advanceUntilIdle()
+        val item = viewModel.uiState.value.items.first()
+        every { streamingEngine.useReplayAsSource(item.file) } returns true
+
+        val ok = viewModel.useAsSource(item)
+
+        assertTrue(ok)
+        assertEquals(item, viewModel.uiState.value.usedAsSource)
+        verify(exactly = 1) { streamingEngine.useReplayAsSource(item.file) }
+
+        viewModel.dismissUsedAsSource()
+        assertNull(viewModel.uiState.value.usedAsSource)
+    }
+
+    @Test
+    fun `useAsSource failure does not set the confirmation`() = runTest {
+        val file = newFile("replay-fail.mp4")
+        viewModel.refresh()
+        advanceUntilIdle()
+        val item = viewModel.uiState.value.items.first()
+        every { streamingEngine.useReplayAsSource(item.file) } returns false
+
+        val ok = viewModel.useAsSource(item)
+
+        assertFalse(ok)
+        assertNull(viewModel.uiState.value.usedAsSource)
     }
 
     @Test

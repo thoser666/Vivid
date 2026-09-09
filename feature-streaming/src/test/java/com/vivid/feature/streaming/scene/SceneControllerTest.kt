@@ -6,6 +6,7 @@ import com.vivid.core.data.SettingsRepository
 import com.vivid.core.data.StreamScene
 import com.vivid.feature.streaming.StreamingEngine
 import com.vivid.feature.streaming.source.VideoSourceKind
+import java.io.File
 import io.mockk.Runs
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -105,5 +106,41 @@ class SceneControllerTest {
         controller.applyScene(scene("2", source = SceneVideoSource.SCREEN_CAPTURE))
 
         coVerify(exactly = 1) { streamingEngine.switchSource(VideoSourceKind.SCREEN_CAPTURE) }
+    }
+
+    @Test
+    fun `applyScene prepares the replay file for a replay scene`() = runTest {
+        val streamingEngine = mockk<StreamingEngine> {
+            every { useReplayAsSource(any()) } returns true
+        }
+        val controller = controller(
+            sceneRepository = mockk(relaxed = true),
+            settingsRepository = mockk(relaxed = true),
+            streamingEngine = streamingEngine,
+        )
+
+        controller.applyScene(
+            scene("3", source = SceneVideoSource.REPLAY).copy(replayPath = "/data/replays/r1.mp4"),
+        )
+
+        coVerify(exactly = 1) { streamingEngine.useReplayAsSource(File("/data/replays/r1.mp4")) }
+        coVerify(exactly = 0) { streamingEngine.switchSource(any()) }
+    }
+
+    @Test
+    fun `applyScene without a replay path falls back to switching the replay source`() = runTest {
+        val streamingEngine = mockk<StreamingEngine> {
+            every { switchSource(any()) } returns true
+        }
+        val controller = controller(
+            sceneRepository = mockk(relaxed = true),
+            settingsRepository = mockk(relaxed = true),
+            streamingEngine = streamingEngine,
+        )
+
+        controller.applyScene(scene("4", source = SceneVideoSource.REPLAY))
+
+        coVerify(exactly = 1) { streamingEngine.switchSource(VideoSourceKind.REPLAY) }
+        coVerify(exactly = 0) { streamingEngine.useReplayAsSource(any()) }
     }
 }

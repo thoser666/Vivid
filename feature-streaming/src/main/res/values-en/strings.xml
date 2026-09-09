@@ -84,6 +84,11 @@
     <string name="replay_library_empty">No replays yet — start a recording with the record button on the streaming screen.</string>
     <string name="replay_library_play">Play</string>
     <string name="replay_library_share">Share</string>
+    <string name="replay_use_as_source">Use as stream source</string>
+    <string name="replay_use_as_source_title">Replay source active</string>
+    <string name="replay_use_as_source_text">“%1$s” is now streamed as the video source in a loop. Save a scene to assign this source permanently.</string>
+    <string name="replay_use_as_source_ok">OK</string>
+    <string name="streaming_source_replay_active_hint">Replay source active — the recording is streamed in a loop.</string>
     <string name="replay_library_delete">Delete</string>
     <string name="replay_library_delete_all">Delete all</string>
     <string name="replay_library_delete_title">Delete replay?</string>

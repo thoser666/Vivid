@@ -29,9 +29,13 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class StreamingViewModelTest {
+
+    @TempDir
+    lateinit var tempDir: java.io.File
 
     private val engine = mockk<StreamingEngine>(relaxed = true)
     private val launcher = mockk<StreamingServiceLauncher>(relaxed = true)
@@ -561,5 +565,43 @@ class StreamingViewModelTest {
 
         verify(exactly = 1) { autoSceneSwitcher.setEnabled(true) }
         verify(exactly = 1) { autoSceneSwitcher.setIntervalSeconds(30) }
+    }
+
+    @Test
+    fun `saveScene with an active replay source records the replay path`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val replayFile = java.io.File(tempDir, "replay-1.mp4").apply { writeText("x") }
+        every { engine.activeSourceKind } returns MutableStateFlow(VideoSourceKind.REPLAY)
+        every { engine.activeReplayFile } returns replayFile
+        val viewModel = viewModel()
+
+        viewModel.saveScene("Replay-Szene")
+        advanceUntilIdle()
+
+        coVerify {
+            sceneRepository.saveScene(
+                match { scene ->
+                    scene.videoSource == SceneVideoSource.REPLAY &&
+                        scene.replayPath == replayFile.absolutePath
+                },
+            )
+        }
+    }
+
+    @Test
+    fun `saveScene with an active video player source falls back to camera`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        every { engine.activeSourceKind } returns MutableStateFlow(VideoSourceKind.VIDEO_PLAYER)
+        every { engine.activeReplayFile } returns null
+        val viewModel = viewModel()
+
+        viewModel.saveScene("Player-Szene")
+        advanceUntilIdle()
+
+        coVerify {
+            sceneRepository.saveScene(
+                match { scene -> scene.videoSource == SceneVideoSource.CAMERA && scene.replayPath == null },
+            )
+        }
     }
 }

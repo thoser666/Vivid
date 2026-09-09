@@ -85,6 +85,11 @@
     <string name="replay_library_empty">Aucun replay pour le moment — lance un enregistrement via le bouton d\'enregistrement de l\'écran de streaming.</string>
     <string name="replay_library_play">Lire</string>
     <string name="replay_library_share">Partager</string>
+    <string name="replay_use_as_source">Utiliser comme source de flux</string>
+    <string name="replay_use_as_source_title">Source de replay active</string>
+    <string name="replay_use_as_source_text">« %1$s » est diffusée en boucle comme source vidéo. Enregistre une scène pour affecter cette source de façon permanente.</string>
+    <string name="replay_use_as_source_ok">OK</string>
+    <string name="streaming_source_replay_active_hint">Source de replay active — l’enregistrement est diffusé en boucle.</string>
     <string name="replay_library_delete">Supprimer</string>
     <string name="replay_library_delete_all">Tout supprimer</string>
     <string name="replay_library_delete_title">Supprimer le replay ?</string>

@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Cast
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -128,6 +129,7 @@ fun ReplayLibraryScreen(
                                 }
                             },
                             onDelete = { viewModel.requestDelete(item) },
+                            onUseAsSource = { viewModel.useAsSource(item) },
                         )
                     }
                 }
@@ -174,6 +176,27 @@ fun ReplayLibraryScreen(
             },
         )
     }
+
+    // „Als Stream-Quelle verwendet“-Bestätigung (Loop-Wiedergabe).
+    uiState.usedAsSource?.let { used ->
+        AlertDialog(
+            onDismissRequest = viewModel::dismissUsedAsSource,
+            title = { Text(stringResource(R.string.replay_use_as_source_title)) },
+            text = {
+                Text(
+                    stringResource(
+                        R.string.replay_use_as_source_text,
+                        used.name,
+                    ),
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = viewModel::dismissUsedAsSource) {
+                    Text(stringResource(R.string.replay_use_as_source_ok))
+                }
+            },
+        )
+    }
 }
 
 @Composable
@@ -182,6 +205,7 @@ private fun ReplayItemCard(
     onPlay: () -> Unit,
     onShare: () -> Unit,
     onDelete: () -> Unit,
+    onUseAsSource: () -> Boolean,
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(12.dp)) {
@@ -211,6 +235,13 @@ private fun ReplayItemCard(
                     Icon(
                         imageVector = Icons.Filled.Share,
                         contentDescription = stringResource(R.string.replay_library_share),
+                    )
+                }
+                Spacer(Modifier.width(8.dp))
+                IconButton(onClick = { onUseAsSource() }) {
+                    Icon(
+                        imageVector = Icons.Filled.Cast,
+                        contentDescription = stringResource(R.string.replay_use_as_source),
                     )
                 }
                 Spacer(Modifier.width(8.dp))

@@ -12,6 +12,8 @@ import kotlinx.serialization.Serializable
 enum class SceneVideoSource {
     CAMERA,
     SCREEN_CAPTURE,
+    /** Eine gespeicherte Replay-Aufnahme (MP4) als Quelle — wird in Dauerschleife gestreamt. */
+    REPLAY,
 }
 
 /**
@@ -39,4 +41,6 @@ data class StreamScene(
     val streamUrl: String = "",
     val streamKey: String = "",
     val streamUseTls: Boolean = false,
+    /** Absoluter Pfad der Replay-Datei (nur für [SceneVideoSource.REPLAY] relevant). */
+    val replayPath: String? = null,
 )

@@ -155,6 +155,7 @@ class StreamingViewModel @Inject constructor(
                 id = UUID.randomUUID().toString(),
                 name = trimmed,
                 videoSource = streamingEngine.activeSourceKind.value.toSceneVideoSource(),
+                replayPath = streamingEngine.activeReplayFile?.absolutePath,
                 widgetEnabled = settings.widgetEnabled,
                 widgetShowTime = settings.widgetShowTime,
                 widgetShowLocation = settings.widgetShowLocation,
@@ -194,7 +195,8 @@ class StreamingViewModel @Inject constructor(
 private fun VideoSourceKind.toSceneVideoSource(): SceneVideoSource = when (this) {
     VideoSourceKind.CAMERA -> SceneVideoSource.CAMERA
     VideoSourceKind.SCREEN_CAPTURE -> SceneVideoSource.SCREEN_CAPTURE
-    // S3 (Video-Player) ist nicht implementiert — Fallback auf Kamera.
+    VideoSourceKind.REPLAY -> SceneVideoSource.REPLAY
+    // S3 (Video-Player) speichert keine Content-Uris in Szenen — Fallback auf Kamera.
     VideoSourceKind.VIDEO_PLAYER -> SceneVideoSource.CAMERA
 }
 

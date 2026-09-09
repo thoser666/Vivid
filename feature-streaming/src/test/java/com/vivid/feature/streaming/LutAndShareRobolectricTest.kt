@@ -76,6 +76,7 @@ class LutAndShareRobolectricTest {
             library = library,
             thumbnails = mockk(),
             appContext = ApplicationProvider.getApplicationContext(),
+            streamingEngine = mockk(relaxed = true),
         )
         val item = ReplayItem(
             file = video,
@@ -105,6 +106,7 @@ class LutAndShareRobolectricTest {
             library = library,
             thumbnails = mockk(),
             appContext = ApplicationProvider.getApplicationContext(),
+            streamingEngine = mockk(relaxed = true),
         )
         val ghost = java.io.File(tempDir, "gone.mp4")
 

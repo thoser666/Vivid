@@ -2,6 +2,7 @@ package com.vivid.feature.streaming.ui
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -19,6 +20,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import java.io.File
+import org.junit.jupiter.api.Assertions.assertNotEquals
 
 /**
  * Robolectric-Compose-Tests für [ReplayLibraryScreen]: Leerliste, Karten-Rendering,
@@ -112,5 +114,32 @@ class ReplayLibraryScreenRobolectricTest {
         setContent()
 
         verify(exactly = 1) { viewModel.refresh() }
+    }
+
+    @Test
+    fun `use-as-source button activates the replay as stream source`() {
+        val replay = item("clip-five")
+        uiState.value = ReplayLibraryUiState(items = listOf(replay))
+        setContent()
+        every { viewModel.useAsSource(replay) } returns true
+
+        composeRule.onNodeWithContentDescription("Use as stream source").performClick()
+        verify(exactly = 1) { viewModel.useAsSource(replay) }
+    }
+
+    @Test
+    fun `used-as-source confirmation dialog shows the replay name and dismisses`() {
+        val replay = item("clip-six")
+        uiState.value = ReplayLibraryUiState(items = listOf(replay), usedAsSource = replay)
+        setContent()
+
+        composeRule.onNodeWithText("Replay source active").assertIsDisplayed()
+        // Karten-Text UND Dialog-Text enthalten den Namen — mindestens ein Node genügt.
+        assertNotEquals(
+            0,
+            composeRule.onAllNodesWithText("clip-six", substring = true).fetchSemanticsNodes().size,
+        )
+        composeRule.onNodeWithText("OK").performClick()
+        verify(exactly = 1) { viewModel.dismissUsedAsSource() }
     }
 }

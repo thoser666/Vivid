@@ -6,6 +6,7 @@ import com.vivid.core.data.SettingsRepository
 import com.vivid.core.data.StreamScene
 import com.vivid.feature.streaming.StreamingEngine
 import com.vivid.feature.streaming.source.VideoSourceKind
+import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -15,7 +16,7 @@ import javax.inject.Singleton
  *
  * - Primäres Stream-Ziel (URL/Key/TLS) → SettingsRepository
  * - Text-/Info-Widget-Zustand (an/aus, Felder, Template) → SettingsRepository
- * - Videoquelle (Kamera / Screen-Capture) → StreamingEngine (VideoSourceRegistry)
+ * - Videoquelle (Kamera / Screen-Capture / Replay) → StreamingEngine (VideoSourceRegistry)
  * - Die Szene wird als aktiv markiert → SceneRepository
  *
  * Das sekundäre Stream-Ziel bleibt bewusst global (kein Szenen-Feld) —
@@ -41,8 +42,27 @@ class SceneController @Inject constructor(
             showAltitude = scene.widgetShowAltitude,
             template = scene.widgetTemplate,
         )
-        streamingEngine.switchSource(scene.videoSource.toVideoSourceKind())
+        applySceneSource(scene)
         sceneRepository.setActiveScene(scene.id)
+    }
+
+    /**
+     * Aktiviert die Videoquelle der Szene. Replay-Szenen setzen zuerst die
+     * gespeicherte Datei (Loop-Wiedergabe); fehlt die Datei (gelöscht/ungültig),
+     * schlägt der Wechsel fehl und die aktive Quelle bleibt unverändert.
+     */
+    private fun applySceneSource(scene: StreamScene) {
+        when (scene.videoSource) {
+            SceneVideoSource.REPLAY -> {
+                val path = scene.replayPath
+                if (path != null) {
+                    streamingEngine.useReplayAsSource(File(path))
+                } else {
+                    streamingEngine.switchSource(VideoSourceKind.REPLAY)
+                }
+            }
+            else -> streamingEngine.switchSource(scene.videoSource.toVideoSourceKind())
+        }
     }
 }
 
@@ -50,4 +70,5 @@ class SceneController @Inject constructor(
 private fun SceneVideoSource.toVideoSourceKind(): VideoSourceKind = when (this) {
     SceneVideoSource.CAMERA -> VideoSourceKind.CAMERA
     SceneVideoSource.SCREEN_CAPTURE -> VideoSourceKind.SCREEN_CAPTURE
+    SceneVideoSource.REPLAY -> VideoSourceKind.REPLAY
 }

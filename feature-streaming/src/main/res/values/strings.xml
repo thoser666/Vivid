@@ -84,6 +84,11 @@
     <string name="replay_library_empty">Noch keine Replays — starte eine Aufnahme über den Aufnahme-Button im Streaming-Screen.</string>
     <string name="replay_library_play">Abspielen</string>
     <string name="replay_library_share">Teilen</string>
+    <string name="replay_use_as_source">Als Stream-Quelle verwenden</string>
+    <string name="replay_use_as_source_title">Replay als Quelle aktiv</string>
+    <string name="replay_use_as_source_text">„%1$s“ wird als Videoquelle in Dauerschleife gestreamt. Speichere eine Szene, um diese Quelle dauerhaft zuzuweisen.</string>
+    <string name="replay_use_as_source_ok">OK</string>
+    <string name="streaming_source_replay_active_hint">Replay-Quelle aktiv — die Aufnahme wird in Dauerschleife übertragen.</string>
     <string name="replay_library_delete">Löschen</string>
     <string name="replay_library_delete_all">Alle löschen</string>
     <string name="replay_library_delete_title">Replay löschen?</string>

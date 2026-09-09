@@ -34,19 +34,23 @@ data class ReplayLibraryUiState(
     val deleteCandidate: ReplayItem? = null,
     /** Replay, das gerade im Player geöffnet ist. */
     val playing: ReplayItem? = null,
+    /** Replay, das als Stream-Videoquelle aktiviert wurde (für die UI-Bestätigung). */
+    val usedAsSource: ReplayItem? = null,
 )
 
 /**
  * ViewModel der Replay-Bibliothek: lädt die MP4-Liste, löscht Einträge
- * (einzeln/alles) und erzeugt den Share-Intent. Die Wiedergabe selbst
- * rendert [com.vivid.feature.playback.StreamPlayer] mit der FileProvider-Uri.
- * Thumbnails werden pro Eintrag asynchron geladen/erzeugt (Dispatchers.IO).
+ * (einzeln/alles), erzeugt den Share-Intent und aktiviert ein Replay als
+ * Stream-Videoquelle („Replay als Szenen-Quelle“, PARITY Row Replays).
+ * Die Wiedergabe selbst rendert [com.vivid.feature.playback.StreamPlayer] mit der
+ * FileProvider-Uri. Thumbnails werden pro Eintrag asynchron geladen/erzeugt (Dispatchers.IO).
  */
 @HiltViewModel
 class ReplayLibraryViewModel @Inject constructor(
     private val library: ReplayLibrary,
     private val thumbnails: ReplayThumbnailStore,
     @ApplicationContext private val appContext: Context,
+    private val streamingEngine: StreamingEngine,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ReplayLibraryUiState())
@@ -79,6 +83,25 @@ class ReplayLibraryViewModel @Inject constructor(
     /** Öffnet ein Replay im Player (FileProvider-Uri für den Media3-Player). */
     fun open(item: ReplayItem) {
         _uiState.value = _uiState.value.copy(playing = item)
+    }
+
+    /**
+     * Aktiviert das Replay als Stream-Videoquelle (Loop-Wiedergabe, Basis für
+     * „Replay als Szenen-Quelle“).
+     *
+     * @return true, wenn die Quelle gewechselt hat.
+     */
+    fun useAsSource(item: ReplayItem): Boolean {
+        val ok = streamingEngine.useReplayAsSource(item.file)
+        if (ok) {
+            _uiState.value = _uiState.value.copy(usedAsSource = item)
+        }
+        return ok
+    }
+
+    /** Verwirft die „Als Quelle verwendet“-Bestätigung (nur UI-Zustand). */
+    fun dismissUsedAsSource() {
+        _uiState.value = _uiState.value.copy(usedAsSource = null)
     }
 
     /** Schließt den Player. */

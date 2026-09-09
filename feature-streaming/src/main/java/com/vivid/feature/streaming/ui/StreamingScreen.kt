@@ -331,9 +331,9 @@ fun StreamingScreen(
                     modifier = Modifier.fillMaxSize(),
                 )
             } else {
-                // S2/S3: Screen-Capture bzw. Video-Player aktiv — kein Kamera-Bild,
-                // stattdessen ein dunkler Platzhalter, damit klar ist, dass der
-                // Gerätebildschirm bzw. die Datei (und nicht die Kamera) die
+                // S2/S3/Replay: Screen-Capture, Video-Player oder Replay aktiv — kein
+                // Kamera-Bild, stattdessen ein dunkler Platzhalter, damit klar ist, dass
+                // der Gerätebildschirm bzw. die Datei (und nicht die Kamera) die
                 // Videoquelle ist.
                 Box(
                     modifier = Modifier
@@ -344,10 +344,10 @@ fun StreamingScreen(
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
                             text = stringResource(
-                                if (activeSourceKind == VideoSourceKind.VIDEO_PLAYER) {
-                                    R.string.streaming_source_video_active_hint
-                                } else {
-                                    R.string.streaming_source_screen_active_hint
+                                when (activeSourceKind) {
+                                    VideoSourceKind.VIDEO_PLAYER -> R.string.streaming_source_video_active_hint
+                                    VideoSourceKind.REPLAY -> R.string.streaming_source_replay_active_hint
+                                    else -> R.string.streaming_source_screen_active_hint
                                 },
                             ),
                             style = MaterialTheme.typography.bodyLarge,
