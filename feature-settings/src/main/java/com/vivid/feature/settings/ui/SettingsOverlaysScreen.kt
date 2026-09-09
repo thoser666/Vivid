@@ -25,7 +25,9 @@ import com.vivid.feature.widget.WidgetVariableResolver
 import androidx.compose.material3.OutlinedTextField
 
 /** Template-Variablen, die per Chip in das Text-Widget-Template eingefügt werden können. */
-private val TEMPLATE_VARIABLES = listOf("{time}", "{date}", "{speed}", "{altitude}", "{lat}", "{lon}")
+private val TEMPLATE_VARIABLES = listOf(
+    "{time}", "{date}", "{speed}", "{altitude}", "{lat}", "{lon}", "{road}", "{city}", "{country}",
+)
 
 /**
  * Kategorie „Overlays & Widgets“: Twitch-Chat-Overlay über der Vorschau und
@@ -169,6 +171,9 @@ fun SettingsOverlaysScreen(
                 altitude = "120 m",
                 latitude = 52.52,
                 longitude = 13.405,
+                road = "Kurfürstendamm",
+                city = "Berlin",
+                country = "Deutschland",
             ),
         )
         if (uiState.widgetTemplate.isNotBlank()) {

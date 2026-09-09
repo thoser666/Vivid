@@ -4,6 +4,8 @@ import com.vivid.core.data.AppSettings
 import com.vivid.core.data.SettingsRepository
 import com.vivid.core.location.LocationProvider
 import com.vivid.core.location.WidgetLocation
+import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import java.time.ZoneId
@@ -66,8 +68,13 @@ class TextInfoWidgetViewModelTest {
         settingsFlow: MutableStateFlow<AppSettings>,
         locationFlow: MutableStateFlow<WidgetLocation> = MutableStateFlow(location()),
         ticks: List<Long> = emptyList(),
+        geocoder: GeocoderResolver = this.geocoder,
     ): TextInfoWidgetViewModel {
-        val viewModel = TextInfoWidgetViewModel(settings(settingsFlow), locationProvider(locationFlow))
+        val viewModel = TextInfoWidgetViewModel(
+            settings(settingsFlow),
+            locationProvider(locationFlow),
+            geocoder,
+        )
         viewModel.ticker = { flowOf(*ticks.toTypedArray()) }
         return viewModel
     }
@@ -77,6 +84,13 @@ class TextInfoWidgetViewModelTest {
         // Deterministische Zone: das VM formatiert mit TimeZone.getDefault().
         TimeZone.setDefault(TimeZone.getTimeZone("Europe/Berlin"))
     }
+
+    /** Relaxed Fake-Geocoder: liefert per Default „Kurfürstendamm/Berlin/Deutschland“. */
+    private fun defaultGeocoder(): GeocoderResolver = mockk(relaxed = true) {
+        coEvery { placenames(any(), any()) } returns Placenames("Kurfürstendamm", "Berlin", "Deutschland")
+    }
+
+    private val geocoder: GeocoderResolver = defaultGeocoder()
 
     @After
     fun tearDown() {
@@ -283,5 +297,161 @@ class TextInfoWidgetViewModelTest {
         runCurrent()
 
         assertTrue(viewModel.uiState.value.resolvedTemplate.contains("52.52"))
+    }
+
+    // --- Geocoding-Variablen ({road}/{city}/{country}) ---
+
+    @Test
+    fun `geocode runs when the template uses a geo variable`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val viewModel = createViewModel(
+            settingsFlow = MutableStateFlow(AppSettings(widgetEnabled = true, widgetTemplate = "{road}")),
+        )
+        runCurrent()
+
+        assertEquals("Kurfürstendamm", viewModel.uiState.value.resolvedTemplate)
+    }
+
+    @Test
+    fun `geocode does not run when the template has no geo variable`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val viewModel = createViewModel(
+            settingsFlow = MutableStateFlow(AppSettings(widgetEnabled = true, widgetTemplate = "{time}")),
+        )
+        runCurrent()
+
+        coVerify(exactly = 0) { geocoder.placenames(any(), any()) }
+    }
+
+    @Test
+    fun `geocode does not run while the widget is disabled`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val viewModel = createViewModel(
+            settingsFlow = MutableStateFlow(AppSettings(widgetEnabled = false, widgetTemplate = "{road}")),
+        )
+        runCurrent()
+
+        coVerify(exactly = 0) { geocoder.placenames(any(), any()) }
+    }
+
+    @Test
+    fun `geo variables fall back to dash when the geocoder yields nothing`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val emptyGeocoder: GeocoderResolver = mockk {
+            coEvery { placenames(any(), any()) } returns null
+        }
+        val viewModel = createViewModel(
+            settingsFlow = MutableStateFlow(AppSettings(widgetEnabled = true, widgetTemplate = "{city}")),
+            geocoder = emptyGeocoder,
+        )
+
+        // Vor dem ersten Scheduler-Step: Template noch nicht geladen → leer.
+        assertEquals("", viewModel.uiState.value.resolvedTemplate)
+        runCurrent()
+
+        // Geocode liefert null → echter „–“-Platzhalter statt rohem {city}.
+        assertEquals("–", viewModel.uiState.value.resolvedTemplate)
+    }
+
+    @Test
+    fun `cache prevents a second geocode for nearby positions`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val locationFlow = MutableStateFlow(location(lat = 52.52, lon = 13.405))
+        val viewModel = createViewModel(
+            settingsFlow = MutableStateFlow(AppSettings(widgetEnabled = true, widgetTemplate = "{road}")),
+            locationFlow = locationFlow,
+        )
+        runCurrent()
+        coVerify(exactly = 1) { geocoder.placenames(any(), any()) }
+
+        // ~50 m weiter (unter der 500-m-Schwelle): kein erneuter Geocode.
+        locationFlow.value = location(lat = 52.52045, lon = 13.405)
+        runCurrent()
+        coVerify(exactly = 1) { geocoder.placenames(any(), any()) }
+        assertEquals("Kurfürstendamm", viewModel.uiState.value.resolvedTemplate)
+    }
+
+    @Test
+    fun `movement beyond the threshold triggers a new geocode`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val locationFlow = MutableStateFlow(location(lat = 52.52, lon = 13.405))
+        val viewModel = createViewModel(
+            settingsFlow = MutableStateFlow(AppSettings(widgetEnabled = true, widgetTemplate = "{road}")),
+            locationFlow = locationFlow,
+        )
+        runCurrent()
+
+        // ~1.1 km weiter: neuer Geocode-Auftrag.
+        locationFlow.value = location(lat = 52.53, lon = 13.405)
+        runCurrent()
+        coVerify(atLeast = 2) { geocoder.placenames(any(), any()) }
+    }
+
+    @Test
+    fun `geocode error keeps the last known value`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val failingGeocoder: GeocoderResolver = mockk {
+            coEvery { placenames(any(), any()) } throws RuntimeException("backend down")
+        }
+        val locationFlow = MutableStateFlow(location())
+        val viewModel = createViewModel(
+            settingsFlow = MutableStateFlow(AppSettings(widgetEnabled = true, widgetTemplate = "{city}")),
+            locationFlow = locationFlow,
+            geocoder = failingGeocoder,
+        )
+        runCurrent()
+
+        // Erstaufruf schlägt fehl → „–“ (kein Crash, kein altes Ergebnis).
+        assertEquals("–", viewModel.uiState.value.resolvedTemplate)
+
+        // Späterer Erfolg → Wert erscheint.
+        locationFlow.value = location(lat = 48.13, lon = 11.57)
+        runCurrent()
+        coEvery { failingGeocoder.placenames(any(), any()) } returns Placenames("r", "München", "D")
+        locationFlow.value = location(lat = 48.20, lon = 11.60)
+        runCurrent()
+        assertEquals("München", viewModel.uiState.value.resolvedTemplate)
+    }
+
+    @Test
+    fun `null geocode result keeps the last known value`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val flakyGeocoder: GeocoderResolver = mockk {
+            coEvery { placenames(any(), any()) } returnsMany listOf(
+                Placenames("A", "B", "C"),
+                null,
+            )
+        }
+        val locationFlow = MutableStateFlow(location())
+        val viewModel = createViewModel(
+            settingsFlow = MutableStateFlow(AppSettings(widgetEnabled = true, widgetTemplate = "{city}")),
+            locationFlow = locationFlow,
+            geocoder = flakyGeocoder,
+        )
+        runCurrent()
+        assertEquals("B", viewModel.uiState.value.resolvedTemplate)
+
+        // Zweiter Standort (>500 m), Geocode liefert null → letzter Wert bleibt.
+        locationFlow.value = location(lat = 48.13, lon = 11.57)
+        runCurrent()
+        assertEquals("B", viewModel.uiState.value.resolvedTemplate)
+    }
+
+    @Test
+    fun `disabling the geo template stops further geocodes`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val settingsFlow = MutableStateFlow(AppSettings(widgetEnabled = true, widgetTemplate = "{road}"))
+        val locationFlow = MutableStateFlow(location())
+        val viewModel = createViewModel(settingsFlow, locationFlow)
+        runCurrent()
+        assertEquals("Kurfürstendamm", viewModel.uiState.value.resolvedTemplate)
+
+        // Template ohne Geo-Variable: Pipeline stoppt — Standortwechsel löst keinen Geocode mehr aus.
+        settingsFlow.value = AppSettings(widgetEnabled = true, widgetTemplate = "{time}")
+        runCurrent()
+        locationFlow.value = location(lat = 48.13, lon = 11.57)
+        runCurrent()
+
+        coVerify(exactly = 1) { geocoder.placenames(any(), any()) }
     }
 }

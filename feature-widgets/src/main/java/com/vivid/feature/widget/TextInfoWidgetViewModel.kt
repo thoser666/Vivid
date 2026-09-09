@@ -6,12 +6,14 @@ import com.vivid.core.data.SettingsRepository
 import com.vivid.core.location.LocationProvider
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
@@ -34,17 +36,25 @@ data class TextInfoWidgetUiState(
     val resolvedTemplate: String = "",
     val latitude: Double = 0.0,
     val longitude: Double = 0.0,
+    val road: String = Placenames.UNKNOWN,
+    val city: String = Placenames.UNKNOWN,
+    val country: String = Placenames.UNKNOWN,
 )
 
 /**
  * Steuert das Text-/Info-Widget über der Streaming-Vorschau: Uhrzeit/Datum aus einem
  * Sekunden-Ticker, GPS-Koordinaten + Geschwindigkeit aus dem [LocationProvider].
  * Location-Updates werden nur gesammelt, wenn das Widget aktiv ist und Standortfelder zeigt.
+ *
+ * Geocoding-Variablen (`{road}`, `{city}`, `{country}`) werden nur aufgelöst, wenn das
+ * Template sie tatsächlich verwendet — und dann gedrosselt über [PlacenamesCache]
+ * (TTL + 500-m-Schwelle), damit nicht bei jedem GPS-Tick reverse-geocodiert wird.
  */
 @HiltViewModel
 class TextInfoWidgetViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val locationProvider: LocationProvider,
+    private val geocoderResolver: GeocoderResolver,
 ) : ViewModel() {
 
     /** Test-Hook für eine feste Uhr (Standard: Systemzeit). */
@@ -55,6 +65,9 @@ class TextInfoWidgetViewModel @Inject constructor(
      * durch einen endlichen Flow, damit der Test-Scheduler nicht endlos weiterläuft.
      */
     internal var ticker: () -> Flow<Long> = ::defaultTicker
+
+    /** Test-Hook: Cache neu (deterministische TTL in Tests). */
+    internal val placenamesCache = PlacenamesCache { now() }
 
     private fun defaultTicker(): Flow<Long> = flow {
         while (true) {
@@ -128,6 +141,56 @@ class TextInfoWidgetViewModel @Inject constructor(
                     }
                 }
         }
+
+        // Geocoding: nur wenn das Template {road}/{city}/{country} enthält, auf jedem
+        // neuen Standort prüfen (Cache entscheidet über frisch/alt). Vorheriger Job wird
+        // abgebrochen — ein GPS-Sturm (Updates alle 2 s) stapelt keine Anfragen.
+        viewModelScope.launch {
+            combine(
+                settingsRepository.appSettingsFlow.map { settings ->
+                    settings.widgetEnabled && settings.widgetTemplate.contains(GEO_VARIABLE_PATTERN)
+                }.distinctUntilChanged(),
+                locationProvider.locationUpdates(),
+            ) { needed, location -> needed to location }
+                .collect { (needed, location) ->
+                    if (!needed) {
+                        geocodeJob?.cancel()
+                        geocodeJob = null
+                        return@collect
+                    }
+                    requestPlacenames(location.latitude, location.longitude)
+                }
+        }
+    }
+
+    private var geocodeJob: Job? = null
+
+    /**
+     * Standort gegen den Cache prüfen und ggf. einen Geocode-Auftrag starten.
+     * Cache-Hit → Platzhalter sofort aus dem Cache befüllen (ohne IO).
+     */
+    private fun requestPlacenames(latitude: Double, longitude: Double) {
+        if (placenamesCache.isFresh(latitude, longitude)) {
+            applyPlacenames(placenamesCache.get())
+            return
+        }
+        geocodeJob?.cancel()
+        geocodeJob = viewModelScope.launch {
+            val result = runCatching { geocoderResolver.placenames(latitude, longitude) }
+                .getOrNull()
+            if (result != null) {
+                placenamesCache.put(latitude, longitude, result)
+            }
+            applyPlacenames(result ?: placenamesCache.get())
+        }
+    }
+
+    /** Geocode-Ergebnis (oder „–“-Platzhalter) in den UiState schreiben. */
+    private fun applyPlacenames(result: Placenames?) {
+        val (road, city, country) = result?.toDisplayValues()
+            ?: Triple(Placenames.UNKNOWN, Placenames.UNKNOWN, Placenames.UNKNOWN)
+        _uiState.update { it.copy(road = road, city = city, country = country) }
+        resolveTemplate()
     }
 
     /** Aktuelles Template mit den aktuellen Werten auflösen. */
@@ -144,11 +207,17 @@ class TextInfoWidgetViewModel @Inject constructor(
             altitude = s.altitude,
             latitude = s.latitude,
             longitude = s.longitude,
+            road = s.road,
+            city = s.city,
+            country = s.country,
         )
         _uiState.update { it.copy(resolvedTemplate = WidgetVariableResolver.resolve(s.template, values)) }
     }
 
     private companion object {
         const val TICK_MILLIS = 1_000L
+
+        /** Template-Substring-Suche: {road}, {city} oder {country}. */
+        val GEO_VARIABLE_PATTERN = Regex("\\{(road|city|country)}")
     }
 }

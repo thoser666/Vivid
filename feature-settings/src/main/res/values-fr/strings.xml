@@ -101,7 +101,7 @@
     <string name="overlays_widget_speed">Vitesse</string>
     <string name="overlays_widget_altitude">Altitude</string>
     <string name="overlays_widget_template_label">Modèle du widget</string>
-    <string name="overlays_widget_template_desc">Texte personnalisé avec des variables au lieu des interrupteurs individuels. Variables disponibles : {time} (heure), {date} (date), {speed} (vitesse), {altitude} (altitude), {lat}/{lon} (coordonnées GPS). Modèle vide = mode interrupteurs.</string>
+    <string name="overlays_widget_template_desc">Texte personnalisé avec des variables au lieu des interrupteurs individuels. Variables disponibles : {time} (heure), {date} (date), {speed} (vitesse), {altitude} (altitude), {lat}/{lon} (coordonnées GPS), {road} (route), {city} (ville), {country} (pays — les noms de lieux prennent un instant mais sont mis en cache). Modèle vide = mode interrupteurs.</string>
     <string name="overlays_widget_template_placeholder">p. ex. {time} — {speed} km/h</string>
     <string name="overlays_widget_template_preview">Aperçu : %1$s</string>
     <string name="overlays_emotes_title">Emotes tierces</string>

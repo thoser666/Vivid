@@ -172,14 +172,14 @@ class SettingsScreensRobolectricTest {
         // Vor jedem Klick scrollen: performClick scrollt nicht selbst.
         composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("{speed}"))
         composeRule.onAllNodesWithText("{speed}")[0].performClick()
-        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("{lat}"))
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("{road}"))
         composeRule.onAllNodesWithText("{lat}")[0].performClick()
         verify { viewModel.onWidgetTemplateChange("{speed}") }
         verify { viewModel.onWidgetTemplateChange("{lat}") }
 
         // Platzhalter-Beschreibung listet alle 6 Variablen auf.
         composeRule.onNodeWithText(
-            "Custom text with placeholders instead of the individual toggles. Available placeholders: {time} (time), {date} (date), {speed} (speed), {altitude} (altitude), {lat}/{lon} (GPS coordinates). Empty template = toggle mode.",
+            "Custom text with placeholders instead of the individual toggles. Available placeholders: {time} (time), {date} (date), {speed} (speed), {altitude} (altitude), {lat}/{lon} (GPS coordinates), {road} (street), {city} (city), {country} (country — placenames take a moment but are cached). Empty template = toggle mode.",
         ).assertExists()
     }
 

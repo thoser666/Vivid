@@ -3,7 +3,8 @@ package com.vivid.feature.widget
 /**
  * Ersetzt Variablen-Platzhalter in einem Widget-Template durch aktuelle Werte.
  *
- * Unterstützte Variablen: `{time}`, `{date}`, `{speed}`, `{altitude}`, `{lat}`, `{lon}`.
+ * Unterstützte Variablen: `{time}`, `{date}`, `{speed}`, `{altitude}`, `{lat}`, `{lon}`,
+ * `{road}`, `{city}`, `{country}`.
  * Unbekannte Variablen bleiben unverändert (für Erweiterbarkeit).
  */
 object WidgetVariableResolver {
@@ -27,6 +28,9 @@ object WidgetVariableResolver {
 
     /**
      * Erzeugt eine Map aller unterstützten Variablen aus den aktuell formatierten Werten.
+     *
+     * Die Geocoding-Werte (`road`/`city`/`country`) kommen aus dem ViewModel — der
+     * Resolver selbst ist rein synchron und kennt keinen Android-Geocoder.
      */
     fun currentValues(
         time: String,
@@ -35,6 +39,9 @@ object WidgetVariableResolver {
         altitude: String,
         latitude: Double,
         longitude: Double,
+        road: String = Placenames.UNKNOWN,
+        city: String = Placenames.UNKNOWN,
+        country: String = Placenames.UNKNOWN,
     ): Map<String, String> = mapOf(
         "time" to time,
         "date" to date,
@@ -42,5 +49,8 @@ object WidgetVariableResolver {
         "altitude" to altitude,
         "lat" to latitude.toString(),
         "lon" to longitude.toString(),
+        "road" to road,
+        "city" to city,
+        "country" to country,
     )
 }

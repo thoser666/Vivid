@@ -38,7 +38,7 @@ class WidgetVariableResolverTest {
 
     @Test
     fun `resolve handles all variable types`() {
-        val template = "{time} {date} {speed} {altitude} {lat} {lon}"
+        val template = "{time} {date} {speed} {altitude} {lat} {lon} {road} {city} {country}"
         val values = mapOf(
             "time" to "14:05:32",
             "date" to "17.08.2026",
@@ -46,8 +46,14 @@ class WidgetVariableResolverTest {
             "altitude" to "120 m",
             "lat" to "52.52",
             "lon" to "13.405",
+            "road" to "Kurfürstendamm",
+            "city" to "Berlin",
+            "country" to "Deutschland",
         )
-        assertEquals("14:05:32 17.08.2026 52.3 km/h 120 m 52.52 13.405", WidgetVariableResolver.resolve(template, values))
+        assertEquals(
+            "14:05:32 17.08.2026 52.3 km/h 120 m 52.52 13.405 Kurfürstendamm Berlin Deutschland",
+            WidgetVariableResolver.resolve(template, values),
+        )
     }
 
     @Test
@@ -66,6 +72,9 @@ class WidgetVariableResolverTest {
         assertEquals("120 m", values["altitude"])
         assertEquals("52.52", values["lat"])
         assertEquals("13.405", values["lon"])
+        assertEquals("–", values["road"])
+        assertEquals("–", values["city"])
+        assertEquals("–", values["country"])
     }
 
     @Test
