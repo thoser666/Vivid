@@ -619,7 +619,7 @@ Die `publish_release`-Lane (`fastlane/Fastfile`) wendet bei fehlgeschlagenem `gh
 > **CodeQL-Alert-Bestand (Stand 28.08.2026):** **0 Errors** (1 False Positive: `implicit-pendingintents` dismissiert — Code nutzt explizite Intents + `FLAG_IMMUTABLE`, siehe github.com/github/codeql/issues/20153); **0 Warnings** (2x `field-masks-super-field` dismissiert — Kotlin interne $stable-Felder in Data-Klasses, bekannter False Positive); **0 Notes** (6x `local-variable-is-never-read` dismissiert — Kotlin-Compiler-Artefakte tmp0_other_with_cast, 1x `backup-enabled` mitigiert — bewusste Entscheidung für Settings-Wiederherstellung). **17 Alerts fixed** — 6x `actions/missing-workflow-permissions`, 9x Kotlin-Compiler-Artefakte (False Positive), 2x `override val message` (präventiv). Insgesamt: **0 offen**, 10 False Positives.
 
 > **Security-Lage (Stand 27.08.2026):**
-> - **Dependabot:** 0 offene Alerts (49 build-tooling-only-Alerts dismissiert, fix=KEIN; Tracking: Kotlin-2.4.20-stabil-Update im September).
+> - **Dependabot:** 0 offene Alerts (49 build-tooling-only-Alerts dismissiert, fix=KEIN). Dependabot-Alert `kotlin-gradle-plugin` (#63, unsafe Deserialization im Kotlin Build Cache) wurde am **10.09.2026 durch Kotlin 2.4.20 geschlossen** (siehe „Erledigt: Kotlin-Update auf 2.4.20").
 > - **CodeQL (oben aktiviert):** Scan läuft sauber (`success`), **0 offene Alerts** — 10 False Positives dismissiert (Kotlin-Compiler-Artefakte + bewusste Konfiguration), 6 fixed, 2x `override val message` präventiv. **Default Setup deaktiviert** (blockierte SARIF-Uploads). CodeQL-Status: ✅ sauber.
 > - **DeepSource:** ✅ Analysis passed (advisory, nur Major/Critical blockierend).
 > - **Secret-Guard:** ✅ (keine ungeschützten Secrets).
@@ -1003,16 +1003,16 @@ gh api repos/<owner>/<repo>/git/tags/<sha> --jq '.object.sha'
 - **Veraltete SHAs:** Tags werden neu getaggt (z.B. bei Security-Fixes). SHA-Update-Pflicht bei Dependabot-PRs.
 - **Falsche Repos:** Manche Actions haben Forks mit eigenen Tags. Immer das Original-Repo prüfen.
 
-### 🚧 Blockiert: Kotlin-Update auf 2.4.20 (stabil)
+### ✔️ Erledigt: Kotlin-Update auf 2.4.20 (stabil)
 
-Der direkte Dependabot-Alert `kotlin-gradle-plugin` (unsafe Deserialization im Kotlin Build Cache, Dependabot #63) bleibt dismissed. Die erste gepatchte Version ist **2.4.20-Beta1**; die **stabile 2.4.20** ist seit September 2026 auf Maven Central verfügbar.
+Der direkte Dependabot-Alert `kotlin-gradle-plugin` (unsafe Deserialization im Kotlin Build Cache, Dependabot #63) ist **geschlossen**: `kotlin` und `jetbrainsKotlinJvm` wurden am 10.09.2026 auf **2.4.20** (stabil, seit 07.09. auf Maven Central) angehoben. Blocker `github/codeql#22404` („Kotlin version 2.4.20 is too recent") wurde am **08.09.2026 geschlossen** — CodeQL unterstützt Kotlin 2.4.20 GA; der frühere Revert (`e5cd592` → `a8766e5`) ist damit aufgehoben.
 
-**⚠️ Blocker (Stand 07.09.2026):** CodeQL unterstützt Kotlin 2.4.20 **GA noch nicht** — der Kotlin-Extractor bricht mit `Kotlin version 2.4.20 is too recent. CodeQL currently supports versions below 2.4.20` ab (nur 2.4.20-RC2 ist als Dev-Default supported, GA bewusst blockiert; Tracking: [github/codeql#22404](https://github.com/github/codeql/issues/22404)). Der Versuch (Issue [#110](https://github.com/thoser666/Vivid/issues/110), Commit `e5cd592`) brach den CodeQL-Workflow → Revert auf 2.4.10 (letzte CodeQL-kompatible Version, CI grün).
-
-**Beim Re-Upgrade (sobald codeql#22404 gemerged ist):**
-- `kotlin` und `jetbrainsKotlinJvm` in `gradle/libs.versions.toml` auf `2.4.20` anheben — Compose-Compiler und Serialization alignen automatisch (`version.ref = "kotlin"`).
-- **KSP** bleibt auf `2.3.11` (seit 2.3.0 von der Kotlin-Version entkoppelt; bei Bedarf aktualisieren).
-- Voller Testlauf Pflicht (lokal + CI): `./gradlew testDebugUnitTest` + `lintDebug` — danach verifizieren, dass Dependabot den Alert #63 automatisch schließt.
+**Umgesetzt:**
+- `kotlin` und `jetbrainsKotlinJvm` in `gradle/libs.versions.toml` → `2.4.20` — Compose-Compiler und Serialization alignen automatisch (`version.ref = "kotlin"`).
+- **KSP** bleibt auf `2.3.11` (seit 2.3.0 von der Kotlin-Version entkoppelt).
+- Voller Testlauf (lokal + CI): `./gradlew testDebugUnitTest` + `lintDebug` grün.
+- **Neuer Kotlin-Sync-Guard** (`scripts/check_kotlin_sync.sh` + Fixtures-Selbsttest `scripts/test_kotlin_sync.sh`, K1–K5): verhindert dauerhaft, dass `kotlin` und `jetbrainsKotlinJvm` auseinanderlaufen (läuft im Pre-Push-Gate + android-ci.yml).
+- Der CodeQL-Kotlin-Wächter (`check_codeql_kotlin_support.sh`) ist damit überflüssig und meldet sich selbst als solchen; er kann in einer späteren Aufräumrunde samt `automation-codeql-kotlin.yml` entfernt werden.
 
 ## 🔑 Signing-Secrets (CI)
 
