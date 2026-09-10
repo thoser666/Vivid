@@ -24,6 +24,12 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# Locale pinnen: die R1-Checks greppen Fixed-Strings mit Emoji (📥). Unter
+# manchen Locales (z. B. en_US.UTF-8 im Git-Hook-Kontext) matcht grep -F die
+# Multibyte-Sequenz nicht — unter C (byteweise) immer. Pinning macht den
+# Test deterministisch über interaktive Shell und Pre-Push-Hook hinaus.
+export LC_ALL=C
+
 FAIL=0
 check() {
   local desc="$1"; shift
