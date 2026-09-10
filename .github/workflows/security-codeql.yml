@@ -5,6 +5,7 @@ on:
     branches: [ master, develop ]
   pull_request:
     branches: [ master, develop ]
+  workflow_dispatch:
   schedule:
     # Wöchentlich Mo 04:00 UTC — Default-Branch-Scan unabhängig von PRs.
     - cron: "0 4 * * 1"
@@ -40,9 +41,10 @@ jobs:
           java-version: "25"
 
       # SHA-Pins (Supply-Chain), konsistent mit der CI-Härtung in RELEASE.md:
-      # Alle drei Actions stammen aus demselben Release-Tag v4.37.8.
+      # Beide Actions stammen aus demselben Release-Tag v4.38.0 (Default-Bundle
+      # 2.27.0 — trägt den Kotlin-2.4.20-Extractor, github/codeql#22404).
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
+        uses: github/codeql-action/init@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4.38.0
         with:
           languages: ${{ matrix.language }}
           # Security-relevante Query-Pakete zusätzlich zum Standard.
@@ -54,6 +56,6 @@ jobs:
         run: ./gradlew :app:assembleDebug --console=plain
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
+        uses: github/codeql-action/analyze@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4.38.0
         with:
           category: "/language:${{ matrix.language }}"
