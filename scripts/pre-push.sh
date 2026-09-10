@@ -137,6 +137,11 @@ run bash scripts/test_build_retry.sh
 echo "▶ [pre-push] Verify-Reproducibility-Selbsttest (scripts/test_verify_reproducibility.sh)"
 run bash scripts/test_verify_reproducibility.sh
 
+# Distributions-Quick-Wins (grep-basiert, offline): permanenter Latest-APK-
+# Permalink im README + Prüfsummen-Anhang in beiden Publikations-Zweigen.
+echo "▶ [pre-push] Distributions-Quick-Wins-Selbsttest (scripts/test_pinned_checksums.sh)"
+run bash scripts/test_pinned_checksums.sh
+
 # Emulator-Matrix (grep-basiert, offline): der Instrumented-UI-Tests-Job muss
 # beide Runner-Architekturen abdecken — x86_64 authority-fähig mit KVM-
 # Enablement, arm64 experimentell (Vorfall 06.09.2026: HVF HV_UNSUPPORTED auf

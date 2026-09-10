@@ -20,7 +20,7 @@
   </a>
 </p>
 
-[📲 Install](#-installation) • [📥 Download APK](../../releases) • [📖 User Guide](docs/user-guide.md) ([🇬🇧 EN](docs/user-guide.en.md) · [🇫🇷 FR](docs/user-guide.fr.md)) • [🤖 AI Chat Bot](docs/ai-chat-bot.md) • [🤝 Contribute](CONTRIBUTING.md) • [📝 Changelog](CHANGELOG.md) • [📚 Documentation](docs/user-guide.md) (DE/EN/FR Handbuch + [docs/ai-chat-bot.md](docs/ai-chat-bot.md) + [GitHub-Wiki](../../wiki) per Doku-Sync synchron) • [🐛 Report Bug](../../issues) • [💬 Discussions](../../discussions)
+[📲 Install](#-installation) • [📥 Download APK](../../releases/latest/download/app-standard-release.apk) • [📖 User Guide](docs/user-guide.md) ([🇬🇧 EN](docs/user-guide.en.md) · [🇫🇷 FR](docs/user-guide.fr.md)) • [🤖 AI Chat Bot](docs/ai-chat-bot.md) • [🤝 Contribute](CONTRIBUTING.md) • [📝 Changelog](CHANGELOG.md) • [📚 Documentation](docs/user-guide.md) (DE/EN/FR Handbuch + [docs/ai-chat-bot.md](docs/ai-chat-bot.md) + [GitHub-Wiki](../../wiki) per Doku-Sync synchron) • [🐛 Report Bug](../../issues) • [💬 Discussions](../../discussions)
 
 </div>
 
@@ -32,7 +32,7 @@
 
 **Get started:**
 
-- 📲 **Install:** grab the latest APK from [Releases](../../releases) or add the [F-Droid repository](#-automatic-updates-f-droid-repository) for automatic updates (APK 24+)
+- 📲 **Install:** grab the latest APK via the permanent [direct download link](../../releases/latest/download/app-standard-release.apk), from the [Releases list](../../releases), or add the [F-Droid repository](#-automatic-updates-f-droid-repository) for automatic updates (APK 24+)
 - 📖 **User guide:** [English](docs/user-guide.en.md) · [Français](docs/user-guide.fr.md) · [Deutsch](docs/user-guide.md) — plus [tutorials](docs/tutorials/), [FAQ](docs/faq/common-issues.md) and [troubleshooting](docs/troubleshooting/)
 - 🛠 **Build from source:** `./gradlew assembleFossDebug` (Gradle 9.4 wrapper, JDK 25; `foss` flavor is fully open-source, the `standard` flavor adds optional Sentry)
 - 🤝 **Contribute:** bugs and features via [Issues](../../issues), code via pull requests to `develop` — see [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow, required checks, and the local pre-push gate; every contribution follows our [Code of Conduct](CODE_OF_CONDUCT.md)
@@ -82,6 +82,8 @@ This README tracks that progress honestly: the [Features](#-features) section ma
 📄 The full versioning strategy (versionName/versionCode, stage criteria) is documented in [RELEASE.md](RELEASE.md). The complete release history (stable, alpha, nightly — automatically mirrored from GitHub Releases) lives in [CHANGELOG.md](CHANGELOG.md). How builds get published — cadence, checksums, F-Droid repositories — is documented in [docs/distribution.md](docs/distribution.md).
 
 ### Step 2: Download the APK
+
+**Direct download:** the latest stable APK is always available at the permanent link [`releases/latest/download/app-standard-release.apk`](../../releases/latest/download/app-standard-release.apk) — GitHub resolves this permalink to the newest stable release automatically. Alternatively via the releases list:
 
 1. Open the [**Releases**](../../releases) page
 2. Click **"Latest"** (stable), or expand the prerelease list for **nightly** / **alpha** builds

@@ -817,6 +817,21 @@ jobs:
       - name: Run SHA256SUMS self-test
         run: bash scripts/test_sha256sums.sh
 
+  # ✅ Regressionstest: Distributions-Quick-Wins — permanenter Latest-APK-
+  # Permalink im README + Prüfsummen-Anhang in BEIDEN Publikations-Zweigen
+  # (stable + nightly). Grep-basiert, offline.
+  # (scripts/test_pinned_checksums.sh)
+  test-pinned-checksums:
+    name: Self-Test Pinned-Checksums (Permalink & Nightly-SUMS)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Run pinned-checksums self-test
+        run: bash scripts/test_pinned_checksums.sh
+
   # ✅ Regressionstest: Wöchentliche Stable-Distribution (distribution-stable.yml)
   # gegen die deploy-FDroid.yml/release-pipeline.yml-Ketten (Kadenz-Vertrag).
   # Grep-basiert + YAML-Parse, offline. (scripts/test_distribution_stable.sh)

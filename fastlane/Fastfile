@@ -299,7 +299,14 @@ platform :android do
       UI.message("SHA256SUMS: #{checksums} (standard + foss)")
       publish_release(options.merge(apk: apk, foss_apk: foss_apk, checksums: checksums, version_name: version_name))
     else
-      publish_release(options.merge(apk: apk, version_name: version_name))
+      # Prüfsummen auch für den Nightly-Kanal: Auch Prerelease-APKs müssen
+      # gegen Download-Korruption verifizierbar sein — dieselbe GNU-SHA256SUMS
+      # wie im Stable-Kanal, aber nur für das Standard-APK (der
+      # Reproduzierbarkeits-Vergleich hängt fix am Standard-Flavor; der
+      # foss-Build bleibt der wöchentlichen Stable-Distribution vorbehalten).
+      checksums = Sha256sums.write([apk], File.dirname(apk))
+      UI.message("SHA256SUMS: #{checksums} (nightly: standard)")
+      publish_release(options.merge(apk: apk, checksums: checksums, version_name: version_name))
     end
   end
 
@@ -415,6 +422,7 @@ platform :android do
       assets = [apk]
       assets << mapping if File.exist?(mapping)
       assets << metadata if File.exist?(metadata)
+      assets << options[:checksums] if options[:checksums] && File.exist?(options[:checksums])
       UI.message("  assets: #{assets.map { |a| File.basename(a) }.join(', ')}")
       UI.message("  mapping: #{mapping} exists=#{File.exist?(mapping)}") if mapping
       UI.message("  metadata: #{metadata} exists=#{File.exist?(metadata)}") if metadata

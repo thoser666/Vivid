@@ -12,6 +12,8 @@
 #   H4 fehlende Dateien → werden ignoriert (kein Abbruch)
 #   H5 write()-Pfad → SHA256SUMS.txt wird in das Zielverzeichnis geschrieben
 #                    und datei-basiert validiert
+#   H6 Nightly-Scope → publish_release hängt die Prüfsummendatei in BEIDEN
+#                    Zweigen an (stable: standard+foss, nightly: standard)
 #
 # Läuft im CI (release-pipeline.yml, Job "Self-Test SHA256SUMS") und lokal:
 # bash scripts/test_sha256sums.sh  (Exit 0 = grün)
@@ -67,6 +69,18 @@ check.call("H4 fehlende Datei wird ignoriert (leere Ausgabe)", missing == "\n")
 out_path = Sha256sums.write([File.join(dir, "a.txt"), File.join(dir, "b.txt")], dir)
 check.call("H5 write() liefert Pfad zu SHA256SUMS.txt", out_path == File.join(dir, "SHA256SUMS.txt"))
 check.call("H5 write() schreibt die Datei", File.exist?(out_path) && File.read(out_path) != "\n")
+
+# H6: Nightly-Scope — Prüfsummen gelten nicht mehr nur für den Stable-Kanal:
+# die publish_release-Lane erzeugt die Datei auch im Nightly-Zweig (Standard-APK
+# ohne foss) und hängt sie an die Assets an. Statisch gegen die Fastfile:
+fastfile = File.read(File.expand_path("fastlane/Fastfile", Dir.pwd))
+upload_anchor = "options[:checksums] && File.exist?(options[:checksums])"
+check.call("H6 Stable-Zweig hängt SHA256SUMS.txt an die Assets an",
+  fastfile.include?(upload_anchor))
+check.call("H6 Nightly-Zweig erzeugt SHA256SUMS für das Standard-APK",
+  fastfile.include?("Sha256sums.write([apk], File.dirname(apk))"))
+check.call("H6 Prüfsummen-Anhang existiert genau 2x (stable + nightly)",
+  fastfile.scan(upload_anchor).size == 2)
 
 exit(failures.zero? ? 0 : 1)
 RUBY

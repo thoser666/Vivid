@@ -9,7 +9,7 @@ Dokument beschreibt den **technischen Ablauf** dahinter.
 
 | Kanal | Wann | Arbeitsschritte im Workflow | Artefakte |
 |---|---|---|---|
-| **🌙 Nightly** | täglich 06:00 UTC (`schedule`) + manuell | `release-pipeline.yml` → Build + Test + publish | `app-standard-release.apk` + `mapping.txt` + `output-metadata.json` (nur Standard-Flavor; prerelease) |
+| **🌙 Nightly** | täglich 06:00 UTC (`schedule`) + manuell | `release-pipeline.yml` → Build + Test + publish | `app-standard-release.apk` + `SHA256SUMS.txt` (standard) + `mapping.txt` + `output-metadata.json` (nur Standard-Flavor; prerelease) |
 | **🚀 Stable** | wöchentlich Mo 03:00 UTC + manuell | `distribution-stable.yml` → wählt neuestes noch nicht verteiltes `v*`-Release → Build (Standard **und** foss) + Checksummen + publish | `app-standard-release.apk` + `app-foss-release.apk` + `SHA256SUMS.txt` |
 | **🛰 F-Droid-Repo** (eigenes) | wöchentlich Mo 04:00 UTC + manuell | `deploy-fdroid.yml` → lädt Stable-APKs, `fdroid update` → GitHub Pages | `repo/index.xml` + `archive/index.xml` |
 
@@ -46,6 +46,9 @@ deshalb gibt es pro Kadenz einen eigenen Workflow. Alles zusätzlich manuell per
 
 ## SHA256SUMS.txt
 
+- **Geltungsbereich:** Stable-Releases tragen die Prüfsummen für **beide** Flavor (standard + foss),
+  Nightly-Releases dieselbe GNU-Datei für das **Standard-APK** — beide Kanäle sind damit gegen
+  Download-Korruption verifizierbar.
 - **Format:** GNU-Checksums, passend zu `sha256sum -c SHA256SUMS.txt` (POSIX-Dateinamen ohne Sonderzeichen).
 - **Sortierung:** deterministisch (`sort_by { |name| File.basename(name) }`) — reproduzierbarer Inhalt,
   damit Reproduzierbarkeits-Vergleiche nicht an der Reihenfolge scheitern.
@@ -140,7 +143,8 @@ und in der CI; gegen gemocktes `gh`/fastlane, ohne Netz):
 |---|---|
 | `scripts/test_build_retry.sh` | `with_gradle_retry`-Muster, foss-Build im Stable-Zweig (T1–T5) |
 | `scripts/test_publish_release_hardening.sh` | Completeness, Idempotenz, Upload-Assets (S1–S8) |
-| `scripts/test_sha256sums.sh` | Checksummen-Format, Sortierung, Verifikation (H1–H5) |
+| `scripts/test_sha256sums.sh` | Checksummen-Format, Sortierung, Verifikation (H1–H6, inkl. Nightly-Scope) |
+| `scripts/test_pinned_checksums.sh` | Permanenter Latest-APK-Permalink + Prüfsummen-Anhang in beiden Publikations-Zweigen (R1–R4) |
 | `scripts/test_distribution_stable.sh` | Workflow: Tag-Auswahl, Dispatch-Validierung, Keystore-Guard, CHANGELOG-Mirror (D1–D12) |
 | `scripts/test_fdroid_metadata.sh` | Metadata-Dateien + versionCode-Konsistenz (M1–M10) |
 | `scripts/test_bot_pr_credentials.sh` | Secrets/Credentials-Disziplin in allen Workflows (inkl. T4-/T7-*/T8-*/T9-*/T10-Loops) |
