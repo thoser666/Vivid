@@ -222,12 +222,6 @@ jobs:
       - name: Test wiki sync generation
         run: bash scripts/test_wiki_sync.sh
 
-      # CodeQL-Kotlin-Wächter (Bash) — Selbsttest: Fixtures beweisen, dass
-      # github/codeql#22404-open → blockiert (0), closed/completed → Re-Upgrade
-      # fällig (10 + Warnung + Summary), API-Ausfall neutral (0) bleibt.
-      - name: Test CodeQL-Kotlin guard
-        run: bash scripts/test_codeql_guard.sh
-
       # Security-Loop (Bash) — Selbsttest: die release-grade Sicherheitsregeln
       # der Pipeline (Keystore-Härtung, Signatur-Check, Reproduzierbarkeit,
       # Sentry-Opt-out, Bot-Credential-Warnung) müssen vorhanden bleiben;

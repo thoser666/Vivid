@@ -214,9 +214,6 @@ run bash scripts/check_bot_commands_doc.sh
 echo "▶ [pre-push] Wiki-Sync-Generierungs-Selbsttest (scripts/test_wiki_sync.sh)"
 run bash scripts/test_wiki_sync.sh
 
-echo "▶ [pre-push] CodeQL-Kotlin-Wächter-Selbsttest (scripts/test_codeql_guard.sh)"
-run bash scripts/test_codeql_guard.sh
-
 # Security-Loop-Guard (bash): release-grade Sicherheitsregeln der Pipeline
 # (Keystore-Härtung, Signatur-Check, Reproduzierbarkeit, Sentry-Opt-out,
 # Bot-Credential-Warnung) müssen vorhanden bleiben — plus Fixture-Selbsttest.

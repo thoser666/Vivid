@@ -1012,7 +1012,7 @@ Der direkte Dependabot-Alert `kotlin-gradle-plugin` (unsafe Deserialization im K
 - **KSP** bleibt auf `2.3.11` (seit 2.3.0 von der Kotlin-Version entkoppelt).
 - Voller Testlauf (lokal + CI): `./gradlew testDebugUnitTest` + `lintDebug` grün.
 - **Neuer Kotlin-Sync-Guard** (`scripts/check_kotlin_sync.sh` + Fixtures-Selbsttest `scripts/test_kotlin_sync.sh`, K1–K5): verhindert dauerhaft, dass `kotlin` und `jetbrainsKotlinJvm` auseinanderlaufen (läuft im Pre-Push-Gate + android-ci.yml).
-- Der CodeQL-Kotlin-Wächter (`check_codeql_kotlin_support.sh`) ist damit überflüssig und meldet sich selbst als solchen; er kann in einer späteren Aufräumrunde samt `automation-codeql-kotlin.yml` entfernt werden.
+- Der CodeQL-Kotlin-Wächter (`check_codeql_kotlin_support.sh` + `automation-codeql-kotlin.yml`) war danach überflüssig und wurde am **10.09.2026 entfernt** — CodeQL unterstützt Kotlin 2.4.20 nativ (Blocker codeql#22404 geschlossen), die wöchentliche Issue-Blockade existiert nicht mehr. Die eigentliche CodeQL-Analyse läuft weiter über `security-codeql.yml`.
 
 ## 🔑 Signing-Secrets (CI)
 
