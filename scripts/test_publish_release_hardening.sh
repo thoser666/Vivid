@@ -97,7 +97,7 @@ assert_count "S1.4 state" 1
 
 echo "== S2: Re-Run bei komplettem Release → Skip (kein neues Create)"
 reset_state
-seed_release '{"tagName":"v9.9.9-test","isDraft":false,"assets":[{"name":"app-standard-release.apk"}]}'
+seed_release '{"tagName":"v9.9.9-test","isDraft":false,"isPrerelease":false,"assets":[{"name":"app-standard-release.apk"},{"name":"app-foss-release.apk"},{"name":"SHA256SUMS.txt"}]}'
 OUT=$(ruby "$HARNESS" 2>&1) || true
 assert_has "S2.1 skip" "already exists and is complete - skipping"
 assert_has "S2.2 lane ok" "LANE_OK"
@@ -114,6 +114,17 @@ assert_has "S3.3 recreate" "mock: release erstellt v9.9.9-test"
 assert_has "S3.4 lane ok" "LANE_OK"
 assert_count "S3.5 state" 1
 [ "$(state_is_draft)" = "false" ] && echo "PASS: S3.6 published" || { echo "FAIL: S3.6 not published"; FAIL=$((FAIL+1)); }
+
+echo "== S8: published, aber nur Standard-APK (alter Stand/Vorwochen-Format) → Delete + Recreate (Asset-Upgrade auf beide Flavor-APKs + SHA256SUMS)"
+reset_state
+seed_release '{"tagName":"v9.9.9-test","isDraft":false,"isPrerelease":false,"assets":[{"name":"app-standard-release.apk"}]}'
+OUT=$(ruby "$HARNESS" 2>&1) || true
+assert_has "S8.1 incomplete erkannt" "exists but is incomplete"
+assert_has "S8.2 delete" "mock: release geloescht v9.9.9-test (gefunden)"
+assert_has "S8.3 recreate" "mock: release erstellt v9.9.9-test"
+assert_has "S8.4 lane ok" "LANE_OK"
+assert_count "S8.5 state" 1
+[ "$(state_is_draft)" = "false" ] && echo "PASS: S8.6 published" || { echo "FAIL: S8.6 not published"; FAIL=$((FAIL+1)); }
 
 echo "== S4: transiente Fehler → Retry bis Erfolg"
 reset_state

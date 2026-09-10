@@ -4,6 +4,7 @@ require "fileutils"
 require_relative "stage_suffix"
 require_relative "release_safety"
 require_relative "build_retry"
+require_relative "sha256sums"
 default_platform(:android)
 
 platform :android do
@@ -274,7 +275,32 @@ platform :android do
 
     apk = lane_context[SharedValues::GRADLE_APK_OUTPUT_PATH] || "app/build/outputs/apk/standard/release/app-standard-release.apk"
     UI.message("APK path: #{apk}, exists: #{File.exist?(apk)}")
-    publish_release(options.merge(apk: apk, version_name: version_name))
+
+    if stable
+      # Wöchentliche Distribution: stable GitHub-Releases tragen BEIDE Flavor-APKs
+      # (standard für GitHub/Obtainium + foss für die F-Droid-Ökosphäre) plus eine
+      # SHA256SUMS-Prüfsummendatei — Nutzer können beide Dateien verifizieren.
+      # Nur im Stable-Pfad: der nightly-Kanal bleibt beim Standard-Flavor, weil der
+      # Reproduzierbarkeits-Vergleich fix am standard-APK hängt, und die foss-Variante
+      # wird nur beim wöchentlichen Stable-Publish ausgeliefert.
+      foss_apk = ENV["GRADLE_FOSS_APK_OUTPUT_PATH"] || "app/build/outputs/apk/foss/release/app-foss-release.apk"
+      BuildRetry.with_gradle_retry("FOSS-Build (assembleFossRelease)") do
+        gradle(
+          task: "assembleFossRelease",
+          flags: "--stacktrace --no-daemon",
+          properties: {
+            "versionName" => version_name,
+            "versionCode" => version_code
+          }
+        )
+      end
+      UI.user_error!("FOSS-APK not found: #{foss_apk}") unless File.exist?(foss_apk)
+      checksums = Sha256sums.write([apk, foss_apk], File.dirname(apk))
+      UI.message("SHA256SUMS: #{checksums} (standard + foss)")
+      publish_release(options.merge(apk: apk, foss_apk: foss_apk, checksums: checksums, version_name: version_name))
+    else
+      publish_release(options.merge(apk: apk, version_name: version_name))
+    end
   end
 
   desc "Publish a pre-built release APK as a GitHub release (requires gh + GH_TOKEN, pre-built APK)"
@@ -295,13 +321,18 @@ platform :android do
       # mitten in der Kette gestorben) darf einen Re-Run NICHT blockieren —
       # sonst würde der Job stillschweigend grün enden, ohne dass eine
       # installierbare APK veröffentlicht wurde.
-      existing = `gh release view #{tag} --json isDraft,assets 2>/dev/null`.strip
+      existing = `gh release view #{tag} --json isDraft,isPrerelease,assets 2>/dev/null`.strip
       info = JSON.parse(existing) rescue nil
-      if info && !info["isDraft"] && (info["assets"] || []).any? { |a| a.is_a?(Hash) && (a["name"] || "").end_with?(".apk") }
+      # Vollständigkeit (wöchentliche Distribution, beide Flavor-APKs + Prüfsummen):
+      # nur published (kein Draft, kein Pre-Release) mit BEIDEN APKs und der
+      # SHA256SUMS-Datei gilt als komplett. Ein Stable-Release aus einem alten
+      # Lauf (nur Standard-APK) oder ein abgebrochener Run wird neu erstellt.
+      required_assets = ["app-standard-release.apk", "app-foss-release.apk", "SHA256SUMS.txt"]
+      if info && !info["isDraft"] && !info["isPrerelease"] && required_assets.all? { |n| (info["assets"] || []).any? { |a| a.is_a?(Hash) && a["name"] == n } }
         UI.important("Release #{tag} already exists and is complete - skipping")
       else
         if info
-          UI.important("Release #{tag} exists but is incomplete (draft or missing APK) - deleting and recreating")
+          UI.important("Release #{tag} exists but is incomplete (draft, prerelease or missing required assets) - deleting and recreating")
           sh("gh", "release", "delete", tag, "--yes") rescue UI.message("  (kein Release zu löschen — ok)")
         end
         UI.message("Publishing GitHub release #{tag}")
@@ -314,7 +345,11 @@ platform :android do
         attempts = 0
         begin
           attempts += 1
-          sh("gh", "release", "create", tag, apk,
+          assets = [apk]
+          assets << options[:foss_apk] if options[:foss_apk] && File.exist?(options[:foss_apk])
+          assets << options[:checksums] if options[:checksums] && File.exist?(options[:checksums])
+          UI.message("  assets: #{assets.map { |a| File.basename(a) }.join(', ')}")
+          sh("gh", "release", "create", tag, *assets,
              "--title", "Vivid #{tag}",
              "--generate-notes")
         rescue => e

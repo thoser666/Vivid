@@ -36,6 +36,15 @@ bash scripts/test_workflow_security.sh
 echo "▶ [pre-push] Bot-PR-Credential-Selbsttest (scripts/test_bot_pr_credentials.sh)"
 bash scripts/test_bot_pr_credentials.sh
 
+echo "▶ [pre-push] Stable-Distribution-Kadenz-Selbsttest (scripts/test_distribution_stable.sh)"
+bash scripts/test_distribution_stable.sh
+
+echo "▶ [pre-push] F-Droid-/Izzy-Submissions-Metadata-Selbsttest (scripts/test_fdroid_metadata.sh)"
+bash scripts/test_fdroid_metadata.sh
+
+echo "▶ [pre-push] SHA-256-Prüfsummen-Selbsttest (scripts/test_sha256sums.sh)"
+bash scripts/test_sha256sums.sh
+
 echo "▶ [pre-push] pip-Pinning-Selbsttest (scripts/test_pip_pinning.sh)"
 bash scripts/test_pip_pinning.sh
 

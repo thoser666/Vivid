@@ -329,11 +329,18 @@ jobs:
           # schreibt nach apk/standard/release/ mit flavor-Dateinamen.
           path: app/build/outputs/apk/standard/release/app-standard-release.apk
 
-  # ✅ Release-APK veröffentlichen:
-  #   - v*-Tags  → stabiles GitHub-Release (auf Push)
-  #   - develop  → rollierendes nightly-Prerelease, NUR einmal pro Tag
+  # ✅ GitHub-Release veröffentlichen:
+  #   - Nightly (develop) → rollierendes nightly-Prerelease, NUR einmal pro Tag
   #     (Schedule 06:00 UTC + manuell per workflow_dispatch) — NICHT bei
   #     jedem develop-Push, damit die Nightly-Kadenz stabil bleibt.
+  #   - Stable (v*-Tags) → wird seit 10.09.2026 NICHT mehr hier publiziert:
+  #     die wöchentliche Stable-Publikation übernimmt der eigene Workflow
+  #     distribution-stable.yml (Mo 03:00 UTC + manuell, siehe docs/distribution.md).
+  #     Grund: GitHub unterscheidet nicht, welcher Cron einen Schedule-Run
+  #     ausgelöst hat — ein zusätzlicher Cron hier hätte Stable fälschlich
+  #     täglich publiziert. Der v*-Tag-Push baut/tests weiterhin, veröffent-
+  #     licht aber nicht mehr; der Weekly-Job sucht die neueste noch nicht
+  #     (vollständig) verteilte Version und veröffentlicht genau diese.
   # Baut bewusst selbst (nicht needs: build-release), weil der Job bei Tag-Push
   # übersprungen würde und GitHub Actions abhängige Jobs dann ebenfalls skippt.
   publish-release:
@@ -343,11 +350,11 @@ jobs:
     # Kein Release für: Dependabot (auch per manuellem Merge) und die
     # Changelog-Bot-Commits (Loop-Schutz: docs: Update CHANGELOG … darf
     # kein neues Nightly auslösen — Tests/Build laufen trotzdem).
-    # Push: nur v*-Tags (stable) und keine Bots. Schedule/Dispatch: immer
-    # (kein Push-Event → keine Dependabot-/Bot-Risiken, Frames kommen frisch
-    # von develop).
-    # Nightly (develop) nur via Schedule/Manual; Push-Pfad nur für v*-Tags (stable).
-    if: (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && github.actor != 'dependabot[bot]' && github.actor != 'github-actions[bot]' && !contains(github.event.commits.*.author.username, 'dependabot[bot]')) || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    # Nur Schedule/Manual: der Stable-Pfad (v*-Tags) läuft im Workflow
+    # distribution-stable.yml — hier gibt es keinen Push-Publizier-Pfad mehr
+    # (Push auf develop darf KEIN Nightly auslösen; v*-Tags publiziert der
+    # Weekly-Job).
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     # Bewusst KEIN `workflows: write`: Push-getriggerte Workflows, die dem
     # GITHUB_TOKEN diese Berechtigung geben, scheitern bei der Validierung
     # ("This run likely failed because of a workflow file issue" — Schutz vor
@@ -790,6 +797,57 @@ jobs:
           ruby-version: '3.3'
       - name: Run build retry self-test
         run: bash scripts/test_build_retry.sh
+
+  # ✅ Regressionstest: SHA-256-Prüfsummen (fastlane/sha256sums.rb) — die
+  # release_github-Stable-Lane publiziert seit 10.09.2026 BEIDE Flavor-APKs
+  # plus GNU-SHA256SUMS.txt in jedem stable Release. Plain Ruby, offline.
+  # (scripts/test_sha256sums.sh)
+  test-sha256sums:
+    name: Self-Test SHA256SUMS (GNU-Format & Determinismus)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1.321.0
+        with:
+          ruby-version: '3.3'
+      - name: Run SHA256SUMS self-test
+        run: bash scripts/test_sha256sums.sh
+
+  # ✅ Regressionstest: Wöchentliche Stable-Distribution (distribution-stable.yml)
+  # gegen die deploy-FDroid.yml/release-pipeline.yml-Ketten (Kadenz-Vertrag).
+  # Grep-basiert + YAML-Parse, offline. (scripts/test_distribution_stable.sh)
+  test-distribution-stable:
+    name: Self-Test Stable-Distribution (Weekly Cadence)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Run stable-distribution self-test
+        run: bash scripts/test_distribution_stable.sh
+
+  # ✅ Regressionstest: F-Droid-/IzzyOnDroid-Submissions-Metadata (foss-Flavor)
+  # + FOSS-Konsistenz der Submission-Vorlage. Plain Ruby (YAML, offline).
+  # (scripts/test_fdroid_metadata.sh)
+  test-fdroid-metadata:
+    name: Self-Test F-Droid-Metadata (foss)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1.321.0
+        with:
+          ruby-version: '3.3'
+      - name: Run F-Droid-Metadata self-test
+        run: bash scripts/test_fdroid_metadata.sh
 
   # ✅ Regressionstest: der nightly-Verify-Job (verify-reproducibility) muss
   # die flavor-korrekten Asset-Namen/Rebuild-Pfade nutzen (Vorfall 06.09.2026:
