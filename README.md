@@ -79,13 +79,13 @@ This README tracks that progress honestly: the [Features](#-features) section ma
 | 🌙 **Nightly** (prerelease) | Fresh build of every new feature, updated daily | Testers, early adopters |
 | 🧪 **Alpha** (`v*-alpha`) | First stage of versioned releases | Previewing upcoming features |
 
-📄 The full versioning strategy (versionName/versionCode, stage criteria) is documented in [RELEASE.md](RELEASE.md). The complete release history (stable, alpha, nightly — automatically mirrored from GitHub Releases) lives in [CHANGELOG.md](CHANGELOG.md).
+📄 The full versioning strategy (versionName/versionCode, stage criteria) is documented in [RELEASE.md](RELEASE.md). The complete release history (stable, alpha, nightly — automatically mirrored from GitHub Releases) lives in [CHANGELOG.md](CHANGELOG.md). How builds get published — cadence, checksums, F-Droid repositories — is documented in [docs/distribution.md](docs/distribution.md).
 
 ### Step 2: Download the APK
 
 1. Open the [**Releases**](../../releases) page
 2. Click **"Latest"** (stable), or expand the prerelease list for **nightly** / **alpha** builds
-3. Download **`app-release.apk`** (ignore `mapping.txt` and `output-metadata.json` — those are for developers only)
+3. On stable releases download **`app-standard-release.apk`** (the `app-foss-release.apk` is the Sentry-free F-Droid variant); ignore `mapping.txt` and `output-metadata.json` — those are for developers only. Verify downloads with `SHA256SUMS.txt` (`sha256sum -c`)
 4. If your browser warns about the file type, confirm "Download anyway"
 
 ### Step 3: Allow installation from unknown sources

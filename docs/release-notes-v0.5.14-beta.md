@@ -24,6 +24,8 @@ Fünfte Patch-Beta nach dem M1-Abschluss: Diese Version liefert fünf Nutzer-Fea
 - **Neue Geocoding-Variablen** `{road}`, `{city}`, `{country}`: Reverse-Geocoding über den Android-Geocoder mit TTL- und Distanz-Cache (10 min / 500 m) — Geocoding läuft nur, wenn das Template die Variablen auch nutzt
 
 ### Release- & Infra-Prozess (sichtbar für Tester)
+- **Wöchentliche Stable-Distribution**: neuer Workflow `distribution-stable.yml` (Mo 03:00 UTC + manuell auslösbar) veröffentlicht Stable-Releases mit **beiden Flavor-APKs** (`app-standard-release.apk` **und** dem Sentry-freien `app-foss-release.apk`) plus **`SHA256SUMS.txt`**-Checksummen — Completeness-geschützt und idempotent (ein schon vollständiges Release wird nicht überschrieben)
+- **F-Droid-Pflege-Metadata** liegt jetzt committed im Repo (`fdroid/config-fdroid-main.yml` + `fdroid/metadata/com.vivid.foss.yml`) — Einreichung für f-droid.org/IzzyOnDroid ist vorbereitet, das eigene F-Droid-Repo läuft weiter auf GitHub Pages (wöchentlich, Mo 04:00 UTC)
 - **fdroidserver-Requirements-Closure** vollständig SHA-256-hash-gepinnt (Scorecard PinnedDependencies, inkl. transitive Abhängigkeiten)
 - **Doku-Guards**: Bot-Befehls-Katalog als Single Source of Truth (In-App-Hilfe, Handbücher DE/EN/FR und Wiki generieren daraus), Wiki-Sync generiert mehrsprachige Wiki-Seiten
 - **CodeQL-Kotlin-Wächter**: wöchentlicher Status-Check, sobald CodeQL Kotlin 2.4.20 GA unterstützt, wird per Issue-Comment an das Re-Upgrade erinnert
@@ -31,10 +33,11 @@ Fünfte Patch-Beta nach dem M1-Abschluss: Diese Version liefert fünf Nutzer-Fea
 
 ## 🐛 Bugfixes
 - **Replay-Bibliothek**: `MediaMetadataRetriever` (Thumbnail-Erzeugung) wurde per `use {}` als `AutoCloseable` behandelt — das existiert erst ab API 29 (minSdk 24) und konnte auf älteren Geräten crashen. Behoben per `try/finally` mit `release()`
+- **Layout-Crash #164 (untersucht):** Der gemeldete *„Vertically scrollable component was measured with an infinity maximum height constraints“*-Crash ließ sich im ausgelieferten Stand (Mapping der rückdatierten Builds) nicht reproduzieren. Die verdächtigen Screens sind jetzt durch Regressionstests abgesichert: About-Screen mit verschachtelter Scroll-Container + **sehr langen** Update-Release-Notes, und Replay-Bibliothek mit **500 Einträgen** in der LazyColumn
 - Kotlin-Compile-Warnung in der Hype-Train-End-Anzeige behoben (PluralsCandidate-Lint in de/en)
 - Fehlender Konstruktor-Parameter in Replay-Bibliothek-Tests (folgte dem Audio/Thumbnail-Umbau)
 
 ## 📊 Statistik
 - **Commits seit v0.5.13-beta:** 36
-- **Neue Tests:** ReplayVideoSource (12), SceneController/StreamingViewModel/ReplayLibrary erweitert, Robolectric-UI-Tests für Bibliothek + Bestätigungsdialog; Geocoder-/Cache-/VM-Tests für die Geocoding-Variablen; Hype-Train-Reader/ViewModel-Tests
+- **Neue Tests:** ReplayVideoSource (12), SceneController/StreamingViewModel/ReplayLibrary erweitert, Robolectric-UI-Tests für Bibliothek + Bestätigungsdialog; Geocoder-/Cache-/VM-Tests für die Geocoding-Variablen; Hype-Train-Reader/ViewModel-Tests; **Regressionstests Crash #164** (About-Update-Notes, Replay-Liste mit 500 Einträgen); Pipeline-Selbsttests für Distribution/Checksummen/F-Droid-Metadata (D/H/M-Suiten, laufen in pre-push + CI)
 - **PARITY-Status:** „Replays" **vollständig ✅**, „Text-Widget-Variablen" **vollständig ✅**, Twitch-Hype-Train ergänzt (Twitch-Integration weiter ausgebaut)

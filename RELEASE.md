@@ -9,7 +9,7 @@ Jeder Release durchläuft eine von vier Stufen. Welche Stufe aktiv ist, bestimmt
 | `nightly` | `nightly` (rollierend) | **täglich 06:00 UTC (Schedule)** · manuell (`workflow_dispatch`) — **seit 21.08.2026 NUR einmal pro Tag**, nicht mehr bei jedem develop-Push (develop-Pushes laufen nur Tests/Builds) | Entwickler · CI-Tester |
 | `alpha` | `vX.Y.Z-alpha` (Patch-Alphas möglich, z. B. `v0.4.2-alpha`) | Manuell via `fastlane release_alpha` | Frühe Tester (Obtainium, kein Pre-Release-Flag nötig) |
 | `beta` | `vX.Y.Z-beta` (Patch-Betas möglich, z. B. `v0.5.1-beta`) | Manuell via `fastlane release_beta` (Spiegel von `release_alpha` inkl. Safety-Checks) | Feldtester · Hunde essen ihr eigenes Futter |
-| `stable` | `vX.Y.Z` | Manuell via `fastlane release_stable` (TODO) | Play Store · F-Droid · Allgemeinverfügbarkeit |
+| `stable` | `vX.Y.Z` | Automatisch wöchentlich (Mo 03:00 UTC) via `distribution-stable.yml` → `fastlane release_github`; manuell per `workflow_dispatch` | Play Store · F-Droid · Allgemeinverfügbarkeit |
 
 ## 🧭 Beta-Release-Strategie (wann wird ein Beta-Tag gesetzt?)
 
@@ -168,7 +168,7 @@ Vergleich der Voraussetzungen für den ersten Upload (Stand 08/2026, Vivid ist M
 5. Fertig — Updates erscheinen automatisch
 
 **Technische Details:**
-- **Workflow:** `.github/workflows/deploy-fdroid.yml` (Release-Trigger + wöchentlich)
+- **Workflow:** `.github/workflows/deploy-fdroid.yml` (wöchentlich Mo 04:00 UTC + manuell)
 - **Config:** `fdroid/config.yml`
 - **Hosting:** GitHub Pages (kostenlos, automatisch)
 - **Secrets:** `F_DROID_KEYSTORE`, `F_DROID_KEY_ALIAS`, `F_DROID_KEY_PASSWORD`, `F_DROID_KEY_DNAME` (einmalig hinterlegen)
@@ -234,7 +234,10 @@ Da hier bereits `archive_older: 5` (anzahlbasiert) aktiv ist, übersteuert `Arch
 
 ## 📦 F-Droid Hauptrepo (FOSS-Build ohne Sentry)
 
-**Status: ✅ Vorbereitet** — Die FOSS-Variante ist implementiert und kann für das F-Droid-Hauptrepo eingereicht werden.
+**Status: ✅ Einreichungsbereit** — Die FOSS-Variante ist implementiert, die Pflege-Metadata
+(`fdroid/config-fdroid-main.yml` + `fdroid/metadata/com.vivid.foss.yml`) liegt committed im Repo,
+und jedes wöchentliche Stable-Release veröffentlicht zusätzlich `app-foss-release.apk` direkt in den
+GitHub-Releases. Siehe [docs/distribution.md](docs/distribution.md) für den technischen Ablauf.
 
 **Was ist ein FOSS-Build?**
 - ✅ **Kein Sentry** — Kein Crash-Reporting, kein Tracking, kein Telemetry
@@ -266,7 +269,7 @@ Da hier bereits `archive_older: 5` (anzahlbasiert) aktiv ist, übersteuert `Arch
 
 **Für das F-Droid-Hauptrepo einreichen:**
 1. **FOSS-Build testen:** `./gradlew assembleFossRelease`
-2. **Metadaten vorbereiten:** `fdroid/config-fdroid-main.yml`
+2. **Metadata prüfen:** `fdroid/config-fdroid-main.yml` + `fdroid/metadata/com.vivid.foss.yml` sind bereits gepflegt (versionCode/versionName konsistent, `UpdateCheckMode: Tags`, Builds-Block auf den letzten Tag zeigen)
 3. **MR an F-Droid erstellen:** https://gitlab.com/fdroid/fdroiddata/-/merge_requests
 4. **Review abwarten:** 2-8 Wochen
 5. **Veröffentlichung:** Sobald der MR gemergt ist
