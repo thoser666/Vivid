@@ -241,6 +241,15 @@ run bash scripts/check_version_catalog.sh
 echo "▶ [pre-push] Version-Catalog-Check-Selbsttest (scripts/test_check_version_catalog.sh)"
 run bash scripts/test_check_version_catalog.sh
 
+# Kotlin-Sync-Guard: kotlin und jetbrainsKotlinJvm (Issue #110, Dependabot #63)
+# müssen dieselbe Kotlin-Version tragen — Drift kompiliert Tooling und Module
+# mit unterschiedlichen Vorlagen. Guard + Fixtures-Selbsttest.
+echo "▶ [pre-push] Kotlin-Sync-Guard (scripts/check_kotlin_sync.sh)"
+run bash scripts/check_kotlin_sync.sh
+
+echo "▶ [pre-push] Kotlin-Sync-Guard-Selbsttest (scripts/test_kotlin_sync.sh)"
+run bash scripts/test_kotlin_sync.sh
+
 # Dashboard aktualisieren (statisch generiert, committed)
 echo "▶ [pre-push] Dashboard generieren (scripts/generate_status_dashboard.sh)"
 run bash scripts/generate_status_dashboard.sh

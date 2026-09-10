@@ -186,6 +186,15 @@ jobs:
       - name: Check version catalog consistency
         run: bash scripts/check_version_catalog.sh
 
+      # Kotlin-Sync-Guard: kotlin und jetbrainsKotlinJvm müssen synchron bleiben
+      # (Issue #110, Dependabot-Alert #63) — Drift kompiliert die JVM- und
+      # Android-Module mit unterschiedlichen Kotlin-Versionen.
+      - name: Test kotlin/jetbrainsKotlinJvm sync guard
+        run: bash scripts/test_kotlin_sync.sh
+
+      - name: Check kotlin/jetbrainsKotlinJvm sync
+        run: bash scripts/check_kotlin_sync.sh
+
       # Geteilte Release-Safety (Ruby) — Selbsttest: versionCode-Ableitung,
       # Track-Monotonie (kein Downgrade) und Quer-Track-Vergleich; strukturell
       # wird geprüft, dass release_alpha UND release_beta dieselben Funktionen
