@@ -32,7 +32,10 @@ tests = {
   "0.5.8-beta.1" => 5084,
   "1.0" => 1000004,
   "0.5.13" => 5134,
-  "v0.5.13" => 5134
+  "v0.5.13" => 5134,
+  "0.5.14" => 5144,
+  "v0.5.14" => 5144,
+  "0.5.14-stable" => 5144
 }
 
 puts "=== Konsistenz-Check: version_code_for (Ruby) vs. Fastlane-Schema ==="

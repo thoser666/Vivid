@@ -85,8 +85,8 @@ Description: ...
 UpdateCheckMode: Tags
 VercodeOperation:
   - '%c + 400'        # reservierter Separator-Bereich Standard↔foss
-CurrentVersion: '0.5.14-beta'
-CurrentVersionCode: 5142
+CurrentVersion: '0.5.14'
+CurrentVersionCode: 5144
 Builds:
   - versionName: 0.5.14-beta
     versionCode: 5142
@@ -96,10 +96,18 @@ Builds:
     output: app-foss-release.apk
     scandelete:
       - app/src/main/generated
+  - versionName: 0.5.14
+    versionCode: 5144
+    commit: v0.5.14
+    gradle:
+      - yes
+    output: app-foss-release.apk
+    scandelete:
+      - app/src/main/generated
 ```
 
 **versionCode-Schema** (fastlane/release_safety.rb): `major*1_000_000 + minor*1_000 + patch*10 + Stufe`
-(alpha=1, beta=2, rc=3, stable=4). `0.5.14-beta` → `5142`. Der foss-Eintrag nutzt denselben
+(alpha=1, beta=2, rc=3, stable=4). `0.5.14-beta` → `5142`, `0.5.14` → `5144`. Der foss-Eintrag nutzt denselben
 versionCode wie Standard — F-Droid und der eigene Repo-Server können sich damit nicht in die Quere
 kommen (keine Duplikate pro Repo). Bei Versionsbumps immer `release_safety.rb`/Test
 `test_fdroid_metadata.sh` (M1–M10) konsistent aktualisieren.
