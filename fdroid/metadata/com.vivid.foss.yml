@@ -1,0 +1,70 @@
+# F-Droid / IzzyOnDroid Metadata für den FOSS-Build von Vivid
+# Paket: com.vivid.foss (applicationId des foss-Flavors — der standard-Flavor
+# com.vivid enthält optional Sentry/Tracking und gehört NICHT ins F-Droid-Ökosystem).
+#
+# Dieser Eintrag wird für zwei Zielstellungen genutzt (siehe docs/distribution.md):
+#   1. f-droid.org    → Einreichung auf https://f-droid.org/en/docs/Inclusion_Policy/
+#                       (Eintrag muss durch das Maintainer-Team von F-Droid
+#                       geprüft/gemerkt werden).
+#   2. IzzyOnDroid     → eigene Repo-Verwaltung, Autoupdated per Builds-Block.
+#
+# Pflege pro Release (deterministisch, siehe fastlane/release_safety.rb):
+#   versionCode = major*1_000_000 + minor*1_000 + patch*10 + Stufe
+#   0.5.14-beta → 5142. Nach jedem release_beta den Builds-Block um den neuen
+#   Tag (versionName/versionCode/commit) ergänzen und den ältesten entfernen.
+#   Der foss-Flavor baut über `./gradlew assembleFossRelease` (Flavor foss +
+#   Release-Typ release, APK: app-foss-release.apk). Ohne KEYSTORE_PATH fällt
+#   die Signierung auf den Debug-Key zurück → fdroidserver signiert neu.
+#   Releases ohne versionCode-Tag sind Absicht: nightly werden nie eingereicht.
+
+Categories:
+  - Internet
+  - Multimedia
+  - Entertainment
+
+License: MIT
+
+AuthorName: thoser666
+
+WebSite: https://thoser666.github.io/Vivid/
+SourceCode: https://github.com/thoser666/Vivid
+IssueTracker: https://github.com/thoser666/Vivid/issues
+Changelog: https://github.com/thoser666/Vivid/releases
+Donate: https://github.com/sponsors/thoser666
+
+AutoName: Vivid
+
+Summary: Free open-source IRL streaming app with chat bot and AI features
+
+Description: |-
+  Vivid is a free, open-source live streaming app for Android that is
+  functionally equivalent to Moblin, the professional iOS streaming tool.
+  It streams over RTMP and SRT to Twitch, YouTube, Kick and self-hosted
+  endpoints, controls OBS Studio over WebSocket, and combines streaming
+  with an integrated chat overlay for live interaction and moderation.
+
+  Beyond the stream it brings scene management with automatic scene
+  switching, real-time GPS overlay (altitude, speed, coordinates),
+  text/info widgets with sensor and geocoding variables, replay support
+  (record to disk, thumbnails and a library), and an AI-powered chat bot
+  with configurable responses and owner remote-control commands.
+
+  This is the fully free build: no ads, no telemetry, no tracking. The
+  Sentry crash reporting of the standard flavor is removed (foss flavor),
+  so the app runs completely open source. Multi-language support
+  (English, German, French) and dark mode with AMOLED display are included.
+
+  More information, the source code and the release history live on
+  GitHub. Report bugs or request features on the issue tracker.
+
+# AutoUpdate: nur stabile/milestone v*-Tags verfolgen — die rolling nightly
+# Releases (nightly-…, Prerelease) haben keine v*-Tags und bleiben außen vor.
+UpdateCheckMode: Tags
+
+Builds:
+  - versionName: 0.5.14-beta
+    versionCode: 5142
+    commit: v0.5.14-beta
+    gradle:
+      - assembleFossRelease
+    output: app-foss-release.apk
