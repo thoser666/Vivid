@@ -38,6 +38,6 @@ Fünfte Patch-Beta nach dem M1-Abschluss: Diese Version liefert fünf Nutzer-Fea
 - Fehlender Konstruktor-Parameter in Replay-Bibliothek-Tests (folgte dem Audio/Thumbnail-Umbau)
 
 ## 📊 Statistik
-- **Commits seit v0.5.13-beta:** 36
+- **Commits seit v0.5.13-beta:** 46
 - **Neue Tests:** ReplayVideoSource (12), SceneController/StreamingViewModel/ReplayLibrary erweitert, Robolectric-UI-Tests für Bibliothek + Bestätigungsdialog; Geocoder-/Cache-/VM-Tests für die Geocoding-Variablen; Hype-Train-Reader/ViewModel-Tests; **Regressionstests Crash #164** (About-Update-Notes, Replay-Liste mit 500 Einträgen); Pipeline-Selbsttests für Distribution/Checksummen/F-Droid-Metadata (D/H/M-Suiten, laufen in pre-push + CI)
 - **PARITY-Status:** „Replays" **vollständig ✅**, „Text-Widget-Variablen" **vollständig ✅**, Twitch-Hype-Train ergänzt (Twitch-Integration weiter ausgebaut)
