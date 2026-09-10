@@ -34,12 +34,15 @@ for file in \
 done
 
 # CodeQL guard note: the weekly automation-codeql-kotlin.yml workflow was
-# removed on 2026-09-10. Lesson from that removal: action pin and default
-# BUNDLE are separate versions — Kotlin-2.4.20 support only shipped with
-# bundle 2.27.0 (action v4.38.0, released 2026-09-09; extractor PR
-# github/codeql#20018, issue #22404 closed 2026-09-08). All codeql-action
-# pins across workflows must use the SAME release (init/analyze/upload-sarif)
-# to avoid the mixed-version warning; see RELEASE.md Bundle-Lag-Lehre.
+# removed on 2026-09-10 and its premise was WRONG: action pin and default
+# BUNDLE are separate versions, and even bundle 2.27.0 (action v4.38.0,
+# released 2026-09-09) still REJECTS Kotlin 2.4.20 ("too recent") — support
+# is merged upstream (github/codeql#20018, issue #22404 closed 2026-09-08)
+# but not shipped in any released bundle yet. Empirical evidence: CodeQL run
+# 34509237841. The advisory watcher scripts/check_codeql_blockade.sh tracks
+# the blockade; all codeql-action pins across workflows must use the SAME
+# release (init/analyze/upload-sarif) to avoid the mixed-version warning;
+# see RELEASE.md Bundle-Lag-Lehre.
 
 # The PR title is data passed through the environment, never interpolated into a
 # run script. This is the concrete regression for CodeQL DangerousWorkflowID #24.

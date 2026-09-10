@@ -247,6 +247,15 @@ run bash scripts/check_kotlin_sync.sh
 echo "▶ [pre-push] Kotlin-Sync-Guard-Selbsttest (scripts/test_kotlin_sync.sh)"
 run bash scripts/test_kotlin_sync.sh
 
+# CodeQL-Blockade-Wächter (advisory — nie push-blockierend): Kotlin 2.4.20 ist
+# in keinem released Bundle extrahierbar (Stand 2.27.0, empirisch 2026-09-10);
+# warnt, sobald ein neueres Bundle die Blockade mutmaßlich aufhebt.
+echo "▶ [pre-push] CodeQL-Blockade-Wächter (scripts/check_codeql_blockade.sh)"
+run bash scripts/check_codeql_blockade.sh
+
+echo "▶ [pre-push] CodeQL-Blockade-Wächter-Selbsttest (scripts/test_codeql_blockade.sh)"
+run bash scripts/test_codeql_blockade.sh
+
 # Dashboard aktualisieren (statisch generiert, committed)
 echo "▶ [pre-push] Dashboard generieren (scripts/generate_status_dashboard.sh)"
 run bash scripts/generate_status_dashboard.sh
