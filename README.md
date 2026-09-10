@@ -87,7 +87,7 @@ This README tracks that progress honestly: the [Features](#-features) section ma
 
 1. Open the [**Releases**](../../releases) page
 2. Click **"Latest"** (stable), or expand the prerelease list for **nightly** / **alpha** builds
-3. On stable releases download **`app-standard-release.apk`** (the `app-foss-release.apk` is the Sentry-free F-Droid variant); ignore `mapping.txt` and `output-metadata.json` — those are for developers only. Verify downloads with `SHA256SUMS.txt` (`sha256sum -c`)
+3. On stable releases download **`app-standard-release.apk`** (the `app-foss-release.apk` is the Sentry-free F-Droid variant); ignore `mapping.txt` and `output-metadata.json` — those are for developers only. Verify downloads with `SHA256SUMS.txt` (`sha256sum -c`); stable releases now additionally ship a sigstore/cosign keyless signature (`SHA256SUMS.txt.sig` + `.crt`) that authenticates the checksum file itself — see [docs/distribution.md](docs/distribution.md)
 4. If your browser warns about the file type, confirm "Download anyway"
 
 ### Step 3: Allow installation from unknown sources

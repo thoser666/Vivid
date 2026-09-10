@@ -10,7 +10,7 @@ Dokument beschreibt den **technischen Ablauf** dahinter.
 | Kanal | Wann | Arbeitsschritte im Workflow | Artefakte |
 |---|---|---|---|
 | **🌙 Nightly** | täglich 06:00 UTC (`schedule`) + manuell | `release-pipeline.yml` → Build + Test + publish | `app-standard-release.apk` + `SHA256SUMS.txt` (standard) + `mapping.txt` + `output-metadata.json` (nur Standard-Flavor; prerelease) |
-| **🚀 Stable** | wöchentlich Mo 03:00 UTC + manuell | `distribution-stable.yml` → wählt neuestes noch nicht verteiltes `v*`-Release → Build (Standard **und** foss) + Checksummen + publish | `app-standard-release.apk` + `app-foss-release.apk` + `SHA256SUMS.txt` |
+| **🚀 Stable** | wöchentlich Mo 03:00 UTC + manuell | `distribution-stable.yml` → wählt neuestes noch nicht verteiltes `v*`-Release → Build (Standard **und** foss) + Checksummen + cosign keyless-Signatur + publish | `app-standard-release.apk` + `app-foss-release.apk` + `SHA256SUMS.txt` + `SHA256SUMS.txt.sig` + `SHA256SUMS.txt.crt` |
 | **🛰 F-Droid-Repo** (eigenes) | wöchentlich Mo 04:00 UTC + manuell | `deploy-fdroid.yml` → lädt Stable-APKs, `fdroid update` → GitHub Pages | `repo/index.xml` + `archive/index.xml` |
 
 Das Stable-Release wird also **wöchentlich statt bei jedem Tag-Push** publiziert. Ein neuer
@@ -23,7 +23,7 @@ deshalb gibt es pro Kadenz einen eigenen Workflow. Alles zusätzlich manuell per
 **Zweck:** Neueste Version, Stand Montag 03:00 UTC, als „Latest“-Release veröffentlichen.
 
 1. **Tag-Auswahl:** Semver-Sortierung aller `v*`-Tags; ein Tag gilt als „noch nicht verteilt“,
-   wenn sein GitHub-Release nicht vollständig ist (muss dauerhaft 3 Assets haben, siehe unten).
+   wenn sein GitHub-Release nicht vollständig ist (muss dauerhaft 4 Assets haben, siehe unten).
    Bei `workflow_dispatch` kann ein optionaler `version`-Input (Muster `v<major>.<minor>.<patch>`,
    optional mit Stufensuffix) den Kandidaten übersteuern.
 2. **Build:** `bundle exec fastlane release_github tag:"$TAG"` baut **beide** Flavor:
@@ -31,16 +31,26 @@ deshalb gibt es pro Kadenz einen eigenen Workflow. Alles zusätzlich manuell per
 3. **Checksummen:** `fastlane/sha256sums.rb` erzeugt `SHA256SUMS.txt` im GNU-Format
    (`<sha256>  <dateiname>`), deterministisch sortiert nach Basisname. Die Datei ist Bestandteil
    des Releases (per `fastlane`/`gh release upload`).
-4. **Completeness-Regel** (in `fastlane/Fastfile` → `publish_release`): Ein Stable-Release ist
-   **vollständig**, wenn es nicht Draft/Prerelease ist **und** alle drei Assets enthält:
+4. **Completeness-Regel** (in `fastlane/Fastfile` → `publish_release` **und** im jq-Check des
+   Workflows): Ein Stable-Release ist **vollständig**, wenn es nicht Draft/Prerelease ist **und**
+   alle Assets enthält:
    - `app-standard-release.apk`
    - `app-foss-release.apk`
    - `SHA256SUMS.txt`
+   - `SHA256SUMS.txt.sig` (cosign-Signatur, erst seit dem Signatur-Update 10.09.2026 Pflicht —
+     ein alter Release ohne Signatur wird beim nächsten Stable-Lauf repariert, nicht neu erstellt)
    Ein unvollständiges Release wird gelöscht und neu erstellt (idempotent — ein schon vollständiges
-   wird übersprungen).
-5. **Keystore-Härtung:** Der foss-Build signiert mit demselben Release-Key; ohne `KEYSTORE_PATH`
+   wird übersprungen); der Fastfile-Pfad (3 Assets) bleibt bewusst konservativ, damit ältere
+   Releases nicht mit dem Rebuild-Löschen abgerissen werden — die Signatur-Nachrüstung übernimmt
+   der cosign-Step im Workflow.
+5. **Signatur:** Nach dem Publish lädt der Workflow die veröffentlichte `SHA256SUMS.txt` herunter
+   und signiert sie **keyless** per Sigstore/cosign (ambient OIDC-Token des Runners, `id-token: write`
+   im Job; kein längerfristiges Key-Material im Repo). Signatur + Zertifikat (`SHA256SUMS.txt.sig`,
+   `SHA256SUMS.txt.crt`) werden per `gh release upload --clobber` ans Release angehängt —
+   idempotent, so bleibt der Repair-Pfad (Signatur fehlt) gefahrlos abspielbar.
+6. **Keystore-Härtung:** Der foss-Build signiert mit demselben Release-Key; ohne `KEYSTORE_PATH`
    fällt Gradle auf einen Debug-Build zurück → der Workflow prüft die Keystore-Secrets vor dem Build.
-6. **CHANGELOG-Mirror:** Die Release-Notes werden nach dem Publish per automatischem PR in
+7. **CHANGELOG-Mirror:** Die Release-Notes werden nach dem Publish per automatischem PR in
    `CHANGELOG.md` gespiegelt (AUTOMATION_TOKEN oder GitHub-Token, Rebase-Automation; bei Konflikt
    Rollback auf manuelle Erstellung).
 
@@ -56,6 +66,36 @@ deshalb gibt es pro Kadenz einen eigenen Workflow. Alles zusätzlich manuell per
 - **Verifikation** im Selbsttest: `scripts/test_sha256sums.sh` (H1–H5 + Positivkontrolle `sha256sum -c`).
 - **Wozu?** Downloads verifizierbar machen (vgl. Opt-in-Check in der App) und den F-Droid/Obtainium-
   Reproduzierbarkeits-Anspruch nachvollziehbar halten.
+
+## Sigstore/cosign (keyless) Signatur der Checksummen
+
+Die `SHA256SUMS.txt` der **Stable-Releases** ist kryptographisch **authentifiziert** — gegen die
+Bloßstellung bei GitHub-Kompromittierung: Die Prüfsummen **allein** weisen nur Integrität nach
+(die Datei könnte ein Angreifer mit den APK-Summen mitsamt neu signierten APKs austauschen).
+Der cosign-Step (Workflow, `cosign-installer` SHA-gepinnt `6f9f177882…`) bindet die Identität
+des Publishers ein.
+
+- **Wie:** `cosign sign-blob` mit dem **ambienten OIDC-Token** des Runners (kein langfristiger
+  Signatur-Key in Secrets/Repo). Zertifikat und Signatur landen im Sigstore-Transparency-Log
+  (Rekor); `SHA256SUMS.txt.crt` enthält die Fulcio-Identität.
+- **Was signiert wird:** exakt die **veröffentlichte** `SHA256SUMS.txt` (im Workflow per
+  `gh release download` geholt) — nicht das Build-Artefakt — damit die Signatur bytegenau die
+  Datei deckt, die Nutzer herunterladen.
+- **Completeness:** `.sig` (Signatur) ist Pflicht-Asset (4-Assets-Regel, siehe oben); ein Release
+  ohne Signatur gilt als unvollständig und wird beim nächsten Stable-Lauf **repariert**.
+- **Verifikation** (einmalig `brew install cosign` / `apt install cosign`):
+
+  ```bash
+  cd <Download-Ordner>   # SHA256SUMS.txt + .sig + .crt der Stable-Release-Seite herunterladen
+  cosign verify-blob --certificate SHA256SUMS.txt.crt --signature SHA256SUMS.txt.sig SHA256SUMS.txt
+  # → Verified OK
+  sha256sum -c SHA256SUMS.txt
+  ```
+
+  Das Zertifikat ist an die OIDC-Identität des Workflow gebunden
+  (`https://github.com/thoser666/Vivid/.github/workflows/distribution-stable.yml @ refs/tags/v…`),
+  die von Fulcio ausgestellt und in Rekor geloggt wird. Nightly-Releases (ephemer,
+  werden nach 3 Tagen überschrieben) bleiben unauthentifiziert — dort reicht der Hash-Check.
 
 ## F-Droid-Hauptrepo (f-droid.org) & IzzyOnDroid
 
@@ -153,13 +193,13 @@ und in der CI; gegen gemocktes `gh`/fastlane, ohne Netz):
 | `scripts/test_publish_release_hardening.sh` | Completeness, Idempotenz, Upload-Assets (S1–S8) |
 | `scripts/test_sha256sums.sh` | Checksummen-Format, Sortierung, Verifikation (H1–H6, inkl. Nightly-Scope) |
 | `scripts/test_pinned_checksums.sh` | Permanenter Latest-APK-Permalink + Prüfsummen-Anhang in beiden Publikations-Zweigen (R1–R4) |
-| `scripts/test_distribution_stable.sh` | Workflow: Tag-Auswahl, Dispatch-Validierung, Keystore-Guard, CHANGELOG-Mirror (D1–D12) |
+| `scripts/test_distribution_stable.sh` | Workflow: Tag-Auswahl, Dispatch-Validierung, Keystore-Guard, cosign-Signatur, CHANGELOG-Mirror (D1–D13) |
 | `scripts/test_fdroid_metadata.sh` | Metadata-Dateien + versionCode-Konsistenz (M1–M10) |
 | `scripts/test_bot_pr_credentials.sh` | Secrets/Credentials-Disziplin in allen Workflows (inkl. T4-/T7-*/T8-*/T9-*/T10-Loops) |
 
 ## Zusammenfassung
 
-- **Stable** = wöchentlich, beide Flavor + `SHA256SUMS.txt`, Completeness-geschützt, idempotent.
+- **Stable** = wöchentlich, beide Flavor + `SHA256SUMS.txt` + cosign-keyless-Signatur, Completeness-geschützt, idempotent.
 - **Nightly** = täglich, Standard-Flavor, prerelease.
 - **Eigenes F-Droid-Repo** = wöchentlich aus Stable-APKs, GitHub Pages, eigenes Archiv.
 - **F-Droid-Hauptrepo / IzzyOnDroid** = vorbereitet (`foss`-Flavor + Metadata), Einreichung bei Bedarf.

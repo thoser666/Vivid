@@ -7,6 +7,8 @@ name: Distribution / Stable (weekly)
 #   - Der anschließend eintreffende F-Droid-Repo-Build (deploy-fdroid.yml,
 #     Mo 04:00 UTC) nimmt das Release dieselbe Woche auf.
 #   - Nightly (täglich 06:00 UTC) läuft UNVERÄNDERT in release-pipeline.yml.
+#   - Nach dem Publish signiert ein cosign keyless-Step die SHA256SUMS.txt und
+#     hängt die Signatur (.sig/.crt) ans Release — Completeness = 4 Assets.
 #
 # Warum ein eigener Workflow und kein zweiter Cron in release-pipeline.yml?
 # GitHub unterscheidet nicht, welcher Cron einen Schedule-Run ausgelöst hat —
@@ -46,6 +48,8 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      # OIDC für cosign keyless (sign-blob nutzt das ambient GitHub-Action-Token).
+      id-token: write
 
     steps:
       - name: Checkout code
@@ -96,10 +100,11 @@ jobs:
             CHOSEN=""
             for TAG in $(git tag -l "v*" --sort=-v:refname); do
               # Vollständigkeit = published (kein Draft, kein Prerelease) und
-              # BEIDE Flavor-APKs + SHA256SUMS als Assets (siehe Fastfile).
+              # BEIDE Flavor-APKs + SHA256SUMS + cosign-Signatur (.sig) als
+              # Assets (Mitanspruch: Repair-Pfad deckt Releases ohne Signatur).
               # gh release view schlägt fehl (RC≠0) ⇒ Tag noch nie veröffentlicht.
               if out=$(gh release view "$TAG" --json isDraft,isPrerelease,assets 2>/dev/null); then
-                if echo "$out" | jq -e '.isDraft == false and .isPrerelease == false and ([.assets[].name] | index("app-standard-release.apk")) and ([.assets[].name] | index("app-foss-release.apk")) and ([.assets[].name] | index("SHA256SUMS.txt"))' >/dev/null 2>&1; then
+                if echo "$out" | jq -e '.isDraft == false and .isPrerelease == false and ([.assets[].name] | index("app-standard-release.apk")) and ([.assets[].name] | index("app-foss-release.apk")) and ([.assets[].name] | index("SHA256SUMS.txt")) and ([.assets[].name] | index("SHA256SUMS.txt.sig"))' >/dev/null 2>&1; then
                   echo "  $TAG: bereits vollständig verteilt — übersprungen"
                   continue
                 fi
@@ -161,6 +166,33 @@ jobs:
           SENTRY_PROJECT: vivid
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: bundle exec fastlane release_github tag:"$TAG"
+
+      # ✅ Sigstore/cosign keyless-Signatur der SHA256SUMS.txt (seit 10.09.2026):
+      # Nach dem Publish wird die veröffentlichte Checksummen-Datei signiert
+      # (cert/Transparency-Log via ambient OIDC-Token des Runners — kein
+      # langfristiges Key-Material im Repo) und als SHA256SUMS.txt.sig + .crt
+      # an dasselbe Release angehängt (--clobber macht den Schritt idempotent,
+      # damit auch unvollständig veröffentlichte Releases reparierbar bleiben).
+      # Verifikation durch Nutzer: cosign verify-blob --certificate
+      # SHA256SUMS.txt.crt --signature SHA256SUMS.txt.sig SHA256SUMS.txt
+      - name: Install cosign
+        if: env.TAG != ''
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+
+      - name: Sign SHA256SUMS and attach signature to release
+        if: env.TAG != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/cosign"
+          cd "$RUNNER_TEMP/cosign"
+          gh release download "$TAG" -p SHA256SUMS.txt --dir . --clobber
+          cosign sign-blob SHA256SUMS.txt \
+            --output-signature SHA256SUMS.txt.sig \
+            --output-certificate SHA256SUMS.txt.crt \
+            --yes
+          gh release upload "$TAG" SHA256SUMS.txt.sig SHA256SUMS.txt.crt --clobber
+          echo "✅ cosign keyless-Signatur für $TAG hochgeladen"
 
       # ✅ CHANGELOG.md aus den GitHub-Releases spiegeln — kopiert aus
       # release-pipeline.yml (publish-release-Job, "Update CHANGELOG.md"):
