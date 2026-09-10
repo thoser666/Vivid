@@ -9,7 +9,7 @@ Jeder Release durchläuft eine von vier Stufen. Welche Stufe aktiv ist, bestimmt
 | `nightly` | `nightly` (rollierend) | **täglich 06:00 UTC (Schedule)** · manuell (`workflow_dispatch`) — **seit 21.08.2026 NUR einmal pro Tag**, nicht mehr bei jedem develop-Push (develop-Pushes laufen nur Tests/Builds) | Entwickler · CI-Tester |
 | `alpha` | `vX.Y.Z-alpha` (Patch-Alphas möglich, z. B. `v0.4.2-alpha`) | Manuell via `fastlane release_alpha` | Frühe Tester (Obtainium, kein Pre-Release-Flag nötig) |
 | `beta` | `vX.Y.Z-beta` (Patch-Betas möglich, z. B. `v0.5.1-beta`) | Manuell via `fastlane release_beta` (Spiegel von `release_alpha` inkl. Safety-Checks) | Feldtester · Hunde essen ihr eigenes Futter |
-| `stable` | `vX.Y.Z` | Manuell via `fastlane release_stable` (TODO) | Play Store · F-Droid · Allgemeinverfügbarkeit |
+| `stable` | `vX.Y.Z` | Automatisch wöchentlich (Mo 03:00 UTC) via `distribution-stable.yml` → `fastlane release_github`; manuell per `workflow_dispatch` | Play Store · F-Droid · Allgemeinverfügbarkeit |
 
 ## 🧭 Beta-Release-Strategie (wann wird ein Beta-Tag gesetzt?)
 
@@ -168,7 +168,7 @@ Vergleich der Voraussetzungen für den ersten Upload (Stand 08/2026, Vivid ist M
 5. Fertig — Updates erscheinen automatisch
 
 **Technische Details:**
-- **Workflow:** `.github/workflows/deploy-fdroid.yml` (Release-Trigger + wöchentlich)
+- **Workflow:** `.github/workflows/deploy-fdroid.yml` (wöchentlich Mo 04:00 UTC + manuell)
 - **Config:** `fdroid/config.yml`
 - **Hosting:** GitHub Pages (kostenlos, automatisch)
 - **Secrets:** `F_DROID_KEYSTORE`, `F_DROID_KEY_ALIAS`, `F_DROID_KEY_PASSWORD`, `F_DROID_KEY_DNAME` (einmalig hinterlegen)
@@ -234,7 +234,10 @@ Da hier bereits `archive_older: 5` (anzahlbasiert) aktiv ist, übersteuert `Arch
 
 ## 📦 F-Droid Hauptrepo (FOSS-Build ohne Sentry)
 
-**Status: ✅ Vorbereitet** — Die FOSS-Variante ist implementiert und kann für das F-Droid-Hauptrepo eingereicht werden.
+**Status: ✅ Einreichungsbereit** — Die FOSS-Variante ist implementiert, die Pflege-Metadata
+(`fdroid/config-fdroid-main.yml` + `fdroid/metadata/com.vivid.foss.yml`) liegt committed im Repo,
+und jedes wöchentliche Stable-Release veröffentlicht zusätzlich `app-foss-release.apk` direkt in den
+GitHub-Releases. Siehe [docs/distribution.md](docs/distribution.md) für den technischen Ablauf.
 
 **Was ist ein FOSS-Build?**
 - ✅ **Kein Sentry** — Kein Crash-Reporting, kein Tracking, kein Telemetry
@@ -266,7 +269,7 @@ Da hier bereits `archive_older: 5` (anzahlbasiert) aktiv ist, übersteuert `Arch
 
 **Für das F-Droid-Hauptrepo einreichen:**
 1. **FOSS-Build testen:** `./gradlew assembleFossRelease`
-2. **Metadaten vorbereiten:** `fdroid/config-fdroid-main.yml`
+2. **Metadata prüfen:** `fdroid/config-fdroid-main.yml` + `fdroid/metadata/com.vivid.foss.yml` sind bereits gepflegt (versionCode/versionName konsistent, `UpdateCheckMode: Tags`, Builds-Block auf den letzten Tag zeigen)
 3. **MR an F-Droid erstellen:** https://gitlab.com/fdroid/fdroiddata/-/merge_requests
 4. **Review abwarten:** 2-8 Wochen
 5. **Veröffentlichung:** Sobald der MR gemergt ist
@@ -616,7 +619,7 @@ Die `publish_release`-Lane (`fastlane/Fastfile`) wendet bei fehlgeschlagenem `gh
 > **CodeQL-Alert-Bestand (Stand 28.08.2026):** **0 Errors** (1 False Positive: `implicit-pendingintents` dismissiert — Code nutzt explizite Intents + `FLAG_IMMUTABLE`, siehe github.com/github/codeql/issues/20153); **0 Warnings** (2x `field-masks-super-field` dismissiert — Kotlin interne $stable-Felder in Data-Klasses, bekannter False Positive); **0 Notes** (6x `local-variable-is-never-read` dismissiert — Kotlin-Compiler-Artefakte tmp0_other_with_cast, 1x `backup-enabled` mitigiert — bewusste Entscheidung für Settings-Wiederherstellung). **17 Alerts fixed** — 6x `actions/missing-workflow-permissions`, 9x Kotlin-Compiler-Artefakte (False Positive), 2x `override val message` (präventiv). Insgesamt: **0 offen**, 10 False Positives.
 
 > **Security-Lage (Stand 27.08.2026):**
-> - **Dependabot:** 0 offene Alerts (49 build-tooling-only-Alerts dismissiert, fix=KEIN; Tracking: Kotlin-2.4.20-stabil-Update im September).
+> - **Dependabot:** 0 offene Alerts (49 build-tooling-only-Alerts dismissiert, fix=KEIN). Dependabot-Alert `kotlin-gradle-plugin` (#63, unsafe Deserialization im Kotlin Build Cache) wurde am **10.09.2026 durch Kotlin 2.4.20 geschlossen** (siehe „Erledigt: Kotlin-Update auf 2.4.20").
 > - **CodeQL (oben aktiviert):** Scan läuft sauber (`success`), **0 offene Alerts** — 10 False Positives dismissiert (Kotlin-Compiler-Artefakte + bewusste Konfiguration), 6 fixed, 2x `override val message` präventiv. **Default Setup deaktiviert** (blockierte SARIF-Uploads). CodeQL-Status: ✅ sauber.
 > - **DeepSource:** ✅ Analysis passed (advisory, nur Major/Critical blockierend).
 > - **Secret-Guard:** ✅ (keine ungeschützten Secrets).
@@ -1000,16 +1003,16 @@ gh api repos/<owner>/<repo>/git/tags/<sha> --jq '.object.sha'
 - **Veraltete SHAs:** Tags werden neu getaggt (z.B. bei Security-Fixes). SHA-Update-Pflicht bei Dependabot-PRs.
 - **Falsche Repos:** Manche Actions haben Forks mit eigenen Tags. Immer das Original-Repo prüfen.
 
-### 🚧 Blockiert: Kotlin-Update auf 2.4.20 (stabil)
+### ✔️ Erledigt: Kotlin-Update auf 2.4.20 (stabil)
 
-Der direkte Dependabot-Alert `kotlin-gradle-plugin` (unsafe Deserialization im Kotlin Build Cache, Dependabot #63) bleibt dismissed. Die erste gepatchte Version ist **2.4.20-Beta1**; die **stabile 2.4.20** ist seit September 2026 auf Maven Central verfügbar.
+Der direkte Dependabot-Alert `kotlin-gradle-plugin` (unsafe Deserialization im Kotlin Build Cache, Dependabot #63) ist **geschlossen**: `kotlin` und `jetbrainsKotlinJvm` wurden am 10.09.2026 auf **2.4.20** (stabil, seit 07.09. auf Maven Central) angehoben. Blocker `github/codeql#22404` („Kotlin version 2.4.20 is too recent") wurde am **08.09.2026 geschlossen** — CodeQL unterstützt Kotlin 2.4.20 GA; der frühere Revert (`e5cd592` → `a8766e5`) ist damit aufgehoben.
 
-**⚠️ Blocker (Stand 07.09.2026):** CodeQL unterstützt Kotlin 2.4.20 **GA noch nicht** — der Kotlin-Extractor bricht mit `Kotlin version 2.4.20 is too recent. CodeQL currently supports versions below 2.4.20` ab (nur 2.4.20-RC2 ist als Dev-Default supported, GA bewusst blockiert; Tracking: [github/codeql#22404](https://github.com/github/codeql/issues/22404)). Der Versuch (Issue [#110](https://github.com/thoser666/Vivid/issues/110), Commit `e5cd592`) brach den CodeQL-Workflow → Revert auf 2.4.10 (letzte CodeQL-kompatible Version, CI grün).
-
-**Beim Re-Upgrade (sobald codeql#22404 gemerged ist):**
-- `kotlin` und `jetbrainsKotlinJvm` in `gradle/libs.versions.toml` auf `2.4.20` anheben — Compose-Compiler und Serialization alignen automatisch (`version.ref = "kotlin"`).
-- **KSP** bleibt auf `2.3.11` (seit 2.3.0 von der Kotlin-Version entkoppelt; bei Bedarf aktualisieren).
-- Voller Testlauf Pflicht (lokal + CI): `./gradlew testDebugUnitTest` + `lintDebug` — danach verifizieren, dass Dependabot den Alert #63 automatisch schließt.
+**Umgesetzt:**
+- `kotlin` und `jetbrainsKotlinJvm` in `gradle/libs.versions.toml` → `2.4.20` — Compose-Compiler und Serialization alignen automatisch (`version.ref = "kotlin"`).
+- **KSP** bleibt auf `2.3.11` (seit 2.3.0 von der Kotlin-Version entkoppelt).
+- Voller Testlauf (lokal + CI): `./gradlew testDebugUnitTest` + `lintDebug` grün.
+- **Neuer Kotlin-Sync-Guard** (`scripts/check_kotlin_sync.sh` + Fixtures-Selbsttest `scripts/test_kotlin_sync.sh`, K1–K5): verhindert dauerhaft, dass `kotlin` und `jetbrainsKotlinJvm` auseinanderlaufen (läuft im Pre-Push-Gate + android-ci.yml).
+- Der CodeQL-Kotlin-Wächter (`check_codeql_kotlin_support.sh` + `automation-codeql-kotlin.yml`) war danach überflüssig und wurde am **10.09.2026 entfernt** — CodeQL unterstützt Kotlin 2.4.20 nativ (Blocker codeql#22404 geschlossen), die wöchentliche Issue-Blockade existiert nicht mehr. Die eigentliche CodeQL-Analyse läuft weiter über `security-codeql.yml`.
 
 ## 🔑 Signing-Secrets (CI)
 

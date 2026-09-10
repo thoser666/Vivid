@@ -36,6 +36,15 @@ bash scripts/test_workflow_security.sh
 echo "▶ [pre-push] Bot-PR-Credential-Selbsttest (scripts/test_bot_pr_credentials.sh)"
 bash scripts/test_bot_pr_credentials.sh
 
+echo "▶ [pre-push] Stable-Distribution-Kadenz-Selbsttest (scripts/test_distribution_stable.sh)"
+bash scripts/test_distribution_stable.sh
+
+echo "▶ [pre-push] F-Droid-/Izzy-Submissions-Metadata-Selbsttest (scripts/test_fdroid_metadata.sh)"
+bash scripts/test_fdroid_metadata.sh
+
+echo "▶ [pre-push] SHA-256-Prüfsummen-Selbsttest (scripts/test_sha256sums.sh)"
+bash scripts/test_sha256sums.sh
+
 echo "▶ [pre-push] pip-Pinning-Selbsttest (scripts/test_pip_pinning.sh)"
 bash scripts/test_pip_pinning.sh
 
@@ -128,6 +137,11 @@ run bash scripts/test_build_retry.sh
 echo "▶ [pre-push] Verify-Reproducibility-Selbsttest (scripts/test_verify_reproducibility.sh)"
 run bash scripts/test_verify_reproducibility.sh
 
+# Distributions-Quick-Wins (grep-basiert, offline): permanenter Latest-APK-
+# Permalink im README + Prüfsummen-Anhang in beiden Publikations-Zweigen.
+echo "▶ [pre-push] Distributions-Quick-Wins-Selbsttest (scripts/test_pinned_checksums.sh)"
+run bash scripts/test_pinned_checksums.sh
+
 # Emulator-Matrix (grep-basiert, offline): der Instrumented-UI-Tests-Job muss
 # beide Runner-Architekturen abdecken — x86_64 authority-fähig mit KVM-
 # Enablement, arm64 experimentell (Vorfall 06.09.2026: HVF HV_UNSUPPORTED auf
@@ -200,9 +214,6 @@ run bash scripts/check_bot_commands_doc.sh
 echo "▶ [pre-push] Wiki-Sync-Generierungs-Selbsttest (scripts/test_wiki_sync.sh)"
 run bash scripts/test_wiki_sync.sh
 
-echo "▶ [pre-push] CodeQL-Kotlin-Wächter-Selbsttest (scripts/test_codeql_guard.sh)"
-run bash scripts/test_codeql_guard.sh
-
 # Security-Loop-Guard (bash): release-grade Sicherheitsregeln der Pipeline
 # (Keystore-Härtung, Signatur-Check, Reproduzierbarkeit, Sentry-Opt-out,
 # Bot-Credential-Warnung) müssen vorhanden bleiben — plus Fixture-Selbsttest.
@@ -226,6 +237,15 @@ run bash scripts/check_version_catalog.sh
 # grün und inkonsistente rot gemeldet werden.
 echo "▶ [pre-push] Version-Catalog-Check-Selbsttest (scripts/test_check_version_catalog.sh)"
 run bash scripts/test_check_version_catalog.sh
+
+# Kotlin-Sync-Guard: kotlin und jetbrainsKotlinJvm (Issue #110, Dependabot #63)
+# müssen dieselbe Kotlin-Version tragen — Drift kompiliert Tooling und Module
+# mit unterschiedlichen Vorlagen. Guard + Fixtures-Selbsttest.
+echo "▶ [pre-push] Kotlin-Sync-Guard (scripts/check_kotlin_sync.sh)"
+run bash scripts/check_kotlin_sync.sh
+
+echo "▶ [pre-push] Kotlin-Sync-Guard-Selbsttest (scripts/test_kotlin_sync.sh)"
+run bash scripts/test_kotlin_sync.sh
 
 # Dashboard aktualisieren (statisch generiert, committed)
 echo "▶ [pre-push] Dashboard generieren (scripts/generate_status_dashboard.sh)"

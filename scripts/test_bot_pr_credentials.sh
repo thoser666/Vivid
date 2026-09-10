@@ -67,6 +67,14 @@ check "T2a changelog: PR-Step GH_TOKEN mit Fallback" \
 check "T2b fdroid: PR-Step GH_TOKEN mit Fallback" \
   .github/workflows/deploy-fdroid.yml \
   'GH_TOKEN: \$\{\{ secrets\.AUTOMATION_TOKEN \|\| secrets\.GITHUB_TOKEN \}\}'
+# T2c/T2d: Der changelog-Mirror lebt seit 10.09.2026 AUCH im wöchentlichen
+# distribution-stable-Workflow (gleiche Credential-Konvention wie release-pipeline).
+check "T2c distribution-stable: PR-Step GH_TOKEN mit Fallback" \
+  .github/workflows/distribution-stable.yml \
+  'GH_TOKEN: \$\{\{ secrets\.AUTOMATION_TOKEN \|\| secrets\.GITHUB_TOKEN \}\}'
+check "T2d release-pipeline: PR-Step GH_TOKEN mit Fallback" \
+  .github/workflows/release-pipeline.yml \
+  'GH_TOKEN: \$\{\{ secrets\.AUTOMATION_TOKEN \|\| secrets\.GITHUB_TOKEN \}\}'
 
 # T3: Loop-Guard bleibt am Commit-Author hängen (nicht am Credential).
 check "T3a changelog: Author bleibt github-actions[bot]" \
@@ -78,22 +86,33 @@ check "T3b fdroid: Author bleibt github-actions[bot]" \
 check "T3c release-pipeline: Author bleibt github-actions[bot]" \
   .github/workflows/release-pipeline.yml \
   'user\.name "github-actions\[bot\]"'
+check "T3d distribution-stable: Author bleibt github-actions[bot]" \
+  .github/workflows/distribution-stable.yml \
+  'user\.name "github-actions\[bot\]"'
 
-# T4: Fallback-Warnhinweis in allen drei Dateien (::annotation für die Run-Anzeige).
+# T4: Fallback-Warnhinweis in allen Bot-PR-Dateien (::annotation für die Run-Anzeige).
 for f in .github/workflows/automation-changelog.yml \
          .github/workflows/deploy-fdroid.yml \
-         .github/workflows/release-pipeline.yml; do
+         .github/workflows/release-pipeline.yml \
+         .github/workflows/distribution-stable.yml; do
   check "T4 ::warning:: bei fehlendem AUTOMATION_TOKEN ($(basename "$f"))" \
     "$f" '::warning::AUTOMATION_TOKEN ist nicht gesetzt'
 done
 
-# T5: release-pipeline spiegelt den Changelog im publish-release-Job —
-# dort läuft der Push user-scoped (remote set-url mit x-access-token:GH_TOKEN).
+# T5: release-pipeline + distribution-stable spiegeln den Changelog im
+# publish-Job — dort läuft der Push user-scoped (remote set-url mit
+# x-access-token:GH_TOKEN).
 check "T5 release-pipeline: user-scoped Push (git remote set-url)" \
   .github/workflows/release-pipeline.yml \
   'git remote set-url origin "https://x-access-token:\$\{GH_TOKEN\}@github\.com/'
 check "T5 release-pipeline: GH_TOKEN mit AUTOMATION_TOKEN-Fallback" \
   .github/workflows/release-pipeline.yml \
+  'GH_TOKEN: \$\{\{ secrets\.AUTOMATION_TOKEN \|\| secrets\.GITHUB_TOKEN \}\}'
+check "T5 distribution-stable: user-scoped Push (git remote set-url)" \
+  .github/workflows/distribution-stable.yml \
+  'git remote set-url origin "https://x-access-token:\$\{GH_TOKEN\}@github\.com/'
+check "T5 distribution-stable: GH_TOKEN mit AUTOMATION_TOKEN-Fallback" \
+  .github/workflows/distribution-stable.yml \
   'GH_TOKEN: \$\{\{ secrets\.AUTOMATION_TOKEN \|\| secrets\.GITHUB_TOKEN \}\}'
 
 # T6: Duplikat-Kommentarblock im fdroid-Run-Script wurde entfernt
@@ -110,7 +129,8 @@ fi
 # korrekter Pull-requests-Permission (Run 34022706363).
 for f in .github/workflows/automation-changelog.yml \
          .github/workflows/deploy-fdroid.yml \
-         .github/workflows/release-pipeline.yml; do
+         .github/workflows/release-pipeline.yml \
+         .github/workflows/distribution-stable.yml; do
   # Nur echte Kommando-Zeilen zählen (Zeilenanfang) — nicht Erwähnungen in
   # Kommentaren ("REST statt gh pr create …").
   if ! grep -qE '^[[:space:]]*gh pr create' "$f"; then
@@ -129,7 +149,8 @@ done
 # DELETE-Ref-Call, ::error::-Ankündigung, exit 1 danach.
 for f in .github/workflows/automation-changelog.yml \
          .github/workflows/deploy-fdroid.yml \
-         .github/workflows/release-pipeline.yml; do
+         .github/workflows/release-pipeline.yml \
+         .github/workflows/distribution-stable.yml; do
   check "T9.1 PR-Create in if !-Rollback-Wrap ($(basename "$f"))" \
     "$f" 'if ! gh api repos/\$\{\{ github\.repository \}\}/pulls -f title='
   check "T9.2 Branch-DELETE im Rollback ($(basename "$f"))" \
@@ -145,7 +166,8 @@ done
 # (Vorfall #149). Guard: fetch nach dem Commit, Ancestor-Check HEAD~1 vs.
 # origin/develop, Rebase mit Konflikt-Fallback (Neugenerierung).
 for f in .github/workflows/automation-changelog.yml \
-         .github/workflows/release-pipeline.yml; do
+         .github/workflows/release-pipeline.yml \
+         .github/workflows/distribution-stable.yml; do
   check "T10.1 Rebase-Ancestor-Check ($(basename "$f"))" \
     "$f" 'merge-base --is-ancestor "HEAD~1" origin/develop'
   check "T10.2 Rebase-Aufruf ($(basename "$f"))" \

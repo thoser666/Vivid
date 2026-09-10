@@ -1,6 +1,13 @@
 # F-Droid Main Repository Configuration for Vivid (FOSS Build)
-# This configuration is for the official F-Droid repository
-# It builds from source WITHOUT Sentry (fully FOSS compliant)
+# This configuration is for the official F-Droid repository (f-droid.org).
+# It builds from source WITHOUT Sentry (fully FOSS compliant features the
+# `foss` Flavor: applicationId com.vivid.foss — siehe docs/distribution.md).
+#
+# ⚠️ Dieser Config-Abschnitt ist die SUBMISSION-VORLAGE. Der fertige Eintrag
+# lebt in fdroid/metadata/com.vivid.foss.yml (gleiches Format) und wird pro
+# Release von Hand gepflegt (versionName/versionCode/commit anheben — die
+# versionCode stimmen deterministisch mit den release-Lanes überein:
+# major*1e6 + minor*1e3 + patch*10 + stage, 0.5.14-beta → 5142, 0.5.14 → 5144).
 
 # Repository metadata
 repo_name: Vivid (F-Droid)
@@ -15,13 +22,13 @@ Categories:
 
 License: MIT
 
-# Anti-features: NONE (this is a fully FOSS build)
-# No Tracking, no NonFreeNet, no NonFreeInternet
+# Anti-features: NONE (this is a fully FOSS build — sent/tracking sind im foss-
+# Flavor flavor-isoliert, BuildConfig.FOSS_BUILD=true, SentryOptOut-No-op)
 AntiFeatures: {}
 
 # Source code
 SourceCode: https://github.com/thoser666/Vivid
-Issues: https://github.com/thoser666/Vivid/issues
+IssueTracker: https://github.com/thoser666/Vivid/issues
 
 # Changelog
 Changelog: https://github.com/thoser666/Vivid/releases
@@ -32,16 +39,22 @@ WebSite: https://thoser666.github.io/Vivid/
 # Donate
 Donate: https://github.com/sponsors/thoser666
 
-# Build configuration for F-Droid
-# This builds from source without Sentry
-AutoUpdate: true
+# Build-Konfiguration (fdroiddata-Format für f-droid.org + IzzyOnDroid):
+#   - Der foss-Flavor ist der FOSS-konforme Build (kein Sentry/Tracking):
+#     Produkt-Flavor `foss` + Build-Type `release` → assembleFossRelease.
+#   - output = app-foss-release.apk (Flavor-Pfad: apk/foss/release/).
+#   - versionCode muss EXAKT dem Tag entsprechen (deterministisch, siehe
+#     fastlane/release_safety.rb) — sonst blockt fdroidserver den Eintrag.
 Builds:
-  - versionName: latest
-    versionCode: 0
-    commit: HEAD
-    # Build with FOSS flavor (no Sentry)
+  - versionName: 0.5.14-beta
+    versionCode: 5142
+    commit: v0.5.14-beta
     gradle:
-      - clean
-      - assembleStandardRelease
-    # No APK export - F-Droid builds from source
-    # The APK will be signed with F-Droid's key
+      - assembleFossRelease
+    output: app-foss-release.apk
+  - versionName: 0.5.14
+    versionCode: 5144
+    commit: v0.5.14
+    gradle:
+      - assembleFossRelease
+    output: app-foss-release.apk

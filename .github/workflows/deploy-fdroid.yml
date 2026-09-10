@@ -1,11 +1,10 @@
 name: Deploy / F-Droid
 
 on:
-  # Trigger on new releases
-  release:
-    types: [published]
-  
-  # Weekly update check
+  # Wöchentliche Aktualisierung (Mo 04:00 UTC) — seit 10.09.2026 KEIN
+  # release-published-Trigger mehr: die Distribution läuft wöchentlich
+  # (distribution-stable.yml Mo 03:00 UTC publiziert das Stable-Release,
+  # dieser Workflow baut das eigene F-Droid-Repo eine Stunde später daraus).
   schedule:
     - cron: '0 4 * * 1'
   
@@ -64,10 +63,11 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.version }}" != "latest" ]; then
             VERSION="${{ github.event.inputs.version }}"
-          elif [ "${{ github.event_name }}" = "release" ]; then
-            VERSION="${{ github.event.release.tag_name }}"
           else
-            VERSION=$(gh release list --limit 1 --json tagName -q '.[0].tagName')
+            # Neueste STABLE-Version (kein nightly-Prerelease) — die Weekly-
+            # Kette publiziert Mo 03:00 UTC das Stable-Release, dieser Job baut
+            # das Repo um 04:00 UTC mit der neuesten Nicht-Prerelease-Version.
+            VERSION=$(gh release list --limit 1 --exclude-prereleases --json tagName -q '.[0].tagName')
           fi
           echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
           echo "Building version: $VERSION"
@@ -98,14 +98,19 @@ jobs:
           # newest archive_older versions into repo/ and all older ones into
           # archive/ automatically. Each release's APK is prefixed with the tag
           # name to keep filenames unique in the shared directories.
+          # NUR der Standard-Flavor (com.vivid) — das eigene Repo bedient die
+          # Standard-Builds mit Tracking/Sentry etc. Die stable Releases tragen
+          # seit 10.09.2026 AUCH app-foss-release.apk + SHA256SUMS.txt; beide
+          # würden im repo-Verzeichnis zwei APKs DERSELBEN versionCode liefern
+          # (fdroid update → Duplicate-Version-Konflikt). Der FOSS-Flavor geht
+          # über f-droid.org (docs/distribution.md, fdroid/metadata).
           i=0
           for TAG in $(gh release list --limit 50 --json tagName -q '.[].tagName' | grep -E '^v?[0-9]+\.[0-9]+\.[0-9]+' || true); do
             i=$((i + 1))
             TMP="/tmp/apk_$i"
             mkdir -p "$TMP"
             gh release download "$TAG" \
-              --pattern "*.apk" \
-              --pattern "*-unsigned.apk" \
+              --pattern "app-standard-release.apk" \
               --dir "$TMP/" \
               --skip-existing || true
             for f in "$TMP"/*.apk; do
@@ -157,7 +162,13 @@ jobs:
           keydname: ${F_DROID_KEY_DNAME}
           EOF
           
-          # Create metadata directory and YAML file for the app
+          # Create metadata directory and YAML file for the app.
+          # rm -rf: das committed fdroid/metadata/com.vivid.foss.yml (Einreichung
+          # für f-droid.org/IzzyOnDroid) gehört NICHT in dieses Selbst-gehostete
+          # Repo — hier wird bewusst nur der standard-Flavor (com.vivid)
+          # bedient. Zwei Paket-Metadaten würden sonst com.vivid.foss mit in den
+          # Index heben (fdroid update → fehlender foss-Build → Fehler).
+          rm -rf metadata
           mkdir -p metadata
           cat > metadata/com.vivid.yml << 'EOF'
           Categories:

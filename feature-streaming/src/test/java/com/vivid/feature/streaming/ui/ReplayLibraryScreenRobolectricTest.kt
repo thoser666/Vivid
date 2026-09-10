@@ -128,6 +128,24 @@ class ReplayLibraryScreenRobolectricTest {
     }
 
     @Test
+    fun `large library renders without lazy-column crash`() {
+        // Regressionstest Crash #164 („Vertically scrollable component was
+        // measured with an infinity maximum height constraints“): die LazyColumn
+        // ist über fillMaxSize im Box-Scaffold begrenzt — eine große Bibliothek
+        // darf nicht zu unbegrenzter Höhen-Messung führen. 500 Einträge
+        // (temp. MP4-Dateien) überschreiten jede plausible Einzelseiten-Höhe.
+        val many = (1..500).map { n -> item("clip-$n") }
+        uiState.value = ReplayLibraryUiState(items = many)
+        setContent()
+
+        // Erstes Item muss gerendert sein (LazyColumn virtualisiert den Rest).
+        composeRule.onNodeWithText("clip-1").assertIsDisplayed()
+        // Kopfzeile/Header bleibt im LazyColumn-Scope vorhanden.
+        composeRule.onNodeWithText("Replays").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Delete all").assertIsDisplayed()
+    }
+
+    @Test
     fun `used-as-source confirmation dialog shows the replay name and dismisses`() {
         val replay = item("clip-six")
         uiState.value = ReplayLibraryUiState(items = listOf(replay), usedAsSource = replay)

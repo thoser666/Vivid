@@ -9,8 +9,8 @@
 #   T4 Muster-Klassifikation    → jedes TRANSIENT_PATTERNS-Element matcht
 #   T5 Verdrahtung (statisch)   → alle release-grade gradle-Aufrufe im Fastfile
 #                                 sind gewrappt (assembleRelease ×2,
-#                                 bundleStandardPlayRelease), debug/test/lint
-#                                 bleiben bewusst ungewrappt
+#                                 assembleFossRelease ×1, bundleStandardPlayRelease),
+#                                 debug/test/lint bleiben bewusst ungewrappt
 #   T6 message-lose Exception   → kein Crash in transient_error? (to_s-Fallback)
 #
 # Läuft im CI (release-pipeline.yml, Job "Self-Test Build-Retry (Hardening)")
@@ -155,11 +155,12 @@ guard() {
 guard "require_relative \"build_retry\" im Fastfile" \
   'grep -q "require_relative \"build_retry\"" fastlane/Fastfile'
 
-# Alle release-grade Aufrufe gewrappt: assembleRelease (2×), bundleStandardPlayRelease (1×)
-guard "assembleRelease-Aufrufe ×2 gewrappt" \
-  'test "$(grep -c "BuildRetry.with_gradle_retry" fastlane/Fastfile)" -eq 3'
-guard "assembleRelease ×2 + bundleStandardPlayRelease ×1 in Retry-Blöcken" \
-  'test "$(grep -c "task: \"assembleRelease\"" fastlane/Fastfile)" -eq 2 && test "$(grep -c "task: \"bundleStandardPlayRelease\"" fastlane/Fastfile)" -eq 1'
+# Alle release-grade Aufrufe gewrappt: assembleRelease (2×), assembleFossRelease (1×),
+# bundleStandardPlayRelease (1×) — die foss-Variante nur im Stable-Pfad von release_github
+guard "with_gradle_retry-Blöcke ×4 (2 Release + 1 FOSS + 1 Play-Bundle)" \
+  'test "$(grep -c "BuildRetry.with_gradle_retry" fastlane/Fastfile)" -eq 4'
+guard "assembleRelease ×2 + assembleFossRelease ×1 + bundleStandardPlayRelease ×1 in Retry-Blöcken" \
+  'test "$(grep -c "task: \"assembleRelease\"" fastlane/Fastfile)" -eq 2 && test "$(grep -c "task: \"assembleFossRelease\"" fastlane/Fastfile)" -eq 1 && test "$(grep -c "task: \"bundleStandardPlayRelease\"" fastlane/Fastfile)" -eq 1'
 
 # Bewusst NICHT gewrappt (deterministisch): test/lint/debug-Builds
 guard "testDebugUnitTest ungewrappt" \

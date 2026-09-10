@@ -1,0 +1,230 @@
+name: Distribution / Stable (weekly)
+
+# ✅ WÖCHENTLICHE Stable-Distribution (seit 10.09.2026):
+#   - Mo 03:00 UTC sucht dieser Workflow die neueste noch NICHT (vollständig)
+#     verteilte v*-Version und publiziert sie als Stable-GitHub-Release
+#     (beide Flavor-APKs + SHA256SUMS, siehe fastlane/Fastfile release_github).
+#   - Der anschließend eintreffende F-Droid-Repo-Build (deploy-fdroid.yml,
+#     Mo 04:00 UTC) nimmt das Release dieselbe Woche auf.
+#   - Nightly (täglich 06:00 UTC) läuft UNVERÄNDERT in release-pipeline.yml.
+#
+# Warum ein eigener Workflow und kein zweiter Cron in release-pipeline.yml?
+# GitHub unterscheidet nicht, welcher Cron einen Schedule-Run ausgelöst hat —
+# ein zweiter Cron im selben Workflow hätte den publish-release-Job täglich
+# (stabil) laufen lassen. Der Trennung: release-pipeline = nightly,
+# diese Datei = stable.
+#
+# Manuell auslösbar (z. B. Nachholen einer verpassten Woche):
+#   gh workflow run distribution-stable.yml --ref develop --field version=v0.6.0-beta
+
+on:
+  schedule:
+    - cron: '0 3 * * 1'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Exact tag to publish (e.g. v0.6.0-beta); default: newest not yet distributed'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+# Serialisiert die Wochen-Publikation. cancel-in-progress: false ist BEWUSST:
+# der laufende Run muss Release-Create + CHANGELOG immer zu Ende bringen —
+# ein Abbruch mitten in der Kette hinterlässt halb erstellte Releases.
+concurrency:
+  group: distribution-stable
+  cancel-in-progress: false
+
+jobs:
+  publish-stable:
+    name: Publish latest undelivered stable version
+    runs-on: ubuntu-latest
+    # Keine Bot-Läufe (Loop-Schutz analog release-pipeline).
+    if: github.actor != 'dependabot[bot]' && github.actor != 'github-actions[bot]'
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Volle History: Versionableitung + Tag-Auswahl (fetch all tags/branches)
+          fetch-depth: 0
+
+      - name: Set up JDK 25 (LTS)
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1.321.0
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      # ✅ Ziel-Tag bestimmen:
+      #   - Dispatch-Input überschreibt (validiert gegen das vX.Y.Z-Format)
+      #   - sonst: neueste v*-Version (Semver-Sortierung) OHNE vollständiges
+      #     Release bzw. MIT unvollständigem Release (wird repariert)
+      #   - alles verteilt → clean exit 0 (kein Fehlschlag-Alarm)
+      - name: Determine target stable version
+        id: target
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] \
+             && [ -n "${{ github.event.inputs.version }}" ]; then
+            TAG="${{ github.event.inputs.version }}"
+            if ! echo "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+'; then
+              echo "::error::version-Input '$TAG' entspricht nicht ^vX.Y.Z…"
+              exit 1
+            fi
+            if ! git show-ref --verify --quiet "refs/tags/$TAG"; then
+              echo "::error::Tag $TAG existiert nicht — vorher pushen (fastlane release_alpha)."
+              exit 1
+            fi
+            echo "Dispatch-Input: $TAG (erzwungen)"
+          else
+            CHOSEN=""
+            for TAG in $(git tag -l "v*" --sort=-v:refname); do
+              # Vollständigkeit = published (kein Draft, kein Prerelease) und
+              # BEIDE Flavor-APKs + SHA256SUMS als Assets (siehe Fastfile).
+              # gh release view schlägt fehl (RC≠0) ⇒ Tag noch nie veröffentlicht.
+              if out=$(gh release view "$TAG" --json isDraft,isPrerelease,assets 2>/dev/null); then
+                if echo "$out" | jq -e '.isDraft == false and .isPrerelease == false and ([.assets[].name] | index("app-standard-release.apk")) and ([.assets[].name] | index("app-foss-release.apk")) and ([.assets[].name] | index("SHA256SUMS.txt"))' >/dev/null 2>&1; then
+                  echo "  $TAG: bereits vollständig verteilt — übersprungen"
+                  continue
+                fi
+                echo "  $TAG: Release vorhanden, aber unvollständig — wird repariert"
+              else
+                echo "  $TAG: noch kein Release — wird veröffentlicht"
+              fi
+              CHOSEN="$TAG"
+              break
+            done
+            if [ -z "$CHOSEN" ]; then
+              echo "::notice::Alle v*-Versionen sind bereits vollständig als stable Release verteilt — nichts zu tun."
+              echo "NO_TARGET=true" >> "$GITHUB_ENV"
+              exit 0
+            fi
+            TAG="$CHOSEN"
+          fi
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Publishing stable release: $TAG"
+
+      # ⏭ Kein Ziel-Tag (alles verteilt) → Früh-Exit. Subsequente Steps laufen
+      # sonst mit leerem $TAG → Guard setzt sie auf no-op. Sauber via sentinel.
+      - name: Checkout target tag
+        if: env.TAG != ''
+        run: |
+          git checkout "$TAG"
+          echo "Checked out $TAG (HEAD=$(git rev-parse --short HEAD))"
+
+      # ✅ Keystore dekodieren (wenn vorhanden) — identische Härtung wie die
+      # release-Pipeline: ohne Release-Key wird nicht publiziert (Debug-Signatur
+      # würde Obtainium-/F-Droid-Updates brechen).
+      - name: Decode Keystore
+        if: env.TAG != ''
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::error::KEYSTORE_BASE64 fehlt — Release müsste mit Debug-Key signiert werden. Abbruch."
+            exit 1
+          fi
+          echo $KEYSTORE_BASE64 | base64 -di > ${{ github.workspace }}/release.keystore
+          echo "KEYSTORE_PATH=${{ github.workspace }}/release.keystore" >> $GITHUB_ENV
+
+      # ✅ Signiertes Stable-Release bauen und veröffentlichen: release_github
+      # mit tag: baut im Stable-Pfad BEIDE Flavor-APKs (assembleRelease +
+      # assembleFossRelease), generiert SHA256SUMS und erstellt/repariert das
+      # GitHub-Release idempotent (siehe fastlane/Fastfile publish_release).
+      # Das Sentry-Gradle-Plugin lädt das ProGuard-Mapping automatisch hoch.
+      - name: Build and publish stable release
+        if: env.TAG != ''
+        env:
+          KEYSTORE_PATH: ${{ env.KEYSTORE_PATH }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: privat-jb
+          SENTRY_PROJECT: vivid
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bundle exec fastlane release_github tag:"$TAG"
+
+      # ✅ CHANGELOG.md aus den GitHub-Releases spiegeln — kopiert aus
+      # release-pipeline.yml (publish-release-Job, "Update CHANGELOG.md"):
+      # Releases, die per `gh release create` mit GITHUB_TOKEN erstellt werden,
+      # feuern KEIN `release: published`-Event (dokumentierte GITHUB_TOKEN-
+      # Limitation gegen rekursive Workflow-Läufe). Der Update läuft deshalb
+      # hier direkt nach der Veröffentlichung; der Bot-Commit (github-actions[bot])
+      # wird vom Job-Guard oben übersprungen → keine Endlosschleife.
+      - name: Update CHANGELOG.md from GitHub releases
+        if: env.TAG != ''
+        env:
+          # Root-Fix CI-Suppression (Vorfall PRs #142/#143): Push + PR-Open
+          # müssen per USER-Credential laufen (AUTOMATION_TOKEN) — sonst
+          # unterdrückt GitHub die pull_request-Workflows auf dem Bot-PR und
+          # die Pflicht-Checks (Build & Test, Secret Guard) laufen nie.
+          # Fallback: GITHUB_TOKEN (altes Verhalten, mit ::warning::-Hinweis).
+          # Bewusst NUR hier scoped (git remote set-url) — der Rest des Jobs
+          # bleibt beim Checkout-Token.
+          GH_TOKEN: ${{ secrets.AUTOMATION_TOKEN || secrets.GITHUB_TOKEN }}
+          HAS_AUTOMATION_TOKEN: ${{ secrets.AUTOMATION_TOKEN != '' }}
+        run: |
+          git fetch origin develop
+          git checkout -B changelog-update origin/develop
+          bash scripts/update_changelog.sh
+          if git diff --quiet CHANGELOG.md; then
+            echo "CHANGELOG.md unverändert — nichts zu committen"
+            exit 0
+          fi
+          # Branch Protection verbietet direkte Bot-Pushes auf develop →
+          # Branch mit Zeitstempel + PR; gemergt wird manuell.
+          BRANCH="chore/changelog-$(date +%Y%m%d%H%M%S)"
+          git checkout -b "$BRANCH"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md
+          git commit -m "docs: Update CHANGELOG from GitHub releases"
+          # Rebase-Härtung: Während dieses Runs gemergte develop-Commits
+          # (v. a. andere Bot-PRs, die dieselben CHANGELOG-Zeilen ändern)
+          # lassen den PR sonst als CONFLICTING zurück (Vorfall #149).
+          git fetch origin develop
+          if ! git merge-base --is-ancestor "HEAD~1" origin/develop; then
+            echo "::notice::develop ist während des Runs weitergelaufen — Rebase auf $(git rev-parse --short origin/develop)"
+            if ! git rebase origin/develop; then
+              echo "::warning::Rebase-Konflikt — CHANGELOG wird auf dem neuen develop neu generiert"
+              git rebase --abort
+              git reset --hard origin/develop
+              bash scripts/update_changelog.sh
+              git add CHANGELOG.md
+              if git diff --cached --quiet; then
+                echo "Nach Neugenerierung: keine Änderungen mehr — kein PR nötig"
+                exit 0
+              fi
+              git commit -m "docs: Update CHANGELOG from GitHub releases"
+            fi
+          fi
+          if [ "$HAS_AUTOMATION_TOKEN" != "true" ]; then
+            echo "::warning::AUTOMATION_TOKEN ist nicht gesetzt — Bot-PR entsteht per GITHUB_TOKEN-Fallback. GitHub unterdrückt dann die Pflicht-Checks (Build & Test, Secret Guard) auf diesem PR (Rekursions-Schutz). Einmalig anlegen: gh secret set AUTOMATION_TOKEN --body <PAT> — Fine-grained PAT mit Contents+Pull requests (RW) auf dieses Repo."
+          fi
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
+          git push origin "$BRANCH"
+          if ! gh api repos/${{ github.repository }}/pulls -f title="docs: Update CHANGELOG from GitHub releases" -f head="$BRANCH" -f base=develop -F body="Automatische CHANGELOG-Spiegelung nach wöchentlicher Stable-Veröffentlichung. Zum Übernehmen mergen (erforderliche Checks laufen im PR)."; then
+            echo "::error::PR-Create fehlgeschlagen — Rollback: Bot-Branch $BRANCH wird gelöscht (kein Orphan)"
+            gh api -X DELETE "repos/${{ github.repository }}/git/refs/heads/$BRANCH" \
+              || echo "::warning::Branch-Rollback fehlgeschlagen — manuell löschen: gh api -X DELETE repos/${{ github.repository }}/git/refs/heads/$BRANCH"
+            exit 1
+          fi
+          echo "✅ Bot-PR erstellt ($BRANCH)"

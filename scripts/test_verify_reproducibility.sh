@@ -23,6 +23,9 @@
 #   T8 update_changelog.sh: Artefakte-Zeile nennt app-standard-release.apk
 #   T9 Fastfile-Fallbacks (lane_context-Ersatz) nutzen flavor-Pfade
 #   T10 release-pipeline.yml bleibt valides YAML
+#   T11 Changelog-Mirror listet SHA256SUMS.txt als Nightly-Artefakt
+#       (Nightly-Releases tragen die Prüfsummendatei seit den
+#       Distributions-Quick-Wins — der Mirror muss das spiegeln)
 
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -104,6 +107,8 @@ check "T7.1 Default MAPPING_RELEASE = standardRelease" \
 echo "== T8: Changelog-Artefakte-Zeile =="
 check "T8.1 nightly-Artefakte-Zeile app-standard-release.apk" \
   grep -q 'app-standard-release.apk' scripts/update_changelog.sh
+check "T8.2 nightly-Artefakte-Zeile nennt SHA256SUMS.txt" \
+  grep -q 'SHA256SUMS.txt' scripts/update_changelog.sh
 
 echo "== T9: Fastfile-Fallback-Pfade =="
 check "T9.1 APK-Fallback flavor-Pfad" \
@@ -114,6 +119,10 @@ check "T9.3 Metadata-Fallback flavor-Pfad" \
   grep -q 'app/build/outputs/apk/standard/release/output-metadata.json' fastlane/Fastfile
 check_absent "T9.4 kein Pre-Flavor-Fallback im Fastfile" \
   grep -qE 'apk/release/|mapping/release/' fastlane/Fastfile
+check "T9.5 Nightly-Prüfsummen-Anhang in publish_release vorhanden" \
+  grep -q 'assets << options\[:checksums\] if options\[:checksums\] && File.exist?(options\[:checksums\])' fastlane/Fastfile
+check "T9.6 genau 2 Prüfsummen-Anhänge (stable + nightly)" \
+  bash -c '[ "$(grep -cF "options[:checksums] && File.exist?(options[:checksums])" fastlane/Fastfile)" -eq 2 ]'
 
 echo "== T10: Workflow-YAML valide =="
 check "T10.1 release-pipeline.yml parst als YAML" python3 -c "
@@ -126,6 +135,10 @@ import yaml, io
 with io.open('.github/workflows/android-ci.yml', encoding='utf-8') as f:
     yaml.safe_load(f)
 "
+
+echo "== T11: Changelog-Mirror spiegelt die Nightly-Prüfsummendatei =="
+check "T11.1 Mirror-Artefakte-Zeile enthält SHA256SUMS.txt" \
+  grep -q 'SHA256SUMS.txt' scripts/update_changelog.sh
 
 echo
 if [ "$FAIL" -eq 0 ]; then

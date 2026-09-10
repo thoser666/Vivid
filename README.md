@@ -20,7 +20,7 @@
   </a>
 </p>
 
-[📲 Install](#-installation) • [📥 Download APK](../../releases) • [📖 User Guide](docs/user-guide.md) ([🇬🇧 EN](docs/user-guide.en.md) · [🇫🇷 FR](docs/user-guide.fr.md)) • [🤖 AI Chat Bot](docs/ai-chat-bot.md) • [🤝 Contribute](CONTRIBUTING.md) • [📝 Changelog](CHANGELOG.md) • [📚 Documentation](docs/user-guide.md) (DE/EN/FR Handbuch + [docs/ai-chat-bot.md](docs/ai-chat-bot.md) + [GitHub-Wiki](../../wiki) per Doku-Sync synchron) • [🐛 Report Bug](../../issues) • [💬 Discussions](../../discussions)
+[📲 Install](#-installation) • [📥 Download APK](../../releases/latest/download/app-standard-release.apk) • [📖 User Guide](docs/user-guide.md) ([🇬🇧 EN](docs/user-guide.en.md) · [🇫🇷 FR](docs/user-guide.fr.md)) • [🤖 AI Chat Bot](docs/ai-chat-bot.md) • [🤝 Contribute](CONTRIBUTING.md) • [📝 Changelog](CHANGELOG.md) • [📚 Documentation](docs/user-guide.md) (DE/EN/FR Handbuch + [docs/ai-chat-bot.md](docs/ai-chat-bot.md) + [GitHub-Wiki](../../wiki) per Doku-Sync synchron) • [🐛 Report Bug](../../issues) • [💬 Discussions](../../discussions)
 
 </div>
 
@@ -32,7 +32,7 @@
 
 **Get started:**
 
-- 📲 **Install:** grab the latest APK from [Releases](../../releases) or add the [F-Droid repository](#-automatic-updates-f-droid-repository) for automatic updates (APK 24+)
+- 📲 **Install:** grab the latest APK via the permanent [direct download link](../../releases/latest/download/app-standard-release.apk), from the [Releases list](../../releases), or add the [F-Droid repository](#-automatic-updates-f-droid-repository) for automatic updates (APK 24+)
 - 📖 **User guide:** [English](docs/user-guide.en.md) · [Français](docs/user-guide.fr.md) · [Deutsch](docs/user-guide.md) — plus [tutorials](docs/tutorials/), [FAQ](docs/faq/common-issues.md) and [troubleshooting](docs/troubleshooting/)
 - 🛠 **Build from source:** `./gradlew assembleFossDebug` (Gradle 9.4 wrapper, JDK 25; `foss` flavor is fully open-source, the `standard` flavor adds optional Sentry)
 - 🤝 **Contribute:** bugs and features via [Issues](../../issues), code via pull requests to `develop` — see [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow, required checks, and the local pre-push gate; every contribution follows our [Code of Conduct](CODE_OF_CONDUCT.md)
@@ -79,13 +79,15 @@ This README tracks that progress honestly: the [Features](#-features) section ma
 | 🌙 **Nightly** (prerelease) | Fresh build of every new feature, updated daily | Testers, early adopters |
 | 🧪 **Alpha** (`v*-alpha`) | First stage of versioned releases | Previewing upcoming features |
 
-📄 The full versioning strategy (versionName/versionCode, stage criteria) is documented in [RELEASE.md](RELEASE.md). The complete release history (stable, alpha, nightly — automatically mirrored from GitHub Releases) lives in [CHANGELOG.md](CHANGELOG.md).
+📄 The full versioning strategy (versionName/versionCode, stage criteria) is documented in [RELEASE.md](RELEASE.md). The complete release history (stable, alpha, nightly — automatically mirrored from GitHub Releases) lives in [CHANGELOG.md](CHANGELOG.md). How builds get published — cadence, checksums, F-Droid repositories — is documented in [docs/distribution.md](docs/distribution.md).
 
 ### Step 2: Download the APK
 
+**Direct download:** the latest stable APK is always available at the permanent link [`releases/latest/download/app-standard-release.apk`](../../releases/latest/download/app-standard-release.apk) — GitHub resolves this permalink to the newest stable release automatically. Alternatively via the releases list:
+
 1. Open the [**Releases**](../../releases) page
 2. Click **"Latest"** (stable), or expand the prerelease list for **nightly** / **alpha** builds
-3. Download **`app-release.apk`** (ignore `mapping.txt` and `output-metadata.json` — those are for developers only)
+3. On stable releases download **`app-standard-release.apk`** (the `app-foss-release.apk` is the Sentry-free F-Droid variant); ignore `mapping.txt` and `output-metadata.json` — those are for developers only. Verify downloads with `SHA256SUMS.txt` (`sha256sum -c`)
 4. If your browser warns about the file type, confirm "Download anyway"
 
 ### Step 3: Allow installation from unknown sources
@@ -637,7 +639,7 @@ bundle exec fastlane release_alpha
 
 #### Version source of truth
 
-`app/build.gradle.kts` reads the default `versionName` from the [`VERSION`](VERSION) file and derives a fallback `versionCode` with the **same schema as Fastlane** (`major*1,000,000 + minor*1,000 + patch*10 + stage`; `0.5.14-beta` → `5142`). The Ruby self-test [`scripts/test_version_fallback.rb`](scripts/test_version_fallback.rb) re-implements that schema and runs in the pre-push gate and CI, so the Gradle fallback and `fastlane/release_safety.rb` can never drift apart. Fastlane remains authoritative for release builds — the Gradle fallback only covers plain `./gradlew` builds without Fastlane.
+`app/build.gradle.kts` reads the default `versionName` from the [`VERSION`](VERSION) file and derives a fallback `versionCode` with the **same schema as Fastlane** (`major*1,000,000 + minor*1,000 + patch*10 + stage`; `0.5.14` → `5144`). The Ruby self-test [`scripts/test_version_fallback.rb`](scripts/test_version_fallback.rb) re-implements that schema and runs in the pre-push gate and CI, so the Gradle fallback and `fastlane/release_safety.rb` can never drift apart. Fastlane remains authoritative for release builds — the Gradle fallback only covers plain `./gradlew` builds without Fastlane.
 
 The `release-pipeline.yml` workflow runs these lanes in CI. Two release paths are automated:
 
