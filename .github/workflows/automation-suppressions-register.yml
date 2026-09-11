@@ -1,0 +1,110 @@
+name: Suppressions Register Review
+
+# Monatlicher Review-Zyklus für docs/security-suppressions.md: Der Register-
+# Guard läuft hier im Live-Modus (inkl. GitHub-API-Gegenprobe G7 — dismissed
+# Code-Scanning-/Dependabot-Alerts vs. Register). Bei Divergenz (neue
+# Dismissals ohne Registereintrag, abgelaufene Prüffristen, Snyk-Divergenz,
+# unbegründete NOSONAR) wird automatisch ein Issue geöffnet bzw. das bestehende
+# Review-Issue kommentiert; ist das Register konsistent, wird ein offenes
+# Review-Issue automatisch geschlossen. Die Entscheidung über Fix oder
+# Re-Review bleibt beim Maintainer — die Automatisierung liefert die Fristen-
+# kontrolle, damit Suppressons nicht verrotten (Pre-Push-Gate blockiert
+# abgelaufene Fristen zusätzlich bei jedem Push).
+on:
+  schedule:
+    # Monatlich am 11. um 06:00 UTC — bewusst nach den Register-Fristen
+    # (Snyk-Expiry 2026-12-10, Reviews 2027-03-11) orientiert.
+    - cron: '0 6 11 * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Register-Guard im Live-Modus ausführen
+        id: guard
+        continue-on-error: true
+        run: |
+          bash scripts/check_suppressions_register.sh 2>&1 | tee guard-output.txt
+          exit "${PIPESTATUS[0]}"
+
+      - name: Review-Issue öffnen, kommentieren oder schließen
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const fs = require('fs');
+            const title = 'Suppressions-Register: monatlicher Review — Divergenz oder abgelaufene Fristen';
+            const marker = '<!-- suppressions-register-review -->';
+            const outcome = '${{ steps.guard.outcome }}';
+            const runUrl = '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}';
+
+            let output = '';
+            try { output = fs.readFileSync('guard-output.txt', 'utf8').trim(); }
+            catch (e) { output = '(keine Guard-Ausgabe verfügbar)'; }
+            if (output.length > 2500) output = output.slice(0, 2500) + '\n… (gekürzt — vollständige Ausgabe im Run-Log)';
+
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 100
+            });
+            const existing = issues.find(i => !i.pull_request && i.title === title);
+
+            if (outcome === 'failure') {
+              const body = [
+                marker,
+                'Der monatliche Suppressions-Register-Guard (Live-Modus) ist **fehlgeschlagen**.',
+                '',
+                '```',
+                output,
+                '```',
+                '',
+                'Run: ' + runUrl,
+                '',
+                'Weiteres Vorgehen laut Review-Prozess in docs/security-suppressions.md:',
+                'Neue Dismissals nachtragen oder Prüffristen erneuern, dann Quelle und Register synchron halten.'
+              ].join('\n');
+              if (existing) {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner, repo: context.repo.repo,
+                  issue_number: existing.number, body
+                });
+                core.info('Bestehendes Review-Issue #' + existing.number + ' kommentiert.');
+              } else {
+                // Label tolerant anlegen (existiert es schon, wird der 422 ignoriert).
+                try {
+                  await github.rest.issues.createLabel({
+                    owner: context.repo.owner, repo: context.repo.repo,
+                    name: 'security', color: 'd73a4a', description: 'Sicherheits-Themen'
+                  });
+                } catch (e) { /* schon vorhanden */ }
+                const created = await github.rest.issues.create({
+                  owner: context.repo.owner, repo: context.repo.repo,
+                  title, body, labels: ['security']
+                });
+                core.info('Review-Issue #' + created.data.number + ' erstellt.');
+              }
+            } else {
+              if (existing) {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner, repo: context.repo.repo,
+                  issue_number: existing.number,
+                  body: marker + '\nRegister wieder konsistent (Run: ' + runUrl + ') — Issue wird automatisch geschlossen.'
+                });
+                await github.rest.issues.update({
+                  owner: context.repo.owner, repo: context.repo.repo,
+                  issue_number: existing.number, state: 'closed', state_reason: 'completed'
+                });
+                core.info('Review-Issue #' + existing.number + ' geschlossen (Register konsistent).');
+              } else {
+                core.info('Register konsistent — kein Issue nötig.');
+              }
+            }

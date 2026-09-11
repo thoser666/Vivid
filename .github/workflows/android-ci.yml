@@ -202,6 +202,12 @@ jobs:
       - name: Test CodeQL-Kotlin-Extractor-Pin
         run: bash scripts/test_codeql_kotlin.sh
 
+      # Suppressions-Register-Review-Workflow (automation-suppressions-
+      # register.yml): Vertrage des monatlichen Issue-Automaten (Cron,
+      # Minimalprivilegien, SHA-Pins, Live-Modus, Idempotenz, Issue-Close).
+      - name: Test Suppressions-Register-Workflow
+        run: bash scripts/test_suppressions_register_workflow.sh
+
       # Geteilte Release-Safety (Ruby) — Selbsttest: versionCode-Ableitung,
       # Track-Monotonie (kein Downgrade) und Quer-Track-Vergleich; strukturell
       # wird geprüft, dass release_alpha UND release_beta dieselben Funktionen

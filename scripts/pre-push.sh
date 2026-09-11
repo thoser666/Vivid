@@ -32,6 +32,8 @@ echo "▶ [pre-push] Snyk-Policy-Guard (scripts/check_snyk_policy.sh)"
 bash scripts/check_snyk_policy.sh
 echo "▶ [pre-push] Suppressions-Register-Guard (scripts/check_suppressions_register.sh)"
 bash scripts/check_suppressions_register.sh
+echo "▶ [pre-push] Suppressions-Register-Workflow-Selbsttest (scripts/test_suppressions_register_workflow.sh)"
+bash scripts/test_suppressions_register_workflow.sh
 
 echo "▶ [pre-push] Dependency-Security-Selbsttest (scripts/test_dependency_security_constraints.sh)"
 bash scripts/test_dependency_security_constraints.sh

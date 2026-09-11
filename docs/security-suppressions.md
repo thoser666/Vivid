@@ -23,8 +23,8 @@ Format pro Zeile: JJJJ-MM-TT Beschreibung. Abgelaufene Daten schlagen beim Gate 
 | Quelle | Suppressions-Mechanismus | Aktive Einträge | Automatisierte Prüfung |
 |---|---|---|---|
 | Snyk | `.snyk`-Policy (Ignore mit reason + expiry) | 1 | `check_snyk_policy.sh` (Pre-Push-Gate) |
-| GitHub Code Scanning (CodeQL) | Alert-Dismissal (false positive / mitigated) | 13 | dieses Register (halbjährlicher Review) |
-| GitHub Dependabot | Alert-Dismissal (`tolerable_risk`) | 9 | Dependabot meldet automatisch neu, sobald eine Version außerhalb des verwundbaren Bereichs gebaut wird |
+| GitHub Code Scanning (CodeQL) | Alert-Dismissal (false positive / mitigated) | 13 | monatlicher Review-Workflow (Issue-Automat) + halbjährlicher Termin in diesem Register |
+| GitHub Dependabot | Alert-Dismissal (`tolerable_risk`) | 9 | monatlicher Review-Workflow + Dependabot meldet automatisch neu, sobald eine Version außerhalb des verwundbaren Bereichs gebaut wird |
 | SonarCloud | `// NOSONAR`-Kommentare (S5332) | 3 (an 1 Stelle) | SonarCloud markiert Zeile; Review-Kontext hier |
 | OpenSSF Scorecard | `.github/scorecard.yml`-Annotationen | 3 Check-Blöcke | Scorecard-Viewer zeigt Begründung neben dem Finding |
 | Secret Scanning | — (Feature im Repo deaktiviert) | 0 | — |
@@ -119,8 +119,9 @@ Annotationen sind kein „Ignoring" von Findings, sondern Maintainer-erklärter 
 
 1. **Halbjährlicher Termin (nächster: 2027-03-11):** Alle Einträge mit `Review bis`/`Expires` durchgehen — per `gh api` die dismissals gegen die Tabelle abgleichen, Snyk-Expiry prüfen, `NOSONAR`-Stellen neu bewerten.
 2. **Ablauf-Schutz:** Der Guard `scripts/check_suppressions_register.sh` (Teil des Pre-Push-Gates) blockiert Pushes, sobald ein Datum in der Vergangenheit liegt, ein Snyk-Ignore ohne reason/expiry existiert, ein Register-Eintrag fehlt (Alert-Gegenprobe) oder ein `NOSONAR` ohne Begründung im Code steht.
-3. **Neue Suppression anlegen:** Erst hier eintragen (Begründung + Datum + Verantwortlicher), dann in der jeweiligen Quelle suppressen. Suppression ohne Registereintrag = Gate-Fail.
-4. **Suppression entfernen:** Eintrag aus dem Register löschen, in der Quelle zurücknehmen (Alert reopen / `.snyk`-Zeile entfernen / `NOSONAR` löschen), Register-Hash im Guard aktualisiert sich automatisch.
+3. **Monatliche Automatisierung:** Der Workflow `.github/workflows/automation-suppressions-register.yml` (Cron: 11. des Monats, 06:00 UTC, manuell per `workflow_dispatch` triggerbar) führt den Guard im **Live-Modus** aus. Bei Divergenz (neue Dismissals ohne Registereintrag, abgelaufene Fristen, Snyk-Divergenz, unbegründetes NOSONAR) öffnet er das Review-Issue „Suppressions-Register: monatlicher Review — Divergenz oder abgelaufene Fristen“ bzw. kommentiert es (Marker-idempotent); ist das Register konsistent, wird das offene Review-Issue automatisch geschlossen.
+4. **Neue Suppression anlegen:** Erst hier eintragen (Begründung + Datum + Verantwortlicher), dann in der jeweiligen Quelle suppressen. Suppression ohne Registereintrag = Gate-Fail.
+5. **Suppression entfernen:** Eintrag aus dem Register löschen, in der Quelle zurücknehmen (Alert reopen / `.snyk`-Zeile entfernen / `NOSONAR` löschen), Register-Hash im Guard aktualisiert sich automatisch.
 
 ### Verantwortlichkeiten
 
@@ -137,9 +138,11 @@ Annotationen sind kein „Ignoring" von Findings, sondern Maintainer-erklärter 
 | Register-Hygiene (offline) | `scripts/check_suppressions_register.sh` | Fehlt das Register, liegt ein Review-Datum in der Vergangenheit, divergieren SNYK-IDs zwischen `.snyk` und Register, trägt ein `NOSONAR` keine Begründung oder fehlt die Scorecard-Referenz → Gate-Fail |
 | Live-Gegenprobe (optional) | dito, mit Netzwerk | Jeder per GitHub-API gelistete dismissed Code-Scanning-/Dependabot-Alert muss im Register stehen — neue Dismissals ohne Registereintrag schlagen an. Bei Netzwerk-/Berechtigungsfehlern neutral (bricht das Gate nie) |
 | Selbsttest | `scripts/test_suppressions_register.sh` | 8 Offline-Fixtures (gültig, abgelaufen, NOSONAR ohne Begründung, Register-Divergenz in beide Richtungen, fehlende Dateien, leerer Prüffrist-Block) |
+| Review-Workflow-Selbsttest | `scripts/test_suppressions_register_workflow.sh` | 15 Offline-Checks zu `automation-suppressions-register.yml`: Cron/Trigger, Minimalprivilegien, SHA-Pinning, Live-Modus, Idempotenz, Issue-Close, Gate-Konsistenz |
 
 ### Changelog des Registers
 
 | Datum | Änderung |
 |---|---|
 | 2026-09-11 | Erstfassung: 1 Snyk-Ignore, 13 Code-Scanning-Dismissals, 9 Dependabot-Dismissals, 3 NOSONAR, 3 Scorecard-Annotationen erfasst. |
+| 2026-09-11 | Monatlicher Review-Workflow ergänzt (`automation-suppressions-register.yml`, Cron Tag 11): Live-Guard mit Issue-Automat (öffnen/kommentieren/schließen, Marker-idempotent) + Workflow-Selbsttest (15 Checks, CI + Pre-Push-Gate). |
