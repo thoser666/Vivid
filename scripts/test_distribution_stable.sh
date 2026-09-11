@@ -6,9 +6,11 @@
 #     manuell per workflow_dispatch — NIEMALS bei push/tag/release-Ereignissen.
 #   - Nightly (täglich) läuft UNVERÄNDERT in release-pipeline.yml.
 #   - Der Job wählt die neueste NICHT vollständig verteilte v*-Version, baut
-#     sie mit `release_github tag:"$TAG"` (beide Flavor-APKs + SHA256SUMS) und
-#     spiegelt danach CHANGELOG.md (GH_TOKEN-Ereignisse feuern kein
-#     release:published — Update läuft inline, wie in release-pipeline.yml).
+#     sie mit `release_github tag:"$TAG"` (beide Flavor-APKs + SHA256SUMS),
+#     signiert die SHA256SUMS.txt keyless per sigstore/cosign (id-token: write,
+#     .sig/.crt als Release-Assets — Completeness = 4 Assets) und spiegelt
+#     danach CHANGELOG.md (GH_TOKEN-Ereignisse feuern kein release:published —
+#     Update läuft inline, wie in release-pipeline.yml).
 #   - Sind alle Versionen vollständig verteilt, endet der Lauf sauber (exit 0).
 #   - deploy-fdroid.yml feuert seitdem auf wöchentlichem Schedule + Manuell,
 #     KEIN release:published mehr; das Repo lädt nur den Standard-Flavor
@@ -25,7 +27,7 @@ DIST=.github/workflows/distribution-stable.yml
 FDROID=.github/workflows/deploy-fdroid.yml
 RELEASE=.github/workflows/release-pipeline.yml
 
-echo "▶ [test_distribution_stable] Szenarien D1–D12"
+echo "▶ [test_distribution_stable] Szenarien D1–D13"
 
 FAILED=0
 check() {
@@ -67,11 +69,13 @@ check "D3.1 version-Input-Validierung (^vX.Y.Z…)" "$DIST" 'v\[0-9\]\+\\\.\[0-9
 check "D3.2 Tag-Existenz-Check" "$DIST" 'git show-ref --verify --quiet "refs/tags/\$TAG"'
 
 # D4: Semver-Sortierung und Vollständigkeits-Prüfung (BEIDE Flavor-APKs +
-# SHA256SUMS) — unveröffentlichte oder unvollständige Versionen werden gewählt.
+# SHA256SUMS + cosign-Signatur .sig) — unveröffentlichte oder unvollständige
+# Versionen werden gewählt.
 check "D4.1 semver-Sortierung" "$DIST" 'git tag -l "v\*" --sort=-v:refname'
 check "D4.2 Vollständigkeits-Assets (app-standard-release.apk)" "$DIST" 'index\("app-standard-release\.apk"\)'
 check "D4.3 Vollständigkeits-Assets (app-foss-release.apk)" "$DIST" 'index\("app-foss-release\.apk"\)'
 check "D4.4 Vollständigkeits-Assets (SHA256SUMS.txt)" "$DIST" 'index\("SHA256SUMS\.txt"\)'
+check "D4.5 Vollständigkeits-Assets (cosign-Signatur SHA256SUMS.txt.sig)" "$DIST" 'index\("SHA256SUMS\.txt\.sig"\)'
 
 # D5: Alles verteilt → sauberer exit 0 (kein Fehlschlag-Alarm bei Leerlauf).
 check "D5.1 No-Op-Notice" "$DIST" '::notice::Alle v\*-Versionen'
@@ -134,6 +138,31 @@ check "D12.1 test_sha256sums.sh existiert" \
   scripts/test_sha256sums.sh 'sha256sum -c'
 check "D12.2 hardening-Test deckt den incompleteness-Pfad ab" \
   scripts/test_publish_release_hardening.sh 'S8: published, aber nur Standard-APK'
+
+# D13: sigstore/cosign keyless-Signatur der SHA256SUMS.txt (seit 10.09.2026).
+# Der publish-stable-Job braucht id-token: write für das ambient OIDC-Token;
+# signiert wird die vom Release HERUNTERGELADENE Datei (nicht das lokale
+# Build-Artefakt), damit die Signatur exakt die veröffentlichten Bytes deckt.
+check "D13.1 id-token: write (OIDC für cosign keyless)" \
+  "$DIST" 'id-token: write'
+check "D13.2 cosign-installer SHA-gepinnt (v4.1.2)" \
+  "$DIST" 'sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6' 
+check "D13.3 cosign-installer-Versionskommentar" "$DIST" '# v4.1.2'
+check "D13.4 sign-blob mit output-signature (keyless cert)" "$DIST" 'cosign sign-blob'
+check "D13.5 output-signature" "$DIST" '--output-signature SHA256SUMS.txt.sig'
+check "D13.6 output-certificate" "$DIST" '--output-certificate SHA256SUMS.txt.crt'
+check "D13.7 Signatur-Input ist heruntergeladene Release-Checksummen" \
+  "$DIST" 'gh release download "\$TAG" -p SHA256SUMS.txt'
+check "D13.8 Upload der Signatur in dasselbe Release (idempotent --clobber)" \
+  "$DIST" 'gh release upload "\$TAG" SHA256SUMS.txt.sig SHA256SUMS.txt.crt --clobber'
+# D13.9: BEIDE cosign-Steps (Install + Sign) hängen am TAG-Guard — sonst würde
+# im No-Target-Fall (alles verteilt) ungesichert mit leerem $TAG gearbeitet.
+if awk '/name: Install cosign/{c1=1} /name: Sign SHA256SUMS and attach/{c2=1} c1 && !c2 && /env.TAG != ./{g1=1} c2 && /env.TAG != ./{g2=1} END { exit !(g1 && g2) }' "$DIST"; then
+  echo "  ✅ D13.9 beide cosign-Steps hängen am TAG-Guard"
+else
+  echo "  ❌ D13.9 mindestens ein cosign-Step fehlt der TAG-Guard"
+  FAILED=1
+fi
 
 echo ""
 if [ "$FAILED" -eq 0 ]; then

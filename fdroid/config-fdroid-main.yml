@@ -6,8 +6,8 @@
 # ⚠️ Dieser Config-Abschnitt ist die SUBMISSION-VORLAGE. Der fertige Eintrag
 # lebt in fdroid/metadata/com.vivid.foss.yml (gleiches Format) und wird pro
 # Release von Hand gepflegt (versionName/versionCode/commit anheben — die
-# versionCode stimmen deterministisch mit der release_beta-Lane überein:
-# major*1e6 + minor*1e3 + patch*10 + stage, 0.5.14-beta → 5142).
+# versionCode stimmen deterministisch mit den release-Lanes überein:
+# major*1e6 + minor*1e3 + patch*10 + stage, 0.5.14-beta → 5142, 0.5.14 → 5144).
 
 # Repository metadata
 repo_name: Vivid (F-Droid)
@@ -49,6 +49,12 @@ Builds:
   - versionName: 0.5.14-beta
     versionCode: 5142
     commit: v0.5.14-beta
+    gradle:
+      - assembleFossRelease
+    output: app-foss-release.apk
+  - versionName: 0.5.14
+    versionCode: 5144
+    commit: v0.5.14
     gradle:
       - assembleFossRelease
     output: app-foss-release.apk

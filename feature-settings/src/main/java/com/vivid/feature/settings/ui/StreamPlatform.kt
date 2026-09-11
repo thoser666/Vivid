@@ -17,14 +17,23 @@ import androidx.annotation.StringRes
  *            der Server TLS ablehnt, kann der Nutzer den Toggle deaktivieren)
  * - Custom:  leert die URL — beliebige RTMP(S)/SRT-Ingest-Ziele (z. B. Owncast)
  *            eintragen; der TLS-Toggle bleibt unangetastet.
+ *
+ * Hinweis zu SonarCloud `kotlin:S5332` ("Using RTMP protocol is insecure"):
+ * Die `rtmp://`-Presets sind eine bewusste Design-Entscheidung (RTMP ist ein
+ * Kern-Feature, siehe SECURITY.md "Netzwerk-Sicherheit" — der Stream läuft
+ * über RootEncoders eigene Sockets, die `rtmp://`-→`rtmps://`-Konvertierung
+ * ist der Standardweg mit aktiviertem TLS-Toggle). Deshalb `// NOSONAR` auf
+ * den Preset-Zeilen — kein Fehler, sondern dokumentierte Konfiguration, die
+ * bei jedem Leak-Period-Rücksetzer sonst erneut als "neue" Vulnerability
+ * auftaucht.
  */
 enum class StreamPlatform(
     @StringRes val labelRes: Int,
     val ingestUrl: String,
 ) {
-    Twitch(R.string.platform_twitch, "rtmp://live.twitch.tv/app"),
-    YouTube(R.string.platform_youtube, "rtmp://a.rtmp.youtube.com/live2"),
-    Kick(R.string.platform_kick, "rtmp://live.kick.com/app"),
+    Twitch(R.string.platform_twitch, "rtmp://live.twitch.tv/app"), // NOSONAR: bewusstes RTMP-Preset, siehe SECURITY.md
+    YouTube(R.string.platform_youtube, "rtmp://a.rtmp.youtube.com/live2"), // NOSONAR: bewusstes RTMP-Preset, siehe SECURITY.md
+    Kick(R.string.platform_kick, "rtmp://live.kick.com/app"), // NOSONAR: bewusstes RTMP-Preset, siehe SECURITY.md
 
     /**
      * Eigene/benutzerdefinierte Ziel-URL: [ingestUrl] ist leer, damit eine

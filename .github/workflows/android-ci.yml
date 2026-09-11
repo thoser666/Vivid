@@ -186,6 +186,22 @@ jobs:
       - name: Check version catalog consistency
         run: bash scripts/check_version_catalog.sh
 
+      # Kotlin-Sync-Guard: kotlin und jetbrainsKotlinJvm müssen synchron bleiben
+      # (Issue #110, Dependabot-Alert #63) — Drift kompiliert die JVM- und
+      # Android-Module mit unterschiedlichen Kotlin-Versionen.
+      - name: Test kotlin/jetbrainsKotlinJvm sync guard
+        run: bash scripts/test_kotlin_sync.sh
+
+      - name: Check kotlin/jetbrainsKotlinJvm sync
+        run: bash scripts/check_kotlin_sync.sh
+
+      # CodeQL-Extractor-Pin (github/codeql#22404): security-codeql.yml baut den
+      # Trace mit Kotlin 2.4.10 (< 2.4.20, Bundle-Limit von Bundle 2.27.0), der
+      # Pin-Step muss vor dem Build liegen und kein anderer Workflow den Katalog
+      # downgraden — sonst bleibt CodeQL auf develop rot.
+      - name: Test CodeQL-Kotlin-Extractor-Pin
+        run: bash scripts/test_codeql_kotlin.sh
+
       # Geteilte Release-Safety (Ruby) — Selbsttest: versionCode-Ableitung,
       # Track-Monotonie (kein Downgrade) und Quer-Track-Vergleich; strukturell
       # wird geprüft, dass release_alpha UND release_beta dieselben Funktionen
@@ -212,12 +228,6 @@ jobs:
       # und verlinkt die Sprach-Seiten; fehlende Handbücher werden erkannt.
       - name: Test wiki sync generation
         run: bash scripts/test_wiki_sync.sh
-
-      # CodeQL-Kotlin-Wächter (Bash) — Selbsttest: Fixtures beweisen, dass
-      # github/codeql#22404-open → blockiert (0), closed/completed → Re-Upgrade
-      # fällig (10 + Warnung + Summary), API-Ausfall neutral (0) bleibt.
-      - name: Test CodeQL-Kotlin guard
-        run: bash scripts/test_codeql_guard.sh
 
       # Security-Loop (Bash) — Selbsttest: die release-grade Sicherheitsregeln
       # der Pipeline (Keystore-Härtung, Signatur-Check, Reproduzierbarkeit,

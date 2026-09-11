@@ -26,6 +26,10 @@ bash scripts/test_play_checklist.sh
 
 echo "▶ [pre-push] Snyk-Workflow-Selbsttest (scripts/test_snyk_workflow.sh)"
 bash scripts/test_snyk_workflow.sh
+echo "▶ [pre-push] Snyk-Policy-Guard-Selbsttest (scripts/test_snyk_policy.sh)"
+bash scripts/test_snyk_policy.sh
+echo "▶ [pre-push] Snyk-Policy-Guard (scripts/check_snyk_policy.sh)"
+bash scripts/check_snyk_policy.sh
 
 echo "▶ [pre-push] Dependency-Security-Selbsttest (scripts/test_dependency_security_constraints.sh)"
 bash scripts/test_dependency_security_constraints.sh
@@ -214,9 +218,6 @@ run bash scripts/check_bot_commands_doc.sh
 echo "▶ [pre-push] Wiki-Sync-Generierungs-Selbsttest (scripts/test_wiki_sync.sh)"
 run bash scripts/test_wiki_sync.sh
 
-echo "▶ [pre-push] CodeQL-Kotlin-Wächter-Selbsttest (scripts/test_codeql_guard.sh)"
-run bash scripts/test_codeql_guard.sh
-
 # Security-Loop-Guard (bash): release-grade Sicherheitsregeln der Pipeline
 # (Keystore-Härtung, Signatur-Check, Reproduzierbarkeit, Sentry-Opt-out,
 # Bot-Credential-Warnung) müssen vorhanden bleiben — plus Fixture-Selbsttest.
@@ -240,6 +241,31 @@ run bash scripts/check_version_catalog.sh
 # grün und inkonsistente rot gemeldet werden.
 echo "▶ [pre-push] Version-Catalog-Check-Selbsttest (scripts/test_check_version_catalog.sh)"
 run bash scripts/test_check_version_catalog.sh
+
+# Kotlin-Sync-Guard: kotlin und jetbrainsKotlinJvm (Issue #110, Dependabot #63)
+# müssen dieselbe Kotlin-Version tragen — Drift kompiliert Tooling und Module
+# mit unterschiedlichen Vorlagen. Guard + Fixtures-Selbsttest.
+echo "▶ [pre-push] Kotlin-Sync-Guard (scripts/check_kotlin_sync.sh)"
+run bash scripts/check_kotlin_sync.sh
+
+echo "▶ [pre-push] Kotlin-Sync-Guard-Selbsttest (scripts/test_kotlin_sync.sh)"
+run bash scripts/test_kotlin_sync.sh
+
+# CodeQL-Blockade-Wächter (advisory — nie push-blockierend): CodeQL-Bundle
+# 2.27.0 kann Kotlin 2.4.20 nicht extrahieren (Stand 2.27.0, empirisch
+# 2026-09-10); security-codeql.yml pinnt den Trace-Build deshalb auf 2.4.10.
+# Er warnt, sobald ein neueres Bundle den Pin entbehrlich macht.
+echo "▶ [pre-push] CodeQL-Blockade-Wächter (scripts/check_codeql_blockade.sh)"
+run bash scripts/check_codeql_blockade.sh
+
+echo "▶ [pre-push] CodeQL-Blockade-Wächter-Selbsttest (scripts/test_codeql_blockade.sh)"
+run bash scripts/test_codeql_blockade.sh
+
+# CodeQL-Extractor-Pin-Selbsttest (security-codeql.yml): der Pin-Step muss vor
+# dem Build-Step liegen, beide codeql-action-Steps SHA-gepinnt sein und kein
+# anderer Workflow den Katalog downgraden (Normal-CI bleibt 2.4.20).
+echo "▶ [pre-push] CodeQL-Extractor-Pin-Selbsttest (scripts/test_codeql_kotlin.sh)"
+run bash scripts/test_codeql_kotlin.sh
 
 # Dashboard aktualisieren (statisch generiert, committed)
 echo "▶ [pre-push] Dashboard generieren (scripts/generate_status_dashboard.sh)"
