@@ -126,6 +126,49 @@ check 7 "NOSONAR-Prosa erlaubt (G5)"     0 "konsistent"
 check 8 "Registerdatei fehlt (G1)"       1 "Registerdatei fehlt"
 check 9 "Scorecard nicht dokumentiert (G6)" 1 "nicht im Register"
 
+# T10: G7 mit 403-Antwort (Stub-gh ohne Berechtigung) -> neutral, RC 0
+mkdir -p "$TMP/t10/scripts" "$TMP/t10/docs" "$TMP/t10/.github" "$TMP/t10/bin"
+cp "$GUARD" "$TMP/t10/scripts/"
+{
+        echo '# Register'
+        echo '<!-- review-dates-data'
+        printf '%s
+' "$VALID_REGISTER"
+        echo
+        echo '.github/scorecard.yml Annotations: dokumentiert.'
+        echo 'Dismissed: #8, #461 (Code Scanning).'
+} > "$TMP/t10/docs/security-suppressions.md"
+printf '%s
+' "$VALID_SNYK" > "$TMP/t10/.snyk"
+printf 'annotations:
+  - checks: [binary-artifacts]
+' > "$TMP/t10/.github/scorecard.yml"
+cat > "$TMP/t10/bin/gh" <<'STUBGH'
+#!/usr/bin/env bash
+# Simuliert fehlende Dependabot-Alert-Berechtigung (GITHUB_TOKEN-Basis)
+if [[ "$*" == *dependabot/alerts* ]]; then
+    echo '{"message":"Resource not accessible by integration","status":"403"}'
+    exit 1
+fi
+if [[ "$*" == *code-scanning/alerts* ]]; then
+    echo '8'
+    echo '461'
+    exit 0
+fi
+exit 0
+STUBGH
+chmod +x "$TMP/t10/bin/gh"
+out_t10="$(cd "$TMP/t10" && PATH="$TMP/t10/bin:$PATH" bash scripts/check_suppressions_register.sh 2>&1)"
+rc_t10=$?
+if [ "$rc_t10" -eq 0 ] && echo "$out_t10" | grep -q 'neutral'; then
+    echo 'PASS T10: G7 mit 403 (Dependabot) laeuft neutral weiter (RC 0)'
+    PASS=$((PASS + 1))
+else
+    echo "FAIL T10: 403-Fall nicht neutral (rc=$rc_t10)"
+    echo "$out_t10" | sed 's/^/    | /'
+    FAIL=$((FAIL + 1))
+fi
+
 echo
 echo "$PASS PASS, $FAIL FAIL"
 [ "$FAIL" -eq 0 ] || exit 1

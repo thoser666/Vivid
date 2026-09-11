@@ -137,7 +137,7 @@ Annotationen sind kein „Ignoring" von Findings, sondern Maintainer-erklärter 
 |---|---|---|
 | Register-Hygiene (offline) | `scripts/check_suppressions_register.sh` | Fehlt das Register, liegt ein Review-Datum in der Vergangenheit, divergieren SNYK-IDs zwischen `.snyk` und Register, trägt ein `NOSONAR` keine Begründung oder fehlt die Scorecard-Referenz → Gate-Fail |
 | Live-Gegenprobe (optional) | dito, mit Netzwerk | Jeder per GitHub-API gelistete dismissed Code-Scanning-/Dependabot-Alert muss im Register stehen — neue Dismissals ohne Registereintrag schlagen an. Bei Netzwerk-/Berechtigungsfehlern neutral (bricht das Gate nie) |
-| Selbsttest | `scripts/test_suppressions_register.sh` | 8 Offline-Fixtures (gültig, abgelaufen, NOSONAR ohne Begründung, Register-Divergenz in beide Richtungen, fehlende Dateien, leerer Prüffrist-Block) |
+| Selbsttest | `scripts/test_suppressions_register.sh` | 10 Offline-Fixtures (gültig, abgelaufen, NOSONAR ohne Begründung, Register-Divergenz in beide Richtungen, fehlende Dateien, leerer Prüffrist-Block, G7 mit 403 → neutral) |
 | Review-Workflow-Selbsttest | `scripts/test_suppressions_register_workflow.sh` | 15 Offline-Checks zu `automation-suppressions-register.yml`: Cron/Trigger, Minimalprivilegien, SHA-Pinning, Live-Modus, Idempotenz, Issue-Close, Gate-Konsistenz |
 
 ### Changelog des Registers

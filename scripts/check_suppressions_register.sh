@@ -99,11 +99,22 @@ if [ "$ALLOW_NO_NETWORK" = "1" ]; then
 elif ! command -v gh >/dev/null 2>&1; then
     warn "gh CLI nicht verfügbar — Live-Gegenprobe übersprungen (G7)"
 else
-    CS_IDS="$(gh api "repos/thoser666/Vivid/code-scanning/alerts?state=dismissed&per_page=100" --jq '.[].number' 2>/dev/null || true)"
-    DB_IDS="$(gh api "repos/thoser666/Vivid/dependabot/alerts?state=dismissed&per_page=100" --jq '.[].number' 2>/dev/null || true)"
-    if [ -z "$CS_IDS" ] && [ -z "$DB_IDS" ]; then
+    # Pro Quelle trennen: Exit-Code merken (set -e via ||-Fang), nur reine
+    # Zahlenzeilen sind Alert-IDs. 401/403-JSON (z. B. GITHUB_TOKEN ohne
+    # Dependabot-Alerts-Leserecht) führt zu einer neutralen Warnung für
+    # DIESE Quelle — nie zu einer Schein-Divergenz (Live-Test 2026-09-11);
+    # erfolgreiche Quellen werden weiterhin voll gegenprobt.
+    CS_RC=0
+    CS_RAW="$(gh api "repos/thoser666/Vivid/code-scanning/alerts?state=dismissed&per_page=100" --jq '.[].number' 2>/dev/null)" || CS_RC=$?
+    DB_RC=0
+    DB_RAW="$(gh api "repos/thoser666/Vivid/dependabot/alerts?state=dismissed&per_page=100" --jq '.[].number' 2>/dev/null)" || DB_RC=$?
+    CS_IDS="$(echo "$CS_RAW" | grep -E '^[0-9]+$' || true)"
+    DB_IDS="$(echo "$DB_RAW" | grep -E '^[0-9]+$' || true)"
+    if [ "$CS_RC" -ne 0 ] && [ "$DB_RC" -ne 0 ]; then
         warn "GitHub-API nicht erreichbar/berechtigt — Live-Gegenprobe neutral übersprungen (G7)"
     else
+        [ "$CS_RC" -ne 0 ] && warn "Code-Scanning-API ohne Leserecht — Gegenprobe für Code Scanning neutral (G7)"
+        [ "$DB_RC" -ne 0 ] && warn "Dependabot-API ohne Leserecht (Repo-Setting \"Actions can read Dependabot alerts\") — Gegenprobe für Dependabot neutral (G7)"
         UNREGISTERED=""
         for id in $CS_IDS; do
             grep -qE "(^|[^0-9])#$id([^0-9]|$)" "$REGISTER" || UNREGISTERED="$UNREGISTERED CS#$id"
