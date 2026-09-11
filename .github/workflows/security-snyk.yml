@@ -55,6 +55,7 @@ jobs:
         run: |
           snyk test --all-projects \
             --exclude=build,.gradle \
+            --policy-path="$GITHUB_WORKSPACE/.snyk" \
             --severity-threshold=high \
             --sarif-file-output=./snyk-results.sarif
 
@@ -110,7 +111,9 @@ jobs:
           version: latest
 
       - name: Run Snyk monitor
-        run: snyk monitor --all-projects --exclude=build,.gradle
+        run: >-
+          snyk monitor --all-projects --exclude=build,.gradle
+          --policy-path="$GITHUB_WORKSPACE/.snyk"
 
       - name: Summary
         if: always()

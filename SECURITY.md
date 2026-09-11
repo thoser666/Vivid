@@ -87,6 +87,25 @@ Der `LogRedactor` schwärzt sensible Werte **bevor** sie in den `LogBuffer` gela
 ### Snyk-CLI-Migration
 
 Der Workflow `.github/workflows/security-snyk.yml` verwendet seit September 2026 nicht mehr die abgekündigte `snyk/actions/gradle-jdk17`-Docker-Action. Stattdessen werden JDK 17, `snyk/actions/setup@v1.0.0` und die Snyk-CLI direkt verwendet. Die CLI erhält gültige Verzeichnisnamen (`build,.gradle`) statt eines nicht unterstützten Glob-Musters. Test und Monitor haben jeweils ein 20-Minuten-Timeout; SARIF wird nur hochgeladen, wenn die CLI tatsächlich eine Datei erzeugt. Der Offline-Guard `scripts/test_snyk_workflow.sh` prüft diese Vorgaben.
+### Snyk-Policy: rubyzip-Ignore (bewusste Risikoentscheidung)
+
+Seit September 2026 meldet Snyk **SNYK-RUBY-RUBYZIP-19666145** (Directory Traversal in `Zip::Entry#extract`, High Severity) für `rubyzip 2.4.1`, das über `fastlane 2.237.0` in der Release-Pipeline läuft. Bewertung:
+
+- **Kein CVE/GHSA:** OSV listet für rubyzip nur die Alt-CVEs 2017–2019; die Meldung ist Snyk-eigene Research ohne öffentliche Koordinierung.
+- **Fix unerreichbar:** fastlane pinnt `rubyzip >= 2.0.0, < 3.0.0` (auch das neueste fastlane 2.239.0); gepatcht ist erst rubyzip 3.4.0+. Ein Fork von fastlane wäre unverhältnismäßig.
+- **Kein Produkt-Risiko:** rubyzip läuft ausschließlich pipeline-seitig in fastlane und verpackt/entpackt nur von der Pipeline selbst erzeugte Archive (Release-APK/AAB) — keine Angreifer-kontrollierten Zip-Pfade, nichts davon landet im APK.
+
+Entscheidung: sanktionierter Policy-Ignore in `.snyk` (reason + 90-Tage-Expiry 2026-12-10) statt unsanierter Constraint-Override-Versuche. Der Workflow übergibt die Policy an `snyk test` UND `snyk monitor` explizit per `--policy-path="$GITHUB_WORKSPACE/.snyk"` (unter `--all-projects` sonst nicht wirksam).
+
+Absicherung gegen Verrottung durch `scripts/check_snyk_policy.sh` (Teil des Pre-Push-Gates):
+
+1. Jeder Ignore braucht einen reason (>= 40 Zeichen) und zukünftiges `expires`.
+2. Abgelaufene Einträge brechen das Gate — bewusste Reassess-Pflicht.
+3. Fehlende `--policy-path`-Verdrahtung (test ODER monitor) bricht das Gate.
+4. `patch:`-Direktiven sind verboten (nicht committbare Artefakte).
+5. Advisory: lockert fastlane den rubyzip-Constraint auf 3.x, wird beim Gate gewarnt — dann Ignore entfernen, `bundle update rubyzip`, Push und Ignore-Eintrag löschen.
+
+Selbsttest: `scripts/test_snyk_policy.sh` (11 Szenarien, offline).
 
 ### Workflow-Härtung (Code-Scanning-Alerts)
 

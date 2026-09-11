@@ -26,6 +26,10 @@ bash scripts/test_play_checklist.sh
 
 echo "▶ [pre-push] Snyk-Workflow-Selbsttest (scripts/test_snyk_workflow.sh)"
 bash scripts/test_snyk_workflow.sh
+echo "▶ [pre-push] Snyk-Policy-Guard-Selbsttest (scripts/test_snyk_policy.sh)"
+bash scripts/test_snyk_policy.sh
+echo "▶ [pre-push] Snyk-Policy-Guard (scripts/check_snyk_policy.sh)"
+bash scripts/check_snyk_policy.sh
 
 echo "▶ [pre-push] Dependency-Security-Selbsttest (scripts/test_dependency_security_constraints.sh)"
 bash scripts/test_dependency_security_constraints.sh

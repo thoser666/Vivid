@@ -1,0 +1,19 @@
+# Snyk-Policy: dokumentierte Ignorierungen für nicht behebbare Fundstellen.
+# Format: https://docs.snyk.io/scan-fix-and-prevent/prevent/policies/the-.snyk-file
+# Der Guard scripts/check_snyk_policy.sh (Teil des Pre-Push-Gates) erzwingt für
+# JEDEN Eintrag: reason (min. 40 Zeichen), zukünftiges expires-Datum und die
+# --policy-path-Verdrahtung in security-snyk.yml (test + monitor).
+version: v1.25.1
+ignore:
+  SNYK-RUBY-RUBYZIP-19666145:
+    - reason: >-
+        rubyzip 2.4.1: Directory Traversal in Zip::Entry#extract (Snyk-Research,
+        kein CVE/GHSA — OSV listet nur die Alt-CVEs 2017-2019). Der Fix (3.4.0+)
+        ist unerreichbar: fastlane pinnt 'rubyzip >= 2.0.0, < 3.0.0' (auch das
+        neueste fastlane 2.239.0); ein Fork wäre unverhältnismäßig. Risiko
+        bewusst akzeptiert: rubyzip läuft ausschließlich pipeline-seitig in
+        fastlane und verpackt/entpackt nur von der Pipeline selbst erzeugte
+        Archive (Release-APK/AAB) — keine Angreifer-kontrollierten Zip-Pfade,
+        nichts davon landet im APK. Reassess, sobald fastlane 3.x zulässt oder
+        ein CVE/GHSA publiziert wird.
+      expires: '2026-12-10T00:00:00.000Z'
