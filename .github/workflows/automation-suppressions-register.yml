@@ -24,6 +24,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       issues: write
+      # G7-Live-Gegenprobe: Der Guard fragt dismissed Code-Scanning- und
+      # Dependabot-Alerts per REST-API ab — beides braucht security-events: read.
+      security-events: read
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -31,6 +34,10 @@ jobs:
       - name: Register-Guard im Live-Modus ausführen
         id: guard
         continue-on-error: true
+        env:
+          # gh CLI im Guard authentifizieren (sonst läuft die G7-Gegenprobe
+          # nur neutral — 401 statt echter Alert-Gegenprobe).
+          GH_TOKEN: ${{ github.token }}
         run: |
           bash scripts/check_suppressions_register.sh 2>&1 | tee guard-output.txt
           exit "${PIPESTATUS[0]}"
