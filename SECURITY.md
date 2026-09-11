@@ -78,7 +78,7 @@ Der `LogRedactor` schwärzt sensible Werte **bevor** sie in den `LogBuffer` gela
 
 | Tool | Status | Scope |
 |------|--------|-------|
-| **CodeQL** | ✅ aktiv | Kotlin/Java-Codebasis, `security-extended` + `security-and-quality`, wöchentlich + pro Push |
+| **CodeQL** | ✅ aktiv | Kotlin/Java-Codebasis, `security-extended` + `security-and-quality`, wöchentlich + pro Push. Trace-Build auf Kotlin 2.4.10 gepinnt, bis ein CodeQL-Bundle die 2.4.20-Extraktion ausliefert (github/codeql#22404) |
 | **Dependabot** | ✅ aktiv | Gradle-Dependencies + GitHub Actions, gruppiert nach Kategorie |
 | **DeepSource** | ✅ aktiv | Statische Kotlin-Analyse (advisory, Major/Critical blockierend) |
 | **Secret-Guard** | ✅ im Pre-Push | Prüft auf ungeschützte Keystores und Klartext-Secrets |

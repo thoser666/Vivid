@@ -8,6 +8,7 @@
 #   T4: Latest-Release ist ein Action-Tag (kein Bundle-Tag) → still
 #   T5: API-Antwort leer/kaputt               → still (neutral, exit 0)
 #   T6: Warnung enthält Anpassungs-Pflichten (RELEASE.md + BLOCKADE_BUNDLE)
+#   T7: Warnung nennt die Revert-Anweisung (Pin-Step in security-codeql.yml entfernen)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -68,4 +69,11 @@ grep -q "RELEASE.md" <<<"$t3_warning" && grep -q "BLOCKADE_BUNDLE" "$GUARD" \
   || fail "T6: Anpassungspflichten (RELEASE.md/BLOCKADE_BUNDLE) nicht dokumentiert"
 pass "T6 Anpassungspflichten dokumentiert"
 
-echo "✅ [test-codeql-blockade] Alle 6 Selbsttests bestanden."
+# T7: Warning nennt die Revert-Anweisung (Pin-Step entfernen) — der Workaround
+# in security-codeql.yml (Kotlin 2.4.10) ist überflüssig, sobald das Bundle den
+# 2.4.20-Extractor trägt; der Wächter muss genau das sagen.
+grep -q "Pin Kotlin for CodeQL extractor" <<<"$t3_warning" \
+  || fail "T7: Warning nennt die Revert-Anweisung (Pin-Step entfernen) nicht"
+pass "T7 Revert-Anweisung (Pin-Step entfernen) dokumentiert"
+
+echo "✅ [test-codeql-blockade] Alle 7 Selbsttests bestanden."

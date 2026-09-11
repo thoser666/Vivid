@@ -41,8 +41,11 @@ jobs:
           java-version: "25"
 
       # SHA-Pins (Supply-Chain), konsistent mit der CI-Härtung in RELEASE.md:
-      # Beide Actions stammen aus demselben Release-Tag v4.38.0 (Default-Bundle
-      # 2.27.0 — trägt den Kotlin-2.4.20-Extractor, github/codeql#22404).
+      # Beide Actions stammen aus demselben Release-Tag v4.38.0 (aktuellster
+      # Stand, released 09.09.2026). ACHTUNG Bundle-Lag (github/codeql#22404):
+      # das Default-Bundle 2.27.0 lehnt Kotlin 2.4.20 noch ab („supports
+      # versions below 2.4.20") — deshalb pinnt der Step unten davor den
+      # Trace-Build auf Kotlin 2.4.10 (bewährtes KSP-2.3.11-Paar, < 2.4.20).
       - name: Initialize CodeQL
         uses: github/codeql-action/init@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4.38.0
         with:
@@ -52,6 +55,17 @@ jobs:
 
       # Manueller statt Autobuild: deterministisch kt-Kompilierung des App-Moduls
       # (CodeQL traced die Build-Schritte für Datenfluss-Analyse).
+      - name: Pin Kotlin for CodeQL extractor (github/codeql#22404)
+        run: |
+          KOTLIN=$(grep -m1 '^kotlin = ' gradle/libs.versions.toml | sed 's/.*"\([^"]*\)".*/\1/')
+          if [ -n "$KOTLIN" ] && [ "$KOTLIN" != "2.4.10" ]; then
+            echo "CodeQL-Extractor: Kotlin $KOTLIN → 2.4.10 (Bundle 2.27.0 limitiert auf < 2.4.20, github/codeql#22404)"
+            sed -i "s/^kotlin = \"$KOTLIN\"/kotlin = \"2.4.10\"/" gradle/libs.versions.toml
+            sed -i "s/^jetbrainsKotlinJvm = \"$KOTLIN\"/jetbrainsKotlinJvm = \"2.4.10\"/" gradle/libs.versions.toml
+          else
+            echo "CodeQL-Extractor: Kotlin $KOTLIN bereits kompatibel (< 2.4.20)"
+          fi
+
       - name: Build Debug APK (CodeQL trace)
         run: ./gradlew :app:assembleDebug --console=plain
 

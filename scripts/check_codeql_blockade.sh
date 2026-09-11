@@ -7,12 +7,19 @@
 # Der Extractor-Support ist upstream gemerged (github/codeql#20018, Issue
 # #22404 geschlossen 08.09.2026), aber in KEINEM released Bundle ausgeliefert.
 #
-# Dieser Wächter ist bewusst SCHLANK und ADVISORY (exit immer 0 außer bei
-# echten Skript-Fehlern):
+# SEIT 11.09.2026 ist CodeQL dank Workaround GRÜN: security-codeql.yml pinnt
+# den Trace-Build auf Kotlin 2.4.10 (< 2.4.20, bewährtes Pair mit KSP 2.3.11;
+# Tests: scripts/test_codeql_kotlin.sh). Dieser Wächter bleibt ADVISORY als
+# Revert-Frühwarnung: Sobald ein Bundle > 2.27.0 den 2.4.20-Extractor liefert,
+# ist der Pin-Step (Name „Pin Kotlin for CodeQL extractor") zu ENTFERNEN und
+# der Kompromiss zu dokumentieren.
+#
+# Verhalten (schlank, exit immer 0 außer bei echten Skript-Fehlern):
 #   1. Kotlin < 2.4.20 im Katalog?          → Guard inaktiv (exit 0).
 #   2. Neuestes codeql-action-Bundle > 2.27.0 (BLOCKADE_BUNDLE)?
 #                                           → ::warning:: „Blockade mutmaßlich
-#                                             aufgehoben — CodeQL-Run verifizieren".
+#                                             aufgehoben — Pin-Step entfernen +
+#                                             CodeQL-Run verifizieren".
 #   3. Bundle <= 2.27.0 / API tot / Antwort kaputt → still (exit 0).
 # Die Verifikation erfolgt manuell per CodeQL-workflow_dispatch-Lauf; der
 # Wächter ersetzt sie nicht (deshalb kein harter Exit-Code).
@@ -63,6 +70,6 @@ bundle="$(printf '%s' "$tag" | sed -n 's/^codeql-bundle-v\([0-9.]*\)$/\1/p')"
 [ -n "$bundle" ] || exit 0
 
 if [ "$(ver_to_num "$bundle")" -gt "$(ver_to_num "$BLOCKADE_BUNDLE")" ]; then
-  warn "Neuestes CodeQL-Bundle $bundle > $BLOCKADE_BUNDLE: Kotlin-2.4.20-Blockade mutmaßlich aufgehoben (github/codeql#22404). Bitte per workflow_dispatch-Lauf von security-codeql.yml verifizieren, dann diese Blockade-Notiz (RELEASE.md) + BLOCKADE_BUNDLE in scripts/check_codeql_blockade.sh anpassen."
+  warn "Neuestes CodeQL-Bundle $bundle > $BLOCKADE_BUNDLE: Kotlin-2.4.20-Extractor mutmaßlich ausgeliefert (github/codeql#22404). THEN den Pin-Step (Name: 'Pin Kotlin for CodeQL extractor') in security-codeql.yml ENTFERNEN, CodeQL per workflow_dispatch verifizieren und diese Blockade-Notiz (RELEASE.md) + BLOCKADE_BUNDLE in scripts/check_codeql_blockade.sh anpassen."
 fi
 exit 0

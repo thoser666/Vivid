@@ -195,6 +195,13 @@ jobs:
       - name: Check kotlin/jetbrainsKotlinJvm sync
         run: bash scripts/check_kotlin_sync.sh
 
+      # CodeQL-Extractor-Pin (github/codeql#22404): security-codeql.yml baut den
+      # Trace mit Kotlin 2.4.10 (< 2.4.20, Bundle-Limit von Bundle 2.27.0), der
+      # Pin-Step muss vor dem Build liegen und kein anderer Workflow den Katalog
+      # downgraden — sonst bleibt CodeQL auf develop rot.
+      - name: Test CodeQL-Kotlin-Extractor-Pin
+        run: bash scripts/test_codeql_kotlin.sh
+
       # Geteilte Release-Safety (Ruby) — Selbsttest: versionCode-Ableitung,
       # Track-Monotonie (kein Downgrade) und Quer-Track-Vergleich; strukturell
       # wird geprüft, dass release_alpha UND release_beta dieselben Funktionen
