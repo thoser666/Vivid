@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -euo pipefail  # FRUEH: jede Guard-Sektion muss fail-closed sein (Gateway: Zeile 67 war zu spaet)
 # Pre-Push-Gate (Vivid): führt die gleichen Checks wie die CI lokal aus, bevor
 # ein Push losgeschickt wird. Verhindert rote CI-Läufe — z. B. der Fall, dass
 # ein Modul nur compiliert, aber nie getestet wurde (CI fand den verpassten
@@ -21,6 +22,11 @@
 # laufen R8/ProGuard + Resource-Shrinking und fangen so Signatur-/ProGuard-
 # Probleme lokal, bevor sie die CI erreichen. Signierung fällt ohne die
 # Play-Checkliste offline prüfen (keine Credentials oder Netzwerkanfragen)
+# Fail-closed-Canary: das Gate selbst muss bei Guard-Fehlern abbrechen
+# (Regression gegen das fruehere fail-open-Loch vor set -e).
+echo "▶ [pre-push] Fail-Closed-Selbsttest (scripts/test_pre_push_fail_closed.sh)"
+bash scripts/test_pre_push_fail_closed.sh
+
 echo "▶ [pre-push] Play-Checklisten-Selbsttest (scripts/test_play_checklist.sh)"
 bash scripts/test_play_checklist.sh
 
@@ -64,8 +70,6 @@ ruby scripts/test_version_fallback.rb
 #
 # Als Git-Hook installieren:  bash scripts/install-git-hooks.sh
 # Einen einzelnen Push umgehen: git push --no-verify
-set -euo pipefail
-
 cd "$(dirname "$0")/.."
 
 # JAVA_HOME automatisch setzen, falls nicht konfiguriert oder ungültig
