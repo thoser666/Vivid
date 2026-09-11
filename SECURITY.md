@@ -107,6 +107,10 @@ Absicherung gegen Verrottung durch `scripts/check_snyk_policy.sh` (Teil des Pre-
 
 Selbsttest: `scripts/test_snyk_policy.sh` (11 Szenarien, offline).
 
+### Suppressions-Register
+
+Alle Security-Suppressions (Snyk-Ignores, dismissed Code-Scanning-/Dependabot-Alerts, NOSONAR-Kommentare, Scorecard-Annotationen) sind zentral im **[Suppressions-Register](docs/security-suppressions.md)** erfasst — jeweils mit Begründung, Verantwortlichem und Prüfbis-Datum. Der Guard `scripts/check_suppressions_register.sh` (Teil des Pre-Push-Gates) blockiert Pushes bei abgelaufenen Prüffristen, undokumentierten Dismissals oder unbegründeten NOSONAR-Kommentaren. Neue Suppressionen werden **zuerst im Register** eingetragen, dann in der Quelle gesetzt.
+
 ### Workflow-Härtung (Code-Scanning-Alerts)
 
 Die Code-Scanning-/Scorecard-Fundstellen zu GitHub-Workflows sind seit September 2026 im Quelltext behoben:

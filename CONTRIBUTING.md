@@ -46,7 +46,8 @@ Every PR must pass these checks before it can be merged:
 | **Secret Guard** | `android-ci.yml` | Blocks leaked credentials (keystore paths, tokens, keys) |
 | **Build & Test** | `android-ci.yml` | Gradle wrapper validation, unit tests (all modules), standard-flavor tests, Android Lint (`warningsAsErrors`), release build |
 
-Additionally, every push triggers the security suite (CodeQL, Snyk, OpenSSF Scorecard, SonarCloud) — findings there are treated as release blockers, not suggestions.
+Additionally, every push triggers the security suite (CodeQL, Snyk, OpenSSF Scorecard, SonarCloud) — findings there are treated as release blockers, not suggestions. Security suppressions (Snyk ignores, dismissed alerts, NOSONAR) must be
+documented in the [suppressions register](docs/security-suppressions.md) with a reason and review date — the pre-push gate enforces this.
 
 ### Pre-push gate (run CI locally)
 
