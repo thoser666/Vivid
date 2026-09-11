@@ -40,8 +40,13 @@ PY="$(command -v python3 || command -v python || true)"
 [ -s "$POLICY_FILE" ] || fail "Snyk-Policy $POLICY_FILE fehlt oder ist leer"
 
 # --- Direktiven-Whitelist ---------------------------------------------------
-grep -Eq '^[[:space:]]*patch:' "$POLICY_FILE" \
-  && fail "'patch:'-Direktive ist nicht erlaubt (erzeugt Artefakte, nicht committbar)"
+# 'patch: {}' (leer) ist Teil der kanonischen, von 'snyk ignore' generierten
+# Form und erlaubt; nicht-leere patch-Einträge erzeugen nicht-committbare
+# Artefakte und sind verboten.
+if grep -Eq '^[[:space:]]*patch:' "$POLICY_FILE" && \
+   ! grep -Eq '^[[:space:]]*patch:[[:space:]]*\{\}[[:space:]]*$' "$POLICY_FILE"; then
+  fail "nicht-leere 'patch:'-Direktive ist nicht erlaubt (erzeugt Artefakte, nicht committbar)"
+fi
 grep -Eq '^version:' "$POLICY_FILE" || fail "Policy ohne version:-Schlüssel"
 grep -Eq '^ignore:' "$POLICY_FILE" || fail "Policy ohne ignore:-Sektion"
 
@@ -75,7 +80,9 @@ for sid, body in entries:
     collecting = False
     reason_indent = 0
     for line in lines:
-        m = re.match(r"^(\s*)-\s*reason:\s*(\S.*)$", line)
+        # Kanonische Policy-Form: 'reason:' unter einem '*:'-Pfadschlüssel;
+        # kompakte Form: '- reason:'. Beide akzeptieren wir.
+        m = re.match(r"^(\s*)-?\s*reason:\s*(\S.*)$", line)
         if m and not collecting:
             reason_parts.append(m.group(2))
             collecting = True
