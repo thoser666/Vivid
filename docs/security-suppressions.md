@@ -24,7 +24,7 @@ Format pro Zeile: JJJJ-MM-TT Beschreibung. Abgelaufene Daten schlagen beim Gate 
 |---|---|---|---|
 | Snyk | `.snyk`-Policy (Ignore mit reason + expiry) | 1 | `check_snyk_policy.sh` (Pre-Push-Gate) |
 | GitHub Code Scanning (CodeQL) | Alert-Dismissal (false positive / mitigated) | 13 | monatlicher Review-Workflow (Issue-Automat) + halbjährlicher Termin in diesem Register |
-| GitHub Dependabot | Alert-Dismissal (`tolerable_risk`) | 9 | monatlicher Review-Workflow + Dependabot meldet automatisch neu, sobald eine Version außerhalb des verwundbaren Bereichs gebaut wird |
+| GitHub Dependabot | Alert-Dismissal (`tolerable_risk`) | 9 (davon 1 obsolet: #26, Graph ≥ Fix) | Einzel-Review 2026-09-11 (Ist-Versionen + Scope-Nachweis im Register) + monatlicher Review-Workflow |
 | SonarCloud | `// NOSONAR`-Kommentare (S5332) | 3 (an 1 Stelle) | SonarCloud markiert Zeile; Review-Kontext hier |
 | OpenSSF Scorecard | `.github/scorecard.yml`-Annotationen | 3 Check-Blöcke | Scorecard-Viewer zeigt Begründung neben dem Finding |
 | Secret Scanning | — (Feature im Repo deaktiviert) | 0 | — |
@@ -73,21 +73,21 @@ Dismissed am 2026-08-26 bzw. 2026-09-03 durch **thoser666**, Review bis **2027-0
 
 ## 3. GitHub Dependabot — dismissed Alerts
 
-Dismissed am 2026-08-15 durch **thoser666**, einheitlich `tolerable_risk`, Review bis **2027-03-11** (gebunden an den Code-Scanning-Review-Zyklus):
+Dismissed am 2026-08-15 durch **thoser666**, einheitlich `tolerable_risk`. **Einzel-Review 2026-09-11** (verwundbare Range vs. tatsächlich aufgelöster Version in `settings.gradle.kts`-Submission-Grafik + Runtime-Classpath-Scan beider Flavors): **#26 ist obsolet** (Graph löst 4.5.14 ≥ Fix 4.5.13 — Alert müsste bei nächster Submission automatisch auf `fixed` gehen), die übrigen 8 sind weiterhin in der verwundbaren Range, aber durch den harten Scope-Nachweis entschärft: **keines der 9 Pakete liegt im App-Runtime-Classpath** (`:app:dependencies` standard+foss, je 1.481 Zeilen, 0 Treffer) — sie leben ausschließlich im Build-/Submission-Kontext (AGP-Tooling: jetifier, manifest-merger; Sonar-Scanner-JAR; Ktor-3.x-Buildzeitlinie). Review bis **2027-03-11**:
 
-| Alert # | Advisory (Kurztitel) | Paket | Verwundbarer Bereich | Begründung |
-|---|---|---|---|---|
-| #14 | XXE Injection in JDOM | `org.jdom:jdom2` | < 2.0.6.1 | Transitive Dependency im Build-/Test-Klasspfath (nicht im App-Runtime-Pfad für nicht vertrauenswürdige Eingaben); XML-Parsing erfolgt nur über von der App kontrollierte Dokumente. |
-| #16 | DoS via komprimiertem JWE-Content | `org.bitbucket.b_c:jose4j` | < 0.9.6 | jose4j wird nur im CI-/Test-Kontext für Token-Verifikationstests genutzt; keine Angreifer-kontrollierten JWE-Inputs im Produktionspfad. |
-| #19 | Riskante Kryptografie in bcpkix | `org.bouncycastle:bcpkix-jdk18on` | >= 1.49, < 1.84 | bcpkix-Modul wird nicht für Signatur-/Zertifikatspfade der App verwendet; der verwundbare Codepfad ist im Shipped-Build nicht erreichbar. |
-| #20 | LDAP Injection in bcprov | `org.bouncycastle:bcprov-jdk18on` | >= 1.74, < 1.84 | Die App nutzt keine LDAP-Verbindungen; der Injection-Vektor ist im Vivid-Kontext nicht vorhanden. Fix folgt automatisch mit dem nächsten BC-Transitiv-Update. |
-| #26 | XSS in Apache HttpClient (4.x) | `org.apache.httpcomponents:httpclient` | < 4.5.13 | Legacy-4.x-Pfad wird nur von einem Drittanbieter-SDK transitive gezogen und verarbeitet keine HTML-/Redirect-Antworten aus Angreifer-Kontext. |
-| #27 | Uncontrolled Recursion in Commons Lang | `org.apache.commons:commons-lang3` | >= 3.0, < 3.18.0 | Betroffen ist ausschließlich `ClassUtils.getClass()`-Rekursion bei adversarial tiefen Klassennamen aus nicht vertrauenswürdiger Quelle — im Vivid-Kontext nicht vorhanden. |
-| #62 | HTTP/1 Header-Parsing-Memory-Exhaustion | `org.apache.httpcomponents.core5:httpcore5` | < 5.4.3 | httpcore5 wird transitive von OBS-WebSocket-Client gezogen; Server-Komponenten laufen nicht in der App, der DoS-Vektor adressiert Server-Parsing. |
-| #64 | HPackDecoder unbegrenzte Header-Liste | `org.apache.httpcomponents.core5:httpcore5-h2` | < 5.4.3 | HTTP/2-Decode-Pfad wird in der App nicht als Server betrieben; Angreifer müsste H2-Frames an die App senden, was im RTMP/WS-Mix nicht exponiert ist. |
-| #65 | Connection Leak bei Content-Encoding-Fehler (DoS) | `org.apache.httpcomponents.client5:httpclient5` | >= 5.0-alpha1, < 5.6.3 | Pool-Exhaustion erfordert lang andauernde adversariale Antworten vom eigenen Chat-/API-Endpoint; Rate-Limiting und kurze Timeouts der Chat-Verbindung begrenzen das Risiko. Updates folgen mit dem nächsten httpclient5-Transitiv-Update. |
+| Alert # | Advisory (Kurztitel) | Paket | Verwundbarer Bereich | Ist-Version (11.09.) | Status | Begründung |
+|---|---|---|---|---|---|---|
+| #14 | XXE Injection in JDOM | `org.jdom:jdom2` | < 2.0.6.1 | **2.0.6** | in Range (Fix 2.0.6.1) | AGP-Tooling (jetifier/manifest-merger-Kontext), nicht im App-Runtime; XML-Parsing nur über von der App kontrollierte Dokumente. |
+| #16 | DoS via komprimiertem JWE-Content | `org.bitbucket.b_c:jose4j` | < 0.9.6 | **0.9.5** | in Range (Fix 0.9.6) | Build-/Submission-Kontext (Sonar-Scanner-Abhängigkeit), keine Angreifer-kontrollierten JWE-Inputs im Produktionspfad. |
+| #19 | Riskante Kryptografie in bcpkix | `org.bouncycastle:bcpkix-jdk18on` | >= 1.49, < 1.84 | **1.80.2** | in Range (Fix 1.84) | Build-/Submission-Kontext; bcpkix-Modul nicht für Signatur-/Zertifikatspfade der App verwendet, verwundbarer Codepfad im Shipped-Build nicht erreichbar. |
+| #20 | LDAP Injection in bcprov | `org.bouncycastle:bcprov-jdk18on` | >= 1.74, < 1.84 | **1.80.2** | in Range (Fix 1.84) | Build-/Submission-Kontext; App nutzt keine LDAP-Verbindungen. Fix folgt mit dem nächsten BC-Transitiv-Update. |
+| #26 | XSS in Apache HttpClient (4.x) | `org.apache.httpcomponents:httpclient` | < 4.5.13 | **4.5.14** | ✅ **obsolet** (4.5.14 ≥ Fix 4.5.13) | Graph löst bereits die gepatchte Version auf (httpmime 4.5.6-Kette → `-> 4.5.14`); Dismissal ist überholt — Alert müsste bei der nächsten Dependency-Submission automatisch auf `fixed` wechseln. |
+| #27 | Uncontrolled Recursion in Commons Lang | `org.apache.commons:commons-lang3` | >= 3.0, < 3.18.0 | **3.16.0** | in Range (Fix 3.18.0) | Build-/Submission-Kontext (AGP-Tooling); Rekursionsvektor adressiert adversariale Klassennamen aus nicht vertrauenswürdiger Quelle — im Vivid-Kontext nicht vorhanden. |
+| #62 | HTTP/1 Header-Parsing-Memory-Exhaustion | `org.apache.httpcomponents.core5:httpcore5` | < 5.4.3 | **5.3.6** (Cache-Beleg) | in Range (Fix 5.4.3), nicht im App-Runtime | Ktor-3.x-Buildzeitlinie (ktor-client-apache5, nicht im Vivid-Graph); DoS-Vektor adressiert Server-Parsing — im App-Runtime nicht vorhanden. |
+| #64 | HPackDecoder unbegrenzte Header-Liste | `org.apache.httpcomponents.core5:httpcore5-h2` | < 5.4.3 | **5.3.6** (Cache-Beleg) | in Range (Fix 5.4.3), nicht im App-Runtime | Ktor-3.x-Buildzeitlinie; HTTP/2-Decode-Pfad wird in der App nicht als Server betrieben. |
+| #65 | Connection Leak bei Content-Encoding-Fehler (DoS) | `org.apache.httpcomponents.client5:httpclient5` | >= 5.0-alpha1, < 5.6.3 | **5.5.1** (Cache-Beleg) | in Range (Fix 5.6.3), nicht im App-Runtime | Ktor-3.x-Buildzeitlinie (ktor-client-apache5 3.5.2, nicht im Vivid-Graph); Pool-Exhaustion-Szenario betrifft Langzeit-Server-Verbindungen. |
 
-**Gemeinsamer Re-Assessment-Trigger:** Dependabot öffnet automatisch neue Alerts, sobald eine betroffene Dependency die verwundbare Range verlässt — die Dismissals beziehen sich immer nur auf die notierte Range. Enthält eine neue Dependency-Version weiterhin die Range, erscheint ein neuer Alert, der neu bewertet wird.
+**Gemeinsamer Re-Assessment-Trigger:** Dependabot öffnet automatisch neue Alerts, sobald eine betroffene Dependency die verwundbare Range verlässt — die Dismissals beziehen sich immer nur auf die notierte Range. Enthält eine neue Dependency-Version weiterhin die Range, erscheint ein neuer Alert, der neu bewertet wird. **Erwartung #26:** Sobald die Dependency-Submission den 4.5.14-Stand erfasst (nächster CI-Lauf auf develop), wechselt der Alert automatisch auf `fixed` — bleibt er `dismissed`, ist das ein Submission-Problem, kein Dependency-Problem.
 
 ---
 
@@ -146,3 +146,4 @@ Annotationen sind kein „Ignoring" von Findings, sondern Maintainer-erklärter 
 |---|---|
 | 2026-09-11 | Erstfassung: 1 Snyk-Ignore, 13 Code-Scanning-Dismissals, 9 Dependabot-Dismissals, 3 NOSONAR, 3 Scorecard-Annotationen erfasst. |
 | 2026-09-11 | Monatlicher Review-Workflow ergänzt (`automation-suppressions-register.yml`, Cron Tag 11): Live-Guard mit Issue-Automat (öffnen/kommentieren/schließen, Marker-idempotent) + Workflow-Selbsttest (15 Checks, CI + Pre-Push-Gate). |
+| 2026-09-11 | **Einzel-Review der 9 Dependabot-Dismissals**: #26 httpclient obsolet (Graph löst 4.5.14 ≥ Fix 4.5.13), 8× in Range mit Ist-Version + hartem Scope-Nachweis (keines im App-Runtime-Classpath, `:app:dependencies` standard+foss je 1.481 Zeilen) — Tabelle um Ist-Version/Status erweitert. |
