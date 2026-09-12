@@ -301,4 +301,12 @@
     <string name="logs_crash_summary" tools:ignore="PluralsCandidate">%1$d crashes in the last %2$d days</string>
     <string name="logs_today">Today</string>
     <string name="logs_yesterday">Yesterday</string>
+    <!-- ===== Encoder presets (4K/60fps + HEVC, v0.6.0 bucket) ===== -->
+    <string name="encoder_preset_title">Encoder (resolution &amp; codec)</string>
+    <string name="encoder_preset_desc">Choose the stream resolution and frame rate. 4K/60 requires a powerful device and plenty of upload bandwidth; if it stutters, pick a smaller preset. HEVC (H.265) is only used when the hardware supports it.</string>
+    <string name="encoder_auto_fallback">Automatically soften unsupported combinations (fall back to H.264/lower resolution)</string>
+    <string name="encoder_codec_auto">Auto (HEVC when possible)</string>
+    <string name="encoder_codec_h264">H.264</string>
+    <string name="encoder_codec_h265">H.265 (HEVC)</string>
+    <string tools:ignore="Typos" name="encoder_codec_av1">AV1 (experimental)</string>
 </resources>

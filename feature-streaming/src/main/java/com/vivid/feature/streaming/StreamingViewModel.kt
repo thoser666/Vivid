@@ -2,7 +2,11 @@ package com.vivid.feature.streaming
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.vivid.core.data.AndroidEncoderCapabilities
+import com.vivid.core.data.EncoderCapabilities
 import com.vivid.core.data.ReplayAudioMode
+import com.vivid.core.data.ResolvedEncoderConfig
+import com.vivid.core.data.resolveEncoderConfig
 import com.vivid.core.data.SceneRepository
 import com.vivid.core.data.SceneVideoSource
 import com.vivid.core.data.SettingsRepository
@@ -55,6 +59,9 @@ class StreamingViewModel @Inject constructor(
     init {
         runConfigCheck()
     }
+
+    /** Fähigkeiten-Erkennung (im Test austauschbar). */
+    internal var encoderCapabilities: EncoderCapabilities = AndroidEncoderCapabilities()
 
     /** Führt den Selbst-Check mit den aktuell gespeicherten Einstellungen aus. */
     fun runConfigCheck() {
@@ -110,6 +117,27 @@ class StreamingViewModel @Inject constructor(
                 )
                 return@launch
             }
+            // Encoder-Preset (4K/60fps + HEVC, v0.6.0-Bucket): Wunsch-Kombi
+            // gegen die Geräte-Fähigkeiten auflösen (HEVC-First bei AUTO,
+            // Preset-Abstufung, wenn die Auflösung nicht geht) und die Engine
+            // konfigurieren — vor dem Start, prepareVideo ist danach fix.
+            val resolvedEncoder = if (settings.encoderAutoFallback) {
+                resolveEncoderConfig(
+                    preference = settings.videoCodecPreference,
+                    preset = settings.encoderPreset,
+                    capabilities = encoderCapabilities,
+                )
+            } else {
+                // Strict-Modus: Wunsch-Kombi ohne Fähigkeits-Prüfung — RootEncoder
+                // meldet Encoder-Fehler zur Laufzeit als FAILED.
+                ResolvedEncoderConfig(
+                    settings.videoCodecPreference,
+                    settings.encoderPreset,
+                    fallbackApplied = false,
+                )
+            }
+            streamingEngine.configureEncoder(resolvedEncoder, settings.encoderAutoFallback)
+
             // Der Stream läuft im Foreground-Service weiter, wenn die App in den
             // Hintergrund geht (Prozess-Priorität + WakeLock). Der Service ruft
             // seinerseits streamingEngine.startStream(urls) auf.

@@ -17,7 +17,9 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.vivid.core.data.AppSettings
+import com.vivid.core.data.EncoderPreset
 import com.vivid.core.data.ReplayAudioMode
+import com.vivid.core.data.VideoCodecPreference
 import com.vivid.feature.chat.twitch.TwitchChannelUiState
 import com.vivid.feature.chat.twitch.TwitchChannelViewModel
 
@@ -102,6 +104,48 @@ fun SettingsStreamingObsScreen(
                         if (checked) ReplayAudioMode.ALL else ReplayAudioMode.VIDEO_ONLY,
                     )
                 },
+            )
+        }
+
+        // Encoder-Presets: Aufloesung/FPS + Codec (4K/60fps + HEVC).
+        Text(stringResource(R.string.encoder_preset_title), style = MaterialTheme.typography.titleLarge)
+        Text(
+            text = stringResource(R.string.encoder_preset_desc),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            EncoderPreset.entries.forEach { preset ->
+                FilterChip(
+                    selected = uiState.encoderPreset == preset,
+                    onClick = { viewModel.onEncoderPresetChange(preset) },
+                    label = { Text(preset.displayName()) },
+                )
+            }
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            VideoCodecPreference.entries.forEach { preference ->
+                FilterChip(
+                    selected = uiState.videoCodecPreference == preference,
+                    onClick = { viewModel.onEncoderCodecPreferenceChange(preference) },
+                    label = { Text(stringResource(preference.labelRes())) },
+                )
+            }
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(stringResource(R.string.encoder_auto_fallback), modifier = Modifier.weight(1f))
+            Switch(
+                checked = uiState.encoderAutoFallback,
+                onCheckedChange = viewModel::onEncoderAutoFallbackChange,
             )
         }
 

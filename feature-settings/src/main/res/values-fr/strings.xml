@@ -302,4 +302,12 @@
     <string name="logs_crash_summary" tools:ignore="PluralsCandidate">%1$d plantage(s) au cours des %2$d derniers jours</string>
     <string name="logs_today">Aujourd\'hui</string>
     <string name="logs_yesterday">Hier</string>
+    <!-- ===== Présélecteurs d\'encodeur (4K/60fps + HEVC, bucket v0.6.0) ===== -->
+    <string name="encoder_preset_title">Encodeur (résolution &amp; codec)</string>
+    <string name="encoder_preset_desc">Choisissez la résolution et la fréquence d\'images du flux. La 4K/60 exige un appareil puissant et une bonne bande montante ; en cas de saccades, choisissez un présélecteur plus petit. Le HEVC (H.265) n\'est utilisé que si le matériel le prend en charge.</string>
+    <string name="encoder_auto_fallback">Adoucir automatiquement les combinaisons non prises en charge (repli vers H.264/résolution inférieure)</string>
+    <string name="encoder_codec_auto">Auto (HEVC si possible)</string>
+    <string name="encoder_codec_h264">H.264</string>
+    <string name="encoder_codec_h265">H.265 (HEVC)</string>
+    <string name="encoder_codec_av1">AV1 (expérimental)</string>
 </resources>

@@ -8,11 +8,15 @@ import android.view.MotionEvent
 import android.view.Surface
 import android.view.View
 import com.pedro.common.ConnectChecker
+import com.pedro.common.VideoCodec
 import com.pedro.library.multiple.MultiCamera2
 import com.pedro.library.multiple.MultiDisplay
 import com.pedro.library.multiple.MultiFromFile
 import com.pedro.library.multiple.MultiType
 import com.pedro.library.view.GlStreamInterface
+import com.vivid.core.data.EncoderPreset
+import com.vivid.core.data.ResolvedEncoderConfig
+import com.vivid.core.data.VideoCodecPreference
 import com.vivid.feature.streaming.source.DisplayFactory
 import com.vivid.feature.streaming.source.PlayerFactory
 import com.vivid.feature.streaming.source.VideoSourceKind
@@ -76,6 +80,50 @@ class StreamingEngineTest {
         every { camera.isStreaming } returns false
         every { camera.prepareAudio() } returns true
         every { camera.prepareVideo() } returns true
+    }
+
+    @Test
+    fun `legacy startStream ohne Encoder-Konfiguration ruft prepareVideo ohne Argumente`() = runTest {
+        streamingCameraReady()
+        streamingEngine.initializeCamera()
+        streamingEngine.startStream("rtmp://live/app")
+
+        verify(exactly = 1) { camera.prepareVideo() }
+        verify(exactly = 0) { camera.prepareVideo(any(), any(), any(), any(), any(), any()) }
+        verify(exactly = 0) { camera.setVideoCodec(any()) }
+    }
+
+    @Test
+    fun `startStream mit Encoder-Konfiguration setzt Codec und Preset`() = runTest {
+        streamingCameraReady()
+        streamingEngine.initializeCamera()
+        streamingEngine.configureEncoder(
+            ResolvedEncoderConfig(VideoCodecPreference.H265, EncoderPreset.S_4K60, fallbackApplied = false),
+            autoFallback = true,
+        )
+        streamingEngine.startStream("rtmp://live/app")
+
+        verify(exactly = 1) { camera.setVideoCodec(VideoCodec.H265) }
+        verify(exactly = 1) {
+            camera.prepareVideo(3840, 2160, 60, 24_000, 2, 0)
+        }
+    }
+
+    @Test
+    fun `startStream mit Preset ruft prepareVideo ohne Argumente nicht mehr auf`() = runTest {
+        streamingCameraReady()
+        streamingEngine.initializeCamera()
+        streamingEngine.configureEncoder(
+            ResolvedEncoderConfig(VideoCodecPreference.H264, EncoderPreset.FHD30, fallbackApplied = false),
+            autoFallback = true,
+        )
+        streamingEngine.startStream("rtmp://live/app")
+
+        verify(exactly = 0) { camera.prepareVideo() }
+        assertEquals(
+            ResolvedEncoderConfig(VideoCodecPreference.H264, EncoderPreset.FHD30, fallbackApplied = false),
+            streamingEngine.activeEncoder.value,
+        )
     }
 
     private fun screenCaptureReady() {

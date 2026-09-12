@@ -185,6 +185,15 @@ data class AppSettings(
     // Audio-Konfiguration der MP4-Replays: ALL = Bild + Ton (Standard),
     // VIDEO_ONLY = nur Bild (keine Audiospur in der Aufnahme).
     val replayAudioMode: ReplayAudioMode = ReplayAudioMode.ALL,
+    // --- Encoder-Presets (4K/60fps + HEVC, v0.6.0-Bucket) ---
+    // Aufloesung/FPS des Video-Encoders (RootEncoder prepareVideo). Default
+    // FHD30 = 1080p @ 30 fps.
+    val encoderPreset: EncoderPreset = EncoderPreset.FHD30,
+    // Bevorzugter Video-Codec (AUTO = HEVC wenn verfuegbar, sonst H.264).
+    val videoCodecPreference: VideoCodecPreference = VideoCodecPreference.AUTO,
+    // true = nicht unterstuetzte Codec-/Preset-Kombis automatisch abwarten
+    // (HEVC-Fallback-Kette); false = Wunsch-Kombi ohne Faehigkeits-Pruefung.
+    val encoderAutoFallback: Boolean = true,
     // --- In-App-Logs ---
     // Vorhaltezeit der täglichen Log-Rotation in Tagen (1–30, Default 7):
     // Logs wechseln täglich, ältere Tage werden beim Laden/Prune gelöscht.

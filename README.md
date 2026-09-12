@@ -211,7 +211,7 @@ Die Überprüfung auf dem Über-Bildschirm folgt denselben Regeln wie in [RELEAS
 | **M3: Multi-Platform & Pro Features** | v0.8.0 | Multi-Plattform-Chat + erweiterte Streaming-Features | Multi-Platform Chat (Kick, YouTube, SOOP), Adaptive Bitrate, SRTLA Bonding, Streamer-Browser |
 | **M4: Polish & Ecosystem** | v0.9.0 | UI/UX-Verbesserungen + Integrationen | Landscape/Portrait, VTuber/PNGTuber, Externes Display/Cast, BLE-Sensoren |
 
-> **Aktueller Stand:** 36 ✅ / 4 🚧 / 27 📋 von 67 Features. **M1 ist abgeschlossen und ausgeliefert** (via v0.5.12-beta): Slideshow-Widget, Twitch-OAuth und optionale Start-Ads sind implementiert.
+> **Aktueller Stand:** 36 ✅ / 5 🚧 / 26 📋 von 67 Features. **M1 ist abgeschlossen und ausgeliefert** (via v0.5.12-beta): Slideshow-Widget, Twitch-OAuth und optionale Start-Ads sind implementiert.
 
 ### Offene Checklists
 
@@ -534,7 +534,7 @@ Status: ✅ implemented · 🚧 in progress · 📋 planned
 | Focus Lock (∞) | ✅ | Autofocus ⇄ infinity lock toggle on the streaming camera (Moblin #377) |
 | Persisted Stream Settings | ✅ | Stream & OBS config across sessions |
 | I18n Support | ✅ | All UI strings externalized (per-module `strings.xml`, German default + full English `values-en` + full French `values-fr`); CI gates: externalization + `values`↔`values-en`↔`values-fr` completeness + hint-content guard — [docs/i18n-plan.md](docs/i18n-plan.md) |
-| H.264/H.265, up to 4K/60fps | 📋 | Pipeline in place, quality targets planned |
+| H.264/H.265, up to 4K/60fps | 🚧 | Encoder presets (2160p60…480p30) + codec preference (HEVC-first auto fallback) implemented |
 | Multi-Network Bonding (SRTLA) | 📋 | SRTLA algorithm to be ported |
 | Chat (Twitch) + Emotes + Moderation | ✅ Twitch-Scope | `feature-chat` — Twitch EventSub reader (`channel.chat.message`) + Helix send (`POST /helix/chat/messages`) + chat overlay over the live preview + **inline Twitch emotes** (CDN rendering via Coil) + **moderation done** (`!ban`/`!timeout`/`!delete`) + AI chat bot done (IRC removed); **third-party emotes (BTTV/FFZ/7TV) partially implemented** (API clients + cache + overlay rendering); **Kick/YouTube/SOOP + OAuth (sending/moderation) = post-beta roadmap** |
 | AI Chat Bot (Vivid extra) | ✅ | Fully automatic LLM chat bot: auto-connect on go-live, clean shutdown on stream end; OpenAI-compatible LLM providers; **owner mode** (`!start`/`!stop`/`!diag`/`!ask`, streamer-only via broadcaster badge + allow-list, separate owner LLM) |

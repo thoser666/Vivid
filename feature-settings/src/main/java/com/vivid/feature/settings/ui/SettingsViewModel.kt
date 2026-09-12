@@ -7,11 +7,13 @@ import androidx.lifecycle.viewModelScope
 import com.vivid.core.data.AccentColor
 import com.vivid.core.data.AppSettings // Importiert die vollständige Klasse
 import com.vivid.core.data.ChatBotCommandScope
+import com.vivid.core.data.EncoderPreset
 import com.vivid.core.data.ChatBotMode
 import com.vivid.core.data.ChatOverlayPosition
 import com.vivid.core.data.ReplayAudioMode
 import com.vivid.core.data.SettingsRepository
 import com.vivid.core.data.ThemeMode
+import com.vivid.core.data.VideoCodecPreference
 import com.vivid.core.remote.RemoteControlServer
 import com.vivid.core.remote.RemoteControlTokenStore
 import com.vivid.core.update.UpdateCheckResult
@@ -189,6 +191,12 @@ class SettingsViewModel @Inject constructor(
 
     // Replay-Aufnahme: Audio-Konfiguration (Bild + Ton oder nur Bild).
     fun onReplayAudioModeChange(newMode: ReplayAudioMode) { _uiState.value = _uiState.value.copy(replayAudioMode = newMode) }
+
+    fun onEncoderPresetChange(newPreset: EncoderPreset) { _uiState.value = _uiState.value.copy(encoderPreset = newPreset) }
+
+    fun onEncoderCodecPreferenceChange(newPreference: VideoCodecPreference) { _uiState.value = _uiState.value.copy(videoCodecPreference = newPreference) }
+
+    fun onEncoderAutoFallbackChange(enabled: Boolean) { _uiState.value = _uiState.value.copy(encoderAutoFallback = enabled) }
 
     // Chat-Bot-Einstellungen.
     fun onChatBotEnabledChange(newEnabled: Boolean) { _uiState.value = _uiState.value.copy(chatBotEnabled = newEnabled) }
@@ -393,6 +401,9 @@ class SettingsViewModel @Inject constructor(
             )
             settingsRepository.updateSentryEnabled(currentSettings.sentryEnabled)
             settingsRepository.updateReplayAudioMode(currentSettings.replayAudioMode)
+            settingsRepository.updateEncoderPreset(currentSettings.encoderPreset)
+            settingsRepository.updateEncoderCodecPreference(currentSettings.videoCodecPreference)
+            settingsRepository.updateEncoderAutoFallback(currentSettings.encoderAutoFallback)
             settingsRepository.updateThemeSettings(
                 themeMode = currentSettings.themeMode,
                 accentColor = currentSettings.themeAccent,

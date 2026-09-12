@@ -1,6 +1,7 @@
 package com.vivid.feature.settings.ui
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -10,6 +11,7 @@ import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import com.vivid.core.data.AppSettings
+import com.vivid.core.data.EncoderPreset
 import com.vivid.core.log.LogBuffer
 import com.vivid.core.log.LogEntry
 import com.vivid.core.log.LogLevel
@@ -177,6 +179,47 @@ class SettingsSubScreensRobolectricTest {
         }
         composeRule.onAllNodesWithText("Stream URL")[0].performTextInput("rtmp://a.live/b")
         verify { viewModel.onStreamUrlChange("rtmp://a.live/b") }
+    }
+
+    // --- Encoder-Presets (4K/60fps + HEVC) --------------------------------------
+
+    @Test
+    fun `streaming-obs shows encoder preset chips and codec preference`() {
+        composeRule.setContent {
+            SettingsStreamingObsScreen(
+                uiState = AppSettings(encoderPreset = EncoderPreset.S_4K60),
+                viewModel = settingsViewModel(),
+                twitchViewModel = mockk<TwitchChannelViewModel>(relaxed = true) {
+                    every { uiState } returns MutableStateFlow(TwitchChannelUiState())
+                },
+                twitchState = TwitchChannelUiState(),
+                onBack = {},
+            )
+        }
+        composeRule.onAllNodesWithText("Encoder (resolution & codec)")[0].assertExists()
+        composeRule.onAllNodesWithText("2160p60")[0].assertExists()
+        composeRule.onAllNodesWithText("1080p30")[0].assertExists()
+        composeRule.onAllNodesWithText("H.265 (HEVC)")[0].assertExists()
+    }
+
+    @Test
+    fun `streaming-obs encoder preset click forwards to viewmodel`() {
+        val viewModel = settingsViewModel()
+        composeRule.setContent {
+            SettingsStreamingObsScreen(
+                uiState = AppSettings(),
+                viewModel = viewModel,
+                twitchViewModel = mockk<TwitchChannelViewModel>(relaxed = true) {
+                    every { uiState } returns MutableStateFlow(TwitchChannelUiState())
+                },
+                twitchState = TwitchChannelUiState(),
+                onBack = {},
+            )
+        }
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("2160p60"))
+        composeRule.onAllNodesWithText("2160p60")[0].performClick()
+        composeRule.onAllNodesWithText("2160p60")[0].performClick()
+        verify { viewModel.onEncoderPresetChange(EncoderPreset.S_4K60) }
     }
 
     // --- Remote & Privacy -------------------------------------------------------

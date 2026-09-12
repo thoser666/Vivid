@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
@@ -35,6 +36,43 @@ class SettingsRepositoryTest {
         // Assert
         assertEquals(testUrl, settings.streamUrl)
         assertEquals(testKey, settings.streamKey)
+    }
+
+    // Drei kleine Tests statt einem mit drei Edits: Der DataStore-Actor hat
+    // unter Windows bei mehreren aufeinanderfolgenden Edits auf derselben
+    // Instanz eine Rename-Race (tmp → final), das Hausmuster ist ein Edit
+    // pro DataStore-Instanz.
+    @Test
+    fun `encoderPreset roundtrip`() = runTest {
+        val testDataStore = PreferenceDataStoreFactory.create(
+            scope = this,
+            produceFile = { File(tempDir.toFile(), "test_encoder_preset.preferences_pb") }
+        )
+        val repository = SettingsRepository(testDataStore)
+        repository.updateEncoderPreset(EncoderPreset.S_4K60)
+        assertEquals(EncoderPreset.S_4K60, repository.appSettingsFlow.first().encoderPreset)
+    }
+
+    @Test
+    fun `encoderCodecPreference roundtrip`() = runTest {
+        val testDataStore = PreferenceDataStoreFactory.create(
+            scope = this,
+            produceFile = { File(tempDir.toFile(), "test_encoder_codec.preferences_pb") }
+        )
+        val repository = SettingsRepository(testDataStore)
+        repository.updateEncoderCodecPreference(VideoCodecPreference.H265)
+        assertEquals(VideoCodecPreference.H265, repository.appSettingsFlow.first().videoCodecPreference)
+    }
+
+    @Test
+    fun `encoderAutoFallback roundtrip`() = runTest {
+        val testDataStore = PreferenceDataStoreFactory.create(
+            scope = this,
+            produceFile = { File(tempDir.toFile(), "test_encoder_fallback.preferences_pb") }
+        )
+        val repository = SettingsRepository(testDataStore)
+        repository.updateEncoderAutoFallback(false)
+        assertFalse(repository.appSettingsFlow.first().encoderAutoFallback)
     }
 
     @Test

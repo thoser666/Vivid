@@ -3,9 +3,11 @@ package com.vivid.feature.settings.ui
 import com.vivid.core.data.AccentColor
 import com.vivid.core.data.AppSettings
 import com.vivid.core.data.ChatBotCommandScope
+import com.vivid.core.data.EncoderPreset
 import com.vivid.core.data.ChatBotMode
 import com.vivid.core.data.SettingsRepository
 import com.vivid.core.data.ThemeMode
+import com.vivid.core.data.VideoCodecPreference
 import com.vivid.core.remote.RemoteControlServer
 import com.vivid.core.remote.RemoteControlTokenStore
 import com.vivid.core.R
@@ -62,6 +64,27 @@ class SettingsViewModelTest {
         Dispatchers.resetMain()
     }
 
+    @Test
+    fun `encoder preset changes update ui state and save persists them`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repository = repository()
+        val viewModel = createViewModel(repository)
+        advanceUntilIdle() // Init-Load abwarten, sonst überschreibt er die Änderungen
+
+        viewModel.onEncoderPresetChange(EncoderPreset.S_4K60)
+        viewModel.onEncoderCodecPreferenceChange(VideoCodecPreference.H265)
+        viewModel.onEncoderAutoFallbackChange(false)
+        assertEquals(EncoderPreset.S_4K60, viewModel.uiState.value.encoderPreset)
+        assertEquals(VideoCodecPreference.H265, viewModel.uiState.value.videoCodecPreference)
+        assertFalse(viewModel.uiState.value.encoderAutoFallback)
+
+        viewModel.saveSettings()
+        advanceUntilIdle()
+
+        coVerify { repository.updateEncoderPreset(EncoderPreset.S_4K60) }
+        coVerify { repository.updateEncoderCodecPreference(VideoCodecPreference.H265) }
+        coVerify { repository.updateEncoderAutoFallback(false) }
+    }
     @Test
     fun `loads settings from repository`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))

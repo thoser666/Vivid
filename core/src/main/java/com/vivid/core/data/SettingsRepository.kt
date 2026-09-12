@@ -84,6 +84,9 @@ class SettingsRepository @Inject constructor(
         val SLIDESHOW_WIDGET_OPACITY = floatPreferencesKey("slideshow_widget_opacity")
         val SENTRY_ENABLED = booleanPreferencesKey("sentry_enabled")
         val REPLAY_AUDIO_MODE = stringPreferencesKey("replay_audio_mode")
+        val ENCODER_PRESET = stringPreferencesKey("encoder_preset")
+        val ENCODER_CODEC_PREFERENCE = stringPreferencesKey("encoder_codec_preference")
+        val ENCODER_AUTO_FALLBACK = booleanPreferencesKey("encoder_auto_fallback")
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val THEME_ACCENT = stringPreferencesKey("theme_accent")
         val LOGS_RETENTION_DAYS = intPreferencesKey("logs_retention_days")
@@ -202,6 +205,11 @@ class SettingsRepository @Inject constructor(
                 slideshowWidgetSizeDp = prefs[PrefKeys.SLIDESHOW_WIDGET_SIZE_DP] ?: 240,
                 slideshowWidgetOpacity = prefs[PrefKeys.SLIDESHOW_WIDGET_OPACITY] ?: 1f,
                 replayAudioMode = ReplayAudioMode.fromName(prefs[PrefKeys.REPLAY_AUDIO_MODE]),
+                encoderPreset = EncoderPreset.fromName(prefs[PrefKeys.ENCODER_PRESET]),
+                encoderCodecPreference = VideoCodecPreference.fromName(
+                    prefs[PrefKeys.ENCODER_CODEC_PREFERENCE],
+                ),
+                encoderAutoFallback = prefs[PrefKeys.ENCODER_AUTO_FALLBACK] ?: true,
             )
         },
     ) { streamData, obsData, chatData, chatBotData, widgetData ->
@@ -275,6 +283,9 @@ class SettingsRepository @Inject constructor(
             slideshowWidgetSizeDp = widgetData.slideshowWidgetSizeDp,
             slideshowWidgetOpacity = widgetData.slideshowWidgetOpacity,
             replayAudioMode = widgetData.replayAudioMode,
+            encoderPreset = widgetData.encoderPreset,
+            videoCodecPreference = widgetData.encoderCodecPreference,
+            encoderAutoFallback = widgetData.encoderAutoFallback,
             )
         },
         // 6. Flow: Darstellung (Theme-Modus + Akzentfarbe)
@@ -521,6 +532,9 @@ class SettingsRepository @Inject constructor(
         val slideshowWidgetSizeDp: Int,
         val slideshowWidgetOpacity: Float,
         val replayAudioMode: ReplayAudioMode,
+        val encoderPreset: EncoderPreset,
+        val encoderCodecPreference: VideoCodecPreference,
+        val encoderAutoFallback: Boolean,
     )
 
     private data class ThemePrefs(
@@ -557,6 +571,27 @@ class SettingsRepository @Inject constructor(
     suspend fun updateReplayAudioMode(mode: ReplayAudioMode) {
         dataStore.edit { prefs ->
             prefs[PrefKeys.REPLAY_AUDIO_MODE] = mode.name
+        }
+    }
+
+    /** Encoder-Preset (Aufloesung/FPS) speichern. */
+    suspend fun updateEncoderPreset(preset: EncoderPreset) {
+        dataStore.edit { prefs ->
+            prefs[PrefKeys.ENCODER_PRESET] = preset.name
+        }
+    }
+
+    /** Bevorzugten Video-Codec speichern. */
+    suspend fun updateEncoderCodecPreference(preference: VideoCodecPreference) {
+        dataStore.edit { prefs ->
+            prefs[PrefKeys.ENCODER_CODEC_PREFERENCE] = preference.name
+        }
+    }
+
+    /** HEVC-Fallback-Kette ein-/ausschalten. */
+    suspend fun updateEncoderAutoFallback(enabled: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[PrefKeys.ENCODER_AUTO_FALLBACK] = enabled
         }
     }
 

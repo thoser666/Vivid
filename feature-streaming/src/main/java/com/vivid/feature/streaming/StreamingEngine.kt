@@ -11,7 +11,13 @@ import com.pedro.common.ConnectChecker
 import com.pedro.library.base.Camera2Base
 import com.pedro.library.multiple.MultiCamera2
 import com.pedro.library.multiple.MultiType
+import com.pedro.common.VideoCodec
 import com.pedro.library.view.GlStreamInterface
+import android.media.MediaCodecInfo
+import android.media.MediaCodecList
+import android.media.MediaFormat
+import com.vivid.core.data.ResolvedEncoderConfig
+import com.vivid.core.data.VideoCodecPreference
 import com.vivid.feature.streaming.source.DisplayFactory
 import com.vivid.feature.streaming.source.PlayerFactory
 import com.vivid.feature.streaming.source.ReplayVideoSource
@@ -79,6 +85,11 @@ class StreamingEngine @Inject constructor(
     private val videoSourceRegistry: VideoSourceRegistry, // <-- S1: Source-Abstraktion
 ) {
     private var camera: MultiCamera2? = null
+
+    /** Gemerkte Encoder-Konfiguration (null = Legacy-Pfad, RootEncoder-Default). */
+    private val _encoderConfig = MutableStateFlow<ResolvedEncoderConfig?>(null)
+    private val _encoderAutoFallback = MutableStateFlow(true)
+    private val _activeEncoder = MutableStateFlow<ResolvedEncoderConfig?>(null)
 
     /** S2: Screen-Capture-Quelle (MediaProjection), lazy erzeugt (wie die Kamera). */
     private var screenCaptureSource: ScreenCaptureVideoSource? = null
@@ -728,7 +739,15 @@ class StreamingEngine @Inject constructor(
         _targetStates.value = activeUrls.map { StreamTargetState(it) }
         _streamingState.value = StreamingState.Preparing
 
-        if (cam.prepareAudio() == true && cam.prepareVideo() == true) {
+        val audioReady = cam.prepareAudio() == true
+        val videoReady = if (_encoderConfig.value == null) {
+            // Legacy-Pfad: RootEncoder-Default (640×480@30), Verhalten unverändert.
+            cam.prepareVideo() == true
+        } else {
+            // Preset-Pfad: applyEncoderPreset ruft prepareVideo(width, …) selbst.
+            applyEncoderPreset(cam)
+        }
+        if (audioReady && videoReady) {
             // GL-Pipeline läuft jetzt — gemerkte Preview-Surface anhängen.
             attachPreviewIfRunning()
             activeUrls.forEachIndexed { index, url ->
@@ -738,6 +757,59 @@ class StreamingEngine @Inject constructor(
             failStream("Failed to prepare audio/video")
         }
     }
+
+    /**
+     * Wendet das Encoder-Preset (Auflösung/FPS/Codec) vor dem Streamstart an —
+     * der v0.6.0-Bucket „4K/60fps + HEVC“ (Moblin-Parität).
+     *
+     * Kein Encoder konfiguriert (Standard): RootEncoder-Default unangetastet —
+     * der Legacy-Pfad `prepareVideo()` bleibt unverändert bestehen. Mit
+     * Encoder-Konfiguration läuft vor `prepareVideo()` die Fallback-Kette
+     * ([resolveEncoderConfig]): HEVC nur, wenn die Hardware es in der
+     * gewählten Auflösung kann, sonst H.264 — je nach Preset-Abstufung auch
+     * mit herabgesetzter Auflösung.
+     *
+     * @return false, wenn die Fähigkeitsermittlung im Strict-Modus (Fallback
+     *   ausgeschaltet) die Wunsch-Kombination verneint.
+     */
+    private fun applyEncoderPreset(cam: Camera2Base): Boolean {
+        // Die aufgelöste Konfiguration kommt vom ViewModel (Fähigkeits-Kette
+        // läuft dort) — die Engine wendet sie 1:1 an.
+        val resolved = _encoderConfig.value ?: return true
+        _activeEncoder.value = resolved
+
+        val codec = when (resolved.codec) {
+            VideoCodecPreference.H265 -> VideoCodec.H265
+            VideoCodecPreference.AV1 -> VideoCodec.AV1
+            else -> VideoCodec.H264
+        }
+        cam.setVideoCodec(codec)
+        val prepared = cam.prepareVideo(
+            resolved.preset.width,
+            resolved.preset.height,
+            resolved.preset.fps,
+            resolved.preset.videoBitrateKbps,
+            2, // iFrameInterval in Sekunden (RootEncoder-üblich)
+            0, // rotation
+        )
+        return prepared == true
+    }
+
+    /**
+     * Konfiguriert den Encoder für den nächsten Streamstart. Erwartet die
+     * aufgelöste Konfiguration (UI/VoM resolven die Preset-Einstellung gegen
+     * die Fähigkeiten — die Engine wendet nur noch an).
+     */
+    fun configureEncoder(resolved: ResolvedEncoderConfig, autoFallback: Boolean) {
+        _encoderConfig.value = resolved
+        _encoderAutoFallback.value = autoFallback
+    }
+
+    /** zuletzt aufgelöste Encoder-Konfiguration (UI-Anzeige/Tests). */
+    val activeEncoder: StateFlow<ResolvedEncoderConfig?> = _activeEncoder.asStateFlow()
+
+    /** true = Strict-Modus (kein automatischer HEVC/Preset-Fallback). */
+    val encoderAutoFallback: StateFlow<Boolean> = _encoderAutoFallback.asStateFlow()
 
     /** Setzt alle Ziele auf Failed und den Gesamt-Status auf Failed (mit Ursache). */
     private fun failStream(reason: String) {

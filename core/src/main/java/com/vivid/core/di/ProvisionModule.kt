@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import com.google.gson.Gson
+import com.vivid.core.data.AndroidEncoderCapabilities
+import com.vivid.core.data.EncoderCapabilities
 import com.vivid.core.log.LogBuffer
 import com.vivid.core.log.LogStore
 import com.vivid.core.network.KtorClientFactory
@@ -35,6 +37,14 @@ object ProvisionModule {
     @Singleton
     fun provideGson(): Gson {
         return Gson()
+    }
+
+    @Provides
+    @Singleton
+    fun provideEncoderCapabilities(): EncoderCapabilities {
+        // 4K/60fps + HEVC (v0.6.0): Geräte-Fähigkeiten (MediaCodecList) als
+        // Singleton — die Abfrage der Codec-Registry ist teuer.
+        return AndroidEncoderCapabilities()
     }
 
     @Provides
