@@ -153,10 +153,13 @@ class StreamingEngineTest {
         streamingEngine.startStream("rtmp://live/app")
 
         // 3 Low-Samples (je 2,5 s auseinander) → 6000 * 0.7 = 4200.
+        // Startzeit 2 s: der startStream-Reset setzt lastSample auf 0,
+        // das erste Sample muss das 2-s-Intervall also erst clearing.
+        fakeTime = 2_000
         capturedCheckers[0].onNewBitrate(2_000)
-        fakeTime = 2_500
+        fakeTime = 4_500
         capturedCheckers[0].onNewBitrate(2_000)
-        fakeTime = 5_000
+        fakeTime = 7_000
         capturedCheckers[0].onNewBitrate(2_000)
 
         verify(exactly = 1) { camera.setVideoBitrateOnFly(4_200) }
