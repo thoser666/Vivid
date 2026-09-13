@@ -4,7 +4,7 @@
 
 > **English:** This register is the single source of truth for every security suppression in Vivid — each entry documents why a finding is accepted instead of fixed, who owns it, and when it must be re-reviewed. Expired entries fail the pre-push gate (`scripts/check_suppressions_register.sh`).
 
-**Stand der Registerdaten:** 2026-09-11 · **Letzte Vollprüfung:** 2026-09-11 (Guard `check_suppressions_register.sh` gegen Live-APIs verifiziert)
+**Stand der Registerdaten:** 2026-09-12 · **Letzte Vollprüfung:** 2026-09-11 (Guard `check_suppressions_register.sh` gegen Live-APIs verifiziert)
 
 <!-- review-dates
 Maschinenlesbare Prüffristen — geparst von scripts/check_suppressions_register.sh.
@@ -23,7 +23,7 @@ Format pro Zeile: JJJJ-MM-TT Beschreibung. Abgelaufene Daten schlagen beim Gate 
 | Quelle | Suppressions-Mechanismus | Aktive Einträge | Automatisierte Prüfung |
 |---|---|---|---|
 | Snyk | `.snyk`-Policy (Ignore mit reason + expiry) | 1 | `check_snyk_policy.sh` (Pre-Push-Gate) |
-| GitHub Code Scanning (CodeQL) | Alert-Dismissal (false positive / mitigated) | 13 | monatlicher Review-Workflow (Issue-Automat) + halbjährlicher Termin in diesem Register |
+| GitHub Code Scanning (CodeQL) | Alert-Dismissal (false positive / won't fix) | 14 | monatlicher Review-Workflow (Issue-Automat) + halbjährlicher Termin in diesem Register |
 | GitHub Dependabot | Alert-Dismissal (`tolerable_risk`) | 9 (davon 1 obsolet: #26, Graph ≥ Fix) | Einzel-Review 2026-09-11 (Ist-Versionen + Scope-Nachweis im Register) + monatlicher Review-Workflow |
 | SonarCloud | `// NOSONAR`-Kommentare (S5332) | 3 (an 1 Stelle) | SonarCloud markiert Zeile; Review-Kontext hier |
 | OpenSSF Scorecard | `.github/scorecard.yml`-Annotationen | 3 Check-Blöcke | Scorecard-Viewer zeigt Begründung neben dem Finding |
@@ -53,7 +53,7 @@ Dismissed am 2026-08-26 bzw. 2026-09-03 durch **thoser666**, Review bis **2027-0
 
 | Alert # | Regel | Datei | Reason | Begründung |
 |---|---|---|---|---|
-| #8 | `java/android/backup-enabled` | `app/src/main/AndroidManifest.xml` | **mitigated** | `allowBackup` ist zwar `true`, aber über `android:fullBackupContent="@xml/backup_rules"` inklusive `dataExtractionRules` restriktiv konfiguriert (keine Secrets/Tokens in den Backup-Domänen; Sentry-DSN ist kein Secret). Das Finding stammt aus der Zeit vor der Regel-Verfeinerung. |
+| #8 | `java/android/backup-enabled` | `app/src/main/AndroidManifest.xml` | **mitigated** | **Korrigiert 2026-09-12:** Die damalige „Mitigation“ war faktisch falsch — `data_extraction_rules.xml`/`backup_rules.xml` waren leere Templates (kein echter Schutz; OAuth-Tokens in DataStore/SharedPreferences wären mitgesichert worden). Das wiedereröffnete Finding **#471** wurde stattdessen **per Code-Fix erledigt**: `android:allowBackup="false"`, Template-Dateien entfernt, Guard `check_manifest_security.sh` verhindert Regression (Dismissal #8 der alten Instanz bleibt historisch erhalten). |
 | #9 | `java/android/implicit-pendingintents` | `app/src/main/java/com/vivid/irlbroadcaster/StreamingService.kt` | false positive | PendingIntent nur mit explizitem Intent auf die eigene App-Komponente (Service); kein impliziter Intent, keine fremde Component-Auflösung. |
 | #10 | `java/local-variable-is-never-read` | `domain/.../RegistrationResult.kt` | false positive | Variable ist über Logger-Interpolation/`when`-Exhaustiveness formal gelesen; Meldung ist ein Grenzfall der Dead-Store-Analyse. |
 | #11 | `java/local-variable-is-never-read` | `feature-chat/.../BotCommandProcessor.kt` | false positive | dito |
@@ -65,7 +65,8 @@ Dismissed am 2026-08-26 bzw. 2026-09-03 durch **thoser666**, Review bis **2027-0
 | #17 | `java/field-masks-super-field` | `feature-streaming/.../StreamingState.kt` | false positive | dito |
 | #18 | `java/field-masks-super-field` | `feature-chat/.../ThirdPartyEmoteService.kt` | false positive | dito |
 | #46 | `java/local-variable-is-never-read` | `feature-chat/.../ChatPollManager.kt` | false positive | dito (Dead-Store-Grenzfall) |
-| #461 | `java/local-variable-is-never-read` | `feature-streaming/.../ReplayRecording.kt` | false positive | dito |
+| #461 | `java/local-variable-is-never-read` | `feature-streaming/.../ReplayRecording.kt` | false positive | dito — **2026-09-12 zusätzlich in Source gelöst** (`as?`-Cast-Temp durch `!is`-Guard + Smart-Cast ersetzt); das wiedereröffnete Finding #472 ist damit als `fixed` erledigt. Dismissal #461 bleibt historisch erhalten. |
+| #474 | `java/deprecated-call` | `feature-widgets/.../GeocoderResolver.kt` | **won't fix** (minSdk-Fallback) | Der deprecated-Aufruf `Geocoder.getFromLocation(lat, lon, max)` existiert ab API 33 nicht mehr als empfohlener Pfad; Vivid nutzt dort seit 2026-09-12 die async-Listener-API (`resolveAsync`, API 33+). Für Geräte unter Android 13 (minSdk 24) gibt es **keine** nicht-deprecated Alternative — der verbleibende Sync-Call ist der dokumentierte Offline-Fallback (`@Suppress("DEPRECATION")`). Kein Sicherheits- oder Korrektheitsrisiko: gleiche Semantik, `isPresent()`-Guard, Fehler → `null` (Widget zeigt Platzhalter). |
 
 **Sammelbegründung `local-variable-is-never-read`:** Die Meldungen betreffen temporäre Variablen, deren Wert über `when`-Exhaustiveness, Logger-Interpolation oder Data-Class-Destructuring formal konsumiert wird — die Analyse übersieht diese Konsumpfad-Klassen. Bei jedem neuen Dismissal dieser Regel ist individuell zu prüfen, dass tatsächlich kein toter Code verbleibt (toter Code wird sonst regulär entfernt, nicht dismissed).
 
@@ -145,5 +146,6 @@ Annotationen sind kein „Ignoring" von Findings, sondern Maintainer-erklärter 
 | Datum | Änderung |
 |---|---|
 | 2026-09-11 | Erstfassung: 1 Snyk-Ignore, 13 Code-Scanning-Dismissals, 9 Dependabot-Dismissals, 3 NOSONAR, 3 Scorecard-Annotationen erfasst. |
+| 2026-09-12 | **Code-Scanning-Alerts aufgearbeitet:** `#471 backup-enabled` per Code-Fix erledigt (`allowBackup=false`; die frühere „Mitigation“ via leeren Template-Rules war wirkungslos), `#472/#473` Dead-Code-Fixes, `#474 deprecated-call` per API-33+-async-Pfad entschärft + Dismissal für den minSdk-24-Fallback. Registriert: Guard `check_manifest_security.sh` + Selbsttest. |
 | 2026-09-11 | Monatlicher Review-Workflow ergänzt (`automation-suppressions-register.yml`, Cron Tag 11): Live-Guard mit Issue-Automat (öffnen/kommentieren/schließen, Marker-idempotent) + Workflow-Selbsttest (15 Checks, CI + Pre-Push-Gate). |
 | 2026-09-11 | **Einzel-Review der 9 Dependabot-Dismissals**: #26 httpclient obsolet (Graph löst 4.5.14 ≥ Fix 4.5.13), 8× in Range mit Ist-Version + hartem Scope-Nachweis (keines im App-Runtime-Classpath, `:app:dependencies` standard+foss je 1.481 Zeilen) — Tabelle um Ist-Version/Status erweitert. |

@@ -171,7 +171,8 @@ class ReplayController(
     }
 
     fun stop(): File? {
-        val recording = _state.value as? ReplayState.Recording ?: return null
+        val recording = _state.value
+        if (recording !is ReplayState.Recording) return null
         runCatching { recorder.stop() }
         _state.value = ReplayState.Idle
         storage.prune()

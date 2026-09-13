@@ -28,7 +28,7 @@ class PlacenamesCache(
      * Cache-Treffer vorliegt (noch gültig und nah genug an der gecachten Position).
      */
     fun isFresh(latitude: Double, longitude: Double): Boolean {
-        val entry = cached ?: return false
+        if (cached == null) return false
         val elapsed = now() - cachedAtMillis
         if (elapsed >= CACHE_TTL_MILLIS) return false
         return distanceMeters(cachedLatitude, cachedLongitude, latitude, longitude) <= MIN_DISTANCE_METERS

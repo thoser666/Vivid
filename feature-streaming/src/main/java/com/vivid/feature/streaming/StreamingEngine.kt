@@ -16,6 +16,9 @@ import com.pedro.library.view.GlStreamInterface
 import android.media.MediaCodecInfo
 import android.media.MediaCodecList
 import android.media.MediaFormat
+import android.os.SystemClock
+import com.vivid.core.data.AdaptiveBitrateConfig
+import com.vivid.core.data.AdaptiveBitrateController
 import com.vivid.core.data.ResolvedEncoderConfig
 import com.vivid.core.data.VideoCodecPreference
 import com.vivid.feature.streaming.source.DisplayFactory
@@ -45,6 +48,8 @@ data class StreamTargetState(
     val url: String,
     val status: StreamTargetStatus = StreamTargetStatus.IDLE,
     val failureReason: String? = null,
+    /** Gemessene Sendebitrate dieser Verbindung (kbps), null = unbekannt. */
+    val bitrateKbps: Int? = null,
 )
 
 // Ein Interface, das es uns erlaubt, die Kameraerstellung zu mocken.
@@ -90,6 +95,14 @@ class StreamingEngine @Inject constructor(
     private val _encoderConfig = MutableStateFlow<ResolvedEncoderConfig?>(null)
     private val _encoderAutoFallback = MutableStateFlow(true)
     private val _activeEncoder = MutableStateFlow<ResolvedEncoderConfig?>(null)
+
+    /** Adaptive Bitrate (v0.6.0): Zielbitrate an gemessene Strecke anpassen. */
+    private val _adaptiveBitrateEnabled = MutableStateFlow(false)
+    private var adaptiveController: AdaptiveBitrateController? = null
+    private var lastAdaptiveSampleMs = 0L
+
+    /** Zeitquelle (injektierbar fuer Tests; Realzeit im Betrieb). */
+    internal var timeSource: () -> Long = { SystemClock.elapsedRealtime() }
 
     /** S2: Screen-Capture-Quelle (MediaProjection), lazy erzeugt (wie die Kamera). */
     private var screenCaptureSource: ScreenCaptureVideoSource? = null
@@ -246,6 +259,15 @@ class StreamingEngine @Inject constructor(
          */
         const val MAX_STREAM_TARGETS = 2
 
+        /** Mindest-Intervall zwischen adaptiven Bitraten-Samples. */
+        private const val ADAPTIVE_SAMPLE_INTERVAL_MS = 2_000L
+
+        /** Untergrenze der adaptiven Zielbitrate (kbps). */
+        private const val ADAPTIVE_MIN_BITRATE_KBPS = 1_000
+
+        /** Legacy-Fallback-Bitrate (kbps) ohne konfiguriertes Preset. */
+        private const val DEFAULT_VIDEO_BITRATE_KBPS = 6_000
+
         /** LUT-Größe: 16×16×16 = 4096 Einträge (gute Balance aus Qualität und Performance). */
         const val LUT_SIZE = 16
     }
@@ -283,7 +305,11 @@ class StreamingEngine @Inject constructor(
         }
 
         override fun onNewBitrate(bitrate: Long) {
-            // Optional: Handle bitrate changes
+            // Upload-Statistik je Verbindung (kbps) live im Ziel-Status.
+            updateTarget(index) { it.copy(bitrateKbps = bitrate.toInt()) }
+            // Adaptive Steuerung: nur vom ersten Ziel sampeln — der
+            // Encoder ist geteilt, alle Ziele sehen dieselbe Bitrate.
+            if (index == 0) sampleAdaptiveBitrate(bitrate)
         }
 
         override fun onDisconnect() {
@@ -739,6 +765,22 @@ class StreamingEngine @Inject constructor(
         _targetStates.value = activeUrls.map { StreamTargetState(it) }
         _streamingState.value = StreamingState.Preparing
 
+        // Adaptive Bitrate (v0.6.0): Controller auf die Preset-Bitrate
+        // des Streams zurücksetzen (max = Preset, min = 1 Mbit/s).
+        if (_adaptiveBitrateEnabled.value) {
+            val presetKbps = _encoderConfig.value?.preset?.videoBitrateKbps
+                ?: DEFAULT_VIDEO_BITRATE_KBPS
+            adaptiveController = AdaptiveBitrateController(
+                AdaptiveBitrateConfig(
+                    minBitrateKbps = ADAPTIVE_MIN_BITRATE_KBPS,
+                    maxBitrateKbps = presetKbps,
+                ),
+            ).also { it.reset(presetKbps) }
+            lastAdaptiveSampleMs = 0L
+        } else {
+            adaptiveController = null
+        }
+
         val audioReady = cam.prepareAudio() == true
         val videoReady = if (_encoderConfig.value == null) {
             // Legacy-Pfad: RootEncoder-Default (640×480@30), Verhalten unverändert.
@@ -805,6 +847,15 @@ class StreamingEngine @Inject constructor(
         _encoderAutoFallback.value = autoFallback
     }
 
+    /**
+     * Adaptive Bitrate (v0.6.0) ein-/ausschalten. Die Aenderung greift
+     * beim naechsten Streamstart (Controller-Reset auf die Preset-Bitrate).
+     */
+    fun configureAdaptiveBitrate(enabled: Boolean) {
+        _adaptiveBitrateEnabled.value = enabled
+        if (!enabled) adaptiveController = null
+    }
+
     /** zuletzt aufgelöste Encoder-Konfiguration (UI-Anzeige/Tests). */
     val activeEncoder: StateFlow<ResolvedEncoderConfig?> = _activeEncoder.asStateFlow()
 
@@ -864,8 +915,26 @@ class StreamingEngine @Inject constructor(
             }
         }
         _targetStates.value = _targetStates.value.map {
-            it.copy(status = StreamTargetStatus.IDLE, failureReason = null)
+            it.copy(status = StreamTargetStatus.IDLE, failureReason = null, bitrateKbps = null)
         }
         _streamingState.value = StreamingState.Idle
+        adaptiveController = null
+    }
+
+    /**
+     * Wertet eine gemessene Sendebitrate (kbps) aus und passt die
+     * Encoder-Zielbitrate on-the-fly an (AIMD-aehnlich). Rate-limited auf
+     * ein Sample je [ADAPTIVE_SAMPLE_INTERVAL_MS]; die Streak-Logik liegt
+     * im [AdaptiveBitrateController].
+     */
+    private fun sampleAdaptiveBitrate(measuredKbps: Long) {
+        if (!_adaptiveBitrateEnabled.value) return
+        val cam = camera ?: return
+        val controller = adaptiveController ?: return
+        val now = timeSource()
+        if (now - lastAdaptiveSampleMs < ADAPTIVE_SAMPLE_INTERVAL_MS) return
+        lastAdaptiveSampleMs = now
+        val next = controller.onSample(measuredKbps) ?: return
+        cam.setVideoBitrateOnFly(next)
     }
 }

@@ -126,6 +126,77 @@ class StreamingEngineTest {
         )
     }
 
+    // --- Adaptive Bitrate (v0.6.0) ------------------------------------------
+
+    @Test
+    fun `adaptive Bitrate aus - onNewBitrate aendert die Encoder-Bitrate nicht`() = runTest {
+        streamingCameraReady()
+        streamingEngine.initializeCamera()
+        streamingEngine.startStream("rtmp://live/app")
+
+        capturedCheckers[0].onNewBitrate(2_000)
+
+        verify(exactly = 0) { camera.setVideoBitrateOnFly(any()) }
+    }
+
+    @Test
+    fun `adaptive Bitrate an - Sättigung senkt die Zielbitrate on-the-fly`() = runTest {
+        streamingCameraReady()
+        streamingEngine.initializeCamera()
+        streamingEngine.configureEncoder(
+            ResolvedEncoderConfig(VideoCodecPreference.H264, EncoderPreset.FHD30, fallbackApplied = false),
+            autoFallback = true,
+        )
+        streamingEngine.configureAdaptiveBitrate(true)
+        var fakeTime = 0L
+        streamingEngine.timeSource = { fakeTime }
+        streamingEngine.startStream("rtmp://live/app")
+
+        // 3 Low-Samples (je 2,5 s auseinander) → 6000 * 0.7 = 4200.
+        // Startzeit 2 s: der startStream-Reset setzt lastSample auf 0,
+        // das erste Sample muss das 2-s-Intervall also erst clearing.
+        fakeTime = 2_000
+        capturedCheckers[0].onNewBitrate(2_000)
+        fakeTime = 4_500
+        capturedCheckers[0].onNewBitrate(2_000)
+        fakeTime = 7_000
+        capturedCheckers[0].onNewBitrate(2_000)
+
+        verify(exactly = 1) { camera.setVideoBitrateOnFly(4_200) }
+    }
+
+    @Test
+    fun `adaptive Bitrate respektiert das Sample-Intervall`() = runTest {
+        streamingCameraReady()
+        streamingEngine.initializeCamera()
+        streamingEngine.configureEncoder(
+            ResolvedEncoderConfig(VideoCodecPreference.H264, EncoderPreset.FHD30, fallbackApplied = false),
+            autoFallback = true,
+        )
+        streamingEngine.configureAdaptiveBitrate(true)
+        var fakeTime = 0L
+        streamingEngine.timeSource = { fakeTime }
+        streamingEngine.startStream("rtmp://live/app")
+
+        // 3 Low-Samples OHNE Zeitabstand: nur das erste zählt (Rate-Limit).
+        capturedCheckers[0].onNewBitrate(2_000)
+        capturedCheckers[0].onNewBitrate(2_000)
+        capturedCheckers[0].onNewBitrate(2_000)
+
+        verify(exactly = 0) { camera.setVideoBitrateOnFly(any()) }
+    }
+
+    @Test
+    fun `onNewBitrate publishst die gemessene Bitrate im Ziel-Status`() = runTest {
+        streamingCameraReady()
+        streamingEngine.initializeCamera()
+        streamingEngine.startStream("rtmp://live/app")
+
+        capturedCheckers[0].onNewBitrate(3_500)
+
+        assertEquals(3_500, streamingEngine.targetStates.value[0].bitrateKbps)
+    }
+
     private fun screenCaptureReady() {
         every { display.isStreaming } returns false
         every { display.prepareAudio() } returns true

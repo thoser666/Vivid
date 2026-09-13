@@ -198,6 +198,8 @@ class SettingsViewModel @Inject constructor(
 
     fun onEncoderAutoFallbackChange(enabled: Boolean) { _uiState.value = _uiState.value.copy(encoderAutoFallback = enabled) }
 
+    fun onAdaptiveBitrateChange(enabled: Boolean) { _uiState.value = _uiState.value.copy(adaptiveBitrateEnabled = enabled) }
+
     // Chat-Bot-Einstellungen.
     fun onChatBotEnabledChange(newEnabled: Boolean) { _uiState.value = _uiState.value.copy(chatBotEnabled = newEnabled) }
     fun onChatBotModeChange(newMode: ChatBotMode) { _uiState.value = _uiState.value.copy(chatBotMode = newMode) }
@@ -404,6 +406,7 @@ class SettingsViewModel @Inject constructor(
             settingsRepository.updateEncoderPreset(currentSettings.encoderPreset)
             settingsRepository.updateEncoderCodecPreference(currentSettings.videoCodecPreference)
             settingsRepository.updateEncoderAutoFallback(currentSettings.encoderAutoFallback)
+            settingsRepository.updateAdaptiveBitrateEnabled(currentSettings.adaptiveBitrateEnabled)
             settingsRepository.updateThemeSettings(
                 themeMode = currentSettings.themeMode,
                 accentColor = currentSettings.themeAccent,

@@ -7,6 +7,8 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.isToggleable
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
@@ -220,6 +222,27 @@ class SettingsSubScreensRobolectricTest {
         composeRule.onAllNodesWithText("2160p60")[0].performClick()
         composeRule.onAllNodesWithText("2160p60")[0].performClick()
         verify { viewModel.onEncoderPresetChange(EncoderPreset.S_4K60) }
+    }
+
+    @Test
+    fun `streaming-obs shows adaptive bitrate toggle reflecting the state`() {
+        composeRule.setContent {
+            SettingsStreamingObsScreen(
+                uiState = AppSettings(adaptiveBitrateEnabled = true),
+                viewModel = settingsViewModel(),
+                twitchViewModel = mockk<TwitchChannelViewModel>(relaxed = true) {
+                    every { uiState } returns MutableStateFlow(TwitchChannelUiState())
+                },
+                twitchState = TwitchChannelUiState(),
+                onBack = {},
+            )
+        }
+        composeRule.onNode(hasScrollAction()).performScrollToNode(
+            hasText("Automatically adapt bitrate to the connection"),
+        )
+        composeRule.onAllNodesWithText("Automatically adapt bitrate to the connection")[0].assertExists()
+        // Der zweite Toggle im Encoder-Block ist der Adaptive-Switch.
+        composeRule.onAllNodes(isToggleable())[1].assertIsOn()
     }
 
     // --- Remote & Privacy -------------------------------------------------------

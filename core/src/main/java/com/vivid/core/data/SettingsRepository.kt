@@ -87,6 +87,7 @@ class SettingsRepository @Inject constructor(
         val ENCODER_PRESET = stringPreferencesKey("encoder_preset")
         val ENCODER_CODEC_PREFERENCE = stringPreferencesKey("encoder_codec_preference")
         val ENCODER_AUTO_FALLBACK = booleanPreferencesKey("encoder_auto_fallback")
+        val ADAPTIVE_BITRATE_ENABLED = booleanPreferencesKey("adaptive_bitrate_enabled")
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val THEME_ACCENT = stringPreferencesKey("theme_accent")
         val LOGS_RETENTION_DAYS = intPreferencesKey("logs_retention_days")
@@ -210,6 +211,7 @@ class SettingsRepository @Inject constructor(
                     prefs[PrefKeys.ENCODER_CODEC_PREFERENCE],
                 ),
                 encoderAutoFallback = prefs[PrefKeys.ENCODER_AUTO_FALLBACK] ?: true,
+                adaptiveBitrateEnabled = prefs[PrefKeys.ADAPTIVE_BITRATE_ENABLED] ?: false,
             )
         },
     ) { streamData, obsData, chatData, chatBotData, widgetData ->
@@ -286,6 +288,7 @@ class SettingsRepository @Inject constructor(
             encoderPreset = widgetData.encoderPreset,
             videoCodecPreference = widgetData.encoderCodecPreference,
             encoderAutoFallback = widgetData.encoderAutoFallback,
+            adaptiveBitrateEnabled = widgetData.adaptiveBitrateEnabled,
             )
         },
         // 6. Flow: Darstellung (Theme-Modus + Akzentfarbe)
@@ -535,6 +538,7 @@ class SettingsRepository @Inject constructor(
         val encoderPreset: EncoderPreset,
         val encoderCodecPreference: VideoCodecPreference,
         val encoderAutoFallback: Boolean,
+        val adaptiveBitrateEnabled: Boolean,
     )
 
     private data class ThemePrefs(
@@ -592,6 +596,13 @@ class SettingsRepository @Inject constructor(
     suspend fun updateEncoderAutoFallback(enabled: Boolean) {
         dataStore.edit { prefs ->
             prefs[PrefKeys.ENCODER_AUTO_FALLBACK] = enabled
+        }
+    }
+
+    /** Adaptive Bitrate (dynamische Zielbitrate) ein-/ausschalten. */
+    suspend fun updateAdaptiveBitrateEnabled(enabled: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[PrefKeys.ADAPTIVE_BITRATE_ENABLED] = enabled
         }
     }
 

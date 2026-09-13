@@ -138,6 +138,10 @@ class StreamingViewModel @Inject constructor(
             }
             streamingEngine.configureEncoder(resolvedEncoder, settings.encoderAutoFallback)
 
+            // Adaptive Bitrate (v0.6.0): Zielbitrate dynamisch an die
+            // gemessene Netzwerkstrecke anpassen (min. 1 Mbit/s Floor).
+            streamingEngine.configureAdaptiveBitrate(settings.adaptiveBitrateEnabled)
+
             // Der Stream läuft im Foreground-Service weiter, wenn die App in den
             // Hintergrund geht (Prozess-Priorität + WakeLock). Der Service ruft
             // seinerseits streamingEngine.startStream(urls) auf.

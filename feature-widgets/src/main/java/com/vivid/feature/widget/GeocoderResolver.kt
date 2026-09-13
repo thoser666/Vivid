@@ -1,13 +1,18 @@
 package com.vivid.feature.widget
 
 import android.content.Context
+import android.location.Address
 import android.location.Geocoder
+import android.os.Build
+import androidx.annotation.RequiresApi
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.IOException
 import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.coroutines.resume
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 
 /** Umgekehrt-geocodierte Ortsangaben für die Text-Widget-Variablen `{road}`, `{city}`, `{country}`. */
@@ -40,6 +45,11 @@ interface GeocoderResolver {
  * Fallback in den meisten Regionen). Blockierende API → [Dispatchers.IO]; vor dem Aufruf
  * wird `Geocoder.isPresent()` geprüft (Geräte ohne Geocoder-Backend liefern sonst
  * IOExceptions statt sauberer Nullen).
+ *
+ * API ≥ 33 nutzt den asynchronen [Geocoder.getFromLocation]-Listener-Pfad (nicht
+ * deprecated); API < 33 bleibt eine `@Suppress("DEPRECATION")`-Fallback-Variante, da die
+ * async-API erst ab 33 existiert (minSdk ist 24). Der verbleibende deprecated-Call ist
+ * dort dokumentiert: docs/security-suppressions.md, Dismissal #474.
  */
 @Singleton
 class AndroidGeocoderResolver @Inject constructor(
@@ -58,8 +68,12 @@ class AndroidGeocoderResolver @Inject constructor(
 
             val geocoder = geocoderFactory(context)
             val addresses = runCatching {
-                @Suppress("DEPRECATION") // maxResults-Variante: synchron, deterministisch, ohne Listener-Leak.
-                geocoder.getFromLocation(latitude, longitude, MAX_RESULTS)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    resolveAsync(geocoder, latitude, longitude)
+                } else {
+                    @Suppress("DEPRECATION") // API < 33: keine async-Alternative — siehe security-suppressions.md #474.
+                    geocoder.getFromLocation(latitude, longitude, MAX_RESULTS)
+                }
             }.getOrNull()
 
             addresses
@@ -73,6 +87,35 @@ class AndroidGeocoderResolver @Inject constructor(
                 }
                 ?.takeIf { it.road.isNotEmpty() || it.city.isNotEmpty() || it.country.isNotEmpty() }
         }
+
+    /**
+     * API-33+-Pfad: [Geocoder.getFromLocation] mit [Geocoder.GeocodeListener] statt der
+     * deprecated-Sync-Variante. Der Listener feuert genau einmal (Ergebnis oder Fehler);
+     * Kotlin-Style: Koordinaten gehen direkt als lat/lon in den Call.
+     * Robolectric fliest [ShadowGeocoder] ein, der die Listener-Variante mit den
+     * gesetzten Adressen bedient.
+     */
+    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
+    private suspend fun resolveAsync(
+        geocoder: Geocoder,
+        latitude: Double,
+        longitude: Double,
+    ): List<Address> = suspendCancellableCoroutine { continuation ->
+        geocoder.getFromLocation(
+            latitude,
+            longitude,
+            MAX_RESULTS,
+            object : Geocoder.GeocodeListener {
+                override fun onGeocode(addresses: List<Address>) {
+                    continuation.resume(addresses)
+                }
+
+                override fun onError(errorMessage: String?) {
+                    continuation.resume(emptyList())
+                }
+            },
+        )
+    }
 
     private companion object {
         const val MAX_RESULTS = 1

@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
@@ -73,6 +74,17 @@ class SettingsRepositoryTest {
         val repository = SettingsRepository(testDataStore)
         repository.updateEncoderAutoFallback(false)
         assertFalse(repository.appSettingsFlow.first().encoderAutoFallback)
+    }
+
+    @Test
+    fun `adaptiveBitrateEnabled roundtrip`() = runTest {
+        val testDataStore = PreferenceDataStoreFactory.create(
+            scope = this,
+            produceFile = { File(tempDir.toFile(), "test_adaptive_bitrate.preferences_pb") }
+        )
+        val repository = SettingsRepository(testDataStore)
+        repository.updateAdaptiveBitrateEnabled(true)
+        assertTrue(repository.appSettingsFlow.first().adaptiveBitrateEnabled)
     }
 
     @Test

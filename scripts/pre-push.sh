@@ -188,6 +188,15 @@ fi
 echo "▶ [pre-push] Secret-Guard (scripts/guard_secrets.sh)"
 run bash scripts/guard_secrets.sh
 
+# Manifest-Security-Guard: allowBackup muss explizit false sein (attributfrei ==
+# true == Backup inkl. OAuth-Tokens) und gestrichene Template-Attribute
+# (fullBackupContent/dataExtractionRules) dürfen nicht zurückkommen (Finding #471).
+echo "▶ [pre-push] Manifest-Security-Guard (scripts/check_manifest_security.sh)"
+run bash scripts/check_manifest_security.sh
+
+echo "▶ [pre-push] Manifest-Security-Guard-Selbsttest (scripts/test_manifest_security.sh)"
+run bash scripts/test_manifest_security.sh
+
 # I18n-Guard: Externalisierungs-Gate (keine hartkodierten UI-Strings),
 # values/ ↔ values-en/ Vollständigkeit und stream_url_hint-Inhalts-Guard.
 echo "▶ [pre-push] I18n-Guard (scripts/check_i18n.sh)"

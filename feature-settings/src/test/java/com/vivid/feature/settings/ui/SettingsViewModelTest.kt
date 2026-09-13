@@ -74,9 +74,11 @@ class SettingsViewModelTest {
         viewModel.onEncoderPresetChange(EncoderPreset.S_4K60)
         viewModel.onEncoderCodecPreferenceChange(VideoCodecPreference.H265)
         viewModel.onEncoderAutoFallbackChange(false)
+        viewModel.onAdaptiveBitrateChange(true)
         assertEquals(EncoderPreset.S_4K60, viewModel.uiState.value.encoderPreset)
         assertEquals(VideoCodecPreference.H265, viewModel.uiState.value.videoCodecPreference)
         assertFalse(viewModel.uiState.value.encoderAutoFallback)
+        assertTrue(viewModel.uiState.value.adaptiveBitrateEnabled)
 
         viewModel.saveSettings()
         advanceUntilIdle()
@@ -84,6 +86,7 @@ class SettingsViewModelTest {
         coVerify { repository.updateEncoderPreset(EncoderPreset.S_4K60) }
         coVerify { repository.updateEncoderCodecPreference(VideoCodecPreference.H265) }
         coVerify { repository.updateEncoderAutoFallback(false) }
+        coVerify { repository.updateAdaptiveBitrateEnabled(true) }
     }
     @Test
     fun `loads settings from repository`() = runTest {
