@@ -71,7 +71,7 @@ class AndroidGeocoderResolver @Inject constructor(
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     resolveAsync(geocoder, latitude, longitude)
                 } else {
-                    @Suppress("DEPRECATION") // API < 33: keine async-Alternative — siehe security-suppressions.md #474.
+                    @Suppress("DEPRECATION") // API < 33: keine async-Alternative — siehe security-suppressions.md #476.
                     geocoder.getFromLocation(latitude, longitude, MAX_RESULTS)
                 }
             }.getOrNull()
