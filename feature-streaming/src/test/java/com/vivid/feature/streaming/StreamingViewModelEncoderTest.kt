@@ -73,12 +73,14 @@ class StreamingViewModelEncoderTest {
         preset: EncoderPreset = EncoderPreset.S_4K60,
         preference: VideoCodecPreference = VideoCodecPreference.AUTO,
         autoFallback: Boolean = true,
+        adaptiveBitrate: Boolean = false,
     ) = AppSettings(
         streamUrl = "rtmp://live.example/app",
         streamKey = "key-1",
         encoderPreset = preset,
         videoCodecPreference = preference,
         encoderAutoFallback = autoFallback,
+        adaptiveBitrateEnabled = adaptiveBitrate,
     )
 
     @Test
@@ -158,5 +160,31 @@ class StreamingViewModelEncoderTest {
                 false,
             )
         }
+    }
+
+    // --- Adaptive Bitrate (v0.6.0) ------------------------------------------
+
+    @Test
+    fun `Go-Live verdrahtet die adaptive-Bitrate-Einstellung in die Engine`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val vm = viewModel(repositoryWith(settings(adaptiveBitrate = true)))
+        vm.encoderCapabilities = FakeCaps(setOf(Cap("video/avc", 3840, 2160, 60)))
+
+        vm.startStream()
+        advanceUntilIdle()
+
+        verify(exactly = 1) { engine.configureAdaptiveBitrate(true) }
+    }
+
+    @Test
+    fun `Go-Live uebergibt adaptive Bitrate aus bei deaktivierter Einstellung`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val vm = viewModel(repositoryWith(settings(adaptiveBitrate = false)))
+        vm.encoderCapabilities = FakeCaps(emptySet())
+
+        vm.startStream()
+        advanceUntilIdle()
+
+        verify(exactly = 1) { engine.configureAdaptiveBitrate(false) }
     }
 }

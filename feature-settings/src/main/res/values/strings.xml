@@ -309,4 +309,5 @@
     <string name="encoder_codec_h264">H.264</string>
     <string name="encoder_codec_h265">H.265 (HEVC)</string>
     <string tools:ignore="Typos" name="encoder_codec_av1">AV1 (experimentell)</string>
+    <string name="adaptive_bitrate">Bitrate automatisch an die Verbindung anpassen</string>
 </resources>

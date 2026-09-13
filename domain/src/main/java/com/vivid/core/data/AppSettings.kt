@@ -194,6 +194,9 @@ data class AppSettings(
     // true = nicht unterstuetzte Codec-/Preset-Kombis automatisch abwarten
     // (HEVC-Fallback-Kette); false = Wunsch-Kombi ohne Faehigkeits-Pruefung.
     val encoderAutoFallback: Boolean = true,
+    // Adaptive Bitrate: Zielbitrate dynamisch an die gemessene
+    // Netzwerkstrecke anpassen (AIMD-aehnlich, v0.6.0-Bucket).
+    val adaptiveBitrateEnabled: Boolean = false,
     // --- In-App-Logs ---
     // Vorhaltezeit der täglichen Log-Rotation in Tagen (1–30, Default 7):
     // Logs wechseln täglich, ältere Tage werden beim Laden/Prune gelöscht.

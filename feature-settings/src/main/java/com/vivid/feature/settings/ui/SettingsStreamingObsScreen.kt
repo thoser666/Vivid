@@ -148,6 +148,16 @@ fun SettingsStreamingObsScreen(
                 onCheckedChange = viewModel::onEncoderAutoFallbackChange,
             )
         }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(stringResource(R.string.adaptive_bitrate), modifier = Modifier.weight(1f))
+            Switch(
+                checked = uiState.adaptiveBitrateEnabled,
+                onCheckedChange = viewModel::onAdaptiveBitrateChange,
+            )
+        }
 
         // Twitch-Kanalintegration: Live-Viewer sowie Titel/Kategorie über Helix.
         Text(stringResource(R.string.twitch_channel_title), style = MaterialTheme.typography.titleLarge)
