@@ -23,7 +23,7 @@ Format pro Zeile: JJJJ-MM-TT Beschreibung. Abgelaufene Daten schlagen beim Gate 
 | Quelle | Suppressions-Mechanismus | Aktive Einträge | Automatisierte Prüfung |
 |---|---|---|---|
 | Snyk | `.snyk`-Policy (Ignore mit reason + expiry) | 1 | `check_snyk_policy.sh` (Pre-Push-Gate) |
-| GitHub Code Scanning (CodeQL) | Alert-Dismissal (false positive / won't fix) | 14 | monatlicher Review-Workflow (Issue-Automat) + halbjährlicher Termin in diesem Register |
+| GitHub Code Scanning (CodeQL) | Alert-Dismissal (false positive / won't fix) | 15 | monatlicher Review-Workflow (Issue-Automat) + halbjährlicher Termin in diesem Register |
 | GitHub Dependabot | Alert-Dismissal (`tolerable_risk`) | 9 (davon 1 obsolet: #26, Graph ≥ Fix) | Einzel-Review 2026-09-11 (Ist-Versionen + Scope-Nachweis im Register) + monatlicher Review-Workflow |
 | SonarCloud | `// NOSONAR`-Kommentare (S5332) | 3 (an 1 Stelle) | SonarCloud markiert Zeile; Review-Kontext hier |
 | OpenSSF Scorecard | `.github/scorecard.yml`-Annotationen | 3 Check-Blöcke | Scorecard-Viewer zeigt Begründung neben dem Finding |
