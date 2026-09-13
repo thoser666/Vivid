@@ -12,6 +12,11 @@
 #   T7: NOSONAR als Prosa in Backticks             → RC 0 (keine Suppression)
 #   T8: Registerdatei fehlt                        → RC 1, "Registerdatei fehlt" (G1)
 #   T9: Scorecard nicht im Register dokumentiert   → RC 1, "nicht im Register" (G6)
+#   T10: G7 mit 403 (Dependabot)                   → RC 0, neutral (kein Schein-Fail)
+#   T11: G7-Divergenz (dismissed Alert ohne Registereintrag, per Stub-gh)
+#                                                 → RC 1, "ohne Registereintrag" (G7)
+#   T12: G7-konsistent (alle dismissed Alerts im Register, per Stub-gh)
+#                                                 → RC 0, "alle dismissed Alerts im Register" (G7)
 #
 # Exit 0 = alle Tests bestanden, Exit 1 = mindestens ein Test fehlgeschlagen.
 set -u
@@ -166,6 +171,50 @@ if [ "$rc_t10" -eq 0 ] && echo "$out_t10" | grep -q 'neutral'; then
 else
     echo "FAIL T10: 403-Fall nicht neutral (rc=$rc_t10)"
     echo "$out_t10" | sed 's/^/    | /'
+    FAIL=$((FAIL + 1))
+fi
+
+# --- T11/T12: G7-Live-Gegenprobe offline (Stub-gh: Dependabot leer, Code Scanning simuliert) ---
+setup_stubgh() { # $1=dir  $2=CS-IDs (Leerzeichen-getrennt, pro Zeile je ID)
+    local dir="$1" ids="$2"
+    mkdir -p "$dir/bin"
+    cat > "$dir/bin/gh" <<GHX
+#!/usr/bin/env bash
+if [[ "\$*" == *dependabot/alerts* ]]; then exit 0; fi
+if [[ "\$*" == *code-scanning/alerts* ]]; then
+    echo "$ids" | tr ' ' '\n' | grep -E '^[0-9]+$'
+    exit 0
+fi
+exit 0
+GHX
+    chmod +x "$dir/bin/gh"
+}
+
+# T11: dismissed CS-Alert 612 ist NICHT im Register -> G7 muss failen
+for n in 11 12; do setup_repo "$TMP/t$n"; done
+setup_stubgh "$TMP/t11" "612"
+out_t11="$(cd "$TMP/t11" && PATH="$TMP/t11/bin:$PATH" bash scripts/check_suppressions_register.sh 2>&1)"
+rc_t11=$?
+if [ "$rc_t11" -eq 1 ] && echo "$out_t11" | grep -q 'ohne Registereintrag'; then
+    echo 'PASS T11: G7-Divergenz (dismissed ohne Register) => rot (RC 1)'
+    PASS=$((PASS + 1))
+else
+    echo "FAIL T11: G7-Divergenz nicht erkannt (rc=$rc_t11)"
+    echo "$out_t11" | sed 's/^/    | /'
+    FAIL=$((FAIL + 1))
+fi
+
+# T12: dismissed Alerts (#23 won't fix, #476 won't fix) sind im Register -> G7 grün
+printf '%s\n' 'Dismissed: #8, #23 (won'"'"'t fix), #476 (won'"'"'t fix) Code Scanning.' >> "$TMP/t12/docs/security-suppressions.md"
+setup_stubgh "$TMP/t12" "23 476"
+out_t12="$(cd "$TMP/t12" && PATH="$TMP/t12/bin:$PATH" bash scripts/check_suppressions_register.sh 2>&1)"
+rc_t12=$?
+if [ "$rc_t12" -eq 0 ] && echo "$out_t12" | grep -q 'alle dismissed Alerts im Register'; then
+    echo 'PASS T12: G7-konsistent (dismissed im Register) => gruen (RC 0)'
+    PASS=$((PASS + 1))
+else
+    echo "FAIL T12: G7-konsistent-Fall nicht gruen (rc=$rc_t12)"
+    echo "$out_t12" | sed 's/^/    | /'
     FAIL=$((FAIL + 1))
 fi
 
