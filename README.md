@@ -162,7 +162,7 @@ Die Überprüfung auf dem Über-Bildschirm folgt denselben Regeln wie in [RELEAS
 
 ### ✅ Implemented
 
-- 🎛️ **OBS WebSocket Control** - Control OBS Studio directly from your phone (switch scenes, start/stop recording and streaming)
+- 🎛️ **OBS WebSocket Control** - Control OBS Studio directly from your phone (switch scenes, start/stop recording and streaming, **input mute, audio levels (dB), audio sync offset, source snapshot, screen black**)
 - 🌐 **Streaming Pipeline** - RootEncoder-based live streaming to your configured RTMP/SRT ingest (Twitch, YouTube, Kick, or your own server)
 - 🔗 **Multi-Streaming** - Send the same stream to **two RTMP(S) targets in parallel** (primary + optional secondary): add a secondary URL/key in Settings → Stream („Multi-Streaming (optional)“) and both targets start on Go Live. Each target shows its own status on the streaming screen (bereit / verbinde… / sendet live / fehlgeschlagen), and if one target fails it stops on its own while the other keeps streaming — ideal for cross-streaming to Twitch and YouTube at the same time
 - 🔒 **RTMPS (TLS)** - Encrypted ingest via `rtmps://` (verified against RootEncoder 2.7.5: native TLS handshake, port 443); enabled per-platform or via the TLS toggle, standard port 1935 is auto-normalized to 443

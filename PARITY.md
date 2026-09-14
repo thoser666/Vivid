@@ -27,7 +27,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 |-----------|----|----|----|-------|
 | Streaming & Protokolle | 5 | 0 | 5 | 10 |
 | Netzwerk-Bonding | 0 | 0 | 1 | 1 |
-| OBS-Steuerung | 3 | 0 | 1 | 4 |
+| OBS-Steuerung | 4 | 0 | 0 | 4 |
 | Chat & Moderation | 4 | 3 | 0 | 7 |
 | Overlays & Widgets | 3 | 2 | 6 | 11 |
 | Kamera & Video | 4 | 1 | 9 | 14 |
@@ -35,7 +35,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 | Remote & Companion | 1 | 0 | 4 | 5 |
 | Plattform & Grundlagen | 6 | 0 | 2 | 8 |
 | Zusatz-Features (über Parität) | 3 | 0 | 2 | 5 |
-| **Gesamt** | **30** | **5** | **34** | **69**† |
+| **Gesamt** | **31** | **5** | **33** | **69**† |
 
 † Inkl. 1 n/a-Zeile (Apple-Watch-Companion). Moblin-Zeilen gesamt: 65 (64 anwendbare + 1 n/a). Zusatz-Abschnitt: 4 Vivid-Extras über die Parität hinaus + 1 Moblin-Paritäts-Zeile (BLE-Sensoren, wegen der Widget-Nähe dort einsortiert). Anwendbare Moblin-Features: **64**.
 
@@ -68,7 +68,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 |----------------|--------|-------|------------------------|
 | OBS WebSocket-Connect (ws:// LAN / wss:// Remote, Passwort-Auth) | ✅ | `core` (`OBSWebSocketClient`), `feature-obs-control` | Scheme über `obsUseTls`-Setting; Auth-Handshake getestet. **Offene Tasks (Troubleshooting):** Verbindungsfehler-Ursache im UI anzeigen (OBS nicht erreichbar, Port/Firewall, Netzwerk); Auth-Fehler (falsches/leeres Passwort) als eigener UI-Zustand + Passwort-Reset-Hinweis; ws/wss-Fehlkonfiguration gezielt melden — Doku: [README-FAQ](README.md#-faq--häufige-probleme) |
 | Szenen wechseln, Recording/Stream-Start/-Stop | ✅ | `feature-obs-control` | Request-Batch + Typen vorhanden |
-| Snapshot / Audio-Levels / Audio-Sync auslesen | 📋 | `feature-obs-control` | Weitere Request-Typen ergänzen: Snapshot, Audio-Levels, Audio-Sync sowie **Mute/Unmute von Audio-Inputs** und der **Screen-black-Button** (Bildschirm dunkel schalten, Moblin) |
+| Snapshot / Audio-Levels / Audio-Sync auslesen | ✅ | `core` (`OBSWebSocketClient`, `ObsBase64`), `feature-obs-control` | **Snapshot:** `TakeSourceScreenshot` (PNG) → Base64-Decode (reiner Kotlin-Decoder `ObsBase64`, minSdk-24-tauglich, deterministisch getestet) → Preview im UI. **Audio-Levels:** `InputVolumeMeters`-Subscription (Mask 8201 = General\|Inputs\|InputVolumeMeters) + `InputAudioLevelsChanged`-Event → `audioLevels`-Flow (dB). **Audio-Sync:** `Get/SetInputSettings` (`syncOffset` in ns) → `syncOffsets`-Flow, ±50-ms-Buttons im UI (clamped ≥ 0). **Mute/Unmute:** `GetInputMute`/`SetInputMute`/`ToggleInputMute` + `InputMuteStateChanged`-Event → `muteStates`-Flow + Switch je Input. **Screen-black-Button:** Blackout-Szene `Vivid Blackout` (`CreateScene` + `CreateInput` `color_source_v3` `0xFF000000`), Umschalten via `SetCurrentProgramScene` mit automatischem Restore der vorherigen Szene; `SceneListChanged`/`CurrentProgramSceneChanged`-Events halten Szenen- und Program-Szene aktuell. Auto-Refresh (Inputs/Szenen/Program-Szene) nach Connect. Tests: op5/op7-Client (Events/Responses/Fehlerpfad), Request-Serialisierung, `ObsBase64`-Roundtrip, Repo-Delegates, VM (Blackout-State-Machine inkl. async-Szenen-Warte-Loop, Sync-Adjust-Clamp, Screenshot-Quelle) |
 | OBS-Konfiguration per QR-Code importieren | ✅ | `core` (`ObsQrCodeParser`), `feature-obs-control` | Parser fuer alle OBS-Formate (`obsws://host:port/pw` percent-decoded, `obswebsocket://`, `obswebsocket|[host]:[port]|[pw]`); Import-Feld im Settings-Screen uebernimmt Host/Port/Passwort; Unit-Tests (`ObsQrCodeParserTest`, `SettingsViewModelTest`). **Offen:** Kamera-Scan direkt im UI |
 
 ## 💬 Chat & Moderation
@@ -255,7 +255,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 | **M3: Multi-Platform & Pro Features** | v0.8.0 | Multi-Plattform-Chat + erweiterte Streaming-Features | Multi-Platform Chat (Kick, YouTube, SOOP), Adaptive Bitrate, SRTLA Bonding, Streamer-Browser |
 | **M4: Polish & Ecosystem** | v0.9.0 | UI/UX-Verbesserungen + Integrationen | Landscape/Portrait, VTuber/PNGTuber, Externes Display/Cast, BLE-Sensoren |
 
-> **Aktueller Stand:** 36 ✅ / 4 🚧 / 27 📋 von 67 Features. **M1 ist abgeschlossen und ausgeliefert** (via v0.5.12-beta; die v0.6.0-Nummer bleibt dem Streaming-Bucket reserviert).
+> **Aktueller Stand:** 37 ✅ / 4 🚧 / 26 📋 von 67 Features. **M1 ist abgeschlossen und ausgeliefert** (via v0.5.12-beta; die v0.6.0-Nummer bleibt dem Streaming-Bucket reserviert).
 
 ---
 

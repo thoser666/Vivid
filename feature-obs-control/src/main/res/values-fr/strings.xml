@@ -26,4 +26,14 @@
     <string name="obs_settings_qr_import_button">Importer</string>
     <string name="obs_settings_qr_import_error">Code QR invalide : %1$s</string>
     <string name="obs_settings_qr_import_success">Connexion OBS importée — vérifiez les valeurs, puis enregistrez.</string>
+
+    <!-- Contrôle OBS (PARITY Row 71 : snapshot / niveaux audio / synchro audio / muet / écran noir) -->
+    <string name="obs_current_scene">Scène actuelle : %1$s</string>
+    <string name="obs_inputs_section">Entrées audio</string>
+    <string name="obs_snapshot_section">Snapshot</string>
+    <string name="obs_snapshot_button">Capturer</string>
+    <string name="obs_sync_delta_help">Décaler la synchro (50 ms)</string>
+    <string name="obs_blackout_button">Écran noir</string>
+    <string name="obs_blackout_restore">Restaurer la scène</string>
+    <string name="obs_blackout_preparing">Préparation de l’écran noir…</string>
 </resources>

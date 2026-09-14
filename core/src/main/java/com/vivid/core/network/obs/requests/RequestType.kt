@@ -1,7 +1,23 @@
 package com.vivid.core.network.obs.requests
 
-// This enum will hold all the possible request types you want to send.
+// Alle Request-Typen, die der Client senden kann (OBS WebSocket 5.x).
+// Der Env-Name ist zugleich der `requestType`, der im Wire-Format transportiert wird.
 enum class RequestType {
     GetVersion,
-    // Add other request types here as you need them
+
+    // Inputs / Mute / Audio
+    GetInputList,
+    GetInputMute,
+    SetInputMute,
+    ToggleInputMute,
+    GetInputSettings,
+    SetInputSettings,
+
+    // Szenen / Bild
+    GetSceneList,
+    GetCurrentProgramScene,
+    SetCurrentProgramScene,
+    CreateScene,
+    CreateInput,
+    TakeSourceScreenshot,
 }

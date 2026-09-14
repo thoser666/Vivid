@@ -26,4 +26,14 @@
     <string name="obs_settings_qr_import_button">Importieren</string>
     <string name="obs_settings_qr_import_error">Ungültiger QR-Code: %1$s</string>
     <string name="obs_settings_qr_import_success">OBS-Verbindung importiert — Werte prüfen, dann speichern.</string>
+
+    <!-- OBS-Steuerung (PARITY Row 71: Snapshot / Audio-Levels / Audio-Sync / Mute / Screen-black) -->
+    <string name="obs_current_scene">Aktuelle Szene: %1$s</string>
+    <string name="obs_inputs_section">Audio-Inputs</string>
+    <string name="obs_snapshot_section">Snapshot</string>
+    <string name="obs_snapshot_button">Aufnehmen</string>
+    <string name="obs_sync_delta_help">Sync verschieben (50 ms)</string>
+    <string name="obs_blackout_button">Screen Black</string>
+    <string name="obs_blackout_restore">Szene wiederherstellen</string>
+    <string name="obs_blackout_preparing">Blackout vorbereiten…</string>
 </resources>
