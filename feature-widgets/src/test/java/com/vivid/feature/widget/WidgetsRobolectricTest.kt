@@ -8,6 +8,8 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
+import com.vivid.core.data.SubtitleError
+import com.vivid.core.data.SubtitleState
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -190,5 +192,49 @@ class WidgetsRobolectricTest {
         }
         composeRule.setContent { GridOverlay(viewModel = viewModel) }
         composeRule.onRoot().assertExists()
+    }
+
+    // --- SubtitlesOverlay (Speech-to-Text, PARITY-Zeile 143) --------------------
+
+    @Test
+    fun `subtitles render lines and partial when enabled`() {
+        val viewModel = mockk<SubtitleWidgetViewModel>(relaxed = true) {
+            every { state } returns MutableStateFlow(
+                SubtitleState(enabled = true, lines = listOf("Hallo Welt", "Zweite Zeile"), partial = "Teil"),
+            )
+        }
+        composeRule.setContent { SubtitlesOverlay(viewModel = viewModel) }
+        composeRule.onNodeWithText("Hallo Welt").assertIsDisplayed()
+        composeRule.onNodeWithText("Zweite Zeile").assertIsDisplayed()
+        composeRule.onNodeWithText("Teil").assertIsDisplayed()
+    }
+
+    @Test
+    fun `subtitles render nothing when disabled`() {
+        val viewModel = mockk<SubtitleWidgetViewModel>(relaxed = true) {
+            every { state } returns MutableStateFlow(SubtitleState(enabled = false))
+        }
+        composeRule.setContent { SubtitlesOverlay(viewModel = viewModel) }
+        composeRule.onAllNodesWithText("Hallo Welt").assertCountEquals(0)
+    }
+
+    @Test
+    fun `subtitles show unavailable hint without recognition service`() {
+        val viewModel = mockk<SubtitleWidgetViewModel>(relaxed = true) {
+            every { state } returns MutableStateFlow(SubtitleState(enabled = true, available = false))
+        }
+        composeRule.setContent { SubtitlesOverlay(viewModel = viewModel) }
+        composeRule.onNodeWithText("No speech recognition available on this device").assertIsDisplayed()
+    }
+
+    @Test
+    fun `subtitles show error message inline`() {
+        val viewModel = mockk<SubtitleWidgetViewModel>(relaxed = true) {
+            every { state } returns MutableStateFlow(
+                SubtitleState(enabled = true, error = SubtitleError.AUDIO),
+            )
+        }
+        composeRule.setContent { SubtitlesOverlay(viewModel = viewModel) }
+        composeRule.onNodeWithText("Microphone unavailable (in use by another app?)").assertIsDisplayed()
     }
 }

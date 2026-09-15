@@ -310,4 +310,9 @@
     <string name="encoder_codec_h265">H.265 (HEVC)</string>
     <string tools:ignore="Typos" name="encoder_codec_av1">AV1 (experimental)</string>
     <string name="adaptive_bitrate">Automatically adapt bitrate to the connection</string>
+
+    <!-- Subtitles (speech-to-text overlay, PARITY row 143) -->
+    <string name="overlays_subtitles_title">Subtitles (speech-to-text)</string>
+    <string name="overlays_subtitles_desc">Recognizes speech via the microphone and shows it live as subtitles over the preview. Requires the microphone permission; does not work on devices without a recognition service.</string>
+    <string name="overlays_subtitles_enabled">Show live subtitles</string>
 </resources>

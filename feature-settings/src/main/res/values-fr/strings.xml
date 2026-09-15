@@ -311,4 +311,9 @@
     <string name="encoder_codec_h265">H.265 (HEVC)</string>
     <string name="encoder_codec_av1">AV1 (expérimental)</string>
     <string name="adaptive_bitrate">Adapter automatiquement le débit à la connexion</string>
+
+    <!-- Sous-titres (superposition reconnaissance vocale, ligne PARITY 143) -->
+    <string name="overlays_subtitles_title">Sous-titres (reconnaissance vocale)</string>
+    <string name="overlays_subtitles_desc">Reconnaît la parole via le micro et l\'affiche en direct en sous-titres sur l\'aperçu. Nécessite l\'autorisation micro ; ne fonctionne pas sur les appareils sans service de reconnaissance.</string>
+    <string name="overlays_subtitles_enabled">Afficher les sous-titres en direct</string>
 </resources>

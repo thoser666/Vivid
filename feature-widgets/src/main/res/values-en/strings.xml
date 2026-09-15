@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Text/info widget above the streaming preview (widget/TextInfoWidget.kt) -->
+    <string name="widget_time_label">🕒 %1$s</string>
+    <string name="widget_date_label">%1$s</string>
     <string name="widget_location_label">📍 %1$s</string>
     <string name="widget_speed_label">🚗 %1$s</string>
     <string name="widget_altitude_label">⛰️ %1$s</string>
@@ -9,4 +10,13 @@
     <string name="image_widget_description">Stream overlay image</string>
     <string name="slideshow_widget_description">Slideshow image</string>
     <string name="qr_code_widget_description">QR code overlay</string>
+
+    <!-- Subtitles overlay (speech-to-text, PARITY row 143) -->
+    <string name="subtitles_unavailable">No speech recognition available on this device</string>
+    <string name="subtitles_error_network">Speech recognition: network error — retrying…</string>
+    <string name="subtitles_error_audio">Microphone unavailable (in use by another app?)</string>
+    <string name="subtitles_error_permission">Microphone permission missing — grant it in settings</string>
+    <string name="subtitles_error_busy">Speech recognizer busy — retrying…</string>
+    <string name="subtitles_error_speech_timeout">Heard nothing — still listening…</string>
+    <string name="subtitles_error_generic">Speech recognition error</string>
 </resources>

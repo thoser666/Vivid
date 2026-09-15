@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Text-/Info-Widget über der Streaming-Vorschau (widget/TextInfoWidget.kt) -->
+    <string name="widget_time_label">🕒 %1$s</string>
+    <string name="widget_date_label">%1$s</string>
     <string name="widget_location_label">📍 %1$s</string>
     <string name="widget_speed_label">🚗 %1$s</string>
     <string name="widget_altitude_label">⛰️ %1$s</string>
@@ -9,4 +10,13 @@
     <string name="image_widget_description">Stream-Overlay-Bild</string>
     <string name="slideshow_widget_description">Slideshow-Bild</string>
     <string name="qr_code_widget_description">QR-Code-Overlay</string>
+
+    <!-- Untertitel-Overlay (Speech-to-Text, PARITY-Zeile 143) -->
+    <string name="subtitles_unavailable">Keine Spracherkennung auf diesem Gerät verfügbar</string>
+    <string name="subtitles_error_network">Spracherkennung: Netzwerkfehler — neuer Versuch…</string>
+    <string name="subtitles_error_audio">Mikrofon nicht verfügbar (von einer anderen App belegt?)</string>
+    <string name="subtitles_error_permission">Mikrofon-Berechtigung fehlt — in den Einstellungen erteilen</string>
+    <string name="subtitles_error_busy">Spracherkennung belegt — neuer Versuch…</string>
+    <string name="subtitles_error_speech_timeout">Nichts gehört — es wird weiter gelauscht…</string>
+    <string name="subtitles_error_generic">Spracherkennungsfehler</string>
 </resources>

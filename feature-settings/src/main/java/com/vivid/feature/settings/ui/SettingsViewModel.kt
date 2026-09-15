@@ -181,6 +181,7 @@ class SettingsViewModel @Inject constructor(
 
     // Text-/Info-Widget-Einstellungen (Overlay: Uhrzeit/GPS/Geschwindigkeit).
     fun onWidgetEnabledChange(newEnabled: Boolean) { _uiState.value = _uiState.value.copy(widgetEnabled = newEnabled) }
+    fun onSubtitlesEnabledChange(newValue: Boolean) { _uiState.value = _uiState.value.copy(subtitlesEnabled = newValue) }
     fun onWidgetShowTimeChange(newValue: Boolean) { _uiState.value = _uiState.value.copy(widgetShowTime = newValue) }
     fun onWidgetShowLocationChange(newValue: Boolean) { _uiState.value = _uiState.value.copy(widgetShowLocation = newValue) }
     fun onWidgetShowSpeedChange(newValue: Boolean) { _uiState.value = _uiState.value.copy(widgetShowSpeed = newValue) }
@@ -407,6 +408,7 @@ class SettingsViewModel @Inject constructor(
             settingsRepository.updateEncoderCodecPreference(currentSettings.videoCodecPreference)
             settingsRepository.updateEncoderAutoFallback(currentSettings.encoderAutoFallback)
             settingsRepository.updateAdaptiveBitrateEnabled(currentSettings.adaptiveBitrateEnabled)
+            settingsRepository.updateSubtitlesEnabled(currentSettings.subtitlesEnabled)
             settingsRepository.updateThemeSettings(
                 themeMode = currentSettings.themeMode,
                 accentColor = currentSettings.themeAccent,

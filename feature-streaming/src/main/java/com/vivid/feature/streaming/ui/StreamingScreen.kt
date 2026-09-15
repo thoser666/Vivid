@@ -67,6 +67,7 @@ import com.vivid.feature.widget.GridOverlay
 import com.vivid.feature.widget.ImageWidget
 import com.vivid.feature.widget.QrCodeWidget
 import com.vivid.feature.widget.SlideshowWidget
+import com.vivid.feature.widget.SubtitlesOverlay
 import com.vivid.feature.widget.TextInfoWidget
 import com.vivid.feature.streaming.ConfigIssueSeverity
 import com.vivid.feature.streaming.FocusMode
@@ -751,6 +752,13 @@ private fun BoxScope.DefaultStreamingOverlay() {
         modifier = Modifier
             .align(Alignment.Center)
             .padding(12.dp),
+    )
+
+    // Untertitel (Speech-to-Text) ueber der Vorschau, unten mittig.
+    SubtitlesOverlay(
+        modifier = Modifier
+            .align(Alignment.BottomCenter)
+            .padding(bottom = 140.dp),
     )
 }
 
