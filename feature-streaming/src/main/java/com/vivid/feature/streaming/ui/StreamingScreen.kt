@@ -815,7 +815,7 @@ private fun PreviewMessageBanner(
     }
 }
 
-/** Zeigt ein einzelnes Stream-Ziel (Multi-Streaming) mit URL und Status an. */
+/** Zeigt ein einzelnes Stream-Ziel (Multi-Streaming) mit URL, Status und Upload-Bitrate an. */
 @Composable
 private fun TargetStatusRow(state: StreamTargetState) {
     val label = stringResource(
@@ -831,6 +831,13 @@ private fun TargetStatusRow(state: StreamTargetState) {
         StreamTargetStatus.FAILED -> MaterialTheme.colorScheme.error
         else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
+    val bitrateLabel = state.bitrateKbps?.takeIf { it > 0 }?.let { kbps ->
+        if (kbps >= 1_000) {
+            stringResource(R.string.streaming_target_bitrate_mbps, kbps / 1_000.0)
+        } else {
+            stringResource(R.string.streaming_target_bitrate_kbps, kbps.toString())
+        }
+    }
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(
             modifier = Modifier
@@ -839,7 +846,7 @@ private fun TargetStatusRow(state: StreamTargetState) {
         )
         Spacer(Modifier.width(8.dp))
         Text(
-            text = "${state.url} · $label",
+            text = if (bitrateLabel != null) "${state.url} · $label · $bitrateLabel" else "${state.url} · $label",
             style = MaterialTheme.typography.bodySmall,
             color = color,
         )
