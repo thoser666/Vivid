@@ -162,7 +162,7 @@ Die Überprüfung auf dem Über-Bildschirm folgt denselben Regeln wie in [RELEAS
 
 ### ✅ Implemented
 
-- 🎛️ **OBS WebSocket Control** - Control OBS Studio directly from your phone (switch scenes, start/stop recording and streaming)
+- 🎛️ **OBS WebSocket Control** - Control OBS Studio directly from your phone (switch scenes, start/stop recording and streaming, **input mute, audio levels (dB), audio sync offset, source snapshot, screen black**)
 - 🌐 **Streaming Pipeline** - RootEncoder-based live streaming to your configured RTMP/SRT ingest (Twitch, YouTube, Kick, or your own server)
 - 🔗 **Multi-Streaming** - Send the same stream to **two RTMP(S) targets in parallel** (primary + optional secondary): add a secondary URL/key in Settings → Stream („Multi-Streaming (optional)“) and both targets start on Go Live. Each target shows its own status on the streaming screen (bereit / verbinde… / sendet live / fehlgeschlagen), and if one target fails it stops on its own while the other keeps streaming — ideal for cross-streaming to Twitch and YouTube at the same time
 - 🔒 **RTMPS (TLS)** - Encrypted ingest via `rtmps://` (verified against RootEncoder 2.7.5: native TLS handshake, port 443); enabled per-platform or via the TLS toggle, standard port 1935 is auto-normalized to 443
@@ -561,7 +561,7 @@ Status: ✅ implemented · 🚧 in progress · 📋 planned
 | Twitch: Viewer Count, Title/Category, Ads | ✅ | `feature-chat`, `feature-settings`, `feature-streaming` | Viewerzahl via Helix `GET /streams` (alle 30 s während des Streams) und Titel/Kategorie via `PATCH /channels` mit Kategorieauflösung über `GET /search/categories` sind implementiert und getestet; OAuth-Token-Persistenz verschlüsselt im Keystore mit automatischem `401`-Refresh ist implementiert; Start-Ads laufen über Helix. **Hype-Train-Anzeige ✅ (08.09.):** EventSub `channel.hype_train.begin/progress/end` (Scope `channel:read:hype_train`), Banner im Chat-Overlay mit Level + Fortschritt, wird per end beendet, Settings-Toggle + `!testalert hype` |
 | Chat Display Details (deleted msgs, replies, /me, bits) | 📋 | Hide/gray out deleted messages, show replies, `/me` styling, cheered bits, adjustable layout |
 | Chat Poll | ✅ | `feature-chat` | Owner startet mit `!poll Frage \| Option A \| Option B` (2–4 Optionen), Viewer stimmen einmalig mit `!vote <Nummer>` oder `!vote <Text>` ab; `!pollend` gibt das Ergebnis aus. Flüchtiger, validierter Poll-Zustand pro Stream. |
-| Adaptive Bitrate (SRT/SRTLA) + Upload Stats | 📋 | Dynamic bitrate + per-connection statistics |
+| Adaptive Bitrate (SRT/SRTLA) + Upload Stats | ✅ | `feature-streaming`, `core` | AIMD-Controller (kamera-seitig, adaptive Bitrate on-the-fly), gemessene Upload-Bitrate live im Ziel-Status (Mbit/s/kbps), Settings-Toggle. SRT/SRTLA-Bonding-Statistiken offen. |
 | Streamer Browser | 📋 | Built-in browser, visible to the streamer only |
 | Landscape / Portrait | 📋 | Landscape 0/180 (gravity-down video) + portrait UI with landscape video |
 | BLE Fitness Sensors (HR, Cycling Power) | 📋 | Heart-rate belt + cycling power monitor (related to the Oura-ring row) |

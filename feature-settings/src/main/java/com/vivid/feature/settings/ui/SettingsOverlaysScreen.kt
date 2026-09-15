@@ -567,6 +567,24 @@ fun SettingsOverlaysScreen(
             modifier = Modifier.fillMaxWidth(),
         )
 
+        // Untertitel (Speech-to-Text-Overlay, PARITY-Zeile 143)
+        Text(stringResource(R.string.overlays_subtitles_title), style = MaterialTheme.typography.titleLarge)
+        Text(
+            text = stringResource(R.string.overlays_subtitles_desc),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(stringResource(R.string.overlays_subtitles_enabled), modifier = Modifier.weight(1f))
+            Switch(
+                checked = uiState.subtitlesEnabled,
+                onCheckedChange = viewModel::onSubtitlesEnabledChange,
+            )
+        }
+
         // Bild-Widget (Logo/Wasserzeichen)
         Text(stringResource(R.string.overlays_image_title), style = MaterialTheme.typography.titleLarge)
         Text(

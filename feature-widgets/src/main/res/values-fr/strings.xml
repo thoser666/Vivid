@@ -1,12 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Widget texte/info au-dessus de l'aperçu du stream (widget/TextInfoWidget.kt) -->
+    <string name="widget_time_label">🕒 %1$s</string>
+    <string name="widget_date_label">%1$s</string>
     <string name="widget_location_label">📍 %1$s</string>
     <string name="widget_speed_label">🚗 %1$s</string>
     <string name="widget_altitude_label">⛰️ %1$s</string>
 
     <!-- Widget image (logo/filigrane) -->
-    <string name="image_widget_description">Image de superposition du stream</string>
+    <string name="image_widget_description">Image superposée du stream</string>
     <string name="slideshow_widget_description">Image du diaporama</string>
-    <string name="qr_code_widget_description">Code QR en superposition</string>
+    <string name="qr_code_widget_description">Superposition code QR</string>
+
+    <!-- Superposition sous-titres (reconnaissance vocale, ligne PARITY 143) -->
+    <string name="subtitles_unavailable">Aucune reconnaissance vocale disponible sur cet appareil</string>
+    <string name="subtitles_error_network">Reconnaissance vocale : erreur réseau — nouvel essai…</string>
+    <string name="subtitles_error_audio">Micro indisponible (occupé par une autre application ?)</string>
+    <string name="subtitles_error_permission">Autorisation micro manquante — à accorder dans les paramètres</string>
+    <string name="subtitles_error_busy">Reconnaissance vocale occupée — nouvel essai…</string>
+    <string name="subtitles_error_speech_timeout">Rien entendu — écoute en cours…</string>
+    <string name="subtitles_error_generic">Erreur de reconnaissance vocale</string>
 </resources>

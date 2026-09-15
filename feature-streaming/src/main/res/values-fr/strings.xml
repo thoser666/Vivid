@@ -21,6 +21,8 @@
     <string name="streaming_target_preparing">connexion…</string>
     <string name="streaming_target_streaming">en direct</string>
     <string name="streaming_target_failed">échec</string>
+    <string name="streaming_target_bitrate_kbps">%1$s kbps</string>
+    <string name="streaming_target_bitrate_mbps">%1$.1f Mbit/s</string>
     <string name="streaming_source_camera">Caméra</string>
     <string name="streaming_source_screen">Écran</string>
     <string name="streaming_source_video">Vidéo</string>

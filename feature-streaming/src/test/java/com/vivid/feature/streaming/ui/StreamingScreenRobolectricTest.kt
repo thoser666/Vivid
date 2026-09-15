@@ -150,6 +150,36 @@ class StreamingScreenRobolectricTest {
     }
 
     @Test
+    fun `target status row shows upload bitrate in mbps when above threshold`() {
+        streamingState.value = StreamingState.Streaming
+        targetStates.value = listOf(
+            StreamTargetState(
+                url = "rtmp://a.example/live",
+                status = StreamTargetStatus.STREAMING,
+                bitrateKbps = 3_100,
+            ),
+        )
+        setContent()
+
+        composeRule.onNodeWithText("rtmp://a.example/live · live · 3.1 Mbit/s", substring = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun `target status row shows upload bitrate in kbps when below threshold`() {
+        streamingState.value = StreamingState.Streaming
+        targetStates.value = listOf(
+            StreamTargetState(
+                url = "rtmp://a.example/live",
+                status = StreamTargetStatus.STREAMING,
+                bitrateKbps = 850,
+            ),
+        )
+        setContent()
+
+        composeRule.onNodeWithText("rtmp://a.example/live · live · 850 kbps", substring = true).assertIsDisplayed()
+    }
+
+    @Test
     fun `video source button is enabled when inactive`() {
         setContent()
 

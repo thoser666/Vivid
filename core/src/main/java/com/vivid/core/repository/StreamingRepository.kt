@@ -11,9 +11,38 @@ interface StreamingRepository {
 
     val isConnectedToObs: StateFlow<Boolean>
 
+    // OBS-Steuerung (PARITY Row 71: Snapshot / Audio-Levels / Audio-Sync / Mute / Screen-black)
+    val obsInputs: StateFlow<List<String>>
+    val obsMuteStates: StateFlow<Map<String, Boolean>>
+    val obsAudioLevels: StateFlow<Map<String, Float>>
+    val obsSyncOffsets: StateFlow<Map<String, Long>>
+    val obsScenes: StateFlow<List<String>>
+    val obsCurrentProgramScene: StateFlow<String?>
+    val obsSnapshot: StateFlow<ByteArray?>
+
     fun connectToObs(password: String, ip: String, port: Int, useTls: Boolean = false)
 
     fun disconnectFromObs()
+
+    fun obsRefreshInputs()
+
+    fun obsRefreshScenes()
+
+    fun obsRefreshProgramScene()
+
+    fun obsToggleMute(inputName: String)
+
+    fun obsRefreshSyncOffset(inputName: String)
+
+    fun obsSetSyncOffset(inputName: String, syncOffsetNs: Long)
+
+    fun obsSetProgramScene(sceneName: String)
+
+    fun obsCreateScene(sceneName: String)
+
+    fun obsCreateBlackoutInput(sceneName: String, inputName: String)
+
+    fun obsTakeScreenshot(sourceName: String, width: Int? = null, height: Int? = null)
 
     fun getObsScenes(): List<String>
 

@@ -18,6 +18,27 @@ class StreamingRepositoryImpl @Inject constructor( // <-- DIESE ANNOTATION HINZU
     override val isConnectedToObs: StateFlow<Boolean>
         get() = obsWebSocketClient.isConnected
 
+    override val obsInputs: StateFlow<List<String>>
+        get() = obsWebSocketClient.inputs
+
+    override val obsMuteStates: StateFlow<Map<String, Boolean>>
+        get() = obsWebSocketClient.muteStates
+
+    override val obsAudioLevels: StateFlow<Map<String, Float>>
+        get() = obsWebSocketClient.audioLevels
+
+    override val obsSyncOffsets: StateFlow<Map<String, Long>>
+        get() = obsWebSocketClient.syncOffsets
+
+    override val obsScenes: StateFlow<List<String>>
+        get() = obsWebSocketClient.scenes
+
+    override val obsCurrentProgramScene: StateFlow<String?>
+        get() = obsWebSocketClient.currentProgramScene
+
+    override val obsSnapshot: StateFlow<ByteArray?>
+        get() = obsWebSocketClient.snapshot
+
     override fun connectToObs(password: String, ip: String, port: Int, useTls: Boolean) {
         obsWebSocketClient.connect(password, ip, port, useTls)
     }
@@ -26,9 +47,48 @@ class StreamingRepositoryImpl @Inject constructor( // <-- DIESE ANNOTATION HINZU
         obsWebSocketClient.disconnect()
     }
 
+    override fun obsRefreshInputs() {
+        obsWebSocketClient.refreshInputs()
+    }
+
+    override fun obsRefreshScenes() {
+        obsWebSocketClient.refreshScenes()
+    }
+
+    override fun obsRefreshProgramScene() {
+        obsWebSocketClient.refreshProgramScene()
+    }
+
+    override fun obsToggleMute(inputName: String) {
+        obsWebSocketClient.toggleMute(inputName)
+    }
+
+    override fun obsRefreshSyncOffset(inputName: String) {
+        obsWebSocketClient.refreshSyncOffset(inputName)
+    }
+
+    override fun obsSetSyncOffset(inputName: String, syncOffsetNs: Long) {
+        obsWebSocketClient.setSyncOffset(inputName, syncOffsetNs)
+    }
+
+    override fun obsSetProgramScene(sceneName: String) {
+        obsWebSocketClient.setProgramScene(sceneName)
+    }
+
+    override fun obsCreateScene(sceneName: String) {
+        obsWebSocketClient.createScene(sceneName)
+    }
+
+    override fun obsCreateBlackoutInput(sceneName: String, inputName: String) {
+        obsWebSocketClient.createBlackoutInput(sceneName, inputName)
+    }
+
+    override fun obsTakeScreenshot(sourceName: String, width: Int?, height: Int?) {
+        obsWebSocketClient.takeScreenshot(sourceName, width, height)
+    }
+
     override fun getObsScenes(): List<String> {
-        // This should be implemented to fetch scenes from OBS
-        return emptyList()
+        return obsWebSocketClient.scenes.value
     }
 
     override suspend fun login(loginRequest: LoginRequest): LoginResult {
