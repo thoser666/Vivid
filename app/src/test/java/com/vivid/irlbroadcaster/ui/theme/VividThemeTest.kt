@@ -100,4 +100,20 @@ class VividThemeTest {
         assertEquals(teal.darkPrimary, amoledTeal.primary)
         assertEquals(Color(0xFF000000), amoledTeal.surface)
     }
+
+    // --- Theme-Cleanup: Typografie folgt der Material-3-Baseline ---
+
+    @Test
+    fun `Typografie nutzt die aktuelle Material-3-Baseline statt Template-Overrides`() {
+        // UX-Audit: Die Scaffold-Template-Typografie (bodyLarge mit letterSpacing
+        // 0.5sp + auskommentiertem Rest) wurde entfernt. Vivid delegiert an die
+        // Defaults der gebundelten material3-Version — identisch zum frischesten
+        // M3-Type-Scale. Vergleich auf die Baseline des kombinierten Class-Typs.
+        val baseline = androidx.compose.material3.Typography()
+        assertEquals(baseline.bodyLarge, Typography.bodyLarge)
+        assertEquals(baseline.bodyMedium, Typography.bodyMedium)
+        assertEquals(baseline.labelSmall, Typography.labelSmall)
+        assertEquals(baseline.titleLarge, Typography.titleLarge)
+        assertEquals(baseline.titleMedium, Typography.titleMedium)
+    }
 }
