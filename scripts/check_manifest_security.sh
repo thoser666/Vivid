@@ -3,9 +3,12 @@
 #
 #   C1: allowBackup muss EXPLIZIT "false" sein (attributfrei == true == Backup
 #       aller App-Daten inkl. OAuth-Tokens; Code-Scanning-Finding #471).
-#   C2: Keine Template-Attribute fullBackupContent/dataExtractionRules — die
-#       früheren leeren Template-Rules (backup_rules.xml, data_extraction_rules.xml)
-#       verdrahteten KEINEN echten Schutz und sind seit 2026-09-12 entfernt.
+#   C2: Backup-Verdrahtung muss real schützen. Attribute sind erlaubt
+#       (Lint DataExtractionRules verlangt sie ab Android 12+), aber jede
+#       verdrahtete Datei muss existieren und mindestens eine echte
+#       <exclude>-Regel enthalten. Leere Template-Rules (Stand vor
+#       2026-09-12) verdrahteten keinen Schutz und täuschten ihn vor
+#       (Finding #471) — genau das bleibt verboten.
 #
 # Aufruf: bash scripts/check_manifest_security.sh [PFAD_ZUM_MANIFEST]
 # Selbsttest: bash scripts/test_manifest_security.sh
@@ -26,9 +29,19 @@ if ! grep -q 'android:allowBackup="false"' "$MANIFEST"; then
   fail "C1 verletzt: android:allowBackup fehlt (DEFAULT ist true) — muss explizit \"false\" sein (Finding #471)."
 fi
 
-# C2: keine Backup-Template-Attribute mehr.
-if grep -qE 'android:(fullBackupContent|dataExtractionRules)=' "$MANIFEST"; then
-  fail "C2 verletzt: fullBackupContent/dataExtractionRules verdrahtet — bei allowBackup=false unnötig und irreführend (Finding #471)."
-fi
+# C2: jede verdrahtete Backup-Regeldatei muss existieren und real exclusen.
+BASE_DIR="$(dirname "$MANIFEST")"
+for attr in fullBackupContent dataExtractionRules; do
+  val=$(grep -oE "android:${attr}=\"[^\"]+\"" "$MANIFEST" | head -1 | sed -E 's/.*="([^"]+)"/\1/') || true
+  [[ -n "$val" ]] || continue
+  file="${val#@xml/}"
+  rules="$BASE_DIR/res/xml/$file.xml"
+  if [[ ! -f "$rules" ]]; then
+    fail "C2 verletzt: $attr verweist auf fehlende Regeldatei $rules (Finding #471)."
+  fi
+  if ! grep -q '<exclude' "$rules"; then
+    fail "C2 verletzt: $attr verweist auf $rules ohne echte <exclude>-Regel — leeres Template (Finding #471)."
+  fi
+done
 
-echo "✅ [manifest-security] allowBackup=false, keine Template-Backup-Attribute (C1/C2 ok)."
+echo "✅ [manifest-security] allowBackup=false, Backup-Verdrahtung schützt real (C1/C2 ok)."

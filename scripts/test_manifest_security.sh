@@ -3,9 +3,11 @@
 #
 #   F1: allowBackup="true" → rot (exit 1)
 #   F2: allowBackup fehlt (Default true) → rot
-#   F3: allowBackup=false + fullBackupContent-Attribut → rot
+#   F3: fullBackupContent-Attribut ohne Regeldatei → rot
 #   F4: allowBackup=false sauber → grün (exit 0)
-#   F5: echter Repo-Stand → grün (Regression)
+#   F5: echter Repo-Stand (Attribute + echte Regeldateien) → grün
+#   F6: Attribute + Regeldateien mit echten excludes (Fixture) → grün
+#   F7: Attribut auf existierende, leere Regeldatei → rot (Template)
 #
 # Nutzung: bash scripts/test_manifest_security.sh
 set -euo pipefail
@@ -55,10 +57,25 @@ if bash "$GUARD" "$TMP/F4.xml" >/dev/null 2>&1; then :; else
 fi
 pass "F4: allowBackup=false sauber."
 
+# ── F6: Attribute + echte Regeldateien (Fixture) → grün ────────────────────
+mkdir -p "$TMP/res/xml"
+printf '%s\n' '<full-backup-content>' '    <exclude domain="root" path="." />' '</full-backup-content>' >"$TMP/res/xml/backup_rules.xml"
+printf '%s\n' '<data-extraction-rules>' '    <cloud-backup>' '        <exclude domain="root" path="." />' '    </cloud-backup>' '</data-extraction-rules>' >"$TMP/res/xml/data_extraction_rules.xml"
+manifest F6 '<application android:allowBackup="false" android:fullBackupContent="@xml/backup_rules" android:dataExtractionRules="@xml/data_extraction_rules" />'
+if bash "$GUARD" "$TMP/F6.xml" >/dev/null 2>&1; then :; else
+  fail "F6: Attribute mit echten Regeldateien müssen grün sein (Lint fordert die Verdrahtung)."
+fi
+pass "F6: Attribute + echte Regeldateien → grün."
+
+# ── F7: Attribut auf existierende, leere Regeldatei → rot ──────────────────
+printf '%s\n' '<full-backup-content />' >"$TMP/res/xml/empty_rules.xml"
+manifest F7 '<application android:allowBackup="false" android:fullBackupContent="@xml/empty_rules" />'
+expect_fail "F7: leere Regeldatei" "F7.xml" "C2 verletzt"
+
 # ── F5: echter Repo-Stand → grün ────────────────────────────────────────────
 if bash "$GUARD" >/dev/null 2>&1; then :; else
   fail "F5: echtes Manifest (app/src/main/AndroidManifest.xml) muss grün sein."
 fi
 pass "F5: echter Repo-Stand → grün."
 
-echo "✅ [test-manifest-security] Alle 5 Fälle grün."
+echo "✅ [test-manifest-security] Alle 7 Fälle grün."
