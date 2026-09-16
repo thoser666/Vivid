@@ -118,4 +118,8 @@
     <string name="stream_error_no_host">L\'URL de stream ne contient aucun hôte de serveur valide (p. ex. rtmp://live.twitch.tv/app).</string>
     <string name="stream_error_no_key">Aucune clé de stream renseignée. Twitch, YouTube et Kick exigent une clé.</string>
     <string name="stream_error_srt_tls">TLS ne s\'applique pas à une URL srt:// — l\'URL sera utilisée sans chiffrement.</string>
+
+    <!-- A11y : descriptions d'état pour les contrôles de streaming (TalkBack) -->
+    <string name="streaming_a11y_state_on">Activé</string>
+    <string name="streaming_a11y_state_off">Désactivé</string>
 </resources>

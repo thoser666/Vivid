@@ -15,6 +15,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import com.vivid.core.data.AppSettings
 import com.vivid.core.data.EncoderPreset
@@ -119,10 +123,19 @@ fun SettingsStreamingObsScreen(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             EncoderPreset.entries.forEach { preset ->
+                // A11y: Auswahlzustand für TalkBack (FilterChip selected allein
+                // liefert keinen lokalisierten Zustandstext).
+                val chipState = stringResource(
+                    if (preset == uiState.encoderPreset) R.string.a11y_selected else R.string.a11y_not_selected,
+                )
                 FilterChip(
                     selected = uiState.encoderPreset == preset,
                     onClick = { viewModel.onEncoderPresetChange(preset) },
                     label = { Text(preset.displayName()) },
+                    modifier = Modifier.semantics {
+                        role = Role.Checkbox
+                        stateDescription = chipState
+                    },
                 )
             }
         }
@@ -131,10 +144,17 @@ fun SettingsStreamingObsScreen(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             VideoCodecPreference.entries.forEach { preference ->
+                val codecState = stringResource(
+                    if (preference == uiState.videoCodecPreference) R.string.a11y_selected else R.string.a11y_not_selected,
+                )
                 FilterChip(
                     selected = uiState.videoCodecPreference == preference,
                     onClick = { viewModel.onEncoderCodecPreferenceChange(preference) },
                     label = { Text(stringResource(preference.labelRes())) },
+                    modifier = Modifier.semantics {
+                        role = Role.Checkbox
+                        stateDescription = codecState
+                    },
                 )
             }
         }
@@ -143,9 +163,14 @@ fun SettingsStreamingObsScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(stringResource(R.string.encoder_auto_fallback), modifier = Modifier.weight(1f))
+            val switchOn = stringResource(R.string.a11y_switch_on)
+            val switchOff = stringResource(R.string.a11y_switch_off)
             Switch(
                 checked = uiState.encoderAutoFallback,
                 onCheckedChange = viewModel::onEncoderAutoFallbackChange,
+                modifier = Modifier.semantics {
+                    stateDescription = if (uiState.encoderAutoFallback) switchOn else switchOff
+                },
             )
         }
         Row(

@@ -315,4 +315,10 @@
     <string name="overlays_subtitles_title">Untertitel (Speech-to-Text)</string>
     <string name="overlays_subtitles_desc">Erkennt Gesprochenes über das Mikrofon und zeigt es live als Untertitel über der Vorschau. Benötigt die Mikrofon-Berechtigung; funktioniert nicht auf Geräten ohne Spracherkennungsdienst.</string>
     <string name="overlays_subtitles_enabled">Live-Untertitel anzeigen</string>
+
+    <!-- A11y: Zustandstexte für die Encoder-Steuerungen (TalkBack) -->
+    <string name="a11y_selected">Ausgewählt</string>
+    <string name="a11y_not_selected">Nicht ausgewählt</string>
+    <string name="a11y_switch_on">An</string>
+    <string name="a11y_switch_off">Aus</string>
 </resources>

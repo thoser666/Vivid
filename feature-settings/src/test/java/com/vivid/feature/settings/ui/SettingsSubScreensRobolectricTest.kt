@@ -3,6 +3,7 @@ package com.vivid.feature.settings.ui
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.hasStateDescription
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
@@ -262,5 +263,64 @@ class SettingsSubScreensRobolectricTest {
         composeRule.onNodeWithText("Remote token").assertIsDisplayed()
         composeRule.onNodeWithText("Privacy & error reports").assertIsDisplayed()
         composeRule.onNodeWithText("Send error reports (Sentry)").assertIsDisplayed()
+    }
+
+    // --- Accessibility: Semantics der Encoder-Steuerungen -----------------------
+
+    @Test
+    fun `encoder preset chips expose localized selected state`() {
+        composeRule.setContent {
+            SettingsStreamingObsScreen(
+                uiState = AppSettings(encoderPreset = EncoderPreset.S_4K60),
+                viewModel = settingsViewModel(),
+                twitchViewModel = mockk<TwitchChannelViewModel>(relaxed = true) {
+                    every { uiState } returns MutableStateFlow(TwitchChannelUiState())
+                },
+                twitchState = TwitchChannelUiState(),
+                onBack = {},
+            )
+        }
+        composeRule.onNode(
+            hasText("2160p60").and(hasStateDescription("Selected")),
+        ).assertExists()
+        composeRule.onNode(
+            hasText("1080p30").and(hasStateDescription("Not selected")),
+        ).assertExists()
+    }
+
+    @Test
+    fun `codec chips expose localized selected state`() {
+        composeRule.setContent {
+            SettingsStreamingObsScreen(
+                uiState = AppSettings(),
+                viewModel = settingsViewModel(),
+                twitchViewModel = mockk<TwitchChannelViewModel>(relaxed = true) {
+                    every { uiState } returns MutableStateFlow(TwitchChannelUiState())
+                },
+                twitchState = TwitchChannelUiState(),
+                onBack = {},
+            )
+        }
+        composeRule.onNode(
+            hasText("H.265 (HEVC)").and(hasStateDescription("Not selected")),
+        ).assertExists()
+    }
+
+    @Test
+    fun `encoder auto fallback switch exposes its state for talkback`() {
+        composeRule.setContent {
+            SettingsStreamingObsScreen(
+                uiState = AppSettings(encoderAutoFallback = true),
+                viewModel = settingsViewModel(),
+                twitchViewModel = mockk<TwitchChannelViewModel>(relaxed = true) {
+                    every { uiState } returns MutableStateFlow(TwitchChannelUiState())
+                },
+                twitchState = TwitchChannelUiState(),
+                onBack = {},
+            )
+        }
+        // Nur der Auto-Fallback-Switch trägt eine explizite StateDescription —
+        // der Adaptive-Switch (ohne Semantics-Ergänzung) matcht nicht.
+        composeRule.onNode(hasStateDescription("On")).assertExists()
     }
 }

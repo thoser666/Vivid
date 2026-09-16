@@ -117,4 +117,8 @@
     <string name="stream_error_no_host">Die Stream-URL enthält keinen gültigen Server-Host (z. B. rtmp://live.twitch.tv/app).</string>
     <string name="stream_error_no_key">Kein Stream-Key hinterlegt. Twitch, YouTube und Kick verlangen einen Key.</string>
     <string name="stream_error_srt_tls">TLS ist bei einer srt://-URL nicht anwendbar — die URL wird unverschlüsselt verwendet.</string>
+
+    <!-- A11y: Zustandstexte für die Streaming-Steuerungen (TalkBack) -->
+    <string name="streaming_a11y_state_on">An</string>
+    <string name="streaming_a11y_state_off">Aus</string>
 </resources>

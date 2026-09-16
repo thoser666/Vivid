@@ -49,6 +49,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -444,8 +448,15 @@ fun StreamingScreen(
                     .padding(top = 12.dp, end = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
+                // A11y: Zustandstexte für die Kamera-Toggles (TalkBack).
+                val camOn = stringResource(R.string.streaming_a11y_state_on)
+                val camOff = stringResource(R.string.streaming_a11y_state_off)
                 FilledTonalButton(
                     onClick = { streamingEngine.toggleTorch() },
+                    modifier = Modifier.semantics {
+                        role = Role.Switch
+                        stateDescription = if (torchEnabled) camOn else camOff
+                    },
                 ) {
                     Text(
                         stringResource(
@@ -456,6 +467,10 @@ fun StreamingScreen(
 
                 FilledTonalButton(
                     onClick = { streamingEngine.toggleStabilization() },
+                    modifier = Modifier.semantics {
+                        role = Role.Switch
+                        stateDescription = if (stabilizationEnabled) camOn else camOff
+                    },
                 ) {
                     Text(
                         stringResource(
@@ -466,6 +481,10 @@ fun StreamingScreen(
 
                 FilledTonalButton(
                     onClick = { streamingEngine.toggleFocusLock() },
+                    modifier = Modifier.semantics {
+                        role = Role.Switch
+                        stateDescription = if (focusMode == FocusMode.LOCKED_INFINITY) camOn else camOff
+                    },
                 ) {
                     val isLocked = focusMode == FocusMode.LOCKED_INFINITY
                     Icon(
@@ -497,6 +516,10 @@ fun StreamingScreen(
                 // Low-Light-Boost: software-basierte Helligkeitsanhebung (1.5x Gain).
                 FilledTonalButton(
                     onClick = { streamingEngine.toggleLowLightBoost() },
+                    modifier = Modifier.semantics {
+                        role = Role.Switch
+                        stateDescription = if (lowLightBoostEnabled) camOn else camOff
+                    },
                 ) {
                     Text(
                         stringResource(
@@ -594,7 +617,12 @@ fun StreamingScreen(
                         .widthIn(max = 220.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
+                    // A11y: Zustandstexte für die Auto-Toggles (TalkBack).
+                    val autoOn = stringResource(R.string.streaming_a11y_state_on)
+                    val autoOff = stringResource(R.string.streaming_a11y_state_off)
                     exposureRange?.let { range ->
+                        // A11y: aktueller EV-Wert als Zustand des Sliders.
+                        val exposureState = stringResource(R.string.streaming_exposure_label, exposure)
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 text = stringResource(R.string.streaming_exposure_label, exposure),
@@ -607,11 +635,19 @@ fun StreamingScreen(
                                 valueRange = range.first.toFloat()..range.last.toFloat(),
                                 steps = (range.last - range.first - 1).coerceAtLeast(0),
                                 enabled = autoExposureEnabled,
-                                modifier = Modifier.weight(1f),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .semantics {
+                                        stateDescription = exposureState
+                                    },
                             )
                         }
                         FilledTonalButton(
                             onClick = { streamingEngine.setAutoExposure(!autoExposureEnabled) },
+                            modifier = Modifier.semantics {
+                                role = Role.Switch
+                                stateDescription = if (autoExposureEnabled) autoOn else autoOff
+                            },
                         ) {
                             Text(
                                 stringResource(
@@ -623,6 +659,10 @@ fun StreamingScreen(
                     if (hasWhiteBalance) {
                         FilledTonalButton(
                             onClick = { streamingEngine.setAutoWhiteBalance(!autoWhiteBalanceEnabled) },
+                            modifier = Modifier.semantics {
+                                role = Role.Switch
+                                stateDescription = if (autoWhiteBalanceEnabled) autoOn else autoOff
+                            },
                         ) {
                             Text(
                                 stringResource(

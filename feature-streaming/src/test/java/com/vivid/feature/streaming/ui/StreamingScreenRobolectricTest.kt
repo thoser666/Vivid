@@ -7,6 +7,8 @@ import androidx.lifecycle.ViewModelStoreOwner
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.hasStateDescription
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -202,5 +204,45 @@ class StreamingScreenRobolectricTest {
 
         composeRule.onNodeWithContentDescription("Open OBS Control").assertExists()
         composeRule.onNodeWithContentDescription("Replays").assertExists()
+    }
+
+    // --- Accessibility: Semantics der Streaming-Steuerungen ---------------------
+
+    @Test
+    fun `torch button exposes switch role and on state when enabled`() {
+        every { engine.torchEnabled } returns MutableStateFlow(true)
+        setContent()
+
+        composeRule.onNode(
+            hasText("Torch: On").and(hasStateDescription("On")),
+        ).assertExists()
+    }
+
+    @Test
+    fun `torch button exposes off state when disabled`() {
+        setContent()
+
+        composeRule.onNode(
+            hasText("Torch: Off").and(hasStateDescription("Off")),
+        ).assertExists()
+    }
+
+    @Test
+    fun `auto exposure button exposes switch role and auto state`() {
+        every { engine.exposureRange } returns MutableStateFlow<IntRange?>(IntRange(-4, 4))
+        setContent()
+
+        composeRule.onNode(
+            hasText("Exposure: Auto").and(hasStateDescription("On")),
+        ).assertExists()
+    }
+
+    @Test
+    fun `exposure slider exposes the current ev value as state description`() {
+        every { engine.exposureRange } returns MutableStateFlow<IntRange?>(IntRange(-4, 4))
+        every { engine.exposure } returns MutableStateFlow(-2)
+        setContent()
+
+        composeRule.onNode(hasStateDescription("Exposure -2")).assertExists()
     }
 }

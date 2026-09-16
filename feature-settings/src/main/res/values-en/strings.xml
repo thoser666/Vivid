@@ -315,4 +315,10 @@
     <string name="overlays_subtitles_title">Subtitles (speech-to-text)</string>
     <string name="overlays_subtitles_desc">Recognizes speech via the microphone and shows it live as subtitles over the preview. Requires the microphone permission; does not work on devices without a recognition service.</string>
     <string name="overlays_subtitles_enabled">Show live subtitles</string>
+
+    <!-- A11y: state descriptions for the encoder controls (TalkBack) -->
+    <string name="a11y_selected">Selected</string>
+    <string name="a11y_not_selected">Not selected</string>
+    <string name="a11y_switch_on">On</string>
+    <string name="a11y_switch_off">Off</string>
 </resources>

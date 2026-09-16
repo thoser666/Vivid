@@ -316,4 +316,10 @@
     <string name="overlays_subtitles_title">Sous-titres (reconnaissance vocale)</string>
     <string name="overlays_subtitles_desc">Reconnaît la parole via le micro et l\'affiche en direct en sous-titres sur l\'aperçu. Nécessite l\'autorisation micro ; ne fonctionne pas sur les appareils sans service de reconnaissance.</string>
     <string name="overlays_subtitles_enabled">Afficher les sous-titres en direct</string>
+
+    <!-- A11y : descriptions d'état pour les contrôles d'encodage (TalkBack) -->
+    <string name="a11y_selected">Sélectionné</string>
+    <string name="a11y_not_selected">Non sélectionné</string>
+    <string name="a11y_switch_on">Activé</string>
+    <string name="a11y_switch_off">Désactivé</string>
 </resources>
