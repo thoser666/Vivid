@@ -107,6 +107,10 @@ run ./gradlew testDebugUnitTest --console=plain
 if [[ "${PRE_PUSH_SKIP_LINT:-0}" != "1" ]]; then
   echo "▶ [pre-push] Lint (warningsAsErrors, wie CI: ./gradlew lintDebug)"
   run ./gradlew lintDebug --console=plain
+  # App-Modul hat Flavor-Task-Namen (lintStandardDebug/lintFossDebug) —
+  # root `lintDebug` matcht es NICHT (Lücke bis 2026-09-16: latenter
+  # Lint-Fehler im Manifest war unsichtbar). Standard-Flavor genügt.
+  run ./gradlew :app:lintStandardDebug --console=plain
 fi
 
 # Optional: Release-Builds mit R8/ProGuard + Resource-Shrinking — BEIDE Kanäle,

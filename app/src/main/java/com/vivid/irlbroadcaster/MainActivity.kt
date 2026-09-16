@@ -2,6 +2,7 @@ package com.vivid.irlbroadcaster
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
@@ -51,6 +52,10 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Edge-to-Edge (targetSdk 37: ab SDK 35 vom System erzwungen): Die
+        // App zeichnet hinter Status-/Navigationsleiste; die Inset-Behandlung
+        // läuft über die M3-Scaffolds (paddingValues) und die Custom-Bars.
+        enableEdgeToEdge()
         setContent {
             // Darstellung (Settings-Kategorie „Darstellung“): Design-Modus
             // (System/Hell/Dunkel/AMOLED) + Akzentfarbe live anwenden — das

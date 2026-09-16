@@ -25,8 +25,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -888,7 +891,13 @@ private fun SceneSwitcherBar(
     // Lokalisierter Standardname (z. B. „Szene 1“) — der Nutzer kann ihn editieren.
     val defaultSceneName = stringResource(R.string.scene_default_name, scenes.size + 1)
 
-    Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
+    // Custom bottomBar: Das M3-Scaffold paddet eigene bottomBars NICHT mit den
+    // Navigationsleisten-Insets — ohne dieses Padding läge die Szenen-Leiste
+    // unter der Gesture-Navigation (Edge-to-Edge).
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        modifier = Modifier.windowInsetsPadding(WindowInsets.navigationBars),
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()

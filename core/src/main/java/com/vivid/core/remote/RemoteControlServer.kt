@@ -17,6 +17,8 @@ import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import java.net.InetSocketAddress
+import java.net.ServerSocket
 import java.security.MessageDigest
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -82,6 +84,12 @@ class RemoteControlServer @Inject constructor(
     /** Startet den Server (idempotent). Läuft asynchron weiter. */
     suspend fun start() {
         if (server != null) return
+        // Port-Probe VOR dem Ktor-Bind: Ktor wirft Bind-Fehler asynchron im
+        // acceptJob — runCatching beim Aufrufer kann sie nicht fangen, und ein
+        // unbehandelter Fehler im SupervisorJob crasht den Prozess (z. B. zwei
+        // App-Instanzen oder ein belegter Port). Die Probe scheitert stattdessen
+        // synchron mit klarer Ursache; der Aufrufer behandelt sie fehlertolerant.
+        probePort(port)
         val token = tokenStore.getOrCreateToken()
         val newServer = embeddedServer(
             factory = CIO,
@@ -102,6 +110,21 @@ class RemoteControlServer @Inject constructor(
 
     companion object {
         const val DEFAULT_PORT = 8080
+
+        /**
+         * Prüft synchron, ob [port] an 0.0.0.0 gebunden werden kann.
+         * Absichtlich strikt OHNE `SO_REUSEADDR`: Windows behandelt das Flag
+         * wie REUSEPORT (Port-Klau möglich) — ohne das Flag schlägt die Probe
+         * auf allen Plattformen deterministisch mit der originalen
+         * `java.net.BindException` fehl, wenn der Port belegt ist. Falsche
+         * Alarme sind sicher: Der Server startet dann einfach nicht.
+         * Port als Parameter, damit Unit-Tests freie/belegte Ports durchspielen.
+         */
+        internal fun probePort(port: Int) {
+            ServerSocket().use { socket ->
+                socket.bind(InetSocketAddress("0.0.0.0", port))
+            }
+        }
 
         /** Default-Zeitraum für `/logs`, wenn kein/ungültiger `days`-Parameter kommt. */
         const val DEFAULT_LOG_DAYS = 1

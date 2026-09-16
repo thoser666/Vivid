@@ -92,7 +92,7 @@ jobs:
         run: ./gradlew :app:testStandardDebugUnitTest
 
       - name: Run lint & static analysis
-        run: ./gradlew lintDebug
+        run: ./gradlew lintDebug :app:lintStandardDebug
 
       # Coverage über alle Module (Kover, Wurzelmodul als Merging-Modul):
       # JaCoCo-kompatibles XML als test_most-Beleg (OpenSSF CII Badge) —

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Cloud-Backup & Device-Transfer (Android 12+): bewusst komplett
+     deaktiviert — konsistent zu allowBackup=false (Sicherheitsentscheidung
+     62471fa: Stream-Keys/Tokens dürfen niemals in Backups/Transfers gelangen).
+     domain="root" umfasst file/database/sharedpref vollständig. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="root" path="." />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="root" path="." />
+        <exclude domain="device_root" path="." />
+    </device-transfer>
+</data-extraction-rules>

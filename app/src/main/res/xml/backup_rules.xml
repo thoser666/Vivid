@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Backup (< Android 12): bewusst deaktiviert — konsistent zu
+     allowBackup=false (Sicherheitsentscheidung 62471fa). domain="root"
+     umfasst file/database/sharedpref/external vollständig. -->
+<full-backup-content>
+    <exclude domain="root" path="." />
+</full-backup-content>

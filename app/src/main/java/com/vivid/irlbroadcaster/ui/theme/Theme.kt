@@ -2,10 +2,12 @@ package com.vivid.irlbroadcaster.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
+import androidx.activity.compose.LocalActivity
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.Color
 import com.vivid.core.data.AccentColor
@@ -215,6 +217,21 @@ fun VividTheme(
         )
     }
 
+    // Edge-to-Edge: Status-/Nav-Bar-Icons an den Design-Modus koppeln
+    // (helles Design = dunkle Icons, dunkles/AMOLED = helle Icons). Ohne
+    // diesen Sync wären die Icons hinter der App unlesbar; enableEdgeToEdge
+    // in der MainActivity allein folgt nur dem System, nicht der App-Einstellung.
+    val activity = LocalActivity.current
+    if (activity != null) {
+        SideEffect {
+            val controller = androidx.core.view.WindowCompat.getInsetsController(
+                activity.window,
+                activity.window.decorView,
+            )
+            controller.isAppearanceLightStatusBars = !darkTheme
+            controller.isAppearanceLightNavigationBars = !darkTheme
+        }
+    }
     CompositionLocalProvider(
         LocalExtendedColors provides if (darkTheme) DarkExtendedColors else LightExtendedColors,
     ) {

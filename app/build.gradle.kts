@@ -284,6 +284,11 @@ dependencies {
     testImplementation(libs.androidx.ui.test.junit4)
     // Robolectric: Android-Framework-Emulation für JVM-basierte UI-Tests
     testImplementation(libs.robolectric.core)
+    // Hilt-Test: HiltTestApplication für Robolectric-Tests, die die echte
+    // MainActivity starten (echter DI-Graph, aber ohne VividApplication-
+    // Nebeneffekte wie Sentry-Init und Ktor-Remote-Control-Server).
+    testImplementation(libs.hilt.android.testing)
+    kspTest(libs.hilt.compiler.ksp)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.espresso.intents)

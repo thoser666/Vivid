@@ -22,7 +22,8 @@ fun PlaybackScreen(
         streamUrl?.let { viewModel.setStreamUrl(it) }
     }
 
-    Column(modifier = Modifier.fillMaxSize()) {
+    // Kein Scaffold: Root paddet selbst auf die System-Bars (Edge-to-Edge).
+    Column(modifier = Modifier.fillMaxSize().systemBarsPadding()) {
         // Stream Player
         currentStreamUrl?.let { url ->
             StreamPlayer(

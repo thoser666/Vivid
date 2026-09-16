@@ -13,6 +13,7 @@ import com.vivid.core.log.LogStore
 import com.vivid.core.remote.RemoteControlServer
 import dagger.hilt.android.HiltAndroidApp
 import io.sentry.android.core.SentryAndroid
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -36,7 +37,16 @@ class VividApplication : Application(), ImageLoaderFactory {
     @Inject
     lateinit var logStore: LogStore
 
-    private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    // Fehlertoleranter Hintergrund-Scope: Start-Jobs (Log-Retention, Sentry-
+    // Spiegel, Remote-Control-Server) dürfen den Prozess nie crashen. Der
+    // Handler ist die letzte Verteidigung gegen Residual-Rennen, die das
+    // runCatching beim Aufrufer umgehen (z. B. Ktor-Bind nach Port-Probe).
+    private val applicationScope = CoroutineScope(
+        SupervisorJob() + Dispatchers.Default +
+            CoroutineExceptionHandler { _, throwable ->
+                Timber.e(throwable, "Unbehandelter Fehler im Application-Hintergrund-Scope")
+            },
+    )
 
     /** Coil ImageLoader mit 25MB Disk-Cache für Twitch-Emotes. */
     override fun newImageLoader(): ImageLoader = ImageLoader.Builder(this)
