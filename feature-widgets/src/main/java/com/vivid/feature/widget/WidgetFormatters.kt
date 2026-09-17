@@ -46,4 +46,32 @@ object WidgetFormatters {
         if (altitudeMeters == null) return "–"
         return String.format(Locale.ROOT, "%.0f", altitudeMeters) + " m"
     }
+
+    /** Stoppuhr-Dauer als `HH:MM:SS` (negative Dauer → `00:00:00`). */
+    fun formatTimer(elapsedMillis: Long): String {
+        val totalSeconds = (elapsedMillis / 1_000).coerceAtLeast(0L)
+        val hours = totalSeconds / 3_600
+        val minutes = (totalSeconds % 3_600) / 60
+        val seconds = totalSeconds % 60
+        return String.format(Locale.ROOT, "%02d:%02d:%02d", hours, minutes, seconds)
+    }
+
+    /**
+     * Zurückgelegte Distanz: unter 1 km in Metern (`850 m`), sonst Kilometer mit
+     * deutscher Dezimaltrennung und einer Nachkommastelle (`1,2 km`); negativ → `–`.
+     */
+    fun formatDistance(meters: Double): String {
+        if (meters < 0) return "–"
+        return if (meters < 1_000) {
+            String.format(Locale.ROOT, "%.0f m", meters)
+        } else {
+            String.format(Locale.GERMANY, "%.1f km", meters / 1_000)
+        }
+    }
+
+    /** G-Kraft als Vielfaches von g (deutsche Dezimaltrennung, eine Nachkommastelle); `null`/unendlich → `–`. */
+    fun formatGForce(accelerationG: Double?): String {
+        if (accelerationG == null || !accelerationG.isFinite()) return "–"
+        return String.format(Locale.GERMANY, "%.1f g", accelerationG)
+    }
 }

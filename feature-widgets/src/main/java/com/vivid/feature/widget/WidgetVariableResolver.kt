@@ -4,7 +4,7 @@ package com.vivid.feature.widget
  * Ersetzt Variablen-Platzhalter in einem Widget-Template durch aktuelle Werte.
  *
  * Unterstützte Variablen: `{time}`, `{date}`, `{speed}`, `{altitude}`, `{lat}`, `{lon}`,
- * `{road}`, `{city}`, `{country}`.
+ * `{road}`, `{city}`, `{country}`, `{timer}`, `{distance}`, `{gforce}`.
  * Unbekannte Variablen bleiben unverändert (für Erweiterbarkeit).
  */
 object WidgetVariableResolver {
@@ -29,8 +29,9 @@ object WidgetVariableResolver {
     /**
      * Erzeugt eine Map aller unterstützten Variablen aus den aktuell formatierten Werten.
      *
-     * Die Geocoding-Werte (`road`/`city`/`country`) kommen aus dem ViewModel — der
-     * Resolver selbst ist rein synchron und kennt keinen Android-Geocoder.
+     * Die Geocoding-Werte (`road`/`city`/`country`) und die Trip-Werte (`timer`/`distance`/
+     * `gforce`) kommen aus dem ViewModel — der Resolver selbst ist rein synchron und kennt
+     * weder Android-Geocoder noch Sensoren.
      */
     fun currentValues(
         time: String,
@@ -42,6 +43,9 @@ object WidgetVariableResolver {
         road: String = Placenames.UNKNOWN,
         city: String = Placenames.UNKNOWN,
         country: String = Placenames.UNKNOWN,
+        timer: String = "–",
+        distance: String = "–",
+        gforce: String = "–",
     ): Map<String, String> = mapOf(
         "time" to time,
         "date" to date,
@@ -52,5 +56,8 @@ object WidgetVariableResolver {
         "road" to road,
         "city" to city,
         "country" to country,
+        "timer" to timer,
+        "distance" to distance,
+        "gforce" to gforce,
     )
 }

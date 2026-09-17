@@ -46,6 +46,7 @@ class TextInfoWidgetViewModelTest {
         lon: Double = 13.405,
         speed: Float = 10f,
         hasSpeed: Boolean = true,
+        timestamp: Long = 0L,
     ) = WidgetLocation(
         latitude = lat,
         longitude = lon,
@@ -53,7 +54,7 @@ class TextInfoWidgetViewModelTest {
         hasSpeed = hasSpeed,
         altitudeMeters = 34.0,
         hasAltitude = true,
-        timestampMillis = 0L,
+        timestampMillis = timestamp,
     )
 
     /** 2026-08-17 14:05:<seconds> Europe/Berlin. */
@@ -453,5 +454,158 @@ class TextInfoWidgetViewModelTest {
         runCurrent()
 
         coVerify(exactly = 1) { geocoder.placenames(any(), any()) }
+    }
+
+    // --- Trip-Variablen ({timer}/{distance}/{gforce}) ---
+
+    @Test
+    fun `timer starts at first tick after enable and counts up`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val viewModel = createViewModel(
+            settingsFlow = MutableStateFlow(AppSettings(widgetEnabled = true)),
+            ticks = listOf(epoch(32), epoch(33)),
+        )
+        // flowOf emittiert alle Ticks synchron → letzter Wert gewinnt (Timer verankert am 1. Tick).
+        runCurrent()
+
+        assertEquals("00:00:01", viewModel.uiState.value.timer)
+    }
+
+    @Test
+    fun `timer stays dash while the widget is disabled`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val viewModel = createViewModel(
+            settingsFlow = MutableStateFlow(AppSettings(widgetEnabled = false)),
+            ticks = listOf(epoch(32)),
+        )
+        runCurrent()
+
+        assertEquals("–", viewModel.uiState.value.timer)
+    }
+
+    @Test
+    fun `timer resets when the widget is disabled mid-stream`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val settingsFlow = MutableStateFlow(AppSettings(widgetEnabled = true))
+        val viewModel = createViewModel(settingsFlow, ticks = listOf(epoch(32), epoch(33)))
+        runCurrent()
+        assertEquals("00:00:01", viewModel.uiState.value.timer)
+
+        settingsFlow.value = AppSettings(widgetEnabled = false)
+        runCurrent()
+        assertEquals("–", viewModel.uiState.value.timer)
+    }
+
+    @Test
+    fun `distance accumulates haversine deltas between updates`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val locationFlow = MutableStateFlow(location(lat = 52.52, lon = 13.405))
+        val viewModel = createViewModel(
+            settingsFlow = MutableStateFlow(AppSettings(widgetEnabled = true)),
+            locationFlow = locationFlow,
+        )
+        runCurrent()
+        // Erster Fix: nur Bezugspunkt, keine Distanz.
+        assertEquals("0 m", viewModel.uiState.value.distance)
+
+        // ~1,11 km nach Norden (0,01° Breite) → Haversine ≈ 1112 m.
+        locationFlow.value = location(lat = 52.53, lon = 13.405)
+        runCurrent()
+        assertEquals("1,1 km", viewModel.uiState.value.distance)
+
+        // Weiterer Fix in gleicher Richtung akkumuliert weiter.
+        locationFlow.value = location(lat = 52.535, lon = 13.405)
+        runCurrent()
+        assertTrue(viewModel.uiState.value.distance.endsWith("km"))
+    }
+
+    @Test
+    fun `distance resets when the widget is disabled`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val settingsFlow = MutableStateFlow(AppSettings(widgetEnabled = true))
+        val locationFlow = MutableStateFlow(location(lat = 52.52, lon = 13.405))
+        val viewModel = createViewModel(settingsFlow, locationFlow)
+        runCurrent()
+        locationFlow.value = location(lat = 52.53, lon = 13.405)
+        runCurrent()
+        assertEquals("1,1 km", viewModel.uiState.value.distance)
+
+        settingsFlow.value = AppSettings(widgetEnabled = false)
+        runCurrent()
+        assertEquals("–", viewModel.uiState.value.distance)
+    }
+
+    @Test
+    fun `gforce derived from speed deltas between timestamped fixes`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val locationFlow = MutableStateFlow(
+            location(speed = 0f, timestamp = 1_000L),
+        )
+        val viewModel = createViewModel(
+            settingsFlow = MutableStateFlow(AppSettings(widgetEnabled = true)),
+            locationFlow = locationFlow,
+        )
+        runCurrent()
+        // Erster Fix: keine G-Force (kein Delta).
+        assertEquals("–", viewModel.uiState.value.gforce)
+
+        // 4 m/s² über 1 Sekunde ≈ 0,4 g.
+        locationFlow.value = location(speed = 4f, timestamp = 2_000L)
+        runCurrent()
+        assertEquals("0,4 g", viewModel.uiState.value.gforce)
+
+        // Konstant 4 m/s² im nächsten Sekunden-Takt → 0 g.
+        locationFlow.value = location(speed = 4f, timestamp = 3_000L)
+        runCurrent()
+        assertEquals("0,0 g", viewModel.uiState.value.gforce)
+    }
+
+    @Test
+    fun `gforce stays dash when location has no speed`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val locationFlow = MutableStateFlow(location(speed = 0f, hasSpeed = false, timestamp = 1_000L))
+        val viewModel = createViewModel(
+            settingsFlow = MutableStateFlow(AppSettings(widgetEnabled = true)),
+            locationFlow = locationFlow,
+        )
+        runCurrent()
+        locationFlow.value = location(speed = 4f, hasSpeed = false, timestamp = 2_000L)
+        runCurrent()
+
+        assertEquals("–", viewModel.uiState.value.gforce)
+    }
+
+    @Test
+    fun `gforce resets when the widget is disabled`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val settingsFlow = MutableStateFlow(AppSettings(widgetEnabled = true))
+        val locationFlow = MutableStateFlow(location(speed = 0f, timestamp = 1_000L))
+        val viewModel = createViewModel(settingsFlow, locationFlow)
+        runCurrent()
+        locationFlow.value = location(speed = 4f, timestamp = 2_000L)
+        runCurrent()
+        assertEquals("0,4 g", viewModel.uiState.value.gforce)
+
+        settingsFlow.value = AppSettings(widgetEnabled = false)
+        runCurrent()
+        assertEquals("–", viewModel.uiState.value.gforce)
+    }
+
+    @Test
+    fun `trip variables resolve inside a template`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val locationFlow = MutableStateFlow(location(speed = 0f, timestamp = 1_000L))
+        val viewModel = createViewModel(
+            settingsFlow = MutableStateFlow(
+                AppSettings(widgetEnabled = true, widgetTemplate = "{timer} | {distance} | {gforce}"),
+            ),
+            locationFlow = locationFlow,
+            ticks = listOf(epoch(32), epoch(33)),
+        )
+        runCurrent()
+        locationFlow.value = location(speed = 4f, timestamp = 2_000L)
+        runCurrent()
+
+        assertEquals("00:00:01 | 0 m | 0,4 g", viewModel.uiState.value.resolvedTemplate)
     }
 }

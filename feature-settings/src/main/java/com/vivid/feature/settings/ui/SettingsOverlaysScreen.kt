@@ -26,7 +26,8 @@ import androidx.compose.material3.OutlinedTextField
 
 /** Template-Variablen, die per Chip in das Text-Widget-Template eingefügt werden können. */
 private val TEMPLATE_VARIABLES = listOf(
-    "{time}", "{date}", "{speed}", "{altitude}", "{lat}", "{lon}", "{road}", "{city}", "{country}",
+    "{time}", "{date}", "{speed}", "{altitude}", "{lat}", "{lon}",
+    "{road}", "{city}", "{country}", "{timer}", "{distance}", "{gforce}",
 )
 
 /**
@@ -174,6 +175,9 @@ fun SettingsOverlaysScreen(
                 road = "Kurfürstendamm",
                 city = "Berlin",
                 country = "Deutschland",
+                timer = "00:12:34",
+                distance = "2,4 km",
+                gforce = "0,8 g",
             ),
         )
         if (uiState.widgetTemplate.isNotBlank()) {

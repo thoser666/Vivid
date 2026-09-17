@@ -177,9 +177,9 @@ class SettingsScreensRobolectricTest {
         verify { viewModel.onWidgetTemplateChange("{speed}") }
         verify { viewModel.onWidgetTemplateChange("{lat}") }
 
-        // Platzhalter-Beschreibung listet alle 6 Variablen auf.
+        // Platzhalter-Beschreibung listet alle Variablen auf.
         composeRule.onNodeWithText(
-            "Custom text with placeholders instead of the individual toggles. Available placeholders: {time} (time), {date} (date), {speed} (speed), {altitude} (altitude), {lat}/{lon} (GPS coordinates), {road} (street), {city} (city), {country} (country — placenames take a moment but are cached). Empty template = toggle mode.",
+            "Custom text with placeholders instead of the individual toggles. Available placeholders: {time} (time), {date} (date), {speed} (speed), {altitude} (altitude), {lat}/{lon} (GPS coordinates), {road} (street), {city} (city), {country} (country — placenames take a moment but are cached), {timer} (stopwatch since enabling), {distance} (distance since enabling), {gforce} (g-force). Empty template = toggle mode.",
         ).assertExists()
     }
 

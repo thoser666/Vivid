@@ -75,4 +75,45 @@ class WidgetFormattersTest {
     fun `formatAltitude returns dash for missing value`() {
         assertEquals("–", WidgetFormatters.formatAltitude(null))
     }
+
+    @Test
+    fun `formatTimer renders HH MM SS`() {
+        assertEquals("00:00:00", WidgetFormatters.formatTimer(0L))
+        assertEquals("00:00:59", WidgetFormatters.formatTimer(59_000L))
+        assertEquals("00:12:34", WidgetFormatters.formatTimer(754_000L))
+        assertEquals("01:02:03", WidgetFormatters.formatTimer(3_723_000L))
+    }
+
+    @Test
+    fun `formatTimer clamps negative durations to zero`() {
+        assertEquals("00:00:00", WidgetFormatters.formatTimer(-1_000L))
+    }
+
+    @Test
+    fun `formatDistance switches from metres to kilometres`() {
+        assertEquals("850 m", WidgetFormatters.formatDistance(850.0))
+        assertEquals("999 m", WidgetFormatters.formatDistance(999.4))
+        assertEquals("1,0 km", WidgetFormatters.formatDistance(1_000.0))
+        assertEquals("2,4 km", WidgetFormatters.formatDistance(2_400.0))
+        assertEquals("12,3 km", WidgetFormatters.formatDistance(12_345.0))
+    }
+
+    @Test
+    fun `formatDistance returns dash for negative values`() {
+        assertEquals("–", WidgetFormatters.formatDistance(-1.0))
+    }
+
+    @Test
+    fun `formatGForce renders german decimal with g unit`() {
+        assertEquals("0,8 g", WidgetFormatters.formatGForce(0.81))
+        assertEquals("-0,3 g", WidgetFormatters.formatGForce(-0.33))
+        assertEquals("1,2 g", WidgetFormatters.formatGForce(1.19))
+    }
+
+    @Test
+    fun `formatGForce returns dash for missing or non-finite values`() {
+        assertEquals("–", WidgetFormatters.formatGForce(null))
+        assertEquals("–", WidgetFormatters.formatGForce(Double.NaN))
+        assertEquals("–", WidgetFormatters.formatGForce(Double.POSITIVE_INFINITY))
+    }
 }
