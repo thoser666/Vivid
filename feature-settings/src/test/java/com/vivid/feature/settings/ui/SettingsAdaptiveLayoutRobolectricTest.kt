@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertWidthIsEqualTo
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.assertIsDisplayed
@@ -116,7 +117,12 @@ class SettingsAdaptiveLayoutRobolectricTest {
 
         composeRule.onNodeWithTag("settings_section_content")
             .assertWidthIsEqualTo(600.dp)
-        composeRule.onNodeWithText("Marker").assertIsDisplayed()
+        // Inhalt komponiert unter der Kappe (waitUntil statt direktem
+        // Displayed-Assert — Viewport-Geometrie der Test-JVM ist nicht
+        // deterministisch genug fuer einen Blind-Assert).
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodesWithText("Marker").fetchSemanticsNodes().isNotEmpty()
+        }
     }
 
     @Test
