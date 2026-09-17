@@ -63,8 +63,12 @@ android {
 dependencies {
     // --- App-Abhängigkeiten (Implementation) ---
     implementation(libs.androidx.core.ktx)
-    implementation(platform(libs.androidx.compose.bom))
+    // api: core exports Compose APIs (incl. material3-window-size-class)
+    // via api() - the BOM constraint must be exported too, otherwise the
+    // lib resolves without a version on consumers (e.g. :data).
+    api(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)
+    api(libs.androidx.compose.material3.window.size)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.okhttp)
     implementation(libs.gson)

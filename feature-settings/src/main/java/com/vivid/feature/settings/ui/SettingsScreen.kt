@@ -1,11 +1,14 @@
 package com.vivid.feature.settings.ui
 
 import com.vivid.feature.settings.R
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -34,6 +37,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.vivid.core.update.UpdateCheckResult
+import com.vivid.core.ui.LocalWindowWidthClass
+import com.vivid.core.ui.adaptiveContentMaxWidth
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
@@ -80,12 +85,23 @@ fun SettingsScreen(
     Scaffold(
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
     ) { paddingValues ->
+        // Adaptive Layout-Basis: siehe SettingsSectionScaffold (Expanded-
+        // Fenster kappen den Inhalt auf 600 dp und zentrieren).
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.TopCenter,
+        ) {
         Column(
             modifier = Modifier
-                .fillMaxSize()
+                // Kappe inkl. Gutter (M3-Konvention): widthIn VOR
+                // fillMaxWidth - erst der Cap, dann das Fuellen der
+                // gekappten Constraints (sonst dominiert fillMax*).
+                .widthIn(max = adaptiveContentMaxWidth(LocalWindowWidthClass.current))
+                .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
                 .padding(paddingValues)
-                .padding(16.dp),
+                .padding(16.dp)
+                .testTag("settings_overview_content"),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Text(
@@ -139,6 +155,7 @@ fun SettingsScreen(
                 }
             }
 
+        }
         }
     }
 }

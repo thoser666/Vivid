@@ -4,11 +4,14 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.compose.setContent
+import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
+import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSizeClassApi
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -22,6 +25,7 @@ import com.vivid.core.data.AppSettings
 import com.vivid.core.data.SettingsRepository
 import com.vivid.core.data.ThemeMode
 import com.vivid.core.data.resolveDark
+import com.vivid.core.ui.LocalWindowWidthClass
 import com.vivid.feature.obscontrol.ui.ObsControlScreen
 import com.vivid.feature.playback.PlaybackScreen
 import com.vivid.feature.streaming.ui.ReplayLibraryScreen
@@ -50,6 +54,7 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var settingsRepository: SettingsRepository
 
+    @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // Edge-to-Edge (targetSdk 37: ab SDK 35 vom System erzwungen): Die
@@ -63,6 +68,14 @@ class MainActivity : ComponentActivity() {
             val settings by settingsRepository.appSettingsFlow.collectAsState(initial = AppSettings())
             val systemDark = isSystemInDarkTheme()
             val dark = settings.themeMode.resolveDark(systemDark)
+            // Window Size Class (M3): Einmal pro Activity-Erstellung berechnet
+            // - bei Rotation/Faltung wird die Activity neu erstellt und die
+            // Klasse korrekt neu abgeleitet. Screens lesen sie ueber die
+            // Modul-Naht LocalWindowWidthClass (core-ui).
+            val windowSizeClass = calculateWindowSizeClass(this@MainActivity)
+            CompositionLocalProvider(
+                LocalWindowWidthClass provides windowSizeClass.widthSizeClass,
+            ) {
             VividTheme(
                 darkTheme = dark,
                 amoled = settings.themeMode == ThemeMode.AMOLED,
@@ -73,6 +86,7 @@ class MainActivity : ComponentActivity() {
                     color = MaterialTheme.colorScheme.background,
                 ) {
                     VividAppNavigation()
+                }
                 }
             }
         }

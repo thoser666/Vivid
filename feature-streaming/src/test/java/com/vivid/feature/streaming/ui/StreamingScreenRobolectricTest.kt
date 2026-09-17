@@ -4,6 +4,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.ViewModelStoreOwner
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.requiredWidth
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -14,6 +20,9 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.assertWidthIsEqualTo
+import androidx.compose.ui.test.onAllNodesWithTag
+import com.vivid.core.ui.LocalWindowWidthClass
 import com.vivid.feature.chat.twitch.TwitchChannelUiState
 import com.vivid.feature.chat.twitch.TwitchChannelViewModel
 import com.vivid.feature.streaming.ColorSpace
@@ -244,5 +253,54 @@ class StreamingScreenRobolectricTest {
         setContent()
 
         composeRule.onNode(hasStateDescription("Exposure -2")).assertExists()
+    }
+
+    /** Setzt den Screen in einen Container fester Breite + injizierter Breitenklasse. */
+    private fun setContentAdaptive(
+        widthClass: WindowWidthSizeClass,
+        parentWidthDp: Int,
+    ) {
+        // Panel nur sichtbar, wenn die Kamera einen EV-Bereich anbietet.
+        every { engine.exposureRange } returns MutableStateFlow<IntRange?>(IntRange(-4, 4))
+        composeRule.setContent {
+            CompositionLocalProvider(LocalWindowWidthClass provides widthClass) {
+                Box(modifier = Modifier.requiredWidth(parentWidthDp.dp)) {
+                    StreamingScreen(
+                        navController = navController,
+                        viewModel = viewModel,
+                        twitchViewModel = twitchViewModel,
+                        overlayContent = {},
+                    )
+                }
+            }
+        }
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodesWithTag("camera_controls_panel")
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+    }
+
+    @Test
+    fun `camera controls panel caps at 320dp on expanded windows`() {
+        setContentAdaptive(WindowWidthSizeClass.Expanded, parentWidthDp = 900)
+
+        composeRule.onNodeWithTag("camera_controls_panel")
+            .assertWidthIsEqualTo(320.dp)
+    }
+
+    @Test
+    fun `camera controls panel caps at 220dp on compact phones`() {
+        setContentAdaptive(WindowWidthSizeClass.Compact, parentWidthDp = 900)
+
+        composeRule.onNodeWithTag("camera_controls_panel")
+            .assertWidthIsEqualTo(220.dp)
+    }
+
+    @Test
+    fun `camera controls panel stays compact on small parent widths`() {
+        setContentAdaptive(WindowWidthSizeClass.Compact, parentWidthDp = 300)
+
+        composeRule.onNodeWithTag("camera_controls_panel")
+            .assertWidthIsEqualTo(220.dp)
     }
 }

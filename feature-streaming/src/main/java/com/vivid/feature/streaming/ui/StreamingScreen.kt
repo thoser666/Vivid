@@ -49,6 +49,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
@@ -66,6 +67,8 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.vivid.core.data.StreamScene
+import com.vivid.core.ui.LocalWindowWidthClass
+import com.vivid.core.ui.adaptiveControlsMaxWidth
 import com.vivid.core.ui.theme.LocalExtendedColors
 import com.vivid.feature.chat.twitch.TwitchChannelUiState
 import com.vivid.feature.chat.twitch.TwitchChannelViewModel
@@ -614,7 +617,8 @@ fun StreamingScreen(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .padding(top = 60.dp, end = 16.dp)
-                        .widthIn(max = 220.dp),
+                        .widthIn(max = adaptiveControlsMaxWidth(LocalWindowWidthClass.current))
+.testTag("camera_controls_panel"),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     // A11y: Zustandstexte für die Auto-Toggles (TalkBack).

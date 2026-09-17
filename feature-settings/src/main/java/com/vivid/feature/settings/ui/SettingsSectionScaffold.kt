@@ -2,10 +2,13 @@ package com.vivid.feature.settings.ui
 
 import com.vivid.feature.settings.R
 import androidx.annotation.StringRes
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -34,8 +37,11 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
 import com.vivid.core.data.AccentColor
+import com.vivid.core.ui.LocalWindowWidthClass
+import com.vivid.core.ui.adaptiveContentMaxWidth
 import com.vivid.core.data.ChatBotCommandScope
 import com.vivid.core.data.ChatBotMode
 import com.vivid.core.data.ThemeMode
@@ -70,12 +76,24 @@ fun SettingsSectionScaffold(
             )
         },
     ) { paddingValues ->
+        // Adaptive Layout-Basis (M3 Window Size Classes): Auf Expanded-
+        // Fenstern (Tablets/Foldables/Querformat) den Formular-Inhalt auf
+        // 600 dp kappen und zentrieren; Compact (Phone) bleibt volle Breite.
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.TopCenter,
+        ) {
         Column(
             modifier = Modifier
-                .fillMaxSize()
+                // Kappe inkl. Gutter (M3-Konvention): widthIn VOR
+                // fillMaxWidth - erst der Cap, dann das Fuellen der
+                // gekappten Constraints (sonst dominiert fillMax*).
+                .widthIn(max = adaptiveContentMaxWidth(LocalWindowWidthClass.current))
+                .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
                 .padding(paddingValues)
-                .padding(16.dp),
+                .padding(16.dp)
+                .testTag("settings_section_content"),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             content()
@@ -86,6 +104,7 @@ fun SettingsSectionScaffold(
             ) {
                 Text(stringResource(R.string.settings_save_button))
             }
+        }
         }
     }
 }
