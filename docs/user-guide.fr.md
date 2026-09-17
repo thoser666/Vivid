@@ -28,6 +28,7 @@ bot IA et contrôle de la caméra dans une seule app — inspirée de [Moblin](h
 10. [Télécommande web (piloter le stream depuis un navigateur)](#10-télécommande-web)
 11. [Paramètres — les sept catégories](#11-paramètres--les-sept-catégories)
 12. [Mises à jour](#12-mises-à-jour)
+13. [Langue (par application)](#13-langue-par-application)
 
 ---
 
@@ -346,6 +347,22 @@ Voir [README → Automatic updates (F-Droid Repository)](../README.md#-automatic
 4. Télécharger l'APK depuis la [page des versions](../../releases) et l'installer
 
 > La vérification ne propose jamais de rétrogradation (Nightly → Nightly/Alpha/Beta/Stable).
+
+---
+
+## 13. Langue (par application)
+
+Vivid existe en **allemand, anglais et français**. À partir d'**Android 13**, tu peux définir la langue par application — indépendamment de la langue du système :
+
+1. Ouvre les **Infos de l'appli** de Vivid (appui long sur l'icône → ⓘ, ou **Paramètres → Applications → Vivid**)
+2. Appuie sur **Langue**
+3. Choisis l'une des trois langues — **Par défaut** suit la langue du système
+
+- Le changement est immédiat, sans redémarrage de l'appli
+- Sur Android 12 et antérieur, Vivid suit la langue du système
+- Les messages du chat, le stream et les overlays ne sont pas concernés — ce réglage ne concerne que l'interface de l'appli
+
+> 💡 Tu streames en anglais mais tu préfères utiliser l'appli en français ? Aucun problème — et inversement.
 
 ---
 

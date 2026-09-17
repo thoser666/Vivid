@@ -28,6 +28,7 @@ an AI bot, and camera controls in one app — inspired by [Moblin](https://githu
 10. [Web Remote Control (Control the Stream from a Browser)](#10-web-remote-control)
 11. [Settings — The Seven Categories](#11-settings--the-seven-categories)
 12. [Updates](#12-updates)
+13. [Language (per app)](#13-language-per-app)
 
 ---
 
@@ -341,6 +342,22 @@ See [README → Automatic updates (F-Droid Repository)](../README.md#-automatic-
 4. Download the APK from the [Releases page](../../releases) and install
 
 > The check never suggests a downgrade (Nightly → Nightly/Alpha/Beta/Stable).
+
+---
+
+## 13. Language (per app)
+
+Vivid ships in **German, English and French**. From **Android 13** you can set the language per app — independent of the system language:
+
+1. Open the **App info** for Vivid (long-press the app icon → ⓘ, or **Settings → Apps → Vivid**)
+2. Tap **Language**
+3. Pick one of the three languages — **Default** follows the system language
+
+- The change applies immediately, no app restart needed
+- On Android 12 and below, Vivid follows the system language
+- Chat messages, the stream and overlays are not affected — this setting only controls the app interface
+
+> 💡 Streaming in English but prefer operating the app in German? That works — and vice versa.
 
 ---
 

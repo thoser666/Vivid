@@ -26,8 +26,9 @@ KI-Bot und Kamera-Steuerung in einer App vereint — inspiriert von [Moblin](htt
 8. [KI-Chat-Bot](#8-ki-chat-bot)
 9. [OBS Studio steuern](#9-obs-studio-steuern)
 10. [Web-Remote-Control (Stream per Browser steuern)](#10-web-remote-control)
-11. [Einstellungen — Die sechs Kategorien](#11-einstellungen--die-sieben-kategorien)
+11. [Einstellungen — Die sieben Kategorien](#11-einstellungen--die-sieben-kategorien)
 12. [Updates](#12-updates)
+13. [Sprache (pro App)](#13-sprache-pro-app)
 
 ---
 
@@ -347,6 +348,22 @@ Siehe [README → Automatic updates (F-Droid Repository)](../README.md#-automati
 4. APK von der [Releases-Seite](../../releases) herunterladen und installieren
 
 > Der Check schlägt niemals ein Downgrade vor (Nightly → Nightly/Alpha/Beta/Stable).
+
+---
+
+## 13. Sprache (pro App)
+
+Vivid gibt es auf **Deutsch, Englisch und Französisch**. Ab **Android 13** kannst du die Sprache pro App festlegen — unabhängig von der Systemsprache:
+
+1. Öffne die **App-Infos** von Vivid (lange auf das App-Symbol tippen → ⓘ, oder **Einstellungen → Apps → Vivid**)
+2. **Sprache** antippen
+3. Eine der drei Sprachen wählen — **Standard** folgt der Systemsprache
+
+- Die Einstellung wirkt sofort, ohne Neustart der App
+- Auf Android 12 und älter folgt Vivid der Systemsprache
+- Chat-Nachrichten, Stream und Overlays sind nicht betroffen — die Einstellung steuert nur die App-Oberfläche
+
+> 💡 Du streamst z. B. auf Englisch? Vivid kann trotzdem auf Deutsch bedient werden — oder umgekehrt.
 
 ---
 
