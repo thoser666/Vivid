@@ -29,9 +29,13 @@
 #   T9 Orphan-Rollback      → scheitert der PR-Create, wird der Bot-Branch
 #                            automatisch gelöscht (Vorfall: 3 Orphan-Branches
 #                            aus den 403-Runs 34021546368/34022706363/34023536729)
+#                            Datei-Liste zentral: BOT_PR_FILES.
 #   T10 Rebase-Härtung      → Changelog-Mirror rebaset auf weitergelaufenes
 #                            develop; bei Konflikt Neugenerierung (Vorfall
 #                            CONFLICTING-PR #149)
+#   T12 PyPI-Drift-Wächter  → automation-pypi-drift.yml erfüllt dieselben
+#                            Credential-/REST-/Rollback-/Rebase-Verträge
+#                            (vierter Bot-Workflow)
 #
 # Läuft im CI (android-ci.yml, Job "Build & Test") und lokal:
 # bash scripts/test_bot_pr_credentials.sh  (Exit 0 = grün)
@@ -40,9 +44,18 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR/.." || exit 1
 
-echo "▶ [test_bot_pr_credentials] Szenarien T1–T10"
+echo "▶ [test_bot_pr_credentials] Szenarien T1–T12"
 
 FAILED=0
+# Zentrale Dateiliste aller Bot-PR-Workflows (T4/T7/T8/T9 + T12-Loops)
+BOT_PR_FILES=(
+  .github/workflows/automation-changelog.yml
+  .github/workflows/deploy-fdroid.yml
+  .github/workflows/release-pipeline.yml
+  .github/workflows/distribution-stable.yml
+  .github/workflows/automation-pypi-drift.yml
+)
+T12_FILE=.github/workflows/automation-pypi-drift.yml
 check() {
   local name="$1" file="$2" pattern="$3"
   if grep -qE "$pattern" "$file" 2>/dev/null; then
@@ -91,10 +104,7 @@ check "T3d distribution-stable: Author bleibt github-actions[bot]" \
   'user\.name "github-actions\[bot\]"'
 
 # T4: Fallback-Warnhinweis in allen Bot-PR-Dateien (::annotation für die Run-Anzeige).
-for f in .github/workflows/automation-changelog.yml \
-         .github/workflows/deploy-fdroid.yml \
-         .github/workflows/release-pipeline.yml \
-         .github/workflows/distribution-stable.yml; do
+for f in "${BOT_PR_FILES[@]}"; do
   check "T4 ::warning:: bei fehlendem AUTOMATION_TOKEN ($(basename "$f"))" \
     "$f" '::warning::AUTOMATION_TOKEN ist nicht gesetzt'
 done
@@ -127,16 +137,13 @@ fi
 # T7+T8: PR-Create per REST statt `gh pr create` — die GraphQL-Mutation
 # createPullRequest ist mit Fine-grained PATs nicht nutzbar, auch mit
 # korrekter Pull-requests-Permission (Run 34022706363).
-for f in .github/workflows/automation-changelog.yml \
-         .github/workflows/deploy-fdroid.yml \
-         .github/workflows/release-pipeline.yml \
-         .github/workflows/distribution-stable.yml; do
+for f in "${BOT_PR_FILES[@]}"; do
   # Nur echte Kommando-Zeilen zählen (Zeilenanfang) — nicht Erwähnungen in
   # Kommentaren ("REST statt gh pr create …").
   if ! grep -qE '^[[:space:]]*gh pr create' "$f"; then
     echo "  ✅ T7 kein gh pr create ($(basename "$f"))"
   else
-    echo "  ❌ T7 gh pr create noch vorhanden ($(basename "$f")) — GraphQL-Mutation scheitert an Fine-grained PATs"
+    echo "    ❌ T7 gh pr create noch vorhanden ($(basename "$f")) — GraphQL-Mutation scheitert an Fine-grained PATs"
     FAILED=1
   fi
   check "T8 REST-PR-Create ($(basename "$f"))" \
@@ -147,10 +154,7 @@ done
 # werden (Vorfall: die 403-Runs hinterließen jeweils Orphan-Branches, die
 # manuell per API geräumt werden mußten). Guard: if !-Wrap um den REST-Call,
 # DELETE-Ref-Call, ::error::-Ankündigung, exit 1 danach.
-for f in .github/workflows/automation-changelog.yml \
-         .github/workflows/deploy-fdroid.yml \
-         .github/workflows/release-pipeline.yml \
-         .github/workflows/distribution-stable.yml; do
+for f in "${BOT_PR_FILES[@]}"; do
   check "T9.1 PR-Create in if !-Rollback-Wrap ($(basename "$f"))" \
     "$f" 'if ! gh api repos/\$\{\{ github\.repository \}\}/pulls -f title='
   check "T9.2 Branch-DELETE im Rollback ($(basename "$f"))" \
@@ -165,6 +169,9 @@ done
 # gemergte develop-Commits lassen den Bot-PR sonst als CONFLICTING zurück
 # (Vorfall #149). Guard: fetch nach dem Commit, Ancestor-Check HEAD~1 vs.
 # origin/develop, Rebase mit Konflikt-Fallback (Neugenerierung).
+# Bewusst NICHT für den PyPI-Drift-Wächter (T12): Der Merge von develop
+# übernimmt die beiden geänderten Hash-Zeilen konfliktfrei in den Bot-PR,
+# ein Rebase ist dort nicht nötig.
 for f in .github/workflows/automation-changelog.yml \
          .github/workflows/release-pipeline.yml \
          .github/workflows/distribution-stable.yml; do
@@ -177,6 +184,28 @@ for f in .github/workflows/automation-changelog.yml \
   check "T10.4 ::notice:: bei weitergelaufenem develop ($(basename "$f"))" \
     "$f" '::notice::develop ist während des Runs weitergelaufen'
 done
+
+# T12: PyPI-Drift-Wächter (automation-pypi-drift.yml) — vierter Bot-Workflow
+# mit denselben Verträgen. Abweichungen vom Haus-Muster sind bewusst
+# dokumentiert: Checkout MIT Token-Fallback (wie T1, aber ohne fetch-depth-0
+# keine Replay-Risiken — der Generator braucht Netz, nicht Historie),
+# workflow_dispatch OHNE dry_run-Input-Zwang (Drift-Erkennung ist von selbst
+# read-only; der Push-Teil greift nur bei echtem Drift).
+check "T12.1 PyPI-Drift: checkout token mit AUTOMATION_TOKEN-Fallback" \
+  "$T12_FILE" \
+  'token: \$\{\{ secrets\.AUTOMATION_TOKEN \|\| secrets\.GITHUB_TOKEN \}\}'
+check "T12.2 PyPI-Drift: Push-Step GH_TOKEN mit Fallback" \
+  "$T12_FILE" \
+  'GH_TOKEN: \$\{\{ secrets\.AUTOMATION_TOKEN \|\| secrets\.GITHUB_TOKEN \}\}'
+check "T12.3 PyPI-Drift: Author bleibt github-actions[bot]" \
+  "$T12_FILE" \
+  'user\.name "github-actions\[bot\]"'
+check "T12.4 PyPI-Drift: ::warning:: bei fehlendem AUTOMATION_TOKEN" \
+  "$T12_FILE" '::warning::AUTOMATION_TOKEN ist nicht gesetzt'
+check "T12.5 PyPI-Drift: Drift-Erkennung per --check (read-only)" \
+  "$T12_FILE" 'gen_fdroid_requirements\.py --check'
+check "T12.6 PyPI-Drift: Post-Verifikation per pip-pinning-Selbsttest" \
+  "$T12_FILE" 'scripts/test_pip_pinning\.sh'
 
 echo ""
 if [ "$FAILED" -eq 0 ]; then

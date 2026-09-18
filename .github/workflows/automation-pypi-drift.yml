@@ -1,0 +1,194 @@
+# PyPI-Drift-Wächter: Erkennt Upstream-Releases in der fdroidserver-Closure
+# und stellt automatisch einen Regenerierungs-PR (Bot-Branch, Pflicht-Checks).
+#
+# Hintergrund: Die fdroidserver-Requirements sind SHA-256-gepinnt. Jedes neue
+# PyPI-Release eines transitiven Pakets lässt den byte-identischen
+# Reproduzierbarkeits-Check (`gen_fdroid_requirements.py --check`) rot werden —
+# bisher 3 Vorkommen (platformdirs, sqlalchemy/urllib3, idna), jeweils als
+# manuelle Regenerierungs-Chore (d171897, 2982d4b, 51f87d9). Dieser Workflow
+# eliminiert die manuelle Reaktion: wöchentliche Erkennung, Closure neu
+# generieren, Bot-PR nach dem Haus-Muster (AUTOMATION_TOKEN-Checkout,
+# Rebase-Härtung, REST-PR-Create, Orphan-Rollback — Guard: T1–T10 im
+# Selbsttest scripts/test_bot_pr_credentials.sh).
+#
+# Kein Loop-Risiko: Der Workflow läuft nur per Cron/Dispatch, nicht auf
+# Push/Release; der gemergte Regenerierungs-Commit triggert nichts.
+
+name: Automation PyPI Drift
+
+on:
+  schedule:
+    # Dienstag 06:30 UTC — wöchentlich, Slot eindeutig unter allen
+    # Automation-Crons (jede Cron-Periode genau einmal belegt)
+    - cron: "30 6 * * 2"
+  workflow_dispatch:
+
+permissions: {}
+
+# Serialisiert: zwei gleichzeitige Läufe dürften nicht um denselben
+# Regenerierungs-Commit auf develop kämpfen.
+concurrency:
+  group: automation-pypi-drift
+  cancel-in-progress: false
+
+jobs:
+  detect-and-regen:
+    name: Detect PyPI drift → regeneration PR
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write # Push des Bot-Branch (via USER-Credential)
+      pull-requests: write # PR-Create (via USER-Credential)
+
+    steps:
+      - name: Checkout develop
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: develop
+          fetch-depth: 0
+          # Root-Fix CI-Suppression: Der Bot-Branch muss mit einem USER-Credential
+          # gepusht werden (nicht GITHUB_TOKEN) — sonst unterdrückt GitHub die
+          # pull_request-Workflows auf dem Bot-PR und die Pflicht-Checks laufen
+          # nie (Vorfall PRs #142/#143). Fallback: GITHUB_TOKEN (altes Verhalten,
+          # mit ::warning::-Hinweis im Push-Step). Guard: T1.
+          token: ${{ secrets.AUTOMATION_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Detect drift
+        id: drift
+        run: |
+          set -euo pipefail
+          # Byte-identischer Vergleich der gepinnten Closure gegen die frisch
+          # generierte (erfordert Netz; bei neuem PyPI-Release exit 1).
+          if python scripts/gen_fdroid_requirements.py --check; then
+            echo "=== Kein Drift: Closure ist reproduzierbar ==="
+            echo "drift=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "=== Drift erkannt: Closure weicht vom PyPI-Upstream ab ==="
+            echo "drift=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Skip if no drift
+        if: steps.drift.outputs.drift == 'false'
+        run: |
+          echo "Nothing to do — Closure matches upstream. :white_check_mark:" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Regenerate closure
+        if: steps.drift.outputs.drift == 'true'
+        run: |
+          set -euo pipefail
+          python scripts/gen_fdroid_requirements.py
+          echo "=== Regenerierte Closure ==="
+          git diff --stat -- .github/requirements/
+          # Deployment-Simulation als Post-Verifikation (wie der manuelle Chore)
+          bash scripts/test_pip_pinning.sh
+
+      # Commit + Rebase-Härtung + Push in einem Step (Haus-Muster
+      # automation-changelog.yml): Der Commit läuft als github-actions[bot],
+      # Push/PR über das USER-Credential (AUTOMATION_TOKEN) — die Pflicht-
+      # Checks laufen auf dem Bot-PR.
+      - name: Commit and push bot branch
+        id: push
+        if: steps.drift.outputs.drift == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.AUTOMATION_TOKEN || secrets.GITHUB_TOKEN }}
+          HAS_AUTOMATION_TOKEN: ${{ secrets.AUTOMATION_TOKEN != '' }}
+        run: |
+          if [ "$HAS_AUTOMATION_TOKEN" != "true" ]; then
+            echo "::warning::AUTOMATION_TOKEN ist nicht gesetzt — Bot-PR entsteht per GITHUB_TOKEN-Fallback. GitHub unterdrückt dann die Pflicht-Checks (Build & Test, Secret Guard) auf diesem PR (Rekursions-Schutz). Einmalig anlegen: gh secret set AUTOMATION_TOKEN --body <PAT> — Classic-PAT mit repo-Scope."
+          fi
+          if git diff --quiet .github/requirements/; then
+            echo "Closure unverändert — kein Commit nötig"
+            exit 0
+          fi
+          # Loop-Guard hängt am Commit-AUTHOR (nicht am Push-Credential) —
+          # Author bleibt github-actions[bot] (Guard: T3).
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Zeitstempel-Branch: keine Kollision mit einer noch offenen
+          # Vorwochen-PR (kein Force-Push nötig)
+          BRANCH="chore/pypi-closure-drift-$(date +%Y%m%d%H%M%S)"
+          git checkout -b "$BRANCH"
+          git add .github/requirements/
+          git commit -m "chore(deps): regenerate fdroidserver requirements (PyPI drift)"
+          # Rebase-Härtung: Während dieses Runs gemergte develop-Commits
+          # lassen den PR sonst als CONFLICTING zurück (Vorfall #149).
+          # HEAD~1 ist der develop-Stand vom Job-Start; origin/develop wird
+          # frisch geholt — bewegt, wird der Commit rebaset. Konflikt →
+          # abort + Neugenerierung auf dem neuen Stand (Skript ist idempotent
+          # und liest die Closure frisch von PyPI) — Konflikt ausgeschlossen.
+          git fetch origin develop
+          if ! git merge-base --is-ancestor "HEAD~1" origin/develop; then
+            echo "::notice::develop ist während des Runs weitergelaufen — Rebase auf $(git rev-parse --short origin/develop)"
+            if ! git rebase origin/develop; then
+              echo "::warning::Rebase-Konflikt — Closure wird auf dem neuen develop neu generiert"
+              git rebase --abort
+              git reset --hard origin/develop
+              python scripts/gen_fdroid_requirements.py
+              git add .github/requirements/
+              if git diff --cached --quiet; then
+                echo "Nach Neugenerierung: keine Änderungen mehr — kein PR nötig"
+                exit 0
+              fi
+              git commit -m "chore(deps): regenerate fdroidserver requirements (PyPI drift)"
+            fi
+          fi
+          git push origin "$BRANCH"
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+
+      # REST statt `gh pr create` (GraphQL createPullRequest): PATs scheitern
+      # an der GraphQL-Mutation auch mit korrekter Permission — der
+      # REST-Endpoint funktioniert (Guard: T7/T8). Rollback-Härtung: Scheitert
+      # der PR-Create, bleibt der bereits gepushte Branch als Orphan zurück →
+      # Branch löschen, dann laut abbrechen (Guard: T9).
+      - name: Create PR (REST)
+        id: pr
+        if: steps.drift.outputs.drift == 'true' && steps.push.outputs.branch != ''
+        env:
+          GH_TOKEN: ${{ secrets.AUTOMATION_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH="${{ steps.push.outputs.branch }}"
+          DATE=$(date -u +%F)
+          BODY=$(cat <<EOM
+          ## Wöchentlicher PyPI-Drift-Check (${DATE})
+
+          Der byte-identische Reproduzierbarkeits-Check der fdroidserver-Closure
+          (`scripts/gen_fdroid_requirements.py --check`) schlug fehl: ein
+          transitives Paket hat ein neues PyPI-Release bekommen.
+
+          **Dieser PR regeneriert die Closure** (SHA-256-Pinning erneuert) und
+          automatisiert damit die bisher manuellen Regenerierungs-Chores
+          (platformdirs, sqlalchemy/urllib3, idna).
+
+          Verifikation:
+          - \`scripts/test_pip_pinning.sh\` (pip-Deployment-Simulation mit
+            \`--require-hashes\`) lief nach der Regenerierung grün
+          - Pflicht-Checks laufen auf diesem Bot-Branch (USER-Credential-Push)
+
+          Automatisch erstellt von \`automation-pypi-drift.yml\`.
+          EOM
+          )
+          if ! gh api repos/${{ github.repository }}/pulls -f title="chore(deps): fdroidserver-Closure regenerieren (PyPI-Drift ${DATE})" -f head="$BRANCH" -f base=develop -F body="$BODY"; then
+            echo "::error::PR-Create fehlgeschlagen — Rollback: Bot-Branch $BRANCH wird gelöscht (kein Orphan)"
+            gh api -X DELETE "repos/${{ github.repository }}/git/refs/heads/$BRANCH" \
+              || echo "::warning::Branch-Rollback fehlgeschlagen — manuell löschen: gh api -X DELETE repos/${{ github.repository }}/git/refs/heads/$BRANCH"
+            exit 1
+          fi
+          echo "✅ Bot-PR erstellt ($BRANCH)"
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## PyPI-Drift-Wächter"
+            echo ""
+            echo "| Phase | Ergebnis |"
+            echo "|-------|----------|"
+            echo "| Drift erkannt | ${{ steps.drift.outputs.drift }} |"
+            if [ "${{ steps.drift.outputs.drift }}" = "true" ] && [ -n "${{ steps.push.outputs.branch }}" ]; then
+              echo "| Bot-Branch | ${{ steps.push.outputs.branch }} |"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

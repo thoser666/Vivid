@@ -208,6 +208,12 @@ jobs:
       - name: Test Suppressions-Register-Workflow
         run: bash scripts/test_suppressions_register_workflow.sh
 
+      # PyPI-Drift-Workflow (automation-pypi-drift.yml): Verträge des
+      # wöchentlichen Drift-Wächters (Cron, Minimalprivilegien, SHA-Pins,
+      # Credential-/REST-/Rollback-/Rebase-Konvention, Loop-Sicherheit).
+      - name: Test PyPI-Drift-Workflow
+        run: bash scripts/test_pypi_drift_workflow.sh
+
       # Geteilte Release-Safety (Ruby) — Selbsttest: versionCode-Ableitung,
       # Track-Monotonie (kein Downgrade) und Quer-Track-Vergleich; strukturell
       # wird geprüft, dass release_alpha UND release_beta dieselben Funktionen

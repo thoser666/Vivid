@@ -49,6 +49,8 @@ bash scripts/test_workflow_security.sh
 
 echo "▶ [pre-push] Bot-PR-Credential-Selbsttest (scripts/test_bot_pr_credentials.sh)"
 bash scripts/test_bot_pr_credentials.sh
+echo "▶ [pre-push] PyPI-Drift-Workflow-Selbsttest (scripts/test_pypi_drift_workflow.sh)"
+bash scripts/test_pypi_drift_workflow.sh
 
 echo "▶ [pre-push] Stable-Distribution-Kadenz-Selbsttest (scripts/test_distribution_stable.sh)"
 bash scripts/test_distribution_stable.sh
