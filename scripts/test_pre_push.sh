@@ -6,7 +6,23 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-out="$(bash scripts/pre-push.sh --dry-run)"
+# Gate-Ausgabe sichtbar halten: Ohne diese Sicherung stirbt der Selbsttest
+# bei Gate-Exit != 0 STUMM (set -e killt vor der ersten fail()-Meldung; die
+# Gate-stdout verschluckt die Command-Substitution, nur stderr waere sichtbar
+# gewesen) - CI-Fall 35305701470: keine Diagnose moeglich.
+gate_log="$(mktemp)"
+if ! out="$(bash scripts/pre-push.sh --dry-run 2>"$gate_log")"; then
+  echo "❌ FAIL: Gate-Dry-Run scheiterte (Exit $?) — Gate-stdout/stderr:"
+  echo "--- stdout ---"
+  printf '%s
+' "$out"
+  echo "--- stderr ---"
+  cat "$gate_log"
+  rm -f "$gate_log"
+  exit 1
+fi
+rm -f "$gate_log"
+
 
 fail() {
   echo "❌ FAIL: $1"
@@ -37,7 +53,19 @@ fi
 if grep -q "bundlePlayRelease" <<< "$out"; then
   fail "bundleStandardPlayRelease erscheint ohne PRE_PUSH_RELEASE=1 im Dry-Run"
 fi
-out_release="$(PRE_PUSH_RELEASE=1 bash scripts/pre-push.sh --dry-run)"
+gate_log2="$(mktemp)"
+if ! out_release="$(PRE_PUSH_RELEASE=1 bash scripts/pre-push.sh --dry-run 2>"$gate_log2")"; then
+  echo "❌ FAIL: Gate-Dry-Run (PRE_PUSH_RELEASE=1) scheiterte — Gate-stdout/stderr:"
+  echo "--- stdout ---"
+  printf '%s
+' "$out_release"
+  echo "--- stderr ---"
+  cat "$gate_log2"
+  rm -f "$gate_log2"
+  exit 1
+fi
+rm -f "$gate_log2"
+
 grep -q "assembleRelease" <<< "$out_release" || fail "assembleRelease fehlt im Dry-Run mit PRE_PUSH_RELEASE=1"
 grep -q "bundleStandardPlayRelease" <<< "$out_release" || fail "bundleStandardPlayRelease fehlt im Dry-Run mit PRE_PUSH_RELEASE=1"
 
