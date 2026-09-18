@@ -133,8 +133,8 @@ grep_q "$WF" 'git rebase origin/develop' \
 # W11: Generator + Guard existieren und sind Gate-verdrahtet
 [ -f "$GEN" ] && ok 11 "Generator vorhanden (scripts/gen_fdroid_requirements.py)" \
     || bad 11 "Generator fehlt"
-[ -x "$GUARD" ] && ok 11 "pip-pinning-Selbsttest vorhanden und ausführbar" \
-    || bad 11 "pip-pinning-Selbsttest fehlt/nicht ausführbar"
+[ -f "$GUARD" ] && ok 11 "pip-pinning-Selbsttest vorhanden (bash-Invocation, kein Exec-Bit nötig)" \
+    || bad 11 "pip-pinning-Selbsttest fehlt"
 grep_q "$ROOT/scripts/pre-push.sh" "scripts/test_pip_pinning.sh" \
     && ok 11 "pip-pinning-Guard ist Gate-verdrahtet" \
     || bad 11 "Gate-Verdrahtung fehlt"
