@@ -18,6 +18,9 @@
 #   W9: REST-PR-Create mit Inline-Orphan-Rollback (Konsistenz mit T7/T8/T9)
 #   W10: Rebase-Härtung wie die Changelog-Mirror (Konsistenz mit T10)
 #   W11: Generator + pip-pinning-Guard existieren und sind Gate-verdrahtet
+#   W12: Vollautomatischer Merge — Checks-Polling auf die beiden
+#       Pflicht-Checks, Squash-Merge per REST, fail-soft (roter Check
+#       oder Timeout laesst den PR offen; kein Rollback nach Create)
 #
 # Exit 0 = alle Checks bestanden, Exit 1 = mindestens ein Check fehlgeschlagen.
 set -u
@@ -138,6 +141,16 @@ grep_q "$WF" 'git rebase origin/develop' \
 grep_q "$ROOT/scripts/pre-push.sh" "scripts/test_pip_pinning.sh" \
     && ok 11 "pip-pinning-Guard ist Gate-verdrahtet" \
     || bad 11 "Gate-Verdrahtung fehlt"
+
+# W12: Vollautomatischer Merge (Checks pollen -> Squash-Merge, fail-soft)
+grep_q "$WF" "checks: read"     && ok 12 "Job-Permission checks: read (GITHUB_TOKEN-Fallback kann Checks lesen)"     || bad 12 "checks: read fehlt (Fallback-Pfad waere 403)"
+grep_q "$WF" 'gh api -X PUT "repos/${{ github.repository }}/pulls/$PR/merge"'     && grep_q "$WF" "merge_method=squash"     && ok 12 "Squash-Merge per REST (kein gh pr merge --auto, Review-Pflicht blockiert)"     || bad 12 "REST-Merge fehlt/abweichend"
+grep_q "$WF" "conclusion"     && grep_q "$WF" '"Build & Test"'     && grep_q "$WF" '"Secret Guard"'     && ok 12 "Checks-Polling auf die beiden Pflicht-Checks (exact-match)"     || bad 12 "Pflicht-Check-Polling fehlt/abweichend"
+grep_q "$WF" "Checks fehlgeschlagen"     && grep_q "$WF" "Timeout nach"     && grep_q "$WF" "PR bleibt offen"     && ok 12 "Fail-soft: roter Check/Timeout laesst den PR offen (::error::, kein Rollback)"     || bad 12 "Fail-soft-Pfade fehlen"
+grep_q "$WF" "steps.pr.outputs.pr"     && grep_q "$WF" "steps.merge.outputs.merged"     && ok 12 "PR-Number verdrahtet (Merge-Gate + Summary-Ausgabe)"     || bad 12 "PR-Number-Verdrahtung fehlt"
+grep_q "$WF" "delete_branch_on_merge"     && ok 12 "Branch-Delete nach Merge an Repo-Setting delegiert (kein Doppel-Delete)"     || bad 12 "delete_branch_on_merge-Dokumentation fehlt"
+# Kein natives Auto-Merge (wuerde an der Review-Pflicht ewig pending bleiben):
+grep_q "$WF" "pr merge --auto"     && bad 12 "gh pr merge --auto vorhanden (haengt ewig an required_reviews=1)"     || ok 12 "kein natives Auto-Merge (Admin-Override per REST-PUT ist der Pfad)"
 
 echo ""
 echo "=== PyPI-Drift-Workflow-Selbsttest: $PASS PASS, $FAIL FAIL ==="
