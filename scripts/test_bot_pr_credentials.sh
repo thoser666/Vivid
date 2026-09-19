@@ -36,6 +36,9 @@
 #   T12 PyPI-Drift-Wächter  → automation-pypi-drift.yml erfüllt dieselben
 #                            Credential-/REST-/Rollback-/Rebase-Verträge
 #                            (vierter Bot-Workflow)
+#   T13 Auto-Merge          → alle vier Bot-Workflows pollen nach dem
+#                            PR-Create die Pflicht-Checks und mergen selbst
+#                            (REST-Squash, Admin-Override; Muster W12)
 #
 # Läuft im CI (android-ci.yml, Job "Build & Test") und lokal:
 # bash scripts/test_bot_pr_credentials.sh  (Exit 0 = grün)
@@ -44,7 +47,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR/.." || exit 1
 
-echo "▶ [test_bot_pr_credentials] Szenarien T1–T12"
+echo "▶ [test_bot_pr_credentials] Szenarien T1–T13"
 
 FAILED=0
 # Zentrale Dateiliste aller Bot-PR-Workflows (T4/T7/T8/T9 + T12-Loops)
@@ -206,6 +209,21 @@ check "T12.5 PyPI-Drift: Drift-Erkennung per --check (read-only)" \
   "$T12_FILE" 'gen_fdroid_requirements\.py --check'
 check "T12.6 PyPI-Drift: Post-Verifikation per pip-pinning-Selbsttest" \
   "$T12_FILE" 'scripts/test_pip_pinning\.sh'
+
+# T13: Auto-Merge der Bot-PRs (Muster aus dem PyPI-Drift-Wächter, W12) — in
+# allen vier Bot-Workflows. Nach dem REST-PR-Create pollen sie die Pflicht-
+# Checks (Build & Test, Secret Guard) und mergen bei Grün per REST-Squash mit
+# Admin-Override; fail-soft (roter Check oder Timeout → PR bleibt offen).
+# Voraussetzungen: checks:read-Permission (GITHUB_TOKEN-Pfad), PR-Number-
+# Capture aus der Response (erhält den T9.1-Rollback-Wrap).
+for f in "${BOT_PR_FILES[@]}"; do
+  check "T13.1 Auto-Merge: checks:read-Permission ($(basename "$f"))" \
+    "$f" 'checks: read'
+  check "T13.2 Auto-Merge: Pflicht-Checks-Polling ($(basename "$f"))" \
+    "$f" '"Build & Test" or \.name == "Secret Guard"'
+  check "T13.3 Auto-Merge: REST-Squash-Merge ($(basename "$f"))" \
+    "$f" 'pulls/\$PR/merge'
+done
 
 echo ""
 if [ "$FAILED" -eq 0 ]; then

@@ -25,6 +25,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      checks: read # Auto-Merge: Pflicht-Checks der Bot-PRs pollen (GITHUB_TOKEN)
     # Gleiche Guard-Philosophie wie in release-pipeline.yml: Dependabot
     # (auch per manuellem Merge) stößt keine Automatik an.
     if: github.actor != 'dependabot[bot]'
@@ -107,10 +108,68 @@ jobs:
           # Rollback-Härtung: Scheitert der PR-Create, bleibt der bereits
           # gepushte Branch als Orphan zurück → Branch löschen, dann laut
           # abbrechen (siehe Orphan-Vorfall der Runs 34021546368/34022706363).
-          if ! gh api repos/${{ github.repository }}/pulls -f title="docs: Update CHANGELOG from GitHub releases" -f head="$BRANCH" -f base=develop -F body="Automatische CHANGELOG-Spiegelung von GitHub Releases. Zum Übernehmen mergen (erforderliche Checks laufen im PR)."; then
+          PR_RESPONSE_FILE=$(mktemp)
+          if ! gh api repos/${{ github.repository }}/pulls -f title="docs: Update CHANGELOG from GitHub releases" -f head="$BRANCH" -f base=develop -F body="Automatische CHANGELOG-Spiegelung von GitHub Releases. Zum Übernehmen mergen (erforderliche Checks laufen im PR)." > "$PR_RESPONSE_FILE"; then
             echo "::error::PR-Create fehlgeschlagen — Rollback: Bot-Branch $BRANCH wird gelöscht (kein Orphan)"
             gh api -X DELETE "repos/${{ github.repository }}/git/refs/heads/$BRANCH" \
               || echo "::warning::Branch-Rollback fehlgeschlagen — manuell löschen: gh api -X DELETE repos/${{ github.repository }}/git/refs/heads/$BRANCH"
             exit 1
           fi
-          echo "✅ Bot-PR erstellt ($BRANCH)"
+          PR=$(jq -r '.number' "$PR_RESPONSE_FILE")
+          echo "$PR" > "$GITHUB_WORKSPACE/.pr_number"
+          rm -f "$PR_RESPONSE_FILE"
+          echo "✅ Bot-PR #$PR erstellt ($BRANCH) — Auto-Merge folgt (separater Step)"
+
+      # Vollautomatischer Merge (Muster: automation-pypi-drift.yml, W12): Nach
+      # dem REST-Create pollt der Workflow die beiden Pflicht-Checks (Build &
+      # Test, Secret Guard) und merged bei Grün per REST-Squash — mit
+      # Admin-Override (enforce_admins ist false in der Branch-Protection; die
+      # 1-Review-Pflicht kann ein Bot-PR nie selbst erfüllen, da der Author
+      # sich nicht selbst approven kann). Fail-soft: Checks rot oder Timeout
+      # → PR bleibt offen (kein Rollback nach Create — der PR ist dann das
+      # Review-Artefakt für manuelles Eingreifen). Der Branch wird nach
+      # Merge von delete_branch_on_merge automatisch entfernt.
+      - name: Auto-merge (checks green → squash)
+        env:
+          GH_TOKEN: ${{ secrets.AUTOMATION_TOKEN || secrets.GITHUB_TOKEN }}
+          HAS_AUTOMATION_TOKEN: ${{ secrets.AUTOMATION_TOKEN != '' }}
+        run: |
+          set -euo pipefail
+          if [ "$HAS_AUTOMATION_TOKEN" != "true" ]; then
+            echo "::warning::Kein AUTOMATION_TOKEN — Auto-Merge übersprungen (die Pflicht-Checks wären auf dem Bot-PR unterdrückt)"
+            exit 0
+          fi
+          if [ ! -f "$GITHUB_WORKSPACE/.pr_number" ]; then
+            echo "Kein Bot-PR erstellt (Changelog unverändert) — Auto-Merge übersprungen"
+            exit 0
+          fi
+          PR=$(cat "$GITHUB_WORKSPACE/.pr_number")
+          SHA=$(git rev-parse HEAD)
+          echo "Warte bis zu 30 min auf grüne Pflicht-Checks (Build & Test, Secret Guard)…"
+          while true; do
+            CONCL=$(gh api "repos/${{ github.repository }}/commits/$SHA/check-runs"\
+              --jq '[.check_runs[] | select(.name == "Build & Test" or .name == "Secret Guard") | .conclusion] | join(",")')
+            SUCC=$(echo "$CONCL" | tr ',' '\n' | grep -c '^success$' || true)
+            if [ "$SUCC" = "2" ]; then
+              echo "Beide Pflicht-Checks grün ($CONCL) — Merge…"
+              break
+            fi
+            if echo "$CONCL" | grep -qE 'failure|timed_out|cancelled|action_required|startup_failure'; then
+              echo "::error::Pflicht-Checks fehlgeschlagen ($CONCL) — PR #$PR bleibt offen für manuelle Analyse"
+              exit 1
+            fi
+            if [ "$SECONDS" -ge 1800 ]; then
+              echo "::error::Timeout nach 30 min ohne grüne Checks ($CONCL) — PR #$PR bleibt offen"
+              exit 1
+            fi
+            sleep 60
+          done
+          if gh api -X PUT "repos/${{ github.repository }}/pulls/$PR/merge"\
+               -f merge_method=squash\
+               -f commit_title="docs: Update CHANGELOG from GitHub releases (#$PR)"\
+               --include; then
+            echo "✅ Bot-PR #$PR automatisch gemerged (squash); Branch-Löschung übernimmt delete_branch_on_merge"
+          else
+            echo "::error::Merge-API fehlgeschlagen (Konflikt mit frischem develop-Merge oder Override verweigert) — PR #$PR bleibt offen"
+            exit 1
+          fi
