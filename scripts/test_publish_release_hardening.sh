@@ -86,6 +86,16 @@ assert_count() { # name expected_count
   fi
 }
 
+# Statik-Check gegen die ECHTE Fastfile-Quelle (einzeilige Substring-Prüfung;
+# CRLF der Datei stört nicht, da die Muster nicht über Zeilenenden gehen).
+assert_src() { # name expected_substring
+  if grep -qF -- "$2" <<<"$FASTFILE_SRC"; then
+    echo "PASS: $1"; PASS=$((PASS+1))
+  else
+    echo "FAIL: $1 — '$2' nicht in fastlane/Fastfile"; FAIL=$((FAIL+1))
+  fi
+}
+
 echo "== S1: frischer Wegwerf-Tag → Release wird erstellt"
 reset_state
 OUT=$(ruby "$HARNESS" 2>&1) || true
@@ -174,6 +184,23 @@ assert_has "S7.3 Rollback-Delete im cmdlog (Positivkontrolle)" "[cmdlog] gh rele
 assert_has "S7.4 Create-Versuche im cmdlog" "[cmdlog] gh release create v9.9.9-test"
 assert_not_has "S7.5 kein lane ok" "LANE_OK"
 assert_count "S7.6 state leer" 0
+
+# S8: FOSS-APK-Pfad-Normalisierung (Vorfall 19.09.2026, Run 35434988402;
+# identisch im wöchentlichen Stable-Run 34822969139) — die release_github-Lane
+# prüfte das foss-APK an einem RELATIVEN Pfad, während die Gradle-Suche
+# absolute Pfade liefert; der File.exist?-Check misslang auf dem CI-Runner
+# deterministisch, obwohl das Artefakt existierte ("FOSS-APK not found").
+# Der Harness führt nur die publish_release-Lane aus (dort existierte die Lücke
+# nie — deshalb blieb dieser Test grün, während zwei Release-Runs rot waren);
+# die Lücke lebt im Stable-Zweig von release_github und wird hier statisch
+# gegen die echte Lane-Quelle abgesichert.
+FASTFILE_SRC=$(ruby -e 'print File.read("fastlane/Fastfile")')
+assert_src "S8.1 Normalisierung vor dem FOSS-Check (expand_path)" \
+  'foss_apk = File.expand_path(foss_apk) # idempotent'
+assert_src "S8.2 ENV-Override bleibt respektiert" \
+  'ENV["GRADLE_FOSS_APK_OUTPUT_PATH"]'
+assert_src "S8.3 Check prüft den normalisierten Pfad" \
+  'File.exist?(foss_apk)'
 
 echo
 echo "=========================================="

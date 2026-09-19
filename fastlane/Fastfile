@@ -283,7 +283,14 @@ platform :android do
       # Nur im Stable-Pfad: der nightly-Kanal bleibt beim Standard-Flavor, weil der
       # Reproduzierbarkeits-Vergleich fix am standard-APK hängt, und die foss-Variante
       # wird nur beim wöchentlichen Stable-Publish ausgeliefert.
+      # Pfad-Härtung (Vorfall 19.09.2026, Run 35434988402; identisch beim
+      # wöchentlichen Stable-Run 34822969139): Die Gradle-Suche liefert die
+      # APK-Pfade ABSOLUT (Dir[...] → File.expand_path), der Fallback-Literal
+      # ist aber relativ — der File.exist?-Check misslang auf dem CI-Runner
+      # deterministisch, obwohl das Artefakt existierte („FOSS-APK not found").
+      # Fix: relative Pfade vor dem Check auf den Projektstamm normalisieren.
       foss_apk = ENV["GRADLE_FOSS_APK_OUTPUT_PATH"] || "app/build/outputs/apk/foss/release/app-foss-release.apk"
+      foss_apk = File.expand_path(foss_apk) # idempotent: absolute Pfade (ENV-Override) bleiben unverändert
       BuildRetry.with_gradle_retry("FOSS-Build (assembleFossRelease)") do
         gradle(
           task: "assembleFossRelease",
