@@ -22,6 +22,12 @@ on:
     # Automation-Crons (jede Cron-Periode genau einmal belegt)
     - cron: "30 6 * * 2"
   workflow_dispatch:
+    inputs:
+      auto_merge_timeout_minutes:
+        description: "Max. Wartezeit (Minuten) auf grüne Pflicht-Checks vor dem Merge"
+        required: false
+        default: 30
+        type: number
 
 permissions: {}
 
