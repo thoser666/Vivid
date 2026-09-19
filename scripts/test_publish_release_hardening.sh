@@ -96,6 +96,14 @@ assert_src() { # name expected_substring
   fi
 }
 
+assert_not_src() { # name unexpected_substring
+  if grep -qF -- "$2" <<<"$FASTFILE_SRC"; then
+    echo "FAIL: $1 — '$2' darf nicht in fastlane/Fastfile sein"; FAIL=$((FAIL+1))
+  else
+    echo "PASS: $1"; PASS=$((PASS+1))
+  fi
+}
+
 echo "== S1: frischer Wegwerf-Tag → Release wird erstellt"
 reset_state
 OUT=$(ruby "$HARNESS" 2>&1) || true
@@ -193,18 +201,27 @@ assert_count "S7.6 state leer" 0
 # Der Harness führt nur die publish_release-Lane aus (dort existierte die Lücke
 # nie — deshalb blieb dieser Test grün, während zwei Release-Runs rot waren);
 # die Lücke lebt im Stable-Zweig von release_github und wird hier statisch
-# gegen die echte Lane-Quelle abgesichert.
+# gegen die echte Lane-Quelle abgesichert. Run 35443410016 deckte die zweite
+# Fehlstufe auf: die Root-Ableitung via FastlaneCore::FastlaneFolder.path ist
+# CWD-abhängig (liefert bei CWD=fastlane/ nur "./") — seitdem Walk-up-Helfer
+# fastlane_repo_root.
 FASTFILE_SRC=$(ruby -e 'print File.read("fastlane/Fastfile")')
-assert_src "S8.1 Root-Verankerung in release_github (FastlaneFolder-Parent)" \
-  'root = File.dirname(FastlaneCore::FastlaneFolder.path)'
-assert_src "S8.2 ENV-Override bleibt respektiert" \
+assert_src "S8.1 Call-Site nutzt fastlane_repo_root (foss)" \
+  'root = fastlane_repo_root'
+assert_src "S8.2 Helper ist CWD-unabhängig (kein FastlaneFolder.path mehr)" \
+  'def fastlane_repo_root(dir = File.expand_path(Dir.pwd))'
+assert_not_src "S8.3 Anti-Regression: tote FastlaneFolder-Ableitung entfernt" \
+  'FastlaneCore::FastlaneFolder.path'
+assert_src "S8.4 ENV-Override bleibt respektiert" \
   'ENV["GRADLE_FOSS_APK_OUTPUT_PATH"]'
-assert_src "S8.3 Nur relative Pfade werden verankert (Absolute bleiben unberührt)" \
+assert_src "S8.5 Nur relative Pfade werden verankert (Absolute bleiben unberührt)" \
   'unless Pathname.new(foss_apk).absolute?'
-assert_src "S8.4 Check prüft den verankerten Pfad" \
+assert_src "S8.6 Check prüft den verankerten Pfad" \
   'File.exist?(foss_apk)'
-assert_src "S8.5 Fail-closed-Probe vor der Ableitung" \
-  'Gemfile.lock")'
+assert_src "S8.7 Fail-closed-Probe: Helper sucht Gemfile.lock aufwärts" \
+  'probe = File.join(dir, "Gemfile.lock")'
+assert_src "S8.8 Helper bricht ab, wenn der Stamm nicht verifizierbar ist" \
+  'Repo-Root nicht ableitbar'
 
 # S9: Dynamischer Beweis der Root-Verankerung in publish_release (Run
 # 35439961976): der Harness bildet die Produktions-Falle ab (CWD=fastlane/)

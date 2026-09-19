@@ -38,6 +38,18 @@ Jeder Release durchläuft eine von vier Stufen. Welche Stufe aktiv ist, bestimmt
 
 4. **versionCode:** deterministisch aus dem Tag (Schema unten) — `v0.5.1-beta` = 5012, monoton über dem letzten Beta (5002). Liegt der Patch-Beta-Code unter dem letzten Alpha (z. B. 5012 < 6001 von `v0.6.0-alpha`), löst die Lane nur eine **Quer-Track-Warnung** aus (Alpha-Nutzer müssen vorher deinstallieren), kein Abbruch.
 
+### Verwaiste Tags (getaggt, aber nie veröffentlicht)
+
+Ein Tag kann auf Remote landen, ohne dass ein GitHub-Release existiert (Tag-Push triggert die Pipeline nur als Validierung; die Publication läuft über den Dispatch der `release_github`-Lane). Stand 19.09.2026: `v0.5.14` und `v0.5.15-beta` sind auf Remote, haben aber kein Release (Latest blieb `v0.5.13-beta`) — die Lane scheiterte an der FOSS-APK-Pfad-Lücke (Runs 34822969139, 35434988402, 35443410016).
+
+**Entscheidung: dokumentiert lassen, nicht nachträglich veröffentlichen.** Begründung:
+
+1. **Inhaltlich voll abgedeckt** — beide Tags sind Vorfahren von `v0.5.16-beta` (git merge-base --is-ancestor); ein nachträgliches Release wäre der dritte Release-Eintrag mit bereits enthaltenem Inhalt.
+2. **Kein nutzbares Asset** — ein nachträgliches Publish würde ein Release ohne die ursprünglich gebauten APKs erzeugen oder den Tag auf einen neuen Commit umbiegen; beides ist schlechter als ein sauberer Folgeschnitt (`v0.5.16-beta`), der beide Fixes enthält.
+3. **Kein Konsument** — weder F-Droid (eigener Repo-Server indexiert APKs, keine GitHub-Tags) noch Obtainium referenzieren die Tag-Objekte.
+
+**Disziplin daraus:** Tag-Push ist nicht Release — ein Tag gilt erst als veröffentlicht, wenn `gh release view <tag>` das Release mit Assets zeigt. Abweichungen werden in den Release-Notes und hier dokumentiert.
+
 ### Alpha-Strategie (analog — gleiche Fallstricke)
 
 **Leitfrage:** Gibt es seit dem letzten Alpha **user-facing** Änderungen? Das Alpha ist die frühe Teststufe (Obtainium, kein Pre-Release-Flag) — hier darf die Frequenz höher sein als bei Beta/Stable, aber reine Doku-/CI-Arbeit rechtfertigt auch hier keinen neuen Tag.

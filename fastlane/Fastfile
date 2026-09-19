@@ -6,6 +6,18 @@ require_relative "stage_suffix"
 require_relative "release_safety"
 require_relative "build_retry"
 require_relative "sha256sums"
+
+# Projektstamm CWD-unabhaengig ableiten: fastlane setzt CWD auf fastlane/,
+# die FastlaneFolder-Ableitung liefert dann "./" - ein einstelliger
+# File.expand_path-Fallback loest daher gegen fastlane/app/... auf (Runs
+# 35439961976 und 35443410016). Der Walk-up sucht Gemfile.lock von Dir.pwd
+# aufwaerts (fail-closed: user_error!, wenn der Stamm nicht verifizierbar ist).
+def fastlane_repo_root(dir = File.expand_path(Dir.pwd))
+  probe = File.join(dir, "Gemfile.lock")
+  return dir if File.exist?(probe)
+  raise UI.user_error!("Repo-Root nicht ableitbar: kein Gemfile.lock zwischen #{dir} und Dateisystemwurzel") if File.dirname(dir) == dir
+  fastlane_repo_root(File.dirname(dir))
+end
 default_platform(:android)
 
 platform :android do
@@ -289,17 +301,16 @@ platform :android do
       # APK-Pfade ABSOLUT (Dir[...] → File.expand_path), der Fallback-Literal
       # ist aber relativ — der File.exist?-Check misslang auf dem CI-Runner
       # deterministisch, obwohl das Artefakt existierte („FOSS-APK not found").
-      # Fix: relative Pfade vor dem Check auf den Projektstamm normalisieren.
+      # Fix: relative Pfade auf den Projektstamm normalisieren. Zweite Fehlstufe
+      # (Run 35443410016): die Ableitung via FastlaneFolder.path war CWD-abhaengig
+      # (liefert bei CWD=fastlane/ nur "./") - seitdem Walk-up-Helfer fastlane_repo_root.
       foss_apk = ENV["GRADLE_FOSS_APK_OUTPUT_PATH"] || "app/build/outputs/apk/foss/release/app-foss-release.apk"
       # Relative Pfade zweistellig an den Repo-Root verankern (fastlane setzt CWD
       # auf fastlane/ — einstelliges File.expand_path löst gegen fastlane/app/… auf,
       # das Artefakt liegt aber unter <root>/app/build/…, siehe Run 35439961976).
-      # Fail-closed: Ist die Root-Ableitung nicht verifizierbar, schlägt der Check
-      # fehl statt einen falschen Pfad zu prüfen.
+      # Fail-closed: Der Helper bricht ab, wenn der Projektstamm nicht verifizierbar ist.
       unless Pathname.new(foss_apk).absolute?
-        root = File.dirname(FastlaneCore::FastlaneFolder.path)
-        probe = File.join(root, "Gemfile.lock")
-        UI.user_error!("Relativer FOSS-APK-Pfad, aber Repo-Root nicht ableitbar (Probe #{probe} fehlt)") unless File.exist?(probe)
+        root = fastlane_repo_root
         foss_apk = File.expand_path(foss_apk, root)
       end
       BuildRetry.with_gradle_retry("FOSS-Build (assembleFossRelease)") do
@@ -331,12 +342,9 @@ platform :android do
   desc "Publish a pre-built release APK as a GitHub release (requires gh + GH_TOKEN, pre-built APK)"
   lane :publish_release do |options|
     apk = options[:apk] || lane_context[SharedValues::GRADLE_APK_OUTPUT_PATH] || "app/build/outputs/apk/standard/release/app-standard-release.apk"
-    # Relative Pfade zweistellig an den Repo-Root verankern (fastlane setzt CWD
-    # auf fastlane/ — siehe Run 35439961976). Fail-closed via Gemfile.lock-Probe.
+      # Relative Pfade am Projektstamm verankern (fastlane_repo_root, siehe oben).
     unless Pathname.new(apk).absolute?
-      root = File.dirname(FastlaneCore::FastlaneFolder.path)
-      probe = File.join(root, "Gemfile.lock")
-      UI.user_error!("Relativer APK-Pfad, aber Repo-Root nicht ableitbar (Probe #{probe} fehlt)") unless File.exist?(probe)
+      root = fastlane_repo_root
       apk = File.expand_path(apk, root)
     end
     ref_type = ENV["GITHUB_REF_TYPE"].to_s

@@ -18,19 +18,11 @@ module SharedValues
   GRADLE_OUTPUT_JSON_OUTPUT_PATH = :metadata
 end
 
-# Stub: Die Lanes verankern relative Pfade zweistellig am Repo-Root via
-# FastlaneCore::FastlaneFolder.path (fastlane setzt CWD auf fastlane/). Der
-# Harness liefert den echten fastlane/-Ordner im Arbeitsverzeichnis — die
-# Root-Ableitung verhaelt sich damit wie in Produktion. Bewusst VOR dem
-# chdir berechnet (CWD-unabhaengig eingefroren).
+# Produktionstreue: fastlane setzt CWD auf fastlane/ — genau diese Falle
+# (relative Pfade loesen gegen fastlane/ auf, Runs 35439961976/35443410016)
+# bildet der Harness ab. FASTLANE_DIR bewusst VOR dem chdir berechnet
+# (CWD-unabhaengig eingefroren); alle Harness-Pfade sind absolut.
 FASTLANE_DIR = File.expand_path("fastlane", Dir.pwd)
-module FastlaneCore
-  module FastlaneFolder
-    def self.path
-      FASTLANE_DIR
-    end
-  end
-end
 
 class UI
   def self.header(m);      puts "== #{m}"; end
@@ -84,6 +76,12 @@ stable_branch = lane_src[stable_start...stable_end]
 forbidden = [":refs/tags/", "tag -d", '"tag", "-d"', "delete-tag"]
 hits = forbidden.select { |f| stable_branch.include?(f) }
 raise "STABLE-GUARD: stabiler Zweig enthält Tag-Löschung: #{hits.join(', ')}" unless hits.empty?
+
+# CWD-unabhaengiger Root-Helper (Top-Level-Def im Fastfile) wird mit
+# evaluiert — die Lane ruft ihn fuer die Verankerung relativer APK-Pfade.
+helper_src = source[/^def fastlane_repo_root.*?^end\r?$/m]
+raise "fastlane_repo_root-Helper nicht gefunden — Fastfile geaendert?" unless helper_src
+eval(helper_src, TOPLEVEL_BINDING)
 
 eval(lane_src, TOPLEVEL_BINDING)
 

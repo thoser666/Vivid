@@ -6,7 +6,7 @@
 
 > **Hinweis zur Versionsnummer:** `v0.6.0` bleibt dem noch offenen **Streaming-Erweiterungs-Bucket** (RIST, WHIP, RTMP-Pull, SRTLA, Game-Controller, Streamer-Browser, Landscape) reserviert — dieser Cut ist ein Patch-Beta der laufenden `0.5.x`-Linie gemäß [RELEASE.md](../RELEASE.md) → Nummerierung.
 >
-> **Hinweis zu v0.5.15-beta:** Der gleichnamige Tag (14.09.) wurde nie als GitHub-Release veröffentlicht — dieser Cut enthält dessen vollständigen Inhalt plus die Folgearbeiten. Nutzer der Nightly-Builds haben die Änderungen bereits erhalten.
+> **Hinweis zu v0.5.14 und v0.5.15-beta:** Beide Tags (10./14.09.) wurden nie als GitHub-Release veröffentlicht (Anomalie, dokumentiert in [RELEASE.md](../RELEASE.md) → Verwaiste Tags) — dieser Cut enthält deren vollständigen Inhalt plus die Folgearbeiten. Nutzer der Nightly-Builds haben die Änderungen bereits erhalten.
 
 ## 🎉 Highlights
 
@@ -28,6 +28,7 @@
 ### 🤖 Release- & CI-Automatisierung (nicht user-facing, aber release-würdig)
 - **Auto-Merge aller Bot-PRs:** Alle fünf Bot-Workflows (Changelog-Mirror ×3, F-Droid, PyPI-Drift-Wächter) poll nach dem PR-Create die Pflicht-Checks und mergen vollautomatisch (REST-Squash, fail-soft). Live bewiesen an PRs #180/#181.
 - **PyPI-Drift-Wächter:** wöchentliche Erkennung von Upstream-Drift in der SHA-256-gepinnten fdroidserver-Closure mit automatischem Regenerierungs-PR (End-to-End im echten Drift-Fall validiert).
+- **FOSS-APK-Pfad-Lücke behoben (zwei Fehlstufen):** Der Stable-Pfad der `release_github`-Lane prüfte das FOSS-APK an einem relativen Pfad, den fastlane gegen `fastlane/` auflöste (Runs 34822969139/35439961976); die erste Korrektur stieß auf die zweite Fehlstufe — die CWD-abhängige Root-Ableitung (Run 35443410016). Jetzt: CWD-unabhängiger Walk-up-Helfer `fastlane_repo_root`, fail-closed, mit dynamischem Regressionstest (51 Checks).
 - CI-Diagnose-Härtung: stumme Gate-Fehler im Selbsttest werden mit voller Ausgabe sichtbar gemacht.
 
 ## 📊 Metriken
@@ -54,7 +55,7 @@
 
 1. **Streaming-Bucket v0.6.0** umsetzen: RIST, WHIP, RTMP-Pull/Ingest, SRTLA, Game-Controller, Deep-Linking, Streamer-Browser, Landscape
 2. **Play Upload**: Screenshots, Content Rating, Data Safety
-3. **Stable-Verteilung** (v0.5.14/v0.5.15-Linie) über den wöchentlichen Lauf — dessen „FOSS-APK not found"-Fehler muss vorher behoben werden
+3. **Stable-Verteilung** (v0.5.16-Linie) über den wöchentlichen Lauf — die „FOSS-APK not found"-Ursache ist mit diesem Cut behoben; Veröffentlichung läuft über den Dispatch der `release_github`-Lane (Tag-Push ist nicht Release)
 
 ---
 
