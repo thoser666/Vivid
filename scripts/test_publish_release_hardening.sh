@@ -195,12 +195,35 @@ assert_count "S7.6 state leer" 0
 # die Lücke lebt im Stable-Zweig von release_github und wird hier statisch
 # gegen die echte Lane-Quelle abgesichert.
 FASTFILE_SRC=$(ruby -e 'print File.read("fastlane/Fastfile")')
-assert_src "S8.1 Normalisierung vor dem FOSS-Check (expand_path)" \
-  'foss_apk = File.expand_path(foss_apk) # idempotent'
+assert_src "S8.1 Root-Verankerung in release_github (FastlaneFolder-Parent)" \
+  'root = File.dirname(FastlaneCore::FastlaneFolder.path)'
 assert_src "S8.2 ENV-Override bleibt respektiert" \
   'ENV["GRADLE_FOSS_APK_OUTPUT_PATH"]'
-assert_src "S8.3 Check prüft den normalisierten Pfad" \
+assert_src "S8.3 Nur relative Pfade werden verankert (Absolute bleiben unberührt)" \
+  'unless Pathname.new(foss_apk).absolute?'
+assert_src "S8.4 Check prüft den verankerten Pfad" \
   'File.exist?(foss_apk)'
+assert_src "S8.5 Fail-closed-Probe vor der Ableitung" \
+  'Gemfile.lock")'
+
+# S9: Dynamischer Beweis der Root-Verankerung in publish_release (Run
+# 35439961976): der Harness bildet die Produktions-Falle ab (CWD=fastlane/)
+# und übergibt ein RELATIVES apk am kanonischen Ort — die Lane muss es gegen
+# den Repo-Root resolven (Diskriminator: gegen CWD=fastlane/ aufgelöst wäre
+# fastlane/app/build/… leer → USER_ERROR statt LANE_OK).
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+REL_APK="app/build/outputs/apk/standard/release/app-standard-release.apk"
+mkdir -p "$ROOT_DIR/$(dirname "$REL_APK")"
+printf 'dummy apk (S9, git-ignored build dir)\n' > "$ROOT_DIR/$REL_APK"
+echo "== S9: relatives APK + CWD=fastlane/ → Root-Verankerung resolvt korrekt"
+reset_state
+OUT=$(MOCK_GH_APK_RELATIVE="$REL_APK" ruby "$HARNESS" 2>&1) || true
+echo "$OUT" | sed 's/^/   | /'
+rm -f "$ROOT_DIR/$REL_APK"
+assert_has "S9.1 Datei über Repo-Root gefunden (absoluter Pfad mit /app/)" "/Vivid/app/build/outputs/apk/standard/release/app-standard-release.apk"
+assert_has "S9.2 Release erstellt (Lane lief durch)" "Publishing GitHub release v9.9.9-test"
+assert_has "S9.3 lane ok" "LANE_OK"
+assert_count "S9.4 state" 1
 
 echo
 echo "=========================================="

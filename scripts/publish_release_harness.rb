@@ -5,6 +5,7 @@
 #   MOCK_GH_STATE_DIR — Verzeichnis mit releases.json (Mock-Zustand)
 #   MOCK_GH_APK       — Pfad zur Dummy-APK (File.exist?-Check der Lane)
 require "json"
+require "pathname"
 
 # Befehls-Log: alle tatsaechlich ausgeführten sh-/Backtick-Kommandos, damit der
 # Test beweisen kann, welche Kommandos die Lane WIRKLICH ausgeführt hat
@@ -15,6 +16,20 @@ module SharedValues
   GRADLE_APK_OUTPUT_PATH = :apk_path
   GRADLE_MAPPING_TXT_OUTPUT_PATH = :mapping
   GRADLE_OUTPUT_JSON_OUTPUT_PATH = :metadata
+end
+
+# Stub: Die Lanes verankern relative Pfade zweistellig am Repo-Root via
+# FastlaneCore::FastlaneFolder.path (fastlane setzt CWD auf fastlane/). Der
+# Harness liefert den echten fastlane/-Ordner im Arbeitsverzeichnis — die
+# Root-Ableitung verhaelt sich damit wie in Produktion. Bewusst VOR dem
+# chdir berechnet (CWD-unabhaengig eingefroren).
+FASTLANE_DIR = File.expand_path("fastlane", Dir.pwd)
+module FastlaneCore
+  module FastlaneFolder
+    def self.path
+      FASTLANE_DIR
+    end
+  end
 end
 
 class UI
@@ -72,7 +87,17 @@ raise "STABLE-GUARD: stabiler Zweig enthält Tag-Löschung: #{hits.join(', ')}" 
 
 eval(lane_src, TOPLEVEL_BINDING)
 
-options = { tag: "v9.9.9-test", apk: ENV["MOCK_GH_APK"] || "dummy.apk" }
+# Produktionstreu: fastlane fuehrt Lanes mit CWD=fastlane/ aus — genau diese
+# Falle (relative Pfade loesen gegen fastlane/ auf) soll der Harness abbilden
+# (Run 35439961976). Alle Harness-Pfade (Mock-gh, State, APK) sind absolut.
+Dir.chdir(FASTLANE_DIR)
+
+options = {
+  tag: "v9.9.9-test",
+  # MOCK_GH_APK_RELATIVE: relativer APK-Pfad (S9) — bewusst relativ, damit die
+  # Root-Verankerung der Lane dynamisch bewiesen wird (CWD ist fastlane/).
+  apk: ENV["MOCK_GH_APK_RELATIVE"] || ENV["MOCK_GH_APK"] || "dummy.apk",
+}
 begin
   $LANE_BLOCK.call(options)
   puts "LANE_OK"
