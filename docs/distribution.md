@@ -84,6 +84,12 @@ des Publishers ein.
 - **Repo-Auflösung:** Der Sign-Step läuft in `$RUNNER_TEMP` (außerhalb des git-Workspaces) und
   setzt deshalb `GH_REPO` — sonst kann `gh` das Repository nicht aus dem Remote ableiten
   (Vorfall Run 35496094329: „failed to run git: fatal: not a git repository“).
+- **Version:** cosign ist bewusst auf **v2.6.5** gepinnt (`cosign-release`-Input des
+  Installers). Ohne Pin zieht die Action die neueste Version — cosign v3 schreibt
+  standardmäßig Sigstore-Bundles statt `--output-signature`/`--output-certificate`,
+  was die Signatur-Assets und die unten beschriebene Verifikation brechen würde
+  (Vorfall Run 35497366793: „create bundle file: open : no such file or directory“).
+  Eine v3-Bundle-Migration wäre ein eigener, dokumentierter Schritt.
 - **Completeness:** `.sig` (Signatur) ist Pflicht-Asset (4-Assets-Regel, siehe oben); ein Release
   ohne Signatur gilt als unvollständig und wird beim nächsten Stable-Lauf **repariert**.
 - **Verifikation** (einmalig `brew install cosign` / `apt install cosign`):

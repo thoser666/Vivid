@@ -174,6 +174,17 @@ else
   FAILED=1
 fi
 
+# D13.11: Der Installer pinnt cosign auf v2 — ohne Pin zieht die Action die
+# neueste Version (v3.x), die standardmäßig Sigstore-Bundles schreibt statt
+# --output-signature/--output-certificate (Run 35497366793: "create bundle
+# file: open : no such file or directory").
+if awk '/name: Install cosign/{s=1; next} s && /cosign-release: .v2\./{g=1} s && /^      - name:/{exit !g}' "$DIST"; then
+  echo "  ✅ D13.11 cosign auf v2.x gepinnt (v3 schreibt Bundles statt .sig/.crt)"
+else
+  echo "  ❌ D13.11 cosign-Release nicht gepinnt — v3-Bundle-Default bricht die Signatur-Assets"
+  FAILED=1
+fi
+
 echo ""
 if [ "$FAILED" -eq 0 ]; then
   echo "✅ Alle Checks grün — Stable-Distribution läuft wöchentlich, Nightly täglich."
