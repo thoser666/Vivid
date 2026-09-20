@@ -1,14 +1,18 @@
 package com.vivid.feature.obscontrol
 
-import com.vivid.core.data.AppSettings
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.preferencesOf
 import com.vivid.core.data.SettingsRepository
 import com.vivid.core.repository.StreamingRepository
-import io.mockk.every
-import io.mockk.just
-import io.mockk.mockk
-import io.mockk.runs
-import io.mockk.verify
+import com.vivid.domain.model.LoginRequest
+import com.vivid.domain.model.LoginResult
+import com.vivid.domain.model.RegistrationRequest
+import com.vivid.domain.model.RegistrationResult
+import com.vivid.domain.model.User
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -20,6 +24,15 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
+/**
+ * Bewusst mockk-frei: Der MockK-Agent attached den Byte-Buddy-Agent dynamisch
+ * (JEP 451); unter CI-Last racet der Attach mit der Instrumentierung —
+ * sichtbar als MockKException -> ClassCastException an der ersten every-Zeile
+ * (2x CI-Vorfall am 20.09.2026). StreamingRepository läuft hier als
+ * handgeschriebener Fake mit Call-Log, SettingsRepository als echte Instanz
+ * über einen Fake-DataStore (appSettingsFlow durchläuft die echte
+ * Combine-Pipeline). Der Test ist damit deterministisch und agent-frei.
+ */
 @OptIn(ExperimentalCoroutinesApi::class)
 class ObsControlViewModelTest {
 
@@ -28,10 +41,149 @@ class ObsControlViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun settingsRepository(settings: AppSettings = AppSettings()): SettingsRepository =
-        mockk<SettingsRepository> {
-            every { appSettingsFlow } returns MutableStateFlow(settings)
+    // ── Fakes ────────────────────────────────────────────────────────────
+
+    /** Minimaler DataStore-Fake: state-backed data-Flow, in-memory update. */
+    private class FakeDataStore(
+        initial: Preferences = preferencesOf(),
+    ) : DataStore<Preferences> {
+        private val state = MutableStateFlow(initial)
+        override val data: Flow<Preferences> = state
+        override suspend fun updateData(
+            transform: suspend (Preferences) -> Preferences,
+        ): Preferences {
+            state.value = transform(state.value)
+            return state.value
         }
+    }
+
+    /**
+     * Handgeschriebener StreamingRepository-Fake: überschreibbare Flows plus
+     * Call-Log ("methode(arg1,arg2)") in Aufrufreihenfolge. Nicht genutzte
+     * Members brechen laut (fail-loud) statt still Verhalten zu erfinden.
+     */
+    private class FakeStreamingRepository(
+        override val isConnectedToObs: MutableStateFlow<Boolean> = MutableStateFlow(false),
+        override val obsScenes: MutableStateFlow<List<String>> = MutableStateFlow(emptyList()),
+        override val obsInputs: MutableStateFlow<List<String>> = MutableStateFlow(emptyList()),
+        override val obsMuteStates: MutableStateFlow<Map<String, Boolean>> = MutableStateFlow(emptyMap()),
+        override val obsAudioLevels: MutableStateFlow<Map<String, Float>> = MutableStateFlow(emptyMap()),
+        override val obsSyncOffsets: MutableStateFlow<Map<String, Long>> = MutableStateFlow(emptyMap()),
+        override val obsCurrentProgramScene: MutableStateFlow<String?> = MutableStateFlow(null),
+        override val obsSnapshot: MutableStateFlow<ByteArray?> = MutableStateFlow(null),
+    ) : StreamingRepository {
+
+        /** Wenn gesetzt, wirft der nächste connectToObs-Aufruf diesen Fehler. */
+        var connectError: RuntimeException? = null
+
+        val calls = mutableListOf<String>()
+
+        private fun record(name: String, vararg args: Any?) {
+            calls += name + "(" + args.joinToString(",") { it.toString() } + ")"
+        }
+
+        fun count(name: String): Int = calls.count { it.substringBefore('(') == name }
+
+        fun last(name: String): String =
+            calls.last { it.substringBefore('(') == name }
+
+        override fun connectToObs(password: String, ip: String, port: Int, useTls: Boolean) {
+            connectError?.let { throw it }
+            record("connectToObs", password, ip, port, useTls)
+        }
+
+        override fun disconnectFromObs() = record("disconnectFromObs")
+
+        override fun obsRefreshInputs() = record("obsRefreshInputs")
+
+        override fun obsRefreshScenes() = record("obsRefreshScenes")
+
+        override fun obsRefreshProgramScene() = record("obsRefreshProgramScene")
+
+        override fun obsToggleMute(inputName: String) = record("obsToggleMute", inputName)
+
+        override fun obsRefreshSyncOffset(inputName: String) = record("obsRefreshSyncOffset", inputName)
+
+        override fun obsSetSyncOffset(inputName: String, syncOffsetNs: Long) =
+            record("obsSetSyncOffset", inputName, syncOffsetNs)
+
+        override fun obsSetProgramScene(sceneName: String) = record("obsSetProgramScene", sceneName)
+
+        override fun obsCreateScene(sceneName: String) = record("obsCreateScene", sceneName)
+
+        override fun obsCreateBlackoutInput(sceneName: String, inputName: String) =
+            record("obsCreateBlackoutInput", sceneName, inputName)
+
+        override fun obsTakeScreenshot(sourceName: String, width: Int?, height: Int?) =
+            record("obsTakeScreenshot", sourceName, width, height)
+
+        override fun getObsScenes(): List<String> = obsScenes.value
+
+        override suspend fun login(loginRequest: LoginRequest): LoginResult =
+            error("in diesen Tests ungenutzt")
+
+        override suspend fun register(registrationRequest: RegistrationRequest): RegistrationResult =
+            error("in diesen Tests ungenutzt")
+
+        override suspend fun getAccount(userId: Int): User = error("in diesen Tests ungenutzt")
+
+        override suspend fun updateAccount(userId: Int, user: User): User =
+            error("in diesen Tests ungenutzt")
+
+        override suspend fun deleteAccount(userId: Int) = error("in diesen Tests ungenutzt")
+
+        override suspend fun getFollowers(userId: Int): List<User> =
+            error("in diesen Tests ungenutzt")
+
+        override suspend fun getFollowing(userId: Int): List<User> =
+            error("in diesen Tests ungenutzt")
+
+        override suspend fun followUser(userId: Int, followId: Int) =
+            error("in diesen Tests ungenutzt")
+
+        override suspend fun unfollowUser(userId: Int, unfollowId: Int) =
+            error("in diesen Tests ungenutzt")
+
+        override suspend fun getStreamKey(userId: Int): String =
+            error("in diesen Tests ungenutzt")
+    }
+
+    /**
+     * Echte SettingsRepository-Instanz auf Fake-DataStore — appSettingsFlow
+     * durchläuft die echte Combine-Pipeline (näher am Produkt als ein Mock).
+     */
+    private fun settingsRepository(obsUseTls: Boolean = false): SettingsRepository =
+        SettingsRepository(
+            FakeDataStore(
+                if (obsUseTls) {
+                    preferencesOf(booleanPreferencesKey("obs_use_tls") to true)
+                } else {
+                    preferencesOf()
+                },
+            ),
+        )
+
+    private fun obsRepository(
+        connected: MutableStateFlow<Boolean> = MutableStateFlow(false),
+        scenes: MutableStateFlow<List<String>> = MutableStateFlow(emptyList()),
+        inputs: MutableStateFlow<List<String>> = MutableStateFlow(emptyList()),
+        muteStates: MutableStateFlow<Map<String, Boolean>> = MutableStateFlow(emptyMap()),
+        audioLevels: MutableStateFlow<Map<String, Float>> = MutableStateFlow(emptyMap()),
+        syncOffsets: MutableStateFlow<Map<String, Long>> = MutableStateFlow(emptyMap()),
+        currentProgramScene: MutableStateFlow<String?> = MutableStateFlow(null),
+        snapshot: MutableStateFlow<ByteArray?> = MutableStateFlow(null),
+    ) = FakeStreamingRepository(
+        isConnectedToObs = connected,
+        obsScenes = scenes,
+        obsInputs = inputs,
+        obsMuteStates = muteStates,
+        obsAudioLevels = audioLevels,
+        obsSyncOffsets = syncOffsets,
+        obsCurrentProgramScene = currentProgramScene,
+        obsSnapshot = snapshot,
+    )
+
+    // ── Tests ────────────────────────────────────────────────────────────
 
     @Test
     fun `initial state is Disconnected`() = runTest {
@@ -52,7 +204,10 @@ class ObsControlViewModelTest {
         viewModel.connect("secret", "127.0.0.1", "4455")
 
         assertEquals(ConnectionState.Connecting, viewModel.uiState.value)
-        verify { repository.connectToObs("secret", "127.0.0.1", 4455, false) }
+        assertEquals(
+            "connectToObs(secret,127.0.0.1,4455,false)",
+            repository.last("connectToObs"),
+        )
     }
 
     @Test
@@ -64,7 +219,10 @@ class ObsControlViewModelTest {
         viewModel.connect("secret", "127.0.0.1", "4455", useTls = true)
 
         assertEquals(ConnectionState.Connecting, viewModel.uiState.value)
-        verify { repository.connectToObs("secret", "127.0.0.1", 4455, true) }
+        assertEquals(
+            "connectToObs(secret,127.0.0.1,4455,true)",
+            repository.last("connectToObs"),
+        )
     }
 
     @Test
@@ -79,14 +237,14 @@ class ObsControlViewModelTest {
             ConnectionState.Error(messageRes = R.string.obs_invalid_port_message),
             viewModel.uiState.value,
         )
-        verify(exactly = 0) { repository.connectToObs(any(), any(), any(), any()) }
+        assertEquals(0, repository.count("connectToObs"))
     }
 
     @Test
     fun `connect propagates repository exceptions as error state`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val repository = obsRepository()
-        every { repository.connectToObs("secret", "127.0.0.1", 4455, false) } throws RuntimeException("connection refused")
+        repository.connectError = RuntimeException("connection refused")
 
         val viewModel = ObsControlViewModel(repository, settingsRepository())
         viewModel.connect("secret", "127.0.0.1", "4455")
@@ -115,7 +273,7 @@ class ObsControlViewModelTest {
         val viewModel = ObsControlViewModel(repository, settingsRepository())
         viewModel.disconnect()
 
-        verify { repository.disconnectFromObs() }
+        assertEquals(1, repository.count("disconnectFromObs"))
     }
 
     @Test
@@ -123,30 +281,10 @@ class ObsControlViewModelTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val repository = obsRepository()
 
-        val viewModel = ObsControlViewModel(repository, settingsRepository(AppSettings(obsUseTls = true)))
+        val viewModel = ObsControlViewModel(repository, settingsRepository(obsUseTls = true))
         advanceUntilIdle()
 
         assertEquals(true, viewModel.savedUseTls.value)
-    }
-
-    private fun obsRepository(
-        connected: MutableStateFlow<Boolean> = MutableStateFlow(false),
-        scenes: MutableStateFlow<List<String>> = MutableStateFlow(emptyList()),
-        inputs: MutableStateFlow<List<String>> = MutableStateFlow(emptyList()),
-        muteStates: MutableStateFlow<Map<String, Boolean>> = MutableStateFlow(emptyMap()),
-        audioLevels: MutableStateFlow<Map<String, Float>> = MutableStateFlow(emptyMap()),
-        syncOffsets: MutableStateFlow<Map<String, Long>> = MutableStateFlow(emptyMap()),
-        currentProgramScene: MutableStateFlow<String?> = MutableStateFlow(null),
-        snapshot: MutableStateFlow<ByteArray?> = MutableStateFlow(null),
-    ) = mockk<StreamingRepository>(relaxed = true) {
-        every { isConnectedToObs } answers { connected }
-        every { obsInputs } answers { inputs }
-        every { obsMuteStates } answers { muteStates }
-        every { obsAudioLevels } answers { audioLevels }
-        every { obsSyncOffsets } answers { syncOffsets }
-        every { obsScenes } answers { scenes }
-        every { obsCurrentProgramScene } answers { currentProgramScene }
-        every { obsSnapshot } answers { snapshot }
     }
 
     @Test
@@ -159,9 +297,9 @@ class ObsControlViewModelTest {
         connected.value = true
         advanceUntilIdle()
 
-        verify { repository.obsRefreshInputs() }
-        verify { repository.obsRefreshScenes() }
-        verify { repository.obsRefreshProgramScene() }
+        assertEquals(1, repository.count("obsRefreshInputs"))
+        assertEquals(1, repository.count("obsRefreshScenes"))
+        assertEquals(1, repository.count("obsRefreshProgramScene"))
     }
 
     @Test
@@ -173,7 +311,7 @@ class ObsControlViewModelTest {
         viewModel.disconnect()
         advanceUntilIdle()
 
-        verify(exactly = 0) { repository.obsRefreshInputs() }
+        assertEquals(0, repository.count("obsRefreshInputs"))
     }
 
     @Test
@@ -185,7 +323,7 @@ class ObsControlViewModelTest {
         viewModel.toggleMute("Mic/Aux")
         advanceUntilIdle()
 
-        verify { repository.obsToggleMute("Mic/Aux") }
+        assertEquals("obsToggleMute(Mic/Aux)", repository.last("obsToggleMute"))
     }
 
     @Test
@@ -198,7 +336,10 @@ class ObsControlViewModelTest {
         viewModel.adjustSyncOffset("Mic/Aux", 1)
         advanceUntilIdle()
 
-        verify { repository.obsSetSyncOffset("Mic/Aux", 60_000_000L) }
+        assertEquals(
+            "obsSetSyncOffset(Mic/Aux,60000000)",
+            repository.last("obsSetSyncOffset"),
+        )
     }
 
     @Test
@@ -211,7 +352,7 @@ class ObsControlViewModelTest {
         viewModel.adjustSyncOffset("Mic/Aux", -1)
         advanceUntilIdle()
 
-        verify { repository.obsSetSyncOffset("Mic/Aux", 0L) }
+        assertEquals("obsSetSyncOffset(Mic/Aux,0)", repository.last("obsSetSyncOffset"))
     }
 
     @Test
@@ -224,7 +365,7 @@ class ObsControlViewModelTest {
         viewModel.takeScreenshot()
         advanceUntilIdle()
 
-        verify { repository.obsTakeScreenshot("Live", null, null) }
+        assertEquals("obsTakeScreenshot(Live,null,null)", repository.last("obsTakeScreenshot"))
     }
 
     @Test
@@ -237,7 +378,7 @@ class ObsControlViewModelTest {
         viewModel.takeScreenshot()
         advanceUntilIdle()
 
-        verify(exactly = 0) { repository.obsTakeScreenshot(any(), any(), any()) }
+        assertEquals(0, repository.count("obsTakeScreenshot"))
     }
 
     @Test
@@ -251,7 +392,10 @@ class ObsControlViewModelTest {
         viewModel.toggleBlackout()
         advanceUntilIdle()
 
-        verify { repository.obsSetProgramScene(ObsControlViewModel.BLACKOUT_SCENE) }
+        assertEquals(
+            "obsSetProgramScene(${ObsControlViewModel.BLACKOUT_SCENE})",
+            repository.last("obsSetProgramScene"),
+        )
         assertEquals(true, viewModel.blackoutActive.value)
     }
 
@@ -267,16 +411,25 @@ class ObsControlViewModelTest {
         advanceUntilIdle()
 
         // Scene creation requested; input + switch not yet.
-        verify { repository.obsCreateScene(ObsControlViewModel.BLACKOUT_SCENE) }
-        verify(exactly = 0) { repository.obsSetProgramScene(any()) }
+        assertEquals(
+            "obsCreateScene(${ObsControlViewModel.BLACKOUT_SCENE})",
+            repository.last("obsCreateScene"),
+        )
+        assertEquals(0, repository.count("obsSetProgramScene"))
         assertEquals(false, viewModel.blackoutActive.value)
 
         // Scene now appears in the list → collector fires the pending step.
         scenes.value = listOf("Live", ObsControlViewModel.BLACKOUT_SCENE)
         advanceUntilIdle()
 
-        verify { repository.obsCreateBlackoutInput(ObsControlViewModel.BLACKOUT_SCENE, ObsControlViewModel.BLACKOUT_INPUT) }
-        verify { repository.obsSetProgramScene(ObsControlViewModel.BLACKOUT_SCENE) }
+        assertEquals(
+            "obsCreateBlackoutInput(${ObsControlViewModel.BLACKOUT_SCENE},${ObsControlViewModel.BLACKOUT_INPUT})",
+            repository.last("obsCreateBlackoutInput"),
+        )
+        assertEquals(
+            "obsSetProgramScene(${ObsControlViewModel.BLACKOUT_SCENE})",
+            repository.last("obsSetProgramScene"),
+        )
         assertEquals(true, viewModel.blackoutActive.value)
     }
 
@@ -295,7 +448,7 @@ class ObsControlViewModelTest {
         viewModel.toggleBlackout()
         advanceUntilIdle()
 
-        verify { repository.obsSetProgramScene("Live") }
+        assertEquals("obsSetProgramScene(Live)", repository.last("obsSetProgramScene"))
         assertEquals(false, viewModel.blackoutActive.value)
     }
 
@@ -314,6 +467,6 @@ class ObsControlViewModelTest {
         advanceUntilIdle()
 
         // CreateScene still only called once.
-        verify(exactly = 1) { repository.obsCreateScene(ObsControlViewModel.BLACKOUT_SCENE) }
+        assertEquals(1, repository.count("obsCreateScene"))
     }
 }

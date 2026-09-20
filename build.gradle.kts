@@ -74,3 +74,26 @@ kover {
         }
     }
 }
+
+// ── MockK-Agent-Attach-Härtung (JEP 451 / JDK 21+) ─────────────────────────
+// MockK attached den Byte-Buddy-Agent dynamisch zur Laufzeit. Ohne
+// allowAttachSelf läuft der Attach über einen Byte-Buddy-Helper-Prozess —
+// unter CI-Last racet das mit der Instrumentierung und äußer sich als
+// MockKException -> ClassCastException an der ersten every-Zeile einer
+// Testklasse (CI-Vorfälle 20.09.2026: ObsControlViewModelTest, 2x).
+//   allowAttachSelf: ByteBuddy attacht direkt in-process (keine
+//     Helper-Prozess-Race, offizielle MockK-Härtung für JDK 9+).
+//   EnableDynamicAgentLoading: JEP-451-Opt-in — dynamisches Agent-Loading
+//     bleibt auch nach der JDK-Default-Umstellung legal, Warning entfällt.
+// Nur für Test-JVMs; per jvmArgumentProviders angehängt, damit bestehende
+// jvmArgs (Kover-Agent u. a.) nicht clobbered werden.
+subprojects {
+    tasks.withType<Test>().configureEach {
+        jvmArgumentProviders.add(CommandLineArgumentProvider {
+            listOf(
+                "-Djdk.attach.allowAttachSelf=true",
+                "-XX:+EnableDynamicAgentLoading",
+            )
+        })
+    }
+}
