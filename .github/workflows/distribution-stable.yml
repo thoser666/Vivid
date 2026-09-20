@@ -184,6 +184,11 @@ jobs:
         if: env.TAG != ''
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # gh leitet das Repository normal aus dem git-remote ab — dieser
+          # Step läuft aber in $RUNNER_TEMP (außerhalb des Workspaces) und
+          # scheitert dort mit "failed to run git: fatal: not a git repository"
+          # (Run 35496094329). GH_REPO macht alle gh-Aufrufe cwd-unabhängig.
+          GH_REPO: ${{ github.repository }}
         run: |
           mkdir -p "$RUNNER_TEMP/cosign"
           cd "$RUNNER_TEMP/cosign"

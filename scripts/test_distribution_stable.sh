@@ -164,6 +164,16 @@ else
   FAILED=1
 fi
 
+# D13.10: Der Sign-Step setzt GH_REPO — er läuft in $RUNNER_TEMP (außerhalb
+# des git-Workspaces), wo gh das Repository nicht aus dem remote ableiten
+# kann (Run 35496094329: "failed to run git: fatal: not a git repository").
+if awk '/name: Sign SHA256SUMS and attach/{s=1} s && /GH_REPO: .*github\.repository/{g=1} s && /^        run:/{exit !(g)}' "$DIST"; then
+  echo "  ✅ D13.10 Sign-Step setzt GH_REPO (gh cwd-unabhängig in \$RUNNER_TEMP)"
+else
+  echo "  ❌ D13.10 Sign-Step setzt kein GH_REPO — gh scheitert in \$RUNNER_TEMP"
+  FAILED=1
+fi
+
 echo ""
 if [ "$FAILED" -eq 0 ]; then
   echo "✅ Alle Checks grün — Stable-Distribution läuft wöchentlich, Nightly täglich."
