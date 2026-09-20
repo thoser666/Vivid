@@ -17,6 +17,24 @@ allprojects {
     }
 }
 
+// ── Buildscript-Classpath (root): BC-Sicherheits-Pin ─────────────────
+// Der Root-Buildscript-Classpath (AGP/Lint-Tooling) wird von
+// `allprojects { resolutionStrategy }` NICHT abgedeckt — dort resolviert
+// bcprov-jdk18on unforced auf 1.80.2, und genau diese Nodes landen im
+// GitHub-Dependency-Graph (Dependabot-Alerts #67/#68, critical/high,
+// Patch in 1.85). Der Pin hier deckt die Lücke.
+buildscript {
+    configurations.classpath {
+        resolutionStrategy.eachDependency {
+            when (requested.group to requested.name) {
+                "org.bouncycastle" to "bcprov-jdk18on",
+                "org.bouncycastle" to "bcpkix-jdk18on",
+                "org.bouncycastle" to "bcutil-jdk18on" -> useVersion("1.85")
+            }
+        }
+    }
+}
+
 plugins {
     alias(libs.plugins.android.application) apply false
     alias(libs.plugins.android.library) apply false
