@@ -10,7 +10,7 @@ Dokument beschreibt den **technischen Ablauf** dahinter.
 | Kanal | Wann | Arbeitsschritte im Workflow | Artefakte |
 |---|---|---|---|
 | **🌙 Nightly** | täglich 06:00 UTC (`schedule`) + manuell | `release-pipeline.yml` → Build + Test + publish | `app-standard-release.apk` + `SHA256SUMS.txt` (standard) + `mapping.txt` + `output-metadata.json` (nur Standard-Flavor; prerelease) |
-| **🚀 Stable** | wöchentlich Mo 03:00 UTC + manuell | `distribution-stable.yml` → wählt neuestes noch nicht verteiltes `v*`-Release → Build (Standard **und** foss) + Checksummen + cosign keyless-Signatur + publish | `app-standard-release.apk` + `app-foss-release.apk` + `SHA256SUMS.txt` + `SHA256SUMS.txt.sig` + `SHA256SUMS.txt.crt` |
+| **🚀 Stable** | wöchentlich Mo 03:00 UTC + manuell | `distribution-stable.yml` → wählt neuestes noch nicht verteiltes `v*`-Release → Build (Standard **und** foss) + Checksummen + cosign keyless-Signatur + publish | `app-standard-release.apk` + `app-foss-release.apk` + `SHA256SUMS.txt` + `SHA256SUMS.txt.bundle` |
 | **🛰 F-Droid-Repo** (eigenes) | wöchentlich Mo 04:00 UTC + manuell | `deploy-fdroid.yml` → lädt Stable-APKs, `fdroid update` → GitHub Pages | `repo/index.xml` + `archive/index.xml` |
 
 Das Stable-Release wird also **wöchentlich statt bei jedem Tag-Push** publiziert. Ein neuer
@@ -37,16 +37,17 @@ deshalb gibt es pro Kadenz einen eigenen Workflow. Alles zusätzlich manuell per
    - `app-standard-release.apk`
    - `app-foss-release.apk`
    - `SHA256SUMS.txt`
-   - `SHA256SUMS.txt.sig` (cosign-Signatur, erst seit dem Signatur-Update 10.09.2026 Pflicht —
-     ein alter Release ohne Signatur wird beim nächsten Stable-Lauf repariert, nicht neu erstellt)
+   - `SHA256SUMS.txt.bundle` (cosign-Sigstore-Bundle, seit dem Signatur-Update 10.09.2026 Pflicht —
+     ein alter Release ohne Bundle wird beim nächsten Stable-Lauf repariert, nicht neu erstellt)
    Ein unvollständiges Release wird gelöscht und neu erstellt (idempotent — ein schon vollständiges
    wird übersprungen); der Fastfile-Pfad (3 Assets) bleibt bewusst konservativ, damit ältere
    Releases nicht mit dem Rebuild-Löschen abgerissen werden — die Signatur-Nachrüstung übernimmt
    der cosign-Step im Workflow.
 5. **Signatur:** Nach dem Publish lädt der Workflow die veröffentlichte `SHA256SUMS.txt` herunter
    und signiert sie **keyless** per Sigstore/cosign (ambient OIDC-Token des Runners, `id-token: write`
-   im Job; kein längerfristiges Key-Material im Repo). Signatur + Zertifikat (`SHA256SUMS.txt.sig`,
-   `SHA256SUMS.txt.crt`) werden per `gh release upload --clobber` ans Release angehängt —
+   im Job; kein längerfristiges Key-Material im Repo). Das Sigstore-Bundle (`SHA256SUMS.txt.bundle`,
+   Signatur + Zertifikat + Rekor-Eintrag in einer Datei) wird per `gh release upload --clobber`
+   ans Release angehängt —
    idempotent, so bleibt der Repair-Pfad (Signatur fehlt) gefahrlos abspielbar.
 6. **Keystore-Härtung:** Der foss-Build signiert mit demselben Release-Key; ohne `KEYSTORE_PATH`
    fällt Gradle auf einen Debug-Build zurück → der Workflow prüft die Keystore-Secrets vor dem Build.
@@ -77,27 +78,27 @@ des Publishers ein.
 
 - **Wie:** `cosign sign-blob` mit dem **ambienten OIDC-Token** des Runners (kein langfristiger
   Signatur-Key in Secrets/Repo). Zertifikat und Signatur landen im Sigstore-Transparency-Log
-  (Rekor); `SHA256SUMS.txt.crt` enthält die Fulcio-Identität.
+  (Rekor); das Bundle bindet die Fulcio-Identität (Zertifikat) mit ein.
 - **Was signiert wird:** exakt die **veröffentlichte** `SHA256SUMS.txt` (im Workflow per
   `gh release download` geholt) — nicht das Build-Artefakt — damit die Signatur bytegenau die
   Datei deckt, die Nutzer herunterladen.
 - **Repo-Auflösung:** Der Sign-Step läuft in `$RUNNER_TEMP` (außerhalb des git-Workspaces) und
   setzt deshalb `GH_REPO` — sonst kann `gh` das Repository nicht aus dem Remote ableiten
   (Vorfall Run 35496094329: „failed to run git: fatal: not a git repository“).
-- **Version:** cosign ist bewusst auf **v2.6.5** gepinnt (`cosign-release`-Input des
-  Installers). Ohne Pin zieht die Action die neueste Version — cosign v3 schreibt
-  standardmäßig Sigstore-Bundles statt `--output-signature`/`--output-certificate`,
-  was die Signatur-Assets und die unten beschriebene Verifikation brechen würde
-  (Vorfall Run 35497366793: „create bundle file: open : no such file or directory“).
-  Eine v3-Bundle-Migration wäre ein eigener, dokumentierter Schritt.
-- **Completeness:** `.sig` (Signatur) ist Pflicht-Asset (4-Assets-Regel, siehe oben); ein Release
-  ohne Signatur gilt als unvollständig und wird beim nächsten Stable-Lauf **repariert**.
+- **Version:** cosign ist auf **v3.1.3** gepinnt (`cosign-release`-Input des Installers,
+  Migration vom v2.6.5-Pin am 20.09.2026). v3 schreibt bei `sign-blob` standardmäßig ein
+  Sigstore-Bundle (Signatur + Zertifikat + Rekor-Eintrag in einer Datei) — genau dieses
+  Format ist jetzt das Signatur-Asset; `--output-signature`/`--output-certificate` sind
+  deprecated und werden nicht mehr verwendet.
+- **Completeness:** `.bundle` (Signatur + Zertifikat) ist Pflicht-Asset (4-Assets-Regel, siehe
+  oben); ein Release ohne Bundle gilt als unvollständig und wird beim nächsten Stable-Lauf
+  **repariert**.
 - **Verifikation** (einmalig `brew install cosign` / `apt install cosign`):
 
   ```bash
-  cd <Download-Ordner>   # SHA256SUMS.txt + .sig + .crt der Stable-Release-Seite herunterladen
-  cosign verify-blob --certificate SHA256SUMS.txt.crt --signature SHA256SUMS.txt.sig SHA256SUMS.txt
-  # → Verified OK
+  cd <Download-Ordner>   # SHA256SUMS.txt + .bundle der Stable-Release-Seite herunterladen
+  cosign verify-blob --bundle SHA256SUMS.txt.bundle SHA256SUMS.txt
+  # → Verified OK (Signatur + Zertifikat + Rekor-Eintrag aus dem Bundle)
   sha256sum -c SHA256SUMS.txt
   ```
 

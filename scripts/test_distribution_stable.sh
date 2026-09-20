@@ -8,7 +8,7 @@
 #   - Der Job wählt die neueste NICHT vollständig verteilte v*-Version, baut
 #     sie mit `release_github tag:"$TAG"` (beide Flavor-APKs + SHA256SUMS),
 #     signiert die SHA256SUMS.txt keyless per sigstore/cosign (id-token: write,
-#     .sig/.crt als Release-Assets — Completeness = 4 Assets) und spiegelt
+#     .bundle als Release-Asset — Completeness = 4 Assets) und spiegelt
 #     danach CHANGELOG.md (GH_TOKEN-Ereignisse feuern kein release:published —
 #     Update läuft inline, wie in release-pipeline.yml).
 #   - Sind alle Versionen vollständig verteilt, endet der Lauf sauber (exit 0).
@@ -75,7 +75,7 @@ check "D4.1 semver-Sortierung" "$DIST" 'git tag -l "v\*" --sort=-v:refname'
 check "D4.2 Vollständigkeits-Assets (app-standard-release.apk)" "$DIST" 'index\("app-standard-release\.apk"\)'
 check "D4.3 Vollständigkeits-Assets (app-foss-release.apk)" "$DIST" 'index\("app-foss-release\.apk"\)'
 check "D4.4 Vollständigkeits-Assets (SHA256SUMS.txt)" "$DIST" 'index\("SHA256SUMS\.txt"\)'
-check "D4.5 Vollständigkeits-Assets (cosign-Signatur SHA256SUMS.txt.sig)" "$DIST" 'index\("SHA256SUMS\.txt\.sig"\)'
+check "D4.5 Vollständigkeits-Assets (cosign-Bundle SHA256SUMS.txt.bundle)" "$DIST" 'index\("SHA256SUMS\.txt\.bundle"\)'
 
 # D5: Alles verteilt → sauberer exit 0 (kein Fehlschlag-Alarm bei Leerlauf).
 check "D5.1 No-Op-Notice" "$DIST" '::notice::Alle v\*-Versionen'
@@ -148,13 +148,16 @@ check "D13.1 id-token: write (OIDC für cosign keyless)" \
 check "D13.2 cosign-installer SHA-gepinnt (v4.1.2)" \
   "$DIST" 'sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6' 
 check "D13.3 cosign-installer-Versionskommentar" "$DIST" '# v4.1.2'
-check "D13.4 sign-blob mit output-signature (keyless cert)" "$DIST" 'cosign sign-blob'
-check "D13.5 output-signature" "$DIST" '--output-signature SHA256SUMS.txt.sig'
-check "D13.6 output-certificate" "$DIST" '--output-certificate SHA256SUMS.txt.crt'
+check "D13.4 sign-blob erzeugt Sigstore-Bundle (v3-Default)" "$DIST" 'cosign sign-blob SHA256SUMS.txt --bundle'
+check "D13.5 Bundle-Pfad deterministisch" "$DIST" '--bundle SHA256SUMS.txt.bundle'
+check "D13.6 Bundle-Upload in dasselbe Release (idempotent)" "$DIST" 'gh release upload "\$TAG" SHA256SUMS.txt.bundle --clobber'
 check "D13.7 Signatur-Input ist heruntergeladene Release-Checksummen" \
   "$DIST" 'gh release download "\$TAG" -p SHA256SUMS.txt'
-check "D13.8 Upload der Signatur in dasselbe Release (idempotent --clobber)" \
-  "$DIST" 'gh release upload "\$TAG" SHA256SUMS.txt.sig SHA256SUMS.txt.crt --clobber'
+# D13.8: Die v2-Assets (.sig/.crt) dürfen nicht mehr hochgeladen werden —
+# der v3-Bundle-Default ersetzt sie; Uploads gingen sonst an die falschen
+# Asset-Namen und das Completeness-Check (D4.5) würde nie grün.
+notcheck "D13.8 keine v2-Signatur-Uploads (.sig/.crt) mehr" \
+  "$DIST" 'gh release upload "\$TAG" SHA256SUMS.txt.sig'
 # D13.9: BEIDE cosign-Steps (Install + Sign) hängen am TAG-Guard — sonst würde
 # im No-Target-Fall (alles verteilt) ungesichert mit leerem $TAG gearbeitet.
 if awk '/name: Install cosign/{c1=1} /name: Sign SHA256SUMS and attach/{c2=1} c1 && !c2 && /env.TAG != ./{g1=1} c2 && /env.TAG != ./{g2=1} END { exit !(g1 && g2) }' "$DIST"; then
@@ -174,14 +177,13 @@ else
   FAILED=1
 fi
 
-# D13.11: Der Installer pinnt cosign auf v2 — ohne Pin zieht die Action die
-# neueste Version (v3.x), die standardmäßig Sigstore-Bundles schreibt statt
-# --output-signature/--output-certificate (Run 35497366793: "create bundle
-# file: open : no such file or directory").
-if awk '/name: Install cosign/{s=1; next} s && /cosign-release: .v2\./{g=1} s && /^      - name:/{exit !g}' "$DIST"; then
-  echo "  ✅ D13.11 cosign auf v2.x gepinnt (v3 schreibt Bundles statt .sig/.crt)"
+# D13.11: Der Installer pinnt cosign auf v3.1.3 — die Signatur läuft über
+# das v3-Sigstore-Bundle (Signatur + Zertifikat + Rekor-Eintrag in einer
+# Datei); die verwaiste v2-Welt (.sig/.crt) ist eingestellt.
+if awk '/name: Install cosign/{s=1; next} s && /cosign-release: .v3\.1\.3./{g=1} s && /^      - name:/{exit !g}' "$DIST"; then
+  echo "  ✅ D13.11 cosign auf v3.1.3 gepinnt (Bundle-Default ist der Ziel-Stand)"
 else
-  echo "  ❌ D13.11 cosign-Release nicht gepinnt — v3-Bundle-Default bricht die Signatur-Assets"
+  echo "  ❌ D13.11 cosign nicht auf v3.1.3 gepinnt — die Bundle-Verträge sind nicht garantiert"
   FAILED=1
 fi
 
