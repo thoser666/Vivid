@@ -144,15 +144,30 @@ class ChatBotConfigTest {
     }
 
     @Test
-    fun `isOwner accepts the broadcaster and allow-listed logins`() {
-        val config = ChatBotConfig.fromSettings(AppSettings(chatBotOwnerLogins = "streamer2"))
+    fun `isOwner accepts the channel owner and allow-listed logins`() {
+        val config = ChatBotConfig.fromSettings(
+            AppSettings(chatChannel = "streama", chatBotOwnerLogins = "streamer2"),
+        )
 
-        // Broadcaster-Badge ist immer Owner.
-        assertTrue(config.isOwner("streamer1", isBroadcaster = true))
-        // Allow-List (case-insensitiv, mit/ohne '@').
+        // Kanal-Inhaber: Broadcaster-Badge + Login == konfigurierter Kanal.
+        assertTrue(config.isOwner("streama", isBroadcaster = true))
+        // Allow-List (case-insensitiv, mit/ohne '@') — unabhängig vom Badge.
         assertTrue(config.isOwner("STREAMER2", isBroadcaster = false))
         assertTrue(config.isOwner("@streamer2", isBroadcaster = false))
+        // Explizit eingetragener Login bleibt Owner, auch mit Badge.
+        assertTrue(config.isOwner("streamer2", isBroadcaster = true))
         // Jeder andere ist kein Owner.
         assertFalse(config.isOwner("viewer1", isBroadcaster = false))
+    }
+
+    @Test
+    fun `broadcaster badge without the configured channel is not an owner`() {
+        // Shared-Chat-Sessions: Ko-Streamer tragen legitime Broadcaster-Badges,
+        // sind aber nicht der konfigurierte Kanal — keine Owner-Rechte.
+        val config = ChatBotConfig.fromSettings(AppSettings(chatChannel = "streama"))
+
+        assertFalse(config.isOwner("costreamer", isBroadcaster = true))
+        // Out-of-the-box bleibt der Kanal-Inhaber Owner (ohne Allow-List).
+        assertTrue(config.isOwner("streama", isBroadcaster = true))
     }
 }

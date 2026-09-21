@@ -230,7 +230,7 @@
     <string name="chatbot_scope_prefix_desc">Nur Befehle mit eigenem Präfix (z. B. !v!help) — generische Befehle bleiben dem anderen Bot.</string>
     <string name="chatbot_prefix_label">Eigenes Befehls-Präfix (z. B. v → !v!help)</string>
     <string name="chatbot_owner_title">Owner-Zugriff (nur Streamer)</string>
-    <string name="chatbot_owner_desc">Nur du (und eingetragene Logins) kannst während eines aktiven Streams die Owner-Befehle !start, !stop, !diag und !ask nutzen — Viewer sehen nur einen Hinweis. Der Kanal-Inhaber ist automatisch Owner (Broadcaster-Badge); trage hier zusätzliche Logins ein, z. B. deinen Zweitaccount.</string>
+    <string name="chatbot_owner_desc">Nur du (und eingetragene Logins) kannst während eines aktiven Streams die Owner-Befehle !start, !stop, !diag und !ask nutzen — Viewer sehen nur einen Hinweis. Der Kanal-Inhaber ist automatisch Owner (Broadcaster-Badge, nur im konfigurierten Kanal — fremde Badges aus Shared-Chat-Sessions gelten nicht); trage hier zusätzliche Logins ein, z. B. deinen Zweitaccount.</string>
     <string name="chatbot_owner_logins_label">Owner-Logins (kommasepariert, ohne @)</string>
     <string name="chatbot_owner_llm_desc">Owner-KI (optional, exklusiv für Streamer-Befehle): !ask und die Diagnose-Empfehlungen von !diag laufen über diesen Endpunkt. Ohne eigene Owner-KI fallen die Befehle als Fallback auf die normale Bot-KI zurück (nur wenn auch die fehlt, liefert !diag die Checkliste direkt und !ask einen Hinweis).</string>
     <string name="chatbot_owner_llm_url_label">Owner-LLM API-Basis-URL (OpenAI-kompatibel)</string>

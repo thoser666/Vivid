@@ -1148,18 +1148,38 @@ class ChatBotEngineTest {
     }
 
     @Test
-    fun `broadcaster badge allows owner commands`() = runTest {
+    fun `channel owner badge allows owner commands`() = runTest {
         val control = streamControl()
         val engine = engine(streamControl = control)
         val sent = slot<String>()
         coEvery { sender.send(capture(sent)) } just Runs
 
+        // Echte Badge-Semantik: Der Broadcaster-Badge kommt vom Login des
+        // konfigurierten Kanals (vgl. Whisper-Test unten).
         engine.start(messages, config(), sender, this)
-        messages.emit(chatMessage("!stop", login = "streamer1", isBroadcaster = true))
+        messages.emit(chatMessage("!stop", login = "channel", isBroadcaster = true))
         advanceUntilIdle()
 
         coVerify(exactly = 1) { control.stop() }
         assertEquals(ChatBotEngine.STREAM_STOP_TEXT, sent.captured)
+        engine.stop()
+    }
+
+    @Test
+    fun `broadcaster badge from a co-streamer in shared chat is rejected`() = runTest {
+        val control = streamControl()
+        val engine = engine(streamControl = control)
+        val sent = slot<String>()
+        coEvery { sender.send(capture(sent)) } just Runs
+
+        // Shared-Chat-Sessions: Der Ko-Streamer trägt einen legitimen
+        // Broadcaster-Badge, aber sein Login ist nicht der konfigurierte Kanal.
+        engine.start(messages, config(), sender, this)
+        messages.emit(chatMessage("!stop", login = "costreamer", isBroadcaster = true))
+        advanceUntilIdle()
+
+        coVerify(exactly = 0) { control.stop() }
+        assertTrue(sent.captured.contains("nur für den Streamer"))
         engine.stop()
     }
 

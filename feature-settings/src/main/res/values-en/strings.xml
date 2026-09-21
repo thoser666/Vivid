@@ -230,7 +230,7 @@
     <string name="chatbot_scope_prefix_desc">Only commands with your own prefix (e.g. !v!help) — generic commands stay with the other bot.</string>
     <string name="chatbot_prefix_label">Own command prefix (e.g. v → !v!help)</string>
     <string name="chatbot_owner_title">Owner access (streamer only)</string>
-    <string name="chatbot_owner_desc">Only you (and listed logins) can use the owner commands !start, !stop, !diag and !ask during an active stream — viewers only see a hint. The channel owner is automatically an owner (broadcaster badge); add extra logins here, e.g. your second account.</string>
+    <string name="chatbot_owner_desc">Only you (and listed logins) can use the owner commands !start, !stop, !diag and !ask during an active stream — viewers only see a hint. The channel owner is automatically an owner (broadcaster badge, only honored in the configured channel — foreign badges from shared-chat sessions don\'t count); add extra logins here, e.g. your second account.</string>
     <string name="chatbot_owner_logins_label">Owner logins (comma-separated, without @)</string>
     <string name="chatbot_owner_llm_desc">Owner AI (optional, exclusive to streamer commands): !ask and the diagnosis recommendations of !diag run through this endpoint. Without a dedicated owner AI the commands fall back to the normal bot AI (only if that is also missing, !diag returns the checklist directly and !ask a hint).</string>
     <string name="chatbot_owner_llm_url_label">Owner LLM API base URL (OpenAI-compatible)</string>
