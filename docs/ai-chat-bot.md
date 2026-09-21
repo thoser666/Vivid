@@ -57,7 +57,7 @@ In den Einstellungen (**„Chat-Bot & KI“ → „Chat-Bot (KI)“**) gibt es e
 | `!poll <frage> \| <option A> \| <option B> [\| <option C> [\| <option D>]]` | **Owner-only:** Startet einen Chat-Poll mit 2–4 validierten Optionen |
 | `!vote <nummer|text>` | Gibt die eigene Stimme im aktiven Poll ab; pro `userId` nur einmal |
 | `!pollend` / `!endpoll` | **Owner-only:** Beendet den Poll und veröffentlicht die Ergebnisse |
-| `!start` / `!go-live` · `!stop` / `!end` · `!diag` / `!status` · `!ask <frage>` · `!testalert <follow\|sub\|gift\|resub\|raid\|hype>` · `!torch` · `!filter <name>` · `!boost` · `!battery` · `!lut` · `!colorspace` | **Owner-Befehle — nur der Streamer** (Broadcaster-Badge oder Allow-List `chat_bot_owner_logins`): Stream starten/stoppen, Diagnose mit Empfehlungen, Frage an die **exklusive Owner-KI** (Fallback: die normale Bot-KI), Test-Alert für das Chat-Overlay, Taschenlampe umschalten, Video-Filter wechseln, Low-Light-Boost umschalten, 3D-LUT-Preset wechseln, Color-Space wechseln — nur während eines aktiven Streams; Viewer erhalten nur einen Hinweis (Details: [Owner-Steuerung](#owner-steuerung-nur-der-streamer)) |
+| `!start` / `!go-live` · `!stop` / `!end` · `!diag` / `!status` · `!ask <frage>` · `!testalert <follow\|sub\|gift\|resub\|raid\|hype>` · `!torch` · `!filter <name>` · `!boost` · `!battery` · `!lut` · `!colorspace` | **Owner-Befehle — nur der Streamer** (Allow-List `chat_bot_owner_logins` oder Kanal-Inhaber; der Broadcaster-Badge zählt nur im konfigurierten Kanal, nicht für Ko-Streamer aus Shared-Chat-Sessions): Stream starten/stoppen, Diagnose mit Empfehlungen, Frage an die **exklusive Owner-KI** (Fallback: die normale Bot-KI), Test-Alert für das Chat-Overlay, Taschenlampe umschalten, Video-Filter wechseln, Low-Light-Boost umschalten, 3D-LUT-Preset wechseln, Color-Space wechseln — nur während eines aktiven Streams; Viewer erhalten nur einen Hinweis (Details: [Owner-Steuerung](#owner-steuerung-nur-der-streamer)) |
 | `!ban <user>` · `!timeout <user> <minuten?>` · `!delete <anzahl?>` | **Owner-Moderation — nur der Streamer**: Viewer verbannen/timeouten bzw. die letzten N Chat-Nachrichten löschen — über die Twitch-Helix-Moderation-API (Scopes `moderator:manage:banned_users` + `moderator:manage:chat_messages`; der Bot muss Moderator im Kanal sein). Löschbar ist nur, was der Bot gesehen hat (Ringpuffer der letzten 50 IDs). Details: [Owner-Steuerung](#owner-steuerung-nur-der-streamer) |
 | `!<unbekannt>` | COMMAND: Hinweis „Unbekannter Befehl … — Tipp: !help“ · AUTONOMOUS: die KI entscheidet |
 
@@ -144,8 +144,9 @@ Die normale Interaktion mit den Viewern läuft über den **Hauptaccount** (den B
 
 ### Wer ist Owner?
 
-- **Der Kanal-Inhaber automatisch** (Twitch-`broadcaster/1`-Badge wird geparst → `isBroadcaster` auf der Chat-Nachricht).
-- **Zusätzlich eingetragene Logins** (`chat_bot_owner_logins`, kommasepariert ohne `@`) — z. B. der **Zweitaccount** des Streamers, wenn er nicht mit dem Kanal-Account im Chat ist.
+- **Der Kanal-Inhaber automatisch** (Twitch-`broadcaster/1`-Badge wird geparst → `isBroadcaster` auf der Chat-Nachricht) — der Badge zählt nur, wenn der Login dem **konfigurierten Kanal** entspricht.
+- **Zusätzlich eingetragene Logins** (`chat_bot_owner_logins`, kommasepariert ohne `@`) — z. B. der **Zweitaccount** des Streamers, wenn er nicht mit dem Kanal-Account im Chat ist. Diese Logins gelten **unabhängig vom Badge**.
+- **Ko-Streamer aus Twitch-Shared-Chat-Sessions** tragen ebenfalls legitime Broadcaster-Badges, sind aber **keine Owner**: Ihr Login stimmt nicht mit dem konfigurierten Kanal überein, und in der Allow-List stehen sie nicht. Ohne diese Härte könnte ein Ko-Streamer Vivid-Owner-Befehle im fremden Chat ausführen.
 
 Viewer, die einen Owner-Befehl tippen, bekommen nur den Hinweis „⚠️ Dieser Befehl ist nur für den Streamer.“ — es wird **nichts** ausgeführt.
 

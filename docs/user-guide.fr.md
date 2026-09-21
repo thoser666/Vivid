@@ -258,7 +258,7 @@ Trois limites réglables (toutes `0` = désactivées) :
 | `!timeout <user> <min?>` | Timeout d'un viewer (défaut 5 min) |
 | `!delete <count?>` | Supprimer les derniers messages |
 
-> Owner = badge Broadcaster **ou** liste d'autorisation (`chat_bot_owner_logins` dans les paramètres).
+> Propriétaire = entrée dans la liste d'autorisation (`chat_bot_owner_logins` dans les paramètres) **ou** propriétaire de la chaîne (le badge Broadcaster ne compte que sur la chaîne configurée — les badges étrangers du chat partagé non).
 > Les réponses partent en **whisper** (privées) si le toggle est actif.
 > Commandes viewers : `!help`, `!uptime`, `!song`, `!next`, `!pause`, `!bot`.
 
