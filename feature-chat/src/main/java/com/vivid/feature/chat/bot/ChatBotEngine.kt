@@ -501,7 +501,7 @@ class ChatBotEngine @Inject constructor(
         return confirm
     }
 
-    /** Owner-Gate: nur der Streamer (Broadcaster-Badge oder Allow-List) darf Owner-Befehle. */
+    /** Owner-Gate: nur der Streamer (Allow-List oder Kanal-Badge) darf Owner-Befehle. */
     private fun isOwner(cfg: ChatBotConfig, message: ChatMessage): Boolean =
         cfg.isOwner(message.userLogin, message.isBroadcaster)
 

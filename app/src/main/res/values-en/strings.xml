@@ -27,7 +27,7 @@
     <string name="help_title">Help</string>
     <string name="help_back">Back</string>
     <string name="help_quick_tips_title">Quick Tips</string>
-    <string name="help_quick_tips_body">• Enter your stream URL + key in Settings, then tap "Go Live".\n• The stream keeps running in the background (notification with Stop button).\n• Tap-to-focus: single tap on the preview. Pinch-to-zoom with two fingers. Double-tap resets zoom.\n• Torch/Stabilization/Focus-Lock buttons in the top-right.\n• Chat overlay: enable in Settings → "Overlays &amp; Widgets".\n• Bot commands are case-insensitive and can appear mid-message (e.g. "@vividbot !help").\n• OWNER commands (Start/Stop/Diag/Torch) only work for the streamer (broadcaster badge or allow-list).</string>
+    <string name="help_quick_tips_body">• Enter your stream URL + key in Settings, then tap "Go Live".\n• The stream keeps running in the background (notification with Stop button).\n• Tap-to-focus: single tap on the preview. Pinch-to-zoom with two fingers. Double-tap resets zoom.\n• Torch/Stabilization/Focus-Lock buttons in the top-right.\n• Chat overlay: enable in Settings → "Overlays &amp; Widgets".\n• Bot commands are case-insensitive and can appear mid-message (e.g. "@vividbot !help").\n• OWNER commands (Start/Stop/Diag/Torch) only work for the streamer (allow-list or channel owner; foreign broadcaster badges from shared chat don\'t count).</string>
     <string name="help_bot_commands_title">Bot Commands (Quick Reference)</string>
     <string name="help_bot_viewer">VIEWER commands (all chatters)</string>
     <string name="help_bot_owner">OWNER commands (streamer only)</string>
