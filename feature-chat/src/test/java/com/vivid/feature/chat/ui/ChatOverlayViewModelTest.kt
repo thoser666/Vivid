@@ -12,6 +12,7 @@ import com.vivid.feature.chat.model.ChatMessage
 import com.vivid.feature.chat.emotes.ThirdPartyEmoteService
 import com.vivid.feature.chat.twitch.TwitchBadgeClient
 import com.vivid.feature.chat.twitch.TwitchChatEventSubReader
+import com.vivid.feature.chat.twitch.TwitchEventSubConfig
 import io.mockk.Runs
 import io.mockk.coEvery
 import io.mockk.every
@@ -56,7 +57,7 @@ class ChatOverlayViewModelTest {
         every { alerts } returns alertsFlow
         every { deletedMessageIds } returns deletedFlow
         every { sharedChatState } returns sharedFlow
-        every { start(any()) } just Runs
+        every { start(any<TwitchEventSubConfig>()) } just Runs
         every { stop() } just Runs
         every { triggerTestAlert(any()) } just Runs
     }

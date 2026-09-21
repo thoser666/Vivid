@@ -6,6 +6,8 @@ import com.vivid.feature.chat.model.ChatAlert
 import com.vivid.feature.chat.model.ChatAlertType
 import com.vivid.feature.chat.model.ChatConnectionState
 import com.vivid.feature.chat.model.ChatMessage
+import com.vivid.feature.chat.session.ChatReader
+import com.vivid.feature.chat.session.ChatSessionConfig
 import com.vivid.feature.chat.model.ChatSharedChatState
 import com.vivid.feature.chat.model.InlineEmote
 import io.ktor.client.HttpClient
@@ -63,15 +65,15 @@ class TwitchChatEventSubReader @Inject constructor(
     private val socketFactory: EventSubSocketFactory,
     private val whisperClient: TwitchWhisperClient,
     private val http: HttpClient,
-) {
+) : ChatReader {
     private val _state = MutableStateFlow<ChatConnectionState>(ChatConnectionState.Disconnected)
-    val state: StateFlow<ChatConnectionState> = _state
+    override val state: StateFlow<ChatConnectionState> = _state
 
     private val _messages = MutableSharedFlow<ChatMessage>(
         extraBufferCapacity = 256,
         onBufferOverflow = BufferOverflow.DROP_OLDEST,
     )
-    val messages: Flow<ChatMessage> = _messages.asSharedFlow()
+    override val messages: Flow<ChatMessage> = _messages.asSharedFlow()
 
     /**
      * Event-Alerts (Follow/Sub/Raid) des Kanals — vom selben EventSub-
@@ -83,7 +85,7 @@ class TwitchChatEventSubReader @Inject constructor(
         extraBufferCapacity = 64,
         onBufferOverflow = BufferOverflow.DROP_OLDEST,
     )
-    val alerts: Flow<ChatAlert> = _alerts.asSharedFlow()
+    override val alerts: Flow<ChatAlert> = _alerts.asSharedFlow()
 
     /**
      * Gelöschte Nachrichten — vom EventSub-Topic `channel.chat.message_delete`
@@ -116,9 +118,20 @@ class TwitchChatEventSubReader @Inject constructor(
     /** Abo für diese Session aktiv? Wird bei hartem Reconnect zurückgesetzt. */
     private var subscribed = false
 
+    /** Session-Konfiguration als plattformneutraler Session-Typ (P0). */
+    private var sessionConfig: ChatSessionConfig.Twitch? = null
+
     /** Graceful-Reconnect (session_reconnect): Abos wandern automatisch mit. */
     private var reconnecting = false
     private var reconnectUrl: String? = null
+
+    /** Startet die Session (plattformneutrales [ChatReader]-Interface, P0). */
+    override fun start(config: ChatSessionConfig) {
+        val twitch = config as? ChatSessionConfig.Twitch
+            ?: throw IllegalArgumentException("Twitch-Reader erwartet ChatSessionConfig.Twitch, got ${config::class.simpleName}")
+        sessionConfig = twitch
+        start(twitch.twitch)
+    }
 
     fun start(config: TwitchEventSubConfig) {
         stop()
@@ -131,7 +144,8 @@ class TwitchChatEventSubReader @Inject constructor(
         socketJob = scope.launch { runLoop() }
     }
 
-    fun stop() {
+    /** Beendet die Session (plattformneutrales [ChatReader]-Interface, P0). */
+    override fun stop() {
         active = false
         socketJob?.cancel()
         socketJob = null

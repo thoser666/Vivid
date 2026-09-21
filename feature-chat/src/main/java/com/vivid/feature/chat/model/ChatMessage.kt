@@ -37,4 +37,7 @@ data class ChatMessage(
     val bitsAmount: Int = 0,
     // true, wenn die Nachricht als gelöscht markiert wurde (EventSub: channel.chat.message_delete).
     val isDeleted: Boolean = false,
+    // Herkunfts-Plattform der Nachricht (Multi-Plattform-Chat, Skizze P0).
+    // Default TWITCH hält alle Bestandstests und Konstruktoren verhaltensneutral.
+    val platform: ChatPlatform = ChatPlatform.TWITCH,
 )

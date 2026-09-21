@@ -1,6 +1,6 @@
 # 💬 Architektur: Merged Multi-Plattform-Chat (Twitch + YouTube + Kick)
 
-> **Status:** Architektur-Skizze festgelegt (Planung, keine Implementierung) · **Datum:** 2026-09-21
+> **Status:** Skizze festgelegt; **P0 implementiert (2026-09-21, verhaltensneutral — `ChatPlatform`, `ChatMessage.platform`, `session/ChatSession.kt` mit `ChatReader`/`ChatSender`/`ChatSessionConfig.Twitch`, Twitch-Reader/Sender implementieren die Interfaces, Bestands-Suiten unverändert grün)** · **Datum:** 2026-09-21
 > **Tracked in:** [PARITY.md, Bucket „Multi-Plattform-Chat"](../../PARITY.md) · **Referenz:** Moblin (Chat für 4 Plattformen)
 > **Umfang dieser Skizze:** Lesen + Merged Overlay + Bot-Routing für Twitch, YouTube, Kick. SOOP bewusst zurückgestellt.
 
@@ -187,7 +187,7 @@ ist ein innertube-/Protokoll-Bruch nie ein Overlay-Ausfall, sondern maximal ein 
 
 | Phase | Inhalt | Proof |
 |---|---|---|
-| **P0** | L0-Modell (`platform`, Default TWITCH) + L1-Interface-Extraktion, Twitch-Reader/Sender unterordnen | feature-chat-Suite grün (verhaltensneutral) |
+| **P0** ✅ erledigt (2026-09-21) | L0-Modell (`platform`, Default TWITCH) + L1-Interface-Extraktion, Twitch-Reader/Sender unterordnen | feature-chat-Suite 425 grün (verhaltensneutral): Übergangs-Überladungen statt Signatur-Bruch, alle Bestands-Tests unverändert; `session/ChatSessionP0Test` (6 Verträge: Plattform-Default, Wire-IDs, SendResult-Mapping, Sealed-Grenze, Interface-Dispatch) |
 | **P1** | **YouTube-Adapter (Lesen, anonym)** + Merge im `ChatSessionManager` (Twitch+YT) + Overlay-Badge + `connections`-Map | MockWebServer-Contract-Tests; Robolectric-Overlay-Test mit gemischten Messages |
 | **P2** | **Kick-Adapter (Lesen, Pusher)** | Fake-Pusher-Server-Tests (WebSocket-Handshake, Subscription, Message-Event, Reconnect) |
 | **P3** | Settings je Plattform (Enable/Kanal) + `setSessions`-Verkabelung + Bot-Routing (`sendToOrigin`) | VM-Tests (Settings-Diff → Start/Stop-Aufrufe), Bot-Routing-Tests |

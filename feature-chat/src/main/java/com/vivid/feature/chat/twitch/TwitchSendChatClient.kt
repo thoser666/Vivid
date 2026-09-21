@@ -1,5 +1,8 @@
 package com.vivid.feature.chat.twitch
 
+import com.vivid.feature.chat.session.ChatSendResult
+import com.vivid.feature.chat.session.ChatSender
+import com.vivid.feature.chat.session.ChatSessionConfig
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.header
@@ -44,13 +47,28 @@ class TwitchSendChatException(override val message: String, cause: Throwable? = 
 class TwitchSendChatClient @Inject constructor(
     private val http: HttpClient,
     private val whisperClient: TwitchWhisperClient,
-) {
+) : ChatSender {
     /**
      * Sendet [text] öffentlich in den Kanal von [config]. Wirft
      * [TwitchSendChatException] bei nicht konfiguriertem Bot, nicht
      * auflösbaren User-IDs oder HTTP-Fehlern (401 = Scope fehlt, 400 =
      * Konto/Anfrage ungültig, 429 = Rate-Limit).
      */
+    /** Sendet über das plattformneutrale [ChatSender]-Interface (P0). */
+    override suspend fun send(config: ChatSessionConfig, text: String): ChatSendResult {
+        val twitch = config as? ChatSessionConfig.Twitch
+            ?: throw IllegalArgumentException("Twitch-Sender erwartet ChatSessionConfig.Twitch, got ${config::class.simpleName}")
+        return try {
+            fromSendResult(send(twitch.twitch, text))
+        } catch (e: TwitchSendChatException) {
+            ChatSendResult.Failed(e.message ?: "TwitchSendChatException")
+        }
+    }
+
+    /** Konvertiert das Helix-Ergebnis in das plattformneutrale [ChatSendResult]. */
+    private fun fromSendResult(result: SendChatResult): ChatSendResult =
+        ChatSendResult.from(result.isSent, result.dropReason)
+
     suspend fun send(config: TwitchEventSubConfig, text: String): SendChatResult {
         val message = text
             .replace("\r", " ")
