@@ -490,4 +490,67 @@ class TwitchChatEventSubReaderTest {
         client.stop()
         assertEquals(ChatSharedChatState.Inactive, client.sharedChatState.value)
     }
+
+    // --- Contract-Tests: reale Shared-Chat-Payloads + Modell-Drift ---
+    // Twitch erweitert EventSub-Payloads ohne Vorankündigung (zuletzt
+    // shared_chat/source_* auf channel.chat.message). Diese Tests frieren
+    // die Härtungsverträge ein: unbekannte Felder dürfen nie crashen,
+    // fehlende dokumentierte Felder müssen auf Defaults fallen.
+
+    @Test
+    fun `contract shared chat chat message with documented source fields parses losslessly`() = runTest {
+        val sockets = mutableListOf(FakeEventSubSocket())
+        val client = client(this, sockets, mutableListOf(), testScheduler)
+        // Realistische Shared-Chat-Notification: alle dokumentierten
+        // Erweiterungsfelder (shared_chat, source_broadcaster_user_id/_login/
+        // _name, source_message_id, source_badges) plus ein bewusst noch
+        // undokumentiertes Zukunftsfeld.
+        val message =
+            """{"metadata":{"message_type":"notification","subscription_type":"channel.chat.message","message_id":"n-sc-1"},"payload":{"subscription":{},"event":{"broadcaster_user_id":"222","broadcaster_user_login":"thoser666","broadcaster_user_name":"Thoser666","chatter_user_id":"333","chatter_user_login":"viewer9","chatter_user_name":"ViewerNeun","message_id":"m-sc-1","message":{"text":"Hallo zusammen","fragments":[]},"color":"#FF7F50","badges":[{"set_id":"subscriber","id":"12","info":"6"}],"message_type":"text","message_timestamp":"2026-09-21T12:00:00.000000000Z","shared_chat":true,"source_broadcaster_user_id":"999","source_broadcaster_user_login":"hostkanal","source_broadcaster_user_name":"HostKanal","source_message_id":"m-src-77","source_badges":[{"set_id":"broadcaster","id":"1","info":""}],"undocumented_future_field":{"nested":"x"}}}}"""
+
+        client.messages.test {
+            client.start(config)
+            sockets.first().push(welcome)
+            sockets.first().push(message)
+            advanceUntilIdle()
+
+            val msg = awaitItem()
+            assertEquals("viewer9", msg.userLogin)
+            assertEquals("ViewerNeun", msg.displayName)
+            assertEquals("Hallo zusammen", msg.text)
+            assertEquals("#FF7F50", msg.color)
+            // Eigene Badges bleiben intakt — source_badges darf nicht
+            // in die Badge-Zuordnung lecken (der Owner-Gate hängt daran).
+            assertTrue(msg.badges.contains("subscriber/12"), msg.badges.toString())
+            assertFalse(msg.badges.contains("broadcaster/1"), msg.badges.toString())
+            client.stop()
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `contract minimal shared chat begin with omitted documented fields falls back`() = runTest {
+        val sockets = mutableListOf(FakeEventSubSocket())
+        val client = client(this, sockets, mutableListOf(), testScheduler)
+        // Gegenrichtung des Modell-Drifts: Twitch lässt dokumentierte Felder
+        // weg (kein host_*, keine participants) — der Fallback muss greifen.
+        val begin =
+            """{"metadata":{"message_type":"notification","subscription_type":"channel.shared_chat.begin","message_id":"sc-min"},"payload":{"subscription":{},"event":{"session_id":"sc-min-1","broadcaster_user_id":"222","broadcaster_user_login":"thoser666","broadcaster_user_name":"Thoser666"}}}"""
+
+        client.sharedChatState.test {
+            client.start(config)
+            assertEquals(ChatSharedChatState.Inactive, awaitItem())
+            sockets.first().push(welcome)
+            sockets.first().push(begin)
+            advanceUntilIdle()
+
+            val active = awaitItem() as ChatSharedChatState.Active
+            assertEquals("sc-min-1", active.sessionId)
+            // Host-Fallback auf den eigenen Broadcaster-Login.
+            assertEquals("thoser666", active.hostLogin)
+            assertTrue(active.participants.isEmpty())
+            client.stop()
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
 }

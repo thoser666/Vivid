@@ -274,6 +274,16 @@ run bash scripts/check_kotlin_sync.sh
 echo "▶ [pre-push] Kotlin-Sync-Guard-Selbsttest (scripts/test_kotlin_sync.sh)"
 run bash scripts/test_kotlin_sync.sh
 
+# EventSub-JSON-Härtung (feature-chat): Twitch erweitert EventSub-Payloads
+# laufend (shared_chat, source_*); jede Json-Instanz im Chat-Produktionscode
+# MUSS ignoreUnknownKeys = true setzen — sonst fallen künftige Felder Chat-
+# Nachrichten still aus Overlay/Bot. Guard + Fixtures-Selbsttest.
+echo "▶ [pre-push] EventSub-JSON-Härtungs-Guard (scripts/check_eventsub_json_hardening.sh)"
+run bash scripts/check_eventsub_json_hardening.sh
+
+echo "▶ [pre-push] EventSub-JSON-Härtungs-Guard-Selbsttest (scripts/test_eventsub_json_hardening.sh)"
+run bash scripts/test_eventsub_json_hardening.sh
+
 # CodeQL-Blockade-Wächter (advisory — nie push-blockierend): CodeQL-Bundle
 # 2.27.0 kann Kotlin 2.4.20 nicht extrahieren (Stand 2.27.0, empirisch
 # 2026-09-10); security-codeql.yml pinnt den Trace-Build deshalb auf 2.4.10.

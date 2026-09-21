@@ -195,6 +195,15 @@ jobs:
       - name: Check kotlin/jetbrainsKotlinJvm sync
         run: bash scripts/check_kotlin_sync.sh
 
+      # EventSub-JSON-Härtung (feature-chat): Twitch erweitert EventSub-Payloads
+      # laufend (shared_chat, source_*); jede Json-Instanz im Chat-
+      # Produktionscode MUSS ignoreUnknownKeys = true setzen.
+      - name: Test EventSub JSON hardening guard
+        run: bash scripts/test_eventsub_json_hardening.sh
+
+      - name: Check EventSub JSON hardening
+        run: bash scripts/check_eventsub_json_hardening.sh
+
       # CodeQL-Extractor-Pin (github/codeql#22404): security-codeql.yml baut den
       # Trace mit Kotlin 2.4.10 (< 2.4.20, Bundle-Limit von Bundle 2.27.0), der
       # Pin-Step muss vor dem Build liegen und kein anderer Workflow den Katalog
