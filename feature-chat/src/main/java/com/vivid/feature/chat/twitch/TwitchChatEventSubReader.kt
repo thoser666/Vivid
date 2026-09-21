@@ -6,6 +6,7 @@ import com.vivid.feature.chat.model.ChatAlert
 import com.vivid.feature.chat.model.ChatAlertType
 import com.vivid.feature.chat.model.ChatConnectionState
 import com.vivid.feature.chat.model.ChatMessage
+import com.vivid.feature.chat.model.ChatSharedChatState
 import com.vivid.feature.chat.model.InlineEmote
 import io.ktor.client.HttpClient
 import io.ktor.client.request.header
@@ -31,6 +32,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
@@ -94,6 +96,17 @@ class TwitchChatEventSubReader @Inject constructor(
     )
     val deletedMessageIds: Flow<String> = _deletedMessageIds.asSharedFlow()
 
+    /**
+     * Zustand der Shared-Chat-Session des Kanals — vom selben EventSub-
+     * WebSocket wie [messages]. [ChatSharedChatState.Inactive] ist der
+     * Standard (auch nach `end`/Stopp); das Chat-Overlay zeigt den
+     * Hinweis nur bei [ChatSharedChatState.Active] an.
+     */
+    private val _sharedChatState =
+        MutableStateFlow<ChatSharedChatState>(ChatSharedChatState.Inactive)
+    val sharedChatState: StateFlow<ChatSharedChatState> =
+        _sharedChatState.asStateFlow()
+
     private val json = Json { ignoreUnknownKeys = true }
 
     private var socketJob: Job? = null
@@ -126,6 +139,7 @@ class TwitchChatEventSubReader @Inject constructor(
         subscribed = false
         reconnecting = false
         reconnectUrl = null
+        _sharedChatState.value = ChatSharedChatState.Inactive
         _state.value = ChatConnectionState.Disconnected
     }
 
@@ -201,6 +215,21 @@ class TwitchChatEventSubReader @Inject constructor(
                     RAID_SUBSCRIPTION_TYPE -> {
                         val event = json.decodeFromJsonElement<RaidEvent>(eventJson)
                         _alerts.tryEmit(toRaidAlert(event))
+                    }
+                    // Shared-Chat-Session: begin/update tragen die Teilnehmer
+                    // (begin = Session-Start des eigenen Kanals, update =
+                    // Teilnahme-/Host-Änderung), end beendet die Session —
+                    // der Zustand lebt im StateFlow (kein TTL nötig).
+                    SHARED_CHAT_BEGIN_SUBSCRIPTION_TYPE -> {
+                        val event = json.decodeFromJsonElement<SharedChatSessionEvent>(eventJson)
+                        _sharedChatState.value = event.toSharedChatState()
+                    }
+                    SHARED_CHAT_UPDATE_SUBSCRIPTION_TYPE -> {
+                        val event = json.decodeFromJsonElement<SharedChatSessionEvent>(eventJson)
+                        _sharedChatState.value = event.toSharedChatState()
+                    }
+                    SHARED_CHAT_END_SUBSCRIPTION_TYPE -> {
+                        _sharedChatState.value = ChatSharedChatState.Inactive
                     }
                     // Hype-Train: begin/progress aktualisieren den Banner
                     // (gleiche id), end markiert ihn als beendet (Overlay
@@ -453,6 +482,33 @@ class TwitchChatEventSubReader @Inject constructor(
                 condition = HypeTrainEventSubCondition(broadcaster_user_id = broadcasterUserId),
             )
         }
+        // Shared-Chat-Session (begin/update/end): dezenter Overlay-Hinweis,
+        // wenn der Kanal an einer Combined-Chat-Session teilnimmt. Kein
+        // Scope nötig; Fehler → nur dieser Hinweis fällt aus.
+        runCatching {
+            postSubscription(
+                cfg, sessionId,
+                type = SHARED_CHAT_BEGIN_SUBSCRIPTION_TYPE,
+                version = SHARED_CHAT_SUBSCRIPTION_VERSION,
+                condition = SharedChatEventSubCondition(broadcaster_user_id = broadcasterUserId),
+            )
+        }
+        runCatching {
+            postSubscription(
+                cfg, sessionId,
+                type = SHARED_CHAT_UPDATE_SUBSCRIPTION_TYPE,
+                version = SHARED_CHAT_SUBSCRIPTION_VERSION,
+                condition = SharedChatEventSubCondition(broadcaster_user_id = broadcasterUserId),
+            )
+        }
+        runCatching {
+            postSubscription(
+                cfg, sessionId,
+                type = SHARED_CHAT_END_SUBSCRIPTION_TYPE,
+                version = SHARED_CHAT_SUBSCRIPTION_VERSION,
+                condition = SharedChatEventSubCondition(broadcaster_user_id = broadcasterUserId),
+            )
+        }
     }
 
     /**
@@ -607,6 +663,13 @@ class TwitchChatEventSubReader @Inject constructor(
         private const val HYPE_TRAIN_PROGRESS_SUBSCRIPTION_TYPE = "channel.hype_train.progress"
         private const val HYPE_TRAIN_END_SUBSCRIPTION_TYPE = "channel.hype_train.end"
         private const val HYPE_TRAIN_SUBSCRIPTION_VERSION = "1"
+        private const val SHARED_CHAT_BEGIN_SUBSCRIPTION_TYPE =
+            "channel.shared_chat.begin"
+        private const val SHARED_CHAT_UPDATE_SUBSCRIPTION_TYPE =
+            "channel.shared_chat.update"
+        private const val SHARED_CHAT_END_SUBSCRIPTION_TYPE =
+            "channel.shared_chat.end"
+        private const val SHARED_CHAT_SUBSCRIPTION_VERSION = "1"
     }
 }
 
@@ -721,6 +784,54 @@ internal data class RaidEventSubCondition(
 // Helix-Subscribe-Condition für die Hype-Train-Topics (nur broadcaster_user_id)
 @Serializable
 internal data class HypeTrainEventSubCondition(val broadcaster_user_id: String)
+
+// Helix-Subscribe-Condition für die Shared-Chat-Topics (nur broadcaster_user_id;
+// laut Twitch-Doku ist für alle drei Typen keine Autorisierung nötig)
+@Serializable
+internal data class SharedChatEventSubCondition(val broadcaster_user_id: String)
+
+/**
+ * Event für die Shared-Chat-Topics (`channel.shared_chat.begin`/`update`/
+ * `end`, v1). begin/update tragen die [participants] (inkl. des eigenen
+ * Kanals als erste Ausstrahlung) und den Session-Host; end liefert nur die
+ * Broadcaster-Felder. Json ignoriert unbekannte Schlüssel rekursiv.
+ */
+@Serializable
+internal data class SharedChatSessionEvent(
+    val session_id: String = "",
+    val broadcaster_user_id: String = "",
+    val broadcaster_user_login: String = "",
+    val broadcaster_user_name: String = "",
+    val host_broadcaster_user_id: String = "",
+    val host_broadcaster_user_login: String = "",
+    val host_broadcaster_user_name: String = "",
+    val participants: List<SharedChatParticipant> = emptyList(),
+)
+
+@Serializable
+internal data class SharedChatParticipant(
+    val broadcaster_user_id: String = "",
+    val broadcaster_user_login: String = "",
+    val broadcaster_user_name: String = "",
+)
+
+/**
+ * Mappt ein Shared-Chat-Session-Event (begin/update) auf den Overlay-
+ * Zustand: Logins normalisiert (kleingeschrieben), Host mit Fallback auf
+ * den eigenen Broadcaster (Twitch liefert ihn laut Doku immer — der
+ * Fallback hält den Fall robust, sollte das Feld doch leer bleiben).
+ */
+internal fun SharedChatSessionEvent.toSharedChatState(): ChatSharedChatState {
+    val host = host_broadcaster_user_login.trim().lowercase()
+        .ifBlank { broadcaster_user_login.trim().lowercase() }
+    val participants = participants.map { it.broadcaster_user_login.trim().lowercase() }
+        .filter { it.isNotBlank() }
+    return ChatSharedChatState.Active(
+        sessionId = session_id,
+        hostLogin = host,
+        participants = participants,
+    )
+}
 
 @Serializable
 internal data class ChatMessageEvent(

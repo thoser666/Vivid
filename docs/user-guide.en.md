@@ -199,6 +199,7 @@ The overlay reads the chat via **Twitch EventSub** (not IRC). It needs the **bot
 - **Event alerts** as colored banner lines above the chat:
   - 🟢 Follow · 🟣 Sub · 🔵 Gift-Sub · 🟦 Resub · 🟠 Raid
   - Auto-dismissed after 10 seconds
+- **🔗 Shared chat hint** (subtle line): While a Twitch shared chat session ("Stream Together") is running, "Shared chat" with the session host (or the channel count as host) is shown — it disappears automatically when the session ends
 
 ### 6.4 Test Alert (Before Going Live)
 

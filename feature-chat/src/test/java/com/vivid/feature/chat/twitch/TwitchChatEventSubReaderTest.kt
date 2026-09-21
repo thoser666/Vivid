@@ -3,6 +3,7 @@ package com.vivid.feature.chat.twitch
 import com.vivid.feature.chat.model.AlertDetail
 import com.vivid.feature.chat.model.ChatAlertType
 import com.vivid.feature.chat.model.ChatConnectionState
+import com.vivid.feature.chat.model.ChatSharedChatState
 import app.cash.turbine.test
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
@@ -124,8 +125,9 @@ class TwitchChatEventSubReaderTest {
         advanceUntilIdle()
 
         // Chat + Follow + Subscribe + Gift + Resub + Raid + MessageDelete
-        // + Hype-Train (begin/progress/end) = 10 Subscriptions auf derselben Session.
-        assertEquals(10, subscribeRequests.size)
+        // + Hype-Train (begin/progress/end) + Shared-Chat (begin/update/end)
+        // = 13 Subscriptions auf derselben Session.
+        assertEquals(13, subscribeRequests.size)
         val chat = subscribeRequests[0]
         assertTrue(chat.contains("\"type\":\"channel.chat.message\""), chat)
         assertTrue(chat.contains("\"version\":\"1\""), chat)
@@ -147,6 +149,10 @@ class TwitchChatEventSubReaderTest {
         assertTrue(bodies.contains("\"type\":\"channel.hype_train.progress\""), bodies)
         assertTrue(bodies.contains("\"type\":\"channel.hype_train.end\""), bodies)
         assertTrue(bodies.contains("\"condition\":{\"broadcaster_user_id\":\"222\"}"), bodies)
+        // Shared-Chat: begin/update/end (v1, nur broadcaster_user_id, kein Scope)
+        assertTrue(bodies.contains("\"type\":\"channel.shared_chat.begin\""), bodies)
+        assertTrue(bodies.contains("\"type\":\"channel.shared_chat.update\""), bodies)
+        assertTrue(bodies.contains("\"type\":\"channel.shared_chat.end\""), bodies)
         // Nach erfolgreichem Subscribe gilt der Chat als verbunden.
         assertEquals(ChatConnectionState.Connected("thoser666"), client.state.value)
         client.stop()
@@ -384,7 +390,7 @@ class TwitchChatEventSubReaderTest {
         client.start(config)
         first.push(welcome)
         advanceUntilIdle()
-        assertEquals(10, subscribeRequests.size)
+        assertEquals(13, subscribeRequests.size)
 
         // session_reconnect → neue URL; Twitch übernimmt die Abos automatisch.
         first.push(reconnect)
@@ -395,7 +401,7 @@ class TwitchChatEventSubReaderTest {
         // Neue Session: kein erneuter Subscribe (Abos wandern mit).
         second.push(welcome)
         advanceUntilIdle()
-        assertEquals(10, subscribeRequests.size)
+        assertEquals(13, subscribeRequests.size)
         client.stop()
     }
 
@@ -410,7 +416,7 @@ class TwitchChatEventSubReaderTest {
         client.start(config)
         first.push(welcome)
         advanceUntilIdle()
-        assertEquals(10, subscribeRequests.size)
+        assertEquals(13, subscribeRequests.size)
 
         // Harte Trennung ohne session_reconnect → neue Session braucht ein Abo.
         first.drop()
@@ -419,7 +425,69 @@ class TwitchChatEventSubReaderTest {
         assertEquals(TwitchChatEventSubReader.DEFAULT_EVENTSUB_URL, second.connectedUrl)
         second.push(welcome)
         advanceUntilIdle()
-        assertEquals(20, subscribeRequests.size)
+        assertEquals(26, subscribeRequests.size)
         client.stop()
+    }
+
+    @Test
+    fun `subscribes to shared chat topics and emits session state`() = runTest {
+        val sockets = mutableListOf(FakeEventSubSocket())
+        val subscribeRequests = mutableListOf<String>()
+        val client = client(this, sockets, subscribeRequests, testScheduler)
+        val begin =
+            """{"metadata":{"message_type":"notification","subscription_type":"channel.shared_chat.begin","message_id":"sc1"},"payload":{"subscription":{},"event":{"session_id":"sc-session-1","broadcaster_user_id":"222","broadcaster_user_login":"thoser666","broadcaster_user_name":"Thoser666","host_broadcaster_user_id":"999","host_broadcaster_user_login":"hostkanal","host_broadcaster_user_name":"HostKanal","participants":[{"broadcaster_user_id":"222","broadcaster_user_login":"thoser666","broadcaster_user_name":"Thoser666"},{"broadcaster_user_id":"999","broadcaster_user_login":"hostkanal","broadcaster_user_name":"HostKanal"},{"broadcaster_user_id":"777","broadcaster_user_login":"GastKanal","broadcaster_user_name":"GastKanal"}]}}}"""
+        val update =
+            """{"metadata":{"message_type":"notification","subscription_type":"channel.shared_chat.update","message_id":"sc2"},"payload":{"subscription":{},"event":{"session_id":"sc-session-1","broadcaster_user_id":"222","broadcaster_user_login":"thoser666","broadcaster_user_name":"Thoser666","host_broadcaster_user_id":"999","host_broadcaster_user_login":"hostkanal","host_broadcaster_user_name":"HostKanal","participants":[{"broadcaster_user_id":"222","broadcaster_user_login":"thoser666","broadcaster_user_name":"Thoser666"},{"broadcaster_user_id":"999","broadcaster_user_login":"hostkanal","broadcaster_user_name":"HostKanal"}]}}}"""
+        val end =
+            """{"metadata":{"message_type":"notification","subscription_type":"channel.shared_chat.end","message_id":"sc3"},"payload":{"subscription":{},"event":{"session_id":"sc-session-1","broadcaster_user_id":"222","broadcaster_user_login":"thoser666","broadcaster_user_name":"Thoser666"}}}"""
+
+        client.sharedChatState.test {
+            client.start(config)
+            // Startzustand (StateFlow emittiert den Initialwert sofort).
+            assertEquals(ChatSharedChatState.Inactive, awaitItem())
+
+            // Alle Events puffern, bevor der Scheduler laeuft — der
+            // RunLoop konsumiert den Fake-Socket beim ersten Idle-Lauf.
+            sockets.first().push(welcome)
+            sockets.first().push(begin)
+            sockets.first().push(update)
+            sockets.first().push(end)
+            advanceUntilIdle()
+
+            val began = awaitItem() as ChatSharedChatState.Active
+            assertEquals("sc-session-1", began.sessionId)
+            assertEquals("hostkanal", began.hostLogin)
+            assertEquals(listOf("thoser666", "hostkanal", "gastkanal"), began.participants)
+
+            val updated = awaitItem() as ChatSharedChatState.Active
+            assertEquals("sc-session-1", updated.sessionId)
+            assertEquals(listOf("thoser666", "hostkanal"), updated.participants)
+
+            assertEquals(ChatSharedChatState.Inactive, awaitItem())
+            client.stop()
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `stop resets an active shared chat session and host falls back`() = runTest {
+        val sockets = mutableListOf(FakeEventSubSocket())
+        val client = client(this, sockets, mutableListOf(), testScheduler)
+        // begin ohne Host-Felder: Fallback auf den eigenen Broadcaster-Login.
+        val begin =
+            """{"metadata":{"message_type":"notification","subscription_type":"channel.shared_chat.begin","message_id":"sc1"},"payload":{"subscription":{},"event":{"session_id":"sc-session-2","broadcaster_user_id":"222","broadcaster_user_login":"thoser666","broadcaster_user_name":"Thoser666","participants":[{"broadcaster_user_id":"222","broadcaster_user_login":"Thoser666","broadcaster_user_name":"Thoser666"}]}}}"""
+
+        client.start(config)
+        sockets.first().push(welcome)
+        sockets.first().push(begin)
+        advanceUntilIdle()
+
+        val active = client.sharedChatState.value
+        assertTrue(active is ChatSharedChatState.Active)
+        assertEquals("thoser666", (active as ChatSharedChatState.Active).hostLogin)
+        assertEquals(listOf("thoser666"), active.participants)
+
+        client.stop()
+        assertEquals(ChatSharedChatState.Inactive, client.sharedChatState.value)
     }
 }

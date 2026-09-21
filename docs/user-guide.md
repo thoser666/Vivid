@@ -204,6 +204,7 @@ Das Overlay liest den Chat über **Twitch EventSub** (nicht IRC). Dafür braucht
 - **Event-Alerts** als farbige Zeilen über den Nachrichten:
   - 🟢 Follow · 🟣 Sub · 🔵 Gift-Sub · 🟦 Resub · 🟠 Raid
   - Automatisch ausgeblendet nach 10 Sekunden
+- **🔗 Shared-Chat-Hinweis** (dezente Zeile): Läuft eine Twitch-Shared-Chat-Session („Stream Together“), steht solange „Gemeinsamer Chat“ mit dem Session-Host bzw. der Kanal-Anzahl (als Host) — verschwindet automatisch mit Session-Ende
 
 ### 7.4 Test-Alert (vor dem Go Live)
 

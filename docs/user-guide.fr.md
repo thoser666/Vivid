@@ -203,6 +203,7 @@ L'overlay lit le chat via **Twitch EventSub** (pas IRC). Pour cela, il faut les
 - **Alertes d'événements** en lignes colorées au-dessus des messages :
   - 🟢 Follow · 🟣 Sub · 🔵 Sub offert · 🟦 Resub · 🟠 Raid
   - Masquées automatiquement après 10 secondes
+- **🔗 Indication de chat partagé** (ligne discrète) : pendant une session de chat partagé Twitch (« Stream Together »), « Chat partagé » s'affiche avec l'hôte de session (ou le nombre de chaînes en tant qu'hôte) — disparaît automatiquement à la fin de la session
 
 ### 6.4 Alerte de test (avant le Go Live)
 

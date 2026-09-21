@@ -7,6 +7,7 @@ import com.vivid.feature.chat.model.ChatAlert
 import com.vivid.feature.chat.model.ChatAlertType
 import com.vivid.feature.chat.model.ChatBadge
 import com.vivid.feature.chat.model.ChatConnectionState
+import com.vivid.feature.chat.model.ChatSharedChatState
 import com.vivid.feature.chat.model.ChatMessage
 import com.vivid.feature.chat.emotes.ThirdPartyEmoteService
 import com.vivid.feature.chat.twitch.TwitchBadgeClient
@@ -47,11 +48,14 @@ class ChatOverlayViewModelTest {
             MutableSharedFlow<ChatAlert>(extraBufferCapacity = 64),
         deletedFlow: MutableSharedFlow<String> =
             MutableSharedFlow<String>(extraBufferCapacity = 64),
+        sharedFlow: MutableStateFlow<ChatSharedChatState> =
+            MutableStateFlow<ChatSharedChatState>(ChatSharedChatState.Inactive),
     ): TwitchChatEventSubReader = mockk {
         every { messages } returns messageFlow
         every { state } returns stateFlow
         every { alerts } returns alertsFlow
         every { deletedMessageIds } returns deletedFlow
+        every { sharedChatState } returns sharedFlow
         every { start(any()) } just Runs
         every { stop() } just Runs
         every { triggerTestAlert(any()) } just Runs
@@ -265,5 +269,51 @@ class ChatOverlayViewModelTest {
 
         // Restliche TTL-Timer ablaufen lassen (keine schwebenden Koroutinen).
         advanceUntilIdle()
+    }
+
+    // --- Shared-Chat-Hinweis ---
+
+    @Test
+    fun `shared chat session is surfaced in the ui state`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val sharedFlow = MutableStateFlow<ChatSharedChatState>(ChatSharedChatState.Inactive)
+        val vm = createViewModel(MutableStateFlow(settings()), reader(sharedFlow = sharedFlow))
+        advanceUntilIdle()
+
+        assertFalse(vm.uiState.value.sharedChat is ChatSharedChatState.Active)
+
+        sharedFlow.value = ChatSharedChatState.Active(
+            sessionId = "sc-1",
+            hostLogin = "hostkanal",
+            participants = listOf("kanal", "hostkanal", "gastkanal"),
+        )
+        advanceUntilIdle()
+
+        val active = vm.uiState.value.sharedChat
+        assertTrue(active is ChatSharedChatState.Active)
+        assertEquals("hostkanal", (active as ChatSharedChatState.Active).hostLogin)
+        assertEquals(listOf("kanal", "hostkanal", "gastkanal"), active.participants)
+    }
+
+    @Test
+    fun `shared chat state is cleared on channel change`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val sharedFlow = MutableStateFlow<ChatSharedChatState>(ChatSharedChatState.Inactive)
+        val settings = MutableStateFlow(settings(channel = "channel1"))
+        val vm = createViewModel(settings, reader(sharedFlow = sharedFlow))
+        advanceUntilIdle()
+
+        sharedFlow.value = ChatSharedChatState.Active(
+            sessionId = "sc-1",
+            hostLogin = "hostkanal",
+            participants = listOf("channel1", "hostkanal"),
+        )
+        advanceUntilIdle()
+        assertTrue(vm.uiState.value.sharedChat is ChatSharedChatState.Active)
+
+        // Kanalwechsel → Hinweis gehört zum vorherigen Kanal, zurücksetzen.
+        settings.value = settings.value.copy(chatChannel = "channel2")
+        advanceUntilIdle()
+        assertEquals(ChatSharedChatState.Inactive, vm.uiState.value.sharedChat)
     }
 }

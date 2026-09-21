@@ -9,6 +9,7 @@ import com.vivid.feature.chat.model.ChatAlertType
 import com.vivid.feature.chat.model.ChatBadge
 import com.vivid.feature.chat.model.ChatConnectionState
 import com.vivid.feature.chat.model.ChatMessage
+import com.vivid.feature.chat.model.ChatSharedChatState
 import com.vivid.feature.chat.emotes.EmoteSource
 import com.vivid.feature.chat.emotes.ThirdPartyEmote
 import com.vivid.feature.chat.emotes.ThirdPartyEmoteService
@@ -77,6 +78,13 @@ class ChatOverlayViewModel @Inject constructor(
         val deletedMessageIds: Set<String> = emptySet(),
         /** Gelöschte Nachrichten ausblenden statt ausgrauen. */
         val hideDeleted: Boolean = true,
+        /**
+         * Aktive Twitch-Shared-Chat-Session (EventSub `channel.shared_chat.begin`
+         * /`update`/`end`) — [ChatSharedChatState.Active] zeigt im Overlay einen
+         * dezenten Hinweis; zurückgesetzt wird im Reader bei `end`/Stopp und
+         * hier bei Kanalwechsel/Deaktivierung.
+         */
+        val sharedChat: ChatSharedChatState = ChatSharedChatState.Inactive,
         // Chat-Layout-Einstellungen
         val overlayWidthDp: Int = 240,
         val overlayHeightDp: Int = 300,
@@ -161,6 +169,12 @@ class ChatOverlayViewModel @Inject constructor(
                         // Alerts gehören zum vorherigen Kanal — bei Wechsel/Stopp
                         // sofort entfernen (TTL-Entfernung läuft sonst weiter).
                         alerts = if (contextChanged) emptyList() else it.alerts,
+                        // Shared-Chat-Hinweis gehört zum vorherigen Kanal.
+                        sharedChat = if (contextChanged) {
+                            ChatSharedChatState.Inactive
+                        } else {
+                            it.sharedChat
+                        },
                         // Gelöschte Nachrichten: bei Kanalwechsel zurücksetzen
                         deletedMessageIds = if (contextChanged) emptySet() else it.deletedMessageIds,
                         hideDeleted = settings.chatOverlayHideDeleted,
@@ -223,6 +237,14 @@ class ChatOverlayViewModel @Inject constructor(
         viewModelScope.launch {
             chatReader.state.collect { connection ->
                 _uiState.update { it.copy(connection = connection) }
+            }
+        }
+        // Shared-Chat-Session-Status (EventSub: channel.shared_chat.begin/
+        // update/end) für den dezenten Overlay-Hinweis — Reset bei Session-
+        // Ende/Stopp passiert im Reader, hier nur durchreichen.
+        viewModelScope.launch {
+            chatReader.sharedChatState.collect { shared ->
+                _uiState.update { it.copy(sharedChat = shared) }
             }
         }
         // Gelöschte Nachrichten (EventSub: channel.chat.message_delete)

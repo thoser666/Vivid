@@ -31,4 +31,11 @@
     <string name="chat_alert_hype_train">🚂 Hype Train level %1$d — %2$d/%3$d</string>
     <string name="chat_alert_hype_train_active">🚂 Hype Train active</string>
     <string name="chat_alert_hype_train_end">🚂 Hype Train ended — level %1$d</string>
+
+    <!-- Shared chat session (Twitch "Stream Together"): subtle overlay hint -->
+    <string name="chat_shared_chat_active">🔗 Shared chat with %1$s</string>
+    <plurals name="chat_shared_chat_active_host">
+        <item quantity="one">🔗 Shared chat — %1$d channel</item>
+        <item quantity="other">🔗 Shared chat — %1$d channels</item>
+    </plurals>
 </resources>

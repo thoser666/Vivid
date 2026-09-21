@@ -48,6 +48,7 @@ import com.vivid.feature.chat.model.ChatBadge
 import com.vivid.feature.chat.model.ChatConnectionState
 import com.vivid.core.data.ChatOverlayPosition
 import com.vivid.feature.chat.model.ChatMessage
+import com.vivid.feature.chat.model.ChatSharedChatState
 import com.vivid.feature.chat.model.InlineEmote
 
 /**
@@ -97,6 +98,16 @@ fun ChatOverlay(
         uiState.alerts.forEach { alert ->
             AlertRow(alert)
         }
+        // Shared-Chat-Hinweis: dezente Dauerzeile, solange eine Twitch-
+        // Shared-Chat-Session läuft (endet mit dem end-Event, kein TTL).
+        val shared = uiState.sharedChat as? ChatSharedChatState.Active
+        if (shared != null) {
+            SharedChatHint(
+                shared = shared,
+                isHost = shared.hostLogin == uiState.channel,
+                fontSize = fontSize,
+            )
+        }
         if (uiState.messages.isEmpty() && uiState.alerts.isEmpty()) {
             Text(
                 text = when {
@@ -141,6 +152,35 @@ fun ChatOverlay(
             }
         }
     }
+}
+
+/**
+ * Dezenter Hinweis auf eine aktive Twitch-Shared-Chat-Session ("Stream
+ * Together"): als Gast mit dem Session-Host, als Host mit der Anzahl der
+ * verbundenen Kanäle. Dauerzeile ohne TTL — endet mit dem `end`-Event
+ * (der Reader setzt den Zustand auf [ChatSharedChatState.Inactive]).
+ */
+@Composable
+private fun SharedChatHint(
+    shared: ChatSharedChatState.Active,
+    isHost: Boolean,
+    fontSize: TextUnit,
+) {
+    val text = if (isHost) {
+        pluralStringResource(
+            R.plurals.chat_shared_chat_active_host,
+            shared.participants.size,
+            shared.participants.size,
+        )
+    } else {
+        stringResource(R.string.chat_shared_chat_active, shared.hostLogin)
+    }
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelMedium,
+        fontSize = fontSize,
+        color = Color.White.copy(alpha = 0.55f),
+    )
 }
 
 /**
