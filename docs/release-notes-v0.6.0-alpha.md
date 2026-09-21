@@ -38,7 +38,7 @@ Setup-Anleitung: [RELEASE.md](../RELEASE.md) → Abschnitt „🤖 Chat-Bot: Twi
 
 ### 2. Owner-Steuerung — nur der Streamer (Vivid-Zusatz)
 
-Die vier Owner-Befehle sind **nur für den Streamer** erreichbar (Broadcaster-Badge **oder** eigene Allow-List, z. B. für einen Zweitaccount):
+Die Owner-Befehle sind **nur für den Streamer** erreichbar (eigene Allow-List, z. B. für einen Zweitaccount, oder Kanal-Inhaber — der Broadcaster-Badge zählt nur im konfigurierten Kanal; Ko-Streamer-Badges aus Twitch-**Shared-Chat**-Sessions gelten bewusst nicht):
 
 | Befehl | Funktion |
 |---|---|

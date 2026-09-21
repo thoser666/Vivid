@@ -33,7 +33,7 @@ data class ChatBotConfig(
     // Kosten-Budget: max. Antworten pro Stunde global (0 = unbegrenzt).
     val maxRepliesPerHour: Int = 0,
     // --- Owner-Zugriff (nur der Streamer) ---
-    // Logins (normalisiert, ohne '@'), die zusätzlich zum Broadcaster als
+    // Logins (normalisiert, ohne '@'), die zusätzlich zum Kanal-Inhaber als
     // „Owner" gelten und die Owner-Befehle !start/!stop/!diag/!ask nutzen dürfen.
     val ownerLogins: Set<String> = emptySet(),
     // Separater LLM-Endpunkt, der **exklusiv** für die Owner-Befehle
@@ -64,13 +64,18 @@ data class ChatBotConfig(
         get() = ownerLlm.isConfigured
 
     /**
-     * Owner-Erkennung: Der Kanal-Inhaber (Broadcaster-Badge) ist immer Owner;
-     * zusätzlich können weitere Logins in [ownerLogins] freigegeben werden
-     * (z. B. der Zweitaccount des Streamers). [userLogin] wird normalisiert
+     * Owner-Erkennung (Shared-Chat-gehärtet): Ein Broadcaster-Badge genügt
+     * nur, wenn der Badge-Login dem konfigurierten [channel] entspricht —
+     * in Shared-Chat-Sessions tragen alle teilnehmenden Streamer legitime
+     * Broadcaster-Badges, ohne deren Logins hier Owner wären. Zusätzlich
+     * freigegebene Logins in [ownerLogins] (z. B. der Zweitaccount des
+     * Streamers) gelten unabhängig vom Badge. [userLogin] wird normalisiert
      * verglichen (trim + lowercase, ohne '@').
      */
-    fun isOwner(userLogin: String, isBroadcaster: Boolean): Boolean =
-        isBroadcaster || userLogin.trim().lowercase().removePrefix("@") in ownerLogins
+    fun isOwner(userLogin: String, isBroadcaster: Boolean): Boolean {
+        val normalized = userLogin.trim().lowercase().removePrefix("@")
+        return normalized in ownerLogins || (isBroadcaster && normalized == channel)
+    }
     /**
      * Startbereit? Kanal, Login und Token werden immer gebraucht — das LLM
      * nur im AUTONOMOUS-Modus. Im COMMAND-Modus (deterministische Befehle,

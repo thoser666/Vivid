@@ -64,7 +64,8 @@ data class AppSettings(
     // --- Chat-Bot: Owner-Zugriff (nur der Streamer) ---
     // Logins (kommasepariert, ohne '@'), die als „Owner" gelten und die
     // Owner-Befehle !start/!stop/!diag/!ask nutzen dürfen. Der Kanal-Inhaber
-    // (Broadcaster-Badge) ist zusätzlich immer Owner. Leer = nur Broadcaster.
+    // (Broadcaster-Badge im konfigurierten Kanal) ist zusätzlich immer Owner —
+    // fremde Broadcaster aus Shared-Chat-Sessions nicht. Leer = nur Kanal-Inhaber.
     val chatBotOwnerLogins: String = "",
     // Separater LLM-Endpunkt, exklusiv für Owner-Befehle (z. B. !ask, Diagnose
     // mit Empfehlungen). Leer = keine eigene Owner-KI → Fallback auf die
