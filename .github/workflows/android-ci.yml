@@ -204,6 +204,15 @@ jobs:
       - name: Check EventSub JSON hardening
         run: bash scripts/check_eventsub_json_hardening.sh
 
+      # gh-CLI-Flag-Guard (Vorfall deploy-fdroid): unbekannte gh-Flags in
+      # Workflows (z. B. --exclude-prereleases statt --exclude-pre-releases)
+      # scheitern sonst erst im CI-Job — hier gegen die lokale gh-CLI geprüft.
+      - name: Test gh CLI flags guard
+        run: bash scripts/test_gh_cli_flags.sh
+
+      - name: Check gh CLI flags
+        run: bash scripts/check_gh_cli_flags.sh
+
       # CodeQL-Extractor-Pin (github/codeql#22404): security-codeql.yml baut den
       # Trace mit Kotlin 2.4.10 (< 2.4.20, Bundle-Limit von Bundle 2.27.0), der
       # Pin-Step muss vor dem Build liegen und kein anderer Workflow den Katalog

@@ -284,6 +284,16 @@ run bash scripts/check_eventsub_json_hardening.sh
 echo "▶ [pre-push] EventSub-JSON-Härtungs-Guard-Selbsttest (scripts/test_eventsub_json_hardening.sh)"
 run bash scripts/test_eventsub_json_hardening.sh
 
+# gh-CLI-Flag-Guard (Vorfall deploy-fdroid 21.09.2026): Ein Tippfehler in
+# `gh release list --exclude-prereleases` scheiterte erst im CI-Job — der
+# Guard validiert jede gh-Flag-Verwendung in Workflows gegen die lokale
+# gh-CLI (Subcommand-Auflösung inklusive), bevor ein Run rot laufen kann.
+echo "▶ [pre-push] gh-CLI-Flag-Guard (scripts/check_gh_cli_flags.sh)"
+run bash scripts/check_gh_cli_flags.sh
+
+echo "▶ [pre-push] gh-CLI-Flag-Guard-Selbsttest (scripts/test_gh_cli_flags.sh)"
+run bash scripts/test_gh_cli_flags.sh
+
 # CodeQL-Blockade-Wächter (advisory — nie push-blockierend): CodeQL-Bundle
 # 2.27.0 kann Kotlin 2.4.20 nicht extrahieren (Stand 2.27.0, empirisch
 # 2026-09-10); security-codeql.yml pinnt den Trace-Build deshalb auf 2.4.10.

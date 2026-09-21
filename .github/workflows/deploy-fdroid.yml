@@ -68,7 +68,7 @@ jobs:
             # Neueste STABLE-Version (kein nightly-Prerelease) — die Weekly-
             # Kette publiziert Mo 03:00 UTC das Stable-Release, dieser Job baut
             # das Repo um 04:00 UTC mit der neuesten Nicht-Prerelease-Version.
-            VERSION=$(gh release list --limit 1 --exclude-prereleases --json tagName -q '.[0].tagName')
+            VERSION=$(gh release list --limit 1 --exclude-pre-releases --json tagName -q '.[0].tagName')
           fi
           echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
           echo "Building version: $VERSION"
