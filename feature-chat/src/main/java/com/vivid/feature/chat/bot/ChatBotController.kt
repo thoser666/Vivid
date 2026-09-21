@@ -4,6 +4,8 @@ import com.vivid.core.data.AppSettings
 import com.vivid.core.data.SettingsRepository
 import com.vivid.feature.chat.di.ChatScope
 import com.vivid.feature.chat.model.ChatAlertType
+import com.vivid.feature.chat.session.ChatSessionConfig
+import com.vivid.feature.chat.session.ChatSessionManager
 import com.vivid.feature.chat.twitch.TwitchChatEventSubReader
 import com.vivid.feature.chat.twitch.TwitchEventSubClient
 import com.vivid.feature.chat.twitch.TwitchEventSubConfig
@@ -28,6 +30,8 @@ import kotlinx.coroutines.launch
 @Singleton
 class ChatBotController @Inject constructor(
     @param:ChatScope private val scope: CoroutineScope,
+    private val sessionManager: ChatSessionManager,
+    /** Konkret für Reader-Spezifika ohne Interface-Platz (Trigger-API, TTS-Flow). */
     private val chatReader: TwitchChatEventSubReader,
     private val sendChatClient: TwitchSendChatClient,
     private val whisperClient: TwitchWhisperClient,
@@ -130,16 +134,18 @@ class ChatBotController @Inject constructor(
         // Chat-TTS (der !tts-Befehl): liest den gleichen Nachrichten-Flow vor —
         // andere Bots (Ignore-Liste) werden nicht vorgelesen.
         chatTts.start(chatReader.messages, config.login, config.ignoreBots)
-        // Chat lesen (EventSub) + Whisper-Empfang: Streamer kann dem Bot
-        // privat Befehle schicken.
-        chatReader.start(eventSubConfig)
+        // Chat lesen über den ChatSessionManager (P3-Vorgriff): der Bot
+        // startet seine Session als plattformneutraler Soll-Zustand — immer
+        // neu (Always-Restart, verhalten identisch zu chatReader.start()).
+        // Whisper-Empfang: Streamer kann dem Bot privat Befehle schicken.
+        sessionManager.setSessions(listOf(ChatSessionConfig.Twitch(eventSubConfig)))
         eventSubClient.start(eventSubConfig)
     }
 
     private fun stopBot() {
         engine.stop()
         chatTts.stop()
-        chatReader.stop()
+        sessionManager.stopAll()
         eventSubClient.stop()
     }
 }

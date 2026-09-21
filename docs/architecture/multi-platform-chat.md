@@ -1,6 +1,6 @@
 # 💬 Architektur: Merged Multi-Plattform-Chat (Twitch + YouTube + Kick)
 
-> **Status:** Skizze festgelegt; **P0 implementiert (2026-09-21, verhaltensneutral — `ChatPlatform`, `ChatMessage.platform`, `session/ChatSession.kt` mit `ChatReader`/`ChatSender`/`ChatSessionConfig.Twitch`, Twitch-Reader/Sender implementieren die Interfaces, Bestands-Suiten unverändert grün)** · **Datum:** 2026-09-21
+> **Status:** Skizze festgelegt; **P0 implementiert (2026-09-21, verhaltensneutral — `ChatPlatform`, `ChatMessage.platform`, `session/ChatSession.kt` mit `ChatReader`/`ChatSender`/`ChatSessionConfig.Twitch`, Twitch-Reader/Sender implementieren die Interfaces, Bestands-Suiten unverändert grün)** · **P3-Vorgriff implementiert (2026-09-21, verhaltensneutral — `ChatSessionManager` mit Always-Restart-`setSessions`/`stopAll`/`sendToOrigin` + TWITCH-Multibinding; der `ChatBotController` startet Twitch über den Manager statt direkt)** · **Datum:** 2026-09-21
 > **Tracked in:** [PARITY.md, Bucket „Multi-Plattform-Chat"](../../PARITY.md) · **Referenz:** Moblin (Chat für 4 Plattformen)
 > **Umfang dieser Skizze:** Lesen + Merged Overlay + Bot-Routing für Twitch, YouTube, Kick. SOOP bewusst zurückgestellt.
 
@@ -137,6 +137,9 @@ class ChatSessionManager @Inject constructor(
 - **Neustart-Regel:** `setSessions()` ist deklarativ (Soll-Zustand); der Manager leitet Start/Stop ab.
   Ein Kanalwechsel auf einer Plattform = Stop+Start nur dieser Session (Twitch-Reconnect-Muster
   existiert bereits im Reader).
+  **Implementiert (P3-Vorgriff):** Always-Restart-Vertrag — `setSessions` startet jede angegebene
+  Session immer neu (identisch zum heutigen Bot-Start), entfernt gestoppte Plattformen aus der
+  Registry; ein equality-basierter No-op-Re-Start für den Settings-Loop folgt mit P3.
 
 ## 5. Transporte je Plattform (L2)
 
@@ -190,7 +193,7 @@ ist ein innertube-/Protokoll-Bruch nie ein Overlay-Ausfall, sondern maximal ein 
 | **P0** ✅ erledigt (2026-09-21) | L0-Modell (`platform`, Default TWITCH) + L1-Interface-Extraktion, Twitch-Reader/Sender unterordnen | feature-chat-Suite 425 grün (verhaltensneutral): Übergangs-Überladungen statt Signatur-Bruch, alle Bestands-Tests unverändert; `session/ChatSessionP0Test` (6 Verträge: Plattform-Default, Wire-IDs, SendResult-Mapping, Sealed-Grenze, Interface-Dispatch) |
 | **P1** | **YouTube-Adapter (Lesen, anonym)** + Merge im `ChatSessionManager` (Twitch+YT) + Overlay-Badge + `connections`-Map | MockWebServer-Contract-Tests; Robolectric-Overlay-Test mit gemischten Messages |
 | **P2** | **Kick-Adapter (Lesen, Pusher)** | Fake-Pusher-Server-Tests (WebSocket-Handshake, Subscription, Message-Event, Reconnect) |
-| **P3** | Settings je Plattform (Enable/Kanal) + `setSessions`-Verkabelung + Bot-Routing (`sendToOrigin`) | VM-Tests (Settings-Diff → Start/Stop-Aufrufe), Bot-Routing-Tests |
+| **P3** 🔜 teilweise (P3-Vorgriff implementiert: Manager + Controller-Verkabelung verhaltensneutral; Settings-Diff + Equality-Reset offen) | Settings je Plattform (Enable/Kanal) + `setSessions`-Verkabelung + Bot-Routing (`sendToOrigin`) | Manager-Tests 7/7 grün (`ChatSessionManagerTest`: Always-Restart, Stop entfernter Sessions, Merge, States, Routing); VM-Tests (Settings-Diff → Start/Stop-Aufrufe) folgen mit P3 |
 | **P4** | Senden: Twitch (ist), YouTube (Google-OAuth), Kick (OAuth 2.1) — `app`-OAuth-Flow + Token-Store | Sender-Contract-Tests (Fehlerpfade wie `drop_reason`), OAuth-State-PKCE-Tests |
 | **P5** | (optional) SOOP-Adapter — nur falls Zielgruppe | — |
 | **P6** | **Alerts plattformneutral (Abschnitt 9.1):** sealed `AlertDetail` (Twitch-Status quo verhaltensneutral), YT-Superchat (Ticker-Parser), Kick-Gifts (`SubscriptionEvent`) | Render-Tests je Qualifier (Muster `ChatAlertRowRenderRobolectricTest`); Contract-Tests YT-Ticker + Kick-Event; Bestands-Render-Tests bleiben grün |
