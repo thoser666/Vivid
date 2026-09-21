@@ -31,6 +31,11 @@ android {
     }
 
     testOptions {
+        // Robolectric: gemergtes Manifest + Ressourcen in die JVM-Tests laden
+        // (nötig für Compose-UI-Render-Tests mit String-Ressourcen — Muster
+        // aus feature-settings). Die Robolectric-Tests sind JUnit4 und laufen
+        // über die Vintage-Engine neben der Jupiter-Suite.
+        unitTests.isIncludeAndroidResources = true
         unitTests.all {
             it.useJUnitPlatform()
         }
@@ -95,5 +100,14 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.turbine)
     testImplementation(libs.ktor.client.mock)
+
+    // Compose-UI-Render-Tests (Robolectric, Muster aus feature-settings):
+    // Vintage-Engine, damit die JUnit4-Robolectric-Tests auf der
+    // JUnit-Platform dieser Module neben der Jupiter-Suite laufen.
+    testRuntimeOnly(libs.junit.vintage.engine)
+    testImplementation(libs.robolectric.core)
+    testImplementation(libs.androidx.test.core)
+    testImplementation(libs.androidx.ui.test.junit4)
+    debugImplementation(libs.androidx.ui.test.manifest)
     debugImplementation(libs.androidx.ui.tooling)
 }

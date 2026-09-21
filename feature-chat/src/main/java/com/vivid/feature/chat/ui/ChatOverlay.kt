@@ -191,7 +191,7 @@ private fun SharedChatHint(
  * Lokalisierung in der Datenebene).
  */
 @Composable
-private fun AlertRow(alert: ChatAlert) {
+internal fun AlertRow(alert: ChatAlert) {
     val color = when (alert.type) {
         ChatAlertType.FOLLOW -> Color(0xFF4CAF50)
         ChatAlertType.SUBSCRIBE -> Color(0xFFBA68C8)

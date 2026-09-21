@@ -90,7 +90,8 @@
 
     <!-- ===== Overlays & widgets (SettingsOverlaysScreen.kt) ===== -->
     <string name="overlays_chat_title">Overlay de chat</string>
-    <string name="overlays_chat_desc">Affiche le chat Twitch de la chaîne indiquée au-dessus de l’aperçu du stream (lecture anonyme).</string>
+    <string name="overlays_chat_desc">Affiche le chat Twitch de la chaîne indiquée au-dessus de l’aperçu du stream (lecture via Twitch EventSub avec les identifiants du bot).</string>
+    <string name="overlays_chat_scopes">Alertes d\'événements : les follows exigent moderator:read:followers (le bot doit être modérateur), les subs/gift subs/resubs channel:read:subscriptions — un scope manquant désactive uniquement ce type d\'alerte (le chat et les autres alertes continuent). Test avant le direct : !testalert follow|sub|gift|resub|raid|hype dans le chat.</string>
     <string name="overlays_channel_label">Chaîne Twitch (sans #)</string>
     <string name="overlays_chat_enabled">Afficher l’overlay de chat</string>
     <string name="overlays_widget_title">Widget texte/info</string>

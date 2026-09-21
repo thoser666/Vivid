@@ -89,7 +89,8 @@
 
     <!-- ===== Overlays & Widgets (SettingsOverlaysScreen.kt) ===== -->
     <string name="overlays_chat_title">Chat overlay</string>
-    <string name="overlays_chat_desc">Shows the Twitch chat of the given channel over the streaming preview (read anonymously).</string>
+    <string name="overlays_chat_desc">Shows the Twitch chat of the given channel over the streaming preview (read via Twitch EventSub with the bot credentials).</string>
+    <string name="overlays_chat_scopes">Event alerts: follows need moderator:read:followers (the bot must be a moderator), subs/gift subs/resubs channel:read:subscriptions — a missing scope only drops that alert type (chat and remaining alerts keep working). Test before going live: !testalert follow|sub|gift|resub|raid|hype in chat.</string>
     <string name="overlays_channel_label">Twitch channel (without #)</string>
     <string name="overlays_chat_enabled">Show chat overlay</string>
     <string name="overlays_widget_title">Text/info widget</string>

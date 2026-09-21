@@ -53,6 +53,14 @@ fun SettingsOverlaysScreen(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        // Scope-Voraussetzungen für Event-Alerts sichtbar machen (Follow
+        // braucht moderator:read:followers + Mod-Rechte, Subs/Gifts/Resubs
+        // channel:read:subscriptions — Fehlen degradiert nur den Alert-Typ).
+        Text(
+            text = stringResource(R.string.overlays_chat_scopes),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         OutlinedTextField(
             value = uiState.chatChannel,
             onValueChange = viewModel::onChatChannelChange,
