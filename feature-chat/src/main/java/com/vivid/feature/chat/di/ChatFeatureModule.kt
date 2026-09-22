@@ -18,6 +18,8 @@ import com.vivid.feature.chat.twitch.TwitchChatEventSubReader
 import com.vivid.feature.chat.twitch.TwitchSendChatClient
 import com.vivid.feature.chat.twitch.TokenCipher
 import com.vivid.feature.chat.twitch.TwitchTokenStore
+import com.vivid.feature.chat.youtube.YoutubeChatReader
+import com.vivid.feature.chat.youtube.YoutubeChatSender
 import dagger.Binds
 import dagger.BindsOptionalOf
 import dagger.MapKey
@@ -71,8 +73,8 @@ abstract class ChatFeatureModule {
 
     /**
      * Chat-Adapter-Multibinding (P3-Vorgriff): der [ChatSessionManager] wählt
-     * den Reader/Sender je [ChatPlatform] aus der injizierten Map. P1/P2
-     * ergänzen die Youtube/Kick-Einträge — der Manager bleibt unverändert.
+     * den Reader/Sender je [ChatPlatform] aus der injizierten Map. P2 ergänzt
+     * den Kick-Eintrag — der Manager bleibt unverändert.
      */
     @Binds
     @IntoMap
@@ -88,6 +90,27 @@ abstract class ChatFeatureModule {
     @ChatPlatformKey(ChatPlatform.TWITCH)
     abstract fun bindTwitchChatSenderIntoMap(
         sender: TwitchSendChatClient,
+    ): ChatSender
+
+    /**
+     * YouTube-Adapter (P1, Multi-Plattform-Skizze): Lesen anonym über
+     * innertube-Polling; Senden ist bewusst noch nicht real (Google-OAuth,
+     * P4) — der Platzhalter-Sender antwortet mit [ChatSendResult.Failed].
+     */
+    @Binds
+    @IntoMap
+    @Singleton
+    @ChatPlatformKey(ChatPlatform.YOUTUBE)
+    abstract fun bindYoutubeChatReaderIntoMap(
+        reader: YoutubeChatReader,
+    ): ChatReader
+
+    @Binds
+    @IntoMap
+    @Singleton
+    @ChatPlatformKey(ChatPlatform.YOUTUBE)
+    abstract fun bindYoutubeChatSenderIntoMap(
+        sender: YoutubeChatSender,
     ): ChatSender
 
     /** Verschlüsselung für die Twitch-OAuth-Token-Persistenz (Android Keystore). */

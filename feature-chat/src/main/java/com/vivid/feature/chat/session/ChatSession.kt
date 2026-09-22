@@ -82,9 +82,8 @@ sealed interface ChatSendResult {
  * Diskriminierung ohne generische Interfaces (Skizze 4.2 — Hilt-Multibinding
  * und ein lesbarer ChatSessionManager statt `ChatReader<C>`-Wildwuchs).
  *
- * P0 führt nur die Twitch-Variante ein (Verhaltensneutralität); P1/P2
- * ergänzen `Youtube`/`Kick` mit ihren Transport-Feldern (Polling/Token bzw.
- * Pusher/OAuth 2.1).
+ * P0 führte nur die Twitch-Variante ein (Verhaltensneutralität); P1 ergänzt
+ * `Youtube` (innertube-Polling, anonym), P2 `Kick` (Pusher/OAuth 2.1).
  */
 sealed interface ChatSessionConfig {
     val platform: ChatPlatform
@@ -96,5 +95,16 @@ sealed interface ChatSessionConfig {
         override val channel: String = twitch.channel,
     ) : ChatSessionConfig {
         override val platform: ChatPlatform get() = ChatPlatform.TWITCH
+    }
+
+    /**
+     * YouTube-Session (P1): nur die Kanal-ID (Format `UC…`) — gelesen wird
+     * anonym über innertube-Polling ([com.vivid.feature.chat.youtube.YoutubeChatReader]),
+     * kein Token nötig. [channel] ist die Kanal-ID selbst.
+     */
+    data class Youtube(
+        override val channel: String,
+    ) : ChatSessionConfig {
+        override val platform: ChatPlatform get() = ChatPlatform.YOUTUBE
     }
 }

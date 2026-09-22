@@ -89,10 +89,14 @@
 
     <!-- ===== Overlays & Widgets (SettingsOverlaysScreen.kt) ===== -->
     <string name="overlays_chat_title">Chat-Overlay</string>
-    <string name="overlays_chat_desc">Zeigt den Twitch-Chat des angegebenen Kanals über der Streaming-Vorschau an (gelesen über Twitch EventSub mit den Bot-Zugangsdaten).</string>
+    <string name="overlays_chat_desc">Zeigt den Twitch-Chat des angegebenen Kanals über der Streaming-Vorschau an (gelesen über Twitch EventSub mit den Bot-Zugangsdaten). Optional zusätzlich der YouTube-Live-Chat eines Kanals (anonym gelesen) — gemergt im selben Overlay mit Plattform-Badges.</string>
     <string name="overlays_chat_scopes">Event-Alerts: Follows brauchen moderator:read:followers (der Bot muss Moderator sein), Subs/Gift-Subs/Resubs channel:read:subscriptions — fehlt ein Scope, fällt nur der jeweilige Alert-Typ aus (Chat und übrige Alerts laufen weiter). Test vor dem Go-Live: !testalert follow|sub|gift|resub|raid|hype im Chat.</string>
     <string name="overlays_channel_label">Twitch-Kanal (ohne #)</string>
     <string name="overlays_chat_enabled">Chat-Overlay anzeigen</string>
+    <!-- YouTube-Chat (Multi-Plattform-Chat, P1): anonymes innertube-Lesen -->
+    <string name="overlays_youtube_channel_label">YouTube-Kanal-ID (UC…)</string>
+    <string name="overlays_youtube_chat_enabled">YouTube-Chat anzeigen</string>
+
     <string name="overlays_widget_title">Text-/Info-Widget</string>
     <string name="overlays_widget_desc">Zeigt Uhrzeit, GPS-Koordinaten und Geschwindigkeit als Overlay rechts unten über der Streaming-Vorschau an. Für GPS/Geschwindigkeit wird die Standort-Berechtigung benötigt.</string>
     <string name="overlays_widget_enabled">Widget anzeigen</string>

@@ -9,6 +9,7 @@ import com.vivid.feature.chat.model.ChatAlertType
 import com.vivid.feature.chat.model.ChatBadge
 import com.vivid.feature.chat.model.ChatConnectionState
 import com.vivid.feature.chat.model.ChatMessage
+import com.vivid.feature.chat.model.ChatPlatform
 import com.vivid.feature.chat.model.ChatSharedChatState
 import com.vivid.feature.chat.emotes.EmoteSource
 import com.vivid.feature.chat.emotes.ThirdPartyEmote
@@ -16,6 +17,7 @@ import com.vivid.feature.chat.emotes.ThirdPartyEmoteService
 import com.vivid.feature.chat.twitch.TwitchBadgeClient
 import com.vivid.feature.chat.twitch.TwitchChatEventSubReader
 import com.vivid.feature.chat.twitch.TwitchEventSubConfig
+import com.vivid.feature.chat.youtube.YoutubeChatReader
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.delay
@@ -28,6 +30,8 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class ChatOverlayViewModel @Inject constructor(
     private val chatReader: TwitchChatEventSubReader,
+    /** YouTube-Lese-Adapter (P1, Multi-Plattform-Chat): anonymes innertube-Polling. */
+    private val youtubeReader: YoutubeChatReader,
     private val settingsRepository: SettingsRepository,
     private val badgeClient: TwitchBadgeClient,
     private val emoteService: ThirdPartyEmoteService,
@@ -49,6 +53,14 @@ class ChatOverlayViewModel @Inject constructor(
         val channel: String = "",
         /** Bot-Login + OAuth-Token + Client-ID gesetzt? EventSub braucht einen Token. */
         val configured: Boolean = false,
+        /**
+         * YouTube-Kanal-ID (UC…), für die der gemergte YouTube-Chat liest
+         * (leer = YouTube nicht aktiv). Teil des Kontext-Wechsels: Wechselt
+         * sie, werden die gemergten Nachrichten geleert.
+         */
+        val youtubeChannelId: String = "",
+        /** Verbindungsstatus der YouTube-Session (P1, Multi-Plattform-Chat). */
+        val youtubeConnection: ChatConnectionState = ChatConnectionState.Disconnected,
         val messages: List<ChatMessage> = emptyList(),
         val connection: ChatConnectionState = ChatConnectionState.Disconnected,
         /**
@@ -125,8 +137,21 @@ class ChatOverlayViewModel @Inject constructor(
                 val configured = settings.chatBotLogin.isNotBlank() &&
                     settings.chatBotOauthToken.isNotBlank() &&
                     settings.chatBotTwitchClientId.isNotBlank()
+                // YouTube-Session (P1): eigene Enable/ID — unabhängig von der
+                // Twitch-Konfiguration, Nachrichten werden im selben Overlay
+                // gemergt (platform je Nachricht).
+                val youtubeId = settings.youtubeChannelId.trim()
+                val youtubeActive = settings.youtubeChatEnabled && youtubeId.isNotBlank()
                 val previous = _uiState.value
                 val contextChanged = previous.enabled != enabled || previous.channel != channel
+                val youtubeContextChanged =
+                    previous.youtubeChannelId != youtubeId || previous.enabled != enabled
+
+                if (youtubeActive) {
+                    youtubeReader.start(youtubeId)
+                } else {
+                    youtubeReader.stop()
+                }
 
                 if (enabled && channel.isNotBlank() && configured) {
                     val config = TwitchEventSubConfig(
@@ -162,7 +187,13 @@ class ChatOverlayViewModel @Inject constructor(
                         enabled = enabled,
                         channel = channel,
                         configured = configured,
-                        messages = if (contextChanged) emptyList() else it.messages,
+                        youtubeChannelId = if (youtubeActive) youtubeId else "",
+                        youtubeConnection = if (youtubeActive) {
+                            youtubeReader.state.value
+                        } else {
+                            ChatConnectionState.Disconnected
+                        },
+                        messages = if (contextChanged || youtubeContextChanged) emptyList() else it.messages,
                         // Bei Kanalwechsel/Deaktivierung erst einmal leeren — die
                         // neuen Badges kommen asynchron mit dem nächsten Load.
                         badges = if (contextChanged) emptyMap() else it.badges,
@@ -200,6 +231,21 @@ class ChatOverlayViewModel @Inject constructor(
                 _uiState.update { state ->
                     state.copy(messages = (state.messages + message).takeLast(MAX_MESSAGES))
                 }
+            }
+        }
+        // YouTube-Nachrichten (P1, Multi-Plattform-Chat) in denselben UI-State
+        // mergen — das Overlay rendert im Eingangszeitpunkt mit Plattform-Badge.
+        viewModelScope.launch {
+            youtubeReader.messages.collect { message ->
+                _uiState.update { state ->
+                    state.copy(messages = (state.messages + message).takeLast(MAX_MESSAGES))
+                }
+            }
+        }
+        // YouTube-Verbindungsstatus durchreichen (Badge-Indikator folgt mit P3).
+        viewModelScope.launch {
+            youtubeReader.state.collect { connection ->
+                _uiState.update { it.copy(youtubeConnection = connection) }
             }
         }
         // Event-Alerts aufnehmen (begrenzt) und nach Ablauf der TTL wieder
@@ -306,5 +352,6 @@ class ChatOverlayViewModel @Inject constructor(
 
     override fun onCleared() {
         chatReader.stop()
+        youtubeReader.stop()
     }
 }

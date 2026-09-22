@@ -68,6 +68,25 @@ fun SettingsOverlaysScreen(
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
         )
+        // YouTube-Chat (Multi-Plattform-Chat, P1): Kanal-ID + Toggle — gelesen
+        // wird anonym über innertube-Polling, kein OAuth nötig.
+        OutlinedTextField(
+            value = uiState.youtubeChannelId,
+            onValueChange = viewModel::onYoutubeChannelIdChange,
+            label = { Text(stringResource(R.string.overlays_youtube_channel_label)) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(stringResource(R.string.overlays_youtube_chat_enabled), modifier = Modifier.weight(1f))
+            Switch(
+                checked = uiState.youtubeChatEnabled,
+                onCheckedChange = viewModel::onYoutubeChatEnabledChange,
+            )
+        }
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,

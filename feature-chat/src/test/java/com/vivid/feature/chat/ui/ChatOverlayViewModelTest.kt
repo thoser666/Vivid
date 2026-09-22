@@ -8,11 +8,14 @@ import com.vivid.feature.chat.model.ChatAlertType
 import com.vivid.feature.chat.model.ChatBadge
 import com.vivid.feature.chat.model.ChatConnectionState
 import com.vivid.feature.chat.model.ChatSharedChatState
+import com.vivid.feature.chat.session.ChatSessionConfig
 import com.vivid.feature.chat.model.ChatMessage
+import com.vivid.feature.chat.model.ChatPlatform
 import com.vivid.feature.chat.emotes.ThirdPartyEmoteService
 import com.vivid.feature.chat.twitch.TwitchBadgeClient
 import com.vivid.feature.chat.twitch.TwitchChatEventSubReader
 import com.vivid.feature.chat.twitch.TwitchEventSubConfig
+import com.vivid.feature.chat.youtube.YoutubeChatReader
 import io.mockk.Runs
 import io.mockk.coEvery
 import io.mockk.every
@@ -72,6 +75,14 @@ class ChatOverlayViewModelTest {
 
     private fun emoteService(): ThirdPartyEmoteService = ThirdPartyEmoteService()
 
+    private fun youtubeReader(): YoutubeChatReader = mockk {
+        every { messages } returns MutableSharedFlow<ChatMessage>(extraBufferCapacity = 64)
+        every { state } returns MutableStateFlow<ChatConnectionState>(ChatConnectionState.Disconnected)
+        every { start(any<String>()) } just Runs
+        every { start(any<ChatSessionConfig>()) } just Runs
+        every { stop() } just Runs
+    }
+
     private fun settings(
         enabled: Boolean = true,
         channel: String = "kanal",
@@ -114,6 +125,7 @@ class ChatOverlayViewModelTest {
         reader: TwitchChatEventSubReader = reader(),
     ) = ChatOverlayViewModel(
         chatReader = reader,
+        youtubeReader = youtubeReader(),
         settingsRepository = repository(settings),
         badgeClient = badgeClient(),
         emoteService = emoteService(),
@@ -317,4 +329,74 @@ class ChatOverlayViewModelTest {
         advanceUntilIdle()
         assertEquals(ChatSharedChatState.Inactive, vm.uiState.value.sharedChat)
     }
+    // --- YouTube-Merge (P1, Multi-Plattform-Chat) ---
+
+    @Test
+    fun `youtube messages merge into the same overlay state`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val ytMessages = MutableSharedFlow<ChatMessage>(extraBufferCapacity = 64)
+        val ytState = MutableStateFlow<ChatConnectionState>(ChatConnectionState.Disconnected)
+        val yt = mockk<YoutubeChatReader> {
+            every { messages } returns ytMessages
+            every { state } returns ytState
+            every { start(any<String>()) } just Runs
+            every { start(any<ChatSessionConfig>()) } just Runs
+            every { stop() } just Runs
+        }
+        val vm = ChatOverlayViewModel(
+            chatReader = reader(),
+            youtubeReader = yt,
+            settingsRepository = repository(MutableStateFlow(settings())),
+            badgeClient = badgeClient(),
+            emoteService = emoteService(),
+        )
+        advanceUntilIdle()
+        // Settings: youtubeChatEnabled=false (Default) -> Reader gestoppt.
+        io.mockk.verify { yt.stop() }
+
+        // YouTube-Nachricht mergt in denselben messages-State.
+        ytMessages.tryEmit(
+            ChatMessage(
+                id = "yt-1", channel = "UCme", userId = "UCauthor",
+                userLogin = "Bergsteiger", displayName = "Bergsteiger", color = null,
+                text = "Hallo vom Berg", badges = emptyList(), emotesTag = "",
+                timestamp = 42L, isModerator = false, isSubscriber = false,
+                platform = ChatPlatform.YOUTUBE,
+            ),
+        )
+        advanceUntilIdle()
+        val state = vm.uiState.value
+        assertEquals(1, state.messages.size)
+        assertEquals(ChatPlatform.YOUTUBE, state.messages[0].platform)
+        io.mockk.verify(exactly = 0) { yt.start(any<String>()) }
+    }
+
+    @Test
+    fun `youtube reader starts on enabled setting and stops on disable`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val settings = MutableStateFlow(
+            settings().copy(youtubeChatEnabled = true, youtubeChannelId = "UCme"),
+        )
+        val yt = mockk<YoutubeChatReader> {
+            every { messages } returns MutableSharedFlow<ChatMessage>(extraBufferCapacity = 64)
+            every { state } returns MutableStateFlow<ChatConnectionState>(ChatConnectionState.Disconnected)
+            every { start(any<String>()) } just Runs
+            every { start(any<ChatSessionConfig>()) } just Runs
+            every { stop() } just Runs
+        }
+        val vm = ChatOverlayViewModel(
+            chatReader = reader(),
+            youtubeReader = yt,
+            settingsRepository = repository(settings),
+            badgeClient = badgeClient(),
+            emoteService = emoteService(),
+        )
+        advanceUntilIdle()
+        io.mockk.verify { yt.start("UCme") }
+        // Deaktivieren -> stop().
+        settings.value = settings.value.copy(youtubeChatEnabled = false)
+        advanceUntilIdle()
+        io.mockk.verify { yt.stop() }
+    }
+
 }

@@ -264,12 +264,20 @@ class SettingsRepositoryTest {
         val repository = SettingsRepository(testDataStore)
 
         // Act
-        repository.updateChatSettings(channel = "meinKanal", overlayEnabled = true)
+        repository.updateChatSettings(
+            channel = "meinKanal",
+            overlayEnabled = true,
+            youtubeChannelId = " UCme123 ",
+            youtubeChatEnabled = true,
+        )
         val settings = repository.appSettingsFlow.first()
 
         // Assert
         assertEquals("meinKanal", settings.chatChannel)
         assertEquals(true, settings.chatOverlayEnabled)
+        // YouTube-Chat (P1): ID wird getrimmt gespeichert.
+        assertEquals("UCme123", settings.youtubeChannelId)
+        assertEquals(true, settings.youtubeChatEnabled)
         // Andere Bereiche bleiben unberührt.
         assertEquals("", settings.streamUrl)
         assertEquals("localhost", settings.obsHost)

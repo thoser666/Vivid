@@ -149,6 +149,9 @@ class SettingsScreensRobolectricTest {
         }
         composeRule.onNodeWithText("Overlays & Widgets").assertIsDisplayed()
         composeRule.onNodeWithText("Chat overlay").assertIsDisplayed()
+        // YouTube-Feld (P1) verlängert die Chat-Sektion — Widget-Titel liegt
+        // jetzt unter dem Falz, also hinscrollen (Muster Template-Test).
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Text/info widget"))
         composeRule.onNodeWithText("Text/info widget").assertIsDisplayed()
     }
 

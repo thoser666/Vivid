@@ -173,6 +173,8 @@ class SettingsViewModel @Inject constructor(
     // Chat-Overlay-Einstellungen.
     fun onChatChannelChange(newChannel: String) { _uiState.value = _uiState.value.copy(chatChannel = newChannel) }
     fun onChatOverlayEnabledChange(newEnabled: Boolean) { _uiState.value = _uiState.value.copy(chatOverlayEnabled = newEnabled) }
+    fun onYoutubeChannelIdChange(newId: String) { _uiState.value = _uiState.value.copy(youtubeChannelId = newId) }
+    fun onYoutubeChatEnabledChange(newEnabled: Boolean) { _uiState.value = _uiState.value.copy(youtubeChatEnabled = newEnabled) }
 
     // Twitch-Kanalinformationen (Helix): Viewerzahl sowie Titel/Kategorie.
     fun onTwitchChannelOauthTokenChange(newValue: String) { _uiState.value = _uiState.value.copy(twitchChannelOauthToken = newValue) }
@@ -358,6 +360,8 @@ class SettingsViewModel @Inject constructor(
             settingsRepository.updateChatSettings(
                 channel = currentSettings.chatChannel,
                 overlayEnabled = currentSettings.chatOverlayEnabled,
+                youtubeChannelId = currentSettings.youtubeChannelId,
+                youtubeChatEnabled = currentSettings.youtubeChatEnabled,
             )
             settingsRepository.updateTwitchChannelSettings(
                 channel = currentSettings.chatChannel,

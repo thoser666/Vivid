@@ -181,12 +181,17 @@ Wenn dein Gerät mehrere Kameras hat (z. B. Ultraweit/Weit/Tele):
 ## 7. Chat-Overlay
 
 Das Twitch-Chat-Overlay zeigt den Chat deines Kanals **über der Streaming-Vorschau**.
+Optional lässt sich zusätzlich der Live-Chat eines YouTube-Kanals einblenden (Multi-
+Plattform-Chat, Phase P1) — beide Chats laufen gemergt in dasselbe Overlay.
 
 ### 7.1 Aktivieren
 
 1. **Einstellungen** → **„Overlays & Widgets"**
 2. **Chat-Overlay** einschalten
 3. **Chat-Kanal** eintragen (dein Twitch-Kanalname, z. B. `thoser666`)
+4. Optional: **YouTube-Chat** einschalten und die **YouTube-Kanal-ID** (`UC…`)
+   eintragen — der Live-Chat wird anonym gelesen (kein OAuth) und im selben
+   Overlay gemergt; YouTube-Nachrichten tragen ein rotes ▶-Plattform-Badge.
 
 ### 7.2 Was du brauchst
 
@@ -328,7 +333,7 @@ Der Einstellungen-Screen ist in sechs Kategorien gegliedert (wie Moblin):
 |---|---|
 | 🎬 **Streaming & OBS** | Stream-URL/-Key, Plattform-Vorlagen (Twitch/YouTube/Kick/Custom), Multi-Streaming, OBS-Verbindung (Host/Port/Passwort/TLS/QR-Import) |
 | 🎨 **Darstellung** | Design-Modus (System/Hell/Dunkel/AMOLED) + Akzentfarbe (6 kuratierte Farben, Vivid-Grün als Standard) |
-| 🧩 **Overlays & Widgets** | Twitch-Chat-Overlay (Kanal + Toggle), Text-/Info-Widget (Zeit/GPS/Geschwindigkeit/Höhenmeter — je mit Toggle + Runtime-Permission; eigener Template-Text mit Variablen wie `{time}`, `{speed}`, `{road}`, `{city}`, `{country}` — Ortsnamen werden automatisch per Reverse-Geocoding ermittelt und zwischengespeichert) |
+| 🧩 **Overlays & Widgets** | Twitch-Chat-Overlay (Kanal + Toggle; optional YouTube-Chat gemergt, anonym gelesen), Text-/Info-Widget (Zeit/GPS/Geschwindigkeit/Höhenmeter — je mit Toggle + Runtime-Permission; eigener Template-Text mit Variablen wie `{time}`, `{speed}`, `{road}`, `{city}`, `{country}` — Ortsnamen werden automatisch per Reverse-Geocoding ermittelt und zwischengespeichert) |
 | 💬 **Chat-Bot & KI** | Betriebsmodus, Bot-Konto (Login/Token/Client-ID), LLM-Endpunkt/Key/Modell/Prompt, Cooldown, Mentions-only, Rate-Limit, Limits + Presets, Owner-Zugriff (Allow-List + Owner-KI), Media-Befehle, Benachrichtigungszugriff |
 | 🔒 **Remote & Datenschutz** | Web-Remote-Control (Token + LAN-Zugriff), Sentry-Fehlerberichte (Opt-out-Toggle) |
 | ℹ️ **Über & Updates** | Version, Update-Badge, manuelle Update-Suche (GitHub Releases), Release-Notes |

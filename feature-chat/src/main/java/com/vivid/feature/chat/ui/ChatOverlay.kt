@@ -48,6 +48,7 @@ import com.vivid.feature.chat.model.ChatBadge
 import com.vivid.feature.chat.model.ChatConnectionState
 import com.vivid.core.data.ChatOverlayPosition
 import com.vivid.feature.chat.model.ChatMessage
+import com.vivid.feature.chat.model.ChatPlatform
 import com.vivid.feature.chat.model.ChatSharedChatState
 import com.vivid.feature.chat.model.InlineEmote
 
@@ -354,6 +355,26 @@ private fun ChatMessageRow(
                     contentScale = ContentScale.Fit,
                 )
             }
+        }
+        // Plattform-Badge (Multi-Plattform-Chat, P1): Farbchip + Icon vor dem
+        // Username — Twitch (Standard) bleibt ohne Badge, damit bestehende
+        // Overlays unverändert aussehen.
+        if (message.platform != ChatPlatform.TWITCH) {
+            val (chipColor, label) = when (message.platform) {
+                ChatPlatform.YOUTUBE -> Color(0xFFFF0033) to "▶"
+                ChatPlatform.KICK -> Color(0xFF53FC18) to "K"
+                ChatPlatform.TWITCH -> Color.White to ""
+            }
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = fontSize * 0.75f),
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(3.dp))
+                    .background(chipColor)
+                    .padding(horizontal = 3.dp),
+            )
         }
         // Username (direkt nach den Badges)
         val displayName = if (message.isAction) "* ${message.displayName}" else message.displayName

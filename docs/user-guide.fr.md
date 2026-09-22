@@ -180,12 +180,17 @@ Si votre appareil possède plusieurs caméras (par ex. ultra-grand angle/grand a
 ## 7. Overlay de chat
 
 L'overlay de chat Twitch affiche le chat de ta chaîne **au-dessus de l'aperçu du stream**.
+Optionnel : le chat live d'une chaîne YouTube peut être ajouté (chat multi-plateforme,
+phase P1) — les deux chats sont fusionnés dans le même overlay.
 
 ### 7.1 Activer
 
 1. **Paramètres** → **« Overlays & widgets »**
 2. Activer **l'overlay de chat**
 3. Saisir le **canal de chat** (ton nom de chaîne Twitch, p. ex. `thoser666`)
+4. Optionnel : activer **le chat YouTube** et saisir l'**ID de chaîne YouTube** (`UC…`)
+   — le chat live est lu anonymement (pas d'OAuth) et fusionné dans le même overlay ;
+   les messages YouTube portent un badge de plateforme rouge ▶.
 
 ### 7.2 Ce qu'il te faut
 

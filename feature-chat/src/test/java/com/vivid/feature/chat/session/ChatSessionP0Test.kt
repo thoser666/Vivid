@@ -80,11 +80,14 @@ class ChatSessionP0Test {
     }
 
     @Test
-    fun `session config is sealed to twitch only in p0`() {
+    fun `session config is sealed to known platforms only`() {
         // Sealed-Exhaustivität: der Adapter-Dispatch (`as? Twitch ?: throw`)
         // ist in P0 totsicher — keine Fremd-Variante kann von außen entstehen
         // (anonyme/externe Unterklassen scheitern an der Sealed-Grenze).
-        assertEquals(listOf("Twitch"), ChatSessionConfig::class.sealedSubclasses.map { it.simpleName })
+        assertEquals(
+            listOf("Twitch", "Youtube"),
+            ChatSessionConfig::class.sealedSubclasses.map { it.simpleName },
+        )
     }
 
     @Test

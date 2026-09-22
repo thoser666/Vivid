@@ -19,6 +19,12 @@ data class AppSettings(
     val chatChannel: String = "",
     // Zeigt das Chat-Overlay über der Streaming-Vorschau.
     val chatOverlayEnabled: Boolean = false,
+    // --- YouTube-Chat (Multi-Plattform-Chat, P1) ---
+    // YouTube-Kanal-ID (UC…) für den gemergten Chat — Lesen läuft anonym
+    // über innertube-Polling, kein Token nötig. Leer = aus.
+    val youtubeChannelId: String = "",
+    // Bindet den YouTube-Chat zusätzlich in das Chat-Overlay ein.
+    val youtubeChatEnabled: Boolean = false,
     // --- Chat-Bot (KI) ---
     // Schaltet den automatischen KI-Chat-Bot ein (verbindet sich bei Streamstart).
     val chatBotEnabled: Boolean = false,

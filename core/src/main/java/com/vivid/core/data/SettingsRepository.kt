@@ -26,6 +26,8 @@ class SettingsRepository @Inject constructor(
         val OBS_USE_TLS = booleanPreferencesKey("obs_use_tls")
         val CHAT_CHANNEL = stringPreferencesKey("chat_channel")
         val CHAT_OVERLAY_ENABLED = booleanPreferencesKey("chat_overlay_enabled")
+        val YOUTUBE_CHANNEL_ID = stringPreferencesKey("youtube_chat_channel_id")
+        val YOUTUBE_CHAT_ENABLED = booleanPreferencesKey("youtube_chat_enabled")
         val CHAT_BOT_ENABLED = booleanPreferencesKey("chat_bot_enabled")
         val CHAT_BOT_API_BASE_URL = stringPreferencesKey("chat_bot_api_base_url")
         val CHAT_BOT_API_KEY = stringPreferencesKey("chat_bot_api_key")
@@ -140,6 +142,8 @@ class SettingsRepository @Inject constructor(
             ChatPrefs(
                 channel = prefs[PrefKeys.CHAT_CHANNEL] ?: "",
                 overlayEnabled = prefs[PrefKeys.CHAT_OVERLAY_ENABLED] ?: false,
+                youtubeChannelId = prefs[PrefKeys.YOUTUBE_CHANNEL_ID] ?: "",
+                youtubeChatEnabled = prefs[PrefKeys.YOUTUBE_CHAT_ENABLED] ?: false,
                 twitchChannelOauthToken = prefs[PrefKeys.TWITCH_CHANNEL_OAUTH_TOKEN] ?: "",
                 twitchStreamTitle = prefs[PrefKeys.TWITCH_STREAM_TITLE] ?: "",
                 twitchStreamCategory = prefs[PrefKeys.TWITCH_STREAM_CATEGORY] ?: "",
@@ -231,6 +235,8 @@ class SettingsRepository @Inject constructor(
             obsUseTls = obsData.useTls,
             chatChannel = chatData.channel,
             chatOverlayEnabled = chatData.overlayEnabled,
+            youtubeChannelId = chatData.youtubeChannelId,
+            youtubeChatEnabled = chatData.youtubeChatEnabled,
             chatBotEnabled = chatBotData.enabled,
             chatBotApiBaseUrl = chatBotData.apiBaseUrl,
             chatBotApiKey = chatBotData.apiKey,
@@ -380,10 +386,17 @@ class SettingsRepository @Inject constructor(
         }
     }
 
-    suspend fun updateChatSettings(channel: String, overlayEnabled: Boolean) {
+    suspend fun updateChatSettings(
+        channel: String,
+        overlayEnabled: Boolean,
+        youtubeChannelId: String = "",
+        youtubeChatEnabled: Boolean = false,
+    ) {
         dataStore.edit { prefs ->
             prefs[PrefKeys.CHAT_CHANNEL] = channel
             prefs[PrefKeys.CHAT_OVERLAY_ENABLED] = overlayEnabled
+            prefs[PrefKeys.YOUTUBE_CHANNEL_ID] = youtubeChannelId.trim()
+            prefs[PrefKeys.YOUTUBE_CHAT_ENABLED] = youtubeChatEnabled
         }
     }
 
@@ -475,6 +488,8 @@ class SettingsRepository @Inject constructor(
     private data class ChatPrefs(
         val channel: String,
         val overlayEnabled: Boolean,
+        val youtubeChannelId: String,
+        val youtubeChatEnabled: Boolean,
         val twitchChannelOauthToken: String,
         val twitchStreamTitle: String,
         val twitchStreamCategory: String,
