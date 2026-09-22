@@ -101,6 +101,13 @@
     <meta-data android:name="io.sentry.traces.sample-rate" android:value="1.0" />
 
 
+
+        <!-- Startup-Safe-Mode-Diagnose (Crash-Schleife): keine Intent-
+             Filter, nur programmatisch aus MainActivity erreichbar. -->
+        <activity
+            android:name=".irlbroadcaster.CrashDiagnosticsActivity"
+            android:exported="false"
+            android:label="@string/crash_diag_title" />
 </application>
 
 </manifest>

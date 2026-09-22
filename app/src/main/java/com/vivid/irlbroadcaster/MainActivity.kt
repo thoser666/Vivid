@@ -21,6 +21,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.vivid.BuildConfig
+import com.vivid.core.startup.CrashLoopGuard
 import com.vivid.core.data.AppSettings
 import com.vivid.core.data.SettingsRepository
 import com.vivid.core.data.ThemeMode
@@ -53,6 +54,9 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var settingsRepository: SettingsRepository
+
+    @Inject
+    lateinit var crashLoopGuard: CrashLoopGuard
 
     @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -90,6 +94,21 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Startup-Safe-Mode (Crash-Schleife): Die Application hat beim
+        // Start entschieden, dass dieser Versuch die volle UI nicht
+        // versuchen soll - sofort in die Diagnose-Activity weiterleiten.
+        // (RESUMED heisst: Die UI WAR erreicht - danach Reset des
+        // Crash-Schleifen-Zaehlers, siehe CrashLoopPolicy.onUiReached.)
+        if (CrashSafeModeState.active) {
+            startActivity(android.content.Intent(this, CrashDiagnosticsActivity::class.java))
+            finish()
+            return
+        }
+        crashLoopGuard.markUiReached()
     }
 }
 

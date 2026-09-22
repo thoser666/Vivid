@@ -82,4 +82,12 @@
     <string name="notif_channel_desc">Shows the live-stream status while Vivid is streaming.</string>
     <string name="notif_stop_action">Stop stream</string>
     <string name="app_logo_content_desc">Vivid streaming app logo</string>
+    <string name="crash_diag_title">Vivid startup problems</string>
+    <string name="crash_diag_intro">Vivid failed to start twice in a row. Below is the last stored crash — please send it to the developer (share button below).</string>
+    <string name="crash_diag_empty">No stored crash found.</string>
+    <string name="crash_diag_version">Version: %1$s (build %2$d)</string>
+    <string name="crash_diag_copy">Copy to clipboard</string>
+    <string name="crash_diag_copied">Crash copied</string>
+    <string name="crash_diag_share">Share crash report</string>
+    <string name="crash_diag_retry">Try full startup</string>
 </resources>

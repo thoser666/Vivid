@@ -11,6 +11,8 @@ import com.vivid.core.log.LogBuffer
 import com.vivid.core.log.LogBufferTree
 import com.vivid.core.log.LogStore
 import com.vivid.core.startup.CrashAdvisoryReporter
+import com.vivid.core.startup.CrashLoopGuard
+import com.vivid.core.startup.CrashLoopPolicy
 import com.vivid.core.remote.RemoteControlServer
 import dagger.hilt.android.HiltAndroidApp
 import io.sentry.android.core.SentryAndroid
@@ -37,6 +39,9 @@ class VividApplication : Application(), ImageLoaderFactory {
 
     @Inject
     lateinit var logStore: LogStore
+
+    @Inject
+    lateinit var crashLoopGuard: CrashLoopGuard
 
     // Fehlertoleranter Hintergrund-Scope: Start-Jobs (Log-Retention, Sentry-
     // Spiegel, Remote-Control-Server) dürfen den Prozess nie crashen. Der
@@ -70,6 +75,19 @@ class VividApplication : Application(), ImageLoaderFactory {
 
     override fun onCreate() {
         super.onCreate()
+        // Startup-Safe-Mode (Crash-Schleifen-Erkennung): Vor allem anderen
+        // die Frage beantworten, ob dieser Start ueberhaupt die volle UI
+        // versuchen darf. Bei SAFE_MODE wird die Diagnose-Activity per
+        // CrashSafeModeState aktiviert und der schwergewichtige Rest
+        // (Sentry, Remote-Control-Server) uebersprungen - die Diagnose
+        // bleibt so unabhaengig von jeder moeglichen Crash-Ursache.
+        val attempts = crashLoopGuard.currentAttempts()
+        val safeMode = CrashLoopPolicy.decide(attempts) ==
+            CrashLoopPolicy.Decision.SAFE_MODE
+        CrashSafeModeState.active = safeMode
+        if (!safeMode) {
+            crashLoopGuard.recordAttempt()
+        }
         // In-App-Log: Timber-Trees pflanzen, damit die vorhandenen Timber.*-Aufrufe
         // erstmals wirksam werden. DebugTree schreibt in Debug-Builds nach Logcat,
         // LogBufferTree hält die letzten 500 Zeilen (geschwärzt) für den In-App-Viewer
@@ -104,7 +122,7 @@ class VividApplication : Application(), ImageLoaderFactory {
         //  - beforeSend → verwirft alle Events, wenn der Nutzer das
         //    Fehler-Reporting in den Settings deaktiviert hat (Opt-out)
         //  - FOSS_BUILD → kein Sentry für F-Droid (kein Tracking, kein Telemetry)
-        if (!BuildConfig.FOSS_BUILD) {
+        if (!BuildConfig.FOSS_BUILD && !safeMode) {
             SentryAndroid.init(this) { options ->
                 // JavaBean-Accessor: isSendDefaultPii (keine IP-/Gerätename-Erhebung)
                 options.isSendDefaultPii = false
@@ -121,10 +139,13 @@ class VividApplication : Application(), ImageLoaderFactory {
             Timber.i("FOSS build - Sentry disabled for F-Droid compliance")
         }
         // Web-Remote-Control über LAN starten — fehlertolerant, damit ein
-        // Port-Konflikt die App nicht crashen lässt.
-        applicationScope.launch {
-            runCatching { remoteControlServer.start() }
-                .onFailure { Timber.e(it, "Web-Remote-Control-Server konnte nicht gestartet werden") }
+        // Port-Konflikt die App nicht crashen lässt. Im Safe-Mode
+        // uebersprungen (Diagnose braucht keinen Server).
+        if (!safeMode) {
+            applicationScope.launch {
+                runCatching { remoteControlServer.start() }
+                    .onFailure { Timber.e(it, "Web-Remote-Control-Server konnte nicht gestartet werden") }
+            }
         }
     }
 }
