@@ -9,6 +9,17 @@ Alle Änderungen an Vivid — **automatisch aus den GitHub-Releases gespiegelt**
 - 🎯 Feature-Tracking: [PARITY.md](PARITY.md)
 
 <!-- CHANGELOG-START -->
+## 🟡 **Beta** v0.5.17-beta — 2026-09-22
+
+[GitHub-Release](https://github.com/thoser666/Vivid/releases/tag/v0.5.17-beta)
+
+## What's Changed
+* docs: Update CHANGELOG from GitHub releases by @thoser666 in https://github.com/thoser666/Vivid/pull/195
+* chore: update F-Droid repository by @thoser666 in https://github.com/thoser666/Vivid/pull/196
+
+
+**Full Changelog**: https://github.com/thoser666/Vivid/compare/nightly-20260922-110219...v0.5.17-beta
+
 ## 🌙 **Nightly** 0.5.16-nightly.364 — 2026-09-22
 
 [GitHub-Release](https://github.com/thoser666/Vivid/releases/tag/nightly-20260922-110219)
