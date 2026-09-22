@@ -64,9 +64,9 @@ Description: |-
 UpdateCheckMode: Tags
 
 Builds:
-  - versionName: 0.5.14-beta
-    versionCode: 5142
-    commit: v0.5.14-beta
+  - versionName: 0.5.17-beta
+    versionCode: 5172
+    commit: v0.5.17-beta
     gradle:
       - assembleFossRelease
     output: app-foss-release.apk
