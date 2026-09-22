@@ -10,6 +10,7 @@ import com.vivid.core.data.SettingsRepository
 import com.vivid.core.log.LogBuffer
 import com.vivid.core.log.LogBufferTree
 import com.vivid.core.log.LogStore
+import com.vivid.core.startup.CrashAdvisoryReporter
 import com.vivid.core.remote.RemoteControlServer
 import dagger.hilt.android.HiltAndroidApp
 import io.sentry.android.core.SentryAndroid
@@ -78,6 +79,14 @@ class VividApplication : Application(), ImageLoaderFactory {
         }
         val logBufferTree = LogBufferTree(logBuffer, store = logStore)
         Timber.plant(logBufferTree)
+        // Crash-Advisory (versionsgebundene, bekannte Crash-Kandidaten):
+        // Beim Start gegen die installierte Version pruefen und bei Treffer
+        // deutlich (CRASH-markiert) ins In-App-Log melden - direkt nach dem
+        // Log-Aufbau, fehlertolerant (runCatching), damit die Diagnose selbst
+        // Diagnose selbst niemals zum Startabsturz wird.
+        runCatching {
+            CrashAdvisoryReporter(logBuffer).reportIfAny(BuildConfig.VERSION_CODE)
+        }
         // Abstürze deutlich markiert ins In-App-Log schreiben (isCrash), bevor der
         // vorherige Handler (Sentry) den Crash übernimmt — so bleiben sie auswertbar.
         val previousHandler = Thread.getDefaultUncaughtExceptionHandler()

@@ -1,0 +1,89 @@
+package com.vivid.core.startup
+
+/**
+ * Ein bekannter, versionsgebundener Crash-Kandidat.
+ *
+ * Einträge beschreiben einen geschlossenen versionCode-Bereich ([minVersionCode]
+ * bis [maxVersionCode], beide inklusiv), in dem eine veröffentlichte Vivid-
+ * Version einen bekannten Absturz trägt. Sie werden **pro Release gepflegt**:
+ * Fliest der Fix in Build N, verschiebt sich [maxVersionCode] auf N-1 bzw. der
+ * Eintrag wird entfernt, sobald keine unterstützte Version mehr in der Range
+ * liegt.
+ *
+ * Die Registry ist bewusst **leer startend** — ein Eintrag wird erst gesetzt,
+ * wenn ein Crash real identifiziert ist (z. B. über Sentry/In-App-Log), nie
+ * spekulativ.
+ */
+data class KnownCrashCandidate(
+    /** Stabile Kurz-ID für Logs/Suche, z. B. `S23-STARTUP-BIND`. */
+    val id: String,
+
+    /** Menschliche Beschreibung des Absturzes (erscheint im In-App-Log). */
+    val description: String,
+
+    /** Erster (inklusiver) versionCode, der den Crash trägt. */
+    val minVersionCode: Int,
+
+    /** Letzter (inklusiver) versionCode, der den Crash trägt. */
+    val maxVersionCode: Int,
+
+    /** Optionaler Handlungshinweis für den Nutzer (z. B. „auf Build ≥ N aktualisieren"). */
+    val workaround: String? = null,
+)
+
+/**
+ * Ergebnis der Start-Prüfung: Ein [KnownCrashCandidate] trifft auf die
+ * installierte Version zu und soll beim App-Start gemeldet werden.
+ */
+data class CrashAdvisory(
+    val candidate: KnownCrashCandidate,
+    val installedVersionCode: Int,
+) {
+    /** Mehrzeilige, deutliche Meldung für das In-App-Log (WARN). */
+    fun reportMessage(): String = buildString {
+        append("⚠ Crash-Advisory [").append(candidate.id).append("]: ")
+        append(candidate.description)
+        append(" (installierter versionCode ").append(installedVersionCode)
+        append(" in betroffenem Bereich ")
+        append(candidate.minVersionCode).append("..").append(candidate.maxVersionCode)
+        append(")")
+        candidate.workaround?.let { append(" — ").append(it) }
+    }
+}
+
+/**
+ * Start-Entscheidung (pure, ohne Android): Liefert den ersten bekannten
+ * Crash-Kandidaten, dessen versionCode-Bereich die installierte Version
+ * einschließt — oder `null`, wenn diese Version sauber ist.
+ *
+ * Bei überlappenden Kandidaten gewinnt der **erste** in der Liste (die
+ * Registry ist handgepflegt und klein; Reihenfolge = Priorität).
+ */
+object CrashAdvisoryRegistry {
+
+    /**
+     * Bekannte Crash-Kandidaten der aktuellen Release-Generation. **Leer**
+     * bedeutet: keine identifizierten versionengebundenen Crashes. Erster
+     * Eintrag entsteht, sobald ein realer Crash (Sentry, In-App-Log des
+     * Nutzers) einer Version zugeordnet ist — der auskommentierte Bauplan
+     * zeigt das Format.
+     */
+    val KNOWN: List<KnownCrashCandidate> = listOf(
+        // Bauplan (bewusst auskommentiert — keine spekulativen Einträge):
+        // KnownCrashCandidate(
+        //     id = "EXAMPLE-STARTUP-CRASH",
+        //     description = "Absturz beim Start auf <Geräteklasse>, Ursache <kurz>",
+        //     minVersionCode = 5080,
+        //     maxVersionCode = 5090,
+        //     workaround = "Auf Build ≥ 5091 aktualisieren",
+        // ),
+    )
+
+    /** Reine Entscheidung: trifft [versionCode] einen Kandidaten? */
+    fun evaluate(
+        versionCode: Int,
+        candidates: List<KnownCrashCandidate> = KNOWN,
+    ): CrashAdvisory? = candidates
+        .firstOrNull { versionCode in it.minVersionCode..it.maxVersionCode }
+        ?.let { CrashAdvisory(it, versionCode) }
+}
