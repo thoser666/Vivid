@@ -53,6 +53,8 @@ echo "▶ [pre-push] PyPI-Drift-Workflow-Selbsttest (scripts/test_pypi_drift_wor
 bash scripts/test_pypi_drift_workflow.sh
 echo "▶ [pre-push] Play-Guard-Selbsttest (scripts/test_play_guard.sh)"
 bash scripts/test_play_guard.sh
+echo "▶ [pre-push] Sentry-Stats-Guard-Selbsttest (scripts/test_sentry_stats.sh)"
+bash scripts/test_sentry_stats.sh
 
 echo "▶ [pre-push] Stable-Distribution-Kadenz-Selbsttest (scripts/test_distribution_stable.sh)"
 bash scripts/test_distribution_stable.sh
