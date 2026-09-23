@@ -330,7 +330,7 @@ The settings screen is organized into six categories (like Moblin):
 | 🎨 **Appearance** | Theme mode (System/Light/Dark/AMOLED) + accent color (6 curated colors, Vivid Green as default) |
 | 🧩 **Overlays & Widgets** | Twitch chat overlay (channel + toggle; optional merged YouTube chat, read anonymously), text/info widget (time/GPS/speed/altitude — each with toggle + runtime permission; custom template text with variables like `{time}`, `{speed}`, `{road}`, `{city}`, `{country}` — placenames are resolved automatically via reverse geocoding and cached) |
 | 💬 **Chat Bot & AI** | Mode, bot account (login/token/client ID), LLM endpoint/key/model/prompt, cooldown, mentions-only, rate limit, limits + presets, owner access (allow-list + Owner AI), media commands, notification access |
-| 🔒 **Remote & Privacy** | Web remote control (token + LAN access, autostart toggle), Sentry error reports (opt-out toggle) |
+| 🔒 **Remote & Privacy** | Web remote control (token + LAN access, autostart toggle), Sentry error reports + error replay (opt-out toggle) |
 | ℹ️ **About & Updates** | Version, update badge, manual update check (GitHub Releases), release notes |
 
 ---

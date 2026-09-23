@@ -31,3 +31,20 @@ internal fun sentryBeforeSendCallback(
     SentryOptions.BeforeSendCallback { event, _ ->
         applySentryOptOut(event, isEnabled())
     }
+
+/**
+ * Baut den [SentryOptions.BeforeSendReplayCallback] für Session-Replay-Envelopes.
+ *
+ * Hintergrund: Replays sind **keine** Sentry-Events — der normale
+ * [SentryOptions.BeforeSendCallback] filtert sie nicht. Dieser Callback greift
+ * auf denselben [applySentryOptOut]-Stand zu, damit der Opt-out-Toggle
+ * („Fehlerberichte senden“) auch Replay-Envelopes verwirft. Er ist die dritte
+ * Verteidigungslinie neben den Rates ([com.vivid.core.startup.SentryReplayPolicy.plan])
+ * und der Laufzeit-Steuerung ([com.vivid.core.startup.SentryReplayPolicy.runtimeAction]).
+ */
+internal fun sentryBeforeSendReplayCallback(
+    isEnabled: () -> Boolean,
+): SentryOptions.BeforeSendReplayCallback =
+    SentryOptions.BeforeSendReplayCallback { event, _ ->
+        applySentryOptOut(event, isEnabled())
+    }

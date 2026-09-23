@@ -336,7 +336,7 @@ Der Einstellungen-Screen ist in sechs Kategorien gegliedert (wie Moblin):
 | 🎨 **Darstellung** | Design-Modus (System/Hell/Dunkel/AMOLED) + Akzentfarbe (6 kuratierte Farben, Vivid-Grün als Standard) |
 | 🧩 **Overlays & Widgets** | Twitch-Chat-Overlay (Kanal + Toggle; optional YouTube-Chat gemergt, anonym gelesen), Text-/Info-Widget (Zeit/GPS/Geschwindigkeit/Höhenmeter — je mit Toggle + Runtime-Permission; eigener Template-Text mit Variablen wie `{time}`, `{speed}`, `{road}`, `{city}`, `{country}` — Ortsnamen werden automatisch per Reverse-Geocoding ermittelt und zwischengespeichert) |
 | 💬 **Chat-Bot & KI** | Betriebsmodus, Bot-Konto (Login/Token/Client-ID), LLM-Endpunkt/Key/Modell/Prompt, Cooldown, Mentions-only, Rate-Limit, Limits + Presets, Owner-Zugriff (Allow-List + Owner-KI), Media-Befehle, Benachrichtigungszugriff |
-| 🔒 **Remote & Datenschutz** | Web-Remote-Control (Token + LAN-Zugriff, Autostart-Toggle), Sentry-Fehlerberichte (Opt-out-Toggle) |
+| 🔒 **Remote & Datenschutz** | Web-Remote-Control (Token + LAN-Zugriff, Autostart-Toggle), Sentry-Fehlerberichte + Error-Replay (Opt-out-Toggle) |
 | ℹ️ **Über & Updates** | Version, Update-Badge, manuelle Update-Suche (GitHub Releases), Release-Notes |
 
 ---

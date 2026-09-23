@@ -77,6 +77,7 @@ Das erste Overlay-Widget ist da (Zeit / GPS / Geschwindigkeit) — konfigurierba
 - **Doku:** docs/ai-chat-bot.md (EventSub/Helix-How-it-works, Owner-Befehle, Whisper-Setup, Troubleshooting), RELEASE.md (Token-Setup-Anleitung, Beta-Build-Checkliste, Secrets-Ablauf Play-Upload), PARITY.md (Beta-Gate 3/3)
 - **Aufräumen:** veraltete IRC-Scope-Referenzen (`chat:read`/`chat:edit`) aus Kommentaren und Settings-Label entfernt
 - **Multi-Plattform-Chat (Phase P1):** Der Chat-Overlay kann zusätzlich den YouTube-Live-Chat eines Kanals einblenden (Settings: Kanal-ID + Toggle) — gelesen wird anonym über innertube-Polling (kein OAuth, keine Quota), gemergt mit dem Twitch-Chat im selben Overlay; YouTube-Nachrichten tragen ein rotes ▶-Plattform-Badge. Contract-Tests frieren die innertube-Payload-Formen ein (drift-tolerant).
+- **Sentry Session Replay als Error-Replay:** Bei einem gemeldeten Fehler werden die letzten ~30 Sekunden vor dem Fehler mitgeschickt (lokal gepuffert, Texte/Bilder maskiert, Kamera-Vorschau bleibt schwarz) — ohne Fehler wird nichts aufgezeichnet. Gesteuert vom bestehenden Opt-out-Toggle (Rates + Buffering + separater Replay-Callback); FOSS-Build und Safe-Mode bleiben weiterhin ohne Sentry.
 - **gh-CLI-Flag-Guard:** Workflows können keine unbekannten `gh`-Flags mehr enthalten — jede Flag-Verwendung wird (Pre-Push-Gate + CI) gegen die lokale gh-CLI validiert. Auslöser: `gh release list --exclude-prereleases` (Tippfehler, richtig: `--exclude-pre-releases`) brach den F-Droid-Deploy-Job erst im CI-Lauf.
 
 ## 🧪 Testschwerpunkte für Alpha-Tester

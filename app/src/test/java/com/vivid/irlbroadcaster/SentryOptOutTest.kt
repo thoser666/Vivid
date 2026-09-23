@@ -2,6 +2,7 @@ package com.vivid.irlbroadcaster
 
 import io.sentry.Hint
 import io.sentry.SentryEvent
+import io.sentry.SentryReplayEvent
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Test
@@ -61,6 +62,24 @@ class SentryOptOutTest {
         // Toggle wird zur Laufzeit umgeschaltet — der nächste Aufruf verwirft sofort,
         // ohne dass der Callback neu registriert werden müsste.
         enabled = false
+        assertNull(callback.execute(event, hint))
+    }
+
+    // --- beforeSendReplay-Verkabelung (Replay-Envelopes folgen demselben Opt-out) ---
+
+    @Test
+    fun `beforeSendReplay passes a real replay through when enabled`() {
+        val event = SentryReplayEvent()
+        val callback = sentryBeforeSendReplayCallback { true }
+
+        assertSame(event, callback.execute(event, hint))
+    }
+
+    @Test
+    fun `beforeSendReplay returns null and drops a real replay when disabled`() {
+        val event = SentryReplayEvent()
+        val callback = sentryBeforeSendReplayCallback { false }
+
         assertNull(callback.execute(event, hint))
     }
 }

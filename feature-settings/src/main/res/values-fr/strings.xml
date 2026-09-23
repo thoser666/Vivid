@@ -187,7 +187,7 @@
     <string name="remote_control_autostart_toggle">Démarrer la télécommande web automatiquement</string>
     <string name="remote_control_autostart_desc">Démarre le serveur LAN au lancement de l\'app (par défaut : activé). Désactivé = aucun bind du serveur au démarrage – utile si le port est déjà occupé (sur les versions plus anciennes, l\'app plantait au démarrage lorsque le port 8080 était occupé) ou si vous n\'utilisez pas la télécommande. Un serveur déjà en cours d\'exécution n\'est pas affecté.</string>
     <string name="privacy_sentry_toggle">Envoyer les rapports d\'erreur (Sentry)</string>
-    <string name="privacy_sentry_desc">Envoie des rapports d\'erreur à Sentry en cas de plantage (activé par défaut). Aucune capture d\'écran n\'est prise ; les informations sur l’appareil/IP sont désactivées. Désactivé = rien n\'est transmis à Sentry. Détails : PRIVACY.md dans le dépôt.</string>
+    <string name="privacy_sentry_desc">Envoie des rapports d\'erreur à Sentry en cas de plantage (activé par défaut). Aucune capture d\'écran n\'est prise ; les informations sur l\'appareil/IP sont désactivées. En cas d\'erreur, un enregistrement des ~30 dernières secondes est également joint (textes et images masqués) — sans erreur, rien n\'est enregistré. Désactivé = rien n\'est transmis à Sentry. Détails : PRIVACY.md dans le dépôt.</string>
 
     <!-- ===== À propos & mises à jour (SettingsAboutScreen.kt) ===== -->
     <string name="about_version">Version %1$s</string>

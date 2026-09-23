@@ -186,7 +186,7 @@
     <string name="remote_control_autostart_toggle">Web-Remote-Control automatisch starten</string>
     <string name="remote_control_autostart_desc">Startet den LAN-Server beim App-Start (Standard: an). Aus = kein Server-Bind beim Start – nützlich, wenn der Port belegt ist (auf älteren Versionen crashte die App beim Start, wenn Port 8080 belegt war) oder die Remote-Control nicht genutzt wird. Ein bereits laufender Server bleibt unberührt.</string>
     <string name="privacy_sentry_toggle">Fehlerberichte senden (Sentry)</string>
-    <string name="privacy_sentry_desc">Sendet bei Abstürzen Fehlerberichte an Sentry (Standard: an). Es werden keine Screenshots aufgenommen; Geräte-/IP-Informationen sind deaktiviert. Aus = es wird nichts an Sentry übertragen. Details: PRIVACY.md im Repository.</string>
+    <string name="privacy_sentry_desc">Sendet bei Abstürzen Fehlerberichte an Sentry (Standard: an). Es werden keine Screenshots aufgenommen; Geräte-/IP-Informationen sind deaktiviert. Bei einem Fehler wird zusätzlich eine Aufzeichnung der letzten ~30 Sekunden mitgeschickt (Texte und Bilder sind geschwärzt) — ohne Fehler wird nichts aufgezeichnet. Aus = es wird nichts an Sentry übertragen. Details: PRIVACY.md im Repository.</string>
 
     <!-- ===== Über & Updates (SettingsAboutScreen.kt) ===== -->
     <string name="about_version">Version %1$s</string>

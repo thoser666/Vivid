@@ -14,6 +14,7 @@ import com.vivid.core.startup.CrashAdvisoryReporter
 import com.vivid.core.startup.CrashLoopGuard
 import com.vivid.core.startup.CrashLoopPolicy
 import com.vivid.core.remote.RemoteControlServer
+import com.vivid.core.startup.SentryReplayPolicy
 import dagger.hilt.android.HiltAndroidApp
 import io.sentry.android.core.SentryAndroid
 import kotlinx.coroutines.CoroutineExceptionHandler
@@ -122,16 +123,39 @@ class VividApplication : Application(), ImageLoaderFactory {
         //  - beforeSend → verwirft alle Events, wenn der Nutzer das
         //    Fehler-Reporting in den Settings deaktiviert hat (Opt-out)
         //  - FOSS_BUILD → kein Sentry für F-Droid (kein Tracking, kein Telemetry)
+        //  - Session Replay als Error-Replay (Retro-Puffer ~30 s vor einem Fehler):
+        //    onErrorSampleRate 1.0, sessionSampleRate 0.0 — kein Dauer-Recording;
+        //    das Opt-out steuert es auf zwei Ebenen mit (Rates + Buffering), weil
+        //    beforeSend Replay-Envelopes nicht filtert (siehe SentryReplayPolicy).
         if (!BuildConfig.FOSS_BUILD && !safeMode) {
             SentryAndroid.init(this) { options ->
                 // JavaBean-Accessor: isSendDefaultPii (keine IP-/Gerätename-Erhebung)
                 options.isSendDefaultPii = false
                 options.beforeSend = sentryBeforeSendCallback { sentryEnabled }
+                // Error-Replay-Konfiguration (Opt-out-fähig, siehe SentryReplayPolicy):
+                val replayPlan = SentryReplayPolicy.plan(sentryEnabled)
+                options.sessionReplay.onErrorSampleRate = replayPlan.errorSampleRate
+                options.sessionReplay.sessionSampleRate = replayPlan.sessionSampleRate
+                // Replays sind eigene Envelopes — der Opt-out filtert sie separat:
+                options.beforeSendReplay = sentryBeforeSendReplayCallback { sentryEnabled }
             }
-            // Opt-out-Stand live verfolgen (für beforeSend).
+            // Opt-out-Stand live verfolgen (für beforeSend/beforeSendReplay)
+            // und das Error-Replay-Buffering mitsteuern (Start/Stop nur bei
+            // echter Änderung — kein Flackern beim Settings-Recollect).
             applicationScope.launch {
+                var previousEnabled: Boolean? = null
                 settingsRepository.appSettingsFlow.collect { settings ->
                     sentryEnabled = settings.sentryEnabled
+                    when (SentryReplayPolicy.runtimeAction(settings.sentryEnabled, previousEnabled)) {
+                        SentryReplayPolicy.RuntimeAction.REPLAY_START ->
+                            runCatching { io.sentry.Sentry.replay().startBuffering() }
+                                .onFailure { Timber.w(it, "Replay-Buffering konnte nicht gestartet werden") }
+                        SentryReplayPolicy.RuntimeAction.REPLAY_STOP ->
+                            runCatching { io.sentry.Sentry.replay().stop() }
+                                .onFailure { Timber.w(it, "Replay-Buffering konnte nicht gestoppt werden") }
+                        SentryReplayPolicy.RuntimeAction.NONE -> Unit
+                    }
+                    previousEnabled = settings.sentryEnabled
                 }
             }
         } else {
