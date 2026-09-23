@@ -64,6 +64,14 @@ fun SettingsRemotePrivacyScreen(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            if (remoteControl.isFallbackPort) {
+                // Fallback-Kette aktiv: deutlicher Hinweis auf den Ausweichport.
+                Text(
+                    text = stringResource(R.string.remote_fallback_port_desc, remoteControl.port),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.tertiary,
+                )
+            }
             OutlinedTextField(
                 value = remoteControl.token,
                 onValueChange = {},

@@ -321,7 +321,7 @@ Pilote le stream depuis n'importe quel navigateur du même Wi-Fi :
 
 > 🔒 Le serveur ne tourne que tant que l'app est ouverte. Les actions nécessitent le jeton.
 > Android 17 : si `/status` est inaccessible → « Autoriser l'accès LAN pour la télécommande » dans les paramètres.
-> Port déjà occupé (EADDRINUSE) ? Depuis v0.5.16-beta, l\'app démarre quand même ; l\'autostart du serveur peut être désactivé sous **Remote & confidentialité**.
+> Port déjà occupé (EADDRINUSE) ? Depuis v0.5.16-beta, l\'app démarre quand même ; depuis la chaîne de repli, le serveur choisit automatiquement le prochain port libre (8080 → 8081 → 8082 → 8083 → aléatoire) — le port actif est affiché dans l\'app sous **Remote & confidentialité**. L\'autostart du serveur peut aussi y être désactivé.
 
 ---
 

@@ -178,6 +178,7 @@
     <!-- ===== Remote & Datenschutz (SettingsRemotePrivacyScreen.kt) ===== -->
     <string name="remote_section_title">Web-Remote-Control</string>
     <string name="remote_reachable_desc">Im gleichen WLAN erreichbar unter http://&lt;GERÄTE-IP&gt;:%1$d/status — Aktionen via Authorization: Bearer &lt;token&gt;.</string>
+    <string name="remote_fallback_port_desc">Ausweichport aktiv: Port 8080 war belegt (z.&#160;B. durch eine zweite App). Die Remote-Control lauscht auf Port %1$d — für Skripte/Firewall-Regeln diesen Port verwenden.</string>
     <string name="remote_token_label">Remote-Token</string>
     <string name="remote_token_loading">Token wird geladen…</string>
     <string name="remote_permission_button">LAN-Zugriff für Remote-Control erlauben</string>

@@ -35,7 +35,10 @@ data class SettingsUpdateState(
 data class RemoteControlInfo(
     val port: Int = RemoteControlServer.DEFAULT_PORT,
     val token: String = "",
-)
+) {
+    /** true, wenn der Server nach der Fallback-Kette auf einem Ausweichport lauscht. */
+    val isFallbackPort: Boolean get() = port != RemoteControlServer.DEFAULT_PORT
+}
 
 /**
  * KI-Quelle, die die Owner-Befehle (!start/!stop/!diag/!ask) aktuell nutzen
@@ -134,9 +137,21 @@ class SettingsViewModel @Inject constructor(
         }
         viewModelScope.launch {
             // Token der Web-Remote-Control laden (wird bei Bedarf erzeugt) —
-            // damit der Nutzer die LAN-URL im Browser aufrufen kann.
+            // damit der Nutzer die LAN-URL im Browser aufrufen kann. Der Port
+            // folgt reaktiv dem Server (Fallback-Kette 8080→8081→…→ephemeral):
+            // laeuft der Server auf einem Ausweichport, zeigt die Anzeige ihn.
             val token = remoteControlTokenStore.getOrCreateToken()
-            _remoteControl.value = RemoteControlInfo(port = RemoteControlServer.DEFAULT_PORT, token = token)
+            _remoteControl.value = RemoteControlInfo(
+                port = remoteControlServer.activePort.value,
+                token = token,
+            )
+        }
+        viewModelScope.launch {
+            remoteControlServer.activePort.collect { active ->
+                if (_remoteControl.value.port != active) {
+                    _remoteControl.value = _remoteControl.value.copy(port = active)
+                }
+            }
         }
     }
 

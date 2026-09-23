@@ -178,6 +178,7 @@
     <!-- ===== Remote & Privacy (SettingsRemotePrivacyScreen.kt) ===== -->
     <string name="remote_section_title">Web remote control</string>
     <string name="remote_reachable_desc">Reachable on the same Wi-Fi at http://&lt;DEVICE-IP&gt;:%1$d/status — actions via Authorization: Bearer &lt;token&gt;.</string>
+    <string name="remote_fallback_port_desc">Fallback port active: port 8080 was taken (e.g. by another app). The remote control listens on port %1$d — use this port for scripts/firewall rules.</string>
     <string name="remote_token_label">Remote token</string>
     <string name="remote_token_loading">Loading token…</string>
     <string name="remote_permission_button">Allow LAN access for remote control</string>

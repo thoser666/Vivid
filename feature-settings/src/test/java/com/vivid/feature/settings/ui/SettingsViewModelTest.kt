@@ -53,7 +53,9 @@ class SettingsViewModelTest {
         repository: SettingsRepository = repository(),
         checker: UpdateChecker = mockk(relaxed = true),
         tokenStore: RemoteControlTokenStore = tokenStore(),
-        remoteControlServer: RemoteControlServer = mockk(relaxed = true),
+        remoteControlServer: RemoteControlServer = mockk(relaxed = true) {
+            every { activePort } returns MutableStateFlow(RemoteControlServer.DEFAULT_PORT)
+        },
         chatBotEngine: ChatBotEngine = mockk {
             every { usage } returns MutableStateFlow(ChatBotUsage())
         },
@@ -955,6 +957,7 @@ class SettingsViewModelTest {
     fun `restartRemoteControlServer stops and starts the server`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val server = mockk<RemoteControlServer> {
+            every { activePort } returns MutableStateFlow(RemoteControlServer.DEFAULT_PORT)
             coEvery { stop() } just runs
             coEvery { start() } just runs
         }

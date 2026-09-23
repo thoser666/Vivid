@@ -316,7 +316,7 @@ Control the stream from any browser on the same Wi-Fi:
 
 > 🔒 The server only runs while the app is open. Actions require the token.
 > Android 17: If `/status` is unreachable → tap "Allow LAN access for Remote Control" in settings.
-> Port already in use (EADDRINUSE)? Since v0.5.16-beta the app still starts; you can disable the server autostart under **Remote & Privacy**.
+> Port already in use (EADDRINUSE)? Since v0.5.16-beta the app still starts; since the fallback chain the server automatically picks the next free port (8080 → 8081 → 8082 → 8083 → random) — the active port is shown in the app under **Remote & Privacy**. You can also disable the server autostart there.
 
 ---
 

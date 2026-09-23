@@ -322,7 +322,7 @@ Steuere den Stream von jedem Browser im selben WLAN:
 
 > 🔒 Der Server läuft nur, solange die App geöffnet ist. Aktionen brauchen das Token.
 > Android 17: Falls `/status` nicht erreichbar ist → „LAN-Zugriff für Remote-Control erlauben" in den Settings.
-> Port belegt (EADDRINUSE)? Ab v0.5.16-beta startet die App trotzdem; den Server-Autostart kannst du unter **Remote & Datenschutz** abschalten.
+> Port belegt (EADDRINUSE)? Ab v0.5.16-beta startet die App trotzdem; seit der Fallback-Kette wählt der Server automatisch den nächsten freien Port (8080 → 8081 → 8082 → 8083 → zufällig) — den aktiven Port zeigt dir die App unter **Remote & Datenschutz** an. Den Server-Autostart kannst du dort ebenfalls abschalten.
 
 ---
 

@@ -17,9 +17,13 @@ import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import timber.log.Timber
 import java.net.InetSocketAddress
-import java.net.ServerSocket
+import java.net.StandardSocketOptions
+import java.nio.channels.ServerSocketChannel
 import java.security.MessageDigest
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -77,8 +81,20 @@ class RemoteControlServer @Inject constructor(
 ) {
     private var server: EmbeddedServer<*, *>? = null
 
-    /** Port, auf dem der Server lauscht (standardmäßig 8080). */
-    val port: Int = DEFAULT_PORT
+    /** Bevorzugter Port (8080); die Ausweichkette hängt dahinter (testseitig umstellbar). */
+    internal var preferredPort: Int = DEFAULT_PORT
+
+    /** Bevorzugter Port (Lesezugriff wie bisher). */
+    val port: Int get() = preferredPort
+
+    private val _activePort = MutableStateFlow(DEFAULT_PORT)
+
+    /**
+     * Port, auf dem der Server tatsächlich lauscht — nach der Fallback-Kette
+     * (8080 → 8081 → 8082 → 8083 → ephemeral) auch ein Ausweichport. Die
+     * Settings-Anzeige folgt diesem Flow reaktiv (QR/Token/Port).
+     */
+    val activePort: StateFlow<Int> = _activePort.asStateFlow()
 
     val isRunning: Boolean get() = server != null
 
@@ -102,33 +118,51 @@ class RemoteControlServer @Inject constructor(
         // synchron mit klarer Ursache; ein Port-Konflikt wird hier direkt
         // behandelt (Log statt Exception), damit kein Aufrufer-Pfad den
         // Prozess gefährden kann.
-        try {
-            probePort(port)
-        } catch (e: java.net.BindException) {
+        // Port-Auswahl über die Fallback-Kette: Der erste freie Kandidat
+        // (8080 → 8081 → 8082 → 8083 → ephemeral) gewinnt. Der ephemerale
+        // Kandidat wird nicht probiert — der Kernel wählt beim Bind frei.
+        var chosen = PortFallbackPolicy.selectPort(preferredPort) { candidate ->
+            probePort(candidate)
+        }
+        if (PortFallbackPolicy.isEphemeral(chosen)) {
+            // Ephemerale Auswahl vorab zu einem konkreten Port aufloesen
+            // (NIO-Channel an Port 0 → Kernel-Wahl → schliessen). Der Port bleibt
+            // dann in Ktor sichtbar/ansagbar; das kleine Residual-Rennen
+            // (anderer Prozess schnappt den Port zwischendurch) ist identisch
+            // zur Probe-Bind-Luecke der festen Kette und endet harmlos im
+            // fehlertoleranten Aufrufer-Handler.
+            chosen = ServerSocketChannel.open().use { channel ->
+                channel.bind(InetSocketAddress("0.0.0.0", 0))
+                channel.socket().localPort
+            }
+        }
+        if (chosen == preferredPort) {
+            Timber.i("Web-Remote-Control: Port %d frei - Server startet wie bevorzugt.", preferredPort)
+        } else {
             Timber.w(
-                e,
-                "Web-Remote-Control: Port %d belegt (EADDRINUSE) - Server wird nicht gestartet. " +
-                    "Port in den Settings freigeben oder andere App beenden.",
-                port,
+                "Web-Remote-Control: Port %d belegt (EADDRINUSE) - Ausweichport %d wird verwendet.",
+                preferredPort,
+                chosen,
             )
-            return
         }
         val token = tokenStore.getOrCreateToken()
         val newServer = embeddedServer(
             factory = CIO,
-            port = port,
+            port = chosen,
             host = "0.0.0.0",
         ) {
             remoteControlModule(streamControl, token, logStore)
         }
         newServer.start(wait = false)
         server = newServer
+        _activePort.value = chosen
     }
 
     /** Stoppt den Server, falls er läuft. */
     suspend fun stop() {
         server?.stop(gracePeriodMillis = 100, timeoutMillis = 1_000)
         server = null
+        _activePort.value = DEFAULT_PORT
     }
 
     companion object {
@@ -145,8 +179,14 @@ class RemoteControlServer @Inject constructor(
          * Port als Parameter, damit Unit-Tests freie/belegte Ports durchspielen.
          */
         internal fun probePort(port: Int) {
-            ServerSocket().use { socket ->
-                socket.bind(InetSocketAddress("0.0.0.0", port))
+            // Bewusst ueber NIO (ServerSocketChannel) statt java.net.ServerSocket:
+            // Ktor CIO 3.5.2 bindet ebenfalls via ServerSocketChannel — nur wenn
+            // Probe und Engine denselben Bind-Mechanismus nutzen, ist die Probe
+            // ein verlaesslicher Freiset-Test. (java.net.ServerSocket auf Windows
+            // gewinnt kontra NIO-Channels, was zu falsch-gruenen Probes fuehrt:
+            // Probe gruene, NIO-Bind der Engine scheitert trotzdem.)
+            ServerSocketChannel.open().use { channel ->
+                channel.bind(InetSocketAddress("0.0.0.0", port))
             }
         }
 

@@ -179,6 +179,7 @@
     <!-- ===== Remote & confidentialité (SettingsRemotePrivacyScreen.kt) ===== -->
     <string name="remote_section_title">Télécommande web</string>
     <string name="remote_reachable_desc">Accessible dans le même WLAN sous http://&lt;IP-DU-APPAREIL&gt;:%1$d/status — actions via Authorization: Bearer &lt;token&gt;.</string>
+    <string name="remote_fallback_port_desc">Port de repli actif : le port 8080 était occupé (p.&#160;ex. par une autre app). La télécommande écoute sur le port %1$d — utilisez ce port pour les scripts/règles de pare-feu.</string>
     <string name="remote_token_label">Jeton de télécommande</string>
     <string name="remote_token_loading">Chargement du jeton…</string>
     <string name="remote_permission_button">Autoriser l’accès LAN pour la télécommande</string>
