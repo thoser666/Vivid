@@ -16,8 +16,12 @@
 # Token-Quelle (in dieser Reihenfolge):
 #   1. $SENTRY_STATS_TOKEN — kurzlebiger User-Token mit project:read +
 #      event:read. Erstellung: docs/sentry-stats.md.
-#   2. sentry.properties (auth.token) — das CI-Token (meist ohne Lesescopes),
-#      Fallback nur, wenn SENTRY_STATS_TOKEN nicht explizit gesetzt ist.
+#   2. sentry.properties (stats.token) — derselbe User-Token, lokal
+#      abgelegt (die Datei ist gitignored); praktisch für Live-Läufe ohne
+#      Env-Setup.
+#   3. sentry.properties (auth.token) — das CI-Token (meist ohne
+#      Lesescopes), Fallback nur, wenn 1./2. nicht vorhanden sind.
+#  --print-token-source meldet nur die gewählte QUELLE, nie den Token.
 #
 # Fixture-Modus für Offline-Tests: SENTRY_STATS_FIXTURE=<dir> mit
 # project.json + events.json (echte API-Antwortformen) und optional
@@ -29,15 +33,31 @@ ORG="${SENTRY_ORG:-privat-jb}"
 PROJECT_SLUG="${SENTRY_PROJECT:-vivid}"
 DOCS_HINT="docs/sentry-stats.md"
 FIXTURE="${SENTRY_STATS_FIXTURE:-}"
+PROPS="${SENTRY_PROPERTIES_FILE:-sentry.properties}"
 API="https://sentry.io/api/0"
 
 token=""
+source="none"
 if [ "${SENTRY_STATS_TOKEN+x}" = "x" ]; then
   # Explizit gesetzt (auch leer = bewusst kein sentry.properties-Fallback).
   token="$SENTRY_STATS_TOKEN"
-elif [ -z "$FIXTURE" ] && [ -f sentry.properties ]; then
-  token=$( (grep -E '^auth\.token=' sentry.properties 2>/dev/null || true) \
-    | tail -1 | cut -d= -f2- | tr -d '\r' | sed 's/^"\(.*\)"$/\1/')
+  source="env"
+elif [ -z "$FIXTURE" ] && [ -f "$PROPS" ]; then
+  read_prop() {
+    (grep -E "^$1=" "$PROPS" 2>/dev/null || true) \
+      | tail -1 | cut -d= -f2- | tr -d '\r' | sed 's/^"\(.*\)"$/\1/'
+  }
+  token=$(read_prop 'stats\.token')
+  source="stats.token"
+  if [ -z "$token" ]; then
+    token=$(read_prop 'auth\.token')
+    source="auth.token"
+  fi
+fi
+
+if [ "${1:-}" = "--print-token-source" ]; then
+  echo "TOKEN_SOURCE=$source"
+  exit 0
 fi
 
 if [ -n "$FIXTURE" ]; then
@@ -54,7 +74,7 @@ if [ -n "$FIXTURE" ]; then
   EVENTS_JSON=$(cat "$FIXTURE/events.json" 2>/dev/null || echo '{}')
 else
   if [ -z "$token" ]; then
-    echo "SKIP: kein Sentry-Lese-Token — SENTRY_STATS_TOKEN setzen (Token-Erstellung: $DOCS_HINT)"
+    echo "SKIP: kein Sentry-Lese-Token — SENTRY_STATS_TOKEN setzen oder stats.token in sentry.properties ablegen (Token-Erstellung: $DOCS_HINT)"
     exit 0
   fi
   status=$(curl -sS -o /tmp/sentry_stats_project.$$.json -w '%{http_code}' \

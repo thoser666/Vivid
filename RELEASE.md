@@ -837,6 +837,72 @@ Renovate bietet **Dependency Dashboard** und **Auto-Merge (Branch-Modus)** —�
 3. `renovate.json` wird automatisch erkannt
 
 **Detaillierte Anleitung:** [docs/renovate-setup.md](docs/renovate-setup.md)
+## 🛰️ Sentry-Ops: Stats-Guard, Health-Probe, Opt-out
+
+Sentry ist die einzige Telemetrie der Standard-Builds (FOSS/Safe-Mode ohne).
+Die Ops-Seite besteht aus drei zusammenhängenden Pfeilern — alle offline
+selbstgetestet und im Pre-Push-Gate verdrahtet. **Interne Referenz:**
+[docs/sentry-stats.md](docs/sentry-stats.md) (Token-Anleitung, Verdicts,
+Workflows); Wiki und User-Guides sind bewusst ohne dieses Kapitel.
+
+### Pfeiler-Übersicht
+
+| Pfeiler | Skript / Workflow | Zweck | Verdicts |
+|---|---|---|---|
+| **Stats** (Quota/Events) | `scripts/check_sentry_stats.sh`, monatlich `automation-sentry-stats.yml` (Cron Tag 9, 06:00 UTC + Dispatch) | Event-Statistik 30 d abfragen; Quota-Drops sichtbar machen | OK / WARN / SKIP / FEHLER |
+| **Health** (Ingest lebt?) | `scripts/check_sentry_health.sh --live` (opt-in) | Probe-Event an den echten Ingest-Endpunkt schicken und Rate-Limit-Header bewerten | OK / WARN / FEHLER / SKIP |
+| **Opt-out** (App-seitig) | `SentryReplayPolicy`, `SentryOptOut.kt` | Nutzer-Toggle steuert Sentry + Error-Replay auf drei Ebenen (Rates, Buffering, beforeSendReplay) | rein App-Logik |
+
+### Stats-Guard: Token-Quellen und Verdicts
+
+Der Guard braucht einen **User-Token mit `project:read` + `event:read`**
+(erstellen: Abschnitt 1 in [docs/sentry-stats.md](docs/sentry-stats.md);
+Ablauf 30 Tage bewusst kurzlebig). Quellen-Reihenfolge:
+`SENTRY_STATS_TOKEN` (Env/CI-Secret) → `stats.token` (in der gitignoreden
+`sentry.properties`, nur lokal) → `auth.token` (CI-Mapping-Token, meist
+ohne Lesescopes). `--print-token-source` meldet nur die Quelle, nie den
+Token.
+
+| Verdict | Bedeutung | Reaktion |
+|---|---|---|
+| `OK: N … 0 verworfen` | Pipeline lebt | keine |
+| `OK: 0 Events` | Projekt erreichbar, ruhig | keine |
+| `WARN: … verworfen` | Quota-/Ratenlimit-Drops | Usage im Dashboard prüfen; Drops = verlorene Crash-Berichte/Replays |
+| `SKIP: …` | Token/Netz/Format (neutral) | Workflow öffnet ggf. Konfigurations-Issue |
+| `FEHLER` + exit 1 | API-Feldformat geändert (fail-closed) | Parsing im Guard anpassen |
+
+### Issue-Automation (monatlich)
+
+`automation-sentry-stats.yml` verwaltet Check-Ergebnisse als deduplizierte
+Issues (Marker `sentry-stats-warn` / `sentry-stats-config`): WARN und
+Konfigurations-SKIPs (Token fehlt/ungültig/ohne Scopes) öffnen bzw.
+kommentieren Issues; OK und neutrale Netzwerk-SKIPs schließen offene
+Check-Issues automatisch. **Fehlt das Secret `SENTRY_STATS_TOKEN`, läuft der
+Workflow trotzdem** und hält per Konfigurations-Issue die Erinnerung am
+Leben — stillem Versagen ist damit vorgebaut. Berechtigungen: `permissions:
+{}` top-level, Job nur `issues: write`; beide Actions SHA-gepinnt.
+
+### Health-Probe (bewusst opt-in)
+
+Die DSN steht im öffentlichen Manifest — automatische Proben bei jedem Push
+würden das Dashboard mit Probe-Events zumüllen. Deshalb: `--live` nur auf
+Anforderung (erwartbar: `OK: Ingest lebt — Probe akzeptiert (HTTP 200),
+keine Rate-Limit-Header`); das Pre-Push-Gate prüft nur die Envelope-Struktur
+offline (HP1–HP9 inkl. Header-Injection-Probe). Probe-Events tragen
+`tags.probe=health-check` (bzw. `quota-check` bei der manuellen Quota-Probe
+von 2026-09-23) und lassen sich im Dashboard filtern/löschen.
+
+### Testschutz
+
+| Test | Umfang | Verdrahtung |
+|---|---|---|
+| `scripts/test_sentry_stats.sh` | S1–S9 (Verdicts, Token-Leak, Drop-Summe, Quellen-Vertrag) | Pre-Push-Gate |
+| `scripts/test_sentry_health.sh` | HP1–HP9 (Envelope-Länge, DSN-Parsing, Injection-Probe) | Pre-Push-Gate |
+| `scripts/test_sentry_stats_workflow.sh` | W1–W9 (21 Checks: YAML, Pins, Issue-Dedup, Auto-Close) | Pre-Push-Gate |
+
+Historie: Stats-Guard `0fb875f` · Health-Guard `79ac64b` · Review-Workflow
+`a3ddff6` (PARITY-Log).
+
 
 ## 🔒 OpenSSF Scorecard (Supply-Chain-Security)
 

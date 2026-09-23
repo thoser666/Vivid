@@ -10,6 +10,8 @@
 #   S6 Fixture mit unbekanntem API-Format → exit 1 (fail-closed)
 #   S7 Kein Token-Leak: gesetzter Fake-Token erscheint nie im Output
 #   S8 403-Fixture → SKIP mit Scopes-Hinweis (project:read/event:read)
+#   S9 Token-Quellen-Vertrag (--print-token-source nennt nur die QUELLE,
+#      nie den Token): env > stats.token > auth.token > none
 set -euo pipefail
 cd "$(dirname "$0")/.."
 fail() { echo "❌ [sentry-stats-test] $1"; exit 1; }
@@ -82,4 +84,21 @@ out=$(SENTRY_STATS_FIXTURE="$tmp/forbidden" bash "$guard") || \
   fail "S8: 403 darf nicht scheitern (SKIP-Vertrag)"
 grep -q "project:read" <<<"$out" || fail "S8: Scopes-Hinweis erwartet"
 
-echo "✅ [sentry-stats-test] Sentry-Stats-Guard vertragstreu (S1–S8)."
+# S9 Token-Quellen-Vertrag (nur Quellen-Namen, kein Token im Output)
+src=$(SENTRY_STATS_TOKEN=x bash "$guard" --print-token-source)
+grep -q "^TOKEN_SOURCE=env$" <<<"$src" || fail "S9: env-Quelle erwartet"
+
+mkdir -p "$tmp/props"
+printf 'stats.token=sntrys_AAA\nauth.token=sntrys_BBB\n' > "$tmp/props/sentry.properties"
+src=$(SENTRY_PROPERTIES_FILE="$tmp/props/sentry.properties" bash "$guard" --print-token-source)
+grep -q "^TOKEN_SOURCE=stats.token$" <<<"$src" || fail "S9: stats.token hat Vorrang vor auth.token"
+grep -q "sntrys" <<<"$src" && fail "S9: Token darf nie im Source-Report stehen"
+
+printf 'auth.token=sntrys_BBB\n' > "$tmp/props/sentry.properties"
+src=$(SENTRY_PROPERTIES_FILE="$tmp/props/sentry.properties" bash "$guard" --print-token-source)
+grep -q "^TOKEN_SOURCE=auth.token$" <<<"$src" || fail "S9: auth.token-Fallback erwartet"
+
+src=$(SENTRY_PROPERTIES_FILE="$tmp/props/fehlt.properties" bash "$guard" --print-token-source)
+grep -q "^TOKEN_SOURCE=none$" <<<"$src" || fail "S9: none bei fehlender Datei erwartet"
+
+echo "✅ [sentry-stats-test] Sentry-Stats-Guard vertragstreu (S1–S9)."

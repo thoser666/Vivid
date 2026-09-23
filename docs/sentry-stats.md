@@ -21,9 +21,23 @@ API-Abrufe antworten korrekt mit `403`. Für Dashboard-Statistiken (Events in
 
 ## 2. Nutzung (lokal)
 
+Entweder als Env-Var (Session-only):
+
 ```bash
 SENTRY_STATS_TOKEN=sntrys_… bash scripts/check_sentry_stats.sh
 ```
+
+Oder dauerhaft lokal in der gitignoreden `sentry.properties` (Projektstamm)
+als eigene Zeile — **nicht** `auth.token` überschreiben (das ist das
+CI-Mapping-Token):
+
+```properties
+stats.token=sntrys_…
+```
+
+Quellen-Reihenfolge: `SENTRY_STATS_TOKEN` → `stats.token` → `auth.token`
+(CI-Token, meist ohne Lesescopes). `--print-token-source` meldet nur die
+gewählte Quelle, nie den Token.
 
 Ausgabe (Verdicts):
 
