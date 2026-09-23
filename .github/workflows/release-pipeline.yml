@@ -996,13 +996,30 @@ jobs:
       - name: Check Play metadata completeness
         run: bash scripts/check_play_metadata.sh
 
+      # Prereq-Guard: Sind alle Play-Secrets konfiguriert? Wenn nicht, wird der
+      # Rest des Jobs BEWUSST uebersprungen (klare ::notice::-Meldung statt
+      # rotem Fehlschlag — ein manueller Dispatch ohne Secrets ist sonst nicht
+      # von einem echten Play-Fehler unterscheidbar). Konfigurationsanleitung:
+      # docs/distribution.md, Abschnitt „Google Play aktivieren (Secrets)“.
+      - name: Guard - Play secrets configured
+        id: play_secrets
+        env:
+          UPLOAD_KEYSTORE_BASE64: ${{ secrets.UPLOAD_KEYSTORE_BASE64 }}
+          UPLOAD_KEYSTORE_PASSWORD: ${{ secrets.UPLOAD_KEYSTORE_PASSWORD }}
+          UPLOAD_KEY_ALIAS: ${{ secrets.UPLOAD_KEY_ALIAS }}
+          UPLOAD_KEY_PASSWORD: ${{ secrets.UPLOAD_KEY_PASSWORD }}
+          PLAY_JSON_KEY_FILE: ${{ secrets.PLAY_JSON_KEY_FILE }}
+          PLAY_JSON_KEY_DATA: ${{ secrets.PLAY_JSON_KEY_DATA }}
+        run: bash scripts/check_play_secrets.sh >> "$GITHUB_OUTPUT"
+
       # Play-Upload-Keystore dekodieren (UPLOAD_*-Secrets, getrennt vom Release-Key)
       - name: Decode Upload Keystore
+        if: steps.play_secrets.outputs.ready == 'true'
         env:
           UPLOAD_KEYSTORE_BASE64: ${{ secrets.UPLOAD_KEYSTORE_BASE64 }}
         run: |
           if [ -z "$UPLOAD_KEYSTORE_BASE64" ]; then
-            echo "::error::UPLOAD_KEYSTORE_BASE64 fehlt — Play-Upload ohne Upload-Key nicht moeglich. Abbruch."
+            echo "::error::UPLOAD_KEYSTORE_BASE64 fehlt — Guard haette skippen muessen. Abbruch (defensiv)."
             exit 1
           fi
           echo $UPLOAD_KEYSTORE_BASE64 | base64 -di > ${{ github.workspace }}/upload-keystore.jks
@@ -1010,6 +1027,7 @@ jobs:
 
       # AAB mit Upload-Key bauen, Signatur gegen den Key verifizieren, hochladen
       - name: Build AAB and upload to Google Play
+        if: steps.play_secrets.outputs.ready == 'true'
         env:
           UPLOAD_KEYSTORE_PATH: ${{ env.UPLOAD_KEYSTORE_PATH }}
           UPLOAD_KEYSTORE_PASSWORD: ${{ secrets.UPLOAD_KEYSTORE_PASSWORD }}

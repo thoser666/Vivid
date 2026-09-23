@@ -192,6 +192,38 @@ Duplikate/fehlende alles erzeugen.
 - **Wann sinnvoll:** wenn Play-Store-Upload + F-Droid ausgereizt und ein zusätzlicher, signatur-verifizierender Kanal gewünscht ist. Dann: [Accrescent-Docs](https://accrescent.app/docs) → App-Entry + Github-Actions-Template nachziehen.
 - **Konsequenz:** Es bleibt dokumentiert, aber **kein** P0-Ziel (⇒ nicht in den Kanälen der Tabelle oben).
 
+## Google Play aktivieren (Secrets)
+
+Der Play-Job (`publish-play` in `release-pipeline.yml`) läuft nur manuell per
+`workflow_dispatch` („Play-Upload ist ein bewusster Akt“). Fehlen die Secrets,
+**skippt** der Guard (`scripts/check_play_secrets.sh`) den Job mit klarer
+`::notice::`-Meldung, statt rot zu scheitern — ein Dispatch ohne Konfiguration
+ist so eindeutig vom echten Play-Fehler unterscheidbar.
+
+Benötigte Secrets (Repo → Settings → Secrets and variables → Actions):
+
+| Secret | Inhalt |
+|---|---|
+| `UPLOAD_KEYSTORE_BASE64` | Upload-Keystore (`.jks`), base64-kodiert: `base64 -w0 upload-keystore.jks` (Windows: `certutil -encode upload-keystore.jks out.txt`) — **getrennt** vom GitHub-Release-Signatur-Key |
+| `UPLOAD_KEYSTORE_PASSWORD` | Keystore-Passwort |
+| `UPLOAD_KEY_ALIAS` | Key-Alias im Keystore |
+| `UPLOAD_KEY_PASSWORD` | Key-Passwort |
+| `PLAY_JSON_KEY_FILE` **oder** `PLAY_JSON_KEY_DATA` | Service-Account-JSON für die Play Developer API (eins von beiden; `DATA` = JSON-Inhalt direkt, `FILE` = Pfad zu einer auf dem Runner geschriebenen Datei) |
+
+Service-Account anlegen (Kurzfassung):
+
+1. [Play Console](https://play.google.com/console) → API-Zugriff → Google-Cloud-Projekt verknüpfen.
+2. Im Cloud-Projekt einen Service-Account anlegen, JSON-Schlüssel erzeugen.
+3. In der Play Console den Service-Account mit der Rolle *Admin* (oder mindestens
+   *Releases verwalten*) zur App einladen und freigeben.
+4. JSON-Inhalt als `PLAY_JSON_KEY_DATA` hinterlegen (empfohlen — kein Datei-Pfad nötig).
+
+Upload-Key vs. App-Signatur: Bei Play **App Signing by Google** bleibt der
+Release-Key bei Google; der `UPLOAD_KEYSTORE` signiert nur die hochgeladene AAB.
+Erst nach dem Secrets-Setup verhält sich ein `workflow_dispatch`-Lauf mit
+`dry_run: true` als vollwertiger Probedurchlauf (Build + Signaturverifikation,
+kein Upload).
+
 ## Tests & Guards
 
 Die Distribution-Pipeline ist durch GitHub-Actions-Selbsttests abgesichert (laufen in `pre-push.sh`
