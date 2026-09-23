@@ -226,7 +226,9 @@ jobs:
           disable-spellchecker: true
           emulator-boot-timeout: 900
           script: |
-            ./gradlew :app:connectedDebugAndroidTest
+            # Flavor-explicit (connectedDebugAndroidTest ist in diesem Projekt
+            # wegen der Varianten foss/standard mehrdeutig — Ambiguous matches).
+            ./gradlew :app:connectedStandardDebugAndroidTest
 
       - name: Upload instrumented test reports
         if: always()
