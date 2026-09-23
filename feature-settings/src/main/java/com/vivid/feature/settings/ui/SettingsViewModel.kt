@@ -301,6 +301,8 @@ class SettingsViewModel @Inject constructor(
     // Datenschutz: Sentry-Fehlerberichte an/aus (Opt-out).
     fun onSentryEnabledChange(newEnabled: Boolean) { _uiState.value = _uiState.value.copy(sentryEnabled = newEnabled) }
 
+    fun onRemoteControlEnabledChange(newEnabled: Boolean) { _uiState.value = _uiState.value.copy(remoteControlEnabled = newEnabled) }
+
     // Darstellung (Theme): Design-Modus + Akzentfarbe.
     fun onThemeModeChange(newMode: ThemeMode) { _uiState.value = _uiState.value.copy(themeMode = newMode) }
     fun onAccentColorChange(newAccent: AccentColor) { _uiState.value = _uiState.value.copy(themeAccent = newAccent) }
@@ -407,6 +409,7 @@ class SettingsViewModel @Inject constructor(
                 opacity = currentSettings.slideshowWidgetOpacity,
             )
             settingsRepository.updateSentryEnabled(currentSettings.sentryEnabled)
+            settingsRepository.updateRemoteControlEnabled(currentSettings.remoteControlEnabled)
             settingsRepository.updateReplayAudioMode(currentSettings.replayAudioMode)
             settingsRepository.updateEncoderPreset(currentSettings.encoderPreset)
             settingsRepository.updateEncoderCodecPreference(currentSettings.videoCodecPreference)

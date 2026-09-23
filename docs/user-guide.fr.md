@@ -321,6 +321,7 @@ Pilote le stream depuis n'importe quel navigateur du même Wi-Fi :
 
 > 🔒 Le serveur ne tourne que tant que l'app est ouverte. Les actions nécessitent le jeton.
 > Android 17 : si `/status` est inaccessible → « Autoriser l'accès LAN pour la télécommande » dans les paramètres.
+> Port déjà occupé (EADDRINUSE) ? Depuis v0.5.16-beta, l\'app démarre quand même ; l\'autostart du serveur peut être désactivé sous **Remote & confidentialité**.
 
 ---
 
@@ -334,7 +335,7 @@ L'écran des paramètres est organisé en six catégories (comme Moblin) :
 | 🎨 **Apparence** | Mode de design (Système/Clair/Sombre/AMOLED) + couleur d'accent (6 couleurs choisies, vert Vivid par défaut) |
 | 🧩 **Overlays & widgets** | Overlay de chat Twitch (chaîne + toggle), widget texte/info (heure/GPS/vitesse/altitude — chacun avec toggle + autorisation d'exécution ; texte de modèle personnalisé avec variables comme `{time}`, `{speed}`, `{road}`, `{city}`, `{country}` — les noms de lieux sont résolus automatiquement par géocodage inverse et mis en cache) |
 | 💬 **Chat-bot & IA** | Mode de fonctionnement, compte du bot (login/jeton/ID client), endpoint/clé/modèle LLM, prompt, cooldown, mentions only, limite de débit, limites + presets, accès owner (liste d'autorisation + IA owner), commandes média, accès aux notifications |
-| 🔒 **Remote & confidentialité** | Télécommande web (jeton + accès LAN), rapports d'erreurs Sentry (toggle d'exclusion) |
+| 🔒 **Remote & confidentialité** | Télécommande web (jeton + accès LAN, toggle d\'autostart), rapports d'erreurs Sentry (toggle d'exclusion) |
 | ℹ️ **À propos & mises à jour** | Version, badge de mise à jour, recherche manuelle de mises à jour (releases GitHub), notes de version |
 
 ---

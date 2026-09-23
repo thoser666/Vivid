@@ -87,6 +87,23 @@ fun SettingsRemotePrivacyScreen(
             }
         }
 
+        // Web-Remote-Control Autostart (Kill-Switch gegen belegten Port 8080)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(stringResource(R.string.remote_control_autostart_toggle), modifier = Modifier.weight(1f))
+            Switch(
+                checked = uiState.remoteControlEnabled,
+                onCheckedChange = viewModel::onRemoteControlEnabledChange,
+            )
+        }
+        Text(
+            text = stringResource(R.string.remote_control_autostart_desc),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
         // Datenschutz: Sentry-Fehlerberichte an/aus (Opt-out, Default: an)
         Text(stringResource(R.string.privacy_section_title), style = MaterialTheme.typography.titleLarge)
         Row(

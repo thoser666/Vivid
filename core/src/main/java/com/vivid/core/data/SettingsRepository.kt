@@ -85,6 +85,7 @@ class SettingsRepository @Inject constructor(
         val SLIDESHOW_WIDGET_SIZE_DP = intPreferencesKey("slideshow_widget_size_dp")
         val SLIDESHOW_WIDGET_OPACITY = floatPreferencesKey("slideshow_widget_opacity")
         val SENTRY_ENABLED = booleanPreferencesKey("sentry_enabled")
+        val REMOTE_CONTROL_ENABLED = booleanPreferencesKey("remote_control_enabled")
         val REPLAY_AUDIO_MODE = stringPreferencesKey("replay_audio_mode")
         val ENCODER_PRESET = stringPreferencesKey("encoder_preset")
         val ENCODER_CODEC_PREFERENCE = stringPreferencesKey("encoder_codec_preference")
@@ -307,8 +308,13 @@ class SettingsRepository @Inject constructor(
                 accent = AccentColor.fromName(prefs[PrefKeys.THEME_ACCENT]),
             )
         },
-        // 7. Flow: Sentry-Opt-out (Datenschutz) — Default: an
-        dataStore.data.map { prefs -> prefs[PrefKeys.SENTRY_ENABLED] ?: true },
+        // 7. Flow: Datenschutz (Sentry-Opt-out + Remote-Control-Kill-Switch) — Default: beide an
+        dataStore.data.map { prefs ->
+            PrivacyPrefs(
+                sentryEnabled = prefs[PrefKeys.SENTRY_ENABLED] ?: true,
+                remoteControlEnabled = prefs[PrefKeys.REMOTE_CONTROL_ENABLED] ?: true,
+            )
+        },
         // 8. Flow: In-App-Log-Vorhaltezeit (Tage)
         dataStore.data.map { prefs -> prefs[PrefKeys.LOGS_RETENTION_DAYS] ?: 7 },
         // 9. Flow: Third-Party-Emote-Quellen (BTTV/FFZ/7TV)
@@ -331,9 +337,10 @@ class SettingsRepository @Inject constructor(
                 chatOverlayPosition = ChatOverlayPosition.fromName(prefs[PrefKeys.CHAT_OVERLAY_POSITION]),
             )
         },
-    ) { settings, themeData, sentryEnabled, logsRetentionDays, emotePrefs ->
+    ) { settings, themeData, privacy, logsRetentionDays, emotePrefs ->
         settings.copy(
-            sentryEnabled = sentryEnabled,
+            sentryEnabled = privacy.sentryEnabled,
+            remoteControlEnabled = privacy.remoteControlEnabled,
             themeMode = themeData.mode,
             themeAccent = themeData.accent,
             logsRetentionDays = logsRetentionDays,
@@ -565,6 +572,12 @@ class SettingsRepository @Inject constructor(
         val accent: AccentColor,
     )
 
+    /** Datenschutz-Flow: Sentry-Opt-out + Remote-Control-Autostart (Kill-Switch). */
+    private data class PrivacyPrefs(
+        val sentryEnabled: Boolean,
+        val remoteControlEnabled: Boolean,
+    )
+
     private data class EmotePrefs(
         val bttvEnabled: Boolean,
         val ffzEnabled: Boolean,
@@ -587,6 +600,13 @@ class SettingsRepository @Inject constructor(
     suspend fun updateSentryEnabled(enabled: Boolean) {
         dataStore.edit { prefs ->
             prefs[PrefKeys.SENTRY_ENABLED] = enabled
+        }
+    }
+
+    /** Remote-Control-Autostart speichern (false = Kill-Switch, kein Server-Bind beim Start). */
+    suspend fun updateRemoteControlEnabled(enabled: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[PrefKeys.REMOTE_CONTROL_ENABLED] = enabled
         }
     }
 

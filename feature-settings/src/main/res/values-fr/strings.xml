@@ -183,6 +183,8 @@
     <string name="remote_token_loading">Chargement du jeton…</string>
     <string name="remote_permission_button">Autoriser l’accès LAN pour la télécommande</string>
     <string name="privacy_section_title">Confidentialité &amp; rapports d\'erreur</string>
+    <string name="remote_control_autostart_toggle">Démarrer la télécommande web automatiquement</string>
+    <string name="remote_control_autostart_desc">Démarre le serveur LAN au lancement de l\'app (par défaut : activé). Désactivé = aucun bind du serveur au démarrage – utile si le port est déjà occupé (sur les versions plus anciennes, l\'app plantait au démarrage lorsque le port 8080 était occupé) ou si vous n\'utilisez pas la télécommande. Un serveur déjà en cours d\'exécution n\'est pas affecté.</string>
     <string name="privacy_sentry_toggle">Envoyer les rapports d\'erreur (Sentry)</string>
     <string name="privacy_sentry_desc">Envoie des rapports d\'erreur à Sentry en cas de plantage (activé par défaut). Aucune capture d\'écran n\'est prise ; les informations sur l’appareil/IP sont désactivées. Désactivé = rien n\'est transmis à Sentry. Détails : PRIVACY.md dans le dépôt.</string>
 

@@ -138,11 +138,19 @@ class VividApplication : Application(), ImageLoaderFactory {
             // FOSS Build: Sentry deaktiviert für F-Droid-Konformität
             Timber.i("FOSS build - Sentry disabled for F-Droid compliance")
         }
-        // Web-Remote-Control über LAN starten — fehlertolerant, damit ein
-        // Port-Konflikt die App nicht crashen lässt. Im Safe-Mode
-        // uebersprungen (Diagnose braucht keinen Server).
+        // Web-Remote-Control über LAN starten — fehlertolerant und nur, wenn
+        // das Setting an ist (Kill-Switch gegen den EADDRINUSE-Startcrash,
+        // Kandidat REMOTE-EADDRINUSE-STARTUP). Im Safe-Mode uebersprungen
+        // (Diagnose braucht keinen Server).
         if (!safeMode) {
             applicationScope.launch {
+                val remoteEnabled = runCatching {
+                    settingsRepository.appSettingsFlow.first().remoteControlEnabled
+                }.getOrDefault(true)
+                if (!remoteEnabled) {
+                    Timber.i("Web-Remote-Control per Einstellung deaktiviert - kein Server-Bind")
+                    return@launch
+                }
                 runCatching { remoteControlServer.start() }
                     .onFailure { Timber.e(it, "Web-Remote-Control-Server konnte nicht gestartet werden") }
             }

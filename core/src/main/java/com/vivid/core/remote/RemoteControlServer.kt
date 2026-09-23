@@ -17,6 +17,7 @@ import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import timber.log.Timber
 import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.security.MessageDigest
@@ -81,15 +82,37 @@ class RemoteControlServer @Inject constructor(
 
     val isRunning: Boolean get() = server != null
 
-    /** Startet den Server (idempotent). Läuft asynchron weiter. */
+    /**
+     * Startet den Server (idempotent). Läuft asynchron weiter.
+     *
+     * Scheitert der Port-Bind (z. B. EADDRINUSE, wenn eine andere App oder
+     * eine zweite Vivid-Instanz den Port belegt), wird der Start **bewusst
+     * abgefangen und nur geloggt** — die Methode wirft für Port-Konflikte
+     * nichts mehr. Hintergrund: Vor der Härtung in v0.5.16-beta crashte ein
+     * belegter Port beim App-Start den Prozess (Crash-Kandidat
+     * REMOTE-EADDRINUSE-STARTUP in der CrashAdvisoryRegistry). Andere Fehler
+     * (z. B. Token-Store) propagieren weiterhin zum fehlertoleranten Aufrufer.
+     */
     suspend fun start() {
         if (server != null) return
         // Port-Probe VOR dem Ktor-Bind: Ktor wirft Bind-Fehler asynchron im
         // acceptJob — runCatching beim Aufrufer kann sie nicht fangen, und ein
         // unbehandelter Fehler im SupervisorJob crasht den Prozess (z. B. zwei
         // App-Instanzen oder ein belegter Port). Die Probe scheitert stattdessen
-        // synchron mit klarer Ursache; der Aufrufer behandelt sie fehlertolerant.
-        probePort(port)
+        // synchron mit klarer Ursache; ein Port-Konflikt wird hier direkt
+        // behandelt (Log statt Exception), damit kein Aufrufer-Pfad den
+        // Prozess gefährden kann.
+        try {
+            probePort(port)
+        } catch (e: java.net.BindException) {
+            Timber.w(
+                e,
+                "Web-Remote-Control: Port %d belegt (EADDRINUSE) - Server wird nicht gestartet. " +
+                    "Port in den Settings freigeben oder andere App beenden.",
+                port,
+            )
+            return
+        }
         val token = tokenStore.getOrCreateToken()
         val newServer = embeddedServer(
             factory = CIO,
@@ -117,7 +140,8 @@ class RemoteControlServer @Inject constructor(
          * wie REUSEPORT (Port-Klau möglich) — ohne das Flag schlägt die Probe
          * auf allen Plattformen deterministisch mit der originalen
          * `java.net.BindException` fehl, wenn der Port belegt ist. Falsche
-         * Alarme sind sicher: Der Server startet dann einfach nicht.
+         * Alarme sind sicher: Der Server startet dann einfach nicht
+         * ([start] behandelt den Konflikt seit der EADDRINUSE-Härtung selbst).
          * Port als Parameter, damit Unit-Tests freie/belegte Ports durchspielen.
          */
         internal fun probePort(port: Int) {

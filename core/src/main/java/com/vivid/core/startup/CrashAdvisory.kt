@@ -69,13 +69,31 @@ object CrashAdvisoryRegistry {
      * zeigt das Format.
      */
     val KNOWN: List<KnownCrashCandidate> = listOf(
-        // Bauplan (bewusst auskommentiert — keine spekulativen Einträge):
+        // Erster real identifizierter Start-Crash (Nutzerbericht S23, In-App-Log):
+        // BindException EADDRINUSE in RemoteControlServer.start(), wenn Port
+        // 8080 bereits belegt ist (zweite App/Instanz). Remote-Autostart
+        // existiert seit v0.5.0-alpha (versionCode-Basis 5000); die Haertung
+        // (Graceful-Skip + Log) landete in v0.5.16-beta (5162) — davor crashte
+        // der Prozess. Kill-Switch: Remote-Control in den Einstellungen aus.
+        KnownCrashCandidate(
+            id = "REMOTE-EADDRINUSE-STARTUP",
+            description =
+                "Absturz beim Start: Der Port der Web-Remote-Control (8080) ist belegt " +
+                    "(EADDRINUSE) - z. B. durch eine andere App oder eine zweite Vivid-Instanz.",
+            minVersionCode = 5000,
+            maxVersionCode = 5144,
+            workaround =
+                "Auf Build >= 5162 (v0.5.16-beta) aktualisieren - dort wird ein belegter Port " +
+                    "abgefangen; alternativ Web-Remote-Control in den Einstellungen (Remote & " +
+                    "Datenschutz) ausschalten.",
+        ),
+        // Bauplan fuer weitere Eintraege (keine spekulativen Eintraege):
         // KnownCrashCandidate(
         //     id = "EXAMPLE-STARTUP-CRASH",
-        //     description = "Absturz beim Start auf <Geräteklasse>, Ursache <kurz>",
+        //     description = "Absturz beim Start auf <Geraetestyp>, Ursache <kurz>",
         //     minVersionCode = 5080,
         //     maxVersionCode = 5090,
-        //     workaround = "Auf Build ≥ 5091 aktualisieren",
+        //     workaround = "Auf Build >= 5091 aktualisieren",
         // ),
     )
 

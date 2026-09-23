@@ -182,6 +182,8 @@
     <string name="remote_token_loading">Loading token…</string>
     <string name="remote_permission_button">Allow LAN access for remote control</string>
     <string name="privacy_section_title">Privacy &amp; error reports</string>
+    <string name="remote_control_autostart_toggle">Start web remote control automatically</string>
+    <string name="remote_control_autostart_desc">Starts the LAN server on app launch (default: on). Off = no server bind at startup – useful if the port is already in use (on older versions the app crashed at startup when port 8080 was taken) or if you do not use the remote control. A server that is already running is not affected.</string>
     <string name="privacy_sentry_toggle">Send error reports (Sentry)</string>
     <string name="privacy_sentry_desc">Sends error reports to Sentry on crashes (default: on). No screenshots are taken; device/IP information is disabled. Off = nothing is transmitted to Sentry. Details: PRIVACY.md in the repository.</string>
 

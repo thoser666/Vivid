@@ -126,6 +126,12 @@ data class AppSettings(
     // Fehler-/Crash-Berichte an Sentry senden (Standard: an). Aus = Opt-out:
     // beforeSend verwirft dann alle Events — es wird nichts an Sentry übertragen.
     val sentryEnabled: Boolean = true,
+    // --- Remote & Datenschutz ---
+    // Web-Remote-Control beim App-Start automatisch starten (Standard: an).
+    // Aus = Kill-Switch: Kein Server-Bind beim Start — für Geräte, auf denen
+    // der Port 8080 belegt ist (EADDRINUSE) oder die Remote-Control nicht
+    // benötigen. Ein laufender Server bleibt unberührt.
+    val remoteControlEnabled: Boolean = true,
     // --- Darstellung (Theme) ---
     // Design-Modus: SYSTEM (System folgen) | LIGHT | DARK | AMOLED (schwarze Flächen).
     val themeMode: ThemeMode = ThemeMode.SYSTEM,

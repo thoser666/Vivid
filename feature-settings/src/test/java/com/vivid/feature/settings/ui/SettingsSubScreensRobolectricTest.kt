@@ -1,6 +1,7 @@
 package com.vivid.feature.settings.ui
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.hasStateDescription
@@ -261,8 +262,29 @@ class SettingsSubScreensRobolectricTest {
         }
         composeRule.onNodeWithText("Web remote control").assertIsDisplayed()
         composeRule.onNodeWithText("Remote token").assertIsDisplayed()
+        composeRule.onNodeWithText("Start web remote control automatically").assertIsDisplayed()
+        composeRule.onNode(hasScrollAction()).performScrollToNode(
+            hasText("Send error reports (Sentry)"),
+        )
         composeRule.onNodeWithText("Privacy & error reports").assertIsDisplayed()
         composeRule.onNodeWithText("Send error reports (Sentry)").assertIsDisplayed()
+    }
+
+    @Test
+    fun `remote-privacy autostart toggle reflects state`() {
+        composeRule.setContent {
+            SettingsRemotePrivacyScreen(
+                uiState = AppSettings(remoteControlEnabled = false),
+                viewModel = settingsViewModel(),
+                remoteControl = RemoteControlInfo(port = 8080, token = "secret-token"),
+                onBack = {},
+            )
+        }
+        composeRule.onNode(hasScrollAction()).performScrollToNode(
+            hasText("Start web remote control automatically"),
+        )
+        // Erster Toggle im Screen = Autostart-Switch (vor Sentry).
+        composeRule.onAllNodes(isToggleable())[0].assertIsOff()
     }
 
     // --- Accessibility: Semantics der Encoder-Steuerungen -----------------------

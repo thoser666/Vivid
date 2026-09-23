@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertDoesNotThrow
 
 /**
  * Crash-Advisory-Vertraege (reines JUnit, ohne Android-Framework):
@@ -15,8 +16,9 @@ import org.junit.jupiter.api.Test
  *     Bereichsgrenzen, kein Treffer, leere Registry - der saubere Pfad ist still.
  *  2. Reporter: eine Treffer-Advisory landet CRASH-markiert (WARN, 💥, Tag
  *     `CrashAdvisory`) im In-App-Log [LogBuffer]; "kein Treffer" schreibt nichts.
- *  3. Registry-Hygiene: [CrashAdvisoryRegistry.KNOWN] ist bewusst leer startend
- *     (keine spekulativen Eintraege) und alle Eintraege muessen wohlgeformt sein.
+ *  3. Registry-Hygiene: [CrashAdvisoryRegistry.KNOWN] ist leer startend bzw.
+ *     enthaelt nur real identifizierte Eintraege (keine Spekulation) und alle
+ *     Eintraege muessen wohlgeformt sein.
  *
  * Die Start-Verdrahtung ([com.vivid.irlbroadcaster.VividApplication]) ruft
  * `reportIfAny(BuildConfig.VERSION_CODE)` fehlertolerant nach dem Timber-Planting.
@@ -95,11 +97,13 @@ class CrashAdvisoryTest {
     // --- 3) Registry-Hygiene ---------------------------------------------------
 
     @Test
-    fun `KNOWN startet leer - keine spekulativen Eintraege`() {
-        assertTrue(
-            CrashAdvisoryRegistry.KNOWN.isEmpty(),
-            "Die Registry ist bewusst leer startend; Eintraege erst nach real identifiziertem Crash setzen.",
-        )
+    fun `KNOWN enthaelt keine spekulativen Eintraege - jeder Eintrag ist begruendet`() {
+        // Die Registry darf nur real identifizierte Crashes enthalten. Die
+        // Liste ist handgepflegt; dieser Test dokumentiert den Vertrag:
+        // Jeder Eintrag braucht Range + Workaround (geprüft in
+        // `alle Registry-Eintraege sind wohlgeformt`), neue Eintraege
+        // verlangen einen realen Befund (Sentry/In-App-Log).
+        assertTrue(CrashAdvisoryRegistry.KNOWN.size >= 1)
     }
 
     @Test
@@ -111,6 +115,25 @@ class CrashAdvisoryTest {
                 c.minVersionCode <= c.maxVersionCode,
                 "Range von ${c.id} invertiert (${c.minVersionCode}..${c.maxVersionCode})",
             )
+        }
+    }
+
+    @Test
+    fun `REAL-Kandidat REMOTE-EADDRINUSE-STARTUP trifft die Crashing-Versionen`() {
+        // Real identifiziert (S23-Startcrash, In-App-Log): Autostart seit
+        // v0.5.0-alpha (Basis 5000), Haertung ab v0.5.16-beta (5162).
+        val c = CrashAdvisoryRegistry.KNOWN.first { it.id == "REMOTE-EADDRINUSE-STARTUP" }
+        assertNotNull(CrashAdvisoryRegistry.evaluate(5000, listOf(c)))
+        assertNotNull(CrashAdvisoryRegistry.evaluate(5144, listOf(c)))
+        assertNull(CrashAdvisoryRegistry.evaluate(5162, listOf(c)))
+        assertNull(CrashAdvisoryRegistry.evaluate(5172, listOf(c)))
+        assertNull(CrashAdvisoryRegistry.evaluate(4999, listOf(c)))
+    }
+
+    @Test
+    fun `evaluate mit aktueller Registry wirft nie - Startpfad bleibt robust`() {
+        for (vc in intArrayOf(4999, 5000, 5144, 5162, 5172, 999999)) {
+            assertDoesNotThrow { CrashAdvisoryRegistry.evaluate(vc, CrashAdvisoryRegistry.KNOWN) }
         }
     }
 }

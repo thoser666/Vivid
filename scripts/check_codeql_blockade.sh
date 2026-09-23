@@ -56,7 +56,10 @@ kotlin="$(current_kotlin)"
 [ "$(ver_to_num "$kotlin")" -ge "$(ver_to_num 2.4.20)" ] || exit 0
 
 # Neuestes Bundle beschaffen (Override für Tests; Fehler = neutral weiter).
-if [ -n "${CODEQL_BUNDLE_JSON:-}" ]; then
+# Ein **gesetzter, aber leerer** Override gilt als "leere Antwort" → neutral
+# (nicht als Auslöser für den Live-Abruf — sonst kommt bei leerer Fixture
+# das Live-Ergebnis durch und der Test "leere Antwort ist still" bricht).
+if [ -n "${CODEQL_BUNDLE_JSON+x}" ]; then
   json="$CODEQL_BUNDLE_JSON"
 else
   json="$(curl -sfL --max-time 30 "$LATEST_URL" 2>/dev/null || printf '')"
