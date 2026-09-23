@@ -1,0 +1,129 @@
+name: Sentry Stats Review
+
+# Monatlicher Sentry-Quota-Check: Der Stats-Guard
+# (scripts/check_sentry_stats.sh) fragt mit einem kurzlebigen Lese-Token
+# (User-Token, project:read + event:read — Erstellung: docs/sentry-stats.md)
+# die Event-Statistik des DSN-Projekts ab. Bei WARN (Events verworfen →
+# Quota-/Ratenlimit-Signal) oder Konfigurationsproblemen (Token fehlt/ohne
+# Scopes, API-Format-Bruch) wird automatisch ein Issue geöffnet bzw. das
+# bestehende Issue kommentiert; sind die Verhältnisse wieder sauber (OK bzw.
+# neutraler Netzwerk-SKIP), werden offene Check-Issues automatisch
+# geschlossen. Die Entscheidung über Reaktion bleibt beim Maintainer —
+# die Automatisierung liefert die Sichtbarkeit, damit Quota-Drops nicht
+# unbemerkt Replays und Crash-Berichte stumm machen.
+on:
+  schedule:
+    # Monatlich am 9. um 06:00 UTC — bewusst vor dem Suppressions-Register-
+    # Review (11.) und unabhängig von den Nightlies platziert.
+    - cron: '0 6 9 * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Sentry-Stats-Guard ausführen
+        id: guard
+        continue-on-error: true
+        env:
+          # Kurzlebiger Lese-Token (project:read + event:read). Fehlt das
+          # Secret, SKIPt der Guard — das Issue-Handling unten öffnet dann
+          # ein Konfigurations-Issue statt stillem Versagen.
+          SENTRY_STATS_TOKEN: ${{ secrets.SENTRY_STATS_TOKEN }}
+          SENTRY_ORG: privat-jb
+          SENTRY_PROJECT: vivid
+        run: |
+          bash scripts/check_sentry_stats.sh 2>&1 | tee guard-output.txt
+          exit "${PIPESTATUS[0]}"
+
+      - name: Check-Issue öffnen, kommentieren oder schließen
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const fs = require('fs');
+            const warnTitle = 'Sentry-Stats: monatlicher Check — Quota-Drops erkannt (WARN)';
+            const warnMarker = '<!-- sentry-stats-warn -->';
+            const configTitle = 'Sentry-Stats: Lese-Token fehlt/ungültig oder API-Format geändert';
+            const configMarker = '<!-- sentry-stats-config -->';
+            const outcome = '${{ steps.guard.outcome }}';
+            const runUrl = '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}';
+
+            let output = '';
+            try { output = fs.readFileSync('guard-output.txt', 'utf8').trim(); }
+            catch (e) { output = '(keine Guard-Ausgabe verfügbar)'; }
+            if (output.length > 2500) output = output.slice(0, 2500) + '\n… (gekürzt — vollständige Ausgabe im Run-Log)';
+
+            const verdictLine = output.split('\n').find(l => /^(OK|WARN|SKIP|FEHLER):/.test(l)) || '(kein Verdict)';
+            const isConfigSkip = verdictLine.startsWith('SKIP:') && (
+              verdictLine.includes('kein Sentry-Lese-Token') || verdictLine.includes('Lesescopes'));
+
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 100
+            });
+            const findIssue = (title) => issues.find(i => !i.pull_request && i.title === title);
+
+            const comment = async (issue, body) => {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: issue.number, body
+              });
+            };
+            const openIssue = async (title, marker, body) => {
+              const existing = findIssue(title);
+              if (existing) {
+                await comment(existing, body);
+                return;
+              }
+              await github.rest.issues.create({
+                owner: context.repo.owner, repo: context.repo.repo,
+                title, body: marker + '\n' + body, labels: ['ops']
+              });
+            };
+            const closeIfOpen = async (title, note) => {
+              const existing = findIssue(title);
+              if (!existing) return;
+              await comment(existing, note + '\n\nRun: ' + runUrl);
+              await github.rest.issues.update({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: existing.number, state: 'closed'
+              });
+            };
+
+            if (outcome === 'failure') {
+              // FEHLER = fail-closed (API-Feldformat geändert) — Konfigurations-Issue.
+              await openIssue(configTitle, configMarker,
+                'Der Sentry-Stats-Guard ist **fehlgeschlagen** (fail-closed).\n\n```\n' + verdictLine + '\n```\n\nRun: ' + runUrl +
+                '\n\nWahrscheinliche Ursache: Sentry-API-Feldformat geändert — Parsing in `scripts/check_sentry_stats.sh` anpassen (Selbsttest läuft offline).');
+              await closeIfOpen(warnTitle, 'Guard-Ausführung fehlgeschlagen (keine belastbare Statistik in diesem Lauf).');
+              return;
+            }
+
+            if (isConfigSkip) {
+              await openIssue(configTitle, configMarker,
+                'Der monatliche Sentry-Stats-Check kann nicht laufen: **' + verdictLine + '**\n\nRun: ' + runUrl +
+                '\n\nBehebung: kurzlebigen User-Token mit `project:read` + `event:read` erstellen (docs/sentry-stats.md, Abschnitt 1) und als Repo-Secret `SENTRY_STATS_TOKEN` hinterlegen. Dieses Issue schließt sich automatisch, sobald der nächste Lauf OK/WARN liefert.');
+              await closeIfOpen(warnTitle, 'Keine Statistik verfügbar (Token-Konfiguration nötig) — WARN-Zyklus pausiert.');
+              return;
+            }
+
+            if (verdictLine.startsWith('WARN:')) {
+              await openIssue(warnTitle, warnMarker,
+                'Der monatliche Sentry-Stats-Check meldet **Quota-Drops** (Events verworfen).\n\n```\n' + output + '\n```\n\nRun: ' + runUrl +
+                '\n\nReaktion: Sentry-Usage im Dashboard prüfen (Settings → Usage/Subscription). Verworfene Crash-Berichte/Replays sind verloren — bei wiederholten Drops Sampling senken oder Quota erhöhen. Dieses Issue schließt sich automatisch, sobald ein Lauf ohne Drops durchgeht.');
+              await closeIfOpen(configTitle, 'Token funktioniert (Verdict: ' + verdictLine + ') — Konfigurations-Issue damit gegenstandslos.');
+              return;
+            }
+
+            // OK oder neutraler Netzwerk-SKIP: Verhältnisse sauber/neutral → Issues schließen.
+            await closeIfOpen(warnTitle, 'Letzter Lauf: `' + verdictLine + '` — keine Quota-Drops.');
+            await closeIfOpen(configTitle, 'Letzter Lauf: `' + verdictLine + '` — Konfiguration in Ordnung.');

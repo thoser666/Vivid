@@ -57,6 +57,8 @@ echo "▶ [pre-push] Sentry-Stats-Guard-Selbsttest (scripts/test_sentry_stats.sh
 bash scripts/test_sentry_stats.sh
 echo "▶ [pre-push] Sentry-Health-Guard-Selbsttest (scripts/test_sentry_health.sh)"
 bash scripts/test_sentry_health.sh
+echo "▶ [pre-push] Sentry-Stats-Workflow-Selbsttest (scripts/test_sentry_stats_workflow.sh)"
+bash scripts/test_sentry_stats_workflow.sh
 
 echo "▶ [pre-push] Stable-Distribution-Kadenz-Selbsttest (scripts/test_distribution_stable.sh)"
 bash scripts/test_distribution_stable.sh

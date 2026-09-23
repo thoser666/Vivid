@@ -41,18 +41,23 @@ Ohne `SENTRY_STATS_TOKEN` fällt der Guard auf das CI-Token aus
 `sentry.properties` zurück (SKIP mit Scopes-Hinweis, wenn es keine
 Lesescopes hat — der Normalfall).
 
-## 3. In CI verwenden (optional)
+## 3. In CI verwenden (monatlicher Review-Workflow)
 
-Das Repo-Secret `SENTRY_AUTH_TOKEN` ist das Mapping-Upload-Token (org:ci).
-Für Statistik-Checks ein separates Secret setzen (z. B. `SENTRY_STATS_TOKEN`)
-und den Guard in einem Workflow-Step aufrufen:
+Der Workflow `.github/workflows/automation-sentry-stats.yml` führt den Guard
+monatlich aus (Cron: Tag 9, 06:00 UTC, plus `workflow_dispatch`) und
+verwaltet die Ergebnisse als Issues:
 
-```yaml
-- name: Sentry-Stats prüfen
-  env:
-    SENTRY_STATS_TOKEN: ${{ secrets.SENTRY_STATS_TOKEN }}
-  run: bash scripts/check_sentry_stats.sh
-```
+- **WARN (Quota-Drops)** → Issue „Quota-Drops erkannt" (kommentiert statt
+  neu, solange eins offen ist)
+- **FEHLER / Konfigurations-SKIP** (Token fehlt, ungültig, ohne Lesescopes
+  oder API-Format geändert) → Konfigurations-Issue mit Behebungs-Hinweis
+- **OK oder neutraler Netzwerk-SKIP** → offene Check-Issues schließen sich
+  automatisch
+
+Das Secret `SENTRY_STATS_TOKEN` ist dafür einmalig zu hinterlegen
+(User-Token aus Abschnitt 1, Scopes `project:read` + `event:read`): solange
+es fehlt, läuft der Workflow trotzdem und hält per Konfigurations-Issue die
+Erinnerung am Leben — stillem Versagen ist damit vorgebaut.
 
 ## 4. Health-Probe (Ingest lebendig?)
 
