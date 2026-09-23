@@ -54,7 +54,35 @@ und den Guard in einem Workflow-Step aufrufen:
   run: bash scripts/check_sentry_stats.sh
 ```
 
-## 4. Sicherheit
+## 4. Health-Probe (Ingest lebendig?)
+
+Neben der Statistik-Abfrage prüft `scripts/check_sentry_health.sh` die
+andere Richtung: Ist der **Ingest-Endpunkt** des DSN-Projekts erreichbar und
+wird ein minimal gültiges Probe-Event akzeptiert, ohne gedrosselt zu werden?
+
+```bash
+bash scripts/check_sentry_health.sh          # SKIP (opt-in-Vertrag)
+bash scripts/check_sentry_health.sh --live   # echte Probe (POST an den Ingest)
+bash scripts/check_sentry_health.sh --print-envelope   # Struktur ohne POST
+bash scripts/check_sentry_health.sh --print-dsn        # KEY/HOST/PROJ aus dem Manifest
+```
+
+Verdicts: `OK` (HTTP 200, keine Rate-Limit-Header), `WARN` (200 mit
+`X-Sentry-Rate-Limits`/`Retry-After`, oder 429 — Quota-/Ratenlimit-Signal),
+`FEHLER` (400/401/403 — DSN-/Envelope-Problem, exit 1), `SKIP` (Netzwerk/
+unerwarteter Status, exit 0).
+
+**Bewusst opt-in:** Die DSN steht im öffentlichen Manifest — automatische
+Proben bei jedem Push würden das Dashboard mit Probe-Events zumüllen. Das
+Pre-Push-Gate prüft deshalb nur die Envelope-Struktur offline
+(`test_sentry_health.sh`, HP1–HP9, inkl. Header-Injection-Probe). Die
+Live-Probe ist ein Werkzeug für Menschen und Health-Checks mit Bedacht —
+ein Cron-Nutzer sollte sie höchstens täglich/wöchentlich und mit
+disziplinierter Tag-Auswertung fahren (Probe-Events tragen
+`tags.probe=health-check` und environment `health-probe`, um sie im
+Dashboard filtern/löschen zu können).
+
+## 5. Sicherheit
 
 - Der User-Token ist **kein Repo-Secret-Ersatz** für den Mapping-Upload —
   getrennte Tokens, getrennte Scopes, getrennte Lebensdauern.
