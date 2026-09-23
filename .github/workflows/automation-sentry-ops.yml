@@ -1,0 +1,159 @@
+name: Sentry Ops Review
+
+# Wöchentlicher Sentry-Ops-Check (ersetzt den monatlichen Stats-Review):
+#
+#   1. Stats-Guard (scripts/check_sentry_stats.sh) — fragt mit dem kurzlebigen
+#      Lese-Token (User-Token, project:read + event:read; Erstellung:
+#      docs/sentry-stats.md, Abschnitt 1) die Event-Statistik des DSN-Projekts
+#      ab und macht Quota-Drops sichtbar.
+#   2. Health-Guard (scripts/check_sentry_health.sh --live) — bewusst hier
+#      opt-in: einmal pro Woche ein Probe-Event (tags.probe=health-check) an
+#      den echten Ingest-Endpunkt; bewertet Rate-Limit-Header. Automatische
+#      Proben bei jedem Push würden das Dashboard zumüllen — wöchentlich ist
+#      die vereinbarte Frequenz.
+#
+# Bei WARN (Quota-Drops / Rate-Limit-Header / HTTP 429) oder FEHLER
+# (fail-closed: API-Format-Bruch bzw. HTTP 400/401/403 am Ingest) wird
+# automatisch ein Issue geöffnet bzw. das bestehende kommentiert; auch ein
+# Konfigurations-SKIP des Stats-Guards (Token fehlt/ohne Scopes) öffnet ein
+# Konfigurations-Issue statt stillem Versagen. Sind die Verhältnisse wieder
+# sauber (OK bzw. neutraler Netzwerk-SKIP), schließen sich offene
+# Check-Issues automatisch. Die Entscheidung über Reaktion bleibt beim
+# Maintainer — die Automatisierung liefert die Sichtbarkeit, damit
+# Quota-Drops nicht unbemerkt Replays und Crash-Berichte stumm machen.
+on:
+  schedule:
+    # Wöchentlich montags 06:30 UTC — vor den Nightly-Rush, unabhängig vom
+    # Suppressions-Register-Review (Monatstag 11) platziert.
+    - cron: '30 6 * * 1'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Sentry-Stats-Guard ausführen
+        id: stats
+        continue-on-error: true
+        env:
+          # Kurzlebiger Lese-Token (project:read + event:read). Fehlt das
+          # Secret, SKIPt der Guard — das Issue-Handling unten öffnet dann
+          # ein Konfigurations-Issue statt stillem Versagen.
+          SENTRY_STATS_TOKEN: ${{ secrets.SENTRY_STATS_TOKEN }}
+          SENTRY_ORG: privat-jb
+          SENTRY_PROJECT: vivid
+        run: |
+          bash scripts/check_sentry_stats.sh 2>&1 | tee guard-output.txt
+          exit "${PIPESTATUS[0]}"
+
+      - name: Sentry-Health-Probe ausführen (--live, opt-in via Workflow)
+        id: health
+        continue-on-error: true
+        run: |
+          bash scripts/check_sentry_health.sh --live 2>&1 | tee health-output.txt
+          exit "${PIPESTATUS[0]}"
+
+      - name: Check-Issues öffnen, kommentieren oder schließen
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const fs = require('fs');
+            const warnTitle = 'Sentry-Ops (wöchentlich): WARN — Quota-Drops oder Rate-Limit';
+            const warnMarker = '<!-- sentry-ops-warn -->';
+            const configTitle = 'Sentry-Ops: Guard-Fehler oder Token-Konfiguration nötig';
+            const configMarker = '<!-- sentry-ops-config -->';
+            const runUrl = '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}';
+
+            const readOut = (p) => {
+              try { return fs.readFileSync(p, 'utf8').trim(); }
+              catch (e) { return '(keine Guard-Ausgabe verfügbar)'; }
+            };
+            const clamp = (s, n) => s.length > n ? s.slice(0, n) + '\n… (gekürzt — vollständige Ausgabe im Run-Log)' : s;
+            const verdictOf = (out) => out.split('\n').find(l => /^(OK|WARN|SKIP|FEHLER):/.test(l)) || '(kein Verdict)';
+
+            const statsOut = readOut('guard-output.txt');
+            const healthOut = readOut('health-output.txt');
+            const statsVerdict = verdictOf(statsOut);
+            const healthVerdict = verdictOf(healthOut);
+
+            const statsFailure = '${{ steps.stats.outcome }}' === 'failure';
+            const healthFailure = '${{ steps.health.outcome }}' === 'failure';
+            const statsConfigSkip = statsVerdict.startsWith('SKIP:') && (
+              statsVerdict.includes('kein Sentry-Lese-Token') || statsVerdict.includes('Lesescopes'));
+
+            const anyWarn = statsVerdict.startsWith('WARN:') || healthVerdict.startsWith('WARN:');
+            const anyConfig = statsFailure || healthFailure || statsConfigSkip;
+
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 100
+            });
+            const findIssue = (title) => issues.find(i => !i.pull_request && i.title === title);
+
+            const comment = async (issue, body) => {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: issue.number, body
+              });
+            };
+            const openIssue = async (title, marker, body) => {
+              const existing = findIssue(title);
+              if (existing) {
+                await comment(existing, body);
+                return;
+              }
+              await github.rest.issues.create({
+                owner: context.repo.owner, repo: context.repo.repo,
+                title, body: marker + '\n' + body, labels: ['ops']
+              });
+            };
+            const closeIfOpen = async (title, note) => {
+              const existing = findIssue(title);
+              if (!existing) return;
+              await comment(existing, note + '\n\nRun: ' + runUrl);
+              await github.rest.issues.update({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: existing.number, state: 'closed'
+              });
+            };
+
+            if (anyWarn) {
+              const detail =
+                '**Stats-Guard:** `' + statsVerdict + '`\n\n```\n' + clamp(statsOut, 2000) + '\n```\n\n' +
+                '**Health-Probe:** `' + healthVerdict + '`\n\n```\n' + clamp(healthOut, 2000) + '\n```\n\n' +
+                'Run: ' + runUrl +
+                '\n\nReaktion: Sentry-Usage im Dashboard prüfen (Settings → Usage/Subscription).' +
+                ' Stats-WARN (verworfene Events) = verlorene Crash-Berichte/Replays — bei wiederholten Drops Sampling senken oder Quota erhöhen.' +
+                ' Health-WARN (Rate-Limit-Header / HTTP 429) = der Ingest drosselt — meist dasselbe Quota-Signal aus einer anderen Richtung.' +
+                '\n\nDieses Issue schließt sich automatisch, sobald ein Lauf ohne WARN durchgeht.';
+              await openIssue(warnTitle, warnMarker, detail);
+            } else {
+              await closeIfOpen(warnTitle, 'Letzter Lauf ohne WARN — Stats `' + statsVerdict + '`, Health `' + healthVerdict + '`.');
+            }
+
+            if (statsFailure || healthFailure) {
+              const detail =
+                'Ein Sentry-Guard ist **fehlgeschlagen** (fail-closed).\n\n' +
+                '**Stats-Guard:** `' + statsVerdict + '`' + (statsFailure ? ' *(exit ≠ 0)*' : '') + '\n\n```\n' + clamp(statsOut, 1500) + '\n```\n\n' +
+                '**Health-Probe:** `' + healthVerdict + '`' + (healthFailure ? ' *(exit ≠ 0)*' : '') + '\n\n```\n' + clamp(healthOut, 1500) + '\n```\n\n' +
+                'Run: ' + runUrl +
+                '\n\nMögliche Ursachen: API-Feldformat geändert (Parsing in `scripts/check_sentry_stats.sh` anpassen — Selbsttest läuft offline) bzw. HTTP 400/401/403 am Ingest (DSN-/Envelope-Problem — Details: docs/sentry-stats.md, Abschnitt 4).';
+              await openIssue(configTitle, configMarker, detail);
+            } else if (statsConfigSkip) {
+              const detail =
+                'Der wöchentliche Sentry-Stats-Check kann nicht laufen: **' + statsVerdict + '**\n\n' +
+                'Run: ' + runUrl +
+                '\n\nBehebung: kurzlebigen User-Token mit `project:read` + `event:read` erstellen (docs/sentry-stats.md, Abschnitt 1) und als Repo-Secret `SENTRY_STATS_TOKEN` hinterlegen. Dieses Issue schließt sich automatisch, sobald der nächste Lauf OK/WARN liefert.';
+              await openIssue(configTitle, configMarker, detail);
+            } else {
+              await closeIfOpen(configTitle, 'Letzter Lauf ohne FEHLER/Konfigurations-SKIP — Stats `' + statsVerdict + '`, Health `' + healthVerdict + '`.');
+            }

@@ -55,18 +55,21 @@ Ohne `SENTRY_STATS_TOKEN` fällt der Guard auf das CI-Token aus
 `sentry.properties` zurück (SKIP mit Scopes-Hinweis, wenn es keine
 Lesescopes hat — der Normalfall).
 
-## 3. In CI verwenden (monatlicher Review-Workflow)
+## 3. In CI verwenden (wöchentlicher Ops-Review-Workflow)
 
-Der Workflow `.github/workflows/automation-sentry-stats.yml` führt den Guard
-monatlich aus (Cron: Tag 9, 06:00 UTC, plus `workflow_dispatch`) und
-verwaltet die Ergebnisse als Issues:
+Der Workflow `.github/workflows/automation-sentry-ops.yml` führt Stats-Guard
+**und** Health-Probe wöchentlich aus (Cron: montags 06:30 UTC, plus
+`workflow_dispatch`; er ersetzt den früheren monatlichen Stats-Review) und
+verwaltet die Ergebnisse als deduplizierte Issues:
 
-- **WARN (Quota-Drops)** → Issue „Quota-Drops erkannt" (kommentiert statt
-  neu, solange eins offen ist)
-- **FEHLER / Konfigurations-SKIP** (Token fehlt, ungültig, ohne Lesescopes
-  oder API-Format geändert) → Konfigurations-Issue mit Behebungs-Hinweis
-- **OK oder neutraler Netzwerk-SKIP** → offene Check-Issues schließen sich
-  automatisch
+- **WARN** (Stats: Quota-Drops — oder Health: Rate-Limit-Header /
+  HTTP 429) → Issue mit Guard-Ausgabe und Run-Link (kommentiert statt neu,
+  solange eins offen ist)
+- **FEHLER / Konfigurations-SKIP** (Token fehlt, ungültig, ohne
+  Lesescopes, API-Format geändert bzw. HTTP 400/401/403 am Ingest) →
+  Konfigurations-Issue mit Behebungs-Hinweis
+- **OK oder neutraler Netzwerk-SKIP** → offene Check-Issues schließen
+  sich automatisch
 
 Das Secret `SENTRY_STATS_TOKEN` ist dafür einmalig zu hinterlegen
 (User-Token aus Abschnitt 1, Scopes `project:read` + `event:read`): solange
@@ -95,11 +98,12 @@ unerwarteter Status, exit 0).
 Proben bei jedem Push würden das Dashboard mit Probe-Events zumüllen. Das
 Pre-Push-Gate prüft deshalb nur die Envelope-Struktur offline
 (`test_sentry_health.sh`, HP1–HP9, inkl. Header-Injection-Probe). Die
-Live-Probe ist ein Werkzeug für Menschen und Health-Checks mit Bedacht —
-ein Cron-Nutzer sollte sie höchstens täglich/wöchentlich und mit
-disziplinierter Tag-Auswertung fahren (Probe-Events tragen
+Live-Probe bleibt ein Werkzeug mit Bedacht: Der **wöchentliche
+Ops-Workflow (Abschnitt 3) ist der sanktionierte Cron-Nutzer** — genau eine
+Probe pro Woche, disziplinierte Tag-Auswertung (Probe-Events tragen
 `tags.probe=health-check` und environment `health-probe`, um sie im
-Dashboard filtern/löschen zu können).
+Dashboard filtern/löschen zu können). Häufigere eigene Proben sind nicht
+nötig — der Workflow meldet Drossel-Signale von selbst als WARN-Issue.
 
 ## 5. Sicherheit
 

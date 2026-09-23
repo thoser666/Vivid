@@ -849,8 +849,8 @@ Workflows); Wiki und User-Guides sind bewusst ohne dieses Kapitel.
 
 | Pfeiler | Skript / Workflow | Zweck | Verdicts |
 |---|---|---|---|
-| **Stats** (Quota/Events) | `scripts/check_sentry_stats.sh`, monatlich `automation-sentry-stats.yml` (Cron Tag 9, 06:00 UTC + Dispatch) | Event-Statistik 30 d abfragen; Quota-Drops sichtbar machen | OK / WARN / SKIP / FEHLER |
-| **Health** (Ingest lebt?) | `scripts/check_sentry_health.sh --live` (opt-in) | Probe-Event an den echten Ingest-Endpunkt schicken und Rate-Limit-Header bewerten | OK / WARN / FEHLER / SKIP |
+| **Stats** (Quota/Events) | `scripts/check_sentry_stats.sh`, wöchentlich in `automation-sentry-ops.yml` (Cron Mo 06:30 UTC + Dispatch) | Event-Statistik 30 d abfragen; Quota-Drops sichtbar machen | OK / WARN / SKIP / FEHLER |
+| **Health** (Ingest lebt?) | `scripts/check_sentry_health.sh --live` — wöchentlich im Ops-Workflow (sanktionierter Cron), sonst opt-in | Probe-Event an den echten Ingest-Endpunkt schicken und Rate-Limit-Header bewerten | OK / WARN / FEHLER / SKIP |
 | **Opt-out** (App-seitig) | `SentryReplayPolicy`, `SentryOptOut.kt` | Nutzer-Toggle steuert Sentry + Error-Replay auf drei Ebenen (Rates, Buffering, beforeSendReplay) | rein App-Logik |
 
 ### Stats-Guard: Token-Quellen und Verdicts
@@ -871,22 +871,24 @@ Token.
 | `SKIP: …` | Token/Netz/Format (neutral) | Workflow öffnet ggf. Konfigurations-Issue |
 | `FEHLER` + exit 1 | API-Feldformat geändert (fail-closed) | Parsing im Guard anpassen |
 
-### Issue-Automation (monatlich)
+### Issue-Automation (wöchentlich)
 
-`automation-sentry-stats.yml` verwaltet Check-Ergebnisse als deduplizierte
-Issues (Marker `sentry-stats-warn` / `sentry-stats-config`): WARN und
-Konfigurations-SKIPs (Token fehlt/ungültig/ohne Scopes) öffnen bzw.
-kommentieren Issues; OK und neutrale Netzwerk-SKIPs schließen offene
-Check-Issues automatisch. **Fehlt das Secret `SENTRY_STATS_TOKEN`, läuft der
+`automation-sentry-ops.yml` (Cron: montags 06:30 UTC + Dispatch; ersetzt den
+früheren monatlichen Stats-Review) kombiniert Stats- und Health-Guard und
+verwaltet Check-Ergebnisse als deduplizierte Issues (Marker `sentry-ops-warn`
+/ `sentry-ops-config`): WARN (Quota-Drops bzw. Rate-Limit/429) und
+Konfigurations-SKIPs oder fail-closed-FEHLER öffnen bzw. kommentieren
+Issues; OK und neutrale Netzwerk-SKIPs schließen offene Check-Issues
+automatisch. **Fehlt das Secret `SENTRY_STATS_TOKEN`, läuft der
 Workflow trotzdem** und hält per Konfigurations-Issue die Erinnerung am
 Leben — stillem Versagen ist damit vorgebaut. Berechtigungen: `permissions:
 {}` top-level, Job nur `issues: write`; beide Actions SHA-gepinnt.
 
-### Health-Probe (bewusst opt-in)
+### Health-Probe (opt-in — der Ops-Workflow ist der sanktionierte Cron)
 
 Die DSN steht im öffentlichen Manifest — automatische Proben bei jedem Push
-würden das Dashboard mit Probe-Events zumüllen. Deshalb: `--live` nur auf
-Anforderung (erwartbar: `OK: Ingest lebt — Probe akzeptiert (HTTP 200),
+würden das Dashboard mit Probe-Events zumüllen. Deshalb: `--live` nur auf Anforderung bzw. wöchentlich im
+Ops-Workflow (sanktionierter Cron-Nutzer; erwartbar: `OK: Ingest lebt — Probe akzeptiert (HTTP 200),
 keine Rate-Limit-Header`); das Pre-Push-Gate prüft nur die Envelope-Struktur
 offline (HP1–HP9 inkl. Header-Injection-Probe). Probe-Events tragen
 `tags.probe=health-check` (bzw. `quota-check` bei der manuellen Quota-Probe
@@ -900,8 +902,9 @@ von 2026-09-23) und lassen sich im Dashboard filtern/löschen.
 | `scripts/test_sentry_health.sh` | HP1–HP9 (Envelope-Länge, DSN-Parsing, Injection-Probe) | Pre-Push-Gate |
 | `scripts/test_sentry_stats_workflow.sh` | W1–W9 (21 Checks: YAML, Pins, Issue-Dedup, Auto-Close) | Pre-Push-Gate |
 
-Historie: Stats-Guard `0fb875f` · Health-Guard `79ac64b` · Review-Workflow
-`a3ddff6` (PARITY-Log).
+Historie: Stats-Guard `0fb875f` · Health-Guard `79ac64b` · monatlicher
+Review-Workflow `a3ddff6` (durch den wöchentlichen Ops-Review dieses
+Commits ersetzt) (PARITY-Log).
 
 
 ## 🔒 OpenSSF Scorecard (Supply-Chain-Security)
