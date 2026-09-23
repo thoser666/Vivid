@@ -17,6 +17,7 @@ import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -124,38 +125,94 @@ class RemoteControlServer @Inject constructor(
         var chosen = PortFallbackPolicy.selectPort(preferredPort) { candidate ->
             probePort(candidate)
         }
-        if (PortFallbackPolicy.isEphemeral(chosen)) {
-            // Ephemerale Auswahl vorab zu einem konkreten Port aufloesen
-            // (NIO-Channel an Port 0 → Kernel-Wahl → schliessen). Der Port bleibt
-            // dann in Ktor sichtbar/ansagbar; das kleine Residual-Rennen
-            // (anderer Prozess schnappt den Port zwischendurch) ist identisch
-            // zur Probe-Bind-Luecke der festen Kette und endet harmlos im
-            // fehlertoleranten Aufrufer-Handler.
-            chosen = ServerSocketChannel.open().use { channel ->
-                channel.bind(InetSocketAddress("0.0.0.0", 0))
-                channel.socket().localPort
-            }
-        }
         if (chosen == preferredPort) {
             Timber.i("Web-Remote-Control: Port %d frei - Server startet wie bevorzugt.", preferredPort)
         } else {
             Timber.w(
-                "Web-Remote-Control: Port %d belegt (EADDRINUSE) - Ausweichport %d wird verwendet.",
+                "Web-Remote-Control: Port %d belegt (EADDRINUSE) - Ausweichkette startet bei %d.",
                 preferredPort,
                 chosen,
             )
         }
         val token = tokenStore.getOrCreateToken()
-        val newServer = embeddedServer(
-            factory = CIO,
-            port = chosen,
-            host = "0.0.0.0",
-        ) {
-            remoteControlModule(streamControl, token, logStore)
+
+        // Bind-Verifikation gegen das Probe->Bind-Rennen: Die Vorphase-Probe
+        // kann zwischen Pruefung und Engine-Bind ueberholt werden (Diagnostik-
+        // Fund: Probe gruen, NIO-Bind der Engine scheiterte trotzdem — die
+        // BindException ging im asynchronen Engine-Job verloren). Nach jedem
+        // Engine-Start wird der Bind deshalb verifiziert: Der NIO-Probe-Bind
+        // auf den gewaehlten Port muss jetzt FEHLSCHLAGEN (Port belegt =
+        // Engine hat gebunden). Scheitert der Kandidat, rueckt der naechste
+        // nach; der ephemeralen Kernel-Wahl sind 3 Versuche vergoennt.
+        // Scheitert alles, startet der Server nicht — bewusst fehlertolerant
+        // ohne Throw (EADDRINUSE-Vertrag, siehe KDoc oben).
+        var ephemeralAttempts = 0
+        while (true) {
+            if (PortFallbackPolicy.isEphemeral(chosen)) {
+                // Ephemerale Auswahl vorab zu einem konkreten Port aufloesen
+                // (NIO-Channel an Port 0 → Kernel-Wahl → schliessen), damit
+                // activePort ansagbar bleibt.
+                chosen = resolveEphemeralPort()
+            }
+            val newServer = embeddedServer(
+                factory = CIO,
+                port = chosen,
+                host = "0.0.0.0",
+            ) {
+                remoteControlModule(streamControl, token, logStore)
+            }
+            newServer.start(wait = false)
+            if (awaitEngineBind(chosen)) {
+                server = newServer
+                _activePort.value = chosen
+                return
+            }
+            runCatching { newServer.stop(gracePeriodMillis = 100, timeoutMillis = 1_000) }
+            Timber.w(
+                "Web-Remote-Control: Port %d wurde zwischen Probe und Bind belegt - naechster Versuch.",
+                chosen,
+            )
+            val next = PortFallbackPolicy.nextCandidate(preferredPort, chosen)
+            if (!PortFallbackPolicy.isEphemeral(next)) {
+                chosen = next
+            } else if (++ephemeralAttempts < 3) {
+                chosen = PortFallbackPolicy.EPHEMERAL_PORT
+            } else {
+                Timber.w(
+                    "Web-Remote-Control: Alle Port-Kandidaten scheiterten zwischen Probe und Bind - " +
+                        "Server startet nicht (fehlertolerant, kein Crash).",
+                )
+                _activePort.value = DEFAULT_PORT
+                return
+            }
         }
-        newServer.start(wait = false)
-        server = newServer
-        _activePort.value = chosen
+    }
+
+    /**
+     * Loest die ephemerale Auswahl (Port 0) zu einem konkreten Port auf:
+     * NIO-Channel an Port 0 binden → Kernel-Wahl → schliessen. Das kleine
+     * Residual-Rennen (anderer Prozess schnappt den Port zwischendurch)
+     * behandelt die Bind-Verifikation in [start].
+     */
+    private fun resolveEphemeralPort(): Int =
+        ServerSocketChannel.open().use { channel ->
+            channel.bind(InetSocketAddress("0.0.0.0", 0))
+            channel.socket().localPort
+        }
+
+    /**
+     * Verifiziert, dass die Engine [port] tatsaechlich gebunden hat: Der
+     * NIO-Probe-Bind muss dann fehlschlagen (Port belegt). Pollt bis 2 s,
+     * weil der Engine-Bind asynchron nach start(wait = false) erfolgt.
+     */
+    private suspend fun awaitEngineBind(port: Int): Boolean {
+        val deadline = System.nanoTime() + 2_000_000_000L
+        while (System.nanoTime() < deadline) {
+            val probeOk = runCatching { probePort(port) }.isSuccess
+            if (!probeOk) return true // Port ist belegt → die Engine hat gebunden.
+            delay(50)
+        }
+        return false
     }
 
     /** Stoppt den Server, falls er läuft. */

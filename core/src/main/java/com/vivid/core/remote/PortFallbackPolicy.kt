@@ -30,6 +30,14 @@ object PortFallbackPolicy {
         intArrayOf(preferred) + FALLBACK_OFFSETS.map { preferred + it }.toIntArray() + intArrayOf(EPHEMERAL_PORT)
 
     /**
+     * Naechster Kandidat der Kette nach [current]; hinter dem letzten festen
+     * Kandidaten folgt [EPHEMERAL_PORT] (auch wenn [current] selbst bereits
+     * ephemeral ist — der Aufrufer entscheidet ueber die Wiederholung).
+     */
+    fun nextCandidate(preferred: Int, current: Int): Int =
+        chain(preferred).dropWhile { it != current }.drop(1).firstOrNull() ?: EPHEMERAL_PORT
+
+    /**
      * Wählt den ersten Port, dessen Probe gelingt.
      *
      * [probe] wirft für einen belegten Port (z. B. `java.net.BindException`);

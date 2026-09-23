@@ -29,9 +29,11 @@ import java.net.ServerSocket
  *     Bereich, `activePort` meldet ihn.
  *
  * Die Fallback-Offsets sind relativ zum Preferred-Port — die Tests wählen als
- * Preferred einen freien Port aus dem ephemeralen Bereich und belegen die
- * Kette selbst, damit keine Annahmen über 8080/8081 auf dem CI-Runner nötig
- * sind (dort könnte 8080 durch parallele Läufe belegt sein).
+ * Preferred einen freien Port aus der **kalten Range** (24000–32000,
+ * IANA-unassigned), damit keine Annahmen über 8080/8081 auf dem CI-Runner
+ * nötig sind und die Kettenglieder nicht im heissen ephemeralen Bereich
+ * liegen (dort belegen Kernel-Zuweisungen und fremde Prozesse laufend Ports —
+ * das war die Flake-Ursache: bevorzugt+1 lag in der heissen Range).
  *
  * Bewusst `runBlocking` statt `runTest`: [RemoteControlServer.start] setzt
  * `_activePort` synchron vor der Rückgabe, daher genügt das direkte
@@ -69,6 +71,26 @@ class RemoteControlServerPortFallbackTest {
         )
     }
 
+    /**
+     * Freier Port aus der kalten Range (24000–32000, IANA-unassigned): Ziel ist,
+     * NICHT im ephemeralen Bereich (Linux 32768–60999, Windows 49152–65535) zu
+     * landen — dort belegen Kernel-Zuweisungen und fremde Prozesse laufend
+     * Ports (CI-Flake-Ursache: bevorzugt+1 lag im heissen Bereich).
+     */
+    private fun coldRangePort(): Int {
+        repeat(50) {
+            val candidate = 24000 + (0..7999).random()
+            try {
+                ServerSocket().use { it.bind(InetSocketAddress("0.0.0.0", candidate)) }
+                return candidate
+            } catch (_: Exception) {
+                // belegt → nächsten Kandidaten
+            }
+        }
+        // Fallback: Kernel-Wahl (heisse Range) — besser als kein Test.
+        return ServerSocket(0).use { it.localPort }
+    }
+
     /** Belegt [port] für die Dauer des Blocks und gibt nach dem Verlassen frei. */
     private inline fun <T> holdingPort(port: Int, block: () -> T): T =
         ServerSocket().use { holder ->
@@ -78,7 +100,7 @@ class RemoteControlServerPortFallbackTest {
 
     @Test
     fun `bevorzugter Port frei - activePort meldet ihn nach dem Start`() = runBlocking {
-        val preferred = ServerSocket(0).use { it.localPort }
+        val preferred = coldRangePort()
         val server = newServer()
         server.preferredPort = preferred
         try {
@@ -91,16 +113,24 @@ class RemoteControlServerPortFallbackTest {
 
     @Test
     fun `preferred belegt - Ausweichport aus der Kette mit aktivem Port-Flow`() = runBlocking {
-        val preferred = ServerSocket(0).use { it.localPort }
+        val preferred = coldRangePort()
         val server = newServer()
         server.preferredPort = preferred
         try {
-            // Preferred belegt → Kette muss auf preferred+1 ausweichen
-            // (der Rest der Kette bleibt frei in der Testumgebung).
-            holdingPort(preferred) {
+            // Preferred belegt → Kette muss auf das erste freie Glied
+            // ausweichen. Die Erwartung wird über dieselbe Policy + dieselbe
+            // Probe berechnet (bei den Haltern offen), denn auf CI-Runnern
+            // können fremde Prozesse einzelne Kettenglieder belegen — hart
+            // `preferred + 1` zu fordern, wäre dort nicht deterministisch.
+            val expected = holdingPort(preferred) {
+                val choice = PortFallbackPolicy.selectPort(preferred) { candidate ->
+                    RemoteControlServer.probePort(candidate)
+                }
                 server.start()
+                choice
             }
-            assertEquals(preferred + 1, server.activePort.value)
+            assertNotEquals(preferred, server.activePort.value)
+            assertEquals(expected, server.activePort.value)
             assertTrue(server.isRunning)
         } finally {
             server.stop()
@@ -112,7 +142,7 @@ class RemoteControlServerPortFallbackTest {
 
     @Test
     fun `komplette Kette belegt - konkreter Port aus dem ephemeralen Bereich`() = runBlocking {
-        val preferred = ServerSocket(0).use { it.localPort }
+        val preferred = coldRangePort()
         val server = newServer()
         server.preferredPort = preferred
         try {

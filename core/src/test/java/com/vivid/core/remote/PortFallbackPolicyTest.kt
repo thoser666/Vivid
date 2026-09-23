@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test
  *     8081 → 8082 → 8083).
  *  3. Komplette Kette belegt → ephemeraler Port (0).
  *  4. Probe wirft generische Exception → ebenfalls Überspringen (robust).
+ *  5. nextCandidate rückt durch die Kette und endet ephemeral (Retry-Grundlage).
  */
 class PortFallbackPolicyTest {
 
@@ -60,6 +61,15 @@ class PortFallbackPolicyTest {
             if (candidate == 8080) throw IllegalStateException("kaputte Probe")
         }
         assertEquals(8081, PortFallbackPolicy.selectPort(8080, probe))
+    }
+
+    @Test
+    fun `nextCandidate rueckt durch die Kette und endet ephemeral`() {
+        assertEquals(8081, PortFallbackPolicy.nextCandidate(8080, 8080))
+        assertEquals(8082, PortFallbackPolicy.nextCandidate(8080, 8081))
+        assertEquals(8083, PortFallbackPolicy.nextCandidate(8080, 8082))
+        assertEquals(PortFallbackPolicy.EPHEMERAL_PORT, PortFallbackPolicy.nextCandidate(8080, 8083))
+        assertEquals(PortFallbackPolicy.EPHEMERAL_PORT, PortFallbackPolicy.nextCandidate(8080, 0))
     }
 
     @Test
