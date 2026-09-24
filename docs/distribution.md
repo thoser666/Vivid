@@ -26,12 +26,21 @@ deshalb gibt es pro Kadenz einen eigenen Workflow. Alles zusätzlich manuell per
    wenn sein GitHub-Release nicht vollständig ist (muss dauerhaft 4 Assets haben, siehe unten).
    Bei `workflow_dispatch` kann ein optionaler `version`-Input (Muster `v<major>.<minor>.<patch>`,
    optional mit Stufensuffix) den Kandidaten übersteuern.
-2. **Build:** `bundle exec fastlane release_github tag:"$TAG"` baut **beide** Flavor:
+2. **Emulator-Gate (seit 24.09.2026, vor dem Build):** Der Publish-Job fährt vor
+   `release_github` einen Emulator (API 34, x86_64, KVM) hoch und führt die
+   instrumentierten UI-Tests (`:app:connectedStandardDebugAndroidTest` — Help-
+   Navigation + Play-Screenshots) **gegen den Ziel-Tag** aus (der Job hat ihn
+   bereits ausgecheckt). Schlägt der Emulator-Test fehl, wird **nicht**
+   veröffentlicht. Derselbe Gate gilt im `release-pipeline.yml`:
+   `emulator-tests` (Matrix ubuntu-x86_64 + macos-arm64-experimentell) läuft
+   jetzt auch bei `v*`-Tag-Pushen, nicht mehr nur manuell. Selbsttest:
+   `scripts/test_emulator_matrix.sh` (T11/T13).
+3. **Build:** `bundle exec fastlane release_github tag:"$TAG"` baut **beide** Flavor:
    `assembleStandardRelease` (bereits aus der Pipeline bekannt) **und** `assembleFossRelease`.
-3. **Checksummen:** `fastlane/sha256sums.rb` erzeugt `SHA256SUMS.txt` im GNU-Format
+4. **Checksummen:** `fastlane/sha256sums.rb` erzeugt `SHA256SUMS.txt` im GNU-Format
    (`<sha256>  <dateiname>`), deterministisch sortiert nach Basisname. Die Datei ist Bestandteil
    des Releases (per `fastlane`/`gh release upload`).
-4. **Completeness-Regel** (in `fastlane/Fastfile` → `publish_release` **und** im jq-Check des
+5. **Completeness-Regel** (in `fastlane/Fastfile` → `publish_release` **und** im jq-Check des
    Workflows): Ein Stable-Release ist **vollständig**, wenn es nicht Draft/Prerelease ist **und**
    alle Assets enthält:
    - `app-standard-release.apk`
@@ -43,7 +52,7 @@ deshalb gibt es pro Kadenz einen eigenen Workflow. Alles zusätzlich manuell per
    wird übersprungen); der Fastfile-Pfad (3 Assets) bleibt bewusst konservativ, damit ältere
    Releases nicht mit dem Rebuild-Löschen abgerissen werden — die Signatur-Nachrüstung übernimmt
    der cosign-Step im Workflow.
-5. **Signatur:** Nach dem Publish lädt der Workflow die veröffentlichte `SHA256SUMS.txt` herunter
+6. **Signatur:** Nach dem Publish lädt der Workflow die veröffentlichte `SHA256SUMS.txt` herunter
    und signiert sie **keyless** per Sigstore/cosign (ambient OIDC-Token des Runners, `id-token: write`
    im Job; kein längerfristiges Key-Material im Repo). Das Sigstore-Bundle (`SHA256SUMS.txt.bundle`,
    Signatur + Zertifikat + Rekor-Eintrag in einer Datei) wird per `gh release upload --clobber`

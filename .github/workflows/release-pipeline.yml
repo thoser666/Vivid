@@ -136,7 +136,12 @@ jobs:
   # fälschlich ein „locale-robust“-Grün gemeldet wird.
   emulator-tests:
     name: Instrumented UI Tests (${{ matrix.name }})
-    # Nur manuell per workflow_dispatch lauffähig. Matrix (Vorfall 06.09.2026,
+    # Läuft bei workflow_dispatch UND bei v*-Tag-Pushen — ein Release-Tag
+    # wird VOR der Veröffentlichung auf dem Emulator getestet (Gefordert
+    # 24.09.2026: „vor einem Release auf dem Emulator testen“). Bei Tag-Pushen
+    # bleibt die macos-arm64-Leg experimental (continue-on-error), die
+    # ubuntu-x86_64-Leg ist PFLICHT (fälschlich roter Tag-Run = kein Release).
+    # Matrix (Vorfall 06.09.2026,
     # Run 34009482168: Job lief allein auf macos-latest/arm64 und crashte beim
     # Emulator-Boot mit `qemu-system-aarch64: failed to initialize HVF:
     # HV_UNSUPPORTED`):
@@ -147,7 +152,7 @@ jobs:
     #   - macos-arm64: experimentell (continue-on-error) — HVF auf den Arm64-
     #     Images derzeit HV_UNSUPPORTED; sobald das Image wieder bootet,
     #     meldet sich die Leg von selbst grün.
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))
     needs: test
     permissions:
       contents: read

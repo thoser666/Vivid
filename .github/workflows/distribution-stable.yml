@@ -150,6 +150,36 @@ jobs:
           echo $KEYSTORE_BASE64 | base64 -di > ${{ github.workspace }}/release.keystore
           echo "KEYSTORE_PATH=${{ github.workspace }}/release.keystore" >> $GITHUB_ENV
 
+      # ── Emulator-Gate (vor dem Publish, gefordert 24.09.2026) ───────────────
+      # Die instrumentierten UI-Tests (HelpNavigationTest + PlayScreenshotsTest)
+      # laufen auf einem echten Emulator gegen den ZIEL-TAG — der Job hat den
+      # Tag ohnehin ausgecheckt, also wird exakt das getestet, was publiziert
+      # werden soll. Nur die authority-fähige Leg (ubuntu-x86_64 mit KVM,
+      # Vorfall 06.09.2026: udev-Regel ist Pflicht, sonst Boot-Timeout).
+      - name: Enable KVM group perms (emulator gate)
+        if: env.TAG != ''
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run instrumented tests on emulator (release gate)
+        if: env.TAG != ''
+        uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          force-avd-creation: true
+          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect
+          disable-animations: true
+          disable-spellchecker: true
+          emulator-boot-timeout: 900
+          script: |
+            # Flavor-explicit (connectedDebugAndroidTest ist in diesem Projekt
+            # wegen der Varianten foss/standard mehrdeutig).
+            ./gradlew :app:connectedStandardDebugAndroidTest
+
       # ✅ Signiertes Stable-Release bauen und veröffentlichen: release_github
       # mit tag: baut im Stable-Pfad BEIDE Flavor-APKs (assembleRelease +
       # assembleFossRelease), generiert SHA256SUMS und erstellt/repariert das

@@ -20,8 +20,9 @@
 #   T8  fail-fast: false — beide Legs werden immer gemeldet
 #   T9  Artefakt-Uploads matrix-spezifisch (keine Namenskollision)
 #   T10 Emulator-Action bleibt SHA-gepinnt
-#   T11 Job bleibt workflow_dispatch-only
+#   T11 Job läuft bei workflow_dispatch ODER v*-Tag-Push (Release-Gate, 24.09.2026)
 #   T12 release-pipeline.yml bleibt valides YAML
+#   T13 Stable-Distribution: Emulator-Gate vor dem Publish-Step verdrahtet
 
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -100,8 +101,23 @@ echo "== T10: Action-Pin =="
 check "T10.1 emulator-runner SHA-gepinnt" \
   grep -q 'ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d' <<<"$JOB"
 
-echo "== T11: Dispatch-only =="
+echo "== T11: Release-Gate-Trigger =="
 check "T11.1 if: workflow_dispatch" grep -q "if: github.event_name == 'workflow_dispatch'" <<<"$JOB"
+check "T11.2 if: auch bei v*-Tag-Pushen (Release-Gate)" \
+  grep -q "github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')" <<<"$JOB"
+
+echo "== T13: Stable-Distribution Emulator-Gate =="
+# export: die bash -c-Kinder unten brauchen die Variable (sonst leer →
+# vakuum-grüne Checks — das schlagt T13.5 zu Recht an).
+export DIST=.github/workflows/distribution-stable.yml
+check "T13.1 Emulator-Gate-Step vorhanden" grep -q "Run instrumented tests on emulator (release gate)" "$DIST"
+check "T13.2 Gate-Step hängt am TAG-Guard (env.TAG != '')" \
+  grep -q "Run instrumented tests on emulator (release gate)" "$DIST"
+check "T13.3 Gate läuft VOR dem Publish-Step" bash -c 'grep -n "Run instrumented tests on emulator (release gate)" "$DIST" | cut -d: -f1 | head -1 | xargs -I{} test {} -lt $(grep -n "Build and publish stable release" "$DIST" | cut -d: -f1)'
+check "T13.4 Gate nutzt denselben SHA-gepinnten Emulator-Runner" \
+  grep -q "ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d" "$DIST"
+check "T13.5 Gate-Step testet flavor-explicit" \
+  bash -c 'grep -A20 "Run instrumented tests on emulator (release gate)" "$DIST" | grep -q "connectedStandardDebugAndroidTest"'
 
 echo "== T12: Workflow-YAML valide =="
 check "T12.1 release-pipeline.yml parst als YAML" python3 -c "
