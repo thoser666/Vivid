@@ -78,6 +78,7 @@ damit vorgebaut. Berechtigungen: `permissions: {}` top-level, Job nur
 
 ## Verweise
 
+- [docs/sentry-alerts.md](https://github.com/thoser666/Vivid/blob/develop/docs/sentry-alerts.md) — Sentry-Alerts → GitHub-Issues mit Dringlichkeits-Label (Setup + Label-Logik)
 - [docs/sentry-stats.md](https://github.com/thoser666/Vivid/blob/develop/docs/sentry-stats.md)
   — Token-Anleitung (§1), wöchentlicher Ops-Workflow (§3), Health-Probe (§4),
   Sicherheit (§5)

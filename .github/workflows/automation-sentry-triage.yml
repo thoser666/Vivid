@@ -1,0 +1,111 @@
+# Sentry-Triage: Sentry-Report → Dringlichkeits-Label am Issue (automatisch).
+#
+# Sentrys native GitHub-Integration öffnet bei einer Alert-Regel ("Create a
+# GitHub issue") direkt Issues in diesem Repo (Actor: der Sentry-App-Account).
+# Dieser Workflow läuft bei jedem neu eröffneten Issue und versieht es mit
+# einem Dringlichkeits-Label — zwei Quellen, in dieser Reihenfolge:
+#
+#   1. "Severity:"-Zeile im Issue-Body (die Sentry-Integration schreibt bei
+#      Level-based Alert-Regeln ein Level ins Issue; regex robust gegen
+#      Groß-/Kleinschreibung und "severity"/"Level"-Schreibweise)
+#   2. Crash-Signal (veranstaltungslos): Stacktraces auf
+#      ExceptionInInitializerError/PatternSyntaxException u. ä. oder der
+#      Label-Name "crash" → mindestens "high"
+#
+#   Kein Match → "sentry" (Sichtbarkeit + Triage-Aufforderung).
+#
+# Bewusst KEIN Auto-Kommentar beim Eröffnen (sentry-ops-Issue-Automation
+# ist comment-based dedupliziert — ein Bot-Kommentar würde deren Dedup-
+# Zählung verfälschen). Re-Labeling ist idempotent (Labels werden nur
+# ergänzt; bestehende severity:*-Labels bleiben).
+#
+# Berechtigungen: issues: write reicht (Labels setzen); top-level {}.
+# Loop-Schutz: label-Events triggern nicht (nur "opened"/"reopened" —
+# keine Typ-Rückkopplung).
+
+name: Automation / Sentry Triage
+
+on:
+  issues:
+    types: [opened, reopened]
+
+permissions: {}
+
+concurrency:
+  group: sentry-triage-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  label:
+    name: Assign severity label
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Assign severity label to issue
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body || '' }}
+          ISSUE_TITLE: ${{ github.event.issue.title || '' }}
+          ISSUE_LABELS: ${{ toJSON(github.event.issue.labels.*.name) }}
+          ISSUE_AUTHOR: ${{ github.event.issue.user.login }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        with:
+          script: |
+            const body = process.env.ISSUE_BODY || '';
+            const title = process.env.ISSUE_TITLE || '';
+            const labels = JSON.parse(process.env.ISSUE_LABELS || '[]');
+            const author = process.env.ISSUE_AUTHOR || '';
+            const n = process.env.ISSUE_NUMBER;
+
+            // Nur eigenartige Sentry-Issues: Sentry-Integration-Actor ODER
+            // Body enthält Sentry-Marker (Robustheit gegen Actor-Rename).
+            const isSentry =
+              /sentry/i.test(author) ||
+              /sentry\.io|Sentry Issue:/i.test(body);
+            if (!isSentry) {
+              core.info(`Issue #${n} (Autor ${author}) ist kein Sentry-Report — kein Label.`);
+              return;
+            }
+
+            const severityOf = (text) => {
+              const m = text.match(/(?:^|\n)\s*(?:severity|level)\s*[:=]\s*["']?(\w+)/i);
+              if (!m) return null;
+              const v = m[1].toLowerCase();
+              if (v === 'fatal' || v === 'critical') return 'critical';
+              if (v === 'error' || v === 'high') return 'high';
+              if (v === 'warning' || v === 'medium') return 'medium';
+              if (v === 'info' || v === 'low' || v === 'debug') return 'low';
+              return null;
+            };
+
+            // 1) Severity aus dem Body parsen (Alert-Regel-Level).
+            let severity = severityOf(body);
+
+            // 2) Crash-Signale im Stacktrace (mind. "high").
+            const crashSignals =
+              /ExceptionInInitializerError|PatternSyntaxException|UnsatisfiedLinkError|FATAL EXCEPTION/i;
+            const isCrash =
+              labels.includes('crash') ||
+              crashSignals.test(body) ||
+              /crash/i.test(title);
+            if (!severity && isCrash) severity = 'high';
+
+            // 3) Fallback: unspezifiziert.
+            if (!severity) severity = 'low';
+
+            const toAdd = ['sentry', `severity:${severity}`];
+            // Existierende severity:*-Labels bleiben (idempotent — kein Downgrade).
+            const hasSeverity = labels.some((l) => /^severity:/.test(l));
+            const add = hasSeverity ? toAdd.filter((l) => !labels.includes(l)) : toAdd;
+            if (add.length === 0) {
+              core.info(`Issue #${n}: Labels bereits vollständig — nichts zu tun.`);
+              return;
+            }
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: Number(n),
+              labels: add,
+            });
+            core.info(`Issue #${n}: ${add.join(', ')} gesetzt.`);
