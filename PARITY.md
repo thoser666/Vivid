@@ -488,3 +488,4 @@ Commit die Log-Zeile hinzufügte:
 ---
 
 *Siehe auch: [README – Parity Status](README.md#-parity-status) · [Moblin (Original)](https://github.com/eerimoq/moblin)*
+| 2026-09-24 | `7eb8e9a` | Release-Notes v0.5.19-beta + VERSION-Hebung (0.5.18-beta → 0.5.19-beta) + F-Droid-Metadata Builds-Block (0.5.19-beta/5192, 0.5.17 rotiert aus): Hotfix-Cut für den ersten Sentry-identifizierten Produktions-Crash TEXT-INFO-WIDGET-REGEX-ICU (ICU-Regex rejectet unmaskierte '}' seit v0.5.14 im Feld, Fix 7832995c, Advisory-Range 5144..5182 schließt mit diesem Cut; Workaround-Verweis 'Auf Build >= 5192 aktualisieren' wird damit wahr) — Release-Notes docs/release-notes-v0.5.19-beta.md |
