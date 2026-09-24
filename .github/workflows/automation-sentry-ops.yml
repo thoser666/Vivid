@@ -85,8 +85,21 @@ jobs:
 
             const statsFailure = '${{ steps.stats.outcome }}' === 'failure';
             const healthFailure = '${{ steps.health.outcome }}' === 'failure';
-            const statsConfigSkip = statsVerdict.startsWith('SKIP:') && (
-              statsVerdict.includes('kein Sentry-Lese-Token') || statsVerdict.includes('Lesescopes'));
+            // Konfigurations-SKIPs (nicht-neutrale SKIPs): Alle Guard-Varianten mit
+            // fehlender/falscher Token-Konfiguration. NUR diese dürfen ein
+            // Konfigurations-Issue auslösen — neutrale Netzwerk-SKIPs schließen
+            // stattdessen offene Check-Issues. Fix (Issue #203): 'event:read-Scope'
+            // (403 auf der Events-Abfrage) und 'ungültig/abgelaufen' (401 — die
+            // 30-Tage-Tokens laufen bewusst ab) wurden vorher nicht gematcht und
+            // führten zu stillen Auto-Closes trotz unvollständiger Konfiguration.
+            const configSkipNeedles = [
+              'kein Sentry-Lese-Token',
+              'Lesescopes',
+              'event:read-Scope',
+              'ungültig/abgelaufen',
+            ];
+            const statsConfigSkip = statsVerdict.startsWith('SKIP:') &&
+              configSkipNeedles.some((needle) => statsVerdict.includes(needle));
 
             const anyWarn = statsVerdict.startsWith('WARN:') || healthVerdict.startsWith('WARN:');
             const anyConfig = statsFailure || healthFailure || statsConfigSkip;

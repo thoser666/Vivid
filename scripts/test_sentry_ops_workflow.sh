@@ -82,6 +82,14 @@ check "W8 Auto-Close-Pfad vorhanden" grep -q "state: 'closed'" "$WF"
 check "W8 Label ops gesetzt" grep -q "labels: \['ops'\]" "$WF"
 check "W8 Verdict-Parsing (Stats + Health getrennt)" \
   bash -c 'grep -q "statsVerdict" "'"$WF"'" && grep -q "healthVerdict" "'"$WF"'"'
+check "W8 Konfig-SKIP-Muster deckt event:read-Scope ab (Issue #203)" \
+  bash -c 'grep -q "event:read-Scope" "'"$WF"'"'
+check "W8 Konfig-SKIP-Muster deckt abgelaufene Tokens ab (401-Variante)" \
+  bash -c 'grep -q "ungültig/abgelaufen" "'"$WF"'"'
+check "W8 Konfig-SKIP-Entscheidung über Needle-Liste (erweiterbar)" \
+  bash -c 'grep -q "configSkipNeedles" "'"$WF"'"'
+check "W8 neutrale Netzwerk-SKIPs lösen KEIN Konfig-Issue aus" \
+  bash -c '! grep -q "nicht erreichbar" "'"$WF"'"'
 
 # W9 — Gate-Verdrahtung
 check "W9 Selbsttest im Pre-Push-Gate verdrahtet" grep -q "scripts/test_sentry_ops_workflow.sh" scripts/pre-push.sh

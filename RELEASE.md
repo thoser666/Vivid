@@ -881,7 +881,12 @@ Konfigurations-SKIPs oder fail-closed-FEHLER öffnen bzw. kommentieren
 Issues; OK und neutrale Netzwerk-SKIPs schließen offene Check-Issues
 automatisch. **Fehlt das Secret `SENTRY_STATS_TOKEN`, läuft der
 Workflow trotzdem** und hält per Konfigurations-Issue die Erinnerung am
-Leben — stillem Versagen ist damit vorgebaut. Berechtigungen: `permissions:
+Leben — stillem Versagen ist damit vorgebaut. Konfigurations-SKIPs
+erkennt der Issue-Step über eine Needle-Liste (kein Token, ungültig/
+abgelaufen, ohne Lesescopes, ohne `event:read`-Scope — Fix nach Issue
+#203: vorher nicht gematchte SKIP-Varianten führten zu stillen
+Auto-Closes trotz Lücke; W8-Checks sichern die Muster ab).
+Berechtigungen: `permissions:
 {}` top-level, Job nur `issues: write`; beide Actions SHA-gepinnt.
 
 ### Health-Probe (opt-in — der Ops-Workflow ist der sanktionierte Cron)

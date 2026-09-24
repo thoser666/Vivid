@@ -68,8 +68,15 @@ verwaltet die Ergebnisse als deduplizierte Issues:
 - **FEHLER / Konfigurations-SKIP** (Token fehlt, ungültig, ohne
   Lesescopes, API-Format geändert bzw. HTTP 400/401/403 am Ingest) →
   Konfigurations-Issue mit Behebungs-Hinweis
-- **OK oder neutraler Netzwerk-SKIP** → offene Check-Issues schließen
-  sich automatisch
+- **Konfigurations-SKIPs im Detail:** Der Issue-Step erkennt diese
+  Guard-Texte als Konfigurationsproblem (Needle-Liste): `kein
+  Sentry-Lese-Token` (404), `Token ungültig/abgelaufen` (401), `Token ohne
+  Lesescopes` und `Token ohne event:read-Scope` (403). Nur diese öffnen/
+  kommentieren Issues — ein SKIP-Variantentext, der nicht in der Liste
+  stünde, würde fälschlich wie ein Erfolg auto-geschlossen (Fix: Issue
+  #203, W8-Testschutz).
+- **OK oder neutraler Netzwerk-SKIP** („Sentry nicht erreichbar“) → offene
+  Check-Issues schließen sich automatisch
 
 Das Secret `SENTRY_STATS_TOKEN` ist dafür einmalig zu hinterlegen
 (User-Token aus Abschnitt 1, Scopes `project:read` + `event:read`): solange
