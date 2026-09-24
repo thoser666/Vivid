@@ -98,14 +98,40 @@ jobs:
             // Existierende severity:*-Labels bleiben (idempotent — kein Downgrade).
             const hasSeverity = labels.some((l) => /^severity:/.test(l));
             const add = hasSeverity ? toAdd.filter((l) => !labels.includes(l)) : toAdd;
-            if (add.length === 0) {
+            // critical Crashes zusätzlich als 'crash' labeln (Filterbarkeit im Board).
+            if (severity === 'critical' && !labels.includes('crash')) add.push('crash');
+            if (add.length !== 0) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: Number(n),
+                labels: add,
+              });
+              core.info(`Issue #${n}: ${add.join(', ')} gesetzt.`);
+            } else {
               core.info(`Issue #${n}: Labels bereits vollständig — nichts zu tun.`);
-              return;
             }
-            await github.rest.issues.addLabels({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: Number(n),
-              labels: add,
-            });
-            core.info(`Issue #${n}: ${add.join(', ')} gesetzt.`);
+
+            // critical → Body-Anreicherung: Verweis auf das CrashAdvisoryRegistry-
+            // Verfahren (versionCode-Range + Workaway/Kill-Switch pro Release).
+            // Idempotent über den Marker — Re-Opening/Sync-Updates überschreiben
+            // den Hinweis nicht doppelt und löschen Sentrys Body-Inhalt nicht.
+            if (severity === 'critical') {
+              const HINT_MARKER = '<!-- crash-advisory-registry-hint -->';
+              const HINT = `${HINT_MARKER}\n\n> 💥 **Crash-Verfahren (CrashAdvisoryRegistry):** Real identifizierte Crashes werden versionsgebunden in der [CrashAdvisoryRegistry](https://github.com/thoser666/Vivid/blob/develop/core/src/main/java/com/vivid/core/startup/CrashAdvisory.kt) gepflegt — versionCode-Range, Beschreibung, Workaround/Kill-Switch (Nutzer sehen die Advisory im In-App-Log). Bei der Behebung: Range aufnehmen und mit dem nächsten Release schließen. Siehe RELEASE.md → 🛰️ Sentry-Ops.`;
+              const { data: issue } = await github.rest.issues.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: Number(n),
+              });
+              if (!(issue.body || '').includes(HINT_MARKER)) {
+                await github.rest.issues.update({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: Number(n),
+                  body: `${issue.body || ''}\n\n${HINT}`,
+                });
+                core.info(`Issue #${n}: CrashAdvisoryRegistry-Verweis im Body ergänzt.`);
+              }
+            }
+            core.info(`Issue #${n}: Triage abgeschlossen (severity:${severity}).`);

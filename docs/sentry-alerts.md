@@ -50,6 +50,14 @@ Zusätzlich bekommt jedes Sentry-Report-Issue das Label **`sentry`**
 (Sichtbarkeit, Filterbarkeit). Bestehende `severity:*`-Labels werden nie
 herabgestuft (kein Downgrade bestehender Bewertungen).
 
+**Sonderpfad `severity:critical`:** Critical-Issues erhalten zusätzlich das
+Label **`crash`** (Filterbarkeit im Board) und der Issue-Body wird um einen
+Hinweis auf das [CrashAdvisoryRegistry-Verfahren](https://github.com/thoser666/Vivid/blob/develop/core/src/main/java/com/vivid/core/startup/CrashAdvisory.kt)
+ergänzt (versionCode-Range + Workaround/Kill-Switch pro Release, siehe
+RELEASE.md → 🛰️ Sentry-Ops). Die Anreicherung ist marker-basiert idempotent
+(`<!-- crash-advisory-registry-hint -->`) — der Sentry-Body wird nicht
+überschrieben, ein Re-Sync fügt den Hinweis nicht doppelt ein.
+
 ## 4. Label-Referenz
 
 | Label | Farbe | Bedeutung |

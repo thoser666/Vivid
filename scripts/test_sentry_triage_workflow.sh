@@ -11,6 +11,8 @@
 #   W7 sentry-Fallback-Label gesetzt (unspezifizierte Reports bleiben sichtbar)
 #   W8 Idempotenz: keine Downgrades bestehender severity:*-Labels
 #   W9 Selbsttest im Pre-Push-Gate verdrahtet
+#   W10 critical-Erweiterung: crash-Label + CrashAdvisoryRegistry-Body-Hinweis
+#       (Marker-basiert idempotent, issues.update nur bei fehlendem Marker)
 #
 # Nutzung: bash scripts/test_sentry_triage_workflow.sh
 set -euo pipefail
@@ -65,7 +67,19 @@ check "W8 Idempotenz: severity-Labels werden geprüft (kein Downgrade)" grep -q 
 check "W9 Selbsttest im Pre-Push-Gate verdrahtet" \
   grep -q "scripts/test_sentry_triage_workflow.sh" scripts/pre-push.sh
 
+echo "== W10: critical-Erweiterung (crash-Label + Registry-Verweis) =="
+check "W10.1 critical → zusätzliches 'crash'-Label" \
+  grep -q "add.push('crash')" "$WF"
+check "W10.2 crash-Label nur bei critical (guard von severity ===)" \
+  bash -c "grep -q \"severity === 'critical' && !labels.includes('crash')\" '$WF'"
+check "W10.3 Body-Hint mit Idempotenz-Marker" \
+  grep -q "crash-advisory-registry-hint" "$WF"
+check "W10.4 issues.update nur bei fehlendem Marker (Body-Überschreib-Schutz)" \
+  bash -c "grep -q \"includes(HINT_MARKER)\" '$WF' && grep -q 'issues.update' '$WF'"
+check "W10.5 Hint verweist auf die CrashAdvisoryRegistry" \
+  grep -q "CrashAdvisoryRegistry" "$WF"
+
 echo ""
 echo "▶ [sentry-triage-test] $PASS grün, $FAIL rot"
-[ "$FAIL" -eq 0 ] && { echo "✅ [sentry-triage-test] Sentry-Triage-Workflow vertragstreu (W1–W9)."; exit 0; }
+[ "$FAIL" -eq 0 ] && { echo "✅ [sentry-triage-test] Sentry-Triage-Workflow vertragstreu (W1–W10)."; exit 0; }
 exit 1
