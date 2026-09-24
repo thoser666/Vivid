@@ -5,6 +5,7 @@
 #   - Home.md           Startseite mit der DE-Quick-Reference (aus docs/user-guide.md)
 #   - User-Guide-EN.md  vollständiger Mirror von docs/user-guide.en.md
 #   - User-Guide-FR.md  vollständiger Mirror von docs/user-guide.fr.md
+#   - Sentry-Ops.md     Kurzübersicht der Sentry-Ops-Landschaft (aus docs/sentry-ops.md)
 #
 # Die Befehls-Tabelle wird aus docs/user-guide.md (DE, der gepflegten
 # Referenz) extrahiert — dieselbe Tabelle, die der CI-Guard
@@ -39,6 +40,19 @@ GUIDE_DE_CONTENT=$(tr -d '\r' < "$GUIDE_DE")
 GUIDE_EN_CONTENT=$(tr -d '\r' < "$GUIDE_EN")
 GUIDE_FR_CONTENT=$(tr -d '\r' < "$GUIDE_FR")
 
+if [[ ! -f "docs/sentry-ops.md" ]]; then
+  echo "❌ [wiki-sync] docs/sentry-ops.md fehlt — Guard-Setup kaputt."
+  exit 1
+fi
+SENTRY_OPS_CONTENT=$(tr -d '\r' < "docs/sentry-ops.md")
+# Inhalts-Sanity: Ohne die Bausteine-Tabelle wäre die Seite leer generiert worden.
+for anchor in "Die vier Bausteine" "Mapping-Upload" "Issue-Automation"; do
+  if ! grep -q "$anchor" <<<"$SENTRY_OPS_CONTENT"; then
+    echo "❌ [wiki-sync] docs/sentry-ops.md unvollständig — Abschnitt '$anchor' fehlt."
+    exit 1
+  fi
+done
+
 # 2) Befehls-Tabelle aus dem DE-Handbuch extrahieren (Quick-Reference-Sektion).
 TABLE=$(sed -n '/^## Quick-Reference: Alle Bot-Befehle/,/^> \*\*PREFIX-Scope\*\*/p' <<<"$GUIDE_DE_CONTENT" \
   | sed '$d')
@@ -65,7 +79,7 @@ Die vollständige Dokumentation lebt im Repo und wird hierher gespiegelt:
 | 🇫🇷 Français | [docs/user-guide.fr.md](${REPO_URL}/blob/develop/docs/user-guide.fr.md) | [User-Guide-FR](${WIKI_URL%.git}/User-Guide-FR) |
 | 🤖 Bot | [docs/ai-chat-bot.md](${REPO_URL}/blob/develop/docs/ai-chat-bot.md) | — |
 
-Weiteres: [README](${REPO_URL}#readme) · [Tutorials](${REPO_URL}/tree/develop/docs/tutorials) · [FAQ](${REPO_URL}/blob/develop/docs/faq/common-issues.md) · [Troubleshooting](${REPO_URL}/tree/develop/docs/troubleshooting) · [Releases](${REPO_URL}/releases) · [Issues](${REPO_URL}/issues)
+Weiteres: [README](${REPO_URL}#readme) · [Tutorials](${REPO_URL}/tree/develop/docs/tutorials) · [FAQ](${REPO_URL}/blob/develop/docs/faq/common-issues.md) · [Troubleshooting](${REPO_URL}/tree/develop/docs/troubleshooting) · [Sentry-Ops](${WIKI_URL%.git}/Sentry-Ops) · [Releases](${REPO_URL}/releases) · [Issues](${REPO_URL}/issues)
 
 ---
 
@@ -106,19 +120,32 @@ ${GUIDE_FR_CONTENT}
 EOF
 )
 
-# Schreibt alle drei Seiten nach $1 (CRLF-normalisiert).
+# 5) Sentry-Ops-Seite generieren (Mirror der Ops-Kurzübersicht + Header).
+PAGE_SENTRY_MD=$(cat <<EOF
+<!-- 🤖 AUTO-GENERIERT von scripts/sync_wiki.sh — NICHT im Wiki editieren.
+     Änderungen bitte in docs/sentry-ops.md (Source of Truth) machen. -->
+
+> 🪞 Mirror von [docs/sentry-ops.md](${REPO_URL}/blob/develop/docs/sentry-ops.md) — automatisch synchronisiert.
+> Änderungen im Repo-File, nicht auf dieser Wiki-Seite.
+
+${SENTRY_OPS_CONTENT}
+EOF
+)
+
+# Schreibt alle vier Seiten nach $1 (CRLF-normalisiert).
 write_pages() {
   mkdir -p "$1"
   printf '%s\n' "$HOME_MD" | tr -d '\r' > "$1/Home.md"
   printf '%s\n' "$PAGE_EN_MD" | tr -d '\r' > "$1/User-Guide-EN.md"
   printf '%s\n' "$PAGE_FR_MD" | tr -d '\r' > "$1/User-Guide-FR.md"
+  printf '%s\n' "$PAGE_SENTRY_MD" | tr -d '\r' > "$1/Sentry-Ops.md"
 }
 
 case "$mode" in
   --generate)
     [[ -n "${2:-}" ]] || { echo "usage: sync_wiki.sh --generate <dir>"; exit 2; }
     write_pages "$2"
-    echo "✅ [wiki-sync] Home.md, User-Guide-EN.md, User-Guide-FR.md nach $2 generiert."
+    echo "✅ [wiki-sync] Home.md, User-Guide-EN.md, User-Guide-FR.md, Sentry-Ops.md nach $2 generiert."
     ;;
   --check)
     TMP=$(mktemp -d)
@@ -127,7 +154,7 @@ case "$mode" in
     write_pages "$TMP/expected"
     # Zeilenenden sind in write_pages bereits normalisiert.
     stale=0
-    for page in Home.md User-Guide-EN.md User-Guide-FR.md; do
+    for page in Home.md User-Guide-EN.md User-Guide-FR.md Sentry-Ops.md; do
       if ! diff -q "$TMP/expected/$page" "$TMP/wiki/$page" >/dev/null 2>&1; then
         echo "❌ [wiki-sync] Wiki-Seite ist veraltet: $page"
         stale=1
@@ -148,16 +175,18 @@ case "$mode" in
     git clone --depth 1 "https://x-access-token:${TOKEN}@${WIKI_URL#https://}" "$TMP/wiki" >/dev/null 2>&1
     write_pages "$TMP/wiki"
     cd "$TMP/wiki"
-    if git diff --quiet; then
+    # Vor dem Unverändert-Check stagen — sonst bliebe eine NEUE Seite (untracked)
+    # beim ersten Push unbemerkt liegen (git diff --quiet sieht nur Tracked).
+    git add Home.md User-Guide-EN.md User-Guide-FR.md Sentry-Ops.md
+    if git diff --cached --quiet; then
       echo "✅ [wiki-sync] Wiki-Seiten unverändert — nichts zu pushen."
       exit 0
     fi
     git config user.name "github-actions[bot]"
     git config user.email "github-actions[bot]@users.noreply.github.com"
-    git add Home.md User-Guide-EN.md User-Guide-FR.md
-    git commit -m "Wiki-Seiten aus Repo-Doku neu generiert (auto-sync: Home + EN + FR)"
+    git commit -m "Wiki-Seiten aus Repo-Doku neu generiert (auto-sync: Home + EN + FR + Sentry-Ops)"
     git push origin master >/dev/null 2>&1
-    echo "✅ [wiki-sync] Wiki-Seiten gepusht (Home, User-Guide-EN, User-Guide-FR)."
+    echo "✅ [wiki-sync] Wiki-Seiten gepusht (Home, User-Guide-EN, User-Guide-FR, Sentry-Ops)."
     ;;
   *)
     echo "usage: sync_wiki.sh --generate <dir> | --check | --push"; exit 2

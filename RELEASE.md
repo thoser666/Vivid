@@ -900,7 +900,7 @@ von 2026-09-23) und lassen sich im Dashboard filtern/löschen.
 |---|---|---|
 | `scripts/test_sentry_stats.sh` | S1–S9 (Verdicts, Token-Leak, Drop-Summe, Quellen-Vertrag) | Pre-Push-Gate |
 | `scripts/test_sentry_health.sh` | HP1–HP9 (Envelope-Länge, DSN-Parsing, Injection-Probe) | Pre-Push-Gate |
-| `scripts/test_sentry_stats_workflow.sh` | W1–W9 (21 Checks: YAML, Pins, Issue-Dedup, Auto-Close) | Pre-Push-Gate |
+| `scripts/test_sentry_ops_workflow.sh` | W1–W9 (31 Checks: YAML, Pins, Issue-Dedup, Auto-Close — wöchentlicher Ops-Workflow) | Pre-Push-Gate |
 
 Historie: Stats-Guard `0fb875f` · Health-Guard `79ac64b` · monatlicher
 Review-Workflow `a3ddff6` (durch den wöchentlichen Ops-Review dieses

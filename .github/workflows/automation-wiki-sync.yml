@@ -26,6 +26,7 @@ on:
       - 'docs/user-guide.en.md'
       - 'docs/user-guide.fr.md'
       - 'docs/ai-chat-bot.md'
+      - 'docs/sentry-ops.md'
       - 'feature-chat/src/main/java/com/vivid/feature/chat/bot/BotCommandProcessor.kt'
       - 'scripts/sync_wiki.sh'
       - '.github/workflows/automation-wiki-sync.yml'

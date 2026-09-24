@@ -2,13 +2,15 @@
 # Selbsttest: Wiki-Sync-Generierung (scripts/sync_wiki.sh, Offline-Modus).
 #
 # Prüft die --generate-Ausgabe ohne Netzwerk:
-#   T1: Alle drei Wiki-Seiten (Home, User-Guide-EN, User-Guide-FR) entstehen.
+#   T1: Alle vier Wiki-Seiten (Home, User-Guide-EN, User-Guide-FR,
+#       Sentry-Ops) entstehen.
 #   T2: Home enthält die DE-Quick-Reference inkl. der früher vergessenen
 #       Befehle (!battery, !lut) und verlinkt die Sprach-Seiten.
 #   T3: EN-Seite ist ein vollständiger Mirror (Header + Bot-Befehle).
 #   T4: FR-Seite ist ein vollständiger Mirror (Header + Bot-Befehle).
 #   T5: Keine CRLF-Reste in den generierten Dateien (Windows-Checkouts).
 #   T6: Fehlende Handbuch-Datei → Skript schlägt fehl (Guard greift).
+#   T7: Sentry-Ops-Seite ist ein Mirror von docs/sentry-ops.md (Header + Inhalt).
 #
 # Nutzung: bash scripts/test_wiki_sync.sh
 set -euo pipefail
@@ -24,10 +26,10 @@ trap 'rm -rf "$TMP"' EXIT
 # ── T1: Drei Seiten generiert ────────────────────────────────────────────────
 bash scripts/sync_wiki.sh --generate "$TMP" >/dev/null 2>&1 \
   || fail "sync_wiki.sh --generate ist fehlgeschlagen."
-for page in Home.md User-Guide-EN.md User-Guide-FR.md; do
+for page in Home.md User-Guide-EN.md User-Guide-FR.md Sentry-Ops.md; do
   [[ -f "$TMP/$page" ]] || fail "$page wurde nicht generiert."
 done
-pass "T1: Home.md, User-Guide-EN.md, User-Guide-FR.md generiert."
+pass "T1: Home.md, User-Guide-EN.md, User-Guide-FR.md, Sentry-Ops.md generiert."
 
 # ── T2: Home = DE-Quick-Reference + Sprach-Links ────────────────────────────
 HOME_MD="$TMP/Home.md"
@@ -52,7 +54,7 @@ grep -q '!tts' "$FR_MD" || fail "User-Guide-FR.md: Bot-Befehle fehlen im Mirror.
 pass "T4: User-Guide-FR.md ist vollständiger Mirror (Header + Befehle)."
 
 # ── T5: CRLF-frei ────────────────────────────────────────────────────────────
-if grep -ql $'\r' "$TMP/Home.md" "$TMP/User-Guide-EN.md" "$TMP/User-Guide-FR.md" 2>/dev/null; then
+if grep -ql $'\r' "$TMP/Home.md" "$TMP/User-Guide-EN.md" "$TMP/User-Guide-FR.md" "$TMP/Sentry-Ops.md" 2>/dev/null; then
   fail "Generierte Seiten enthalten CR-Zeichen (CRLF nicht normalisiert)."
 fi
 pass "T5: Generierte Seiten sind CRLF-normalisiert."
@@ -66,5 +68,15 @@ fi
 rm -rf "$MISSING_DIR"
 pass "T6: Fehlende Handbuch-Datei führt zu erwartbarem Fehler."
 
+# ── T7: Sentry-Ops-Seite = Mirror der Ops-Kurzübersicht ───────────────────
+SENTRY_MD="$TMP/Sentry-Ops.md"
+grep -q 'Sentry-Ops' "$HOME_MD" || fail "Home.md: Sentry-Ops-Verweis fehlt."
+grep -q 'Mirror von' "$SENTRY_MD" || fail "Sentry-Ops.md: Mirror-Header fehlt."
+grep -q 'NICHT im Wiki editieren' "$SENTRY_MD" || fail "Sentry-Ops.md: Auto-Generiert-Header fehlt."
+grep -q 'Die vier Bausteine' "$SENTRY_MD" || fail "Sentry-Ops.md: Bausteine-Übersicht fehlt."
+grep -q 'Mapping-Upload' "$SENTRY_MD" || fail "Sentry-Ops.md: Mapping-Upload-Abschnitt fehlt."
+grep -q 'Issue-Automation' "$SENTRY_MD" || fail "Sentry-Ops.md: Issue-Automation-Abschnitt fehlt."
+pass "T7: Sentry-Ops-Seite ist Mirror der Ops-Kurzübersicht (Header + Inhalt)."
+
 echo ""
-echo "✅ [test-wiki-sync] Alle 6 Selbsttests bestanden."
+echo "✅ [test-wiki-sync] Alle 7 Selbsttests bestanden."
