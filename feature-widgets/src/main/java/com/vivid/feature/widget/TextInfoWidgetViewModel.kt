@@ -293,7 +293,15 @@ class TextInfoWidgetViewModel @Inject constructor(
         /** Standard-Erdbeschleunigung für die G-Force-Ableitung aus GPS-Geschwindigkeits-Deltas. */
         const val GRAVITY_G = 9.80665
 
-        /** Template-Substring-Suche: {road}, {city} oder {country}. */
-        val GEO_VARIABLE_PATTERN = Regex("\\{(road|city|country)}")
+        /**
+         * Template-Substring-Suche: {road}, {city} oder {country}.
+         *
+         * Die schließende Klammer ist bewusst maskiert (\}): Androids ICU-Regex-
+         * Engine ist strenger als die JVM und wirft sonst PatternSyntaxException im
+         * <clinit> → ExceptionInInitializerError → App-Crash beim Widget-Rendern
+         * (Sentry-Befund 24.09.2026, ab v0.5.14 im Feld). Guard:
+         * scripts/check_icu_regex_braces.sh.
+         */
+        val GEO_VARIABLE_PATTERN = Regex("\\{(road|city|country)\\}")
     }
 }

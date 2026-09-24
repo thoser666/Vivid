@@ -69,6 +69,30 @@ object CrashAdvisoryRegistry {
      * zeigt das Format.
      */
     val KNOWN: List<KnownCrashCandidate> = listOf(
+        // Real identifizierter Widget-Render-Crash (Sentry-Befund 24.09.2026):
+        // PatternSyntaxException in Androids ICU-Regex-Engine beim <clinit> von
+        // TextInfoWidgetViewModel (unmaskiertes schließendes '}') →
+        // ExceptionInInitializerError über die Hilt-ViewModel-Fabrik → Crash beim
+        // Komponieren des Text-Info-Widgets im Streaming-Overlay (TextInfoWidget
+        // wird in DefaultStreamingOverlay bedingungslos komponiert). Feature
+        // {road}/{city}/{country} seit 036c69c4 → in jedem Release ab v0.5.14
+        // (5144). Getroffen: Geräte mit strenger ICU-Engine; JDK-Tests sahen den
+        // Fehler nie (JVM-Regex akzeptiert bare '}'). Kill-Switch: Text-Widget in
+        // den Einstellungen deaktivieren. Fix (Klammern maskiert) + statischer
+        // ICU-Regex-Guard (check_icu_regex_braces.sh) im selben Commit.
+        KnownCrashCandidate(
+            id = "TEXT-INFO-WIDGET-REGEX-ICU",
+            description =
+                "Absturz beim Start/Streaming-Screen: Die Android-ICU-Regex-Engine " +
+                    "rejectet ein internes Pattern des Text-Info-Widgets (unmaskierte " +
+                    "Klammer) — ViewModel-Konstruktion stirbt beim Rendern des Overlays.",
+            minVersionCode = 5144,
+            maxVersionCode = 5182,
+            workaround =
+                "Auf Build >= 5192 aktualisieren — dort ist das Pattern maskiert. " +
+                    "Vorläufig: Text-Info-Widget in den Einstellungen (Widgets) " +
+                    "deaktivieren, dann Streaming ohne Overlay nutzen.",
+        ),
         // Erster real identifizierter Start-Crash (Nutzerbericht S23, In-App-Log):
         // BindException EADDRINUSE in RemoteControlServer.start(), wenn Port
         // 8080 bereits belegt ist (zweite App/Instanz). Remote-Autostart

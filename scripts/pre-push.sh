@@ -291,6 +291,10 @@ run bash scripts/check_eventsub_json_hardening.sh
 
 echo "▶ [pre-push] EventSub-JSON-Härtungs-Guard-Selbsttest (scripts/test_eventsub_json_hardening.sh)"
 run bash scripts/test_eventsub_json_hardening.sh
+echo "▶ [pre-push] ICU-Regex-Klammer-Guard (scripts/check_icu_regex_braces.sh)"
+run bash scripts/check_icu_regex_braces.sh
+echo "▶ [pre-push] ICU-Regex-Klammer-Guard-Selbsttest (scripts/test_icu_regex_braces.sh)"
+run bash scripts/test_icu_regex_braces.sh
 
 # gh-CLI-Flag-Guard (Vorfall deploy-fdroid 21.09.2026): Ein Tippfehler in
 # `gh release list --exclude-prereleases` scheiterte erst im CI-Job — der

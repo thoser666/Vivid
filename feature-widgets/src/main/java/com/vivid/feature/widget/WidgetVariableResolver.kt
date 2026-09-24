@@ -9,7 +9,10 @@ package com.vivid.feature.widget
  */
 object WidgetVariableResolver {
 
-    private val VARIABLE_PATTERN = Regex("\\{(\\w+)}")
+    // Schließende Klammer bewusst maskiert (\}) — Androids ICU-Regex-Engine
+    // ist strenger als die JVM (PatternSyntaxException im <clinit> sonst,
+    // Sentry-Befund 24.09.2026). Guard: scripts/check_icu_regex_braces.sh
+    private val VARIABLE_PATTERN = Regex("\\{(\\w+)\\}")
 
     /**
      * Löst ein Template auf, indem `{var}`-Platzhalter durch die zugehörigen

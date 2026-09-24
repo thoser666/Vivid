@@ -106,4 +106,21 @@ class WidgetVariableResolverTest {
         val template = "{time} {speed}"
         assertEquals("{time} {speed}", WidgetVariableResolver.resolve(template, emptyMap()))
     }
+
+    @Test
+    fun `pattern ist ICU-escaped und verhaltensgleich (Regression TEXT-INFO-WIDGET-REGEX-ICU)`() {
+        // Androids ICU-Regex-Engine wirft bei unmaskiertem schließendem '}' eine
+        // PatternSyntaxException im <clinit> (JVM-Regex toleriert es — deshalb
+        // sah dieser Test-Suite den Feld-Crash nie). Der Guard
+        // scripts/check_icu_regex_braces.sh sichert die Maskierung statisch;
+        // dieser Test sichert die Verhaltensgleichheit der maskierten Form.
+        assertEquals(
+            "Kurfürstendamm – Berlin",
+            WidgetVariableResolver.resolve(
+                "{road} – {city}",
+                mapOf("road" to "Kurfürstendamm", "city" to "Berlin"),
+            ),
+        )
+        assertEquals("{road} – {city}", WidgetVariableResolver.resolve("{road} – {city}", emptyMap()))
+    }
 }
