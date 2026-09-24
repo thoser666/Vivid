@@ -69,7 +69,13 @@ jobs:
             }
 
             const severityOf = (text) => {
-              const m = text.match(/(?:^|\n)\s*(?:severity|level)\s*[:=]\s*["']?(\w+)/i);
+              // Markdown-Toleranz (Befund E2E #206): 'die Alert-Regel schreibt
+              // **Severity:** fatal' — zwischen Schlüssel und Wert stehen '\**'
+              // Fett-Markierungen; ohne Toleranz matcht die Zeile nicht und der
+              // Issue fällt in den Crash-Signal-/low-Pfad statt der Stufe.
+              const m = text.match(
+                /(?:^|\n)[ \t]*(?:[-*][ \t]+)?\**\s*(?:severity|level)\s*\**\s*[:=]\s*\**\s*["']?(\w+)/i,
+              );
               if (!m) return null;
               const v = m[1].toLowerCase();
               if (v === 'fatal' || v === 'critical') return 'critical';
