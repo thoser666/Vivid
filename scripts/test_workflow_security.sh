@@ -109,9 +109,14 @@ grep -Fq 'docs/vision.md' "$file" \
   || fail "community-requests must reference the vision criteria"
 
 # Security scanning jobs retain only the permission needed for SARIF upload.
-grep -A5 -F 'snyk-test:' .github/workflows/security-snyk.yml \
+# (Fenster -A9: der snyk-test-Job trägt seit dem Dependabot-Skip zusätzlich
+# if:-Zeile + Kommentare im Header, die Permission-Blöcke rutschen tiefer.)
+grep -A9 -F 'snyk-test:' .github/workflows/security-snyk.yml \
   | grep -Fq 'security-events: write' \
   || fail "Snyk test job must retain security-events write"
+grep -A9 -F 'snyk-test:' .github/workflows/security-snyk.yml \
+  | grep -Fq 'contents: read' \
+  || fail "Snyk test job must retain contents read"
 grep -A7 -F 'snyk-monitor:' .github/workflows/security-snyk.yml \
   | grep -Fq 'contents: read' \
   || fail "Snyk monitor job must retain contents read"

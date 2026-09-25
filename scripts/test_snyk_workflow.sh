@@ -16,6 +16,8 @@ markers=(
   'sarif-file-output=./snyk-results.sarif'
   'hashFiles('
   'security-events: write'
+  # Dependabot-Skip (SNYK-0005-Vertrag): Job-Level-Skip für dependabot[bot]
+  "if: github.actor != 'dependabot[bot]'"
 )
 for marker in "${markers[@]}"; do
   grep -Fq -- "$marker" "$file" || fail "Pflichtmarker fehlt: $marker"
@@ -25,4 +27,10 @@ if grep -Eq 'snyk/actions/(gradle-jdk17|gradle-jdk21)@' "$file"; then
   fail "abgekündigte Snyk-Gradle-Action wird weiterhin verwendet"
 fi
 
-echo "✅ [snyk-workflow-test] CLI-Migration, JDK, Timeout und SARIF-Guard sind vorhanden."
+# Dependabot-Skip-Vertrag: Der Monitor darf NICHT vom Actor-Skip betroffen
+# sein — das Dashboard-Update bleibt schedule/dispatch-seitig (sonst würde
+# der Skip ein echtes Überwachungsloch reißen).
+grep -A2 '^  snyk-monitor:' "$file" | grep -q "if: github.event_name == 'schedule'" \
+  || fail "snyk-monitor: schedule/dispatch-Bedingung fehlt (Skip darf den Monitor nicht betreffen)"
+
+echo "✅ [snyk-workflow-test] CLI-Migration, JDK, Timeout, SARIF-Guard und Dependabot-Skip sind vorhanden."

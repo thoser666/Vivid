@@ -3,6 +3,13 @@
 # Die frühere gradle-jdk17-Docker-Action ist abgekündigt; wir verwenden
 # stattdessen die unterstützte Snyk-CLI mit explizitem JDK 17.
 # Docs: https://docs.snyk.io/developer-tools/integrations/snyk-ci-cd-integrations/github-actions-for-snyk-setup-and-checking-for-vulnerabilities
+#
+# Dependabot-PRs: snyk-test ist geskippt (github.actor == dependabot[bot]) —
+# Dependabot-PR-Runs erhalten keine Actions-Secrets (SNYK_TOKEN leer), der
+# Test scheitert dort reproduzierbar an SNYK-0005 (Authentication error).
+# Kein Überwachungsloch: Dependabot-Branches werden beim nächsten
+# schedule/dispatch-Lauf (snyk-monitor + snyk-test auf dem Default-Branch)
+# regulär gescannt.
 
 name: Security / Snyk
 
@@ -28,6 +35,9 @@ env:
 jobs:
   snyk-test:
     name: Snyk Dependency Test
+    # Job-Level-Skip für Dependabot (keine Secrets im PR-Context → SNYK-0005);
+    # der Job erscheint in der PR-Checkliste neutral als skipped statt rot.
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     permissions:
       contents: read
