@@ -28,13 +28,15 @@ deshalb gibt es pro Kadenz einen eigenen Workflow. Alles zusätzlich manuell per
    optional mit Stufensuffix) den Kandidaten übersteuern.
 2. **Emulator-Gate (seit 24.09.2026, vor dem Build):** Der Publish-Job fährt vor
    `release_github` einen Emulator (API 34, x86_64, KVM) hoch und führt die
-   instrumentierten UI-Tests (`:app:connectedStandardDebugAndroidTest` — Help-
-   Navigation + Play-Screenshots) **gegen den Ziel-Tag** aus (der Job hat ihn
-   bereits ausgecheckt). Schlägt der Emulator-Test fehl, wird **nicht**
-   veröffentlicht. Derselbe Gate gilt im `release-pipeline.yml`:
-   `emulator-tests` (Matrix ubuntu-x86_64 + macos-arm64-experimentell) läuft
-   jetzt auch bei `v*`-Tag-Pushen, nicht mehr nur manuell. Selbsttest:
-   `scripts/test_emulator_matrix.sh` (T11/T13).
+   instrumentierten UI-Tests (`:app:connectedStandardDebugAndroidTest` **und**
+   `:app:connectedFossDebugAndroidTest` — Startup-Smoke-Test, Help-
+   Navigation + Play-Screenshots, jeweils in **beiden** Flavors) **gegen den
+   Ziel-Tag** aus (der Job hat ihn bereits ausgecheckt). Schlägt der
+   Emulator-Test fehl, wird **nicht** veröffentlicht. Derselbe Gate gilt im
+   `release-pipeline.yml`: `emulator-tests` (Matrix ubuntu-x86_64 +
+   macos-arm64-experimentell) läuft jetzt auch bei `v*`-Tag-Pushen, nicht
+   mehr nur manuell. Selbsttest:
+   `scripts/test_emulator_matrix.sh` (T11/T13/T14).
 3. **Build:** `bundle exec fastlane release_github tag:"$TAG"` baut **beide** Flavor:
    `assembleStandardRelease` (bereits aus der Pipeline bekannt) **und** `assembleFossRelease`.
 4. **Checksummen:** `fastlane/sha256sums.rb` erzeugt `SHA256SUMS.txt` im GNU-Format
