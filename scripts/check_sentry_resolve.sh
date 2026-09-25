@@ -27,6 +27,11 @@
 #      liefert 403 (kein project:write) → SKIP mit Scope-Hinweis.
 #  --print-token-source meldet nur die gewählte QUELLE, nie den Token.
 #
+# Aufruf-Konvention: Python-Heredocs laufen mit `python -X utf8` — sonst
+# crasht der Guard auf Windows-Locales (cp1252) mit verschleiertem
+# UnicodeEncodeError an —/→/ü in der Ausgabe (stderr wurde gefiltert,
+# Regression vom 25.09.2026, entdeckt am Pre-Push-Gate R3).
+#
 # Fixture-Modus für Offline-Tests: SENTRY_RESOLVE_FIXTURE=<dir> mit
 # issues.json (Liste echter API-Antwort-Datensätze), optional `status`
 # (simulierter HTTP-Code des Bulk-PUT, Default 200) und `getstatus`
@@ -137,7 +142,7 @@ else
     if [ "$getstatus" != "200" ]; then skip_getstatus "$getstatus"; fi
     echo "$tmp/page.$page" >> "$tmp/frags"
     frag_files=$(cat "$tmp/frags")
-    cursor=$(CURLHDR="$tmp/hdr.$page" python - <<'PY'
+    cursor=$(CURLHDR="$tmp/hdr.$page" python -X utf8 - <<'PY'
 import os, re
 h = open(os.environ["CURLHDR"], encoding="utf-8", errors="replace").read()
 m = re.search(r'<([^>]*cursor=[^>]*)>\s*;\s*rel="next"', h)
@@ -157,7 +162,7 @@ out_a=$(SENTRY_RESOLVE_FRAG_FILES="$frag_files" \
   SENTRY_RESOLVE_API="$API" \
   SENTRY_RESOLVE_ORG="$ORG" \
   SENTRY_RESOLVE_PROJECT="$PROJECT_SLUG" \
-  SENTRY_RESOLVE_TMP="$tmp" python - 2>/dev/null <<'PY' || rc=$?
+  SENTRY_RESOLVE_TMP="$tmp" python -X utf8 - 2>/dev/null <<'PY' || rc=$?
 import json, os, sys
 
 version = os.environ["SENTRY_RESOLVE_VERSION"]

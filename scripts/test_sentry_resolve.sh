@@ -19,6 +19,12 @@
 #   R10 Token-Quellen-Vertrag (--print-token-source, nur QUELLE, nie Token):
 #       env > resolve.token > stats.token > auth.token > none
 #   R11 --dry-run: meldet "OK (dry-run): N" ohne PUT-Ausführung
+#   R12 Windows-Coding-Sicherheitsnetz: beide Python-Heredocs des Guards
+#       laufen mit `python -X utf8` — sonst crashen cp1252-Locales (Windows)
+#       mit verschleiertem UnicodeEncodeError an —/→/ü in der Ausgabe
+#       (stderr gefiltert; Regression vom 25.09.2026, entdeckt am
+#       Pre-Push-Gate R3). Struktur-Check statt Fixture-Fall, damit er auf
+#       jedem Host deterministisch greift.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 fail() { echo "❌ [sentry-resolve-test] $1"; exit 1; }
@@ -145,4 +151,12 @@ out_r11=$(SENTRY_RESOLVE_FIXTURE="$tmp/dryrun" bash "$guard" --version v0.6.0-be
 grep -q "^OK (dry-run): 2 Issue(s) würden als resolved" <<<"$out_r11" || fail "R11: dry-run-Verdict erwartet"
 grep -q "project:write" <<<"$out_r11" && fail "R11: dry-run darf den Fixture-status 403 nicht auswerten"
 
-echo "✅ [sentry-resolve-test] Sentry-Resolve-Guard vertragstreu (R1–R11)."
+# R12 Windows-Coding-Sicherheitsnetz (strukturtreu, hostunabhängig): beide
+# Python-Heredocs müssen mit `python -X utf8` laufen.
+utf8_calls=$(grep -c "python -X utf8 - " "$guard" || true)
+[ "$utf8_calls" -eq 2 ] || fail "R12: beide Python-Heredocs müssen 'python -X utf8' nutzen (gefunden: $utf8_calls)"
+if grep -E "python - (2>/dev/null )?<<'PY'" "$guard" >/dev/null; then
+  fail "R12: es existiert noch ein Heredoc ohne -X utf8 (cp1252-Crash-Risiko)"
+fi
+
+echo "✅ [sentry-resolve-test] Sentry-Resolve-Guard vertragstreu (R1–R12)."
