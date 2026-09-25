@@ -23,8 +23,8 @@ Format pro Zeile: JJJJ-MM-TT Beschreibung. Abgelaufene Daten schlagen beim Gate 
 | Quelle | Suppressions-Mechanismus | Aktive Einträge | Automatisierte Prüfung |
 |---|---|---|---|
 | Snyk | `.snyk`-Policy (Ignore mit reason + expiry) | 1 | `check_snyk_policy.sh` (Pre-Push-Gate) |
-| GitHub Code Scanning (CodeQL) | Alert-Dismissal (false positive / won't fix) | 17 | monatlicher Review-Workflow (Issue-Automat) + halbjährlicher Termin in diesem Register |
-| GitHub Dependabot | Alert-Dismissal (`tolerable_risk`) | 9 (davon 1 obsolet: #26, Graph ≥ Fix) | Einzel-Review 2026-09-11 (Ist-Versionen + Scope-Nachweis im Register) + monatlicher Review-Workflow |
+| GitHub Code Scanning (CodeQL) | Alert-Dismissal (false positive / won't fix) | 19 | monatlicher Review-Workflow (Issue-Automat) + halbjährlicher Termin in diesem Register |
+| GitHub Dependabot | Alert-Dismissal (`tolerable_risk`) | 4 (davon 1 obsolet: #26, Graph ≥ Fix) — 5 der vormals 9 wurden durch Fixes geschlossen (u. a. FreeMarker #69, 2026-09-25) | Einzel-Review 2026-09-11 (Ist-Versionen + Scope-Nachweis im Register) + monatlicher Review-Workflow |
 | SonarCloud | `// NOSONAR`-Kommentare (S5332) | 3 (an 1 Stelle) | SonarCloud markiert Zeile; Review-Kontext hier |
 | OpenSSF Scorecard | `.github/scorecard.yml`-Annotationen | 3 Check-Blöcke | Scorecard-Viewer zeigt Begründung neben dem Finding |
 | Secret Scanning | — (Feature im Repo deaktiviert) | 0 | — |
@@ -49,7 +49,7 @@ Maschinell geprüft durch `scripts/check_snyk_policy.sh`: reason (≥ 40 Zeichen
 
 Dismissals sind in GitHub nicht mit Ablaufdatum belegbar — daher werden sie hier mit einem Review-Intervall von **6 Monaten** geführt. Der Guard vergleicht Register und Live-API; Abweichungen (neue Dismissals ohne Registereintrag, verschwundene Einträge) schlagen an.
 
-Dismissed am 2026-08-26 bzw. 2026-09-03 durch **thoser666**, Review bis **2027-03-11**:
+Dismissed am 2026-08-26, 2026-09-03 bzw. 2026-09-25 durch **thoser666**, Review bis **2027-03-11**:
 
 | Alert # | Regel | Datei | Reason | Begründung |
 |---|---|---|---|---|
@@ -66,6 +66,8 @@ Dismissed am 2026-08-26 bzw. 2026-09-03 durch **thoser666**, Review bis **2027-0
 | #18 | `java/field-masks-super-field` | `feature-chat/.../ThirdPartyEmoteService.kt` | false positive | dito |
 | #46 | `java/local-variable-is-never-read` | `feature-chat/.../ChatPollManager.kt` | false positive | dito (Dead-Store-Grenzfall) |
 | #461 | `java/local-variable-is-never-read` | `feature-streaming/.../ReplayRecording.kt` | false positive | dito — **2026-09-12 zusätzlich in Source gelöst** (`as?`-Cast-Temp durch `!is`-Guard + Smart-Cast ersetzt); die wiedereröffnete Instanz **#472** persistierte im Re-Scan dennoch als Kotlin-Temp-Finding (Dateiebene 1,1, kein nachweisbarer toter Code) und wurde deshalb am **2026-09-13 als `false positive` gedismissed** (konsistent zur Sammelbegründung, wie #461). |
+| #477 | `java/local-variable-is-never-read` | `feature-chat/.../ChatSharedChatState.kt` | false positive | Kotlin-Temp-Artefakt (`tmp0_other_with_cast`) in der synthetisierten equals() des data objects `Inactive`; Meldung an degenerierter Datei-Location (1,1), kein nachweisbarer toter Code — Sammelbegründung wie #12–#15/#46/#461/#472; Source-Hebellos durch den #472-Refactor-Versuch (2026-09-12) bewiesen. |
+| #478 | `java/local-variable-is-never-read` | `feature-chat/.../ChatSession.kt` | false positive | dito — gleiche Artefakt-Klasse am data object `Sent` (ChatSendResult). |
 | #476 | `java/deprecated-call` | `feature-widgets/.../GeocoderResolver.kt` | **won't fix** (minSdk-Fallback) | Vormals #474: Die ursprüngliche Instanz wurde per Code-Fix **2026-09-13 als `fixed` geschlossen** — auf API ≥ 33 nutzt Vivid die async-Listener-API (`resolveAsync`, `GeocodeListener`); die Query akzeptiert den Guard. Die **neue Instanz #476 (Zeile 75)** verblieb: Für Geräte unter Android 13 (minSdk 24) gibt es **keine** nicht-deprecated Alternative — der verbleibende Sync-Call `Geocoder.getFromLocation(lat, lon, max)` ist der dokumentierte Offline-Fallback (`@Suppress("DEPRECATION")`). Kein Sicherheits- oder Korrektheitsrisiko: gleiche Semantik, `isPresent()`-Guard, Fehler → `null` (Widget zeigt Platzhalter). |
 | #23 | `BranchProtectionID` | (Repo-Level, Branches develop + Release) | **won't fix** | OpenSSF-Scorecard: Branch-Protection „not maximal" — required approving review count = 1, kein Codeowners-Review. Als **Solo-Betreuer** nicht erfüllbar: ≥ 2 Reviewer bzw. Codeowners-Review würden jede eigene Merge-Entscheidung blockieren (Entwicklung läuft bewusst über PRs + Admin-Bypass, siehe SECURITY.md „Bot-Pushes → PRs"). Teilhärtung ist aktiv: `linear_history`, Required Checks „Build & Test" + „Secret Guard", Reviews ≥ 1. |
 | #44 | `CodeReviewID` | (Repo-Level, Scorecard) | **won't fix** | OpenSSF-Scorecard-Antwort „found **0/30 approved changesets**" (verlangt ≥ 30 abgenommene Änderungen in 90 Tagen durch fremde Reviewer) — im Ein-Personen-Repo strukturell nicht erfüllbar. Review-Qualität läuft über den eigenen Pull-Request + Admin-Bypass-Workflow und die Pre-Push-Gates. |
