@@ -1,10 +1,12 @@
 package com.vivid.irlbroadcaster
 
+import android.app.Activity
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.compose.setContent
-import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
+import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSizeClassApi
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
@@ -76,9 +78,21 @@ class MainActivity : ComponentActivity() {
             // - bei Rotation/Faltung wird die Activity neu erstellt und die
             // Klasse korrekt neu abgeleitet. Screens lesen sie ueber die
             // Modul-Naht LocalWindowWidthClass (core-ui).
-            val windowSizeClass = calculateWindowSizeClass(this@MainActivity)
+            //
+            // Robustheit statt M3-calculateWindowSizeClass (Startcrash S23/
+            // API 34): M3 laesst androidx.window intern die OEM-Vendor-Klassen
+            // androidx.window.extensions.* / androidx.window.sidecar.* aufloesen.
+            // Fehlen diese auf dem Geraet (z.B. S23/OneUI, API-34-google_apis-
+            // Emulator ohne Window-Extensions-Provider), wirft die Aufloesung
+            // einen NoClassDefFoundError beim Activity-Start (Startcrash,
+            // reproduziert im Emulator-Gate). Try/catch um Composable-Aufrufe
+            // verbietet der Compose-Compiler, daher leitet
+            // resolveSafeWindowWidthSizeClass die Breite direkt aus der
+            // Framework-Metrik ab (ohne Vendor-Provider liefert M3 ohnehin
+            // genau das) - identische Schwellen (600/840 dp).
+            val viewWidthSizeClass = resolveSafeWindowWidthSizeClass(this@MainActivity)
             CompositionLocalProvider(
-                LocalWindowWidthClass provides windowSizeClass.widthSizeClass,
+                LocalWindowWidthClass provides viewWidthSizeClass,
             ) {
             VividTheme(
                 darkTheme = dark,
@@ -109,6 +123,34 @@ class MainActivity : ComponentActivity() {
             return
         }
         crashLoopGuard.markUiReached()
+    }
+}
+
+/**
+ * WindowWidthSizeClass OHNE M3-calculateWindowSizeClass: M3 laesst androidx.window
+ * intern die OEM-Vendor-Klassen (`androidx.window.extensions.*` bzw.
+ * `androidx.window.sidecar.*`) aufloesen. Fehlen diese auf dem Geraet (z.B.
+ * S23/OneUI, API-34-google_apis-Emulator ohne Window-Extensions-Provider), wirft
+ * die Aufloesung beim Activity-Start `NoClassDefFoundError` (LinkageError) — die
+ * App startete dann auf API 34-Geraeten sofort nicht mehr. Der Compose-Compiler
+ * verbietet ausserdem try/catch um Composable-Aufrufe, die M3-Funktion ist also
+ * nicht absicherbar — und unnötig: Ohne Vendor-Provider liefert sie ohnehin nur
+ * die reine Framework-Metrik (WindowMetricsCalculatorCompat → currentWindowMetrics).
+ * Deshalb wird die Breite direkt aus den Framework-Metriken abgeleitet — identische
+ * Schwellwerte wie M3 (600/840 dp).
+ */
+@Suppress("DEPRECATION")
+private fun resolveSafeWindowWidthSizeClass(activity: Activity): WindowWidthSizeClass {
+    val widthDp = if (Build.VERSION.SDK_INT >= 30) {
+        activity.windowManager.currentWindowMetrics.bounds.width() /
+            activity.resources.displayMetrics.density
+    } else {
+        activity.resources.configuration.screenWidthDp.toFloat()
+    }
+    return when {
+        widthDp >= 840f -> WindowWidthSizeClass.Expanded
+        widthDp >= 600f -> WindowWidthSizeClass.Medium
+        else -> WindowWidthSizeClass.Compact
     }
 }
 
