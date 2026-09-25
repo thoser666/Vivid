@@ -127,3 +127,55 @@ nötig — der Workflow meldet Drossel-Signale von selbst als WARN-Issue.
   (Selbsttest S7 prüft das).
 - Projekt: `privat-jb/vivid` (Projekt-ID `4509837327990784`, DSN im
   App-Manifest). Der Guard liest die ID selbst aus der Projekt-API.
+
+## 6. Erledigte Issues automatisch resolven (fix-release-Tag, Weg 3)
+
+Erledigte („fix in nächster Version") Sentry-Issues werden beim **Stable-Publish
+einer Version automatisch geschlossen** — ohne manuelles Durchklicken im
+Dashboard. Mechanik:
+
+1. Im Sentry-Dashboard an das Issue ein **Tag** hängen:
+   `fix-release: <version>` — der Wert ist die Version **ohne führendes `v`**,
+   case-insensitiv (z. B. `fix-release: 0.6.0-beta` für den Release-Tag
+   `v0.6.0-beta`, `fix-release: 0.6.0-beta` und `0.6.0-BETA` zählen gleich).
+2. Der wöchentliche Stable-Workflow (`.github/workflows/distribution-stable.yml`)
+   ruft nach dem Publish des Versions-Tags den Resolve-Guard auf:
+   `bash scripts/check_sentry_resolve.sh --version "$TAG"` (Step „Sentry:
+   erledigte Issues resolven (fix-release → inNextRelease)").
+3. Der Guard listet alle unresolved Issues des Projekts, filtert die mit
+   passendem `fix-release`-Tag und markiert sie per Sentry-Bulk-Update
+   (`PUT /api/0/projects/{org}/{project}/issues/?id=…` mit
+   `{"status":"resolved","statusDetails":{"inNextRelease":true}}`).
+   **Sentry schließt sie automatisch**, sobald Events aus genau dieser Release
+   eintreffen — semantisch „Resolved in next release".
+
+Lokal testen (Offline-Fixtures):
+
+```bash
+bash scripts/test_sentry_resolve.sh      # R1–R11, kein Netz
+bash scripts/test_distribution_stable.sh # D14-Verträge des Workflow-Steps
+bash scripts/check_sentry_resolve.sh --version v0.6.0-beta --dry-run   # nur anzeigen
+bash scripts/check_sentry_resolve.sh --version v0.6.0-beta             # echt resolven
+```
+
+Verdicts: `OK: N Issue(s) als resolved (inNextRelease) markiert` / `OK: 0 Issues
+mit Tag fix-release:…` (nichts zu tun) / `SKIP` (kein Token, HTTP 401/403/
+Netzwerk/unerwarteter Status — bewusst **kein** Gate-Blocker: der Workflow-Step
+läuft `continue-on-error`, ein Sentry-Ausfall blockiert die Distribution nie) /
+`FEHLER` (unverständliche API-Antwort oder falscher Aufruf, exit 1).
+
+**Token (`SENTRY_RESOLVE_TOKEN`):** eigener User-Token (gleiche UI wie Abschnitt
+1, <https://sentry.io/settings/account/api/auth-tokens/>) mit Scopes
+`project:write` **und** `project:read`, Ablauf 30 Tage. Lokal ablegen als Zeile
+`resolve.token=…` in der gitignoreden `sentry.properties` (nicht `auth.token`
+überschreiben). Quellen-Reihenfolge: `SENTRY_RESOLVE_TOKEN` → `resolve.token` →
+`stats.token` → `auth.token` (die beiden Lese-Fallbacks liefern beim PUT 403 →
+SKIP mit `project:write`-Hinweis). Für CI einmalig hinterlegen:
+
+```bash
+gh secret set SENTRY_RESOLVE_TOKEN --body sntrys_…
+```
+
+Die Distribution läuft ohne das Secret unverändert (der Guard fällt auf SKIP
+zurück); das Issue-Tag-Contract bleibt dokumentiert und der Step ist im
+Pre-Push-Gate offline abgesichert (`test_sentry_resolve.sh` R1–R11).

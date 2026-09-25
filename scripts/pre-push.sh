@@ -61,6 +61,8 @@ echo "▶ [pre-push] Sentry-Ops-Workflow-Selbsttest (scripts/test_sentry_ops_wor
 bash scripts/test_sentry_ops_workflow.sh
 echo "▶ [pre-push] Sentry-Triage-Workflow-Selbsttest (scripts/test_sentry_triage_workflow.sh)"
 bash scripts/test_sentry_triage_workflow.sh
+echo "▶ [pre-push] Sentry-Resolve-Guard-Selbsttest (scripts/test_sentry_resolve.sh)"
+bash scripts/test_sentry_resolve.sh
 
 echo "▶ [pre-push] Stable-Distribution-Kadenz-Selbsttest (scripts/test_distribution_stable.sh)"
 bash scripts/test_distribution_stable.sh

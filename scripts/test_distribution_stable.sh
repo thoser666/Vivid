@@ -27,7 +27,7 @@ DIST=.github/workflows/distribution-stable.yml
 FDROID=.github/workflows/deploy-fdroid.yml
 RELEASE=.github/workflows/release-pipeline.yml
 
-echo "▶ [test_distribution_stable] Szenarien D1–D13"
+echo "▶ [test_distribution_stable] Szenarien D1–D14"
 
 FAILED=0
 check() {
@@ -184,6 +184,27 @@ if awk '/name: Install cosign/{s=1; next} s && /cosign-release: .v3\.1\.3./{g=1}
   echo "  ✅ D13.11 cosign auf v3.1.3 gepinnt (Bundle-Default ist der Ziel-Stand)"
 else
   echo "  ❌ D13.11 cosign nicht auf v3.1.3 gepinnt — die Bundle-Verträge sind nicht garantiert"
+  FAILED=1
+fi
+
+# D14: Sentry-Resolve-Step (Weg-3-Automation, 25.09.2026): Beim Stable-Publish
+# werden Issues mit Issue-Tag `fix-release: <version>` als resolved/inNextRelease
+# markiert (Vertrag: docs/sentry-stats.md Abschnitt 6). Der Step
+#   - läuft NACH dem Publish am TAG-Guard (kein Lauf im No-Target-Fall),
+#   - ist continue-on-error (Sentry-Ausfall blockiert die Distribution nie),
+#   - nutzt das eigene SENTRY_RESOLVE_TOKEN-Secret (project:write).
+check "D14.1 Resolve-Step vorhanden" "$DIST" 'Sentry: erledigte Issues resolven'
+check "D14.2 Guard mit Version aufgerufen" "$DIST" 'check_sentry_resolve\.sh --version "\$TAG"'
+check "D14.3 eigenes Secret verdrahtet" "$DIST" 'SENTRY_RESOLVE_TOKEN: \${{ secrets\.SENTRY_RESOLVE_TOKEN }}'
+check "D14.4 Guard-Script existiert" scripts/check_sentry_resolve.sh 'fix-release: <version>'
+check "D14.5 Guard-Selbsttest existiert" scripts/test_sentry_resolve.sh 'inNextRelease'
+# D14.6: Der Resolve-Step hängt am TAG-Guard UND ist continue-on-error —
+# sonst würde er im No-Target-Fall (alles verteilt) mit leerem \$TAG laufen
+# oder ein Sentry-Problem die Wochen-Publikation brechen.
+if awk '/name: Sentry: erledigte Issues resolven/{s=1; next} s && /continue-on-error: true/{ce=1} s && /if: env.TAG != ./{g=1} s && /^      - name:/{exit !(ce && g)}' "$DIST"; then
+  echo "  ✅ D14.6 Resolve-Step hängt am TAG-Guard + continue-on-error"
+else
+  echo "  ❌ D14.6 Resolve-Step fehlt TAG-Guard oder continue-on-error"
   FAILED=1
 fi
 

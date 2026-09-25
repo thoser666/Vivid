@@ -208,6 +208,24 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: bundle exec fastlane release_github tag:"$TAG"
 
+      # ✅ Erledigte Sentry-Issues mit dieser Version schließen (fix-release-Tag,
+      # Weg-3-Automation, Auftrag 25.09.2026): Issues mit dem Issue-Tag
+      # `fix-release: <version>` (z. B. 'fix-release: 0.6.0-beta' für Release v0.6.0-beta)
+      # werden per Sentry-Bulk-Update als resolved/inNextRelease markiert —
+      # Sentry schließt sie automatisch, sobald Events aus dieser Release
+      # eintreffen. Bewusst continue-on-error: Sentry-Probleme (Token fehlt/
+      # abgelaufen/ohne project:write, HTTP-Störung) sind neutrale SKIPs und
+      # dürfen die Distribution NIE blockieren — das Script selbst ist im
+      # Pre-Push-Gate offline getestet (test_sentry_resolve.sh, R1–R11).
+      - name: 'Sentry: erledigte Issues resolven (fix-release → inNextRelease)'
+        if: env.TAG != ''
+        continue-on-error: true
+        env:
+          SENTRY_RESOLVE_TOKEN: ${{ secrets.SENTRY_RESOLVE_TOKEN }}
+          SENTRY_ORG: privat-jb
+          SENTRY_PROJECT: vivid
+        run: bash scripts/check_sentry_resolve.sh --version "$TAG"
+
       # ✅ Sigstore/cosign keyless-Signatur der SHA256SUMS.txt (seit 10.09.2026):
       # Nach dem Publish wird die veröffentlichte Checksummen-Datei signiert
       # (cert/Transparency-Log via ambient OIDC-Token des Runners — kein
