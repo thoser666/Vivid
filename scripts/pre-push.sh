@@ -159,6 +159,14 @@ run bash scripts/test_release_safety.sh
 echo "▶ [pre-push] Build-Retry-Härtung (scripts/test_build_retry.sh)"
 run bash scripts/test_build_retry.sh
 
+# Emulator-Gate-Retry (bash, offline): Klassifikation Emulator-Flakiness
+# (transient) vs. deterministische Fehler — der Stable-Publish-Gate-Step
+# scheiterte am 24.09.2026 (Run 36025777687) an derselben Suite, die 40 min
+# vorher im Tag-Run grün war. Boot-Noise aus grünen Läufen ist bewusst KEIN
+# Retry-Muster (E1.3-Kernbeweis des Selbsttests).
+echo "▶ [pre-push] Emulator-Gate-Retry-Selbsttest (scripts/test_emulator_gate_retry.sh)"
+run bash scripts/test_emulator_gate_retry.sh
+
 # Verify-Reproducibility (grep-basiert, offline): der nightly-Verify-Job muss
 # die flavor-korrekten Asset-Namen/Rebuild-Pfade nutzen (Vorfall 06.09.2026:
 # "app-release.apk fehlt im Release" — Asset heißt app-standard-release.apk).

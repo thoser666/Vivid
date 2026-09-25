@@ -118,7 +118,9 @@ check "T13.3 Gate läuft VOR dem Publish-Step" bash -c 'grep -n "Run instrumente
 check "T13.4 Gate nutzt denselben SHA-gepinnten Emulator-Runner" \
   grep -q "ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d" "$DIST"
 check "T13.5 Gate-Step testet flavor-explicit" \
-  bash -c 'grep -A20 "Run instrumented tests on emulator (release gate)" "$DIST" | grep -q "connectedStandardDebugAndroidTest"'
+  bash -c 'grep -A35 "Run instrumented tests on emulator (release gate)" "$DIST" | grep -q "connectedStandardDebugAndroidTest"'
+check "T13.6 Gate-Task läuft über Retry-Wrapper (BuildRetry-Hausmuster)" \
+  bash -c 'grep -A35 "Run instrumented tests on emulator (release gate)" "$DIST" | grep -q "scripts/emulator_gate_retry.sh"'
 
 echo "== T14: Beide Flavors im Emulator-Gate =="
 # Kein end-Anker: der Step-Name steht im Arbeitsbaum (Windows/Git-for-Windows)
@@ -131,7 +133,7 @@ check "T14.1 release-pipeline emulator-tests deckt standard ab" \
 check "T14.2 release-pipeline emulator-tests deckt foss ab" \
   grep -q "connectedFossDebugAndroidTest" <<<"$EMU_JOB"
 check "T14.3 distribution-stable Gate deckt foss ab" \
-  bash -c 'grep -A20 "Run instrumented tests on emulator (release gate)" "$DIST" | grep -q "connectedFossDebugAndroidTest"'
+  bash -c 'grep -A35 "Run instrumented tests on emulator (release gate)" "$DIST" | grep -q "connectedFossDebugAndroidTest"'
 
 echo "== T12: Workflow-YAML valide =="
 check "T12.1 release-pipeline.yml parst als YAML" python3 -c "

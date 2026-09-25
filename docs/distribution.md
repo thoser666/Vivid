@@ -37,6 +37,15 @@ deshalb gibt es pro Kadenz einen eigenen Workflow. Alles zusätzlich manuell per
    macos-arm64-experimentell) läuft jetzt auch bei `v*`-Tag-Pushen, nicht
    mehr nur manuell. Selbsttest:
    `scripts/test_emulator_matrix.sh` (T11/T13/T14).
+   **Retry-Härtung (seit 25.09.2026):** Der Gate-Step läuft über
+   `scripts/emulator_gate_retry.sh` (BuildRetry-Hausmuster): transiente
+   Fehlerklassen (Suite-Fehlschlag, Geräteverlust, Boot-Fehler,
+   Dependency-Auflösung) retryen 3× mit linearem Backoff (10 s/20 s);
+   deterministische Fehler (Kompilierung) scheitern sofort (Vorrang),
+   Unklassifiziertes bleibt fail-closed. Boot-Noise aus grünen Läufen ist
+   bewusst kein Muster — Evidenz: Run 36025777687 (rot) vs. 36021918352
+   (grün, derselbe Commit). Selbsttest: `scripts/test_emulator_gate_retry.sh`
+   (E1–E10).
 3. **Build:** `bundle exec fastlane release_github tag:"$TAG"` baut **beide** Flavor:
    `assembleStandardRelease` (bereits aus der Pipeline bekannt) **und** `assembleFossRelease`.
 4. **Checksummen:** `fastlane/sha256sums.rb` erzeugt `SHA256SUMS.txt` im GNU-Format

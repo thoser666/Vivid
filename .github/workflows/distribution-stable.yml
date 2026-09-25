@@ -182,7 +182,13 @@ jobs:
             # wegen der Varianten foss/standard mehrdeutig). Beide Client-
             # Packages (com.vivid.debug / com.vivid.foss.debug) sind disjunkt —
             # sie installieren sich nacheinander auf demselben Emulator.
-            ./gradlew :app:connectedStandardDebugAndroidTest :app:connectedFossDebugAndroidTest
+            # Retry-Härtung (BuildRetry-Hausmuster, Evidenz 24.09.2026 Run
+            # 36025777687: derselbe Commit 40 min vorher im Tag-Run grün —
+            # Emulator-Flakiness). Transiente Klassen retryen 3× (10s/20s),
+            # deterministische Fehler fail-closed sofort, Boot-Noise aus
+            # grünen Läufen ist bewusst KEIN Muster (Selbsttest E1.3).
+            bash scripts/emulator_gate_retry.sh \r
+              ./gradlew :app:connectedStandardDebugAndroidTest :app:connectedFossDebugAndroidTest
 
       # ✅ Signiertes Stable-Release bauen und veröffentlichen: release_github
       # mit tag: baut im Stable-Pfad BEIDE Flavor-APKs (assembleRelease +

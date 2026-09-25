@@ -869,6 +869,21 @@ jobs:
           ruby-version: '3.3'
       - name: Run build retry self-test
         run: bash scripts/test_build_retry.sh
+  # ✅ Regressionstest: Emulator-Gate-Retry (scripts/emulator_gate_retry.sh) —
+  # Retry-Härtung des Stable-Publish-Gate-Steps (distribution-stable.yml).
+  # E1–E10: Klassifikation gegen echte Log-Fixtures (Run 36025777687 rot vs.
+  # 36021918352 grün), Retry-Zähler/Backoff, fail-closed für deterministische
+  # und unklassifizierte Fehler, Output-Transparenz. Plain bash, offline.
+  test-emulator-gate-retry:
+    name: Self-Test Emulator-Gate-Retry (Hardening)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Run emulator gate retry self-test
+        run: bash scripts/test_emulator_gate_retry.sh
 
   # ✅ Regressionstest: SHA-256-Prüfsummen (fastlane/sha256sums.rb) — die
   # release_github-Stable-Lane publiziert seit 10.09.2026 BEIDE Flavor-APKs
