@@ -86,6 +86,8 @@ check "W8 Konfig-SKIP-Muster deckt event:read-Scope ab (Issue #203)" \
   bash -c 'grep -q "event:read-Scope" "'"$WF"'"'
 check "W8 Konfig-SKIP-Muster deckt abgelaufene Tokens ab (401-Variante)" \
   bash -c 'grep -q "ungültig/abgelaufen" "'"$WF"'"'
+check "W8 Konfig-SKIP-Muster deckt Endpoint-Brüche ab (unerwarteter HTTP-Status, Fix #203)" \
+  bash -c 'grep -q "unerwarteter HTTP-Status" "'"$WF"'"'
 check "W8 Konfig-SKIP-Entscheidung über Needle-Liste (erweiterbar)" \
   bash -c 'grep -q "configSkipNeedles" "'"$WF"'"'
 check "W8 neutrale Netzwerk-SKIPs lösen KEIN Konfig-Issue aus" \

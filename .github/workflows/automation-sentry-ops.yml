@@ -89,14 +89,19 @@ jobs:
             // fehlender/falscher Token-Konfiguration. NUR diese dürfen ein
             // Konfigurations-Issue auslösen — neutrale Netzwerk-SKIPs schließen
             // stattdessen offene Check-Issues. Fix (Issue #203): 'event:read-Scope'
-            // (403 auf der Events-Abfrage) und 'ungültig/abgelaufen' (401 — die
-            // 30-Tage-Tokens laufen bewusst ab) wurden vorher nicht gematcht und
-            // führten zu stillen Auto-Closes trotz unvollständiger Konfiguration.
+            // (403 auf der Events-Abfrage), 'ungültig/abgelaufen' (401 — die
+            // 30-Tage-Tokens laufen bewusst ab) und 'unerwarteter HTTP-Status'
+            // (400/404/500 — API-/Endpoint-Bruch) wurden vorher nicht gematcht und
+            // führten zu stillen Auto-Closes trotz unvollständiger Konfiguration
+            // bzw. defektem Stats-Pfad (Run 36104691848: HTTP 400 auf dem Legacy-
+            // /events/-Endpoint → Falsch-Close von #203). Der Guard nutzt seit dem
+            // Fix den Org-Stats-Summary-Endpoint.
             const configSkipNeedles = [
               'kein Sentry-Lese-Token',
               'Lesescopes',
               'event:read-Scope',
               'ungültig/abgelaufen',
+              'unerwarteter HTTP-Status',
             ];
             const statsConfigSkip = statsVerdict.startsWith('SKIP:') &&
               configSkipNeedles.some((needle) => statsVerdict.includes(needle));

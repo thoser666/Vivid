@@ -13,8 +13,10 @@ API-Abrufe antworten korrekt mit `403`. Für Dashboard-Statistiken (Events in
    Org-Owner-Rechte und ist dauerhaft)
 3. Scopes **minimal** setzen:
    - `project:read` (Projekt-Details, Projekt-ID)
-   - `event:read` (Event-Statistiken)
-   - nichts weiter (kein `project:write`, kein `org:read`)
+   - `org:read` (Organisations-Stats-Summary — der Quota-/Outcome-Abruf
+     läuft über `/organizations/{org}/stats-summary/`)
+   - `event:read` nur falls vorhanden (harmlos, 403-Hinweis deckt es ab)
+   - nichts weiter (kein `project:write`, kein `org:write`)
 4. Ablaufdatum: **30 Tage** (Sentry-Default) — bewusst kurzlebig; nach
    Ablauf einfach neu erstellen (dieser Guard fällt dann auf SKIP zurück).
 5. Token kopieren (Form `sntrys_…`) — er wird nur einmal angezeigt.
@@ -71,10 +73,15 @@ verwaltet die Ergebnisse als deduplizierte Issues:
 - **Konfigurations-SKIPs im Detail:** Der Issue-Step erkennt diese
   Guard-Texte als Konfigurationsproblem (Needle-Liste): `kein
   Sentry-Lese-Token` (404), `Token ungültig/abgelaufen` (401), `Token ohne
-  Lesescopes` und `Token ohne event:read-Scope` (403). Nur diese öffnen/
+  Lesescopes`, `Token ohne event:read-Scope` (403) und `unerwarteter
+  HTTP-Status` (400/404/500 — API-/Endpoint-Bruch). Nur diese öffnen/
   kommentieren Issues — ein SKIP-Variantentext, der nicht in der Liste
   stünde, würde fälschlich wie ein Erfolg auto-geschlossen (Fix: Issue
-  #203, W8-Testschutz).
+  #203, W8-Testschutz). Der Stats-Abruf nutzt den **Org-Outcome-Summary-
+  Endpoint** (`/organizations/{org}/stats-summary/?field=sum(quantity)` —
+  `accepted`/`rate_limited` je Kategorie als Quota-Signal); der frühere
+  Legacy-Endpoint `/organizations/{org}/events/` antwortet inzwischen mit
+  HTTP 400.
 - **OK oder neutraler Netzwerk-SKIP** („Sentry nicht erreichbar“) → offene
   Check-Issues schließen sich automatisch
 

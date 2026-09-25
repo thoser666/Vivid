@@ -25,6 +25,7 @@ trap 'rm -rf "$tmp"' EXIT
 [[ -x "$guard" ]] || fail "Guard-Skript ist nicht ausführbar"
 bash -n "$guard" || fail "Guard-Skript: bash-Syntaxfehler"
 grep -q "docs/sentry-stats.md" "$guard" || fail "Guard nennt den Doku-Pfad nicht"
+grep -q "stats-summary" "$guard" || fail "Guard nutzt den Org-Stats-Summary-Endpoint (Fix #203)"
 
 # S2
 out=$(SENTRY_STATS_TOKEN= bash "$guard" 2>/dev/null) || \
@@ -36,7 +37,7 @@ grep -q "docs/sentry-stats.md" <<<"$out" || fail "S2: Anleitung-Pfad erwartet"
 mkdir -p "$tmp/ok"
 echo 200 > "$tmp/ok/status"
 echo '{"id": "4509837327990784", "slug": "vivid", "firstEvent": "2026-08-01T00:00:00Z"}' > "$tmp/ok/project.json"
-echo '{"org": [{"totals": {"accepted": 12, "dropped": 0}}]}' > "$tmp/ok/events.json"
+echo '{"start":"2026-08-27T00:00:00Z","end":"2026-09-26T00:00:00Z","projects":[{"id":"4509837327990784","slug":"vivid","stats":[{"category":"error","outcomes":{"accepted":12,"filtered":0,"rate_limited":0,"invalid":0,"abuse":0,"client_discard":0,"cardinality_limited":0},"totals":{"dropped":0,"sum(quantity)":12}}]}]}' > "$tmp/ok/events.json"
 out_s3=$(SENTRY_STATS_FIXTURE="$tmp/ok" SENTRY_STATS_TOKEN=sntrys_FAKE_LEAK_TOKEN bash "$guard") || \
   fail "S3: OK-Fall darf nicht scheitern"
 grep -q "^OK: 12" <<<"$out_s3" || fail "S3: OK mit 12 Events erwartet"
@@ -46,18 +47,18 @@ grep -q "WARN" <<<"$out_s3" && fail "S3: keine WARN erwartet"
 mkdir -p "$tmp/dropped"
 echo 200 > "$tmp/dropped/status"
 echo '{"id": "1"}' > "$tmp/dropped/project.json"
-echo '{"org": [{"totals": {"accepted": 5, "dropped": 3, "rateLimited": 2}}]}' > "$tmp/dropped/events.json"
+echo '{"projects":[{"id":"1","slug":"vivid","stats":[{"category":"error","outcomes":{"accepted":5,"filtered":0,"rate_limited":3,"invalid":2,"abuse":0,"client_discard":0,"cardinality_limited":0},"totals":{"dropped":5,"sum(quantity)":5}}]}]}' > "$tmp/dropped/events.json"
 out=$(SENTRY_STATS_FIXTURE="$tmp/dropped" bash "$guard") || \
   fail "S4: dropped-Fall darf nicht scheitern (informational)"
 grep -q "^WARN:" <<<"$out" || fail "S4: WARN erwartet"
 grep -q "5 Event(s) in 30d angenommen, 5 verworfen" <<<"$out" || \
-  fail "S4: dropped+rateLimited müssen summiert werden (erwartet 5)"
+  fail "S4: rate_limited+invalid müssen über Outcome-Felder summiert werden (erwartet 5)"
 
 # S5
 mkdir -p "$tmp/empty"
 echo 200 > "$tmp/empty/status"
 echo '{"id": "1"}' > "$tmp/empty/project.json"
-echo '{"org": [{"totals": {"accepted": 0, "dropped": 0}}]}' > "$tmp/empty/events.json"
+echo '{"projects":[{"id":"1","slug":"vivid","stats":[{"category":"error","outcomes":{"accepted":0,"filtered":0,"rate_limited":0,"invalid":0,"abuse":0,"client_discard":0,"cardinality_limited":0},"totals":{"dropped":0,"sum(quantity)":0}}]}]}' > "$tmp/empty/events.json"
 out=$(SENTRY_STATS_FIXTURE="$tmp/empty" bash "$guard") || \
   fail "S5: ruhiger Projekt-Fall darf nicht scheitern"
 grep -q "^OK: 0 Events" <<<"$out" || fail "S5: OK (ruhig) erwartet"

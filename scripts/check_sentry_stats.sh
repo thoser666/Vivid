@@ -102,15 +102,19 @@ PY
     exit 1
   fi
 
+  # Stats über den Org-Outcome-Summary-Endpoint (field=sum(quantity) je
+  # Kategorie): liefert accepted + rate_limited/… — das Quota-Signal. Der
+  # frühere Legacy-Endpoint /organizations/{org}/events/ antwortet seit der
+  # API-Modernisierung mit HTTP 400 (Fix #203, Run 36104691848).
   status=$(curl -sS -o /tmp/sentry_stats_events.$$.json -w '%{http_code}' \
     -H "Authorization: Bearer $token" \
-    "$API/organizations/$ORG/events/?statsPeriod=30d&project=$PROJECT_ID" 2>/dev/null || echo 000)
+    "$API/organizations/$ORG/stats-summary/?field=sum(quantity)&statsPeriod=30d&project=$PROJECT_ID&category=error" 2>/dev/null || echo 000)
   case "$status" in
-    000) echo "SKIP: Sentry nicht erreichbar (Netzwerk, Events-Abfrage)"; exit 0 ;;
+    000) echo "SKIP: Sentry nicht erreichbar (Netzwerk, Stats-Summary-Abfrage)"; exit 0 ;;
     401) echo "SKIP: Token ungültig/abgelaufen ($DOCS_HINT)"; exit 0 ;;
-    403) echo "SKIP: Token ohne event:read-Scope ($DOCS_HINT)"; exit 0 ;;
+    403) echo "SKIP: Token ohne Lesescopes (org:read für Stats-Summary nötig, $DOCS_HINT)"; exit 0 ;;
     200) : ;;
-    *)   echo "SKIP: unerwarteter HTTP-Status $status (Events-Abfrage)"; exit 0 ;;
+    *)   echo "SKIP: unerwarteter HTTP-Status $status (Stats-Summary-Abfrage)"; exit 0 ;;
   esac
   EVENTS_JSON=$(cat /tmp/sentry_stats_events.$$.json); rm -f /tmp/sentry_stats_events.$$.json
 fi
@@ -136,19 +140,34 @@ for key in ("org", "project"):
     if totals is not None:
         break
 
-if totals is None:
-    print("FEHLER: Events-Antwort ohne totals-Objekt — Sentry-API-Feldformat geändert?")
+# Neues Format (org stats-summary): {"projects":[{id,slug,stats:[{category,
+# outcomes:{...}, totals:{...}}]}]}. Toleranz für beide Formen behalten —
+# überall dort, wo das neue Format vorliegt, wird über Outcomes gerechnet.
+projects = events.get("projects")
+if isinstance(projects, list) and projects:
+    entry = (projects[0].get("stats") or [{}])[0] if isinstance(projects[0], dict) else {}
+    outcomes = entry.get("outcomes") if isinstance(entry, dict) else None
+    totals = entry.get("totals") if isinstance(entry, dict) else None
+
+if not isinstance(totals, dict):
+    print("FEHLER: Stats-Antwort ohne totals/outcomes-Objekt — Sentry-API-Feldformat geändert?")
     sys.exit(1)
+
+outcomes = outcomes if isinstance(outcomes, dict) else {}
 
 def num(key):
     try:
-        return int(totals.get(key, 0))
+        return int(outcomes.get(key, totals.get(key, 0)))
     except (TypeError, ValueError):
         return 0
 
 accepted = num("accepted")
+if not accepted:
+    accepted = num("sum(quantity)")
 # Bewusst ohne "filtered" (projektkonfiguriertes Inbound-Filtering ist keine Quota-Signal):
-dropped = num("dropped") + num("rejected") + num("rateLimited")
+dropped = (num("rate_limited") + num("rejected") + num("rateLimited")
+           + num("invalid") + num("abuse") + num("client_discard")
+           + num("cardinality_limited"))
 
 first = proj.get("firstEvent") or proj.get("dateCreated") or "unbekannt"
 print("Projekt-ID: %s | erstes Event: %s" % (proj.get("id", "?"), first))
