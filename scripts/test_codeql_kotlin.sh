@@ -10,7 +10,7 @@
 # 2.3.11, < 2.4.20); die normale CI baut unverändert mit 2.4.20.
 #
 # Vertrag (Läuft im Pre-Push-Gate + CI):
-#   K1  init UND analyze auf denselben v4.38.0-SHA gepinnt (# v4.38.0-Kommentar)
+#   K1  init UND analyze auf denselben v4.38.1-SHA gepinnt (# v4.38.1-Kommentar)
 #   K2  Pin-Step (Kotlin → 2.4.10) liegt VOR dem Build-Step (Reihenfolge!)
 #   K3  Pin zielt auf 2.4.10 und liest die Quelle dynamisch aus dem Katalog
 #       (driftet der Katalog auf 2.4.20+ weiter FRÜHER, greift der Pin weiter)
@@ -49,11 +49,11 @@ notcheck() {
 }
 
 # K1: Beide codeql-action-Steps auf denselben immutable v4.38.0-SHA gepinnt.
-check "K1.1 init SHA-gepinnt (v4.38.0)" \
-  "$CODEDQL" 'github/codeql-action/init@b96794f015dfd88f77b49b1c93e0fa7110f94c63'
-check "K1.2 analyze SHA-gepinnt (v4.38.0)" \
-  "$CODEDQL" 'github/codeql-action/analyze@b96794f015dfd88f77b49b1c93e0fa7110f94c63'
-check "K1.3 Versionskommentar v4.38.0" "$CODEDQL" '# v4.38.0'
+check "K1.1 init SHA-gepinnt (v4.38.1)" \
+  "$CODEDQL" 'github/codeql-action/init@1c5b675653bb5c22dbe9b12b556ec555138e09fd'
+check "K1.2 analyze SHA-gepinnt (v4.38.1)" \
+  "$CODEDQL" 'github/codeql-action/analyze@1c5b675653bb5c22dbe9b12b556ec555138e09fd'
+check "K1.3 Versionskommentar v4.38.1" "$CODEDQL" '# v4.38.1'
 
 # K2: Der Pin-Step muss VOR dem Build-Step liegen, sonst kompiliert der Build
 # den Trace mit 2.4.20 und scheitert weiterhin (Reihenfolge ist entscheidend).

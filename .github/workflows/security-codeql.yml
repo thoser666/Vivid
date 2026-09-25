@@ -41,13 +41,13 @@ jobs:
           java-version: "25"
 
       # SHA-Pins (Supply-Chain), konsistent mit der CI-Härtung in RELEASE.md:
-      # Beide Actions stammen aus demselben Release-Tag v4.38.0 (aktuellster
-      # Stand, released 09.09.2026). ACHTUNG Bundle-Lag (github/codeql#22404):
+      # Beide Actions stammen aus demselben Release-Tag v4.38.1 (aktuellster
+      # Stand, released 18.09.2026). ACHTUNG Bundle-Lag (github/codeql#22404):
       # das Default-Bundle 2.27.0 lehnt Kotlin 2.4.20 noch ab („supports
       # versions below 2.4.20") — deshalb pinnt der Step unten davor den
       # Trace-Build auf Kotlin 2.4.10 (bewährtes KSP-2.3.11-Paar, < 2.4.20).
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4.38.0
+        uses: github/codeql-action/init@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4.38.1
         with:
           languages: ${{ matrix.language }}
           # Security-relevante Query-Pakete zusätzlich zum Standard.
@@ -70,6 +70,6 @@ jobs:
         run: ./gradlew :app:assembleDebug --console=plain
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4.38.0
+        uses: github/codeql-action/analyze@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4.38.1
         with:
           category: "/language:${{ matrix.language }}"
