@@ -23,6 +23,12 @@
 #      Lesescopes), Fallback nur, wenn 1./2. nicht vorhanden sind.
 #  --print-token-source meldet nur die gewählte QUELLE, nie den Token.
 #
+# Aufruf-Konvention: Python-Heredocs laufen mit `python -X utf8` — sonst
+# geben Windows-Locales (cp1252) Umlaute/Striche als Mojibake aus
+# (beobachtet am Pre-Push-Gate, 25.09.2026) und Locales ohne diese
+# Zeichen (z. B. cp932/cp1251) crashen mit verschleiertem
+# UnicodeEncodeError — dieselbe Falle wie im Resolve-Guard (bfb9c02).
+#
 # Fixture-Modus für Offline-Tests: SENTRY_STATS_FIXTURE=<dir> mit
 # project.json + events.json (echte API-Antwortformen) und optional
 # `status` (simulierter HTTP-Code, Default 200) — kein Netz, kein Token.
@@ -88,7 +94,7 @@ else
   esac
   PROJECT_JSON=$(cat /tmp/sentry_stats_project.$$.json); rm -f /tmp/sentry_stats_project.$$.json
 
-  PROJECT_ID=$(PROJECT_JSON="$PROJECT_JSON" python - <<'PY'
+  PROJECT_ID=$(PROJECT_JSON="$PROJECT_JSON" python -X utf8 - <<'PY'
 import json, os
 try:
     d = json.loads(os.environ["PROJECT_JSON"])
@@ -120,7 +126,7 @@ PY
 fi
 
 # Auswertung (tolerant gegenüber Formvarianten, fail-closed bei unbekanntem Format).
-PROJECT_JSON="$PROJECT_JSON" EVENTS_JSON="$EVENTS_JSON" python - <<'PY'
+PROJECT_JSON="$PROJECT_JSON" EVENTS_JSON="$EVENTS_JSON" python -X utf8 - <<'PY'
 import json, os, sys
 
 try:

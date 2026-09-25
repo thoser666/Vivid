@@ -12,6 +12,12 @@
 #   S8 403-Fixture → SKIP mit Scopes-Hinweis (project:read/event:read)
 #   S9 Token-Quellen-Vertrag (--print-token-source nennt nur die QUELLE,
 #      nie den Token): env > stats.token > auth.token > none
+#   S10 Windows-Coding-Sicherheitsnetz: beide Python-Heredocs des Guards
+#       laufen mit `python -X utf8` — sonst geben cp1252-Locales (Windows)
+#       Umlaute/Striche als Mojibake aus und Locales ohne diese Zeichen
+#       crashen mit verschleiertem UnicodeEncodeError (dieselbe Falle wie
+#       im Resolve-Guard, bfb9c02; struktureller Check statt Fixture-Fall,
+#       damit er auf jedem Host deterministisch greift).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 fail() { echo "❌ [sentry-stats-test] $1"; exit 1; }
@@ -102,4 +108,12 @@ grep -q "^TOKEN_SOURCE=auth.token$" <<<"$src" || fail "S9: auth.token-Fallback e
 src=$(SENTRY_PROPERTIES_FILE="$tmp/props/fehlt.properties" bash "$guard" --print-token-source)
 grep -q "^TOKEN_SOURCE=none$" <<<"$src" || fail "S9: none bei fehlender Datei erwartet"
 
-echo "✅ [sentry-stats-test] Sentry-Stats-Guard vertragstreu (S1–S9)."
+# S10 Windows-Coding-Sicherheitsnetz (strukturtreu, hostunabhängig): beide
+# Python-Heredocs müssen mit `python -X utf8` laufen.
+utf8_calls=$(grep -c "python -X utf8 - " "$guard" || true)
+[ "$utf8_calls" -eq 2 ] || fail "S10: beide Python-Heredocs müssen 'python -X utf8' nutzen (gefunden: $utf8_calls)"
+if grep -E "python - (2>/dev/null )?<<'PY'" "$guard" >/dev/null; then
+  fail "S10: es existiert noch ein Heredoc ohne -X utf8 (cp1252-Crash-Risiko)"
+fi
+
+echo "✅ [sentry-stats-test] Sentry-Stats-Guard vertragstreu (S1–S10)."
