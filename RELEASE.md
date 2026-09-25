@@ -613,7 +613,7 @@ Die `publish_release`-Lane (`fastlane/Fastfile`) wendet bei fehlgeschlagenem `gh
 
 **Regressionstest (publish_release-Härtung):** Der Job **„Self-Test publish_release (Hardening, Mock-gh)“** in `release-pipeline.yml` (bei jedem Push/PR/Schedule) führt die gehärtete stabile Publizierung lokal gegen einen **Mock-gh** aus (`scripts/test_publish_release_hardening.sh`): Der Harness extrahiert die echte `publish_release`-Lane aus `fastlane/Fastfile` (kein Code dupliziert) und prüft alle Härtungs-Szenarien — frischer Tag, „exists“-Skip, Draft-Delete+Recreate, Retry (3 Versuche) und Rollback (nur Rest-Release, der Tag bleibt) — plus S7: das Command-Log des Harness und ein statischer Source-Guard beweisen, dass der stabile Pfad **nie** eine Tag-Löschung ausführt. Kein GitHub-Zugriff nötig (nur plain Ruby, kein Bundler/Fastlane); die anderen CI-Jobs werden nicht berührt. Lokal wiederholbar: `bash scripts/test_publish_release_hardening.sh` (Exit 0 = grün).
 
-**Instrumentierte UI-Tests (Emulator-Job, manuell, Matrix):** Der Job **`emulator-tests`** in `release-pipeline.yml` führt die komplette `androidTest`-Suite aus (`:app:connectedDebugAndroidTest`): `HelpNavigationTest` (Help-Einstiege aus Streaming- und About-Screen, externer Link → Browser-Intent), `PlayScreenshotsTest` (Play-Store-Screenshots) und **`AccessibilityComplianceInstrumentedTest`** (Compose Semantics Tree: contentDescription-Prüfung für interaktive Elemente, Hilfe-Navigation, leerer Semantics-Tree → Fehler). Er läuft **nur manuell per `workflow_dispatch`** (und lokal über `./gradlew :app:connectedDebugAndroidTest` auf dem `vivid_play`-AVD). Die Tests lösen Strings per R-Klassen/`getString()` auf (locale-robust); ein zweiter Locale-Lauf (de-DE) wurde zurückgenommen, weil der Locale-Wechsel per Settings-Store auf API 34 in der CI nicht wirkt (AM-Config blieb en-US).
+**Instrumentierte UI-Tests (Emulator-Job, Tag-Push-Release-Gate, Matrix):** Der Job **`emulator-tests`** in `release-pipeline.yml` führt die komplette `androidTest`-Suite aus (`:app:connectedDebugAndroidTest`): `HelpNavigationTest` (Help-Einstiege aus Streaming- und About-Screen, externer Link → Browser-Intent), `PlayScreenshotsTest` (Play-Store-Screenshots) und **`AccessibilityComplianceInstrumentedTest`** (Compose Semantics Tree: contentDescription-Prüfung für interaktive Elemente, Hilfe-Navigation, leerer Semantics-Tree → Fehler). Er läuft bei **jedem `v*`-Tag-Push** (Release-Gate, gefordert 24.09.2026: fälschlich roter Tag-Run = kein Release) und **manuell per `workflow_dispatch`** (und lokal über `./gradlew :app:connectedDebugAndroidTest` auf dem `vivid_play`-AVD). **API-Staffelung (seit 25.09.2026, SDK-Abdeckungs-Analyse):** Die Matrix führt vier Legs — `ubuntu-x86_64-api34` und `ubuntu-x86_64-api35` sind **Pflicht** (34: die strengsten FGS-Typ-Regeln als Regression-Basis; 35: das Edge-to-Edge-Enforcement von Android 15, das Overlay-/Widget-UI sichtbar trifft), `ubuntu-x86_64-api37` (Android-17-OS-Verhalten inkl. Local-Network-Enforcement vor der Flotte ausüben) und `macos-arm64` bleiben **experimentell** (continue-on-error). Das Stable-Publish-Gate in `distribution-stable.yml` bleibt bewusst auf dem bewährten API-34-Leg (Verbrauch/Latenz im kritischsten Pfad). Die Tests lösen Strings per R-Klassen/`getString()` auf (locale-robust); ein zweiter Locale-Lauf (de-DE) wurde zurückgenommen, weil der Locale-Wechsel per Settings-Store auf API 34 in der CI nicht wirkt (AM-Config blieb en-US).
 
 **Runner-Matrix (beide Architekturen):** Nach dem Vorfall vom 06.09.2026 (Run 34009482168: Emulator-Boot-Crash `HVF: HV_UNSUPPORTED` auf `macos-latest`/arm64; frühere Linux-Läufe scheiterten am Boot-Timeout) läuft der Job als Matrix: ① **`ubuntu-x86_64`** — authority-fähig, denn GitHub-hosted Linux-Runner stellen KVM für Android-Workloads bereit (Changelog 02.04.2024). Der udev-perms-Step (`99-kvm4all.rules`) ist Pflicht — ohne ihn ist `/dev/kvm` nicht beschreibbar und der Emulator fällt auf `-accel off` zurück (Boot-Timeout); ein Verifikations-Step scheitert hart mit klarer Ursache, falls KVM doch nicht nutzbar ist. ② **`macos-arm64`** — experimentell (`continue-on-error: true`): HVF ist auf den Arm64-Runner-Images derzeit `HV_UNSUPPORTED`; sobald ein Image-Update das behebt, meldet sich die Leg von selbst grün. `fail-fast: false` sorgt dafür, dass beide Legs immer gemeldet werden; Artefakte tragen matrix-spezifische Namen (`instrumented-test-results-<leg>`); der Boot-Timeout ist explizit auf 900 s gesetzt.
 
@@ -764,7 +764,8 @@ Vivid nutzt mehrere GitHub Apps und Workflows für automatisierte Prozesse:
 4. Major-Updates erfordern manuellen Review
 
 **Datei:** `.github/workflows/dependabot-auto-merge.yml`
-ungit **Sicherheit:**
+
+ungit **Sicherheit:**
 - Nur Minor/Patch Updates werden automatisch gemergt
 - CI muss grün sein (Tests + Lint)
 - Major-Updates bleiben als Draft für manuellen Review
@@ -790,7 +791,8 @@ Vivid nutzt mehrere GitHub Apps und Workflows für automatisierte Prozesse:
 - Bei Bedarf: Header `X-GitHub-Stateless-S2S-Token: enabled` zum Testen verwenden
 
 ### Dependabot Optimierung (Gruppierung)
- Dependabot wurde mit **Gruppierung** optimiert, um den PR-Aufwand zu reduzieren:
+
+ Dependabot wurde mit **Gruppierung** optimiert, um den PR-Aufwand zu reduzieren:
 
 **Datei:** `.github/dependabot.yml`
 

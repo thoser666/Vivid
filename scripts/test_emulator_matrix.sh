@@ -21,7 +21,8 @@
 #   T9  Artefakt-Uploads matrix-spezifisch (keine Namenskollision)
 #   T10 Emulator-Action bleibt SHA-gepinnt
 #   T11 Job läuft bei workflow_dispatch ODER v*-Tag-Push (Release-Gate, 24.09.2026)
-#   T12 release-pipeline.yml bleibt valides YAML
+#   T12 release-pipeline.yml bleibt valides YAML + 4-Legs-API-Staffelung
+#       (34/35 Pflicht, 37 experimentell — SDK-Abdeckungs-Analyse 25.09.2026)
 #   T13 Stable-Distribution: Emulator-Gate vor dem Publish-Step verdrahtet
 #   T14 Emulator-Tests decken BEIDE Flavors ab (standard + foss)
 
@@ -83,7 +84,8 @@ ARM_COUNT=$(grep -c 'arch: arm64-v8a' <<<"$JOB" || true)
 X86_COUNT=$(grep -c 'arch: x86_64' <<<"$JOB" || true)
 PARAM_COUNT=$(grep -cF 'arch: ${{ matrix.arch }}' <<<"$JOB" || true)
 check "T6.2 arch nur in der Matrix hartkodiert (1× arm64)" test "$ARM_COUNT" -eq 1
-check "T6.3 arch nur in der Matrix hartkodiert (1× x86_64)" test "$X86_COUNT" -eq 1
+# 3× x86_64: drei ubuntu-Legs (API 34/35/37) — API-Staffelung 25.09.2026
+check "T6.3 arch nur in der Matrix hartkodiert (3× x86_64, API-Staffelung)" test "$X86_COUNT" -eq 3
 check "T6.4 Step nutzt Matrix-arch (genau 1×)" test "$PARAM_COUNT" -eq 1
 
 echo "== T7: Boot-Timeout =="
@@ -135,16 +137,29 @@ check "T14.2 release-pipeline emulator-tests deckt foss ab" \
 check "T14.3 distribution-stable Gate deckt foss ab" \
   bash -c 'grep -A35 "Run instrumented tests on emulator (release gate)" "$DIST" | grep -q "connectedFossDebugAndroidTest"'
 
-echo "== T12: Workflow-YAML valide =="
+echo "== T12: Workflow-YAML valide + API-Staffelung =="
 check "T12.1 release-pipeline.yml parst als YAML" python3 -c "
 import yaml, io
 with io.open('.github/workflows/release-pipeline.yml', encoding='utf-8') as f:
     d = yaml.safe_load(f)
 j = d['jobs']['emulator-tests']
 inc = j['strategy']['matrix']['include']
-assert len(inc) == 2, inc
-assert {i['name'] for i in inc} == {'ubuntu-x86_64', 'macos-arm64'}, inc
+assert len(inc) == 4, inc
+names = {i['name'] for i in inc}
+assert names == {'ubuntu-x86_64-api34', 'ubuntu-x86_64-api35', 'ubuntu-x86_64-api37', 'macos-arm64'}, names
+by = {i['name']: i for i in inc}
+# Pflicht-Legs: API 34 (FGS-Regression) + API 35 (Edge-to-Edge) — roter Tag-Run = kein Release
+assert by['ubuntu-x86_64-api34']['experimental'] is False, by['ubuntu-x86_64-api34']
+assert by['ubuntu-x86_64-api35']['experimental'] is False, by['ubuntu-x86_64-api35']
+assert by['ubuntu-x86_64-api34']['api-level'] == 34 and by['ubuntu-x86_64-api35']['api-level'] == 35
+# Beobachter-Legs (continue-on-error): API 37 (Android-17-Verhalten) + macos-arm64
+assert by['ubuntu-x86_64-api37']['experimental'] is True and by['ubuntu-x86_64-api37']['api-level'] == 37
+assert by['macos-arm64']['experimental'] is True
 "
+check "T12.2 api-level kommt aus der Matrix (nicht hartkodiert)" \
+  grep -q 'api-level: \${{ matrix.api-level }}' .github/workflows/release-pipeline.yml
+check "T12.3 Stable-Publish-Gate bleibt bewusst auf API 34" \
+  bash -c 'grep -A8 "Run instrumented tests on emulator (release gate)" .github/workflows/distribution-stable.yml | grep -q "api-level: 34"'
 
 echo
 if [ "$FAIL" -eq 0 ]; then

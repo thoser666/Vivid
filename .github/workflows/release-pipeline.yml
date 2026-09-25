@@ -160,13 +160,30 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: ubuntu-x86_64
+          # API-Staffelung (SDK-Abdeckungs-Analyse 25.09.2026): 34/35 sind
+          # PFLICHT (roter Tag-Run = kein Release), 37 ist Beobachter-Leg.
+          # 35: Edge-to-Edge-Enforcement (Android 15) trifft Overlay/Widget-UI.
+          # 37: Local-Network + Android-17-OS-Verhalten vor der Flotte ausüben.
+          # 34: Regression-Basis — die strengsten FGS-Typ-Regeln sind 34er-Regeln.
+          - name: ubuntu-x86_64-api34
             os: ubuntu-latest
             arch: x86_64
+            api-level: 34
             experimental: false
+          - name: ubuntu-x86_64-api35
+            os: ubuntu-latest
+            arch: x86_64
+            api-level: 35
+            experimental: false
+          - name: ubuntu-x86_64-api37
+            os: ubuntu-latest
+            arch: x86_64
+            api-level: 37
+            experimental: true
           - name: macos-arm64
             os: macos-latest
             arch: arm64-v8a
+            api-level: 34
             experimental: true
     runs-on: ${{ matrix.os }}
     continue-on-error: ${{ matrix.experimental }}
@@ -228,7 +245,7 @@ jobs:
       - name: Run instrumented tests on emulator
         uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
         with:
-          api-level: 34
+          api-level: ${{ matrix.api-level }}
           arch: ${{ matrix.arch }}
           target: google_apis
           force-avd-creation: true

@@ -33,10 +33,11 @@ deshalb gibt es pro Kadenz einen eigenen Workflow. Alles zusätzlich manuell per
    Navigation + Play-Screenshots, jeweils in **beiden** Flavors) **gegen den
    Ziel-Tag** aus (der Job hat ihn bereits ausgecheckt). Schlägt der
    Emulator-Test fehl, wird **nicht** veröffentlicht. Derselbe Gate gilt im
-   `release-pipeline.yml`: `emulator-tests` (Matrix ubuntu-x86_64 +
-   macos-arm64-experimentell) läuft jetzt auch bei `v*`-Tag-Pushen, nicht
+   `release-pipeline.yml`: `emulator-tests` (API-Staffelung seit
+   25.09.2026: ubuntu-x86_64 **API 34 + API 35 Pflicht**, API-37-Beobachter
+   + macos-arm64 experimentell) läuft jetzt auch bei `v*`-Tag-Pushen, nicht
    mehr nur manuell. Selbsttest:
-   `scripts/test_emulator_matrix.sh` (T11/T13/T14).
+   `scripts/test_emulator_matrix.sh` (T11/T12/T13/T14).
    **Retry-Härtung (seit 25.09.2026):** Der Gate-Step läuft über
    `scripts/emulator_gate_retry.sh` (BuildRetry-Hausmuster): transiente
    Fehlerklassen (Suite-Fehlschlag, Geräteverlust, Boot-Fehler,
