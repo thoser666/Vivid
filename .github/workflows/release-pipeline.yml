@@ -214,6 +214,12 @@ jobs:
 
       # ✅ Emulator hochfahren + alle instrumentierten Tests ausführen
       # (Debug-Build, wird von connectedDebugAndroidTest gebaut).
+      # BEIDE Flavors: standard (Sentry) + foss (ohne Sentry — der FOSS-Build
+      # hat keinen Sentry-DSN und wird über F-Droid/IzzyOnDroid verteilt, daher
+      # muss er dauerhaft beweisen, dass er denselben Kaltstart übersteht).
+      # Die Client-Packages unterscheiden sich (com.vivid.debug vs.
+      # com.vivid.foss.debug) — beide installieren problemlos nacheinander auf
+      # demselben Emulator.
       # Bewusst nur en-US: Ein zweiter Locale-Lauf (de-DE) wurde zurückgenommen —
       # der Locale-Wechsel per Settings-Store wirkt auf API-34-Emulatoren in der
       # CI nicht (AM-Config bleibt en-US), adb reboot / stop-start lassen das
@@ -233,7 +239,7 @@ jobs:
           script: |
             # Flavor-explicit (connectedDebugAndroidTest ist in diesem Projekt
             # wegen der Varianten foss/standard mehrdeutig — Ambiguous matches).
-            ./gradlew :app:connectedStandardDebugAndroidTest
+            ./gradlew :app:connectedStandardDebugAndroidTest :app:connectedFossDebugAndroidTest
 
       - name: Upload instrumented test reports
         if: always()

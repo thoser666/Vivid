@@ -151,11 +151,13 @@ jobs:
           echo "KEYSTORE_PATH=${{ github.workspace }}/release.keystore" >> $GITHUB_ENV
 
       # ── Emulator-Gate (vor dem Publish, gefordert 24.09.2026) ───────────────
-      # Die instrumentierten UI-Tests (HelpNavigationTest + PlayScreenshotsTest)
-      # laufen auf einem echten Emulator gegen den ZIEL-TAG — der Job hat den
-      # Tag ohnehin ausgecheckt, also wird exakt das getestet, was publiziert
-      # werden soll. Nur die authority-fähige Leg (ubuntu-x86_64 mit KVM,
-      # Vorfall 06.09.2026: udev-Regel ist Pflicht, sonst Boot-Timeout).
+      # Die instrumentierten UI-Tests (StartupSmokeTest + HelpNavigationTest +
+      # PlayScreenshotsTest) laufen auf einem echten Emulator gegen den ZIEL-TAG —
+      # der Job hat den Tag ohnehin ausgecheckt, also wird exakt das getestet,
+      # was publiziert werden soll. BEIDE Flavors (standard + foss): der FOSS-
+      # Build wird via F-Droid/IzzyOnDroid distribuiert und muss denselben
+      # Kaltstart überstehen. Nur die authority-fähige Leg (ubuntu-x86_64 mit
+      # KVM, Vorfall 06.09.2026: udev-Regel ist Pflicht, sonst Boot-Timeout).
       - name: Enable KVM group perms (emulator gate)
         if: env.TAG != ''
         run: |
@@ -177,8 +179,10 @@ jobs:
           emulator-boot-timeout: 900
           script: |
             # Flavor-explicit (connectedDebugAndroidTest ist in diesem Projekt
-            # wegen der Varianten foss/standard mehrdeutig).
-            ./gradlew :app:connectedStandardDebugAndroidTest
+            # wegen der Varianten foss/standard mehrdeutig). Beide Client-
+            # Packages (com.vivid.debug / com.vivid.foss.debug) sind disjunkt —
+            # sie installieren sich nacheinander auf demselben Emulator.
+            ./gradlew :app:connectedStandardDebugAndroidTest :app:connectedFossDebugAndroidTest
 
       # ✅ Signiertes Stable-Release bauen und veröffentlichen: release_github
       # mit tag: baut im Stable-Pfad BEIDE Flavor-APKs (assembleRelease +

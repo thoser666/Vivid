@@ -23,6 +23,7 @@
 #   T11 Job läuft bei workflow_dispatch ODER v*-Tag-Push (Release-Gate, 24.09.2026)
 #   T12 release-pipeline.yml bleibt valides YAML
 #   T13 Stable-Distribution: Emulator-Gate vor dem Publish-Step verdrahtet
+#   T14 Emulator-Tests decken BEIDE Flavors ab (standard + foss)
 
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -118,6 +119,19 @@ check "T13.4 Gate nutzt denselben SHA-gepinnten Emulator-Runner" \
   grep -q "ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d" "$DIST"
 check "T13.5 Gate-Step testet flavor-explicit" \
   bash -c 'grep -A20 "Run instrumented tests on emulator (release gate)" "$DIST" | grep -q "connectedStandardDebugAndroidTest"'
+
+echo "== T14: Beide Flavors im Emulator-Gate =="
+# Kein end-Anker: der Step-Name steht im Arbeitsbaum (Windows/Git-for-Windows)
+# ggf. mit CRLF-Zeilenende — ein hartes $ würde dann nie matchen (T14.1/T14.2
+# wären je nach Zeilenende inkonsistent). In release-pipeline.yml gibt es genau
+# einen Step mit diesem Namen → Ankerlos reicht.
+EMU_JOB=$(grep -A30 'name: Run instrumented tests on emulator' "$WORKFLOW" || true)
+check "T14.1 release-pipeline emulator-tests deckt standard ab" \
+  grep -q "connectedStandardDebugAndroidTest" <<<"$EMU_JOB"
+check "T14.2 release-pipeline emulator-tests deckt foss ab" \
+  grep -q "connectedFossDebugAndroidTest" <<<"$EMU_JOB"
+check "T14.3 distribution-stable Gate deckt foss ab" \
+  bash -c 'grep -A20 "Run instrumented tests on emulator (release gate)" "$DIST" | grep -q "connectedFossDebugAndroidTest"'
 
 echo "== T12: Workflow-YAML valide =="
 check "T12.1 release-pipeline.yml parst als YAML" python3 -c "
