@@ -30,7 +30,11 @@ class AppLanguageTest {
 
             AppLanguage.select(context, AppLanguage.SYSTEM)
             assertEquals(AppLanguage.SYSTEM, AppLanguage.current(context))
-            assertEquals("Darstellung", AppLanguage.wrapBaseContext(context).getString(R.string.cat_appearance_title))
+            assertEquals("Внешний вид", AppLanguage.wrapBaseContext(context).getString(R.string.cat_appearance_title))
+
+            AppLanguage.select(context, AppLanguage.RUSSIAN)
+            assertEquals(AppLanguage.RUSSIAN, AppLanguage.current(context))
+            assertEquals("Внешний вид", AppLanguage.wrapBaseContext(context).getString(R.string.cat_appearance_title))
         } finally {
             AppLanguage.select(context, AppLanguage.SYSTEM)
         }
@@ -49,6 +53,10 @@ class AppLanguagePlatformTest {
             AppLanguage.select(context, AppLanguage.ENGLISH)
             assertEquals("en", localeManager.applicationLocales.toLanguageTags())
             assertEquals(AppLanguage.ENGLISH, AppLanguage.current(context))
+
+            AppLanguage.select(context, AppLanguage.RUSSIAN)
+            assertEquals("ru", localeManager.applicationLocales.toLanguageTags())
+            assertEquals(AppLanguage.RUSSIAN, AppLanguage.current(context))
 
             AppLanguage.select(context, AppLanguage.SYSTEM)
             assertEquals("", localeManager.applicationLocales.toLanguageTags())

@@ -49,6 +49,7 @@
     <string name="appearance_language_german">Deutsch</string>
     <string name="appearance_language_english">English</string>
     <string name="appearance_language_french">Français</string>
+    <string name="appearance_language_russian">Русский</string>
     <string name="appearance_mode_title">Design-Modus</string>
     <string name="appearance_mode_desc">Legt fest, ob Vivid hell, dunkel oder im AMOLED-Modus erscheint — oder dem System folgt. AMOLED nutzt rein-schwarze Flächen (spart auf OLED-Displays Energie).</string>
     <string name="appearance_mode_system_desc">Folgt der System-Einstellung deines Geräts (Standard).</string>

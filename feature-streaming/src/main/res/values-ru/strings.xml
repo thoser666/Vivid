@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Streaming screen (StreamingScreen.kt) -->
+    <string name="streaming_ui_title">Прямая трансляция</string>
+    <string name="streaming_obs_content_desc">Открыть управление OBS</string>
+    <string name="streaming_settings_content_desc">Открыть настройки</string>
+    <string name="streaming_help_content_desc">Открыть справку</string>
+    <string name="streaming_start">Начать трансляцию</string>
+    <string name="streaming_preparing">Подготовка…</string>
+    <string name="streaming_stop">Остановить трансляцию</string>
+    <string name="streaming_retry">Повторить попытку</string>
+    <string name="streaming_stabilization_on">Стабилизация: Вкл.</string>
+    <string name="streaming_stabilization_off">Стабилизация: Выкл.</string>
+    <string name="streaming_torch_on">Фонарик: Вкл.</string>
+    <string name="streaming_torch_off">Фонарик: Выкл.</string>
+    <string name="streaming_focus_inf">Фокус: ∞</string>
+    <string name="streaming_focus_auto">Фокус: Авто</string>
+    <string name="streaming_error_prefix">Ошибка: %1$s</string>
+    <string name="streaming_permission_required">Для трансляции нужны разрешения на доступ к камере, микрофону и уведомлениям. Нажмите «Начать трансляцию» снова и предоставьте разрешения.</string>
+    <string name="streaming_target_idle">готово</string>
+    <string name="streaming_target_preparing">подключение…</string>
+    <string name="streaming_target_streaming">в эфире</string>
+    <string name="streaming_target_failed">ошибка</string>
+    <string name="streaming_target_bitrate_kbps">%1$s кбит/с</string>
+    <string name="streaming_target_bitrate_mbps">%1$.1f Мбит/с</string>
+    <string name="streaming_source_camera">Камера</string>
+    <string name="streaming_source_screen">Экран</string>
+    <string name="streaming_source_video">Видео</string>
+    <string name="streaming_source_screen_active_hint">Снимок экрана активен — ведется потоковая передача экрана вашего устройства.</string>
+    <string name="streaming_source_video_active_hint">Видеопроигрыватель активен — ведется потоковая передача выбранного файла.</string>
+    <string name="streaming_source_video_pick">Выбрать видео</string>
+    <string name="streaming_source_video_pick_hint">Выберите видеофайл для потоковой передачи.</string>
+    <plurals name="twitch_viewers_count">
+        <item quantity="one">%1$d зритель</item>
+        <item quantity="few">%1$d зрителя</item>
+        <item quantity="many">%1$d зрителей</item>
+        <item quantity="other">%1$d зрителя</item>
+    </plurals>
+
+    <!-- Scenes (basic scenes) + auto scene switcher (StreamingScreen.kt) -->
+    <string name="scene_bar_title">Сцены</string>
+    <string name="scene_empty_hint">Сцен пока нет — сохраните текущую конфигурацию через «+»</string>
+    <string name="scene_name_hint">Название сцены</string>
+    <string name="scene_add">Сохранить</string>
+    <string name="scene_add_cancel">Отмена</string>
+    <string name="scene_delete_desc">Удалить активную сцену</string>
+    <string name="scene_default_name">Сцена %1$d</string>
+    <string name="scene_auto_switch">Автоматическое переключение</string>
+    <string name="scene_interval_seconds">Интервал (с)</string>
+
+
+    <!-- Video effects (VideoFilter.kt) -->
+    <string name="video_filter_none">Без фильтра</string>
+    <string name="video_filter_grayscale">Оттенки серого</string>
+    <string name="video_filter_sepia">Сепия</string>
+    <string name="video_filter_noise">Шум</string>
+    <string name="video_filter_negative">Негатив</string>
+    <string name="video_filter_edge_detection">Выделение контуров</string>
+    <string name="video_filter_cartoon">Мультфильм</string>
+    <string name="video_filter_pixelated">Пикселизация</string>
+    <string name="video_filter_blur">Размытие</string>
+    <string name="video_filter_beauty">Сглаживание</string>
+    <string name="video_filter_duotone">Дуотон</string>
+    <string name="streaming_filter_content_desc">Переключить видеофильтр</string>
+    <string name="streaming_filter_label">Фильтр: %1$s</string>
+
+    <!-- Low-Light-Boost (LowLightBoostController.kt) -->
+    <string name="streaming_boost_on">Повышение: Вкл.</string>
+    <string name="streaming_boost_off">Повышение: Выкл.</string>
+
+    <!-- Color-Spaces + 3D-LUTs (LutController.kt, ColorSpace.kt) -->
+    <string name="streaming_lut_none">Без LUT</string>
+    <string name="streaming_lut_warm">LUT: тёплый</string>
+    <string name="streaming_lut_cool">LUT: холодный</string>
+    <string name="color_space_srgb">sRGB</string>
+    <string name="color_space_p3">Display P3</string>
+    <string name="color_space_apple_log">Apple Log</string>
+    <string name="streaming_color_space_label">Цветовое пространство: %1$s</string>
+
+    <!-- Playback screen (PlaybackScreen.kt) -->
+    <string name="playback_previous">Предыдущий</string>
+    <string name="playback_play_pause">Воспроизведение/Пауза</string>
+    <string name="playback_next">Следующий</string>
+
+    <!-- Replay library (ReplayLibraryScreen.kt) -->
+    <string name="replay_library_title">Повторы</string>
+    <string name="replay_library_back">Назад</string>
+    <string name="replay_library_empty">Повторов пока нет. Чтобы начать запись, нажмите кнопку записи на экране трансляции.</string>
+    <string name="replay_library_play">Воспроизвести</string>
+    <string name="replay_library_share">Поделиться</string>
+    <string name="replay_use_as_source">Использовать как источник потока</string>
+    <string name="replay_use_as_source_title">Источник повтора активен</string>
+    <string name="replay_use_as_source_text">«%1$s» воспроизводится по кругу как источник видео. Сохраните сцену, чтобы закрепить этот источник.</string>
+    <string name="replay_use_as_source_ok">ОК</string>
+    <string name="streaming_source_replay_active_hint">Источник повтора активен — запись транслируется циклично.</string>
+    <string name="replay_library_delete">Удалить</string>
+    <string name="replay_library_delete_all">Удалить все</string>
+    <string name="replay_library_delete_title">Удалить повтор?</string>
+    <string name="replay_library_delete_text">«%1$s» будет удалено навсегда.</string>
+    <string name="replay_library_delete_confirm">Удалить</string>
+    <string name="replay_library_delete_cancel">Отмена</string>
+    <string name="replay_library_close_player">Закрыть</string>
+
+    <!-- Replay recording (StreamingScreen.kt) -->
+    <string name="streaming_replay_record">Записать</string>
+    <string name="streaming_replay_stop">Остановить запись</string>
+
+    <!-- Exposure + white balance (StreamingScreen.kt) -->
+    <string name="streaming_exposure_label">Экспозиция: %1$d</string>
+    <string name="streaming_auto_exposure_on">Экспозиция: Авто</string>
+    <string name="streaming_auto_exposure_off">Экспозиция: Ручная</string>
+    <string name="streaming_auto_wb_on">Баланс белого: Авто</string>
+    <string name="streaming_auto_wb_off">Баланс белого: ручной</string>
+
+    <!-- Self-check (StreamConfigValidator.kt) -->
+    <string name="stream_secondary_label">Вторая цель:</string>
+    <string name="stream_error_no_url">URL-адрес потока не настроен. Пожалуйста, добавьте его в настройки.</string>
+    <string name="stream_error_bad_scheme">Неподдерживаемый протокол «%1$s». Разрешены rtmp, rtmps и srt.</string>
+    <string name="stream_error_no_host">URL-адрес потока не содержит допустимого хоста сервера (например, rtmp://live.twitch.tv/app).</string>
+    <string name="stream_error_no_key">Не установлен ключ потока. Для Twitch, YouTube и Kick требуется ключ.</string>
+    <string name="stream_error_srt_tls">TLS не применяется к URL-адресу srt:// — URL-адрес будет использоваться в незашифрованном виде.</string>
+
+    <!-- A11y: state descriptions for the streaming controls (TalkBack) -->
+    <string name="streaming_a11y_state_on">Включено</string>
+    <string name="streaming_a11y_state_off">Выключено</string>
+</resources>

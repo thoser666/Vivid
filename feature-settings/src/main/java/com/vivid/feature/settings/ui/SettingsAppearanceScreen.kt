@@ -172,6 +172,7 @@ private val AppLanguage.displayNameRes: Int
         AppLanguage.GERMAN -> R.string.appearance_language_german
         AppLanguage.ENGLISH -> R.string.appearance_language_english
         AppLanguage.FRENCH -> R.string.appearance_language_french
+        AppLanguage.RUSSIAN -> R.string.appearance_language_russian
     }
 
 private tailrec fun Context.findActivity(): Activity? = when (this) {

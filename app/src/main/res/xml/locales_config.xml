@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Per-App-Sprache (Android 13+): Die drei unterstuetzten Sprachen erscheinen
+<!-- Per-App-Sprache (Android 13+): Die vier unterstuetzten Sprachen erscheinen
      im System-Picker (App-Info > Sprache) und im In-App-Picker unter Darstellung.
      Auf API < 33 wird das Attribut ignoriert; dort speichert AppLanguage die Wahl. -->
 <locale-config xmlns:android="http://schemas.android.com/apk/res/android">
     <locale android:name="de" />
     <locale android:name="en" />
     <locale android:name="fr" />
+    <locale android:name="ru" />
 </locale-config>

@@ -40,20 +40,20 @@ class PerAppLanguageConfigTest {
     }
 
     @Test
-    fun `locale config deklariert genau die drei unterstuetzten sprachen`() {
+    fun `locale config deklariert genau die vier unterstuetzten sprachen`() {
         val config = read("app/src/main/res/xml/locales_config.xml")
         val locales =
             Regex("android:name=\"([a-z]+)\"").findAll(config)
                 .map { it.groupValues[1] }
                 .toList()
         assertEquals(
-            "locales_config.xml muss genau de, en und fr deklarieren (Reihenfolge egal, Menge entscheidet)",
-            setOf("de", "en", "fr"),
+            "locales_config.xml muss genau de, en, fr und ru deklarieren (Reihenfolge egal, Menge entscheidet)",
+            setOf("de", "en", "fr", "ru"),
             locales.toSet(),
         )
         assertEquals(
             "locales_config.xml darf keine zusaetzlichen oder doppelten Locales enthalten",
-            3,
+            4,
             locales.size,
         )
     }

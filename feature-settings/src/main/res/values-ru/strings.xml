@@ -1,0 +1,344 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- ===== Category overview (SettingsCategories.kt) ===== -->
+    <string name="cat_streaming_title">Стриминг и OBS</string>
+    <string name="cat_streaming_subtitle">URL и ключ трансляции, пресеты платформ, несколько трансляций, подключение OBS</string>
+    <string name="cat_appearance_title">Внешний вид</string>
+    <string name="cat_appearance_subtitle">Язык, тема и акцентный цвет</string>
+    <string name="cat_overlays_title">Наложения и виджеты</string>
+    <string name="cat_overlays_subtitle">Чат Twitch, виджеты текста/информации, изображения, QR-кода, батареи и сетки</string>
+    <string name="cat_chatbot_title">Чат-бот и искусственный интеллект</string>
+    <string name="cat_chatbot_subtitle">Режим, учетная запись бота/LLM, лимиты, доступ владельца, медиа-команды</string>
+    <string name="cat_remote_title">Удаленное управление и конфиденциальность</string>
+    <string name="cat_remote_subtitle">Веб-управление (LAN), отчеты об ошибках Sentry</string>
+    <string name="cat_about_title">О приложении и обновления</string>
+    <string name="cat_about_subtitle">Версия, значок обновления, информация о выпуске</string>
+    <string name="cat_logs_title">Журналы и диагностика</string>
+    <string name="cat_logs_subtitle">Просмотр, копирование и отправка журналов приложения. Ключи и токены скрыты.</string>
+
+    <!-- ===== Overview screen (SettingsScreen.kt) ===== -->
+    <string name="settings_title">Настройки</string>
+    <string name="settings_subtitle">Выберите категорию — изменения вступят в силу при сохранении.</string>
+    <string name="settings_version">Версия %1$s</string>
+    <string name="settings_update_available">· ⬆ Доступно обновление: %1$s</string>
+    <string name="settings_up_to_date">· последняя версия</string>
+    <string name="settings_saved_snackbar">Настройки сохранены.</string>
+
+    <!-- ===== Shared layout (SettingsSectionScaffold.kt) ===== -->
+    <string name="settings_save_button">Сохранить</string>
+    <string name="settings_back">Назад</string>
+    <string name="secret_show">Показать ввод</string>
+    <string name="secret_hide">Скрыть ввод</string>
+
+    <!-- Theme mode + accent color display names -->
+    <string name="theme_mode_system">Системная</string>
+    <string name="theme_mode_light">Светлая</string>
+    <string name="theme_mode_dark">Тёмная</string>
+    <string name="theme_mode_amoled">AMOLED</string>
+    <string name="accent_vivid_green">Зелёный Vivid</string>
+    <string name="accent_ocean_blue">Океанский синий</string>
+    <string name="accent_royal_purple">Королевский пурпурный</string>
+    <string name="accent_sunset_orange">Закатный оранжевый</string>
+    <string name="accent_rose_pink">Розовый</string>
+    <string name="accent_teal">Бирюзовый</string>
+
+    <!-- ===== Appearance (SettingsAppearanceScreen.kt) ===== -->
+    <string name="appearance_language_title">Язык</string>
+    <string name="appearance_language_desc">Выберите язык Vivid. «Системный» использует язык устройства, если он доступен; иначе — немецкий. Изменение применяется сразу.</string>
+    <string name="appearance_language_system">Системный</string>
+    <string name="appearance_language_german">Deutsch</string>
+    <string name="appearance_language_english">English</string>
+    <string name="appearance_language_french">Français</string>
+    <string name="appearance_language_russian">Русский</string>
+    <string name="appearance_mode_title">Режим темы</string>
+    <string name="appearance_mode_desc">Выберите светлую, тёмную или AMOLED-тему либо следуйте настройке устройства. В режиме AMOLED фон полностью чёрный, что экономит заряд на OLED-экранах.</string>
+    <string name="appearance_mode_system_desc">Соответствует системным настройкам вашего устройства (по умолчанию).</string>
+    <string name="appearance_mode_light_desc">Всегда светлая тема независимо от настройки устройства.</string>
+    <string name="appearance_mode_dark_desc">Всегда тёмная тема независимо от настройки устройства.</string>
+    <string name="appearance_mode_amoled_desc">Тёмная тема с полностью чёрным фоном: максимальный контраст и меньше расход заряда на OLED-экранах.</string>
+    <string name="appearance_accent_title">Акцентный цвет</string>
+    <string name="appearance_accent_desc">Цвет кнопок, переключателей, ссылок и выделений. Для каждого цвета используется палитра Material 3 (TonalSpot). По умолчанию выбран зелёный Vivid.</string>
+
+    <!-- ===== Streaming & OBS (SettingsStreamingObsScreen.kt) ===== -->
+    <string name="streaming_section_title">Настройки трансляции</string>
+    <string name="stream_url_label">URL трансляции</string>
+    <string name="stream_url_hint">Адрес сервера: поддерживаются любые RTMP(S) и SRT, например Owncast или собственный сервер. Предустановки платформ выше — только пресеты.</string>
+    <string name="stream_key_label">Ключ трансляции</string>
+    <string name="stream_tls_label">Безопасное соединение (RTMPS)</string>
+    <string name="replay_audio_title">Запись повтора</string>
+    <string name="replay_audio_desc">Локальная запись MP4 одновременно с трансляцией (кнопка записи на экране трансляции).</string>
+    <string name="replay_audio_enabled">Записывать звук в повторах</string>
+    <string name="twitch_channel_title">Управление каналом Twitch</string>
+    <string name="twitch_channel_desc">Просмотр числа зрителей и изменение названия и категории трансляции через Twitch Helix API. Для изменений нужен токен стримера с правом channel:manage:broadcast.</string>
+    <string name="twitch_channel_oauth_label">OAuth-токен стримера Twitch</string>
+    <string name="twitch_stream_title_label">Название трансляции</string>
+    <string name="twitch_stream_category_label">Категория</string>
+    <string name="twitch_refresh_viewers">Обновить зрителей</string>
+    <plurals name="twitch_viewers_count">
+        <item quantity="one">%1$d зритель</item>
+        <item quantity="few">%1$d зрителя</item>
+        <item quantity="many">%1$d зрителей</item>
+        <item quantity="other">%1$d зрителя</item>
+    </plurals>
+    <string name="twitch_update_channel">Изменить название и категорию</string>
+    <string name="twitch_saving">Обновление…</string>
+    <string name="multi_streaming_title">Одновременная трансляция (необязательно)</string>
+    <string name="multi_streaming_desc">Второй адрес трансляции: сигнал одновременно отправляется на оба адреса. Оставьте поле пустым, чтобы использовать только основной адрес.</string>
+    <string name="secondary_url_label">URL второй трансляции</string>
+    <string name="secondary_key_label">Ключ второй трансляции</string>
+    <string name="obs_section_title">Настройки OBS</string>
+    <string name="obs_host_label">Хост OBS</string>
+    <string name="obs_port_label">OBS-порт</string>
+    <string name="obs_password_label">Пароль OBS</string>
+    <string name="obs_tls_label">Безопасное соединение (wss://)</string>
+    <string name="platform_twitch">Twitch</string>
+    <string name="platform_youtube">YouTube</string>
+    <string name="platform_kick">Kick</string>
+    <string name="platform_custom">Другая платформа</string>
+
+    <!-- ===== Overlays & Widgets (SettingsOverlaysScreen.kt) ===== -->
+    <string name="overlays_chat_title">Наложение чата</string>
+    <string name="overlays_chat_desc">Показывает чат Twitch указанного канала над предварительным просмотром потоковой передачи (читается через Twitch EventSub с учетными данными бота). При желании также живой чат канала YouTube (читается анонимно) — объединенный в одно наложение со значками платформы.</string>
+    <string name="overlays_chat_scopes">Оповещения: для новых подписчиков требуется moderator:read:followers (бот должен быть модератором); для подписок и подарков — channel:read:subscriptions. Если права нет, отключается только соответствующее оповещение. Перед эфиром проверьте командой !testalert follow|sub|gift|resub|raid|hype в чате.</string>
+    <string name="overlays_channel_label">Канал Twitch (без #)</string>
+    <string name="overlays_chat_enabled">Показать наложение чата</string>
+    <!-- YouTube-Chat (Multi-Plattform-Chat, P1): anonymes innertube-Lesen -->
+    <string name="overlays_youtube_channel_label">Идентификатор канала YouTube (UC…)</string>
+    <string name="overlays_youtube_chat_enabled">Показать чат YouTube</string>
+    <!-- Kick-Chat (Multi-Plattform-Chat, P2): anonymes Pusher-Lesen -->
+    <string name="overlays_kick_channel_label">Канал Kick (короткое имя)</string>
+    <string name="overlays_kick_chat_enabled">Показывать чат Kick</string>
+
+    <string name="overlays_widget_title">Виджет текста/информации</string>
+    <string name="overlays_widget_desc">Показывает время, координаты GPS и скорость в виде наложения в правом нижнем углу предварительного просмотра потоковой передачи. GPS/скорость требует разрешения на определение местоположения.</string>
+    <string name="overlays_widget_enabled">Показать виджет</string>
+    <string name="overlays_widget_time">Время</string>
+    <string name="overlays_widget_location">GPS-координаты</string>
+    <string name="overlays_widget_speed">Скорость</string>
+    <string name="overlays_widget_altitude">Высота</string>
+    <string name="overlays_widget_template_label">Шаблон виджета</string>
+    <string name="overlays_widget_template_desc">Свой текст с переменными вместо отдельных переключателей. Переменные: {time} (время), {date} (дата), {speed} (скорость), {altitude} (высота), {lat}/{lon} (координаты GPS), {road} (улица), {city} (город), {country} (страна; названия мест определяются с задержкой и сохраняются), {timer} (время с включения), {distance} (расстояние с включения), {gforce} (перегрузка). Пустое поле — режим переключателей.</string>
+    <string name="overlays_widget_template_placeholder">Например: {time} — {speed} км/ч</string>
+    <string name="overlays_widget_template_preview">Предпросмотр: %1$s</string>
+    <string name="overlays_emotes_title">Сторонние эмоции</string>
+    <string name="overlays_emotes_desc">Покажите дополнительные смайлы из баз данных сообщества в наложении чата. Каждый источник можно включать/отключать индивидуально.</string>
+    <string name="overlays_emotes_bttv">BetterTTV (BTTV)</string>
+    <string name="overlays_emotes_ffz">FrankerFaceZ (FFZ)</string>
+    <string name="overlays_emotes_7tv">7TV</string>
+    <string name="overlays_deleted_title">Удаленные сообщения</string>
+    <string name="overlays_deleted_desc">Скройте или затемните удаленные сообщения в наложении чата. Требуются права модератора для учетной записи бота.</string>
+    <string name="overlays_deleted_hide">Скрыть удаленные сообщения</string>
+    <string name="overlays_animate_new_messages">Анимируйте новые сообщения</string>
+    <string name="overlays_hype_train_title">Хайп-поезд</string>
+    <string name="overlays_hype_train_desc">Показывать события хайп-поезда (EventSubchannel.hype_train.*) в виде баннера в наложении чата. Без области действия channel:read:hype_train пропускается только это отображение; чат и оповещения продолжают работать.</string>
+    <string name="overlays_hype_train_enabled">Показывать хайп-поезд в наложении</string>
+    <string name="overlays_layout_title">Макет чата</string>
+    <string name="overlays_layout_desc">Настройте ширину, высоту, прозрачность, размер шрифта и временную метку наложения чата.</string>
+    <string name="overlays_layout_width">Ширина: %1$d dp</string>
+    <string name="overlays_layout_height">Высота: %1$d дп</string>
+    <string name="overlays_layout_background_alpha">Фон: %1$d%%непрозрачный</string>
+    <string name="overlays_layout_font_size">Размер шрифта: %1$d sp</string>
+    <string name="overlays_layout_show_timestamp">Показать временную метку</string>
+    <string name="overlays_position_title">Позиция</string>
+    <string name="overlays_position_desc">Положение наложения чата на экране.</string>
+    <string name="overlays_position_top_start">Вверху слева</string>
+    <string name="overlays_position_top_end">Вверху справа</string>
+    <string name="overlays_position_bottom_start">Внизу слева</string>
+    <string name="overlays_position_bottom_end">Внизу справа</string>
+    <string name="overlays_colors_title">Цвета</string>
+    <string name="overlays_colors_desc">Настройте имя пользователя, текст и цвет фона наложения чата (шестнадцатеричный формат #RRGGBB).</string>
+    <string name="overlays_colors_username">Цвет имени пользователя</string>
+    <string name="overlays_colors_text">Цвет текста</string>
+    <string name="overlays_colors_background">Цвет фона</string>
+    <string name="overlays_color_hint">#RRGGBB</string>
+
+    <!-- Battery widget -->
+    <string name="overlays_grid_title">Наложение сетки (позиционирование)</string>
+    <string name="overlays_grid_desc">Отобразите сетку при предварительном просмотре для упрощения позиционирования виджетов и изображений.</string>
+    <string name="overlays_grid_enabled">Показать наложение сетки</string>
+    <string name="overlays_grid_spacing">Шаг сетки: %1$d dp</string>
+
+    <string name="overlays_image_title">Виджет изображения (логотип/водяной знак)</string>
+    <string name="overlays_image_desc">Отображение изображения в потоке — логотипа, водяного знака или наложения. Выберите изображение с помощью средства выбора SAF (URI задается через текстовое поле).</string>
+    <string name="overlays_image_enabled">Показать виджет изображения</string>
+    <string name="overlays_image_uri">URI изображения</string>
+    <string name="overlays_image_size">Размер изображения: %1$d dp</string>
+    <string name="overlays_image_opacity">Непрозрачность: %1$d%%</string>
+
+    <string name="overlays_qr_title">Виджет QR-кода</string>
+    <string name="overlays_qr_desc">Отобразите QR-код для пожертвований, социальных профилей или любую ссылку поверх предварительного просмотра потоковой передачи. Код генерируется локально; контент не отправляется в QR-сервис.</string>
+    <string name="overlays_qr_enabled">Показать QR-код</string>
+    <string name="overlays_qr_content">Ссылка или текст</string>
+    <string name="overlays_qr_content_hint">https://example.com/donate</string>
+    <string name="overlays_qr_size">Размер QR-кода: %1$d dp</string>
+    <string name="overlays_qr_opacity">Непрозрачность QR-кода: %1$d%%</string>
+
+    <string name="overlays_slideshow_title">Виджет слайд-шоу</string>
+    <string name="overlays_slideshow_desc">Автоматически сменяет локальные изображения поверх трансляции.</string>
+    <string name="overlays_slideshow_enabled">Включить слайд-шоу</string>
+    <string name="overlays_slideshow_uris">URI изображения</string>
+    <string name="overlays_slideshow_uris_hint">Один URI контента в каждой строке или через точку с запятой.</string>
+    <string name="overlays_slideshow_interval">Интервал смены изображений: %1$d с</string>
+    <string name="overlays_slideshow_size">Размер: %1$d dp</string>
+    <string name="overlays_battery_title">Индикатор заряда</string>
+    <string name="overlays_battery_desc">Показывает состояние батареи в виде наложения на предварительный просмотр потоковой передачи. Предупреждение отображается при низком заряде батареи.</string>
+    <string name="overlays_battery_enabled">Показывать заряд батареи</string>
+    <string name="overlays_battery_show_icon">Показать значок зарядки</string>
+    <string name="overlays_battery_show_percent">Показать процент</string>
+    <string name="overlays_battery_threshold">Порог низкого заряда: %1$d%%</string>
+
+    <!-- ===== Remote & Privacy (SettingsRemotePrivacyScreen.kt) ===== -->
+    <string name="remote_section_title">Веб-удаленное управление</string>
+    <string name="remote_reachable_desc">Доступно в той же сети Wi-Fi по адресу http://&lt;DEVICE-IP&gt;:%1$d/status. Для действий нужен заголовок Authorization: Bearer &lt;token&gt;.</string>
+    <string name="remote_fallback_port_desc">Используется запасной порт: порт 8080 занят другим приложением. Удалённое управление работает через порт %1$d — используйте его в скриптах и правилах брандмауэра.</string>
+    <string name="remote_token_label">Удаленный токен</string>
+    <string name="remote_token_loading">Загрузка токена…</string>
+    <string name="remote_permission_button">Разрешить доступ к локальной сети для удаленного управления</string>
+    <string name="privacy_section_title">Отчеты о конфиденциальности и ошибках</string>
+    <string name="remote_control_autostart_toggle">Автоматический запуск удаленного веб-управления</string>
+    <string name="remote_control_autostart_desc">Запускает сервер локальной сети при запуске приложения (по умолчанию: включено). Выкл. = нет привязки к серверу при запуске — полезно, если порт уже используется (в более старых версиях приложение аварийно завершало работу при запуске, когда порт 8080 был занят) или если вы не используете удаленное управление. На уже работающий сервер это не влияет.</string>
+    <string name="privacy_sentry_toggle">Отправлять отчеты об ошибках (Sentry)</string>
+    <string name="privacy_sentry_desc">Отправляет отчеты об ошибках в Sentry при сбоях (по умолчанию: включено). Скриншоты не делаются; Информация об устройстве/IP отключена. При ошибке также прилагается запись последних ~30 секунд (текст и изображения маскируются) — без ошибки ничего не записывается. Выкл. = в Sentry ничего не передается. Подробности: PRIVACY.md в репозитории.</string>
+
+    <!-- ===== About & Updates (SettingsAboutScreen.kt) ===== -->
+    <string name="about_version">Версия %1$s</string>
+    <string name="about_update_available">⬆ Доступно обновление: %1$s.</string>
+    <string name="about_up_to_date">· последняя версия</string>
+    <string name="about_open_button">О приложении и обновления</string>
+
+    <!-- ===== Chat Bot & AI (SettingsChatBotScreen.kt) ===== -->
+    <string name="chatbot_section_title">Чат-бот (ИИ)</string>
+    <string name="chatbot_section_desc">Автоматический бот в чате Twitch: либо детерминированные команды чата (как бот Moblin), либо ИИ, который принимает решения самостоятельно. Все поля можно настроить здесь — подробности: docs/ai-chat-bot.md.</string>
+    <string name="chatbot_enabled">Включить чат-бот</string>
+    <string name="chatbot_mode_title">Режим</string>
+    <string name="chatbot_mode_command">Командный бот (как Moblin)</string>
+    <string name="chatbot_mode_autonomous">Автономный ИИ</string>
+    <string name="chatbot_mode_command_desc">Бот как Moblin: отвечает только на команды !help, !uptime, !tts и !bot. LLM и ключ ИИ не требуются.</string>
+    <string name="chatbot_mode_autonomous_desc">ИИ принимает решение самостоятельно: LLM оценивает каждое (разрешенное) сообщение и решает, отвечать ли и как отвечать, в том числе намеренно хранить молчание.</string>
+    <string name="chatbot_account_title">Бот-аккаунт и LLM</string>
+    <string name="chatbot_login_label">Логин бота (Twitch, без @)</string>
+    <string name="chatbot_oauth_label">OAuth-токен Twitch (user:read:chat + user:write:chat)</string>
+    <string name="chatbot_api_base_url_label">Базовый URL-адрес LLM API (совместим с OpenAI)</string>
+    <string name="chatbot_api_key_label">API-ключ LLM</string>
+    <string name="chatbot_model_label">Модель LLM</string>
+    <string name="chatbot_system_prompt_label">Системный промпт (необязательно)</string>
+    <string name="chatbot_behavior_title">Поведение бота</string>
+    <string name="chatbot_cooldown_label">Задержка между ответами (секунды; 0 — выкл.)</string>
+    <string name="chatbot_mentions_only">Отвечать только на упоминания</string>
+    <string name="chatbot_max_per_minute_label">Максимальное количество ответов в минуту (0 = неограниченно)</string>
+    <string name="chatbot_limits_desc">Лимиты (0 — выключено или без ограничений) применяются отдельно к каждому зрителю на всех платформах: Twitch, Kick, YouTube. Для модераторов можно настроить исключение.</string>
+    <string name="chatbot_preset_title">Пресет (быстрая настройка)</string>
+    <string name="chatbot_preset_custom">Свой вариант</string>
+    <string name="chatbot_per_viewer_cooldown_label">Задержка для каждого зрителя (секунды; 0 — выкл.)</string>
+    <string name="chatbot_per_viewer_max_label">Максимальное количество ответов на зрителя (за поток, 0 = неограниченно)</string>
+    <string name="chatbot_budget_label">Бюджет затрат: максимальное количество ответов в час (0 = неограниченно)</string>
+    <string name="chatbot_usage_title">Текущая статистика</string>
+    <string name="chatbot_usage_per_hour">Ответы в этот час: %1$s</string>
+    <string name="chatbot_usage_no_budget">(без бюджета)</string>
+    <string name="chatbot_usage_per_stream">Ответы в этом потоке: %1$d</string>
+    <string name="chatbot_usage_top_viewers">Топ зрителей: %1$s</string>
+    <string name="chatbot_usage_hint">Отображается только тогда, когда бот активен — счетчики сбрасываются в конце трансляции.</string>
+    <string name="chatbot_coexistence_title">Сосуществование с другими ботами</string>
+    <string name="chatbot_coexistence_desc">Запуская вместе с ботом другого инструмента (например, Rivulet) в том же канале, можно избежать коллизий: игнорировать других ботов и сузить область действия команд, чтобы они оба не отвечали на одни и те же !-команды.</string>
+    <string name="chatbot_ignore_bots_label">Игнорировать других ботов (логины, через запятую)</string>
+    <string name="chatbot_scope_title">Область действия команды</string>
+    <string name="chatbot_scope_all">Все команды с !</string>
+    <string name="chatbot_scope_mention">Только упоминания</string>
+    <string name="chatbot_scope_prefix">Собственный префикс</string>
+    <string name="chatbot_scope_all_desc">Отвечать на все команды с ! (по умолчанию, как бот Moblin).</string>
+    <string name="chatbot_scope_mention_desc">Отвечать только на команды с прямым обращением к боту (например, @vividbot !help). Остальные команды обрабатывает другой бот.</string>
+    <string name="chatbot_scope_prefix_desc">Отвечать только на команды со своим префиксом (например, !v!help). Остальные команды обрабатывает другой бот.</string>
+    <string name="chatbot_prefix_label">Свой префикс команд (например, v → !v!help)</string>
+    <string name="chatbot_owner_title">Доступ владельца (только стример)</string>
+    <string name="chatbot_owner_desc">Только вы и указанные аккаунты можете использовать команды !start, !stop, !diag и !ask во время трансляции. Владелец канала распознаётся автоматически по значку стримера в выбранном канале. Значки стримеров из общего чата не учитываются. Дополнительные аккаунты укажите здесь.</string>
+    <string name="chatbot_owner_logins_label">Логины владельца (через запятую, без @)</string>
+    <string name="chatbot_owner_llm_desc">ИИ владельца (необязательно): команды !ask и рекомендации !diag используют этот адрес LLM. Если отдельный ИИ владельца не настроен, используется обычный ИИ бота.</string>
+    <string name="chatbot_owner_llm_url_label">Базовый URL-адрес API LLM владельца (совместим с OpenAI)</string>
+    <string name="chatbot_owner_llm_key_label">API-ключ владельца LLM</string>
+    <string name="chatbot_owner_llm_model_label">Модель LLM владельца</string>
+    <string name="chatbot_owner_source_label">Источник ИИ для команд владельца: %1$s</string>
+    <string name="owner_source_owner">выделенный ИИ владельца (эксклюзивный)</string>
+    <string name="owner_source_owner_desc">Команды !ask и !diag отправляются в отдельную модель LLM владельца. Сообщения зрителей туда не поступают.</string>
+    <string name="owner_source_viewer_fallback">AI зрителя (резервный вариант)</string>
+    <string name="owner_source_viewer_fallback_desc">Выделенный ИИ владельца не настроен — команды используют обычный ИИ бота с контекстом владельца.</string>
+    <string name="owner_source_deterministic">детерминированный (без ИИ)</string>
+    <string name="owner_source_deterministic_desc">ИИ владельца и зрителей не настроен: !diag показывает список проверок, а !ask — подсказку.</string>
+    <string name="chatbot_owner_whisper">Ответить лично (шепотом)</string>
+    <string name="chatbot_owner_whisper_desc">Ответы владельца (!start/!stop/!diag/!ask) приходят через Twitch Whisper вместо публичного чата. Для этого токен бота должен иметь область действия user:manage:whispers и идентификатор клиента приложения Twitch, указанный ниже; если шепот не удался (например, получатель блокирует незнакомцев), бот отвечает публично.</string>
+    <string name="chatbot_client_id_label">Идентификатор клиента приложения Twitch (для Whisper)</string>
+    <string name="chatbot_media_desc">Медиа-команды (!song/!next/!pause/!play/!prev) управляют активным музыкальным проигрывателем — для этого Vivid необходим доступ к уведомлениям (он не читает уведомления).</string>
+    <string name="chatbot_notification_access_button">Включить доступ к уведомлениям</string>
+
+    <!-- Profanity filter (!ask) -->
+    <string name="chatbot_profanity_title">Фильтр ненормативной лексики (!ask)</string>
+    <string name="chatbot_profanity_desc">Блокирует оскорбления, угрозы и ненормативную лексику в сообщениях !ask до обращения к ИИ. Используются категории Twitch AutoMod, Kick и YouTube.</string>
+    <string name="chatbot_profanity_enabled">Фильтр включен</string>
+    <string name="chatbot_profanity_categories">Активные категории</string>
+    <string name="chatbot_profanity_cat_slurs">Оскорбления/ненавистнические выражения</string>
+    <string name="chatbot_profanity_cat_sexual">Сексуальный контент</string>
+    <string name="chatbot_profanity_cat_hostility">Агрессия/угрозы</string>
+    <string name="chatbot_profanity_cat_profanity">Общая ненормативная лексика</string>
+    <string name="chatbot_profanity_custom_words">Пользовательские заблокированные слова</string>
+    <string name="chatbot_profanity_custom_words_hint">например: слово1, слово2</string>
+    <string name="chatbot_profanity_custom_words_desc">Дополнительные слова через запятую, которые должен обнаруживать фильтр.</string>
+    <string name="chatbot_profanity_excluded_words">Исключенные слова</string>
+    <string name="chatbot_profanity_excluded_words_hint">например: слово1, слово2</string>
+    <string name="chatbot_profanity_excluded_words_desc">Слова через запятую, которые фильтр должен игнорировать при ложных срабатываниях.</string>
+
+    <!-- Chat bot quick-start presets (ChatBotLimitPreset.kt) -->
+    <string name="preset_locker">Мягкий</string>
+    <string name="preset_balanced">Сбалансированный</string>
+    <string name="preset_strict">Строгий</string>
+
+    <!-- ===== Camera Controls (SettingsCameraScreen.kt) ===== -->
+    <string name="camera_section_title">Управление камерой</string>
+    <string name="camera_section_desc">Ручная фокусировка и выбор объектива (сверхширокий/широкий/теле)</string>
+    <string name="camera_focus_title">Фокус</string>
+    <string name="camera_focus_desc">Установите дистанцию ​​фокусировки вручную — 0 = бесконечность (пейзаж), 10 = макро (крупный план).</string>
+    <string name="camera_focus_far">Бесконечность</string>
+    <string name="camera_focus_near">Макро</string>
+    <string name="camera_focus_not_supported">Ручная фокусировка не поддерживается на этом устройстве.</string>
+    <string name="camera_lens_title">Объектив</string>
+    <string name="camera_lens_desc">Выберите объектив камеры — доступность зависит от устройства.</string>
+
+    <!-- ===== Logs & Diagnostics (SettingsLogsScreen.kt) ===== -->
+    <string name="logs_redacted_note">Журналы приложения хранятся заданное число дней и ежедневно обновляются. Ключи трансляции, пароли и токены автоматически скрываются.</string>
+    <string name="logs_empty">Журналов пока нет — запустите трансляцию или используйте приложение для сбора записей.</string>
+    <string name="logs_copy">Копировать</string>
+    <string name="logs_share">Поделиться</string>
+    <string name="logs_copied">Журналы скопированы</string>
+    <string name="logs_clip_label">Журналы Vivid</string>
+    <string name="logs_share_subject">Журналы приложения Vivid</string>
+    <string name="logs_retention_title">Хранение (дни)</string>
+    <string name="logs_retention_days_unit">дни</string>
+    <string name="logs_retention_hint">Журналы меняются ежедневно; по истечении этого периода более старые записи удаляются.</string>
+    <string name="logs_search_label">Поиск</string>
+    <string name="logs_search_hint">Поиск сообщений…</string>
+    <string name="logs_search_clear">Очистить поиск</string>
+    <string name="logs_filter_all">Все</string>
+    <string name="logs_filter_errors">Ошибки и сбои</string>
+    <string name="logs_crash_badge">СБОЙ</string>
+    <string name="logs_crash_summary" tools:ignore="PluralsCandidate">Сбоев за последние %2$d дн.: %1$d</string>
+    <string name="logs_today">Сегодня</string>
+    <string name="logs_yesterday">Вчера</string>
+    <!-- ===== Encoder presets (4K/60fps + HEVC, v0.6.0 bucket) ===== -->
+    <string name="encoder_preset_title">Кодер (разрешение и кодек)</string>
+    <string name="encoder_preset_desc">Выберите разрешение и частоту кадров. Для 4K/60 нужно мощное устройство и высокая скорость передачи данных. Если изображение прерывается, выберите более низкий пресет.</string>
+    <string name="encoder_auto_fallback">Автоматически выбирать поддерживаемые параметры (H.264 или меньшее разрешение)</string>
+    <string name="encoder_codec_auto">Авто (HEVC, если возможно)</string>
+    <string name="encoder_codec_h264">H.264</string>
+    <string name="encoder_codec_h265">H.265 (HEVC)</string>
+    <string tools:ignore="Typos" name="encoder_codec_av1">AV1 (экспериментальный)</string>
+    <string name="adaptive_bitrate">Автоматически адаптировать битрейт к соединению</string>
+
+    <!-- Subtitles (speech-to-text overlay, PARITY row 143) -->
+    <string name="overlays_subtitles_title">Субтитры (преобразование речи в текст)</string>
+    <string name="overlays_subtitles_desc">Распознает речь через микрофон и показывает ее в реальном времени в виде субтитров поверх предварительного просмотра. Требуется разрешение микрофона; не работает на устройствах без службы распознавания.</string>
+    <string name="overlays_subtitles_enabled">Показывать субтитры в реальном времени</string>
+
+    <!-- A11y: state descriptions for the encoder controls (TalkBack) -->
+    <string name="a11y_selected">Выбрано</string>
+    <string name="a11y_not_selected">Не выбрано</string>
+    <string name="a11y_switch_on">Включено</string>
+    <string name="a11y_switch_off">Выключено</string>
+</resources>

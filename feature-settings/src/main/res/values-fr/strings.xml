@@ -49,6 +49,7 @@
     <string name="appearance_language_german">Deutsch</string>
     <string name="appearance_language_english">English</string>
     <string name="appearance_language_french">Français</string>
+    <string name="appearance_language_russian">Русский</string>
     <string name="appearance_mode_title">Mode de design</string>
     <string name="appearance_mode_desc">Définit si Vivid apparaît en clair, en sombre ou en mode AMOLED — ou suit le système. L\'AMOLED utilise des surfaces d\'un noir pur (économie d\'énergie sur les écrans OLED).</string>
     <string name="appearance_mode_system_desc">Suit le réglage système de votre appareil (par défaut).</string>

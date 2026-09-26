@@ -49,6 +49,7 @@
     <string name="appearance_language_german">Deutsch</string>
     <string name="appearance_language_english">English</string>
     <string name="appearance_language_french">Français</string>
+    <string name="appearance_language_russian">Русский</string>
     <string name="appearance_mode_title">Theme mode</string>
     <string name="appearance_mode_desc">Choose whether Vivid appears light, dark or in AMOLED mode — or follows the system. AMOLED uses pure-black surfaces (saves battery on OLED displays).</string>
     <string name="appearance_mode_system_desc">Follows your device\'s system setting (default).</string>
