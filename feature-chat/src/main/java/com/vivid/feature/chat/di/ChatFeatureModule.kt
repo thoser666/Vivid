@@ -18,6 +18,10 @@ import com.vivid.feature.chat.twitch.TwitchChatEventSubReader
 import com.vivid.feature.chat.twitch.TwitchSendChatClient
 import com.vivid.feature.chat.twitch.TokenCipher
 import com.vivid.feature.chat.twitch.TwitchTokenStore
+import com.vivid.feature.chat.kick.KickChatReader
+import com.vivid.feature.chat.kick.KickChatSender
+import com.vivid.feature.chat.kick.KickSocketFactory
+import com.vivid.feature.chat.kick.OkHttpKickSocketFactory
 import com.vivid.feature.chat.youtube.YoutubeChatReader
 import com.vivid.feature.chat.youtube.YoutubeChatSender
 import dagger.Binds
@@ -112,6 +116,35 @@ abstract class ChatFeatureModule {
     abstract fun bindYoutubeChatSenderIntoMap(
         sender: YoutubeChatSender,
     ): ChatSender
+
+    /**
+     * Kick-Adapter (P2, Multi-Plattform-Skizze): Lesen anonym über das
+     * Pusher-Protokoll; Senden ist bewusst noch nicht real (offizielle
+     * OAuth 2.1 API, P4) — der Platzhalter-Sender antwortet mit
+     * [ChatSendResult.Failed].
+     */
+    @Binds
+    @IntoMap
+    @Singleton
+    @ChatPlatformKey(ChatPlatform.KICK)
+    abstract fun bindKickChatReaderIntoMap(
+        reader: KickChatReader,
+    ): ChatReader
+
+    @Binds
+    @IntoMap
+    @Singleton
+    @ChatPlatformKey(ChatPlatform.KICK)
+    abstract fun bindKickChatSenderIntoMap(
+        sender: KickChatSender,
+    ): ChatSender
+
+    /** Pusher-WebSocket für den Kick-Reader (analog EventSubSocketFactory). */
+    @Binds
+    @Singleton
+    abstract fun bindKickSocketFactory(
+        factory: OkHttpKickSocketFactory,
+    ): KickSocketFactory
 
     /** Verschlüsselung für die Twitch-OAuth-Token-Persistenz (Android Keystore). */
     @Binds

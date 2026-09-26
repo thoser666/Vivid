@@ -97,6 +97,9 @@
     <!-- YouTube-Chat (Multi-Plattform-Chat, P1): anonymes innertube-Lesen -->
     <string name="overlays_youtube_channel_label">ID de chaîne YouTube (UC…)</string>
     <string name="overlays_youtube_chat_enabled">Afficher le chat YouTube</string>
+    <!-- Kick-Chat (Multi-Plattform-Chat, P2): anonymes Pusher-Lesen -->
+    <string name="overlays_kick_channel_label">Canal Kick (slug)</string>
+    <string name="overlays_kick_chat_enabled">Afficher le chat Kick</string>
 
     <string name="overlays_widget_title">Widget texte/info</string>
     <string name="overlays_widget_desc">Affiche l’heure, les coordonnées GPS et la vitesse en overlay en bas à droite au-dessus de l’aperçu du stream. Pour le GPS/la vitesse, l’autorisation de localisation est requise.</string>

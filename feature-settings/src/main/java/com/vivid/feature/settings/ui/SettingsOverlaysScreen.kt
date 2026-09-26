@@ -87,6 +87,25 @@ fun SettingsOverlaysScreen(
                 onCheckedChange = viewModel::onYoutubeChatEnabledChange,
             )
         }
+        // Kick-Chat (Multi-Plattform-Chat, P2): Slug + Toggle — gelesen wird
+        // anonym über das Pusher-Protokoll, kein OAuth nötig.
+        OutlinedTextField(
+            value = uiState.kickChannel,
+            onValueChange = viewModel::onKickChannelChange,
+            label = { Text(stringResource(R.string.overlays_kick_channel_label)) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(stringResource(R.string.overlays_kick_chat_enabled), modifier = Modifier.weight(1f))
+            Switch(
+                checked = uiState.kickChatEnabled,
+                onCheckedChange = viewModel::onKickChatEnabledChange,
+            )
+        }
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,

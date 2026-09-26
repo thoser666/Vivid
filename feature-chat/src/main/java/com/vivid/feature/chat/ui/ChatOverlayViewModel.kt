@@ -17,6 +17,7 @@ import com.vivid.feature.chat.emotes.ThirdPartyEmoteService
 import com.vivid.feature.chat.twitch.TwitchBadgeClient
 import com.vivid.feature.chat.twitch.TwitchChatEventSubReader
 import com.vivid.feature.chat.twitch.TwitchEventSubConfig
+import com.vivid.feature.chat.kick.KickChatReader
 import com.vivid.feature.chat.youtube.YoutubeChatReader
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -32,6 +33,8 @@ class ChatOverlayViewModel @Inject constructor(
     private val chatReader: TwitchChatEventSubReader,
     /** YouTube-Lese-Adapter (P1, Multi-Plattform-Chat): anonymes innertube-Polling. */
     private val youtubeReader: YoutubeChatReader,
+    /** Kick-Lese-Adapter (P2, Multi-Plattform-Chat): anonymes Pusher-WebSocket. */
+    private val kickReader: KickChatReader,
     private val settingsRepository: SettingsRepository,
     private val badgeClient: TwitchBadgeClient,
     private val emoteService: ThirdPartyEmoteService,
@@ -61,6 +64,14 @@ class ChatOverlayViewModel @Inject constructor(
         val youtubeChannelId: String = "",
         /** Verbindungsstatus der YouTube-Session (P1, Multi-Plattform-Chat). */
         val youtubeConnection: ChatConnectionState = ChatConnectionState.Disconnected,
+        /**
+         * Kick-Kanal-Slug, für den der gemergte Kick-Chat liest (leer = Kick
+         * nicht aktiv). Teil des Kontext-Wechsels: Wechselt er, werden die
+         * gemergten Nachrichten geleert.
+         */
+        val kickChannelId: String = "",
+        /** Verbindungsstatus der Kick-Session (P2, Multi-Plattform-Chat). */
+        val kickConnection: ChatConnectionState = ChatConnectionState.Disconnected,
         val messages: List<ChatMessage> = emptyList(),
         val connection: ChatConnectionState = ChatConnectionState.Disconnected,
         /**
@@ -142,15 +153,28 @@ class ChatOverlayViewModel @Inject constructor(
                 // gemergt (platform je Nachricht).
                 val youtubeId = settings.youtubeChannelId.trim()
                 val youtubeActive = settings.youtubeChatEnabled && youtubeId.isNotBlank()
+                // Kick-Session (P2): eigenes Enable/Slug — unabhängig von der
+                // Twitch-Konfiguration, Nachrichten werden im selben Overlay
+                // gemergt (platform je Nachricht).
+                val kickSlug = settings.kickChannel.trim()
+                val kickActive = settings.kickChatEnabled && kickSlug.isNotBlank()
                 val previous = _uiState.value
                 val contextChanged = previous.enabled != enabled || previous.channel != channel
                 val youtubeContextChanged =
                     previous.youtubeChannelId != youtubeId || previous.enabled != enabled
+                val kickContextChanged =
+                    previous.kickChannelId != kickSlug || previous.enabled != enabled
 
                 if (youtubeActive) {
                     youtubeReader.start(youtubeId)
                 } else {
                     youtubeReader.stop()
+                }
+
+                if (kickActive) {
+                    kickReader.start(kickSlug)
+                } else {
+                    kickReader.stop()
                 }
 
                 if (enabled && channel.isNotBlank() && configured) {
@@ -193,7 +217,17 @@ class ChatOverlayViewModel @Inject constructor(
                         } else {
                             ChatConnectionState.Disconnected
                         },
-                        messages = if (contextChanged || youtubeContextChanged) emptyList() else it.messages,
+                        kickChannelId = if (kickActive) kickSlug else "",
+                        kickConnection = if (kickActive) {
+                            kickReader.state.value
+                        } else {
+                            ChatConnectionState.Disconnected
+                        },
+                        messages = if (contextChanged || youtubeContextChanged || kickContextChanged) {
+                            emptyList()
+                        } else {
+                            it.messages
+                        },
                         // Bei Kanalwechsel/Deaktivierung erst einmal leeren — die
                         // neuen Badges kommen asynchron mit dem nächsten Load.
                         badges = if (contextChanged) emptyMap() else it.badges,
@@ -246,6 +280,21 @@ class ChatOverlayViewModel @Inject constructor(
         viewModelScope.launch {
             youtubeReader.state.collect { connection ->
                 _uiState.update { it.copy(youtubeConnection = connection) }
+            }
+        }
+        // Kick-Nachrichten (P2, Multi-Plattform-Chat) in denselben UI-State
+        // mergen — das Overlay rendert im Eingangszeitpunkt mit Plattform-Badge.
+        viewModelScope.launch {
+            kickReader.messages.collect { message ->
+                _uiState.update { state ->
+                    state.copy(messages = (state.messages + message).takeLast(MAX_MESSAGES))
+                }
+            }
+        }
+        // Kick-Verbindungsstatus durchreichen (Badge-Indikator folgt mit P3).
+        viewModelScope.launch {
+            kickReader.state.collect { connection ->
+                _uiState.update { it.copy(kickConnection = connection) }
             }
         }
         // Event-Alerts aufnehmen (begrenzt) und nach Ablauf der TTL wieder
@@ -353,5 +402,6 @@ class ChatOverlayViewModel @Inject constructor(
     override fun onCleared() {
         chatReader.stop()
         youtubeReader.stop()
+        kickReader.stop()
     }
 }

@@ -269,6 +269,8 @@ class SettingsRepositoryTest {
             overlayEnabled = true,
             youtubeChannelId = " UCme123 ",
             youtubeChatEnabled = true,
+            kickChannel = " Thoser666 ",
+            kickChatEnabled = true,
         )
         val settings = repository.appSettingsFlow.first()
 
@@ -278,6 +280,8 @@ class SettingsRepositoryTest {
         // YouTube-Chat (P1): ID wird getrimmt gespeichert.
         assertEquals("UCme123", settings.youtubeChannelId)
         assertEquals(true, settings.youtubeChatEnabled)
+        assertEquals("Thoser666", settings.kickChannel)
+        assertEquals(true, settings.kickChatEnabled)
         // Andere Bereiche bleiben unberührt.
         assertEquals("", settings.streamUrl)
         assertEquals("localhost", settings.obsHost)

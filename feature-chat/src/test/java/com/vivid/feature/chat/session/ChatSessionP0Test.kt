@@ -84,10 +84,18 @@ class ChatSessionP0Test {
         // Sealed-Exhaustivität: der Adapter-Dispatch (`as? Twitch ?: throw`)
         // ist in P0 totsicher — keine Fremd-Variante kann von außen entstehen
         // (anonyme/externe Unterklassen scheitern an der Sealed-Grenze).
+        // Reihenfolge-unabhängig (JVM-Ladeordnung ist nicht Teil des Vertrags).
         assertEquals(
-            listOf("Twitch", "Youtube"),
-            ChatSessionConfig::class.sealedSubclasses.map { it.simpleName },
+            setOf("Twitch", "Youtube", "Kick"),
+            ChatSessionConfig::class.sealedSubclasses.map { it.simpleName }.toSet(),
         )
+    }
+
+    @Test
+    fun `kick session config derives platform and channel`() {
+        val config = ChatSessionConfig.Kick(channel = "Thoser666")
+        assertSame(ChatPlatform.KICK, config.platform)
+        assertEquals("Thoser666", config.channel)
     }
 
     @Test

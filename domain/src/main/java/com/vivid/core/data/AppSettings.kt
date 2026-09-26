@@ -25,6 +25,12 @@ data class AppSettings(
     val youtubeChannelId: String = "",
     // Bindet den YouTube-Chat zusätzlich in das Chat-Overlay ein.
     val youtubeChatEnabled: Boolean = false,
+    // --- Kick-Chat (Multi-Plattform-Chat, P2) ---
+    // Kick-Kanal-Slug für den gemergten Chat — Lesen läuft anonym über das
+    // Pusher-Protokoll, kein Token nötig. Leer = aus.
+    val kickChannel: String = "",
+    // Bindet den Kick-Chat zusätzlich in das Chat-Overlay ein.
+    val kickChatEnabled: Boolean = false,
     // --- Chat-Bot (KI) ---
     // Schaltet den automatischen KI-Chat-Bot ein (verbindet sich bei Streamstart).
     val chatBotEnabled: Boolean = false,

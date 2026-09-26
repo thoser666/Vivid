@@ -107,4 +107,15 @@ sealed interface ChatSessionConfig {
     ) : ChatSessionConfig {
         override val platform: ChatPlatform get() = ChatPlatform.YOUTUBE
     }
+
+    /**
+     * Kick-Session (P2): nur der Kanal-Slug — gelesen wird anonym über das
+     * Pusher-Protokoll ([com.vivid.feature.chat.kick.KickChatReader]), kein
+     * Token nötig. [channel] ist der Kanal-Slug.
+     */
+    data class Kick(
+        override val channel: String,
+    ) : ChatSessionConfig {
+        override val platform: ChatPlatform get() = ChatPlatform.KICK
+    }
 }

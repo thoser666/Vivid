@@ -96,6 +96,9 @@
     <!-- YouTube-Chat (Multi-Plattform-Chat, P1): anonymes innertube-Lesen -->
     <string name="overlays_youtube_channel_label">YouTube-Kanal-ID (UC…)</string>
     <string name="overlays_youtube_chat_enabled">YouTube-Chat anzeigen</string>
+    <!-- Kick-Chat (Multi-Plattform-Chat, P2): anonymes Pusher-Lesen -->
+    <string name="overlays_kick_channel_label">Kick-Kanal (Slug)</string>
+    <string name="overlays_kick_chat_enabled">Kick-Chat anzeigen</string>
 
     <string name="overlays_widget_title">Text-/Info-Widget</string>
     <string name="overlays_widget_desc">Zeigt Uhrzeit, GPS-Koordinaten und Geschwindigkeit als Overlay rechts unten über der Streaming-Vorschau an. Für GPS/Geschwindigkeit wird die Standort-Berechtigung benötigt.</string>

@@ -15,6 +15,7 @@ import com.vivid.feature.chat.emotes.ThirdPartyEmoteService
 import com.vivid.feature.chat.twitch.TwitchBadgeClient
 import com.vivid.feature.chat.twitch.TwitchChatEventSubReader
 import com.vivid.feature.chat.twitch.TwitchEventSubConfig
+import com.vivid.feature.chat.kick.KickChatReader
 import com.vivid.feature.chat.youtube.YoutubeChatReader
 import io.mockk.Runs
 import io.mockk.coEvery
@@ -83,6 +84,14 @@ class ChatOverlayViewModelTest {
         every { stop() } just Runs
     }
 
+    private fun kickReader(): KickChatReader = mockk {
+        every { messages } returns MutableSharedFlow<ChatMessage>(extraBufferCapacity = 64)
+        every { state } returns MutableStateFlow<ChatConnectionState>(ChatConnectionState.Disconnected)
+        every { start(any<String>()) } just Runs
+        every { start(any<ChatSessionConfig>()) } just Runs
+        every { stop() } just Runs
+    }
+
     private fun settings(
         enabled: Boolean = true,
         channel: String = "kanal",
@@ -126,6 +135,7 @@ class ChatOverlayViewModelTest {
     ) = ChatOverlayViewModel(
         chatReader = reader,
         youtubeReader = youtubeReader(),
+        kickReader = kickReader(),
         settingsRepository = repository(settings),
         badgeClient = badgeClient(),
         emoteService = emoteService(),
@@ -343,9 +353,11 @@ class ChatOverlayViewModelTest {
             every { start(any<ChatSessionConfig>()) } just Runs
             every { stop() } just Runs
         }
+        val kick = kickReader()
         val vm = ChatOverlayViewModel(
             chatReader = reader(),
             youtubeReader = yt,
+            kickReader = kick,
             settingsRepository = repository(MutableStateFlow(settings())),
             badgeClient = badgeClient(),
             emoteService = emoteService(),
@@ -384,9 +396,11 @@ class ChatOverlayViewModelTest {
             every { start(any<ChatSessionConfig>()) } just Runs
             every { stop() } just Runs
         }
+        val kick = kickReader()
         val vm = ChatOverlayViewModel(
             chatReader = reader(),
             youtubeReader = yt,
+            kickReader = kick,
             settingsRepository = repository(settings),
             badgeClient = badgeClient(),
             emoteService = emoteService(),
@@ -397,6 +411,78 @@ class ChatOverlayViewModelTest {
         settings.value = settings.value.copy(youtubeChatEnabled = false)
         advanceUntilIdle()
         io.mockk.verify { yt.stop() }
+    }
+
+    @Test
+    fun `kick messages merge into the same overlay state`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val kickMessages = MutableSharedFlow<ChatMessage>(extraBufferCapacity = 64)
+        val kickState = MutableStateFlow<ChatConnectionState>(ChatConnectionState.Disconnected)
+        val kick = mockk<KickChatReader> {
+            every { messages } returns kickMessages
+            every { state } returns kickState
+            every { start(any<String>()) } just Runs
+            every { start(any<ChatSessionConfig>()) } just Runs
+            every { stop() } just Runs
+        }
+        val vm = ChatOverlayViewModel(
+            chatReader = reader(),
+            youtubeReader = youtubeReader(),
+            kickReader = kick,
+            settingsRepository = repository(MutableStateFlow(settings())),
+            badgeClient = badgeClient(),
+            emoteService = emoteService(),
+        )
+        advanceUntilIdle()
+        // Settings: kickChatEnabled=false (Default) -> Reader gestoppt.
+        io.mockk.verify { kick.stop() }
+
+        // Kick-Nachricht mergt in denselben messages-State.
+        kickMessages.tryEmit(
+            ChatMessage(
+                id = "kick-1", channel = "thoser666", userId = "987",
+                userLogin = "Bergsteiger", displayName = "Bergsteiger", color = null,
+                text = "Hallo vom Kick", badges = emptyList(), emotesTag = "",
+                timestamp = 42L, isModerator = false, isSubscriber = false,
+                platform = ChatPlatform.KICK,
+            ),
+        )
+        advanceUntilIdle()
+        val state = vm.uiState.value
+        assertEquals(1, state.messages.size)
+        assertEquals(ChatPlatform.KICK, state.messages[0].platform)
+        // Deaktiviert: kein Kanal im State, kein Start.
+        assertEquals("", state.kickChannelId)
+        io.mockk.verify(exactly = 0) { kick.start(any<String>()) }
+    }
+
+    @Test
+    fun `kick reader starts on enabled setting and stops on disable`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val settings = MutableStateFlow(
+            settings().copy(kickChatEnabled = true, kickChannel = "Thoser666"),
+        )
+        val kick = mockk<KickChatReader> {
+            every { messages } returns MutableSharedFlow<ChatMessage>(extraBufferCapacity = 64)
+            every { state } returns MutableStateFlow<ChatConnectionState>(ChatConnectionState.Disconnected)
+            every { start(any<String>()) } just Runs
+            every { start(any<ChatSessionConfig>()) } just Runs
+            every { stop() } just Runs
+        }
+        val vm = ChatOverlayViewModel(
+            chatReader = reader(),
+            youtubeReader = youtubeReader(),
+            kickReader = kick,
+            settingsRepository = repository(settings),
+            badgeClient = badgeClient(),
+            emoteService = emoteService(),
+        )
+        advanceUntilIdle()
+        io.mockk.verify { kick.start("Thoser666") }
+        // Deaktivieren -> stop().
+        settings.value = settings.value.copy(kickChatEnabled = false)
+        advanceUntilIdle()
+        io.mockk.verify { kick.stop() }
     }
 
 }
