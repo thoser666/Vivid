@@ -16,11 +16,14 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RadioButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -33,8 +36,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.vivid.core.data.AccentColor
 import com.vivid.core.data.AppSettings
@@ -46,6 +49,7 @@ import com.vivid.core.i18n.AppLanguage
  * App-Sprache, Design-Modus (System/Hell/Dunkel/AMOLED) und Akzentfarbe.
  * Die Sprache wirkt sofort; Theme-Änderungen werden beim Speichern übernommen.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsAppearanceScreen(
     uiState: AppSettings,
@@ -54,45 +58,54 @@ fun SettingsAppearanceScreen(
 ) {
     val context = LocalContext.current
     var selectedLanguage by remember(context) { mutableStateOf(AppLanguage.current(context)) }
+    var languageMenuExpanded by remember { mutableStateOf(false) }
 
     SettingsSectionScaffold(
         title = stringResource(R.string.cat_appearance_title),
         onBack = onBack,
         onSave = viewModel::saveSettings,
     ) {
-        Text(stringResource(R.string.appearance_language_title), style = MaterialTheme.typography.titleLarge)
+        ExposedDropdownMenuBox(
+            expanded = languageMenuExpanded,
+            onExpandedChange = { languageMenuExpanded = it },
+        ) {
+            OutlinedTextField(
+                value = stringResource(selectedLanguage.displayNameRes),
+                onValueChange = {},
+                readOnly = true,
+                label = { Text(stringResource(R.string.appearance_language_title)) },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = languageMenuExpanded) },
+                modifier = Modifier
+                    .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
+                    .fillMaxWidth()
+                    .testTag("language_picker"),
+            )
+            ExposedDropdownMenu(
+                expanded = languageMenuExpanded,
+                onDismissRequest = { languageMenuExpanded = false },
+            ) {
+                AppLanguage.entries.forEach { language ->
+                    DropdownMenuItem(
+                        text = { Text(stringResource(language.displayNameRes)) },
+                        onClick = {
+                            languageMenuExpanded = false
+                            if (selectedLanguage != language) {
+                                selectedLanguage = language
+                                AppLanguage.select(context, language)
+                                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+                                    context.findActivity()?.recreate()
+                                }
+                            }
+                        },
+                    )
+                }
+            }
+        }
         Text(
             text = stringResource(R.string.appearance_language_desc),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Column(modifier = Modifier.selectableGroup()) {
-            AppLanguage.entries.forEach { language ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .selectable(
-                            selected = selectedLanguage == language,
-                            role = Role.RadioButton,
-                            onClick = {
-                                if (selectedLanguage != language) {
-                                    selectedLanguage = language
-                                    AppLanguage.select(context, language)
-                                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-                                        context.findActivity()?.recreate()
-                                    }
-                                }
-                            },
-                        )
-                        .padding(vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    RadioButton(selected = selectedLanguage == language, onClick = null)
-                    Text(stringResource(language.displayNameRes))
-                }
-            }
-        }
 
         // Design-Modus: System / Hell / Dunkel / AMOLED
         Text(stringResource(R.string.appearance_mode_title), style = MaterialTheme.typography.titleLarge)

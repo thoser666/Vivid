@@ -6,6 +6,7 @@ import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.navigation.NavHostController
@@ -132,10 +133,12 @@ class SettingsScreensRobolectricTest {
         }
         composeRule.onNodeWithText("Appearance").assertIsDisplayed()
         composeRule.onNodeWithText("Language").assertIsDisplayed()
-        composeRule.onNodeWithText("English").assertIsDisplayed()
         composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Dark"))
         composeRule.onNodeWithText("Dark").performClick()
         verify { viewModel.onThemeModeChange(ThemeMode.DARK) }
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Language"))
+        composeRule.onNodeWithTag("language_picker").performClick()
+        composeRule.onNodeWithText("English").assertIsDisplayed()
     }
 
     // --- Overlays & Widgets -------------------------------------------------
