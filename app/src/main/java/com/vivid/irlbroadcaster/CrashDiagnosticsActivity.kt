@@ -2,6 +2,7 @@ package com.vivid.irlbroadcaster
 
 import android.content.ClipData
 import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
 import android.graphics.Typeface
 import android.os.Bundle
@@ -16,6 +17,7 @@ import androidx.core.content.ContextCompat
 import com.vivid.BuildConfig
 import com.vivid.R
 import com.vivid.core.log.LogStore
+import com.vivid.core.i18n.AppLanguage
 import java.io.File
 
 /**
@@ -34,6 +36,10 @@ import java.io.File
  * erneut ([CrashLoopPolicy.decide] bleibt auf dem Zählerstand).
  */
 class CrashDiagnosticsActivity : ComponentActivity() {
+
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(AppLanguage.wrapBaseContext(newBase))
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

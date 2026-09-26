@@ -4,7 +4,7 @@
     <string name="cat_streaming_title">Streaming &amp; OBS</string>
     <string name="cat_streaming_subtitle">Stream URL/key, platform presets, multi-streaming, OBS connection</string>
     <string name="cat_appearance_title">Appearance</string>
-    <string name="cat_appearance_subtitle">Theme mode (Light/Dark/AMOLED), accent color</string>
+    <string name="cat_appearance_subtitle">Language, theme mode, accent color</string>
     <string name="cat_overlays_title">Overlays &amp; Widgets</string>
     <string name="cat_overlays_subtitle">Twitch chat, text/info, image, QR code, battery and grid widgets</string>
     <string name="cat_chatbot_title">Chat Bot &amp; AI</string>
@@ -43,6 +43,12 @@
     <string name="accent_teal">Teal</string>
 
     <!-- ===== Appearance (SettingsAppearanceScreen.kt) ===== -->
+    <string name="appearance_language_title">Language</string>
+    <string name="appearance_language_desc">Choose Vivid’s language. System follows your device language when available and uses German otherwise. Changes apply immediately.</string>
+    <string name="appearance_language_system">System</string>
+    <string name="appearance_language_german">Deutsch</string>
+    <string name="appearance_language_english">English</string>
+    <string name="appearance_language_french">Français</string>
     <string name="appearance_mode_title">Theme mode</string>
     <string name="appearance_mode_desc">Choose whether Vivid appears light, dark or in AMOLED mode — or follows the system. AMOLED uses pure-black surfaces (saves battery on OLED displays).</string>
     <string name="appearance_mode_system_desc">Follows your device\'s system setting (default).</string>

@@ -11,8 +11,7 @@ import org.junit.Test
  * verdrahten, und die Config muss genau die drei unterstuetzten Sprachen
  * (de/en/fr) deklarieren. Dann erscheint Vivid im System-Picker
  * (App-Info > Sprache) und laesst sich pro App von der Systemsprache
- * abweichend umschalten - ohne eigenen In-App-Switch, der nur Redundanz
- * zum System-Setting waere.
+ * abweichend umschalten. Der In-App-Picker nutzt dieselbe System-Einstellung.
  *
  * Hausmuster: [NetworkSecurityConfigTest] (Manifest-Verdrahtung als
  * Datei-Regression, kein Framework noetig).

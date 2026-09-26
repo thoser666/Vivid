@@ -121,7 +121,7 @@ class SettingsScreensRobolectricTest {
     // --- Appearance ---------------------------------------------------------
 
     @Test
-    fun `appearance renders theme options and forwards mode change`() {
+    fun `appearance renders language and theme options and forwards mode change`() {
         val viewModel = settingsViewModel()
         composeRule.setContent {
             SettingsAppearanceScreen(
@@ -131,7 +131,9 @@ class SettingsScreensRobolectricTest {
             )
         }
         composeRule.onNodeWithText("Appearance").assertIsDisplayed()
-        composeRule.onNodeWithText("System").assertIsDisplayed()
+        composeRule.onNodeWithText("Language").assertIsDisplayed()
+        composeRule.onNodeWithText("English").assertIsDisplayed()
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Dark"))
         composeRule.onNodeWithText("Dark").performClick()
         verify { viewModel.onThemeModeChange(ThemeMode.DARK) }
     }
