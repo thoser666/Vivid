@@ -171,14 +171,29 @@ accepted = num("accepted")
 if not accepted:
     accepted = num("sum(quantity)")
 # Bewusst ohne "filtered" (projektkonfiguriertes Inbound-Filtering ist keine Quota-Signal):
-dropped = (num("rate_limited") + num("rejected") + num("rateLimited")
-           + num("invalid") + num("abuse") + num("client_discard")
-           + num("cardinality_limited"))
+# Legacy-Aliase rejected/rateLimited laufen in die rate_limited-Anzeige ein.
+rate_limited = (num("rate_limited") + num("rejected") + num("rateLimited"))
+invalid = num("invalid")
+client_discard = num("client_discard")
+abuse = num("abuse")
+cardinality_limited = num("cardinality_limited")
+dropped = (rate_limited + invalid + client_discard + abuse + cardinality_limited)
+
+def drop_split():
+    parts = [
+        ("rate_limited", rate_limited),
+        ("invalid", invalid),
+        ("client_discard", client_discard),
+        ("abuse", abuse),
+        ("cardinality_limited", cardinality_limited),
+    ]
+    return ", ".join("%s=%d" % (label, n) for label, n in parts if n > 0)
 
 first = proj.get("firstEvent") or proj.get("dateCreated") or "unbekannt"
 print("Projekt-ID: %s | erstes Event: %s" % (proj.get("id", "?"), first))
 if dropped > 0:
     print("WARN: %d Event(s) in 30d angenommen, %d verworfen (Quota-/Ratenlimit-Signal — Sentry-Usage im Dashboard prüfen)" % (accepted, dropped))
+    print("Drops-Split: %s" % drop_split())
     sys.exit(0)
 if accepted == 0:
     print("OK: 0 Events in 30d (Projekt erreichbar, ruhig)")

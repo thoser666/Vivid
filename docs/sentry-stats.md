@@ -47,8 +47,19 @@ Ausgabe (Verdicts):
 OK: 42 Event(s) in 30d angenommen, 0 verworfen          # Pipeline lebt
 OK: 0 Events in 30d (Projekt erreichbar, ruhig)         # ruhig, aber erreichbar
 WARN: 42 …, 7 verworfen (Quota-/Ratenlimit-Signal …)    # Drops → Usage prüfen
+Drops-Split: rate_limited=5, client_discard=2           # Ursachen-Aufschlüsselung
 SKIP: Token ohne Lesescopes — project:read + event:read nötig (docs/sentry-stats.md)
 ```
+
+Bei WARN folgt auf die Zusammenfassung eine **Drops-Split**-Zeile mit den
+einzelnen Outcome-Kategorien (nur Kategorien mit Werten größer 0):
+`rate_limited` (inkl. Legacy-Aliase `rejected`/`rateLimited`), `invalid`,
+`client_discard`, `abuse`, `cardinality_limited`. `filtered` zählt bewusst
+NIE dazu (projektkonfiguriertes Inbound-Filtering ist kein Quota-Signal).
+Das erlaubt die gezielte #210-Diagnose: `rate_limited` = Quota/Ratenlimit
+(→ Sentry-Usage prüfen oder Sampling senken), `client_discard` = Client hat
+Events selbst verworfen (z. B. zu groß, span/outcome), `invalid` = malformed
+Events.
 
 Exit-Codes: `0` für OK/WARN/SKIP (bewusst kein Gate-Blocker), `1` nur bei
 unverständlicher API-Antwort (Feldformat geändert → fail-closed).
@@ -66,7 +77,10 @@ verwaltet die Ergebnisse als deduplizierte Issues:
 
 - **WARN** (Stats: Quota-Drops — oder Health: Rate-Limit-Header /
   HTTP 429) → Issue mit Guard-Ausgabe und Run-Link (kommentiert statt neu,
-  solange eins offen ist)
+  solange eins offen ist). Seit #210 trägt die WARN-Ausgabe zusätzlich die
+  **Drops-Split**-Zeile (Ursachen je Outcome-Kategorie) — die Diagnose, ob
+  das Quota/Ratenlimit (rate_limited) oder Client-seitige Verwerfungen
+  (client_discard/invalid) die Ursache sind, steht damit direkt im Issue.
 - **FEHLER / Konfigurations-SKIP** (Token fehlt, ungültig, ohne
   Lesescopes, API-Format geändert bzw. HTTP 400/401/403 am Ingest) →
   Konfigurations-Issue mit Behebungs-Hinweis

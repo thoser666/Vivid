@@ -4,14 +4,20 @@
 #
 #   S1 Skript existiert, ausführbar, bash-Syntax ok, Doku-Pfad genannt
 #   S2 Explizit ohne Token → SKIP, exit 0, nennt die Anleitung
-#   S3 Fixture OK-Fall (accepted>0, dropped=0) → "OK: N", exit 0, keine WARN
-#   S4 Fixture dropped>0 → "WARN:", exit 0 (informational, kein Gate-Block)
+#   S3 Fixture OK-Fall (accepted>0, dropped=0) → "OK: N", exit 0, keine WARN,
+#      keine Drops-Split-Zeile
+#   S4 Fixture dropped>0 → "WARN:", exit 0 (informational, kein Gate-Block),
+#      Drops-Split mit rate_limited+invalid (Issue #210)
 #   S5 Fixture leer (0/0) → "OK: 0 Events" (ruhig), exit 0
 #   S6 Fixture mit unbekanntem API-Format → exit 1 (fail-closed)
 #   S7 Kein Token-Leak: gesetzter Fake-Token erscheint nie im Output
 #   S8 403-Fixture → SKIP mit Scopes-Hinweis (project:read/event:read)
 #   S9 Token-Quellen-Vertrag (--print-token-source nennt nur die QUELLE,
 #      nie den Token): env > stats.token > auth.token > none
+#   S10 Windows-Coding-Sicherheitsnetz (strukturtreu, hostunabhängig): beide
+#       Python-Heredocs müssen mit `python -X utf8` laufen.
+#   S11 Drops-Split deckt alle Drop-Kategorien + Legacy-Alias (rateLimited)
+#       ab und zählt 'filtered' NICHT (kein Quota-Signal, Issue #210)
 #   S10 Windows-Coding-Sicherheitsnetz: beide Python-Heredocs des Guards
 #       laufen mit `python -X utf8` — sonst geben cp1252-Locales (Windows)
 #       Umlaute/Striche als Mojibake aus und Locales ohne diese Zeichen
@@ -48,6 +54,7 @@ out_s3=$(SENTRY_STATS_FIXTURE="$tmp/ok" SENTRY_STATS_TOKEN=sntrys_FAKE_LEAK_TOKE
   fail "S3: OK-Fall darf nicht scheitern"
 grep -q "^OK: 12" <<<"$out_s3" || fail "S3: OK mit 12 Events erwartet"
 grep -q "WARN" <<<"$out_s3" && fail "S3: keine WARN erwartet"
+grep -q "Drops-Split" <<<"$out_s3" && fail "S3: keine Drops-Split-Zeile im OK-Fall (Issue #210)"
 
 # S4
 mkdir -p "$tmp/dropped"
@@ -59,6 +66,8 @@ out=$(SENTRY_STATS_FIXTURE="$tmp/dropped" bash "$guard") || \
 grep -q "^WARN:" <<<"$out" || fail "S4: WARN erwartet"
 grep -q "5 Event(s) in 30d angenommen, 5 verworfen" <<<"$out" || \
   fail "S4: rate_limited+invalid müssen über Outcome-Felder summiert werden (erwartet 5)"
+grep -q "Drops-Split: rate_limited=3, invalid=2" <<<"$out" || \
+  fail "S4: Drops-Split muss die Ursachen aufschlüsseln (Issue #210)"
 
 # S5
 mkdir -p "$tmp/empty"
@@ -116,4 +125,17 @@ if grep -E "python - (2>/dev/null )?<<'PY'" "$guard" >/dev/null; then
   fail "S10: es existiert noch ein Heredoc ohne -X utf8 (cp1252-Crash-Risiko)"
 fi
 
-echo "✅ [sentry-stats-test] Sentry-Stats-Guard vertragstreu (S1–S10)."
+# S11: Drops-Split deckt alle Kategorien + Legacy-Alias (rateLimited) ab und
+# zählt 'filtered' NICHT (Inbound-Filtering ist kein Quota-Signal, Issue #210).
+mkdir -p "$tmp/allcats"
+echo 200 > "$tmp/allcats/status"
+echo '{"id": "1"}' > "$tmp/allcats/project.json"
+echo '{"projects":[{"id":"1","slug":"vivid","stats":[{"category":"error","outcomes":{"accepted":8,"filtered":3,"rateLimited":1,"invalid":0,"abuse":1,"client_discard":2,"cardinality_limited":3},"totals":{"dropped":7,"sum(quantity)":8}}]}]}' > "$tmp/allcats/events.json"
+out_s11=$(SENTRY_STATS_FIXTURE="$tmp/allcats" bash "$guard") || \
+  fail "S11: Multi-Kategorie-Fall darf nicht scheitern"
+grep -q "8 Event(s) in 30d angenommen, 7 verworfen" <<<"$out_s11" || \
+  fail "S11: 'filtered' darf nicht gezählt werden (erwartet 7, nicht 10)"
+grep -q "Drops-Split: rate_limited=1, client_discard=2, abuse=1, cardinality_limited=3" <<<"$out_s11" || \
+  fail "S11: Drops-Split muss Legacy-rateLimited + alle Kategorien nennen"
+
+echo "✅ [sentry-stats-test] Sentry-Stats-Guard vertragstreu (S1–S11)."
