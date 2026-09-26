@@ -45,9 +45,10 @@ Ausgabe (Verdicts):
 
 ```
 OK: 42 Event(s) in 30d angenommen, 0 verworfen          # Pipeline lebt
+OK: 213 …, 21 client_seitig verworfen (by design: …)    # Opt-out-Discards, kein WARN
 OK: 0 Events in 30d (Projekt erreichbar, ruhig)         # ruhig, aber erreichbar
 WARN: 42 …, 7 verworfen (Quota-/Ratenlimit-Signal …)    # Drops → Usage prüfen
-Drops-Split: rate_limited=5, client_discard=2           # Ursachen-Aufschlüsselung
+Drops-Split: rate_limited=5, invalid=2                  # Ursachen-Aufschlüsselung
 SKIP: Token ohne Lesescopes — project:read + event:read nötig (docs/sentry-stats.md)
 ```
 
@@ -57,9 +58,19 @@ einzelnen Outcome-Kategorien (nur Kategorien mit Werten größer 0):
 `client_discard`, `abuse`, `cardinality_limited`. `filtered` zählt bewusst
 NIE dazu (projektkonfiguriertes Inbound-Filtering ist kein Quota-Signal).
 Das erlaubt die gezielte #210-Diagnose: `rate_limited` = Quota/Ratenlimit
-(→ Sentry-Usage prüfen oder Sampling senken), `client_discard` = Client hat
-Events selbst verworfen (z. B. zu groß, span/outcome), `invalid` = malformed
-Events.
+(→ Sentry-Usage prüfen oder Sampling senken), `invalid` = malformed Events,
+`client_discard` = Client hat Events selbst verworfen.
+
+Wichtig: `client_discard` allein löst in Vivid **kein WARN** aus. Die App
+verwirft Events per `beforeSend`-Opt-out gezielt selbst (SentryOptOut /
+AppSettings.sentryEnabled — Privatsphäre-by-Default), sobald der Nutzer die
+Fehlerberichterstattung nicht aktiviert hat. Dieser Kanak ist by design und
+kein Quota-Signal: Es kommt eine informative OK-Ausgabe
+(`client_seitig verworfen (by design: beforeSend-Opt-out — kein Quota-Signal)`).
+WARN erscheint nur bei echten Quota-/Qualitäts-Signalen
+(`rate_limited`/`invalid`/`abuse`/`cardinality_limited`). Der echte Befund von
+#210 (21/21 verworfene Events waren `client_discard`) wurde so als
+Opt-out-Kanal entschärft.
 
 Exit-Codes: `0` für OK/WARN/SKIP (bewusst kein Gate-Blocker), `1` nur bei
 unverständlicher API-Antwort (Feldformat geändert → fail-closed).
@@ -75,12 +86,16 @@ Der Workflow `.github/workflows/automation-sentry-ops.yml` führt Stats-Guard
 `workflow_dispatch`; er ersetzt den früheren monatlichen Stats-Review) und
 verwaltet die Ergebnisse als deduplizierte Issues:
 
-- **WARN** (Stats: Quota-Drops — oder Health: Rate-Limit-Header /
+- **WARN** (Stats: echte Quota-Drops `rate_limited`/`invalid`/`abuse`/
+  `cardinality_limited` — oder Health: Rate-Limit-Header /
   HTTP 429) → Issue mit Guard-Ausgabe und Run-Link (kommentiert statt neu,
   solange eins offen ist). Seit #210 trägt die WARN-Ausgabe zusätzlich die
   **Drops-Split**-Zeile (Ursachen je Outcome-Kategorie) — die Diagnose, ob
   das Quota/Ratenlimit (rate_limited) oder Client-seitige Verwerfungen
   (client_discard/invalid) die Ursache sind, steht damit direkt im Issue.
+  Rein client_seitige Discards (beforeSend-Opt-out by design) sind KEIN
+  WARN, sondern eine informative OK-Ausgabe — hat sich in der
+  #210-Diagnose als Opt-out-Kanal erwiesen (21/21 client_discard).
 - **FEHLER / Konfigurations-SKIP** (Token fehlt, ungültig, ohne
   Lesescopes, API-Format geändert bzw. HTTP 400/401/403 am Ingest) →
   Konfigurations-Issue mit Behebungs-Hinweis

@@ -191,9 +191,20 @@ def drop_split():
 
 first = proj.get("firstEvent") or proj.get("dateCreated") or "unbekannt"
 print("Projekt-ID: %s | erstes Event: %s" % (proj.get("id", "?"), first))
-if dropped > 0:
+# client_discard ist bei Vivid BY DESIGN kein Quota-Signal: der vorab gefilterte
+# beforeSend-Callback (SentryOptOut, AppSettings.sentryEnabled) verwirft Events
+# gezielt, solange der Nutzer die Fehlerberichterstattung nicht aktiviert hat
+# (Privatsphäre-by-Default, Sentry-Outcome client_discard). WARN-Alarm also nur
+# für echte Quota-/Qualitäts-Signale (rate_limited/invalid/abuse/
+# cardinality_limited); client_discard-only läuft als informative OK-Ausgabe.
+quota = rate_limited + invalid + abuse + cardinality_limited
+if quota > 0:
     print("WARN: %d Event(s) in 30d angenommen, %d verworfen (Quota-/Ratenlimit-Signal — Sentry-Usage im Dashboard prüfen)" % (accepted, dropped))
     print("Drops-Split: %s" % drop_split())
+    sys.exit(0)
+if dropped > 0:
+    # Nur client_seitig verworfen — dokumentierter Opt-out-Kanal (Issue #210).
+    print("OK: %d Event(s) in 30d angenommen; %d client_seitig verworfen (by design: beforeSend-Opt-out — kein Quota-Signal; Drops-Split: %s)" % (accepted, dropped, drop_split()))
     sys.exit(0)
 if accepted == 0:
     print("OK: 0 Events in 30d (Projekt erreichbar, ruhig)")

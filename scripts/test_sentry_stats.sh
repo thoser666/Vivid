@@ -18,6 +18,8 @@
 #       Python-Heredocs müssen mit `python -X utf8` laufen.
 #   S11 Drops-Split deckt alle Drop-Kategorien + Legacy-Alias (rateLimited)
 #       ab und zählt 'filtered' NICHT (kein Quota-Signal, Issue #210)
+#   S12 Nur client_discard-Drops (beforeSend-Opt-out by design) sind KEIN
+#       WARN — informative OK-Ausgabe mit Opt-out-Hinweis (Issue #210)
 #   S10 Windows-Coding-Sicherheitsnetz: beide Python-Heredocs des Guards
 #       laufen mit `python -X utf8` — sonst geben cp1252-Locales (Windows)
 #       Umlaute/Striche als Mojibake aus und Locales ohne diese Zeichen
@@ -138,4 +140,16 @@ grep -q "8 Event(s) in 30d angenommen, 7 verworfen" <<<"$out_s11" || \
 grep -q "Drops-Split: rate_limited=1, client_discard=2, abuse=1, cardinality_limited=3" <<<"$out_s11" || \
   fail "S11: Drops-Split muss Legacy-rateLimited + alle Kategorien nennen"
 
-echo "✅ [sentry-stats-test] Sentry-Stats-Guard vertragstreu (S1–S11)."
+# S12: NUR client_discard (beforeSend-Opt-out by design) → KEIN Quota-WARN,
+# sondern informative OK-Ausgabe (echter Befund von Issue #210, 21/21 client_discard).
+mkdir -p "$tmp/clientdiscard"
+echo 200 > "$tmp/clientdiscard/status"
+echo '{"id": "4509837327990784"}' > "$tmp/clientdiscard/project.json"
+echo '{"projects":[{"id":"4509837327990784","slug":"vivid","stats":[{"category":"error","outcomes":{"accepted":213,"filtered":0,"rate_limited":0,"invalid":0,"abuse":0,"client_discard":21,"cardinality_limited":0},"totals":{"dropped":21,"sum(quantity)":213}}]}]}' > "$tmp/clientdiscard/events.json"
+out_s12=$(SENTRY_STATS_FIXTURE="$tmp/clientdiscard" bash "$guard") || \
+  fail "S12: client_discard-only darf nicht scheitern"
+grep -q "^WARN:" <<<"$out_s12" && fail "S12: client_discard-only ist kein Quota-WARN (Issue #210)"
+grep -q "client_seitig verworfen (by design: beforeSend-Opt-out — kein Quota-Signal" <<<"$out_s12" || \
+  fail "S12: OK-Info mit Opt-out-Hinweis erwartet"
+
+echo "✅ [sentry-stats-test] Sentry-Stats-Guard vertragstreu (S1–S12)."
