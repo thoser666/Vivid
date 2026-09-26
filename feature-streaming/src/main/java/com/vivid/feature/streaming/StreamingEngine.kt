@@ -147,6 +147,21 @@ class StreamingEngine @Inject constructor(
     // Color-Spaces + 3D-LUTs: Farbraum-Auswahl und LUT-Presets
     private val lutController = LutController()
 
+    /**
+     * Zentraler Filter-Ketten-Composer (P0 der Anonymisierungs-Skizze,
+     * docs/architecture/privacy-anonymization.md §4): baut die GL-Filterkette
+     * kanonisch aus dem Soll-Zustand der vier Komponenten wieder auf —
+     * Anonymisierung an Position 0, kreative Filter kombinierbar (behebt die
+     * Single-Slot-Exklusivität der drei Bestands-Controller). Die
+     * Applier-Lambdas der Filter-APIs rufen nur noch den Rebuild.
+     */
+    private val privacyComposer = PrivacyComposer(
+        filterController = filterController,
+        lowLightBoostController = lowLightBoostController,
+        lutController = lutController,
+        lutSize = LUT_SIZE,
+    )
+
     /** Der aktive LUT-Preset. */
     val activeLutPreset: StateFlow<LutPreset> = lutController.activePreset
 
@@ -183,22 +198,23 @@ class StreamingEngine @Inject constructor(
      */
     fun setVideoFilter(filter: VideoFilter): Boolean {
         val gl = camera?.glInterface as? GlStreamInterface ?: return false
-        return filterController.setFilter(filter) { render ->
-            if (render == null) gl.clearFilters() else gl.setFilter(render)
+        return filterController.setFilter(filter) { _ ->
+            privacyComposer.requestRebuild(gl)
         }
     }
 
     /** Wechselt zum nächsten Filter in der Liste (zirkulär). */
     fun nextVideoFilter(): VideoFilter {
         val gl = camera?.glInterface as? GlStreamInterface ?: return filterController.activeFilter.value
-        return filterController.nextFilter { render ->
-            if (render == null) gl.clearFilters() else gl.setFilter(render)
+        return filterController.nextFilter { _ ->
+            privacyComposer.requestRebuild(gl)
         }
     }
 
     /** Setzt den Filter-Zustand zurück (z.B. beim Stoppen des Streams). */
     fun resetVideoFilter() {
         filterController.resetFilterState()
+        privacyComposer.requestRebuild(camera?.glInterface as? GlStreamInterface)
     }
 
     /**
@@ -209,14 +225,15 @@ class StreamingEngine @Inject constructor(
      */
     fun toggleLowLightBoost(): Boolean {
         val gl = camera?.glInterface as? GlStreamInterface ?: return false
-        return lowLightBoostController.toggle { render ->
-            if (render == null) gl.clearFilters() else gl.setFilter(render)
+        return lowLightBoostController.toggle { _ ->
+            privacyComposer.requestRebuild(gl)
         }
     }
 
     /** Setzt den Low-Light-Boost-Zustand zurück (z.B. beim Stoppen des Streams). */
     fun resetLowLightBoost() {
         lowLightBoostController.resetState()
+        privacyComposer.requestRebuild(camera?.glInterface as? GlStreamInterface)
     }
 
     /**
@@ -227,8 +244,8 @@ class StreamingEngine @Inject constructor(
      */
     fun setLutPreset(preset: LutPreset): Boolean {
         val gl = camera?.glInterface as? GlStreamInterface ?: return false
-        return lutController.setPreset(preset, LUT_SIZE) { render ->
-            if (render == null) gl.clearFilters() else gl.setFilter(render)
+        return lutController.setPreset(preset, LUT_SIZE) { _ ->
+            privacyComposer.requestRebuild(gl)
         }
     }
 
@@ -239,14 +256,40 @@ class StreamingEngine @Inject constructor(
      */
     fun setColorSpace(colorSpace: ColorSpace): Boolean {
         val gl = camera?.glInterface as? GlStreamInterface ?: return false
-        return lutController.setColorSpace(colorSpace, LUT_SIZE) { render ->
-            if (render == null) gl.clearFilters() else gl.setFilter(render)
+        return lutController.setColorSpace(colorSpace, LUT_SIZE) { _ ->
+            privacyComposer.requestRebuild(gl)
         }
     }
 
     /** Setzt den LUT-Zustand zurück (z.B. beim Stoppen des Streams). */
     fun resetLut() {
         lutController.resetState()
+        privacyComposer.requestRebuild(camera?.glInterface as? GlStreamInterface)
+    }
+
+    // --- Datenschutz-Anonymisierung (P0, Skizze §5) ---
+
+    /** Ob die Anonymisierung aktiv ist (Position 0 in der Filterkette). */
+    val privacyEnabled: StateFlow<Boolean> = privacyComposer.privacyEnabled
+
+    /**
+     * Schaltet die Anonymisierung um (P0: programmatisch — Zonen-UI folgt in
+     * P1, BlazeFace-Producer in P2).
+     *
+     * @return true, wenn sich der Zustand geändert hat.
+     */
+    fun setPrivacyEnabled(enabled: Boolean): Boolean {
+        val gl = camera?.glInterface as? GlStreamInterface ?: return false
+        return privacyComposer.setPrivacyEnabled(enabled, gl)
+    }
+
+    /**
+     * Ersetzt die Ellipsen-Zonen (P0: programmatisch; framesynchron über
+     * Uniform-Update — kein Ketten-Rebuild, solange der Privacy-Render in
+     * der Kette ist).
+     */
+    fun setPrivacyEllipses(ellipses: List<PrivacyEllipse>) {
+        privacyComposer.setEllipses(ellipses)
     }
 
     companion object {

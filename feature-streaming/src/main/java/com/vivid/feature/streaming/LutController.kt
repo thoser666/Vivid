@@ -46,12 +46,21 @@ class LutController {
     private var activeRender: BaseFilterRender? = null
 
     /**
+     * Aktive benutzerdefinierte LUT (aus [loadCustomLut]) — der Rebuild des
+     * [PrivacyComposer] rekonstruiert den LUT-Slot aus dem Zustand; das
+     * Custom-Bitmap ist kein Preset (activePreset = NONE) und muss deshalb
+     * separat gehalten werden. Wird bei Preset-/Reset-Wechsel verworfen.
+     */
+    private var customLutBitmap: Bitmap? = null
+
+    /**
      * Setzt den LUT-Preset.
      *
      * @return true, wenn sich der Zustand geändert hat.
      */
     fun setPreset(preset: LutPreset, lutSize: Int, applyLut: LutApplier): Boolean {
-        if (_activePreset.value == preset) return false
+        if (_activePreset.value == preset && customLutBitmap == null) return false
+        customLutBitmap = null
         _activePreset.value = preset
         val colorSpace = _activeColorSpace.value
         val render = createLutRender(preset, lutSize, colorSpace)
@@ -95,7 +104,26 @@ class LutController {
      */
     fun resetState() {
         _activePreset.value = LutPreset.NONE
+        customLutBitmap = null
         activeRender = null
+    }
+
+    /**
+     * Rekonstruiert den LUT-Slot aus dem aktuellen Zustand (für den
+     * [PrivacyComposer]-Rebuild): Custom-LUT bevorzugt (falls geladen),
+     * sonst der aktive Preset — jeweils als **frische** Render-Instanz
+     * (Hausmuster: Filter sind nicht reuse-fähig). `null`, wenn kein LUT
+     * aktiv ist oder die Erzeugung fehlschlägt (z. B. JVM-Unit-Test).
+     */
+    internal fun createActiveLutRender(lutSize: Int): BaseFilterRender? = try {
+        val bitmap = customLutBitmap
+        if (bitmap != null) {
+            HaldClutFilterRender(bitmap, lutSize, _activeColorSpace.value.gamma)
+        } else {
+            createLutRender(_activePreset.value, lutSize, _activeColorSpace.value)
+        }
+    } catch (_: Exception) {
+        null
     }
 
     /**
@@ -108,6 +136,7 @@ class LutController {
             val colorSpace = _activeColorSpace.value
             val render = HaldClutFilterRender(bitmap, lutSize, colorSpace.gamma)
             activeRender = render
+            customLutBitmap = bitmap
             _activePreset.value = LutPreset.NONE // Custom ist kein Preset
             applyLut(render)
             true
