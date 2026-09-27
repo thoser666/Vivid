@@ -497,12 +497,12 @@ class StreamingEngine @Inject constructor(
                 videoSourceRegistry.switchTo(VideoSourceKind.REPLAY)
             }
         }
-    }.also { switched ->
         if (switched && kind != VideoSourceKind.CAMERA) stopIdlePreview()
         // P1: Quellwechsel — die Zonen sind quellrelativ; der Soll-Zustand
         // wird auf die neue Quelle angewendet (relative Bildmitte bleibt
         // erhalten; Persistenz je Quelle prüft P3, Skizze §9).
         applyPrivacyZones(desiredPrivacyZones.value)
+        return switched
     }
 
     /**
