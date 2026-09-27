@@ -32,6 +32,7 @@ import com.vivid.feature.streaming.source.ScreenCaptureVideoSource
 import com.vivid.feature.streaming.source.VideoPlayerVideoSource
 import com.vivid.feature.streaming.source.VideoSourceKind
 import com.vivid.feature.streaming.source.VideoSourceRegistry
+import timber.log.Timber
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -807,7 +808,7 @@ class StreamingEngine @Inject constructor(
             idlePreviewSurface = request.surface
         } catch (error: Exception) {
             stopIdlePreview()
-            android.util.Log.e("StreamingEngine", "Could not open idle camera preview", error)
+            Timber.e(error, "Could not open idle camera preview")
         }
     }
 
