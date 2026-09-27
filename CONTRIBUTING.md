@@ -34,7 +34,7 @@ Thanks for your interest in contributing! 🎉
    - **Tests are mandatory** for new functionality (unit tests in `src/test`, same module — see "Test policy" below).
    - **No hardcoded UI strings** — all user-facing text goes into `values/strings.xml` **plus complete `values-en/` and `values-fr/` translations**. The i18n guard (`scripts/check_i18n.sh`) blocks `Text("…")`-style literals in UI modules. Bot replies are deliberately kept in the streamer's language and are exempt (see `docs/i18n-plan.md` §4).
 3. **Run the pre-push gate locally** (see below) — it runs the same checks as CI.
-4. **Open the pull request against `develop`** — describe *what* and *why*; link related issues.
+4. **Open the pull request against `develop`** — the [pull request template](.github/pull_request_template.md) is pre-filled; describe *what* and *why*; link related issues. Bug reports and feature ideas use the templates in [.github/ISSUE_TEMPLATE/](.github/ISSUE_TEMPLATE/).
 5. **Required checks must pass**; a maintainer reviews and merges (squash keeps history linear).
 
 ### Required checks (branch protection on `develop`)
@@ -84,7 +84,8 @@ External contributors (people outside the core maintainer team) are credited in
 - `Status` = `offen` (announced / not merged yet) or `umgesetzt` (merged).
 
 A maintainer adds the row when accepting the contribution (author may add it in
-their own PR). `offen` flips to `umgesetzt` once the work is merged. Structure is
+their own PR — the pull request template has a checkbox for it). `offen` flips to
+`umgesetzt` once the work is merged. Structure is
 enforced by `scripts/check_contributors.sh` (pre-push gate + CI) — malformed
 edits break the build.
 
@@ -128,7 +129,7 @@ Please **do not** open public issues for security vulnerabilities. Follow the pr
    - **Testpflicht:** neue Funktionalität kommt mit Unit-Tests (gleiches Modul, `src/test`).
    - **Keine hartkodierten UI-Strings** — alle Texte in `values/strings.xml` **plus vollständige Übersetzungen in `values-en/` und `values-fr/`**. Der I18n-Guard (`scripts/check_i18n.sh`) blockt `Text("…")`-Literale in UI-Modulen. Bot-Antworten bleiben bewusst in der Streamer-Sprache und sind ausgenommen (`docs/i18n-plan.md` §4).
 3. **Pre-Push-Gate lokal ausführen** (siehe unten) — dieselben Checks wie die CI.
-4. **Pull Request gegen `develop` öffnen** — Was und Warum beschreiben; verwandte Issues verlinken.
+4. **Pull Request gegen `develop` öffnen** — die [Pull-Request-Vorlage](.github/pull_request_template.md) ist vorbefüllt; Was und Warum beschreiben; verwandte Issues verlinken. Fehler- und Feature-Wünsche nutzen die Vorlagen in [.github/ISSUE_TEMPLATE/](.github/ISSUE_TEMPLATE/).
 5. **Required Checks müssen grün sein**; ein Maintainer reviewed und merged (Squash hält die History linear).
 
 ### Required Checks (Branch Protection auf `develop`)
