@@ -1,0 +1,17 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Fragen / Questions
+    about: >-
+      Fragen zu Bedienung, Fehlersuche oder Ideen zum Besprechen? Stelle sie in
+      den Discussions (Deutsch oder Englisch) — Issues sind für Bugs und
+      Feature-Wünsche reserviert. / Ask questions, troubleshooting help or
+      discuss ideas in Discussions (German or English) — issues are reserved
+      for bugs and feature requests.
+    url: https://github.com/thoser666/Vivid/discussions
+  - name: Sicherheit / Security
+    about: >-
+      Sicherheitslücken bitte NICHT öffentlich melden — nutze GitHub Private
+      Vulnerability Reporting (SECURITY.md). / Please do NOT report security
+      vulnerabilities publicly — use GitHub Private Vulnerability Reporting
+      (SECURITY.md).
+    url: https://github.com/thoser666/Vivid/security/advisories/new
