@@ -137,6 +137,12 @@ fun StreamingScreen(
     val autoSwitchEnabled by viewModel.autoSwitchEnabled.collectAsStateWithLifecycle()
     val autoSwitchIntervalSeconds by viewModel.autoSwitchIntervalSeconds.collectAsStateWithLifecycle()
 
+    // P1: Datenschutz-Anonymisierung — Master-Toggle + Zonen-Editor-Zustand
+    // (Zonen persistiert im ZoneRepository, framesynchron an die Engine).
+    val privacyEnabled by viewModel.privacyEnabled.collectAsStateWithLifecycle(initialValue = false)
+    val privacyZones by viewModel.privacyZones.collectAsStateWithLifecycle(initialValue = emptyList())
+    var privacyEditing by remember { mutableStateOf(false) }
+
     // Runtime-Permissions (Kamera/Mikro + Notifications) werden beim Go-Live
     // angefordert — der Foreground-Service braucht sie auf Android 13+.
     val context = LocalContext.current
@@ -283,6 +289,14 @@ fun StreamingScreen(
                 onDeleteScene = viewModel::deleteScene,
                 onAutoSwitchEnabledChange = viewModel::setAutoSwitchEnabled,
                 onAutoSwitchIntervalChange = viewModel::setAutoSwitchIntervalSeconds,
+                privacyEnabled = privacyEnabled,
+                onPrivacyEnabledChange = { enabled ->
+                    // Deaktivieren schließt zugleich den Zonen-Editor (die
+                    // Zonen sind ohne Toggle nicht mehr im Bild).
+                    if (!enabled) privacyEditing = false
+                    viewModel.setPrivacyEnabled(enabled)
+                },
+                onOpenZoneEditor = { privacyEditing = true },
             )
         },
     ) { paddingValues ->
@@ -570,9 +584,7 @@ fun StreamingScreen(
                             stringResource(activeColorSpace.labelRes),
                         ),
                     )
-                }
-
-                // Replay-Aufnahme: lokale MP4 parallel zum Stream (nur bei aktiver
+                }                // Replay-Aufnahme: lokale MP4 parallel zum Stream (nur bei aktiver
                 // Kamera-Quelle verfügbar, da die Aufnahme am Camera-Muxer hängt).
                 FilledTonalButton(
                     onClick = {
@@ -758,6 +770,18 @@ fun StreamingScreen(
             // Chat-Overlay + Widgets: als Slot ausgelagert (siehe Parameter-Doku).
             overlayContent()
 
+            // P1: Zonen-Editor (Anonymisierung, Skizze §5) über der Vorschau —
+            // nur im Idle-Modus geöffnet (Szenen-Sperre-Muster: während des
+            // Streams wird nicht editiert), Zonen via ViewModel persistiert und
+            // framesynchron an die Engine.
+            if (privacyEditing) {
+                ZoneEditorOverlay(
+                    zones = privacyZones,
+                    onZonesChange = viewModel::savePrivacyZones,
+                    onClose = { privacyEditing = false },
+                )
+            }
+
         }
     }
 }
@@ -929,6 +953,9 @@ private fun SceneSwitcherBar(
     onDeleteScene: (String) -> Unit,
     onAutoSwitchEnabledChange: (Boolean) -> Unit,
     onAutoSwitchIntervalChange: (Long) -> Unit,
+    privacyEnabled: Boolean,
+    onPrivacyEnabledChange: (Boolean) -> Unit,
+    onOpenZoneEditor: () -> Unit,
 ) {
     var adding by remember { mutableStateOf(false) }
     var sceneName by remember { mutableStateOf("") }
@@ -1058,6 +1085,40 @@ private fun SceneSwitcherBar(
                     checked = autoSwitchEnabled,
                     onCheckedChange = onAutoSwitchEnabledChange,
                     modifier = Modifier.padding(start = 8.dp),
+                )
+            }
+            // P1: Datenschutz-Anonymisierung (Skizze §5) — Master-Toggle wirkt
+            // auch während des Streams (Composer-Rebuild an Position 0), der
+            // Zonen-Editor folgt der Szenen-Sperre (nur im Idle-Modus).
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                val privacyOn = stringResource(R.string.streaming_a11y_state_on)
+                val privacyOff = stringResource(R.string.streaming_a11y_state_off)
+                Text(
+                    text = stringResource(R.string.privacy_master_toggle_label),
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.weight(1f),
+                )
+                if (privacyEnabled) {
+                    FilledTonalButton(
+                        onClick = onOpenZoneEditor,
+                        enabled = !isStreaming,
+                    ) {
+                        Text(stringResource(R.string.streaming_privacy_zones))
+                    }
+                }
+                Switch(
+                    checked = privacyEnabled,
+                    onCheckedChange = onPrivacyEnabledChange,
+                    modifier = Modifier
+                        .padding(start = 8.dp)
+                        .testTag("privacy_toggle")
+                        .semantics {
+                            role = Role.Switch
+                            stateDescription = if (privacyEnabled) privacyOn else privacyOff
+                        },
                 )
             }
         }

@@ -103,6 +103,8 @@ class StreamingScreenRobolectricTest {
         every { viewModel.activeSceneId } returns MutableStateFlow<String?>(null)
         every { viewModel.autoSwitchEnabled } returns MutableStateFlow(false)
         every { viewModel.autoSwitchIntervalSeconds } returns MutableStateFlow(30L)
+        every { viewModel.privacyEnabled } returns MutableStateFlow(false)
+        every { viewModel.privacyZones } returns MutableStateFlow(emptyList())
 
         twitchViewModel = mockk(relaxed = true)
         every { twitchViewModel.uiState } returns MutableStateFlow(TwitchChannelUiState())
@@ -302,5 +304,52 @@ class StreamingScreenRobolectricTest {
 
         composeRule.onNodeWithTag("camera_controls_panel")
             .assertWidthIsEqualTo(220.dp)
+    }
+
+    // --- P1: Datenschutz-Anonymisierung (Master-Toggle + Zonen-Editor) --------
+
+    @Test
+    fun `privacy master toggle is visible and forwards the new state`() {
+        setContent()
+
+        composeRule.onNodeWithText("Privacy").assertIsDisplayed()
+        composeRule.onNodeWithTag("privacy_toggle").performClick()
+        verify(exactly = 1) { viewModel.setPrivacyEnabled(true) }
+    }
+
+    @Test
+    fun `zones button appears when privacy is enabled and opens the editor`() {
+        every { viewModel.privacyEnabled } returns MutableStateFlow(true)
+        every { viewModel.privacyZones } returns MutableStateFlow(
+            listOf(com.vivid.core.data.PrivacyZone(0.5f, 0.5f, 0.15f, 0.15f)),
+        )
+        setContent()
+
+        composeRule.onNodeWithText("Zones").performClick()
+
+        composeRule.onNodeWithTag("zone_editor").assertIsDisplayed()
+        composeRule.onNodeWithText("Zone editor (privacy)").assertIsDisplayed()
+    }
+
+    @Test
+    fun `no zones button while privacy is disabled`() {
+        setContent()
+
+        composeRule.onNodeWithText("Zones").assertDoesNotExist()
+    }
+
+    @Test
+    fun `turning privacy off closes the open zone editor`() {
+        every { viewModel.privacyEnabled } returns MutableStateFlow(true)
+        every { viewModel.privacyZones } returns MutableStateFlow(emptyList())
+        setContent()
+
+        composeRule.onNodeWithText("Zones").performClick()
+        composeRule.onNodeWithTag("zone_editor").assertIsDisplayed()
+
+        composeRule.onNodeWithTag("privacy_toggle").performClick()
+
+        composeRule.onNodeWithTag("zone_editor").assertDoesNotExist()
+        verify(exactly = 1) { viewModel.setPrivacyEnabled(false) }
     }
 }

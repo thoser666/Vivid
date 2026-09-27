@@ -7,6 +7,7 @@ import com.pedro.library.multiple.MultiDisplay
 import com.pedro.library.multiple.MultiFromFile
 import com.pedro.library.multiple.MultiType
 import com.pedro.library.view.GlStreamInterface
+import com.vivid.core.data.PrivacyZone
 import com.vivid.feature.streaming.source.DisplayFactory
 import com.vivid.feature.streaming.source.PlayerFactory
 import com.vivid.feature.streaming.source.VideoSourceKind
@@ -287,5 +288,51 @@ class StreamingEngineFiltersTest {
         assertNull(streamingEngine.stopReplay())
         verify(exactly = 1) { camera.stopRecord() }
         assertEquals(ReplayState.Idle, streamingEngine.replayState.first())
+    }
+
+    // ------------------------------------------------------------------
+    // P1: Manuelle Zonen (Skizze §5) — Mapping + Idle-Guard.
+    // ------------------------------------------------------------------
+
+    @Test
+    fun `toPrivacyEllipse flips y and keeps x and radii`() {
+        val ellipse = PrivacyZone(
+            centerX = 0.25f,
+            centerY = 0.75f,
+            radiusX = 0.1f,
+            radiusY = 0.2f,
+        ).toPrivacyEllipse()
+
+        assertEquals(0.25f, ellipse.centerX)
+        assertEquals(0.25f, ellipse.centerY)
+        assertEquals(0.1f, ellipse.radiusX)
+        assertEquals(0.2f, ellipse.radiusY)
+    }
+
+    @Test
+    fun `setPrivacyZones without a camera is a no-op on the gl path`() {
+        streamingEngine.setPrivacyZones(
+            listOf(PrivacyZone(0.25f, 0.75f, 0.1f, 0.2f)),
+        )
+
+        // Keine GL-Pipeline -> kein Ketten-Rebuild (der Soll-Zustand wird beim
+        // Stream-Start nachgeholt).
+        verify(exactly = 0) { glStreamInterface.clearFilters() }
+    }
+
+    @Test
+    fun `setPrivacyZones with a camera applies the mapping and rebuilds the chain`() {
+        streamingEngine.initializeCamera()
+
+        streamingEngine.setPrivacyZones(
+            listOf(
+                PrivacyZone(0.25f, 0.75f, 0.1f, 0.2f),
+                PrivacyZone(0.5f, 0.5f, 0.2f, 0.2f),
+            ),
+        )
+
+        // Mapping + Ketten-Rebuild laufen; die Ellipsen-Uniforms selbst sind
+        // Render-Zustand (App-Verifikation auf dem Gerät, wie bei P0).
+        verify(atLeast = 1) { glStreamInterface.clearFilters() }
     }
 }
