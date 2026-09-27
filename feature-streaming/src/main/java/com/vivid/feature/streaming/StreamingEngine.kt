@@ -1,7 +1,9 @@
 package com.vivid.feature.streaming
 
+import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.view.MotionEvent
 import android.view.Surface
@@ -9,6 +11,7 @@ import android.view.View
 import java.io.File
 import com.pedro.common.ConnectChecker
 import com.pedro.library.base.Camera2Base
+import com.pedro.encoder.input.video.Camera2ApiManager
 import com.pedro.library.multiple.MultiCamera2
 import com.pedro.library.multiple.MultiType
 import com.pedro.common.VideoCodec
@@ -103,6 +106,9 @@ class StreamingEngine @Inject constructor(
     private val videoSourceRegistry: VideoSourceRegistry, // <-- S1: Source-Abstraktion
 ) {
     private var camera: MultiCamera2? = null
+    private var idlePreviewCamera: Camera2ApiManager? = null
+    private var idlePreviewSurface: Surface? = null
+    internal var idlePreviewFactory: (Context) -> Camera2ApiManager = ::Camera2ApiManager
 
     /** Gemerkte Encoder-Konfiguration (null = Legacy-Pfad, RootEncoder-Default). */
     private val _encoderConfig = MutableStateFlow<ResolvedEncoderConfig?>(null)
@@ -459,35 +465,38 @@ class StreamingEngine @Inject constructor(
      * registriert; der Video-Player (S3) wird beim ersten Wechsel lazy
      * initialisiert (MultiFromFile, Datei wird über [setVideoPlayerUri] gesetzt).
      */
-    fun switchSource(kind: VideoSourceKind): Boolean = when (kind) {
-        VideoSourceKind.CAMERA -> videoSourceRegistry.switchTo(VideoSourceKind.CAMERA)
+    fun switchSource(kind: VideoSourceKind): Boolean {
+        val switched = when (kind) {
+            VideoSourceKind.CAMERA -> videoSourceRegistry.switchTo(VideoSourceKind.CAMERA)
 
-        VideoSourceKind.SCREEN_CAPTURE -> {
-            val source = ensureScreenCaptureSource() ?: return false
-            // Die Quelle ist bereits erzeugt (Engine besitzt Display + Checker) —
-            // die Fabrik liefert genau diese Instanz für SCREEN_CAPTURE.
-            videoSourceRegistry.registerFactory(VideoSourceKind.SCREEN_CAPTURE) { requested ->
-                if (requested == VideoSourceKind.SCREEN_CAPTURE) source else null
+            VideoSourceKind.SCREEN_CAPTURE -> {
+                val source = ensureScreenCaptureSource() ?: return false
+                // Die Quelle ist bereits erzeugt (Engine besitzt Display + Checker) —
+                // die Fabrik liefert genau diese Instanz für SCREEN_CAPTURE.
+                videoSourceRegistry.registerFactory(VideoSourceKind.SCREEN_CAPTURE) { requested ->
+                    if (requested == VideoSourceKind.SCREEN_CAPTURE) source else null
+                }
+                videoSourceRegistry.switchTo(VideoSourceKind.SCREEN_CAPTURE)
             }
-            videoSourceRegistry.switchTo(VideoSourceKind.SCREEN_CAPTURE)
-        }
 
-        VideoSourceKind.VIDEO_PLAYER -> {
-            val source = ensureVideoPlayerSource() ?: return false
-            videoSourceRegistry.registerFactory(VideoSourceKind.VIDEO_PLAYER) { requested ->
-                if (requested == VideoSourceKind.VIDEO_PLAYER) source else null
+            VideoSourceKind.VIDEO_PLAYER -> {
+                val source = ensureVideoPlayerSource() ?: return false
+                videoSourceRegistry.registerFactory(VideoSourceKind.VIDEO_PLAYER) { requested ->
+                    if (requested == VideoSourceKind.VIDEO_PLAYER) source else null
+                }
+                videoSourceRegistry.switchTo(VideoSourceKind.VIDEO_PLAYER)
             }
-            videoSourceRegistry.switchTo(VideoSourceKind.VIDEO_PLAYER)
-        }
 
-        VideoSourceKind.REPLAY -> {
-            val source = ensureReplaySource() ?: return false
-            videoSourceRegistry.registerFactory(VideoSourceKind.REPLAY) { requested ->
-                if (requested == VideoSourceKind.REPLAY) source else null
+            VideoSourceKind.REPLAY -> {
+                val source = ensureReplaySource() ?: return false
+                videoSourceRegistry.registerFactory(VideoSourceKind.REPLAY) { requested ->
+                    if (requested == VideoSourceKind.REPLAY) source else null
+                }
+                videoSourceRegistry.switchTo(VideoSourceKind.REPLAY)
             }
-            videoSourceRegistry.switchTo(VideoSourceKind.REPLAY)
         }
-    }.also {
+    }.also { switched ->
+        if (switched && kind != VideoSourceKind.CAMERA) stopIdlePreview()
         // P1: Quellwechsel — die Zonen sind quellrelativ; der Soll-Zustand
         // wird auf die neue Quelle angewendet (relative Bildmitte bleibt
         // erhalten; Persistenz je Quelle prüft P3, Skizze §9).
@@ -772,12 +781,47 @@ class StreamingEngine @Inject constructor(
      */
     fun attachPreview(surface: Surface, width: Int, height: Int) {
         previewRequest = PreviewRequest(surface, width, height)
-        attachPreviewIfRunning()
+        if (activeSourceKind.value == VideoSourceKind.CAMERA && camera?.isStreaming != true) {
+            startIdlePreviewIfReady()
+        } else {
+            attachPreviewIfRunning()
+        }
+    }
+
+    /** Opens a direct Camera2 preview while RootEncoder's background GL pipeline is idle. */
+    fun startIdlePreviewIfReady() {
+        val request = previewRequest ?: return
+        if (activeSourceKind.value != VideoSourceKind.CAMERA || camera?.isStreaming == true ||
+            request.width <= 0 || request.height <= 0 ||
+            context.checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED
+        ) return
+        if (idlePreviewSurface === request.surface) return
+
+        stopIdlePreview()
+        try {
+            val preview = idlePreviewFactory(context)
+            idlePreviewCamera = preview
+            preview.prepareCamera(request.surface, 30)
+            val cameraId = camera?.currentCameraId
+            if (cameraId.isNullOrBlank()) preview.openCameraBack() else preview.openCameraId(cameraId)
+            idlePreviewSurface = request.surface
+        } catch (error: Exception) {
+            stopIdlePreview()
+            android.util.Log.e("StreamingEngine", "Could not open idle camera preview", error)
+        }
+    }
+
+    private fun stopIdlePreview() {
+        idlePreviewSurface = null
+        idlePreviewCamera?.let { runCatching { it.closeCamera() } }
+        idlePreviewCamera = null
     }
 
     /** Löst die Preview-Surface (Activity zerstört/verdeckt). Der Stream läuft weiter. */
-    fun detachPreview() {
+    fun detachPreview(surface: Surface? = null) {
+        if (surface != null && previewRequest?.surface !== surface) return
         previewRequest = null
+        stopIdlePreview()
         (camera?.glInterface as? GlStreamInterface)?.deAttachPreview()
     }
 
@@ -866,6 +910,7 @@ class StreamingEngine @Inject constructor(
         // Kamera-Pfad (unverändert).
         val cam = camera ?: return
         if (cam.isStreaming) return
+        stopIdlePreview()
 
         _targetStates.value = activeUrls.map { StreamTargetState(it) }
         _streamingState.value = StreamingState.Preparing
@@ -895,16 +940,17 @@ class StreamingEngine @Inject constructor(
             applyEncoderPreset(cam)
         }
         if (audioReady && videoReady) {
-            // GL-Pipeline läuft jetzt — gemerkte Preview-Surface anhängen.
-            attachPreviewIfRunning()
             // P1: Anonymisierung — persistierter Soll-Zustand ab dem ersten
             // Frame (Composer-Zustand überlebt stopStream bewusst).
             applyPrivacyZones(desiredPrivacyZones.value)
             activeUrls.forEachIndexed { index, url ->
                 cam.startStream(MultiType.RTMP, index, url)
             }
+            // RootEncoder opens Camera2 during startStream; attach after that transition.
+            attachPreviewIfRunning()
         } else {
             failStream("Failed to prepare audio/video")
+            startIdlePreviewIfReady()
         }
     }
 
@@ -1021,6 +1067,7 @@ class StreamingEngine @Inject constructor(
             _targetStates.value.forEachIndexed { index, _ ->
                 cam.stopStream(MultiType.RTMP, index)
             }
+            startIdlePreviewIfReady()
         }
         _targetStates.value = _targetStates.value.map {
             it.copy(status = StreamTargetStatus.IDLE, failureReason = null, bitrateKbps = null)

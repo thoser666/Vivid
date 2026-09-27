@@ -158,6 +158,21 @@ fun StreamingScreen(
         }
     }
 
+    val cameraPreviewPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) streamingEngine.startIdlePreviewIfReady()
+    }
+    LaunchedEffect(Unit) {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            streamingEngine.startIdlePreviewIfReady()
+        } else {
+            cameraPreviewPermissionLauncher.launch(Manifest.permission.CAMERA)
+        }
+    }
+
     fun requestPermissionsAndStart() {
         val needed = buildList {
             add(Manifest.permission.CAMERA)
@@ -220,6 +235,7 @@ fun StreamingScreen(
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 viewModel.runConfigCheck()
+                streamingEngine.startIdlePreviewIfReady()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -338,7 +354,7 @@ fun StreamingScreen(
                                     }
 
                                     override fun surfaceDestroyed(holder: SurfaceHolder) {
-                                        streamingEngine.detachPreview()
+                                        streamingEngine.detachPreview(holder.surface)
                                     }
                                 },
                             )
