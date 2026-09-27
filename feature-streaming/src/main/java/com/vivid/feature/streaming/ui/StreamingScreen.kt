@@ -3,6 +3,7 @@ package com.vivid.feature.streaming.ui
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.net.Uri
 import android.os.Build
 import android.view.SurfaceHolder
@@ -19,6 +20,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Podcasts // (Ein gutes Icon für "Broadcasting")
 import androidx.compose.material3.*
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
@@ -49,6 +51,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
@@ -146,6 +149,7 @@ fun StreamingScreen(
     // Runtime-Permissions (Kamera/Mikro + Notifications) werden beim Go-Live
     // angefordert — der Foreground-Service braucht sie auf Android 13+.
     val context = LocalContext.current
+    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     var permissionDenied by remember { mutableStateOf(false) }
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),
@@ -319,13 +323,13 @@ fun StreamingScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues),
+                .padding(paddingValues)
+                .background(MaterialTheme.colorScheme.surfaceVariant),
         ) {
-            // Kamera-Vorschau als SurfaceView: Die Preview-Surface wird an die
-            // interne GL-Pipeline der Engine angehängt (attachPreview). Der
-            // Encoder selbst hängt NICHT an dieser Surface — der Stream läuft
-            // deshalb weiter, wenn die Activity (und damit die Vorschau) zerstört
-            // wird (Recents-Wischen, Rotation).
+            // Kamera-Vorschau als SurfaceView: Im Leerlauf zeigt Camera2 direkt
+            // auf die Surface, während des Streams die interne GL-Pipeline.
+            // Der Encoder hängt nicht an der Activity-Surface und läuft bei
+            // deren Zerstörung (Recents-Wischen, Rotation) weiter.
             // S2: Bei aktiver Screen-Capture-Quelle wird keine Kamera-Vorschau
             // angehängt — stattdessen erscheint ein Platzhalter mit Hinweis.
             if (activeSourceKind == VideoSourceKind.CAMERA) {
@@ -369,7 +373,17 @@ fun StreamingScreen(
                             view.setOnTouchListener(gestures.onTouch)
                         }
                     },
-                    modifier = Modifier.fillMaxSize(),
+                    update = { view ->
+                        // Camera2 selects its output using the Surface buffer size.
+                        // Match that buffer to the visible view in both orientations.
+                        view.holder.setFixedSize(
+                            if (isLandscape) 1920 else 1080,
+                            if (isLandscape) 1080 else 1920,
+                        )
+                    },
+                    modifier = Modifier.align(Alignment.Center).aspectRatio(
+                        if (isLandscape) 16f / 9f else 9f / 16f,
+                    ),
                 )
             } else {
                 // S2/S3/Replay: Screen-Capture, Video-Player oder Replay aktiv — kein

@@ -662,6 +662,22 @@ class StreamingEngineTest {
 
         verify(exactly = 1) { glStreamInterface.attachPreview(surface) }
         verify(exactly = 1) { glStreamInterface.setPreviewResolution(1280, 720) }
+        verify(exactly = 1) { glStreamInterface.setPreviewIsPortrait(false) }
+    }
+
+    @Test
+    fun `preview rotation updates GL orientation without stopping the stream`() = runTest {
+        streamingEngine.initializeCamera()
+        every { camera.isStreaming } returns true
+        every { glStreamInterface.isRunning } returns true
+        val surface: Surface = mockk(relaxed = true)
+
+        streamingEngine.attachPreview(surface, 1080, 1920)
+        streamingEngine.attachPreview(surface, 1920, 1080)
+
+        verify(exactly = 1) { glStreamInterface.setPreviewIsPortrait(true) }
+        verify(exactly = 1) { glStreamInterface.setPreviewIsPortrait(false) }
+        verify(exactly = 0) { camera.stopStream(any(), any()) }
     }
 
     @Test
@@ -732,6 +748,28 @@ class StreamingEngineTest {
 
         verify(exactly = 1) { firstCamera.closeCamera() }
         verify(exactly = 0) { secondCamera.closeCamera() }
+    }
+
+    @Test
+    fun `idle preview reopens when the same surface changes orientation`() = runTest {
+        streamingEngine.initializeCamera()
+        every { context.checkSelfPermission(android.Manifest.permission.CAMERA) } returns PackageManager.PERMISSION_GRANTED
+        every { camera.currentCameraId } returns ""
+        val portraitCamera = mockk<Camera2ApiManager>(relaxed = true)
+        val landscapeCamera = mockk<Camera2ApiManager>(relaxed = true)
+        var nextCamera = portraitCamera
+        streamingEngine.idlePreviewFactory = { nextCamera }
+        val surface: Surface = mockk(relaxed = true)
+
+        streamingEngine.attachPreview(surface, 1080, 1920)
+        streamingEngine.attachPreview(surface, 1080, 1920)
+        nextCamera = landscapeCamera
+        streamingEngine.attachPreview(surface, 1920, 1080)
+
+        verify(exactly = 1) { portraitCamera.prepareCamera(surface, 30) }
+        verify(exactly = 1) { portraitCamera.closeCamera() }
+        verify(exactly = 1) { landscapeCamera.prepareCamera(surface, 30) }
+        verify(exactly = 1) { landscapeCamera.openCameraBack() }
     }
 
     @Test

@@ -109,6 +109,7 @@ class StreamingEngine @Inject constructor(
     private var camera: MultiCamera2? = null
     private var idlePreviewCamera: Camera2ApiManager? = null
     private var idlePreviewSurface: Surface? = null
+    private var idlePreviewSize: Pair<Int, Int>? = null
     internal var idlePreviewFactory: (Context) -> Camera2ApiManager = ::Camera2ApiManager
 
     /** Gemerkte Encoder-Konfiguration (null = Legacy-Pfad, RootEncoder-Default). */
@@ -370,11 +371,11 @@ class StreamingEngine @Inject constructor(
         const val LUT_SIZE = 16
     }
 
-    /** Preview-Surface der Activity, die an die interne GL-Pipeline angehängt wird. */
+    /** Preview-Surface der Activity, verwendet von idle Camera2 oder der Streaming-GL-Pipeline. */
     private data class PreviewRequest(val surface: Surface, val width: Int, val height: Int)
 
-    // Die zuletzt gemeldete Preview-Surface. Wird beim Start (nach prepareVideo)
-    // angehängt bzw. sofort, wenn die GL-Pipeline bereits läuft (Rotation/Recreate).
+    // Die zuletzt gemeldete Preview-Surface. Im Leerlauf direkt an Camera2,
+    // beim Stream-Start oder nach Rotation an die laufende GL-Pipeline angebunden.
     private var previewRequest: PreviewRequest? = null
 
 
@@ -773,12 +774,11 @@ class StreamingEngine @Inject constructor(
     }
 
     /**
-     * Hängt die Preview-Surface der Activity an die interne GL-Pipeline an.
+     * Verbindet die Preview-Surface der Activity mit dem aktiven Kamerapfad.
      *
      * Die Surface darf jederzeit gewechselt werden (Rotation, Activity-Recreate)
-     * — der Stream selbst hängt nicht an ihr. Läuft die GL-Pipeline noch nicht
-     * (Stream noch nicht gestartet), wird die Surface gemerkt und beim
-     * Stream-Start angehängt.
+     * — der Stream selbst hängt nicht an ihr. Im Leerlauf öffnet Camera2 die
+     * Surface direkt; beim Stream-Start wird sie an die GL-Pipeline gehängt.
      */
     fun attachPreview(surface: Surface, width: Int, height: Int) {
         previewRequest = PreviewRequest(surface, width, height)
@@ -796,7 +796,8 @@ class StreamingEngine @Inject constructor(
             request.width <= 0 || request.height <= 0 ||
             context.checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED
         ) return
-        if (idlePreviewSurface === request.surface) return
+        val size = request.width to request.height
+        if (idlePreviewSurface === request.surface && idlePreviewSize == size) return
 
         stopIdlePreview()
         try {
@@ -806,6 +807,7 @@ class StreamingEngine @Inject constructor(
             val cameraId = camera?.currentCameraId
             if (cameraId.isNullOrBlank()) preview.openCameraBack() else preview.openCameraId(cameraId)
             idlePreviewSurface = request.surface
+            idlePreviewSize = size
         } catch (error: Exception) {
             stopIdlePreview()
             Timber.e(error, "Could not open idle camera preview")
@@ -814,6 +816,7 @@ class StreamingEngine @Inject constructor(
 
     private fun stopIdlePreview() {
         idlePreviewSurface = null
+        idlePreviewSize = null
         idlePreviewCamera?.let { runCatching { it.closeCamera() } }
         idlePreviewCamera = null
     }
@@ -1037,6 +1040,7 @@ class StreamingEngine @Inject constructor(
         if (gl.isRunning) {
             gl.attachPreview(request.surface)
             gl.setPreviewResolution(request.width, request.height)
+            gl.setPreviewIsPortrait(request.height > request.width)
         }
     }
 
