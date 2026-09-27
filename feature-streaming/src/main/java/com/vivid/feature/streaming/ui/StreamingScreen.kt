@@ -4,6 +4,8 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.pm.PackageManager
 import android.content.res.Configuration
+import android.hardware.camera2.CameraCharacteristics
+import android.hardware.camera2.CameraManager
 import android.net.Uri
 import android.os.Build
 import android.view.SurfaceHolder
@@ -62,6 +64,7 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -93,18 +96,44 @@ import com.vivid.feature.streaming.StreamingState
 import com.vivid.feature.streaming.StreamingViewModel
 import com.vivid.feature.streaming.source.VideoSourceKind
 import com.vivid.feature.streaming.R
+import kotlin.math.abs
 
-/** Uniformly zoom a 16:9 preview until it covers the available area. */
+/** Keep the camera's native output proportions, then crop equally to cover the viewport. */
 internal fun cameraPreviewZoom(
     viewportWidth: Float,
     viewportHeight: Float,
-    isLandscape: Boolean,
+    previewAspect: Float,
 ): Float {
-    if (viewportWidth <= 0f || viewportHeight <= 0f) return 1f
-    val previewAspect = if (isLandscape) 16f / 9f else 9f / 16f
+    if (viewportWidth <= 0f || viewportHeight <= 0f || previewAspect <= 0f) return 1f
     val viewportAspect = viewportWidth / viewportHeight
     return maxOf(viewportAspect / previewAspect, previewAspect / viewportAspect)
 }
+
+/** Prefer a near-square supported output so a portrait viewport loses less image to cropping. */
+internal fun selectPortraitIdlePreviewSize(available: List<IntSize>): IntSize {
+    val usable = available.filter { size ->
+        size.width > 0 && size.height > 0 &&
+            maxOf(size.width, size.height) <= 1920 && minOf(size.width, size.height) >= 720
+    }.ifEmpty { available.filter { it.width > 0 && it.height > 0 } }
+    return usable.minWithOrNull(
+        compareBy<IntSize> { abs(it.width - it.height).toFloat() / maxOf(it.width, it.height) }
+            .thenBy { abs(it.width.toLong() * it.height - 1080L * 1080L) },
+    ) ?: IntSize(1920, 1080)
+}
+
+private fun portraitIdlePreviewSize(context: android.content.Context): IntSize = runCatching {
+    val manager = context.getSystemService(CameraManager::class.java)
+    val cameraId = manager.cameraIdList.firstOrNull { id ->
+        manager.getCameraCharacteristics(id).get(CameraCharacteristics.LENS_FACING) ==
+            CameraCharacteristics.LENS_FACING_BACK
+    } ?: manager.cameraIdList.first()
+    val sizes = manager.getCameraCharacteristics(cameraId)
+        .get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
+        ?.getOutputSizes(SurfaceHolder::class.java)
+        ?.map { IntSize(it.width, it.height) }
+        .orEmpty()
+    selectPortraitIdlePreviewSize(sizes)
+}.getOrDefault(IntSize(1920, 1080))
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -339,7 +368,15 @@ fun StreamingScreen(
                 .padding(paddingValues)
                 .background(MaterialTheme.colorScheme.surfaceVariant),
         ) {
-            val previewZoom = cameraPreviewZoom(maxWidth.value, maxHeight.value, isLandscape)
+            val idlePortraitSize = remember(context) { portraitIdlePreviewSize(context) }
+            val isIdleCamera = streamingState is StreamingState.Idle || streamingState is StreamingState.Failed
+            val previewSize = when {
+                isLandscape -> IntSize(1920, 1080)
+                isIdleCamera -> idlePortraitSize
+                else -> IntSize(1080, 1920)
+            }
+            val previewAspect = previewSize.width.toFloat() / previewSize.height
+            val previewZoom = cameraPreviewZoom(maxWidth.value, maxHeight.value, previewAspect)
             // Kamera-Vorschau als SurfaceView: Im Leerlauf zeigt Camera2 direkt
             // auf die Surface, während des Streams die interne GL-Pipeline.
             // Der Encoder hängt nicht an der Activity-Surface und läuft bei
@@ -388,18 +425,14 @@ fun StreamingScreen(
                         }
                     },
                     update = { view ->
-                        // Camera2 selects its output using the Surface buffer size.
-                        // Match that buffer to the visible view in both orientations.
-                        view.holder.setFixedSize(
-                            if (isLandscape) 1920 else 1080,
-                            if (isLandscape) 1080 else 1920,
-                        )
+                        // Camera2 may substitute a supported size for an unsupported
+                        // portrait buffer (1080x1920 becomes 1088x1088 on this phone).
+                        // Keep the idle buffer and view at the same supported ratio.
+                        view.holder.setFixedSize(previewSize.width, previewSize.height)
                         view.scaleX = previewZoom
                         view.scaleY = previewZoom
                     },
-                    modifier = Modifier.align(Alignment.Center).aspectRatio(
-                        if (isLandscape) 16f / 9f else 9f / 16f,
-                    ),
+                    modifier = Modifier.align(Alignment.Center).aspectRatio(previewAspect),
                 )
             } else {
                 // S2/S3/Replay: Screen-Capture, Video-Player oder Replay aktiv — kein
