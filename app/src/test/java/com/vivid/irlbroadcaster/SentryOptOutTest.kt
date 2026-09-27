@@ -3,6 +3,8 @@ package com.vivid.irlbroadcaster
 import io.sentry.Hint
 import io.sentry.SentryEvent
 import io.sentry.SentryReplayEvent
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Test
@@ -63,6 +65,26 @@ class SentryOptOutTest {
         // ohne dass der Callback neu registriert werden müsste.
         enabled = false
         assertNull(callback.execute(event, hint))
+    }
+
+    // --- App-Tags (kontextuelle Build-Kennzeichnung für Sentry-Events) ---
+
+    @Test
+    fun `app tags map every attribute to its stable Sentry tag key`() {
+        val tags = SentryAppTags("standard", 5192, "v0.5.19-beta").toSentryTags()
+
+        assertEquals(3, tags.size)
+        assertEquals("standard", tags["app.flavor"])
+        assertEquals("5192", tags["app.version_code"])
+        assertEquals("v0.5.19-beta", tags["app.version_name"])
+    }
+
+    @Test
+    fun `app tags are never empty and all keys are present across builds`() {
+        val tags = SentryAppTags("foss", 1000, "1.0").toSentryTags()
+
+        assertFalse(tags.values.any { it.isEmpty() })
+        assertEquals(setOf("app.flavor", "app.version_code", "app.version_name"), tags.keys)
     }
 
     // --- beforeSendReplay-Verkabelung (Replay-Envelopes folgen demselben Opt-out) ---

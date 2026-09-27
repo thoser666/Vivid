@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vivid.core.data.AndroidEncoderCapabilities
 import com.vivid.core.data.EncoderCapabilities
+import com.vivid.core.data.PrivacyZone
 import com.vivid.core.data.ReplayAudioMode
 import com.vivid.core.data.ResolvedEncoderConfig
 import com.vivid.core.data.resolveEncoderConfig
@@ -11,6 +12,7 @@ import com.vivid.core.data.SceneRepository
 import com.vivid.core.data.SceneVideoSource
 import com.vivid.core.data.SettingsRepository
 import com.vivid.core.data.StreamScene
+import com.vivid.core.data.ZoneRepository
 import com.vivid.feature.streaming.ReplayState
 import com.vivid.feature.streaming.scene.AutoSceneSwitcher
 import com.vivid.feature.streaming.scene.SceneController
@@ -33,9 +35,17 @@ class StreamingViewModel @Inject constructor(
     private val sceneRepository: SceneRepository,
     private val sceneController: SceneController,
     private val autoSceneSwitcher: AutoSceneSwitcher,
+    private val zoneRepository: ZoneRepository,
 ) : ViewModel() {
 
     private val _configIssues = MutableStateFlow<List<StreamConfigIssue>>(emptyList())
+
+    /**
+     * P1: Merker für einen Master-Toggle, den die Engine abgelehnt hat (keine
+     * Kamera/GL — z. B. App-Start mit aktivierter Anonymisierung vor der
+     * Kamera-Initialisierung). Wird beim Go-Live nachgeholt (Skizze §5 P1).
+     */
+    private val pendingPrivacyToggle = MutableStateFlow<Boolean?>(null)
 
     // --- Szenen (Basic Scenes) + Auto-Scene-Switcher ---
 
@@ -58,6 +68,17 @@ class StreamingViewModel @Inject constructor(
 
     init {
         runConfigCheck()
+        // P1: Anonymisierung — persistierten Soll-Zustand (Zonen + Master-Toggle)
+        // in die Engine übernehmen. Ohne Kamera/GL bleiben die Engine-Aufrufe
+        // No-Ops; beim Stream-Start wendet die Engine den Soll-Zustand selbst an.
+        viewModelScope.launch {
+            streamingEngine.setPrivacyZones(zoneRepository.zonesFlow.first())
+            if (zoneRepository.privacyEnabledFlow.first()) {
+                if (!streamingEngine.setPrivacyEnabled(true)) {
+                    pendingPrivacyToggle.value = true
+                }
+            }
+        }
     }
 
     /** Fähigkeiten-Erkennung (im Test austauschbar). */
@@ -142,6 +163,15 @@ class StreamingViewModel @Inject constructor(
             // gemessene Netzwerkstrecke anpassen (min. 1 Mbit/s Floor).
             streamingEngine.configureAdaptiveBitrate(settings.adaptiveBitrateEnabled)
 
+            // P1: Nachholen eines Master-Toggles, den die Engine vor der
+            // Kamera-Initialisierung abgelehnt hat (sonst würde die
+            // Anonymisierung nach App-Neustart still fehlen).
+            pendingPrivacyToggle.value?.let { desired ->
+                if (streamingEngine.setPrivacyEnabled(desired)) {
+                    pendingPrivacyToggle.value = null
+                }
+            }
+
             // Der Stream läuft im Foreground-Service weiter, wenn die App in den
             // Hintergrund geht (Prozess-Priorität + WakeLock). Der Service ruft
             // seinerseits streamingEngine.startStream(urls) auf.
@@ -220,6 +250,39 @@ class StreamingViewModel @Inject constructor(
     /** Auto-Wechsel-Intervall (Sekunden, geclampt auf das Minimum). */
     fun setAutoSwitchIntervalSeconds(seconds: Long) {
         autoSceneSwitcher.setIntervalSeconds(seconds)
+    }
+
+    // --- Datenschutz-Anonymisierung (P1, Skizze §5) ---
+
+    /** Persistierte manuelle Zonen (Anlage-Reihenfolge, max. 4). */
+    val privacyZones: Flow<List<PrivacyZone>> = zoneRepository.zonesFlow
+
+    /** Persistierter Master-Toggle „Anonymisierung“ (Default aus). */
+    val privacyEnabled: Flow<Boolean> = zoneRepository.privacyEnabledFlow
+
+    /**
+     * Setzt den Master-Toggle „Anonymisierung“: persistiert und sofort an die
+     * Engine. Lehnt die Engine ab (keine Kamera/GL — Stream aus), wird der
+     * Wunsch gemerkt und beim Stream-Start aus der Persistenz nachgeholt.
+     */
+    fun setPrivacyEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            zoneRepository.setPrivacyEnabled(enabled)
+            if (!streamingEngine.setPrivacyEnabled(enabled)) {
+                pendingPrivacyToggle.value = enabled
+            }
+        }
+    }
+
+    /**
+     * Ersetzt die manuellen Zonen (Zonen-Editor): persistiert und wendet sie
+     * sofort an — die Engine mappt sie framesynchron auf die Ellipsen-Uniforms.
+     */
+    fun savePrivacyZones(zones: List<PrivacyZone>) {
+        viewModelScope.launch {
+            zoneRepository.setZones(zones)
+            streamingEngine.setPrivacyZones(zones)
+        }
     }
 }
 

@@ -63,6 +63,8 @@ echo "▶ [pre-push] Sentry-Triage-Workflow-Selbsttest (scripts/test_sentry_tria
 bash scripts/test_sentry_triage_workflow.sh
 echo "▶ [pre-push] Sentry-Resolve-Guard-Selbsttest (scripts/test_sentry_resolve.sh)"
 bash scripts/test_sentry_resolve.sh
+echo "▶ [pre-push] Sentry-Issues-Guard-Selbsttest (scripts/test_sentry_issues.sh)"
+bash scripts/test_sentry_issues.sh
 
 echo "▶ [pre-push] Stable-Distribution-Kadenz-Selbsttest (scripts/test_distribution_stable.sh)"
 bash scripts/test_distribution_stable.sh
@@ -75,6 +77,13 @@ bash scripts/test_sha256sums.sh
 
 echo "▶ [pre-push] pip-Pinning-Selbsttest (scripts/test_pip_pinning.sh)"
 bash scripts/test_pip_pinning.sh
+
+# Contributors-Guard (offline): CONTRIBUTORS.md (Danksagungen Dritter) muss
+# den Tabellen-Vertrag halten (eine Tabelle, #Referenz, Status offen/umgesetzt).
+echo "▶ [pre-push] Contributors-Guard (scripts/check_contributors.sh)"
+bash scripts/check_contributors.sh
+echo "▶ [pre-push] Contributors-Guard-Selbsttest (scripts/test_contributors.sh)"
+bash scripts/test_contributors.sh
 
 echo "▶ [pre-push] Version-Code-Fallback-Selbsttest (scripts/test_version_fallback.rb)"
 ruby scripts/test_version_fallback.rb

@@ -121,4 +121,13 @@
     <!-- A11y: state descriptions for the streaming controls (TalkBack) -->
     <string name="streaming_a11y_state_on">On</string>
     <string name="streaming_a11y_state_off">Off</string>
+
+    <!-- Privacy anonymization (zone editor, P1) -->
+    <string name="privacy_master_toggle_label">Privacy</string>
+    <string name="streaming_privacy_zones">Zones</string>
+    <string name="privacy_zone_editor_title">Zone editor (privacy)</string>
+    <string name="privacy_zone_editor_hint">Drag moves a zone, dragging its edge resizes it. Up to 4 zones.</string>
+    <string name="privacy_zone_add">Add zone</string>
+    <string name="privacy_zone_delete">Delete selected zone</string>
+    <string name="privacy_zone_editor_close">Close zone editor</string>
 </resources>

@@ -19,6 +19,7 @@ import android.media.MediaFormat
 import android.os.SystemClock
 import com.vivid.core.data.AdaptiveBitrateConfig
 import com.vivid.core.data.AdaptiveBitrateController
+import com.vivid.core.data.PrivacyZone
 import com.vivid.core.data.ResolvedEncoderConfig
 import com.vivid.core.data.VideoCodecPreference
 import com.vivid.feature.streaming.source.DisplayFactory
@@ -34,6 +35,18 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import javax.inject.Inject
 import javax.inject.Singleton
+
+/**
+ * Mappt eine quellrelative Zone (Normalisierung 0..1, (0,0) oben links — UI-
+ * Konvention) auf die Textur-Koordinaten des Privacy-Shaders ((0,0) unten
+ * links, GL-Konvention): nur Y wird gespiegelt, X und die Radien bleiben.
+ */
+internal fun PrivacyZone.toPrivacyEllipse(): PrivacyEllipse = PrivacyEllipse(
+    centerX = centerX,
+    centerY = 1f - centerY,
+    radiusX = radiusX,
+    radiusY = radiusY,
+)
 
 /** Status eines einzelnen Stream-Ziels (Multi-Streaming). */
 enum class StreamTargetStatus {
@@ -292,6 +305,41 @@ class StreamingEngine @Inject constructor(
         privacyComposer.setEllipses(ellipses)
     }
 
+    // --- P1: Manuelle Zonen (Soll-Zustand, Skizze §5) ----------------------
+
+    /**
+     * Soll-Zustand der manuellen Zonen aus der Persistenz (ZoneRepository).
+     * Wird beim Stream-Start und bei jedem Quellwechsel auf die aktive Quelle
+     * angewendet (mappen zu Textur-Koordinaten: quellrelativ (0,0) oben links,
+     * Y-Flip zum Shader-Textur-Raum) — verzögert bis die GL-Pipeline läuft
+     * (Idle-Pfade sind bewusst No-Ops). Der Composer-Controller bleibt
+     * zustandsfrei — hier liegt die einzige Zonen-Quelle.
+     */
+    private val desiredPrivacyZones = MutableStateFlow<List<PrivacyZone>>(emptyList())
+
+    /**
+     * Ersetzt den Soll-Zustand der Zonen und wendet ihn sofort an (beim
+     * Laufzeit-Edit des Zonen-Editors). Ohne Kamera/GL bleibt der Aufruf ein
+     * No-Op (der Zustand wird beim Stream-Start nachgeholt).
+     */
+    fun setPrivacyZones(zones: List<PrivacyZone>) {
+        desiredPrivacyZones.value = zones.take(PrivacyZone.MAX_ZONES)
+        applyPrivacyZones(desiredPrivacyZones.value)
+    }
+
+    /**
+     * Mappt den Soll-Zustand auf die Privacy-Ellipsen (Textur-Koordinaten,
+     * Y-Flip) und übergibt sie dem Composer. Ohne GL-Interface ein No-Op —
+     * der Aufruf ist dann beim Stream-Start/Quellwechsel nachgeholt.
+     */
+    private fun applyPrivacyZones(zones: List<PrivacyZone>) {
+        val gl = camera?.glInterface as? GlStreamInterface ?: return
+        privacyComposer.setEllipses(zones.map { it.toPrivacyEllipse() })
+        // Der Toggle-Zustand liegt im Composer; ein Rebuild stellt sicher,
+        // dass die Kette den Soll-Zustand (inkl. neuer Zonen) trägt.
+        privacyComposer.requestRebuild(gl)
+    }
+
     companion object {
         /**
          * Maximale Anzahl paralleler Stream-Ziele (MVP: primär + 1 sekundär).
@@ -439,6 +487,11 @@ class StreamingEngine @Inject constructor(
             }
             videoSourceRegistry.switchTo(VideoSourceKind.REPLAY)
         }
+    }.also {
+        // P1: Quellwechsel — die Zonen sind quellrelativ; der Soll-Zustand
+        // wird auf die neue Quelle angewendet (relative Bildmitte bleibt
+        // erhalten; Persistenz je Quelle prüft P3, Skizze §9).
+        applyPrivacyZones(desiredPrivacyZones.value)
     }
 
     /**
@@ -756,6 +809,9 @@ class StreamingEngine @Inject constructor(
             _streamingState.value = StreamingState.Preparing
 
             if (source.start()) {
+                // P1: Anonymisierung — persistierter Soll-Zustand ab dem
+                // ersten Frame (jetzt läuft die GL-Pipeline).
+                applyPrivacyZones(desiredPrivacyZones.value)
                 activeUrls.forEachIndexed { index, url ->
                     source.startStream(index, url)
                 }
@@ -774,6 +830,9 @@ class StreamingEngine @Inject constructor(
             _streamingState.value = StreamingState.Preparing
 
             if (source.start()) {
+                // P1: Anonymisierung — persistierter Soll-Zustand ab dem
+                // ersten Frame (jetzt läuft die GL-Pipeline).
+                applyPrivacyZones(desiredPrivacyZones.value)
                 activeUrls.forEachIndexed { index, url ->
                     source.startStream(index, url)
                 }
@@ -792,6 +851,9 @@ class StreamingEngine @Inject constructor(
             _streamingState.value = StreamingState.Preparing
 
             if (source.start()) {
+                // P1: Anonymisierung — persistierter Soll-Zustand ab dem
+                // ersten Frame (jetzt läuft die GL-Pipeline).
+                applyPrivacyZones(desiredPrivacyZones.value)
                 activeUrls.forEachIndexed { index, url ->
                     source.startStream(index, url)
                 }
@@ -835,6 +897,9 @@ class StreamingEngine @Inject constructor(
         if (audioReady && videoReady) {
             // GL-Pipeline läuft jetzt — gemerkte Preview-Surface anhängen.
             attachPreviewIfRunning()
+            // P1: Anonymisierung — persistierter Soll-Zustand ab dem ersten
+            // Frame (Composer-Zustand überlebt stopStream bewusst).
+            applyPrivacyZones(desiredPrivacyZones.value)
             activeUrls.forEachIndexed { index, url ->
                 cam.startStream(MultiType.RTMP, index, url)
             }

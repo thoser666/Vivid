@@ -1,10 +1,12 @@
 package com.vivid.feature.streaming
 
 import com.vivid.core.data.AppSettings
+import com.vivid.core.data.PrivacyZone
 import com.vivid.core.data.SceneRepository
 import com.vivid.core.data.SceneVideoSource
 import com.vivid.core.data.SettingsRepository
 import com.vivid.core.data.StreamScene
+import com.vivid.core.data.ZoneRepository
 import com.vivid.feature.streaming.scene.AutoSceneSwitcher
 import com.vivid.feature.streaming.scene.SceneController
 import com.vivid.feature.streaming.source.VideoSourceKind
@@ -68,10 +70,16 @@ class StreamingViewModelTest {
         every { setEnabled(any()) } just Runs
         every { setIntervalSeconds(any()) } just Runs
     }
+    private val zoneRepository = mockk<ZoneRepository> {
+        every { zonesFlow } returns MutableStateFlow(emptyList())
+        every { privacyEnabledFlow } returns MutableStateFlow(false)
+        coEvery { setZones(any()) } just Runs
+        coEvery { setPrivacyEnabled(any()) } just Runs
+    }
 
     private fun viewModel(
         repository: SettingsRepository = repositoryWith(AppSettings()),
-    ) = StreamingViewModel(engine, repository, launcher, sceneRepository, sceneController, autoSceneSwitcher)
+    ) = StreamingViewModel(engine, repository, launcher, sceneRepository, sceneController, autoSceneSwitcher, zoneRepository)
 
     @Test
     fun `startStream uses saved url with appended stream key`() = runTest {
@@ -603,5 +611,59 @@ class StreamingViewModelTest {
                 match { scene -> scene.videoSource == SceneVideoSource.CAMERA && scene.replayPath == null },
             )
         }
+    }
+
+    // --- Datenschutz-Anonymisierung (P1, Skizze §5) ---
+
+    @Test
+    fun `setPrivacyEnabled persists the toggle and forwards it to the engine`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val viewModel = viewModel()
+
+        viewModel.setPrivacyEnabled(true)
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { zoneRepository.setPrivacyEnabled(true) }
+        verify(exactly = 1) { engine.setPrivacyEnabled(true) }
+    }
+
+    @Test
+    fun `init applies persisted zones and toggle to the engine`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val zones = listOf(PrivacyZone(0.25f, 0.25f, 0.1f, 0.1f))
+        val zoneRepositoryWithZones = mockk<ZoneRepository> {
+            every { zonesFlow } returns MutableStateFlow(zones)
+            every { privacyEnabledFlow } returns MutableStateFlow(true)
+            coEvery { setZones(any()) } just Runs
+            coEvery { setPrivacyEnabled(any()) } just Runs
+        }
+        every { engine.setPrivacyEnabled(any()) } returns true
+
+        StreamingViewModel(
+            engine,
+            repositoryWith(AppSettings()),
+            launcher,
+            sceneRepository,
+            sceneController,
+            autoSceneSwitcher,
+            zoneRepositoryWithZones,
+        )
+        advanceUntilIdle()
+
+        verify(exactly = 1) { engine.setPrivacyZones(zones) }
+        verify(exactly = 1) { engine.setPrivacyEnabled(true) }
+    }
+
+    @Test
+    fun `savePrivacyZones persists and forwards the new list`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val viewModel = viewModel()
+        val zones = listOf(PrivacyZone(0.5f, 0.5f, 0.2f, 0.15f))
+
+        viewModel.savePrivacyZones(zones)
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { zoneRepository.setZones(zones) }
+        verify(exactly = 1) { engine.setPrivacyZones(zones) }
     }
 }

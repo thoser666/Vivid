@@ -121,4 +121,13 @@
     <!-- A11y: Zustandstexte für die Streaming-Steuerungen (TalkBack) -->
     <string name="streaming_a11y_state_on">An</string>
     <string name="streaming_a11y_state_off">Aus</string>
+
+    <!-- Datenschutz-Anonymisierung (Zonen-Editor, P1) -->
+    <string name="privacy_master_toggle_label">Anonymisierung</string>
+    <string name="streaming_privacy_zones">Zonen</string>
+    <string name="privacy_zone_editor_title">Zonen-Editor (Anonymisierung)</string>
+    <string name="privacy_zone_editor_hint">Ziehen verschiebt eine Zone, Ziehen am Rand skaliert sie. Maximal 4 Zonen.</string>
+    <string name="privacy_zone_add">Zone hinzufügen</string>
+    <string name="privacy_zone_delete">Ausgewählte Zone löschen</string>
+    <string name="privacy_zone_editor_close">Zonen-Editor schließen</string>
 </resources>

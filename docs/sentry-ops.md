@@ -1,11 +1,11 @@
-# Sentry-Ops: Kurzübersicht (Stats, Health, Opt-out, Mapping-Upload)
+# Sentry-Ops: Kurzübersicht (Stats, Health, Opt-out, Mapping, Watchdog)
 
 Sentry ist die einzige Telemetrie der **Standard-Builds** — der FOSS-Build
 (F-Droid) und der Startup-Safe-Mode initialisieren Sentry gar nicht. Diese
-Seite fasst die vier Bausteine der Sentry-Ops-Landschaft kompakt zusammen;
+Seite fasst die Bausteine der Sentry-Ops-Landschaft kompakt zusammen;
 Details stehen in den am Ende verlinkten Repo-Dokus.
 
-## Die vier Bausteine
+## Die Bausteine
 
 | Baustein | Was er tut | Wo er lebt | Selbsttest |
 |---|---|---|---|
@@ -13,6 +13,7 @@ Details stehen in den am Ende verlinkten Repo-Dokus.
 | 🩺 **Health** | Probe-Event an den echten Ingest senden — lebt der Endpunkt, wird gedrosselt? | `scripts/check_sentry_health.sh --live` (opt-in; wöchentlich im Ops-Workflow als sanktionierter Cron-Nutzer) | HP1–HP9 |
 | 🔒 **Opt-out** | Nutzer-Toggle „Fehlerberichte senden“ steuert Events **und** Error-Replay | App: `VividApplication` + `SentryOptOut.kt` + `SentryReplayPolicy` | Unit-Tests (pure Policy) |
 | 🗺️ **Mapping-Upload** | ProGuard-Mappings hochladen, damit Crash-Reports symbolisiert im Dashboard landen | Release-Build: Gradle-Plugin `autoUploadProguardMapping` | Verify-Job der Release-Pipeline |
+| 🔁 **Watchdog** | Neue/unresolved Sentry-Reports → automatisches GitHub-Issue (bug_report-Struktur + Sentry-Zusammenfassung, Dedup-Marker) | `scripts/check_sentry_issues.sh`, stündlich im `automation-sentry-issues.yml` (Failover zur nativen Integration) | I1–I16 |
 
 ### 📊 Stats
 
@@ -59,6 +60,17 @@ Details stehen in den am Ende verlinkten Repo-Dokus.
   strikt getrennt vom Stats-Lese-Token: getrennte Tokens, getrennte Scopes,
   getrennte Lebensdauern.
 
+### 🔁 Watchdog (Crash → GitHub-Issue)
+
+- Stündlicher Cron (`automation-sentry-issues.yml`) zieht alle unresolved
+  Sentry-Issues und öffnet für die noch nicht erfassten ein GitHub-Issue mit
+  bug_report-Struktur + Sentry-Zusammenfassung (`**Level:**`-Zeile → der
+  Triage-Workflow labelt automatisch `severity:*`/`crash`). Dedup über
+  `<!-- vivid-sentry-issue: <sentry-id> -->`.
+- **Failover zur nativen Integration** (docs/sentry-alerts.md §2): läuft jene,
+  findet der Watchdog nichts Neues; bricht sie weg, fängt er die Lücke — und
+  macht die Erstellung verifizierbar.
+
 ## Wöchentliche Issue-Automation
 
 [`automation-sentry-ops.yml`](https://github.com/thoser666/Vivid/blob/develop/.github/workflows/automation-sentry-ops.yml)
@@ -79,6 +91,8 @@ damit vorgebaut. Berechtigungen: `permissions: {}` top-level, Job nur
 ## Verweise
 
 - [docs/sentry-alerts.md](https://github.com/thoser666/Vivid/blob/develop/docs/sentry-alerts.md) — Sentry-Alerts → GitHub-Issues mit Dringlichkeits-Label (Setup + Label-Logik)
+- [docs/sentry-issues.md](https://github.com/thoser666/Vivid/blob/develop/docs/sentry-issues.md)
+  — Watchdog: Crash → GitHub-Issue automatisch (Token, Dedup, Vertrag, Verdicts)
 - [docs/sentry-stats.md](https://github.com/thoser666/Vivid/blob/develop/docs/sentry-stats.md)
   — Token-Anleitung (§1), wöchentlicher Ops-Workflow (§3), Health-Probe (§4),
   Sicherheit (§5)

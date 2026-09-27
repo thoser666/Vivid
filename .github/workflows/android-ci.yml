@@ -124,6 +124,12 @@ jobs:
       - name: Test sentry optout mapping check
         run: bash scripts/test_sentry_optout_mapping.sh
 
+      # Sentry-Issues-Watchdog-Guard (bash) — Selbsttest offline über
+      # Fixtures: Watchdog-/Failover-Schicht zur nativen Sentry-Integration
+      # (neue unresolved Reports → GitHub-Issue, Dedup-Marker, severity-Line).
+      - name: Test sentry issues watchdog guard
+        run: bash scripts/test_sentry_issues.sh
+
       # Play-Metadaten-Check (bash) — Selbsttest mit Fixture-PNGs: 1 Positiv-
       # + 5 Negativfälle. Der harte Gate-Check läuft im publish-play-Job
       # (release-pipeline.yml) direkt vor dem Upload.
@@ -268,6 +274,16 @@ jobs:
 
       - name: Check security loop
         run: bash scripts/check_security_loop.sh
+
+      # Contributors-Guard (Bash, offline) — CONTRIBUTORS.md (Danksagungen
+      # Dritter): genau EINE Beitragstabelle, Referenz-Format #<Nummer>,
+      # Status ∈ {offen, umgesetzt}, keine Duplikate. Selbsttest beweist die
+      # Negativfälle; der harte Guard läuft auch im Pre-Push-Gate.
+      - name: Test contributors guard
+        run: bash scripts/test_contributors.sh
+
+      - name: Check contributors
+        run: bash scripts/check_contributors.sh
 
       # ── Optional: Code‑Scanning / Security‑Events ──
       # - name: Run CodeQL

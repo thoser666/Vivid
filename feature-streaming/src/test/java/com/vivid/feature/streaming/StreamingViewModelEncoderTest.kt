@@ -1,6 +1,7 @@
 package com.vivid.feature.streaming
 
 import com.vivid.core.data.AppSettings
+import com.vivid.core.data.ZoneRepository
 import com.vivid.core.data.EncoderCapabilities
 import com.vivid.core.data.EncoderPreset
 import com.vivid.core.data.ResolvedEncoderConfig
@@ -49,6 +50,10 @@ class StreamingViewModelEncoderTest {
         every { enabled } returns MutableStateFlow(false)
         every { intervalSeconds } returns MutableStateFlow(60L)
     }
+    private val zoneRepository = mockk<ZoneRepository>(relaxed = true) {
+        every { zonesFlow } returns MutableStateFlow(emptyList())
+        every { privacyEnabledFlow } returns MutableStateFlow(false)
+    }
 
     @AfterEach
     fun tearDown() {
@@ -67,6 +72,7 @@ class StreamingViewModelEncoderTest {
             sceneRepository,
             sceneController,
             autoSceneSwitcher,
+            zoneRepository,
         )
 
     private fun settings(
