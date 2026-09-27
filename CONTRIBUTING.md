@@ -73,6 +73,21 @@ If you must bypass it for a single push: `git push --no-verify` (CI will still g
 - Bug fixes: add a regression test that fails without the fix.
 - Test coverage is expected to grow with every feature — the [PARITY.md](PARITY.md) log documents tests per feature as evidence.
 
+### Third-party credit (CONTRIBUTORS.md)
+
+External contributors (people outside the core maintainer team) are credited in
+[CONTRIBUTORS.md](CONTRIBUTORS.md) — one table, columns
+`Person | Beitrag | Referenz | Status`:
+
+- `Beitrag` = what was implemented (feature, fix, localization).
+- `Referenz` = the GitHub issue/PR number (`#123`).
+- `Status` = `offen` (announced / not merged yet) or `umgesetzt` (merged).
+
+A maintainer adds the row when accepting the contribution (author may add it in
+their own PR). `offen` flips to `umgesetzt` once the work is merged. Structure is
+enforced by `scripts/check_contributors.sh` (pre-push gate + CI) — malformed
+edits break the build.
+
 ### Commit style
 
 Conventional Commits, English, present tense:
@@ -175,6 +190,22 @@ Die Dokumentation kann nicht mehr unbemerkt veralten — drei Guards erzwingen d
 - **Security-Loop-Guard** (`scripts/check_security_loop.sh`, Teil des Pre-Push-Gates + CI + Release-Pipeline): Die release-grade Sicherheitsregeln der Pipeline (Keystore-Härtung ohne `KEYSTORE_BASE64`, APK-/AAB-Signatur-Checks gegen den Release-Key, Reproduzierbarkeits-Hash-Vergleich, Sentry-Opt-out-Mapping-Nachweis in beiden Kanälen, `::warning::` bei fehlendem `AUTOMATION_TOKEN`) müssen **strukturell vorhanden bleiben** — entfernt jemand eine dieser Regeln, ist der Guard rot. Der Fixture-Selbsttest (`scripts/test_security_loop.sh`, 8 Fälle) beweist das; im Release-Job läuft der Guard zusätzlich am echten R8-Mapping.
 - **EventSub-JSON-Härtung** (`scripts/check_eventsub_json_hardening.sh`, Teil des Pre-Push-Gates + CI): Twitch erweitert EventSub-Payloads ohne Vorankündigung (zuletzt `shared_chat`/`source_*` auf `channel.chat.message`). Jede `Json { … }`-Instanziierung im feature-chat-Produktionscode muss deshalb **`ignoreUnknownKeys = true`** setzen — sonst crasht der Parser bei künftigen Feldern und Chat-Nachrichten fallen still aus Overlay/Bot. Bewusste Opt-outs werden als `@Suppress("EventSubJsonIgnoreUnknownKeys")` an der Datei markiert und im Guard-Log als `SUPPRESSED` ausgewiesen. Fixture-Selbsttest: `scripts/test_eventsub_json_hardening.sh` (9 Fälle); Contract-Tests mit realen Shared-Chat-Payloads: `TwitchChatEventSubReaderTest` (`contract *`).
 - **gh-CLI-Flag-Guard** (`scripts/check_gh_cli_flags.sh`, Teil des Pre-Push-Gates + CI): Jede `gh`-Flag-Verwendung in den Workflows wird gegen die Hilfe der lokalen gh-CLI validiert (Subcommand-Auflösung inklusive, gecacht). Ein Tippfehler wie `gh release list --exclude-prereleases` (richtig: `--exclude-pre-releases`) bricht sonst erst den CI-Job; der Guard fängt ihn vor dem Push. Fixture-Selbsttest: `scripts/test_gh_cli_flags.sh` (8 Fälle). Bewusste Ausnahmen: `# gh-flag-exempt: <grund>` am Zeilenende.
+
+### Danksagung Dritter (CONTRIBUTORS.md)
+
+Dritte (Personen außerhalb des Kern-Teams) werden in
+[CONTRIBUTORS.md](CONTRIBUTORS.md) gewürdigt — eine Tabelle, Spalten
+`Person | Beitrag | Referenz | Status`:
+
+- `Beitrag` = was umgesetzt wurde (Feature, Fix, Lokalisierung).
+- `Referenz` = GitHub-Issue/-PR-Nummer (`#123`).
+- `Status` = `offen` (angekündigt / noch nicht gemergt) oder `umgesetzt`
+  (gemergt).
+
+Beim Annehmen eines Beitrags ergänzt ein Maintainer die Zeile (der Autor darf es
+im eigenen PR selbst tun); `offen` → `umgesetzt`, sobald die Arbeit gemergt ist.
+Die Struktur erzwingt `scripts/check_contributors.sh` (Pre-Push-Gate + CI) —
+Formatfehler brechen den Build ab.
 
 ### Commit-Stil
 
