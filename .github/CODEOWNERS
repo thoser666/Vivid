@@ -1,0 +1,11 @@
+# Per-Repository CODEOWNERS (Vivid)
+#
+# Jeder PR auf develop benötigt die Review durch den Repo-Eigentümer
+# (Branch-Protection: required_approving_review_count=1 mit
+# require_code_owner_reviews=true). Schützt gegen "Sneak"-PRs Dritter
+# (Trojaner/Backdoors in CI, Build, Signierung oder Skripten): kein Change
+# an kritischen Pfaden landet ohne Owner-Review im Default-Branch.
+# Hinweis: Der Eigentümer kann eigene PRs nicht selbst approven (GitHub-Regel)
+# — solche Merges laufen bewusst über den Admin-Bypass der Automation
+
+* @thoser666
