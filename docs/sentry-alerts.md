@@ -34,6 +34,15 @@ die Label-Logik.
 > das Issue **sofort beim Event** (Echtzeit, ohne PAT, ohne Rate-Limits) —
 > ein GitHub-seitiger Poller wäre seconds-to-minutes hinterher und bräuchte
 > ein Sentry-Lese-Token.
+>
+> **Ergänzend dazu** existiert seit 2026-09 eine Watchdog-/Failover-Schicht:
+> der stündliche Guard `scripts/check_sentry_issues.sh`
+> ([docs/sentry-issues.md](sentry-issues.md)) zieht unresolved Reports per API
+> und legt für noch nicht erfasste ein GitHub-Issue an. Er ersetzt die native
+> Route nicht, sondern macht deren Erstellung verifizierbar und **fängt die
+> Lücke, falls die Regel nicht feuert** (z. B. Konfig-Drift, fehlendes
+> GitHub-Auth in der Sentry-Integration). Er tut das bewusst **langsam**
+> (stündlich) und Bulk-stabil — die Echtzeit-Erfahrung bleibt bei Sentry.
 
 ## 3. Automatische Dringlichkeit im Repo (läuft schon)
 

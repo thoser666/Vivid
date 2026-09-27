@@ -1,0 +1,55 @@
+# Sentry-Issues-Watchdog (Vivid): Watchdog-/Failover-Schicht zur nativen
+# Sentry-GitHub-Integration (docs/sentry-alerts.md §2).
+#
+# Die native Integration (Alert-Regel „Create a GitHub issue") öffnet Issues
+# in Echtzeit — ist aber von außen nicht verifizierbar (bisher ohne echten
+# Beleg: nur Test-Issues der Triage-Automation). Dieser stündliche Cron zieht
+# stattdessen alle unresolved Sentry-Issues, filtert die bereits als
+# GitHub-Issue erfassten (Dedup über den Body-Marker
+# `<!-- vivid-sentry-issue: <sentry-id> -->`) und öffnet für die restlichen
+# ein GitHub-Issue mit bug_report-artiger Struktur + Sentry-Zusammenfassung
+# (Level-Zeile, Top-Frame, Permalink, Counts). Läuft die native Route, findet
+# der Watchdog nichts Neues; bricht sie weg, fängt er die Lücke.
+#
+# Das neu eröffnete Issue wird vom Triage-Workflow (automation-sentry-triage.
+# yml, Trigger issues.opened) automatisch gelabelt (severity:*/crash) — keine
+# Label-Erieselung nötig, Loop-Schutz über die Triggertypen.
+#
+# Verdicts des Guards sind bewusst keine Gate-Blocker: fehlt das Sentry-Token,
+# ist das neutral (SKIP). Der Workflow erstellt Issues direkt (kein Bot-PR) —
+# GITHUB_TOKEN reicht, kein AUTOMATION_TOKEN nötig.
+#
+# Berechtigungen: top-level {}, Job nur issues: write; checkout SHA-gepinnt;
+# concurrency verhindert überlappende Läufe (Kein Doppel-Anlegen durch
+# Cron-Überlappung an der Dedup-Lücke).
+name: Automation / Sentry Issues Watchdog
+
+on:
+  schedule:
+    # Stündlich (Minuten-Offset '17' meidet den 06:30-Uhr-Ops-Review-Lauf).
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: sentry-issues-watchdog
+  cancel-in-progress: true
+
+jobs:
+  watchdog:
+    name: Create issues for new Sentry reports
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Sentry-Issues-Watchdog (neue Reports als GitHub-Issues)
+        env:
+          SENTRY_ISSUES_TOKEN: ${{ secrets.SENTRY_ISSUES_TOKEN }}
+          GITHUB_ISSUES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SENTRY_ORG: privat-jb
+          SENTRY_PROJECT: vivid
+        run: bash scripts/check_sentry_issues.sh

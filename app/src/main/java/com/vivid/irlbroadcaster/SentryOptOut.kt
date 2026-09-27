@@ -48,3 +48,27 @@ internal fun sentryBeforeSendReplayCallback(
     SentryOptions.BeforeSendReplayCallback { event, _ ->
         applySentryOptOut(event, isEnabled())
     }
+
+/**
+ * Kontextuelle App-Kennzeichnung für Sentry-Events (reine Datenklasse,
+ * testbar ohne Android-/Sentry-Abhängigkeit): Flavor, Versionscode und
+ * Versionsname des Builds. [VividApplication] reicht sie beim Init über
+ * `SentryOptions.setTag` weiter — so ist jeder Report eindeutig dem Build
+ * zuordenbar (standard/foss, exakte Version), was der Sentry-Watchdog
+ * (docs/sentry-issues.md) und die manuelle Triage auswerten können.
+ */
+internal data class SentryAppTags(
+    val flavor: String,
+    val versionCode: Int,
+    val versionName: String,
+)
+
+/**
+ * Übersetzt die App-Attribute in Sentry-Tags. Stabile, nicht-null Keys:
+ * `app.flavor`, `app.version_code`, `app.version_name`.
+ */
+internal fun SentryAppTags.toSentryTags(): Map<String, String> = mapOf(
+    "app.flavor" to flavor,
+    "app.version_code" to versionCode.toString(),
+    "app.version_name" to versionName,
+)

@@ -131,6 +131,15 @@ class VividApplication : Application(), ImageLoaderFactory {
             SentryAndroid.init(this) { options ->
                 // JavaBean-Accessor: isSendDefaultPii (keine IP-/Gerätename-Erhebung)
                 options.isSendDefaultPii = false
+                // App-Kontext als Sentry-Tags (Flavor + exakte Version): jeder
+                // Report ist dem Build zuordenbar (Watchdog + Triage siehe
+                // SentryAppTags). Keys app.flavor/app.version_code/app.version_name.
+                val appTags = SentryAppTags(
+                    flavor = BuildConfig.FLAVOR,
+                    versionCode = BuildConfig.VERSION_CODE,
+                    versionName = BuildConfig.VERSION_NAME,
+                ).toSentryTags()
+                appTags.forEach { (tag, value) -> options.setTag(tag, value) }
                 options.beforeSend = sentryBeforeSendCallback { sentryEnabled }
                 // Error-Replay-Konfiguration (Opt-out-fähig, siehe SentryReplayPolicy):
                 val replayPlan = SentryReplayPolicy.plan(sentryEnabled)

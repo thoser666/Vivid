@@ -46,7 +46,7 @@ if [[ ! -f "docs/sentry-ops.md" ]]; then
 fi
 SENTRY_OPS_CONTENT=$(tr -d '\r' < "docs/sentry-ops.md")
 # Inhalts-Sanity: Ohne die Bausteine-Tabelle wäre die Seite leer generiert worden.
-for anchor in "Die vier Bausteine" "Mapping-Upload" "Issue-Automation"; do
+for anchor in "Die Bausteine" "Mapping-Upload" "Issue-Automation"; do
   if ! grep -q "$anchor" <<<"$SENTRY_OPS_CONTENT"; then
     echo "❌ [wiki-sync] docs/sentry-ops.md unvollständig — Abschnitt '$anchor' fehlt."
     exit 1
