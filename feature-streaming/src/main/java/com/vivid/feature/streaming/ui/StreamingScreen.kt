@@ -22,6 +22,7 @@ import androidx.compose.material3.*
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -92,6 +93,18 @@ import com.vivid.feature.streaming.StreamingState
 import com.vivid.feature.streaming.StreamingViewModel
 import com.vivid.feature.streaming.source.VideoSourceKind
 import com.vivid.feature.streaming.R
+
+/** Uniformly zoom a 16:9 preview until it covers the available area. */
+internal fun cameraPreviewZoom(
+    viewportWidth: Float,
+    viewportHeight: Float,
+    isLandscape: Boolean,
+): Float {
+    if (viewportWidth <= 0f || viewportHeight <= 0f) return 1f
+    val previewAspect = if (isLandscape) 16f / 9f else 9f / 16f
+    val viewportAspect = viewportWidth / viewportHeight
+    return maxOf(viewportAspect / previewAspect, previewAspect / viewportAspect)
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -320,12 +333,13 @@ fun StreamingScreen(
             )
         },
     ) { paddingValues ->
-        Box(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
                 .background(MaterialTheme.colorScheme.surfaceVariant),
         ) {
+            val previewZoom = cameraPreviewZoom(maxWidth.value, maxHeight.value, isLandscape)
             // Kamera-Vorschau als SurfaceView: Im Leerlauf zeigt Camera2 direkt
             // auf die Surface, während des Streams die interne GL-Pipeline.
             // Der Encoder hängt nicht an der Activity-Surface und läuft bei
@@ -380,6 +394,8 @@ fun StreamingScreen(
                             if (isLandscape) 1920 else 1080,
                             if (isLandscape) 1080 else 1920,
                         )
+                        view.scaleX = previewZoom
+                        view.scaleY = previewZoom
                     },
                     modifier = Modifier.align(Alignment.Center).aspectRatio(
                         if (isLandscape) 16f / 9f else 9f / 16f,
