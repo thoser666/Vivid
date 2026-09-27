@@ -44,9 +44,13 @@ issues.token=sntrys_…
 
 Quellen-Reihenfolge: `SENTRY_ISSUES_TOKEN` → `issues.token` → `resolve.token`
 → `stats.token` → `auth.token`. `--print-token-source` meldet nur die Quelle,
-nie den Token. Für die GitHub-Seite nutzt der Guard `GITHUB_ISSUES_TOKEN`
-(CI: `secrets.GITHUB_TOKEN`, reicht für issues:write); lokal einen PAT mit
-`repo` setzen, sobald ein Live-Lauf gewünscht ist.
+nie den Token. Für die GitHub-Seite nutzt der Guard `GITHUB_ISSUES_TOKEN` —
+in CI ist das **`AUTOMATION_TOKEN`** (PAT), **nicht** `GITHUB_TOKEN`:
+Von `GITHUB_TOKEN` ausgelöste `issues.opened`-Ereignisse erzeugen laut
+GitHub-Dokumentation **keine neuen Workflow-Runs** — damit bliebe der
+Triage-Autolabel (`severity:*`/`crash`) nach einer Watchdog-Erstellung
+permanent aus. Ein PAT-Ereignis dagegen triggert die Triage-Automation wie
+die native Route.
 
 ## 2. Nutzung (lokal)
 
@@ -100,8 +104,9 @@ android-ci.yml).
   Job nur `issues: write`; checkout SHA-gepinnt; `concurrency`-Gruppe
   `sentry-issues-watchdog` (kein Doppel-Anlegen).
 - Fehlt `SENTRY_ISSUES_TOKEN`, läuft der Workflow neutral (SKIP) — kein
-  Alarm. Der Guard erstellt die Issues direkt (kein Bot-PR, daher kein
-  AUTOMATION_TOKEN nötig).
+  Alarm. Erstellt wird mit dem **AUTOMATION_TOKEN** (PAT), damit die
+  Triage-Automation auf das `issues.opened`-Ereignis reagieren kann
+  (GITHUB_TOKEN-Events würden keine Workflow-Runs auslösen).
 
 ## 5. Sicherheit
 

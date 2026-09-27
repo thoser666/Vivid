@@ -16,8 +16,14 @@
 # Label-Erieselung nötig, Loop-Schutz über die Triggertypen.
 #
 # Verdicts des Guards sind bewusst keine Gate-Blocker: fehlt das Sentry-Token,
-# ist das neutral (SKIP). Der Workflow erstellt Issues direkt (kein Bot-PR) —
-# GITHUB_TOKEN reicht, kein AUTOMATION_TOKEN nötig.
+# ist das neutral (SKIP).
+#
+# Wichtig: die GitHub-Issue-Erstellung erfolgt über das AUTOMATION_TOKEN (PAT),
+# NICHT über GITHUB_TOKEN. Von GITHUB_TOKEN ausgelöste Events erzeugen laut
+# GitHub-Dokumentation KEINE neuen Workflow-Runs — mit GITHUB_TOKEN würde der
+# Triage-Workflow (automation-sentry-triage.yml, Trigger 'issues.opened')
+# nie feuern und jede neue Issue bliebe unlabeliert. Ein PAT-Ereignis dagegen
+# triggert die Triage-Automation (severity:*/crash + Advisory-Verweis).
 #
 # Berechtigungen: top-level {}, Job nur issues: write; checkout SHA-gepinnt;
 # concurrency verhindert überlappende Läufe (Kein Doppel-Anlegen durch
@@ -49,7 +55,10 @@ jobs:
       - name: Sentry-Issues-Watchdog (neue Reports als GitHub-Issues)
         env:
           SENTRY_ISSUES_TOKEN: ${{ secrets.SENTRY_ISSUES_TOKEN }}
-          GITHUB_ISSUES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # PAT statt GITHUB_TOKEN: erzeugte 'issues.opened'-Ereignisse müssen
+          # den Triage-Workflow anstoßen dürfen (GITHUB_TOKEN-Events triggern
+          # keine Workflows — siehe Kopfkommentar).
+          GITHUB_ISSUES_TOKEN: ${{ secrets.AUTOMATION_TOKEN }}
           SENTRY_ORG: privat-jb
           SENTRY_PROJECT: vivid
         run: bash scripts/check_sentry_issues.sh

@@ -26,7 +26,9 @@
 #   I13 Fixture ghstatus 422 → FEHLER (exit 1)
 #   I14 Fixture ghstatus 401 → SKIP (GitHub-Token-Hinweis)
 #   I15 Workflow-/Gate-Verdrahtung: automation-sentry-issues.yml (Cron,
-#       permissions issues:write, SENTRY_ISSUES_TOKEN-Secret, SHA-Pin),
+#       permissions issues:write, SENTRY_ISSUES_TOKEN-Secret, AUTOMATION_TOKEN
+#       als Erstellungs-Credential — GITHUB_TOKEN-Events triggern keine
+#       Workflow-Runs, ohne PAT bliebe der Triage-Autolabel aus, SHA-Pin),
 #       pre-push.sh und android-ci.yml führen den Selbsttest aus
 #   I16 Windows-Coding-Sicherheitsnetz: beide Python-Heredocs nutzen
 #       `python -X utf8`
@@ -222,6 +224,10 @@ grep -q "cron:" "$WF" || fail "I15: stündlicher Cron fehlt"
 grep -q "permissions: {}" "$WF" || fail "I15: top-level permissions: {} fehlt"
 grep -q "issues: write" "$WF" || fail "I15: minimales Job-Permissions-Modell fehlt"
 grep -q "SENTRY_ISSUES_TOKEN" "$WF" || fail "I15: Secret SENTRY_ISSUES_TOKEN nicht verdrahtet"
+grep -q 'GITHUB_ISSUES_TOKEN: \${{ secrets.AUTOMATION_TOKEN }}' "$WF" || \
+  fail "I15: Erstellung muss über AUTOMATION_TOKEN (PAT) laufen — GITHUB_TOKEN-Events triggern keine Workflows, Triage bliebe aus"
+grep -q 'GITHUB_ISSUES_TOKEN: \${{ secrets.GITHUB_TOKEN }}' "$WF" && \
+  fail "I15: GITHUB_TOKEN darf die Issues nicht erzeugen (Triage feuert nie — Trigger-Suppression)"
 grep -q "actions/checkout@" "$WF" || fail "I15: Checkout-Pin fehlt"
 grep -q "check_sentry_issues.sh" "$WF" || fail "I15: Guard nicht im Workflow aufgerufen"
 grep -q "test_sentry_issues.sh" scripts/pre-push.sh || fail "I15: Selbsttest nicht im Pre-Push-Gate"
