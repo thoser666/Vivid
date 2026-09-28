@@ -96,20 +96,26 @@ object CrashAdvisoryRegistry {
         // Erster real identifizierter Start-Crash (Nutzerbericht S23, In-App-Log):
         // BindException EADDRINUSE in RemoteControlServer.start(), wenn Port
         // 8080 bereits belegt ist (zweite App/Instanz). Remote-Autostart
-        // existiert seit v0.5.0-alpha (versionCode-Basis 5000); die Haertung
-        // (Graceful-Skip + Log) landete in v0.5.16-beta (5162) — davor crashte
-        // der Prozess. Kill-Switch: Remote-Control in den Einstellungen aus.
+        // existiert seit v0.5.0-alpha (versionCode-Basis 5000). Range nach
+        // Forensik zu Sentry VIVID-37 (#228) korrigiert: Die v0.5.16-beta-
+        // Haertung (99d14bd5: Probe + CoroutineExceptionHandler) fing nur die
+        // synchrone Probe, nicht das Probe->Bind-Rennen des asynchronen
+        // Engine-Binds - 5162/5172 crashten weiter (fatal-Events bis 26.09.),
+        // erst die Bind-Verifikation 65c93832 schloss die Luecke (v0.5.18-beta,
+        // 5182). 0.5.15-beta (5152) wurde nie ausgeliefert (kein GitHub-Release,
+        // keine APKs im F-Droid-Repo) - die Range bleibt ab 5000 lueckenlos.
+        // Kill-Switch: Remote-Control in den Einstellungen aus.
         KnownCrashCandidate(
             id = "REMOTE-EADDRINUSE-STARTUP",
             description =
                 "Absturz beim Start: Der Port der Web-Remote-Control (8080) ist belegt " +
                     "(EADDRINUSE) - z. B. durch eine andere App oder eine zweite Vivid-Instanz.",
             minVersionCode = 5000,
-            maxVersionCode = 5144,
+            maxVersionCode = 5172,
             workaround =
-                "Auf Build >= 5162 (v0.5.16-beta) aktualisieren - dort wird ein belegter Port " +
-                    "abgefangen; alternativ Web-Remote-Control in den Einstellungen (Remote & " +
-                    "Datenschutz) ausschalten.",
+                "Auf Build >= 5182 (v0.5.18-beta) aktualisieren - dort wird ein belegter Port " +
+                    "zuverlaessig (inkl. Bind-Rennen) abgefangen; alternativ Web-Remote-Control " +
+                    "in den Einstellungen (Remote & Datenschutz) ausschalten.",
         ),
         // Issue #215 / Sentry VIVID-36 (fatal, 20 Events / 10 Nutzer,
         // 30.08.-07.09.2026): Doppeltes Scroll-Nesting im Kamera-Settings-

@@ -124,7 +124,15 @@ nicht gezogen wurde):
    nicht, weil der Bug verschwunden ist. Danach `git log -G` über die
    Crash-API (z. B. `verticalScroll\(`) im Fenster: Änderungen um last-seen
    herum sind Fix-Kandidaten (auch unattributierte „Beifang“-Änderungen wie
-   Test-Coverage-Runden).
+   Test-Coverage-Runden). **Wichtig (Sentry-Ingress-Ebenen):** Das Sentry
+   Android SDK instrumentiert auch Timber — `Timber.e` erzeugt
+   **error**-Events (kein Crash!). Der Frame zeigt dann auf die
+   Logging-Stelle (z. B. `probePort$core`), nicht auf die Crash-API;
+   fatal + `Net.java:bind0` heißt dagegen Prozess-Crash in der Bind-API.
+   Der `app.version_code`-Tag läuft erst seit dem 27.09.2026 (ea16fadc) —
+   ältere Events sind **versionlos**; Attribution dann über Build-
+   Archäologie (Tag-Enthaltensein per `git merge-base --is-ancestor`)
+   statt über Sentry-Tags.
 2. **Doppel-Meldungen desselben Sentry-Issue verbinden:** Vor der Schließung
    `gh issue list --label sentry` nach gleichem Top-Frame/Befund durchsuchen
    (Body-Marker `vivid-sentry-issue: <id>` identifiziert das Sentry-Issue
@@ -144,6 +152,15 @@ Beispiel einer vollständigen Nach-Attribution: #215 (VIVID-36) →
 `CAM-FOCUS-INFINITE-SCROLL` (Doppel-Scroll in `SettingsCameraScreen`,
 kranker Range 5102–5122, still entschärft in 009972ad, Regressionstests in
 `SettingsSubScreensRobolectricTest`).
+
+Beispiel Range-Korrektur nach ausgelieferten Versionen: #228/#222
+(VIVID-37/3E, BindException EADDRINUSE) — die Registry-Range von
+`REMOTE-EADDRINUSE-STARTUP` war ursprünglich 5000–5144 („Fix ab 5162“),
+obwohl die 5162er-Härtung (99d14bd5) nur die synchrone Port-Probe fing und
+das Probe→Bind-Rennen des asynchronen Engine-Binds offenließ (fatal-Events
+bis 26.09.2026). Korrektur auf 5000–5172, Workaround ≥ 5182 (65c93832,
+Bind-Verifikation). VIVID-3E ist dasselbe Phänomen als **gefangener**
+Fehler (Timber.e → error-Event, Frame `RemoteControlServer.kt:probePort$core`).
 
 ## 6. Sicherheit
 
