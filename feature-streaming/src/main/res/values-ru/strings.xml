@@ -123,4 +123,13 @@
     <!-- A11y: state descriptions for the streaming controls (TalkBack) -->
     <string name="streaming_a11y_state_on">Включено</string>
     <string name="streaming_a11y_state_off">Выключено</string>
+
+    <!-- Anonymisierung (Privacy-Zonen, P1) -->
+    <string name="privacy_master_toggle_label">Анонимизация</string>
+    <string name="streaming_privacy_zones">Зоны</string>
+    <string name="privacy_zone_editor_title">Редактор зон (анонимизация)</string>
+    <string name="privacy_zone_editor_hint">Перетаскивание перемещает зону, перетаскивание за край изменяет её размер. Максимум 4 зоны.</string>
+    <string name="privacy_zone_add">Добавить зону</string>
+    <string name="privacy_zone_delete">Удалить выбранную зону</string>
+    <string name="privacy_zone_editor_close">Закрыть редактор зон</string>
 </resources>
