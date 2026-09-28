@@ -9,8 +9,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -34,6 +32,17 @@ import androidx.hilt.navigation.compose.hiltViewModel
  * - Linsen-Auswahl (Ultraweit/Weit/Tele)
  *
  * Die tatsächliche Kamera-Steuerung erfolgt über die StreamingEngine.
+ *
+ * Bewusst KEIN eigener `verticalScroll` in diesem Screen: Er steckt im
+ * scrollbaren `SettingsSectionScaffold`. Ein zweiter, ungebundener
+ * verticalScroll wurde hier mit unendlicher Maximalhöhe gemessen
+ * (IllegalStateException „Vertically scrollable component was measured with
+ * an infinity maximum height constraints“) — Issue #215 / Sentry VIVID-36,
+ * Crash-Fenster v0.5.10-beta..v0.5.12-beta (versionCode 5102–5122), still
+ * entschärft in 009972ad (Ab v0.5.13-beta), CrashAdvisory-Eintrag
+ * CAM-FOCUS-INFINITE-SCROLL. Regressionstest:
+ * SettingsSubScreensRobolectricTest
+ * („camera screen contains exactly one scrollable without nested scroll“).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
