@@ -41,8 +41,9 @@
 | `values/` (de, Default) | Pflicht | App-Sprache bleibt Deutsch (Zielgruppe IRL-Streamer DACH) |
 | `values-en/` (en) | Pflicht | Vollständige englische Übersetzung |
 | `values-fr/` (fr) | Pflicht | Vollständige französische Übersetzung (seit 2026-08-20 in allen Modulen) |
+| `values-ru/` (ru) | Pflicht | Vollständige russische Übersetzung |
 
-**Mechanik:** Alle Module sind auf `values/` vollständig; `values-en` und `values-fr` wurden parallel ergänzt. Kein String darf ohne Übersetzung in `values-en` oder `values-fr` fehlen (CI-Check, siehe §5).
+**Mechanik:** Alle Module sind auf `values/` vollständig; `values-en`, `values-fr` und `values-ru` enthalten dieselben Keys. Kein String darf in einer der Pflicht-Sprachen fehlen (CI-Check, siehe §5).
 
 ## 4. Was NICHT lokalisiert wird
 
@@ -55,9 +56,9 @@
 ## 5. CI-/Qualitäts-Checks (alle aktiv)
 
 1. **Externalisierungs-Gate:** `scripts/check_i18n.sh` — `Text(“…”)`, `contentDescription = “…”`, `label = “…”` / `title = “…”` in `src/main` der UI-Module (feature-settings, feature-obs-control, feature-streaming, feature-chat, feature-widgets, app) liefern **0 Treffer**. Ausnahmen: `AppChatStreamControl.kt` (`!diag`-Bot-Ausgabe), Bot-Antworten/-Befehle in feature-chat (BotCommandProcessor, ChatBotEngine, TwitchSendChatClient-Exceptions, TwitchModerationClient-Bestätigungen) und technische Konstanten (WidgetFormatters-Einheiten km/h/m) — bewusst nicht lokalisiert → verhindert Rückfall auf Hartkodierung.
-2. **Vollständigkeits-Check:** derselbe Guard vergleicht `values/strings.xml` ↔ `values-en/strings.xml` ↔ `values-fr/strings.xml` pro Modul (fehlende Keys in einer Richtung = Fehler). Deckt **sieben Module** ab: feature-settings, feature-obs-control, feature-streaming, feature-chat, feature-widgets, app **und core** (seit 2026-08-21; `core` hat eigene Ressourcen, z. B. Update-Check-Fehlertexte — vorher nicht CI-gesichert).
-3. **stream_url_hint-Inhalts-Guard:** Der Hinweis unter dem Stream-URL-Feld muss in **allen drei** Sprachen die Kernaussagen nennen (RTMP, SRT, Owncast, Presets bzw. préréglages) — die custom-Plattform-Fähigkeit bleibt so sichtbar.
-4. **Selbsttest:** `scripts/test_check_i18n.sh` (5 Fixtures: sauber grün, hartkodierter String rot, fehlende Übersetzung rot, Hint ohne Owncast rot, Repo-Regression grün) — läuft in Pre-Push und CI.
+2. **Vollständigkeits-Check:** derselbe Guard vergleicht `values/strings.xml` mit `values-en/strings.xml`, `values-fr/strings.xml` und `values-ru/strings.xml` pro Modul (fehlende Keys in einer Richtung = Fehler). Deckt **sieben Module** ab: feature-settings, feature-obs-control, feature-streaming, feature-chat, feature-widgets, app **und core** (seit 2026-08-21; `core` hat eigene Ressourcen, z. B. Update-Check-Fehlertexte — vorher nicht CI-gesichert).
+3. **stream_url_hint-Inhalts-Guard:** Der Hinweis unter dem Stream-URL-Feld muss in **allen vier** Sprachen die Kernaussagen nennen (RTMP, SRT, Owncast, Presets bzw. préréglages/пресеты) — die custom-Plattform-Fähigkeit bleibt so sichtbar.
+4. **Selbsttest:** `scripts/test_check_i18n.sh` (6 Fälle: sauberes Fixture grün, hartkodierter String rot, fehlende englische oder russische Übersetzung rot, Hint ohne Owncast rot, Repo-Regression grün) — läuft in Pre-Push und CI.
 5. **Lint:** Android-Lint meldet `HardcodedText`-Warnungen — als `warningsAsErrors` im CI aktiviert.
 
 **Verdrahtung:** `scripts/check_i18n.sh` + `scripts/test_check_i18n.sh` in `scripts/pre-push.sh` (mit Assertionen in `scripts/test_pre_push.sh`) und im `guard-secrets`-Job von `.github/workflows/android-ci.yml`.

@@ -1,6 +1,7 @@
 package com.vivid.irlbroadcaster
 
 import android.app.Activity
+import android.content.Context
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -28,6 +29,7 @@ import com.vivid.core.data.AppSettings
 import com.vivid.core.data.SettingsRepository
 import com.vivid.core.data.ThemeMode
 import com.vivid.core.data.resolveDark
+import com.vivid.core.i18n.AppLanguage
 import com.vivid.core.ui.LocalWindowWidthClass
 import com.vivid.feature.obscontrol.ui.ObsControlScreen
 import com.vivid.feature.playback.PlaybackScreen
@@ -53,6 +55,10 @@ import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(AppLanguage.wrapBaseContext(newBase))
+    }
 
     @Inject
     lateinit var settingsRepository: SettingsRepository

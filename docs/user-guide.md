@@ -363,14 +363,14 @@ Siehe [README → Automatic updates (F-Droid Repository)](../README.md#-automati
 
 ## 13. Sprache (pro App)
 
-Vivid gibt es auf **Deutsch, Englisch und Französisch**. Ab **Android 13** kannst du die Sprache pro App festlegen — unabhängig von der Systemsprache:
+Vivid gibt es auf **Deutsch, Englisch, Französisch und Russisch**. Wähle die Sprache unter **Einstellungen → Darstellung → Sprache** auf jeder unterstützten Android-Version. Ab **Android 13** kannst du sie auch in den Android-App-Einstellungen festlegen:
 
 1. Öffne die **App-Infos** von Vivid (lange auf das App-Symbol tippen → ⓘ, oder **Einstellungen → Apps → Vivid**)
 2. **Sprache** antippen
-3. Eine der drei Sprachen wählen — **Standard** folgt der Systemsprache
+3. Eine der vier Sprachen wählen — **System** folgt der Systemsprache
 
 - Die Einstellung wirkt sofort, ohne Neustart der App
-- Auf Android 12 und älter folgt Vivid der Systemsprache
+- Auf Android 12 und älter speichert der In-App-Sprach-Picker deine Wahl
 - Chat-Nachrichten, Stream und Overlays sind nicht betroffen — die Einstellung steuert nur die App-Oberfläche
 
 > 💡 Du streamst z. B. auf Englisch? Vivid kann trotzdem auf Deutsch bedient werden — oder umgekehrt.

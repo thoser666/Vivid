@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_time_label">🕒 %1$s</string>
+    <string name="widget_date_label">%1$s</string>
+    <string name="widget_location_label">📍 %1$s</string>
+    <string name="widget_speed_label">🚗 %1$s</string>
+    <string name="widget_altitude_label">⛰️ %1$s</string>
+
+    <!-- Image widget (logo/watermark) -->
+    <string name="image_widget_description">Наложенное изображение потока</string>
+    <string name="slideshow_widget_description">Слайд-шоу</string>
+    <string name="qr_code_widget_description">Наложение QR-кода</string>
+
+    <!-- Subtitles overlay (speech-to-text, PARITY row 143) -->
+    <string name="subtitles_unavailable">На этом устройстве распознавание речи недоступно</string>
+    <string name="subtitles_error_network">Распознавание речи: ошибка сети — повторная попытка…</string>
+    <string name="subtitles_error_audio">Микрофон недоступен (используется другим приложением?)</string>
+    <string name="subtitles_error_permission">Отсутствует разрешение на микрофон — предоставьте его в настройках.</string>
+    <string name="subtitles_error_busy">Распознаватель речи занят — повторная попытка…</string>
+    <string name="subtitles_error_speech_timeout">Ничего не услышал — все еще слушаю…</string>
+    <string name="subtitles_error_generic">Ошибка распознавания речи</string>
+</resources>
