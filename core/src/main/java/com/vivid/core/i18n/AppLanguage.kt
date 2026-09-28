@@ -1,10 +1,12 @@
 package com.vivid.core.i18n
 
+import android.annotation.SuppressLint
 import android.app.LocaleManager
 import android.content.Context
 import android.content.res.Configuration
 import android.os.Build
 import android.os.LocaleList
+import androidx.core.content.edit
 import java.util.Locale
 
 /** The languages shipped by Vivid, plus the device's language preference. */
@@ -38,11 +40,18 @@ enum class AppLanguage(val tag: String) {
                     LocaleList.forLanguageTags(language.tag)
             } else {
                 context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-                    .edit().putString(PREF_KEY, language.tag).apply()
+                    .edit { putString(PREF_KEY, language.tag) }
             }
         }
 
         /** Before Android 13, give each Activity localized resources at creation. */
+        // Suppress ist bewusst begruendet: AppBundleLocaleChanges verlangt
+        // Play-Core-Sprach-Downloads ODER deaktiviertes Locale-Splitting.
+        // Die Loesung lebt im App-Modul (app/build.gradle.kts, bundle {
+        // language { enableSplit = false }}) — dort ist sie fuer beide
+        // Distributionen (Play/AAB + F-Droid/APK) korrekt; dieses
+        // Library-Modul kann die Bundle-Konfiguration nicht tragen.
+        @SuppressLint("AppBundleLocaleChanges")
         fun wrapBaseContext(base: Context): Context {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) return base
             val language = current(base)
