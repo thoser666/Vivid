@@ -2,6 +2,8 @@ package com.vivid.feature.settings.ui
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.hasAnyChild
+import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.hasStateDescription
@@ -101,6 +103,49 @@ class SettingsSubScreensRobolectricTest {
         composeRule.onNodeWithText("Tele").performClick()
         verify { viewModel.selectLens("1") }
     }
+
+    @Test
+    fun `camera screen contains exactly one scrollable without nested scroll`() {
+        // Regression Issue #215 / Sentry VIVID-36 (CAM-FOCUS-INFINITE-SCROLL):
+        // Ein eigener, ungebundener verticalScroll des Camera-Screens innerhalb
+        // des bereits scrollbaren SettingsSectionScaffold wurde mit unendlicher
+        // Maximalhoehe gemessen (fataler Compose-Layout-Crash,
+        // v0.5.10-beta..v0.5.12-beta / versionCode 5102..5122). Der Screen
+        // muss sich auf den Scroll des Scaffolds verlassen — genau EIN
+        // Scrollable im Baum, und kein Scrollable misst seine eigenen Kinder
+        // erneut (kein WrapContentHeight-Opt-Out, der Workaround-Hinweis des
+        // historischen Crashes).
+        composeRule.setContent { SettingsCameraScreen(viewModel = cameraViewModel()) }
+
+        composeRule.onNode(
+            hasScrollAction().and(hasAnyDescendant(hasAnyChild(hasScrollAction()))),
+        ).assertDoesNotExist()
+    }
+
+    @Test
+    fun `camera screen content scrolls in section scaffold without crash`() {
+        // Regression Issue #215: Der Inhalt (Fokus-Karte, Linsen-Karte) wird
+        // vom Section-Scaffold-Scroll getragen; Scrollen zum unteren Inhalt
+        // darf den Screen nicht crashen (historisch starb die erste
+        // Messung des doppelten Scrolls mit der Infinite-Height-Exception).
+        composeRule.setContent { SettingsCameraScreen(viewModel = cameraViewModel()) }
+
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Tele"))
+        composeRule.onNodeWithText("Tele").assertIsDisplayed()
+    }
+
+    private fun cameraViewModel(): SettingsCameraViewModel =
+        mockk(relaxed = true) {
+            every { focusDistance } returns MutableStateFlow(2.5f)
+            every { hasManualFocus } returns MutableStateFlow(true)
+            every { availableLenses } returns MutableStateFlow(
+                listOf(
+                    SettingsCameraViewModel.LensUiState(id = "0", displayName = "Wide", isActive = true),
+                    SettingsCameraViewModel.LensUiState(id = "1", displayName = "Tele", isActive = false),
+                ),
+            )
+            every { currentLensId } returns MutableStateFlow("0")
+        }
 
     // --- Logs & Diagnostics ---------------------------------------------------
 
