@@ -6,7 +6,8 @@
 #   F2  Negativ: hartkodierter UI-String (Text("…")) → rot
 #   F3  Negativ: values-en fehlt ein Key → rot
 #   F4  Negativ: stream_url_hint ohne Owncast → rot
-#   F5  Real: der echte Repo-Stand ist grün (Regression)
+#   F5  Negativ: values-ru fehlt ein Key → rot
+#   F6  Real: der echte Repo-Stand ist grün (Regression)
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -18,7 +19,7 @@ fail() { echo "  ✗ $*"; FAILED=1; }
 pass() { echo "  ✓ $*"; }
 
 # ── Fixture-Modul anlegen ────────────────────────────────────────────────
-mkdir -p "$TMP/fx/src/main/java/x" "$TMP/fx/src/main/res/values" "$TMP/fx/src/main/res/values-en" "$TMP/fx/src/main/res/values-fr"
+mkdir -p "$TMP/fx/src/main/java/x" "$TMP/fx/src/main/res/values" "$TMP/fx/src/main/res/values-en" "$TMP/fx/src/main/res/values-fr" "$TMP/fx/src/main/res/values-ru"
 cat > "$TMP/fx/src/main/java/x/Dummy.kt" <<'EOF'
 package x
 EOF
@@ -30,16 +31,20 @@ cat > "$TMP/fx/src/main/res/values/strings.xml" <<'EOF'
 </resources>
 EOF
 cp "$TMP/fx/src/main/res/values/strings.xml" "$TMP/fx/src/main/res/values-en/strings.xml"
-sed -i.bak 's/Beispiel/Example/' "$TMP/fx/src/main/res/values-en/strings.xml"
+perl -pi -e 's/Beispiel/Example/' "$TMP/fx/src/main/res/values-en/strings.xml"
 # Englische Fassung des Hints: bewusst mit „presets“ (klein) — der en-Guard
 # ist case-sensitiv, der de-Guard erwartet „Presets“. Das Fixture muss beide
 # Varianten abdecken, damit F1 grün ist.
-sed -i.bak 's|z. B. Owncast. Die Plattform-Vorlagen oben sind nur Presets.|e.g. Owncast. The platform presets above are just presets.|' "$TMP/fx/src/main/res/values-en/strings.xml"
+perl -pi -e 's|z. B. Owncast. Die Plattform-Vorlagen oben sind nur Presets.|e.g. Owncast. The platform presets above are just presets.|' "$TMP/fx/src/main/res/values-en/strings.xml"
 # Französische Fassung (values-fr ist jetzt Pflicht-Sprache im Guard):
 # de-Guard erwartet „Presets“, en-Guard „presets“, fr-Guard „préréglages“.
 cp "$TMP/fx/src/main/res/values/strings.xml" "$TMP/fx/src/main/res/values-fr/strings.xml"
-sed -i.bak 's/Beispiel/Exemple/' "$TMP/fx/src/main/res/values-fr/strings.xml"
-sed -i.bak 's|z. B. Owncast. Die Plattform-Vorlagen oben sind nur Presets.|p. ex. Owncast. Les modèles de plateforme ci-dessus ne sont que des préréglages.|' "$TMP/fx/src/main/res/values-fr/strings.xml"
+perl -pi -e 's/Beispiel/Exemple/' "$TMP/fx/src/main/res/values-fr/strings.xml"
+perl -pi -e 's|z. B. Owncast. Die Plattform-Vorlagen oben sind nur Presets.|p. ex. Owncast. Les modèles de plateforme ci-dessus ne sont que des préréglages.|' "$TMP/fx/src/main/res/values-fr/strings.xml"
+# Russische Fassung: der Inhalts-Guard erwartet „пресет“.
+cp "$TMP/fx/src/main/res/values/strings.xml" "$TMP/fx/src/main/res/values-ru/strings.xml"
+perl -pi -e 's/Beispiel/Пример/' "$TMP/fx/src/main/res/values-ru/strings.xml"
+perl -pi -e 's|z. B. Owncast. Die Plattform-Vorlagen oben sind nur Presets.|например, Owncast. Шаблоны платформ выше — только пресеты.|' "$TMP/fx/src/main/res/values-ru/strings.xml"
 
 echo "▶ [i18n-test] F1: sauberes Fixture → grün"
 if I18N_MODULES="$TMP/fx" I18N_HINT_MODULE="$TMP/fx" bash scripts/check_i18n.sh > /dev/null 2>&1; then
@@ -65,7 +70,7 @@ echo "▶ [i18n-test] F3: fehlende values-en-Übersetzung → rot"
 cat > "$TMP/fx/src/main/java/x/Dummy.kt" <<'EOF'
 package x
 EOF
-sed -i.bak '/fx_title/d' "$TMP/fx/src/main/res/values-en/strings.xml"
+perl -pi -e '$_ = "" if /fx_title/' "$TMP/fx/src/main/res/values-en/strings.xml"
 if I18N_MODULES="$TMP/fx" I18N_HINT_MODULE="$TMP/fx" bash scripts/check_i18n.sh > /dev/null 2>&1; then
   fail "F3 sollte rot sein (fx_title fehlt in values-en)"
 else
@@ -74,23 +79,31 @@ fi
 
 echo "▶ [i18n-test] F4: stream_url_hint ohne Owncast → rot"
 # values-en wieder vollständig machen, aber Owncast aus dem Hint entfernen
-sed -i.bak 's|</resources>|    <string name="fx_title">Example</string>\n</resources>|' "$TMP/fx/src/main/res/values-en/strings.xml"
-sed -i.bak 's/e.g. Owncast\./e.g. a self-hosted server./' "$TMP/fx/src/main/res/values-en/strings.xml"
+perl -pi -e 's|</resources>|    <string name="fx_title">Example</string>\n</resources>|' "$TMP/fx/src/main/res/values-en/strings.xml"
+perl -pi -e 's/e.g. Owncast\./e.g. a self-hosted server./' "$TMP/fx/src/main/res/values-en/strings.xml"
 if I18N_MODULES="$TMP/fx" I18N_HINT_MODULE="$TMP/fx" bash scripts/check_i18n.sh > /dev/null 2>&1; then
   fail "F4 sollte rot sein (Hint ohne Owncast)"
 else
   pass "F4 rot wie erwartet"
 fi
 
-echo "▶ [i18n-test] F5: echter Repo-Stand → grün (Regression)"
-if bash scripts/check_i18n.sh > /dev/null 2>&1; then
-  pass "F5 grün"
+echo "▶ [i18n-test] F5: fehlende values-ru-Übersetzung → rot"
+perl -pi -e '$_ = "" if /fx_title/' "$TMP/fx/src/main/res/values-ru/strings.xml"
+if I18N_MODULES="$TMP/fx" I18N_HINT_MODULE="$TMP/fx" bash scripts/check_i18n.sh > /dev/null 2>&1; then
+  fail "F5 sollte rot sein (fx_title fehlt in values-ru)"
 else
-  fail "F5 sollte grün sein — Repo hat I18n-Verstöße?"
+  pass "F5 rot wie erwartet"
+fi
+
+echo "▶ [i18n-test] F6: echter Repo-Stand → grün (Regression)"
+if bash scripts/check_i18n.sh > /dev/null 2>&1; then
+  pass "F6 grün"
+else
+  fail "F6 sollte grün sein — Repo hat I18n-Verstöße?"
 fi
 
 if [[ "$FAILED" == "1" ]]; then
   echo "❌ [i18n-test] Selbsttest fehlgeschlagen."
   exit 1
 fi
-echo "✅ [i18n-test] Alle 5 Fälle grün."
+echo "✅ [i18n-test] Alle 6 Fälle grün."

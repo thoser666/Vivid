@@ -4,7 +4,7 @@
     <string name="cat_streaming_title">Streaming &amp; OBS</string>
     <string name="cat_streaming_subtitle">Stream-URL/-Key, Plattform-Vorlagen, Multi-Streaming, OBS-Verbindung</string>
     <string name="cat_appearance_title">Darstellung</string>
-    <string name="cat_appearance_subtitle">Design-Modus (Hell/Dunkel/AMOLED), Akzentfarbe</string>
+    <string name="cat_appearance_subtitle">Sprache, Design-Modus, Akzentfarbe</string>
     <string name="cat_overlays_title">Overlays &amp; Widgets</string>
     <string name="cat_overlays_subtitle">Twitch-Chat, Text-/Info-, Bild-, QR-Code-, Akku- und Grid-Widgets</string>
     <string name="cat_chatbot_title">Chat-Bot &amp; KI</string>
@@ -43,6 +43,13 @@
     <string name="accent_teal">Petrol</string>
 
     <!-- ===== Darstellung (SettingsAppearanceScreen.kt) ===== -->
+    <string name="appearance_language_title">Sprache</string>
+    <string name="appearance_language_desc">Wähle die Sprache für Vivid. „System“ folgt der Gerätesprache, sofern verfügbar, sonst wird Deutsch verwendet. Die Änderung wird sofort übernommen.</string>
+    <string name="appearance_language_system">System</string>
+    <string name="appearance_language_german">Deutsch</string>
+    <string name="appearance_language_english">English</string>
+    <string name="appearance_language_french">Français</string>
+    <string name="appearance_language_russian">Русский</string>
     <string name="appearance_mode_title">Design-Modus</string>
     <string name="appearance_mode_desc">Legt fest, ob Vivid hell, dunkel oder im AMOLED-Modus erscheint — oder dem System folgt. AMOLED nutzt rein-schwarze Flächen (spart auf OLED-Displays Energie).</string>
     <string name="appearance_mode_system_desc">Folgt der System-Einstellung deines Geräts (Standard).</string>

@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Chat overlay above the streaming preview (ui/ChatOverlay.kt) -->
+    <string name="chat_overlay_not_configured">Наложение чата не настроено (логин бота, токен и ID клиента задаются в настройках)</string>
+    <string name="chat_overlay_connecting">Подключение…</string>
+    <string name="chat_overlay_channel">Чат: %1$s</string>
+    <!-- Event alerts (follow/sub/raid) in the chat overlay (ui/ChatOverlay.kt) -->
+    <string name="chat_alert_follow">🔔 %1$s теперь подписан на канал!</string>
+    <string name="chat_alert_subscribe">🎉 %1$s оформил подписку (%2$s)</string>
+    <string name="chat_alert_subscribe_plain">🎉 %1$s оформил подписку</string>
+    <string name="chat_alert_sub_gift">" · подарок от %1$s"</string>
+    <plurals name="chat_alert_gift">
+        <item quantity="one">🎁 %1$s подарил %2$d подписку</item>
+        <item quantity="few">🎁 %1$s подарил %2$d подписки</item>
+        <item quantity="many">🎁 %1$s подарил %2$d подписок</item>
+        <item quantity="other">🎁 %1$s подарил %2$d подписки</item>
+    </plurals>
+    <plurals name="chat_alert_gift_anonymous">
+        <item quantity="one">🎁 Анонимный пользователь подарил %1$d подписку</item>
+        <item quantity="few">🎁 Анонимный пользователь подарил %1$d подписки</item>
+        <item quantity="many">🎁 Анонимный пользователь подарил %1$d подписок</item>
+        <item quantity="other">🎁 Анонимный пользователь подарил %1$d подписки</item>
+    </plurals>
+    <plurals name="chat_alert_gift_cumulative">
+        <item quantity="one"> · всего %1$d</item>
+        <item quantity="few"> · всего %1$d</item>
+        <item quantity="many"> · всего %1$d</item>
+        <item quantity="other"> · всего %1$d</item>
+    </plurals>
+    <string name="chat_alert_resub">🔁 %1$s продлил подписку (%2$s) — месяц %3$d</string>
+    <string name="chat_alert_resub_plain">🔁 %1$s продлил подписку — месяц %2$d</string>
+    <string name="chat_alert_resub_streak">" · серия подписок: %1$d мес."</string>
+    <plurals name="chat_alert_raid">
+        <item quantity="one">⚔️ Рейд от %1$s (%2$d зритель)</item>
+        <item quantity="few">⚔️ Рейд от %1$s (%2$d зрителя)</item>
+        <item quantity="many">⚔️ Рейд от %1$s (%2$d зрителей)</item>
+        <item quantity="other">⚔️ Рейд от %1$s (%2$d зрителя)</item>
+    </plurals>
+    <string name="chat_alert_hype_train">🚂 Хайп-поезд: уровень %1$d — %2$d/%3$d</string>
+    <string name="chat_alert_hype_train_active">🚂 Хайп-поезд запущен</string>
+    <string name="chat_alert_hype_train_end">🚂 Хайп-поезд завершён — уровень %1$d</string>
+
+    <!-- Shared chat session (Twitch "Stream Together"): subtle overlay hint -->
+    <string name="chat_shared_chat_active">🔗 Общий чат с %1$s</string>
+    <plurals name="chat_shared_chat_active_host">
+        <item quantity="one">🔗 Общий чат — %1$d канал</item>
+        <item quantity="few">🔗 Общий чат — %1$d канала</item>
+        <item quantity="many">🔗 Общий чат — %1$d каналов</item>
+        <item quantity="other">🔗 Общий чат — %1$d канала</item>
+    </plurals>
+</resources>
