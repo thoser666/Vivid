@@ -751,6 +751,22 @@ class StreamingEngineTest {
     }
 
     @Test
+    fun `current surface teardown closes the idle camera preview`() = runTest {
+        streamingEngine.initializeCamera()
+        every { context.checkSelfPermission(android.Manifest.permission.CAMERA) } returns PackageManager.PERMISSION_GRANTED
+        every { camera.currentCameraId } returns ""
+        val idleCamera = mockk<Camera2ApiManager>(relaxed = true)
+        streamingEngine.idlePreviewFactory = { idleCamera }
+        val surface: Surface = mockk(relaxed = true)
+
+        streamingEngine.attachPreview(surface, 1088, 1088)
+        streamingEngine.detachPreview(surface)
+
+        verify(exactly = 1) { idleCamera.closeCamera() }
+        verify(exactly = 1) { glStreamInterface.deAttachPreview() }
+    }
+
+    @Test
     fun `idle preview reopens when the same surface changes orientation`() = runTest {
         streamingEngine.initializeCamera()
         every { context.checkSelfPermission(android.Manifest.permission.CAMERA) } returns PackageManager.PERMISSION_GRANTED

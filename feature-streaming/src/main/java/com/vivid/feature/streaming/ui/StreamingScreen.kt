@@ -188,8 +188,8 @@ fun StreamingScreen(
     val privacyZones by viewModel.privacyZones.collectAsStateWithLifecycle(initialValue = emptyList())
     var privacyEditing by remember { mutableStateOf(false) }
 
-    // Runtime-Permissions (Kamera/Mikro + Notifications) werden beim Go-Live
-    // angefordert — der Foreground-Service braucht sie auf Android 13+.
+    // Kamera-Permission beim Öffnen des Streaming-Screens für die Live-Vorschau;
+    // Mikrofon und Notifications werden erst beim Go-Live angefordert.
     val context = LocalContext.current
     val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     var permissionDenied by remember { mutableStateOf(false) }

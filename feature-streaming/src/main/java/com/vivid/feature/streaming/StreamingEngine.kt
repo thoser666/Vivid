@@ -796,6 +796,8 @@ class StreamingEngine @Inject constructor(
             request.width <= 0 || request.height <= 0 ||
             context.checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED
         ) return
+        // Layout-Maße dienen der Reattach-Erkennung; der Camera2-Buffer kann
+        // eine andere, unterstützte Größe haben (z. B. 1088×1088 im Portrait).
         val size = request.width to request.height
         if (idlePreviewSurface === request.surface && idlePreviewSize == size) return
 
@@ -954,6 +956,8 @@ class StreamingEngine @Inject constructor(
             attachPreviewIfRunning()
         } else {
             failStream("Failed to prepare audio/video")
+            // Best-effort Rückkehr zur Vorschau; bei Kamera-Konkurrenz kann auch
+            // dieser Versuch scheitern und wird in startIdlePreviewIfReady geloggt.
             startIdlePreviewIfReady()
         }
     }
