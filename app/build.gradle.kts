@@ -151,6 +151,16 @@ android {
         }
     }
 
+    // AppBundleLocaleChanges (Lint): Die App wechselt die Sprache dynamisch
+    // (core/i18n/AppLanguage, In-App-Picker unter Darstellung). Ohne diesen
+    // Block wuerde der App-Bundle-Precompute die Sprache splitten und ein
+    // Basis-APK ausliefern, das die In-App-Auswahl verliert.
+    bundle {
+        language {
+            enableSplit = false
+        }
+    }
+
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
