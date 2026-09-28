@@ -11,8 +11,7 @@ import org.junit.Test
  * verdrahten, und die Config muss genau die drei unterstuetzten Sprachen
  * (de/en/fr) deklarieren. Dann erscheint Vivid im System-Picker
  * (App-Info > Sprache) und laesst sich pro App von der Systemsprache
- * abweichend umschalten - ohne eigenen In-App-Switch, der nur Redundanz
- * zum System-Setting waere.
+ * abweichend umschalten. Der In-App-Picker nutzt dieselbe System-Einstellung.
  *
  * Hausmuster: [NetworkSecurityConfigTest] (Manifest-Verdrahtung als
  * Datei-Regression, kein Framework noetig).
@@ -41,20 +40,20 @@ class PerAppLanguageConfigTest {
     }
 
     @Test
-    fun `locale config deklariert genau die drei unterstuetzten sprachen`() {
+    fun `locale config deklariert genau die vier unterstuetzten sprachen`() {
         val config = read("app/src/main/res/xml/locales_config.xml")
         val locales =
             Regex("android:name=\"([a-z]+)\"").findAll(config)
                 .map { it.groupValues[1] }
                 .toList()
         assertEquals(
-            "locales_config.xml muss genau de, en und fr deklarieren (Reihenfolge egal, Menge entscheidet)",
-            setOf("de", "en", "fr"),
+            "locales_config.xml muss genau de, en, fr und ru deklarieren (Reihenfolge egal, Menge entscheidet)",
+            setOf("de", "en", "fr", "ru"),
             locales.toSet(),
         )
         assertEquals(
             "locales_config.xml darf keine zusaetzlichen oder doppelten Locales enthalten",
-            3,
+            4,
             locales.size,
         )
     }

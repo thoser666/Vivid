@@ -14,7 +14,7 @@
 #        WidgetFormatters-Einheiten wie km/h) werden von den Mustern nicht
 #        erfasst bzw. sind bewusst konstant.
 #   2. Vollständigkeits-Check: `values/strings.xml` ↔ `values-en/strings.xml`
-#      und `values-fr/strings.xml` müssen in jedem Modul dieselben Keys
+#      `values-fr/strings.xml` und `values-ru/strings.xml` müssen in jedem Modul dieselben Keys
 #      haben (fehlende Übersetzung = Fehler; verwaiste Keys = Fehler).
 #   3. stream_url_hint-Inhalts-Guard: Der Hinweis unter dem Stream-URL-Feld
 #      muss in BEIDEN Sprachen die Kernaussagen nennen (RTMP, SRT, Owncast,
@@ -62,7 +62,7 @@ else
   echo "  ✓ keine hartkodierten UI-Strings"
 fi
 
-echo "▶ [i18n] 2/3 Vollständigkeits-Check values/ ↔ values-en/ ↔ values-fr/"
+echo "▶ [i18n] 2/3 Vollständigkeits-Check values/ ↔ values-en/ ↔ values-fr/ ↔ values-ru/"
 for mod in "${UI_MODULES[@]}"; do
   # Module können mit oder ohne "/src/main" angegeben werden — für die
   # res-Pfade wird der Suffix normalisiert (z. B. "feature-settings" →
@@ -70,7 +70,7 @@ for mod in "${UI_MODULES[@]}"; do
   res_root="${mod%/src/main}"
   de="$res_root/src/main/res/values/strings.xml"
   keys_de=$(grep -o 'name="[^"]*"' "$de" | sed 's/name="//;s/"//' | sort)
-  for lang in en fr; do
+  for lang in en fr ru; do
     loc="$res_root/src/main/res/values-$lang/strings.xml"
     if [[ ! -f "$de" ]]; then
       fail "$mod: $de fehlt"
@@ -92,18 +92,20 @@ for mod in "${UI_MODULES[@]}"; do
   done
   keys_en=$(grep -o 'name="[^"]*"' "$res_root/src/main/res/values-en/strings.xml" | sed 's/name="//;s/"//' | sort)
   keys_fr=$(grep -o 'name="[^"]*"' "$res_root/src/main/res/values-fr/strings.xml" | sed 's/name="//;s/"//' | sort)
-  if [[ "$keys_de" == "$keys_en" && "$keys_de" == "$keys_fr" ]]; then
+  keys_ru=$(grep -o 'name="[^"]*"' "$res_root/src/main/res/values-ru/strings.xml" | sed 's/name="//;s/"//' | sort)
+  if [[ "$keys_de" == "$keys_en" && "$keys_de" == "$keys_fr" && "$keys_de" == "$keys_ru" ]]; then
     echo "  ✓ $mod: alle Keys übersetzt"
   fi
 done
 
-echo "▶ [i18n] 3/3 stream_url_hint-Inhalts-Guard (alle drei Sprachen)"
+echo "▶ [i18n] 3/3 stream_url_hint-Inhalts-Guard (alle vier Sprachen)"
 # Modul des Hinweistexts (überschreibbar für den Selbsttest per I18N_HINT_MODULE).
 hint_module="${I18N_HINT_MODULE:-feature-settings}"
 hint_de=$(grep -o '<string name="stream_url_hint">[^<]*' "$hint_module/src/main/res/values/strings.xml" | sed 's/.*>//' || true)
 hint_en=$(grep -o '<string name="stream_url_hint">[^<]*' "$hint_module/src/main/res/values-en/strings.xml" | sed 's/.*>//' || true)
 hint_fr=$(grep -o '<string name="stream_url_hint">[^<]*' "$hint_module/src/main/res/values-fr/strings.xml" | sed 's/.*>//' || true)
-for lang in "de:$hint_de" "en:$hint_en" "fr:$hint_fr"; do
+hint_ru=$(grep -o '<string name="stream_url_hint">[^<]*' "$hint_module/src/main/res/values-ru/strings.xml" | sed 's/.*>//' || true)
+for lang in "de:$hint_de" "en:$hint_en" "fr:$hint_fr" "ru:$hint_ru"; do
   code="${lang%%:*}"
   text="${lang#*:}"
   if [[ -z "$text" ]]; then
@@ -126,9 +128,12 @@ for lang in "de:$hint_de" "en:$hint_en" "fr:$hint_fr"; do
   if [[ "$code" == "fr" && "$text" != *"préréglages"* ]]; then
     fail "stream_url_hint (fr) ordnet die Vorlagen nicht als préréglages ein"
   fi
+  if [[ "$code" == "ru" && "$text" != *"пресет"* ]]; then
+    fail "stream_url_hint (ru) ordnet die Vorlagen nicht als пресеты ein"
+  fi
 done
-if [[ -n "$hint_de" && -n "$hint_en" && -n "$hint_fr" ]]; then
-  echo "  ✓ stream_url_hint nennt RTMP/SRT/Owncast + Presets in allen drei Sprachen"
+if [[ -n "$hint_de" && -n "$hint_en" && -n "$hint_fr" && -n "$hint_ru" ]]; then
+  echo "  ✓ stream_url_hint nennt RTMP/SRT/Owncast + Presets in allen vier Sprachen"
 fi
 
 if [[ "$FAILED" == "1" ]]; then

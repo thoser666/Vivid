@@ -6,6 +6,7 @@ import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.navigation.NavHostController
@@ -121,7 +122,7 @@ class SettingsScreensRobolectricTest {
     // --- Appearance ---------------------------------------------------------
 
     @Test
-    fun `appearance renders theme options and forwards mode change`() {
+    fun `appearance renders language and theme options and forwards mode change`() {
         val viewModel = settingsViewModel()
         composeRule.setContent {
             SettingsAppearanceScreen(
@@ -131,9 +132,13 @@ class SettingsScreensRobolectricTest {
             )
         }
         composeRule.onNodeWithText("Appearance").assertIsDisplayed()
-        composeRule.onNodeWithText("System").assertIsDisplayed()
+        composeRule.onNodeWithText("Language").assertIsDisplayed()
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Dark"))
         composeRule.onNodeWithText("Dark").performClick()
         verify { viewModel.onThemeModeChange(ThemeMode.DARK) }
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Language"))
+        composeRule.onNodeWithTag("language_picker").performClick()
+        composeRule.onNodeWithText("English").assertIsDisplayed()
     }
 
     // --- Overlays & Widgets -------------------------------------------------

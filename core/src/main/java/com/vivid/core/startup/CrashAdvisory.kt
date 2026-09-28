@@ -111,6 +111,31 @@ object CrashAdvisoryRegistry {
                     "abgefangen; alternativ Web-Remote-Control in den Einstellungen (Remote & " +
                     "Datenschutz) ausschalten.",
         ),
+        // Issue #215 / Sentry VIVID-36 (fatal, 20 Events / 10 Nutzer,
+        // 30.08.-07.09.2026): Doppeltes Scroll-Nesting im Kamera-Settings-
+        // Screen - SettingsCameraScreen legte seit e636d1f1 einen eigenen
+        // ungebundenen verticalScroll in den bereits scrollbaren
+        // SettingsSectionScaffold; der innere Scrollable wurde mit unendlicher
+        // Maximalhoehe gemessen (Compose-IllegalStateException). Still
+        // entschaerft in 009972ad (Entfernung des inneren Scrolls als Beifang
+        // der Robolectric-Coverage-Runde, ab v0.5.13-beta / 5132) - deshalb
+        // blieb der Crash unattribuiert und Issue #164 wurde als "nicht
+        // reproduzierbar" geschlossen. Keine Kill-Switch-Flaeche (der Screen
+        // selbst ist optional), Workaround: Upgrade auf >= 5132.
+        KnownCrashCandidate(
+            id = "CAM-FOCUS-INFINITE-SCROLL",
+            description =
+                "Absturz beim Oeffnen der Kamera-Steuerung in den Einstellungen " +
+                    "(v0.5.10-beta..v0.5.12-beta): Doppeltes Scroll-Nesting im " +
+                    "Screen fuehrte zu einer unendlichen Hoehen-Messung " +
+                    "(Compose-Layout-Crash).",
+            minVersionCode = 5102,
+            maxVersionCode = 5122,
+            workaround =
+                "Auf Build >= 5132 (v0.5.13-beta) aktualisieren - dort ist der " +
+                    "doppelte Scroll entfernt. Uebergangsweise die Kamera-Steuerung " +
+                    "nicht oeffnen.",
+        ),
         // Bauplan fuer weitere Eintraege (keine spekulativen Eintraege):
         // KnownCrashCandidate(
         //     id = "EXAMPLE-STARTUP-CRASH",

@@ -108,7 +108,44 @@ android-ci.yml).
   Triage-Automation auf das `issues.opened`-Ereignis reagieren kann
   (GITHUB_TOKEN-Events würden keine Workflow-Runs auslösen).
 
-## 5. Sicherheit
+## 5. Triage-Verfahren für Watchdog-Crash-Issues
+
+Der Watchdog erstellt Issues automatisch — die Attribution ist **manuelle
+Arbeit**. Verbindliches Verfahren (verbindlich seit dem Doppel-Issue
+#164/#215, Sentry VIVID-36 — derselbe Crash wurde zweimal gemeldet und beim
+ersten Mal als „nicht reproduzierbar“ geschlossen, weil die Versions-Spur
+nicht gezogen wurde):
+
+1. **Versions-Spur ziehen, bevor „nicht reproduzierbar“ geschlossen wird:**
+   Crash-Fenster (first-seen/last-seen) gegen Release-Timeline matchen
+   (`git tag --sort=creatordate` + versionCode-Formel
+   `major*1_000_000+minor*1_000+patch*10+4, beta = …2 / stable = …4`).
+   Events enden typischerweise, weil die Nutzer ein Update gezogen haben —
+   nicht, weil der Bug verschwunden ist. Danach `git log -G` über die
+   Crash-API (z. B. `verticalScroll\(`) im Fenster: Änderungen um last-seen
+   herum sind Fix-Kandidaten (auch unattributierte „Beifang“-Änderungen wie
+   Test-Coverage-Runden).
+2. **Doppel-Meldungen desselben Sentry-Issue verbinden:** Vor der Schließung
+   `gh issue list --label sentry` nach gleichem Top-Frame/Befund durchsuchen
+   (Body-Marker `vivid-sentry-issue: <id>` identifiziert das Sentry-Issue
+   eindeutig) — ein Befund = ein Attributions-Thread.
+3. **Real identifizierte, versionsgebundene Crashes** landen in der
+   [CrashAdvisoryRegistry](../core/src/main/java/com/vivid/core/startup/CrashAdvisory.kt)
+   (Range + Workaround; siehe RELEASE.md → 🛰️ Sentry-Ops). Bei stiller
+   Entschärfung durch einen früheren Commit: nachträglich attribuieren
+   (Registry-Eintrag + Regressionstest auf dem heutigen Pfad), damit die
+   Landmine nicht reaktiviert werden kann.
+4. **Probe-/Test-Issues** („delete me“, `probe=health-check`-Quelle,
+   0 betroffene Nutzer) ohne Registry-Eintrag direkt schließen — der
+   Watchdog dedupliziert gegen `state=all`, legt sie nicht erneut an
+   (erledigt für #223/#227, VIVID-3F/3G).
+
+Beispiel einer vollständigen Nach-Attribution: #215 (VIVID-36) →
+`CAM-FOCUS-INFINITE-SCROLL` (Doppel-Scroll in `SettingsCameraScreen`,
+kranker Range 5102–5122, still entschärft in 009972ad, Regressionstests in
+`SettingsSubScreensRobolectricTest`).
+
+## 6. Sicherheit
 
 - Token getrennt vom CI-Mapping-Token (`auth.token`) — getrennte Scopes,
   Lebensdauern, Zwecke. Der Guard gibt nie einen Token aus (Selbsttest I7).
