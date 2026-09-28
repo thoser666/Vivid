@@ -120,19 +120,25 @@ class CrashAdvisoryTest {
 
     @Test
     fun `REAL-Kandidat REMOTE-EADDRINUSE-STARTUP trifft die Crashing-Versionen`() {
-        // Real identifiziert (S23-Startcrash, In-App-Log): Autostart seit
-        // v0.5.0-alpha (Basis 5000), Haertung ab v0.5.16-beta (5162).
+        // Real identifiziert (S23-Startcrash, In-App-Log; Sentry VIVID-37):
+        // Autostart seit v0.5.0-alpha (Basis 5000). Range nach VIVID-37-
+        // Forensik korrigiert: 5152 wurde nie ausgeliefert (kein Release/
+        // keine APKs), aber 5162/5172 crashten weiterhin - ihre Haertung
+        // (99d14bd5) fing nur die synchrone Probe, nicht das Probe->Bind-
+        // Rennen des asynchronen Engine-Binds. Bind-Verifikation ab 5182.
         val c = CrashAdvisoryRegistry.KNOWN.first { it.id == "REMOTE-EADDRINUSE-STARTUP" }
         assertNotNull(CrashAdvisoryRegistry.evaluate(5000, listOf(c)))
         assertNotNull(CrashAdvisoryRegistry.evaluate(5144, listOf(c)))
-        assertNull(CrashAdvisoryRegistry.evaluate(5162, listOf(c)))
-        assertNull(CrashAdvisoryRegistry.evaluate(5172, listOf(c)))
+        assertNotNull(CrashAdvisoryRegistry.evaluate(5152, listOf(c)))
+        assertNotNull(CrashAdvisoryRegistry.evaluate(5162, listOf(c)))
+        assertNotNull(CrashAdvisoryRegistry.evaluate(5172, listOf(c)))
+        assertNull(CrashAdvisoryRegistry.evaluate(5182, listOf(c)))
         assertNull(CrashAdvisoryRegistry.evaluate(4999, listOf(c)))
     }
 
     @Test
     fun `evaluate mit aktueller Registry wirft nie - Startpfad bleibt robust`() {
-        for (vc in intArrayOf(4999, 5000, 5144, 5162, 5172, 999999)) {
+        for (vc in intArrayOf(4999, 5000, 5144, 5162, 5172, 5182, 999999)) {
             assertDoesNotThrow { CrashAdvisoryRegistry.evaluate(vc, CrashAdvisoryRegistry.KNOWN) }
         }
     }
