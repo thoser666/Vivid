@@ -111,6 +111,7 @@ ktor-client-mock = { group = "io.ktor", name = "ktor-client-mock", version.ref =
 ktor-server-core = { group = "io.ktor", name = "ktor-server-core", version.ref = "ktor" }
 ktor-server-cio = { group = "io.ktor", name = "ktor-server-cio", version.ref = "ktor" }
 ktor-server-content-negotiation = { group = "io.ktor", name = "ktor-server-content-negotiation", version.ref = "ktor" }
+ktor-server-websockets = { group = "io.ktor", name = "ktor-server-websockets", version.ref = "ktor" }
 ktor-server-test-host = { group = "io.ktor", name = "ktor-server-test-host", version.ref = "ktor" }
 
 timber = { group = "com.jakewharton.timber", name = "timber", version = "5.0.1" }
