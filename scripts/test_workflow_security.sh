@@ -120,6 +120,18 @@ grep -A9 -F 'snyk-test:' .github/workflows/security-snyk.yml \
 grep -A7 -F 'snyk-monitor:' .github/workflows/security-snyk.yml \
   | grep -Fq 'contents: read' \
   || fail "Snyk monitor job must retain contents read"
+
+# Fork-PR-Guard (PR #230): Release Drafter und Snyk skippen Fork-PRs —
+# GITHUB_TOKEN/SNYK_TOKEN fließen nicht in Fork-PR-Runs, beide Jobs liefen
+# sonst reproduziert rot. Die Klammerung schließt Push-Events ausdrücklich
+# ein: github.event.pull_request.head.repo.fork ist dort null, ein nackter
+# "== false"-Vergleich würde jeden develop/main-Push mit-skippen.
+for file in .github/workflows/release-drafter.yml .github/workflows/security-snyk.yml; do
+  grep -Fq "github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false" "$file" \
+    || fail "$file must skip fork pull_requests (secretless fork runs fail red, PR #230)"
+  grep -Fq "(github.event_name != 'pull_request'" "$file" \
+    || fail "$file fork-guard must be parenthesized so push events keep running"
+done
 grep -A7 -F 'analysis:' .github/workflows/security-scorecard.yml \
   | grep -Fq 'security-events: write' \
   || fail "Scorecard job must retain security-events write"

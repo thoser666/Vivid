@@ -27,8 +27,12 @@ jobs:
     permissions:
       contents: write
       pull-requests: read
-    # Kein Release für Dependabot-Merges (Loop-Schutz)
-    if: github.actor != 'dependabot[bot]' && github.actor != 'github-actions[bot]'
+    # Kein Release für Dependabot-Merges (Loop-Schutz). Fork-PRs werden
+    # komplett geskippt: Das GITHUB_TOKEN darf dort keine Draft-Releases
+    # anlegen ("Resource not accessible by integration", PR #230) — der Job
+    # würde sonst auf jedem Fork-PR rot laufen.
+    if: github.actor != 'dependabot[bot]' && github.actor != 'github-actions[bot]' &&
+      (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false)
     steps:
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2

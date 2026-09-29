@@ -18,6 +18,9 @@ markers=(
   'security-events: write'
   # Dependabot-Skip (SNYK-0005-Vertrag): Job-Level-Skip für dependabot[bot]
   "if: github.actor != 'dependabot[bot]'"
+  # Fork-Skip (PR #230): SNYK_TOKEN fließt nicht in Fork-PR-Runs, die CLI
+  # scheitert sonst reproduzierbar — der Job skippt Fork-PRs komplett.
+  "(github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false)"
 )
 for marker in "${markers[@]}"; do
   grep -Fq -- "$marker" "$file" || fail "Pflichtmarker fehlt: $marker"
@@ -33,4 +36,4 @@ fi
 grep -A2 '^  snyk-monitor:' "$file" | grep -q "if: github.event_name == 'schedule'" \
   || fail "snyk-monitor: schedule/dispatch-Bedingung fehlt (Skip darf den Monitor nicht betreffen)"
 
-echo "✅ [snyk-workflow-test] CLI-Migration, JDK, Timeout, SARIF-Guard und Dependabot-Skip sind vorhanden."
+echo "✅ [snyk-workflow-test] CLI-Migration, JDK, Timeout, SARIF-Guard, Dependabot- und Fork-Skip sind vorhanden."

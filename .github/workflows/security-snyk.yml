@@ -37,7 +37,8 @@ jobs:
     name: Snyk Dependency Test
     # Job-Level-Skip für Dependabot (keine Secrets im PR-Context → SNYK-0005);
     # der Job erscheint in der PR-Checkliste neutral als skipped statt rot.
-    if: github.actor != 'dependabot[bot]'
+    # Fork-PRs ebenfalls geskippt: SNYK_TOKEN fließt nicht in Fork-PR-Runs (PR #230).
+    if: github.actor != 'dependabot[bot]' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false)
     runs-on: ubuntu-latest
     permissions:
       contents: read
