@@ -3,6 +3,9 @@ package com.vivid.feature.streaming.ui
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.pm.PackageManager
+import android.content.res.Configuration
+import android.hardware.camera2.CameraCharacteristics
+import android.hardware.camera2.CameraManager
 import android.net.Uri
 import android.os.Build
 import android.view.SurfaceHolder
@@ -19,7 +22,9 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Podcasts // (Ein gutes Icon für "Broadcasting")
 import androidx.compose.material3.*
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -49,6 +54,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
@@ -58,6 +64,7 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -89,6 +96,44 @@ import com.vivid.feature.streaming.StreamingState
 import com.vivid.feature.streaming.StreamingViewModel
 import com.vivid.feature.streaming.source.VideoSourceKind
 import com.vivid.feature.streaming.R
+import kotlin.math.abs
+
+/** Keep the camera's native output proportions, then crop equally to cover the viewport. */
+internal fun cameraPreviewZoom(
+    viewportWidth: Float,
+    viewportHeight: Float,
+    previewAspect: Float,
+): Float {
+    if (viewportWidth <= 0f || viewportHeight <= 0f || previewAspect <= 0f) return 1f
+    val viewportAspect = viewportWidth / viewportHeight
+    return maxOf(viewportAspect / previewAspect, previewAspect / viewportAspect)
+}
+
+/** Prefer a near-square supported output so a portrait viewport loses less image to cropping. */
+internal fun selectPortraitIdlePreviewSize(available: List<IntSize>): IntSize {
+    val usable = available.filter { size ->
+        size.width > 0 && size.height > 0 &&
+            maxOf(size.width, size.height) <= 1920 && minOf(size.width, size.height) >= 720
+    }.ifEmpty { available.filter { it.width > 0 && it.height > 0 } }
+    return usable.minWithOrNull(
+        compareBy<IntSize> { abs(it.width - it.height).toFloat() / maxOf(it.width, it.height) }
+            .thenBy { abs(it.width.toLong() * it.height - 1080L * 1080L) },
+    ) ?: IntSize(1920, 1080)
+}
+
+private fun portraitIdlePreviewSize(context: android.content.Context): IntSize = runCatching {
+    val manager = context.getSystemService(CameraManager::class.java)
+    val cameraId = manager.cameraIdList.firstOrNull { id ->
+        manager.getCameraCharacteristics(id).get(CameraCharacteristics.LENS_FACING) ==
+            CameraCharacteristics.LENS_FACING_BACK
+    } ?: manager.cameraIdList.first()
+    val sizes = manager.getCameraCharacteristics(cameraId)
+        .get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
+        ?.getOutputSizes(SurfaceHolder::class.java)
+        ?.map { IntSize(it.width, it.height) }
+        .orEmpty()
+    selectPortraitIdlePreviewSize(sizes)
+}.getOrDefault(IntSize(1920, 1080))
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -143,9 +188,10 @@ fun StreamingScreen(
     val privacyZones by viewModel.privacyZones.collectAsStateWithLifecycle(initialValue = emptyList())
     var privacyEditing by remember { mutableStateOf(false) }
 
-    // Runtime-Permissions (Kamera/Mikro + Notifications) werden beim Go-Live
-    // angefordert — der Foreground-Service braucht sie auf Android 13+.
+    // Kamera-Permission beim Öffnen des Streaming-Screens für die Live-Vorschau;
+    // Mikrofon und Notifications werden erst beim Go-Live angefordert.
     val context = LocalContext.current
+    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     var permissionDenied by remember { mutableStateOf(false) }
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),
@@ -155,6 +201,21 @@ fun StreamingScreen(
             viewModel.startStream()
         } else {
             permissionDenied = true
+        }
+    }
+
+    val cameraPreviewPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) streamingEngine.startIdlePreviewIfReady()
+    }
+    LaunchedEffect(Unit) {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            streamingEngine.startIdlePreviewIfReady()
+        } else {
+            cameraPreviewPermissionLauncher.launch(Manifest.permission.CAMERA)
         }
     }
 
@@ -220,6 +281,7 @@ fun StreamingScreen(
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 viewModel.runConfigCheck()
+                streamingEngine.startIdlePreviewIfReady()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -300,16 +362,25 @@ fun StreamingScreen(
             )
         },
     ) { paddingValues ->
-        Box(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues),
+                .padding(paddingValues)
+                .background(MaterialTheme.colorScheme.surfaceVariant),
         ) {
-            // Kamera-Vorschau als SurfaceView: Die Preview-Surface wird an die
-            // interne GL-Pipeline der Engine angehängt (attachPreview). Der
-            // Encoder selbst hängt NICHT an dieser Surface — der Stream läuft
-            // deshalb weiter, wenn die Activity (und damit die Vorschau) zerstört
-            // wird (Recents-Wischen, Rotation).
+            val idlePortraitSize = remember(context) { portraitIdlePreviewSize(context) }
+            val isIdleCamera = streamingState is StreamingState.Idle || streamingState is StreamingState.Failed
+            val previewSize = when {
+                isLandscape -> IntSize(1920, 1080)
+                isIdleCamera -> idlePortraitSize
+                else -> IntSize(1080, 1920)
+            }
+            val previewAspect = previewSize.width.toFloat() / previewSize.height
+            val previewZoom = cameraPreviewZoom(maxWidth.value, maxHeight.value, previewAspect)
+            // Kamera-Vorschau als SurfaceView: Im Leerlauf zeigt Camera2 direkt
+            // auf die Surface, während des Streams die interne GL-Pipeline.
+            // Der Encoder hängt nicht an der Activity-Surface und läuft bei
+            // deren Zerstörung (Recents-Wischen, Rotation) weiter.
             // S2: Bei aktiver Screen-Capture-Quelle wird keine Kamera-Vorschau
             // angehängt — stattdessen erscheint ein Platzhalter mit Hinweis.
             if (activeSourceKind == VideoSourceKind.CAMERA) {
@@ -338,7 +409,7 @@ fun StreamingScreen(
                                     }
 
                                     override fun surfaceDestroyed(holder: SurfaceHolder) {
-                                        streamingEngine.detachPreview()
+                                        streamingEngine.detachPreview(holder.surface)
                                     }
                                 },
                             )
@@ -353,7 +424,15 @@ fun StreamingScreen(
                             view.setOnTouchListener(gestures.onTouch)
                         }
                     },
-                    modifier = Modifier.fillMaxSize(),
+                    update = { view ->
+                        // Camera2 may substitute a supported size for an unsupported
+                        // portrait buffer (1080x1920 becomes 1088x1088 on this phone).
+                        // Keep the idle buffer and view at the same supported ratio.
+                        view.holder.setFixedSize(previewSize.width, previewSize.height)
+                        view.scaleX = previewZoom
+                        view.scaleY = previewZoom
+                    },
+                    modifier = Modifier.align(Alignment.Center).aspectRatio(previewAspect),
                 )
             } else {
                 // S2/S3/Replay: Screen-Capture, Video-Player oder Replay aktiv — kein

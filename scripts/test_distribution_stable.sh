@@ -96,7 +96,7 @@ check "D7.3 Serialsierungs-Koncurrency ohne cancelling" "$DIST" 'cancel-in-progr
 notcheck "D8.1 kein refs/tags/v-Publizier-Pfad in publish-release" \
   "$RELEASE" "startswith\(github.ref, 'refs/tags/v'\)"
 check "D8.2 nightly bleibt Schedule/Manual" \
-  "$RELEASE" "if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'"
+  "$RELEASE" "if: github.event_name == 'schedule' \\|\\| github.event_name == 'workflow_dispatch'"
 check "D8.3 nightly-Cron bleibt täglich" "$RELEASE" "cron: '0 6 \* \* \*'"
 
 # D9: deploy-fdroid feuert NICHT mehr bei release:published.

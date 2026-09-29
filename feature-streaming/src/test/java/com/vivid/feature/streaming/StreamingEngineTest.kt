@@ -3,11 +3,13 @@ package com.vivid.feature.streaming
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.view.MotionEvent
 import android.view.Surface
 import android.view.View
 import com.pedro.common.ConnectChecker
+import com.pedro.encoder.input.video.Camera2ApiManager
 import com.pedro.common.VideoCodec
 import com.pedro.library.multiple.MultiCamera2
 import com.pedro.library.multiple.MultiDisplay
@@ -46,6 +48,7 @@ class StreamingEngineTest {
     private lateinit var displayFactory: DisplayFactory
     private lateinit var playerFactory: PlayerFactory
     private lateinit var streamingEngine: StreamingEngine
+    private lateinit var context: Context
     private var capturedCheckers: List<ConnectChecker> = emptyList()
 
     @BeforeEach
@@ -67,8 +70,10 @@ class StreamingEngineTest {
         playerFactory = object : PlayerFactory {
             override fun create(connectCheckers: List<ConnectChecker>): MultiFromFile = player
         }
+        context = mockk(relaxed = true)
+        every { context.checkSelfPermission(android.Manifest.permission.CAMERA) } returns PackageManager.PERMISSION_DENIED
         streamingEngine = StreamingEngine(
-            mockk<Context>(relaxed = true),
+            context,
             cameraFactory,
             displayFactory,
             playerFactory,
@@ -650,12 +655,29 @@ class StreamingEngineTest {
     fun `attachPreview attaches immediately when the gl pipeline is already running`() = runTest {
         streamingEngine.initializeCamera()
         every { glStreamInterface.isRunning } returns true
+        every { camera.isStreaming } returns true
         val surface: Surface = mockk(relaxed = true)
 
         streamingEngine.attachPreview(surface, 1280, 720)
 
         verify(exactly = 1) { glStreamInterface.attachPreview(surface) }
         verify(exactly = 1) { glStreamInterface.setPreviewResolution(1280, 720) }
+        verify(exactly = 1) { glStreamInterface.setPreviewIsPortrait(false) }
+    }
+
+    @Test
+    fun `preview rotation updates GL orientation without stopping the stream`() = runTest {
+        streamingEngine.initializeCamera()
+        every { camera.isStreaming } returns true
+        every { glStreamInterface.isRunning } returns true
+        val surface: Surface = mockk(relaxed = true)
+
+        streamingEngine.attachPreview(surface, 1080, 1920)
+        streamingEngine.attachPreview(surface, 1920, 1080)
+
+        verify(exactly = 1) { glStreamInterface.setPreviewIsPortrait(true) }
+        verify(exactly = 1) { glStreamInterface.setPreviewIsPortrait(false) }
+        verify(exactly = 0) { camera.stopStream(any(), any()) }
     }
 
     @Test
@@ -675,6 +697,7 @@ class StreamingEngineTest {
     fun `re-attaching a new preview surface after activity recreate keeps the stream`() = runTest {
         streamingEngine.initializeCamera()
         every { glStreamInterface.isRunning } returns true
+        every { camera.isStreaming } returns true
         val firstSurface: Surface = mockk(relaxed = true)
         val secondSurface: Surface = mockk(relaxed = true)
 
@@ -685,6 +708,107 @@ class StreamingEngineTest {
         verify { glStreamInterface.attachPreview(firstSurface) }
         verify { glStreamInterface.attachPreview(secondSurface) }
         verify(exactly = 1) { glStreamInterface.deAttachPreview() }
+    }
+
+    @Test
+    fun `idle camera preview opens on a surface and closes before streaming`() = runTest {
+        streamingEngine.initializeCamera()
+        every { context.checkSelfPermission(android.Manifest.permission.CAMERA) } returns PackageManager.PERMISSION_GRANTED
+        every { camera.currentCameraId } returns ""
+        streamingCameraReady()
+        val idleCamera = mockk<Camera2ApiManager>(relaxed = true)
+        streamingEngine.idlePreviewFactory = { idleCamera }
+        val surface: Surface = mockk(relaxed = true)
+
+        streamingEngine.attachPreview(surface, 640, 480)
+        verify(exactly = 1) { idleCamera.prepareCamera(surface, 30) }
+        verify(exactly = 1) { idleCamera.openCameraBack() }
+
+        streamingEngine.startStream("rtmp://test.com/app")
+        verify(exactly = 1) { idleCamera.closeCamera() }
+        verify { camera.startStream(MultiType.RTMP, 0, "rtmp://test.com/app") }
+    }
+
+    @Test
+    fun `old surface teardown does not close the replacement camera preview`() = runTest {
+        streamingEngine.initializeCamera()
+        every { context.checkSelfPermission(android.Manifest.permission.CAMERA) } returns PackageManager.PERMISSION_GRANTED
+        every { camera.currentCameraId } returns ""
+        val firstCamera = mockk<Camera2ApiManager>(relaxed = true)
+        val secondCamera = mockk<Camera2ApiManager>(relaxed = true)
+        var nextCamera = firstCamera
+        streamingEngine.idlePreviewFactory = { nextCamera }
+        val firstSurface: Surface = mockk(relaxed = true)
+        val secondSurface: Surface = mockk(relaxed = true)
+
+        streamingEngine.attachPreview(firstSurface, 640, 480)
+        nextCamera = secondCamera
+        streamingEngine.attachPreview(secondSurface, 640, 480)
+        streamingEngine.detachPreview(firstSurface)
+
+        verify(exactly = 1) { firstCamera.closeCamera() }
+        verify(exactly = 0) { secondCamera.closeCamera() }
+    }
+
+    @Test
+    fun `current surface teardown closes the idle camera preview`() = runTest {
+        streamingEngine.initializeCamera()
+        every { context.checkSelfPermission(android.Manifest.permission.CAMERA) } returns PackageManager.PERMISSION_GRANTED
+        every { camera.currentCameraId } returns ""
+        val idleCamera = mockk<Camera2ApiManager>(relaxed = true)
+        streamingEngine.idlePreviewFactory = { idleCamera }
+        val surface: Surface = mockk(relaxed = true)
+
+        streamingEngine.attachPreview(surface, 1088, 1088)
+        streamingEngine.detachPreview(surface)
+
+        verify(exactly = 1) { idleCamera.closeCamera() }
+        verify(exactly = 1) { glStreamInterface.deAttachPreview() }
+    }
+
+    @Test
+    fun `idle preview reopens when the same surface changes orientation`() = runTest {
+        streamingEngine.initializeCamera()
+        every { context.checkSelfPermission(android.Manifest.permission.CAMERA) } returns PackageManager.PERMISSION_GRANTED
+        every { camera.currentCameraId } returns ""
+        val portraitCamera = mockk<Camera2ApiManager>(relaxed = true)
+        val landscapeCamera = mockk<Camera2ApiManager>(relaxed = true)
+        var nextCamera = portraitCamera
+        streamingEngine.idlePreviewFactory = { nextCamera }
+        val surface: Surface = mockk(relaxed = true)
+
+        streamingEngine.attachPreview(surface, 1080, 1920)
+        streamingEngine.attachPreview(surface, 1080, 1920)
+        nextCamera = landscapeCamera
+        streamingEngine.attachPreview(surface, 1920, 1080)
+
+        verify(exactly = 1) { portraitCamera.prepareCamera(surface, 30) }
+        verify(exactly = 1) { portraitCamera.closeCamera() }
+        verify(exactly = 1) { landscapeCamera.prepareCamera(surface, 30) }
+        verify(exactly = 1) { landscapeCamera.openCameraBack() }
+    }
+
+    @Test
+    fun `returning from screen capture opens the camera on the new surface`() = runTest {
+        streamingEngine.initializeCamera()
+        every { context.checkSelfPermission(android.Manifest.permission.CAMERA) } returns PackageManager.PERMISSION_GRANTED
+        every { camera.currentCameraId } returns ""
+        val firstCamera = mockk<Camera2ApiManager>(relaxed = true)
+        val secondCamera = mockk<Camera2ApiManager>(relaxed = true)
+        var nextCamera = firstCamera
+        streamingEngine.idlePreviewFactory = { nextCamera }
+        val firstSurface: Surface = mockk(relaxed = true)
+        val secondSurface: Surface = mockk(relaxed = true)
+
+        streamingEngine.attachPreview(firstSurface, 640, 480)
+        assertTrue(streamingEngine.switchSource(VideoSourceKind.SCREEN_CAPTURE))
+        verify(exactly = 1) { firstCamera.closeCamera() }
+
+        nextCamera = secondCamera
+        assertTrue(streamingEngine.switchSource(VideoSourceKind.CAMERA))
+        streamingEngine.attachPreview(secondSurface, 640, 480)
+        verify(exactly = 1) { secondCamera.prepareCamera(secondSurface, 30) }
+        verify(exactly = 1) { secondCamera.openCameraBack() }
     }
 
     @Test
