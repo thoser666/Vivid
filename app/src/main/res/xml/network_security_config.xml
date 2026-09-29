@@ -1,9 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Netzwerk-Sicherheit (SonarCloud xml:S5332): Cleartext-HTTP ist für ALLE
      Android-Versionen explizit blockiert — auf API < 28 wäre er implizit
-     erlaubt. Der RTMP/RTMPS-Stream läuft über RootEncoders eigene Sockets
-     (betroffene Layer: nur der Java-HTTP-Stack); HTTPS-APIs (Twitch,
-     Sentry, Coil-Emotes, GitHub) sind unangetastet. -->
+     erlaubt. Die Sperre trifft den Java-HTTP-Stack (OkHttp/Ktor-HTTP):
+     Der RTMP/RTMPS-Stream läuft über RootEncoders eigene Sockets und der
+     OBS-Steuerungs-Client (ws://<ip>:4455) über Ktor-CIO-WebSockets — beide
+     mit echten Sockets außerhalb dieser Policy (Issue #226: ws:// zu
+     IP-Hosts wäre sonst als CLEARTEXT blockiert, OBS im eigenen LAN ist
+     gewollt). HTTPS-APIs (Twitch, Sentry, Coil-Emotes, GitHub) sind
+     unangetastet; Chat-WebSockets (Twitch/Kick) nutzen wss://. -->
 <network-security-config>
     <base-config cleartextTrafficPermitted="false" />
 </network-security-config>

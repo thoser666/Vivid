@@ -20,13 +20,24 @@ import com.vivid.core.network.obs.requests.ToggleInputMute
 import com.vivid.core.network.obs.security.AuthenticationChallenge
 import com.vivid.core.network.obs.security.AuthenticationResponse
 import com.vivid.core.network.obs.security.generateAuthenticationString
+import io.ktor.client.HttpClient
+import io.ktor.client.plugins.websocket.DefaultClientWebSocketSession
+import io.ktor.client.plugins.websocket.webSocket
+import io.ktor.websocket.CloseReason
+import io.ktor.websocket.Frame
+import io.ktor.websocket.close
+import io.ktor.websocket.readText
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import okhttp3.OkHttpClient
-import okhttp3.Response
-import okhttp3.WebSocket
-import okhttp3.WebSocketListener
 import timber.log.Timber
 import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Inject
@@ -34,7 +45,7 @@ import javax.inject.Singleton
 
 @Singleton
 class OBSWebSocketClient @Inject constructor(
-    private val okHttpClient: OkHttpClient,
+    private val httpClient: HttpClient,
     private val gson: Gson,
 ) {
     companion object {
@@ -42,10 +53,34 @@ class OBSWebSocketClient @Inject constructor(
         // InputVolumeMeters (8192) — letzteres liefert InputAudioLevelsChanged- und
         // InputMuteStateChanged-Events (OBS WebSocket 5.x EventSubscription).
         const val EVENT_SUBSCRIPTION_MASK = 8192 + 8 + 1
+
+        /** Ziel-URL des OBS-WebSocket (eine Quelle für Produktion und Tests). */
+        internal fun buildObsWebSocketUrl(ip: String, port: Int, useTls: Boolean): String =
+            (if (useTls) "wss" else "ws") + "://" + ip + ":" + port
     }
 
-    private var webSocket: WebSocket? = null
+    // Transport-Scope: Die OBS-Verbindung läuft bewusst über Ktor CIO (eigene
+    // Sockets) statt über den Java-HTTP-Stack. Hintergrund (Issue #226, Sentry
+    // VIVID-M): ws:// zu IP-Hosts fällt unter die Cleartext-Sperre der
+    // Network-Security-Config (und schon unter die Plattform-Default bei
+    // targetSdk >= 28) — der HTTP-Stack wirft dann UnknownServiceException.
+    // OBS im eigenen LAN ist kein HTTP-Cleartext-Fall: Der Nutzer steuert
+    // seinen eigenen Rechner; die NSC bleibt deshalb strikt und der Transport
+    // geht — wie RTMP/RTMPS — über eigene Sockets. wss:// bleibt via useTls
+    // wählbar.
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    /**
+     * Verbindungsgeneration: Jedes connect()/disconnect() erhöht den Zähler,
+     * damit veraltete Verbindungskoroutinen (z. B. ein spaet onFailure) nicht
+     * den Zustand einer neueren Verbindung zuruecksetzen.
+     */
+    private val generation = AtomicInteger(0)
+
     private val requestIdCounter = AtomicInteger(1)
+
+    private var connectionJob: Job? = null
+    private var session: DefaultClientWebSocketSession? = null
 
     private val _isConnected = MutableStateFlow(false)
     val isConnected: StateFlow<Boolean> = _isConnected.asStateFlow()
@@ -75,47 +110,72 @@ class OBSWebSocketClient @Inject constructor(
      * Verbindet mit OBS. Standard ist [useTls] = false → `ws://` (OBS Studio
      * liefert ohne TLS-Konfiguration nur Klartext-WebSockets auf Port 4455).
      * Für Remote-Verbindungen mit TLS kann [useTls] auf true gesetzt werden → `wss://`.
+     *
+     * Der Transport läuft über Ktor CIO WebSockets (siehe Scope-Kommentar oben):
+     * Echte Sockets statt des von der Network-Security-Config regulierten
+     * Java-HTTP-Stacks. Die Methode ist nicht-blockierend — Verbindungsfehler
+     * landen gefangen im Log und setzen die Flows zurück (fehlertoleranter
+     * Vertrag, kein Throw).
      */
     fun connect(password: String, ip: String, port: Int, useTls: Boolean = false) {
-        // Das Passwort wird NICHT als Klartext-Feld gespeichert, sondern nur
-        // lokal an den Listener dieser Verbindung übergeben.
-        val scheme = if (useTls) "wss" else "ws"
-        val request = okhttp3.Request.Builder()
-            .url("$scheme://$ip:$port")
-            .build()
-
-        val connectionPassword = password
-        val listener = object : WebSocketListener() {
-            override fun onOpen(webSocket: WebSocket, response: Response) {
-                Timber.d("WebSocket connected")
-            }
-
-            override fun onMessage(webSocket: WebSocket, text: String) {
-                Timber.d("Received message: $text")
-                handleMessage(text, connectionPassword)
-            }
-
-            override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
-                Timber.d("WebSocket closing: $reason")
-                _isConnected.value = false
-                resetState()
-            }
-
-            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                Timber.e(t, "WebSocket failure")
-                _isConnected.value = false
-                resetState()
+        disconnect()
+        val generationNow = generation.get()
+        connectionJob = scope.launch {
+            try {
+                httpClient.webSocket(urlString = buildObsWebSocketUrl(ip, port, useTls)) {
+                    session = this
+                    for (frame in incoming) {
+                        if (frame is Frame.Text) handleMessage(frame.readText(), password)
+                    }
+                }
+            } catch (t: Throwable) {
+                if (t !is CancellationException && generation.get() == generationNow) {
+                    Timber.e(t, "OBS WebSocket failure")
+                }
+            } finally {
+                if (generation.get() == generationNow) {
+                    session = null
+                    _isConnected.value = false
+                    resetState()
+                }
             }
         }
+    }
 
-        webSocket = okHttpClient.newWebSocket(request, listener)
+    /**
+     * Beendet den Transport-Scope vollstaendig (Disconnect + Scope-Cancel).
+     * Fuer Tests und aufräumende Hosts: Der Client ist als @Singleton
+     * lebenslang, aber Nicht-Daemon-Threads (Ktor-Engine, Scope-Koroutinen)
+     * dürfen JVM-Exits nicht blockieren (Gradle-Test-Worker-Hang, Issue #226).
+     */
+    internal fun shutdown() {
+        disconnect()
+        scope.cancel()
     }
 
     fun disconnect() {
-        webSocket?.close(1000, "User disconnected")
-        webSocket = null
+        generation.incrementAndGet()
+        val job = connectionJob
+        val sessionNow = session
+        connectionJob = null
+        session = null
         _isConnected.value = false
         resetState()
+        // Höfliches Close best-effentlicht NACH dem synchronen State-Reset und
+        // VOR dem Job-Cancel: Der Close-Frame muss den Transport erreichen,
+        // bevor die Coroutine ihn mitreißen würde. Das Cancellation des
+        // Verbindungsjobs schließt den Socket in jedem Fall (Ktor räumt bei
+        // Coroutine-Ende den Transport ab).
+        scope.launch {
+            if (sessionNow != null) {
+                runCatching {
+                    withTimeout(500) {
+                        sessionNow.close(CloseReason(CloseReason.Codes.NORMAL, "User disconnected"))
+                    }
+                }
+            }
+            job?.cancel()
+        }
     }
 
     private fun handleMessage(message: String, password: String) {
@@ -220,7 +280,9 @@ class OBSWebSocketClient @Inject constructor(
             RequestType.GetInputMute.name, RequestType.ToggleInputMute.name -> parseInputMute(responseData)
             RequestType.SetInputMute.name -> Unit // Toggle/Get/Events halten den Flow aktuell
             RequestType.SetCurrentProgramScene.name -> {
-                responseData.get("sceneName")?.asString?.let { _currentProgramScene.value = it }
+                responseData.get("sceneName")?.asString?.let {
+                    _currentProgramScene.value = it
+                }
             }
             RequestType.GetInputSettings.name, RequestType.SetInputSettings.name -> parseInputSettings(responseData)
             RequestType.TakeSourceScreenshot.name -> parseScreenshot(responseData)
@@ -343,13 +405,18 @@ class OBSWebSocketClient @Inject constructor(
     }
 
     private fun send(data: Any) {
-        try {
-            webSocket?.send(gson.toJson(data))
-            // Bewusst ohne Payload loggen: Nachrichten wie die Identify-Antwort
-            // enthalten den aus dem Passwort abgeleiteten Auth-String.
+        val sessionNow = session
+        if (sessionNow == null) {
+            Timber.w("OBS send ohne aktive Session - Nachricht verworfen")
+            return
+        }
+        // Bewusst ohne Payload loggen: Nachrichten wie die Identify-Antwort
+        // enthalten den aus dem Passwort abgeleiteten Auth-String.
+        val result = sessionNow.outgoing.trySend(Frame.Text(gson.toJson(data)))
+        if (result.isFailure) {
+            Timber.e(result.exceptionOrNull(), "Error sending message")
+        } else {
             Timber.d("Sent WebSocket message")
-        } catch (e: Exception) {
-            Timber.e(e, "Error sending message")
         }
     }
 }

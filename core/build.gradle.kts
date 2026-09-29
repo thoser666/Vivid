@@ -92,6 +92,9 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.ktor.client.mock)
     testImplementation(libs.ktor.server.test.host)
+    // WebSockets-Plugin fuer den Ktor-Testserver: Echte OBS-WebSocket-
+    // End-to-End-Tests (Client-Transport gegen localhost-Server).
+    testImplementation(libs.ktor.server.websockets)
     testImplementation(libs.junit.jupiter.api)
     testRuntimeOnly(libs.junit.jupiter.engine)
     testRuntimeOnly(libs.junit.platform.launcher)

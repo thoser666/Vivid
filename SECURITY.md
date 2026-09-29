@@ -136,7 +136,7 @@ Verbleibende Scorecard-Hinweise (Repository-Einstellungen bzw. bewusst versionie
 
 ### Netzwerk-Sicherheit (Cleartext blockiert)
 
-`app/src/main/res/xml/network_security_config.xml` setzt `cleartextTrafficPermitted="false"` für den Base-Config — Cleartext-HTTP ist damit auf **allen** Android-Versionen explizit blockiert (auf API < 28 war er implizit erlaubt; das Manifest-Attribut `android:networkSecurityConfig` verweist darauf). Der RTMP/RTMPS-Stream läuft über RootEncoders eigene Sockets und ist davon nicht betroffen; alle HTTP-APIs (Twitch, Sentry, GitHub, Emote-CDNs) nutzen ausschließlich HTTPS. Hintergrund: SonarCloud-Security-Hotspot `xml:S5332` („usesCleartextTraffic implicitly enabled for older Android versions").
+`app/src/main/res/xml/network_security_config.xml` setzt `cleartextTrafficPermitted="false"` für den Base-Config — Cleartext-HTTP ist damit auf **allen** Android-Versionen explizit blockiert (auf API < 28 war er implizit erlaubt; das Manifest-Attribut `android:networkSecurityConfig` verweist darauf). Die Sperre trifft den Java-HTTP-Stack: Der RTMP/RTMPS-Stream läuft über RootEncoders eigene Sockets und der OBS-Steuerungs-Client (`ws://<ip>:4455`) über Ktor-CIO-WebSockets — beide mit echten Sockets außerhalb dieser Policy (Issue #226: `ws://` zu IP-Hosts fällt sonst unter die CLEARTEXT-Sperre; OBS im eigenen LAN ist gewollt und kein HTTP-Cleartext-Fall). Alle HTTP-APIs (Twitch, Sentry, GitHub, Emote-CDNs) nutzen ausschließlich HTTPS; Chat-WebSockets (Twitch/Kick) nutzen `wss://`. Hintergrund: SonarCloud-Security-Hotspot `xml:S5332` („usesCleartextTraffic implicitly enabled for older Android versions").
 
 ### F-Droid / FOSS-Build
 
