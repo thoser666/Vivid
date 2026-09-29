@@ -16,4 +16,5 @@ gemergt ist. Erlaubte Werte und Struktur sind in `CONTRIBUTING.md` dokumentiert.
 
 | Person | Beitrag | Referenz | Status |
 |--------|---------|----------|--------|
-| smka (Ilya K) | In-App-Sprachauswahl + russische Lokalisierung (Appearance-Einstellungen, `values-ru`) | #213 | offen |
+| smka (Ilya K) | In-App-Sprachauswahl + russische Lokalisierung (Appearance-Einstellungen, `values-ru`) | #213 | umgesetzt |
+| smka (Ilya K) | Kamera-Vorschau wiederhergestellt + seitenverhältnistreu (Idle-Camera2-Preview vor dem Stream, Buffer/View auf unterstützte Ausgabe-Größen gematcht, Guards gegen Kamera-Konkurrenz) | #230 | umgesetzt |
