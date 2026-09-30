@@ -1,10 +1,14 @@
 name: Automation / Contributors Reminder
 
-# Erinnert an die CONTRIBUTORS.md-Pflege, sobald ein Fork-PR gemergt wurde:
-# Auf jedem develop-Push werden Fork-Squash-Merges seit dem letzten Reminder
-# gesucht und fehlende bzw. noch auf `offen` stehende Beitragseintraege als
-# Auto-Issue gemeldet (Vorfall 29.09.2026: #213/#230 fielen erst durch eine
-# Nutzer-Rueckfrage auf). Die Pflege selbst bleibt Maintainer-Handarbeit.
+# Erinnert an die CONTRIBUTORS.md-Pflege und dankt öffentlich, sobald ein
+# Fork-PR gemergt wurde: Auf jedem develop-Push werden Fork-Squash-Merges seit
+# dem letzten Reminder gesucht — fehlende bzw. noch auf `offen` stehende
+# Beitragseintraege landen im Auto-Issue, der gemergte PR erhaelt einen
+# oeffentlichen Dank-/Ankündigungs-Kommentar (Idempotenz-Marker
+# `<!-- contributors-credit -->`), der beim Nachziehen automatisch zum Dank
+# editiert wird (geschlossener Regelkreis, pending-Tracking im State-Marker).
+# Einmaliger Backfill via workflow_dispatch mit BACKFILL_SINCE=<ISO> (nur
+# validierte Zeitstempel). Die Pflege selbst bleibt Maintainer-Handarbeit.
 #
 # Bewusst KEIN Bot-PR (kein Branch-Push, kein PR-Create): der T1-T13-Vertrag
 # aus scripts/test_bot_pr_credentials.sh gilt hier nicht — `issues: write`

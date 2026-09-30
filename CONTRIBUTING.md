@@ -89,14 +89,20 @@ their own PR — the pull request template has a checkbox for it). `offen` flips
 enforced by `scripts/check_contributors.sh` (pre-push gate + CI) — malformed
 edits break the build.
 
-**Fork-PR reminder (automatic).** Merging a pull request from a fork does not
-update CONTRIBUTORS.md by itself. On every push to develop, the
-`Automation / Contributors Reminder` workflow (scripts/contributors_reminder.sh)
+**Fork-PR reminder + public credit (automatic).** Merging a pull request from
+a fork does not update CONTRIBUTORS.md by itself. On every push to develop,
+the `Automation / Contributors Reminder` workflow (scripts/contributors_reminder.sh)
 lists fork-PR merges since the last reminder and opens — or comments on — an
 auto-issue whenever the credit row is missing or still `offen` after the merge,
-including forks deleted after the merge. The state window lives in the issue
-body (`contributors-state:` marker), so nothing is reported twice. The
-automation only reminds; the bookkeeping stays maintainer work.
+including forks deleted after the merge. Additionally, every credited fork PR
+receives a **public thank-you comment** on the PR itself: if the credit row is
+already `umgesetzt`, the bot thanks the author and links CONTRIBUTORS.md; if
+the row is missing or still `offen`, it announces that the credit is being
+tracked up. Once the row lands, the next run **edits that announcement into
+the thank-you** (closed loop via the `contributors-state: … pending:…`
+window marker) — the author sees the credit arrive without any maintainer
+action. One comment per PR (idempotency marker), history stays clean, the
+bookkeeping stays maintainer work.
 
 ### Commit style
 
@@ -217,15 +223,21 @@ im eigenen PR selbst tun); `offen` → `umgesetzt`, sobald die Arbeit gemergt is
 Die Struktur erzwingt `scripts/check_contributors.sh` (Pre-Push-Gate + CI) —
 Formatfehler brechen den Build ab.
 
-**Fork-PR-Erinnerung (automatisch).** Das Mergen eines Fork-PRs aktualisiert
-CONTRIBUTORS.md nicht von selbst. Bei jedem Push auf develop listet der
-Workflow `Automation / Contributors Reminder` (scripts/contributors_reminder.sh)
-die Fork-PR-Merges seit dem letzten Reminder und eröffnet — oder kommentiert
-auf — ein Auto-Issue, sobald die Beitragszeile fehlt oder nach dem Merge noch
-`offen` steht, einschließlich nach dem Merge gelöschter Forks. Das
-State-Fenster lebt im Issue-Body (`contributors-state:`-Marker), damit nichts
-doppelt gemeldet wird. Die Automatisierung erinnert nur; die Pflege bleibt
-Maintainer-Handarbeit.
+**Fork-PR-Erinnerung + öffentlicher Dank (automatisch).** Das Mergen eines
+Fork-PRs aktualisiert CONTRIBUTORS.md nicht von selbst. Bei jedem Push auf
+develop listet der Workflow `Automation / Contributors Reminder`
+(scripts/contributors_reminder.sh) die Fork-PR-Merges seit dem letzten
+Reminder und eröffnet — oder kommentiert auf — ein Auto-Issue, sobald die
+Beitragszeile fehlt oder nach dem Merge noch `offen` steht, einschließlich
+nach dem Merge gelöschter Forks. Zusätzlich erhält jeder gewürdigte Fork-PR
+einen **öffentlichen Dank-Kommentar** am PR selbst: Ist die Zeile bereits
+`umgesetzt`, dankt der Bot dem Autor mit Verweis auf CONTRIBUTORS.md; fehlt
+die Zeile oder steht noch `offen`, kündigt er das Nachziehen an. Sobald die
+Zeile landet, **editiert der nächste Run diese Ankündigung zum Dank**
+(geschlossener Regelkreis über den State-Marker `contributors-state: …
+pending:…`) — der Autor sieht die Würdigung nachziehen, ohne Maintainer-Hand.
+Ein Kommentar je PR (Idempotenz-Marker), die Historie bleibt sauber, die
+Pflege bleibt Maintainer-Handarbeit.
 
 ### Commit-Stil
 

@@ -52,6 +52,27 @@ grep -Fq 'workflow_dispatch' "$workflow" && ok || fail "C8g: manueller Trigger f
 if grep -Fq -- '--jq ".[] | select(.merged_at' "$script"; then ok; else fail "C10a: Pull-Sammlung muss als Zeilen-Stream ge-jqt werden (.[] | …)"; fi
 if grep -Fq '[[.[]' "$script"; then fail "C10b: Array-Klammer um den @tsv-Stream erzeugt eine Müll-JSON-Zeile"; else ok; fi
 
+# ── C11: Öffentlicher Dank-/Ankündigungs-Kommentar am PR (Marker + Editierbarkeit) ──
+grep -Fq 'contributors-credit' "$script" && ok || fail "C11a: Credit-Marker fehlt (Dank-Kommentar-Vertrag)"
+grep -Fq 'credit_comment_for' "$script" && ok || fail "C11b: existierende Credit-Kommentare müssen vor dem Posten gesucht werden (Idempotenz)"
+grep -Fq 'issues/comments/' "$script" && ok || fail "C11c: PATCH-Editierbarkeit fehlt (Ankündigung kann nicht zum Dank aktualisiert werden)"
+
+# ── C12: Geschlossener Regelkreis — pending-Tracking im State-Kommentar ──
+grep -Fq 'pending:' "$script" && ok || fail "C12a: pending-Liste fehlt im State-Token (Nachzieh-PRs werden sonst vergessen)"
+grep -Fq 'diesen Kommentar automatisch zum Dank' "$script" \
+  && ok || fail "C12b: Ankündigung muss das automatische Dank-Update versprechen (geschlossener Regelkreis)"
+
+# ── C13: Autor-Erwähnung kommt aus der API (.user.login), nie als Code interpoliert ──
+grep -Fq '.user.login' "$script" && ok || fail "C13a: Autor muss aus der Pulls-API kommen (.user.login)"
+if grep -Eq 'user\\.login.*\|\|.*sh|\\$\(.*user\\.login' "$script"; then
+  fail "C13b: user.login darf nicht in Shell-Kommandos interpoliert werden"
+else
+  ok
+fi
+
+# ── C14: Beide Modi mit @-Mention am Autor ──
+grep -Fq '@$author' "$script" && ok || fail "C14: Dank/Ankündigung muss den Autor explizit erwähnen (@$author)"
+
 # ── C9: status_for-Parser funktional testen (echter Code, Fixtures inkl. CRLF) ──
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
