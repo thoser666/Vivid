@@ -78,6 +78,13 @@ bash scripts/test_sha256sums.sh
 echo "▶ [pre-push] pip-Pinning-Selbsttest (scripts/test_pip_pinning.sh)"
 bash scripts/test_pip_pinning.sh
 
+# Drift-Semantik-Selbsttest (offline): beweist die zweistufige Semantik —
+# Live-PyPI-Drift ist advisory im Push-Kontext (Same-Day-Drift darf den
+# Push-CI nicht rot machen, Vorfall 30.09.2026), fail-closed nur mit
+# PIP_DRIFT_STRICT=1 (Bot-Nach-Verifikation), Integrität immer strikt.
+echo "▶ [pre-push] Pip-Drift-Semantik-Selbsttest (scripts/test_pip_drift_semantics.sh)"
+bash scripts/test_pip_drift_semantics.sh
+
 # Contributors-Guard (offline): CONTRIBUTORS.md (Danksagungen Dritter) muss
 # den Tabellen-Vertrag halten (eine Tabelle, #Referenz, Status offen/umgesetzt).
 echo "▶ [pre-push] Contributors-Guard (scripts/check_contributors.sh)"

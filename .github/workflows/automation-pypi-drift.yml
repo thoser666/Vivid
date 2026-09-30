@@ -85,6 +85,11 @@ jobs:
 
       - name: Regenerate closure
         if: steps.drift.outputs.drift == 'true'
+        env:
+          # Nach-Verifikation fail-closed: Nur der Bot (und explizite manuelle
+          # Läufe) erzwingen die byte-identische Reproduzierbarkeit; im Push-CI
+          # ist derselbe Check advisory (Drift-Race-Condition, Vorfall 30.09.2026).
+          PIP_DRIFT_STRICT: "1"
         run: |
           set -euo pipefail
           python scripts/gen_fdroid_requirements.py

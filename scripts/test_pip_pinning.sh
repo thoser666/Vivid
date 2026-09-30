@@ -36,11 +36,25 @@ bad = [name for name, h in entries if "--hash=sha256:" not in h]
 sys.exit(1 if bad else 0)
 PYEOF
 
-# 1d. Drift-Test: gepinnte Closure muss zur aktuellen Generator-Logik
-#     byte-identisch reproduzierbar sein (fängt veraltete Pins ab, wenn
-#     sich Abhängigkeiten auf PyPI ändern oder MANUAL_DEPS erweitert wird).
-python scripts/gen_fdroid_requirements.py --check >/dev/null 2>&1 \
-  || fail "fdroidserver-requirements.txt ist nicht mehr reproduzierbar — neu generieren und committen"
+# 1d. Drift-Test (advisory): gepinnte Closure vs. aktuell generierbare Closure.
+#     Live-PyPI-Drift ist ein WARTUNGSSIGNAL (neues Upstream-Release), keine
+#     Eigenschaft des Commits — der byte-identische Vergleich gegen LIVE-PyPI
+#     ist im Push-CI daher inhärent racy (Vorfall 30.09.2026: charset-normalizer
+#     3.5.2 erschien zwischen lokaler Regenerierung und CI-Lauf → roter Push-CI
+#     auf inhaltlich intaktem Commit). Standard: advisory (Warnung, exit 0) —
+#     die Integrität bleibt vollständig abgedeckt (1c-Formalprüfung hier,
+#     SHA-Verifikation aller Hashes beim Deploy-`pip install --require-hashes`).
+#     Der wöchentliche automation-pypi-drift-Workflow erkennt den Drift und
+#     öffnet den Regenerierungs-PR; seine Nach-Verifikation läuft mit
+#     PIP_DRIFT_STRICT=1 (dann fail-closed, siehe test_pip_drift_semantics.sh).
+if python scripts/gen_fdroid_requirements.py --check >/dev/null 2>&1; then
+  :
+else
+  if [[ "${PIP_DRIFT_STRICT:-0}" == "1" ]]; then
+    fail "fdroidserver-requirements.txt ist nicht mehr reproduzierbar — neu generieren und committen"
+  fi
+  echo "⚠️  [pip-pinning-test] Closure-Drift gegenüber Live-PyPI erkannt (advisory, nicht push-blockierend) — Regenerierung: python scripts/gen_fdroid_requirements.py oder automation-pypi-drift (wöchentlicher Bot-PR)"
+fi
 
 # 2. Erwartete Pins (Version + SHA256 aus PyPI verifiziert).
 grep -Fq 'markdown==3.10.3' .github/workflows/deploy-pages.yml \
