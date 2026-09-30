@@ -10,6 +10,11 @@
 # Kein Überwachungsloch: Dependabot-Branches werden beim nächsten
 # schedule/dispatch-Lauf (snyk-monitor + snyk-test auf dem Default-Branch)
 # regulär gescannt.
+#
+# Härtung (2026-09-30): Snyk-CLI-/Backend-Infrastrukturfehler (Exit 2/3, z. B.
+# SNYK-CLI-0000 "Enrichment of Test Failed" — transiente Snyk-Backend-Störung
+# am 30.09.2026, Run 36702441187) werden bis zu 3-mal mit Backoff wiederholt.
+# Echte high-severity-Befunde (Exit 1) schlagen sofort rot — kein Retry.
 
 name: Security / Snyk
 
@@ -64,11 +69,32 @@ jobs:
         id: snyk-test
         continue-on-error: true
         run: |
-          snyk test --all-projects \
-            --exclude=build,.gradle \
-            --policy-path="$GITHUB_WORKSPACE/.snyk" \
-            --severity-threshold=high \
-            --sarif-file-output=./snyk-results.sarif
+          # Retry nur bei CLI-/Backend-Fehlern (Exit 2/3) — echte Befunde
+          # (Exit 1) brechen sofort ab, damit kein Befund verschluckt wird.
+          max_attempts=3
+          attempt=1
+          delay=30
+          rc=0
+          while true; do
+            snyk test --all-projects \
+              --exclude=build,.gradle \
+              --policy-path="$GITHUB_WORKSPACE/.snyk" \
+              --severity-threshold=high \
+              --sarif-file-output=./snyk-results.sarif
+            rc=$?
+            if [ "$rc" -eq 0 ] || [ "$rc" -eq 1 ]; then
+              break
+            fi
+            if [ "$attempt" -ge "$max_attempts" ]; then
+              break
+            fi
+            echo "Snyk CLI-Fehler (Exit $rc, Versuch $attempt/$max_attempts) — Retry in ${delay}s"
+            sleep "$delay"
+            attempt=$((attempt + 1))
+            delay=$((delay * 2))
+          done
+          echo "snyk_test_rc=$rc" >> "$GITHUB_OUTPUT"
+          exit "$rc"
 
       # GitHub akzeptiert seit Ende September 2026 keine SARIF-Datei mit
       # mehreren Run-Objekten derselben Kategorie mehr (changelog 2025-07-21,
@@ -117,9 +143,20 @@ jobs:
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Fail on high-severity findings or CLI errors
+      - name: Fail on high-severity findings or persistent CLI errors
         if: steps.snyk-test.outcome == 'failure'
-        run: exit 1
+        env:
+          SNYK_TEST_RC: ${{ steps.snyk-test.outputs.snyk_test_rc }}
+        run: |
+          # Exit 1 (Snyk-Konvention) = Befunde >= severity-threshold -> rot.
+          # Exit 2/3 = CLI-/Backend-Fehler: nach 3 Retry-Versuchen weiterhin
+          # vorhanden -> rot (sichtbar), aber SARIF bleibt fehlend.
+          if [ "$SNYK_TEST_RC" = "1" ]; then
+            echo "Snyk hat hochkritische Schwachstellen gefunden (Exit 1)." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Snyk CLI-Fehler nach 3 Retries persistiert (Exit $SNYK_TEST_RC)." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          exit 1
 
   snyk-monitor:
     name: Snyk Monitor (Dashboard)
@@ -145,9 +182,25 @@ jobs:
           snyk-version: latest
 
       - name: Run Snyk monitor
-        run: >-
-          snyk monitor --all-projects --exclude=build,.gradle
-          --policy-path="$GITHUB_WORKSPACE/.snyk"
+        run: |
+          max_attempts=3
+          attempt=1
+          delay=30
+          while [ "$attempt" -le "$max_attempts" ]; do
+            if snyk monitor --all-projects --exclude=build,.gradle \
+                --policy-path="$GITHUB_WORKSPACE/.snyk"; then
+              exit 0
+            fi
+            rc=$?
+            if [ "$attempt" -ge "$max_attempts" ]; then
+              echo "Snyk monitor nach $max_attempts Versuchen fehlgeschlagen (Exit $rc)."
+              exit 1
+            fi
+            echo "Snyk monitor CLI-Fehler (Exit $rc, Versuch $attempt/$max_attempts) — Retry in ${delay}s"
+            sleep "$delay"
+            attempt=$((attempt + 1))
+            delay=$((delay * 2))
+          done
 
       - name: Summary
         if: always()
