@@ -10,7 +10,10 @@
 # 2.3.11, < 2.4.20); die normale CI baut unverändert mit 2.4.20.
 #
 # Vertrag (Läuft im Pre-Push-Gate + CI):
-#   K1  init UND analyze auf denselben v4.38.1-SHA gepinnt (# v4.38.1-Kommentar)
+#   K1  init/analyze/upload-sarif überall SHA-gepinnt MIT Versionskommentar
+#       und auf DENSELBEN Release-Stand (dynamisch über alle Workflows —
+#       gemischte Versionen erzeugen die CodeQL-Mixed-Version-Warnung;
+#       familienweite Bumps via Dependabot-PRs #236/#237/#238, 30.09.2026)
 #   K2  Pin-Step (Kotlin → 2.4.10) liegt VOR dem Build-Step (Reihenfolge!)
 #   K3  Pin zielt auf 2.4.10 und liest die Quelle dynamisch aus dem Katalog
 #       (driftet der Katalog auf 2.4.20+ weiter FRÜHER, greift der Pin weiter)
@@ -48,12 +51,34 @@ notcheck() {
   fi
 }
 
-# K1: Beide codeql-action-Steps auf denselben immutable v4.38.0-SHA gepinnt.
-check "K1.1 init SHA-gepinnt (v4.38.1)" \
-  "$CODEDQL" 'github/codeql-action/init@1c5b675653bb5c22dbe9b12b556ec555138e09fd'
-check "K1.2 analyze SHA-gepinnt (v4.38.1)" \
-  "$CODEDQL" 'github/codeql-action/analyze@1c5b675653bb5c22dbe9b12b556ec555138e09fd'
-check "K1.3 Versionskommentar v4.38.1" "$CODEDQL" '# v4.38.1'
+# K1: Alle codeql-action-Steps SHA-gepinnt (keine beweglichen Tags), mit
+# Versionskommentar, und auf DENSELBEN Release-Stand — dynamisch über alle
+# Workflows geprüft, damit familienweite Bumps (Dependabot-PRs #236/#237/#238)
+# den Vertrag nicht mehr brechen wie die wörtliche v4.38.1-SHA davor.
+PINS=$(grep -rhoE 'uses:[[:space:]]*github/codeql-action/(init|analyze|upload-sarif)@[0-9a-f]{40}[[:space:]]*#[[:space:]]*v[0-9.]+' .github/workflows/*.yml 2>/dev/null || true)
+PIN_COUNT=$(printf '%s\n' "$PINS" | grep -c . || true)
+if [ "$PIN_COUNT" -ge 4 ]; then
+  echo "  ✅ K1.0 Alle codeql-action-Pins SHA+Versionskommentar ($PIN_COUNT Stellen)"
+else
+  echo "  ❌ K1.0 Zu wenige voll gepinnte codeql-action-Stellen ($PIN_COUNT, erwartet >= 4)"
+  FAILED=1
+fi
+for a in init analyze upload-sarif; do
+  if printf '%s\n' "$PINS" | grep -q "codeql-action/$a@"; then
+    echo "  ✅ K1.$a SHA-gepinnt mit Versionskommentar"
+  else
+    echo "  ❌ K1.$a fehlt oder ist nicht SHA+Versionskommentar-gepinnt"
+    FAILED=1
+  fi
+done
+UNIQUE_SHAS=$(printf '%s\n' "$PINS" | grep -oE '@[0-9a-f]{40}' | sort -u | wc -l)
+UNIQUE_VERS=$(printf '%s\n' "$PINS" | grep -oE 'v[0-9][0-9.]*' | sort -u | wc -l)
+if [ "$UNIQUE_SHAS" -eq 1 ] && [ "$UNIQUE_VERS" -eq 1 ]; then
+  echo "  ✅ K1.4 Same-Release über alle Pin-Stellen ($(printf '%s\n' "$PINS" | grep -oE 'v[0-9][0-9.]*' | sort -u))"
+else
+  echo "  ❌ K1.4 Gemischte codeql-action-Versionen (SHAs=$UNIQUE_SHAS, Versionen=$UNIQUE_VERS) — Mixed-Version-Warnung droht"
+  FAILED=1
+fi
 
 # K2: Der Pin-Step muss VOR dem Build-Step liegen, sonst kompiliert der Build
 # den Trace mit 2.4.20 und scheitert weiterhin (Reihenfolge ist entscheidend).
