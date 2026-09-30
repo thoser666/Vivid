@@ -85,6 +85,12 @@ bash scripts/check_contributors.sh
 echo "▶ [pre-push] Contributors-Guard-Selbsttest (scripts/test_contributors.sh)"
 bash scripts/test_contributors.sh
 
+# Contributors-Reminder-Selbsttest (offline): beweist die Verträge des Auto-
+# Issue-Workflows (State-Fenster/Marker, Fork-Erkennung inkl. gelöschter
+# Forks, keine Bot-PR-Mechanik, Workflow-Permissions).
+echo "▶ [pre-push] Contributors-Reminder-Selbsttest (scripts/test_contributors_reminder.sh)"
+bash scripts/test_contributors_reminder.sh
+
 echo "▶ [pre-push] Version-Code-Fallback-Selbsttest (scripts/test_version_fallback.rb)"
 ruby scripts/test_version_fallback.rb
 

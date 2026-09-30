@@ -1,0 +1,38 @@
+name: Automation / Contributors Reminder
+
+# Erinnert an die CONTRIBUTORS.md-Pflege, sobald ein Fork-PR gemergt wurde:
+# Auf jedem develop-Push werden Fork-Squash-Merges seit dem letzten Reminder
+# gesucht und fehlende bzw. noch auf `offen` stehende Beitragseintraege als
+# Auto-Issue gemeldet (Vorfall 29.09.2026: #213/#230 fielen erst durch eine
+# Nutzer-Rueckfrage auf). Die Pflege selbst bleibt Maintainer-Handarbeit.
+#
+# Bewusst KEIN Bot-PR (kein Branch-Push, kein PR-Create): der T1-T13-Vertrag
+# aus scripts/test_bot_pr_credentials.sh gilt hier nicht — `issues: write`
+# genuegt. GITHUB_TOKEN fliesst nur als Issue-Text (Daten, kein Code).
+
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  reminder:
+    name: Fork-PR-Merges auf Beitragseintraege pruefen
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    # Gleiche Guard-Philosophie wie automation-changelog.yml: Dependabot
+    # stoesst keine Automatik an.
+    if: github.actor != 'dependabot[bot]'
+    steps:
+      - name: Checkout develop
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: develop
+
+      - name: Fork-Merges gegen CONTRIBUTORS.md pruefen
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/contributors_reminder.sh

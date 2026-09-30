@@ -285,6 +285,11 @@ jobs:
       - name: Check contributors
         run: bash scripts/check_contributors.sh
 
+      # Contributors-Reminder-Selbsttest (Auto-Issue-Workflow): State-/Marker-,
+      # Fork-Erkennungs- und No-Bot-PR-Verträge offline bewiesen.
+      - name: Test contributors reminder
+        run: bash scripts/test_contributors_reminder.sh
+
       # ── Optional: Code‑Scanning / Security‑Events ──
       # - name: Run CodeQL
       #   uses: github/codeql-action/init@v2

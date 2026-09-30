@@ -178,4 +178,25 @@ for entry in annotations:
 assert required <= covered, f"missing annotations for: {sorted(required - covered)}"
 PYEOF
 
+# Contributors-Reminder (Nacharbeit zum Vorfall 29.09.2026, #213/#230): der
+# Auto-Issue-Workflow erinnert an die CONTRIBUTORS.md-Pflege nach Fork-PR-
+# Merges. Er bleibt bewusst ein reiner Issue-Reminder: kein Branch-Push,
+# kein PR-Create (der Bot-PR-Vertrag aus test_bot_pr_credentials.sh gilt
+# nicht), nur issues: write, State-Fenster atomar im Issue-Body.
+file=.github/workflows/automation-contributors-reminder.yml
+[[ -f "$file" ]] || fail "contributors-reminder workflow must exist"
+head -30 "$file" | grep -Fq 'permissions: {}' \
+  || fail "contributors-reminder workflow must default-deny permissions"
+grep -Eq 'issues:[[:space:]]*write' "$file" \
+  || fail "contributors-reminder must retain only issues write"
+grep -Fq "github.actor != 'dependabot[bot]'" "$file" \
+  || fail "contributors-reminder must skip dependabot actors"
+grep -Fq 'contributors-state:' scripts/contributors_reminder.sh \
+  || fail "contributors-reminder must persist its window state in the issue body"
+grep -Fq 'head.repo == null' scripts/contributors_reminder.sh \
+  || fail "contributors-reminder must detect deleted forks (head.repo == null)"
+if grep -Eq 'gh pr create|git push' scripts/contributors_reminder.sh; then
+  fail "contributors-reminder must stay a pure issue-reminder (no branch push, no PR create)"
+fi
+
 echo "✅ [workflow-security-test] Permissions, PR input handling, ChatOverlay findings, wrapper validation, and scorecard annotations are guarded."

@@ -89,6 +89,15 @@ their own PR — the pull request template has a checkbox for it). `offen` flips
 enforced by `scripts/check_contributors.sh` (pre-push gate + CI) — malformed
 edits break the build.
 
+**Fork-PR reminder (automatic).** Merging a pull request from a fork does not
+update CONTRIBUTORS.md by itself. On every push to develop, the
+`Automation / Contributors Reminder` workflow (scripts/contributors_reminder.sh)
+lists fork-PR merges since the last reminder and opens — or comments on — an
+auto-issue whenever the credit row is missing or still `offen` after the merge,
+including forks deleted after the merge. The state window lives in the issue
+body (`contributors-state:` marker), so nothing is reported twice. The
+automation only reminds; the bookkeeping stays maintainer work.
+
 ### Commit style
 
 Conventional Commits, English, present tense:
@@ -207,6 +216,16 @@ Beim Annehmen eines Beitrags ergänzt ein Maintainer die Zeile (der Autor darf e
 im eigenen PR selbst tun); `offen` → `umgesetzt`, sobald die Arbeit gemergt ist.
 Die Struktur erzwingt `scripts/check_contributors.sh` (Pre-Push-Gate + CI) —
 Formatfehler brechen den Build ab.
+
+**Fork-PR-Erinnerung (automatisch).** Das Mergen eines Fork-PRs aktualisiert
+CONTRIBUTORS.md nicht von selbst. Bei jedem Push auf develop listet der
+Workflow `Automation / Contributors Reminder` (scripts/contributors_reminder.sh)
+die Fork-PR-Merges seit dem letzten Reminder und eröffnet — oder kommentiert
+auf — ein Auto-Issue, sobald die Beitragszeile fehlt oder nach dem Merge noch
+`offen` steht, einschließlich nach dem Merge gelöschter Forks. Das
+State-Fenster lebt im Issue-Body (`contributors-state:`-Marker), damit nichts
+doppelt gemeldet wird. Die Automatisierung erinnert nur; die Pflege bleibt
+Maintainer-Handarbeit.
 
 ### Commit-Stil
 
