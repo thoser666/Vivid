@@ -70,6 +70,29 @@ jobs:
             --severity-threshold=high \
             --sarif-file-output=./snyk-results.sarif
 
+      # GitHub akzeptiert seit Ende September 2026 keine SARIF-Datei mit
+      # mehreren Run-Objekten derselben Kategorie mehr (changelog 2025-07-21,
+      # Enforcement traf uns erstmals am 30.09.2026, Run 36667123590 — Snyk
+      # schreibt EIN Run-Objekt pro Projekt, aktuell 11 Stück, alle ohne
+      # eigene Kategorie). Der Fixup vergibt je Run eine eigene Kategorie
+      # (automationDetails.id) — die Datei bleibt eine, alle Befunde bleiben
+      # in Code Scanning sichtbar, der Upload wird wieder akzeptiert.
+      - name: Make SARIF categories unique per project
+        if: always() && hashFiles('snyk-results.sarif') != ''
+        run: |
+          python -X utf8 - <<'PYEOF'
+          import json
+          path = "./snyk-results.sarif"
+          with open(path, encoding="utf-8") as f:
+              sarif = json.load(f)
+          runs = sarif.get("runs", [])
+          for i, run in enumerate(runs):
+              run.setdefault("automationDetails", {})["id"] = "snyk-test/project-%d" % i
+          with open(path, "w", encoding="utf-8") as f:
+              json.dump(sarif, f)
+          print("SARIF-Kategorien eindeutig gesetzt: %d Runs" % len(runs))
+          PYEOF
+
       - name: Upload Snyk results to GitHub Code Scanning
         if: always() && hashFiles('snyk-results.sarif') != ''
         uses: github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4.38.1

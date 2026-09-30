@@ -36,4 +36,17 @@ fi
 grep -A2 '^  snyk-monitor:' "$file" | grep -q "if: github.event_name == 'schedule'" \
   || fail "snyk-monitor: schedule/dispatch-Bedingung fehlt (Skip darf den Monitor nicht betreffen)"
 
-echo "✅ [snyk-workflow-test] CLI-Migration, JDK, Timeout, SARIF-Guard, Dependabot- und Fork-Skip sind vorhanden."
+# SARIF-Multi-Run-Vertrag (Enforcement 30.09.2026, Run 36667123590): Snyk
+# schreibt ein Run-Objekt pro Projekt in EINE Datei; GitHub lehnt mehrere
+# Runs derselben Kategorie ab. Der Fixup-Step muss existieren, vor dem
+# Upload liegen und je Run eine eigene automationDetails.id vergeben.
+grep -Fq 'Make SARIF categories unique per project' "$file" \
+  || fail "SARIF-Kategorie-Fixup-Step fehlt (Multi-Run-Upload wird von GitHub abgelehnt)"
+grep -Fq 'automationDetails' "$file" \
+  || fail "Fixup muss je Run eine eigene automationDetails.id (Kategorie) vergeben"
+FIXUP_LINE=$(grep -n 'Make SARIF categories unique per project' "$file" | cut -d: -f1)
+UPLOAD_LINE=$(grep -n 'upload-sarif@' "$file" | cut -d: -f1)
+[[ -n "$FIXUP_LINE" && -n "$UPLOAD_LINE" && "$FIXUP_LINE" -lt "$UPLOAD_LINE" ]] \
+  || fail "SARIF-Fixup muss VOR dem Upload-Schritt liegen"
+
+echo "✅ [snyk-workflow-test] CLI-Migration, JDK, Timeout, SARIF-Guard, Dependabot- und Fork-Skip, SARIF-Kategorie-Fixup sind vorhanden."
