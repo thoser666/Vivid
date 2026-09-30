@@ -92,6 +92,12 @@ dependencies {
     implementation(libs.rootencoder.rtmp)
     // =============================================================
 
+    // [WHIP P0-Spike] libwebrtc-Prebuild — NUR für den P0-Spike (feature-branch):
+    // Ermöglicht den Probe-Build (WHIPIngestProbe, MiniPeerConnection-Init) und
+    // die P0-Messwerte (APK-Delta, R8-Verhalten, docs/whip-spike.md §4/§11).
+    // KEIN produktives Import-Ziel: Die Media-Bridge (WHIPStreamRoute) ist P1.
+    implementation(libs.webrtc.sdk)
+
     // Media3 / ExoPlayer für die Wiedergabe
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.ui)

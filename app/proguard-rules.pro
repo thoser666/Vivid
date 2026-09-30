@@ -25,3 +25,12 @@
 # das auf Android nicht existiert — die Referenzen werden nur vom JVM-Debugger genutzt.
 -dontwarn java.lang.management.ManagementFactory
 -dontwarn java.lang.management.RuntimeMXBean
+
+# --- WebRTC (io.github.webrtc-sdk, WHIP P0-Spike) ---
+# Die libjingle-JNI-Schicht ruft über RegisterNatives-Namen in die Java-Klassen
+# zurück; ohne Keep-Rules entfernt R8 die von der .so referenzierten Klassen/
+# Methoden (UnsatisfiedLinkError erst zur Laufzeit). P0-Messpunkt: braucht der
+# Probe diese Regeln wirklich? (Erwartung: ja — das AAR bringt kein
+# consumer-rules.txt mit, verifiziert per AAR-Analyse docs/whip-spike.md §4.2)
+-keep class org.webrtc.** { *; }
+-dontwarn org.webrtc.**
