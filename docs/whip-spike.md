@@ -1,6 +1,6 @@
 # 🎙️ WHIP-Spike: WebRTC-Ingest für Vivid
 
-> **Status:** Spike-Analyse vom 2026-09-30 — Umsetzung: **P0 auf Feature-Branch `feat/whip-p0-spike` umgesetzt** (statische Messwerte bestanden, Abschnitt 11; Gerätesmoke offen). Empfehlung: **GO** — Start mit dem 1–2-tägigen P0-Spike (Abschnitt 7), Gesamtumfang P0–P3 ≈ **8–13 Arbeitstage**. Diese Datei ist die Entscheidungsgrundlage für die PARITY-Zeile „WHIP (WebRTC)" im [Streaming-Bucket](../PARITY.md#-streaming--protokolle) (v0.6.0-beta-Roadmap-Bucket, blockiert durch den [Roadmap-Reservierungs-Guard](../scripts/test_roadmap_reservation.sh), solange das Bucket nicht komplett ✅ ist).
+> **Status:** Spike-Analyse vom 2026-09-30 — Umsetzung: **P0 umgesetzt und auf `develop` gelandet** (statische Messwerte bestanden, Abschnitt 11); Gerätesmoke-Vorbereitung steht (Abschnitt 11.8), der Gerätedurchlauf selbst ist offen. Empfehlung: **GO** — Start mit dem 1–2-tägigen P0-Spike (Abschnitt 7), Gesamtumfang P0–P3 ≈ **8–13 Arbeitstage**. Diese Datei ist die Entscheidungsgrundlage für die PARITY-Zeile „WHIP (WebRTC)" im [Streaming-Bucket](../PARITY.md#-streaming--protokolle) (v0.6.0-beta-Roadmap-Bucket, blockiert durch den [Roadmap-Reservierungs-Guard](../scripts/test_roadmap_reservation.sh), solange das Bucket nicht komplett ✅ ist).
 
 ---
 
@@ -358,7 +358,43 @@ Build-Zeit: Baseline-Assemble 7:36 min vs. WHIP-Assemble 10:06 min (kalt, erster
 **GO** (statisch): Kein Blocker aus Kompilierung, Tests, R8, 16-KB-Alignment, Lizenz (§4.3); die APK-Kosten bestätigen die Prognose aus §4.2 und sind ein bekannter Entscheidungspunkt, kein neues Risiko.
 
 **Offen (bewusst nicht Teil dieses P0-Codes):**
-1. **Gerätesmoke**: `sdkSmoke()` auf echtem Gerät (dlopen/`RegisterNatives`), danach ICE-Media-Fluss und Browser-WHEP-Empfang — das eigentliche Exit-Kriterium aus §7 wird damit nachgezogen.
-2. R8-Laufzeitverifikation (Keep-Rules wirksam?) im selben Gerätesmoke.
+1. **Gerätesmoke**: `sdkSmoke()` auf echtem Gerät (dlopen/`RegisterNatives`), danach ICE-Media-Fluss und Browser-WHEP-Empfang — das eigentliche Exit-Kriterium aus §7; Einstiegspunkt, MediaMTX-Zugang und Checkliste stehen (11.8), der Gerätedurchlauf selbst bleibt offen.
+2. R8-Laufzeitverifikation (Keep-Rules wirksam?) im selben Gerätesmoke (C2 in 11.8).
 3. `abiFilters`/Splits und `prefixed-stripped`-Messung → P3-Entscheidung (§4.2).
-4. Snyk/CodeQL-Lauf auf dem Branch (CI) beobachten.
+4. ~~Snyk/CodeQL-Lauf auf dem Branch (CI) beobachten~~ — erledigt (CI 8/8 grün auf `f2899d88`).
+
+### 11.8 Gerätesmoke-Vorbereitung (2026-10-01) — Debug-Einstiegspunkt, MediaMTX-Zugang, Checkliste
+
+Der Gerätesmoke (das eigentliche §7-Exit-Kriterium) braucht ein physisches Gerät mit Debugging — er selbst bleibt offen. Diese Vorbereitung macht ihn reproduzierbar: ein debug-only Einstiegspunkt für `sdkSmoke()`, ein Geräte-zugängliches MediaMTX-Setup (11.5) und eine Checkliste mit definierten Beobachtungen.
+
+**Debug-Einstiegspunkt** (bewusst debug-only, kein Produktivpfad — kein zweiter HTTP-Pfad, der WHIP-Contract bleibt in `core`):
+
+| Datei | Rolle |
+|---|---|
+| [WHIPSmokeActivity.kt](../app/src/debug/java/com/vivid/irlbroadcaster/WhipSmokeActivity.kt) | Compose-Activity im `app/src/debug`-SourceSet (Release-/Play-/FOSS-Builds enthalten sie nicht), `exported=false` ohne Launcher-Intent-Filter (Muster `CrashDiagnosticsActivity`), ruft den Runner auf einem Hintergrund-Thread |
+| [app/src/debug/AndroidManifest.xml](../app/src/debug/AndroidManifest.xml) | Overlay-`<application>` mit der Activity (Overlay-Manifeste brauchen für den Manifest-Merge ein `<application>`-Element) |
+| [WHIPSmokeRunner.kt](../feature-streaming/src/main/java/com/vivid/feature/streaming/whip/WHIPSmokeRunner.kt) | JVM-testbare Hülle: ruft `WHIPIngestProbe.sdkSmoke`, fängt Throwable ab und meldet Klassenname + Message im Detail — `UnsatisfiedLinkError` (dlopen) bzw. `NoClassDefFoundError` (R8-Strip) werden so diagnostizierbar statt abstürzend |
+| [WHIPSmokeRunnerTest.kt](../feature-streaming/src/test/java/com/vivid/feature/streaming/whip/WHIPSmokeRunnerTest.kt) | 5 JVM-Tests (Erfolg, `sdkSmoke=false`, Throwable-Pfade) — der Smoke selbst braucht das Gerät, die Hülle nicht |
+
+Ablauf am Gerät (debug build):
+
+```bash
+./gradlew :app:assembleStandardDebug
+adb install -r app/build/outputs/apk/standard/debug/app-standard-debug.apk
+adb shell am start -n com.vivid.debug/com.vivid.irlbroadcaster.WhipSmokeActivity
+adb logcat -s WhipSmokeActivity WHIPIngestProbe   # Begleit-Filter
+```
+
+**MediaMTX vom Gerät aus erreichen** (Setup wie 11.5, Windows-Host):
+
+- Endpoint-URL am Gerät mit der **LAN-IP des Hosts** statt `127.0.0.1`: `http://<host-ip>:18889/mystream/whip` (MediaMTX lauscht auf `0.0.0.0`).
+- Windows-Firewall: eingehend **TCP 18889** (Signalisierung + WHEP-Seite) und **UDP 18189** (ICE) für `mediamtx.exe` freigeben — der erste Start fragt nach; sonst `netsh advfirewall firewall add rule` (Profile: Privat/Öffentlich je nach WLAN).
+- Gerät im selben WLAN wie der Host; VPN/Datensparmodus aus. Gerät als Hotspot ⇒ Host-IP aus dem Hotspot-Netz verwenden.
+- `whip-test.yml` unverändert aus 11.5 (leerer `paths: mystream:`-Block ist Pflicht); Stopp weiterhin `taskkill //IM mediamtx.exe //F`.
+
+**Checkliste** (Reihenfolge beachten; Ergebnis mit Datum/Gerät/Build hier in 11.8 nachtragen, PARITY-Zeile bei Abschluss):
+
+- [ ] **C1 — dlopen/`RegisterNatives` (debug)**: WhipSmokeActivity → „SDK-Smoke ausführen“ → grüner Ergebnis-Text („dlopen/RegisterNatives bestanden“). Rot + `UnsatisfiedLinkError` im Logcat ⇒ ABI-/Load-Problem, rot + `NoClassDefFoundError` ⇒ R8-Strip.
+- [ ] **C2 — R8-Laufzeitverifikation**: `./gradlew :app:assembleStandardRelease` installieren und C1 wiederholen — ohne `UnsatisfiedLinkError`/`NoClassDefFoundError`. Das beweist die Keep-Regeln aus 11.4 zur Laufzeit (11.7 Punkt 2).
+- [ ] **C3 — ICE-Media-Fluss**: echter Publish braucht die Media-Bridge (`WHIPStreamRoute`, P1) bzw. einen minimalen Probe-Publish (PeerConnection mit sendonly-Video-Transceiver, `createOffer`, POST via `WHIPClient`). Erfolg am Serverlog ablesen: „is publishing to path ‚mystream‘“ (Reap nach ~10 s ohne ICE ist Normalverhalten, 11.5).
+- [ ] **C4 — WHEP-Empfang im Browser**: nach C3 `http://<host-ip>:18889/mystream` im Browser des Hosts/Handys öffnen (MediaMTX-WHEP-Seite auf demselben Port) — Video sichtbar = Medienpfad Ende-zu-Ende bestätigt.
