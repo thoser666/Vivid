@@ -37,6 +37,21 @@ object StreamConfigValidator {
 
     private val SUPPORTED_SCHEMES = listOf("rtmp", "rtmps", "srt")
 
+    // Nur für rtmp/rtmps relevant: Dort landet der Host beim Connect im DNS.
+    private val RTMP_SCHEMES = listOf("rtmp", "rtmps")
+
+    /**
+     * Hosts, die niemals sinnvoll sind: Der Nutzer hat das Protokoll in den
+     * Host-Slot gerutscht (z. B. „rtmp:srt://host“ → „rtmp://srt/…“). Solche
+     * URLs werden vom RootEncoder-RtmpClient valide geparst und erzeugen beim
+     * Connect einen DNS-Lookup für den Literal-Host → UnknownHostException
+     * (Sentry VIVID-3D, Issue #220). Der Go-Live-Selbst-Check blockt sie ab.
+     */
+    private val SCHEME_TOKENS = setOf(
+        "rtmp", "rtmps", "rtmpt", "rtmpts", "rtsp", "rtp", "srt", "udp",
+        "http", "https", "ws", "wss",
+    )
+
     /**
      * Prüft das primäre ([streamUrl]/[streamKey]) und optionale sekundäre
      * ([secondaryStreamUrl]/[secondaryStreamKey]) Stream-Ziel und liefert alle
@@ -45,6 +60,8 @@ object StreamConfigValidator {
      * - Leere URL → Fehler („Keine Stream-URL konfiguriert").
      * - Nicht unterstütztes Protokoll (weder rtmp/rtmps noch srt) → Fehler.
      * - URL ohne Host (z. B. `rtmp://` oder nur ein Pfad) → Fehler.
+     * - RTMP(S)-Host, der wie ein Protokoll-Token aussieht (`rtmp://srt/…`,
+     *   verrutschte URL — Sentry VIVID-3D/#220) → Fehler.
      * - Fehlender Stream-Key bei RTMP/RTMPS → Warnung (manche Plattformen
      *   liefern den Key bereits in der URL).
      * - `streamUseTls = true` bei einer `srt://`-URL → Warnung (TLS betrifft nur RTMP).
@@ -119,6 +136,19 @@ object StreamConfigValidator {
             issues += StreamConfigIssue(
                 ConfigIssueSeverity.ERROR,
                 R.string.stream_error_no_host,
+                prefixRes = prefixRes,
+            )
+        }
+
+        // VIVID-3D (#220): Eine verwurstelte URL (Protokoll im Host-Slot)
+        // erreicht als „rtmp://srt/…“ den RtmpClient und erzeugt dort einen
+        // DNS-Lookup für den Literal-Host „srt“ → UnknownHostException. Hier
+        // am Go-Live-Selbst-Check abblocken, bevor der Engine startet.
+        if (scheme in RTMP_SCHEMES && host != null && host.lowercase() in SCHEME_TOKENS) {
+            issues += StreamConfigIssue(
+                ConfigIssueSeverity.ERROR,
+                R.string.stream_error_host_is_scheme,
+                formatArgs = listOf(host),
                 prefixRes = prefixRes,
             )
         }

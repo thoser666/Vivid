@@ -100,6 +100,86 @@ class StreamConfigValidatorTest {
         assertTrue(issues.isEmpty())
     }
 
+    // --- VIVID-3D (#220): Protokoll-Token im Host-Slot ---
+
+    @Test
+    fun `rtmp url whose host is the srt token is a blocking error vivid-3d`() {
+        val issues = StreamConfigValidator.validate(
+            "rtmp://srt/app/key-1",
+            "key-1",
+            streamUseTls = false,
+        )
+
+        assertEquals(1, issues.size)
+        assertEquals(ConfigIssueSeverity.ERROR, issues[0].severity)
+        assertEquals(R.string.stream_error_host_is_scheme, issues[0].messageRes)
+        assertEquals(listOf("srt"), issues[0].formatArgs)
+    }
+
+    @Test
+    fun `rtmps url whose host is a scheme token is a blocking error`() {
+        val issues = StreamConfigValidator.validate(
+            "rtmps://srt/app",
+            "key-1",
+            streamUseTls = true,
+        )
+
+        assertTrue(
+            issues.any {
+                it.severity == ConfigIssueSeverity.ERROR &&
+                    it.messageRes == R.string.stream_error_host_is_scheme
+            },
+        )
+    }
+
+    @Test
+    fun `scheme token host in secondary target is a labeled error`() {
+        val issues = StreamConfigValidator.validate(
+            streamUrl = "rtmp://live.example/app",
+            streamKey = "key-1",
+            streamUseTls = false,
+            secondaryStreamUrl = "rtmp://srt/app",
+            secondaryStreamKey = "key-2",
+        )
+
+        assertTrue(
+            issues.any {
+                it.severity == ConfigIssueSeverity.ERROR &&
+                    it.prefixRes == R.string.stream_secondary_label &&
+                    it.messageRes == R.string.stream_error_host_is_scheme
+            },
+        )
+    }
+
+    @Test
+    fun `hosts that merely contain a token or are local still pass`() {
+        assertTrue(
+            StreamConfigValidator.validate("rtmp://srt.example.com/live", "key-1", streamUseTls = false).isEmpty(),
+        )
+        assertTrue(
+            StreamConfigValidator.validate("rtmp://my-srt-server.local/live", "key-1", streamUseTls = false).isEmpty(),
+        )
+        assertTrue(
+            StreamConfigValidator.validate("rtmp://localhost:1935/live", "key-1", streamUseTls = false).isEmpty(),
+        )
+    }
+
+    @Test
+    fun `uppercase token host is caught case-insensitively`() {
+        val issues = StreamConfigValidator.validate(
+            "rtmp://SRT/app",
+            "key-1",
+            streamUseTls = false,
+        )
+
+        assertTrue(
+            issues.any {
+                it.messageRes == R.string.stream_error_host_is_scheme &&
+                    it.formatArgs == listOf("SRT")
+            },
+        )
+    }
+
     // --- Sekundäres Ziel (Multi-Streaming) ---
 
     @Test

@@ -116,6 +116,7 @@
     <string name="stream_secondary_label">Вторая цель:</string>
     <string name="stream_error_no_url">URL-адрес потока не настроен. Пожалуйста, добавьте его в настройки.</string>
     <string name="stream_error_bad_scheme">Неподдерживаемый протокол «%1$s». Разрешены rtmp, rtmps и srt.</string>
+    <string name="stream_error_host_is_scheme">Хост «%1$s» похож на сместившийся токен протокола (напр. «rtmp:srt://host») — проверьте URL потока.</string>
     <string name="stream_error_no_host">URL-адрес потока не содержит допустимого хоста сервера (например, rtmp://live.twitch.tv/app).</string>
     <string name="stream_error_no_key">Не установлен ключ потока. Для Twitch, YouTube и Kick требуется ключ.</string>
     <string name="stream_error_srt_tls">TLS не применяется к URL-адресу srt:// — URL-адрес будет использоваться в незашифрованном виде.</string>

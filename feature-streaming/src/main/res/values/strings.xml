@@ -114,6 +114,7 @@
     <string name="stream_secondary_label">Zweites Ziel: </string>
     <string name="stream_error_no_url">Keine Stream-URL konfiguriert. Bitte in den Einstellungen hinterlegen.</string>
     <string name="stream_error_bad_scheme">Nicht unterstütztes Protokoll „%1$s“. Erlaubt sind rtmp, rtmps und srt.</string>
+    <string name="stream_error_host_is_scheme">Der Host „%1$s“ sieht wie ein verrutschtes Protokoll-Token aus (z. B. „rtmp:srt://host“) — bitte die Stream-URL prüfen.</string>
     <string name="stream_error_no_host">Die Stream-URL enthält keinen gültigen Server-Host (z. B. rtmp://live.twitch.tv/app).</string>
     <string name="stream_error_no_key">Kein Stream-Key hinterlegt. Twitch, YouTube und Kick verlangen einen Key.</string>
     <string name="stream_error_srt_tls">TLS ist bei einer srt://-URL nicht anwendbar — die URL wird unverschlüsselt verwendet.</string>
