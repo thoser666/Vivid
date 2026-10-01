@@ -20,6 +20,9 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
+    <!-- MediaProjection-FGS-Typ (Android 14+): die Screen-Capture-Quelle (S2)
+         braucht den Typ, sonst SecurityException beim Go-Live (VIVID-39, #221). -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
@@ -39,7 +42,7 @@
         <service
             android:name=".irlbroadcaster.StreamingService"
             android:exported="false"
-            android:foregroundServiceType="microphone|camera" />
+            android:foregroundServiceType="microphone|camera|mediaProjection" />
 
         <!-- Benachrichtigungszugriff (vom Nutzer in den Systemeinstellungen gewährt)
              → erlaubt dem Chat-Bot, Media-Sessions fremder Apps zu steuern

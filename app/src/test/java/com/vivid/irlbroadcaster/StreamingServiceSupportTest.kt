@@ -2,6 +2,7 @@ package com.vivid.irlbroadcaster
 
 import com.vivid.R
 import com.vivid.feature.streaming.StreamingState
+import com.vivid.feature.streaming.source.VideoSourceKind
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -63,5 +64,13 @@ class StreamingServiceSupportTest {
         assertEquals("com.vivid.action.START_STREAM", StreamingServiceSupport.ACTION_START_STREAM)
         assertEquals("com.vivid.action.STOP_STREAM", StreamingServiceSupport.ACTION_STOP_STREAM)
         assertEquals("com.vivid.extra.STREAM_URLS", StreamingServiceSupport.EXTRA_STREAM_URLS)
+    }
+
+    @Test
+    fun `requiresMediaProjectionFgs is true only for screen capture`() {
+        assertTrue(StreamingServiceSupport.requiresMediaProjectionFgs(VideoSourceKind.SCREEN_CAPTURE))
+        assertFalse(StreamingServiceSupport.requiresMediaProjectionFgs(VideoSourceKind.CAMERA))
+        assertFalse(StreamingServiceSupport.requiresMediaProjectionFgs(VideoSourceKind.VIDEO_PLAYER))
+        assertFalse(StreamingServiceSupport.requiresMediaProjectionFgs(VideoSourceKind.REPLAY))
     }
 }

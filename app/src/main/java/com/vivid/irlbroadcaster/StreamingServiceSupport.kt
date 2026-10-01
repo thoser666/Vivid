@@ -3,6 +3,7 @@ package com.vivid.irlbroadcaster
 import androidx.annotation.StringRes
 import com.vivid.R
 import com.vivid.feature.streaming.StreamingState
+import com.vivid.feature.streaming.source.VideoSourceKind
 
 /**
  * Konstanten und pure Helfer für den Streaming-Foreground-Service.
@@ -44,4 +45,17 @@ object StreamingServiceSupport {
     /** True, wenn bei diesem Status die Stop-Aktion angezeigt werden soll. */
     fun showStopAction(state: StreamingState): Boolean =
         state is StreamingState.Streaming || state is StreamingState.Failed
+
+    /**
+     * True, wenn der Streaming-Service den FGS-Typ `mediaProjection` anmelden muss.
+     *
+     * Android 14+ verlangt für jeden `MediaProjection.createVirtualDisplay()`-
+     * Aufruf einen bereits laufenden Foreground-Service vom Typ `mediaProjection`
+     * — fehlt er, wirft der Aufruf eine SecurityException und der Service stirbt
+     * beim Start als `Unable to start service` (Sentry VIVID-39, Issue #221). Nur
+     * die Screen-Capture-Quelle (S2) streamt über genau diesen Pfad; Kamera,
+     * Video-Player und Replay brauchen den Typ nicht.
+     */
+    fun requiresMediaProjectionFgs(sourceKind: VideoSourceKind): Boolean =
+        sourceKind == VideoSourceKind.SCREEN_CAPTURE
 }

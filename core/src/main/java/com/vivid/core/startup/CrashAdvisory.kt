@@ -165,6 +165,31 @@ object CrashAdvisoryRegistry {
                 "Auf den naechsten Release aktualisieren - dort ueberspringt der " +
                     "Log-Store beschaedigte Zeilen beim Laden.",
         ),
+        // Sentry VIVID-39 (Issue #221; fatal, 4 Events / 3 Nutzer, 08.09.-
+        // 21.09.2026): "Unable to start service ... StreamingService ...:
+        // SecurityException: Media projections". Android 14+ verlangt fuer
+        // MediaProjection.createVirtualDisplay() einen laufenden FGS vom Typ
+        // mediaProjection (Manifest-Permission + startForeground-Typ); der
+        // StreamingService meldete nur microphone|camera an, die Screen-
+        // Capture-Quelle (S2, seit v0.5.7-beta) crashte den Prozess beim
+        // Go-Live auf Android-14+-Geraeten. Fix: FOREGROUND_SERVICE_
+        // MEDIA_PROJECTION + mediaProjection-Typ bei aktiver Screen-Capture-
+        // Quelle + service-seitiges Catch. Kill-Switch: Screen-Capture-Quelle
+        // meiden (Kamera/Video-Player/Replay verwenden).
+        KnownCrashCandidate(
+            id = "MEDIA-PROJECTION-FGS-TYPE",
+            description =
+                "Absturz beim Go-Live mit Screen-Capture-Quelle auf Android 14+: " +
+                    "der Streaming-Service meldet den FGS-Typ mediaProjection nicht " +
+                    "(Sicherheitsausnahme, der Prozess bricht beim Bildschirm-Stream ab).",
+            minVersionCode = 5074,
+            maxVersionCode = 5194,
+            workaround =
+                "Auf den naechsten Release aktualisieren - dort meldet der " +
+                    "Streaming-Service den mediaProjection-FGS-Typ automatisch. " +
+                    "Vorlaeufig eine andere Videoquelle verwenden (Kamera, " +
+                    "Video-Player oder Replay) statt Screen-Capture.",
+        ),
         // Bauplan fuer weitere Eintraege (keine spekulativen Eintraege):
         // KnownCrashCandidate(
         //     id = "EXAMPLE-STARTUP-CRASH",

@@ -149,6 +149,19 @@ class CrashAdvisoryTest {
     }
 
     @Test
+    fun `REAL-Kandidat MEDIA-PROJECTION-FGS-TYPE trifft die Crashing-Versionen`() {
+        // Real identifiziert (Sentry VIVID-39, Issue #221): Screen-Capture-Quelle
+        // (S2) seit v0.5.7-beta (5074) im Feld; der Streaming-Service meldete den
+        // FGS-Typ mediaProjection nie -> Android-14+-Geraete crashten beim
+        // Go-Live. Fix im naechsten Release (5194).
+        val c = CrashAdvisoryRegistry.KNOWN.first { it.id == "MEDIA-PROJECTION-FGS-TYPE" }
+        assertNotNull(CrashAdvisoryRegistry.evaluate(5074, listOf(c)))
+        assertNotNull(CrashAdvisoryRegistry.evaluate(5192, listOf(c)))
+        assertNotNull(CrashAdvisoryRegistry.evaluate(5194, listOf(c)))
+        assertNull(CrashAdvisoryRegistry.evaluate(5073, listOf(c)))
+    }
+
+    @Test
     fun `evaluate mit aktueller Registry wirft nie - Startpfad bleibt robust`() {
         for (vc in intArrayOf(4999, 5000, 5144, 5162, 5172, 5182, 999999)) {
             assertDoesNotThrow { CrashAdvisoryRegistry.evaluate(vc, CrashAdvisoryRegistry.KNOWN) }

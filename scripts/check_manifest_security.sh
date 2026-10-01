@@ -9,6 +9,9 @@
 #       <exclude>-Regel enthalten. Leere Template-Rules (Stand vor
 #       2026-09-12) verdrahteten keinen Schutz und täuschten ihn vor
 #       (Finding #471) — genau das bleibt verboten.
+#   C3: MediaProjection-FGS-Typ — die Screen-Capture-Quelle braucht
+#       FOREGROUND_SERVICE_MEDIA_PROJECTION + foregroundServiceType
+#       mediaProjection (Android 14+, VIVID-39/#221).
 #
 # Aufruf: bash scripts/check_manifest_security.sh [PFAD_ZUM_MANIFEST]
 # Selbsttest: bash scripts/test_manifest_security.sh
@@ -44,4 +47,16 @@ for attr in fullBackupContent dataExtractionRules; do
   fi
 done
 
-echo "✅ [manifest-security] allowBackup=false, Backup-Verdrahtung schützt real (C1/C2 ok)."
+# C3: MediaProjection-FGS-Typ. Die Screen-Capture-Quelle (S2) streamt über
+# MediaProjection.createVirtualDisplay() — Android 14+ verlangt dafür einen FGS
+# vom Typ mediaProjection (Permission + foregroundServiceType). Fehlt eines,
+# crasht der Go-Live mit SecurityException "Media projections" als
+# "Unable to start service" (Sentry VIVID-39, Issue #221).
+if ! grep -q 'android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION' "$MANIFEST"; then
+  fail "C3 verletzt: FOREGROUND_SERVICE_MEDIA_PROJECTION-Permission fehlt (VIVID-39/#221)."
+fi
+if ! grep -qE 'android:foregroundServiceType="[^"]*mediaProjection' "$MANIFEST"; then
+  fail "C3 verletzt: StreamingService.foregroundServiceType ohne mediaProjection (VIVID-39/#221)."
+fi
+
+echo "✅ [manifest-security] allowBackup=false, Backup-Verdrahtung schützt real, MediaProjection-FGS-Typ gesetzt (C1/C2/C3 ok)."

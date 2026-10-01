@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Intent
 import com.pedro.library.multiple.MultiDisplay
 import com.pedro.library.multiple.MultiType
+import timber.log.Timber
 
 /**
  * Screen-Capture als echte Videoquelle (S2 des Moblin-Buckets „Screen Capture +
@@ -58,11 +59,21 @@ class ScreenCaptureVideoSource(
      * Ohne erteilten Consent wird nicht präpariert (RootEncoder würde sonst mit
      * „You need send intent data before startRecord or startStream“ werfen).
      *
+     * Eine [SecurityException] (z. B. fehlender FGS-Typ mediaProjection auf
+     * Android 14+, VIVID-39/#221) wird gefangen und als `false` gemeldet — die
+     * Engine routet das über `failStream` in den Failed-Zustand statt den
+     * Prozess zu crashen.
+     *
      * @return true, wenn beide Encoder bereit sind.
      */
     override fun start(): Boolean {
         if (!isConsentGranted) return false
-        return display.prepareAudio() && display.prepareVideo()
+        return try {
+            display.prepareAudio() && display.prepareVideo()
+        } catch (e: SecurityException) {
+            Timber.e(e, "ScreenCaptureVideoSource: Vorbereitung verweigert (SecurityException)")
+            false
+        }
     }
 
     /** Deaktiviert die Quelle: stoppt alle Ziele und den Screen-Share-Encoder. */

@@ -99,6 +99,18 @@ class ScreenCaptureVideoSourceTest {
     }
 
     @Test
+    fun `start returns false instead of crashing when prepare throws SecurityException`() {
+        // VIVID-39 (#221): fehlender FGS-Typ mediaProjection wirft auf Android 14+
+        // die SecurityException schon beim Vorbereiten — die Quelle meldet false
+        // (Engine routet in den Failed-Zustand) statt den Prozess zu crashen.
+        source.onConsentResult(Activity.RESULT_OK, mockk())
+        every { display.prepareAudio() } throws SecurityException("Media projections")
+
+        assertFalse(source.start())
+        verify(exactly = 0) { display.prepareVideo() }
+    }
+
+    @Test
     fun `stop stops the display stream`() {
         source.stop()
 

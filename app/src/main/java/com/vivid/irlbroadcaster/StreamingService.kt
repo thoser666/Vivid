@@ -82,7 +82,16 @@ class StreamingService : Service() {
                     return START_NOT_STICKY
                 }
                 startAsForeground()
-                streamingEngine.startStream(urls)
+                try {
+                    streamingEngine.startStream(urls)
+                } catch (e: SecurityException) {
+                    // VIVID-39 (#221): z. B. MediaProjection ohne FGS-Typ
+                    // mediaProjection — Defense-in-Depth, darf den Prozess nie
+                    // als "Unable to start service" crashen.
+                    Timber.e(e, "StreamingService: Start des Streams verweigert (SecurityException)")
+                    teardown()
+                    return START_NOT_STICKY
+                }
                 chatBotController.onStreamStarted()
                 observeStreamState()
                 scheduleStartupWatchdog()
@@ -141,6 +150,9 @@ class StreamingService : Service() {
      * FGS-Typ für Kamera + Mikrofon, abhängig von der erteilten Runtime-Permission:
      * - microphone: Android 14+ verlangt RECORD_AUDIO (vorher bedingungslos)
      * - camera: Android 15+ verlangt CAMERA (vorher bedingungslos)
+     * - mediaProjection: nur bei aktiver Screen-Capture-Quelle (VIVID-39, #221);
+     *   die Permission ist normal (Installzeit), die Entscheidung hängt an der
+     *   aktiven Videoquelle (siehe [StreamingServiceSupport.requiresMediaProjectionFgs]).
      * Auf älteren Plattformen sind die Bits unkritisch und werden immer gesetzt.
      */
     private fun foregroundServiceType(): Int {
@@ -159,6 +171,17 @@ class StreamingService : Service() {
             }
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             type = type or ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA
+        }
+        // VIVID-39 (#221): Die Screen-Capture-Quelle streamt über
+        // MediaProjection.createVirtualDisplay() — Android 14+ verlangt dafür
+        // einen laufenden FGS vom Typ mediaProjection (sonst SecurityException,
+        // die den Service als "Unable to start service" crasht).
+        // FOREGROUND_SERVICE_MEDIA_PROJECTION ist eine normale Permission
+        // (Installzeit erteilt) — kein Runtime-Check wie bei camera/microphone.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+            StreamingServiceSupport.requiresMediaProjectionFgs(streamingEngine.activeSourceKind.value)
+        ) {
+            type = type or ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
         }
         return type
     }
