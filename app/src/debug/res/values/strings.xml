@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Debug-only Ressourcen (SourceSet app/src/debug): landen nie in Release-Builds. -->
+<resources>
+    <string name="whip_smoke_title">WHIP-Gerätesmoke (P0-Spike)</string>
+    <string name="whip_smoke_hint">Prüft dlopen/RegisterNatives der libwebrtc-AAR (WHIPIngestProbe.sdkSmoke). Logcat-Filter: WhipSmokeActivity, WHIPIngestProbe. Details: docs/whip-spike.md §11.8.</string>
+    <string name="whip_smoke_run">SDK-Smoke ausführen</string>
+    <string name="whip_smoke_running">Läuft …</string>
+</resources>

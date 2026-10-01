@@ -19,4 +19,13 @@
         android:name="android.permission.DUMP"
         tools:ignore="ProtectedPermissions" />
 
+    <application>
+        <!-- WHIP P0-Geraetesmoke (docs/whip-spike.md §11.8): Debug-only Einstiegspunkt
+             für WHIPIngestProbe.sdkSmoke — kein Launcher-Intent-Filter, kein Produktivpfad;
+             Start via `adb shell am start -n com.vivid.debug/com.vivid.irlbroadcaster.WhipSmokeActivity`. -->
+        <activity
+            android:name=".irlbroadcaster.WhipSmokeActivity"
+            android:exported="false"
+            android:label="@string/whip_smoke_title" />
+    </application>
 </manifest>
