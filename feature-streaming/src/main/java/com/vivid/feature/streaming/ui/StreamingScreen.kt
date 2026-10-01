@@ -188,8 +188,14 @@ fun StreamingScreen(
     val privacyZones by viewModel.privacyZones.collectAsStateWithLifecycle(initialValue = emptyList())
     var privacyEditing by remember { mutableStateOf(false) }
 
-    // Kamera-Permission beim Öffnen des Streaming-Screens für die Live-Vorschau;
-    // Mikrofon und Notifications werden erst beim Go-Live angefordert.
+    // #249: Der Screen-Eintritt fordert NIE Permissions an — auch nicht die
+    // Kamera-Permission für die Idle-Vorschau. Ein Auto-Request öffnete den
+    // Systemdialog beim bloßen Betreten des Screens (GrantPermissionsActivity
+    // über der MainActivity, im selben Task) und leerte damit den Semantik-Baum
+    // instrumentierter Compose-Tests im Emulator-Gate (Tag-Run 36849526447).
+    // CAMERA/Mikrofon/Notifications werden ausschließlich im Go-Live-Flow
+    // (User-Geste) angefordert; die Idle-Preview startet nur bei bereits
+    // erteilter Permission (Guard hier + in startIdlePreviewIfReady).
     val context = LocalContext.current
     val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     var permissionDenied by remember { mutableStateOf(false) }
@@ -204,18 +210,13 @@ fun StreamingScreen(
         }
     }
 
-    val cameraPreviewPermissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission(),
-    ) { granted ->
-        if (granted) streamingEngine.startIdlePreviewIfReady()
-    }
+    // Idle-Preview nur bei bereits erteilter Permission — ohne Request: Fehlt
+    // der Grant, wird erst der Go-Live-Pfad (User-Geste) anfordern.
     LaunchedEffect(Unit) {
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
             PackageManager.PERMISSION_GRANTED
         ) {
             streamingEngine.startIdlePreviewIfReady()
-        } else {
-            cameraPreviewPermissionLauncher.launch(Manifest.permission.CAMERA)
         }
     }
 

@@ -165,6 +165,16 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
+      # ✅ #249: Debug-APKs beider Flavors (App + androidTest) VOR dem Gate
+      # bauen — das Setup-Skript im Runner-Script installiert sie vorconnected
+      # und grantet die Runtime-Permissions (`adb shell pm grant` scheitert an
+      # nicht installierten Packages, deshalb kann das nicht IN den
+      # connected*-Task wandern).
+      - name: Build debug APKs for emulator gate
+        if: env.TAG != ''
+        run: |
+          ./gradlew :app:assembleStandardDebug :app:assembleStandardDebugAndroidTest :app:assembleFossDebug :app:assembleFossDebugAndroidTest --stacktrace
+
       - name: Run instrumented tests on emulator (release gate)
         if: env.TAG != ''
         uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
@@ -178,6 +188,13 @@ jobs:
           disable-spellchecker: true
           emulator-boot-timeout: 900
           script: |
+            # ✅ #249: Runtime-Permissions für die UI-Tests granten + Test-APKs
+            # vorconnected installieren (der CAMERA-Auto-Request wurde app-seitig
+            # entfernt — siehe StreamingScreen.kt; ohne Grants hängt der Startup-
+            # Smoke am Permission-Vertrag des Screen-Eintritts). Läuft bewusst
+            # VOR dem Retry-Wrapper: Setup-Fehler sind deterministisch und
+            # dürfen die Retry-Klassifikation nicht konsumieren.
+            bash scripts/emulator_test_setup.sh 34
             # Flavor-explicit (connectedDebugAndroidTest ist in diesem Projekt
             # wegen der Varianten foss/standard mehrdeutig). Beide Client-
             # Packages (com.vivid.debug / com.vivid.foss.debug) sind disjunkt —

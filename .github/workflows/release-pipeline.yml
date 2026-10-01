@@ -229,6 +229,16 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
+      # ✅ #249: Debug-APKs beider Flavors (App + androidTest) VOR dem Emulator
+      # bauen — das Setup-Skript im Runner-Script installiert sie vorconnected
+      # und grantet die Runtime-Permissions; `adb shell pm grant` scheitert an
+      # nicht installierten Packages, deshalb kann das nicht IN den
+      # connected*-Task wandern. Die connected*-Tasks installieren die bereits
+      # installierten (identischen) APKs danach nicht neu.
+      - name: Build debug APKs for emulator tests
+        run: |
+          ./gradlew :app:assembleStandardDebug :app:assembleStandardDebugAndroidTest :app:assembleFossDebug :app:assembleFossDebugAndroidTest --stacktrace
+
       # ✅ Emulator hochfahren + alle instrumentierten Tests ausführen
       # (Debug-Build, wird von connectedDebugAndroidTest gebaut).
       # BEIDE Flavors: standard (Sentry) + foss (ohne Sentry — der FOSS-Build
@@ -254,6 +264,11 @@ jobs:
           disable-spellchecker: true
           emulator-boot-timeout: 900
           script: |
+            # ✅ #249: Runtime-Permissions für die UI-Tests granten + Test-APKs
+            # vorconnected installieren (der CAMERA-Auto-Request wurde app-seitig
+            # entfernt — siehe StreamingScreen.kt; ohne Grants hängt der Startup-
+            # Smoke am Permission-Vertrag des Screen-Eintritts).
+            bash scripts/emulator_test_setup.sh ${{ matrix.api-level }}
             # Flavor-explicit (connectedDebugAndroidTest ist in diesem Projekt
             # wegen der Varianten foss/standard mehrdeutig — Ambiguous matches).
             ./gradlew :app:connectedStandardDebugAndroidTest :app:connectedFossDebugAndroidTest

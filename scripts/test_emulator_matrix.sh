@@ -25,6 +25,10 @@
 #       (34/35 Pflicht, 37 experimentell — SDK-Abdeckungs-Analyse 25.09.2026)
 #   T13 Stable-Distribution: Emulator-Gate vor dem Publish-Step verdrahtet
 #   T14 Emulator-Tests decken BEIDE Flavors ab (standard + foss)
+#   T15 #249 Emulator-Grant-Setup: Runtime-Permissions werden VOR den
+#       connected*-Tasks gegranted (Setup-Skript installiert die Debug-Test-
+#       APKs beider Flavors vorconnected) — Gegenstück zur app-seitigen
+#       Entfernung des CAMERA-Auto-Requests (StreamingScreen.kt)
 
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -136,6 +140,31 @@ check "T14.2 release-pipeline emulator-tests deckt foss ab" \
   grep -q "connectedFossDebugAndroidTest" <<<"$EMU_JOB"
 check "T14.3 distribution-stable Gate deckt foss ab" \
   bash -c 'grep -A35 "Run instrumented tests on emulator (release gate)" "$DIST" | grep -q "connectedFossDebugAndroidTest"'
+
+echo "== T15: #249 Emulator-Grant-Setup (Runtime-Permissions für UI-Tests) =="
+# Vorfall Tag-Run 36849526447: Der CAMERA-Auto-Request des Streaming-Screens
+# öffnete beim Betreten des Start-Screens den Systemdialog ÜBER der MainActivity
+# → "No compose hierarchies found" in 11 UI-Tests. Die Emulator-Legs granten
+# die Permissions deshalb VOR den connected*-Tasks (Setup-Skript, installiert
+# die Debug-Test-APKs vorconnected), die App fordert camera-seitig nur noch im
+# Go-Live-Flow an. `pm grant` scheitert an nicht installierten Packages —
+# deshalb baut jeder Workflow die APKs in einem eigenen Step VOR dem Gate.
+check "T15.1 Setup-Skript vorhanden" test -f scripts/emulator_test_setup.sh
+check "T15.2 Setup installiert standard-debug-APK" grep -q 'apk/standard/debug/app-standard-debug' scripts/emulator_test_setup.sh
+check "T15.3 Setup installiert foss-debug-APK" grep -q 'apk/foss/debug/app-foss-debug' scripts/emulator_test_setup.sh
+check "T15.4 Setup grantet an das standard-Package" grep -q 'com\.vivid\.debug' scripts/emulator_test_setup.sh
+check "T15.5 Setup grantet an das foss-Package" grep -q 'com\.vivid\.foss\.debug' scripts/emulator_test_setup.sh
+check "T15.6 Setup grantet Location (TextInfoWidget)" grep -q 'ACCESS_FINE_LOCATION' scripts/emulator_test_setup.sh
+check "T15.7 POST_NOTIFICATIONS-API-Guard (>= 33)" grep -q 'ge 33' scripts/emulator_test_setup.sh
+check "T15.8 Setup fail-loud bei fehlendem APK" grep -q 'erwartetes APK fehlt' scripts/emulator_test_setup.sh
+check "T15.9 release-pipeline: Grant-Setup vor den connected-Tests" \
+  bash -c 'grep -n "emulator_test_setup.sh" .github/workflows/release-pipeline.yml | cut -d: -f1 | head -1 | xargs -I{} test {} -lt $(grep -n "connectedStandardDebugAndroidTest" .github/workflows/release-pipeline.yml | cut -d: -f1 | head -1)'
+check "T15.10 release-pipeline: Debug-APKs werden vor dem Emulator gebaut" \
+  bash -c 'grep -n "Build debug APKs for emulator tests" .github/workflows/release-pipeline.yml | cut -d: -f1 | head -1 | xargs -I{} test {} -lt $(grep -n "Run instrumented tests on emulator" .github/workflows/release-pipeline.yml | cut -d: -f1 | head -1)'
+check "T15.11 distribution-stable: Grant-Setup vor dem Retry-Wrapper" \
+  bash -c 'grep -n "emulator_test_setup.sh 34" .github/workflows/distribution-stable.yml | cut -d: -f1 | head -1 | xargs -I{} test {} -lt $(grep -n "emulator_gate_retry.sh" .github/workflows/distribution-stable.yml | cut -d: -f1 | head -1)'
+check "T15.12 distribution-stable: Assemble-Step vor dem Gate-Step" \
+  bash -c 'grep -n "Build debug APKs for emulator gate" .github/workflows/distribution-stable.yml | cut -d: -f1 | head -1 | xargs -I{} test {} -lt $(grep -n "Run instrumented tests on emulator (release gate)" .github/workflows/distribution-stable.yml | cut -d: -f1 | head -1)'
 
 echo "== T12: Workflow-YAML valide + API-Staffelung =="
 check "T12.1 release-pipeline.yml parst als YAML" python3 -c "

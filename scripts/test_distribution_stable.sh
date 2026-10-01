@@ -208,6 +208,27 @@ else
   FAILED=1
 fi
 
+# D15: Emulator-Gate Permission-Setup (#249, Vorfall Tag-Run 36849526447):
+# Der CAMERA-Auto-Request des Streaming-Screens (94c4e7db) öffnete beim Betreten
+# des Start-Screens den Systemdialog ÜBER der MainActivity → "No compose
+# hierarchies found" in 11 UI-Tests. Gegenmaßnahme zweiteilig: App-Seite
+# (StreamingScreen.kt fordert camera-seitig nur noch im Go-Live-Flow an) und
+# Gate-Seite: die Grants laufen VOR den connected*-Tasks — `pm grant` scheitert
+# an nicht installierten Packages, deshalb baut ein eigener Step die Debug-
+# Test-APKs beider Flavors und das Setup-Skript installiert+grantet vorconnected.
+check "D15.1 Setup-Skript vor dem Gate aufgerufen (API 34)" "$DIST" 'emulator_test_setup\.sh 34'
+check "D15.2 Debug-APK-Assemble-Step vorhanden" "$DIST" 'Build debug APKs for emulator gate'
+check "D15.3 standard-androidTest-APK gebaut" "$DIST" 'assembleStandardDebugAndroidTest'
+check "D15.4 foss-androidTest-APK gebaut" "$DIST" 'assembleFossDebugAndroidTest'
+# D15.5: Reihenfolge-Vertrag — der Setup-Aufruf muss VOR dem ersten connected*-Aufruf
+# liegen (sonst hängt der Startup-Smoke am Systemdialog — genau der #249-Zustand).
+if awk '/emulator_test_setup\.sh 34/{s=NR} /connectedStandardDebugAndroidTest/{c=NR} END{exit !(s && c && s<c)}' "$DIST"; then
+  echo "  ✅ D15.5 Setup-Aufruf liegt vor den connected*-Tests (Reihenfolge)"
+else
+  echo "  ❌ D15.5 Setup-Aufruf NACH den connected*-Tests (oder fehlt) — Reihenfolge-Vertrag verletzt"
+  FAILED=1
+fi
+
 echo ""
 if [ "$FAILED" -eq 0 ]; then
   echo "✅ Alle Checks grün — Stable-Distribution läuft wöchentlich, Nightly täglich."
