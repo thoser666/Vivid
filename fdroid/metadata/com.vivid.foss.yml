@@ -64,15 +64,15 @@ Description: |-
 UpdateCheckMode: Tags
 
 Builds:
-  - versionName: 0.5.19-beta
-    versionCode: 5192
-    commit: v0.5.19-beta
+  - versionName: 0.5.20-beta
+    versionCode: 5202
+    commit: v0.5.20-beta
     gradle:
       - assembleFossRelease
     output: app-foss-release.apk
-  - versionName: 0.5.18-beta
-    versionCode: 5182
-    commit: v0.5.18-beta
+  - versionName: 0.5.19-beta
+    versionCode: 5192
+    commit: v0.5.19-beta
     gradle:
       - assembleFossRelease
     output: app-foss-release.apk

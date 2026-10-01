@@ -162,8 +162,8 @@ object CrashAdvisoryRegistry {
             minVersionCode = 5074,
             maxVersionCode = 5194,
             workaround =
-                "Auf den naechsten Release aktualisieren - dort ueberspringt der " +
-                    "Log-Store beschaedigte Zeilen beim Laden.",
+                "Auf v0.5.20-beta (Build 5202) aktualisieren - dort ueberspringt " +
+                    "der Log-Store beschaedigte Zeilen beim Laden.",
         ),
         // Sentry VIVID-39 (Issue #221; fatal, 4 Events / 3 Nutzer, 08.09.-
         // 21.09.2026): "Unable to start service ... StreamingService ...:
@@ -185,9 +185,9 @@ object CrashAdvisoryRegistry {
             minVersionCode = 5074,
             maxVersionCode = 5194,
             workaround =
-                "Auf den naechsten Release aktualisieren - dort meldet der " +
+                "Auf v0.5.20-beta (Build 5202) aktualisieren - dort meldet der " +
                     "Streaming-Service den mediaProjection-FGS-Typ automatisch. " +
-                    "Vorlaeufig eine andere Videoquelle verwenden (Kamera, " +
+                    "Bis dahin eine andere Videoquelle verwenden (Kamera, " +
                     "Video-Player oder Replay) statt Screen-Capture.",
         ),
         // Bauplan fuer weitere Eintraege (keine spekulativen Eintraege):

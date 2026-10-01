@@ -140,7 +140,7 @@ class CrashAdvisoryTest {
     fun `REAL-Kandidat LOG-ENTRY-NPE-GSON-DESERIALIZE trifft die Crashing-Versionen`() {
         // Real identifiziert (Sentry VIVID-3A/3B, Issues #225/#216): Logs-Feature
         // seit v0.5.7-beta (5074) im Feld, letzter fehlerbehafteter Release ist
-        // v0.5.19-beta (5194) - der Fix landet im naechsten Release.
+        // v0.5.19-beta (5192) - der Fix landet mit v0.5.20-beta (5202).
         val c = CrashAdvisoryRegistry.KNOWN.first { it.id == "LOG-ENTRY-NPE-GSON-DESERIALIZE" }
         assertNotNull(CrashAdvisoryRegistry.evaluate(5074, listOf(c)))
         assertNotNull(CrashAdvisoryRegistry.evaluate(5192, listOf(c)))
@@ -153,7 +153,7 @@ class CrashAdvisoryTest {
         // Real identifiziert (Sentry VIVID-39, Issue #221): Screen-Capture-Quelle
         // (S2) seit v0.5.7-beta (5074) im Feld; der Streaming-Service meldete den
         // FGS-Typ mediaProjection nie -> Android-14+-Geraete crashten beim
-        // Go-Live. Fix im naechsten Release (5194).
+        // Go-Live. Fix mit v0.5.20-beta (5202).
         val c = CrashAdvisoryRegistry.KNOWN.first { it.id == "MEDIA-PROJECTION-FGS-TYPE" }
         assertNotNull(CrashAdvisoryRegistry.evaluate(5074, listOf(c)))
         assertNotNull(CrashAdvisoryRegistry.evaluate(5192, listOf(c)))
