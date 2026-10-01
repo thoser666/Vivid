@@ -147,6 +147,13 @@ nicht gezogen wurde):
    0 betroffene Nutzer) ohne Registry-Eintrag direkt schließen — der
    Watchdog dedupliziert gegen `state=all`, legt sie nicht erneut an
    (erledigt für #223/#227, VIVID-3F/3G).
+5. **Neue Issues immer zuweisen:** Jedes manuell angelegte Issue wird
+   sofort beim Anlegen dem Maintainer zugewiesen —
+   `gh issue create … --assignee thoser666` (betrifft Attributions-Threads,
+   Triage-Follow-ups und Task-Issues gleichermaßen; Assignee-Vermerk ist
+   Teil des Hausmusters, siehe #215/#225). Scheitert die Zuweisung beim
+   Anlegen, nachziehen mit `gh issue edit <nr> --add-assignee thoser666`;
+   ein offenes, unzugewiesenes Issue gilt als nicht abgeschlossen.
 
 Beispiel einer vollständigen Nach-Attribution: #215 (VIVID-36) →
 `CAM-FOCUS-INFINITE-SCROLL` (Doppel-Scroll in `SettingsCameraScreen`,
