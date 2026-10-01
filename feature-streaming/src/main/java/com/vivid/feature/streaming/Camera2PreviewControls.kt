@@ -1,20 +1,14 @@
 package com.vivid.feature.streaming
 
-import android.hardware.camera2.CameraCharacteristics
-import android.hardware.camera2.CameraMetadata
 import android.view.MotionEvent
 import android.view.View
-import com.pedro.library.base.Camera2Base
+import com.pedro.encoder.input.video.Camera2ApiManager
+import android.hardware.camera2.CameraCharacteristics
+import android.hardware.camera2.CameraMetadata
 
-/**
- * [CameraControls]-Implementierung über RootEncoders [Camera2Base]
- * (bzw. [com.pedro.library.multiple.MultiCamera2]).
- *
- * Wandelt die Android-Framework-Typen der Kamera (z. B. `android.util.Range`)
- * in die reinen Typen des [CameraControls]-Vertrags um.
- */
-class RootEncoderCameraControls(
-    private val camera: Camera2Base,
+/** Controls for the Camera2 manager feeding the idle GL preview. */
+internal class Camera2PreviewControls(
+    private val camera: Camera2ApiManager,
 ) : CameraControls {
 
     override fun getZoom(): Float = camera.zoom
@@ -22,18 +16,18 @@ class RootEncoderCameraControls(
     override fun getZoomRange(): ZoomRange? =
         camera.zoomRange?.let { ZoomRange(it.lower, it.upper) }
 
-    override fun setZoom(value: Float) = camera.setZoom(value)
+    override fun setZoom(value: Float) { camera.zoom = value }
 
     override fun tapToFocus(view: View, event: MotionEvent) {
         camera.tapToFocus(view, event)
     }
 
     override fun hasOpticalStabilization(): Boolean =
-        runCatching { camera.cameraCharacteristics.get(CameraCharacteristics.LENS_INFO_AVAILABLE_OPTICAL_STABILIZATION)
+        runCatching { camera.cameraCharacteristics?.get(CameraCharacteristics.LENS_INFO_AVAILABLE_OPTICAL_STABILIZATION)
             ?.contains(CameraMetadata.LENS_OPTICAL_STABILIZATION_MODE_ON) == true }.getOrDefault(false)
 
     override fun isStabilizationEnabled(): Boolean =
-        camera.isVideoStabilizationEnabled || camera.isOpticalVideoStabilizationEnabled
+        camera.isVideoStabilizationEnabled || camera.isOpticalStabilizationEnabled
 
     override fun enableStabilization(): Boolean =
         if (hasOpticalStabilization()) {
@@ -74,39 +68,37 @@ class RootEncoderCameraControls(
     }
 
     override fun getAvailableCameraIds(): List<String> = runCatching {
-        // Camera2Base doesn't directly expose available camera IDs
-        // We return the current camera ID as a single-element list
-        listOf(camera.currentCameraId)
+        camera.camerasAvailable.toList()
     }.getOrDefault(emptyList())
 
     override fun getCurrentCameraId(): String = runCatching {
-        camera.currentCameraId
+        camera.getCurrentCameraId()
     }.getOrDefault("unknown")
 
     override fun selectCamera(cameraId: String): Boolean = runCatching {
-        camera.switchCamera(cameraId)
+        camera.reOpenCamera(cameraId)
         true
     }.getOrDefault(false)
 
     // --- Belichtung und Weißabgleich ---
 
     override fun hasExposureControl(): Boolean = runCatching {
-        camera.getMinExposure() < camera.getMaxExposure()
+        camera.minExposure < camera.maxExposure
     }.getOrDefault(false)
 
-    override fun getExposure(): Int = runCatching { camera.getExposure() }.getOrDefault(0)
+    override fun getExposure(): Int = runCatching { camera.exposure }.getOrDefault(0)
 
     override fun getExposureRange(): IntRange? = runCatching {
-        val min = camera.getMinExposure()
-        val max = camera.getMaxExposure()
+        val min = camera.minExposure
+        val max = camera.maxExposure
         if (min <= max) min..max else null
     }.getOrNull()
 
     override fun setExposure(value: Int): Boolean = runCatching {
         val range = getExposureRange() ?: return false
         if (value !in range) return false
-        camera.setExposure(value)
-        camera.getExposure() == value
+        camera.exposure = value
+        camera.exposure == value
     }.getOrDefault(false)
 
     override fun isAutoExposureEnabled(): Boolean = runCatching {

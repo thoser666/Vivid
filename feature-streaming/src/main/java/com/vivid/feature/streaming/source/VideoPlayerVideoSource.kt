@@ -28,6 +28,8 @@ class VideoPlayerVideoSource(
     private val player: MultiFromFile,
 ) : VideoSource {
 
+    internal val glInterface get() = player.glInterface as? com.pedro.library.view.GlStreamInterface
+
     override val kind: VideoSourceKind = VideoSourceKind.VIDEO_PLAYER
 
     /** true, solange die Video-Player-Quelle aktiv streamt. */

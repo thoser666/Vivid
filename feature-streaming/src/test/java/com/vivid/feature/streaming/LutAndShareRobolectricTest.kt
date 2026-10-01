@@ -38,6 +38,12 @@ import org.robolectric.annotation.GraphicsMode
 class LutAndShareRobolectricTest {
 
     @Test
+    fun colorSpaceWorksWithoutCreativeLut() {
+        org.junit.Assert.assertNotNull(LutController.createLutRender(LutPreset.NONE, 16, ColorSpace.APPLE_LOG))
+        org.junit.Assert.assertNull(LutController.createLutRender(LutPreset.NONE, 16, ColorSpace.SRGB))
+    }
+
+    @Test
     fun `loadCustomLut with a real bitmap wires the render and clears the preset`() {
         val controller = LutController()
 

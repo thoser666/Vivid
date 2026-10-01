@@ -19,6 +19,9 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeDown
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.assertWidthIsEqualTo
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -74,6 +77,7 @@ class StreamingScreenRobolectricTest {
 
     // Echte StateFlows (relaxed-mock Flows wären null und hängen beim Collect).
     private val streamingState = MutableStateFlow<StreamingState>(StreamingState.Idle)
+    private val configIssues = MutableStateFlow<List<com.vivid.feature.streaming.StreamConfigIssue>>(emptyList())
     private val targetStates = MutableStateFlow<List<StreamTargetState>>(emptyList())
 
     @Before
@@ -98,7 +102,7 @@ class StreamingScreenRobolectricTest {
 
         viewModel = mockk(relaxed = true)
         every { viewModel.streamingEngine } returns engine
-        every { viewModel.configIssues } returns MutableStateFlow(emptyList())
+        every { viewModel.configIssues } returns configIssues
         every { viewModel.scenes } returns MutableStateFlow(emptyList())
         every { viewModel.activeSceneId } returns MutableStateFlow<String?>(null)
         every { viewModel.autoSwitchEnabled } returns MutableStateFlow(false)
@@ -125,14 +129,98 @@ class StreamingScreenRobolectricTest {
     }
 
     @Test
-    fun `idle with camera source shows title start button and scene bar`() {
+    fun `idle shows controls and collapsed scenes without an app bar`() {
         setContent()
 
-        composeRule.onNodeWithText("Live Stream").assertIsDisplayed()
+        composeRule.onNodeWithText("Live Stream").assertDoesNotExist()
         composeRule.onNodeWithText("Start Streaming").assertIsDisplayed()
+        composeRule.onNodeWithTag("open_controls").assertIsDisplayed()
+        composeRule.onNodeWithTag("scenes_panel").assertDoesNotExist()
+        composeRule.onNodeWithText("Camera").assertDoesNotExist()
+        openControls()
         composeRule.onNodeWithText("Camera").assertIsNotEnabled()
         composeRule.onNodeWithText("Screen").assertIsEnabled()
-        composeRule.onNodeWithText("Scenes").assertIsDisplayed()
+    }
+
+    private fun openControls() {
+        composeRule.onNodeWithTag("open_controls").performClick()
+    }
+
+    private fun openScenes() {
+        composeRule.onNodeWithTag("open_scenes").performClick()
+    }
+
+    @Test
+    fun `scenes can be expanded closed and reopened`() {
+        setContent()
+        composeRule.onNodeWithTag("scenes_panel").assertDoesNotExist()
+        openScenes()
+        composeRule.onNodeWithTag("scenes_panel").assertIsDisplayed()
+        composeRule.onNodeWithTag("close_scenes").assertDoesNotExist()
+        composeRule.onNodeWithTag("scenes_panel").performTouchInput { swipeDown(durationMillis = 200) }
+        composeRule.onNodeWithTag("scenes_panel").assertDoesNotExist()
+        openScenes()
+        composeRule.onNodeWithText("Auto switch").assertIsDisplayed()
+    }
+
+    @Test
+    @Config(sdk = [34], qualifiers = "ru")
+    fun `compact Russian screen keeps controls and settings separate`() {
+        composeRule.setContent {
+            Box(Modifier.requiredWidth(320.dp)) {
+                StreamingScreen(
+                    navController = navController,
+                    viewModel = viewModel,
+                    twitchViewModel = twitchViewModel,
+                    overlayContent = {},
+                )
+            }
+        }
+        val controls = composeRule.onNodeWithTag("open_controls").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        val recording = composeRule.onNodeWithTag("open_settings").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        org.junit.Assert.assertTrue("Controls overlap settings", controls.right <= recording.left)
+    }
+
+    private fun grantRecordingPermissions() {
+        val app = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.app.Application>()
+        org.robolectric.Shadows.shadowOf(app).grantPermissions(
+            android.Manifest.permission.CAMERA,
+            android.Manifest.permission.RECORD_AUDIO,
+        )
+    }
+
+    @Test
+    fun `record without a stream changes the button and can be stopped`() {
+        grantRecordingPermissions()
+        val recording = MutableStateFlow<ReplayState>(ReplayState.Idle)
+        every { engine.replayState } returns recording
+        every { engine.startReplay(any(), any()) } answers {
+            recording.value = ReplayState.Recording(java.io.File("/tmp/test-record.mp4"))
+            true
+        }
+        every { engine.stopReplay() } answers {
+            recording.value = ReplayState.Idle
+            null
+        }
+        setContent()
+        openControls()
+        composeRule.onNodeWithTag("replay_record").performClick()
+        composeRule.onNodeWithText("Stop recording").assertIsDisplayed()
+        composeRule.onNodeWithTag("replay_record").performClick()
+        verify(exactly = 1) { engine.stopReplay() }
+        verify(exactly = 0) { viewModel.startStream() }
+    }
+
+    @Test
+    fun `failed recording start displays an error`() {
+        grantRecordingPermissions()
+        every { engine.startReplay(any(), any()) } returns false
+        setContent()
+        openControls()
+        composeRule.onNodeWithTag("replay_record").performClick()
+        composeRule.onNodeWithTag("open_controls").performClick()
+        composeRule.onNodeWithText("Could not start recording. Check camera and microphone permissions and try again.")
+            .assertIsDisplayed()
     }
 
     @Test
@@ -141,6 +229,45 @@ class StreamingScreenRobolectricTest {
         setContent()
 
         composeRule.onNodeWithText("Stop Streaming").assertIsDisplayed()
+    }
+
+    @Test
+    fun `missing url is hidden until start and can be dismissed`() {
+        configIssues.value = listOf(
+            com.vivid.feature.streaming.StreamConfigIssue(
+                com.vivid.feature.streaming.ConfigIssueSeverity.ERROR,
+                com.vivid.feature.streaming.R.string.stream_error_no_url,
+            ),
+        )
+        setContent()
+        val warning = "No stream URL configured. Please add it in the settings."
+        composeRule.onNodeWithText(warning).assertDoesNotExist()
+        composeRule.onNodeWithTag("open_controls").assertIsDisplayed()
+        composeRule.onNodeWithText("Start Streaming").performClick()
+        composeRule.onNodeWithText(warning).assertIsDisplayed()
+        verify(exactly = 0) { viewModel.startStream() }
+        composeRule.onNodeWithText("OK").performClick()
+        composeRule.onNodeWithText(warning).assertDoesNotExist()
+        composeRule.onNodeWithText("Start Streaming").performClick()
+        composeRule.onNodeWithText(warning).assertIsDisplayed()
+    }
+
+    @Test
+    fun `saving a url clears the pending missing url notification`() {
+        configIssues.value = listOf(
+            com.vivid.feature.streaming.StreamConfigIssue(
+                com.vivid.feature.streaming.ConfigIssueSeverity.ERROR,
+                com.vivid.feature.streaming.R.string.stream_error_no_url,
+            ),
+        )
+        val missingUrlIssues = configIssues.value
+        setContent()
+        composeRule.onNodeWithText("Start Streaming").performClick()
+        composeRule.onNodeWithText("No stream URL configured. Please add it in the settings.").assertIsDisplayed()
+        composeRule.runOnIdle { configIssues.value = emptyList() }
+        composeRule.onNodeWithText("No stream URL configured. Please add it in the settings.").assertDoesNotExist()
+        composeRule.runOnIdle { configIssues.value = missingUrlIssues }
+        composeRule.onNodeWithText("No stream URL configured. Please add it in the settings.").assertDoesNotExist()
     }
 
     @Test
@@ -195,6 +322,7 @@ class StreamingScreenRobolectricTest {
     @Test
     fun `video source button is enabled when inactive`() {
         setContent()
+        openControls()
 
         // onClick startet den SAF-Picker (Activity-Result) — verifizierbar ist hier
         // der aktive Zustand; der Picker-Flow selbst braucht einen instrumentierten Test.
@@ -204,17 +332,34 @@ class StreamingScreenRobolectricTest {
     @Test
     fun `screen source button invokes engine switchSource`() {
         setContent()
+        openControls()
 
         composeRule.onNodeWithText("Screen").performClick()
         verify(exactly = 1) { engine.switchSource(VideoSourceKind.SCREEN_CAPTURE) }
     }
 
     @Test
-    fun `top bar exposes obs help replay and settings navigation`() {
+    fun `settings opens from standalone button`() {
         setContent()
+        composeRule.onNodeWithContentDescription("Open Settings").performClick()
+        verify(exactly = 1) { navController.navigate("settings_route") }
+    }
 
-        composeRule.onNodeWithContentDescription("Open OBS Control").assertExists()
-        composeRule.onNodeWithContentDescription("Replays").assertExists()
+    @Test
+    fun `obs opens from controls and closes the menu`() {
+        setContent()
+        openControls()
+        composeRule.onNodeWithText("Open OBS Control").performScrollTo().performClick()
+        verify(exactly = 1) { navController.navigate("obs_control") }
+        composeRule.onNodeWithTag("controls_menu").assertDoesNotExist()
+    }
+
+    @Test
+    fun `torch action still invokes engine from controls`() {
+        setContent()
+        openControls()
+        composeRule.onNodeWithText("Torch: Off").performScrollTo().performClick()
+        verify(exactly = 1) { engine.toggleTorch() }
     }
 
     // --- Accessibility: Semantics der Streaming-Steuerungen ---------------------
@@ -223,6 +368,7 @@ class StreamingScreenRobolectricTest {
     fun `torch button exposes switch role and on state when enabled`() {
         every { engine.torchEnabled } returns MutableStateFlow(true)
         setContent()
+        openControls()
 
         composeRule.onNode(
             hasText("Torch: On").and(hasStateDescription("On")),
@@ -232,6 +378,7 @@ class StreamingScreenRobolectricTest {
     @Test
     fun `torch button exposes off state when disabled`() {
         setContent()
+        openControls()
 
         composeRule.onNode(
             hasText("Torch: Off").and(hasStateDescription("Off")),
@@ -242,6 +389,7 @@ class StreamingScreenRobolectricTest {
     fun `auto exposure button exposes switch role and auto state`() {
         every { engine.exposureRange } returns MutableStateFlow<IntRange?>(IntRange(-4, 4))
         setContent()
+        openControls()
 
         composeRule.onNode(
             hasText("Exposure: Auto").and(hasStateDescription("On")),
@@ -253,6 +401,7 @@ class StreamingScreenRobolectricTest {
         every { engine.exposureRange } returns MutableStateFlow<IntRange?>(IntRange(-4, 4))
         every { engine.exposure } returns MutableStateFlow(-2)
         setContent()
+        openControls()
 
         composeRule.onNode(hasStateDescription("Exposure -2")).assertExists()
     }
@@ -276,6 +425,7 @@ class StreamingScreenRobolectricTest {
                 }
             }
         }
+        openControls()
         composeRule.waitUntil(timeoutMillis = 5_000) {
             composeRule.onAllNodesWithTag("camera_controls_panel")
                 .fetchSemanticsNodes().isNotEmpty()
@@ -311,6 +461,7 @@ class StreamingScreenRobolectricTest {
     @Test
     fun `privacy master toggle is visible and forwards the new state`() {
         setContent()
+        openScenes()
 
         composeRule.onNodeWithText("Privacy").assertIsDisplayed()
         composeRule.onNodeWithTag("privacy_toggle").performClick()
@@ -324,6 +475,7 @@ class StreamingScreenRobolectricTest {
             listOf(com.vivid.core.data.PrivacyZone(0.5f, 0.5f, 0.15f, 0.15f)),
         )
         setContent()
+        openScenes()
 
         composeRule.onNodeWithText("Zones").performClick()
 
@@ -334,6 +486,7 @@ class StreamingScreenRobolectricTest {
     @Test
     fun `no zones button while privacy is disabled`() {
         setContent()
+        openScenes()
 
         composeRule.onNodeWithText("Zones").assertDoesNotExist()
     }
@@ -343,10 +496,11 @@ class StreamingScreenRobolectricTest {
         every { viewModel.privacyEnabled } returns MutableStateFlow(true)
         every { viewModel.privacyZones } returns MutableStateFlow(emptyList())
         setContent()
+        openScenes()
 
         composeRule.onNodeWithText("Zones").performClick()
         composeRule.onNodeWithTag("zone_editor").assertIsDisplayed()
-
+        openScenes()
         composeRule.onNodeWithTag("privacy_toggle").performClick()
 
         composeRule.onNodeWithTag("zone_editor").assertDoesNotExist()

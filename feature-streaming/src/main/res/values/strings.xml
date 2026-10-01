@@ -131,4 +131,6 @@
     <string name="privacy_zone_add">Zone hinzufügen</string>
     <string name="privacy_zone_delete">Ausgewählte Zone löschen</string>
     <string name="privacy_zone_editor_close">Zonen-Editor schließen</string>
+    <string name="streaming_controls">Steuerung</string>
+    <string name="streaming_replay_start_error">Aufnahme konnte nicht gestartet werden. Prüfe die Kamera- und Mikrofonberechtigungen und versuche es erneut.</string>
 </resources>
