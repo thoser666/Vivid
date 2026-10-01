@@ -144,7 +144,7 @@ class StreamingScreenPermissionContractTest {
         // #249-Kernvertrag: Der Eintritt startet keinen Systemdialog — der
         // Semantik-Baum bleibt vollständig (das instrumentierte Pendant dieses
         // Vertrags ist der StartupSmokeTest auf dem Emulator ohne Grants).
-        composeRule.onNodeWithText("Live Stream").assertIsDisplayed()
+        composeRule.onNodeWithText("Controls").assertIsDisplayed()
         composeRule.onNodeWithText("Start Streaming").assertIsDisplayed()
         org.junit.Assert.assertNull(
             "Screen-Eintritt darf keinen Permission-Request auslösen (#249)",

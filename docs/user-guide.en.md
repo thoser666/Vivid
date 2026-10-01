@@ -111,6 +111,8 @@ Before starting, Vivid validates the configuration and shows clear messages:
 3. Vivid connects — status changes to **"Preparing…"** → **"live"**
 4. The status display shows each target individually (for multi-streaming)
 
+The **Controls** menu groups Camera, Screen and Video sources, then **Record**, camera controls, filters, Boost, LUT and color processing. The settings gear remains at the top-right. **Scenes** opens a bottom sheet that is hidden by default; swipe it down to close it. **Record** saves the current camera video to a local MP4 and works without a stream URL or an active stream. An empty stream URL is reported only after tapping Start Streaming. Camera controls and image effects also work in idle preview when camera permission is already granted.
+
 ### Stop the Stream
 
 - **Stop** button in the streaming screen, **or**
@@ -130,7 +132,7 @@ Directly on the **streaming preview** (usable **before** going live too):
 | **Pinch-to-Zoom** | Two fingers pinch in/out → zoom (clamped to camera range) |
 | **Reset Zoom** | Double-tap on the preview → zoom = 1.0 |
 
-Three buttons in the top-right of the streaming screen:
+Open **Controls** in the top-left of the streaming screen:
 
 | Button | Function |
 |---|---|
@@ -286,7 +288,7 @@ Vivid can control OBS Studio via **WebSocket** (switch scenes, start/stop record
    - Port = `4455`
    - Password (if set)
    - **TLS toggle** (`wss://` for remote, `ws://` for LAN)
-5. Open **OBS Control** (icon top-left in the streaming screen)
+5. Open **Controls** → **Open OBS Control** in the streaming screen
 
 > Troubleshooting? See the [OBS FAQ](../README.md#-faq--häufige-probleme).
 

@@ -111,6 +111,8 @@ Avant le démarrage, Vivid valide la configuration et affiche des messages clair
 3. Vivid se connecte — le statut passe à **« Préparation… »** → **« en direct »**
 4. L'affichage de statut montre chaque cible séparément (en multi-streaming)
 
+Le menu **Contrôles** regroupe les sources Caméra, Écran et Vidéo, puis **Enregistrer**, les contrôles caméra, les filtres, Boost, LUT et le traitement des couleurs. L'engrenage en haut à droite ouvre les paramètres. **Scènes** ouvre un panneau inférieur masqué par défaut ; le faire glisser vers le bas le ferme. **Enregistrer** sauvegarde la vidéo actuelle de la caméra en MP4 local, sans URL de stream ni stream actif. Une URL vide est signalée uniquement après un appui sur Démarrer. Les contrôles caméra et les effets fonctionnent aussi dans l'aperçu au repos si l'autorisation caméra est déjà accordée.
+
 ### Arrêter le stream
 
 - Bouton **Stop** sur l'écran de streaming, **ou**
@@ -130,7 +132,7 @@ Directement sur l'**aperçu du stream** (également utilisable **avant** le Go L
 | **Pincement-zoom** | Écarter/resserrer deux doigts → zoom (limité à la plage de la caméra) |
 | **Réinitialiser le zoom** | Double-tap sur l'aperçu → zoom = 1.0 |
 
-En haut à droite de l'écran de streaming, il y a trois boutons :
+Ouvrir **Contrôles** en haut à gauche de l'écran de streaming :
 
 | Bouton | Fonction |
 |---|---|
@@ -291,7 +293,7 @@ Vivid peut piloter OBS Studio via **WebSocket** (changer de scène, démarrer/ar
    - Port = `4455`
    - Mot de passe (si défini)
    - **Toggle TLS** (`wss://` pour l'accès à distance, `ws://` en LAN)
-5. Ouvrir le **contrôle OBS** (icône en haut à gauche de l'écran de streaming)
+5. Ouvrir **Contrôles** → **Ouvrir le contrôle OBS** sur l'écran de streaming
 
 > Des problèmes ? Voir la [FAQ OBS](../README.md#-faq--häufige-probleme).
 

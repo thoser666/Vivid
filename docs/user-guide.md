@@ -112,6 +112,8 @@ Vor dem Start prüft Vivid die Konfiguration und zeigt klare Meldungen:
 3. Vivid verbindet sich — Status wechselt zu **„Bereite vor…"** → **„sendet live"**
 4. Die Status-Anzeige zeigt jeden Zielort einzeln (bei Multi-Streaming)
 
+Das Menü **Steuerung** bündelt Kamera, Bildschirm und Video als Quellen, danach **Aufnahme**, Kamera-Steuerung, Filter, Helligkeitsanhebung, LUT und Farbverarbeitung. Das Zahnrad oben rechts öffnet die Einstellungen. **Szenen** öffnet eine standardmäßig ausgeblendete untere Schublade; nach unten wischen schließt sie. **Aufnahme** speichert das aktuelle Kameravideo als lokale MP4, auch ohne Stream-URL oder aktiven Stream. Eine leere Stream-URL wird erst nach dem Tippen auf Start angezeigt. Kamera-Steuerung und Bildeffekte funktionieren auch in der Idle-Vorschau, wenn die Kamera-Permission bereits erteilt ist.
+
 ### Stream beenden
 
 - **Stop**-Button im Streaming-Screen, **oder**
@@ -131,7 +133,7 @@ Direkt auf der **Streaming-Vorschau** (auch **vor** dem Go Live benutzbar):
 | **Pinch-Zoom** | Zwei Finger aufziehen/zusammenziehen → Zoom (geclampt auf den Kamera-Bereich) |
 | **Zoom zurücksetzen** | Doppeltipp auf die Vorschau → Zoom = 1.0 |
 
-Oben rechts im Streaming-Screen gibt es drei Buttons:
+Öffne **Steuerung** oben links im Streaming-Screen:
 
 | Button | Funktion |
 |---|---|
@@ -141,7 +143,7 @@ Oben rechts im Streaming-Screen gibt es drei Buttons:
 
 > Die Buttons wirken auf die **echte RootEncoder-Kamera** — nicht nur auf die Vorschau.
 
-In der **oberen Leiste** des Streaming-Screens sitzt außerdem ein **❓ Hilfe-Button**, der die In-App-Hilfe öffnet: Kurztipps, Bot-Befehlsübersicht und direkte Links zu dieser Bedienungsanleitung (🇩🇪/🇬🇧), zur Bot-Doku und zum Issue-Tracker.
+Im Menü **Steuerung** des Streaming-Screens öffnet **Hilfe** die In-App-Hilfe: Kurztipps, Bot-Befehlsübersicht und direkte Links zu dieser Bedienungsanleitung (🇩🇪/🇬🇧), zur Bot-Doku und zum Issue-Tracker.
 
 ---
 
@@ -295,7 +297,7 @@ Vivid kann OBS Studio über **WebSocket** steuern (Szenen wechseln, Recording/St
    - Port = `4455`
    - Passwort (falls gesetzt)
    - **TLS-Toggle** (`wss://` für Remote, `ws://` für LAN)
-5. **OBS-Steuerung** öffnen (Icon oben links im Streaming-Screen)
+5. **Steuerung** → **OBS-Steuerung öffnen** im Streaming-Screen
 
 > Probleme? Siehe [OBS-FAQ](../README.md#-faq--häufige-probleme).
 
