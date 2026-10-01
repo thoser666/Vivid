@@ -154,6 +154,17 @@ nicht gezogen wurde):
    Teil des Hausmusters, siehe #215/#225). Scheitert die Zuweisung beim
    Anlegen, nachziehen mit `gh issue edit <nr> --add-assignee thoser666`;
    ein offenes, unzugewiesenes Issue gilt als nicht abgeschlossen.
+6. **Schließung: GitHub-Issue manuell, Sentry-Issue per Automation.** Der
+   fix-release-Tag (siehe `docs/sentry-stats.md` §6) arbeitet **nur
+   Sentry-seitig** — beim Stable-Publish resolvt der Resolve-Guard die
+   getaggten Sentry-Issues (`resolved/inNextRelease`), die GitHub-Issues
+   des Befunds schließt er **nicht** (der Watchdog legt nur an, er schließt
+   nie; Historie: #215/#228 wurden manuell geschlossen). Verfahren:
+   Beim Release-Schnitt die Sentry-Issues im Dashboard mit
+   `fix-release: <version>` taggen (vor dem Stable-Publish), nach dem
+   Stable-Publish das GitHub-Issue manuell schließen. Ein „resolved“-Vermerk
+   in einem Attributionskommentar bezieht sich immer auf die Sentry-Ebene,
+   nie auf den GitHub-Issue-Status.
 
 Beispiel einer vollständigen Nach-Attribution: #215 (VIVID-36) →
 `CAM-FOCUS-INFINITE-SCROLL` (Doppel-Scroll in `SettingsCameraScreen`,

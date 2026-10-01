@@ -178,6 +178,18 @@ Dashboard. Mechanik:
    **Sentry schließt sie automatisch**, sobald Events aus genau dieser Release
    eintreffen — semantisch „Resolved in next release".
 
+4. **Begrenzung: die Automation arbeitet nur auf Sentry-Ebene.** GitHub-Issues
+   des Befunds schließt sie **nicht** — der Resolve-Guard liest und schreibt
+   ausschließlich die Sentry-API (kein `gh issue close`), und auch der
+   Sentry-Watchdog legt nur an, er schließt nie. Geschlossene GitHub-Issues
+   wie #215/#228 bestätigen das Muster: Schließung **manuell** durch den
+   Maintainer nach der Attribution. Ablauf beim Release-Schnitt daher:
+   Sentry-Issue(s) mit `fix-release: <version>` taggen (vor dem
+   Stable-Publish) → Automation resolvt sie Sentry-seitig → GitHub-Issue
+   nach dem Release in demselben Zug manuell schließen. Die Zusage
+   „schließt sich automatisch“ gilt immer nur für die Sentry-Issue-Seite,
+   nie für GitHub.
+
 Lokal testen (Offline-Fixtures):
 
 ```bash
