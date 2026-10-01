@@ -142,6 +142,29 @@ object CrashAdvisoryRegistry {
                     "doppelte Scroll entfernt. Uebergangsweise die Kamera-Steuerung " +
                     "nicht oeffnen.",
         ),
+        // Sentry VIVID-3A/3B (Issues #225/#216; fatal, 3 Events / 3 Nutzer,
+        // 09.09.-25.09.2026): NPE `Enum.name()` auf null in LogEntry.format()
+        // bzw. beim errorsOnly-Levelvergleich. Ursache: LogStore.load
+        // deserialisiert die JSON-Lines-Tagesdateien per Gson-Reflexion OHNE
+        // Kotlin-Konstruktor - Zeilen mit fehlendem/unbekanntem level erzeugen
+        // LogEntry-Instanzen mit level=null; der erste Zugriff (format(),
+        // Levelvergleich) crashte. Fix: parseLine stellt die Invarianten wieder
+        // her und ueberspringt verletzte Zeilen. Keine Kill-Switch-Flaeche
+        // (Crash nur beim Oeffnen des Log-Viewers/der Crash-Diagnose);
+        // beim naechsten Release-Schnitt die konkrete Build-Nummer im
+        // workaround nachtragen.
+        KnownCrashCandidate(
+            id = "LOG-ENTRY-NPE-GSON-DESERIALIZE",
+            description =
+                "Absturz beim Oeffnen von Logs & Diagnose (oder der Crash-Diagnose): " +
+                    "eine beschaedigte persistierte Log-Zeile (fehlender/unbekannter " +
+                    "Level) erzeugte einen Log-Eintrag ohne Level (NPE beim Formatieren).",
+            minVersionCode = 5074,
+            maxVersionCode = 5194,
+            workaround =
+                "Auf den naechsten Release aktualisieren - dort ueberspringt der " +
+                    "Log-Store beschaedigte Zeilen beim Laden.",
+        ),
         // Bauplan fuer weitere Eintraege (keine spekulativen Eintraege):
         // KnownCrashCandidate(
         //     id = "EXAMPLE-STARTUP-CRASH",

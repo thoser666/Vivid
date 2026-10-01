@@ -137,6 +137,18 @@ class CrashAdvisoryTest {
     }
 
     @Test
+    fun `REAL-Kandidat LOG-ENTRY-NPE-GSON-DESERIALIZE trifft die Crashing-Versionen`() {
+        // Real identifiziert (Sentry VIVID-3A/3B, Issues #225/#216): Logs-Feature
+        // seit v0.5.7-beta (5074) im Feld, letzter fehlerbehafteter Release ist
+        // v0.5.19-beta (5194) - der Fix landet im naechsten Release.
+        val c = CrashAdvisoryRegistry.KNOWN.first { it.id == "LOG-ENTRY-NPE-GSON-DESERIALIZE" }
+        assertNotNull(CrashAdvisoryRegistry.evaluate(5074, listOf(c)))
+        assertNotNull(CrashAdvisoryRegistry.evaluate(5192, listOf(c)))
+        assertNotNull(CrashAdvisoryRegistry.evaluate(5194, listOf(c)))
+        assertNull(CrashAdvisoryRegistry.evaluate(5073, listOf(c)))
+    }
+
+    @Test
     fun `evaluate mit aktueller Registry wirft nie - Startpfad bleibt robust`() {
         for (vc in intArrayOf(4999, 5000, 5144, 5162, 5172, 5182, 999999)) {
             assertDoesNotThrow { CrashAdvisoryRegistry.evaluate(vc, CrashAdvisoryRegistry.KNOWN) }
