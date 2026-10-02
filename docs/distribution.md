@@ -33,11 +33,28 @@ deshalb gibt es pro Kadenz einen eigenen Workflow. Alles zusätzlich manuell per
    Navigation + Play-Screenshots, jeweils in **beiden** Flavors) **gegen den
    Ziel-Tag** aus (der Job hat ihn bereits ausgecheckt). Schlägt der
    Emulator-Test fehl, wird **nicht** veröffentlicht. Derselbe Gate gilt im
-   `release-pipeline.yml`: `emulator-tests` (API-Staffelung seit
-   25.09.2026: ubuntu-x86_64 **API 34 + API 35 Pflicht**, API-37-Beobachter
-   + macos-arm64 experimentell) läuft jetzt auch bei `v*`-Tag-Pushen, nicht
-   mehr nur manuell. Selbsttest:
-   `scripts/test_emulator_matrix.sh` (T11/T12/T13/T14).
+`release-pipeline.yml`: `emulator-tests` (API-Staffelung seit
+    25.09.2026: ubuntu-x86_64 **API 34 + API 35 Pflicht**, API-36-Beobachter
+    + macos-arm64 experimentell — die Beobachter-Leg stand ursprünglich auf 37
+    und wurde am 02.10.2026 auf 36 gezogen, weil der Emulator-Runner
+    `platforms;android-37` im Stable-SDK-Kanal des Runners nicht provisionieren
+    kann: die Leg wäre dauerhaft rot **ohne Testaussage** gewesen) läuft jetzt
+    auch bei `v*`-Tag-Pushen, nicht mehr nur manuell. Selbsttest:
+   `scripts/test_emulator_matrix.sh` (T11/T12/T13/T14/T16).
+   **Grant-Setup im Gate (seit 01.10.2026, #249):** Beide Gate-Wege
+   (`release-pipeline.yml` Tag-Push und `distribution-stable.yml` Stable-Publish)
+   granten die Runtime-Permissions vor den `connected*`-Tasks über
+   `scripts/emulator_test_setup.sh` (installiert die Debug-APKs **beider**
+   Flavors zuerst — `adb shell pm grant` scheitert an nicht installierten
+   Packages, deshalb kann der Grant nicht in den connected-Task wandern).
+   **fail-loud:** Der `android-emulator-runner` führt sein `script:`-Snippet
+   **ohne** `set -e` aus — beide Workflows setzen deshalb explizit
+   `set -euo pipefail` als erste Zeile. Ohne das würde ein fehlgeschlagenes
+   Setup stillschweigend übersprungen und das Gate fiele mit der
+   irreführenden Fehlermeldung `No compose hierarchies found` durch, statt die
+   Ursache zu nennen (Vorfall 01.10.2026 — genau diese Verschleierung hat den
+   #249-Befund in der ersten Runde schwer diagnostizierbar gemacht).
+   Selbsttest: `scripts/test_emulator_matrix.sh` (T15).
    **Retry-Härtung (seit 25.09.2026):** Der Gate-Step läuft über
    `scripts/emulator_gate_retry.sh` (BuildRetry-Hausmuster): transiente
    Fehlerklassen (Suite-Fehlschlag, Geräteverlust, Boot-Fehler,
