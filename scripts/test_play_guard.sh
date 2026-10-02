@@ -3,10 +3,11 @@
 # Verdrahtung im release-pipeline.yml) — offline, ohne Secrets.
 #
 #   P1 Guard-Skript existiert, ausführbar, bash-Syntax ok
-#   P2 Skip-Pfad: ohne Secrets → ready=false, exit 0, ::notice::-Meldung
-#      nennt alle fünf fehlenden Posten
+#   P2 Skip-Pfad: ohne Secrets → ready=false auf stdout, exit 0,
+#      ::notice::-Meldung auf STDERR (GITHUB_OUTPUT-Vertrag, Vorfall
+#      02.10.2026), nennt alle fünf fehlenden Posten
 #   P3 Ready-Pfad: alle Secrets gesetzt (PLAY_JSON_KEY_DATA-Variante) →
-#      ready=true, exit 0, keine notice
+#      ready=true auf stdout, exit 0, keine notice auf stdout UND stderr
 #   P4 Ready-Pfad: PLAY_JSON_KEY_FILE-Variante → ready=true
 #   P5 Teilsatz: nur Keystore-Set, kein Credential → ready=false
 #   P6 Workflow-Verdrahtung: Step ruft das Skript, id play_secrets,
@@ -18,28 +19,34 @@ fail() { echo "❌ [play-guard-test] $1"; exit 1; }
 
 guard=scripts/check_play_secrets.sh
 workflow=.github/workflows/release-pipeline.yml
+tmp_err=$(mktemp)
+trap 'rm -f "$tmp_err"' EXIT
 
 # P1
 [[ -s "$guard" ]] || fail "Guard-Skript fehlt oder ist leer"
 [[ -x "$guard" ]] || fail "Guard-Skript ist nicht ausführbar"
 bash -n "$guard" || fail "Guard-Skript: bash-Syntaxfehler"
 
-# P2
+# P2 — stdout enthaelt NUR ready=false (GITHUB_OUTPUT-Format), die
+# ::notice::-Meldung muss auf stderr landen (99e20cf2: Notice im stdout
+# vergiftet $GITHUB_OUTPUT und macht den Job rot).
 out=$(env UPLOAD_KEYSTORE_BASE64= UPLOAD_KEYSTORE_PASSWORD= UPLOAD_KEY_ALIAS= \
-  UPLOAD_KEY_PASSWORD= PLAY_JSON_KEY_FILE= PLAY_JSON_KEY_DATA= bash "$guard") || \
+  UPLOAD_KEY_PASSWORD= PLAY_JSON_KEY_FILE= PLAY_JSON_KEY_DATA= bash "$guard" 2>"$tmp_err") || \
   fail "Skip-Pfad: Guard darf nicht scheitern (exit 0 Vertrag)"
 grep -q "ready=false" <<<"$out" || fail "Skip-Pfad: ready=false erwartet"
-grep -q "::notice::" <<<"$out" || fail "Skip-Pfad: ::notice::-Meldung erwartet"
+grep -q "::notice::" "$tmp_err" || fail "Skip-Pfad: ::notice::-Meldung auf stderr erwartet"
+grep -q "::notice::" <<<"$out" && fail "Skip-Pfad: ::notice:: darf nicht im stdout/GITHUB_OUTPUT landen"
 for s in UPLOAD_KEYSTORE_BASE64 UPLOAD_KEYSTORE_PASSWORD UPLOAD_KEY_ALIAS \
   UPLOAD_KEY_PASSWORD PLAY_JSON_KEY_FILE_or_PLAY_JSON_KEY_DATA; do
-  grep -q "$s" <<<"$out" || fail "Skip-Pfad: fehlender Posten nicht genannt: $s"
+  grep -q "$s" "$tmp_err" || fail "Skip-Pfad: fehlender Posten nicht genannt: $s"
 done
 
 # P3
 out=$(UPLOAD_KEYSTORE_BASE64=k UPLOAD_KEYSTORE_PASSWORD=p UPLOAD_KEY_ALIAS=a \
-  UPLOAD_KEY_PASSWORD=q PLAY_JSON_KEY_FILE= PLAY_JSON_KEY_DATA='{}' bash "$guard")
+  UPLOAD_KEY_PASSWORD=q PLAY_JSON_KEY_FILE= PLAY_JSON_KEY_DATA='{}' bash "$guard" 2>"$tmp_err")
 grep -q "ready=true" <<<"$out" || fail "Ready-Pfad (DATA): ready=true erwartet"
-grep -q "::notice::" <<<"$out" && fail "Ready-Pfad (DATA): keine notice erwartet"
+grep -q "::notice::" <<<"$out" && fail "Ready-Pfad (DATA): keine notice auf stdout erwartet"
+grep -q "::notice::" "$tmp_err" && fail "Ready-Pfad (DATA): keine notice auf stderr erwartet"
 
 # P4
 out=$(UPLOAD_KEYSTORE_BASE64=k UPLOAD_KEYSTORE_PASSWORD=p UPLOAD_KEY_ALIAS=a \
