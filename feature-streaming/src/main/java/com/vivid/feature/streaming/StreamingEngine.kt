@@ -125,6 +125,9 @@ class StreamingEngine @Inject constructor(
     /** Gemerkte Encoder-Konfiguration (null = Legacy-Pfad, RootEncoder-Default). */
     private val _encoderConfig = MutableStateFlow<ResolvedEncoderConfig?>(null)
     private val _encoderAutoFallback = MutableStateFlow(true)
+    private val _bitrateDiagnostics = MutableStateFlow<EncoderBitrateDiagnostics?>(null)
+    val bitrateDiagnostics: StateFlow<EncoderBitrateDiagnostics?> = _bitrateDiagnostics.asStateFlow()
+    internal var readBitrateDiagnostics: (Camera2Base) -> EncoderBitrateDiagnostics = RootEncoderBitrateDiagnostics::read
     private val _activeEncoder = MutableStateFlow<ResolvedEncoderConfig?>(null)
     private val _measuredEncoderFps = MutableStateFlow<Int?>(null)
     val measuredEncoderFps: StateFlow<Int?> = _measuredEncoderFps.asStateFlow()
@@ -761,13 +764,14 @@ class StreamingEngine @Inject constructor(
     }
 
     private fun prepareStandaloneRecording(cam: MultiCamera2, includeAudio: Boolean): Boolean {
+        _bitrateDiagnostics.value = null
         resetKeyframeMonitoring()
         syncSelectedCamera(cam)
         stopIdlePreview()
         val audioReady = !includeAudio || cam.prepareAudio()
         encoderRotationDegrees = if (_encoderConfig.value == null) CameraHelper.getCameraOrientation(context) else 0
         val videoReady = if (_encoderConfig.value == null) cam.prepareVideo() else applyEncoderPreset(cam)
-        if (audioReady && videoReady) return true
+        if (audioReady && videoReady && updateBitrateDiagnostics(cam)) return true
         startIdlePreviewIfReady()
         return false
     }
@@ -1050,6 +1054,7 @@ class StreamingEngine @Inject constructor(
     private fun prepareStreamEncoders(cam: MultiCamera2): Boolean {
         // An ongoing local recording already owns the running encoders.
         val recording = cam.isRecording
+        if (!recording) _bitrateDiagnostics.value = null
         if (!recording) {
             encoderRotationDegrees = if (_encoderConfig.value == null) CameraHelper.getCameraOrientation(context) else 0
         }
@@ -1063,7 +1068,7 @@ class StreamingEngine @Inject constructor(
             // Preset-Pfad: applyEncoderPreset ruft prepareVideo(width, …) selbst.
             applyEncoderPreset(cam)
         }
-        return audioReady && videoReady
+        return audioReady && videoReady && (recording || updateBitrateDiagnostics(cam))
     }
 
     /**
@@ -1111,6 +1116,23 @@ class StreamingEngine @Inject constructor(
     private fun syncSelectedCamera(cam: MultiCamera2) {
         val selectedId = idlePreviewCamera?.getCurrentCameraId() ?: return
         if (selectedId != cam.currentCameraId) cam.switchCamera(selectedId)
+    }
+
+    private fun updateBitrateDiagnostics(cam: Camera2Base): Boolean {
+        _bitrateDiagnostics.value = null
+        return runCatching {
+            val diagnostics = readBitrateDiagnostics(cam)
+            _bitrateDiagnostics.value = diagnostics
+            Timber.i("Video encoder=%s mode=%s CBR supported=%s target=%d kbps",
+                diagnostics.encoderName, diagnostics.mode, diagnostics.cbrSupported, diagnostics.targetKbps)
+            if (diagnostics.mode != EncoderBitrateMode.CBR) {
+                Timber.w("CBR unavailable: encoder=%s uses %s", diagnostics.encoderName, diagnostics.mode)
+            }
+            true
+        }.getOrElse {
+            Timber.e(it, "Cannot verify video encoder bitrate mode")
+            false
+        }
     }
 
     private fun resetKeyframeMonitoring() {
@@ -1240,5 +1262,8 @@ class StreamingEngine @Inject constructor(
         lastAdaptiveSampleMs = now
         val nextKbps = controller.onSample(measuredKbps) ?: return
         cam.setVideoBitrateOnFly(nextKbps * 1_000) // RootEncoder expects bits/s.
+        _bitrateDiagnostics.value = _bitrateDiagnostics.value?.copy(targetKbps = nextKbps)
+        Timber.i("Adaptive bitrate: measured=%d kbps target=%d kbps mode=%s",
+            measuredKbps, nextKbps, _bitrateDiagnostics.value?.mode)
     }
 }

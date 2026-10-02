@@ -85,6 +85,7 @@ class StreamingScreenPermissionContractTest {
         every { engine.streamingState } returns streamingState
         every { engine.targetStates } returns targetStates
         every { engine.activeEncoder } returns MutableStateFlow(null)
+        every { engine.bitrateDiagnostics } returns MutableStateFlow(null)
         every { engine.measuredEncoderFps } returns MutableStateFlow(null)
         every { engine.focusMode } returns MutableStateFlow(FocusMode.AUTO)
         every { engine.stabilizationEnabled } returns MutableStateFlow(false)

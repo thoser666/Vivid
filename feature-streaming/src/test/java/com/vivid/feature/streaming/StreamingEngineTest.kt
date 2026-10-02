@@ -85,6 +85,9 @@ class StreamingEngineTest {
             playerFactory,
             VideoSourceRegistry(),
         )
+        streamingEngine.readBitrateDiagnostics = {
+            EncoderBitrateDiagnostics("test.encoder", EncoderBitrateMode.CBR, true, 6_000)
+        }
         streamingEngine.captureCapabilities = { CameraCaptureCapabilities { _, _, _ -> true } }
         streamingEngine.encoderCapabilities = object : EncoderCapabilities {
             override fun supports(mime: String, width: Int, height: Int, fps: Int) = true
@@ -164,6 +167,9 @@ class StreamingEngineTest {
     fun `camera fallback prepares actual profile and adaptive bitrate uses its bitrate`() = runTest {
         streamingCameraReady()
         streamingEngine.initializeCamera()
+        streamingEngine.readBitrateDiagnostics = {
+            EncoderBitrateDiagnostics("test.encoder", EncoderBitrateMode.CBR, true, 6_000)
+        }
         streamingEngine.captureCapabilities = { CameraCaptureCapabilities { _, _, fps -> fps == 30 } }
         streamingEngine.configureEncoder(
             ResolvedEncoderConfig(VideoCodecPreference.H264, EncoderPreset.FHD60, false), true,
@@ -186,6 +192,9 @@ class StreamingEngineTest {
     fun `unsupported camera profile fails before starting RTMP and publishes no applied profile`() = runTest {
         streamingCameraReady()
         streamingEngine.initializeCamera()
+        streamingEngine.readBitrateDiagnostics = {
+            EncoderBitrateDiagnostics("test.encoder", EncoderBitrateMode.CBR, true, 6_000)
+        }
         streamingEngine.captureCapabilities = { CameraCaptureCapabilities { _, _, _ -> false } }
         streamingEngine.configureEncoder(
             ResolvedEncoderConfig(VideoCodecPreference.H264, EncoderPreset.FHD60, false), true,
@@ -237,6 +246,9 @@ class StreamingEngineTest {
         every { idle.getCurrentCameraId() } returns "1"
         streamingEngine.idlePreviewFactory = { idle }
         streamingEngine.attachPreview(mockk(relaxed = true), 640, 480)
+        streamingEngine.readBitrateDiagnostics = {
+            EncoderBitrateDiagnostics("test.encoder", EncoderBitrateMode.CBR, true, 6_000)
+        }
         streamingEngine.captureCapabilities = { cam ->
             assertEquals("1", cam.currentCameraId)
             CameraCaptureCapabilities { _, _, fps -> fps == 30 }
@@ -247,6 +259,29 @@ class StreamingEngineTest {
         streamingEngine.startStream(LIVE_URL)
         verify { camera.switchCamera("1") }
         assertEquals(EncoderPreset.FHD30, streamingEngine.activeEncoder.value?.preset)
+    }
+
+    @Test
+    fun `VBR fallback is published for the actual encoder`() = runTest {
+        streamingCameraReady()
+        streamingEngine.readBitrateDiagnostics = {
+            EncoderBitrateDiagnostics("vbr.only.encoder", EncoderBitrateMode.VBR, false, 6_000)
+        }
+        streamingEngine.initializeCamera()
+        streamingEngine.startStream(LIVE_URL)
+        assertEquals(EncoderBitrateMode.VBR, streamingEngine.bitrateDiagnostics.value?.mode)
+        assertFalse(streamingEngine.bitrateDiagnostics.value!!.cbrSupported)
+        assertEquals("vbr.only.encoder", streamingEngine.bitrateDiagnostics.value?.encoderName)
+    }
+
+    @Test
+    fun `unverifiable encoder mode fails preparation before network start`() = runTest {
+        streamingCameraReady()
+        streamingEngine.readBitrateDiagnostics = { error("CBR supported but not configured") }
+        streamingEngine.initializeCamera()
+        streamingEngine.startStream(LIVE_URL)
+        verify(exactly = 0) { camera.startStream(any(), any(), any()) }
+        assertNull(streamingEngine.bitrateDiagnostics.value)
     }
 
     // --- Adaptive Bitrate (v0.6.0) ------------------------------------------
@@ -346,6 +381,8 @@ class StreamingEngineTest {
         verify(exactly = 1) { camera.setVideoBitrateOnFly(4_200_000) }
         verify(exactly = 1) { camera.setVideoBitrateOnFly(4_700_000) }
         assertEquals(4_200, streamingEngine.targetStates.value[0].bitrateKbps)
+        assertEquals(4_700, streamingEngine.bitrateDiagnostics.value?.targetKbps)
+        assertEquals(EncoderBitrateMode.CBR, streamingEngine.bitrateDiagnostics.value?.mode)
     }
 
     @Test

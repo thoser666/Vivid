@@ -141,6 +141,7 @@ fun StreamingScreen(
     val streamingState by streamingEngine.streamingState.collectAsStateWithLifecycle()
     val targetStates by streamingEngine.targetStates.collectAsStateWithLifecycle()
     val activeEncoder by streamingEngine.activeEncoder.collectAsStateWithLifecycle()
+    val bitrateDiagnostics by streamingEngine.bitrateDiagnostics.collectAsStateWithLifecycle()
     val measuredEncoderFps by streamingEngine.measuredEncoderFps.collectAsStateWithLifecycle()
     val activeSourceKind by streamingEngine.activeSourceKind.collectAsStateWithLifecycle()
     val configIssues by viewModel.configIssues.collectAsStateWithLifecycle()
@@ -319,6 +320,13 @@ fun StreamingScreen(
                     ) {
                         if (activeSourceKind == VideoSourceKind.CAMERA) {
                             activeEncoder?.let { AppliedCameraProfile(it, measuredEncoderFps) }
+                            bitrateDiagnostics?.let {
+                                Text(
+                                    stringResource(R.string.streaming_encoder_bitrate_mode, it.mode.name, it.targetKbps.toString(), it.encoderName),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    modifier = Modifier.testTag("encoder_bitrate_mode"),
+                                )
+                            }
                         }
                         targetStates.forEach { state ->
                             TargetStatusRow(state)

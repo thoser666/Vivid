@@ -86,6 +86,7 @@ class StreamingScreenRobolectricTest {
         every { engine.streamingState } returns streamingState
         every { engine.targetStates } returns targetStates
         every { engine.activeEncoder } returns MutableStateFlow(null)
+        every { engine.bitrateDiagnostics } returns MutableStateFlow(null)
         every { engine.measuredEncoderFps } returns MutableStateFlow(null)
         every { engine.focusMode } returns MutableStateFlow(FocusMode.AUTO)
         every { engine.stabilizationEnabled } returns MutableStateFlow(false)
@@ -154,6 +155,11 @@ class StreamingScreenRobolectricTest {
             ),
         )
         every { engine.measuredEncoderFps } returns MutableStateFlow(14)
+        every { engine.bitrateDiagnostics } returns MutableStateFlow(
+            com.vivid.feature.streaming.EncoderBitrateDiagnostics(
+                "c2.mtk.avc.encoder", com.vivid.feature.streaming.EncoderBitrateMode.VBR, false, 4_200,
+            ),
+        )
         streamingState.value = StreamingState.Streaming
         targetStates.value = listOf(StreamTargetState(url = STREAM_URL, status = StreamTargetStatus.STREAMING))
         setContent()
@@ -161,6 +167,7 @@ class StreamingScreenRobolectricTest {
         composeRule.onNodeWithText("Camera profile: 1920×1080 · 30 fps").assertIsDisplayed()
         composeRule.onNodeWithText("Compatible profile applied").assertIsDisplayed()
         composeRule.onNodeWithText("Measured: 14 fps").assertIsDisplayed()
+        composeRule.onNodeWithText("Encoder: VBR · target 4200 kbps · c2.mtk.avc.encoder").assertIsDisplayed()
     }
 
     private fun openControls() {

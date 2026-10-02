@@ -137,4 +137,5 @@
     <string name="streaming_camera_profile">Profil caméra : %1$d×%2$d · %3$d ips</string>
     <string name="streaming_camera_profile_fallback">Profil compatible appliqué</string>
     <string name="streaming_camera_measured_fps">Mesuré : %1$d ips</string>
+    <string name="streaming_encoder_bitrate_mode">Encodeur : %1$s · cible %2$s kbit/s · %3$s</string>
 </resources>
