@@ -1,6 +1,6 @@
 # Release Notes: Vivid v0.5.20-beta
 
-**Release Date:** 2026-10-01
+**Release Date:** 2026-10-02
 **Version:** 0.5.20-beta (versionCode 5202, deterministisch aus dem Tag)
 **Channel:** Beta (GitHub Releases → „Latest“ · Obtainium · eigenes F-Droid-Repo)
 
@@ -23,9 +23,20 @@
 ### 🛡️ RTMP-Ziel-Eingabe härtet Protokoll-Token im Host-Slot ab (VIVID-3D, #220)
 - Ein `srt://…` im RTMP(S)-Ziel-Feld wurde von RootEncoder als **Literal-Hostname „srt“** geparst und scheiterte kryptisch am DNS (`UnknownHostException`). Der `StreamConfigValidator` blockt jetzt Hosts, die exakt einem Protokoll-Token entsprechen, als ERROR **vor** dem Engine-Start — mit klarer Feld-Meldung in de/en/fr/ru. Legitime Hosts wie `srt.example.com` passieren unverändert.
 
+## 🎬 Streaming-Screen: Kamera-Permission erst beim Go-Live (#249)
+
+- Beim Öffnen des Live-Stream-Screens poppte sofort der Android-Permission-Dialog für die Kamera auf — auch dann, wenn gar nicht gestartet wurde. Viele Tester haben den Dialog als Absturz-Verhalten oder als unerklärliche Vorausnahme erlebt, inklusive der Folge: die Preview blieb schwarz, weil die Vorschau ohne Grant nicht starten konnte.
+- **Neu:** Der Screen-Eintritt startet die Kamera-Vorschau nur, wenn die Berechtigung bereits erteilt ist, und löst **keinen** Systemdialog aus. Die Anfrage erfolgt jetzt im Go-Live-Flow zusammen mit Mikrofon und Benachrichtigungen — ein Dialog, ein Zeitpunkt, genau dann, wenn er gebraucht wird.
+- Die lokale MP4-Aufnahme ist davon unberührt; sie nutzt weiterhin ihren eigenen Aufnahmepfad.
+
+### 📋 Berechtigungen im Emulator-Test-Gate (#249)
+- Die instrumentierten UI-Tests vergaben ihre Berechtigungen bisher nie — dadurch prüften sie faktisch den *verweigerten* Zustand, und der Testlauf scheiterte mit „No compose hierarchies found", sobald ein Screen echte Berechtigungen verlangte. Das Release-Gate installiert die Debug-APKs jetzt vorab und gewährt CAMERA, Mikrofon, Benachrichtigungen und Standort deterministisch; ein fehlendes Setup bricht den Lauf laut ab, statt als Testfehler getarnt zu werden.
+- Die Testmatrix läuft auf API 34/35/36; die zuvor tote Beobachter-Leg auf API 37 ist auf eine provisionierbare Plattform umgestellt. Verifiziert: alle drei Pflicht-Legs grün.
+
 ## 🔒 Wartung
 
 - **Attributionen abgeschlossen:** Alle vier offenen Sentry-Issues (VIVID-3A/3B/3D/39) sind nach dem Triage-Verfahren aus docs/sentry-issues.md §5 attribuiert (#216/#220/#221/#225); die Schließungs-Mechanik wurde präzisiert (fix-release-Tag wirkt nur Sentry-seitig, GitHub-Issues schließen manuell im Release-Zug).
+- **CrashAdvisory-Ranges korrigiert:** Die untere Grenze der drei Crash-Advisories stand auf versionCode 5194 — ein Stand, der nie ausgeliefert wurde (Platzhalter-Prognose). Korrekt ist 5074; wer 5193 oder 5194 aus einem Nightly-Build hatte, fällt sonst durchs Advisory-Raster.
 - **Issue-Hausmuster:** Neue Issues werden beim Anlegen dem Maintainer zugewiesen (`--assignee thoser666`, docs/sentry-issues.md §5).
 - WHIP-Gerätesmoke-Vorbereitung (debug-only Einstiegspunkt + JVM-testbarer Runner) liegt bereit; der Gerätedurchlauf (MediaMTX, Android-Gerät) folgt separat.
 
