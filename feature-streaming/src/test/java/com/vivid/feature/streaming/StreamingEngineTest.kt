@@ -601,12 +601,14 @@ class StreamingEngineTest {
         assertEquals(StreamingState.Idle, streamingEngine.streamingState.value)
         assertEquals(StreamTargetStatus.IDLE, streamingEngine.targetStates.value[0].status)
 
+        streamingEngine.startStream(TEST_URL)
         checker.onConnectionFailed(CAMERA_ERROR)
         assertEquals(StreamingState.Failed(CAMERA_ERROR), streamingEngine.streamingState.value)
         assertEquals(StreamTargetStatus.FAILED, streamingEngine.targetStates.value[0].status)
         assertEquals(CAMERA_ERROR, streamingEngine.targetStates.value[0].failureReason)
         verify { camera.stopStream(MultiType.RTMP, 0) }
 
+        streamingEngine.startStream(TEST_URL)
         checker.onAuthError()
         assertEquals(StreamingState.Failed("RTMP Auth Error"), streamingEngine.streamingState.value)
     }
@@ -670,6 +672,48 @@ class StreamingEngineTest {
         assertEquals(StreamTargetStatus.FAILED, streamingEngine.targetStates.value[1].status)
         verify { camera.stopStream(MultiType.RTMP, 1) }
         verify(exactly = 0) { camera.stopStream(MultiType.RTMP, 0) }
+    }
+
+    @Test
+    fun `single target stop releases shared encoder before restart`() = runTest {
+        streamingCameraReady()
+        var encoderRunning = false
+        every { camera.isStreaming } answers { encoderRunning }
+        every { camera.startStream(any(), any(), any()) } answers { encoderRunning = true }
+        // RootEncoder 2.7.5's indexed stop disconnects the last RTMP client but
+        // checks active clients BEFORE disconnecting, so the encoder stays running.
+        every { camera.stopStream(any(), any()) } answers { capturedCheckers[0].onDisconnect() }
+        every { camera.stopStream() } answers { encoderRunning = false }
+        streamingEngine.initializeCamera()
+        streamingEngine.startStream(LIVE_URL)
+        capturedCheckers[0].onConnectionSuccess()
+        streamingEngine.stopStream()
+        assertFalse(encoderRunning)
+        assertEquals(StreamingState.Idle, streamingEngine.streamingState.value)
+        streamingEngine.startStream(LIVE_URL)
+        capturedCheckers[0].onConnectionSuccess()
+        assertEquals(StreamingState.Streaming, streamingEngine.streamingState.value)
+        verify(exactly = 2) { camera.prepareVideo() }
+        verify(exactly = 2) { camera.startStream(MultiType.RTMP, 0, LIVE_URL) }
+    }
+
+    @Test
+    fun `last connection failure releases encoder and disconnect preserves failure for retry`() = runTest {
+        streamingCameraReady()
+        var encoderRunning = false
+        every { camera.isStreaming } answers { encoderRunning }
+        every { camera.startStream(any(), any(), any()) } answers { encoderRunning = true }
+        every { camera.stopStream(any(), any()) } answers { capturedCheckers[0].onDisconnect() }
+        every { camera.stopStream() } answers { encoderRunning = false }
+        streamingEngine.initializeCamera()
+        streamingEngine.startStream(LIVE_URL)
+        capturedCheckers[0].onConnectionFailed(CAMERA_ERROR)
+        assertFalse(encoderRunning)
+        assertEquals(StreamingState.Failed(CAMERA_ERROR), streamingEngine.streamingState.value)
+        streamingEngine.startStream(LIVE_URL)
+        capturedCheckers[0].onConnectionSuccess()
+        assertEquals(StreamingState.Streaming, streamingEngine.streamingState.value)
+        verify(exactly = 2) { camera.prepareVideo() }
     }
 
     @Test

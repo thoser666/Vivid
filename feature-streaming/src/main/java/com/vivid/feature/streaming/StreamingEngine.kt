@@ -139,6 +139,7 @@ class StreamingEngine @Inject constructor(
     /** Adaptive Bitrate (v0.6.0): Zielbitrate an gemessene Strecke anpassen. */
     private val _adaptiveBitrateEnabled = MutableStateFlow(false)
     private var adaptiveController: AdaptiveBitrateController? = null
+    private var stoppingStreams = false
     private var lastAdaptiveSampleMs = 0L
 
     /** Zeitquelle (injektierbar fuer Tests; Realzeit im Betrieb). */
@@ -425,11 +426,7 @@ class StreamingEngine @Inject constructor(
         }
 
         override fun onConnectionFailed(reason: String) {
-            updateTarget(index) {
-                it.copy(status = StreamTargetStatus.FAILED, failureReason = reason)
-            }
-            // Nur das fehlgeschlagene Ziel stoppen — andere Ziele streamen weiter.
-            camera?.stopStream(MultiType.RTMP, index)
+            failTarget(index, reason)
         }
 
         override fun onNewBitrate(bitrate: Long) {
@@ -442,19 +439,65 @@ class StreamingEngine @Inject constructor(
         }
 
         override fun onDisconnect() {
-            updateTarget(index) {
-                it.copy(status = StreamTargetStatus.IDLE, failureReason = null)
-            }
+            if (stoppingStreams) return
+            val target = _targetStates.value.getOrNull(index) ?: return
+            // Disconnect is also emitted by failed-client cleanup. Keep the cause
+            // visible and do not let cleanup callbacks revive/clear an old target.
+            if (target.status == StreamTargetStatus.FAILED || target.status == StreamTargetStatus.IDLE) return
+            updateTarget(index) { it.copy(status = StreamTargetStatus.IDLE, failureReason = null, bitrateKbps = null) }
+            finishEncodersIfNoActiveTargets()
         }
 
         override fun onAuthError() {
-            updateTarget(index) {
-                it.copy(status = StreamTargetStatus.FAILED, failureReason = "RTMP Auth Error")
-            }
+            failTarget(index, "RTMP Auth Error")
         }
 
         override fun onAuthSuccess() {
             // Optional: Handle auth success
+        }
+    }
+
+    private fun failTarget(index: Int, reason: String) {
+        if (stoppingStreams) return
+        val target = _targetStates.value.getOrNull(index) ?: return
+        if (target.status == StreamTargetStatus.IDLE || target.status == StreamTargetStatus.FAILED) return
+        updateTarget(index) { it.copy(status = StreamTargetStatus.FAILED, failureReason = reason, bitrateKbps = null) }
+        stopTargetStream(index)
+        finishEncodersIfNoActiveTargets()
+    }
+
+    private fun stopTargetStream(index: Int) {
+        when (activeSourceKind.value) {
+            VideoSourceKind.CAMERA -> camera?.stopStream(MultiType.RTMP, index)
+            VideoSourceKind.SCREEN_CAPTURE -> screenCaptureSource?.stopStream(index)
+            VideoSourceKind.VIDEO_PLAYER -> videoPlayerSource?.stopStream(index)
+            VideoSourceKind.REPLAY -> replaySource?.stopStream(index)
+        }
+    }
+
+    private fun finishEncodersIfNoActiveTargets() {
+        if (_targetStates.value.any { it.status == StreamTargetStatus.STREAMING || it.status == StreamTargetStatus.PREPARING }) return
+        stopSharedStreamEncoder()
+        adaptiveController = null
+        startIdlePreviewIfReady()
+    }
+
+    /** RootEncoder 2.7.5's indexed stop tests clients BEFORE disconnecting them.
+     * Explicitly finish the shared encoder after disconnecting the last target.
+     * Camera2Base preserves an ongoing local recording in this overload.
+     */
+    private fun stopSharedStreamEncoder() {
+        when (activeSourceKind.value) {
+            VideoSourceKind.CAMERA -> camera?.let { cam ->
+                if (cam.isStreaming) {
+                    if (!cam.isRecording) detachGlPreview()
+                    Timber.i("Stopping shared camera encoder after last RTMP target")
+                    cam.stopStream()
+                }
+            }
+            VideoSourceKind.SCREEN_CAPTURE -> screenCaptureSource?.stop()
+            VideoSourceKind.VIDEO_PLAYER -> videoPlayerSource?.stop()
+            VideoSourceKind.REPLAY -> replaySource?.stop()
         }
     }
 
@@ -994,7 +1037,7 @@ class StreamingEngine @Inject constructor(
         startTarget: (Int, String) -> Unit,
     ) {
         if (source == null || source.isActive) return
-        _targetStates.value = urls.map { StreamTargetState(it) }
+        _targetStates.value = urls.map { StreamTargetState(it, status = StreamTargetStatus.PREPARING) }
         _streamingState.value = StreamingState.Preparing
         if (!source.start()) {
             failStream(ENCODER_PREPARATION_ERROR)
@@ -1012,7 +1055,7 @@ class StreamingEngine @Inject constructor(
         syncSelectedCamera(cam)
         stopIdlePreview()
 
-        _targetStates.value = activeUrls.map { StreamTargetState(it) }
+        _targetStates.value = activeUrls.map { StreamTargetState(it, status = StreamTargetStatus.PREPARING) }
         _streamingState.value = StreamingState.Preparing
 
         if (prepareStreamEncoders(cam)) {
@@ -1211,40 +1254,20 @@ class StreamingEngine @Inject constructor(
 
     /** Stoppt alle laufenden/startenden Ziele und setzt den Zustand auf Idle. */
     fun stopStream() {
-        if (_streamingState.value !is StreamingState.Streaming &&
-            _streamingState.value !is StreamingState.Preparing
-        ) {
-            return
+        if (_streamingState.value is StreamingState.Idle && camera?.isStreaming != true) return
+        stoppingStreams = true
+        try {
+            _targetStates.value.indices.forEach(::stopTargetStream)
+            stopSharedStreamEncoder()
+            _targetStates.value = _targetStates.value.map {
+                it.copy(status = StreamTargetStatus.IDLE, failureReason = null, bitrateKbps = null)
+            }
+            _streamingState.value = StreamingState.Idle
+            adaptiveController = null
+        } finally {
+            stoppingStreams = false
         }
-        // S2/S3: Die aktive Quelle bestimmt, welcher Encoder gestoppt wird.
-        if (activeSourceKind.value == VideoSourceKind.SCREEN_CAPTURE) {
-            val source = screenCaptureSource ?: return
-            _targetStates.value.forEachIndexed { index, _ ->
-                source.stopStream(index)
-            }
-        } else if (activeSourceKind.value == VideoSourceKind.VIDEO_PLAYER) {
-            val source = videoPlayerSource ?: return
-            _targetStates.value.forEachIndexed { index, _ ->
-                source.stopStream(index)
-            }
-        } else if (activeSourceKind.value == VideoSourceKind.REPLAY) {
-            val source = replaySource ?: return
-            _targetStates.value.forEachIndexed { index, _ ->
-                source.stopStream(index)
-            }
-        } else {
-            val cam = camera ?: return
-            if (!cam.isRecording) detachGlPreview()
-            _targetStates.value.forEachIndexed { index, _ ->
-                cam.stopStream(MultiType.RTMP, index)
-            }
-            startIdlePreviewIfReady()
-        }
-        _targetStates.value = _targetStates.value.map {
-            it.copy(status = StreamTargetStatus.IDLE, failureReason = null, bitrateKbps = null)
-        }
-        _streamingState.value = StreamingState.Idle
-        adaptiveController = null
+        startIdlePreviewIfReady()
     }
 
     /**
