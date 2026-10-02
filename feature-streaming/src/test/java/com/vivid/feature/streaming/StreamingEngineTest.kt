@@ -92,7 +92,7 @@ class StreamingEngineTest {
     fun `legacy startStream ohne Encoder-Konfiguration ruft prepareVideo ohne Argumente`() = runTest {
         streamingCameraReady()
         streamingEngine.initializeCamera()
-        streamingEngine.startStream("rtmp://live/app")
+        streamingEngine.startStream(LIVE_URL)
 
         verify(exactly = 1) { camera.prepareVideo() }
         verify(exactly = 0) { camera.prepareVideo(any(), any(), any(), any(), any(), any()) }
@@ -107,7 +107,7 @@ class StreamingEngineTest {
             ResolvedEncoderConfig(VideoCodecPreference.H265, EncoderPreset.S_4K60, fallbackApplied = false),
             autoFallback = true,
         )
-        streamingEngine.startStream("rtmp://live/app")
+        streamingEngine.startStream(LIVE_URL)
 
         verify(exactly = 1) { camera.setVideoCodec(VideoCodec.H265) }
         verify(exactly = 1) {
@@ -123,7 +123,7 @@ class StreamingEngineTest {
             ResolvedEncoderConfig(VideoCodecPreference.H264, EncoderPreset.FHD30, fallbackApplied = false),
             autoFallback = true,
         )
-        streamingEngine.startStream("rtmp://live/app")
+        streamingEngine.startStream(LIVE_URL)
 
         verify(exactly = 0) { camera.prepareVideo() }
         assertEquals(
@@ -138,7 +138,7 @@ class StreamingEngineTest {
     fun `adaptive Bitrate aus - onNewBitrate aendert die Encoder-Bitrate nicht`() = runTest {
         streamingCameraReady()
         streamingEngine.initializeCamera()
-        streamingEngine.startStream("rtmp://live/app")
+        streamingEngine.startStream(LIVE_URL)
 
         capturedCheckers[0].onNewBitrate(2_000)
 
@@ -156,7 +156,7 @@ class StreamingEngineTest {
         streamingEngine.configureAdaptiveBitrate(true)
         var fakeTime = 0L
         streamingEngine.timeSource = { fakeTime }
-        streamingEngine.startStream("rtmp://live/app")
+        streamingEngine.startStream(LIVE_URL)
 
         // 3 Low-Samples (je 2,5 s auseinander) → 6000 * 0.7 = 4200.
         // Startzeit 2 s: der startStream-Reset setzt lastSample auf 0,
@@ -182,7 +182,7 @@ class StreamingEngineTest {
         streamingEngine.configureAdaptiveBitrate(true)
         var fakeTime = 0L
         streamingEngine.timeSource = { fakeTime }
-        streamingEngine.startStream("rtmp://live/app")
+        streamingEngine.startStream(LIVE_URL)
 
         // 3 Low-Samples OHNE Zeitabstand: nur das erste zählt (Rate-Limit).
         capturedCheckers[0].onNewBitrate(2_000)
@@ -196,7 +196,7 @@ class StreamingEngineTest {
     fun `onNewBitrate publishst die gemessene Bitrate im Ziel-Status`() = runTest {
         streamingCameraReady()
         streamingEngine.initializeCamera()
-        streamingEngine.startStream("rtmp://live/app")
+        streamingEngine.startStream(LIVE_URL)
 
         capturedCheckers[0].onNewBitrate(3_500)
 
@@ -261,7 +261,7 @@ class StreamingEngineTest {
         // Arrange
         streamingEngine.initializeCamera()
         streamingCameraReady()
-        val testUrl = "rtmp://test.com/app"
+        val testUrl = TEST_URL
 
         // Act
         streamingEngine.startStream(testUrl)
@@ -290,7 +290,7 @@ class StreamingEngineTest {
         streamingEngine.initializeCamera()
         streamingCameraReady()
 
-        streamingEngine.startStream("rtmp://test.com/app")
+        streamingEngine.startStream(TEST_URL)
 
         assertEquals(StreamingState.Preparing, streamingEngine.streamingState.value)
     }
@@ -301,9 +301,9 @@ class StreamingEngineTest {
         every { camera.isStreaming } returns false
         every { camera.prepareAudio() } returns false
 
-        streamingEngine.startStream("rtmp://test.com/app")
+        streamingEngine.startStream(TEST_URL)
 
-        assertEquals(StreamingState.Failed("Failed to prepare audio/video"), streamingEngine.streamingState.value)
+        assertEquals(StreamingState.Failed(PREPARATION_ERROR), streamingEngine.streamingState.value)
         coVerify(exactly = 0) { camera.startStream(any(), any(), any()) }
     }
 
@@ -312,7 +312,7 @@ class StreamingEngineTest {
         streamingEngine.initializeCamera()
         every { camera.isStreaming } returns true
 
-        streamingEngine.startStream("rtmp://test.com/app")
+        streamingEngine.startStream(TEST_URL)
 
         coVerify(exactly = 0) { camera.startStream(any(), any(), any()) }
         assertEquals(StreamingState.Idle, streamingEngine.streamingState.value)
@@ -323,7 +323,7 @@ class StreamingEngineTest {
         streamingEngine.initializeCamera()
         streamingCameraReady()
 
-        streamingEngine.startStream("rtmp://test.com/app")
+        streamingEngine.startStream(TEST_URL)
         streamingEngine.stopStream()
 
         verify { camera.stopStream(MultiType.RTMP, 0) }
@@ -344,10 +344,10 @@ class StreamingEngineTest {
     fun `connect checker callbacks should update the target and streaming state`() = runTest {
         streamingEngine.initializeCamera()
         streamingCameraReady()
-        streamingEngine.startStream("rtmp://test.com/app")
+        streamingEngine.startStream(TEST_URL)
         val checker = capturedCheckers[0]
 
-        checker.onConnectionStarted("rtmp://test.com/app")
+        checker.onConnectionStarted(TEST_URL)
         assertEquals(StreamingState.Preparing, streamingEngine.streamingState.value)
         assertEquals(StreamTargetStatus.PREPARING, streamingEngine.targetStates.value[0].status)
 
@@ -359,10 +359,10 @@ class StreamingEngineTest {
         assertEquals(StreamingState.Idle, streamingEngine.streamingState.value)
         assertEquals(StreamTargetStatus.IDLE, streamingEngine.targetStates.value[0].status)
 
-        checker.onConnectionFailed("boom")
-        assertEquals(StreamingState.Failed("boom"), streamingEngine.streamingState.value)
+        checker.onConnectionFailed(CAMERA_ERROR)
+        assertEquals(StreamingState.Failed(CAMERA_ERROR), streamingEngine.streamingState.value)
         assertEquals(StreamTargetStatus.FAILED, streamingEngine.targetStates.value[0].status)
-        assertEquals("boom", streamingEngine.targetStates.value[0].failureReason)
+        assertEquals(CAMERA_ERROR, streamingEngine.targetStates.value[0].failureReason)
         verify { camera.stopStream(MultiType.RTMP, 0) }
 
         checker.onAuthError()
@@ -381,10 +381,10 @@ class StreamingEngineTest {
         streamingEngine.initializeCamera()
         streamingCameraReady()
 
-        streamingEngine.startStream(listOf("rtmp://a.example/app", "rtmp://b.example/app"))
+        streamingEngine.startStream(listOf(PRIMARY_URL, SECONDARY_URL))
 
-        coVerify { camera.startStream(MultiType.RTMP, 0, "rtmp://a.example/app") }
-        coVerify { camera.startStream(MultiType.RTMP, 1, "rtmp://b.example/app") }
+        coVerify { camera.startStream(MultiType.RTMP, 0, PRIMARY_URL) }
+        coVerify { camera.startStream(MultiType.RTMP, 1, SECONDARY_URL) }
         assertEquals(2, streamingEngine.targetStates.value.size)
         assertEquals(StreamingState.Preparing, streamingEngine.streamingState.value)
     }
@@ -394,10 +394,10 @@ class StreamingEngineTest {
         streamingEngine.initializeCamera()
         streamingCameraReady()
 
-        streamingEngine.startStream(listOf("   ", "rtmp://b.example/app"))
+        streamingEngine.startStream(listOf("   ", SECONDARY_URL))
 
         verify(exactly = 1) { camera.startStream(any(), any(), any()) }
-        coVerify { camera.startStream(MultiType.RTMP, 0, "rtmp://b.example/app") }
+        coVerify { camera.startStream(MultiType.RTMP, 0, SECONDARY_URL) }
         assertEquals(1, streamingEngine.targetStates.value.size)
     }
 
@@ -407,7 +407,7 @@ class StreamingEngineTest {
         streamingCameraReady()
 
         streamingEngine.startStream(
-            listOf("rtmp://a.example/app", "rtmp://b.example/app", "rtmp://c.example/app"),
+            listOf(PRIMARY_URL, SECONDARY_URL, "rtmp://c.example/app"),
         )
 
         verify(exactly = 2) { camera.startStream(any(), any(), any()) }
@@ -418,10 +418,10 @@ class StreamingEngineTest {
     fun `failure of one target leaves the other streaming`() = runTest {
         streamingEngine.initializeCamera()
         streamingCameraReady()
-        streamingEngine.startStream(listOf("rtmp://a.example/app", "rtmp://b.example/app"))
+        streamingEngine.startStream(listOf(PRIMARY_URL, SECONDARY_URL))
 
         capturedCheckers[0].onConnectionSuccess()
-        capturedCheckers[1].onConnectionFailed("boom")
+        capturedCheckers[1].onConnectionFailed(CAMERA_ERROR)
 
         assertEquals(StreamingState.Streaming, streamingEngine.streamingState.value)
         assertEquals(StreamTargetStatus.STREAMING, streamingEngine.targetStates.value[0].status)
@@ -434,7 +434,7 @@ class StreamingEngineTest {
     fun `stopStream stops all targets`() = runTest {
         streamingEngine.initializeCamera()
         streamingCameraReady()
-        streamingEngine.startStream(listOf("rtmp://a.example/app", "rtmp://b.example/app"))
+        streamingEngine.startStream(listOf(PRIMARY_URL, SECONDARY_URL))
 
         streamingEngine.stopStream()
 
@@ -518,9 +518,9 @@ class StreamingEngineTest {
         streamingEngine.setVideoPlayerUri(uri)
         every { player.isStreaming } returns false
 
-        streamingEngine.startStream("rtmp://test.com/app")
+        streamingEngine.startStream(TEST_URL)
 
-        coVerify { player.startStream(MultiType.RTMP, 0, "rtmp://test.com/app") }
+        coVerify { player.startStream(MultiType.RTMP, 0, TEST_URL) }
         assertEquals(StreamingState.Preparing, streamingEngine.streamingState.value)
     }
 
@@ -531,9 +531,9 @@ class StreamingEngineTest {
         // Keine Datei gesetzt -> start() liefert false, kein Start.
         every { player.isStreaming } returns false
 
-        streamingEngine.startStream("rtmp://test.com/app")
+        streamingEngine.startStream(TEST_URL)
 
-        assertEquals(StreamingState.Failed("Failed to prepare audio/video"), streamingEngine.streamingState.value)
+        assertEquals(StreamingState.Failed(PREPARATION_ERROR), streamingEngine.streamingState.value)
         coVerify(exactly = 0) { player.startStream(any(), any(), any()) }
     }
 
@@ -547,7 +547,7 @@ class StreamingEngineTest {
         streamingEngine.setVideoPlayerUri(uri)
         every { player.isStreaming } returns false
 
-        streamingEngine.startStream(listOf("rtmp://a.example/app", "rtmp://b.example/app"))
+        streamingEngine.startStream(listOf(PRIMARY_URL, SECONDARY_URL))
         streamingEngine.stopStream()
 
         verify { player.stopStream(MultiType.RTMP, 0) }
@@ -594,9 +594,9 @@ class StreamingEngineTest {
         streamingEngine.onScreenCaptureConsentResult(Activity.RESULT_OK, mockk())
         screenCaptureReady()
 
-        streamingEngine.startStream("rtmp://test.com/app")
+        streamingEngine.startStream(TEST_URL)
 
-        coVerify { display.startStream(MultiType.RTMP, 0, "rtmp://test.com/app") }
+        coVerify { display.startStream(MultiType.RTMP, 0, TEST_URL) }
         assertEquals(StreamingState.Preparing, streamingEngine.streamingState.value)
     }
 
@@ -607,9 +607,9 @@ class StreamingEngineTest {
         // Kein Consent erteilt -> prepareAudio/Video werden nicht aufgerufen.
         every { display.isStreaming } returns false
 
-        streamingEngine.startStream("rtmp://test.com/app")
+        streamingEngine.startStream(TEST_URL)
 
-        assertEquals(StreamingState.Failed("Failed to prepare audio/video"), streamingEngine.streamingState.value)
+        assertEquals(StreamingState.Failed(PREPARATION_ERROR), streamingEngine.streamingState.value)
         coVerify(exactly = 0) { display.startStream(any(), any(), any()) }
     }
 
@@ -620,7 +620,7 @@ class StreamingEngineTest {
         streamingEngine.onScreenCaptureConsentResult(Activity.RESULT_OK, mockk())
         screenCaptureReady()
 
-        streamingEngine.startStream(listOf("rtmp://a.example/app", "rtmp://b.example/app"))
+        streamingEngine.startStream(listOf(PRIMARY_URL, SECONDARY_URL))
         streamingEngine.stopStream()
 
         verify { display.stopStream(MultiType.RTMP, 0) }
@@ -646,7 +646,7 @@ class StreamingEngineTest {
         verify(exactly = 0) { glStreamInterface.attachPreview(any()) }
 
         // Beim Stream-Start (nach prepareVideo) wird die gemerkte Surface angehängt.
-        streamingEngine.startStream("rtmp://test.com/app")
+        streamingEngine.startStream(TEST_URL)
 
         verify(exactly = 1) { glStreamInterface.attachPreview(surface) }
         verify(exactly = 1) { glStreamInterface.setPreviewResolution(640, 480) }
@@ -774,9 +774,9 @@ class StreamingEngineTest {
         verify(exactly = 1) { idleCamera.prepareCamera(any<android.graphics.SurfaceTexture>(), 1280, 720, 30) }
         verify(exactly = 1) { idleCamera.openCameraBack() }
 
-        streamingEngine.startStream("rtmp://test.com/app")
+        streamingEngine.startStream(TEST_URL)
         verify(exactly = 1) { idleCamera.closeCamera() }
-        verify { camera.startStream(MultiType.RTMP, 0, "rtmp://test.com/app") }
+        verify { camera.startStream(MultiType.RTMP, 0, TEST_URL) }
     }
 
     @Test
@@ -929,11 +929,11 @@ class StreamingEngineTest {
         every { glStreamInterface.isRunning } returns true
         streamingCameraReady()
 
-        streamingEngine.startStream("rtmp://test.com/app")
+        streamingEngine.startStream(TEST_URL)
 
         // Ohne gemerkte Surface wird nichts angehängt — der Stream läuft trotzdem.
         verify(exactly = 0) { glStreamInterface.attachPreview(any()) }
-        coVerify { camera.startStream(MultiType.RTMP, 0, "rtmp://test.com/app") }
+        coVerify { camera.startStream(MultiType.RTMP, 0, TEST_URL) }
     }
 
     // --- Fokus-Lock (Moblin #377) ---
@@ -1230,4 +1230,13 @@ class StreamingEngineTest {
         // UI-Gate: Ohne verfügbare Auto-Modi blendet der Screen den WB-Toggle aus.
         assertFalse(streamingEngine.hasWhiteBalanceControl())
     }
+    private companion object {
+        private const val LIVE_URL = "rtmp://live/app"
+        private const val TEST_URL = "rtmp://test.com/app"
+        private const val PREPARATION_ERROR = "Failed to prepare audio/video"
+        private const val CAMERA_ERROR = "boom"
+        private const val PRIMARY_URL = "rtmp://a.example/app"
+        private const val SECONDARY_URL = "rtmp://b.example/app"
+    }
+
 }

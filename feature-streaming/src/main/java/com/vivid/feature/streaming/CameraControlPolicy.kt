@@ -17,6 +17,9 @@ abstract class CameraControlPolicy(
     private val disableWhiteBalance: () -> Unit,
     private val zoomRangeProvider: () -> Range<Float>?,
 ) : CameraControls {
+    /** Each adapter reads torch state from its own active camera. */
+    abstract override fun isTorchEnabled(): Boolean
+
     final override fun getZoomRange(): ZoomRange? =
         zoomRangeProvider()?.let { ZoomRange(it.lower, it.upper) }
 

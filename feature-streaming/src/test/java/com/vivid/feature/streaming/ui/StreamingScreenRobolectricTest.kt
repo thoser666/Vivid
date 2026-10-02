@@ -133,9 +133,9 @@ class StreamingScreenRobolectricTest {
         setContent()
 
         composeRule.onNodeWithText("Live Stream").assertDoesNotExist()
-        composeRule.onNodeWithText("Start Streaming").assertIsDisplayed()
-        composeRule.onNodeWithTag("open_controls").assertIsDisplayed()
-        composeRule.onNodeWithTag("scenes_panel").assertDoesNotExist()
+        composeRule.onNodeWithText(START_STREAMING_LABEL).assertIsDisplayed()
+        composeRule.onNodeWithTag(CONTROLS_BUTTON_TAG).assertIsDisplayed()
+        composeRule.onNodeWithTag(SCENES_PANEL_TAG).assertDoesNotExist()
         composeRule.onNodeWithText("Camera").assertDoesNotExist()
         openControls()
         composeRule.onNodeWithText("Camera").assertIsNotEnabled()
@@ -143,7 +143,7 @@ class StreamingScreenRobolectricTest {
     }
 
     private fun openControls() {
-        composeRule.onNodeWithTag("open_controls").performClick()
+        composeRule.onNodeWithTag(CONTROLS_BUTTON_TAG).performClick()
     }
 
     private fun openScenes() {
@@ -153,12 +153,12 @@ class StreamingScreenRobolectricTest {
     @Test
     fun `scenes can be expanded closed and reopened`() {
         setContent()
-        composeRule.onNodeWithTag("scenes_panel").assertDoesNotExist()
+        composeRule.onNodeWithTag(SCENES_PANEL_TAG).assertDoesNotExist()
         openScenes()
-        composeRule.onNodeWithTag("scenes_panel").assertIsDisplayed()
+        composeRule.onNodeWithTag(SCENES_PANEL_TAG).assertIsDisplayed()
         composeRule.onNodeWithTag("close_scenes").assertDoesNotExist()
-        composeRule.onNodeWithTag("scenes_panel").performTouchInput { swipeDown(durationMillis = 200) }
-        composeRule.onNodeWithTag("scenes_panel").assertDoesNotExist()
+        composeRule.onNodeWithTag(SCENES_PANEL_TAG).performTouchInput { swipeDown(durationMillis = 200) }
+        composeRule.onNodeWithTag(SCENES_PANEL_TAG).assertDoesNotExist()
         openScenes()
         composeRule.onNodeWithText("Auto switch").assertIsDisplayed()
     }
@@ -176,7 +176,7 @@ class StreamingScreenRobolectricTest {
                 )
             }
         }
-        val controls = composeRule.onNodeWithTag("open_controls").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        val controls = composeRule.onNodeWithTag(CONTROLS_BUTTON_TAG).assertIsDisplayed().fetchSemanticsNode().boundsInRoot
         val recording = composeRule.onNodeWithTag("open_settings").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
         org.junit.Assert.assertTrue("Controls overlap settings", controls.right <= recording.left)
     }
@@ -204,9 +204,9 @@ class StreamingScreenRobolectricTest {
         }
         setContent()
         openControls()
-        composeRule.onNodeWithTag("replay_record").performClick()
+        composeRule.onNodeWithTag(RECORD_ITEM_TAG).performClick()
         composeRule.onNodeWithText("Stop recording").assertIsDisplayed()
-        composeRule.onNodeWithTag("replay_record").performClick()
+        composeRule.onNodeWithTag(RECORD_ITEM_TAG).performClick()
         verify(exactly = 1) { engine.stopReplay() }
         verify(exactly = 0) { viewModel.startStream() }
     }
@@ -217,8 +217,8 @@ class StreamingScreenRobolectricTest {
         every { engine.startReplay(any(), any()) } returns false
         setContent()
         openControls()
-        composeRule.onNodeWithTag("replay_record").performClick()
-        composeRule.onNodeWithTag("open_controls").performClick()
+        composeRule.onNodeWithTag(RECORD_ITEM_TAG).performClick()
+        composeRule.onNodeWithTag(CONTROLS_BUTTON_TAG).performClick()
         composeRule.onNodeWithText("Could not start recording. Check camera and microphone permissions and try again.")
             .assertIsDisplayed()
     }
@@ -240,15 +240,15 @@ class StreamingScreenRobolectricTest {
             ),
         )
         setContent()
-        val warning = "No stream URL configured. Please add it in the settings."
+        val warning = MISSING_URL_MESSAGE
         composeRule.onNodeWithText(warning).assertDoesNotExist()
-        composeRule.onNodeWithTag("open_controls").assertIsDisplayed()
-        composeRule.onNodeWithText("Start Streaming").performClick()
+        composeRule.onNodeWithTag(CONTROLS_BUTTON_TAG).assertIsDisplayed()
+        composeRule.onNodeWithText(START_STREAMING_LABEL).performClick()
         composeRule.onNodeWithText(warning).assertIsDisplayed()
         verify(exactly = 0) { viewModel.startStream() }
         composeRule.onNodeWithText("OK").performClick()
         composeRule.onNodeWithText(warning).assertDoesNotExist()
-        composeRule.onNodeWithText("Start Streaming").performClick()
+        composeRule.onNodeWithText(START_STREAMING_LABEL).performClick()
         composeRule.onNodeWithText(warning).assertIsDisplayed()
     }
 
@@ -262,12 +262,12 @@ class StreamingScreenRobolectricTest {
         )
         val missingUrlIssues = configIssues.value
         setContent()
-        composeRule.onNodeWithText("Start Streaming").performClick()
-        composeRule.onNodeWithText("No stream URL configured. Please add it in the settings.").assertIsDisplayed()
+        composeRule.onNodeWithText(START_STREAMING_LABEL).performClick()
+        composeRule.onNodeWithText(MISSING_URL_MESSAGE).assertIsDisplayed()
         composeRule.runOnIdle { configIssues.value = emptyList() }
-        composeRule.onNodeWithText("No stream URL configured. Please add it in the settings.").assertDoesNotExist()
+        composeRule.onNodeWithText(MISSING_URL_MESSAGE).assertDoesNotExist()
         composeRule.runOnIdle { configIssues.value = missingUrlIssues }
-        composeRule.onNodeWithText("No stream URL configured. Please add it in the settings.").assertDoesNotExist()
+        composeRule.onNodeWithText(MISSING_URL_MESSAGE).assertDoesNotExist()
     }
 
     @Test
@@ -282,7 +282,7 @@ class StreamingScreenRobolectricTest {
     fun `target status rows show url and live label while streaming`() {
         streamingState.value = StreamingState.Streaming
         targetStates.value = listOf(
-            StreamTargetState(url = "rtmp://a.example/live", status = StreamTargetStatus.STREAMING),
+            StreamTargetState(url = STREAM_URL, status = StreamTargetStatus.STREAMING),
         )
         setContent()
 
@@ -294,7 +294,7 @@ class StreamingScreenRobolectricTest {
         streamingState.value = StreamingState.Streaming
         targetStates.value = listOf(
             StreamTargetState(
-                url = "rtmp://a.example/live",
+                url = STREAM_URL,
                 status = StreamTargetStatus.STREAMING,
                 bitrateKbps = 3_100,
             ),
@@ -309,7 +309,7 @@ class StreamingScreenRobolectricTest {
         streamingState.value = StreamingState.Streaming
         targetStates.value = listOf(
             StreamTargetState(
-                url = "rtmp://a.example/live",
+                url = STREAM_URL,
                 status = StreamTargetStatus.STREAMING,
                 bitrateKbps = 850,
             ),
@@ -427,7 +427,7 @@ class StreamingScreenRobolectricTest {
         }
         openControls()
         composeRule.waitUntil(timeoutMillis = 5_000) {
-            composeRule.onAllNodesWithTag("camera_controls_panel")
+            composeRule.onAllNodesWithTag(CAMERA_PANEL_TAG)
                 .fetchSemanticsNodes().isNotEmpty()
         }
     }
@@ -436,7 +436,7 @@ class StreamingScreenRobolectricTest {
     fun `camera controls panel caps at 320dp on expanded windows`() {
         setContentAdaptive(WindowWidthSizeClass.Expanded, parentWidthDp = 900)
 
-        composeRule.onNodeWithTag("camera_controls_panel")
+        composeRule.onNodeWithTag(CAMERA_PANEL_TAG)
             .assertWidthIsEqualTo(320.dp)
     }
 
@@ -444,7 +444,7 @@ class StreamingScreenRobolectricTest {
     fun `camera controls panel caps at 220dp on compact phones`() {
         setContentAdaptive(WindowWidthSizeClass.Compact, parentWidthDp = 900)
 
-        composeRule.onNodeWithTag("camera_controls_panel")
+        composeRule.onNodeWithTag(CAMERA_PANEL_TAG)
             .assertWidthIsEqualTo(220.dp)
     }
 
@@ -452,7 +452,7 @@ class StreamingScreenRobolectricTest {
     fun `camera controls panel stays compact on small parent widths`() {
         setContentAdaptive(WindowWidthSizeClass.Compact, parentWidthDp = 300)
 
-        composeRule.onNodeWithTag("camera_controls_panel")
+        composeRule.onNodeWithTag(CAMERA_PANEL_TAG)
             .assertWidthIsEqualTo(220.dp)
     }
 
@@ -477,9 +477,9 @@ class StreamingScreenRobolectricTest {
         setContent()
         openScenes()
 
-        composeRule.onNodeWithText("Zones").performClick()
+        composeRule.onNodeWithText(ZONES_LABEL).performClick()
 
-        composeRule.onNodeWithTag("zone_editor").assertIsDisplayed()
+        composeRule.onNodeWithTag(ZONE_EDITOR_TAG).assertIsDisplayed()
         composeRule.onNodeWithText("Zone editor (privacy)").assertIsDisplayed()
     }
 
@@ -488,7 +488,7 @@ class StreamingScreenRobolectricTest {
         setContent()
         openScenes()
 
-        composeRule.onNodeWithText("Zones").assertDoesNotExist()
+        composeRule.onNodeWithText(ZONES_LABEL).assertDoesNotExist()
     }
 
     @Test
@@ -498,12 +498,24 @@ class StreamingScreenRobolectricTest {
         setContent()
         openScenes()
 
-        composeRule.onNodeWithText("Zones").performClick()
-        composeRule.onNodeWithTag("zone_editor").assertIsDisplayed()
+        composeRule.onNodeWithText(ZONES_LABEL).performClick()
+        composeRule.onNodeWithTag(ZONE_EDITOR_TAG).assertIsDisplayed()
         openScenes()
         composeRule.onNodeWithTag("privacy_toggle").performClick()
 
-        composeRule.onNodeWithTag("zone_editor").assertDoesNotExist()
+        composeRule.onNodeWithTag(ZONE_EDITOR_TAG).assertDoesNotExist()
         verify(exactly = 1) { viewModel.setPrivacyEnabled(false) }
     }
+    private companion object {
+        private const val START_STREAMING_LABEL = "Start Streaming"
+        private const val CONTROLS_BUTTON_TAG = "open_controls"
+        private const val SCENES_PANEL_TAG = "scenes_panel"
+        private const val RECORD_ITEM_TAG = "replay_record"
+        private const val MISSING_URL_MESSAGE = "No stream URL configured. Please add it in the settings."
+        private const val STREAM_URL = "rtmp://a.example/live"
+        private const val CAMERA_PANEL_TAG = "camera_controls_panel"
+        private const val ZONES_LABEL = "Zones"
+        private const val ZONE_EDITOR_TAG = "zone_editor"
+    }
+
 }

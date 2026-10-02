@@ -357,6 +357,8 @@ class StreamingEngine @Inject constructor(
     }
 
     companion object {
+        private const val ENCODER_PREPARATION_ERROR = "Failed to prepare audio/video"
+
         /**
          * Maximale Anzahl paralleler Stream-Ziele (MVP: primär + 1 sekundär).
          *
@@ -722,30 +724,10 @@ class StreamingEngine @Inject constructor(
         if (activeSourceKind.value != VideoSourceKind.CAMERA || _replayState.value is ReplayState.Recording) return false
         val standalone = !cam.isStreaming
         try {
-            if (standalone) {
-                stopIdlePreview()
-                val audioReady = !includeAudio || cam.prepareAudio()
-                encoderRotationDegrees = if (_encoderConfig.value == null) CameraHelper.getCameraOrientation(context) else 0
-                val videoReady = if (_encoderConfig.value == null) cam.prepareVideo() else applyEncoderPreset(cam)
-                if (!audioReady || !videoReady) {
-                    startIdlePreviewIfReady()
-                    return false
-                }
-            }
-            val controller = replayController?.takeIf { lastReplayIncludeAudio == includeAudio }
-                ?: ReplayController(
-                    storage = replayStorage(context),
-                    recorder = TrackControlledReplayRecorder(cam, includeAudio = includeAudio),
-                    _state = _replayState,
-                ).also {
-                    replayController = it
-                    lastReplayIncludeAudio = includeAudio
-                }
+            if (standalone && !prepareStandaloneRecording(cam, includeAudio)) return false
+            val controller = recordingController(cam, includeAudio)
             if (!controller.start(nowMillis)) {
-                if (standalone) {
-                    runCatching { cam.stopRecord() }
-                    startIdlePreviewIfReady()
-                }
+                restorePreviewAfterRecordingFailure(cam, standalone)
                 return false
             }
             applyPrivacyZones(desiredPrivacyZones.value)
@@ -754,13 +736,37 @@ class StreamingEngine @Inject constructor(
             return true
         } catch (error: Exception) {
             Timber.e(error, "Could not start local recording")
-            if (standalone) {
-                runCatching { cam.stopRecord() }
-                _replayState.value = ReplayState.Idle
-                startIdlePreviewIfReady()
-            }
+            restorePreviewAfterRecordingFailure(cam, standalone)
             return false
         }
+    }
+
+    private fun prepareStandaloneRecording(cam: MultiCamera2, includeAudio: Boolean): Boolean {
+        stopIdlePreview()
+        val audioReady = !includeAudio || cam.prepareAudio()
+        encoderRotationDegrees = if (_encoderConfig.value == null) CameraHelper.getCameraOrientation(context) else 0
+        val videoReady = if (_encoderConfig.value == null) cam.prepareVideo() else applyEncoderPreset(cam)
+        if (audioReady && videoReady) return true
+        startIdlePreviewIfReady()
+        return false
+    }
+
+    private fun recordingController(cam: MultiCamera2, includeAudio: Boolean): ReplayController =
+        replayController?.takeIf { lastReplayIncludeAudio == includeAudio }
+            ?: ReplayController(
+                storage = replayStorage(context),
+                recorder = TrackControlledReplayRecorder(cam, includeAudio = includeAudio),
+                _state = _replayState,
+            ).also {
+                replayController = it
+                lastReplayIncludeAudio = includeAudio
+            }
+
+    private fun restorePreviewAfterRecordingFailure(cam: MultiCamera2, standalone: Boolean) {
+        if (!standalone) return
+        runCatching { cam.stopRecord() }
+        _replayState.value = ReplayState.Idle
+        startIdlePreviewIfReady()
     }
 
     /** Stoppt die lokale Replay-Aufnahme und gibt die Datei zurück. */
@@ -880,9 +886,9 @@ class StreamingEngine @Inject constructor(
                 override fun onCameraOpened() {
                     if (idlePreviewCamera === preview) restoreCameraControls()
                 }
-                override fun onCameraChanged(facing: CameraHelper.Facing) {}
+                override fun onCameraChanged(facing: CameraHelper.Facing) = Unit
                 override fun onCameraError(error: String) { Timber.e("Idle camera: %s", error) }
-                override fun onCameraDisconnected() {}
+                override fun onCameraDisconnected() = Unit
             })
             preview.prepareCamera(gl.surfaceTexture, 1280, 720, 30)
             val cameraId = camera?.currentCameraId
@@ -943,69 +949,37 @@ class StreamingEngine @Inject constructor(
             return
         }
 
-        // S2: Screen-Capture-Pfad — die aktive Quelle ist nicht die Kamera.
-        if (activeSourceKind.value == VideoSourceKind.SCREEN_CAPTURE) {
-            val source = screenCaptureSource ?: return
-            if (source.isActive) return
-
-            _targetStates.value = activeUrls.map { StreamTargetState(it) }
-            _streamingState.value = StreamingState.Preparing
-
-            if (source.start()) {
-                // P1: Anonymisierung — persistierter Soll-Zustand ab dem
-                // ersten Frame (jetzt läuft die GL-Pipeline).
-                applyPrivacyZones(desiredPrivacyZones.value)
-                activeUrls.forEachIndexed { index, url ->
-                    source.startStream(index, url)
-                }
-            } else {
-                failStream("Failed to prepare audio/video")
+        when (activeSourceKind.value) {
+            VideoSourceKind.SCREEN_CAPTURE -> screenCaptureSource?.let { source ->
+                startSourceStream(source, activeUrls, source::startStream)
             }
+            VideoSourceKind.VIDEO_PLAYER -> videoPlayerSource?.let { source ->
+                startSourceStream(source, activeUrls, source::startStream)
+            }
+            VideoSourceKind.REPLAY -> replaySource?.let { source ->
+                startSourceStream(source, activeUrls, source::startStream)
+            }
+            VideoSourceKind.CAMERA -> startCameraStream(activeUrls)
+        }
+    }
+
+    private fun startSourceStream(
+        source: com.vivid.feature.streaming.source.VideoSource?,
+        urls: List<String>,
+        startTarget: (Int, String) -> Unit,
+    ) {
+        if (source == null || source.isActive) return
+        _targetStates.value = urls.map { StreamTargetState(it) }
+        _streamingState.value = StreamingState.Preparing
+        if (!source.start()) {
+            failStream(ENCODER_PREPARATION_ERROR)
             return
         }
+        applyPrivacyZones(desiredPrivacyZones.value)
+        urls.forEachIndexed(startTarget)
+    }
 
-        // S3: Video-Player-Pfad — die aktive Quelle ist nicht die Kamera.
-        if (activeSourceKind.value == VideoSourceKind.VIDEO_PLAYER) {
-            val source = videoPlayerSource ?: return
-            if (source.isActive) return
-
-            _targetStates.value = activeUrls.map { StreamTargetState(it) }
-            _streamingState.value = StreamingState.Preparing
-
-            if (source.start()) {
-                // P1: Anonymisierung — persistierter Soll-Zustand ab dem
-                // ersten Frame (jetzt läuft die GL-Pipeline).
-                applyPrivacyZones(desiredPrivacyZones.value)
-                activeUrls.forEachIndexed { index, url ->
-                    source.startStream(index, url)
-                }
-            } else {
-                failStream("Failed to prepare audio/video")
-            }
-            return
-        }
-
-        // Replay-als-Quelle-Pfad — aktive Quelle ist eine Replay-Datei (Loop).
-        if (activeSourceKind.value == VideoSourceKind.REPLAY) {
-            val source = replaySource ?: return
-            if (source.isActive) return
-
-            _targetStates.value = activeUrls.map { StreamTargetState(it) }
-            _streamingState.value = StreamingState.Preparing
-
-            if (source.start()) {
-                // P1: Anonymisierung — persistierter Soll-Zustand ab dem
-                // ersten Frame (jetzt läuft die GL-Pipeline).
-                applyPrivacyZones(desiredPrivacyZones.value)
-                activeUrls.forEachIndexed { index, url ->
-                    source.startStream(index, url)
-                }
-            } else {
-                failStream("Failed to prepare audio/video")
-            }
-            return
-        }
-
+    private fun startCameraStream(activeUrls: List<String>) {
         // Kamera-Pfad (unverändert).
         val cam = camera ?: return
         if (cam.isStreaming) return
@@ -1014,8 +988,26 @@ class StreamingEngine @Inject constructor(
         _targetStates.value = activeUrls.map { StreamTargetState(it) }
         _streamingState.value = StreamingState.Preparing
 
-        // Adaptive Bitrate (v0.6.0): Controller auf die Preset-Bitrate
-        // des Streams zurücksetzen (max = Preset, min = 1 Mbit/s).
+        resetAdaptiveBitrate()
+        if (prepareStreamEncoders(cam)) {
+            // P1: Anonymisierung — persistierter Soll-Zustand ab dem ersten
+            // Frame (Composer-Zustand überlebt stopStream bewusst).
+            applyPrivacyZones(desiredPrivacyZones.value)
+            activeUrls.forEachIndexed { index, url ->
+                cam.startStream(MultiType.RTMP, index, url)
+            }
+            // RootEncoder opens Camera2 during startStream; attach after that transition.
+            attachPreviewIfRunning()
+            restoreCameraControls()
+        } else {
+            failStream(ENCODER_PREPARATION_ERROR)
+            // Best-effort Rückkehr zur Vorschau; bei Kamera-Konkurrenz kann auch
+            // dieser Versuch scheitern und wird in startIdlePreviewIfReady geloggt.
+            startIdlePreviewIfReady()
+        }
+    }
+
+    private fun resetAdaptiveBitrate() {
         if (_adaptiveBitrateEnabled.value) {
             val presetKbps = _encoderConfig.value?.preset?.videoBitrateKbps
                 ?: DEFAULT_VIDEO_BITRATE_KBPS
@@ -1030,6 +1022,9 @@ class StreamingEngine @Inject constructor(
             adaptiveController = null
         }
 
+    }
+
+    private fun prepareStreamEncoders(cam: MultiCamera2): Boolean {
         // An ongoing local recording already owns the running encoders.
         val recording = cam.isRecording
         if (!recording) {
@@ -1045,22 +1040,7 @@ class StreamingEngine @Inject constructor(
             // Preset-Pfad: applyEncoderPreset ruft prepareVideo(width, …) selbst.
             applyEncoderPreset(cam)
         }
-        if (audioReady && videoReady) {
-            // P1: Anonymisierung — persistierter Soll-Zustand ab dem ersten
-            // Frame (Composer-Zustand überlebt stopStream bewusst).
-            applyPrivacyZones(desiredPrivacyZones.value)
-            activeUrls.forEachIndexed { index, url ->
-                cam.startStream(MultiType.RTMP, index, url)
-            }
-            // RootEncoder opens Camera2 during startStream; attach after that transition.
-            attachPreviewIfRunning()
-            restoreCameraControls()
-        } else {
-            failStream("Failed to prepare audio/video")
-            // Best-effort Rückkehr zur Vorschau; bei Kamera-Konkurrenz kann auch
-            // dieser Versuch scheitern und wird in startIdlePreviewIfReady geloggt.
-            startIdlePreviewIfReady()
-        }
+        return audioReady && videoReady
     }
 
     /**
