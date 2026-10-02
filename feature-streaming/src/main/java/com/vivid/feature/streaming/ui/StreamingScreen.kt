@@ -1035,10 +1035,8 @@ private fun rememberVideoPickerAction(streamingEngine: StreamingEngine): () -> U
     val videoPickerLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.GetContent(),
     ) { uri: Uri? ->
-        if (uri != null) {
-            if (streamingEngine.setVideoPlayerUri(uri)) {
-                streamingEngine.switchSource(VideoSourceKind.VIDEO_PLAYER)
-            }
+        if (uri != null && streamingEngine.setVideoPlayerUri(uri)) {
+            streamingEngine.switchSource(VideoSourceKind.VIDEO_PLAYER)
         }
     }
 
