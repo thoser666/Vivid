@@ -9,6 +9,16 @@ Alle Änderungen an Vivid — **automatisch aus den GitHub-Releases gespiegelt**
 - 🎯 Feature-Tracking: [PARITY.md](PARITY.md)
 
 <!-- CHANGELOG-START -->
+## 🟡 **Beta** v0.5.20-beta — 2026-10-02
+
+[GitHub-Release](https://github.com/thoser666/Vivid/releases/tag/v0.5.20-beta)
+
+## What's Changed
+* docs: Update CHANGELOG from GitHub releases by @thoser666 in https://github.com/thoser666/Vivid/pull/254
+
+
+**Full Changelog**: https://github.com/thoser666/Vivid/compare/nightly-20261002-043021...v0.5.20-beta
+
 ## 🌙 **Nightly** 0.5.20-nightly.511 — 2026-10-02
 
 [GitHub-Release](https://github.com/thoser666/Vivid/releases/tag/nightly-20261002-043021)
