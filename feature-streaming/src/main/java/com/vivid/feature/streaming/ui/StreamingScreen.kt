@@ -151,15 +151,7 @@ fun StreamingScreen(
     }
     val twitchState by twitchViewModel.uiState.collectAsStateWithLifecycle()
 
-    // Viewerzahl während eines laufenden Twitch-Streams periodisch aktualisieren.
-    LaunchedEffect(streamingState is StreamingState.Streaming) {
-        if (streamingState is StreamingState.Streaming) {
-            while (true) {
-                twitchViewModel.refresh()
-                kotlinx.coroutines.delay(TWITCH_REFRESH_INTERVAL_MS)
-            }
-        }
-    }
+    RefreshTwitchStatus(streamingState, twitchViewModel)
 
     // Szenen (Basic Scenes) + Auto-Scene-Switcher: Liste, aktive Szene,
     // Auto-Wechsel-Zustand — aus SceneRepository/AutoSceneSwitcher.
@@ -201,54 +193,11 @@ fun StreamingScreen(
         }
     }
 
-    // S2: Screen-Capture (MediaProjection) — Consent-Dialog und Quellen-Wechsel.
-    // Der System-Dialog „Bildschirm übertragen" wird per Activity-Result gestartet;
-    // das Ergebnis (RESULT_OK + Daten) geht an die Screen-Capture-Quelle der Engine.
-    val screenCaptureLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.StartActivityForResult(),
-    ) { result ->
-        val granted = streamingEngine.onScreenCaptureConsentResult(result.resultCode, result.data)
-        if (!granted) {
-            // Consent verweigert → zurück zur Kamera; die Quelle bleibt für einen
-            // erneuten Versuch erzeugt (Consent wird beim nächsten Toggle neu angefragt).
-            streamingEngine.switchSource(VideoSourceKind.CAMERA)
-        }
-    }
+    val requestScreenCapture = rememberScreenCaptureAction(streamingEngine)
 
-    fun requestScreenCapture() {
-        if (streamingEngine.switchSource(VideoSourceKind.SCREEN_CAPTURE)) {
-            streamingEngine.createScreenCaptureConsentIntent()?.let {
-                screenCaptureLauncher.launch(it)
-            }
-        }
-    }
+    val requestVideoPicker = rememberVideoPickerAction(streamingEngine)
 
-    // S3: Video-Player (Datei) — der SAF-Picker liefert die Content-Uri, die an
-    // die Video-Player-Quelle der Engine geht. Der Wechsel auf die Quelle passiert
-    // erst nach erfolgreicher Auswahl, damit keine leere Quelle aktiv wird.
-    val videoPickerLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.GetContent(),
-    ) { uri: Uri? ->
-        if (uri != null) {
-            if (streamingEngine.setVideoPlayerUri(uri)) {
-                streamingEngine.switchSource(VideoSourceKind.VIDEO_PLAYER)
-            }
-        }
-    }
-
-    // Re-validiert die Konfiguration, sobald der Screen wieder sichtbar wird
-    // (z. B. nach der Rückkehr aus den Einstellungen).
-    val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
-                viewModel.runConfigCheck()
-                streamingEngine.startIdlePreviewIfReady()
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-    }
+    RefreshStreamingScreenOnResume(viewModel, streamingEngine)
 
     var scenesExpanded by rememberSaveable { mutableStateOf(false) }
 
@@ -310,7 +259,7 @@ fun StreamingScreen(
             val density = LocalDensity.current
             val previewSize = with(density) { IntSize(maxWidth.roundToPx(), maxHeight.roundToPx()) }
             StreamingSourcePreview(streamingEngine, activeSourceKind, previewSize, displayRotationDegrees) {
-                videoPickerLauncher.launch("video/*")
+                requestVideoPicker()
             }
 
             StreamStartButton(streamingState, onStop = viewModel::stopStream) {
@@ -375,8 +324,8 @@ fun StreamingScreen(
             StreamingControlsMenu(
                 streamingEngine, navController, topButtonMaxWidth,
                 onRecord = requestPermissionsAndRecord,
-                onScreenCapture = ::requestScreenCapture,
-                onVideoPicker = { videoPickerLauncher.launch("video/*") },
+                onScreenCapture = requestScreenCapture,
+                onVideoPicker = { requestVideoPicker() },
             )
             FilledIconButton(
                 onClick = { navController.navigate("settings_route") },
@@ -1035,6 +984,83 @@ private fun StreamConfigurationFeedback(
             onAttemptConsumed()
         }
     }
+}
+
+@Composable
+private fun RefreshTwitchStatus(streamingState: StreamingState, twitchViewModel: TwitchChannelViewModel) {
+    // Viewerzahl während eines laufenden Twitch-Streams periodisch aktualisieren.
+    LaunchedEffect(streamingState is StreamingState.Streaming) {
+        if (streamingState is StreamingState.Streaming) {
+            while (true) {
+                twitchViewModel.refresh()
+                kotlinx.coroutines.delay(TWITCH_REFRESH_INTERVAL_MS)
+            }
+        }
+    }
+
+}
+
+@Composable
+private fun rememberScreenCaptureAction(streamingEngine: StreamingEngine): () -> Unit {
+    // S2: Screen-Capture (MediaProjection) — Consent-Dialog und Quellen-Wechsel.
+    // Der System-Dialog „Bildschirm übertragen" wird per Activity-Result gestartet;
+    // das Ergebnis (RESULT_OK + Daten) geht an die Screen-Capture-Quelle der Engine.
+    val screenCaptureLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) { result ->
+        val granted = streamingEngine.onScreenCaptureConsentResult(result.resultCode, result.data)
+        if (!granted) {
+            // Consent verweigert → zurück zur Kamera; die Quelle bleibt für einen
+            // erneuten Versuch erzeugt (Consent wird beim nächsten Toggle neu angefragt).
+            streamingEngine.switchSource(VideoSourceKind.CAMERA)
+        }
+    }
+
+    fun requestScreenCapture() {
+        if (streamingEngine.switchSource(VideoSourceKind.SCREEN_CAPTURE)) {
+            streamingEngine.createScreenCaptureConsentIntent()?.let {
+                screenCaptureLauncher.launch(it)
+            }
+        }
+    }
+
+    return ::requestScreenCapture
+}
+
+@Composable
+private fun rememberVideoPickerAction(streamingEngine: StreamingEngine): () -> Unit {
+    // S3: Video-Player (Datei) — der SAF-Picker liefert die Content-Uri, die an
+    // die Video-Player-Quelle der Engine geht. Der Wechsel auf die Quelle passiert
+    // erst nach erfolgreicher Auswahl, damit keine leere Quelle aktiv wird.
+    val videoPickerLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetContent(),
+    ) { uri: Uri? ->
+        if (uri != null) {
+            if (streamingEngine.setVideoPlayerUri(uri)) {
+                streamingEngine.switchSource(VideoSourceKind.VIDEO_PLAYER)
+            }
+        }
+    }
+
+    return { videoPickerLauncher.launch("video/*") }
+}
+
+@Composable
+private fun RefreshStreamingScreenOnResume(viewModel: StreamingViewModel, streamingEngine: StreamingEngine) {
+    // Re-validiert die Konfiguration, sobald der Screen wieder sichtbar wird
+    // (z. B. nach der Rückkehr aus den Einstellungen).
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.runConfigCheck()
+                streamingEngine.startIdlePreviewIfReady()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
 }
 
 /**
