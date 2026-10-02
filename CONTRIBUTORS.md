@@ -18,3 +18,4 @@ gemergt ist. Erlaubte Werte und Struktur sind in `CONTRIBUTING.md` dokumentiert.
 |--------|---------|----------|--------|
 | smka (Ilya K) | In-App-Sprachauswahl + russische Lokalisierung (Appearance-Einstellungen, `values-ru`) | #213 | umgesetzt |
 | smka (Ilya K) | Kamera-Vorschau wiederhergestellt + seitenverhältnistreu (Idle-Camera2-Preview vor dem Stream, Buffer/View auf unterstützte Ausgabe-Größen gematcht, Guards gegen Kamera-Konkurrenz) | #230 | umgesetzt |
+| smka (Ilya K) | Main-Screen refaktoriert (Controls-Menü statt überlappender App-Bar, Scenes im Bottom-Sheet) + Kamera-Controls an den offenen Camera2-Manager, lokale MP4-Aufnahme ohne Stream, Idle-Preview durch GL (Filter/LUT/Boost), LUT-Indexierung korrigiert + trilineare Interpolation | #253 | umgesetzt |
