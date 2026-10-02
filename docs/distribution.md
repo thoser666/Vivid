@@ -18,6 +18,21 @@ Das Stable-Release wird also **wöchentlich statt bei jedem Tag-Push** publizier
 sofortiges Release-Publishing mehr aus — GitHub-Cronjobs kann man nicht pro Quelle unterscheiden,
 deshalb gibt es pro Kadenz einen eigenen Workflow. Alles zusätzlich manuell per `workflow_dispatch` auslösbar.
 
+> ⚠️ **`release-pipeline.yml`: Dispatch ≠ Matrix-Verifikation.** Ein `workflow_dispatch`
+> ohne weitere Flags ist ein **publizierender** Lauf (Nightly-Release). `dry_run=true`
+> bremst ausschließlich den Play-Upload. Für eine reine Emulator-Matrix-Verifikation
+> zusätzlich `-f matrix_only=true` setzen — das unterdrückt `publish-release`,
+> `verify-reproducibility`, `publish-play` und `sweep-orphan-drafts`, lässt
+> `emulator-tests`, Selbsttests und `build-debug` aber laufen. Vorfall 02.10.2026:
+> Dispatch `36963108418` hat ohne diesen Input das Nightly `0.5.20-nightly.511`
+> veröffentlicht. Contract: T17 in `scripts/test_emulator_matrix.sh`.
+>
+> Der Input ist `type: boolean` — die Job-Guards vergleichen deshalb gegen das
+> Boolean-Literal `true` (`inputs.matrix_only != true`), **nicht** gegen den String
+> `'true'`. GitHub-Ausdrücke coercen nicht, ein String-Vergleich ist also still
+> wirkungslos und lässt den Guard-Job einfach durchlaufen. T17.4 sichert die
+> Kopplung zwischen deklariertem Typ und Vergleichsliteral ab.
+
 ## Stable-Distribution (`distribution-stable.yml`)
 
 **Zweck:** Neueste Version, Stand Montag 03:00 UTC, als „Latest“-Release veröffentlichen.
@@ -33,11 +48,37 @@ deshalb gibt es pro Kadenz einen eigenen Workflow. Alles zusätzlich manuell per
    Navigation + Play-Screenshots, jeweils in **beiden** Flavors) **gegen den
    Ziel-Tag** aus (der Job hat ihn bereits ausgecheckt). Schlägt der
    Emulator-Test fehl, wird **nicht** veröffentlicht. Derselbe Gate gilt im
-   `release-pipeline.yml`: `emulator-tests` (API-Staffelung seit
-   25.09.2026: ubuntu-x86_64 **API 34 + API 35 Pflicht**, API-37-Beobachter
-   + macos-arm64 experimentell) läuft jetzt auch bei `v*`-Tag-Pushen, nicht
-   mehr nur manuell. Selbsttest:
-   `scripts/test_emulator_matrix.sh` (T11/T12/T13/T14).
+`release-pipeline.yml`: `emulator-tests` (API-Staffelung seit
+    25.09.2026: ubuntu-x86_64 **API 34 + API 35 Pflicht**, API-36-Beobachter
+    + macos-arm64 experimentell — die Beobachter-Leg stand ursprünglich auf 37
+    und wurde am 02.10.2026 auf 36 gezogen, weil der Emulator-Runner
+    `platforms;android-37` im Stable-SDK-Kanal des Runners nicht provisionieren
+    kann: die Leg wäre dauerhaft rot **ohne Testaussage** gewesen) läuft jetzt
+    auch bei `v*`-Tag-Pushen, nicht mehr nur manuell. Selbsttest:
+   `scripts/test_emulator_matrix.sh` (T11/T12/T13/T14/T16).
+   **Grant-Setup im Gate (seit 01.10.2026, #249):** Beide Gate-Wege
+   (`release-pipeline.yml` Tag-Push und `distribution-stable.yml` Stable-Publish)
+   granten die Runtime-Permissions vor den `connected*`-Tasks über
+   `scripts/emulator_test_setup.sh` (installiert die Debug-APKs **beider**
+   Flavors zuerst — `adb shell pm grant` scheitert an nicht installierten
+   Packages, deshalb kann der Grant nicht in den connected-Task wandern).
+   **fail-loud:** Der `android-emulator-runner` führt sein `script:`-Snippet
+   **ohne** `set -e` aus — beide Workflows setzen deshalb explizit
+   `set -eu` als erste Zeile. Ohne das würde ein fehlgeschlagenes
+   Setup stillschweigend übersprungen und das Gate fiele mit der
+   irreführenden Fehlermeldung `No compose hierarchies found` durch, statt die
+   Ursache zu nennen (Vorfall 01.10.2026 — genau diese Verschleierung hat den
+   #249-Befund in der ersten Runde schwer diagnostizierbar gemacht).
+   **⚠️ POSIX-only, bewusst kein `pipefail`:** Der Runner ruft das Snippet über
+   `/usr/bin/sh -c` auf, und auf ubuntu ist `/usr/bin/sh` **dash**. `set -o
+   pipefail` bricht dort mit `Illegal option -o pipefail` und Exit-Code 2 ab —
+   der Job stirbt in Zeile 1 des Script-Blocks, `emulator_test_setup.sh` läuft
+   nie (Vorfall 02.10.2026, Dispatch-Run `36963108418`: alle drei ubuntu-Legs
+   rot **nach** erfolgreichem Emulator-Boot in 38 s). Die Blöcke enthalten
+   keine Pipes, `set -eu` genügt für fail-loud. Contract: T15.13/T15.14
+   (exakter Wortlaut), T15.17 (kein `pipefail` in ausführbaren Zeilen),
+   T15.18 (erste ausführbare Zeile real durch `/bin/sh` ausgeführt).
+   Selbsttest: `scripts/test_emulator_matrix.sh` (T15).
    **Retry-Härtung (seit 25.09.2026):** Der Gate-Step läuft über
    `scripts/emulator_gate_retry.sh` (BuildRetry-Hausmuster): transiente
    Fehlerklassen (Suite-Fehlschlag, Geräteverlust, Boot-Fehler,

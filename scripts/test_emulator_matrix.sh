@@ -22,7 +22,13 @@
 #   T10 Emulator-Action bleibt SHA-gepinnt
 #   T11 Job läuft bei workflow_dispatch ODER v*-Tag-Push (Release-Gate, 24.09.2026)
 #   T12 release-pipeline.yml bleibt valides YAML + 4-Legs-API-Staffelung
-#       (34/35 Pflicht, 37 experimentell — SDK-Abdeckungs-Analyse 25.09.2026)
+#       (34/35 Pflicht, 36 experimentell — SDK-Abdeckungs-Analyse 25.09.2026,
+#        Beobachter-Leg 01.10.2026 von 37 auf 36 gezogen, #249: `platforms;
+#        android-37` existiert im Stable-SDK-Kanal des Runners nicht)
+#   T16 Emulator-Gate darf KEINen API-Level referenzieren, den der Stable-SDK-
+#       Kanal des Runners nicht kennt — der android-emulator-runner bricht
+#       sonst im Provisionierungs-Step ab ("Failed to find package") und die
+#       Leg ist dauerhaft tot (blinder Rot-Status ohne Testaussage).
 #   T13 Stable-Distribution: Emulator-Gate vor dem Publish-Step verdrahtet
 #   T14 Emulator-Tests decken BEIDE Flavors ab (standard + foss)
 #   T15 #249 Emulator-Grant-Setup: Runtime-Permissions werden VOR den
@@ -123,23 +129,65 @@ check "T13.2 Gate-Step hängt am TAG-Guard (env.TAG != '')" \
 check "T13.3 Gate läuft VOR dem Publish-Step" bash -c 'grep -n "Run instrumented tests on emulator (release gate)" "$DIST" | cut -d: -f1 | head -1 | xargs -I{} test {} -lt $(grep -n "Build and publish stable release" "$DIST" | cut -d: -f1)'
 check "T13.4 Gate nutzt denselben SHA-gepinnten Emulator-Runner" \
   grep -q "ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d" "$DIST"
+# Der Gate-Script-Block wird per YAML geparst statt per `grep -A35` aus dem
+# Rohtext gefischt: eine Zeilenzahl-Fenster-Suche bricht still, sobald Kommentare
+# im Script-Block wachsen (Vorfall 02.10.2026 — der `set -euo pipefail`-Block
+# verschob connectedStandardDebugAndroidTest aus dem -A35-Fenster und ließ
+# T13.5/T13.6/T14.3 ohne Änderung der Gate-Logik rot werden).
+gate_script() {
+  python3 -c "
+import yaml, io
+with io.open('$DIST', encoding='utf-8') as f:
+    d = yaml.safe_load(f)
+steps = d['jobs']['publish-stable']['steps']
+gate = [s for s in steps if s.get('name') == 'Run instrumented tests on emulator (release gate)']
+assert len(gate) == 1, gate
+print(gate[0]['with']['script'])
+"
+}
+# PYTHONIOENCODING=utf-8: die Gate-Skript-Ausgabe enthält Emojis und Umlaute
+# (⚠️, ✅). Auf Windows läuft Python sonst mit cp1252 und bricht beim print mit
+# UnicodeEncodeError ab — GATE_SCRIPT bliebe leer und T13.5/T13.6/T14.3/T15.16
+# würden lokal rot, obwohl der Workflow korrekt ist (grüner CI-Lauf, roter
+# Entwicklerrechner). Der env-Prefix ist unter Linux ein No-op.
+#
+# `|| true`: das Skript läuft mit `set -euo pipefail` — ein YAML-Parse-Fehler
+# würde die Auswertung kommentarlos abbrechen und alle Checks als "nicht
+# fehlgeschlagen" erscheinen lassen (stiller Grüner). Der leere Wert macht die
+# betroffenen Checks stattdessen rot.
+GATE_SCRIPT=$(PYTHONIOENCODING=utf-8 gate_script || true)
+
 check "T13.5 Gate-Step testet flavor-explicit" \
-  bash -c 'grep -A35 "Run instrumented tests on emulator (release gate)" "$DIST" | grep -q "connectedStandardDebugAndroidTest"'
+  grep -q "connectedStandardDebugAndroidTest" <<<"$GATE_SCRIPT"
 check "T13.6 Gate-Task läuft über Retry-Wrapper (BuildRetry-Hausmuster)" \
-  bash -c 'grep -A35 "Run instrumented tests on emulator (release gate)" "$DIST" | grep -q "scripts/emulator_gate_retry.sh"'
+  grep -q "scripts/emulator_gate_retry.sh" <<<"$GATE_SCRIPT"
 
 echo "== T14: Beide Flavors im Emulator-Gate =="
 # Kein end-Anker: der Step-Name steht im Arbeitsbaum (Windows/Git-for-Windows)
 # ggf. mit CRLF-Zeilenende — ein hartes $ würde dann nie matchen (T14.1/T14.2
 # wären je nach Zeilenende inkonsistent). In release-pipeline.yml gibt es genau
 # einen Step mit diesem Namen → Ankerlos reicht.
-EMU_JOB=$(grep -A30 'name: Run instrumented tests on emulator' "$WORKFLOW" || true)
+# Der Block wird über den Step-Namen extrahiert, NICHT über ein festes
+# grep-A-Fenster: die Begruendungs-Kommentare im Script-Block wachsen mit
+# jedem Vorfall, und ein Fenster wie `-A30` rutscht dann stillschweigend aus
+# dem connected-Task heraus — der Check wird rot, obwohl der Workflow korrekt
+# ist (das war die Ursache des lokalen Rot bei T14.1/T14.2 nach der
+# POSIX-Haertung: der Block ist laenger geworden, nicht falsch).
+EMU_JOB=$(PYTHONIOENCODING=utf-8 python3 -c "
+import yaml, io
+with io.open('$WORKFLOW', encoding='utf-8') as f:
+    d = yaml.safe_load(f)
+steps = d['jobs']['emulator-tests']['steps']
+emu = [s for s in steps if 'Run instrumented tests on emulator' in str(s.get('name',''))]
+assert len(emu) == 1, emu
+print(emu[0]['with']['script'])
+" || true)
 check "T14.1 release-pipeline emulator-tests deckt standard ab" \
   grep -q "connectedStandardDebugAndroidTest" <<<"$EMU_JOB"
 check "T14.2 release-pipeline emulator-tests deckt foss ab" \
   grep -q "connectedFossDebugAndroidTest" <<<"$EMU_JOB"
 check "T14.3 distribution-stable Gate deckt foss ab" \
-  bash -c 'grep -A35 "Run instrumented tests on emulator (release gate)" "$DIST" | grep -q "connectedFossDebugAndroidTest"'
+  grep -q "connectedFossDebugAndroidTest" <<<"$GATE_SCRIPT"
 
 echo "== T15: #249 Emulator-Grant-Setup (Runtime-Permissions für UI-Tests) =="
 # Vorfall Tag-Run 36849526447: Der CAMERA-Auto-Request des Streaming-Screens
@@ -165,6 +213,162 @@ check "T15.11 distribution-stable: Grant-Setup vor dem Retry-Wrapper" \
   bash -c 'grep -n "emulator_test_setup.sh 34" .github/workflows/distribution-stable.yml | cut -d: -f1 | head -1 | xargs -I{} test {} -lt $(grep -n "emulator_gate_retry.sh" .github/workflows/distribution-stable.yml | cut -d: -f1 | head -1)'
 check "T15.12 distribution-stable: Assemble-Step vor dem Gate-Step" \
   bash -c 'grep -n "Build debug APKs for emulator gate" .github/workflows/distribution-stable.yml | cut -d: -f1 | head -1 | xargs -I{} test {} -lt $(grep -n "Run instrumented tests on emulator (release gate)" .github/workflows/distribution-stable.yml | cut -d: -f1 | head -1)'
+# fail-loud im Emulator-Script-Block: der android-emulator-runner führt das
+# script-Snippet OHNE `set -e` aus. Ohne die Zeile wird ein fehlgeschlagenes
+# Setup-Skript stillschweigend übersprungen — das Gate testet dann ohne Grants
+# und fällt mit "No compose hierarchies found" durch, also als Testfehler
+# getarnt. Genau diese Verschleierung machte #249 in der ersten Runde schwer
+# diagnostizierbar.
+#
+# ⚠️ `set -eu`, NICHT `set -euo pipefail`: das Snippet läuft über
+# `/usr/bin/sh -c`, und auf ubuntu ist /usr/bin/sh dash. `set -o pipefail`
+# bricht dort mit "Illegal option -o pipefail" ab — der Job starb dann in
+# Zeile 1 des Script-Blocks und `emulator_test_setup.sh` lief nie
+# (Vorfall 02.10.2026, Release-Dispatch 36963108418: alle drei
+# ubuntu-Legs rot nach 38 s erfolgreichem Boot).
+check "T15.13 release-pipeline Gate-Script: set -eu im Script-Block" python3 -c "
+import yaml, io
+with io.open('.github/workflows/release-pipeline.yml', encoding='utf-8') as f:
+    d = yaml.safe_load(f)
+steps = d['jobs']['emulator-tests']['steps']
+emu = [s for s in steps if str(s.get('uses','')).startswith('ReactiveCircus/android-emulator-runner')]
+assert len(emu) == 1, emu
+lines = [l for l in emu[0]['with']['script'].strip().splitlines() if l.strip() and not l.strip().startswith('#')]
+assert lines[0].strip() == 'set -eu', lines[0]
+"
+check "T15.14 distribution-stable Gate-Script: set -eu im Script-Block" python3 -c "
+import yaml, io
+with io.open('.github/workflows/distribution-stable.yml', encoding='utf-8') as f:
+    d = yaml.safe_load(f)
+steps = d['jobs']['publish-stable']['steps']
+gate = [s for s in steps if str(s.get('uses','')).startswith('ReactiveCircus/android-emulator-runner')]
+assert len(gate) == 1, gate
+lines = [l for l in gate[0]['with']['script'].strip().splitlines() if l.strip() and not l.strip().startswith('#')]
+assert lines[0].strip() == 'set -eu', lines[0]
+"
+check "T15.15 Setup-Skript läuft VOR dem Retry-Wrapper (Setupfehler nicht als Retry)" \
+  bash -c 'grep -n "emulator_test_setup.sh" .github/workflows/distribution-stable.yml | cut -d: -f1 | head -1 | xargs -I{} test {} -lt $(grep -n "emulator_gate_retry.sh" .github/workflows/distribution-stable.yml | cut -d: -f1 | head -1)'
+check "T15.16 Begruendung fuer set -e im Script-Block dokumentiert" \
+  grep -q "fail-loud" <<<"$GATE_SCRIPT"
+# Regression (Vorfall 02.10.2026, Dispatch-Run 36963108418): das Snippet laeuft
+# ueber `/usr/bin/sh -c`. Auf ubuntu ist /usr/bin/sh dash, und dash kennt
+# `set -o pipefail` nicht -> "Illegal option", exit 2, Gate startet nie.
+check "T15.17 Gate-Script-Block ist POSIX-sh-kompatibel (kein pipefail)" python3 -c "
+import yaml, io
+for path, job in (('.github/workflows/release-pipeline.yml', 'emulator-tests'),
+                  ('.github/workflows/distribution-stable.yml', 'publish-stable')):
+    with io.open(path, encoding='utf-8') as f:
+        d = yaml.safe_load(f)
+    steps = d['jobs'][job]['steps']
+    runner = [s for s in steps if str(s.get('uses','')).startswith('ReactiveCircus/android-emulator-runner')]
+    assert len(runner) == 1, (path, runner)
+    # Nur AUSFUEHRBARE Zeilen pruefen — die Begruendung im Kommentar erwaehnt
+    # 'pipefail' absichtlich, um die Falle zu dokumentieren.
+    code = [l for l in runner[0]['with']['script'].splitlines()
+            if l.strip() and not l.strip().startswith('#')]
+    bad = [l for l in code if 'pipefail' in l]
+    assert not bad, (path, 'pipefail ist dash-incompatibel: %r' % bad)
+"
+# Haeufigster Folgefehler eines Shellsnippets: eine fail-loud-Zeile, die unter
+# /bin/sh gar nicht erst erreicht wird. Das hier fuehrt die ERSTE ausfuehrbare
+# Zeile beider Bloecke real durch eine POSIX-shell und beweist, dass sie
+# Exit-Code 0 liefert (bei pipefail: 2).
+check "T15.18 Erste ausfuehrbare Zeile der Gate-Bloecke laeuft unter /bin/sh" bash -c '
+set -euo pipefail
+tmp=$(mktemp -d)
+trap "rm -rf $tmp" EXIT
+python3 - "$tmp" <<PY
+import yaml, io, sys, os
+out = sys.argv[1]
+specs = [(".github/workflows/release-pipeline.yml", "emulator-tests"),
+         (".github/workflows/distribution-stable.yml", "publish-stable")]
+for i, (path, job) in enumerate(specs):
+    with io.open(path, encoding="utf-8") as f:
+        d = yaml.safe_load(f)
+    steps = d["jobs"][job]["steps"]
+    runner = [s for s in steps if str(s.get("uses","")).startswith("ReactiveCircus/android-emulator-runner")]
+    body = runner[0]["with"]["script"].strip().splitlines()
+    first = [l for l in body if l.strip() and not l.strip().startswith("#")][0]
+    with io.open(os.path.join(out, str(i)), "w", encoding="utf-8") as fh:
+        fh.write(first + "\n")
+PY
+for f in "$tmp"/*; do
+  if ! /bin/sh "$f"; then
+    echo "  /bin/sh lehnt die Zeile in $f ab:" >&2
+    cat "$f" >&2
+    exit 1
+  fi
+done
+'
+
+echo "== T17: matrix_only — Matrix-Verifikation ohne Publizieren =="
+# Vorfall 02.10.2026: der erste echte Matrix-Dispatch auf develop hat nebenbei
+# das Nightly-Release 0.5.20-nightly.511 veroeffentlicht. `matrix_only` macht
+# die Verifikation end-to-end read-only.
+#
+# ZWEITER Vorfall im selben Zug: der erste matrix_only-Dispatch hat die Guard-
+# Jobs trotzdem laufen lassen. Ursache war ein Typ-Mismatch, kein Logikfehler:
+# der Input ist `type: boolean`, die Bedingung verglich aber gegen den String
+# `'true'`. In GitHub-Ausdruecken ist `true != 'true'` immer wahr (Boolean vs.
+# String werden nie coerced), der Guard konnte also gar nicht greifen. Die
+# Selbsttests haben das nicht nur nicht gefangen, sondern mit
+# `assert "!= 'true'" in cond` aktiv erzwungen — ein Test, der den Bug festschreibt.
+# T17.4 haelt jetzt Typ und Vergleichsliteral zusammen.
+check "T17.1 matrix_only ist ein workflow_dispatch-Input (boolean, default false)" python3 -c "
+import yaml, io
+with io.open('.github/workflows/release-pipeline.yml', encoding='utf-8') as f:
+    d = yaml.safe_load(f)
+inp = d[True]['workflow_dispatch']['inputs']
+assert 'matrix_only' in inp, sorted(inp)
+spec = inp['matrix_only']
+assert spec.get('type') == 'boolean', spec
+assert str(spec['default']).lower() == 'false', spec
+"
+check "T17.2 jeder Publizier-Job respektiert matrix_only" python3 -c "
+import yaml, io
+with io.open('.github/workflows/release-pipeline.yml', encoding='utf-8') as f:
+    d = yaml.safe_load(f)
+jobs = d['jobs']
+# Jobs, die etwas veroeffentlichen oder den Repo-Zustand aendern.
+mutating = ['publish-release', 'publish-play', 'verify-reproducibility', 'sweep-orphan-drafts']
+for name in mutating:
+    cond = str(jobs[name].get('if', ''))
+    assert 'matrix_only' in cond, (name, cond)
+    assert 'inputs.matrix_only != true' in cond, (name, cond)
+"
+check "T17.3 Matrix laeuft auch ohne matrix_only (Default: normale Nightly-Publikation bleibt)" python3 -c "
+import yaml, io
+with io.open('.github/workflows/release-pipeline.yml', encoding='utf-8') as f:
+    d = yaml.safe_load(f)
+cond = str(d['jobs']['emulator-tests']['if'])
+assert \"github.event_name == 'workflow_dispatch'\" in cond, cond
+assert 'matrix_only' not in cond, cond
+"
+# Regression auf den konkreten Vorfall: bei `type: boolean` MUSS der Vergleich
+# gegen das Boolean-Literal gehen. Gegen den String verglichen ist der Guard
+# wirkungslos, ohne dass YAML oder GitHub einen Fehler melden.
+check "T17.4 Vergleichsliteral passt zum deklarierten Input-Typ" python3 -c "
+import yaml, io
+with io.open('.github/workflows/release-pipeline.yml', encoding='utf-8') as f:
+    d = yaml.safe_load(f)
+jobs = d['jobs']
+inp = d[True]['workflow_dispatch']['inputs']
+literal = {'boolean': 'inputs.matrix_only != true', 'string': \"inputs.matrix_only != 'true'\"}
+# Nur Inputs, die in mindestens einer Job-Bedingung vorkommen.
+seen = False
+for name, spec in inp.items():
+    t = spec.get('type', 'string')
+    want = literal.get(t)
+    assert want, (name, t)
+    for jname, job in jobs.items():
+        cond = str(job.get('if', ''))
+        if 'inputs.' + name not in cond:
+            continue
+        seen = True
+        assert want in cond, (jname, name, t, cond)
+assert seen, 'kein Job Bedingung referenziert matrix_only'
+print('Typ-Literal-Kopplung konsistent')
+"
 
 echo "== T12: Workflow-YAML valide + API-Staffelung =="
 check "T12.1 release-pipeline.yml parst als YAML" python3 -c "
@@ -175,20 +379,62 @@ j = d['jobs']['emulator-tests']
 inc = j['strategy']['matrix']['include']
 assert len(inc) == 4, inc
 names = {i['name'] for i in inc}
-assert names == {'ubuntu-x86_64-api34', 'ubuntu-x86_64-api35', 'ubuntu-x86_64-api37', 'macos-arm64'}, names
+assert names == {'ubuntu-x86_64-api34', 'ubuntu-x86_64-api35', 'ubuntu-x86_64-api36', 'macos-arm64'}, names
 by = {i['name']: i for i in inc}
 # Pflicht-Legs: API 34 (FGS-Regression) + API 35 (Edge-to-Edge) — roter Tag-Run = kein Release
 assert by['ubuntu-x86_64-api34']['experimental'] is False, by['ubuntu-x86_64-api34']
 assert by['ubuntu-x86_64-api35']['experimental'] is False, by['ubuntu-x86_64-api35']
 assert by['ubuntu-x86_64-api34']['api-level'] == 34 and by['ubuntu-x86_64-api35']['api-level'] == 35
-# Beobachter-Legs (continue-on-error): API 37 (Android-17-Verhalten) + macos-arm64
-assert by['ubuntu-x86_64-api37']['experimental'] is True and by['ubuntu-x86_64-api37']['api-level'] == 37
+# Beobachter-Legs (continue-on-error): API 36 (neueste stabile Plattform) + macos-arm64
+assert by['ubuntu-x86_64-api36']['experimental'] is True and by['ubuntu-x86_64-api36']['api-level'] == 36
 assert by['macos-arm64']['experimental'] is True
 "
 check "T12.2 api-level kommt aus der Matrix (nicht hartkodiert)" \
   grep -q 'api-level: \${{ matrix.api-level }}' .github/workflows/release-pipeline.yml
 check "T12.3 Stable-Publish-Gate bleibt bewusst auf API 34" \
   bash -c 'grep -A8 "Run instrumented tests on emulator (release gate)" .github/workflows/distribution-stable.yml | grep -q "api-level: 34"'
+
+echo "== T16: Provisionierbare API-Level (Vorbedingung des Emulator-Runners) =="
+# Vorfall #249 (Run 36849526447): Die Beobachter-Leg api37 referenzierte ein
+# Plattform-Paket, das der Stable-SDK-Kanal des GitHub-Runners NICHT führt:
+#   sdkmanager --install 'build-tools;37.0.0' platform-tools 'platforms;android-37'
+#   Warning: Failed to find package 'platforms;android-37'
+# Der android-emulator-runner bricht daraufhin im Provisionierungs-Step ab
+# ("Terminate Emulator") — die Leg war dauerhaft tot und lieferte dauerhaft
+# Rot ohne jede Testaussage (continue-on-error maskiert es als "nur Beobachter").
+#
+# Der Contract, den T16 festschreibt: API-Level im Emulator-Gate MUSS im
+# Stable-SDK-Kanal verfügbar sein. compileSdk/targetSdk (37) sind davon nicht
+# betroffen — Kompilieren und Emulator-Provisionierung sind verschiedene Dinge.
+check "T16.1 Matrix-Level liegen im provisionierbaren Bereich (<= 36)" python3 -c "
+import yaml, io
+with io.open('.github/workflows/release-pipeline.yml', encoding='utf-8') as f:
+    d = yaml.safe_load(f)
+inc = d['jobs']['emulator-tests']['strategy']['matrix']['include']
+levels = sorted({i['api-level'] for i in inc})
+# 'platforms;android-37' fehlt im Stable-Kanal des Runners (Vorfall 01.10.2026).
+MAX_PROVISIONABLE = 36
+bad = [l for l in levels if l > MAX_PROVISIONABLE]
+assert not bad, ('nicht provisionierbare API-Level(s) in der Matrix: %s — Leg waere '
+                 'dauerhaft tot (sdkmanager: Failed to find package)' % bad)
+"
+check "T16.2 distribution-stable-Gate nutzt einen provisionierbaren Level" python3 -c "
+import yaml, io
+with io.open('.github/workflows/distribution-stable.yml', encoding='utf-8') as f:
+    d = yaml.safe_load(f)
+steps = d['jobs']['publish-stable']['steps']
+gate = [s for s in steps if s.get('name') == 'Run instrumented tests on emulator (release gate)']
+assert len(gate) == 1, gate
+lvl = gate[0]['with']['api-level']
+assert lvl <= 36, ('Stable-Publish-Gate referenziert platforms;android-%d, das der '
+                   'Stable-SDK-Kanal nicht fuehrt — Gate waere dauerhaft rot' % lvl)
+"
+check_absent "T16.3 keine api37-Leg mehr im Workflow" \
+  grep -q 'ubuntu-x86_64-api37' "$WORKFLOW"
+check_absent "T16.4 keine 37er-Emulator-Provisionierung" \
+  grep -qE 'api-level:\s*(37|38)\s*$' "$WORKFLOW"
+check "T16.5 Begruendung fuer den 37er-Ausschluss ist dokumentiert" \
+  grep -q 'Failed to find package' "$WORKFLOW"
 
 echo
 if [ "$FAIL" -eq 0 ]; then

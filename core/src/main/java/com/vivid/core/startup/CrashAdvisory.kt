@@ -150,9 +150,10 @@ object CrashAdvisoryRegistry {
         // LogEntry-Instanzen mit level=null; der erste Zugriff (format(),
         // Levelvergleich) crashte. Fix: parseLine stellt die Invarianten wieder
         // her und ueberspringt verletzte Zeilen. Keine Kill-Switch-Flaeche
-        // (Crash nur beim Oeffnen des Log-Viewers/der Crash-Diagnose);
-        // beim naechsten Release-Schnitt die konkrete Build-Nummer im
-        // workaround nachtragen.
+        // (Crash nur beim Oeffnen des Log-Viewers/der Crash-Diagnose).
+        // Range beim Release-Schnitt v0.5.20-beta konkretisiert: letzter
+        // betroffener Build ist 5192, Fix ab 5202 (5194 war nur die
+        // Platzhalter-Prognose und wurde nie ausgeliefert).
         KnownCrashCandidate(
             id = "LOG-ENTRY-NPE-GSON-DESERIALIZE",
             description =
@@ -160,7 +161,7 @@ object CrashAdvisoryRegistry {
                     "eine beschaedigte persistierte Log-Zeile (fehlender/unbekannter " +
                     "Level) erzeugte einen Log-Eintrag ohne Level (NPE beim Formatieren).",
             minVersionCode = 5074,
-            maxVersionCode = 5194,
+            maxVersionCode = 5192,
             workaround =
                 "Auf v0.5.20-beta (Build 5202) aktualisieren - dort ueberspringt " +
                     "der Log-Store beschaedigte Zeilen beim Laden.",
@@ -175,7 +176,9 @@ object CrashAdvisoryRegistry {
         // Go-Live auf Android-14+-Geraeten. Fix: FOREGROUND_SERVICE_
         // MEDIA_PROJECTION + mediaProjection-Typ bei aktiver Screen-Capture-
         // Quelle + service-seitiges Catch. Kill-Switch: Screen-Capture-Quelle
-        // meiden (Kamera/Video-Player/Replay verwenden).
+        // meiden (Kamera/Video-Player/Replay verwenden). Range beim
+        // Release-Schnitt v0.5.20-beta konkretisiert: letzter betroffener
+        // Build ist 5192, Fix ab 5202.
         KnownCrashCandidate(
             id = "MEDIA-PROJECTION-FGS-TYPE",
             description =
@@ -183,7 +186,7 @@ object CrashAdvisoryRegistry {
                     "der Streaming-Service meldet den FGS-Typ mediaProjection nicht " +
                     "(Sicherheitsausnahme, der Prozess bricht beim Bildschirm-Stream ab).",
             minVersionCode = 5074,
-            maxVersionCode = 5194,
+            maxVersionCode = 5192,
             workaround =
                 "Auf v0.5.20-beta (Build 5202) aktualisieren - dort meldet der " +
                     "Streaming-Service den mediaProjection-FGS-Typ automatisch. " +

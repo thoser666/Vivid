@@ -35,6 +35,10 @@ on:
         description: 'Build + signature-verify only, skip the Play upload'
         required: false
         default: 'false'
+      matrix_only:
+        description: 'Only run the emulator matrix — no nightly release, no Play job, no changelog/PR'
+        required: false
+        default: 'false'
         type: boolean
 
 permissions:
@@ -161,10 +165,25 @@ jobs:
       matrix:
         include:
           # API-Staffelung (SDK-Abdeckungs-Analyse 25.09.2026): 34/35 sind
-          # PFLICHT (roter Tag-Run = kein Release), 37 ist Beobachter-Leg.
+          # PFLICHT (roter Tag-Run = kein Release), 36 ist Beobachter-Leg.
           # 35: Edge-to-Edge-Enforcement (Android 15) trifft Overlay/Widget-UI.
-          # 37: Local-Network + Android-17-OS-Verhalten vor der Flotte ausüben.
+          # 36: Local-Network-Enforcement + aktuelles Android-16-OS-Verhalten
+          #     vor der Flotte ausüben.
           # 34: Regression-Basis — die strengsten FGS-Typ-Regeln sind 34er-Regeln.
+          #
+          # ⚠️ API 37 ist als Leg-NIVEAU bewusst NICHT 37 (Vorfall 01.10.2026,
+          #    #249, Run 36849526447): `sdkmanager --install 'platforms;android-37'`
+          #    scheitert mit `Warning: Failed to find package 'platforms;android-37'`
+          #    — das stabile SDK-Kanal-Repository des Runners führt die Android-17-
+          #    Plattform (noch) nicht, der android-emulator-runner bricht daraufhin
+          #    im Install-Step ab ("Terminate Emulator"). Die Leg war damit
+          #    dauerhaft tot und verbrauchte nur Runner-Minuten.
+          #    → Beobachter-Leg auf die neueste STABILE Plattform (36).
+          #   compileSdk/targetSdk bleiben davon unberührt bei 37 (libs.versions.toml):
+          #    Das Kompilieren gegen 37 funktioniert (das Plattform-Paket liegt im
+          #    lokalen/CI-SDK vor); nur der Emulator-Runner kann die 37er-*Plattform*
+          #    nicht provisionieren. Sobald `platforms;android-37` im Stable-Kanal
+          #    verfügbar ist, kann die Beobachter-Leg per Einzeiler auf 37 zurück.
           - name: ubuntu-x86_64-api34
             os: ubuntu-latest
             arch: x86_64
@@ -175,10 +194,10 @@ jobs:
             arch: x86_64
             api-level: 35
             experimental: false
-          - name: ubuntu-x86_64-api37
+          - name: ubuntu-x86_64-api36
             os: ubuntu-latest
             arch: x86_64
-            api-level: 37
+            api-level: 36
             experimental: true
           - name: macos-arm64
             os: macos-latest
@@ -264,6 +283,21 @@ jobs:
           disable-spellchecker: true
           emulator-boot-timeout: 900
           script: |
+            # ⚠️ `set -eu` ist hier Pflicht, nicht Kosmetik: der Runner führt das
+            # script-Block-Snippet OHNE -e aus. Ohne diese Zeile würde ein
+            # fehlschlagendes Setup-Skript (exit != 0) stillschweigend
+            # übersprungen, das Gate gründet danach auf ungegranted-Permissions
+            # und fällt mit der IRREFÜHRENDEN Fehlermeldung "No compose
+            # hierarchies found" durch — also als Testfehler getarnt statt als
+            # Setupfehler. fail-loud gehört in den ersten Block (T15.16).
+            #
+            # ⚠️ POSIX-only, KEIN `pipefail`: android-emulator-runner ruft das
+            # Snippet über `/usr/bin/sh -c` auf, und auf ubuntu ist /usr/bin/sh
+            # dash. `set -o pipefail` bricht dort mit "Illegal option" ab
+            # (Vorfall 02.10.2026: der Emulator bootete, der Job starb in
+            # Zeile 1 des Script-Blocks — das Setup-Skript lief nie). Der Block
+            # enthält keine Pipes, `set -eu` genügt für fail-loud.
+            set -eu
             # ✅ #249: Runtime-Permissions für die UI-Tests granten + Test-APKs
             # vorconnected installieren (der CAMERA-Auto-Request wurde app-seitig
             # entfernt — siehe StreamingScreen.kt; ohne Grants hängt der Startup-
@@ -399,7 +433,9 @@ jobs:
     # distribution-stable.yml — hier gibt es keinen Push-Publizier-Pfad mehr
     # (Push auf develop darf KEIN Nightly auslösen; v*-Tags publiziert der
     # Weekly-Job).
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    if: >-
+      (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+      && inputs.matrix_only != true
     # Bewusst KEIN `workflows: write`: Push-getriggerte Workflows, die dem
     # GITHUB_TOKEN diese Berechtigung geben, scheitern bei der Validierung
     # ("This run likely failed because of a workflow file issue" — Schutz vor
@@ -609,7 +645,10 @@ jobs:
     needs: publish-release
     # Läuft nur nach dem (täglichen) nightly-Publish — Schedule/Manual,
     # nicht bei jedem develop-Push (dort wird seit 21.08. kein Nightly gebaut).
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    # matrix_only: ohne nightly-Publish gibt es nichts zu verifizieren.
+    if: >-
+      (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+      && inputs.matrix_only != true
     permissions:
       contents: read
 
@@ -1020,8 +1059,9 @@ jobs:
     name: Publish to Google Play
     runs-on: ubuntu-latest
     # Nur manuell per workflow_dispatch (Play-Upload ist ein bewusster Akt):
-    # niemals automatisch bei push/schedule ausloesen.
-    if: github.event_name == 'workflow_dispatch'
+    # niemals automatisch bei push/schedule ausloesen. matrix_only unterdrueckt
+    # ihn zusaetzlich — die Matrix-Verifikation darf nie ein Play-Release sein.
+    if: github.event_name == 'workflow_dispatch' && inputs.matrix_only != true
     permissions:
       contents: read
 
@@ -1110,10 +1150,14 @@ jobs:
   # Rollback in publish_release konnte nicht mehr laufen). Läuft auf
   # Schedule/Manual, NICHT auf Push — während publish-release parallel ein
   # Release neu erstellt, wäre eine Draft-Meldung transient und irreführend.
+  # matrix_only: eine reine Matrix-Verifikation publiziert nichts, also gibt es
+  # auch keine verwaisten Drafts zu melden.
   sweep-orphan-drafts:
     name: Sweep Orphan Draft Releases (v*)
     runs-on: ubuntu-latest
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    if: >-
+      (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+      && inputs.matrix_only != true
     permissions:
       contents: read
     steps:

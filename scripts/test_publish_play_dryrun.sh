@@ -7,6 +7,9 @@
 #   4. Assert: AAB existiert und Fingerprint (AAB-Signer == Upload-Key) stimmt
 #   5. Negativtest: publish_play OHNE dry_run und ohne Play-Credentials muss am
 #      Credential-Guard scheitern — der Upload-Pfad ist ohne Play-Zugang blockiert
+#   6. Secrets-Guard: check_play_secrets.sh muss ready=false melden OHNE die
+#      GITHUB_OUTPUT-Datei mit einem ::notice::-Schlüssel zu vergiften
+#      (Vorfall 02.10.2026 — der Guard war korrekt, der Job trotzdem rot)
 #
 # Damit ist die Lane dauerhaft testbar, bevor echte UPLOAD_*/PLAY_*-Secrets
 # existieren. Läuft im CI (release-pipeline.yml, Job "Self-Test publish_play")
@@ -81,5 +84,41 @@ if "${FASTLANE_CMD[@]}" publish_play version:0.0.1-test version_code:1 track:alp
   exit 1
 fi
 echo "==> Negativtest ok: Credential-Guard hat den Upload ohne Play-Zugang blockiert"
+
+# Regression Secrets-Guard (Vorfall 02.10.2026): der Workflow-Step leitet stdout
+# nach $GITHUB_OUTPUT um. Landet die ::notice::-Meldung dort, parst der
+# Actions-Runner die Datei strikt als key=value, scheitert mit "Unable to
+# process file command 'output' successfully" und macht den Job rot — obwohl
+# der Guard ready=false gemeldet hat und der Play-Upload korrekt übersprungen
+# worden wäre. Deshalb: Notice nach stderr, stdout bleibt reines key=value.
+echo "==> Secrets-Guard: ready=false ohne ::notice:: in GITHUB_OUTPUT"
+GHO="$TMP/gh_output"
+: > "$GHO"
+# Das `>> "$GHO"` bildet den Workflow-Step nach ("run: bash
+# scripts/check_play_secrets.sh >> \"$GITHUB_OUTPUT\"") — genau diese Umleitung
+# ist es, die den Runner-Parser überhaupt erst erreicht.
+env -u PLAY_JSON_KEY_FILE -u PLAY_JSON_KEY_DATA \
+    UPLOAD_KEYSTORE_BASE64=dummy \
+    UPLOAD_KEYSTORE_PASSWORD=dummy \
+    UPLOAD_KEY_ALIAS=dummy \
+    UPLOAD_KEY_PASSWORD=dummy \
+    bash scripts/check_play_secrets.sh >> "$GHO"
+if ! grep -qx 'ready=false' "$GHO"; then
+  echo "::error::Guard meldete nicht ready=false, sondern:"
+  cat "$GHO"
+  exit 1
+fi
+if grep -q '^::' "$GHO"; then
+  echo "::error::GITHUB_OUTPUT enthaelt einen ::notice::-Schlaessel:"
+  cat "$GHO"
+  echo "   -> der Actions-Runner bricht damit mit 'Unable to process file command' ab."
+  exit 1
+fi
+if [ "$(wc -l < "$GHO")" -ne 1 ]; then
+  echo "::error::GITHUB_OUTPUT muss genau eine Zeile (ready=false) enthalten, hat $(wc -l < "$GHO"):"
+  cat "$GHO"
+  exit 1
+fi
+echo "==> Secrets-Guard ok: 1 Zeile key=value, Notice auf stderr"
 
 echo "✅ publish_play-Selbsttest bestanden (AAB gebaut + Signatur verifiziert, kein Upload)"

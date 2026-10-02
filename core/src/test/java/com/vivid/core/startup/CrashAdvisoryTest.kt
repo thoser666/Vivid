@@ -144,7 +144,8 @@ class CrashAdvisoryTest {
         val c = CrashAdvisoryRegistry.KNOWN.first { it.id == "LOG-ENTRY-NPE-GSON-DESERIALIZE" }
         assertNotNull(CrashAdvisoryRegistry.evaluate(5074, listOf(c)))
         assertNotNull(CrashAdvisoryRegistry.evaluate(5192, listOf(c)))
-        assertNotNull(CrashAdvisoryRegistry.evaluate(5194, listOf(c)))
+        assertNull(CrashAdvisoryRegistry.evaluate(5194, listOf(c)))
+        assertNull(CrashAdvisoryRegistry.evaluate(5202, listOf(c)))
         assertNull(CrashAdvisoryRegistry.evaluate(5073, listOf(c)))
     }
 
@@ -157,7 +158,8 @@ class CrashAdvisoryTest {
         val c = CrashAdvisoryRegistry.KNOWN.first { it.id == "MEDIA-PROJECTION-FGS-TYPE" }
         assertNotNull(CrashAdvisoryRegistry.evaluate(5074, listOf(c)))
         assertNotNull(CrashAdvisoryRegistry.evaluate(5192, listOf(c)))
-        assertNotNull(CrashAdvisoryRegistry.evaluate(5194, listOf(c)))
+        assertNull(CrashAdvisoryRegistry.evaluate(5194, listOf(c)))
+        assertNull(CrashAdvisoryRegistry.evaluate(5202, listOf(c)))
         assertNull(CrashAdvisoryRegistry.evaluate(5073, listOf(c)))
     }
 

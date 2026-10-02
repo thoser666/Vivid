@@ -95,8 +95,15 @@ check "D7.3 Serialsierungs-Koncurrency ohne cancelling" "$DIST" 'cancel-in-progr
 # D8: release-pipeline publiziert NICHT mehr bei v*-Tag-Push (Push-Pfad raus).
 notcheck "D8.1 kein refs/tags/v-Publizier-Pfad in publish-release" \
   "$RELEASE" "startswith\(github.ref, 'refs/tags/v'\)"
+# Der Guard ist seit 02.10.2026 ein YAML-Block-Skalar (>-) mit zwei Zeilen:
+# erst schedule||dispatch, dann matrix_only. Deshalb beide Zeilen einzeln
+# pruefen statt einer festen Ein-Zeilen-Zeichenkette — sonst wird der Check
+# stillschweigend rot, sobald der Bedingungsklammer umformatiert wird, ohne
+# dass sich das Verhalten geaendert haette.
 check "D8.2 nightly bleibt Schedule/Manual" \
-  "$RELEASE" "if: github.event_name == 'schedule' \\|\\| github.event_name == 'workflow_dispatch'"
+  "$RELEASE" "github.event_name == 'schedule' \|\| github.event_name == 'workflow_dispatch'"
+check "D8.2b nightly-Publish respektiert matrix_only" \
+  "$RELEASE" "inputs.matrix_only != true"
 check "D8.3 nightly-Cron bleibt täglich" "$RELEASE" "cron: '0 6 \* \* \*'"
 
 # D9: deploy-fdroid feuert NICHT mehr bei release:published.
