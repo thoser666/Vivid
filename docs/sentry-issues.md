@@ -180,6 +180,36 @@ bis 26.09.2026). Korrektur auf 5000–5172, Workaround ≥ 5182 (65c93832,
 Bind-Verifikation). VIVID-3E ist dasselbe Phänomen als **gefangener**
 Fehler (Timber.e → error-Event, Frame `RemoteControlServer.kt:probePort$core`).
 
+Beispiel VIVID-39 (#221, MediaProjection-FGS-Typ): erster Crash aus der
+Screen-Capture-Quelle — 4 Events / 3 Nutzer (08.09.–21.09.2026),
+`Unable to start service ... StreamingService ...: SecurityException: Media
+projections`. Android 14+ verlangt für
+`MediaProjection.createVirtualDisplay()` einen laufenden FGS vom Typ
+`mediaProjection`; der StreamingService meldete nur `microphone|camera` an, die
+Exception verließ synchron `onStartCommand` und crashte den Prozess. Fix
+(06012c4a-Log zu `f6d3274f`): Manifest-Permission +
+`foregroundServiceType="microphone|camera|mediaProjection"`, FGS-Typ nur bei
+aktiver Screen-Capture-Quelle (pure Funktion
+`StreamingServiceSupport.requiresMediaProjectionFgs`), Defense-in-Depth in
+Service und Quelle, Registry-Eintrag `MEDIA-PROJECTION-FGS-TYPE`, Manifest-Guard
+C3 (Selbsttest F8/F9). Die Nicht-Crash-Befunde derselben Runde (#217/#218/#219/
+#224/#242/#244/#248) waren **error**-Level auf gefangenen Pfaden (OBS-WebSocket
+`OBSWebSocketClient.kt:131-133`, Socket-/Connect-Timeouts, RootEncoder-interner
+`JobCancellationException`) bzw. native Einzel-Signale (SIGSEGV/SIGABRT, je
+1 Event) — attribuiert und geschlossen.
+
+6. **CrashAdvisory-Range beim Release-Schnitt konkretisieren:** Der Schnitt
+   aktualisiert Workaround **und** `maxVersionCode` — der Vertrag der Registry
+   ist „**veröffentlichte** Version, letzter betroffener Build = Fix-Build − 1“
+   (siehe KDoc in `CrashAdvisory.kt`). Platzhalter-Prognosen (z. B. „5194 als
+   mögliche v0.5.19-stable“) gehören **nicht** in die Range: Releases werden aus
+   dem bereits gefixten Baum geschnitten, ein späterer 5194er-Build kann den
+   Crash also gar nicht tragen — solche Builds zu strecken erzeugt nur eine
+   falsche Advisory. Deshalb: `maxVersionCode` = letzter **tatsächlich
+   ausgelieferter** betroffener Build, `evaluate(5194)` und `evaluate(5202)`
+   müssen `null` liefern (Regressionstest in `CrashAdvisoryTest`), und die
+   Release-Notes nennen dieselbe Range wie der Code.
+
 ## 6. Sicherheit
 
 - Token getrennt vom CI-Mapping-Token (`auth.token`) — getrennte Scopes,
