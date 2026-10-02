@@ -49,11 +49,20 @@ deshalb gibt es pro Kadenz einen eigenen Workflow. Alles zusätzlich manuell per
    Packages, deshalb kann der Grant nicht in den connected-Task wandern).
    **fail-loud:** Der `android-emulator-runner` führt sein `script:`-Snippet
    **ohne** `set -e` aus — beide Workflows setzen deshalb explizit
-   `set -euo pipefail` als erste Zeile. Ohne das würde ein fehlgeschlagenes
+   `set -eu` als erste Zeile. Ohne das würde ein fehlgeschlagenes
    Setup stillschweigend übersprungen und das Gate fiele mit der
    irreführenden Fehlermeldung `No compose hierarchies found` durch, statt die
    Ursache zu nennen (Vorfall 01.10.2026 — genau diese Verschleierung hat den
    #249-Befund in der ersten Runde schwer diagnostizierbar gemacht).
+   **⚠️ POSIX-only, bewusst kein `pipefail`:** Der Runner ruft das Snippet über
+   `/usr/bin/sh -c` auf, und auf ubuntu ist `/usr/bin/sh` **dash**. `set -o
+   pipefail` bricht dort mit `Illegal option -o pipefail` und Exit-Code 2 ab —
+   der Job stirbt in Zeile 1 des Script-Blocks, `emulator_test_setup.sh` läuft
+   nie (Vorfall 02.10.2026, Dispatch-Run `36963108418`: alle drei ubuntu-Legs
+   rot **nach** erfolgreichem Emulator-Boot in 38 s). Die Blöcke enthalten
+   keine Pipes, `set -eu` genügt für fail-loud. Contract: T15.13/T15.14
+   (exakter Wortlaut), T15.17 (kein `pipefail` in ausführbaren Zeilen),
+   T15.18 (erste ausführbare Zeile real durch `/bin/sh` ausgeführt).
    Selbsttest: `scripts/test_emulator_matrix.sh` (T15).
    **Retry-Härtung (seit 25.09.2026):** Der Gate-Step läuft über
    `scripts/emulator_gate_retry.sh` (BuildRetry-Hausmuster): transiente

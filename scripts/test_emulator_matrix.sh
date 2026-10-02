@@ -145,11 +145,17 @@ assert len(gate) == 1, gate
 print(gate[0]['with']['script'])
 "
 }
+# PYTHONIOENCODING=utf-8: die Gate-Skript-Ausgabe enthält Emojis und Umlaute
+# (⚠️, ✅). Auf Windows läuft Python sonst mit cp1252 und bricht beim print mit
+# UnicodeEncodeError ab — GATE_SCRIPT bliebe leer und T13.5/T13.6/T14.3/T15.16
+# würden lokal rot, obwohl der Workflow korrekt ist (grüner CI-Lauf, roter
+# Entwicklerrechner). Der env-Prefix ist unter Linux ein No-op.
+#
 # `|| true`: das Skript läuft mit `set -euo pipefail` — ein YAML-Parse-Fehler
 # würde die Auswertung kommentarlos abbrechen und alle Checks als "nicht
 # fehlgeschlagen" erscheinen lassen (stiller Grüner). Der leere Wert macht die
 # betroffenen Checks stattdessen rot.
-GATE_SCRIPT=$(gate_script || true)
+GATE_SCRIPT=$(PYTHONIOENCODING=utf-8 gate_script || true)
 
 check "T13.5 Gate-Step testet flavor-explicit" \
   grep -q "connectedStandardDebugAndroidTest" <<<"$GATE_SCRIPT"
@@ -161,7 +167,21 @@ echo "== T14: Beide Flavors im Emulator-Gate =="
 # ggf. mit CRLF-Zeilenende — ein hartes $ würde dann nie matchen (T14.1/T14.2
 # wären je nach Zeilenende inkonsistent). In release-pipeline.yml gibt es genau
 # einen Step mit diesem Namen → Ankerlos reicht.
-EMU_JOB=$(grep -A30 'name: Run instrumented tests on emulator' "$WORKFLOW" || true)
+# Der Block wird über den Step-Namen extrahiert, NICHT über ein festes
+# grep-A-Fenster: die Begruendungs-Kommentare im Script-Block wachsen mit
+# jedem Vorfall, und ein Fenster wie `-A30` rutscht dann stillschweigend aus
+# dem connected-Task heraus — der Check wird rot, obwohl der Workflow korrekt
+# ist (das war die Ursache des lokalen Rot bei T14.1/T14.2 nach der
+# POSIX-Haertung: der Block ist laenger geworden, nicht falsch).
+EMU_JOB=$(PYTHONIOENCODING=utf-8 python3 -c "
+import yaml, io
+with io.open('$WORKFLOW', encoding='utf-8') as f:
+    d = yaml.safe_load(f)
+steps = d['jobs']['emulator-tests']['steps']
+emu = [s for s in steps if 'Run instrumented tests on emulator' in str(s.get('name',''))]
+assert len(emu) == 1, emu
+print(emu[0]['with']['script'])
+" || true)
 check "T14.1 release-pipeline emulator-tests deckt standard ab" \
   grep -q "connectedStandardDebugAndroidTest" <<<"$EMU_JOB"
 check "T14.2 release-pipeline emulator-tests deckt foss ab" \
@@ -199,7 +219,14 @@ check "T15.12 distribution-stable: Assemble-Step vor dem Gate-Step" \
 # und fällt mit "No compose hierarchies found" durch, also als Testfehler
 # getarnt. Genau diese Verschleierung machte #249 in der ersten Runde schwer
 # diagnostizierbar.
-check "T15.13 release-pipeline Gate-Script: set -euo pipefail im Script-Block" python3 -c "
+#
+# ⚠️ `set -eu`, NICHT `set -euo pipefail`: das Snippet läuft über
+# `/usr/bin/sh -c`, und auf ubuntu ist /usr/bin/sh dash. `set -o pipefail`
+# bricht dort mit "Illegal option -o pipefail" ab — der Job starb dann in
+# Zeile 1 des Script-Blocks und `emulator_test_setup.sh` lief nie
+# (Vorfall 02.10.2026, Release-Dispatch 36963108418: alle drei
+# ubuntu-Legs rot nach 38 s erfolgreichem Boot).
+check "T15.13 release-pipeline Gate-Script: set -eu im Script-Block" python3 -c "
 import yaml, io
 with io.open('.github/workflows/release-pipeline.yml', encoding='utf-8') as f:
     d = yaml.safe_load(f)
@@ -207,9 +234,9 @@ steps = d['jobs']['emulator-tests']['steps']
 emu = [s for s in steps if str(s.get('uses','')).startswith('ReactiveCircus/android-emulator-runner')]
 assert len(emu) == 1, emu
 lines = [l for l in emu[0]['with']['script'].strip().splitlines() if l.strip() and not l.strip().startswith('#')]
-assert lines[0].strip() == 'set -euo pipefail', lines[0]
+assert lines[0].strip() == 'set -eu', lines[0]
 "
-check "T15.14 distribution-stable Gate-Script: set -euo pipefail im Script-Block" python3 -c "
+check "T15.14 distribution-stable Gate-Script: set -eu im Script-Block" python3 -c "
 import yaml, io
 with io.open('.github/workflows/distribution-stable.yml', encoding='utf-8') as f:
     d = yaml.safe_load(f)
@@ -217,12 +244,62 @@ steps = d['jobs']['publish-stable']['steps']
 gate = [s for s in steps if str(s.get('uses','')).startswith('ReactiveCircus/android-emulator-runner')]
 assert len(gate) == 1, gate
 lines = [l for l in gate[0]['with']['script'].strip().splitlines() if l.strip() and not l.strip().startswith('#')]
-assert lines[0].strip() == 'set -euo pipefail', lines[0]
+assert lines[0].strip() == 'set -eu', lines[0]
 "
 check "T15.15 Setup-Skript läuft VOR dem Retry-Wrapper (Setupfehler nicht als Retry)" \
   bash -c 'grep -n "emulator_test_setup.sh" .github/workflows/distribution-stable.yml | cut -d: -f1 | head -1 | xargs -I{} test {} -lt $(grep -n "emulator_gate_retry.sh" .github/workflows/distribution-stable.yml | cut -d: -f1 | head -1)'
 check "T15.16 Begruendung fuer set -e im Script-Block dokumentiert" \
   grep -q "fail-loud" <<<"$GATE_SCRIPT"
+# Regression (Vorfall 02.10.2026, Dispatch-Run 36963108418): das Snippet laeuft
+# ueber `/usr/bin/sh -c`. Auf ubuntu ist /usr/bin/sh dash, und dash kennt
+# `set -o pipefail` nicht -> "Illegal option", exit 2, Gate startet nie.
+check "T15.17 Gate-Script-Block ist POSIX-sh-kompatibel (kein pipefail)" python3 -c "
+import yaml, io
+for path, job in (('.github/workflows/release-pipeline.yml', 'emulator-tests'),
+                  ('.github/workflows/distribution-stable.yml', 'publish-stable')):
+    with io.open(path, encoding='utf-8') as f:
+        d = yaml.safe_load(f)
+    steps = d['jobs'][job]['steps']
+    runner = [s for s in steps if str(s.get('uses','')).startswith('ReactiveCircus/android-emulator-runner')]
+    assert len(runner) == 1, (path, runner)
+    # Nur AUSFUEHRBARE Zeilen pruefen — die Begruendung im Kommentar erwaehnt
+    # 'pipefail' absichtlich, um die Falle zu dokumentieren.
+    code = [l for l in runner[0]['with']['script'].splitlines()
+            if l.strip() and not l.strip().startswith('#')]
+    bad = [l for l in code if 'pipefail' in l]
+    assert not bad, (path, 'pipefail ist dash-incompatibel: %r' % bad)
+"
+# Haeufigster Folgefehler eines Shellsnippets: eine fail-loud-Zeile, die unter
+# /bin/sh gar nicht erst erreicht wird. Das hier fuehrt die ERSTE ausfuehrbare
+# Zeile beider Bloecke real durch eine POSIX-shell und beweist, dass sie
+# Exit-Code 0 liefert (bei pipefail: 2).
+check "T15.18 Erste ausfuehrbare Zeile der Gate-Bloecke laeuft unter /bin/sh" bash -c '
+set -euo pipefail
+tmp=$(mktemp -d)
+trap "rm -rf $tmp" EXIT
+python3 - "$tmp" <<PY
+import yaml, io, sys, os
+out = sys.argv[1]
+specs = [(".github/workflows/release-pipeline.yml", "emulator-tests"),
+         (".github/workflows/distribution-stable.yml", "publish-stable")]
+for i, (path, job) in enumerate(specs):
+    with io.open(path, encoding="utf-8") as f:
+        d = yaml.safe_load(f)
+    steps = d["jobs"][job]["steps"]
+    runner = [s for s in steps if str(s.get("uses","")).startswith("ReactiveCircus/android-emulator-runner")]
+    body = runner[0]["with"]["script"].strip().splitlines()
+    first = [l for l in body if l.strip() and not l.strip().startswith("#")][0]
+    with io.open(os.path.join(out, str(i)), "w", encoding="utf-8") as fh:
+        fh.write(first + "\n")
+PY
+for f in "$tmp"/*; do
+  if ! /bin/sh "$f"; then
+    echo "  /bin/sh lehnt die Zeile in $f ab:" >&2
+    cat "$f" >&2
+    exit 1
+  fi
+done
+'
 
 echo "== T12: Workflow-YAML valide + API-Staffelung =="
 check "T12.1 release-pipeline.yml parst als YAML" python3 -c "

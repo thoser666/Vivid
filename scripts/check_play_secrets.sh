@@ -14,6 +14,13 @@
 #
 # Ausgabe: "ready=true" oder "ready=false" auf stdout (GITHUB_OUTPUT-Format).
 # Exit-Code ist immer 0 — der Guard selbst scheitert nie, er entscheidet nur.
+#
+# ⚠️ Die ::notice::-Meldung geht bewusst nach STDERR, nicht nach stdout: der
+# Workflow-Step leitet stdout nach $GITHUB_OUTPUT um, und der Actions-Runner
+# parst diese Datei strikt als key=value. Ein "::notice::…"-Schlüssel darin
+# scheitert mit "Unable to process file command 'output' successfully" und
+# macht den Job rot — obwohl der Guard korrekt ready=false gemeldet hat
+# (Vorfall 02.10.2026 im Release-Dispatch).
 set -euo pipefail
 
 missing=""
@@ -26,7 +33,7 @@ if [ -z "${PLAY_JSON_KEY_FILE:-}" ] && [ -z "${PLAY_JSON_KEY_DATA:-}" ]; then
 fi
 
 if [ -n "$(echo "$missing" | tr -d ' ')" ]; then
-  echo "::notice::Play-Upload wird uebersprungen — fehlende Secrets:$missing. Konfiguration: docs/distribution.md, Abschnitt \"Google Play aktivieren (Secrets)\"."
+  echo "::notice::Play-Upload wird uebersprungen — fehlende Secrets:$missing. Konfiguration: docs/distribution.md, Abschnitt \"Google Play aktivieren (Secrets)\"." >&2
   echo "ready=false"
 else
   echo "ready=true"

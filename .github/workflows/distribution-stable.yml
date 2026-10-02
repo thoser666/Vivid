@@ -188,13 +188,19 @@ jobs:
           disable-spellchecker: true
           emulator-boot-timeout: 900
           script: |
-            # ⚠️ `set -euo pipefail` ist Pflicht: der android-emulator-runner führt
+            # ⚠️ `set -eu` ist Pflicht: der android-emulator-runner führt
             # das script-Snippet OHNE -e aus. Ohne diese Zeile würde ein
             # fehlschlagendes Setup-Skript stillschweigend übersprungen und das
             # Gate gründete auf ungegranted-Permissions — der Publish-Pfad
             # scheiterte dann mit "No compose hierarchies found" statt mit der
             # Ursache. fail-loud gehört in den ersten Block (T15.16).
-            set -euo pipefail
+            #
+            # ⚠️ POSIX-only, KEIN `pipefail`: das Snippet läuft über
+            # `/usr/bin/sh -c`, und auf ubuntu ist /usr/bin/sh dash —
+            # `set -o pipefail` bricht dort mit "Illegal option" ab, bevor
+            # das Setup-Skript überhaupt startet (Vorfall 02.10.2026).
+            # Keine Pipes im Block → `set -eu` genügt für fail-loud.
+            set -eu
             # ✅ #249: Runtime-Permissions für die UI-Tests granten + Test-APKs
             # vorconnected installieren (der CAMERA-Auto-Request wurde app-seitig
             # entfernt — siehe StreamingScreen.kt; ohne Grants hängt der Startup-
