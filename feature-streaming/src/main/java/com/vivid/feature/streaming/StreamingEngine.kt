@@ -19,6 +19,9 @@ import com.pedro.library.multiple.MultiType
 import com.pedro.common.VideoCodec
 import com.pedro.library.view.GlStreamInterface
 import android.media.MediaCodecInfo
+import android.media.MediaCodec
+import com.pedro.library.base.recording.RecordController
+import com.pedro.library.util.AndroidMuxerRecordController
 import android.media.MediaCodecList
 import android.media.MediaFormat
 import android.os.SystemClock
@@ -111,6 +114,9 @@ class StreamingEngine @Inject constructor(
     private val videoSourceRegistry: VideoSourceRegistry, // <-- S1: Source-Abstraktion
 ) {
     private var camera: MultiCamera2? = null
+    private val keyframeController = KeyframeIntervalController()
+    private val _measuredKeyframeIntervalMs = MutableStateFlow<Long?>(null)
+    val measuredKeyframeIntervalMs: StateFlow<Long?> = _measuredKeyframeIntervalMs.asStateFlow()
     private var idlePreviewCamera: Camera2ApiManager? = null
     private var idlePreviewSurface: Surface? = null
     private var idlePreviewSize: Pair<Int, Int>? = null
@@ -614,6 +620,7 @@ class StreamingEngine @Inject constructor(
     fun initializeCamera() {
         if (camera == null) {
             camera = cameraFactory.create(List(MAX_STREAM_TARGETS) { createTargetChecker(it) })
+            camera!!.setRecordController(monitorKeyframes(AndroidMuxerRecordController()))
             camera!!.setFpsListener { fps ->
                 if (_activeEncoder.value != null) _measuredEncoderFps.value = fps
             }
@@ -754,6 +761,7 @@ class StreamingEngine @Inject constructor(
     }
 
     private fun prepareStandaloneRecording(cam: MultiCamera2, includeAudio: Boolean): Boolean {
+        resetKeyframeMonitoring()
         syncSelectedCamera(cam)
         stopIdlePreview()
         val audioReady = !includeAudio || cam.prepareAudio()
@@ -768,7 +776,7 @@ class StreamingEngine @Inject constructor(
         replayController?.takeIf { lastReplayIncludeAudio == includeAudio }
             ?: ReplayController(
                 storage = replayStorage(context),
-                recorder = TrackControlledReplayRecorder(cam, includeAudio = includeAudio),
+                recorder = TrackControlledReplayRecorder(cam, includeAudio = includeAudio, wrapController = ::monitorKeyframes),
                 _state = _replayState,
             ).also {
                 replayController = it
@@ -996,6 +1004,7 @@ class StreamingEngine @Inject constructor(
         // Kamera-Pfad (unverändert).
         val cam = camera ?: return
         if (cam.isStreaming) return
+        if (!cam.isRecording) resetKeyframeMonitoring()
         syncSelectedCamera(cam)
         stopIdlePreview()
 
@@ -1091,7 +1100,7 @@ class StreamingEngine @Inject constructor(
             resolved.preset.height,
             resolved.preset.fps,
             resolved.preset.videoBitrateKbps * 1_000, // RootEncoder expects bits/s.
-            2, // iFrameInterval in Sekunden (RootEncoder-üblich)
+            KeyframeIntervalController.INTERVAL_SECONDS, // Seconds, paired with the resolved FPS above.
             0, // rotation
         )
         if (prepared == true) _activeEncoder.value = resolved
@@ -1103,6 +1112,26 @@ class StreamingEngine @Inject constructor(
         val selectedId = idlePreviewCamera?.getCurrentCameraId() ?: return
         if (selectedId != cam.currentCameraId) cam.switchCamera(selectedId)
     }
+
+    private fun resetKeyframeMonitoring() {
+        keyframeController.reset()
+        _measuredKeyframeIntervalMs.value = null
+    }
+
+    private fun monitorKeyframes(inner: RecordController): RecordController =
+        KeyframeMonitoringRecordController(inner) { info ->
+            val cam = camera
+            if (cam != null && (cam.isStreaming || cam.isRecording)) {
+                val overdue = keyframeController.onFrame(
+                    info.presentationTimeUs, info.flags and MediaCodec.BUFFER_FLAG_KEY_FRAME != 0, timeSource(),
+                )
+                _measuredKeyframeIntervalMs.value = keyframeController.measuredIntervalMs
+                if (overdue) {
+                    Timber.w("Encoder missed the 2-second keyframe interval; requesting a sync frame")
+                    cam.requestKeyFrame()
+                }
+            }
+        }
 
     /**
      * Konfiguriert den Encoder für den nächsten Streamstart. Erwartet die
