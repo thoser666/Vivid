@@ -11,8 +11,18 @@ name: Automation / Contributors Reminder
 # validierte Zeitstempel). Die Pflege selbst bleibt Maintainer-Handarbeit.
 #
 # Bewusst KEIN Bot-PR (kein Branch-Push, kein PR-Create): der T1-T13-Vertrag
-# aus scripts/test_bot_pr_credentials.sh gilt hier nicht — `issues: write`
-# genuegt. GITHUB_TOKEN fliesst nur als Issue-Text (Daten, kein Code).
+# aus scripts/test_bot_pr_credentials.sh gilt hier nicht.
+#
+# Warum ZWEI Berechtigungen (Vorfall #256/#258): Der Dank-/Ankuendigungs-
+# Kommentar geht an einen *Pull Request*, nicht nur an Issues. Fuer
+# POST /repos/{o}/{r}/issues/{n}/comments auf einem PR akzeptiert GitHub
+# `issues: write` ODER `pull_requests: write` und meldet
+# `X-Accepted-GitHub-Permissions: issues=write; pull_requests=write` — der
+# Actions-Token lieferte aber nur den ersten Teil, der Lauf starb mit
+# `403 Resource not accessible by integration`, nachdem das Reminder-Issue
+# schon geschrieben war (`set -euo pipefail`). Mit `issues: write` allein
+# ist der PR-Kommentarpfad also nachweislich nie durchgelaufen.
+# GITHUB_TOKEN fliesst nur als Issue-/PR-Text (Daten, kein Code).
 
 on:
   push:
@@ -27,6 +37,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       issues: write
+      pull-requests: write
     # Gleiche Guard-Philosophie wie automation-changelog.yml: Dependabot
     # stoesst keine Automatik an.
     if: github.actor != 'dependabot[bot]'

@@ -17,12 +17,16 @@ GATE="$ROOT/scripts/pre-push.sh"
 PASS=0
 FAIL=0
 
-# F1: set -e frueh genug
-if head -5 "$GATE" | grep -q "^set -euo pipefail"; then
-    echo "PASS F1: set -euo pipefail in den ersten 5 Zeilen"
+# F1: set -e frueh genug — fensterfrei: die ERSTE ausfuehrbare Zeile muss
+# `set -euo pipefail` sein. Ein head-5-Fenster war die dritte Stelle dieser
+# Klasse (vgl. #258: C8b und test_workflow_security.sh brachen beide, als ihr
+# Header-Kommentar wuchs) und waere hier beim naechsten Kommentar zerbrochen.
+first_exec=$(grep -nve '^[[:space:]]*#' -e '^[[:space:]]*$' "$GATE" | head -1 || true)
+if [[ "$first_exec" == *":set -euo pipefail"* ]]; then
+    echo "PASS F1: set -euo pipefail als erste ausfuehrbare Zeile"
     PASS=$((PASS + 1))
 else
-    echo "FAIL F1: set -euo pipefail fehlt in den ersten 5 Zeilen (fail-open-Risiko)"
+    echo "FAIL F1: erste ausfuehrbare Zeile ist nicht 'set -euo pipefail' (fail-open-Risiko): ${first_exec:-<leer>}"
     FAIL=$((FAIL + 1))
 fi
 

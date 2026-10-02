@@ -95,7 +95,10 @@ grep -Fq 'Vision-Check' scripts/check_moblin_features.sh \
 # marker so each enhancement issue receives the vision checklist at most once.
 file=.github/workflows/community-requests.yml
 [[ -f "$file" ]] || fail "community-requests.yml must exist"
-head -20 "$file" | grep -Fq 'permissions: {}' \
+# Fensterfrei: `permissions: {}` muss auf Spalte 0 vor `jobs:` stehen. Ein
+# head-N-Fenster bricht, sobald der Header-Kommentar waechst (Vorfall #258:
+# genau so ist der Contributors-Reminder-Check unten mitgebrochen).
+awk '/^jobs:/{exit} /^permissions:[[:space:]]*\{\}[[:space:]]*$/{f=1} END{exit !f}' "$file" \
   || fail "community-requests workflow must default-deny permissions"
 grep -A3 'triage:' "$file" | grep -Fq 'issues: write' \
   || fail "community-requests triage job must retain only issues write"
@@ -182,13 +185,22 @@ PYEOF
 # Auto-Issue-Workflow erinnert an die CONTRIBUTORS.md-Pflege nach Fork-PR-
 # Merges. Er bleibt bewusst ein reiner Issue-Reminder: kein Branch-Push,
 # kein PR-Create (der Bot-PR-Vertrag aus test_bot_pr_credentials.sh gilt
-# nicht), nur issues: write, State-Fenster atomar im Issue-Body.
+# nicht), State-Fenster atomar im Issue-Body.
+#
+# Berechtigungen (#258): nicht nur `issues: write`. Der Dank-Kommentar geht an
+# einen Pull Request, und GitHub akzeptiert dort issues: write ODER
+# pull_requests: write — mit issues: write allein starb der Lauf mit 403
+# (Run 36995606481), nachdem das Reminder-Issue schon geschrieben war. Der
+# frueher hier gepruegte `head -30`-Fensterbruch ist mit der Begruendung fuer
+# pull-requests: write eingetreten (permissions: {} rutschte auf Zeile 32).
 file=.github/workflows/automation-contributors-reminder.yml
 [[ -f "$file" ]] || fail "contributors-reminder workflow must exist"
-head -30 "$file" | grep -Fq 'permissions: {}' \
+awk '/^jobs:/{exit} /^permissions:[[:space:]]*\{\}[[:space:]]*$/{f=1} END{exit !f}' "$file" \
   || fail "contributors-reminder workflow must default-deny permissions"
 grep -Eq 'issues:[[:space:]]*write' "$file" \
-  || fail "contributors-reminder must retain only issues write"
+  || fail "contributors-reminder must grant issues write"
+grep -Eq 'pull-requests:[[:space:]]*write' "$file" \
+  || fail "contributors-reminder must grant pull-requests write (Dank-Kommentar an einen PR wird sonst mit 403 abgelehnt)"
 grep -Fq "github.actor != 'dependabot[bot]'" "$file" \
   || fail "contributors-reminder must skip dependabot actors"
 grep -Fq 'contributors-state:' scripts/contributors_reminder.sh \

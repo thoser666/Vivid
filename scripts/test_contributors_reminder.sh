@@ -39,8 +39,21 @@ grep -Fq '${title//|/\\|}' "$script" && ok || fail "C7: Titel-Pipes werden nicht
 
 # ── C8: Workflow — Default-Deny, least privilege, SHA-Pin, Trigger ──
 [[ -s "$workflow" ]] || fail "C8a: Workflow fehlt"
-head -30 "$workflow" | grep -Eq '^permissions:[[:space:]]*\{\}' && ok || fail "C8b: Top-Level-Permissions muessen leer sein"
-grep -Eq 'issues:[[:space:]]*write' "$workflow" && ok || fail "C8c: Job-Permission muss genau issues: write sein"
+# Top-Level-Default-Deny: `permissions: {}` muss auf Spalte 0 stehen und vor
+# `jobs:` kommen. Bewusst ohne head-Fenster — ein Zeilenfenster bricht, sobald
+# der Header-Kommentar waechst (Vorfall #258: genau das hat C8b rot gemacht,
+# als die Begruendung fuer pull-requests: write eingefuegt wurde).
+awk '/^jobs:/{exit} /^permissions:[[:space:]]*\{\}[[:space:]]*$/{f=1} END{exit !f}' "$workflow" \
+  && ok || fail "C8b: Top-Level-Permissions muessen leer sein (permissions: {} vor jobs:)"
+grep -Eq 'issues:[[:space:]]*write' "$workflow" && ok || fail "C8ca: Job-Permission issues: write fehlt"
+# C8c (Nachtrag #258): `issues: write` allein reicht NICHT — der Dank-Kommentar
+# geht an einen Pull Request, und GitHub akzeptiert dort issues: write ODER
+# pull_requests: write (X-Accepted-GitHub-Permissions nennt beide). Mit nur
+# issues: write starb der Lauf mit 403, nachdem das Reminder-Issue schon
+# geschrieben war. Der alte Test fixierte diesen Fehler, indem er genau eine
+# Berechtigung verlangte.
+grep -Eq 'pull-requests:[[:space:]]*write' "$workflow" \
+  && ok || fail "C8c: Job-Permission pull-requests: write fehlt (Dank-Kommentar an einen PR wird sonst mit 403 abgelehnt)"
 grep -Eq 'actions/checkout@[0-9a-f]{40}' "$workflow" && ok || fail "C8d: Checkout muss auf 40-Zeichen-SHA gepinnt sein"
 grep -Fq "github.actor != 'dependabot[bot]'" "$workflow" && ok || fail "C8e: Dependabot-Guard fehlt"
 grep -Eq 'branches:[[:space:]]*$|branches: \[develop\]' "$workflow" && ok || fail "C8f: push-Trigger auf develop fehlt"
@@ -90,6 +103,184 @@ CONTRIBUTORS_FILE="$tmp/dup.md"
 printf '| X | Y | #401 | offen |\n' > "$tmp/bad.md"
 CONTRIBUTORS_FILE="$tmp/bad.md"
 [[ "$(status_for 401)" == "offen" ]]            && ok || fail "C9f: LF-Datei offen-Zeile (bekam: $(status_for 401))"
+
+# ── C15: latest_state_for liest BEIDE State-Quellen (Body + Kommentare) ──
+# Vorfall #256/#258: Der Marker wird beim Anlegen einer Reminder-Issue in den
+# Body geschrieben, gelesen wurde aber ausschliesslich aus den Kommentaren.
+# Dadurch startete der naechste Lauf mit leerer pending-Liste — der Loop wurde
+# blind, ohne dass ein Lauf rot wurde. Der Test postet einen Marker, der NUR im
+# Body liegt, und verlangt, dass er trotzdem gefunden wird.
+sfn=$(sed -n '/^latest_state_for() {/,/^}/p' "$script")
+[[ -n "$sfn" ]] || fail "C15a: latest_state_for kann nicht extrahiert werden"
+# Bindungen, die die Funktion aus dem Laufzeitkontext des Skripts erwartet.
+REPO="${REPO:-thoser666/Vivid}"
+eval "$sfn"
+
+STATE_TOKEN='contributors-state:'
+MARKER='<!-- contributors-reminder -->'
+api() { # Fixture-API: $1 ist der Pfad (Issue bzw. Kommentare), $2 das --jq-Flag
+  case "$1" in
+    *"/issues/999/comments"*)  printf '%s' "$COMMENTS_FIX" ;;
+    *"/issues/999")           printf '%s' "$BODY_FIX" ;;
+    *) return 0 ;;
+  esac
+}
+
+BODY_FIX="## Reminder
+
+$MARKER
+
+<!-- contributors-state: 2026-10-02T10:28:02Z pending:253 -->"
+COMMENTS_FIX=""
+[[ "$(latest_state_for 999)" == *"pending:253"* ]] \
+  && ok || fail "C15b: State-Marker NUR im Issue-Body wird nicht gelesen — der Loop verliert nach jeder neu eroeffneten Reminder-Issue den pending-Stand (bekam: '$(latest_state_for 999)')"
+
+# Kommentar-Stand hat Vorrang vor dem Body (er ist chronologisch juenger; der
+# Body wird nie nachgefuehrt).
+COMMENTS_FIX='[{"body":"<!-- contributors-state: 2026-10-03T09:00:00Z pending:301 -->"}]'
+out=$(latest_state_for 999)
+if [[ "$out" == *"pending:301"* && "$out" != *"pending:253"* ]]; then ok
+else fail "C15c: Kommentar-Stand muss den Body-Stand ueberstimmen (bekam: '$out')"; fi
+
+# Ohne Marker in beiden Quellen: leer, nicht der rohe Body.
+BODY_FIX="nur Fliesstext"; COMMENTS_FIX=""
+[[ -z "$(latest_state_for 999)" ]] && ok || fail "C15d: ohne Marker muss latest_state_for leer liefern (bekam: '$(latest_state_for 999)')"
+
+# Body vorhanden, Kommentar-API liefert nichts (u. a. 403/Netzfehler) → der Body
+# muss als Rueckfall greifen, sonst waere der State verloren.
+BODY_FIX="<!-- contributors-state: 2026-10-02T10:28:02Z pending:253 -->"
+COMMENTS_FIX=""
+[[ "$(latest_state_for 999)" == *"pending:253"* ]] \
+  && ok || fail "C15e: Body muss greifen, wenn die Kommentar-Quelle leer ist"
+
+# Eine Antwort, die NICHT leer ist, aber den Marker nicht enthaelt (ungefilterter
+# API-Rumpf, andere jq-Version), darf den Body-State nicht verdecken — sonst waere
+# der Loop wieder blind. Gefunden im End-to-End-Lauf, als der Mock fuer die
+# Kommentar-Quelle "[]" zurueckgab.
+# Reihenfolge wichtig: dieser Fall braucht noch die Fixture-api() von oben,
+# C15f redefiniert sie weiter unten dauerhaft.
+BODY_FIX="<!-- contributors-state: 2026-10-02T10:28:02Z pending:253 -->"
+COMMENTS_FIX='[]'
+[[ "$(latest_state_for 999)" == *"pending:253"* ]] \
+  && ok || fail "C15g: eine Marker-fremde Antwort darf den Body-State nicht ueberstimmen (bekam: '$(latest_state_for 999)')"
+
+# Ein fehlgeschlagener Kommentar-Read darf den Body-State nicht verschlucken.
+api() { case "$1" in *"/issues/999/comments"*) return 1 ;; *) printf '%s' "$BODY_FIX" ;; esac; }
+[[ "$(latest_state_for 999)" == *"pending:253"* ]] \
+  && ok || fail "C15f: fehlgeschlagener Kommentar-Read darf den Body-State nicht verschlucken"
+
+# ── C16: Beim Anlegen einer neuen Reminder-Issue wird der State zusaetzlich als
+# Kommentar gespiegelt — sonst steht er dauerhaft nur im Body, der nie
+# nachgefuehrt wird (die Asymmetrie aus #256).
+body_block=$(sed -n '/ACTION="Reminder-Issue #\$REMINDER_NUM erstellt"/,/^  fi$/p' "$script")
+if grep -Fq 'api -X POST "repos/$REPO/issues/$REMINDER_NUM/comments"' <<< "$body_block"; then ok
+else fail "C16: State muss beim Erstellen der Reminder-Issue zusaetzlich als Kommentar gespiegelt werden (Body/Comment-Asymmetrie)"; fi
+
+# ── C17/C18: End-to-End gegen die echte #256-Situation (gemocktes gh) ──
+# Die Einzelpruefungen C15/C16 halten die Vertragsstellen fest, aber nicht den
+# Zusammenspiel-Fehler, den der erste End-to-End-Lauf fand: der pending-Pfad
+# holt den PR per @tsv (TAB-getrennt) und reicht ihn an process_candidate, das
+# '|'-getrennt erwartet — die GANZE Zeile landete in $num und damit eine
+# unlesbare PR-Nummer im naechsten State-Marker. Der Fehler war maskiert,
+# weil Defekt B die pending-Liste immer leer hielt, dieser Pfad also toter
+# Code war; erst nach dem Fix von B wurde er ausgefuehrt.
+#
+# Der Mock ist absichtlich bash (keine Python-Abhaengigkeit im Selbsttest) und
+# gibt das bereits per --jq gefilterte Ergebnis zurueck, so wie das echte gh.
+cat > "$tmp/gh" <<'MOCK'
+#!/usr/bin/env bash
+# Minimaler gh-Mock fuer den Contributors-Reminder-End-to-End-Lauf.
+# Faellt #256 nach: Reminder-Issue mit State-Marker NUR im Body (pending:253),
+# PR #253 als Fork-Merge 14 s VOR dem Fensterbeginn, kein Credit-Kommentar.
+LOG="${MOCK_LOG:?}"
+arg=(); seen=0; skip=0
+for x in "$@"; do
+  if [[ $seen -eq 0 ]]; then [[ "$x" == "api" ]] && seen=1; continue; fi
+  if [[ $skip -eq 1 ]]; then skip=0; continue; fi
+  if [[ "$x" == "-X" ]]; then skip=1; continue; fi
+  [[ "$x" == -* ]] && continue
+  arg=("$x"); break
+done
+path="${arg[0]:-}"
+all="$*"
+bodyfile=""
+for x in "$@"; do [[ "$x" == body=@* ]] && bodyfile="${x#body=@}"; done
+log() { printf '%s\n' "$1" >> "$LOG"; }
+case "$path" in
+  */issues?state=all*|*/issues?state=open*)
+    # jq: jüngste Issue mit Marker -> .number
+    printf '256\n' ;;
+  */issues/256)
+    if [[ "$all" == *".created_at"* ]]; then printf '2026-10-02T10:28:02Z\n'
+    else log "READ-BODY-256"
+      printf '## Reminder\n\n<!-- contributors-reminder -->\n\n<!-- contributors-state: 2026-10-02T10:28:02Z pending:253 -->\n'
+    fi ;;
+  */issues/256/comments?*)
+    log "READ-COMMENTS-256" ;;   # jq liefert hier NICHTS (kein State-Kommentar)
+  */pulls?state=closed*)
+    if [[ "$all" == *"last | .updated_at"* ]]; then printf '2026-10-02T12:00:00Z\n'; fi ;;
+  */pulls/253)
+    printf '253\t2026-10-02T10:27:48Z\thttps://github.com/thoser666/Vivid/pull/253\t51faba7bdeadbeef\tfeat\tsmka\n' ;;
+  */issues/253/comments)
+    if [[ "$all" == *"POST"* ]]; then log "POST-THANKS-253"
+    else log "CREDIT-LOOKUP-253"; fi ;;   # jq: kein Kommentar gefunden -> nichts
+  */issues/*/comments)
+    log "POST-COMMENT"; [[ -n "$bodyfile" && -f "$bodyfile" ]] && cat "$bodyfile" >> "$LOG" ;;
+  *) : ;;
+esac
+exit 0
+MOCK
+chmod +x "$tmp/gh"
+# Sicherheitsnetz: Falls der Mock ausfaellt, darf der Lauf NICHT die echte API
+# treffen. Leeres HOME + leere Token = gh ist unauthentifiziert; Lese-Calls auf
+# ein oeffentliches Repo funktionieren dann weiterhin, schreibende Calls
+# scheitern mit 401, statt im echten Repo zu landen.
+mkdir -p "$tmp/home"
+run_e2e() { # $1 = Logdatei
+  rm -f "$1"
+  PATH="$tmp:$PATH" MOCK_LOG="$1" GITHUB_REPOSITORY=thoser666/Vivid \
+    HOME="$tmp/home" GH_TOKEN="" GITHUB_TOKEN="" \
+    bash "$script" >/dev/null 2>&1
+}
+e2e_log="$tmp/e2e.log"
+run_e2e "$e2e_log"
+if [[ -f "$e2e_log" ]]; then
+  if grep -q "READ-BODY-256" "$e2e_log"; then ok
+  else fail "C17a: der Body der Reminder-Issue wurde nicht als State-Quelle gelesen"; fi
+  if grep -q "POST-THANKS-253" "$e2e_log"; then ok
+  else fail "C17b: der Dank-Kommentar an PR #253 wurde nicht abgesetzt — der Regelkreis bleibt offen"; fi
+  # Der neue State-Marker muss eine saubere pending-Liste fuehren: hoechstens
+  # Ziffern und Kommata bis zum Leerzeichen. `[^ ]*` greift bewusst ueber den
+  # Tab hinweg — ein auf 'pending:[0-9,]*' verkuerztes Muster wuerde die
+  # unlesbare TSV-Zeule als 'pending:253' ausgeben und den Defekt durchwinken.
+  # (grep in einer Zuweisung braucht || true: unter `set -e` killt ein
+  # Treffer-miss RC 1 das ganze Skript, bevor die Zusammenfassung laeuft.)
+  state_raw=$(grep -o 'pending:[^ ]*' "$e2e_log" 2>/dev/null | tail -1 || true)
+  if [[ "$state_raw" =~ ^pending:[0-9,]*$ ]]; then ok
+  else fail "C18: der fortgeschriebene State traegt eine unlesbare pending-Liste (erwartet 'pending:[0-9,]*', bekam: '${state_raw:-<keiner>}')"; fi
+else
+  fail "C17c: End-to-End-Lauf hat den Mock gar nicht erreicht"
+fi
+
+# C18 mutationsgeprueft: nimmt man das TSV->Pipe-Umstellen zurueck, muss der
+# End-to-End-Lauf die unlesbare pending-Liste melden (der Mock laeuft mit
+# einer Kopie des Skripts, das Original bleibt unberuehrt).
+cp "$script" "$tmp/rem_mut.sh"
+sed -i 's|process_candidate "$(printf .*"$row" |process_candidate "$row"|' "$tmp/rem_mut.sh" 2>/dev/null || true
+if grep -qF 'process_candidate "$row"' "$tmp/rem_mut.sh"; then
+  mut_log="$tmp/e2e_mut.log"; rm -f "$mut_log"
+  PATH="$tmp:$PATH" MOCK_LOG="$mut_log" GITHUB_REPOSITORY=thoser666/Vivid \
+    HOME="$tmp/home" GH_TOKEN="" GITHUB_TOKEN="" \
+    bash "$tmp/rem_mut.sh" >/dev/null 2>&1 || true
+  mut_state=$(grep -o 'pending:[^ >]*' "$mut_log" 2>/dev/null | tail -1 || true)
+  # Ohne das TSV->Pipe-Umstellen landet die GANZE Zeile in $num; der neue
+  # State-Marker traegt dann eine pending-Liste mit Tab und Zeitstempel.
+  if [[ "$mut_state" =~ ^pending:[0-9,]*$ ]]; then
+    fail "C18: die Mutation ist nicht wirksam — der Test kann Defekt C nicht erkennen"
+  else ok; fi
+else
+  fail "C18: Mutation konnte nicht angewendet werden (Zeile nicht gefunden)"
+fi
 
 echo "✅ [contributors-reminder-test] $PASS Pass, $FAIL Fail"
 [[ "$FAIL" -eq 0 ]]

@@ -239,6 +239,22 @@ pending:…`) — der Autor sieht die Würdigung nachziehen, ohne Maintainer-Han
 Ein Kommentar je PR (Idempotenz-Marker), die Historie bleibt sauber, die
 Pflege bleibt Maintainer-Handarbeit.
 
+Der State-Marker liegt an **zwei** Orten, und beide werden gelesen
+(`latest_state_for`): im **Body** der Auto-Issue, die beim ersten Melden
+angelegt wird, und in einem **Kommentar**, der den Stand bei jedem Nachziehen
+fortschreibt. Der Kommentar-Stand hat Vorrang, weil der Body nie
+nachgeführt wird. Das ist kein Redundanz-, sondern Fehlerkorrektur-Bedarf:
+Vor #258 wurde nur der Kommentar gelesen, wodurch der State einer frisch
+eröffneten Reminder-Issue verloren ging — der nächste Run startete mit leerer
+`pending`-Liste, der Merge lag plötzlich außerhalb des Fensters, und der
+Regelkreis meldete „nichts zu tun", während Beiträge unversorgt blieben.
+Ebenso braucht der Job **zwei** Berechtigungen: Der Dank-Kommentar geht an
+einen *Pull Request*, und der Actions-Token braucht dafür `pull-requests:
+write` — `issues: write` allein genügt für Issues, nicht für PR-Kommentare
+(`X-Accepted-GitHub-Permissions: issues=write; pull_requests=write`). Beide
+Punkte sind in `scripts/test_contributors_reminder.sh` festgeschrieben
+(C8c, C15, C16).
+
 ### Commit-Stil
 
 Conventional Commits, Englisch, Präsens — Beispiele und Scopes siehe oben (englischer Teil).

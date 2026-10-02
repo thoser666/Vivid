@@ -8,10 +8,15 @@
 # Vertrag (siehe CONTRIBUTING.md, Abschnitt "Danksagung Dritter"):
 #   - Trigger: jeder Push auf develop (+ workflow_dispatch) — ein Fork-Squash-
 #     Merge erzeugt einen develop-Push, der Check laeuft also automatisch.
-#   - State-Fenster: "seit dem letzten State-Kommentar". Er traegt
-#     `<!-- contributors-state: <ISO> pending:<n1,n2,...> -->` (atomar im
-#     selben API-Call): ISO = Fensteruntergrenze, pending = PRs mit
-#     Nachzieh-Ankuendigung, deren Dank auf den gepflegten Eintrag wartet.
+#   - State-Fenster: "seit dem letzten State-Marker". Er traegt
+#     `<!-- contributors-state: <ISO> pending:<n1,n2,...> -->`: ISO =
+#     Fensteruntergrenze, pending = PRs mit Nachzieh-Ankuendigung, deren Dank
+#     auf den gepflegten Eintrag wartet. Der Marker landet an zwei Orten: im
+#     Body (beim Anlegen einer neuen Issue, atomar im selben API-Call) und in
+#     einem Kommentar (beim Nachziehen, Schritt 7). BEIDE werden gelesen
+#     (latest_state_for), Kommentar-Stand hat Vorrang — vor #258 wurde nur
+#     der Kommentar gelesen, wodurch der State einer frisch eroeffneten
+#     Reminder-Issue verloren ging und der Loop dauerhaft blind wurde.
 #   - Dank-Kommentar am gemergten PR (Marker `<!-- contributors-credit -->`,
 #     idempotent): Eintrag `umgesetzt` → Danke + Verweis auf CONTRIBUTORS.md;
 #     Eintrag fehlt/noch `offen` → Nachzieh-Ankuendigung (mit Verweis auf die
@@ -58,17 +63,38 @@ LATEST_ANY=$(api "repos/$REPO/issues?state=all&sort=created&direction=desc&per_p
 LATEST_OPEN=$(api "repos/$REPO/issues?state=open&sort=created&direction=desc&per_page=50" \
   --jq "[.[] | select(.pull_request == null and .body != null and (.body | contains(\"$MARKER\")))][0] // empty | .number" 2>/dev/null || true)
 
+# Letzten State-Marker einer Reminder-Issue lesen. Quelle sind BEIDE Orte, an
+# denen der Marker landet: der Issue-Body (Schritt 5 schreibt ihn beim Anlegen
+# einer neuen Issue) und die Kommentare (Schritt 7 schreibt ihn per Kommentar).
+# Vorfall #256: nur die Kommentare zu lesen hiess, dass der State einer frisch
+# eroeffneten Reminder-Issue nie wieder gelesen wurde — der naechste Lauf
+# startete mit leerer pending-Liste und der Loop wurde blind (der Merge lag
+# 14 s vor dem zurueckfallenden Fensterbeginn). Kommentar-Stand hat Vorrang:
+# er ist chronologisch juenger als der Body, der nie nachgefuehrt wird.
+latest_state_for() { # $1 = Issue-Nummer -> roher Marker-Text (leer = keiner)
+  local num="$1" from_body=""
+  from_body=$(api "repos/$REPO/issues/$num" --jq '.body // empty' 2>/dev/null || true)
+  local from_comments
+  from_comments=$(api "repos/$REPO/issues/$num/comments?per_page=100" \
+    --jq '([.[] | select(.body != null and (.body | contains("'"$STATE_TOKEN"'"))) ] | last | .body) // empty' 2>/dev/null || true)
+  # Nur eine Quelle, die den Marker WIRKLICH enthaelt, gewinnt — nicht bloss
+  # eine leere API-Antwort. Sonst wuerde z. B. ein ungefilterter Antwort-Rumpf
+  # den Body-State verdecken und der Loop waere wieder blind.
+  if [[ "$from_comments" == *"$STATE_TOKEN"* ]]; then printf '%s' "$from_comments"
+  elif [[ "$from_body" == *"$STATE_TOKEN"* ]]; then printf '%s' "$from_body"
+  fi
+}
+
 SINCE="$EPOCH"
 PENDING_OLD=()
 if [[ -n "$LATEST_ANY" ]]; then
   CREATED=$(api "repos/$REPO/issues/$LATEST_ANY" --jq .created_at)
-  LAST_STATE_RAW=$(api "repos/$REPO/issues/$LATEST_ANY/comments?per_page=100" \
-    --jq '([.[] | select(.body != null and (.body | contains("'"$STATE_TOKEN"'"))) ] | last | .body) // empty' 2>/dev/null || true)
+  LAST_STATE_RAW=$(latest_state_for "$LATEST_ANY")
   CAND=$(printf '%s' "$LAST_STATE_RAW" | sed -n "s/.*$STATE_TOKEN \([0-9T:.Z-]*\).*/\1/p" | tail -1)
   # Nur validierte ISO-Zeitstempel werden eingebettet (kein Daten-in-Code-Vektor).
   [[ "$CAND" =~ ^[0-9T:.Z-]+$ ]] || CAND="$CREATED"
   if [[ "$CAND" > "$SINCE" ]]; then SINCE="$CAND"; fi
-  # pending-Liste aus dem eigenen State-Kommentar (nur Ziffern/Kommata).
+  # pending-Liste aus dem eigenen State-Marker (nur Ziffern/Kommata).
   PLINE=$(printf '%s' "$LAST_STATE_RAW" | sed -n "s/.*pending:\([0-9,]*\).*/\1/p" | tail -1)
   if [[ "$PLINE" =~ ^[0-9,]*$ ]]; then
     IFS=',' read -r -a PENDING_OLD <<< "$PLINE"
@@ -185,7 +211,13 @@ for p in "${PENDING_OLD[@]}"; do
   if [[ "$in_window" == "0" ]]; then
     row=$(api "repos/$REPO/pulls/$p" --jq '[.number, (.merged_at // "-"), .html_url, (.merge_commit_sha // "-"), .title, (.user.login // "-")] | @tsv' 2>/dev/null || true)
     [[ -z "$row" ]] && continue   # PR gelöscht/gekappt → pending-Eintrag verfällt
-    process_candidate "$row"
+    # @tsv liefert TAB-getrennt, process_candidate erwartet '|'-getrennt (so
+    # baut der Merge-Sammler seine Eintraege). Ohne das Umstellen landet die
+    # GANZE Zeile in $num — und damit eine unlesbare PR-Nummer in der
+    # pending-Liste des naechsten State-Markers (Vorfall #258, im End-to-End-
+    # Smoke gefunden: der pending-Pfad war vorher toter Code, weil Defekt B die
+    # Liste immer leer hielt — der Fehler war maskiert).
+    process_candidate "$(printf '%s' "$row" | tr '\t' '|')"
   fi
 done
 
@@ -224,6 +256,16 @@ if [[ "${#REPORT_ROWS[@]}" -gt 0 ]]; then
     TITLE="🧾 CONTRIBUTORS.md-Pflege: Fork-PR-Merges ohne Beitragseintrag"
     REMINDER_NUM=$(api "repos/$REPO/issues" -f title="$TITLE" -F "body=@$BODY_FILE" --jq .number)
     ACTION="Reminder-Issue #$REMINDER_NUM erstellt"
+    # State zusaetzlich als Kommentar spiegeln: der Body einer neuen Issue wird
+    # nie nachgefuehrt, waehrend Kommentare die juengere Quelle sind. Ohne den
+    # Spiegel bleibt der State beim Body stehen — genau die Asymmetrie aus
+    # #256/#258. latest_state_for liest beides, der Kommentar-Stand hat Vorrang.
+    {
+      echo "$MARKER"
+      echo ""
+      echo "<!-- $STATE_TOKEN $NOW pending:$PENDING_TXT -->"
+    } > "$BODY_FILE"
+    api -X POST "repos/$REPO/issues/$REMINDER_NUM/comments" -F "body=@$BODY_FILE" >/dev/null
   fi
 fi
 
