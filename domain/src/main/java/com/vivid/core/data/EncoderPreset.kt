@@ -80,11 +80,7 @@ class AndroidEncoderCapabilities : EncoderCapabilities {
             try {
                 val caps = info.getCapabilitiesForType(mime)
                 val video = caps.videoCapabilities ?: return@any false
-                // FPS-Range existiert seit API 21 — aber manche Encodern melden
-                // keine Ranges; dann gilt die Auflösungs-Prüfung allein.
-                val fpsOk = runCatching { video.supportedFrameRates }
-                    .getOrNull()?.contains(fps) ?: true
-                video.isSizeSupported(width, height) && fpsOk
+                video.areSizeAndRateSupported(width, height, fps.toDouble())
             } catch (_: IllegalArgumentException) {
                 false // Codec unterstützt den MIME-Typ nicht
             }

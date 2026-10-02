@@ -133,4 +133,7 @@
     <string name="privacy_zone_editor_close">Close zone editor</string>
     <string name="streaming_controls">Controls</string>
     <string name="streaming_replay_start_error">Could not start recording. Check camera and microphone permissions and try again.</string>
+    <string name="streaming_camera_profile">Camera profile: %1$d×%2$d · %3$d fps</string>
+    <string name="streaming_camera_profile_fallback">Compatible profile applied</string>
+    <string name="streaming_camera_measured_fps">Measured: %1$d fps</string>
 </resources>

@@ -26,6 +26,8 @@ import com.vivid.core.data.AdaptiveBitrateConfig
 import com.vivid.core.data.AdaptiveBitrateController
 import com.vivid.core.data.PrivacyZone
 import com.vivid.core.data.ResolvedEncoderConfig
+import com.vivid.core.data.AndroidEncoderCapabilities
+import com.vivid.core.data.EncoderCapabilities
 import com.vivid.core.data.VideoCodecPreference
 import com.vivid.feature.streaming.source.DisplayFactory
 import com.vivid.feature.streaming.source.PlayerFactory
@@ -118,6 +120,12 @@ class StreamingEngine @Inject constructor(
     private val _encoderConfig = MutableStateFlow<ResolvedEncoderConfig?>(null)
     private val _encoderAutoFallback = MutableStateFlow(true)
     private val _activeEncoder = MutableStateFlow<ResolvedEncoderConfig?>(null)
+    private val _measuredEncoderFps = MutableStateFlow<Int?>(null)
+    val measuredEncoderFps: StateFlow<Int?> = _measuredEncoderFps.asStateFlow()
+    internal var encoderCapabilities: EncoderCapabilities = AndroidEncoderCapabilities()
+    internal var captureCapabilities: (Camera2Base) -> CameraCaptureCapabilities = {
+        AndroidCameraCaptureCapabilities(it.cameraCharacteristics)
+    }
 
     /** Adaptive Bitrate (v0.6.0): Zielbitrate an gemessene Strecke anpassen. */
     private val _adaptiveBitrateEnabled = MutableStateFlow(false)
@@ -606,6 +614,9 @@ class StreamingEngine @Inject constructor(
     fun initializeCamera() {
         if (camera == null) {
             camera = cameraFactory.create(List(MAX_STREAM_TARGETS) { createTargetChecker(it) })
+            camera!!.setFpsListener { fps ->
+                if (_activeEncoder.value != null) _measuredEncoderFps.value = fps
+            }
             val encoderControls = RootEncoderCameraControls(camera!!)
             cameraControls = ActiveCameraControls { idlePreviewCamera?.let(::Camera2PreviewControls) ?: encoderControls }
             focusController = CameraFocusController(object : FocusableCamera {
@@ -743,6 +754,7 @@ class StreamingEngine @Inject constructor(
     }
 
     private fun prepareStandaloneRecording(cam: MultiCamera2, includeAudio: Boolean): Boolean {
+        syncSelectedCamera(cam)
         stopIdlePreview()
         val audioReady = !includeAudio || cam.prepareAudio()
         encoderRotationDegrees = if (_encoderConfig.value == null) CameraHelper.getCameraOrientation(context) else 0
@@ -984,13 +996,14 @@ class StreamingEngine @Inject constructor(
         // Kamera-Pfad (unverändert).
         val cam = camera ?: return
         if (cam.isStreaming) return
+        syncSelectedCamera(cam)
         stopIdlePreview()
 
         _targetStates.value = activeUrls.map { StreamTargetState(it) }
         _streamingState.value = StreamingState.Preparing
 
-        resetAdaptiveBitrate()
         if (prepareStreamEncoders(cam)) {
+            resetAdaptiveBitrate()
             // P1: Anonymisierung — persistierter Soll-Zustand ab dem ersten
             // Frame (Composer-Zustand überlebt stopStream bewusst).
             applyPrivacyZones(desiredPrivacyZones.value)
@@ -1010,7 +1023,7 @@ class StreamingEngine @Inject constructor(
 
     private fun resetAdaptiveBitrate() {
         if (_adaptiveBitrateEnabled.value) {
-            val presetKbps = _encoderConfig.value?.preset?.videoBitrateKbps
+            val presetKbps = _activeEncoder.value?.preset?.videoBitrateKbps
                 ?: DEFAULT_VIDEO_BITRATE_KBPS
             adaptiveController = AdaptiveBitrateController(
                 AdaptiveBitrateConfig(
@@ -1051,18 +1064,21 @@ class StreamingEngine @Inject constructor(
      * Kein Encoder konfiguriert (Standard): RootEncoder-Default unangetastet —
      * der Legacy-Pfad `prepareVideo()` bleibt unverändert bestehen. Mit
      * Encoder-Konfiguration läuft vor `prepareVideo()` die Fallback-Kette
-     * ([resolveEncoderConfig]): HEVC nur, wenn die Hardware es in der
+     * ([resolveCameraStreamProfile]): HEVC nur, wenn die Hardware es in der
      * gewählten Auflösung kann, sonst H.264 — je nach Preset-Abstufung auch
      * mit herabgesetzter Auflösung.
      *
-     * @return false, wenn die Fähigkeitsermittlung im Strict-Modus (Fallback
-     *   ausgeschaltet) die Wunsch-Kombination verneint.
+     * @return false, wenn Kamera und Encoder kein gemeinsames Profil unterstützen.
      */
     private fun applyEncoderPreset(cam: Camera2Base): Boolean {
-        // Die aufgelöste Konfiguration kommt vom ViewModel (Fähigkeits-Kette
-        // läuft dort) — die Engine wendet sie 1:1 an.
-        val resolved = _encoderConfig.value ?: return true
-        _activeEncoder.value = resolved
+        // Recheck against the selected camera before preparation; the ViewModel
+        // only checks encoder capabilities and the lens may have changed since then.
+        val requested = _encoderConfig.value ?: return true
+        _activeEncoder.value = null
+        _measuredEncoderFps.value = null
+        val resolved = resolveCameraStreamProfile(
+            requested, _encoderAutoFallback.value, captureCapabilities(cam), encoderCapabilities,
+        ) ?: return false
 
         val codec = when (resolved.codec) {
             VideoCodecPreference.H265 -> VideoCodec.H265
@@ -1078,13 +1094,20 @@ class StreamingEngine @Inject constructor(
             2, // iFrameInterval in Sekunden (RootEncoder-üblich)
             0, // rotation
         )
+        if (prepared == true) _activeEncoder.value = resolved
         return prepared == true
+    }
+
+    /** Lens selection during idle preview must also reach the streaming camera. */
+    private fun syncSelectedCamera(cam: MultiCamera2) {
+        val selectedId = idlePreviewCamera?.getCurrentCameraId() ?: return
+        if (selectedId != cam.currentCameraId) cam.switchCamera(selectedId)
     }
 
     /**
      * Konfiguriert den Encoder für den nächsten Streamstart. Erwartet die
      * aufgelöste Konfiguration (UI/VoM resolven die Preset-Einstellung gegen
-     * die Fähigkeiten — die Engine wendet nur noch an).
+     * die Encoder-Fähigkeiten — die Engine prüft zusätzlich die gewählte Kamera).
      */
     fun configureEncoder(resolved: ResolvedEncoderConfig, autoFallback: Boolean) {
         _encoderConfig.value = resolved
@@ -1100,7 +1123,7 @@ class StreamingEngine @Inject constructor(
         if (!enabled) adaptiveController = null
     }
 
-    /** zuletzt aufgelöste Encoder-Konfiguration (UI-Anzeige/Tests). */
+    /** Successfully prepared camera/encoder profile, rather than the requested preset. */
     val activeEncoder: StateFlow<ResolvedEncoderConfig?> = _activeEncoder.asStateFlow()
 
     /** true = Strict-Modus (kein automatischer HEVC/Preset-Fallback). */

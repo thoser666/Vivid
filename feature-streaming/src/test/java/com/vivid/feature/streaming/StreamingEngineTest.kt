@@ -15,7 +15,9 @@ import com.pedro.library.multiple.MultiCamera2
 import com.pedro.library.multiple.MultiDisplay
 import com.pedro.library.multiple.MultiFromFile
 import com.pedro.library.multiple.MultiType
+import com.pedro.library.util.FpsListener
 import com.pedro.library.view.GlStreamInterface
+import com.vivid.core.data.EncoderCapabilities
 import com.vivid.core.data.EncoderPreset
 import com.vivid.core.data.ResolvedEncoderConfig
 import com.vivid.core.data.VideoCodecPreference
@@ -28,6 +30,7 @@ import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
 import io.mockk.runs
+import io.mockk.slot
 import io.mockk.verify
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -82,6 +85,10 @@ class StreamingEngineTest {
             playerFactory,
             VideoSourceRegistry(),
         )
+        streamingEngine.captureCapabilities = { CameraCaptureCapabilities { _, _, _ -> true } }
+        streamingEngine.encoderCapabilities = object : EncoderCapabilities {
+            override fun supports(mime: String, width: Int, height: Int, fps: Int) = true
+        }
     }
 
     private fun streamingCameraReady() {
@@ -151,6 +158,95 @@ class StreamingEngineTest {
         }
         verify(exactly = 1) { camera.startStream(MultiType.RTMP, 0, LIVE_URL) }
         assertEquals(preset.videoBitrateKbps, streamingEngine.activeEncoder.value?.preset?.videoBitrateKbps)
+    }
+
+    @Test
+    fun `camera fallback prepares actual profile and adaptive bitrate uses its bitrate`() = runTest {
+        streamingCameraReady()
+        streamingEngine.initializeCamera()
+        streamingEngine.captureCapabilities = { CameraCaptureCapabilities { _, _, fps -> fps == 30 } }
+        streamingEngine.configureEncoder(
+            ResolvedEncoderConfig(VideoCodecPreference.H264, EncoderPreset.FHD60, false), true,
+        )
+        streamingEngine.configureAdaptiveBitrate(true)
+        var now = 0L
+        streamingEngine.timeSource = { now }
+        streamingEngine.startStream(LIVE_URL)
+
+        verify { camera.prepareVideo(1920, 1080, 30, 6_000_000, 2, 0) }
+        assertEquals(EncoderPreset.FHD30, streamingEngine.activeEncoder.value?.preset)
+        repeat(3) {
+            now += 2_500
+            capturedCheckers[0].onNewBitrate(2_000_000)
+        }
+        verify(exactly = 1) { camera.setVideoBitrateOnFly(4_200_000) }
+    }
+
+    @Test
+    fun `unsupported camera profile fails before starting RTMP and publishes no applied profile`() = runTest {
+        streamingCameraReady()
+        streamingEngine.initializeCamera()
+        streamingEngine.captureCapabilities = { CameraCaptureCapabilities { _, _, _ -> false } }
+        streamingEngine.configureEncoder(
+            ResolvedEncoderConfig(VideoCodecPreference.H264, EncoderPreset.FHD60, false), true,
+        )
+        streamingEngine.startStream(LIVE_URL)
+
+        verify(exactly = 0) { camera.startStream(any(), any(), any()) }
+        assertTrue(streamingEngine.streamingState.value is StreamingState.Failed)
+        assertNull(streamingEngine.activeEncoder.value)
+    }
+
+    @Test
+    fun `failed video preparation does not claim applied parameters`() = runTest {
+        streamingCameraReady()
+        every { camera.prepareVideo(any(), any(), any(), any(), any(), any()) } returns false
+        streamingEngine.initializeCamera()
+        streamingEngine.configureEncoder(
+            ResolvedEncoderConfig(VideoCodecPreference.H264, EncoderPreset.FHD60, false), true,
+        )
+        streamingEngine.startStream(LIVE_URL)
+        assertNull(streamingEngine.activeEncoder.value)
+    }
+
+    @Test
+    fun `measured fps comes from encoded frames and does not report the requested rate`() = runTest {
+        streamingCameraReady()
+        val callback = slot<FpsListener.Callback>()
+        every { camera.setFpsListener(capture(callback)) } just runs
+        streamingEngine.initializeCamera()
+        streamingEngine.configureEncoder(
+            ResolvedEncoderConfig(VideoCodecPreference.H264, EncoderPreset.FHD30, false), true,
+        )
+        streamingEngine.startStream(LIVE_URL)
+        assertNull(streamingEngine.measuredEncoderFps.value)
+        callback.captured.onFps(14)
+        assertEquals(14, streamingEngine.measuredEncoderFps.value)
+        assertEquals(30, streamingEngine.activeEncoder.value?.preset?.fps)
+    }
+
+    @Test
+    fun `idle selected lens is transferred before checking capture capabilities`() = runTest {
+        streamingCameraReady()
+        streamingEngine.initializeCamera()
+        every { context.checkSelfPermission(android.Manifest.permission.CAMERA) } returns PackageManager.PERMISSION_GRANTED
+        var selectedId = "0"
+        every { camera.currentCameraId } answers { selectedId }
+        every { camera.switchCamera(any<String>()) } answers { selectedId = firstArg() }
+        val idle = mockk<Camera2ApiManager>(relaxed = true)
+        every { idle.getCurrentCameraId() } returns "1"
+        streamingEngine.idlePreviewFactory = { idle }
+        streamingEngine.attachPreview(mockk(relaxed = true), 640, 480)
+        streamingEngine.captureCapabilities = { cam ->
+            assertEquals("1", cam.currentCameraId)
+            CameraCaptureCapabilities { _, _, fps -> fps == 30 }
+        }
+        streamingEngine.configureEncoder(
+            ResolvedEncoderConfig(VideoCodecPreference.H264, EncoderPreset.FHD60, false), true,
+        )
+        streamingEngine.startStream(LIVE_URL)
+        verify { camera.switchCamera("1") }
+        assertEquals(EncoderPreset.FHD30, streamingEngine.activeEncoder.value?.preset)
     }
 
     // --- Adaptive Bitrate (v0.6.0) ------------------------------------------

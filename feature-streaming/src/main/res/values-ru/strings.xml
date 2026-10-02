@@ -135,4 +135,7 @@
     <string name="privacy_zone_editor_close">Закрыть редактор зон</string>
     <string name="streaming_controls">Управление</string>
     <string name="streaming_replay_start_error">Не удалось начать запись. Проверьте разрешения камеры и микрофона и попробуйте снова.</string>
+    <string name="streaming_camera_profile">Профиль камеры: %1$d×%2$d · %3$d кадр/с</string>
+    <string name="streaming_camera_profile_fallback">Применён совместимый профиль</string>
+    <string name="streaming_camera_measured_fps">Фактически: %1$d кадр/с</string>
 </resources>

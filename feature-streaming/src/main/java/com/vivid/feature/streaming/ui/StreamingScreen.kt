@@ -77,6 +77,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
+import com.vivid.core.data.ResolvedEncoderConfig
 import com.vivid.core.data.StreamScene
 import com.vivid.core.ui.LocalWindowWidthClass
 import com.vivid.core.ui.adaptiveControlsMaxWidth
@@ -139,6 +140,8 @@ fun StreamingScreen(
     val streamingEngine = viewModel.streamingEngine
     val streamingState by streamingEngine.streamingState.collectAsStateWithLifecycle()
     val targetStates by streamingEngine.targetStates.collectAsStateWithLifecycle()
+    val activeEncoder by streamingEngine.activeEncoder.collectAsStateWithLifecycle()
+    val measuredEncoderFps by streamingEngine.measuredEncoderFps.collectAsStateWithLifecycle()
     val activeSourceKind by streamingEngine.activeSourceKind.collectAsStateWithLifecycle()
     val configIssues by viewModel.configIssues.collectAsStateWithLifecycle()
     // Missing configuration should not obscure the preview before a Go-Live attempt.
@@ -314,6 +317,9 @@ fun StreamingScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
+                        if (activeSourceKind == VideoSourceKind.CAMERA) {
+                            activeEncoder?.let { AppliedCameraProfile(it, measuredEncoderFps) }
+                        }
                         targetStates.forEach { state ->
                             TargetStatusRow(state)
                         }
@@ -352,6 +358,22 @@ fun StreamingScreen(
             }
 
         }
+    }
+}
+
+@Composable
+internal fun AppliedCameraProfile(config: ResolvedEncoderConfig, measuredFps: Int?) {
+    val preset = config.preset
+    Text(
+        stringResource(R.string.streaming_camera_profile, preset.width, preset.height, preset.fps),
+        style = MaterialTheme.typography.bodySmall,
+        modifier = Modifier.testTag("applied_camera_profile"),
+    )
+    if (config.fallbackApplied) {
+        Text(stringResource(R.string.streaming_camera_profile_fallback), style = MaterialTheme.typography.bodySmall)
+    }
+    measuredFps?.let {
+        Text(stringResource(R.string.streaming_camera_measured_fps, it), style = MaterialTheme.typography.bodySmall)
     }
 }
 
