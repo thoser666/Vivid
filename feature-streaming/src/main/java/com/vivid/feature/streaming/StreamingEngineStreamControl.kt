@@ -1,12 +1,10 @@
 package com.vivid.feature.streaming
 
-import com.vivid.core.data.SettingsRepository
 import com.vivid.core.remote.RemoteStreamStatus
 import com.vivid.core.remote.StreamControl
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
@@ -22,7 +20,7 @@ internal fun mapToRemoteStatus(state: StreamingState): RemoteStreamStatus = when
 
 /**
  * Verdrahtet die Web-Remote-Control mit der [StreamingEngine]:
- * liest die gespeicherten Stream-Einstellungen (URL/Key) und mappt den
+ * verwendet dieselbe Vorbereitung und denselben Foreground-Service wie Go-Live und mappt den
  * Engine-Status auf [RemoteStreamStatus].
  *
  * Der [scope] ist injizierbar, damit Tests einen Test-Dispatcher verwenden können.
@@ -30,7 +28,8 @@ internal fun mapToRemoteStatus(state: StreamingState): RemoteStreamStatus = when
 @Singleton
 class StreamingEngineStreamControl @Inject constructor(
     private val engine: StreamingEngine,
-    private val settingsRepository: SettingsRepository,
+    private val streamStartCoordinator: StreamStartCoordinator,
+    private val launcher: StreamingServiceLauncher,
     scope: CoroutineScope,
 ) : StreamControl {
 
@@ -43,22 +42,10 @@ class StreamingEngineStreamControl @Inject constructor(
         )
 
     override suspend fun start() {
-        val settings = settingsRepository.appSettingsFlow.first()
-        val urls = buildList {
-            buildStreamUrl(settings.streamUrl, settings.streamKey, settings.streamUseTls)?.let { add(it) }
-            // Optionales zweites Ziel (Multi-Streaming).
-            buildStreamUrl(
-                settings.secondaryStreamUrl,
-                settings.secondaryStreamKey,
-                settings.secondaryStreamUseTls,
-            )?.let { add(it) }
-        }
-        if (urls.isNotEmpty()) {
-            engine.startStream(urls)
-        }
+        streamStartCoordinator.start()
     }
 
     override fun stop() {
-        engine.stopStream()
+        launcher.stopStreaming()
     }
 }

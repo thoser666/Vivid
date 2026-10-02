@@ -14,7 +14,7 @@ import javax.inject.Singleton
  * Startet/stoppt den [StreamingService] über explizite Intents.
  *
  * `startForegroundService` muss aus dem Vordergrund aufgerufen werden —
- * das [StreamingViewModel] ruft es beim Go-Live-Tap (App im Vordergrund) auf.
+ * UI und Remote-Control verwenden dieselbe Startvorbereitung.
  */
 @Singleton
 class AndroidStreamingServiceLauncher @Inject constructor(

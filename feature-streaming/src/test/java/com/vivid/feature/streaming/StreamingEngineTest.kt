@@ -284,6 +284,51 @@ class StreamingEngineTest {
         assertNull(streamingEngine.bitrateDiagnostics.value)
     }
 
+    enum class StartRoute { LOCAL, REMOTE }
+
+    @ParameterizedTest
+    @EnumSource(StartRoute::class)
+    fun `both start routes prepare actual encoder and enable adaptive bitrate`(route: StartRoute) = runTest {
+        streamingCameraReady()
+        streamingEngine.initializeCamera()
+        val capabilities = object : EncoderCapabilities {
+            override fun supports(mime: String, width: Int, height: Int, fps: Int) =
+                mime == "video/avc" && width == 1920 && height == 1080 && fps == 30
+        }
+        streamingEngine.encoderCapabilities = capabilities
+        val repository = mockk<com.vivid.core.data.SettingsRepository> {
+            every { appSettingsFlow } returns kotlinx.coroutines.flow.MutableStateFlow(
+                com.vivid.core.data.AppSettings(
+                    streamUrl = "rtmp://live.example/app", streamKey = "key-1",
+                    videoCodecPreference = VideoCodecPreference.H265, encoderPreset = EncoderPreset.S_4K60,
+                    adaptiveBitrateEnabled = true,
+                ),
+            )
+        }
+        val launcher = mockk<StreamingServiceLauncher>(relaxed = true)
+        every { launcher.startStreaming(any()) } answers {
+            streamingEngine.startStream(firstArg<List<String>>())
+        }
+        val coordinator = StreamStartCoordinator(repository, streamingEngine, launcher, capabilities)
+        var now = 0L
+        streamingEngine.timeSource = { now }
+        if (route == StartRoute.REMOTE) {
+            StreamingEngineStreamControl(streamingEngine, coordinator, launcher, backgroundScope).start()
+        } else {
+            coordinator.start()
+        }
+        verify(exactly = 1) { camera.setVideoCodec(VideoCodec.H264) }
+        verify(exactly = 1) { camera.prepareVideo(1920, 1080, 30, 6_000_000, 2, 0) }
+        verify(exactly = 0) { camera.prepareVideo() }
+        assertEquals(EncoderPreset.FHD30, streamingEngine.activeEncoder.value?.preset)
+        repeat(3) {
+            now += 2_500
+            capturedCheckers[0].onNewBitrate(2_000_000)
+        }
+        verify(exactly = 1) { camera.setVideoBitrateOnFly(4_200_000) }
+        assertEquals(4_200, streamingEngine.bitrateDiagnostics.value?.targetKbps)
+    }
+
     // --- Adaptive Bitrate (v0.6.0) ------------------------------------------
 
     @Test
