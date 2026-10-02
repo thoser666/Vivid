@@ -17,6 +17,7 @@
 # Nutzung: bash scripts/test_sentry_triage_workflow.sh
 set -euo pipefail
 cd "$(dirname "$0")/.."
+source scripts/lib_workflow_yaml.sh
 
 WF=".github/workflows/automation-sentry-triage.yml"
 PASS=0; FAIL=0
@@ -52,8 +53,9 @@ with io.open('$WF', encoding='utf-8') as f:
 assert d.get('permissions') == {} or d.get('permissions') is None, d.get('permissions')
 PY
 "
-check "W3 Job-Permission nur issues: write" bash -c "
-grep -A6 '^  label:' '$WF' | grep -q 'issues: write'
+check "W3 Job-Permission exakt issues: write" bash -c "
+source scripts/lib_workflow_yaml.sh
+[[ \"\$(wf_job_permissions '$WF' label)\" == 'issues=write' ]]
 "
 check "W4 github-script SHA-gepinnt" grep -qE "uses: actions/github-script@[0-9a-f]{40}" "$WF"
 check "W5 Severity-Parsing (severity/level, Groß-/Kleinschreibung robust)" bash -c "

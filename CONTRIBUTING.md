@@ -207,6 +207,28 @@ Die Dokumentation kann nicht mehr unbemerkt veralten — drei Guards erzwingen d
 - **EventSub-JSON-Härtung** (`scripts/check_eventsub_json_hardening.sh`, Teil des Pre-Push-Gates + CI): Twitch erweitert EventSub-Payloads ohne Vorankündigung (zuletzt `shared_chat`/`source_*` auf `channel.chat.message`). Jede `Json { … }`-Instanziierung im feature-chat-Produktionscode muss deshalb **`ignoreUnknownKeys = true`** setzen — sonst crasht der Parser bei künftigen Feldern und Chat-Nachrichten fallen still aus Overlay/Bot. Bewusste Opt-outs werden als `@Suppress("EventSubJsonIgnoreUnknownKeys")` an der Datei markiert und im Guard-Log als `SUPPRESSED` ausgewiesen. Fixture-Selbsttest: `scripts/test_eventsub_json_hardening.sh` (9 Fälle); Contract-Tests mit realen Shared-Chat-Payloads: `TwitchChatEventSubReaderTest` (`contract *`).
 - **gh-CLI-Flag-Guard** (`scripts/check_gh_cli_flags.sh`, Teil des Pre-Push-Gates + CI): Jede `gh`-Flag-Verwendung in den Workflows wird gegen die Hilfe der lokalen gh-CLI validiert (Subcommand-Auflösung inklusive, gecacht). Ein Tippfehler wie `gh release list --exclude-prereleases` (richtig: `--exclude-pre-releases`) bricht sonst erst den CI-Job; der Guard fängt ihn vor dem Push. Fixture-Selbsttest: `scripts/test_gh_cli_flags.sh` (8 Fälle). Bewusste Ausnahmen: `# gh-flag-exempt: <grund>` am Zeilenende.
 
+### Keine Zeilenfenster in Guards (Meta-Guard)
+
+`scripts/test_no_line_windows.sh` (Pre-Push-Gate + CI) verbietet **Zeilen- und Kontextfenster** in allen Guard- und Testskripten: `grep -A N` / `grep -B N`, `head - N` als Assertion, `sed -n 'N,Mp'`, `awk 'NR==N'`.
+
+**Warum.** Ein Struktur- oder Semantik-Fakt, der als Zeilenabstand ausgedrückt wird, bricht genau dann, wenn jemand an etwas völlig anderem arbeitet — eine Kommentarzeile, eine Leerzeile, ein neuer Key. Diese Klasse hat das Repo dreimal getroffen:
+
+| Vorfall | Muster | Wirkung |
+|---|---|---|
+| #249 | `grep -A35` auf den Emulator-Gate-Block | Ein längerer Kommentar schob den Block aus dem Fenster; der Check wurde rot, obwohl sich am Getesteten nichts geändert hatte. |
+| #258 | `head -30 \| grep 'permissions: {}'` | `permissions: {}` rutschte auf Zeile 32, der Workflow war korrekt. Ein Kommentar in derselben Datei dokumentierte schon, dass das `-A9`-Fenster einmal von Hand breiter gestellt werden musste. |
+| #258 | `head -5` auf die `set -euo pipefail`-Zeile in `pre-push.sh` | Gleiche Klasse, gleiche Ursache. |
+
+Ohne den Meta-Guard wandern die Prüfungen still zurück auf Fenster, und der nächste Kommentar lässt sie erneut rot werden. **Die Regel lautet daher: YAML-Struktur wird geparst, Semantik über Anker verglichen — nie über Abstand.**
+
+**Zulässig sind bewusst nur:**
+
+1. `head -1` — „erster Treffer" bzw. „erste Zeilennummer" als Datenbegrenzung.
+2. Zeilennummern-Vergleiche `… | head -1 | xargs test {} -lt $(…)` — prüfen eine *Reihenfolge*, keinen Abstand; Einfügungen dazwischen ändern die Aussage nicht.
+3. Einträge in der Allowlist des Guards. Dort **ist** der Abstand die Aussage (z. B. „der Retry-Wrapper muss unmittelbar über dem Task stehen"). Jeder Eintrag trägt eine Begründung und wird auf Existenz geprüft, damit die Allowlist nicht verwaisen kann.
+
+**Für Workflow-Strukturfragen** gibt es `scripts/lib_workflow_yaml.sh` (`source`n): `wf_job_permissions`, `wf_job_if`, `wf_step_uses`, `wf_step_with`, `wf_step_index`. Die Assertions sind bewusst **exakt** — der komplette Permission-Satz, nicht „enthält `issues: write`“. Bei einem Least-Privilege-Guard ist eine zusätzlich vergebene Berechtigung genau das, was auffallen soll; ein `grep -Fq` auf eine Einzelberechtigung lässt sie durch. Unbekannter Pfad, Job oder Key liefert `-`, damit ein Tippfehler nicht wie ein bestandener Check aussieht.
+
 ### Danksagung Dritter (CONTRIBUTORS.md)
 
 Dritte (Personen außerhalb des Kern-Teams) werden in

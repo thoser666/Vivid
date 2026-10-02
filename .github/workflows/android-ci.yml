@@ -290,6 +290,13 @@ jobs:
       - name: Test contributors reminder
         run: bash scripts/test_contributors_reminder.sh
 
+      # Meta-Guard gegen Zeilen-/Kontextfenster in allen Guard- und
+      # Testskripten (Klasse aus #249 und #258). Ohne ihn wandern die
+      # Prüfungen langsam zurück auf `grep -A N` / `head - N`, und der nächste
+      # Kommentar im Header lässt sie ohne Änderung am Getesteten rot werden.
+      - name: Test no line windows
+        run: bash scripts/test_no_line_windows.sh
+
       # ── Optional: Code‑Scanning / Security‑Events ──
       # - name: Run CodeQL
       #   uses: github/codeql-action/init@v2

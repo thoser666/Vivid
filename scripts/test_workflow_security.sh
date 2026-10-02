@@ -3,6 +3,10 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
+# Gemeinsame YAML-Zugriffe (scripts/lib_workflow_yaml.sh) — die fensterfreie
+# Alternative zu `grep -A N` als Struktur-Prüfung. Siehe dort die Begründung.
+source scripts/lib_workflow_yaml.sh
+
 fail() {
   echo "❌ [workflow-security-test] $1"
   exit 1
@@ -100,8 +104,9 @@ file=.github/workflows/community-requests.yml
 # genau so ist der Contributors-Reminder-Check unten mitgebrochen).
 awk '/^jobs:/{exit} /^permissions:[[:space:]]*\{\}[[:space:]]*$/{f=1} END{exit !f}' "$file" \
   || fail "community-requests workflow must default-deny permissions"
-grep -A3 'triage:' "$file" | grep -Fq 'issues: write' \
-  || fail "community-requests triage job must retain only issues write"
+# Struktur, nicht Abstand: exakter Permission-Satz aus dem YAML.
+[[ "$(wf_job_permissions "$file" triage)" == "issues=write" ]] \
+  || fail "community-requests triage job permissions must be exactly issues=write (ist: $(wf_job_permissions "$file" triage))"
 grep -Fq 'actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea' "$file" \
   || fail "community-requests github-script must be SHA-pinned"
 grep -Fq 'community-triage -->' "$file" \
@@ -111,18 +116,17 @@ grep -Fq "labels: 'enhancement'" "$file" \
 grep -Fq 'docs/vision.md' "$file" \
   || fail "community-requests must reference the vision criteria"
 
-# Security scanning jobs retain only the permission needed for SARIF upload.
-# (Fenster -A9: der snyk-test-Job trägt seit dem Dependabot-Skip zusätzlich
-# if:-Zeile + Kommentare im Header, die Permission-Blöcke rutschen tiefer.)
-grep -A9 -F 'snyk-test:' .github/workflows/security-snyk.yml \
-  | grep -Fq 'security-events: write' \
-  || fail "Snyk test job must retain security-events write"
-grep -A9 -F 'snyk-test:' .github/workflows/security-snyk.yml \
-  | grep -Fq 'contents: read' \
-  || fail "Snyk test job must retain contents read"
-grep -A7 -F 'snyk-monitor:' .github/workflows/security-snyk.yml \
-  | grep -Fq 'contents: read' \
-  || fail "Snyk monitor job must retain contents read"
+# Security scanning jobs retain ONLY the permission needed for SARIF upload.
+#
+# Struktur, nicht Abstand: diese Pruefung war ein `grep -A9`-Fenster, und ein
+# Kommentar in dieser Datei dokumentierte bereits, dass das Fenster einmal
+# wegen eines gewachsenen if:-Blocks von Hand breiter gestellt werden musste.
+# Jetzt wird der Permission-Satz exakt aus dem YAML gelesen — dadurch fällt
+# auch eine ZUSÄTZLICH vergebene Berechtigung auf, nicht nur eine fehlende.
+[[ "$(wf_job_permissions .github/workflows/security-snyk.yml snyk-test)" == "contents=read;security-events=write" ]] \
+  || fail "Snyk test job permissions must be exactly contents=read;security-events=write (ist: $(wf_job_permissions .github/workflows/security-snyk.yml snyk-test))"
+[[ "$(wf_job_permissions .github/workflows/security-snyk.yml snyk-monitor)" == "contents=read" ]] \
+  || fail "Snyk monitor job permissions must be exactly contents=read (ist: $(wf_job_permissions .github/workflows/security-snyk.yml snyk-monitor))"
 
 # Fork-PR-Guard (PR #230): Release Drafter und Snyk skippen Fork-PRs —
 # GITHUB_TOKEN/SNYK_TOKEN fließen nicht in Fork-PR-Runs, beide Jobs liefen
@@ -135,9 +139,8 @@ for file in .github/workflows/release-drafter.yml .github/workflows/security-sny
   grep -Fq "(github.event_name != 'pull_request'" "$file" \
     || fail "$file fork-guard must be parenthesized so push events keep running"
 done
-grep -A7 -F 'analysis:' .github/workflows/security-scorecard.yml \
-  | grep -Fq 'security-events: write' \
-  || fail "Scorecard job must retain security-events write"
+[[ "$(wf_job_permissions .github/workflows/security-scorecard.yml analysis)" == "id-token=write;security-events=write" ]] \
+  || fail "Scorecard job permissions must be exactly id-token=write;security-events=write (ist: $(wf_job_permissions .github/workflows/security-scorecard.yml analysis))"
 
 # The source-level warning must have an actual use, not a suppression.
 grep -Fq 'Modifier.alpha(deletedAlpha)' feature-chat/src/main/java/com/vivid/feature/chat/ui/ChatOverlay.kt \
@@ -147,13 +150,13 @@ grep -Fq 'color = if (message.isAction) Color(0xFFB0BEC5) else textColor' featur
 
 # Gradle Wrapper validation must run in CI, SHA-pinned, before the first
 # gradlew invocation (scorecard BinaryArtifacts #40 assurance).
-wrapper_step=$(grep -B1 -A2 -F 'gradle/actions/wrapper-validation@' .github/workflows/android-ci.yml || true)
-[[ -n "$wrapper_step" ]] \
+wrapper_uses=$(wf_step_uses .github/workflows/android-ci.yml build 'gradle/actions/wrapper-validation')
+[[ "$wrapper_uses" != "-" ]] \
   || fail "android-ci.yml must run gradle/actions/wrapper-validation"
-echo "$wrapper_step" | grep -Eq 'gradle/actions/wrapper-validation@[0-9a-f]{40}' \
-  || fail "gradle/actions/wrapper-validation must be pinned to a full 40-char commit SHA"
+[[ "$wrapper_uses" =~ ^gradle/actions/wrapper-validation@[0-9a-f]{40}$ ]] \
+  || fail "gradle/actions/wrapper-validation must be pinned to a full 40-char commit SHA (ist: $wrapper_uses)"
 first_gradle_use=$(grep -n -m1 'run: \./gradlew\|gradle/actions/setup-gradle' .github/workflows/android-ci.yml | cut -d: -f1)
-validation_line=$(grep -n 'gradle/actions/wrapper-validation@' .github/workflows/android-ci.yml | cut -d: -f1)
+validation_line=$(grep -n -m1 'gradle/actions/wrapper-validation@' .github/workflows/android-ci.yml | cut -d: -f1)
 [[ -n "$first_gradle_use" && -n "$validation_line" && "$validation_line" -lt "$first_gradle_use" ]] \
   || fail "wrapper-validation must run before the first gradlew invocation"
 

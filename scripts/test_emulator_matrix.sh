@@ -38,6 +38,7 @@
 
 set -euo pipefail
 cd "$(dirname "$0")/.."
+source scripts/lib_workflow_yaml.sh
 
 FAIL=0
 check() {
@@ -392,7 +393,7 @@ assert by['macos-arm64']['experimental'] is True
 check "T12.2 api-level kommt aus der Matrix (nicht hartkodiert)" \
   grep -q 'api-level: \${{ matrix.api-level }}' .github/workflows/release-pipeline.yml
 check "T12.3 Stable-Publish-Gate bleibt bewusst auf API 34" \
-  bash -c 'grep -A8 "Run instrumented tests on emulator (release gate)" .github/workflows/distribution-stable.yml | grep -q "api-level: 34"'
+  bash -c 'source scripts/lib_workflow_yaml.sh; [[ "$(wf_step_with .github/workflows/distribution-stable.yml publish-stable "release gate" api-level)" == "34" ]]'
 
 echo "== T16: Provisionierbare API-Level (Vorbedingung des Emulator-Runners) =="
 # Vorfall #249 (Run 36849526447): Die Beobachter-Leg api37 referenzierte ein

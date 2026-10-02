@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
+source scripts/lib_workflow_yaml.sh
 file=.github/workflows/security-snyk.yml
 fail() { echo "❌ [snyk-workflow-test] $1"; exit 1; }
 [[ -s "$file" ]] || fail "Workflow fehlt oder ist leer"
@@ -33,8 +34,11 @@ fi
 # Dependabot-Skip-Vertrag: Der Monitor darf NICHT vom Actor-Skip betroffen
 # sein — das Dashboard-Update bleibt schedule/dispatch-seitig (sonst würde
 # der Skip ein echtes Überwachungsloch reißen).
-grep -A2 '^  snyk-monitor:' "$file" | grep -q "if: github.event_name == 'schedule'" \
-  || fail "snyk-monitor: schedule/dispatch-Bedingung fehlt (Skip darf den Monitor nicht betreffen)"
+# Struktur, nicht Abstand: war ein `grep -A2`-Fenster auf den Job-Key.
+# Jetzt wird die if-Bedingung des Jobs direkt aus dem YAML gelesen und exakt
+# verglichen — so faellt auch eine zusaetzlich gesetzte Actor-Bedingung auf.
+[[ "$(wf_job_if "$file" snyk-monitor)" == "github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'" ]] \
+  || fail "snyk-monitor if muss genau schedule||workflow_dispatch sein (Skip darf den Monitor nicht betreffen) (ist: $(wf_job_if "$file" snyk-monitor))"
 
 # SARIF-Multi-Run-Vertrag (Enforcement 30.09.2026, Run 36667123590): Snyk
 # schreibt ein Run-Objekt pro Projekt in EINE Datei; GitHub lehnt mehrere
