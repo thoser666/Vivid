@@ -9,12 +9,21 @@ import android.hardware.camera2.CameraMetadata
 /** Controls for the Camera2 manager feeding the idle GL preview. */
 internal class Camera2PreviewControls(
     private val camera: Camera2ApiManager,
-) : CameraControls {
+) : CameraControlPolicy(
+    camera::enableOpticalVideoStabilization,
+    camera::enableVideoStabilization,
+    camera::disableVideoStabilization,
+    camera::disableOpticalVideoStabilization,
+    camera::enableLantern,
+    camera::disableLantern,
+    camera::enableAutoExposure,
+    camera::disableAutoExposure,
+    camera::enableAutoWhiteBalance,
+    camera::disableAutoWhiteBalance,
+    { camera.zoomRange },
+) {
 
     override fun getZoom(): Float = camera.zoom
-
-    override fun getZoomRange(): ZoomRange? =
-        camera.zoomRange?.let { ZoomRange(it.lower, it.upper) }
 
     override fun setZoom(value: Float) { camera.zoom = value }
 
@@ -29,39 +38,11 @@ internal class Camera2PreviewControls(
     override fun isStabilizationEnabled(): Boolean =
         camera.isVideoStabilizationEnabled || camera.isOpticalStabilizationEnabled
 
-    override fun enableStabilization(): Boolean =
-        if (hasOpticalStabilization()) {
-            camera.enableOpticalVideoStabilization()
-        } else {
-            camera.enableVideoStabilization()
-        }
-
-    override fun disableStabilization(): Boolean = runCatching {
-        // Camera2's initial request can enable OIS before its cached flag is updated.
-        camera.disableVideoStabilization()
-        camera.disableOpticalVideoStabilization()
-        !isStabilizationEnabled()
-    }.getOrDefault(false)
-
     override fun hasTorch(): Boolean = camera.isLanternSupported
 
     override fun isTorchEnabled(): Boolean = camera.isLanternEnabled
 
-    override fun enableTorch(): Boolean = runCatching {
-        camera.enableLantern()
-        camera.isLanternEnabled
-    }.getOrDefault(false)
-
-    override fun disableTorch(): Boolean = runCatching {
-        camera.disableLantern()
-        !camera.isLanternEnabled
-    }.getOrDefault(false)
-
     // --- Manuelle Kamera-Steuerung ---
-
-    override fun hasManualFocus(): Boolean = true // Camera2API supports focus distance
-
-    override fun getFocusDistance(): Float = 0.0f // Default: infinity
 
     override fun setFocusDistance(distance: Float) {
         camera.setFocusDistance(distance)
@@ -105,32 +86,9 @@ internal class Camera2PreviewControls(
         camera.isAutoExposureEnabled
     }.getOrDefault(true)
 
-    override fun enableAutoExposure(): Boolean = runCatching {
-        camera.enableAutoExposure()
-    }.getOrDefault(false)
-
-    override fun disableAutoExposure(): Boolean = runCatching {
-        camera.disableAutoExposure()
-        !camera.isAutoExposureEnabled
-    }.getOrDefault(false)
-
-    override fun hasWhiteBalanceControl(): Boolean = runCatching {
-        camera.getAutoWhiteBalanceModesAvailable().contains(CameraMetadata.CONTROL_AWB_MODE_AUTO)
-    }.getOrDefault(false)
-
     override fun isAutoWhiteBalanceEnabled(): Boolean = runCatching {
         camera.isAutoWhiteBalanceEnabled
     }.getOrDefault(true)
-
-    override fun enableAutoWhiteBalance(): Boolean = runCatching {
-        val mode = camera.getAutoWhiteBalanceModesAvailable().firstOrNull { it == CameraMetadata.CONTROL_AWB_MODE_AUTO } ?: return false
-        camera.enableAutoWhiteBalance(mode)
-    }.getOrDefault(false)
-
-    override fun disableAutoWhiteBalance(): Boolean = runCatching {
-        camera.disableAutoWhiteBalance()
-        !camera.isAutoWhiteBalanceEnabled
-    }.getOrDefault(false)
 
     override fun getWhiteBalanceModesAvailable(): List<Int> = runCatching {
         camera.getAutoWhiteBalanceModesAvailable()
