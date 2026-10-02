@@ -26,6 +26,12 @@ deshalb gibt es pro Kadenz einen eigenen Workflow. Alles zusätzlich manuell per
 > `emulator-tests`, Selbsttests und `build-debug` aber laufen. Vorfall 02.10.2026:
 > Dispatch `36963108418` hat ohne diesen Input das Nightly `0.5.20-nightly.511`
 > veröffentlicht. Contract: T17 in `scripts/test_emulator_matrix.sh`.
+>
+> Der Input ist `type: boolean` — die Job-Guards vergleichen deshalb gegen das
+> Boolean-Literal `true` (`inputs.matrix_only != true`), **nicht** gegen den String
+> `'true'`. GitHub-Ausdrücke coercen nicht, ein String-Vergleich ist also still
+> wirkungslos und lässt den Guard-Job einfach durchlaufen. T17.4 sichert die
+> Kopplung zwischen deklariertem Typ und Vergleichsliteral ab.
 
 ## Stable-Distribution (`distribution-stable.yml`)
 

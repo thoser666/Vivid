@@ -435,7 +435,7 @@ jobs:
     # Weekly-Job).
     if: >-
       (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
-      && inputs.matrix_only != 'true'
+      && inputs.matrix_only != true
     # Bewusst KEIN `workflows: write`: Push-getriggerte Workflows, die dem
     # GITHUB_TOKEN diese Berechtigung geben, scheitern bei der Validierung
     # ("This run likely failed because of a workflow file issue" — Schutz vor
@@ -648,7 +648,7 @@ jobs:
     # matrix_only: ohne nightly-Publish gibt es nichts zu verifizieren.
     if: >-
       (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
-      && inputs.matrix_only != 'true'
+      && inputs.matrix_only != true
     permissions:
       contents: read
 
@@ -1061,7 +1061,7 @@ jobs:
     # Nur manuell per workflow_dispatch (Play-Upload ist ein bewusster Akt):
     # niemals automatisch bei push/schedule ausloesen. matrix_only unterdrueckt
     # ihn zusaetzlich — die Matrix-Verifikation darf nie ein Play-Release sein.
-    if: github.event_name == 'workflow_dispatch' && inputs.matrix_only != 'true'
+    if: github.event_name == 'workflow_dispatch' && inputs.matrix_only != true
     permissions:
       contents: read
 
@@ -1157,7 +1157,7 @@ jobs:
     runs-on: ubuntu-latest
     if: >-
       (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
-      && inputs.matrix_only != 'true'
+      && inputs.matrix_only != true
     permissions:
       contents: read
     steps:

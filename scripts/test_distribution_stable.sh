@@ -103,7 +103,7 @@ notcheck "D8.1 kein refs/tags/v-Publizier-Pfad in publish-release" \
 check "D8.2 nightly bleibt Schedule/Manual" \
   "$RELEASE" "github.event_name == 'schedule' \|\| github.event_name == 'workflow_dispatch'"
 check "D8.2b nightly-Publish respektiert matrix_only" \
-  "$RELEASE" "inputs.matrix_only != 'true'"
+  "$RELEASE" "inputs.matrix_only != true"
 check "D8.3 nightly-Cron bleibt täglich" "$RELEASE" "cron: '0 6 \* \* \*'"
 
 # D9: deploy-fdroid feuert NICHT mehr bei release:published.

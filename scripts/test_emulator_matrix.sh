@@ -305,13 +305,24 @@ echo "== T17: matrix_only — Matrix-Verifikation ohne Publizieren =="
 # Vorfall 02.10.2026: der erste echte Matrix-Dispatch auf develop hat nebenbei
 # das Nightly-Release 0.5.20-nightly.511 veroeffentlicht. `matrix_only` macht
 # die Verifikation end-to-end read-only.
-check "T17.1 matrix_only ist ein workflow_dispatch-Input (default false)" python3 -c "
+#
+# ZWEITER Vorfall im selben Zug: der erste matrix_only-Dispatch hat die Guard-
+# Jobs trotzdem laufen lassen. Ursache war ein Typ-Mismatch, kein Logikfehler:
+# der Input ist `type: boolean`, die Bedingung verglich aber gegen den String
+# `'true'`. In GitHub-Ausdruecken ist `true != 'true'` immer wahr (Boolean vs.
+# String werden nie coerced), der Guard konnte also gar nicht greifen. Die
+# Selbsttests haben das nicht nur nicht gefangen, sondern mit
+# `assert "!= 'true'" in cond` aktiv erzwungen — ein Test, der den Bug festschreibt.
+# T17.4 haelt jetzt Typ und Vergleichsliteral zusammen.
+check "T17.1 matrix_only ist ein workflow_dispatch-Input (boolean, default false)" python3 -c "
 import yaml, io
 with io.open('.github/workflows/release-pipeline.yml', encoding='utf-8') as f:
     d = yaml.safe_load(f)
 inp = d[True]['workflow_dispatch']['inputs']
 assert 'matrix_only' in inp, sorted(inp)
-assert str(inp['matrix_only']['default']).lower() == 'false', inp['matrix_only']
+spec = inp['matrix_only']
+assert spec.get('type') == 'boolean', spec
+assert str(spec['default']).lower() == 'false', spec
 "
 check "T17.2 jeder Publizier-Job respektiert matrix_only" python3 -c "
 import yaml, io
@@ -323,8 +334,7 @@ mutating = ['publish-release', 'publish-play', 'verify-reproducibility', 'sweep-
 for name in mutating:
     cond = str(jobs[name].get('if', ''))
     assert 'matrix_only' in cond, (name, cond)
-    # 'true' (string), nicht True — YAML-Inputs sind Strings.
-    assert \"!= 'true'\" in cond, (name, cond)
+    assert 'inputs.matrix_only != true' in cond, (name, cond)
 "
 check "T17.3 Matrix laeuft auch ohne matrix_only (Default: normale Nightly-Publikation bleibt)" python3 -c "
 import yaml, io
@@ -333,6 +343,31 @@ with io.open('.github/workflows/release-pipeline.yml', encoding='utf-8') as f:
 cond = str(d['jobs']['emulator-tests']['if'])
 assert \"github.event_name == 'workflow_dispatch'\" in cond, cond
 assert 'matrix_only' not in cond, cond
+"
+# Regression auf den konkreten Vorfall: bei `type: boolean` MUSS der Vergleich
+# gegen das Boolean-Literal gehen. Gegen den String verglichen ist der Guard
+# wirkungslos, ohne dass YAML oder GitHub einen Fehler melden.
+check "T17.4 Vergleichsliteral passt zum deklarierten Input-Typ" python3 -c "
+import yaml, io
+with io.open('.github/workflows/release-pipeline.yml', encoding='utf-8') as f:
+    d = yaml.safe_load(f)
+jobs = d['jobs']
+inp = d[True]['workflow_dispatch']['inputs']
+literal = {'boolean': 'inputs.matrix_only != true', 'string': \"inputs.matrix_only != 'true'\"}
+# Nur Inputs, die in mindestens einer Job-Bedingung vorkommen.
+seen = False
+for name, spec in inp.items():
+    t = spec.get('type', 'string')
+    want = literal.get(t)
+    assert want, (name, t)
+    for jname, job in jobs.items():
+        cond = str(job.get('if', ''))
+        if 'inputs.' + name not in cond:
+            continue
+        seen = True
+        assert want in cond, (jname, name, t, cond)
+assert seen, 'kein Job Bedingung referenziert matrix_only'
+print('Typ-Literal-Kopplung konsistent')
 "
 
 echo "== T12: Workflow-YAML valide + API-Staffelung =="
