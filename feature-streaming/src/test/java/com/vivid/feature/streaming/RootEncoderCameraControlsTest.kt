@@ -1,5 +1,7 @@
 package com.vivid.feature.streaming
 
+import android.hardware.camera2.CameraCharacteristics
+import android.hardware.camera2.CameraMetadata
 import android.util.Range
 import android.view.MotionEvent
 import android.view.View
@@ -72,7 +74,7 @@ class RootEncoderCameraControlsTest {
     @Test
     fun `hasOpticalStabilization is true when optical zooms are available`() {
         val cam = camera()
-        every { cam.opticalZooms } returns arrayOf(1f, 2f)
+        every { cam.cameraCharacteristics.get(CameraCharacteristics.LENS_INFO_AVAILABLE_OPTICAL_STABILIZATION) } returns intArrayOf(CameraMetadata.LENS_OPTICAL_STABILIZATION_MODE_ON)
 
         assertTrue(RootEncoderCameraControls(cam).hasOpticalStabilization())
     }
@@ -80,7 +82,7 @@ class RootEncoderCameraControlsTest {
     @Test
     fun `hasOpticalStabilization is false without optical zooms`() {
         val cam = camera()
-        every { cam.opticalZooms } returns emptyArray()
+        every { cam.cameraCharacteristics.get(CameraCharacteristics.LENS_INFO_AVAILABLE_OPTICAL_STABILIZATION) } returns intArrayOf(CameraMetadata.LENS_OPTICAL_STABILIZATION_MODE_OFF)
 
         assertFalse(RootEncoderCameraControls(cam).hasOpticalStabilization())
     }
@@ -97,7 +99,7 @@ class RootEncoderCameraControlsTest {
     @Test
     fun `enableStabilization prefers optical over digital`() {
         val cam = camera()
-        every { cam.opticalZooms } returns arrayOf(1f)
+        every { cam.cameraCharacteristics.get(CameraCharacteristics.LENS_INFO_AVAILABLE_OPTICAL_STABILIZATION) } returns intArrayOf(CameraMetadata.LENS_OPTICAL_STABILIZATION_MODE_ON)
         every { cam.enableOpticalVideoStabilization() } returns true
 
         assertTrue(RootEncoderCameraControls(cam).enableStabilization())
@@ -108,7 +110,7 @@ class RootEncoderCameraControlsTest {
     @Test
     fun `enableStabilization falls back to digital when no optical zoom is available`() {
         val cam = camera()
-        every { cam.opticalZooms } returns emptyArray()
+        every { cam.cameraCharacteristics.get(CameraCharacteristics.LENS_INFO_AVAILABLE_OPTICAL_STABILIZATION) } returns intArrayOf(CameraMetadata.LENS_OPTICAL_STABILIZATION_MODE_OFF)
         every { cam.enableVideoStabilization() } returns true
 
         assertTrue(RootEncoderCameraControls(cam).enableStabilization())
@@ -119,10 +121,12 @@ class RootEncoderCameraControlsTest {
     @Test
     fun `disableStabilization disables digital and optical`() {
         val cam = camera()
-        every { cam.isVideoStabilizationEnabled } returns true
-        every { cam.isOpticalVideoStabilizationEnabled } returns true
-        every { cam.disableVideoStabilization() } just runs
-        every { cam.disableOpticalVideoStabilization() } just runs
+        var digital = true
+        every { cam.isVideoStabilizationEnabled } answers { digital }
+        var optical = true
+        every { cam.isOpticalVideoStabilizationEnabled } answers { optical }
+        every { cam.disableVideoStabilization() } answers { digital = false }
+        every { cam.disableOpticalVideoStabilization() } answers { optical = false }
 
         assertTrue(RootEncoderCameraControls(cam).disableStabilization())
         verify { cam.disableVideoStabilization() }
@@ -130,14 +134,14 @@ class RootEncoderCameraControlsTest {
     }
 
     @Test
-    fun `disableStabilization skips inactive modes`() {
+    fun `disableStabilization clears request defaults even when cached modes are inactive`() {
         val cam = camera()
         every { cam.isVideoStabilizationEnabled } returns false
         every { cam.isOpticalVideoStabilizationEnabled } returns false
 
         assertTrue(RootEncoderCameraControls(cam).disableStabilization())
-        verify(exactly = 0) { cam.disableVideoStabilization() }
-        verify(exactly = 0) { cam.disableOpticalVideoStabilization() }
+        verify(exactly = 1) { cam.disableVideoStabilization() }
+        verify(exactly = 1) { cam.disableOpticalVideoStabilization() }
     }
 
     // --- Taschenlampe (Torch/Lantern) ---
@@ -162,6 +166,7 @@ class RootEncoderCameraControlsTest {
     fun `enableTorch calls enableLantern and returns true`() {
         val cam = camera()
         every { cam.enableLantern() } just runs
+        every { cam.isLanternEnabled } returns true
 
         assertTrue(RootEncoderCameraControls(cam).enableTorch())
         verify { cam.enableLantern() }
@@ -295,6 +300,7 @@ class RootEncoderCameraControlsTest {
         every { cam.minExposure } returns -3
         every { cam.maxExposure } returns 3
 
+        every { cam.getExposure() } returns 2
         assertTrue(RootEncoderCameraControls(cam).setExposure(2))
         verify { cam.setExposure(2) }
     }
@@ -351,13 +357,13 @@ class RootEncoderCameraControlsTest {
     }
 
     @Test
-    fun `enableAutoWhiteBalance uses the first available mode`() {
+    fun `enableAutoWhiteBalance uses automatic mode rather than the first preset`() {
         val cam = camera()
-        every { cam.autoWhiteBalanceModesAvailable } returns listOf(2, 5)
-        every { cam.enableAutoWhiteBalance(2) } returns true
+        every { cam.autoWhiteBalanceModesAvailable } returns listOf(2, 1, 5)
+        every { cam.enableAutoWhiteBalance(1) } returns true
 
         assertTrue(RootEncoderCameraControls(cam).enableAutoWhiteBalance())
-        verify { cam.enableAutoWhiteBalance(2) }
+        verify { cam.enableAutoWhiteBalance(1) }
     }
 
     @Test

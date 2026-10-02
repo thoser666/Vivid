@@ -144,7 +144,7 @@ class StreamingScreenPermissionContractTest {
         // #249-Kernvertrag: Der Eintritt startet keinen Systemdialog — der
         // Semantik-Baum bleibt vollständig (das instrumentierte Pendant dieses
         // Vertrags ist der StartupSmokeTest auf dem Emulator ohne Grants).
-        composeRule.onNodeWithText("Live Stream").assertIsDisplayed()
+        composeRule.onNodeWithText("Controls").assertIsDisplayed()
         composeRule.onNodeWithText("Start Streaming").assertIsDisplayed()
         org.junit.Assert.assertNull(
             "Screen-Eintritt darf keinen Permission-Request auslösen (#249)",
@@ -195,6 +195,9 @@ class StreamingScreenPermissionContractTest {
         )
         // Aber der Stream startet nicht, bevor gegranted wurde.
         verify(exactly = 0) { viewModel.startStream() }
+        composeRule.onNodeWithText(
+            appContext.getString(com.vivid.feature.streaming.R.string.streaming_permission_required),
+        ).assertIsDisplayed()
     }
 
     @Test

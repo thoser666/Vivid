@@ -29,6 +29,8 @@ class CameraStabilizationController(
         return false
     }
 
+    fun syncState() { isEnabled = camera.isStabilizationEnabled() }
+
     private fun apply(enabled: Boolean): Boolean =
         if (enabled) camera.enableStabilization() else camera.disableStabilization()
 }

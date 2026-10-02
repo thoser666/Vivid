@@ -154,7 +154,7 @@ class LutController {
             lutSize: Int,
             colorSpace: ColorSpace,
         ): BaseFilterRender? = try {
-            if (preset == LutPreset.NONE) {
+            if (preset == LutPreset.NONE && colorSpace == ColorSpace.SRGB) {
                 null // Identität = kein Filter
             } else {
                 val bitmap = preset.createLut(lutSize)

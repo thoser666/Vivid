@@ -58,10 +58,13 @@ class StreamingEngineFiltersTest {
     @BeforeEach
     fun setUp() {
         context = mockk(relaxed = true)
+        every { context.getSystemService(Context.WINDOW_SERVICE) } returns mockk<android.view.WindowManager>(relaxed = true)
         // ReplayStorage leitet aus context.filesDir ab — im JVM-Test ein echtes
         // Temp-Verzeichnis, damit kein Mock-File mit null-path durchs API läuft.
         every { context.filesDir } returns tempDir
         camera = mockk(relaxed = true)
+        every { camera.prepareAudio() } returns true
+        every { camera.prepareVideo() } returns true
         glStreamInterface = mockk(relaxed = true)
         every { camera.glInterface } returns glStreamInterface
         cameraFactory = object : CameraFactory {
@@ -278,16 +281,48 @@ class StreamingEngineFiltersTest {
     @Test
     fun `startReplay records via the camera and stop returns to idle`() = runTest {
         streamingEngine.initializeCamera()
+        val observedState = streamingEngine.replayState
 
-        // RootEncoderReplayRecorder.start -> camera.startRecord (relaxed mock = true)
+        // Record must prepare encoders even when no stream is running.
         assertTrue(streamingEngine.startReplay(1_700_000_000_000L))
         verify(exactly = 1) { camera.startRecord(any<String>()) }
-        assertTrue(streamingEngine.replayState.first() is ReplayState.Recording)
+        assertTrue(observedState.first() is ReplayState.Recording)
+        verify(exactly = 1) { camera.prepareAudio() }
+        verify(exactly = 1) { camera.prepareVideo() }
 
         // stop: Datei existiert nicht wirklich -> Rückgabe null, State Idle.
         assertNull(streamingEngine.stopReplay())
         verify(exactly = 1) { camera.stopRecord() }
-        assertEquals(ReplayState.Idle, streamingEngine.replayState.first())
+        assertEquals(ReplayState.Idle, observedState.first())
+    }
+
+    @Test
+    fun `recording during streaming does not prepare the running encoders again`() {
+        streamingEngine.initializeCamera()
+        every { camera.isStreaming } returns true
+        assertTrue(streamingEngine.startReplay(1_700_000_000_000L))
+        verify(exactly = 0) { camera.prepareAudio() }
+        verify(exactly = 0) { camera.prepareVideo() }
+        verify(exactly = 1) { camera.startRecord(any<String>()) }
+    }
+
+    @Test
+    fun `failed encoder preparation leaves recording idle`() {
+        streamingEngine.initializeCamera()
+        every { camera.prepareVideo() } returns false
+        assertFalse(streamingEngine.startReplay())
+        assertEquals(ReplayState.Idle, streamingEngine.replayState.value)
+        verify(exactly = 0) { camera.startRecord(any<String>()) }
+    }
+
+    @Test
+    fun `starting a stream while recording reuses encoders`() {
+        streamingEngine.initializeCamera()
+        every { camera.isRecording } returns true
+        streamingEngine.startStream(listOf("rtmp://example.com/live"))
+        verify(exactly = 0) { camera.prepareAudio() }
+        verify(exactly = 0) { camera.prepareVideo() }
+        verify(exactly = 1) { camera.startStream(MultiType.RTMP, 0, "rtmp://example.com/live") }
     }
 
     // ------------------------------------------------------------------

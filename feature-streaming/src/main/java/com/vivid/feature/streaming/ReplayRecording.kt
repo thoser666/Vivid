@@ -155,8 +155,8 @@ class ReplayStorage(
 class ReplayController(
     private val storage: ReplayStorage,
     private val recorder: ReplayRecorder,
+    private val _state: MutableStateFlow<ReplayState> = MutableStateFlow(ReplayState.Idle),
 ) {
-    private val _state = MutableStateFlow<ReplayState>(ReplayState.Idle)
     val state: StateFlow<ReplayState> = _state.asStateFlow()
 
     fun start(nowMillis: Long = System.currentTimeMillis()): Boolean {

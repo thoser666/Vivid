@@ -28,6 +28,8 @@ class ScreenCaptureVideoSource(
     private val display: MultiDisplay,
 ) : VideoSource {
 
+    internal val glInterface get() = display.glInterface as? com.pedro.library.view.GlStreamInterface
+
     override val kind: VideoSourceKind = VideoSourceKind.SCREEN_CAPTURE
 
     /** true, solange die Screen-Capture-Quelle aktiv streamt. */

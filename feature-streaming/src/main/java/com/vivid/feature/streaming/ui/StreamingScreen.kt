@@ -3,41 +3,41 @@ package com.vivid.feature.streaming.ui
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.pm.PackageManager
-import android.content.res.Configuration
-import android.hardware.camera2.CameraCharacteristics
-import android.hardware.camera2.CameraManager
+import android.hardware.display.DisplayManager
+import android.os.Handler
+import android.os.Looper
 import android.net.Uri
 import android.os.Build
+import android.view.Surface
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Help
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Settings
-// 1. Importiere ein passendes Icon für die OBS-Steuerung
-import androidx.compose.material.icons.filled.Podcasts // (Ein gutes Icon für "Broadcasting")
+import androidx.compose.material.icons.filled.Podcasts
 import androidx.compose.material3.*
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -46,15 +46,16 @@ import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
-import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
@@ -62,8 +63,11 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
+import com.vivid.feature.streaming.StreamingEngine
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
@@ -121,20 +125,6 @@ internal fun selectPortraitIdlePreviewSize(available: List<IntSize>): IntSize {
     ) ?: IntSize(1920, 1080)
 }
 
-private fun portraitIdlePreviewSize(context: android.content.Context): IntSize = runCatching {
-    val manager = context.getSystemService(CameraManager::class.java)
-    val cameraId = manager.cameraIdList.firstOrNull { id ->
-        manager.getCameraCharacteristics(id).get(CameraCharacteristics.LENS_FACING) ==
-            CameraCharacteristics.LENS_FACING_BACK
-    } ?: manager.cameraIdList.first()
-    val sizes = manager.getCameraCharacteristics(cameraId)
-        .get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
-        ?.getOutputSizes(SurfaceHolder::class.java)
-        ?.map { IntSize(it.width, it.height) }
-        .orEmpty()
-    selectPortraitIdlePreviewSize(sizes)
-}.getOrDefault(IntSize(1920, 1080))
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StreamingScreen(
@@ -149,31 +139,19 @@ fun StreamingScreen(
     val streamingEngine = viewModel.streamingEngine
     val streamingState by streamingEngine.streamingState.collectAsStateWithLifecycle()
     val targetStates by streamingEngine.targetStates.collectAsStateWithLifecycle()
-    val focusMode by streamingEngine.focusMode.collectAsStateWithLifecycle()
-    val stabilizationEnabled by streamingEngine.stabilizationEnabled.collectAsStateWithLifecycle()
-    val torchEnabled by streamingEngine.torchEnabled.collectAsStateWithLifecycle()
     val activeSourceKind by streamingEngine.activeSourceKind.collectAsStateWithLifecycle()
-    val activeFilter by streamingEngine.activeFilter.collectAsStateWithLifecycle()
-    val lowLightBoostEnabled by streamingEngine.lowLightBoostEnabled.collectAsStateWithLifecycle()
-    val activeLutPreset by streamingEngine.activeLutPreset.collectAsStateWithLifecycle()
-    val activeColorSpace by streamingEngine.activeColorSpace.collectAsStateWithLifecycle()
-    val replayState by streamingEngine.replayState.collectAsStateWithLifecycle()
-    val exposure by streamingEngine.exposure.collectAsStateWithLifecycle()
-    val exposureRange by streamingEngine.exposureRange.collectAsStateWithLifecycle()
-    val autoExposureEnabled by streamingEngine.autoExposureEnabled.collectAsStateWithLifecycle()
-    val autoWhiteBalanceEnabled by streamingEngine.autoWhiteBalanceEnabled.collectAsStateWithLifecycle()
     val configIssues by viewModel.configIssues.collectAsStateWithLifecycle()
+    // Missing configuration should not obscure the preview before a Go-Live attempt.
+    val previewConfigIssues = configIssues.filterNot { it.messageRes == R.string.stream_error_no_url }
+    var startAttempted by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val dismissLabel = stringResource(android.R.string.ok)
+    StreamConfigurationFeedback(startAttempted, configIssues, streamingState, snackbarHostState) {
+        startAttempted = false
+    }
     val twitchState by twitchViewModel.uiState.collectAsStateWithLifecycle()
 
-    // Viewerzahl während eines laufenden Twitch-Streams periodisch aktualisieren.
-    LaunchedEffect(streamingState is StreamingState.Streaming) {
-        if (streamingState is StreamingState.Streaming) {
-            while (true) {
-                twitchViewModel.refresh()
-                kotlinx.coroutines.delay(TWITCH_REFRESH_INTERVAL_MS)
-            }
-        }
-    }
+    RefreshTwitchStatus(streamingState, twitchViewModel)
 
     // Szenen (Basic Scenes) + Auto-Scene-Switcher: Liste, aktive Szene,
     // Auto-Wechsel-Zustand — aus SceneRepository/AutoSceneSwitcher.
@@ -197,21 +175,16 @@ fun StreamingScreen(
     // (User-Geste) angefordert; die Idle-Preview startet nur bei bereits
     // erteilter Permission (Guard hier + in startIdlePreviewIfReady).
     val context = LocalContext.current
-    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val displayRotationDegrees = rememberDisplayRotation()
     var permissionDenied by remember { mutableStateOf(false) }
-    val permissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions(),
-    ) { grants ->
-        if (grants.values.all { it }) {
-            permissionDenied = false
-            viewModel.startStream()
-        } else {
-            permissionDenied = true
-        }
+    val requestPermissionsAndStart = rememberStreamStartAction(viewModel) { granted ->
+        permissionDenied = !granted
+        startAttempted = startAttempted && granted
     }
 
-    // Idle-Preview nur bei bereits erteilter Permission — ohne Request: Fehlt
-    // der Grant, wird erst der Go-Live-Pfad (User-Geste) anfordern.
+    val requestPermissionsAndRecord = rememberRecordingAction(streamingEngine, snackbarHostState, dismissLabel)
+
+    // Start idle preview only when camera permission is already granted.
     LaunchedEffect(Unit) {
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
             PackageManager.PERMISSION_GRANTED
@@ -220,148 +193,61 @@ fun StreamingScreen(
         }
     }
 
-    fun requestPermissionsAndStart() {
-        val needed = buildList {
-            add(Manifest.permission.CAMERA)
-            add(Manifest.permission.RECORD_AUDIO)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                add(Manifest.permission.POST_NOTIFICATIONS)
+    val requestScreenCapture = rememberScreenCaptureAction(streamingEngine)
+
+    val requestVideoPicker = rememberVideoPickerAction(streamingEngine)
+
+    RefreshStreamingScreenOnResume(viewModel, streamingEngine)
+
+    var scenesExpanded by rememberSaveable { mutableStateOf(false) }
+
+    if (scenesExpanded) {
+        ModalBottomSheet(
+            onDismissRequest = { scenesExpanded = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+            dragHandle = {
+                Box(
+                    modifier = Modifier.fillMaxWidth().height(24.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Box(
+                        Modifier.size(width = 32.dp, height = 4.dp)
+                            .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f), CircleShape),
+                    )
+                }
+            },
+        ) {
+            Column(Modifier.testTag("scenes_panel")) {
+                SceneSwitcherBar(
+                    scenes = scenes,
+                    activeSceneId = activeSceneId,
+                    autoSwitchEnabled = autoSwitchEnabled,
+                    autoSwitchIntervalSeconds = autoSwitchIntervalSeconds,
+                    isStreaming = streamingState is StreamingState.Streaming,
+                    onApplyScene = viewModel::applyScene,
+                    onSaveScene = viewModel::saveScene,
+                    onDeleteScene = viewModel::deleteScene,
+                    onAutoSwitchEnabledChange = viewModel::setAutoSwitchEnabled,
+                    onAutoSwitchIntervalChange = viewModel::setAutoSwitchIntervalSeconds,
+                    privacyEnabled = privacyEnabled,
+                    onPrivacyEnabledChange = { enabled ->
+                        // Deaktivieren schließt zugleich den Zonen-Editor (die
+                        // Zonen sind ohne Toggle nicht mehr im Bild).
+                        if (!enabled) privacyEditing = false
+                        viewModel.setPrivacyEnabled(enabled)
+                    },
+                    onOpenZoneEditor = {
+                        scenesExpanded = false
+                        privacyEditing = true
+                    },
+                )
             }
         }
-        val missing = needed.filter {
-            ContextCompat.checkSelfPermission(context, it) != PackageManager.PERMISSION_GRANTED
-        }
-        if (missing.isEmpty()) {
-            permissionDenied = false
-            viewModel.startStream()
-        } else {
-            permissionDenied = false
-            permissionLauncher.launch(missing.toTypedArray())
-        }
-    }
-
-    // S2: Screen-Capture (MediaProjection) — Consent-Dialog und Quellen-Wechsel.
-    // Der System-Dialog „Bildschirm übertragen" wird per Activity-Result gestartet;
-    // das Ergebnis (RESULT_OK + Daten) geht an die Screen-Capture-Quelle der Engine.
-    val screenCaptureLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.StartActivityForResult(),
-    ) { result ->
-        val granted = streamingEngine.onScreenCaptureConsentResult(result.resultCode, result.data)
-        if (!granted) {
-            // Consent verweigert → zurück zur Kamera; die Quelle bleibt für einen
-            // erneuten Versuch erzeugt (Consent wird beim nächsten Toggle neu angefragt).
-            streamingEngine.switchSource(VideoSourceKind.CAMERA)
-        }
-    }
-
-    fun requestScreenCapture() {
-        if (streamingEngine.switchSource(VideoSourceKind.SCREEN_CAPTURE)) {
-            streamingEngine.createScreenCaptureConsentIntent()?.let {
-                screenCaptureLauncher.launch(it)
-            }
-        }
-    }
-
-    // S3: Video-Player (Datei) — der SAF-Picker liefert die Content-Uri, die an
-    // die Video-Player-Quelle der Engine geht. Der Wechsel auf die Quelle passiert
-    // erst nach erfolgreicher Auswahl, damit keine leere Quelle aktiv wird.
-    val videoPickerLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.GetContent(),
-    ) { uri: Uri? ->
-        if (uri != null) {
-            if (streamingEngine.setVideoPlayerUri(uri)) {
-                streamingEngine.switchSource(VideoSourceKind.VIDEO_PLAYER)
-            }
-        }
-    }
-
-    // Re-validiert die Konfiguration, sobald der Screen wieder sichtbar wird
-    // (z. B. nach der Rückkehr aus den Einstellungen).
-    val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
-                viewModel.runConfigCheck()
-                streamingEngine.startIdlePreviewIfReady()
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.streaming_ui_title)) },
-                actions = {
-                    // Button für OBS-Steuerung
-                    IconButton(onClick = {
-                        // 2. HIER IST DIE NAVIGATIONSAKTION ZUM OBS-SCREEN
-                        navController.navigate("obs_control")
-                    }) {
-                        Icon(
-                            imageVector = Icons.Default.Podcasts,
-                            contentDescription = stringResource(R.string.streaming_obs_content_desc),
-                        )
-                    }
-
-                    // Hilfe-Button
-                    IconButton(onClick = {
-                        navController.navigate("help_route")
-                    }) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.Help,
-                            contentDescription = stringResource(R.string.streaming_help_content_desc),
-                        )
-                    }
-
-                    // Replay-Bibliothek: gespeicherte MP4-Aufnahmen ansehen/verwalten.
-                    IconButton(onClick = {
-                        navController.navigate("replay_library")
-                    }) {
-                        Icon(
-                            imageVector = Icons.Default.VideoLibrary,
-                            contentDescription = stringResource(R.string.replay_library_title),
-                        )
-                    }
-
-                    // Bestehender Button für die Einstellungen
-                    IconButton(onClick = {
-                        navController.navigate("settings_route")
-                    }) {
-                        Icon(
-                            imageVector = Icons.Default.Settings,
-                            contentDescription = stringResource(R.string.streaming_settings_content_desc),
-                        )
-                    }
-                },
-            )
-        },
-        // Szenen-Leiste (Basic Scenes): immer sichtbar — Chips zum Umschalten,
-        // „+“ zum Speichern der aktuellen Konfiguration, Löschen der aktiven
-        // Szene und der Auto-Scene-Switcher (An/Aus + Intervall).
-        bottomBar = {
-            SceneSwitcherBar(
-                scenes = scenes,
-                activeSceneId = activeSceneId,
-                autoSwitchEnabled = autoSwitchEnabled,
-                autoSwitchIntervalSeconds = autoSwitchIntervalSeconds,
-                isStreaming = streamingState is StreamingState.Streaming,
-                onApplyScene = viewModel::applyScene,
-                onSaveScene = viewModel::saveScene,
-                onDeleteScene = viewModel::deleteScene,
-                onAutoSwitchEnabledChange = viewModel::setAutoSwitchEnabled,
-                onAutoSwitchIntervalChange = viewModel::setAutoSwitchIntervalSeconds,
-                privacyEnabled = privacyEnabled,
-                onPrivacyEnabledChange = { enabled ->
-                    // Deaktivieren schließt zugleich den Zonen-Editor (die
-                    // Zonen sind ohne Toggle nicht mehr im Bild).
-                    if (!enabled) privacyEditing = false
-                    viewModel.setPrivacyEnabled(enabled)
-                },
-                onOpenZoneEditor = { privacyEditing = true },
-            )
-        },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { paddingValues ->
         BoxWithConstraints(
             modifier = Modifier
@@ -369,124 +255,23 @@ fun StreamingScreen(
                 .padding(paddingValues)
                 .background(MaterialTheme.colorScheme.surfaceVariant),
         ) {
-            val idlePortraitSize = remember(context) { portraitIdlePreviewSize(context) }
-            val isIdleCamera = streamingState is StreamingState.Idle || streamingState is StreamingState.Failed
-            val previewSize = when {
-                isLandscape -> IntSize(1920, 1080)
-                isIdleCamera -> idlePortraitSize
-                else -> IntSize(1080, 1920)
-            }
-            val previewAspect = previewSize.width.toFloat() / previewSize.height
-            val previewZoom = cameraPreviewZoom(maxWidth.value, maxHeight.value, previewAspect)
-            // Kamera-Vorschau als SurfaceView: Im Leerlauf zeigt Camera2 direkt
-            // auf die Surface, während des Streams die interne GL-Pipeline.
-            // Der Encoder hängt nicht an der Activity-Surface und läuft bei
-            // deren Zerstörung (Recents-Wischen, Rotation) weiter.
-            // S2: Bei aktiver Screen-Capture-Quelle wird keine Kamera-Vorschau
-            // angehängt — stattdessen erscheint ein Platzhalter mit Hinweis.
-            if (activeSourceKind == VideoSourceKind.CAMERA) {
-                AndroidView(
-                    factory = { context ->
-                        @SuppressLint("ClickableViewAccessibility")
-                        SurfaceView(context).also { view ->
-                            streamingEngine.initializeCamera()
-                            view.holder.addCallback(
-                                object : SurfaceHolder.Callback {
-                                    override fun surfaceCreated(holder: SurfaceHolder) {
-                                        streamingEngine.attachPreview(
-                                            holder.surface,
-                                            view.width,
-                                            view.height,
-                                        )
-                                    }
-
-                                    override fun surfaceChanged(
-                                        holder: SurfaceHolder,
-                                        format: Int,
-                                        width: Int,
-                                        height: Int,
-                                    ) {
-                                        streamingEngine.attachPreview(holder.surface, width, height)
-                                    }
-
-                                    override fun surfaceDestroyed(holder: SurfaceHolder) {
-                                        streamingEngine.detachPreview(holder.surface)
-                                    }
-                                },
-                            )
-                            // Tap-to-Focus (Tipp), Pinch-Zoom und Zoom-Reset (Doppeltipp)
-                            // auf der Kamera-Vorschau (RootEncoder-Kamera, nicht CameraX).
-                            val gestures = StreamingPreviewGestures(
-                                context = context,
-                                onTapToFocus = { v, e -> streamingEngine.tapToFocus(v, e) },
-                                onZoomScale = { scale -> streamingEngine.zoomBy(scale) },
-                                onDoubleTap = { streamingEngine.resetZoom() },
-                            )
-                            view.setOnTouchListener(gestures.onTouch)
-                        }
-                    },
-                    update = { view ->
-                        // Camera2 may substitute a supported size for an unsupported
-                        // portrait buffer (1080x1920 becomes 1088x1088 on this phone).
-                        // Keep the idle buffer and view at the same supported ratio.
-                        view.holder.setFixedSize(previewSize.width, previewSize.height)
-                        view.scaleX = previewZoom
-                        view.scaleY = previewZoom
-                    },
-                    modifier = Modifier.align(Alignment.Center).aspectRatio(previewAspect),
-                )
-            } else {
-                // S2/S3/Replay: Screen-Capture, Video-Player oder Replay aktiv — kein
-                // Kamera-Bild, stattdessen ein dunkler Platzhalter, damit klar ist, dass
-                // der Gerätebildschirm bzw. die Datei (und nicht die Kamera) die
-                // Videoquelle ist.
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(MaterialTheme.colorScheme.surfaceVariant),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = stringResource(
-                                when (activeSourceKind) {
-                                    VideoSourceKind.VIDEO_PLAYER -> R.string.streaming_source_video_active_hint
-                                    VideoSourceKind.REPLAY -> R.string.streaming_source_replay_active_hint
-                                    else -> R.string.streaming_source_screen_active_hint
-                                },
-                            ),
-                            style = MaterialTheme.typography.bodyLarge,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(horizontal = 32.dp),
-                        )
-                        if (activeSourceKind == VideoSourceKind.VIDEO_PLAYER) {
-                            Spacer(Modifier.size(12.dp))
-                            Button(onClick = { videoPickerLauncher.launch("video/*") }) {
-                                Text(stringResource(R.string.streaming_source_video_pick))
-                            }
-                        }
-                    }
-                }
+            val topButtonMaxWidth = maxWidth / 2 - 20.dp
+            val density = LocalDensity.current
+            val previewSize = with(density) { IntSize(maxWidth.roundToPx(), maxHeight.roundToPx()) }
+            StreamingSourcePreview(streamingEngine, activeSourceKind, previewSize, displayRotationDegrees) {
+                requestVideoPicker()
             }
 
-            Button(
-                onClick = {
-                    if (streamingState is StreamingState.Streaming) {
-                        viewModel.stopStream()
-                    } else {
-                        requestPermissionsAndStart()
-                    }
-                },
-                enabled = streamingState !is StreamingState.Preparing,
-                modifier = Modifier.align(Alignment.BottomCenter),
+            StreamStartButton(streamingState, onStop = viewModel::stopStream) {
+                startAttempted = true
+                if (configIssues.none { it.messageRes == R.string.stream_error_no_url }) requestPermissionsAndStart()
+            }
+
+            TextButton(
+                onClick = { scenesExpanded = true },
+                modifier = Modifier.align(Alignment.BottomCenter).testTag("open_scenes"),
             ) {
-                val buttonText = when (streamingState) {
-                    is StreamingState.Idle -> stringResource(R.string.streaming_start)
-                    is StreamingState.Preparing -> stringResource(R.string.streaming_preparing)
-                    is StreamingState.Streaming -> stringResource(R.string.streaming_stop)
-                    is StreamingState.Failed -> stringResource(R.string.streaming_retry)
-                }
-                Text(buttonText)
+                Text(stringResource(R.string.scene_bar_title))
             }
 
             // Twitch-Status: Viewerzahl und Stream-Metadaten als kompakte Anzeige.
@@ -536,316 +321,20 @@ fun StreamingScreen(
                 }
             }
 
-            // Fokus-Lock (Moblin #377) + Video-Stabilisierung: Die Buttons steuern
-            // die RootEncoder-Kamera (nicht nur die Vorschau) und sind auch vor
-            // dem Go-Live schaltbar.
-            Row(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(top = 12.dp, end = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            StreamingControlsMenu(
+                streamingEngine, navController, topButtonMaxWidth,
+                onRecord = requestPermissionsAndRecord,
+                onScreenCapture = requestScreenCapture,
+                onVideoPicker = { requestVideoPicker() },
+            )
+            FilledIconButton(
+                onClick = { navController.navigate("settings_route") },
+                modifier = Modifier.align(Alignment.TopEnd).padding(top = 12.dp, end = 16.dp).testTag("open_settings"),
             ) {
-                // A11y: Zustandstexte für die Kamera-Toggles (TalkBack).
-                val camOn = stringResource(R.string.streaming_a11y_state_on)
-                val camOff = stringResource(R.string.streaming_a11y_state_off)
-                FilledTonalButton(
-                    onClick = { streamingEngine.toggleTorch() },
-                    modifier = Modifier.semantics {
-                        role = Role.Switch
-                        stateDescription = if (torchEnabled) camOn else camOff
-                    },
-                ) {
-                    Text(
-                        stringResource(
-                            if (torchEnabled) R.string.streaming_torch_on else R.string.streaming_torch_off,
-                        ),
-                    )
-                }
-
-                FilledTonalButton(
-                    onClick = { streamingEngine.toggleStabilization() },
-                    modifier = Modifier.semantics {
-                        role = Role.Switch
-                        stateDescription = if (stabilizationEnabled) camOn else camOff
-                    },
-                ) {
-                    Text(
-                        stringResource(
-                            if (stabilizationEnabled) R.string.streaming_stabilization_on else R.string.streaming_stabilization_off,
-                        ),
-                    )
-                }
-
-                FilledTonalButton(
-                    onClick = { streamingEngine.toggleFocusLock() },
-                    modifier = Modifier.semantics {
-                        role = Role.Switch
-                        stateDescription = if (focusMode == FocusMode.LOCKED_INFINITY) camOn else camOff
-                    },
-                ) {
-                    val isLocked = focusMode == FocusMode.LOCKED_INFINITY
-                    Icon(
-                        imageVector = if (isLocked) Icons.Filled.Lock else Icons.Filled.LockOpen,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        stringResource(
-                            if (isLocked) R.string.streaming_focus_inf else R.string.streaming_focus_auto,
-                        ),
-                    )
-                }
-
-                // Video-Effekte: Filter-Button zeigt den aktuellen Filter an und
-                // wechselt zum nächsten bei Klick (zirkulär durch die Liste).
-                FilledTonalButton(
-                    onClick = { streamingEngine.nextVideoFilter() },
-                ) {
-                    Text(
-                        stringResource(
-                            R.string.streaming_filter_label,
-                            stringResource(activeFilter.labelRes),
-                        ),
-                    )
-                }
-
-                // Low-Light-Boost: software-basierte Helligkeitsanhebung (1.5x Gain).
-                FilledTonalButton(
-                    onClick = { streamingEngine.toggleLowLightBoost() },
-                    modifier = Modifier.semantics {
-                        role = Role.Switch
-                        stateDescription = if (lowLightBoostEnabled) camOn else camOff
-                    },
-                ) {
-                    Text(
-                        stringResource(
-                            if (lowLightBoostEnabled) R.string.streaming_boost_on else R.string.streaming_boost_off,
-                        ),
-                    )
-                }
-
-                // 3D-LUT: Farbton-Presets (Warm/Cool) — PoC für Color-Spaces + 3D-LUTs.
-                FilledTonalButton(
-                    onClick = {
-                        val nextPreset = when (activeLutPreset) {
-                            com.vivid.feature.streaming.LutPreset.NONE -> com.vivid.feature.streaming.LutPreset.WARM
-                            com.vivid.feature.streaming.LutPreset.WARM -> com.vivid.feature.streaming.LutPreset.COOL
-                            com.vivid.feature.streaming.LutPreset.COOL -> com.vivid.feature.streaming.LutPreset.NONE
-                        }
-                        streamingEngine.setLutPreset(nextPreset)
-                    },
-                ) {
-                    Text(
-                        stringResource(
-                            when (activeLutPreset) {
-                                com.vivid.feature.streaming.LutPreset.NONE -> R.string.streaming_lut_none
-                                com.vivid.feature.streaming.LutPreset.WARM -> R.string.streaming_lut_warm
-                                com.vivid.feature.streaming.LutPreset.COOL -> R.string.streaming_lut_cool
-                            },
-                        ),
-                    )
-                }
-
-                // Color-Space: Gamma-Korrektur-Auswahl (sRGB/P3/Log) — PoC.
-                FilledTonalButton(
-                    onClick = {
-                        val nextSpace = when (activeColorSpace) {
-                            com.vivid.feature.streaming.ColorSpace.SRGB -> com.vivid.feature.streaming.ColorSpace.DISPLAY_P3
-                            com.vivid.feature.streaming.ColorSpace.DISPLAY_P3 -> com.vivid.feature.streaming.ColorSpace.APPLE_LOG
-                            com.vivid.feature.streaming.ColorSpace.APPLE_LOG -> com.vivid.feature.streaming.ColorSpace.SRGB
-                        }
-                        streamingEngine.setColorSpace(nextSpace)
-                    },
-                ) {
-                    Text(
-                        stringResource(
-                            R.string.streaming_color_space_label,
-                            stringResource(activeColorSpace.labelRes),
-                        ),
-                    )
-                }                // Replay-Aufnahme: lokale MP4 parallel zum Stream (nur bei aktiver
-                // Kamera-Quelle verfügbar, da die Aufnahme am Camera-Muxer hängt).
-                FilledTonalButton(
-                    onClick = {
-                        if (replayState is ReplayState.Recording) {
-                            streamingEngine.stopReplay()
-                        } else {
-                            streamingEngine.startReplay()
-                        }
-                    },
-                    enabled = activeSourceKind == VideoSourceKind.CAMERA,
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.FiberManualRecord,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                        tint = if (replayState is ReplayState.Recording) {
-                            MaterialTheme.colorScheme.error
-                        } else {
-                            LocalContentColor.current
-                        },
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        stringResource(
-                            if (replayState is ReplayState.Recording) {
-                                R.string.streaming_replay_stop
-                            } else {
-                                R.string.streaming_replay_record
-                            },
-                        ),
-                    )
-                }
+                Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.streaming_settings_content_desc))
             }
 
-            // Belichtung + Weißabgleich: Capability-aware Regler unterhalb der
-            // Quellen-Umschalter. Der EV-Slider erscheint nur, wenn die Kamera
-            // einen Belichtungsbereich anbietet; die Auto-Toggles nur, wenn die
-            // jeweilige Steuerung existiert.
-            val hasWhiteBalance = streamingEngine.hasWhiteBalanceControl()
-            if (exposureRange != null || hasWhiteBalance) {
-                Column(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(top = 60.dp, end = 16.dp)
-                        .widthIn(max = adaptiveControlsMaxWidth(LocalWindowWidthClass.current))
-.testTag("camera_controls_panel"),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    // A11y: Zustandstexte für die Auto-Toggles (TalkBack).
-                    val autoOn = stringResource(R.string.streaming_a11y_state_on)
-                    val autoOff = stringResource(R.string.streaming_a11y_state_off)
-                    exposureRange?.let { range ->
-                        // A11y: aktueller EV-Wert als Zustand des Sliders.
-                        val exposureState = stringResource(R.string.streaming_exposure_label, exposure)
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = stringResource(R.string.streaming_exposure_label, exposure),
-                                style = MaterialTheme.typography.labelSmall,
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            Slider(
-                                value = exposure.toFloat(),
-                                onValueChange = { streamingEngine.setExposure(it.toInt()) },
-                                valueRange = range.first.toFloat()..range.last.toFloat(),
-                                steps = (range.last - range.first - 1).coerceAtLeast(0),
-                                enabled = autoExposureEnabled,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .semantics {
-                                        stateDescription = exposureState
-                                    },
-                            )
-                        }
-                        FilledTonalButton(
-                            onClick = { streamingEngine.setAutoExposure(!autoExposureEnabled) },
-                            modifier = Modifier.semantics {
-                                role = Role.Switch
-                                stateDescription = if (autoExposureEnabled) autoOn else autoOff
-                            },
-                        ) {
-                            Text(
-                                stringResource(
-                                    if (autoExposureEnabled) R.string.streaming_auto_exposure_on else R.string.streaming_auto_exposure_off,
-                                ),
-                            )
-                        }
-                    }
-                    if (hasWhiteBalance) {
-                        FilledTonalButton(
-                            onClick = { streamingEngine.setAutoWhiteBalance(!autoWhiteBalanceEnabled) },
-                            modifier = Modifier.semantics {
-                                role = Role.Switch
-                                stateDescription = if (autoWhiteBalanceEnabled) autoOn else autoOff
-                            },
-                        ) {
-                            Text(
-                                stringResource(
-                                    if (autoWhiteBalanceEnabled) R.string.streaming_auto_wb_on else R.string.streaming_auto_wb_off,
-                                ),
-                            )
-                        }
-                    }
-                }
-            }
-
-            // S2: Quellen-Umschalter (Kamera / Bildschirm). Screen-Capture fragt
-            // den MediaProjection-Consent an, sobald die Quelle gewechselt wird.
-            Row(
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(top = 12.dp, start = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                FilledTonalButton(
-                    onClick = { streamingEngine.switchSource(VideoSourceKind.CAMERA) },
-                    enabled = activeSourceKind != VideoSourceKind.CAMERA,
-                ) {
-                    Text(stringResource(R.string.streaming_source_camera))
-                }
-                FilledTonalButton(
-                    onClick = { requestScreenCapture() },
-                    enabled = activeSourceKind != VideoSourceKind.SCREEN_CAPTURE,
-                ) {
-                    Text(stringResource(R.string.streaming_source_screen))
-                }
-                // S3: Video-Datei-Quelle — der SAF-Picker startet den Datei-Dialog;
-                // die Quelle wird erst nach erfolgreicher Auswahl aktiv.
-                FilledTonalButton(
-                    onClick = { videoPickerLauncher.launch("video/*") },
-                    enabled = activeSourceKind != VideoSourceKind.VIDEO_PLAYER,
-                ) {
-                    Text(stringResource(R.string.streaming_source_video))
-                }
-            }
-
-            val errorIssues = configIssues.filter { it.severity == ConfigIssueSeverity.ERROR }
-            if (streamingState is StreamingState.Failed) {
-                val reason = (streamingState as StreamingState.Failed).reason
-                PreviewMessageBanner(
-                    text = stringResource(R.string.streaming_error_prefix, reason ?: ""),
-                    isError = true,
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                )
-            } else if (permissionDenied) {
-                PreviewMessageBanner(
-                    text = stringResource(R.string.streaming_permission_required),
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                )
-            } else if (errorIssues.isNotEmpty() && streamingState !is StreamingState.Streaming) {
-                PreviewMessageBanner(
-                    text = errorIssues.map { resolveIssueText(it) }.joinToString("\n"),
-                    isError = true,
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                )
-            }
-
-            // Selbst-Check: Befunde nur im Idle-Zustand anzeigen (nicht während/nach dem
-            // Streamen). Bei gesetzten Fehler-Befunden (errorIssues) wird die Liste ausgeblendet
-            // — das Banner zeigt dieselben Fehler bereits, eine Doppelanzeige überlappte sonst.
-            if (configIssues.isNotEmpty() && streamingState !is StreamingState.Streaming && errorIssues.isEmpty()) {
-                Surface(
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    shape = MaterialTheme.shapes.medium,
-                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    contentColor = MaterialTheme.colorScheme.onSurface,
-                ) {
-                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                        configIssues.forEach { issue ->
-                            ConfigIssueRow(issue)
-                        }
-                    }
-                }
-            }
+            StreamingIssueBanners(previewConfigIssues, streamingState, permissionDenied)
 
             // Chat-Overlay + Widgets: als Slot ausgelagert (siehe Parameter-Doku).
             overlayContent()
@@ -864,6 +353,712 @@ fun StreamingScreen(
 
         }
     }
+}
+
+@Composable
+private fun BoxScope.StreamingControlsMenu(
+    streamingEngine: StreamingEngine,
+    navController: NavController,
+    topButtonMaxWidth: Dp,
+    onRecord: () -> Unit,
+    onScreenCapture: () -> Unit,
+    onVideoPicker: () -> Unit,
+) {
+    var controlsExpanded by remember { mutableStateOf(false) }
+    fun dismissControls() { controlsExpanded = false }
+    Box(
+        modifier = Modifier.align(Alignment.TopStart).padding(top = 12.dp, start = 16.dp),
+    ) {
+        FilledTonalButton(
+            onClick = { controlsExpanded = true },
+            modifier = Modifier.widthIn(max = topButtonMaxWidth).testTag("open_controls"),
+            contentPadding = PaddingValues(horizontal = 12.dp),
+        ) {
+            Text(stringResource(R.string.streaming_controls), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        DropdownMenu(
+            expanded = controlsExpanded,
+            onDismissRequest = { controlsExpanded = false },
+            modifier = Modifier.width(adaptiveControlsMaxWidth(LocalWindowWidthClass.current)).testTag("controls_menu"),
+        ) {
+            SourceSelectionItems(streamingEngine, ::dismissControls, onScreenCapture, onVideoPicker)
+            HorizontalDivider()
+            RecordingMenuItem(streamingEngine, onRecord)
+            CameraToggleItems(streamingEngine, navController, ::dismissControls)
+            VideoEffectItems(streamingEngine)
+            ExposureMenuItems(streamingEngine)
+            ControlsNavigationItems(navController, ::dismissControls)
+        }
+    }
+}
+
+@Composable
+private fun SourceSelectionItems(streamingEngine: StreamingEngine, onDismiss: () -> Unit, onScreenCapture: () -> Unit, onVideoPicker: () -> Unit) {
+    val activeSourceKind by streamingEngine.activeSourceKind.collectAsStateWithLifecycle()
+    DropdownMenuItem(
+        onClick = {
+            onDismiss()
+            streamingEngine.switchSource(VideoSourceKind.CAMERA)
+        },
+        enabled = activeSourceKind != VideoSourceKind.CAMERA,
+        text = {
+            Text(stringResource(R.string.streaming_source_camera))
+        },
+    )
+    DropdownMenuItem(
+        onClick = {
+            onDismiss()
+            onScreenCapture()
+        },
+        enabled = activeSourceKind != VideoSourceKind.SCREEN_CAPTURE,
+        text = {
+            Text(stringResource(R.string.streaming_source_screen))
+        },
+    )
+    DropdownMenuItem(
+        onClick = {
+            onDismiss()
+            onVideoPicker()
+        },
+        enabled = activeSourceKind != VideoSourceKind.VIDEO_PLAYER,
+        text = {
+            Text(stringResource(R.string.streaming_source_video))
+        },
+    )
+}
+
+@Composable
+private fun RecordingMenuItem(streamingEngine: StreamingEngine, onRecord: () -> Unit) {
+    val activeSourceKind by streamingEngine.activeSourceKind.collectAsStateWithLifecycle()
+    val replayState by streamingEngine.replayState.collectAsStateWithLifecycle()
+    DropdownMenuItem(
+        modifier = Modifier.testTag("replay_record"),
+        enabled = activeSourceKind == VideoSourceKind.CAMERA,
+        onClick = {
+            if (replayState is ReplayState.Recording) streamingEngine.stopReplay()
+            else onRecord()
+        },
+        leadingIcon = {
+            Icon(Icons.Filled.FiberManualRecord, contentDescription = null,
+                tint = if (replayState is ReplayState.Recording) MaterialTheme.colorScheme.error
+                else LocalContentColor.current)
+        },
+        text = { Text(stringResource(if (replayState is ReplayState.Recording)
+            R.string.streaming_replay_stop else R.string.streaming_replay_record)) },
+    )
+}
+
+@Composable
+private fun CameraToggleItems(streamingEngine: StreamingEngine, navController: NavController, onDismiss: () -> Unit) {
+    val activeSourceKind by streamingEngine.activeSourceKind.collectAsStateWithLifecycle()
+    val torchEnabled by streamingEngine.torchEnabled.collectAsStateWithLifecycle()
+    val stabilizationEnabled by streamingEngine.stabilizationEnabled.collectAsStateWithLifecycle()
+    val focusMode by streamingEngine.focusMode.collectAsStateWithLifecycle()
+    val camOn = stringResource(R.string.streaming_a11y_state_on)
+    val camOff = stringResource(R.string.streaming_a11y_state_off)
+    DropdownMenuItem(
+        onClick = { streamingEngine.toggleTorch() },
+        enabled = activeSourceKind == VideoSourceKind.CAMERA,
+        modifier = Modifier.semantics {
+            role = Role.Switch
+            stateDescription = if (torchEnabled) camOn else camOff
+        },
+        text = {
+            Text(
+                stringResource(
+                    if (torchEnabled) R.string.streaming_torch_on else R.string.streaming_torch_off,
+                ),
+            )
+        },
+    )
+    DropdownMenuItem(
+        onClick = { streamingEngine.toggleStabilization() },
+        enabled = activeSourceKind == VideoSourceKind.CAMERA,
+        modifier = Modifier.semantics {
+            role = Role.Switch
+            stateDescription = if (stabilizationEnabled) camOn else camOff
+        },
+        text = {
+            Text(
+                stringResource(
+                    if (stabilizationEnabled) R.string.streaming_stabilization_on else R.string.streaming_stabilization_off,
+                ),
+            )
+        },
+    )
+    DropdownMenuItem(
+        text = { Text(stringResource(R.string.streaming_obs_content_desc)) },
+        leadingIcon = { Icon(Icons.Default.Podcasts, contentDescription = null) },
+        onClick = {
+            onDismiss()
+            navController.navigate("obs_control")
+        },
+    )
+    DropdownMenuItem(
+        onClick = { streamingEngine.toggleFocusLock() },
+        enabled = activeSourceKind == VideoSourceKind.CAMERA,
+        modifier = Modifier.semantics {
+            role = Role.Switch
+            stateDescription = if (focusMode == FocusMode.LOCKED_INFINITY) camOn else camOff
+        },
+        text = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                val isLocked = focusMode == FocusMode.LOCKED_INFINITY
+                Icon(
+                    imageVector = if (isLocked) Icons.Filled.Lock else Icons.Filled.LockOpen,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    stringResource(
+                        if (isLocked) R.string.streaming_focus_inf else R.string.streaming_focus_auto,
+                    ),
+                )
+            }
+        },
+    )
+}
+
+@Composable
+private fun VideoEffectItems(streamingEngine: StreamingEngine) {
+    val camOn = stringResource(R.string.streaming_a11y_state_on)
+    val camOff = stringResource(R.string.streaming_a11y_state_off)
+    val activeFilter by streamingEngine.activeFilter.collectAsStateWithLifecycle()
+    val lowLightBoostEnabled by streamingEngine.lowLightBoostEnabled.collectAsStateWithLifecycle()
+    val activeLutPreset by streamingEngine.activeLutPreset.collectAsStateWithLifecycle()
+    val activeColorSpace by streamingEngine.activeColorSpace.collectAsStateWithLifecycle()
+    DropdownMenuItem(
+        onClick = { streamingEngine.nextVideoFilter() },
+        text = {
+            Text(
+                stringResource(
+                    R.string.streaming_filter_label,
+                    stringResource(activeFilter.labelRes),
+                ),
+            )
+        },
+    )
+    DropdownMenuItem(
+        onClick = { streamingEngine.toggleLowLightBoost() },
+        modifier = Modifier.semantics {
+            role = Role.Switch
+            stateDescription = if (lowLightBoostEnabled) camOn else camOff
+        },
+        text = {
+            Text(
+                stringResource(
+                    if (lowLightBoostEnabled) R.string.streaming_boost_on else R.string.streaming_boost_off,
+                ),
+            )
+        },
+    )
+    DropdownMenuItem(
+        onClick = {
+            val nextPreset = when (activeLutPreset) {
+                com.vivid.feature.streaming.LutPreset.NONE -> com.vivid.feature.streaming.LutPreset.WARM
+                com.vivid.feature.streaming.LutPreset.WARM -> com.vivid.feature.streaming.LutPreset.COOL
+                com.vivid.feature.streaming.LutPreset.COOL -> com.vivid.feature.streaming.LutPreset.NONE
+            }
+            streamingEngine.setLutPreset(nextPreset)
+        },
+        text = {
+            Text(
+                stringResource(
+                    when (activeLutPreset) {
+                        com.vivid.feature.streaming.LutPreset.NONE -> R.string.streaming_lut_none
+                        com.vivid.feature.streaming.LutPreset.WARM -> R.string.streaming_lut_warm
+                        com.vivid.feature.streaming.LutPreset.COOL -> R.string.streaming_lut_cool
+                    },
+                ),
+            )
+        },
+    )
+    DropdownMenuItem(
+        onClick = {
+            val nextSpace = when (activeColorSpace) {
+                com.vivid.feature.streaming.ColorSpace.SRGB -> com.vivid.feature.streaming.ColorSpace.DISPLAY_P3
+                com.vivid.feature.streaming.ColorSpace.DISPLAY_P3 -> com.vivid.feature.streaming.ColorSpace.APPLE_LOG
+                com.vivid.feature.streaming.ColorSpace.APPLE_LOG -> com.vivid.feature.streaming.ColorSpace.SRGB
+            }
+            streamingEngine.setColorSpace(nextSpace)
+        },
+        text = {
+            Text(
+                stringResource(
+                    R.string.streaming_color_space_label,
+                    stringResource(activeColorSpace.labelRes),
+                ),
+            )
+        },
+    )
+}
+
+@Composable
+private fun ExposureMenuItems(streamingEngine: StreamingEngine) {
+    val activeSourceKind by streamingEngine.activeSourceKind.collectAsStateWithLifecycle()
+    val exposure by streamingEngine.exposure.collectAsStateWithLifecycle()
+    val exposureRange by streamingEngine.exposureRange.collectAsStateWithLifecycle()
+    val autoExposureEnabled by streamingEngine.autoExposureEnabled.collectAsStateWithLifecycle()
+    val autoWhiteBalanceEnabled by streamingEngine.autoWhiteBalanceEnabled.collectAsStateWithLifecycle()
+        val hasWhiteBalance = streamingEngine.hasWhiteBalanceControl()
+    if (exposureRange != null || hasWhiteBalance) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("camera_controls_panel"),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            // A11y: Zustandstexte für die Auto-Toggles (TalkBack).
+            val autoOn = stringResource(R.string.streaming_a11y_state_on)
+            val autoOff = stringResource(R.string.streaming_a11y_state_off)
+            exposureRange?.let { range ->
+                // A11y: aktueller EV-Wert als Zustand des Sliders.
+                val exposureState = stringResource(R.string.streaming_exposure_label, exposure)
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = stringResource(R.string.streaming_exposure_label, exposure),
+                        style = MaterialTheme.typography.labelSmall,
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Slider(
+                        value = exposure.toFloat(),
+                        onValueChange = { streamingEngine.setExposure(it.toInt()) },
+                        valueRange = range.first.toFloat()..range.last.toFloat(),
+                        steps = (range.last - range.first - 1).coerceAtLeast(0),
+                        enabled = activeSourceKind == VideoSourceKind.CAMERA && autoExposureEnabled,
+                        modifier = Modifier
+                            .weight(1f)
+                            .semantics {
+                                stateDescription = exposureState
+                            },
+                    )
+                }
+                DropdownMenuItem(
+                    onClick = { streamingEngine.setAutoExposure(!autoExposureEnabled) },
+                    enabled = activeSourceKind == VideoSourceKind.CAMERA,
+                    modifier = Modifier.semantics {
+                        role = Role.Switch
+                        stateDescription = if (autoExposureEnabled) autoOn else autoOff
+                    },
+                    text = {
+                        Text(
+                            stringResource(
+                                if (autoExposureEnabled) R.string.streaming_auto_exposure_on else R.string.streaming_auto_exposure_off,
+                            ),
+                        )
+                    },
+                )
+            }
+            if (hasWhiteBalance) {
+                DropdownMenuItem(
+                    onClick = { streamingEngine.setAutoWhiteBalance(!autoWhiteBalanceEnabled) },
+                    enabled = activeSourceKind == VideoSourceKind.CAMERA,
+                    modifier = Modifier.semantics {
+                        role = Role.Switch
+                        stateDescription = if (autoWhiteBalanceEnabled) autoOn else autoOff
+                    },
+                    text = {
+                        Text(
+                            stringResource(
+                                if (autoWhiteBalanceEnabled) R.string.streaming_auto_wb_on else R.string.streaming_auto_wb_off,
+                            ),
+                        )
+                    },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ControlsNavigationItems(navController: NavController, onDismiss: () -> Unit) {
+    HorizontalDivider()
+    DropdownMenuItem(
+        text = { Text(stringResource(R.string.replay_library_title)) },
+        onClick = {
+            onDismiss()
+            navController.navigate("replay_library")
+        },
+    )
+    DropdownMenuItem(
+        text = { Text(stringResource(R.string.streaming_help_content_desc)) },
+        onClick = {
+            onDismiss()
+            navController.navigate("help_route")
+        },
+    )
+}
+
+@Composable
+private fun StreamingSourcePreview(streamingEngine: StreamingEngine, activeSourceKind: VideoSourceKind, previewSize: IntSize, displayRotationDegrees: Int, onVideoPicker: () -> Unit) {
+    // Camera2 and encoding both render through GL, so idle preview shows effects too.
+    // Der Encoder hängt nicht an der Activity-Surface und läuft bei
+    // deren Zerstörung (Recents-Wischen, Rotation) weiter.
+    // S2: Bei aktiver Screen-Capture-Quelle wird keine Kamera-Vorschau
+    // angehängt — stattdessen erscheint ein Platzhalter mit Hinweis.
+    if (activeSourceKind == VideoSourceKind.CAMERA) {
+        AndroidView(
+            factory = { context ->
+                @SuppressLint("ClickableViewAccessibility")
+                SurfaceView(context).also { view ->
+                    streamingEngine.initializeCamera()
+                    view.holder.addCallback(
+                        object : SurfaceHolder.Callback {
+                            override fun surfaceCreated(holder: SurfaceHolder) {
+                                streamingEngine.attachPreview(
+                                    holder.surface,
+                                    view.width,
+                                    view.height,
+                                    (view.display?.rotation ?: Surface.ROTATION_0) * 90,
+                                )
+                            }
+
+                            override fun surfaceChanged(
+                                holder: SurfaceHolder,
+                                format: Int,
+                                width: Int,
+                                height: Int,
+                            ) {
+                                streamingEngine.attachPreview(
+                                    holder.surface, width, height,
+                                    (view.display?.rotation ?: Surface.ROTATION_0) * 90,
+                                )
+                            }
+
+                            override fun surfaceDestroyed(holder: SurfaceHolder) {
+                                streamingEngine.detachPreview(holder.surface)
+                            }
+                        },
+                    )
+                    // Tap-to-Focus (Tipp), Pinch-Zoom und Zoom-Reset (Doppeltipp)
+                    // auf der Kamera-Vorschau (RootEncoder-Kamera, nicht CameraX).
+                    val gestures = StreamingPreviewGestures(
+                        context = context,
+                        onTapToFocus = { v, e -> streamingEngine.tapToFocus(v, e) },
+                        onZoomScale = { scale -> streamingEngine.zoomBy(scale) },
+                        onDoubleTap = { streamingEngine.resetZoom() },
+                    )
+                    view.setOnTouchListener(gestures.onTouch)
+                }
+            },
+            update = { view ->
+                // GL crops the native camera buffer to this viewport without stretching.
+                view.holder.setFixedSize(previewSize.width, previewSize.height)
+                view.scaleX = 1f
+                view.scaleY = 1f
+                val surface = view.holder.surface
+                if (surface?.isValid == true) {
+                    streamingEngine.attachPreview(
+                        surface, previewSize.width, previewSize.height,
+                        displayRotationDegrees,
+                    )
+                }
+            },
+            modifier = Modifier.fillMaxSize(),
+        )
+    } else {
+        // S2/S3/Replay: Screen-Capture, Video-Player oder Replay aktiv — kein
+        // Kamera-Bild, stattdessen ein dunkler Platzhalter, damit klar ist, dass
+        // der Gerätebildschirm bzw. die Datei (und nicht die Kamera) die
+        // Videoquelle ist.
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.surfaceVariant),
+            contentAlignment = Alignment.Center,
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = stringResource(
+                        when (activeSourceKind) {
+                            VideoSourceKind.VIDEO_PLAYER -> R.string.streaming_source_video_active_hint
+                            VideoSourceKind.REPLAY -> R.string.streaming_source_replay_active_hint
+                            else -> R.string.streaming_source_screen_active_hint
+                        },
+                    ),
+                    style = MaterialTheme.typography.bodyLarge,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 32.dp),
+                )
+                if (activeSourceKind == VideoSourceKind.VIDEO_PLAYER) {
+                    Spacer(Modifier.size(12.dp))
+                    Button(onClick = { onVideoPicker() }) {
+                        Text(stringResource(R.string.streaming_source_video_pick))
+                    }
+                }
+            }
+        }
+    }
+
+}
+
+@Composable
+private fun BoxScope.StreamStartButton(streamingState: StreamingState, onStop: () -> Unit, onStart: () -> Unit) {
+    Button(
+        onClick = {
+            if (streamingState is StreamingState.Streaming) {
+                onStop()
+            } else {
+                onStart()
+            }
+        },
+        enabled = streamingState !is StreamingState.Preparing,
+        modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 48.dp),
+    ) {
+        val buttonText = when (streamingState) {
+            is StreamingState.Idle -> stringResource(R.string.streaming_start)
+            is StreamingState.Preparing -> stringResource(R.string.streaming_preparing)
+            is StreamingState.Streaming -> stringResource(R.string.streaming_stop)
+            is StreamingState.Failed -> stringResource(R.string.streaming_retry)
+        }
+        Text(buttonText)
+    }
+
+}
+
+@Composable
+private fun BoxScope.StreamingIssueBanners(previewConfigIssues: List<StreamConfigIssue>, streamingState: StreamingState, permissionDenied: Boolean) {
+    val errorIssues = previewConfigIssues.filter { it.severity == ConfigIssueSeverity.ERROR }
+    if (streamingState is StreamingState.Failed) {
+        val reason = (streamingState as StreamingState.Failed).reason
+        PreviewMessageBanner(
+            text = stringResource(R.string.streaming_error_prefix, reason ?: ""),
+            isError = true,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+        )
+    } else if (permissionDenied) {
+        PreviewMessageBanner(
+            text = stringResource(R.string.streaming_permission_required),
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+        )
+    } else if (errorIssues.isNotEmpty() && streamingState !is StreamingState.Streaming) {
+        PreviewMessageBanner(
+            text = errorIssues.map { resolveIssueText(it) }.joinToString("\n"),
+            isError = true,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+        )
+    }
+
+    // Selbst-Check: Befunde nur im Idle-Zustand anzeigen (nicht während/nach dem
+    // Streamen). Bei gesetzten Fehler-Befunden (errorIssues) wird die Liste ausgeblendet
+    // — das Banner zeigt dieselben Fehler bereits, eine Doppelanzeige überlappte sonst.
+    if (previewConfigIssues.isNotEmpty() && streamingState !is StreamingState.Streaming && errorIssues.isEmpty()) {
+        Surface(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            shape = MaterialTheme.shapes.medium,
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            contentColor = MaterialTheme.colorScheme.onSurface,
+        ) {
+            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                previewConfigIssues.forEach { issue ->
+                    ConfigIssueRow(issue)
+                }
+            }
+        }
+    }
+
+}
+
+@Composable
+private fun rememberDisplayRotation(): Int {
+    val context = LocalContext.current
+    val localView = LocalView.current
+    var displayRotationDegrees by remember { mutableIntStateOf((localView.display?.rotation ?: Surface.ROTATION_0) * 90) }
+    DisposableEffect(context, localView) {
+        val manager = context.getSystemService(DisplayManager::class.java)
+        val listener = object : DisplayManager.DisplayListener {
+            override fun onDisplayAdded(displayId: Int) = Unit
+            override fun onDisplayRemoved(displayId: Int) = Unit
+            override fun onDisplayChanged(displayId: Int) {
+                if (displayId == localView.display?.displayId) {
+                    displayRotationDegrees = (localView.display?.rotation ?: Surface.ROTATION_0) * 90
+                }
+            }
+        }
+        manager?.registerDisplayListener(listener, Handler(Looper.getMainLooper()))
+        onDispose { manager?.unregisterDisplayListener(listener) }
+    }
+    return displayRotationDegrees
+}
+
+@Composable
+private fun rememberRecordingAction(streamingEngine: StreamingEngine, snackbarHostState: SnackbarHostState, dismissLabel: String): () -> Unit {
+    val context = LocalContext.current
+    var recordingError by remember { mutableStateOf(false) }
+    val recordingErrorMessage = stringResource(R.string.streaming_replay_start_error)
+    LaunchedEffect(recordingError) {
+        if (recordingError) {
+            try {
+                snackbarHostState.showSnackbar(recordingErrorMessage, actionLabel = dismissLabel)
+            } finally {
+                recordingError = false
+            }
+        }
+    }
+    fun startRecording() {
+        recordingError = !streamingEngine.startReplay()
+    }
+    val recordingPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions(),
+    ) { grants ->
+        if (grants.values.all { it }) startRecording() else recordingError = true
+    }
+    fun requestPermissionsAndRecord() {
+        val missing = listOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO).filter {
+            ContextCompat.checkSelfPermission(context, it) != PackageManager.PERMISSION_GRANTED
+        }
+        if (missing.isEmpty()) startRecording() else recordingPermissionLauncher.launch(missing.toTypedArray())
+    }
+
+    return ::requestPermissionsAndRecord
+}
+
+@Composable
+private fun rememberStreamStartAction(viewModel: StreamingViewModel, onPermissionsChanged: (Boolean) -> Unit): () -> Unit {
+    val context = LocalContext.current
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions(),
+    ) { grants ->
+        if (grants.values.all { it }) {
+            onPermissionsChanged(true)
+            viewModel.startStream()
+        } else {
+            onPermissionsChanged(false)
+        }
+    }
+
+    fun requestPermissionsAndStart() {
+        val needed = buildList {
+            add(Manifest.permission.CAMERA)
+            add(Manifest.permission.RECORD_AUDIO)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                add(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+        val missing = needed.filter {
+            ContextCompat.checkSelfPermission(context, it) != PackageManager.PERMISSION_GRANTED
+        }
+        if (missing.isEmpty()) {
+            onPermissionsChanged(true)
+            viewModel.startStream()
+        } else {
+            onPermissionsChanged(false)
+            permissionLauncher.launch(missing.toTypedArray())
+        }
+    }
+
+    return ::requestPermissionsAndStart
+}
+
+@Composable
+private fun StreamConfigurationFeedback(
+    startAttempted: Boolean,
+    configIssues: List<StreamConfigIssue>,
+    streamingState: StreamingState,
+    snackbarHostState: SnackbarHostState,
+    onAttemptConsumed: () -> Unit,
+) {
+    val missingUrlMessage = stringResource(R.string.stream_error_no_url)
+    val dismissLabel = stringResource(android.R.string.ok)
+    LaunchedEffect(startAttempted, configIssues, streamingState) {
+        if (!startAttempted) return@LaunchedEffect
+        if (configIssues.any { it.messageRes == R.string.stream_error_no_url }) {
+            try {
+                snackbarHostState.showSnackbar(missingUrlMessage, actionLabel = dismissLabel)
+            } finally {
+                onAttemptConsumed()
+            }
+        } else if (streamingState !is StreamingState.Idle) {
+            onAttemptConsumed()
+        }
+    }
+}
+
+@Composable
+private fun RefreshTwitchStatus(streamingState: StreamingState, twitchViewModel: TwitchChannelViewModel) {
+    // Viewerzahl während eines laufenden Twitch-Streams periodisch aktualisieren.
+    LaunchedEffect(streamingState is StreamingState.Streaming) {
+        if (streamingState is StreamingState.Streaming) {
+            while (true) {
+                twitchViewModel.refresh()
+                kotlinx.coroutines.delay(TWITCH_REFRESH_INTERVAL_MS)
+            }
+        }
+    }
+
+}
+
+@Composable
+private fun rememberScreenCaptureAction(streamingEngine: StreamingEngine): () -> Unit {
+    // S2: Screen-Capture (MediaProjection) — Consent-Dialog und Quellen-Wechsel.
+    // Der System-Dialog „Bildschirm übertragen" wird per Activity-Result gestartet;
+    // das Ergebnis (RESULT_OK + Daten) geht an die Screen-Capture-Quelle der Engine.
+    val screenCaptureLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) { result ->
+        val granted = streamingEngine.onScreenCaptureConsentResult(result.resultCode, result.data)
+        if (!granted) {
+            // Consent verweigert → zurück zur Kamera; die Quelle bleibt für einen
+            // erneuten Versuch erzeugt (Consent wird beim nächsten Toggle neu angefragt).
+            streamingEngine.switchSource(VideoSourceKind.CAMERA)
+        }
+    }
+
+    fun requestScreenCapture() {
+        if (streamingEngine.switchSource(VideoSourceKind.SCREEN_CAPTURE)) {
+            streamingEngine.createScreenCaptureConsentIntent()?.let {
+                screenCaptureLauncher.launch(it)
+            }
+        }
+    }
+
+    return ::requestScreenCapture
+}
+
+@Composable
+private fun rememberVideoPickerAction(streamingEngine: StreamingEngine): () -> Unit {
+    // S3: Video-Player (Datei) — der SAF-Picker liefert die Content-Uri, die an
+    // die Video-Player-Quelle der Engine geht. Der Wechsel auf die Quelle passiert
+    // erst nach erfolgreicher Auswahl, damit keine leere Quelle aktiv wird.
+    val videoPickerLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetContent(),
+    ) { uri: Uri? ->
+        if (uri != null && streamingEngine.setVideoPlayerUri(uri)) {
+            streamingEngine.switchSource(VideoSourceKind.VIDEO_PLAYER)
+        }
+    }
+
+    return { videoPickerLauncher.launch("video/*") }
+}
+
+@Composable
+private fun RefreshStreamingScreenOnResume(viewModel: StreamingViewModel, streamingEngine: StreamingEngine) {
+    // Re-validiert die Konfiguration, sobald der Screen wieder sichtbar wird
+    // (z. B. nach der Rückkehr aus den Einstellungen).
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.runConfigCheck()
+                streamingEngine.startIdlePreviewIfReady()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
 }
 
 /**

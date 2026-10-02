@@ -133,4 +133,6 @@
     <string name="privacy_zone_add">Добавить зону</string>
     <string name="privacy_zone_delete">Удалить выбранную зону</string>
     <string name="privacy_zone_editor_close">Закрыть редактор зон</string>
+    <string name="streaming_controls">Управление</string>
+    <string name="streaming_replay_start_error">Не удалось начать запись. Проверьте разрешения камеры и микрофона и попробуйте снова.</string>
 </resources>

@@ -28,6 +28,8 @@ class ReplayVideoSource(
     private val player: MultiFromFile,
 ) : VideoSource {
 
+    internal val glInterface get() = player.glInterface as? com.pedro.library.view.GlStreamInterface
+
     override val kind: VideoSourceKind = VideoSourceKind.REPLAY
 
     /** true, solange die Replay-Quelle aktiv streamt. */

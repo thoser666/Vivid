@@ -132,4 +132,6 @@
     <string name="privacy_zone_add">Ajouter une zone</string>
     <string name="privacy_zone_delete">Supprimer la zone sélectionnée</string>
     <string name="privacy_zone_editor_close">Fermer l\'éditeur de zones</string>
+    <string name="streaming_controls">Commandes</string>
+    <string name="streaming_replay_start_error">Impossible de démarrer l’enregistrement. Vérifiez les autorisations de la caméra et du microphone, puis réessayez.</string>
 </resources>
