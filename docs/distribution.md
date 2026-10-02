@@ -18,6 +18,15 @@ Das Stable-Release wird also **wöchentlich statt bei jedem Tag-Push** publizier
 sofortiges Release-Publishing mehr aus — GitHub-Cronjobs kann man nicht pro Quelle unterscheiden,
 deshalb gibt es pro Kadenz einen eigenen Workflow. Alles zusätzlich manuell per `workflow_dispatch` auslösbar.
 
+> ⚠️ **`release-pipeline.yml`: Dispatch ≠ Matrix-Verifikation.** Ein `workflow_dispatch`
+> ohne weitere Flags ist ein **publizierender** Lauf (Nightly-Release). `dry_run=true`
+> bremst ausschließlich den Play-Upload. Für eine reine Emulator-Matrix-Verifikation
+> zusätzlich `-f matrix_only=true` setzen — das unterdrückt `publish-release`,
+> `verify-reproducibility`, `publish-play` und `sweep-orphan-drafts`, lässt
+> `emulator-tests`, Selbsttests und `build-debug` aber laufen. Vorfall 02.10.2026:
+> Dispatch `36963108418` hat ohne diesen Input das Nightly `0.5.20-nightly.511`
+> veröffentlicht. Contract: T17 in `scripts/test_emulator_matrix.sh`.
+
 ## Stable-Distribution (`distribution-stable.yml`)
 
 **Zweck:** Neueste Version, Stand Montag 03:00 UTC, als „Latest“-Release veröffentlichen.

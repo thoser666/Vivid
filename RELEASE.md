@@ -1648,6 +1648,14 @@ keytool -list -v -keystore /tmp/upload-keystore.jks -storepass '<UPLOAD-STORE-PA
 gh workflow run release-pipeline.yml --ref develop   -f track=alpha   -f version=<versionName>   -f version_code=<versionCode>
 ```
 
+> 🔒 **Reine Matrix-Verifikation ohne Publizieren (`matrix_only`, seit 02.10.2026):** Ein `workflow_dispatch` **ohne** weitere Flags ist ein *publizierender* Lauf: `dry_run=true` bremst nur den **Play**-Upload, der Nightly-Publish läuft trotzdem. Beim ersten echten Matrix-Dispatch (`36963108418`) hat das ungewollt das Nightly-Release `0.5.20-nightly.511` veröffentlicht. Für eine reine Verifikation der Emulator-Matrix deshalb immer zusätzlich `-f matrix_only=true` setzen:
+>
+> ```bash
+> gh workflow run release-pipeline.yml --ref develop   -f matrix_only=true
+> ```
+>
+> Das unterdrückt **alle vier** mutierenden Jobs — `publish-release`, `verify-reproducibility`, `publish-play` und `sweep-orphan-drafts`. Die Matrix selbst (`emulator-tests`), alle Selbsttests und `build-debug` laufen normal; `build-release` bleibt wie bisher auf `v*`-Tags beschränkt. Default ist `false`, der tägliche 06:00-UTC-Schedule ist also unverändert. Der Guard ist als **T17** in `test_emulator_matrix.sh` festgeschrieben (alle vier Jobs tragen `inputs.matrix_only != 'true'`, `emulator-tests` darf ihn *nicht* tragen — sonst wäre der Input tot).
+
 > ⚠️ **versionCode-Regel:** In Play **pro App global eindeutig** — ein hochgeladener Code ist für immer belegt (kann nicht erneut hochgeladen werden). Für den ersten Upload **explizit setzen** (z. B. `1`); ohne `-f version_code` leitet die `publish_play`-Lane ihn aus dem letzten `v*`-Tag ab.
 
 > 💡 **Erst trocken testen:** Mit `-f dry_run=true` baut der Job das AAB und verifiziert die Signatur gegen den Upload-Key, **ohne** etwas hochzuladen — ideal für den ersten Lauf (keine Play-Auswirkung, kein `version_code` verbraucht). Der Metadaten-Gate läuft **auch im Dry-Run** (die zwei Platzhalter-Screenshots erfüllen ihn bereits). Erst wenn Step 4/6 grün ist, den echten Upload (ohne `dry_run`) ausführen.

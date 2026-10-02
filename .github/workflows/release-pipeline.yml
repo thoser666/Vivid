@@ -35,6 +35,10 @@ on:
         description: 'Build + signature-verify only, skip the Play upload'
         required: false
         default: 'false'
+      matrix_only:
+        description: 'Only run the emulator matrix — no nightly release, no Play job, no changelog/PR'
+        required: false
+        default: 'false'
         type: boolean
 
 permissions:
@@ -429,7 +433,9 @@ jobs:
     # distribution-stable.yml — hier gibt es keinen Push-Publizier-Pfad mehr
     # (Push auf develop darf KEIN Nightly auslösen; v*-Tags publiziert der
     # Weekly-Job).
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    if: >-
+      (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+      && inputs.matrix_only != 'true'
     # Bewusst KEIN `workflows: write`: Push-getriggerte Workflows, die dem
     # GITHUB_TOKEN diese Berechtigung geben, scheitern bei der Validierung
     # ("This run likely failed because of a workflow file issue" — Schutz vor
@@ -639,7 +645,10 @@ jobs:
     needs: publish-release
     # Läuft nur nach dem (täglichen) nightly-Publish — Schedule/Manual,
     # nicht bei jedem develop-Push (dort wird seit 21.08. kein Nightly gebaut).
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    # matrix_only: ohne nightly-Publish gibt es nichts zu verifizieren.
+    if: >-
+      (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+      && inputs.matrix_only != 'true'
     permissions:
       contents: read
 
@@ -1050,8 +1059,9 @@ jobs:
     name: Publish to Google Play
     runs-on: ubuntu-latest
     # Nur manuell per workflow_dispatch (Play-Upload ist ein bewusster Akt):
-    # niemals automatisch bei push/schedule ausloesen.
-    if: github.event_name == 'workflow_dispatch'
+    # niemals automatisch bei push/schedule ausloesen. matrix_only unterdrueckt
+    # ihn zusaetzlich — die Matrix-Verifikation darf nie ein Play-Release sein.
+    if: github.event_name == 'workflow_dispatch' && inputs.matrix_only != 'true'
     permissions:
       contents: read
 
@@ -1140,10 +1150,14 @@ jobs:
   # Rollback in publish_release konnte nicht mehr laufen). Läuft auf
   # Schedule/Manual, NICHT auf Push — während publish-release parallel ein
   # Release neu erstellt, wäre eine Draft-Meldung transient und irreführend.
+  # matrix_only: eine reine Matrix-Verifikation publiziert nichts, also gibt es
+  # auch keine verwaisten Drafts zu melden.
   sweep-orphan-drafts:
     name: Sweep Orphan Draft Releases (v*)
     runs-on: ubuntu-latest
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    if: >-
+      (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+      && inputs.matrix_only != 'true'
     permissions:
       contents: read
     steps:

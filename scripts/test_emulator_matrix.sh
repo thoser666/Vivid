@@ -301,6 +301,40 @@ for f in "$tmp"/*; do
 done
 '
 
+echo "== T17: matrix_only — Matrix-Verifikation ohne Publizieren =="
+# Vorfall 02.10.2026: der erste echte Matrix-Dispatch auf develop hat nebenbei
+# das Nightly-Release 0.5.20-nightly.511 veroeffentlicht. `matrix_only` macht
+# die Verifikation end-to-end read-only.
+check "T17.1 matrix_only ist ein workflow_dispatch-Input (default false)" python3 -c "
+import yaml, io
+with io.open('.github/workflows/release-pipeline.yml', encoding='utf-8') as f:
+    d = yaml.safe_load(f)
+inp = d[True]['workflow_dispatch']['inputs']
+assert 'matrix_only' in inp, sorted(inp)
+assert str(inp['matrix_only']['default']).lower() == 'false', inp['matrix_only']
+"
+check "T17.2 jeder Publizier-Job respektiert matrix_only" python3 -c "
+import yaml, io
+with io.open('.github/workflows/release-pipeline.yml', encoding='utf-8') as f:
+    d = yaml.safe_load(f)
+jobs = d['jobs']
+# Jobs, die etwas veroeffentlichen oder den Repo-Zustand aendern.
+mutating = ['publish-release', 'publish-play', 'verify-reproducibility', 'sweep-orphan-drafts']
+for name in mutating:
+    cond = str(jobs[name].get('if', ''))
+    assert 'matrix_only' in cond, (name, cond)
+    # 'true' (string), nicht True — YAML-Inputs sind Strings.
+    assert \"!= 'true'\" in cond, (name, cond)
+"
+check "T17.3 Matrix laeuft auch ohne matrix_only (Default: normale Nightly-Publikation bleibt)" python3 -c "
+import yaml, io
+with io.open('.github/workflows/release-pipeline.yml', encoding='utf-8') as f:
+    d = yaml.safe_load(f)
+cond = str(d['jobs']['emulator-tests']['if'])
+assert \"github.event_name == 'workflow_dispatch'\" in cond, cond
+assert 'matrix_only' not in cond, cond
+"
+
 echo "== T12: Workflow-YAML valide + API-Staffelung =="
 check "T12.1 release-pipeline.yml parst als YAML" python3 -c "
 import yaml, io
