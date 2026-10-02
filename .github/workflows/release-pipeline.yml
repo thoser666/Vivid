@@ -161,10 +161,25 @@ jobs:
       matrix:
         include:
           # API-Staffelung (SDK-Abdeckungs-Analyse 25.09.2026): 34/35 sind
-          # PFLICHT (roter Tag-Run = kein Release), 37 ist Beobachter-Leg.
+          # PFLICHT (roter Tag-Run = kein Release), 36 ist Beobachter-Leg.
           # 35: Edge-to-Edge-Enforcement (Android 15) trifft Overlay/Widget-UI.
-          # 37: Local-Network + Android-17-OS-Verhalten vor der Flotte ausüben.
+          # 36: Local-Network-Enforcement + aktuelles Android-16-OS-Verhalten
+          #     vor der Flotte ausüben.
           # 34: Regression-Basis — die strengsten FGS-Typ-Regeln sind 34er-Regeln.
+          #
+          # ⚠️ API 37 ist als Leg-NIVEAU bewusst NICHT 37 (Vorfall 01.10.2026,
+          #    #249, Run 36849526447): `sdkmanager --install 'platforms;android-37'`
+          #    scheitert mit `Warning: Failed to find package 'platforms;android-37'`
+          #    — das stabile SDK-Kanal-Repository des Runners führt die Android-17-
+          #    Plattform (noch) nicht, der android-emulator-runner bricht daraufhin
+          #    im Install-Step ab ("Terminate Emulator"). Die Leg war damit
+          #    dauerhaft tot und verbrauchte nur Runner-Minuten.
+          #    → Beobachter-Leg auf die neueste STABILE Plattform (36).
+          #   compileSdk/targetSdk bleiben davon unberührt bei 37 (libs.versions.toml):
+          #    Das Kompilieren gegen 37 funktioniert (das Plattform-Paket liegt im
+          #    lokalen/CI-SDK vor); nur der Emulator-Runner kann die 37er-*Plattform*
+          #    nicht provisionieren. Sobald `platforms;android-37` im Stable-Kanal
+          #    verfügbar ist, kann die Beobachter-Leg per Einzeiler auf 37 zurück.
           - name: ubuntu-x86_64-api34
             os: ubuntu-latest
             arch: x86_64
@@ -175,10 +190,10 @@ jobs:
             arch: x86_64
             api-level: 35
             experimental: false
-          - name: ubuntu-x86_64-api37
+          - name: ubuntu-x86_64-api36
             os: ubuntu-latest
             arch: x86_64
-            api-level: 37
+            api-level: 36
             experimental: true
           - name: macos-arm64
             os: macos-latest
@@ -264,6 +279,14 @@ jobs:
           disable-spellchecker: true
           emulator-boot-timeout: 900
           script: |
+            # ⚠️ `set -euo pipefail` ist hier Pflicht, nicht Kosmetik: der Runner
+            # führt das script-Block-Snippet OHNE -e aus. Ohne diese Zeile würde
+            # ein fehlschlagendes Setup-Skript (exit != 0) stillschweigend
+            # übersprungen, das Gate gründet danach auf ungegranted-Permissions
+            # und fällt mit der IRREFÜHRENDEN Fehlermeldung "No compose
+            # hierarchies found" durch — also als Testfehler getarnt statt als
+            # Setupfehler. fail-loud gehört in den ersten Block (T15.16).
+            set -euo pipefail
             # ✅ #249: Runtime-Permissions für die UI-Tests granten + Test-APKs
             # vorconnected installieren (der CAMERA-Auto-Request wurde app-seitig
             # entfernt — siehe StreamingScreen.kt; ohne Grants hängt der Startup-

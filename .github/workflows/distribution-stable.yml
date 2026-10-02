@@ -188,6 +188,13 @@ jobs:
           disable-spellchecker: true
           emulator-boot-timeout: 900
           script: |
+            # ⚠️ `set -euo pipefail` ist Pflicht: der android-emulator-runner führt
+            # das script-Snippet OHNE -e aus. Ohne diese Zeile würde ein
+            # fehlschlagendes Setup-Skript stillschweigend übersprungen und das
+            # Gate gründete auf ungegranted-Permissions — der Publish-Pfad
+            # scheiterte dann mit "No compose hierarchies found" statt mit der
+            # Ursache. fail-loud gehört in den ersten Block (T15.16).
+            set -euo pipefail
             # ✅ #249: Runtime-Permissions für die UI-Tests granten + Test-APKs
             # vorconnected installieren (der CAMERA-Auto-Request wurde app-seitig
             # entfernt — siehe StreamingScreen.kt; ohne Grants hängt der Startup-
