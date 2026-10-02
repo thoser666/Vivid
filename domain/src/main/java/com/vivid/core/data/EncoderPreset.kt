@@ -25,6 +25,7 @@ enum class EncoderPreset(
     val width: Int,
     val height: Int,
     val fps: Int,
+    /** Application bitrate in kbps; convert to bits/s at the RootEncoder boundary. */
     val videoBitrateKbps: Int,
 ) {
     S_4K60(3840, 2160, 60, 24_000),

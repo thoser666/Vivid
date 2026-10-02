@@ -37,6 +37,8 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.EnumSource
 
 class StreamingEngineTest {
 
@@ -86,6 +88,7 @@ class StreamingEngineTest {
         every { camera.isStreaming } returns false
         every { camera.prepareAudio() } returns true
         every { camera.prepareVideo() } returns true
+        every { camera.prepareVideo(any(), any(), any(), any(), any(), any()) } returns true
     }
 
     @Test
@@ -111,7 +114,7 @@ class StreamingEngineTest {
 
         verify(exactly = 1) { camera.setVideoCodec(VideoCodec.H265) }
         verify(exactly = 1) {
-            camera.prepareVideo(3840, 2160, 60, 24_000, 2, 0)
+            camera.prepareVideo(3840, 2160, 60, 24_000_000, 2, 0)
         }
     }
 
@@ -132,6 +135,24 @@ class StreamingEngineTest {
         )
     }
 
+    @ParameterizedTest
+    @EnumSource(EncoderPreset::class)
+    fun `all presets pass bits per second to RootEncoder`(preset: EncoderPreset) = runTest {
+        streamingCameraReady()
+        streamingEngine.initializeCamera()
+        streamingEngine.configureEncoder(
+            ResolvedEncoderConfig(VideoCodecPreference.H264, preset, fallbackApplied = false),
+            autoFallback = true,
+        )
+        streamingEngine.startStream(LIVE_URL)
+
+        verify(exactly = 1) {
+            camera.prepareVideo(preset.width, preset.height, preset.fps, preset.videoBitrateKbps * 1_000, 2, 0)
+        }
+        verify(exactly = 1) { camera.startStream(MultiType.RTMP, 0, LIVE_URL) }
+        assertEquals(preset.videoBitrateKbps, streamingEngine.activeEncoder.value?.preset?.videoBitrateKbps)
+    }
+
     // --- Adaptive Bitrate (v0.6.0) ------------------------------------------
 
     @Test
@@ -140,7 +161,7 @@ class StreamingEngineTest {
         streamingEngine.initializeCamera()
         streamingEngine.startStream(LIVE_URL)
 
-        capturedCheckers[0].onNewBitrate(2_000)
+        capturedCheckers[0].onNewBitrate(2_000_000)
 
         verify(exactly = 0) { camera.setVideoBitrateOnFly(any()) }
     }
@@ -162,13 +183,13 @@ class StreamingEngineTest {
         // Startzeit 2 s: der startStream-Reset setzt lastSample auf 0,
         // das erste Sample muss das 2-s-Intervall also erst clearing.
         fakeTime = 2_000
-        capturedCheckers[0].onNewBitrate(2_000)
+        capturedCheckers[0].onNewBitrate(2_000_000)
         fakeTime = 4_500
-        capturedCheckers[0].onNewBitrate(2_000)
+        capturedCheckers[0].onNewBitrate(2_000_000)
         fakeTime = 7_000
-        capturedCheckers[0].onNewBitrate(2_000)
+        capturedCheckers[0].onNewBitrate(2_000_000)
 
-        verify(exactly = 1) { camera.setVideoBitrateOnFly(4_200) }
+        verify(exactly = 1) { camera.setVideoBitrateOnFly(4_200_000) }
     }
 
     @Test
@@ -185,9 +206,10 @@ class StreamingEngineTest {
         streamingEngine.startStream(LIVE_URL)
 
         // 3 Low-Samples OHNE Zeitabstand: nur das erste zählt (Rate-Limit).
-        capturedCheckers[0].onNewBitrate(2_000)
-        capturedCheckers[0].onNewBitrate(2_000)
-        capturedCheckers[0].onNewBitrate(2_000)
+        fakeTime = 2_000
+        capturedCheckers[0].onNewBitrate(2_000_000)
+        capturedCheckers[0].onNewBitrate(2_000_000)
+        capturedCheckers[0].onNewBitrate(2_000_000)
 
         verify(exactly = 0) { camera.setVideoBitrateOnFly(any()) }
     }
@@ -198,9 +220,51 @@ class StreamingEngineTest {
         streamingEngine.initializeCamera()
         streamingEngine.startStream(LIVE_URL)
 
-        capturedCheckers[0].onNewBitrate(3_500)
+        capturedCheckers[0].onNewBitrate(3_500_999)
 
         assertEquals(3_500, streamingEngine.targetStates.value[0].bitrateKbps)
+    }
+
+    @Test
+    fun `adaptive bitrate recovers in kbps and applies bits per second`() = runTest {
+        streamingCameraReady()
+        streamingEngine.initializeCamera()
+        streamingEngine.configureEncoder(
+            ResolvedEncoderConfig(VideoCodecPreference.H264, EncoderPreset.FHD30, fallbackApplied = false),
+            autoFallback = true,
+        )
+        streamingEngine.configureAdaptiveBitrate(true)
+        var fakeTime = 0L
+        streamingEngine.timeSource = { fakeTime }
+        streamingEngine.startStream(LIVE_URL)
+
+        repeat(3) {
+            fakeTime += 2_500
+            capturedCheckers[0].onNewBitrate(2_000_000)
+        }
+        repeat(10) {
+            fakeTime += 2_500
+            capturedCheckers[0].onNewBitrate(4_200_000)
+        }
+
+        verify(exactly = 1) { camera.setVideoBitrateOnFly(4_200_000) }
+        verify(exactly = 1) { camera.setVideoBitrateOnFly(4_700_000) }
+        assertEquals(4_200, streamingEngine.targetStates.value[0].bitrateKbps)
+    }
+
+    @Test
+    fun `network statistics convert before narrowing to Int and remain per target`() = runTest {
+        streamingCameraReady()
+        streamingEngine.initializeCamera()
+        streamingEngine.startStream(listOf(LIVE_URL, "rtmp://example.com/live/second"))
+
+        capturedCheckers[0].onNewBitrate(3_000_000_000L)
+        capturedCheckers[1].onNewBitrate(999L)
+
+        assertEquals(3_000_000, streamingEngine.targetStates.value[0].bitrateKbps)
+        assertEquals(0, streamingEngine.targetStates.value[1].bitrateKbps)
+        capturedCheckers[1].onNewBitrate(0L)
+        assertEquals(0, streamingEngine.targetStates.value[1].bitrateKbps)
     }
 
     private fun screenCaptureReady() {

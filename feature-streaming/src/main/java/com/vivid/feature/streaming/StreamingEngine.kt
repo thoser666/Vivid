@@ -416,11 +416,12 @@ class StreamingEngine @Inject constructor(
         }
 
         override fun onNewBitrate(bitrate: Long) {
-            // Upload-Statistik je Verbindung (kbps) live im Ziel-Status.
-            updateTarget(index) { it.copy(bitrateKbps = bitrate.toInt()) }
+            // RootEncoder reports bits/s; application state and adaptive control use kbps.
+            val measuredKbps = (bitrate / 1_000L).coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()
+            updateTarget(index) { it.copy(bitrateKbps = measuredKbps) }
             // Adaptive Steuerung: nur vom ersten Ziel sampeln — der
             // Encoder ist geteilt, alle Ziele sehen dieselbe Bitrate.
-            if (index == 0) sampleAdaptiveBitrate(bitrate)
+            if (index == 0) sampleAdaptiveBitrate(measuredKbps.toLong())
         }
 
         override fun onDisconnect() {
@@ -1073,7 +1074,7 @@ class StreamingEngine @Inject constructor(
             resolved.preset.width,
             resolved.preset.height,
             resolved.preset.fps,
-            resolved.preset.videoBitrateKbps,
+            resolved.preset.videoBitrateKbps * 1_000, // RootEncoder expects bits/s.
             2, // iFrameInterval in Sekunden (RootEncoder-üblich)
             0, // rotation
         )
@@ -1185,7 +1186,7 @@ class StreamingEngine @Inject constructor(
         val now = timeSource()
         if (now - lastAdaptiveSampleMs < ADAPTIVE_SAMPLE_INTERVAL_MS) return
         lastAdaptiveSampleMs = now
-        val next = controller.onSample(measuredKbps) ?: return
-        cam.setVideoBitrateOnFly(next)
+        val nextKbps = controller.onSample(measuredKbps) ?: return
+        cam.setVideoBitrateOnFly(nextKbps * 1_000) // RootEncoder expects bits/s.
     }
 }

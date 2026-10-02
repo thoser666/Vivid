@@ -3,7 +3,7 @@ package com.vivid.core.data
 /**
  * Adaptive Bitrate (v0.6.0-Bucket): reine Entscheidungslogik ohne Android-
  * Abhängigkeit. Der Controller bekommt periodisch gemessene Sendebitraten
- * (RootEncoder `onNewBitrate`) und entscheidet, ob die Ziel-Bitrate angepasst
+ * (von RootEncoder `onNewBitrate` in kbps umgerechnet) und entscheidet, ob die Ziel-Bitrate angepasst
  * werden soll — AIMD-ähnlich (Additive Increase, Multiplicative Decrease):
  *
  * - **Abbau:** Liegt die Messung dauerhaft deutlich unter dem Ziel (>20 %
