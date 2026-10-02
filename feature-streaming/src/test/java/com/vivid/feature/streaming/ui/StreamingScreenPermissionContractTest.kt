@@ -195,6 +195,9 @@ class StreamingScreenPermissionContractTest {
         )
         // Aber der Stream startet nicht, bevor gegranted wurde.
         verify(exactly = 0) { viewModel.startStream() }
+        composeRule.onNodeWithText(
+            appContext.getString(com.vivid.feature.streaming.R.string.streaming_permission_required),
+        ).assertIsDisplayed()
     }
 
     @Test

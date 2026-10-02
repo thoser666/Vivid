@@ -954,7 +954,7 @@ private fun rememberStreamStartAction(viewModel: StreamingViewModel, onPermissio
             onPermissionsChanged(true)
             viewModel.startStream()
         } else {
-            onPermissionsChanged(true)
+            onPermissionsChanged(false)
             permissionLauncher.launch(missing.toTypedArray())
         }
     }
