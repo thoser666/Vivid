@@ -237,4 +237,26 @@ for fn in $defined; do
     || echo "HINWEIS: $fn ist in der Library definiert, wird aber von keinem Guard benutzt"
 done
 
-echo "✅ [workflow-security-test] Permissions, PR input handling, ChatOverlay findings, wrapper validation, scorecard annotations, and helper existence are guarded."
+# UTF-8-Ausgabe der Library (#259): _wf_query lässt jeden Helfer mit „-“
+# enden, wenn der extrahierte Wert ein Zeichen außerhalb cp1252 enthält (≠, —, ü).
+# Vorfall: wf_step_run gab für ein run-Snippet mit dem Kommentar „RC≠0" das
+# Sentinel „-" zurück, obwohl der Step existierte — dieselbe stille Fehlerklasse
+# wie der wf_step_if-Tippfehler oben. Geprüft wird das Verhalten, nicht die
+# Gegenwart der Zeile: ein echter Wert muss ankommen.
+utf8_probe=$(mktemp -d)
+cat > "$utf8_probe/wf.yml" <<'PROBE'
+jobs:
+  j:
+    steps:
+      - name: Unicode-Step
+        run: |
+          echo "RC≠0 — prüfe"
+PROBE
+probe_out="$(wf_step_run "$utf8_probe/wf.yml" j 'Unicode-Step')"
+rm -rf "$utf8_probe"
+[[ "$probe_out" == "-" || -z "$probe_out" ]] \
+  && fail "lib_workflow_yaml.sh cannot emit non-ASCII (cp1252 console): wf_step_run returned '$probe_out' instead of the run block — stdout must be forced to UTF-8"
+[[ "$probe_out" == *"≠"* ]] \
+  || fail "wf_step_run lost the non-ASCII characters (got: '$probe_out')"
+
+echo "✅ [workflow-security-test] Permissions, PR input handling, ChatOverlay findings, wrapper validation, scorecard annotations, helper existence, and UTF-8 library output are guarded."

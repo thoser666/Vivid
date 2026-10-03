@@ -4,6 +4,9 @@ name: Distribution / Stable (weekly)
 #   - Mo 03:00 UTC sucht dieser Workflow die neueste noch NICHT (vollständig)
 #     verteilte v*-Version und publiziert sie als Stable-GitHub-Release
 #     (beide Flavor-APKs + SHA256SUMS, siehe fastlane/Fastfile release_github).
+#   - Untergrenze (#259): der ERSTE vollständig verteilte Release beendet die
+#     Tag-Suche. Ältere Tags ohne Release sind obsolet und werden nie
+#     nachgeholt — sonst würden überholte Betas als stable publiziert.
 #   - Der anschließend eintreffende F-Droid-Repo-Build (deploy-fdroid.yml,
 #     Mo 04:00 UTC) nimmt das Release dieselbe Woche auf.
 #   - Nightly (täglich 06:00 UTC) läuft UNVERÄNDERT in release-pipeline.yml.
@@ -106,8 +109,14 @@ jobs:
               # gh release view schlägt fehl (RC≠0) ⇒ Tag noch nie veröffentlicht.
               if out=$(gh release view "$TAG" --json isDraft,isPrerelease,assets 2>/dev/null); then
                 if echo "$out" | jq -e '.isDraft == false and .isPrerelease == false and ([.assets[].name] | index("app-standard-release.apk")) and ([.assets[].name] | index("app-foss-release.apk")) and ([.assets[].name] | index("SHA256SUMS.txt")) and ([.assets[].name] | index("SHA256SUMS.txt.bundle"))' >/dev/null 2>&1; then
-                  echo "  $TAG: bereits vollständig verteilt — übersprungen"
-                  continue
+                  # #259: hier ABBRECHEN, nicht continue. Der ERSTE vollständig
+                  # verteilte Release ist die Untergrenze: alles Ältere gilt als
+                  # obsolet und wird nie nachgeholt. Mit continue fiel die Schleife
+                  # durch alle vollständigen Releases hindurch bis zum nächsten
+                  # Loch und hätte überholte Tags (v0.5.15-beta, v0.5.14,
+                  # v0.5.8-beta) als stable-Release publiziert.
+                  echo "  $TAG: vollständig verteilt — Untergrenze; ältere Tags werden nicht nachgeholt"
+                  break
                 fi
                 echo "  $TAG: Release vorhanden, aber unvollständig — wird repariert"
               else
@@ -117,7 +126,7 @@ jobs:
               break
             done
             if [ -z "$CHOSEN" ]; then
-              echo "::notice::Alle v*-Versionen sind bereits vollständig als stable Release verteilt — nichts zu tun."
+              echo "::notice::Alle v*-Versionen sind bereits vollständig als stable Release verteilt — nichts zu tun. Ältere Tags ohne Release gelten seit #259 als obsolet und werden nicht nachgeholt."
               echo "NO_TARGET=true" >> "$GITHUB_ENV"
               exit 0
             fi

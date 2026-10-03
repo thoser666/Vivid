@@ -27,7 +27,7 @@ DIST=.github/workflows/distribution-stable.yml
 FDROID=.github/workflows/deploy-fdroid.yml
 RELEASE=.github/workflows/release-pipeline.yml
 
-echo "▶ [test_distribution_stable] Szenarien D1–D14"
+echo "▶ [test_distribution_stable] Szenarien D1–D16"
 
 FAILED=0
 check() {
@@ -236,6 +236,144 @@ if awk '/CI_SCRIPTS_DIR\/emulator_test_setup\.sh" 34/{s=NR} /connectedStandardDe
 else
   echo "  ❌ D15.5 Setup-Aufruf NACH den connected*-Tests (oder fehlt) — Reihenfolge-Vertrag verletzt"
   FAILED=1
+fi
+
+# ── D16 (#259): Untergrenze der Tag-Auswahl ──────────────────────────────
+# Der Schedule durchsucht die v*-Tags absteigend und nimmt den ersten nicht
+# vollständig verteilten. Der ERSTE vollständig verteilte Release beendet die
+# Suche — er ist die Untergrenze; alles Ältere ist obsolet und wird nie
+# nachgeholt. Ohne diese Grenze fiel die Schleife (continue) durch alle
+# vollständigen Releases bis zum nächsten Loch und hätte überholte Tags wie
+# v0.5.15-beta als stable publiziert.
+#
+# D16.4ff sind VERHALTENSTests: das echte run-Snippet wird aus dem Workflow
+# extrahiert (wf_step_run) und mit gestubbtem git/gh ausgeführt. Geprüft wird,
+# welcher Tag tatsächlich gewählt wird — nicht, ob eine Zeile im YAML steht.
+# Erst dadurch ist der Floor belegt statt behauptet.
+source "$SCRIPT_DIR/lib_workflow_yaml.sh"
+
+check "D16.1 Untergrenzen-Meldung im Skript" "$DIST" 'Untergrenze; ältere Tags werden nicht nachgeholt'
+check "D16.2 No-Op-Notice nennt obsolete Alt-Tags" "$DIST" 'gelten seit #259 als obsolet'
+# continue darf als alleinstehende Anweisung nirgends mehr vorkommen (Zeile 110
+# war die einzige). Anker bewusst auf die Statement-Form, nicht auf das Wort:
+# continue-on-error (Zeile 283) ist ein Step-Schlüssel und völlig legitim.
+notcheck "D16.3 kein continue-Statement mehr in der Auswahl" "$DIST" '^[[:space:]]+continue[[:space:]]*$'
+
+D16_RUN="$(wf_step_run "$DIST" publish-stable 'Determine target stable version')"
+if [ "$D16_RUN" = "-" ] || [ -z "$D16_RUN" ]; then
+  echo "  ❌ D16.4 run-Snippet nicht extrahierbar (wf_step_run gab '-' zurück) — Verhaltenstests entfallen"
+  FAILED=1
+  D16_RUN=""
+else
+  echo "  ✅ D16.4 run-Snippet strukturell extrahiert (wf_step_run)"
+fi
+
+# Führt das Auswahl-Snippet mit gestubbtem git/gh aus.
+#   $1 D16_TAGS       — Tags absteigend (je eine Zeile)
+#   $2 D16_COMPLETE   — davon vollständig verteilt (4 Assets, kein Prerelease)
+#   $3 D16_INCOMPLETE — davon Release da, aber ohne .bundle
+# Ergebnis: D16_GOT (gewählter TAG) bzw. D16_NOTICE=1 (NO_TARGET), D16_LOG.
+d16_select() {
+  local sandbox; sandbox="$(mktemp -d)"
+  mkdir -p "$sandbox/bin"
+  cat > "$sandbox/bin/git" <<'STUB'
+#!/usr/bin/env bash
+case "$1" in
+  tag) printf '%s\n' "$D16_TAGS" ;;
+  show-ref)
+    case "$*" in *" refs/tags/$4 ") exit 0 ;; esac
+    exit 1 ;;
+  *) exit 1 ;;
+esac
+STUB
+  cat > "$sandbox/bin/gh" <<'STUB'
+#!/usr/bin/env bash
+tag="$3"
+if printf '%s\n' "$D16_COMPLETE" | grep -qxF "$tag"; then
+  printf '%s\n' '{"isDraft":false,"isPrerelease":false,"assets":[{"name":"app-standard-release.apk"},{"name":"app-foss-release.apk"},{"name":"SHA256SUMS.txt"},{"name":"SHA256SUMS.txt.bundle"}]}'
+  exit 0
+fi
+if printf '%s\n' "$D16_INCOMPLETE" | grep -qxF "$tag"; then
+  printf '%s\n' '{"isDraft":false,"isPrerelease":false,"assets":[{"name":"app-standard-release.apk"},{"name":"app-foss-release.apk"},{"name":"SHA256SUMS.txt"}]}'
+  exit 0
+fi
+exit 1
+STUB
+  chmod +x "$sandbox/bin/git" "$sandbox/bin/gh"
+  # GitHub-Ausdrücke sind kein bash-Syntax ("${ {" = bad substitution) und
+  # müssen vor dem Ausführen durch Laufzeitwerte ersetzt werden.
+  printf '%s\n' "$D16_RUN" \
+    | sed -e 's/\${{ github\.event_name }}/schedule/g' \
+          -e 's/\${{ github\.event\.inputs\.version }}//g' > "$sandbox/select.sh"
+  D16_GOT=""; D16_NOTICE=""
+  : > "$sandbox/env"; : > "$sandbox/out"
+  GITHUB_ENV="$sandbox/env" GITHUB_OUTPUT="$sandbox/out" \
+  D16_TAGS="$1" D16_COMPLETE="$2" D16_INCOMPLETE="$3" \
+  PATH="$sandbox/bin:$PATH" bash "$sandbox/select.sh" > "$sandbox/log" 2>&1
+  D16_RC=$?
+  if grep -q 'NO_TARGET=true' "$sandbox/env" 2>/dev/null; then
+    D16_NOTICE=1
+  else
+    D16_GOT="$(sed -n 's/^TAG=//p' "$sandbox/env" | head -1)"
+  fi
+  D16_LOG="$(cat "$sandbox/log")"
+  rm -rf "$sandbox"
+  return 0
+}
+
+if [ -n "$D16_RUN" ]; then
+  # D16.5 (#259-Regression): v0.5.20-beta ist vollständig, darunter liegen
+  # v0.5.15-beta und v0.5.14 ohne Release. Erwartet: Untergrenze greift,
+  # NICHTS zu tun. Mit continue wären hier v0.5.15-beta/v0.5.14 erschienen.
+  d16_select "v0.5.20-beta
+v0.5.19-beta
+v0.5.16-beta
+v0.5.15-beta
+v0.5.14" "v0.5.20-beta
+v0.5.19-beta
+v0.5.16-beta" ""
+  if [ "$D16_NOTICE" = "1" ] && [ "$D16_GOT" = "" ]; then
+    echo "  ✅ D16.5 Untergrenze: vollständige Releases dahinter werden nicht nachgeholt"
+  else
+    echo "  ❌ D16.5 Floor verletzt — gewählt: '${D16_GOT:-<kein TAG>}', NO_TARGET=${D16_NOTICE:-0} (erwartet: kein TAG). Log: $D16_LOG"
+    FAILED=1
+  fi
+
+  # D16.6: Repair-Pfad bleibt erhalten — v0.5.20-beta ist NEUER als die
+  # Untergrenze (v0.5.19-beta, vollständig), hat Release, aber kein .bundle
+  # ⇒ muss repariert werden. Wichtig: der unvollständige Tag muss ÜBER der
+  # Grenze liegen, sonst greift die Grenze korrekt und es gibt nichts zu tun.
+  d16_select "v0.5.20-beta
+v0.5.19-beta
+v0.5.15-beta" "v0.5.19-beta" "v0.5.20-beta"
+  if [ "$D16_GOT" = "v0.5.20-beta" ]; then
+    echo "  ✅ D16.6 Repair-Pfad: unvollständiges Release neuer als Floor wird gewählt"
+  else
+    echo "  ❌ D16.6 gewählt: '${D16_GOT:-<kein TAG>}' statt v0.5.20-beta. Log: $D16_LOG"
+    FAILED=1
+  fi
+
+  # D16.7: Neuester Tag ohne Release ⇒ wird veröffentlicht (Floor greift erst
+  # DARÜBER, nie darunter).
+  d16_select "v0.6.0-beta
+v0.5.20-beta" "v0.5.20-beta" ""
+  if [ "$D16_GOT" = "v0.6.0-beta" ]; then
+    echo "  ✅ D16.7 Neuester Tag ohne Release wird veröffentlicht"
+  else
+    echo "  ❌ D16.7 gewählt: '${D16_GOT:-<kein TAG>}' statt v0.6.0-beta. Log: $D16_LOG"
+    FAILED=1
+  fi
+
+  # D16.8: Repo ohne jedes vollständige Release (früher Bestand) ⇒ es gibt
+  # keine Untergrenze, der neueste Tag muss gewählt werden.
+  d16_select "v0.6.0-beta
+v0.5.9-beta" "" "v0.6.0-beta"
+  if [ "$D16_GOT" = "v0.6.0-beta" ]; then
+    echo "  ✅ D16.8 Ohne vollständiges Release kein Floor — neuester Tag wird gewählt"
+  else
+    echo "  ❌ D16.8 gewählt: '${D16_GOT:-<kein TAG>}' statt v0.6.0-beta. Log: $D16_LOG"
+    FAILED=1
+  fi
 fi
 
 echo ""

@@ -37,8 +37,14 @@ deshalb gibt es pro Kadenz einen eigenen Workflow. Alles zusätzlich manuell per
 
 **Zweck:** Neueste Version, Stand Montag 03:00 UTC, als „Latest“-Release veröffentlichen.
 
-1. **Tag-Auswahl:** Semver-Sortierung aller `v*`-Tags; ein Tag gilt als „noch nicht verteilt“,
-   wenn sein GitHub-Release nicht vollständig ist (muss dauerhaft 4 Assets haben, siehe unten).
+1. **Tag-Auswahl:** Semver-Sortierung aller `v*`-Tags **absteigend**; ein Tag gilt als
+   „noch nicht verteilt“, wenn sein GitHub-Release nicht vollständig ist (muss dauerhaft
+   4 Assets haben, siehe unten). **Untergrenze (#259):** der **erste vollständig verteilte
+   Release beendet die Suche — alles Ältere ist obsolet und wird nie nachgeholt. Vorher
+   lief die Schleife (`continue`) durch alle vollständigen Releases hindurch bis zum nächsten
+   Loch; real vorhanden sind `v0.5.15-beta`, `v0.5.14` und `v0.5.8-beta` ohne Release,
+   die dadurch als stable-Release nachgeholt worden wären. Der Repair-Pfad bleibt: ein
+   Release **neuer** als die Untergrenze, dem nur `.bundle` fehlt, wird repariert.
    Bei `workflow_dispatch` kann ein optionaler `version`-Input (Muster `v<major>.<minor>.<patch>`,
    optional mit Stufensuffix) den Kandidaten übersteuern.
 2. **Emulator-Gate (seit 24.09.2026, vor dem Build):** Der Publish-Job fährt vor
