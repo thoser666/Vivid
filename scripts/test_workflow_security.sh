@@ -214,4 +214,27 @@ if grep -Eq 'gh pr create|git push' scripts/contributors_reminder.sh; then
   fail "contributors-reminder must stay a pure issue-reminder (no branch push, no PR create)"
 fi
 
-echo "✅ [workflow-security-test] Permissions, PR input handling, ChatOverlay findings, wrapper validation, and scorecard annotations are guarded."
+# Jeder in Guards benutzte wf_*-Helper muss in der Library stehen. Vorfall
+# #250: ein Check rief `wf_step_if` auf, das es nicht gab. Bash meldet
+# "command not found" auf stderr, die Command-Substitution liefert trotzdem
+# leer — `[[ -z "$(wf_step_if …)" ]]` ist bei einem Tippfehler IMMER wahr,
+# der Check also dauerhaft grün und der Weg zur Regression frei.
+# Der Meta-Check ersetzt stillen Raten durch hartes Rot.
+# wf_python ist der interne YAML-Interpreter der Library, kein oeffentlicher
+# Helper — in beiden Richtungen ausgeklammert.
+internal='^wf_(python|query|fixture)$'
+defined=$(grep -oE '^wf_[a-z_]+\(\)' scripts/lib_workflow_yaml.sh | sed 's/()//' | sort -u)
+used=$(grep -rhoE '\bwf_[a-z_]+' scripts/test_*.sh | grep -vE "$internal" | sort -u)
+for fn in $used; do
+  grep -qE "^$fn\(\)" scripts/lib_workflow_yaml.sh \
+    || fail "guard uses $fn but scripts/lib_workflow_yaml.sh does not define it (typo would make every check silently green)"
+done
+# Gegenrichtung: definierte Helfer, die niemand nutzt, sind tote Zusicherung —
+# kein Fehler, aber sichtbar (teurer als ein Tippfehler, stiller Fehler).
+for fn in $defined; do
+  echo "$fn" | grep -qE "$internal" && continue
+  grep -qE "\b$fn\b" scripts/test_*.sh \
+    || echo "HINWEIS: $fn ist in der Library definiert, wird aber von keinem Guard benutzt"
+done
+
+echo "✅ [workflow-security-test] Permissions, PR input handling, ChatOverlay findings, wrapper validation, scorecard annotations, and helper existence are guarded."

@@ -227,7 +227,28 @@ Ohne den Meta-Guard wandern die Prüfungen still zurück auf Fenster, und der n�
 2. Zeilennummern-Vergleiche `… | head -1 | xargs test {} -lt $(…)` — prüfen eine *Reihenfolge*, keinen Abstand; Einfügungen dazwischen ändern die Aussage nicht.
 3. Einträge in der Allowlist des Guards. Dort **ist** der Abstand die Aussage (z. B. „der Retry-Wrapper muss unmittelbar über dem Task stehen"). Jeder Eintrag trägt eine Begründung und wird auf Existenz geprüft, damit die Allowlist nicht verwaisen kann.
 
-**Für Workflow-Strukturfragen** gibt es `scripts/lib_workflow_yaml.sh` (`source`n): `wf_job_permissions`, `wf_job_if`, `wf_step_uses`, `wf_step_with`, `wf_step_index`. Die Assertions sind bewusst **exakt** — der komplette Permission-Satz, nicht „enthält `issues: write`“. Bei einem Least-Privilege-Guard ist eine zusätzlich vergebene Berechtigung genau das, was auffallen soll; ein `grep -Fq` auf eine Einzelberechtigung lässt sie durch. Unbekannter Pfad, Job oder Key liefert `-`, damit ein Tippfehler nicht wie ein bestandener Check aussieht.
+**Für Workflow-Strukturfragen** gibt es `scripts/lib_workflow_yaml.sh` (`source`n): `wf_job_permissions`, `wf_job_if`, `wf_step_uses`, `wf_step_with`, `wf_step_index`, `wf_step_if`. Die Assertions sind bewusst **exakt** — der komplette Permission-Satz, nicht „enthält `issues: write`“. Bei einem Least-Privilege-Guard ist eine zusätzlich vergebene Berechtigung genau das, was auffallen soll; ein `grep -Fq` auf eine Einzelberechtigung lässt sie durch. Unbekannter Pfad, Job oder Key liefert `-`, damit ein Tippfehler nicht wie ein bestandener Check aussieht.
+
+**Ein nicht existierender Helper sieht aus wie ein bestandener Check.** `$(wf_step_if …)` in einer `[[ -z … ]]`-Prüfung ist bei einem Tippfehler im Funktionsnamen *immer* wahr: Bash meldet `command not found` auf stderr, die Command-Substitution liefert trotzdem leer, der Check bleibt dauerhaft grün. Deshalb vergleicht `test_workflow_security.sh` **jeden in Guards benutzten `wf_*`-Namen gegen die Definition in der Library** — und meldet umgekehrt definierte Helfer, die niemand benutzt (tote Zusicherung, nur ein Hinweis).
+
+### Gate-Skripte nie aus dem Ziel-Tag-Baum beziehen (#250)
+
+Der Stable-Publish testet den **Ziel-Tag**, führt aber die Workflow-Datei aus `develop` aus. Das sind zwei verschiedene Bäume — und der Job hat lange beides vermischt:
+
+```
+Checkout code            → Arbeitsbaum = develop (fetch-depth: 0)
+Determine target …       → TAG = v0.5.15-beta
+Checkout target tag      → Arbeitsbaum = v0.5.15-beta
+Run instrumented tests…  → bash scripts/emulator_gate_retry.sh   ← Datei fehlt im Tag
+```
+
+Vorfall 28.09.2026 (Run `36402544290`): `bash: scripts/emulator_gate_retry.sh: No such file or directory` → **exit 127**. Der Wrapper war erst drei Stunden vor dem letzten grünen Lauf (`ddc9d777`, 25.09. 06:53) entstanden, also nach `v0.5.15-beta`. Es war kein Runner-Image-Drift, sondern eine deterministische Eigenschaft des Tags — und damit **blockiert ein einziger alter Tag den Stable-Kanal**, sobald die Auswahl bei ihm landet.
+
+**Die Regel: Produktstand aus dem Ziel-Tag, Pipeline-Stand aus `develop`.** Gate-Skripte werden im Schritt `Stage CI gate scripts (from develop, not target tag)` **vor** dem `git checkout` in `$RUNNER_TEMP` gespiegelt und von dort aufgerufen (`$CI_SCRIPTS_DIR/…`). Fehlt ein Skript im develop-Baum, bricht der Job sofort mit `::error::` ab statt drei Schritte später mit exit 127.
+
+Ein Skript, das seinen Repo-Root aus `$0` ableitet (`cd "$(dirname "$0")/.."`), verliert dabei die Orientierung. `check_sentry_resolve.sh` löst das über `cd "${VIVID_REPO_ROOT:-$(dirname "$0")/..}"` — der Fallback erhält jeden bisherigen Aufruf, der Workflow setzt die Variable explizit. Festgeschrieben in `test_emulator_matrix.sh` (T17.1–T17.11) und `test_sentry_resolve.sh` (R13).
+
+**Gegenprobe zur Fehlerklasse:** Positions-Checks auf Workflow-Dateien ankerten besser auf `$CI_SCRIPTS_DIR/<skript>` als auf den bloßen Skriptnamen. Der alte Anker `scripts/emulator_gate_retry.sh` matchte sowohl den echten Aufruf als auch einen Pfad in einem Kommentar — und ist in `vivid-ci-scripts/…` gar nicht mehr enthalten. Ein Kommentarpfad verschiebt einen Namens-Substring-Anker und kippt die Reihenfolge-Aussage (das ist in dieser Sitzung einmal passiert).
 
 ### Danksagung Dritter (CONTRIBUTORS.md)
 

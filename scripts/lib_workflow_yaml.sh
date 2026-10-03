@@ -85,3 +85,11 @@ wf_step_with() { _wf_query "$1" "next((s.get('with',{}).get('$4') for s in d['jo
 # wf_step_index <datei> <job> <step-name-teilstück> -> Index des Steps oder -1
 # Für Reihenfolge-Aussagen („Wrapper-Validation vor dem ersten gradlew").
 wf_step_index() { _wf_query "$1" "[i for i,s in enumerate(d['jobs']['$2'].get('steps', [])) if '$3' in str(s.get('name','')) or '$3' in str(s.get('uses',''))]"; }
+
+# wf_step_if <datei> <job> <step-name-teilstück> -> if-Ausdruck des ersten
+# passenden Steps oder "-" (kein if gesetzt, unbekannter Pfad/Job/Step).
+# Wichtig für bedingungslos gemeinten Schritten: `$(wf_step_if …)` in einer
+# [[ -z … ]]-Prüfung ist bei einer TIPPFEHLER-Funktionsname still leer und
+# damit immer grün — dagegen schützt der Helper-Prüfer in
+# test_workflow_security.sh (alle in Tests benutzten wf_* existieren).
+wf_step_if() { _wf_query "$1" "next((s.get('if') for s in d['jobs']['$2'].get('steps', []) if '$3' in str(s.get('name','')) or '$3' in str(s.get('uses',''))), None)"; }

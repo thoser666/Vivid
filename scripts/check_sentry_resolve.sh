@@ -37,7 +37,11 @@
 # (simulierter HTTP-Code des Bulk-PUT, Default 200) und `getstatus`
 # (simulierter HTTP-Code der Lesen-Abfrage, Default 200) — kein Netz, kein Token.
 set -euo pipefail
-cd "$(dirname "$0")/.."
+# Repo-Root: normalerweise über $0. Aus $RUNNER_TEMP (Stable-Publish pflegt
+# die Gate-Skripte dort, damit der Arbeitsbaum nicht vom Ziel-Tag stammt —
+# Vorfall #250) ist $0/.. kein Repo mehr, dann muss VIVID_REPO_ROOT gesetzt
+# sein. Ohne gesetzte Variable bleibt das alte Verhalten exakt erhalten.
+cd "${VIVID_REPO_ROOT:-$(dirname "$0")/..}"
 
 ORG="${SENTRY_ORG:-privat-jb}"
 PROJECT_SLUG="${SENTRY_PROJECT:-vivid}"

@@ -201,7 +201,7 @@ fi
 #   - ist continue-on-error (Sentry-Ausfall blockiert die Distribution nie),
 #   - nutzt das eigene SENTRY_RESOLVE_TOKEN-Secret (project:write).
 check "D14.1 Resolve-Step vorhanden" "$DIST" 'Sentry: erledigte Issues resolven'
-check "D14.2 Guard mit Version aufgerufen" "$DIST" 'check_sentry_resolve\.sh --version "\$TAG"'
+check "D14.2 Guard mit Version aufgerufen" "$DIST" 'CI_SCRIPTS_DIR/check_sentry_resolve\.sh" --version "\$TAG"'
 check "D14.3 eigenes Secret verdrahtet" "$DIST" 'SENTRY_RESOLVE_TOKEN: \${{ secrets\.SENTRY_RESOLVE_TOKEN }}'
 check "D14.4 Guard-Script existiert" scripts/check_sentry_resolve.sh 'fix-release: <version>'
 check "D14.5 Guard-Selbsttest existiert" scripts/test_sentry_resolve.sh 'inNextRelease'
@@ -223,13 +223,15 @@ fi
 # Gate-Seite: die Grants laufen VOR den connected*-Tasks — `pm grant` scheitert
 # an nicht installierten Packages, deshalb baut ein eigener Step die Debug-
 # Test-APKs beider Flavors und das Setup-Skript installiert+grantet vorconnected.
-check "D15.1 Setup-Skript vor dem Gate aufgerufen (API 34)" "$DIST" 'emulator_test_setup\.sh 34'
+# ⚠️ Anker ab #250 auf den AUFRUF (`$CI_SCRIPTS_DIR/…`) statt auf den Skriptnamen:
+# der Name steht seit dem Stage-Step zuerst im Workflow, nicht mehr im Gate-Snippet.
+check "D15.1 Setup-Skript vor dem Gate aufgerufen (API 34)" "$DIST" 'CI_SCRIPTS_DIR/emulator_test_setup\.sh" 34'
 check "D15.2 Debug-APK-Assemble-Step vorhanden" "$DIST" 'Build debug APKs for emulator gate'
 check "D15.3 standard-androidTest-APK gebaut" "$DIST" 'assembleStandardDebugAndroidTest'
 check "D15.4 foss-androidTest-APK gebaut" "$DIST" 'assembleFossDebugAndroidTest'
 # D15.5: Reihenfolge-Vertrag — der Setup-Aufruf muss VOR dem ersten connected*-Aufruf
 # liegen (sonst hängt der Startup-Smoke am Systemdialog — genau der #249-Zustand).
-if awk '/emulator_test_setup\.sh 34/{s=NR} /connectedStandardDebugAndroidTest/{c=NR} END{exit !(s && c && s<c)}' "$DIST"; then
+if awk '/CI_SCRIPTS_DIR\/emulator_test_setup\.sh" 34/{s=NR} /connectedStandardDebugAndroidTest/{c=NR} END{exit !(s && c && s<c)}' "$DIST"; then
   echo "  ✅ D15.5 Setup-Aufruf liegt vor den connected*-Tests (Reihenfolge)"
 else
   echo "  ❌ D15.5 Setup-Aufruf NACH den connected*-Tests (oder fehlt) — Reihenfolge-Vertrag verletzt"

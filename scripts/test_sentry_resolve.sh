@@ -25,6 +25,11 @@
 #       (stderr gefiltert; Regression vom 25.09.2026, entdeckt am
 #       Pre-Push-Gate R3). Struktur-Check statt Fixture-Fall, damit er auf
 #       jedem Host deterministisch greift.
+#   R13 VIVID_REPO_ROOT (#250): der Guard darf aus $RUNNER_TEMP aufgerufen
+#      werden (Stable-Publish staget die Gate-Skripte dorthin, damit der
+#      Arbeitsbaum nicht vom Ziel-Tag stammt). Ohne gesetzten Repo-Root muss
+#      der Aufruf scheitern, mit gesetztem Repo-Root laufen — sonst waere der
+#      Vertrag eine tote Zusicherung.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 fail() { echo "❌ [sentry-resolve-test] $1"; exit 1; }
@@ -159,4 +164,38 @@ if grep -E "python - (2>/dev/null )?<<'PY'" "$guard" >/dev/null; then
   fail "R12: es existiert noch ein Heredoc ohne -X utf8 (cp1252-Crash-Risiko)"
 fi
 
-echo "✅ [sentry-resolve-test] Sentry-Resolve-Guard vertragstreu (R1–R12)."
+# R13 VIVID_REPO_ROOT (#250): der Stable-Publish legt die Gate-Skripte nach
+# $RUNNER_TEMP, damit der Arbeitsbaum nicht vom Ziel-Tag stammt (sonst exit
+# 127 bei alten Tags). Aus $RUNNER_TEMP zeigt $0/.. aber ins Leere.
+#
+# Der Nachweis muss den tatsächlichen cd beobachten, nicht nur "läuft/scheitert" —
+# im Fixture-Modus kommt der Guard ohne jedes Repo aus. Beobachtbar wird der
+# cd über einen RELATIVEN SENTRY_PROPERTIES_FILE: der Pfad wird nach dem cd
+# aufgelöst, also verrät die Token-Quelle, in welchem Verzeichnis der Guard
+# wirklich steht. Das Test-Repo wird selbst gebaut und liegt nur in $tmp —
+# das echte Arbeitsverzeichnis bleibt unberührt.
+alien="$tmp/alien-runner-temp/scripts"
+mkdir -p "$alien" "$tmp/fakerepo/docs"
+cp "$guard" "$alien/check_sentry_resolve.sh"
+printf 'auth.token=sntrys_FAKE_REPO\n' > "$tmp/fakerepo/sentry.properties"
+: > "$tmp/fakerepo/docs/sentry-stats.md"
+# 1) Aus dem Alien-Verzeichnis OHNE VIVID_REPO_ROOT: cd zeigt auf
+#    $tmp/alien-runner-temp, wo keine sentry.properties liegt → none.
+without=$(cd "$tmp/alien-runner-temp" && SENTRY_PROPERTIES_FILE=sentry.properties \
+  bash "$alien/check_sentry_resolve.sh" --version v0.6.0-beta --print-token-source 2>&1) \
+  || fail "R13: --print-token-source darf nicht scheitern: $without"
+grep -q "^TOKEN_SOURCE=none$" <<<"$without" \
+  || fail "R13: ohne VIVID_REPO_ROOT muss der Guard ausserhalb des Repos stehen (war: $without)"
+# 2) Mit VIVID_REPO_ROOT: identischer Aufruf, nur der Root gesetzt → der Guard
+#    landet im Fake-Repo und findet die dortige sentry.properties.
+with=$(cd "$tmp/alien-runner-temp" && VIVID_REPO_ROOT="$tmp/fakerepo" \
+  SENTRY_PROPERTIES_FILE=sentry.properties \
+  bash "$alien/check_sentry_resolve.sh" --version v0.6.0-beta --print-token-source 2>&1) \
+  || fail "R13: VIVID_REPO_ROOT muss den Aufruf funktionsfaehig halten: $with"
+grep -q "^TOKEN_SOURCE=auth.token$" <<<"$with" \
+  || fail "R13: VIVID_REPO_ROOT hat den cd nicht ausgefuehrt (war: $with)"
+# 3) Rueckwaertskompatibilitaet: der alte Aufrufsweg bleibt unveraendert.
+grep -q 'cd "${VIVID_REPO_ROOT:-$(dirname "$0")/..}"' "$guard" \
+  || fail "R13: \$0-Fallback muss erhalten bleiben (Rueckwaertskompatibilitaet)"
+
+echo "✅ [sentry-resolve-test] Sentry-Resolve-Guard vertragstreu (R1–R13)."
