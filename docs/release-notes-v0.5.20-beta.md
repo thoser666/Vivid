@@ -37,7 +37,7 @@
 
 - **Attributionen abgeschlossen:** Alle vier offenen Sentry-Issues (VIVID-3A/3B/3D/39) sind nach dem Triage-Verfahren aus docs/sentry-issues.md §5 attribuiert (#216/#220/#221/#225); die Schließungs-Mechanik wurde präzisiert (fix-release-Tag wirkt nur Sentry-seitig, GitHub-Issues schließen manuell im Release-Zug).
 - **CrashAdvisory-Ranges korrigiert:** Die untere Grenze der drei Crash-Advisories stand auf versionCode 5194 — ein Stand, der nie ausgeliefert wurde (Platzhalter-Prognose). Korrekt ist 5074; wer 5193 oder 5194 aus einem Nightly-Build hatte, fällt sonst durchs Advisory-Raster.
-- **Issue-Hausmuster:** Neue Issues werden beim Anlegen dem Maintainer zugewiesen (`--assignee thoser666`, docs/sentry-issues.md §5).
+- **Issue-Hausmuster:** Neue Issues starten **unzugewiesen** (Selbstbedienung für Contributors) und werden erst beim Beginnen der Arbeit dem Maintainer zugewiesen (`gh issue edit --add-assignee thoser666`, docs/sentry-issues.md §5).
 - WHIP-Gerätesmoke-Vorbereitung (debug-only Einstiegspunkt + JVM-testbarer Runner) liegt bereit; der Gerätedurchlauf (MediaMTX, Android-Gerät) folgt separat.
 
 ## 📥 Installation & Update

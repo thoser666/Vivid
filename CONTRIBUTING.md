@@ -135,6 +135,24 @@ Please **do not** open public issues for security vulnerabilities. Follow the pr
 | Doku | Pull Request | Doku lebt in `docs/` (Deutsch primär; User-Guide zusätzlich EN/FR) |
 | Code | Pull Request | Siehe Workflow unten |
 
+### Ein offenes Issue übernehmen
+
+Issues ohne Assignee sind **frei** — nimm dir eins, das dich interessiert:
+
+```bash
+gh issue edit <nr> --add-assignee <dein-name>   # Issue sichern
+```
+
+Sobald du anfängst, gehört das Issue dir; bitte im PR darauf beziehen und es
+mit abschließen. Es ist ausdrücklich **erlaubt**, ein fremd übernommenes
+Issue wieder freizugeben (`--remove-assignee`), wenn du es nicht mehr
+machst — lieber offen und unzugewiesen als still liegen gelassen. Es gibt
+keinen Anspruch auf ein Issue ohne Arbeit.
+
+Neu angelegte Issues sind bewusst unzugewiesen (seit 03.10.2026, Hausregel in
+[docs/sentry-issues.md](docs/sentry-issues.md) §5); sie werden erst dann
+zugewiesen, wenn mit der Umsetzung begonnen wird.
+
 ### Pull-Request-Workflow
 
 1. **Fork & Branch** — Feature-Branch von `develop` anlegen

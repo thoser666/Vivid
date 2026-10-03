@@ -147,13 +147,17 @@ nicht gezogen wurde):
    0 betroffene Nutzer) ohne Registry-Eintrag direkt schließen — der
    Watchdog dedupliziert gegen `state=all`, legt sie nicht erneut an
    (erledigt für #223/#227, VIVID-3F/3G).
-5. **Neue Issues immer zuweisen:** Jedes manuell angelegte Issue wird
-   sofort beim Anlegen dem Maintainer zugewiesen —
-   `gh issue create … --assignee thoser666` (betrifft Attributions-Threads,
-   Triage-Follow-ups und Task-Issues gleichermaßen; Assignee-Vermerk ist
-   Teil des Hausmusters, siehe #215/#225). Scheitert die Zuweisung beim
-   Anlegen, nachziehen mit `gh issue edit <nr> --add-assignee thoser666`;
-   ein offenes, unzugewiesenes Issue gilt als nicht abgeschlossen.
+5. **Zuweisen erst beim Beginnen der Arbeit (seit 03.10.2026, #260).** Neue
+   Issues entstehen **unzugewiesen** — betrifft Attributions-Threads,
+   Triage-Follow-ups und Task-Issues gleichermaßen. Das ist Absicht: ein
+   Issue ohne Assignee ist das Signal „frei“ und damit die Grundlage dafür,
+   dass sich Contributors offene Issues heraussuchen können. Erst wenn mit
+   der Umsetzung tatsächlich begonnen wird, wird das Issue übernommen:
+   `gh issue edit <nr> --add-assignee thoser666` — **nicht** `--assignee`
+   beim `gh issue create`. Erledigt = geschlossen; ein offenes Issue ohne
+   Assignee ist ausdrücklich **kein** Mangel. (Die frühere Regel — Zuweisung
+   schon beim Anlegen, Hausmuster aus #215/#225 — war das Gegenteil und hat
+   durch die Vorabreservierung jede Selbstbedienung blockiert.)
 6. **Schließung: GitHub-Issue manuell, Sentry-Issue per Automation.** Der
    fix-release-Tag (siehe `docs/sentry-stats.md` §6) arbeitet **nur
    Sentry-seitig** — beim Stable-Publish resolvt der Resolve-Guard die
