@@ -354,6 +354,26 @@ Festgeschrieben in `scripts/test_distribution_stable.sh` (D20.1). Der Guard läu
 
 **Nebenfalle beim Dokumentieren dieser Sektion:** Ein einzelnes CR mitten in einer Zeile lässt `git diff` die **gesamte** Datei als umgeschrieben melden (415 statt 19 Zeilen im Numstat) — dieselbe Byte-Falle eine Ebene höher, nur ohne Prozess und ohne Fehlermeldung. Solche Zeilenenden werden hier deshalb im Klartext beschrieben statt als Escape geschrieben.
 
+### Kein Backslash in `script:`-Bloecken des android-emulator-runners (#265)
+
+In einem `script:`-Block des Emulator-Runners darf kein Backslash neben einem Buchstaben stehen. Ein Backslash ist in der Shell ein **Escape**, kein Zeilenumbruch — er verschwindet lautlos, und was danach als Argument beim Skript ankommt, ist nicht das, was die Zeile vortäuscht.
+
+Vorfall 04.10.2026 (Run `37188281176`, `workflow_dispatch` auf `v0.5.20-beta`): der Aufruf von `scripts/emulator_gate_retry.sh` war im Workflow-Blob als Backslash + literales `r` (Bytes `5c 72`) plus einem ganz normalen LF gespeichert. Die Shell escaped nur den Buchstaben, die Folgezeile wurde ein eigenes Kommando, und das Skript startete mit `$@ = 'r'`:
+
+```
+emulator_gate_retry.sh: line 85: r: command not found
+```
+
+exit 127, Job rot, cosign-Step nie erreicht. Betroffen war der **Stable-Kanal**, nicht nur ein Release: ohne Gate kein Publish, ohne Publish kein `SHA256SUMS.txt.bundle` nachziehen.
+
+**Zur Abgrenzung — und das ist der Punkt, der leicht falsch liegt:** Der Bug hat **nichts mit Zeilenenden zu tun**. Der Blob im Repo ist LF (`core.autocrlf=true` legt das beim Commit fest; gegengeprüft am Vorgänger-Commit `e6c2c7e7`: **0** CR im Workflow-Blob). Der Runner arbeitet auf Ubuntu mit `core.autocrlf=false` und sieht daher genau diese Bytes. Wer lokal in einem Windows-Arbeitsbaum `CRLF` in der Workflow-Datei zählt, sieht eine Eigenschaft des Checkouts — nicht die Ursache des Fehlschlags. Eine „`\` + CR ist in `script:`-Bloecken kaputt"-Erklärung sieht plausibel aus, ist hier aber unbelegt: im Repo gibt es keinen CR, der den Runner erreichen könnte.
+
+**Die Regel: Kommandoaufrufe in `script:`-Blöcken einzeilig schreiben.** Damit kann kein Backslash neben einem Buchstaben landen, und der Aufruf bleibt im Diff als eine Aussage lesbar statt als Escape-Spiel.
+
+Festgeschrieben in `scripts/test_distribution_stable.sh` (D20.1). Der Guard läuft über **alle** `.github/workflows/*.yml` und sucht YAML-geparst in `android-emulator-runner`-Steps nach Zeilenenden auf `\` sowie nach `\` + `r` außerhalb von Kommentaren — strukturell, nicht als Zeilenabstand.
+
+**Nebenfalle beim Dokumentieren dieser Sektion:** Ein einzelnes CR mitten in einer Zeile einer CRLF-Datei lässt `git diff` die **gesamte** Datei als umgeschrieben melden (415 statt 19 Zeilen im Numstat) — dieselbe Falle eine Ebene höher, nur ohne Prozess und ohne Fehlermeldung. Solche Zeilenenden werden hier deshalb im Klartext beschrieben statt als Escape geschrieben.
+
 ### Danksagung Dritter (CONTRIBUTORS.md)
 
 Dritte (Personen außerhalb des Kern-Teams) werden in

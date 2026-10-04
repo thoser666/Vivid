@@ -257,18 +257,20 @@ jobs:
             # Emulator-Flakiness). Transiente Klassen retryen 3× (10s/20s),
             # deterministische Fehler fail-closed sofort, Boot-Noise aus
             # grünen Läufen ist bewusst KEIN Muster (Selbsttest E1.3).
-            # ⚠️ #265: EINE Zeile, KEIN Backslash-Zeilenumbruch — und hier war
-            # auch gar keine Fortsetzung mehr vorhanden, sondern ein zerstoertes
-            # `\r` (Backslash + literales 'r') als Argument. In der Shell escaped der
-            # Backslash nur das 'r', also startete emulator_gate_retry.sh mit
-            # $"@" = 'r' → "line 85: r: command not found", exit 127. Vorfall:
-            # Run 37188281176 — der Stable-Publish scheiterte daran deterministisch,
-            # der cosign-Step (Sign SHA256SUMS) wurde nie ausgefuehrt. Nebenbei
-            # waere auch eine echte Fortsetzung hier heikel: der script:-Wert geht als
-            # Action-Input an den android-emulator-runner, ohne die
-            # Zeilenend-Normalisierung, die GitHub bei run:-Steps vornimmt — dort
-            # funktioniert dieselbe Konstruktform bei Zeile 91, in einem script:-Block
-            # mit CRLF-Datei dagegen nicht.
+            # ⚠️ #265: EINE Zeile, KEIN Backslash — hier stand nie eine
+            # Zeilenfortsetzung, sondern ein zerstoertes Escape: Backslash +
+            # literales 'r' (Bytes 5c 72), dann ein ganz normales LF. In der
+            # Shell escaped der Backslash nur den Buchstaben, das Skript
+            # startete also mit $"@" = 'r':
+            #   emulator_gate_retry.sh: line 85: r: command not found, exit 127
+            # Vorfall Run 37188281176: der Stable-Publish scheiterte daran
+            # deterministisch, der cosign-Step (Sign SHA256SUMS) wurde nie
+            # ausgefuehrt. Zeilenenden sind hier NICHT die Ursache — der Blob
+            # im Repo ist LF (core.autocrlf=true legt das beim Commit fest),
+            # der Runner sieht also genau diese Bytes. Das Problem ist der
+            # Inhalt: ein Backslash direkt vor einem Buchstaben ist ein Escape
+            # und kein Umbruch, und er verschwindet lautlos in der Argumentliste.
+            # Deshalb: Aufrufe in script:-Bloecken einzeilig schreiben.
             bash "$CI_SCRIPTS_DIR/emulator_gate_retry.sh" ./gradlew :app:connectedStandardDebugAndroidTest :app:connectedFossDebugAndroidTest
 
       # ✅ Signiertes Stable-Release bauen und veröffentlichen: release_github

@@ -115,20 +115,24 @@ deshalb gibt es pro Kadenz einen eigenen Workflow. Alles zusätzlich manuell per
    bewusst kein Muster — Evidenz: Run 36025777687 (rot) vs. 36021918352
    (grün, derselbe Commit). Selbsttest: `scripts/test_emulator_gate_retry.sh`
    (E1–E10).
-   **Keine Backslash-Zeilenfortsetzung in `script:`-Blöcken (seit 04.10.2026, #265):**
-   Der `script:`-Wert geht als **Action-Input** an den `android-emulator-runner` —
-   anders als ein `run:`-Step durchläuft er **keine** Zeilenend-Normalisierung (deshalb
-   läuft dieselbe Konstruktform in `run:`-Steps seit Monaten unauffällig). Bei einer
-   CRLF-Workflow-Datei ist `\` + CR dort **keine** Fortsetzung: die Shell escaped nur
-   das CR, die Folgezeile wird ein eigenes Kommando. Vorfall `Run 37188281176`
-   (04.10.2026, `workflow_dispatch` auf `v0.5.20-beta`): dort stand sogar `\` +
-   literales `r` (Backslash + `r`, Bytes `5c 72`) als Argument — der Aufruf startete
-   mit `$@ = 'r'`, `emulator_gate_retry.sh` brach mit
-   `line 85: r: command not found` (exit 127) ab, der Stable-Publish fiel damit
-   deterministisch aus und der cosign-Step („Sign SHA256SUMS") wurde nie ausgeführt —
-   das fehlende `.bundle` an `v0.5.20-beta` war so nicht nachziehbar. **Regel:**
-   Aufruf **einzeilig** schreiben. Selbsttest: `scripts/test_distribution_stable.sh`
-   (D20.1) prüft das strukturell über **alle** Workflows, nicht nur diesen einen.
+   **Kein Backslash im `script:`-Block des android-emulator-runners (04.10.2026, #265):**
+   Die Fehlerklasse ist ein **Shell-Escape**, kein Zeilenenden-Problem. Der Aufruf
+   von `emulator_gate_retry.sh` stand als Backslash + literales `r` (Bytes `5c 72`)
+   plus einem ganz normalen LF im Blob. Ein Backslash direkt vor einem Buchstaben
+   ist in der Shell ein Escape und kein Zeilenumbruch: er verschwindet lautlos, die
+   Folgezeile wird ein eigenes Kommando, und das Skript startete mit `$@ = 'r'` —
+   `line 85: r: command not found`, exit 127. Vorfall Run
+   `37188281176` (04.10.2026, `workflow_dispatch` auf `v0.5.20-beta`): der
+   Stable-Publish fiel damit deterministisch aus und der cosign-Step („Sign
+   SHA256SUMS") wurde nie ausgeführt — das fehlende `.bundle` an `v0.5.20-beta`
+   war so nicht nachziehbar. **Zur Abgrenzung:** der Blob im Repo ist LF
+   (`core.autocrlf=true` legt das beim Commit fest; gegengeprüft am Vorgänger-Commit
+   `e6c2c7e7`: **0** CR im Workflow-Blob). Ein CR erreicht den Runner also gar
+   nicht — wer im Arbeitsbaum CRLF sieht, sieht eine Eigenschaft des Windows-
+   Checkouts, nicht des Laufs. **Regel:** Aufrufe in `script:`-Blöcken einzeilig
+   schreiben, damit kein Backslash neben einem Buchstaben landen kann.
+   Selbsttest: `scripts/test_distribution_stable.sh` (D20.1) prüft das strukturell
+   über **alle** Workflows, nicht nur diesen einen.
 3. **Build:** `bundle exec fastlane release_github tag:"$TAG"` baut **beide** Flavor:
    `assembleStandardRelease` (bereits aus der Pipeline bekannt) **und** `assembleFossRelease`.
 4. **Checksummen:** `fastlane/sha256sums.rb` erzeugt `SHA256SUMS.txt` im GNU-Format
@@ -436,7 +440,7 @@ und in der CI; gegen gemocktes `gh`/fastlane, ohne Netz):
 | `scripts/test_publish_release_hardening.sh` | Completeness, Idempotenz, Upload-Assets (S1–S8) |
 | `scripts/test_sha256sums.sh` | Checksummen-Format, Sortierung, Verifikation (H1–H6, inkl. Nightly-Scope) |
 | `scripts/test_pinned_checksums.sh` | Permanenter Latest-APK-Permalink + Prüfsummen-Anhang in beiden Publikations-Zweigen (R1–R4) |
-| `scripts/test_distribution_stable.sh` | Workflow: Tag-Auswahl inkl. Untergrenze, Dispatch-Validierung, Keystore-Guard, cosign-Signatur, CHANGELOG-Mirror, **keine Backslash-Fortsetzung in `script:`-Blöcken des Emulator-Runners** (D1–D20, davon D16.4–D16.8 Verhaltenstests der Tag-Auswahl und D20.1 Workflow-weiter Struktur-Guard) |
+| `scripts/test_distribution_stable.sh` | Workflow: Tag-Auswahl inkl. Untergrenze, Dispatch-Validierung, Keystore-Guard, cosign-Signatur, CHANGELOG-Mirror, **kein Backslash in `script:`-Blöcken des Emulator-Runners** (D1–D20, davon D16.4–D16.8 Verhaltenstests der Tag-Auswahl und D20.1 Workflow-weiter Struktur-Guard) |
 | `scripts/test_verify_reproducibility.sh` | Verify-Job: flavor-korrekte Assets, Rebuild-Pfade, **Zielwahl des zu prüfenden Releases**, Versionsquelle und **Tag-zu-Commit-Auflösung** (T1–T18, davon T14.1–T14.5 und T18.1–T18.7 Verhaltenstests in einer gh/curl/unzip-Sandbox) |
 | `scripts/test_fdroid_metadata.sh` | Metadata-Dateien + versionCode-Konsistenz (M1–M10) |
 | `scripts/test_bot_pr_credentials.sh` | Secrets/Credentials-Disziplin in allen Workflows (inkl. T4-/T7-*/T8-*/T9-*/T10-Loops) |
