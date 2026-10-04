@@ -90,6 +90,29 @@ Das erste Overlay-Widget ist da (Zeit / GPS / Geschwindigkeit) — konfigurierba
 5. **Send-Fehler-Toleranz:** Bot im Slow-Mode-Kanal → nach einem abgelehnten Send antwortet der Bot auf die nächste Nachricht weiter
 6. **Widget:** Text-/Info-Widget aktivieren → Zeit/GPS/Geschwindigkeit im Overlay
 
+## 📦 Release-Pipeline: der Beta-Pfad war nicht konform (#262)
+
+Bei `v0.5.20-beta` (02.10.2026) fehlte am Release die **cosign-Signatur der Prüfsummendatei**
+(`SHA256SUMS.txt.bundle`), und das Reproduzierbarkeits-Gate prüfte ein **fremdes Release**. Drei
+Ursachen, alle im Publish-Pfad statt im Produkt:
+
+- **Der cosign-Block stand nur in `distribution-stable.yml`.** Ein Release über
+  `release-pipeline.yml` (Nightly *und* Version-Tag) bekam deshalb nie ein `.bundle`. Beide
+  Workflows nutzen jetzt denselben gepinnten Installer, und der Step hängt an derselben
+  Bedingung wie das Fastlane-Kriterium `stable` (`refs/tags/v*`).
+- **Das Gate hat sein Ziel geraten.** Es suchte ausschließlich `nightly-*`-Prereleases und
+  nahm das neueste. Bei einem Dispatch auf `refs/tags/v0.5.20-beta` wurde gar kein Nightly
+  publiziert — also prüfte es ein mehrere Stunden altes Nightly eines früheren Laufs gegen
+  den Beta-Commit. Das Ziel steht jetzt im Lauf-Kontext (`github.ref_type`/`github.ref_name`).
+- **Der Beta-Kanal war nicht prüfbar.** Das Mapping und die Output-Metadaten blieben lokal im
+  Runner, obwohl genau diese beiden Dateien das Gate lädt. Sie werden jetzt mitveröffentlicht —
+  wie es der Nightly-Pfad seit jeher tat.
+
+Der Nightly-Kanal bleibt bewusst **ohne** `.bundle`: sein Tag (`nightly-<Zeitstempel>`) entsteht
+erst zur Laufzeit im Fastfile und ist der Workflow-Datei nicht bekannt. Für Beta/Version-Tags ist
+der dokumentierte Weg `gh workflow run distribution-stable.yml --field version=vX.Y.Z-beta`;
+beide Wege liefern jetzt dieselben Artefakte.
+
 ## ⚠️ Bekannte Einschränkungen
 
 - **Twitch-OAuth-Browserflow** noch nicht implementiert — Token per Paste in den Settings (Setup-Anleitung in RELEASE.md)

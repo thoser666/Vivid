@@ -250,6 +250,39 @@ Ohne den Meta-Guard wandern die Prüfungen still zurück auf Fenster, und der n�
 **Und derselbe Helper kann auch vorhanden sein und trotzdem nichts liefern (#259).** Die Extraktion lief über `print()` in der Standard-Kodierung der Konsole — unter Windows cp1252. Ein Workflow-Wert mit `≠`, `—` oder `ü` (z. B. der Kommentar `RC≠0` in einem `run`-Snippet) brach daraufhin mit `UnicodeEncodeError` ab, der Fehler landete im `|| echo "-"` und sah damit wie „nicht gefunden“ aus. Die Library nagelt stdout deshalb fest auf UTF-8 fest. Wichtig allgemein: die Sentinel-Semantik („`-` = unbekannt“) ist nur dann sicher, wenn der Fehlerweg *nicht* denselben Wert liefert wie der Normalfall — sonst ist ein Tippfehler und ein kaputter Interpreter nicht mehr unterscheidbar. Geprüft wird das in `test_workflow_security.sh` **verhaltensbasiert** (ein echter Probe-Workflow mit `≠` muss einen echten Wert liefern), nicht per grep auf die reconfigure-Zeile.
 
 **Verhaltenstests statt Zeilenvergleiche.** Für Logik, die in einem `run:`-Block steht, genügt kein grep auf eine Zeile: `wf_step_run` liefert das Snippet, der Guard führt es mit gestubbtem `git`/`gh` aus und prüft das Ergebnis. Das trifft die Untergrenze der Stable-Tag-Auswahl (#259, `D16.5`–`D16.8`) — dort ist entscheidend, *welcher* Tag gewählt wird, nicht dass eine bestimmte Zeile vorhanden ist.
+**Ein Stub muss das Werkzeug emulieren, nicht nur antworten (#262).** Beim Verhaltenstest des
+Verify-Jobs (#262) war der `gh`-Stub zu ehrlich: Er gab das rohe JSON von `release list` zurück
+und ignorierte dabei `--jq`. Das Snippet griff folglich auf das **komplette JSON-Array** als Tag
+zu (`TAG='[{"tagName":…}]'`), und der Fehlerfall „kein Nightly im Raster“ blieb unentdeckt — ein
+Array-String ist weder leer noch `null`, also lief jeder Negativzweig ins Leere. Geprüft wurde
+damit nicht die Auswahl-Logik der Pipeline, sondern die Treue des Stubs. Ein Stub muss das
+Filter-Verhalten des Originals nachbilden: bei `gh` heißt das, `--jq` selbst auswerten
+(`printf '%s\n' "$DATA" | jq -r "$filter"`), sonst prüft der Guard die Auswertung, die es gar nicht gibt.
+
+**Drei Fallen beim Negieren — alle drei hat die Mutationsprobe aufgedeckt.** Ein Check, der nur im
+Positivfall stimmt, beweist nichts. Deshalb wird jede neue Assertion einmal gegen eine Mutation
+geprüft (der erwartete Fehlschlag muss eintreten) und das Ergebnis nach dem Restore gegen eine
+Negativkontrolle (reiner Kommentarumbau muss grün bleiben). Drei dabei gefundene Muster:
+
+- **Ein Check ist EIN Kommando.** `check "…" test X && test Y` zerlegt die Shell in **zwei**
+  Aufrufe: `check` sieht nur `test X`, meldet PASS und verwirft den Status von `test Y` über das
+  `&&`. Im Skript von #262 stand genau so eine Bedingung und blieb grün, obwohl das `if` entfernt
+  worden war. Beide Hälften gehören in ein `bash -c '[ … ] && [ … ]'`.
+- **Negationen prüfen gegen `-`, nicht gegen `''`.** Die `wf_*`-Helfer liefern bei „nicht
+  gefunden“ per Hauskonvention den Sentinel `-`. `test "$(wf_step_if …)" = ''` ist deshalb
+  **immer wahr** — der Check bleibt grün, obwohl die Bedingung entfernt wurde.
+- **Kommentare, die Verhalten zitieren, kippen `check_absent`.** Ein Guard, der prüft „diese
+  Fehlermeldung ist weg“, und dabei `grep -q 'Version/Revision mismatch'` verwendet, wird rot,
+  sobald ein Kommentar den alten Wortlaut **erklärend** nennt — dieselbe Klasse wie das
+  Issue-Regel-Beispiel in `AGENTS.md` (#260). Guards prüfen deshalb die konkrete **Codeform**
+  (`grep -q 'echo "::error::…'`), nicht einen Text, den auch Prosa zitieren darf.
+
+**Restore niemals über `git checkout --`.** Das stellt aus dem **Index** wieder her und verwirft
+dabei alles, was nicht gestaged ist — bei einem Mutationslauf über mehrere Dateien kostet das
+den gesamten Arbeitsstand. Gesichert wird vor dem Lauf in ein Verzeichnis außerhalb des
+Baums (`D:/temp/bak*/` unter Windows, `/tmp` überlebt nur innerhalb **eines** Tool-Aufrufs) und
+danach Datei für Datei zurückgespielt. Ein abschließender `cmp` je Datei beweist, dass keine
+Mutation überlebt hat.
 
 **Ein nicht existierender Helper sieht aus wie ein bestandener Check.** `$(wf_step_if …)` in einer `[[ -z … ]]`-Prüfung ist bei einem Tippfehler im Funktionsnamen *immer* wahr: Bash meldet `command not found` auf stderr, die Command-Substitution liefert trotzdem leer, der Check bleibt dauerhaft grün. Deshalb vergleicht `test_workflow_security.sh` **jeden in Guards benutzten `wf_*`-Namen gegen die Definition in der Library** — und meldet umgekehrt definierte Helfer, die niemand benutzt (tote Zusicherung, nur ein Hinweis).
 

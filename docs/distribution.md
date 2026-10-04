@@ -11,12 +11,33 @@ Dokument beschreibt den **technischen Ablauf** dahinter.
 |---|---|---|---|
 | **🌙 Nightly** | täglich 06:00 UTC (`schedule`) + manuell | `release-pipeline.yml` → Build + Test + publish | `app-standard-release.apk` + `SHA256SUMS.txt` (standard) + `mapping.txt` + `output-metadata.json` (nur Standard-Flavor; prerelease) |
 | **🚀 Stable** | wöchentlich Mo 03:00 UTC + manuell | `distribution-stable.yml` → wählt neuestes noch nicht verteiltes `v*`-Release → Build (Standard **und** foss) + Checksummen + cosign keyless-Signatur + publish | `app-standard-release.apk` + `app-foss-release.apk` + `SHA256SUMS.txt` + `SHA256SUMS.txt.bundle` |
+| **🧪 Beta / Versions-Tag** | manuell, bei Bedarf | **Normalfall:** `distribution-stable.yml` mit `-f version=vX.Y.Z-beta` · **Ausweichweg:** `release-pipeline.yml` dispatch auf `refs/tags/vX.Y.Z-beta` → Build (Standard **und** foss) + Checksummen + cosign keyless-Signatur + publish + Reproduzierbarkeits-Gate | wie Stable, **plus** `mapping.txt` + `output-metadata.json` |
 | **🛰 F-Droid-Repo** (eigenes) | wöchentlich Mo 04:00 UTC + manuell | `deploy-fdroid.yml` → lädt Stable-APKs, `fdroid update` → GitHub Pages | `repo/index.xml` + `archive/index.xml` |
 
 Das Stable-Release wird also **wöchentlich statt bei jedem Tag-Push** publiziert. Ein neuer
 `v*`-Tag baut und testet weiterhin sofort in der Pipeline (`build`/`test`-Jobs), löst aber **kein**
 sofortiges Release-Publishing mehr aus — GitHub-Cronjobs kann man nicht pro Quelle unterscheiden,
 deshalb gibt es pro Kadenz einen eigenen Workflow. Alles zusätzlich manuell per `workflow_dispatch` auslösbar.
+
+> ⚠️ **Ein `v*-Beta` zu publizieren: welcher Weg?** Beide erzeugen ein Release mit
+> denselben Artefakten (beide Flavor-APKs, `SHA256SUMS.txt`, `.bundle`), beide sind
+> seit #262 cosign-signiert — es gibt keinen „falschen“ Weg mehr, nur einen
+> vorgesehenen:
+>
+> ```bash
+> # Normalfall (empfohlen): nimmt am wöchentlichen Untergrenzen- und
+> # Repair-Algorithmus von distribution-stable.yml teil.
+> gh workflow run distribution-stable.yml --ref develop --field version=v0.6.0-beta
+> ```
+>
+> Der Ausweichweg `gh workflow run release-pipeline.yml --ref v0.6.0-beta`
+> (Tag als Ref) ist dann nötig, wenn der Beta sofort raus soll, ohne auf den
+> Montag zu warten. Er war am 02.10.2026 der Auslöser für einen nicht
+> konformen Release: Der cosign-Stand fehlte (der Block stand nur in
+> distribution-stable.yml), das Reproduzierbarkeits-Gate prüfte ein
+> **fremdes** Nightly statt des Beta, und der Beta-Kanal war überhaupt
+> erst prüfbar, seit der Fastfile auch `mapping.txt` +
+> `output-metadata.json` mitveröffentlicht. Details im nächsten Abschnitt.
 
 > ⚠️ **`release-pipeline.yml`: Dispatch ≠ Matrix-Verifikation.** Ein `workflow_dispatch`
 > ohne weitere Flags ist ein **publizierender** Lauf (Nightly-Release). `dry_run=true`
@@ -175,6 +196,65 @@ des Publishers ein.
   die von Fulcio ausgestellt und in Rekor geloggt wird. Nightly-Releases (ephemer,
   werden nach 3 Tagen überschrieben) bleiben unauthentifiziert — dort reicht der Hash-Check.
 
+- **Seit #262 auch im `release-pipeline.yml`-Pfad.** Vorher stand der cosign-Block
+  ausschließlich in `distribution-stable.yml`, wodurch **jeder** über `publish-release`
+  publizierte Release ohne `.bundle` blieb. Das war nicht nur ein Nightly-Problem:
+  Der Job publiziert bei einem Dispatch auf `refs/tags/v…` auch **Version-Tags**, und
+  genau darüber lief Run 36987429609, der `v0.5.20-beta` ohne Bundle erzeugte. Beide
+  Workflows nutzen denselben gepinnten Installer
+  (`sigstore/cosign-installer@6f9f177880…`, `cosign-release: 'v3.1.3'`); der
+  Vertrag ist in `scripts/test_verify_reproducibility.sh` (T12) strukturell verankert.
+- **Bedingung:** Beide cosign-Steps hängen an `startsWith(github.ref, 'refs/tags/v')`
+  und spiegeln damit **exakt** das Fastlane-Kriterium `stable`. Ohne diese Bindung
+  wäre der Step auch im Nightly-Lauf aktiv — dort ist der Tag unbekannt, weil er
+  erst zur Laufzeit im Fastfile entsteht (`nightly-<UTC-Zeitstempel>`), und
+  `${{ github.ref_name }}` wäre der Branch-Name.
+- **Nightly bleibt bewusst unsigniert** (siehe oben): sein Tag ist der Workflow-Datei
+  nicht bekannt, und das verhindert, dass der Schritt entweder wirkungslos oder
+  falsch gebunden ist. Ein Nightly-Bundle gäbe es nur, wenn das Fastfile den Tag
+  als Job-Output durchreichte.
+
+## Reproduzierbarkeit des publizierten Releases
+
+Der Job **„Verify Reproducibility (nightly)“** (`release-pipeline.yml`, `needs: publish-release`)
+verifiziert das veröffentlichte Release **bitweise**: er lädt das APK, das Mapping und die
+Output-Metadaten herunter, baut mit exakt denselben `-PversionName`/`-PversionCode` neu und
+vergleicht mit `cmp`. Zusätzlich prüft er die APK-Signatur gegen den Release-Keystore.
+
+Drei Regeln, die beim Entstehen des Jobs zweimal falsch waren und seit #262 strukturell
+festgeschrieben sind:
+
+1. **Das Ziel-Release wird bestimmt, nicht geraten.** Früher suchte der Job ausschließlich
+   `nightly-*`-Prereleases und nahm das neueste aus `gh release list --limit 5`. Bei einem
+   Dispatch auf `refs/tags/v…` publiziert `publish-release` aber genau diesen Tag und **kein**
+   Nightly — der Job verifizierte daraufhin ein bis zu Stunden altes Nightly eines früheren
+   Schedule-Runs und verglich dessen Revision gegen den Tag-Commit. Vorfall Run 36987429609:
+   Der Vergleich schlug an, aber **geprüft wurde nie das Beta**. Heute gilt:
+   `github.ref_type == 'tag'` → `github.ref_name`, sonst das neueste `nightly-*`.
+2. **Die Version kommt aus den Metadaten, nicht aus dem Titel.** Der Release-Titel hat zwei
+   Formen (`Vivid nightly (0.5.20-nightly.511)` und `Vivid v0.6.0-beta`); der Klammer-`sed`
+   lieferte beim Version-Tag **leere** Werte, der Rebuild wäre mit leeren
+   `-P`-Properties gelaufen. Gelesen wird jetzt `versionName`/`versionCode` aus der
+   publizierten `output-metadata.json`.
+3. **Der Beta-Kanal braucht dafür überhaupt publizierbare Artefakte.** Der
+   Version-Tag-Zweig des Fastfiles lud vorher nur `[apk, foss_apk, checksums]` hoch — das
+   Mapping und die Metadaten blieben lokal im Runner, obwohl der Nightly-Zweig sie seit jeher
+   mitveröffentlicht. Ohne sie ist Reproduzierbarkeit im Beta-Kanal **nicht prüfbar**, weil
+   der Job genau diese beiden Dateien lädt.
+
+Die Zielwahl ist als **Verhaltenstest** festgeschrieben, nicht per `grep` auf eine Zeile: das
+echte `run`-Snippet läuft in einer Sandbox mit gestubbtem `gh`/`curl`/`unzip`, und geprüft wird,
+**welches** Release geladen wird (T14.1–T14.5 in `scripts/test_verify_reproducibility.sh`).
+Dabei gilt eine Pflicht für jeden Stub: **`gh release list --jq` muss den Filter selbst
+auswerten.** Ein Stub, der das rohe JSON zurückgibt, prüft den Stub statt des Snippets — so
+sah im ersten Entwurf `TAG` als kompletter JSON-Array aus und der Fehlerfall „kein Nightly
+im Raster“ blieb unentdeckt.
+
+> **Randbedingung, die bleibt:** Im Nightly-Pfad wird weiterhin gegen `github.sha` geprüft,
+> nicht gegen den Tag-Commit. Wenn `develop` zwischen Publish und Verify weiterläuft, ist
+> der Vergleich strenger als nötig. Für den Version-Tag-Pfad ist `github.sha` der
+> Tag-Commit und damit exakt.
+
 ## F-Droid-Hauptrepo (f-droid.org) & IzzyOnDroid
 
 Für das **Hauptrepo** gibt es den Sentry-freien `foss`-Flavor (`applicationId com.vivid.foss`).
@@ -303,14 +383,16 @@ und in der CI; gegen gemocktes `gh`/fastlane, ohne Netz):
 | `scripts/test_publish_release_hardening.sh` | Completeness, Idempotenz, Upload-Assets (S1–S8) |
 | `scripts/test_sha256sums.sh` | Checksummen-Format, Sortierung, Verifikation (H1–H6, inkl. Nightly-Scope) |
 | `scripts/test_pinned_checksums.sh` | Permanenter Latest-APK-Permalink + Prüfsummen-Anhang in beiden Publikations-Zweigen (R1–R4) |
-| `scripts/test_distribution_stable.sh` | Workflow: Tag-Auswahl, Dispatch-Validierung, Keystore-Guard, cosign-Signatur, CHANGELOG-Mirror (D1–D13) |
+| `scripts/test_distribution_stable.sh` | Workflow: Tag-Auswahl inkl. Untergrenze, Dispatch-Validierung, Keystore-Guard, cosign-Signatur, CHANGELOG-Mirror (D1–D16, davon D16.4–D16.8 Verhaltenstests der Tag-Auswahl) |
+| `scripts/test_verify_reproducibility.sh` | Verify-Job: flavor-korrekte Assets, Rebuild-Pfade, **Zielwahl des zu prüfenden Releases** und Versionsquelle (T1–T14, davon T14.1–T14.5 Verhaltenstests in einer gh/curl/unzip-Sandbox) |
 | `scripts/test_fdroid_metadata.sh` | Metadata-Dateien + versionCode-Konsistenz (M1–M10) |
 | `scripts/test_bot_pr_credentials.sh` | Secrets/Credentials-Disziplin in allen Workflows (inkl. T4-/T7-*/T8-*/T9-*/T10-Loops) |
 
 ## Zusammenfassung
 
 - **Stable** = wöchentlich, beide Flavor + `SHA256SUMS.txt` + cosign-keyless-Signatur, Completeness-geschützt, idempotent.
-- **Nightly** = täglich, Standard-Flavor, prerelease.
+- **Beta / Versions-Tag** = manuell; gleiche Artefakte und Signatur wie Stable, zusätzlich `mapping.txt` + `output-metadata.json` als Voraussetzung für das Reproduzierbarkeits-Gate.
+- **Nightly** = täglich, Standard-Flavor, prerelease, **ohne** cosign-Bundle (Tag erst zur Laufzeit bekannt).
 - **Eigenes F-Droid-Repo** = wöchentlich aus Stable-APKs, GitHub Pages, eigenes Archiv.
 - **F-Droid-Hauptrepo / IzzyOnDroid** = vorbereitet (`foss`-Flavor + Metadata), Einreichung bei Bedarf.
 - **Accrescent** = dokumentierte Option, kein Ziel.

@@ -500,6 +500,44 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: bundle exec fastlane release_github
 
+      # ✅ #262: cosign keyless-Signatur der SHA256SUMS.txt auch hier — der Block
+      # stand ausschließlich in distribution-stable.yml, wodurch JEDER Release aus
+      # diesem Job ohne SHA256SUMS.txt.bundle blieb. Betroffen war v0.5.20-beta
+      # (Run 36987429609): dort wurde der Version-Tag über release-pipeline
+      # publiziert statt über den dokumentierten distribution-stable-Dispatch,
+      # also lief der cosign-Step nie.
+      # Bedingung spiegelt das Fastlane-Kriterium `stable` exakt (GITHUB_REF_TYPE
+      # == tag && Name beginnt mit v): nur dann ist der Tag bekannt und der
+      # Version-Tag-Pfad wurde beschritten. Der Nightly-Pfad bleibt bewusst
+      # unsigniert — sein Tag entsteht erst zur Laufzeit (nightly-<UTC> im
+      # Fastfile) und ist der Workflow-Datei nicht bekannt; docs/distribution.md
+      # führt ihn ohne Bundle. --clobber hält den Schritt idempotent, damit der
+      # Repair-Pfad in distribution-stable (unvollständige Releases nachziehen)
+      # weiter greift.
+      - name: Install cosign
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with:
+          # cosign v3 (Bundle-Default): sign-blob schreibt ein selbst-
+          # kontainiertes Bundle (Signatur + Zertifikat + Rekor-Eintrag).
+          # Verifikation durch Nutzer: cosign verify-blob --bundle
+          # SHA256SUMS.txt.bundle SHA256SUMS.txt
+          cosign-release: 'v3.1.3'
+
+      - name: Sign SHA256SUMS and attach signature to release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eu
+          TAG="${{ github.ref_name }}"
+          mkdir -p "$RUNNER_TEMP/cosign"
+          cd "$RUNNER_TEMP/cosign"
+          gh release download "$TAG" -p SHA256SUMS.txt --dir . --clobber
+          cosign sign-blob SHA256SUMS.txt --bundle SHA256SUMS.txt.bundle --yes
+          gh release upload "$TAG" SHA256SUMS.txt.bundle --clobber
+          echo "✅ cosign keyless-Bundle für $TAG hochgeladen"
+
       # ✅ CHANGELOG.md aus den GitHub-Releases spiegeln — bewusst im selben Job:
       # Releases, die per `gh release create` mit GITHUB_TOKEN erstellt werden,
       # feuern KEIN `release: published`-Event (dokumentierte GITHUB_TOKEN-
@@ -646,6 +684,10 @@ jobs:
     # Läuft nur nach dem (täglichen) nightly-Publish — Schedule/Manual,
     # nicht bei jedem develop-Push (dort wird seit 21.08. kein Nightly gebaut).
     # matrix_only: ohne nightly-Publish gibt es nichts zu verifizieren.
+    # #262: deckt seitdem AUCH den Version-Tag-Publish ab (Dispatch auf
+    # refs/tags/v*). Der Job-Name bleibt aus historischen Gründen "nightly" —
+    # die Umbenennung würde die Check-Namen in Logs und Benachrichtigungen
+    # mitziehen, ohne Nutzen.
     if: >-
       (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
       && inputs.matrix_only != true
@@ -683,30 +725,52 @@ jobs:
           echo $KEYSTORE_BASE64 | base64 -di > ${{ github.workspace }}/release.keystore
           echo "KEYSTORE_PATH=${{ github.workspace }}/release.keystore" >> $GITHUB_ENV
 
-      # ✅ versionName/versionCode aus dem soeben veröffentlichten nightly-Release lesen
-      # und das Artefakt herunterladen (Revision-Sanity gegen das Checkout).
-      - name: Read published nightly and download APK
+      # ✅ Das in diesem Lauf veröffentlichte Release bestimmen und dessen
+      # Artefakte herunterladen (Revision-Sanity gegen den Checkout).
+      - name: Read published release and download artifacts
         id: nightly
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          LIST=$(gh release list --limit 5 --json tagName,name,isPrerelease --jq '.[] | select(.isPrerelease and (.tagName | startswith("nightly-")))')
-          TAG=$(echo "$LIST" | head -1 | jq -r .tagName)
-          TITLE=$(echo "$LIST" | head -1 | jq -r .name)
-          if [ -z "$TAG" ] || [ -z "$TITLE" ]; then
-            echo "::error::Kein nightly-Release gefunden"
+          # ✅ #262: Das Ziel BESTIMMEN, nicht raten. Der Job suchte
+          # ausschließlich `nightly-*`-Prereleases und nahm das neueste aus
+          # `gh release list --limit 5`. Bei einem Dispatch auf refs/tags/v*
+          # publiziert publish-release aber genau diesen Tag und KEIN Nightly —
+          # der Job verifizierte daraufhin ein bis zu Stunden altes Nightly
+          # eines früheren Schedule-Runs und verglich dessen Revision gegen
+          # den Tag-Commit. Vorfall Run 36987429609 (v0.5.20-beta): der
+          # Vergleich schlug an, geprüft wurde tatsächlich nie das Beta.
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            TAG="${{ github.ref_name }}"
+            echo "Ziel-Release aus dem Dispatch-Ref: $TAG"
+          else
+            TAG=$(gh release list --limit 5 --json tagName,isPrerelease \
+                    --jq '[.[] | select(.isPrerelease and (.tagName | startswith("nightly-")))][0].tagName')
+            if [ -z "$TAG" ] || [ "$TAG" = "null" ]; then
+              echo "::error::Kein nightly-Release gefunden"
+              exit 1
+            fi
+            echo "Ziel-Release: neuestes Nightly $TAG"
+          fi
+          BASE="https://github.com/${{ github.repository }}/releases/download/$TAG"
+          curl -sfL -o published.apk "$BASE/app-standard-release.apk" || { echo "::error::app-standard-release.apk fehlt im Release $TAG"; exit 1; }
+          curl -sfL -o published-mapping.txt "$BASE/mapping.txt" || { echo "::error::mapping.txt fehlt im Release $TAG"; exit 1; }
+          curl -sfL -o published-output-metadata.json "$BASE/output-metadata.json" || { echo "::error::output-metadata.json fehlt im Release $TAG"; exit 1; }
+          # ✅ version_name/version_code aus den PUBLIZIERTEN Metadaten statt aus
+          # dem Release-Titel: der Titel hat zwei Formen ("Vivid nightly
+          # (0.5.20-nightly.511)" und "Vivid v0.5.20-beta"), und der
+          # Klammer-sed lieferte beim Version-Tag leere Werte — der Rebuild
+          # wäre mit leeren -P-Properties gelaufen. Die Metadaten sind exakt
+          # die, mit denen der Build parametrisiert wurde.
+          VERSION_NAME=$(jq -r '.versionName // empty' published-output-metadata.json)
+          VERSION_CODE=$(jq -r '.versionCode // empty' published-output-metadata.json)
+          if [ -z "$VERSION_NAME" ] || [ -z "$VERSION_CODE" ]; then
+            echo "::error::versionName/versionCode nicht lesbar (name='$VERSION_NAME' code='$VERSION_CODE')"
             exit 1
           fi
-          VERSION_NAME=$(echo "$TITLE" | sed -n 's/.*(\(.*\)).*/\1/p')
-          VERSION_CODE=$(echo "$VERSION_NAME" | sed -n 's/.*nightly\.\([0-9]*\).*/\1/p')
-          echo "release=$TITLE (tag=$TAG)"
-          echo "version_name=$VERSION_NAME version_code=$VERSION_CODE"
+          echo "release=$TAG version_name=$VERSION_NAME version_code=$VERSION_CODE"
           echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
           echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
-          BASE="https://github.com/${{ github.repository }}/releases/download/$TAG"
-          curl -sfL -o published.apk "$BASE/app-standard-release.apk" || { echo "::error::app-standard-release.apk fehlt im Release"; exit 1; }
-          curl -sfL -o published-mapping.txt "$BASE/mapping.txt" || { echo "::error::mapping.txt fehlt im Release"; exit 1; }
-          curl -sfL -o published-output-metadata.json "$BASE/output-metadata.json" || { echo "::error::output-metadata.json fehlt im Release"; exit 1; }
           # Optional: AAB herunterladen, falls die Release-Lane künftig zusätzlich
           # ein Bundle publiziert — sonst werden die AAB-Checks übersprungen.
           if curl -sfL -o published.aab "$BASE/app-standard-playRelease.aab"; then
@@ -718,11 +782,15 @@ jobs:
           fi
           REV=$(unzip -p published.apk META-INF/version-control-info.textproto 2>/dev/null | grep revision | sed 's/.*: "//;s/".*//')
           echo "embedded_revision=$REV (checkout=${{ github.sha }})"
-          if [ -z "$VERSION_CODE" ] || [ "$REV" != "${{ github.sha }}" ]; then
-            echo "::error::Version/Revision mismatch — falsches Release heruntergeladen?"
+          # #262: Die Meldung nennt jetzt Release und beide Revisionen. Der
+          # Vorfall zeigte eine Fehlermeldung, die nicht verrät, WELCHes Release
+          # falsch war — genau das hat die Diagnose gekostet. Der leere
+          # VERSION_CODE-Check ist weg: er gehörte zum Titel-Parsing und wird
+          # jetzt direkt nach dem Lesen der Metadaten geführt.
+          if [ "$REV" != "${{ github.sha }}" ]; then
+            echo "::error::Revision mismatch: Release $TAG wurde aus $REV gebaut, dieser Run prüft ${{ github.sha }} — falsches Release heruntergeladen?"
             exit 1
           fi
-
       # ✅ Signatur-Check: Das veröffentlichte Nightly-APK muss mit dem Release-Key
       # signiert sein (nicht mit dem Debug-Key — das würde Obtainium-Updates brechen).
       # Fingerprint des APK-Signers (apksigner) gegen das Zertifikat aus dem
