@@ -272,6 +272,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 
 | Datum | Commit | Änderung |
 |-------|--------|----------|
+| 2026-10-04 | `5306e91` | **#265 Das Stable-Emulator-Gate startete das Retry-Skript mit `$@ = ` — im `script:`-Block des android-emulator-runners gibt es keine Zeilenend-Normalisierung** — In `distribution-stable.yml` stand der Aufruf von `emulator_gate_retry.sh` als Backslash + literales `r` (Bytes `5c 72`) plus CRLF: von einer Zeilenfortsetzung war keine Spur mehr, die Shell escaped nur das `r`. Run `37188281176` (`workflow_dispatch` auf `v0.5.20-beta`) brach mit `emulator_gate_retry.sh: line 85: r: command not found` (exit 127) ab — Build und Publish wurden übersprungen, der cosign-Step nie ausgeführt. Betroffen war damit der **gesamte Stable-Kanal**, nicht ein Release: ohne Gate kein Publish, ohne Publish kein `SHA256SUMS.txt.bundle` nachziehen. Der Aufruf steht jetzt einzeilig, und **D20.1** in `test_distribution_stable.sh` parst alle `.github/workflows/*.yml` und verbietet in `android-emulator-runner`-Steps sowohl ein Zeilenende auf `\` als auch `\r` außerhalb von Kommentaren — strukturell über alle Workflows, nicht nur den einen. Gegenprobe: beide `script:`-Blöcke (hier und in `release-pipeline.yml`) sind fortsetzungsfrei. Nebenbefund aus dem Dokumentieren dieser Zeile: ein **einzelnes CR mitten in einer Zeile** einer CRLF-Datei lässt `git diff` die komplette Datei als umgeschrieben melden (415 statt 19 Zeilen im Numstat) — dieselbe Byte-Falle eine Ebene höher, nur ohne Prozess und ohne Fehlermeldung. |
 | 2026-10-04 | `c826822` | **#263 Das Reproduzierbarkeits-Gate prüft jetzt gegen den Commit, auf den der Release-Tag
 zeigt — nicht mehr gegen `github.sha`, den Commit des CI-Laufs** — Der Job verglich die im APK
 eingebaute Revision gegen den Checkout-Commit des Laufs, der Release entsteht dagegen aus
@@ -596,6 +597,7 @@ Commit die Log-Zeile hinzufügte:
 | 2026-10-03 | `459bbfc` | #260 Issue-Hausmuster: Zuweisung erst beim Beginnen der Arbeit statt beim Anlegen + AGENTS.md + Guard test_issue_assignment_rule.sh | `459bbfc` | einmalig, ueber `git log -S` eindeutig |
 | 2026-10-04 | `8c1496c` | #262 Publish-Pfad release-pipeline: cosign-Signatur im publish-release-Pfad + Verify-Job bestimmt sein Ziel aus dem Lauf-Kontext + Fastfile veroeffentlicht Mapping/Metadaten auch im Version-Tag-Zweig | `8c1496c` | einmalig, ueber `git log -S` eindeutig |
 | 2026-10-04 | `c826822` | #263 Reproduzierbarkeits-Gate prueft gegen den Tag-Commit 
+| 2026-10-04 | `5306e91` | #265 Emulator-Gate: script:-Block des android-emulator-runners ohne zerstoerte Backslash-Fortsetzung + Guard D20.1 ueber alle Workflows |
 statt gegen github.sha (Git-Graph + Peel annotated Tags, kein Rueckfall) + T15/T18 inkl.
 Git-Graphen-Stub | `c826822` | einmalig, ueber `git log -S` eindeutig |
 docs(parity): 8b1efa8 Play-Guard-Selbsttest P2/P3 auf stderr-Vertrag umgestellt (CI-Regression aus 99e20cf2)
