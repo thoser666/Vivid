@@ -333,27 +333,6 @@ Ein Skript, das seinen Repo-Root aus `$0` ableitet (`cd "$(dirname "$0")/.."`), 
 
 **Gegenprobe zur Fehlerklasse:** Positions-Checks auf Workflow-Dateien ankerten besser auf `$CI_SCRIPTS_DIR/<skript>` als auf den bloßen Skriptnamen. Der alte Anker `scripts/emulator_gate_retry.sh` matchte sowohl den echten Aufruf als auch einen Pfad in einem Kommentar — und ist in `vivid-ci-scripts/…` gar nicht mehr enthalten. Ein Kommentarpfad verschiebt einen Namens-Substring-Anker und kippt die Reihenfolge-Aussage (das ist in dieser Sitzung einmal passiert).
 
-### Keine Backslash-Zeilenfortsetzung in `script:`-Blöcken (#265)
-
-Zeilenfortsetzung mit `\` ist in `run:`-Steps völlig normal — GitHub normalisiert dort die Zeilenenden, bevor der Step läuft. Der `script:`-Wert des `android-emulator-runners` geht dagegen als **Action-Input** an die Action: diese Normalisierung findet dort **nicht** statt, und ein CR landet roh in der Shell.
-
-Vorfall 04.10.2026 (Run `37188281176`, `workflow_dispatch` auf `v0.5.20-beta`): der Aufruf von `scripts/emulator_gate_retry.sh` stand als `\` + literales `r` (Backslash + `r`, Bytes `5c 72`) plus CRLF gespeichert — die Zeilenfortsetzung war also schon gar nicht mehr da. Die Shell escaped nur das `r`, das Skript startete mit `$@ = 'r'`:
-
-```
-emulator_gate_retry.sh: line 85: r: command not found
-```
-
-exit 127, Job rot, cosign-Step nie erreicht. Zwei Konsequenzen, die beide aus derselben Ursache folgen:
-
-1. **Der Stable-Kanal war blockiert, nicht nur ein Release.** Der Publish-Pfad hängt vollständig am Emulator-Gate; ohne Gate kein Publish, ohne Publish kein `SHA256SUMS.txt.bundle` nachziehen.
-2. **`\` + CR in einer CRLF-Workflow-Datei wäre auch als echte Fortsetzung kaputt.** Deshalb ist die Form hier **verboten**, nicht nur die zerstörte Variante.
-
-**Die Regel: Kommandoaufrufe in `script:`-Blöcken einzeilig schreiben.** Kein `\` am Zeilenende, keine Fortsetzung — wenn die Zeile lang wird, ist das ein Argument für einen Helfer-Skriptpfad, nicht für eine Fortsetzung.
-
-Festgeschrieben in `scripts/test_distribution_stable.sh` (D20.1). Der Guard läuft über **alle** `.github/workflows/*.yml` und sucht YAML-geparst in `android-emulator-runner`-Steps nach Zeilenenden auf `\` sowie nach `\` + `r` außerhalb von Kommentaren — strukturell, nicht als Zeilenabstand.
-
-**Nebenfalle beim Dokumentieren dieser Sektion:** Ein einzelnes CR mitten in einer Zeile lässt `git diff` die **gesamte** Datei als umgeschrieben melden (415 statt 19 Zeilen im Numstat) — dieselbe Byte-Falle eine Ebene höher, nur ohne Prozess und ohne Fehlermeldung. Solche Zeilenenden werden hier deshalb im Klartext beschrieben statt als Escape geschrieben.
-
 ### Kein Backslash in `script:`-Bloecken des android-emulator-runners (#265)
 
 In einem `script:`-Block des Emulator-Runners darf kein Backslash neben einem Buchstaben stehen. Ein Backslash ist in der Shell ein **Escape**, kein Zeilenumbruch — er verschwindet lautlos, und was danach als Argument beim Skript ankommt, ist nicht das, was die Zeile vortäuscht.
