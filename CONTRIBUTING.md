@@ -284,6 +284,34 @@ Baums (`D:/temp/bak*/` unter Windows, `/tmp` überlebt nur innerhalb **eines** T
 danach Datei für Datei zurückgespielt. Ein abschließender `cmp` je Datei beweist, dass keine
 Mutation überlebt hat.
 
+**Annotated Tags peel'en — im Skript wie im Stub (#263).** Jeder Zugriff auf die
+Git-Rest-API für einen Tag braucht **zwei** Schritte, nicht einen:
+
+```bash
+REF_JSON=$(gh api "repos/$REPO/git/ref/tags/$TAG")
+TYPE=$(jq -r '.object.type' <<<"$REF_JSON")   # commit | tag
+SHA=$(jq  -r '.object.sha'   <<<"$REF_JSON")
+[ "$TYPE" = "tag" ] && SHA=$(gh api "repos/$REPO/git/tags/$SHA" --jq '.object.sha')
+```
+
+`git/ref/tags/<tag>` zeigt bei **annotated** Tags (`git tag -a`, alle `v*-alpha/beta/rc` hier)
+auf das *Tag-Objekt*, nicht auf den Commit. Der Unterschied ist in `for-each-ref` sichtbar
+(`tag -> commit` vs. `commit`) und **kein** Randfall: ohne Peel vergleicht man bei jedem
+annotierten Tag zwei verschiedene Objektarten und liegt **immer** daneben. Auch `gh` im Skript
+muss den Filter auswerten — der Stub ebenso (siehe oben).
+
+**Die Signatur gehört in den Aufruf, nicht in den Kommentar.** Ein Stub-Helfer mit fünf
+Parametern wird über die Position aufgerufen, und genau hier rutscht der Test von der Aussage
+aufs Werkzeug: Im ersten Entwurf (#263) dokumentierte der Kommentar
+`$1 obj_type, $2 obj_sha, …`, während die Funktion an anderer Stelle las — zwei Tests prüften
+dadurch die **falsche Variable** und meldeten das plausibelste Falschergebnis der Suite:
+„grün" für einen Lauf, der eigentlich hätte rot sein müssen. Ein Kommentar ist Dokumentation,
+eine Signatur ist Vertrag. Entweder wird der Aufruf über benannte Wrapper-Variablen geschrieben
+(`vr_resolve obj_type=commit obj_sha=… embedded=…`) oder der Stub nimmt **Schlüsselwort-Argumente
+per `key=value`**. Wer eine Positionsliste festhält, sollte jede Aufrufstelle mitlesen — das ist
+die eigentliche Prüfung, und sie findet den Fehler beim Lesen statt nach 40 Minuten.
+
+
 **Ein nicht existierender Helper sieht aus wie ein bestandener Check.** `$(wf_step_if …)` in einer `[[ -z … ]]`-Prüfung ist bei einem Tippfehler im Funktionsnamen *immer* wahr: Bash meldet `command not found` auf stderr, die Command-Substitution liefert trotzdem leer, der Check bleibt dauerhaft grün. Deshalb vergleicht `test_workflow_security.sh` **jeden in Guards benutzten `wf_*`-Namen gegen die Definition in der Library** — und meldet umgekehrt definierte Helfer, die niemand benutzt (tote Zusicherung, nur ein Hinweis).
 
 ### Gate-Skripte nie aus dem Ziel-Tag-Baum beziehen (#250)

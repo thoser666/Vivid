@@ -113,6 +113,17 @@ erst zur Laufzeit im Fastfile und ist der Workflow-Datei nicht bekannt. Für Bet
 der dokumentierte Weg `gh workflow run distribution-stable.yml --field version=vX.Y.Z-beta`;
 beide Wege liefern jetzt dieselben Artefakte.
 
+## 🧾 Reproduzierbarkeits-Gate ohne Annahme über den Build-Stand (#263)
+
+Das Gate vergleicht das veröffentlichte APK jetzt gegen den **Commit, auf den der Release-Tag
+zeigt** — nicht mehr gegen den Commit, den der CI-Lauf gecheckt hatte. Beides ist normalerweise
+identisch, aber nicht zwangsläufig: Der Nightly-Tag wird auf den frisch geholten
+`develop`-Stand gesetzt, der CI-Checkout auf den Stand zu Laufbeginn. Ein Push zwischen
+Publikation und Prüfung hätte den Lauf bisher rot gemeldet, obwohl das Release in Ordnung war.
+
+Bei Versions-Tags (annotated) wird die Tag-Objekt-SHA eine Ebene auf den Commit gepeelt;
+ohne diesen Schritt wäre **jeder** Beta-Publish als inkompatibel gemeldet worden.
+
 ## ⚠️ Bekannte Einschränkungen
 
 - **Twitch-OAuth-Browserflow** noch nicht implementiert — Token per Paste in den Settings (Setup-Anleitung in RELEASE.md)

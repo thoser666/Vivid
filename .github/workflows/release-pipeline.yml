@@ -771,6 +771,10 @@ jobs:
           echo "release=$TAG version_name=$VERSION_NAME version_code=$VERSION_CODE"
           echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
           echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
+          # #263: Tag und eingebaute Revision wandern als Step-Outputs raus —
+          # der Vergleich gehoert in einen eigenen Step, weil die erwartete
+          # Revision jetzt aus dem Git-Graphen kommt und nicht aus diesem Lauf.
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           # Optional: AAB herunterladen, falls die Release-Lane künftig zusätzlich
           # ein Bundle publiziert — sonst werden die AAB-Checks übersprungen.
           if curl -sfL -o published.aab "$BASE/app-standard-playRelease.aab"; then
@@ -780,17 +784,90 @@ jobs:
             echo "aab_published=false" >> "$GITHUB_OUTPUT"
             echo "ℹ️ Kein AAB im Release — AAB-Signatur-/Reproduzierbarkeits-Checks übersprungen"
           fi
+          # #263: Nur noch AUSLESEN. Der Vergleich mit der erwarteten Revision
+          # passiert im Folge-Step gegen den Commit, auf den der Tag zeigt.
+          # Gegen github.sha zu vergleichen war eine Annahme: der Release wird
+          # aus `origin/develop` gebaut, das der Publish-Step NACH dem Checkout
+          # frisch holt (fastlane/Fastfile Z. 444), github.sha ist dagegen der
+          # Commit des Laufs. Beide stimmen nur ueberein, solange nichts auf
+          # develop nachlaeuft.
           REV=$(unzip -p published.apk META-INF/version-control-info.textproto 2>/dev/null | grep revision | sed 's/.*: "//;s/".*//')
-          echo "embedded_revision=$REV (checkout=${{ github.sha }})"
-          # #262: Die Meldung nennt jetzt Release und beide Revisionen. Der
-          # Vorfall zeigte eine Fehlermeldung, die nicht verrät, WELCHes Release
-          # falsch war — genau das hat die Diagnose gekostet. Der leere
-          # VERSION_CODE-Check ist weg: er gehörte zum Titel-Parsing und wird
-          # jetzt direkt nach dem Lesen der Metadaten geführt.
-          if [ "$REV" != "${{ github.sha }}" ]; then
-            echo "::error::Revision mismatch: Release $TAG wurde aus $REV gebaut, dieser Run prüft ${{ github.sha }} — falsches Release heruntergeladen?"
+          echo "embedded_revision=$REV"
+          echo "embedded_revision=$REV" >> "$GITHUB_OUTPUT"
+          if [ -z "$REV" ]; then
+            echo "::error::Revision im APK nicht lesbar (META-INF/version-control-info.textproto) — Release $TAG kann nicht verifiziert werden"
             exit 1
           fi
+
+      # ✅ #263: Die erwartete Revision aus dem TAG im Git-Graphen ableiten.
+      # Der Tag IST die Identität eines Releases; github.sha war nur eine
+      # Annahme ueber ihn (siehe Read-Step). Fuer den Nightly-Pfad ist das
+      # konkret: der Tag zeigt auf `origin/develop`, geholt im Publish-Step
+      # nach dem Checkout, waehrend github.sha der Checkout-Commit ist. Zwischen
+      # beiden liegen zwei Gradle-Builds (~10-15 min) — ein develop-Push in
+      # diesem Fenster machte den Vergleich zu Unrecht rot, mit einer
+      # Fehlermeldung, die zum falschen Schluss ("falsches Release
+      # heruntergeladen") fuehrt.
+      #
+      # ⚠️ Die Tag-Typen sind GEMISCHT (belegt per `git for-each-ref`):
+      #   nightly-*        lightweight → zeigt direkt auf den Commit
+      #   v*-beta          annotated  (`git tag -a`) → die API liefert die SHA
+      #                                 des TAG-OBJEKTS, nicht des Commits
+      # Ohne Peel entspricht der Vergleich bei jedem Version-Tag-Publish der
+      # Commit-SHA gegen die Tag-Objekt-SHA — also immer falsch.
+      - name: Resolve published tag to commit
+        id: ref
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eu
+          TAG="${{ steps.nightly.outputs.tag }}"
+          REV="${{ steps.nightly.outputs.embedded_revision }}"
+          REPO="${{ github.repository }}"
+          if [ -z "$TAG" ] || [ -z "$REV" ]; then
+            echo "::error::Voraussetzungen fehlen (tag='$TAG' embedded_revision='$REV') — der Read-Step muss vorher durchgelaufen sein"
+            exit 1
+          fi
+          # Retry: 5xx und Verbindungsabbrueche sind transient, ein falscher
+          # Commit nicht. Drei Versuche mit Backoff, danach HART abbrechen.
+          REF_JSON=""
+          for attempt in 1 2 3; do
+            if REF_JSON=$(gh api "repos/$REPO/git/ref/tags/$TAG" 2>/dev/null); then
+              break
+            fi
+            echo "::warning::git/ref/tags/$TAG nicht lesbar (Versuch $attempt/3)"
+            if [ "$attempt" -lt 3 ]; then sleep $((attempt * 2)); fi
+          done
+          if [ -z "$REF_JSON" ]; then
+            echo "::error::Tag $TAG nach 3 Versuchen nicht aufloesbar — KEIN Rueckfall auf github.sha, das waere genau die zu beseitigende Annahme"
+            exit 1
+          fi
+          OBJ_TYPE=$(printf '%s' "$REF_JSON" | jq -r '.object.type // empty')
+          TAG_SHA=$(printf '%s' "$REF_JSON" | jq -r '.object.sha // empty')
+          if [ -z "$TAG_SHA" ]; then
+            echo "::error::Antwort von git/ref/tags/$TAG ohne object.sha"
+            exit 1
+          fi
+          if [ "$OBJ_TYPE" = "tag" ]; then
+            # annotated Tag: eine Ebene auf den Commit peel'en.
+            PEELED=$(gh api "repos/$REPO/git/tags/$TAG_SHA" --jq '.object.sha // empty' 2>/dev/null || true)
+            if [ -z "$PEELED" ]; then
+              echo "::error::annotated Tag $TAG (Objekt $TAG_SHA) nicht peelbar"
+              exit 1
+            fi
+            echo "annotated Tag (Objekt $TAG_SHA) → peel't auf $PEELED"
+            TAG_SHA="$PEELED"
+          elif [ "$OBJ_TYPE" != "commit" ]; then
+            echo "::error::Unerwarteter Objekt-Typ '$OBJ_TYPE' fuer Tag $TAG — erwartet commit oder tag"
+            exit 1
+          fi
+          echo "Release $TAG → Commit $TAG_SHA (Objekt-Typ: $OBJ_TYPE)"
+          if [ "$REV" != "$TAG_SHA" ]; then
+            echo "::error::Revision mismatch: Release $TAG wurde aus $REV gebaut, der Tag zeigt auf $TAG_SHA"
+            exit 1
+          fi
+          echo "✅ Revision verifiziert: $REV"
+          echo "commit=$TAG_SHA" >> "$GITHUB_OUTPUT"
       # ✅ Signatur-Check: Das veröffentlichte Nightly-APK muss mit dem Release-Key
       # signiert sein (nicht mit dem Debug-Key — das würde Obtainium-Updates brechen).
       # Fingerprint des APK-Signers (apksigner) gegen das Zertifikat aus dem

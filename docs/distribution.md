@@ -221,7 +221,7 @@ verifiziert das veröffentlichte Release **bitweise**: er lädt das APK, das Map
 Output-Metadaten herunter, baut mit exakt denselben `-PversionName`/`-PversionCode` neu und
 vergleicht mit `cmp`. Zusätzlich prüft er die APK-Signatur gegen den Release-Keystore.
 
-Drei Regeln, die beim Entstehen des Jobs zweimal falsch waren und seit #262 strukturell
+Vier Regeln, die beim Entstehen des Jobs falsch waren und seit #262/#263 strukturell
 festgeschrieben sind:
 
 1. **Das Ziel-Release wird bestimmt, nicht geraten.** Früher suchte der Job ausschließlich
@@ -241,6 +241,45 @@ festgeschrieben sind:
    Mapping und die Metadaten blieben lokal im Runner, obwohl der Nightly-Zweig sie seit jeher
    mitveröffentlicht. Ohne sie ist Reproduzierbarkeit im Beta-Kanal **nicht prüfbar**, weil
    der Job genau diese beiden Dateien lädt.
+4. **Die erwartete Revision kommt aus dem Tag, nicht aus dem Workflow-HEAD.** `#263` hat den
+   Vergleich gegen `github.sha` abgeschafft. `github.sha` ist der Commit, den der Lauf
+   gecheckt hat; der Release entsteht dagegen aus `origin/develop`, das der Publish-Step
+   **nach** dem Checkout frisch holt (siehe `fastlane/Fastfile`, „Der Tag zeigt auf den
+   AKTUELLEN develop-HEAD … nicht auf den möglicherweise veralteten Checkout-Commit"). Beide
+   stimmen nur überein, solange nichts auf `develop` nachläuft — zwischen Publish und Verify
+   liegen zwei Gradle-Builds (~10–15 min). Ein Push in diesem Fenster hätte den Lauf zu Unrecht
+   rot gemacht, mit einer Meldung, die zum falschen Schluss („falsches Release heruntergeladen")
+   führt.
+
+   Statt `github.sha` löst der Step **„Resolve published tag to commit"** den Tag im
+   Git-Graphen auf:
+
+   ```text
+   gh api repos/<repo>/git/ref/tags/<tag>   → .object.type, .object.sha
+   type == "tag"  →  gh api repos/<repo>/git/tags/<sha>  → .object.sha   (eine Ebene peel'en)
+   Vergleich: .object.sha  ==  Revision im APK
+   ```
+
+   ⚠️ **Der Peel ist nicht optional.** Die Tag-Typen im Repo sind gemischt (belegt per
+   `git for-each-ref`):
+
+   ```text
+   nightly-20261002-115620  commit          ← lightweight (`git tag <sha>`)
+   v0.5.9-beta              tag -> commit   ← annotated  (`git tag -a`)
+   v0.5.8-beta.1            commit          ← lightweight
+   ```
+
+   Die Graph-API liefert bei annotated Tags die SHA des **Tag-Objekts**, nicht des Commits.
+   Wer nicht peel't, vergleicht bei jedem Version-Tag-Publish die Commit-SHA gegen die
+   Objekt-SHA — das ist **immer** falsch, also ein roter Job pro Publish.
+
+   **Kein Rückfall.** Ist die API dreimal nicht erreichbar, bricht der Job hart ab. Ein stiller
+   Rückfall auf `github.sha` wäre genau die Annahme, die hier beseitigt wird — und würde den
+   Fehler nur wieder hinter dem grünen Job verstecken.
+
+   Als Step-Outputs wandern dafür `tag` und `embedded_revision` aus dem Read-Step heraus; der
+   Read-Step liest die Revision nur noch aus und bricht ab, wenn sie sich nicht auslesen lässt
+   (sonst lief der nachfolgende Rebuild mit leeren `-P`-Properties).
 
 Die Zielwahl ist als **Verhaltenstest** festgeschrieben, nicht per `grep` auf eine Zeile: das
 echte `run`-Snippet läuft in einer Sandbox mit gestubbtem `gh`/`curl`/`unzip`, und geprüft wird,
@@ -250,10 +289,10 @@ auswerten.** Ein Stub, der das rohe JSON zurückgibt, prüft den Stub statt des 
 sah im ersten Entwurf `TAG` als kompletter JSON-Array aus und der Fehlerfall „kein Nightly
 im Raster“ blieb unentdeckt.
 
-> **Randbedingung, die bleibt:** Im Nightly-Pfad wird weiterhin gegen `github.sha` geprüft,
-> nicht gegen den Tag-Commit. Wenn `develop` zwischen Publish und Verify weiterläuft, ist
-> der Vergleich strenger als nötig. Für den Version-Tag-Pfad ist `github.sha` der
-> Tag-Commit und damit exakt.
+> **Randbedingung:** Der Vergleich ist seit #263 tag- statt lauf-basiert. Eine echte
+> Race-Bedingung ist damit ausgeschlossen; die Aussage „der Job prüft das Release, das dieser
+> Lauf veröffentlicht hat" gilt jetzt für **beide** Kanäle, unabhängig davon, wie weit `develop`
+> zwischenzeitlich gelaufen ist.
 
 ## F-Droid-Hauptrepo (f-droid.org) & IzzyOnDroid
 
@@ -384,7 +423,7 @@ und in der CI; gegen gemocktes `gh`/fastlane, ohne Netz):
 | `scripts/test_sha256sums.sh` | Checksummen-Format, Sortierung, Verifikation (H1–H6, inkl. Nightly-Scope) |
 | `scripts/test_pinned_checksums.sh` | Permanenter Latest-APK-Permalink + Prüfsummen-Anhang in beiden Publikations-Zweigen (R1–R4) |
 | `scripts/test_distribution_stable.sh` | Workflow: Tag-Auswahl inkl. Untergrenze, Dispatch-Validierung, Keystore-Guard, cosign-Signatur, CHANGELOG-Mirror (D1–D16, davon D16.4–D16.8 Verhaltenstests der Tag-Auswahl) |
-| `scripts/test_verify_reproducibility.sh` | Verify-Job: flavor-korrekte Assets, Rebuild-Pfade, **Zielwahl des zu prüfenden Releases** und Versionsquelle (T1–T14, davon T14.1–T14.5 Verhaltenstests in einer gh/curl/unzip-Sandbox) |
+| `scripts/test_verify_reproducibility.sh` | Verify-Job: flavor-korrekte Assets, Rebuild-Pfade, **Zielwahl des zu prüfenden Releases**, Versionsquelle und **Tag-zu-Commit-Auflösung** (T1–T18, davon T14.1–T14.5 und T18.1–T18.7 Verhaltenstests in einer gh/curl/unzip-Sandbox) |
 | `scripts/test_fdroid_metadata.sh` | Metadata-Dateien + versionCode-Konsistenz (M1–M10) |
 | `scripts/test_bot_pr_credentials.sh` | Secrets/Credentials-Disziplin in allen Workflows (inkl. T4-/T7-*/T8-*/T9-*/T10-Loops) |
 
