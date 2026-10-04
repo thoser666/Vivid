@@ -376,6 +376,61 @@ v0.5.9-beta" "" "v0.6.0-beta"
   fi
 fi
 
+# D20: Im script:-Block des android-emulator-runners KEINE Backslash-
+# Zeilenfortsetzung (#265).
+#
+# Warum ausgerechnet dort und nicht in run:-Steps: GitHub normalisiert die
+# Zeilenenden vor der Ausführung eines run:-Steps — dieselbe Konstruktform
+# funktioniert in "Determine target stable version" (Z. 91/92) seit Monaten.
+# Der script:-Wert geht dagegen als Action-Input an den emulator-runner, und
+# dort kommt ein CR roh an: `\` + CRLF ist keine Fortsetzung, sondern escaped
+# das CR, die Folgezeile wird ein eigenes Kommando.
+#
+# Vorfall Run 37188281176 (04.10.2026): die Zeile war sogar schon als `\` + r
+# (Backslash plus LITERALEM 'r') gespeichert — der Backslash war durch ein
+# Ersetzungs-Skript zerstört. Die Shell escaped nur das 'r', also startete
+# emulator_gate_retry.sh mit $@ = 'r':
+#   emulator_gate_retry.sh: line 85: r: command not found  → exit 127
+# Der Stable-Publish scheiterte daran deterministisch und der cosign-Step
+# (Sign SHA256SUMS) wurde nie ausgefuehrt — .bundle nachziehen unmoeglich.
+#
+# Geprueft wird strukturell ueber ALLE Workflows, nicht nur diesen einen: die
+# Fehlerklasse ist nicht dateigebunden, und der Emulator-Runner steckt in
+# release-pipeline.yml an drei Stellen.
+D20_HITS="$(python3 - <<'PYEOF'
+import glob, io, sys, yaml
+bad = []
+for wf in sorted(glob.glob(".github/workflows/*.yml")):
+    try:
+        d = yaml.safe_load(io.open(wf, encoding="utf-8"))
+    except Exception as e:
+        print("PARSE-ERROR %s: %s" % (wf, e))
+        sys.exit(1)
+    for jname, job in (d.get("jobs") or {}).items():
+        for st in (job.get("steps") or []):
+            if "android-emulator-runner" not in str(st.get("uses", "")):
+                continue
+            script = str((st.get("with") or {}).get("script", ""))
+            for n, line in enumerate(script.split("\n"), 1):
+                t = line.rstrip()
+                if t.endswith("\\"):
+                    bad.append("%s:%s:%d (Zeilenfortsetzung)" % (wf, jname, n))
+                elif "\\r" in t and not t.lstrip().startswith("#"):
+                    # Backslash + literales r ausserhalb eines Kommentars: das
+                    # Argument, das den exit 127 erzeugt hat.
+                    bad.append("%s:%s:%d (Backslash + literales r)" % (wf, jname, n))
+for b in bad:
+    print(b)
+PYEOF
+)"
+if [ -z "$D20_HITS" ]; then
+  echo "PASS: D20.1 script:-Block ohne Backslash-Zeilenfortsetzung / zerstörtes \\r"
+else
+  echo "FAIL: D20.1 script:-Block mit Backslash-Zeilenfortsetzung oder zerstörtem \\r:"
+  echo "$D20_HITS" | sed 's/^/    /'
+  FAILED=1
+fi
+
 echo ""
 if [ "$FAILED" -eq 0 ]; then
   echo "✅ Alle Checks grün — Stable-Distribution läuft wöchentlich, Nightly täglich."
