@@ -214,6 +214,50 @@ Für einen einzelnen Push umgehen: `git push --no-verify` (die CI gated weiterhi
 - Bug-Fixes: Regressionstest ergänzen, der ohne den Fix fehlschlägt.
 - Die [PARITY.md](PARITY.md)-Log-Tabelle dokumentiert je Feature die Tests als Beleg.
 
+### E2E-Tests: nicht auf Gleichzeitigkeit prüfen (#264)
+
+Die OBS- und WHIP-Tests starten einen echten Ktor-Server im JVM und fahren den Handshake über
+echte Sockets. Zwei Timing-Fallen sind dort nicht theoretisch, sondern haben einen roten
+Pflicht-Check in der CI erzeugt (`Build & Test`, Run `37186897805`, `OBSWebSocketClientTest >
+connect completes the hello-identify handshake over plain ws()`, Z. 153). Sie sind hier
+festgeschrieben, weil beide Muster bequem wieder einzuführen sind.
+
+**1. Reservierter Port ≠ belegter Port.** `ServerSocket(0).use { it.localPort }` gibt einen Port
+bekannt, nicht gebunden. `EmbeddedServer.start(wait = false)` kehrt zurück, sobald der Start
+angestoßen ist — CIO bindet asynchron. Ein direkt anschließender `connect()` läuft unter Last ins
+Leere, und der Test scheitert am Transport statt am geprüften Verhalten. Deshalb startet
+`startServer(...)` jetzt über `awaitPortListening(port)` (`core/.../network/TestPortAwaiter.kt`)
+und kehrt erst zurück, wenn der Port wirklich annimmt.
+
+**2. Zwei beobachtbare Folgen sind keine Simultanereignisse.** In `handleIdentified()` setzt der
+Client `isConnected = true` und ruft **danach** `sendRequest(GetVersion())` auf; der Server bucht
+das Frame auf eigener Coroutine. Zwischen „Flow sichtbar" und „Frame gebucht" gibt es keine
+Happens-before-Kante. Die alte Zeile 153 prüfte beide im selben Atemzug:
+
+```kotlin
+assertTrue(awaitConnected(client))
+assertTrue(serverReceived.any { ... GetVersion ... })   // ← im gleichen Zug
+```
+
+Das ist kein Timing-Problem mit Glück, sondern eine unbegründete Annahme. **Die Regel: auf das
+beobachtbare Ergebnis pollen, nicht auf Gleichzeitigkeit prüfen.** Umgekehrt heißt das auch: eine
+Aussage wie „`connected` *und* `GetVersion` gleichzeitig" gibt es nicht — der Vertrag lautet
+„`connected` führt zu `GetVersion`". Festgeschrieben in
+`connected state never outruns the version request`.
+
+**Was sich nicht deterministisch beweisen lässt.** Der Bind-Race ist ein Zeitfenster: die Mutation
+„Warteblock entfernen" lässt den OBS-Test auf einem schnellen Entwicklerrechner **grün**. Der
+verlässliche Nachweis ist deshalb ein zweiter Weg — der Helper wird für sich getestet
+(`TestPortAwaiterTest`: lauschender Port → `true`, toter Port → `false`), und der vertragliche
+Nachweis für die Reihenfolge ist die Mutation am Produktcode (GetVersion-Send entfernen → drei
+Tests rot). Ein Flake, den man lokal nicht reproduzieren kann, wird nicht durch Raten repariert,
+sondern durch einen Test, der die Annahme selbst benennt.
+
+**Anker prüfen.** Die alte Erwartung pinnte auf `requestId: "1"`. Die Id zählt pro Client hoch und
+läuft über `connect()` weiter — der Anker war an eine Reihenfolge gebunden, an der der Test nichts
+verloren hat. Ersetzt durch `reconnect keeps issuing version requests with a fresh request id`,
+das die Zählersemantik positiv prüft (drei Runden, Id 1/2/3) statt sie festzunageln.
+
 ### Doku-Guards (Handbuch & Wiki aktuell halten)
 
 Die Dokumentation kann nicht mehr unbemerkt veralten — drei Guards erzwingen das:

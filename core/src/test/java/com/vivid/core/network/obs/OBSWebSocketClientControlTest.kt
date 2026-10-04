@@ -2,6 +2,7 @@ package com.vivid.core.network.obs
 
 import com.google.gson.Gson
 import com.vivid.core.network.KtorClientFactory
+import com.vivid.core.network.awaitPortListening
 import com.vivid.core.network.obs.requests.GetVersion
 import com.vivid.core.network.obs.requests.RequestType
 import io.ktor.client.HttpClient
@@ -69,6 +70,12 @@ class OBSWebSocketClientControlTest {
         s.start(wait = false)
         port = freePort
         server = s
+        // #264: CIO bindet asynchron, start(wait = false) kehrt vorher zurueck.
+        // Ohne diese Schleife laeuft der connect() bei Last ins Leere und
+        // der Test scheitert am Transport statt am geprueften Verhalten.
+        check(awaitPortListening(freePort)) {
+            "CIO-Server hat den Port $freePort nicht innerhalb von 5s gebunden"
+        }
         val http = KtorClientFactory.create().also { lastHttpClient = it }
         client = OBSWebSocketClient(http, gson)
         client.connect("pw", "127.0.0.1", port)
