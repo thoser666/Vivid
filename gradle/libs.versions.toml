@@ -1,6 +1,6 @@
 [versions]
 agp = "9.4.1"
-kover = "0.9.9"
+kover = "0.9.11"
 # SDK Versionen
 compileSdk = "37"
 minSdk = "24"
