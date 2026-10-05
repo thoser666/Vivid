@@ -50,6 +50,9 @@ bash scripts/test_workflow_security.sh
 echo "▶ [pre-push] Zeilenfenster-Meta-Guard (scripts/test_no_line_windows.sh)"
 bash scripts/test_no_line_windows.sh
 
+echo "▶ [pre-push] Issue-Zuweisungs-Hausmuster (scripts/test_issue_assignment_rule.sh)"
+bash scripts/test_issue_assignment_rule.sh
+
 echo "▶ [pre-push] Bot-PR-Credential-Selbsttest (scripts/test_bot_pr_credentials.sh)"
 bash scripts/test_bot_pr_credentials.sh
 echo "▶ [pre-push] PyPI-Drift-Workflow-Selbsttest (scripts/test_pypi_drift_workflow.sh)"

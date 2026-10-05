@@ -2,6 +2,8 @@ package com.vivid.core.network.obs
 
 import com.google.gson.Gson
 import com.vivid.core.network.KtorClientFactory
+import com.vivid.core.network.awaitPortListening
+import com.vivid.core.network.canConnectNow
 import com.vivid.core.network.obs.security.generateAuthenticationString
 import io.ktor.client.HttpClient
 import io.ktor.server.application.install
@@ -77,6 +79,13 @@ class OBSWebSocketClientTest {
         s.start(wait = false)
         port = freePort
         server = s
+        // #264: Der Port ist mit `ServerSocket(0)` nur *reserviert*; CIO bindet
+        // asynchron, `start(wait = false)` kehrt vorher zurück. Ohne diese
+        // Schleife läuft der connect() bei Last ins Leere und der Test
+        // scheitert an `awaitConnected` statt am Handshake.
+        check(awaitPortListening(freePort)) {
+            "CIO-Server hat den Port $freePort nicht innerhalb von 5s gebunden"
+        }
     }
 
     /** OBS-ähnlicher Handler: Hello zuerst, Identify bestätigen, GetVersion beantworten. */
@@ -120,6 +129,12 @@ class OBSWebSocketClientTest {
     private fun awaitConnected(client: OBSWebSocketClient, timeoutMs: Long = 3_000): Boolean =
         awaitCondition(timeoutMs) { client.isConnected.value }
 
+    /** Die Identify-Nachricht des Servers, sobald sie gebucht ist (sonst `null`). */
+    private fun identifyFrame(): String? = serverReceived.firstOrNull { it.contains("\"op\":1") }
+
+    /** Alle GetVersion-Requests, die der Server bisher gebucht hat. */
+    private fun getVersionFrames(): List<String> = serverReceived.filter { it.contains("\"requestType\":\"GetVersion\"") }
+
     @Test
     fun `isConnected is initially false`() {
         assertFalse(newClient().isConnected.value)
@@ -140,7 +155,16 @@ class OBSWebSocketClientTest {
 
         assertTrue(awaitConnected(client), "Handshake über ws:// muss gelingen (Transport außerhalb der NSC)")
 
-        val identify = serverReceived.first { it.contains("\"op\":1") }
+        // #264: `connected` und die Folge-Nachrichten sind KEINE Simultanereignisse.
+        // handleIdentified() setzt `isConnected` zuerst und ruft sendRequest() danach
+        // auf; der Server wiederum verbucht das Frame auf eigener Coroutine. Es gibt
+        // keine Happens-before-Kante dazwischen — der Test darf deshalb nicht auf
+        // Gleichzeitigkeit prüfen, sondern auf das beobachtbare Ergebnis pollen.
+        assertTrue(
+            awaitCondition(timeoutMs = 5_000) { identifyFrame() != null },
+            "Identify (op:1) kam nicht beim Server an: $serverReceived",
+        )
+        val identify = checkNotNull(identifyFrame()) { "Identify fehlt trotz erfolgreichem Polling" }
         val response = gson.fromJson(identify, com.vivid.core.network.obs.security.AuthenticationResponse::class.java)
         assertEquals(
             generateAuthenticationString("mypassword", "S1", "C1"),
@@ -150,7 +174,17 @@ class OBSWebSocketClientTest {
             identify.contains("\"eventSubscriptions\":${OBSWebSocketClient.EVENT_SUBSCRIPTION_MASK}"),
             "Identify muss die Event-Subscriptions tragen: $identify",
         )
-        assertTrue(serverReceived.any { it.contains("\"requestType\":\"GetVersion\"") && it.contains("\"requestId\":\"1\"") })
+        // Gleiches Muster für GetVersion, und ohne die alte Festnagelung auf
+        // requestId "1": die Id zaehlt pro Client hoch, ist also an eine
+        // Reihenfolge gebunden, an der der Test nichts verloren hat. Geprueft
+        // wird, dass der Client nach dem Identifizieren *irgendeinen* korrelierten
+        // GetVersion sendet; die Zaehler-Semantik deckt der Reconnect-Test ab.
+        assertTrue(
+            awaitCondition(timeoutMs = 5_000) {
+                serverReceived.any { it.contains("\"requestType\":\"GetVersion\"") }
+            },
+            "GetVersion muss dem Identifizieren folgen (Server bekam nur: $serverReceived)",
+        )
     }
 
     @Test
@@ -218,6 +252,66 @@ class OBSWebSocketClientTest {
 
         assertTrue(awaitCondition { serverLoopEnded }, "Server muss das Client-Close beobachten (Loop-Ende)")
         assertFalse(client.isConnected.value)
+    }
+
+    @Test
+    fun `server port accepts connections as soon as startServer returns`() {
+        // #264 (R1): Der Bind-Race. `ServerSocket(0)` reserviert nur, CIO bindet
+        // asynchron. Faellt dieser Test, war startServer() zu frueh zurueck und
+        // jeder nachfolgende E2E-Test in dieser Klasse ist unzuverlaessig.
+        startServer(obsLikeHandler())
+
+        assertTrue(
+            canConnectNow(port),
+            "startServer() muss erst zurueckkehren, wenn der Port wirklich lauscht",
+        )
+    }
+
+    @Test
+    fun `connected state never outruns the version request`() {
+        // #264 (R2): Der Ordnungs-Race. handleIdentified() setzt `isConnected`
+        // und ruft erst DANACH sendRequest(GetVersion) auf; der Server bucht das
+        // Frame auf eigener Coroutine. Der Vertrag ist deshalb "connected fuehrt
+        // zu GetVersion", nicht "connected UND GetVersion gleichzeitig".
+        startServer(obsLikeHandler())
+        val client = newClient()
+
+        client.connect("pw", "127.0.0.1", port)
+
+        assertTrue(awaitConnected(client), "Verbindung muss zustande kommen")
+        assertTrue(
+            awaitCondition(timeoutMs = 5_000) { getVersionFrames().isNotEmpty() },
+            "GetVersion muss dem Connected-Zustand folgen (Server bekam: $serverReceived)",
+        )
+    }
+
+    @Test
+    fun `reconnect keeps issuing version requests with a fresh request id`() {
+        // #264: Ersetzt die alte, auf requestId "1" festgenagelte Erwartung. Der
+        // Zaehler lebt pro Client und laeuft ueber reconnect() weiter — genau das
+        // macht "1" als Anker falsch. Hier wird die Zaehlersemantik positiv
+        // geprueft: jede Runde traegt die naechste Id.
+        startServer(obsLikeHandler())
+        val client = newClient()
+
+        repeat(3) { round ->
+            client.connect("pw", "127.0.0.1", port)
+            assertTrue(awaitConnected(client), "Runde $round: Verbindung muss zustande kommen")
+
+            val expectedId = (round + 1).toString()
+            assertTrue(
+                awaitCondition(timeoutMs = 5_000) {
+                    getVersionFrames().any { it.contains("\"requestId\":\"$expectedId\"") }
+                },
+                "Runde $round: GetVersion mit requestId=$expectedId erwartet, " +
+                    "Server bekam: $serverReceived",
+            )
+
+            client.disconnect()
+            assertTrue(awaitCondition { !client.isConnected.value }, "Runde $round: Disconnect")
+        }
+
+        assertEquals(3, getVersionFrames().size, "Pro Runde genau ein GetVersion: $serverReceived")
     }
 
     @Test

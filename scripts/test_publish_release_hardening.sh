@@ -29,6 +29,17 @@ mkdir -p "$STATE"
 export MOCK_GH_STATE_DIR="$STATE"
 export MOCK_GH_APK="$SCRATCH/dummy.apk"
 printf 'dummy apk content — nur für File.exist?-Check\n' > "$MOCK_GH_APK"
+# #262: Mapping und Output-Metadaten kommen in der echten Pipeline von der
+# gradle-Action als absolute Pfade (lane_context/ENV). Der Harness bildet das
+# ueber ENV nach. Ohne diese Vorbelegung fiel die Lane auf ihre
+# Literal-Fallbacks <root>/app/build/... zurueck, deren Existenz davon abhing,
+# ob auf der Maschine gerade ein Release gebaut war — lokal gruen, auf einem
+# frischen CI-Checkout nicht. Das haette das Szenario umgebungsabhaengig gemacht
+# und den Beweis unzuverlaessig.
+export MOCK_GH_MAPPING="$SCRATCH/dummy-mapping.txt"
+export MOCK_GH_METADATA="$SCRATCH/dummy-output-metadata.json"
+printf 'dummy mapping\n' > "$MOCK_GH_MAPPING"
+printf '{"versionName":"0.0.0","versionCode":1}\n' > "$MOCK_GH_METADATA"
 
 HARNESS="$SCRIPT_DIR/publish_release_harness.rb"
 
@@ -93,6 +104,18 @@ assert_src() { # name expected_substring
     echo "PASS: $1"; PASS=$((PASS+1))
   else
     echo "FAIL: $1 — '$2' nicht in fastlane/Fastfile"; FAIL=$((FAIL+1))
+  fi
+}
+# Gleiche Assertion gegen den Harness. assert_src prueft NUR das Fastfile —
+# die Aussagen ueber den Harness (welche Helfer er laedt) waeren darin
+# grundsaetzlich nie zu finden und blieben bei einem Tippfehler im Testnamen
+# stillschweigend rot.
+HARNESS_SRC=$(cat "$SCRIPT_DIR/publish_release_harness.rb")
+assert_harness() { # name expected_substring
+  if grep -qF -- "$2" <<<"$HARNESS_SRC"; then
+    echo "PASS: $1"; PASS=$((PASS+1))
+  else
+    echo "FAIL: $1 — '$2' nicht in publish_release_harness.rb"; FAIL=$((FAIL+1))
   fi
 }
 
@@ -206,22 +229,38 @@ assert_count "S7.6 state leer" 0
 # CWD-abhängig (liefert bei CWD=fastlane/ nur "./") — seitdem Walk-up-Helfer
 # fastlane_repo_root.
 FASTFILE_SRC=$(ruby -e 'print File.read("fastlane/Fastfile")')
-assert_src "S8.1 Call-Site nutzt fastlane_repo_root (foss)" \
-  'root = fastlane_repo_root'
+assert_src "S8.1 Call-Site nutzt den Pfadverankerungs-Helfer (foss)" \
+  'foss_apk = release_artifact_path(foss_apk)'
 assert_src "S8.2 Helper ist CWD-unabhängig (kein FastlaneFolder.path mehr)" \
   'def fastlane_repo_root(dir = File.expand_path(Dir.pwd))'
 assert_not_src "S8.3 Anti-Regression: tote FastlaneFolder-Ableitung entfernt" \
   'FastlaneCore::FastlaneFolder.path'
 assert_src "S8.4 ENV-Override bleibt respektiert" \
   'ENV["GRADLE_FOSS_APK_OUTPUT_PATH"]'
+# #262: Die Verankerung liegt jetzt im Helper release_artifact_path statt
+# inline an der Call-Site. Die AUSSAGE ist unveraendert (nur relative Pfade
+# werden aufgeloest, absolute bleiben unberuehrt) — geprueft wird sie deshalb
+# jetzt dort, wo sie implementiert ist. S9 beweist sie weiterhin dynamisch
+# mit CWD=fastlane/.
 assert_src "S8.5 Nur relative Pfade werden verankert (Absolute bleiben unberührt)" \
-  'unless Pathname.new(foss_apk).absolute?'
+  'return path if Pathname.new(path).absolute?'
 assert_src "S8.6 Check prüft den verankerten Pfad" \
   'File.exist?(foss_apk)'
 assert_src "S8.7 Fail-closed-Probe: Helper sucht Gemfile.lock aufwärts" \
   'probe = File.join(dir, "Gemfile.lock")'
 assert_src "S8.8 Helper bricht ab, wenn der Stamm nicht verifizierbar ist" \
   'Repo-Root nicht ableitbar'
+# #262: Der Harness evaluiert ALLE Top-Level-Helfer. Fest auf einen Namen
+# verdrahtet gewesen, hat er den zweiten Helfer stillschweigend ignoriert
+# und 33 Szenarien mit NoMethodError geschlagen — die Aussage „Lane läuft"
+# war damit nicht mehr belegbar. Beide Namen werden jetzt ausdrücklich
+# verlangt.
+assert_harness "S8.9 Harness lädt ALLE Top-Level-Helfer (nicht nur einen)" \
+  'helper_src = source.scan(/^def \w+.*?^end\r?$/m)'
+assert_harness "S8.10 Harness verlangt den Pfadverankerungs-Helfer ausdrücklich" \
+  'unless helper_src.include?("def release_artifact_path")'
+assert_harness "S8.11 Harness bildet die gradle-Action-ENV-Pfade für Mapping/Metadaten nach" \
+  'ENV["GRADLE_MAPPING_TXT_OUTPUT_PATH"] ||='
 
 # S9: Dynamischer Beweis der Root-Verankerung in publish_release (Run
 # 35439961976): der Harness bildet die Produktions-Falle ab (CWD=fastlane/)
@@ -241,6 +280,20 @@ assert_has "S9.1 Datei über Repo-Root gefunden (absoluter Pfad mit /app/)" "/Vi
 assert_has "S9.2 Release erstellt (Lane lief durch)" "Publishing GitHub release v9.9.9-test"
 assert_has "S9.3 lane ok" "LANE_OK"
 assert_count "S9.4 state" 1
+
+# S10: Laufzeitbeweis fuer #262 — der stabile (Version-Tag-)Zweig der Lane
+# MUSS mapping.txt und output-metadata.json mitveroeffentlichen. Ohne sie ist
+# der Beta-Kanal nicht auf Reproduzierbarkeit pruefbar, weil der
+# Verify-Job genau diese beiden Dateien laed. Die statischen Checks in
+# test_verify_reproducibility.sh (T13.8/T13.9) sichern die Quellform; dieser
+# Check sieht die tatsaechliche `gh release create`-Kommandozeile.
+echo "== S10: Version-Tag-Zweig veroeffentlicht Mapping + Metadaten (#262)"
+assert_has "S10.1 mapping.txt in der create-Kommandozeile" \
+  "dummy-mapping.txt"
+assert_has "S10.2 output-metadata.json in der create-Kommandozeile" \
+  "dummy-output-metadata.json"
+assert_has "S10.3 Lane meldet beide Pfade mit exist-Pruefung" \
+  "mapping:"
 
 echo
 echo "=========================================="

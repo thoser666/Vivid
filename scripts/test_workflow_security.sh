@@ -214,4 +214,49 @@ if grep -Eq 'gh pr create|git push' scripts/contributors_reminder.sh; then
   fail "contributors-reminder must stay a pure issue-reminder (no branch push, no PR create)"
 fi
 
-echo "✅ [workflow-security-test] Permissions, PR input handling, ChatOverlay findings, wrapper validation, and scorecard annotations are guarded."
+# Jeder in Guards benutzte wf_*-Helper muss in der Library stehen. Vorfall
+# #250: ein Check rief `wf_step_if` auf, das es nicht gab. Bash meldet
+# "command not found" auf stderr, die Command-Substitution liefert trotzdem
+# leer — `[[ -z "$(wf_step_if …)" ]]` ist bei einem Tippfehler IMMER wahr,
+# der Check also dauerhaft grün und der Weg zur Regression frei.
+# Der Meta-Check ersetzt stillen Raten durch hartes Rot.
+# wf_python ist der interne YAML-Interpreter der Library, kein oeffentlicher
+# Helper — in beiden Richtungen ausgeklammert.
+internal='^wf_(python|query|fixture)$'
+defined=$(grep -oE '^wf_[a-z_]+\(\)' scripts/lib_workflow_yaml.sh | sed 's/()//' | sort -u)
+used=$(grep -rhoE '\bwf_[a-z_]+' scripts/test_*.sh | grep -vE "$internal" | sort -u)
+for fn in $used; do
+  grep -qE "^$fn\(\)" scripts/lib_workflow_yaml.sh \
+    || fail "guard uses $fn but scripts/lib_workflow_yaml.sh does not define it (typo would make every check silently green)"
+done
+# Gegenrichtung: definierte Helfer, die niemand nutzt, sind tote Zusicherung —
+# kein Fehler, aber sichtbar (teurer als ein Tippfehler, stiller Fehler).
+for fn in $defined; do
+  echo "$fn" | grep -qE "$internal" && continue
+  grep -qE "\b$fn\b" scripts/test_*.sh \
+    || echo "HINWEIS: $fn ist in der Library definiert, wird aber von keinem Guard benutzt"
+done
+
+# UTF-8-Ausgabe der Library (#259): _wf_query lässt jeden Helfer mit „-“
+# enden, wenn der extrahierte Wert ein Zeichen außerhalb cp1252 enthält (≠, —, ü).
+# Vorfall: wf_step_run gab für ein run-Snippet mit dem Kommentar „RC≠0" das
+# Sentinel „-" zurück, obwohl der Step existierte — dieselbe stille Fehlerklasse
+# wie der wf_step_if-Tippfehler oben. Geprüft wird das Verhalten, nicht die
+# Gegenwart der Zeile: ein echter Wert muss ankommen.
+utf8_probe=$(mktemp -d)
+cat > "$utf8_probe/wf.yml" <<'PROBE'
+jobs:
+  j:
+    steps:
+      - name: Unicode-Step
+        run: |
+          echo "RC≠0 — prüfe"
+PROBE
+probe_out="$(wf_step_run "$utf8_probe/wf.yml" j 'Unicode-Step')"
+rm -rf "$utf8_probe"
+[[ "$probe_out" == "-" || -z "$probe_out" ]] \
+  && fail "lib_workflow_yaml.sh cannot emit non-ASCII (cp1252 console): wf_step_run returned '$probe_out' instead of the run block — stdout must be forced to UTF-8"
+[[ "$probe_out" == *"≠"* ]] \
+  || fail "wf_step_run lost the non-ASCII characters (got: '$probe_out')"
+
+echo "✅ [workflow-security-test] Permissions, PR input handling, ChatOverlay findings, wrapper validation, scorecard annotations, helper existence, and UTF-8 library output are guarded."

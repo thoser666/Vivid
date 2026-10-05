@@ -18,6 +18,16 @@ def fastlane_repo_root(dir = File.expand_path(Dir.pwd))
   raise UI.user_error!("Repo-Root nicht ableitbar: kein Gemfile.lock zwischen #{dir} und Dateisystemwurzel") if File.dirname(dir) == dir
   fastlane_repo_root(File.dirname(dir))
 end
+
+# Release-Artefaktpfad am Projektstamm verankern — dieselbe Normalisierung wie
+# fastlane_repo_root, aber fuer jeden Pfad einzeln: absolute Pfade aus
+# lane_context/ENV der gradle-Action bleiben unangetastet, nur der RELATIVE
+# Fallback wird aufgeloest. Ohne das liefert File.exist? bei CWD=fastlane/
+# false und das Artefakt fehlt stillschweigend im Release.
+def release_artifact_path(path, root = fastlane_repo_root)
+  return path if Pathname.new(path).absolute?
+  File.expand_path(path, root)
+end
 default_platform(:android)
 
 platform :android do
@@ -309,10 +319,7 @@ platform :android do
       # auf fastlane/ — einstelliges File.expand_path löst gegen fastlane/app/… auf,
       # das Artefakt liegt aber unter <root>/app/build/…, siehe Run 35439961976).
       # Fail-closed: Der Helper bricht ab, wenn der Projektstamm nicht verifizierbar ist.
-      unless Pathname.new(foss_apk).absolute?
-        root = fastlane_repo_root
-        foss_apk = File.expand_path(foss_apk, root)
-      end
+      foss_apk = release_artifact_path(foss_apk)
       BuildRetry.with_gradle_retry("FOSS-Build (assembleFossRelease)") do
         gradle(
           task: "assembleFossRelease",
@@ -341,12 +348,7 @@ platform :android do
 
   desc "Publish a pre-built release APK as a GitHub release (requires gh + GH_TOKEN, pre-built APK)"
   lane :publish_release do |options|
-    apk = options[:apk] || lane_context[SharedValues::GRADLE_APK_OUTPUT_PATH] || "app/build/outputs/apk/standard/release/app-standard-release.apk"
-      # Relative Pfade am Projektstamm verankern (fastlane_repo_root, siehe oben).
-    unless Pathname.new(apk).absolute?
-      root = fastlane_repo_root
-      apk = File.expand_path(apk, root)
-    end
+    apk = release_artifact_path(options[:apk] || lane_context[SharedValues::GRADLE_APK_OUTPUT_PATH] || "app/build/outputs/apk/standard/release/app-standard-release.apk")
     ref_type = ENV["GITHUB_REF_TYPE"].to_s
     ref_name = ENV["GITHUB_REF_NAME"].to_s
     stable = options[:tag] || (ref_type == "tag" && ref_name.start_with?("v"))
@@ -377,6 +379,17 @@ platform :android do
           sh("gh", "release", "delete", tag, "--yes") rescue UI.message("  (kein Release zu löschen — ok)")
         end
         UI.message("Publishing GitHub release #{tag}")
+        # ✅ #262: mapping.txt + output-metadata.json MITPUBLIZIEREN — im
+        # Nightly-Zweig tut der Verlauf das seit jeher, im Version-Tag-Pfad
+        # blieben beide bisher lokal im Runner-Artefakt. Damit war der
+        # Beta-Kanal strukturell nicht auf Reproduzierbarkeit pruefbar: der
+        # Verify-Job laed genau diese beiden Dateien und vergleicht sie bitweise
+        # gegen einen frischen Build. Auswirkung sichtbar in Run 36987429609
+        # (v0.5.20-beta) — der Job fand gar kein pruefbares Release.
+        mapping = release_artifact_path(lane_context[SharedValues::GRADLE_MAPPING_TXT_OUTPUT_PATH] || ENV["GRADLE_MAPPING_TXT_OUTPUT_PATH"] || "app/build/outputs/mapping/standardRelease/mapping.txt")
+        metadata = release_artifact_path(lane_context[SharedValues::GRADLE_OUTPUT_JSON_OUTPUT_PATH] || ENV["GRADLE_OUTPUT_JSON_OUTPUT_PATH"] || "app/build/outputs/apk/standard/release/output-metadata.json")
+        UI.message("  mapping: #{mapping} exists=#{File.exist?(mapping)}")
+        UI.message("  metadata: #{metadata} exists=#{File.exist?(metadata)}")
         # Härtung: Retry gegen transiente Fehler (Netz/API) — Spiegel des
         # nightly-Pfads. Bei endgültigem Fehler KEIN Tag-Rollback: Der Tag ist
         # absichtlich von der Release-Lane gepusht (Versionierung, Re-Run-
@@ -389,6 +402,8 @@ platform :android do
           assets = [apk]
           assets << options[:foss_apk] if options[:foss_apk] && File.exist?(options[:foss_apk])
           assets << options[:checksums] if options[:checksums] && File.exist?(options[:checksums])
+          assets << mapping if File.exist?(mapping)
+          assets << metadata if File.exist?(metadata)
           UI.message("  assets: #{assets.map { |a| File.basename(a) }.join(', ')}")
           sh("gh", "release", "create", tag, *assets,
              "--title", "Vivid #{tag}",
@@ -451,8 +466,8 @@ platform :android do
       # relative Pfade scheitern in der CI, weil fastlane dort nicht aus
       # dem Repo-Root läuft (File.exist? lieferte false, Assets fehlten).
       UI.message("Creating nightly release…")
-      mapping = lane_context[SharedValues::GRADLE_MAPPING_TXT_OUTPUT_PATH] || ENV["GRADLE_MAPPING_TXT_OUTPUT_PATH"] || "app/build/outputs/mapping/standardRelease/mapping.txt"
-      metadata = lane_context[SharedValues::GRADLE_OUTPUT_JSON_OUTPUT_PATH] || ENV["GRADLE_OUTPUT_JSON_OUTPUT_PATH"] || "app/build/outputs/apk/standard/release/output-metadata.json"
+      mapping = release_artifact_path(lane_context[SharedValues::GRADLE_MAPPING_TXT_OUTPUT_PATH] || ENV["GRADLE_MAPPING_TXT_OUTPUT_PATH"] || "app/build/outputs/mapping/standardRelease/mapping.txt")
+      metadata = release_artifact_path(lane_context[SharedValues::GRADLE_OUTPUT_JSON_OUTPUT_PATH] || ENV["GRADLE_OUTPUT_JSON_OUTPUT_PATH"] || "app/build/outputs/apk/standard/release/output-metadata.json")
       assets = [apk]
       assets << mapping if File.exist?(mapping)
       assets << metadata if File.exist?(metadata)

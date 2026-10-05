@@ -42,6 +42,15 @@ _wf_query() { # $1=Datei, Rest = Python-Ausdruck ueber die Variable `d`
   [[ -f "$file" ]] || { echo "-"; return 0; }
   "$py" - "$file" "$1" <<'PYEOF' 2>/dev/null || echo "-"
 import sys, io, json
+# stdout auf UTF-8 festnageln: unter Windows ist die Standard-Encoding cp1252,
+# und ein extrahierter Wert mit ≠ (U+2260), — oder ü bringt print() sonst mit
+# UnicodeEncodeError zum Abbruch. Der Abbruch landet im `|| echo "-"` und sieht
+# dann wie "nicht gefunden" aus — bei [[ -z … ]]-Prüfungen also stillschweigend
+# falsch grün. Beispiel: ein Workflow-Kommentar "RC≠0" im run-Snippet.
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+except Exception:
+    pass
 try:
     import yaml
 except ImportError:
@@ -85,3 +94,18 @@ wf_step_with() { _wf_query "$1" "next((s.get('with',{}).get('$4') for s in d['jo
 # wf_step_index <datei> <job> <step-name-teilstück> -> Index des Steps oder -1
 # Für Reihenfolge-Aussagen („Wrapper-Validation vor dem ersten gradlew").
 wf_step_index() { _wf_query "$1" "[i for i,s in enumerate(d['jobs']['$2'].get('steps', [])) if '$3' in str(s.get('name','')) or '$3' in str(s.get('uses',''))]"; }
+
+# wf_step_if <datei> <job> <step-name-teilstück> -> if-Ausdruck des ersten
+# passenden Steps oder "-" (kein if gesetzt, unbekannter Pfad/Job/Step).
+# Wichtig für bedingungslos gemeinten Schritten: `$(wf_step_if …)` in einer
+# [[ -z … ]]-Prüfung ist bei einer TIPPFEHLER-Funktionsname still leer und
+# damit immer grün — dagegen schützt der Helper-Prüfer in
+# test_workflow_security.sh (alle in Tests benutzten wf_* existieren).
+wf_step_if() { _wf_query "$1" "next((s.get('if') for s in d['jobs']['$2'].get('steps', []) if '$3' in str(s.get('name','')) or '$3' in str(s.get('uses',''))), None)"; }
+
+# wf_step_run <datei> <job> <step-name-teilstück> -> run-Snippet oder "-".
+# Für Verhaltenstests: nur so kommt der echte Shell-Code aus dem Workflow in
+# eine Sandbox (Stub für git/gh) und die Auswahl-Logik wird ausgeführt statt
+# nur per grep angelesen. Der Wert ist mehrzeilig — Aufrufer müssen ihn
+# quoten und nicht per Zeilenabstand zerlegen.
+wf_step_run() { _wf_query "$1" "next((s.get('run') for s in d['jobs']['$2'].get('steps', []) if '$3' in str(s.get('name','')) or '$3' in str(s.get('uses',''))), None)"; }

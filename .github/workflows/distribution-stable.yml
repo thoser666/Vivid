@@ -4,6 +4,9 @@ name: Distribution / Stable (weekly)
 #   - Mo 03:00 UTC sucht dieser Workflow die neueste noch NICHT (vollständig)
 #     verteilte v*-Version und publiziert sie als Stable-GitHub-Release
 #     (beide Flavor-APKs + SHA256SUMS, siehe fastlane/Fastfile release_github).
+#   - Untergrenze (#259): der ERSTE vollständig verteilte Release beendet die
+#     Tag-Suche. Ältere Tags ohne Release sind obsolet und werden nie
+#     nachgeholt — sonst würden überholte Betas als stable publiziert.
 #   - Der anschließend eintreffende F-Droid-Repo-Build (deploy-fdroid.yml,
 #     Mo 04:00 UTC) nimmt das Release dieselbe Woche auf.
 #   - Nightly (täglich 06:00 UTC) läuft UNVERÄNDERT in release-pipeline.yml.
@@ -106,8 +109,14 @@ jobs:
               # gh release view schlägt fehl (RC≠0) ⇒ Tag noch nie veröffentlicht.
               if out=$(gh release view "$TAG" --json isDraft,isPrerelease,assets 2>/dev/null); then
                 if echo "$out" | jq -e '.isDraft == false and .isPrerelease == false and ([.assets[].name] | index("app-standard-release.apk")) and ([.assets[].name] | index("app-foss-release.apk")) and ([.assets[].name] | index("SHA256SUMS.txt")) and ([.assets[].name] | index("SHA256SUMS.txt.bundle"))' >/dev/null 2>&1; then
-                  echo "  $TAG: bereits vollständig verteilt — übersprungen"
-                  continue
+                  # #259: hier ABBRECHEN, nicht continue. Der ERSTE vollständig
+                  # verteilte Release ist die Untergrenze: alles Ältere gilt als
+                  # obsolet und wird nie nachgeholt. Mit continue fiel die Schleife
+                  # durch alle vollständigen Releases hindurch bis zum nächsten
+                  # Loch und hätte überholte Tags (v0.5.15-beta, v0.5.14,
+                  # v0.5.8-beta) als stable-Release publiziert.
+                  echo "  $TAG: vollständig verteilt — Untergrenze; ältere Tags werden nicht nachgeholt"
+                  break
                 fi
                 echo "  $TAG: Release vorhanden, aber unvollständig — wird repariert"
               else
@@ -117,7 +126,7 @@ jobs:
               break
             done
             if [ -z "$CHOSEN" ]; then
-              echo "::notice::Alle v*-Versionen sind bereits vollständig als stable Release verteilt — nichts zu tun."
+              echo "::notice::Alle v*-Versionen sind bereits vollständig als stable Release verteilt — nichts zu tun. Ältere Tags ohne Release gelten seit #259 als obsolet und werden nicht nachgeholt."
               echo "NO_TARGET=true" >> "$GITHUB_ENV"
               exit 0
             fi
@@ -126,6 +135,37 @@ jobs:
           echo "TAG=$TAG" >> "$GITHUB_ENV"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "Publishing stable release: $TAG"
+
+      # ✅ #250: Gate-/CI-Skripte VOR dem Arbeitsbaum-Wechsel sichern. Der Job
+      # prüft den ZIEL-TAG, aber die Workflow-Datei stammt aus develop — vorher
+      # wurden die Skripte trotzdem relativ zum Tag-Arbeitsbaum aufgerufen. Für
+      # alte Tags fehlen sie dort: Vorfall 28.09.2026, Run 36402544290,
+      # der Retry-Wrapper stand nicht im Baum → „No such file or directory" →
+      # exit 127 (er kam erst mit ddc9d777 vom 25.09., also nach v0.5.15-beta).
+      # Abhilfe: die Skripte kommen aus dem develop-Baum, der Arbeitsbaum
+      # enthält danach nur noch den zu prüfenden Produktstand (Quellen, Gradle,
+      # VERSION, Manifest) des Ziel-Tags.
+      # ⚠️ Dieser Kommentar nennt bewusst KEINEN Skriptpfad: grep-Anker der
+      # Positions-Checks in test_emulator_matrix.sh suchen die Skriptnamen.
+      # Ein Pfad im Kommentar verschiebt deren Anker und kippt T15.15.
+      # Fail-loud: fehlt ein Skript im develop-Baum, ist die Pipeline defekt und
+      # das muss hier stoppen, nicht drei Schritte später mit exit 127.
+      - name: Stage CI gate scripts (from develop, not target tag)
+        run: |
+          set -eu
+          CI_SCRIPTS="$RUNNER_TEMP/vivid-ci-scripts"
+          rm -rf "$CI_SCRIPTS"
+          mkdir -p "$CI_SCRIPTS"
+          for s in emulator_test_setup.sh emulator_gate_retry.sh check_sentry_resolve.sh; do
+            if [ ! -f "scripts/$s" ]; then
+              echo "::error::scripts/$s fehlt im develop-Baum — Pipeline defekt (nicht im Ziel-Tag nachschlagen)"
+              exit 1
+            fi
+            cp "scripts/$s" "$CI_SCRIPTS/$s"
+            chmod +x "$CI_SCRIPTS/$s"
+          done
+          echo "CI_SCRIPTS_DIR=$CI_SCRIPTS" >> "$GITHUB_ENV"
+          echo "Gestaged: $(ls "$CI_SCRIPTS")"
 
       # ⏭ Kein Ziel-Tag (alles verteilt) → Früh-Exit. Subsequente Steps laufen
       # sonst mit leerem $TAG → Guard setzt sie auf no-op. Sauber via sentinel.
@@ -207,7 +247,7 @@ jobs:
             # Smoke am Permission-Vertrag des Screen-Eintritts). Läuft bewusst
             # VOR dem Retry-Wrapper: Setup-Fehler sind deterministisch und
             # dürfen die Retry-Klassifikation nicht konsumieren.
-            bash scripts/emulator_test_setup.sh 34
+            bash "$CI_SCRIPTS_DIR/emulator_test_setup.sh" 34
             # Flavor-explicit (connectedDebugAndroidTest ist in diesem Projekt
             # wegen der Varianten foss/standard mehrdeutig). Beide Client-
             # Packages (com.vivid.debug / com.vivid.foss.debug) sind disjunkt —
@@ -217,8 +257,21 @@ jobs:
             # Emulator-Flakiness). Transiente Klassen retryen 3× (10s/20s),
             # deterministische Fehler fail-closed sofort, Boot-Noise aus
             # grünen Läufen ist bewusst KEIN Muster (Selbsttest E1.3).
-            bash scripts/emulator_gate_retry.sh \r
-              ./gradlew :app:connectedStandardDebugAndroidTest :app:connectedFossDebugAndroidTest
+            # ⚠️ #265: EINE Zeile, KEIN Backslash — hier stand nie eine
+            # Zeilenfortsetzung, sondern ein zerstoertes Escape: Backslash +
+            # literales 'r' (Bytes 5c 72), dann ein ganz normales LF. In der
+            # Shell escaped der Backslash nur den Buchstaben, das Skript
+            # startete also mit $"@" = 'r':
+            #   emulator_gate_retry.sh: line 85: r: command not found, exit 127
+            # Vorfall Run 37188281176: der Stable-Publish scheiterte daran
+            # deterministisch, der cosign-Step (Sign SHA256SUMS) wurde nie
+            # ausgefuehrt. Zeilenenden sind hier NICHT die Ursache — der Blob
+            # im Repo ist LF (core.autocrlf=true legt das beim Commit fest),
+            # der Runner sieht also genau diese Bytes. Das Problem ist der
+            # Inhalt: ein Backslash direkt vor einem Buchstaben ist ein Escape
+            # und kein Umbruch, und er verschwindet lautlos in der Argumentliste.
+            # Deshalb: Aufrufe in script:-Bloecken einzeilig schreiben.
+            bash "$CI_SCRIPTS_DIR/emulator_gate_retry.sh" ./gradlew :app:connectedStandardDebugAndroidTest :app:connectedFossDebugAndroidTest
 
       # ✅ Signiertes Stable-Release bauen und veröffentlichen: release_github
       # mit tag: baut im Stable-Pfad BEIDE Flavor-APKs (assembleRelease +
@@ -254,7 +307,10 @@ jobs:
           SENTRY_RESOLVE_TOKEN: ${{ secrets.SENTRY_RESOLVE_TOKEN }}
           SENTRY_ORG: privat-jb
           SENTRY_PROJECT: vivid
-        run: bash scripts/check_sentry_resolve.sh --version "$TAG"
+          # Das Skript leitet seinen Repo-Root sonst aus $0 ab — aus
+          # $RUNNER_TEMP zeigt das ins Leere (Vorfall #250). Explizit setzen.
+          VIVID_REPO_ROOT: ${{ github.workspace }}
+        run: bash "$CI_SCRIPTS_DIR/check_sentry_resolve.sh" --version "$TAG"
 
       # ✅ Sigstore/cosign keyless-Signatur der SHA256SUMS.txt (seit 10.09.2026):
       # Nach dem Publish wird die veröffentlichte Checksummen-Datei signiert

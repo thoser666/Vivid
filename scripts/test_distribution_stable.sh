@@ -27,7 +27,7 @@ DIST=.github/workflows/distribution-stable.yml
 FDROID=.github/workflows/deploy-fdroid.yml
 RELEASE=.github/workflows/release-pipeline.yml
 
-echo "▶ [test_distribution_stable] Szenarien D1–D14"
+echo "▶ [test_distribution_stable] Szenarien D1–D16"
 
 FAILED=0
 check() {
@@ -201,7 +201,7 @@ fi
 #   - ist continue-on-error (Sentry-Ausfall blockiert die Distribution nie),
 #   - nutzt das eigene SENTRY_RESOLVE_TOKEN-Secret (project:write).
 check "D14.1 Resolve-Step vorhanden" "$DIST" 'Sentry: erledigte Issues resolven'
-check "D14.2 Guard mit Version aufgerufen" "$DIST" 'check_sentry_resolve\.sh --version "\$TAG"'
+check "D14.2 Guard mit Version aufgerufen" "$DIST" 'CI_SCRIPTS_DIR/check_sentry_resolve\.sh" --version "\$TAG"'
 check "D14.3 eigenes Secret verdrahtet" "$DIST" 'SENTRY_RESOLVE_TOKEN: \${{ secrets\.SENTRY_RESOLVE_TOKEN }}'
 check "D14.4 Guard-Script existiert" scripts/check_sentry_resolve.sh 'fix-release: <version>'
 check "D14.5 Guard-Selbsttest existiert" scripts/test_sentry_resolve.sh 'inNextRelease'
@@ -223,16 +223,209 @@ fi
 # Gate-Seite: die Grants laufen VOR den connected*-Tasks — `pm grant` scheitert
 # an nicht installierten Packages, deshalb baut ein eigener Step die Debug-
 # Test-APKs beider Flavors und das Setup-Skript installiert+grantet vorconnected.
-check "D15.1 Setup-Skript vor dem Gate aufgerufen (API 34)" "$DIST" 'emulator_test_setup\.sh 34'
+# ⚠️ Anker ab #250 auf den AUFRUF (`$CI_SCRIPTS_DIR/…`) statt auf den Skriptnamen:
+# der Name steht seit dem Stage-Step zuerst im Workflow, nicht mehr im Gate-Snippet.
+check "D15.1 Setup-Skript vor dem Gate aufgerufen (API 34)" "$DIST" 'CI_SCRIPTS_DIR/emulator_test_setup\.sh" 34'
 check "D15.2 Debug-APK-Assemble-Step vorhanden" "$DIST" 'Build debug APKs for emulator gate'
 check "D15.3 standard-androidTest-APK gebaut" "$DIST" 'assembleStandardDebugAndroidTest'
 check "D15.4 foss-androidTest-APK gebaut" "$DIST" 'assembleFossDebugAndroidTest'
 # D15.5: Reihenfolge-Vertrag — der Setup-Aufruf muss VOR dem ersten connected*-Aufruf
 # liegen (sonst hängt der Startup-Smoke am Systemdialog — genau der #249-Zustand).
-if awk '/emulator_test_setup\.sh 34/{s=NR} /connectedStandardDebugAndroidTest/{c=NR} END{exit !(s && c && s<c)}' "$DIST"; then
+if awk '/CI_SCRIPTS_DIR\/emulator_test_setup\.sh" 34/{s=NR} /connectedStandardDebugAndroidTest/{c=NR} END{exit !(s && c && s<c)}' "$DIST"; then
   echo "  ✅ D15.5 Setup-Aufruf liegt vor den connected*-Tests (Reihenfolge)"
 else
   echo "  ❌ D15.5 Setup-Aufruf NACH den connected*-Tests (oder fehlt) — Reihenfolge-Vertrag verletzt"
+  FAILED=1
+fi
+
+# ── D16 (#259): Untergrenze der Tag-Auswahl ──────────────────────────────
+# Der Schedule durchsucht die v*-Tags absteigend und nimmt den ersten nicht
+# vollständig verteilten. Der ERSTE vollständig verteilte Release beendet die
+# Suche — er ist die Untergrenze; alles Ältere ist obsolet und wird nie
+# nachgeholt. Ohne diese Grenze fiel die Schleife (continue) durch alle
+# vollständigen Releases bis zum nächsten Loch und hätte überholte Tags wie
+# v0.5.15-beta als stable publiziert.
+#
+# D16.4ff sind VERHALTENSTests: das echte run-Snippet wird aus dem Workflow
+# extrahiert (wf_step_run) und mit gestubbtem git/gh ausgeführt. Geprüft wird,
+# welcher Tag tatsächlich gewählt wird — nicht, ob eine Zeile im YAML steht.
+# Erst dadurch ist der Floor belegt statt behauptet.
+source "$SCRIPT_DIR/lib_workflow_yaml.sh"
+
+check "D16.1 Untergrenzen-Meldung im Skript" "$DIST" 'Untergrenze; ältere Tags werden nicht nachgeholt'
+check "D16.2 No-Op-Notice nennt obsolete Alt-Tags" "$DIST" 'gelten seit #259 als obsolet'
+# continue darf als alleinstehende Anweisung nirgends mehr vorkommen (Zeile 110
+# war die einzige). Anker bewusst auf die Statement-Form, nicht auf das Wort:
+# continue-on-error (Zeile 283) ist ein Step-Schlüssel und völlig legitim.
+notcheck "D16.3 kein continue-Statement mehr in der Auswahl" "$DIST" '^[[:space:]]+continue[[:space:]]*$'
+
+D16_RUN="$(wf_step_run "$DIST" publish-stable 'Determine target stable version')"
+if [ "$D16_RUN" = "-" ] || [ -z "$D16_RUN" ]; then
+  echo "  ❌ D16.4 run-Snippet nicht extrahierbar (wf_step_run gab '-' zurück) — Verhaltenstests entfallen"
+  FAILED=1
+  D16_RUN=""
+else
+  echo "  ✅ D16.4 run-Snippet strukturell extrahiert (wf_step_run)"
+fi
+
+# Führt das Auswahl-Snippet mit gestubbtem git/gh aus.
+#   $1 D16_TAGS       — Tags absteigend (je eine Zeile)
+#   $2 D16_COMPLETE   — davon vollständig verteilt (4 Assets, kein Prerelease)
+#   $3 D16_INCOMPLETE — davon Release da, aber ohne .bundle
+# Ergebnis: D16_GOT (gewählter TAG) bzw. D16_NOTICE=1 (NO_TARGET), D16_LOG.
+d16_select() {
+  local sandbox; sandbox="$(mktemp -d)"
+  mkdir -p "$sandbox/bin"
+  cat > "$sandbox/bin/git" <<'STUB'
+#!/usr/bin/env bash
+case "$1" in
+  tag) printf '%s\n' "$D16_TAGS" ;;
+  show-ref)
+    case "$*" in *" refs/tags/$4 ") exit 0 ;; esac
+    exit 1 ;;
+  *) exit 1 ;;
+esac
+STUB
+  cat > "$sandbox/bin/gh" <<'STUB'
+#!/usr/bin/env bash
+tag="$3"
+if printf '%s\n' "$D16_COMPLETE" | grep -qxF "$tag"; then
+  printf '%s\n' '{"isDraft":false,"isPrerelease":false,"assets":[{"name":"app-standard-release.apk"},{"name":"app-foss-release.apk"},{"name":"SHA256SUMS.txt"},{"name":"SHA256SUMS.txt.bundle"}]}'
+  exit 0
+fi
+if printf '%s\n' "$D16_INCOMPLETE" | grep -qxF "$tag"; then
+  printf '%s\n' '{"isDraft":false,"isPrerelease":false,"assets":[{"name":"app-standard-release.apk"},{"name":"app-foss-release.apk"},{"name":"SHA256SUMS.txt"}]}'
+  exit 0
+fi
+exit 1
+STUB
+  chmod +x "$sandbox/bin/git" "$sandbox/bin/gh"
+  # GitHub-Ausdrücke sind kein bash-Syntax ("${ {" = bad substitution) und
+  # müssen vor dem Ausführen durch Laufzeitwerte ersetzt werden.
+  printf '%s\n' "$D16_RUN" \
+    | sed -e 's/\${{ github\.event_name }}/schedule/g' \
+          -e 's/\${{ github\.event\.inputs\.version }}//g' > "$sandbox/select.sh"
+  D16_GOT=""; D16_NOTICE=""
+  : > "$sandbox/env"; : > "$sandbox/out"
+  GITHUB_ENV="$sandbox/env" GITHUB_OUTPUT="$sandbox/out" \
+  D16_TAGS="$1" D16_COMPLETE="$2" D16_INCOMPLETE="$3" \
+  PATH="$sandbox/bin:$PATH" bash "$sandbox/select.sh" > "$sandbox/log" 2>&1
+  D16_RC=$?
+  if grep -q 'NO_TARGET=true' "$sandbox/env" 2>/dev/null; then
+    D16_NOTICE=1
+  else
+    D16_GOT="$(sed -n 's/^TAG=//p' "$sandbox/env" | head -1)"
+  fi
+  D16_LOG="$(cat "$sandbox/log")"
+  rm -rf "$sandbox"
+  return 0
+}
+
+if [ -n "$D16_RUN" ]; then
+  # D16.5 (#259-Regression): v0.5.20-beta ist vollständig, darunter liegen
+  # v0.5.15-beta und v0.5.14 ohne Release. Erwartet: Untergrenze greift,
+  # NICHTS zu tun. Mit continue wären hier v0.5.15-beta/v0.5.14 erschienen.
+  d16_select "v0.5.20-beta
+v0.5.19-beta
+v0.5.16-beta
+v0.5.15-beta
+v0.5.14" "v0.5.20-beta
+v0.5.19-beta
+v0.5.16-beta" ""
+  if [ "$D16_NOTICE" = "1" ] && [ "$D16_GOT" = "" ]; then
+    echo "  ✅ D16.5 Untergrenze: vollständige Releases dahinter werden nicht nachgeholt"
+  else
+    echo "  ❌ D16.5 Floor verletzt — gewählt: '${D16_GOT:-<kein TAG>}', NO_TARGET=${D16_NOTICE:-0} (erwartet: kein TAG). Log: $D16_LOG"
+    FAILED=1
+  fi
+
+  # D16.6: Repair-Pfad bleibt erhalten — v0.5.20-beta ist NEUER als die
+  # Untergrenze (v0.5.19-beta, vollständig), hat Release, aber kein .bundle
+  # ⇒ muss repariert werden. Wichtig: der unvollständige Tag muss ÜBER der
+  # Grenze liegen, sonst greift die Grenze korrekt und es gibt nichts zu tun.
+  d16_select "v0.5.20-beta
+v0.5.19-beta
+v0.5.15-beta" "v0.5.19-beta" "v0.5.20-beta"
+  if [ "$D16_GOT" = "v0.5.20-beta" ]; then
+    echo "  ✅ D16.6 Repair-Pfad: unvollständiges Release neuer als Floor wird gewählt"
+  else
+    echo "  ❌ D16.6 gewählt: '${D16_GOT:-<kein TAG>}' statt v0.5.20-beta. Log: $D16_LOG"
+    FAILED=1
+  fi
+
+  # D16.7: Neuester Tag ohne Release ⇒ wird veröffentlicht (Floor greift erst
+  # DARÜBER, nie darunter).
+  d16_select "v0.6.0-beta
+v0.5.20-beta" "v0.5.20-beta" ""
+  if [ "$D16_GOT" = "v0.6.0-beta" ]; then
+    echo "  ✅ D16.7 Neuester Tag ohne Release wird veröffentlicht"
+  else
+    echo "  ❌ D16.7 gewählt: '${D16_GOT:-<kein TAG>}' statt v0.6.0-beta. Log: $D16_LOG"
+    FAILED=1
+  fi
+
+  # D16.8: Repo ohne jedes vollständige Release (früher Bestand) ⇒ es gibt
+  # keine Untergrenze, der neueste Tag muss gewählt werden.
+  d16_select "v0.6.0-beta
+v0.5.9-beta" "" "v0.6.0-beta"
+  if [ "$D16_GOT" = "v0.6.0-beta" ]; then
+    echo "  ✅ D16.8 Ohne vollständiges Release kein Floor — neuester Tag wird gewählt"
+  else
+    echo "  ❌ D16.8 gewählt: '${D16_GOT:-<kein TAG>}' statt v0.6.0-beta. Log: $D16_LOG"
+    FAILED=1
+  fi
+fi
+
+# D20: Im script:-Block des android-emulator-runners kein Backslash (#265).
+#
+# Die Fehlerklasse ist ein Escape, kein Zeilenenden-Problem. Vorfall
+# Run 37188281176 (04.10.2026): der Aufruf von emulator_gate_retry.sh stand
+# als Backslash + literales 'r' (Bytes 5c 72) + ganz normalem LF im Blob.
+# Ein Backslash vor einem Buchstaben ist in der Shell ein Escape, kein
+# Zeilenumbruch — er verschwindet lautlos, die Folgezeile wird ein eigenes
+# Kommando, und das Skript startete mit $@ = 'r':
+#   emulator_gate_retry.sh: line 85: r: command not found  -> exit 127
+# Der Stable-Publish scheiterte daran deterministisch und der cosign-Step
+# (Sign SHA256SUMS) wurde nie ausgefuehrt — .bundle nachziehen unmoeglich.
+#
+# Wichtig zur Abgrenzung: der Blob im Repo ist LF (core.autocrlf=true legt
+# das beim Commit fest; gegengeprueft an e6c2c7e7: 0 CR im Workflow-Blob).
+# Ein CR erreicht den Runner also gar nicht. Es geht rein um den Inhalt.
+#
+# Geprueft wird strukturell ueber ALLE Workflows, nicht nur diesen einen: die
+# Fehlerklasse ist nicht dateigebunden, und der Emulator-Runner steckt in
+# release-pipeline.yml ebenfalls.
+D20_HITS="$(python3 - <<'PYEOF'
+import glob, io, sys, yaml
+bad = []
+for wf in sorted(glob.glob(".github/workflows/*.yml")):
+    try:
+        d = yaml.safe_load(io.open(wf, encoding="utf-8"))
+    except Exception as e:
+        print("PARSE-ERROR %s: %s" % (wf, e))
+        sys.exit(1)
+    for jname, job in (d.get("jobs") or {}).items():
+        for st in (job.get("steps") or []):
+            if "android-emulator-runner" not in str(st.get("uses", "")):
+                continue
+            script = str((st.get("with") or {}).get("script", ""))
+            for n, line in enumerate(script.split("\n"), 1):
+                t = line.rstrip()
+                if t.endswith("\\"):
+                    bad.append("%s:%s:%d (Zeilenfortsetzung)" % (wf, jname, n))
+                elif "\\r" in t and not t.lstrip().startswith("#"):
+                    # Backslash + literales r ausserhalb eines Kommentars: das
+                    # Escape, das den exit 127 erzeugt hat.
+                    bad.append("%s:%s:%d (Backslash + literales r)" % (wf, jname, n))
+for b in bad:
+    print(b)
+PYEOF
+)"
+if [ -z "$D20_HITS" ]; then
+  echo "PASS: D20.1 script:-Block ohne Backslash am Zeilenende und ohne Backslash + r"
+else
+  echo "FAIL: D20.1 script:-Block mit Backslash am Zeilenende oder mit Backslash + r:"
+  echo "$D20_HITS" | sed 's/^/    /'
   FAILED=1
 fi
 

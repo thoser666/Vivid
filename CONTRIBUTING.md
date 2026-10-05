@@ -135,6 +135,24 @@ Please **do not** open public issues for security vulnerabilities. Follow the pr
 | Doku | Pull Request | Doku lebt in `docs/` (Deutsch primär; User-Guide zusätzlich EN/FR) |
 | Code | Pull Request | Siehe Workflow unten |
 
+### Ein offenes Issue übernehmen
+
+Issues ohne Assignee sind **frei** — nimm dir eins, das dich interessiert:
+
+```bash
+gh issue edit <nr> --add-assignee <dein-name>   # Issue sichern
+```
+
+Sobald du anfängst, gehört das Issue dir; bitte im PR darauf beziehen und es
+mit abschließen. Es ist ausdrücklich **erlaubt**, ein fremd übernommenes
+Issue wieder freizugeben (`--remove-assignee`), wenn du es nicht mehr
+machst — lieber offen und unzugewiesen als still liegen gelassen. Es gibt
+keinen Anspruch auf ein Issue ohne Arbeit.
+
+Neu angelegte Issues sind bewusst unzugewiesen (seit 03.10.2026, Hausregel in
+[docs/sentry-issues.md](docs/sentry-issues.md) §5); sie werden erst dann
+zugewiesen, wenn mit der Umsetzung begonnen wird.
+
 ### Pull-Request-Workflow
 
 1. **Fork & Branch** — Feature-Branch von `develop` anlegen
@@ -196,6 +214,83 @@ Für einen einzelnen Push umgehen: `git push --no-verify` (die CI gated weiterhi
 - Bug-Fixes: Regressionstest ergänzen, der ohne den Fix fehlschlägt.
 - Die [PARITY.md](PARITY.md)-Log-Tabelle dokumentiert je Feature die Tests als Beleg.
 
+### E2E-Tests: nicht auf Gleichzeitigkeit prüfen (#264)
+
+Die OBS- und WHIP-Tests starten einen echten Ktor-Server im JVM und fahren den Handshake über
+echte Sockets. Zwei Timing-Fallen sind dort nicht theoretisch, sondern haben einen roten
+Pflicht-Check in der CI erzeugt (`Build & Test`, Run `37186897805`, `OBSWebSocketClientTest >
+connect completes the hello-identify handshake over plain ws()`, Z. 153). Sie sind hier
+festgeschrieben, weil beide Muster bequem wieder einzuführen sind.
+
+**1. Reservierter Port ≠ belegter Port.** `ServerSocket(0).use { it.localPort }` gibt einen Port
+bekannt, nicht gebunden. `EmbeddedServer.start(wait = false)` kehrt zurück, sobald der Start
+angestoßen ist — CIO bindet asynchron. Ein direkt anschließender `connect()` läuft unter Last ins
+Leere, und der Test scheitert am Transport statt am geprüften Verhalten. Deshalb startet
+`startServer(...)` jetzt über `awaitPortListening(port)` (`core/.../network/TestPortAwaiter.kt`)
+und kehrt erst zurück, wenn der Port wirklich annimmt.
+
+**2. Zwei beobachtbare Folgen sind keine Simultanereignisse.** In `handleIdentified()` setzt der
+Client `isConnected = true` und ruft **danach** `sendRequest(GetVersion())` auf; der Server bucht
+das Frame auf eigener Coroutine. Zwischen „Flow sichtbar" und „Frame gebucht" gibt es keine
+Happens-before-Kante. Die alte Zeile 153 prüfte beide im selben Atemzug:
+
+```kotlin
+assertTrue(awaitConnected(client))
+assertTrue(serverReceived.any { ... GetVersion ... })   // ← im gleichen Zug
+```
+
+Das ist kein Timing-Problem mit Glück, sondern eine unbegründete Annahme. **Die Regel: auf das
+beobachtbare Ergebnis pollen, nicht auf Gleichzeitigkeit prüfen.** Umgekehrt heißt das auch: eine
+Aussage wie „`connected` *und* `GetVersion` gleichzeitig" gibt es nicht — der Vertrag lautet
+„`connected` führt zu `GetVersion`". Festgeschrieben in
+`connected state never outruns the version request`.
+
+**Was sich nicht deterministisch beweisen lässt.** Der Bind-Race ist ein Zeitfenster: die Mutation
+„Warteblock entfernen" lässt den OBS-Test auf einem schnellen Entwicklerrechner **grün**. Der
+verlässliche Nachweis ist deshalb ein zweiter Weg — der Helper wird für sich getestet
+(`TestPortAwaiterTest`: lauschender Port → `true`, toter Port → `false`), und der vertragliche
+Nachweis für die Reihenfolge ist die Mutation am Produktcode (GetVersion-Send entfernen → drei
+Tests rot). Ein Flake, den man lokal nicht reproduzieren kann, wird nicht durch Raten repariert,
+sondern durch einen Test, der die Annahme selbst benennt.
+
+**Anker prüfen.** Die alte Erwartung pinnte auf `requestId: "1"`. Die Id zählt pro Client hoch und
+läuft über `connect()` weiter — der Anker war an eine Reihenfolge gebunden, an der der Test nichts
+verloren hat. Ersetzt durch `reconnect keeps issuing version requests with a fresh request id`,
+das die Zählersemantik positiv prüft (drei Runden, Id 1/2/3) statt sie festzunageln.
+
+**Der Helper gilt für *jeden* E2E-Server — aber nicht dort, wo der Produktionscode den Bind
+selbst abwartet (#268).** Punkt 1 oben war nach #264 nicht überall umgesetzt. `WHIPClientTest`
+reservierte seinen Port genauso und fuhr direkt HTTP — nur eben ohne Schadensminderung, weil
+`WHIPClient.publish()` keinen Request-Retry hat: ein `connect refused` wird sofort zu
+`WHIPFailure.NETWORK`, `publish()` liefert `null`, und `assertNotNull(resource)` schlägt an einer
+Stelle fehl, die nichts mit dem WHIP-Vertrag zu tun hat. Betroffen waren 6 der 7 netzwerkfähigen
+Tests dieser Klasse. `startServer()` wartet jetzt über `awaitPortListening`, wie in den OBS-Tests.
+
+Die Kehrseite ist wichtig, sonst wird der Helper zum Deckel. `RemoteControlServerPortFallbackTest`
+wartet **nicht** — und soll es auch nicht. `RemoteControlServer.start()` verifiziert den Engine-Bind
+selbst (`awaitEngineBind`: NIO-Probe, bis 2 s) und setzt `activePort` erst danach. Ein
+`awaitPortListening` im Test würde die Produktionsgarantie verdecken, nicht prüfen. Gemessen: die
+Variante „der Test wartet selbst" ist **grün**, auch wenn die Bind-Verifikation fehlt — sie prüft
+dann nichts mehr. Der Test prüft stattdessen den Vertrag mit `canConnectNow` (ohne Polling, ein
+wartender Aufruf würde genau das wegprüfen, was die Zusicherung behauptet).
+
+**Die Regel:** Wer `EmbeddedServer.start(wait = false)` in einem Test benutzt, wartet im Test auf
+den Bind. Wer einen Produktions-Startpfad testet, der den Bind selbst verifiziert, prüft diese
+Verifikation, statt sie mit einem zweiten Warten zu überdecken. Zweiter Nebenbefund derselben
+Runde: `coldRangePort()` gibt den Port sofort wieder frei, und der Preferred-Port-Test nagelte
+daraufhin fest auf `preferred`. Belegt ein Fremdprozess den Port im Mikrosekundenfenster bis zur
+Probe, war das ein Umgebungszustand und wurde als Testfehler gemeldet. Die Erwartung wird jetzt
+unmittelbar vor `start()` über dieselbe Policy + dieselbe Probe berechnet — das Muster, das der
+Nachbartest im selben File schon immer benutzt.
+
+**Und noch einmal ehrlich zur Beweislage.** Auch hier gilt: der Bind-Race ist ein Zeitfenster.
+Gemessen wurde — die Mutation „Warteblock entfernen" im WHIP-Test bleibt grün, und die Mutation
+„`awaitEngineBind` auf ein sofortiges `return true` verkürzen" bleibt ebenfalls grün, auch mit 20
+Runden statt einer (die Runden wurden wieder entfernt: 40 % mehr Laufzeit der Klasse, kein
+messbarer Gewinn). Ein Test, dessen Richtigkeit man lokal nicht falsch machen kann, ist trotzdem
+richtig — wenn er die Annahme benennt und dort fällt, wo sie bricht: auf belasteten CI-Runnern, für
+die `awaitEngineBind` überhaupt existiert. Erfundene Nachweise wären schlimmer als diese Grenze.
+
 ### Doku-Guards (Handbuch & Wiki aktuell halten)
 
 Die Dokumentation kann nicht mehr unbemerkt veralten — drei Guards erzwingen das:
@@ -227,7 +322,113 @@ Ohne den Meta-Guard wandern die Prüfungen still zurück auf Fenster, und der n�
 2. Zeilennummern-Vergleiche `… | head -1 | xargs test {} -lt $(…)` — prüfen eine *Reihenfolge*, keinen Abstand; Einfügungen dazwischen ändern die Aussage nicht.
 3. Einträge in der Allowlist des Guards. Dort **ist** der Abstand die Aussage (z. B. „der Retry-Wrapper muss unmittelbar über dem Task stehen"). Jeder Eintrag trägt eine Begründung und wird auf Existenz geprüft, damit die Allowlist nicht verwaisen kann.
 
-**Für Workflow-Strukturfragen** gibt es `scripts/lib_workflow_yaml.sh` (`source`n): `wf_job_permissions`, `wf_job_if`, `wf_step_uses`, `wf_step_with`, `wf_step_index`. Die Assertions sind bewusst **exakt** — der komplette Permission-Satz, nicht „enthält `issues: write`“. Bei einem Least-Privilege-Guard ist eine zusätzlich vergebene Berechtigung genau das, was auffallen soll; ein `grep -Fq` auf eine Einzelberechtigung lässt sie durch. Unbekannter Pfad, Job oder Key liefert `-`, damit ein Tippfehler nicht wie ein bestandener Check aussieht.
+**Für Workflow-Strukturfragen** gibt es `scripts/lib_workflow_yaml.sh` (`source`n): `wf_job_permissions`, `wf_job_if`, `wf_step_uses`, `wf_step_with`, `wf_step_index`, `wf_step_if`, `wf_step_run`. Die Assertions sind bewusst **exakt** — der komplette Permission-Satz, nicht „enthält `issues: write`“. Bei einem Least-Privilege-Guard ist eine zusätzlich vergebene Berechtigung genau das, was auffallen soll; ein `grep -Fq` auf eine Einzelberechtigung lässt sie durch. Unbekannter Pfad, Job oder Key liefert `-`, damit ein Tippfehler nicht wie ein bestandener Check aussieht.
+
+**Und derselbe Helper kann auch vorhanden sein und trotzdem nichts liefern (#259).** Die Extraktion lief über `print()` in der Standard-Kodierung der Konsole — unter Windows cp1252. Ein Workflow-Wert mit `≠`, `—` oder `ü` (z. B. der Kommentar `RC≠0` in einem `run`-Snippet) brach daraufhin mit `UnicodeEncodeError` ab, der Fehler landete im `|| echo "-"` und sah damit wie „nicht gefunden“ aus. Die Library nagelt stdout deshalb fest auf UTF-8 fest. Wichtig allgemein: die Sentinel-Semantik („`-` = unbekannt“) ist nur dann sicher, wenn der Fehlerweg *nicht* denselben Wert liefert wie der Normalfall — sonst ist ein Tippfehler und ein kaputter Interpreter nicht mehr unterscheidbar. Geprüft wird das in `test_workflow_security.sh` **verhaltensbasiert** (ein echter Probe-Workflow mit `≠` muss einen echten Wert liefern), nicht per grep auf die reconfigure-Zeile.
+
+**Verhaltenstests statt Zeilenvergleiche.** Für Logik, die in einem `run:`-Block steht, genügt kein grep auf eine Zeile: `wf_step_run` liefert das Snippet, der Guard führt es mit gestubbtem `git`/`gh` aus und prüft das Ergebnis. Das trifft die Untergrenze der Stable-Tag-Auswahl (#259, `D16.5`–`D16.8`) — dort ist entscheidend, *welcher* Tag gewählt wird, nicht dass eine bestimmte Zeile vorhanden ist.
+**Ein Stub muss das Werkzeug emulieren, nicht nur antworten (#262).** Beim Verhaltenstest des
+Verify-Jobs (#262) war der `gh`-Stub zu ehrlich: Er gab das rohe JSON von `release list` zurück
+und ignorierte dabei `--jq`. Das Snippet griff folglich auf das **komplette JSON-Array** als Tag
+zu (`TAG='[{"tagName":…}]'`), und der Fehlerfall „kein Nightly im Raster“ blieb unentdeckt — ein
+Array-String ist weder leer noch `null`, also lief jeder Negativzweig ins Leere. Geprüft wurde
+damit nicht die Auswahl-Logik der Pipeline, sondern die Treue des Stubs. Ein Stub muss das
+Filter-Verhalten des Originals nachbilden: bei `gh` heißt das, `--jq` selbst auswerten
+(`printf '%s\n' "$DATA" | jq -r "$filter"`), sonst prüft der Guard die Auswertung, die es gar nicht gibt.
+
+**Drei Fallen beim Negieren — alle drei hat die Mutationsprobe aufgedeckt.** Ein Check, der nur im
+Positivfall stimmt, beweist nichts. Deshalb wird jede neue Assertion einmal gegen eine Mutation
+geprüft (der erwartete Fehlschlag muss eintreten) und das Ergebnis nach dem Restore gegen eine
+Negativkontrolle (reiner Kommentarumbau muss grün bleiben). Drei dabei gefundene Muster:
+
+- **Ein Check ist EIN Kommando.** `check "…" test X && test Y` zerlegt die Shell in **zwei**
+  Aufrufe: `check` sieht nur `test X`, meldet PASS und verwirft den Status von `test Y` über das
+  `&&`. Im Skript von #262 stand genau so eine Bedingung und blieb grün, obwohl das `if` entfernt
+  worden war. Beide Hälften gehören in ein `bash -c '[ … ] && [ … ]'`.
+- **Negationen prüfen gegen `-`, nicht gegen `''`.** Die `wf_*`-Helfer liefern bei „nicht
+  gefunden“ per Hauskonvention den Sentinel `-`. `test "$(wf_step_if …)" = ''` ist deshalb
+  **immer wahr** — der Check bleibt grün, obwohl die Bedingung entfernt wurde.
+- **Kommentare, die Verhalten zitieren, kippen `check_absent`.** Ein Guard, der prüft „diese
+  Fehlermeldung ist weg“, und dabei `grep -q 'Version/Revision mismatch'` verwendet, wird rot,
+  sobald ein Kommentar den alten Wortlaut **erklärend** nennt — dieselbe Klasse wie das
+  Issue-Regel-Beispiel in `AGENTS.md` (#260). Guards prüfen deshalb die konkrete **Codeform**
+  (`grep -q 'echo "::error::…'`), nicht einen Text, den auch Prosa zitieren darf.
+
+**Restore niemals über `git checkout --`.** Das stellt aus dem **Index** wieder her und verwirft
+dabei alles, was nicht gestaged ist — bei einem Mutationslauf über mehrere Dateien kostet das
+den gesamten Arbeitsstand. Gesichert wird vor dem Lauf in ein Verzeichnis außerhalb des
+Baums (`D:/temp/bak*/` unter Windows, `/tmp` überlebt nur innerhalb **eines** Tool-Aufrufs) und
+danach Datei für Datei zurückgespielt. Ein abschließender `cmp` je Datei beweist, dass keine
+Mutation überlebt hat.
+
+**Annotated Tags peel'en — im Skript wie im Stub (#263).** Jeder Zugriff auf die
+Git-Rest-API für einen Tag braucht **zwei** Schritte, nicht einen:
+
+```bash
+REF_JSON=$(gh api "repos/$REPO/git/ref/tags/$TAG")
+TYPE=$(jq -r '.object.type' <<<"$REF_JSON")   # commit | tag
+SHA=$(jq  -r '.object.sha'   <<<"$REF_JSON")
+[ "$TYPE" = "tag" ] && SHA=$(gh api "repos/$REPO/git/tags/$SHA" --jq '.object.sha')
+```
+
+`git/ref/tags/<tag>` zeigt bei **annotated** Tags (`git tag -a`, alle `v*-alpha/beta/rc` hier)
+auf das *Tag-Objekt*, nicht auf den Commit. Der Unterschied ist in `for-each-ref` sichtbar
+(`tag -> commit` vs. `commit`) und **kein** Randfall: ohne Peel vergleicht man bei jedem
+annotierten Tag zwei verschiedene Objektarten und liegt **immer** daneben. Auch `gh` im Skript
+muss den Filter auswerten — der Stub ebenso (siehe oben).
+
+**Die Signatur gehört in den Aufruf, nicht in den Kommentar.** Ein Stub-Helfer mit fünf
+Parametern wird über die Position aufgerufen, und genau hier rutscht der Test von der Aussage
+aufs Werkzeug: Im ersten Entwurf (#263) dokumentierte der Kommentar
+`$1 obj_type, $2 obj_sha, …`, während die Funktion an anderer Stelle las — zwei Tests prüften
+dadurch die **falsche Variable** und meldeten das plausibelste Falschergebnis der Suite:
+„grün" für einen Lauf, der eigentlich hätte rot sein müssen. Ein Kommentar ist Dokumentation,
+eine Signatur ist Vertrag. Entweder wird der Aufruf über benannte Wrapper-Variablen geschrieben
+(`vr_resolve obj_type=commit obj_sha=… embedded=…`) oder der Stub nimmt **Schlüsselwort-Argumente
+per `key=value`**. Wer eine Positionsliste festhält, sollte jede Aufrufstelle mitlesen — das ist
+die eigentliche Prüfung, und sie findet den Fehler beim Lesen statt nach 40 Minuten.
+
+
+**Ein nicht existierender Helper sieht aus wie ein bestandener Check.** `$(wf_step_if …)` in einer `[[ -z … ]]`-Prüfung ist bei einem Tippfehler im Funktionsnamen *immer* wahr: Bash meldet `command not found` auf stderr, die Command-Substitution liefert trotzdem leer, der Check bleibt dauerhaft grün. Deshalb vergleicht `test_workflow_security.sh` **jeden in Guards benutzten `wf_*`-Namen gegen die Definition in der Library** — und meldet umgekehrt definierte Helfer, die niemand benutzt (tote Zusicherung, nur ein Hinweis).
+
+### Gate-Skripte nie aus dem Ziel-Tag-Baum beziehen (#250)
+
+Der Stable-Publish testet den **Ziel-Tag**, führt aber die Workflow-Datei aus `develop` aus. Das sind zwei verschiedene Bäume — und der Job hat lange beides vermischt:
+
+```
+Checkout code            → Arbeitsbaum = develop (fetch-depth: 0)
+Determine target …       → TAG = v0.5.15-beta
+Checkout target tag      → Arbeitsbaum = v0.5.15-beta
+Run instrumented tests…  → bash scripts/emulator_gate_retry.sh   ← Datei fehlt im Tag
+```
+
+Vorfall 28.09.2026 (Run `36402544290`): `bash: scripts/emulator_gate_retry.sh: No such file or directory` → **exit 127**. Der Wrapper war erst drei Stunden vor dem letzten grünen Lauf (`ddc9d777`, 25.09. 06:53) entstanden, also nach `v0.5.15-beta`. Es war kein Runner-Image-Drift, sondern eine deterministische Eigenschaft des Tags — und damit **blockiert ein einziger alter Tag den Stable-Kanal**, sobald die Auswahl bei ihm landet.
+
+**Die Regel: Produktstand aus dem Ziel-Tag, Pipeline-Stand aus `develop`.** Gate-Skripte werden im Schritt `Stage CI gate scripts (from develop, not target tag)` **vor** dem `git checkout` in `$RUNNER_TEMP` gespiegelt und von dort aufgerufen (`$CI_SCRIPTS_DIR/…`). Fehlt ein Skript im develop-Baum, bricht der Job sofort mit `::error::` ab statt drei Schritte später mit exit 127.
+
+Ein Skript, das seinen Repo-Root aus `$0` ableitet (`cd "$(dirname "$0")/.."`), verliert dabei die Orientierung. `check_sentry_resolve.sh` löst das über `cd "${VIVID_REPO_ROOT:-$(dirname "$0")/..}"` — der Fallback erhält jeden bisherigen Aufruf, der Workflow setzt die Variable explizit. Festgeschrieben in `test_emulator_matrix.sh` (T17.1–T17.11) und `test_sentry_resolve.sh` (R13).
+
+**Gegenprobe zur Fehlerklasse:** Positions-Checks auf Workflow-Dateien ankerten besser auf `$CI_SCRIPTS_DIR/<skript>` als auf den bloßen Skriptnamen. Der alte Anker `scripts/emulator_gate_retry.sh` matchte sowohl den echten Aufruf als auch einen Pfad in einem Kommentar — und ist in `vivid-ci-scripts/…` gar nicht mehr enthalten. Ein Kommentarpfad verschiebt einen Namens-Substring-Anker und kippt die Reihenfolge-Aussage (das ist in dieser Sitzung einmal passiert).
+
+### Kein Backslash in `script:`-Bloecken des android-emulator-runners (#265)
+
+In einem `script:`-Block des Emulator-Runners darf kein Backslash neben einem Buchstaben stehen. Ein Backslash ist in der Shell ein **Escape**, kein Zeilenumbruch — er verschwindet lautlos, und was danach als Argument beim Skript ankommt, ist nicht das, was die Zeile vortäuscht.
+
+Vorfall 04.10.2026 (Run `37188281176`, `workflow_dispatch` auf `v0.5.20-beta`): der Aufruf von `scripts/emulator_gate_retry.sh` war im Workflow-Blob als Backslash + literales `r` (Bytes `5c 72`) plus einem ganz normalen LF gespeichert. Die Shell escaped nur den Buchstaben, die Folgezeile wurde ein eigenes Kommando, und das Skript startete mit `$@ = 'r'`:
+
+```
+emulator_gate_retry.sh: line 85: r: command not found
+```
+
+exit 127, Job rot, cosign-Step nie erreicht. Betroffen war der **Stable-Kanal**, nicht nur ein Release: ohne Gate kein Publish, ohne Publish kein `SHA256SUMS.txt.bundle` nachziehen.
+
+**Zur Abgrenzung — und das ist der Punkt, der leicht falsch liegt:** Der Bug hat **nichts mit Zeilenenden zu tun**. Der Blob im Repo ist LF (`core.autocrlf=true` legt das beim Commit fest; gegengeprüft am Vorgänger-Commit `e6c2c7e7`: **0** CR im Workflow-Blob). Der Runner arbeitet auf Ubuntu mit `core.autocrlf=false` und sieht daher genau diese Bytes. Wer lokal in einem Windows-Arbeitsbaum `CRLF` in der Workflow-Datei zählt, sieht eine Eigenschaft des Checkouts — nicht die Ursache des Fehlschlags. Eine „`\` + CR ist in `script:`-Bloecken kaputt"-Erklärung sieht plausibel aus, ist hier aber unbelegt: im Repo gibt es keinen CR, der den Runner erreichen könnte.
+
+**Die Regel: Kommandoaufrufe in `script:`-Blöcken einzeilig schreiben.** Damit kann kein Backslash neben einem Buchstaben landen, und der Aufruf bleibt im Diff als eine Aussage lesbar statt als Escape-Spiel.
+
+Festgeschrieben in `scripts/test_distribution_stable.sh` (D20.1). Der Guard läuft über **alle** `.github/workflows/*.yml` und sucht YAML-geparst in `android-emulator-runner`-Steps nach Zeilenenden auf `\` sowie nach `\` + `r` außerhalb von Kommentaren — strukturell, nicht als Zeilenabstand.
+
+**Nebenfalle beim Dokumentieren dieser Sektion:** Ein einzelnes CR mitten in einer Zeile einer CRLF-Datei lässt `git diff` die **gesamte** Datei als umgeschrieben melden (415 statt 19 Zeilen im Numstat) — dieselbe Falle eine Ebene höher, nur ohne Prozess und ohne Fehlermeldung. Solche Zeilenenden werden hier deshalb im Klartext beschrieben statt als Escape geschrieben.
 
 ### Danksagung Dritter (CONTRIBUTORS.md)
 

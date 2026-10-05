@@ -77,13 +77,36 @@ forbidden = [":refs/tags/", "tag -d", '"tag", "-d"', "delete-tag"]
 hits = forbidden.select { |f| stable_branch.include?(f) }
 raise "STABLE-GUARD: stabiler Zweig enthält Tag-Löschung: #{hits.join(', ')}" unless hits.empty?
 
-# CWD-unabhaengiger Root-Helper (Top-Level-Def im Fastfile) wird mit
-# evaluiert — die Lane ruft ihn fuer die Verankerung relativer APK-Pfade.
-helper_src = source[/^def fastlane_repo_root.*?^end\r?$/m]
-raise "fastlane_repo_root-Helper nicht gefunden — Fastfile geaendert?" unless helper_src
+# ALLE Top-Level-Helfer am Dateianfang werden mit evaluiert — die Lane ruft
+# sie fuer die Verankerung relativer APK-/Mapping-/Metadatenpfade.
+#
+# ⚠️ Generisch per Regex, NICHT auf einen Namen verdrahtet: #262 hat einen
+# zweiten Helfer (release_artifact_path) eingefuegt, der Harness kannte nur
+# fastlane_repo_root und warf daraufhin NoMethodError — 33 FAILS in genau den
+# Szenarien, die die Lane eigentlich pruefen sollten. Ein stillschweigend
+# fehlender Helfer faellt als „Lane kaputt" durch, nicht als „Harness
+# veraltet"; deshalb wird die Vollstaendigkeit hier auch ausdruecklich
+# geprueft.
+helper_src = source.scan(/^def \w+.*?^end\r?$/m).join("\n\n")
+raise "Root-Helper fastlane_repo_root nicht gefunden — Fastfile geaendert?" \
+  unless helper_src.include?("def fastlane_repo_root")
+raise "Pfadverankerungs-Helper release_artifact_path nicht gefunden — Fastfile geaendert?" \
+  unless helper_src.include?("def release_artifact_path")
 eval(helper_src, TOPLEVEL_BINDING)
 
 eval(lane_src, TOPLEVEL_BINDING)
+
+# Produktionstreu: die gradle-Action liefert die Pfade von Mapping und
+# Output-Metadaten ueber lane_context/ENV. lane_context ist hier leer ({}),
+# also greift der ENV-Zweig der Lane — genau wie im echten Lauf, wo die
+# Action die Werte setzt. Ohne diese Vorbelegung fiel die Lane auf ihre
+# Literal-Fallbacks <root>/app/build/... zurueck, und deren Existenz haengt
+# davon ab, ob auf der Maschine gerade ein Release gebaut wurde: lokal
+# vorhanden, auf einem frischen CI-Checkout nicht. Das Szenario waere damit
+# umgebungsabhaengig und der Beweis (#262: der Version-Tag-Zweig
+# veroeffentlicht Mapping + Metadaten) nicht verlaesslich.
+ENV["GRADLE_MAPPING_TXT_OUTPUT_PATH"] ||= ENV["MOCK_GH_MAPPING"] || "dummy-mapping.txt"
+ENV["GRADLE_OUTPUT_JSON_OUTPUT_PATH"] ||= ENV["MOCK_GH_METADATA"] || "dummy-output-metadata.json"
 
 # Produktionstreu: fastlane fuehrt Lanes mit CWD=fastlane/ aus — genau diese
 # Falle (relative Pfade loesen gegen fastlane/ auf) soll der Harness abbilden

@@ -161,7 +161,7 @@ GATE_SCRIPT=$(PYTHONIOENCODING=utf-8 gate_script || true)
 check "T13.5 Gate-Step testet flavor-explicit" \
   grep -q "connectedStandardDebugAndroidTest" <<<"$GATE_SCRIPT"
 check "T13.6 Gate-Task läuft über Retry-Wrapper (BuildRetry-Hausmuster)" \
-  grep -q "scripts/emulator_gate_retry.sh" <<<"$GATE_SCRIPT"
+  grep -q 'CI_SCRIPTS_DIR/emulator_gate_retry.sh' <<<"$GATE_SCRIPT"
 
 echo "== T14: Beide Flavors im Emulator-Gate =="
 # Kein end-Anker: der Step-Name steht im Arbeitsbaum (Windows/Git-for-Windows)
@@ -211,7 +211,7 @@ check "T15.9 release-pipeline: Grant-Setup vor den connected-Tests" \
 check "T15.10 release-pipeline: Debug-APKs werden vor dem Emulator gebaut" \
   bash -c 'grep -n "Build debug APKs for emulator tests" .github/workflows/release-pipeline.yml | cut -d: -f1 | head -1 | xargs -I{} test {} -lt $(grep -n "Run instrumented tests on emulator" .github/workflows/release-pipeline.yml | cut -d: -f1 | head -1)'
 check "T15.11 distribution-stable: Grant-Setup vor dem Retry-Wrapper" \
-  bash -c 'grep -n "emulator_test_setup.sh 34" .github/workflows/distribution-stable.yml | cut -d: -f1 | head -1 | xargs -I{} test {} -lt $(grep -n "emulator_gate_retry.sh" .github/workflows/distribution-stable.yml | cut -d: -f1 | head -1)'
+  bash -c 'grep -n "CI_SCRIPTS_DIR/emulator_test_setup.sh 34" .github/workflows/distribution-stable.yml | cut -d: -f1 | head -1 | xargs -I{} test {} -lt $(grep -n "CI_SCRIPTS_DIR/emulator_gate_retry.sh" .github/workflows/distribution-stable.yml | cut -d: -f1 | head -1)'
 check "T15.12 distribution-stable: Assemble-Step vor dem Gate-Step" \
   bash -c 'grep -n "Build debug APKs for emulator gate" .github/workflows/distribution-stable.yml | cut -d: -f1 | head -1 | xargs -I{} test {} -lt $(grep -n "Run instrumented tests on emulator (release gate)" .github/workflows/distribution-stable.yml | cut -d: -f1 | head -1)'
 # fail-loud im Emulator-Script-Block: der android-emulator-runner führt das
@@ -247,8 +247,11 @@ assert len(gate) == 1, gate
 lines = [l for l in gate[0]['with']['script'].strip().splitlines() if l.strip() and not l.strip().startswith('#')]
 assert lines[0].strip() == 'set -eu', lines[0]
 "
+# Anker auf den AUFRUF (`$CI_SCRIPTS_DIR/...`), nicht auf den Skriptnamen:
+# seit #250 kommt der Name im Stage-Step vor dem Gate-Snippet vor, ein
+# Namens-Substring-Match würde also die falsche Zeile treffen.
 check "T15.15 Setup-Skript läuft VOR dem Retry-Wrapper (Setupfehler nicht als Retry)" \
-  bash -c 'grep -n "emulator_test_setup.sh" .github/workflows/distribution-stable.yml | cut -d: -f1 | head -1 | xargs -I{} test {} -lt $(grep -n "emulator_gate_retry.sh" .github/workflows/distribution-stable.yml | cut -d: -f1 | head -1)'
+  bash -c 'grep -n "CI_SCRIPTS_DIR/emulator_test_setup.sh" .github/workflows/distribution-stable.yml | cut -d: -f1 | head -1 | xargs -I{} test {} -lt $(grep -n "CI_SCRIPTS_DIR/emulator_gate_retry.sh" .github/workflows/distribution-stable.yml | cut -d: -f1 | head -1)'
 check "T15.16 Begruendung fuer set -e im Script-Block dokumentiert" \
   grep -q "fail-loud" <<<"$GATE_SCRIPT"
 # Regression (Vorfall 02.10.2026, Dispatch-Run 36963108418): das Snippet laeuft
@@ -436,6 +439,65 @@ check_absent "T16.4 keine 37er-Emulator-Provisionierung" \
   grep -qE 'api-level:\s*(37|38)\s*$' "$WORKFLOW"
 check "T16.5 Begruendung fuer den 37er-Ausschluss ist dokumentiert" \
   grep -q 'Failed to find package' "$WORKFLOW"
+
+echo "== T17: Gate-Skripte stammen aus develop, nicht aus dem Ziel-Tag (#250) =="
+# Vorfall 28.09.2026, Run 36402544290: exit 127 im Stable-Publish. Der Job
+# schaltet den Arbeitsbaum auf den Ziel-Tag (v0.5.15-beta), rief die Gate-
+# Skripte aber relativ zu diesem Arbeitsbaum auf. Der Retry-Wrapper kam erst
+# mit ddc9d777 vom 25.09. ins Repo, also fehlte er in v0.5.15-beta:
+#   bash: scripts/emulator_gate_retry.sh: No such file or directory
+# Der Job testet den Produktstand des Tags, die Pipeline braucht aber ihren
+# eigenen Stand. T17 hält beides getrennt — sonst genügt kuenftig EIN alter Tag,
+# um den Stable-Kanal zu blockieren.
+#
+# Ausnahme mit Absicht: der `Update CHANGELOG.md`-Step springt vorher per
+# `git checkout -B changelog-update origin/develop` zurueck, dort ist der
+# Arbeitsbaum wieder develop und `bash scripts/update_changelog.sh` ist korrekt.
+DIST=.github/workflows/distribution-stable.yml
+# Die drei Skripte, die im Job NACH dem Ziel-Tag-Checkout laufen. Der
+# CHANGELOG-Schritt fehlt bewusst (siehe Kommentar oben).
+GATE_SCRIPTS='emulator_test_setup.sh emulator_gate_retry.sh check_sentry_resolve.sh'
+
+check "T17.1 Stage-Step existiert" \
+  bash -c 'source scripts/lib_workflow_yaml.sh; [[ "$(wf_step_index .github/workflows/distribution-stable.yml publish-stable "Stage CI gate scripts")" != "-" ]]'
+check "T17.2 Staging VOR dem Checkout des Ziel-Tags" \
+  bash -c 'source scripts/lib_workflow_yaml.sh; stage=$(wf_step_index .github/workflows/distribution-stable.yml publish-stable "Stage CI gate scripts" | tr -d "[]"); co=$(wf_step_index .github/workflows/distribution-stable.yml publish-stable "Checkout target tag" | tr -d "[]"); [[ "$stage" != "-" && "$co" != "-" ]] && test "$stage" -lt "$co"'
+# "-" ist die Library-Konvention fuer "kein if gesetzt / nicht gefunden" —
+# nicht der Leerstring.
+check "T17.3 Stage-Step laeuft bedingungslos (nicht hinter if: env.TAG != '')" \
+  bash -c 'source scripts/lib_workflow_yaml.sh; [[ "$(wf_step_if .github/workflows/distribution-stable.yml publish-stable "Stage CI gate scripts")" == "-" ]]'
+for _s in $GATE_SCRIPTS; do
+  check "T17.4$_s kein relativer 'bash scripts/'-Aufruf mehr im Job" \
+    bash -c "grep -qF 'bash scripts/$_s' $DIST && exit 1 || exit 0"
+  check "T17.5$_s wird aus \$CI_SCRIPTS_DIR aufgerufen" \
+    grep -qF "CI_SCRIPTS_DIR/$_s" "$DIST"
+  check "T17.6$_s existiert im develop-Baum (sonst waere der Fail-loud-Guard dauerhaft rot)" \
+    test -f "scripts/$_s"
+done
+check "T17.7 Fail-loud-Guard im Stage-Step" \
+  grep -qF 'fehlt im develop-Baum' "$DIST"
+check "T17.8 Staging-Ziel ist \$RUNNER_TEMP, nicht der Arbeitsbaum" \
+  grep -qF 'CI_SCRIPTS="$RUNNER_TEMP/vivid-ci-scripts"' "$DIST"
+# Der Sentry-Guard loest seinen Repo-Root sonst aus $0 ab — aus $RUNNER_TEMP
+# zeigt das ins Leere und der Guard laeuft in einem leeren Verzeichnis.
+check "T17.9 check_sentry_resolve.sh haengt von \$0 ab, versteht aber VIVID_REPO_ROOT" \
+  grep -qF 'cd "${VIVID_REPO_ROOT:-$(dirname "$0")/..}"' scripts/check_sentry_resolve.sh
+check "T17.10 Sentry-Step setzt VIVID_REPO_ROOT" \
+  grep -qF 'VIVID_REPO_ROOT: ${{ github.workspace }}' "$DIST"
+# Konsistenz statt Liste: jeder Aufruf ueber $CI_SCRIPTS_DIR muss im Stage-Step
+# auch gestaged werden. Eine handgepflegte for-Liste driftet sonst still vorbei
+# (Mutation M8: Sentry aus der Liste entfernt -> nur exit 127 zur Laufzeit).
+check "T17.11 jeder \$CI_SCRIPTS_DIR-Aufruf ist auch im Stage-Step gestaged" python3 -c "
+import re, io
+with io.open('.github/workflows/distribution-stable.yml', encoding='utf-8') as f:
+    t = f.read()
+staged = set(re.findall(r'for s in ([^;]+); do', t)[0].split())
+used = set(re.findall(r'CI_SCRIPTS_DIR/([A-Za-z0-9_.-]+)', t))
+assert used, 'kein einziger CI_SCRIPTS_DIR-Aufruf im Workflow — Fix rueckgebaut?'
+missing = used - staged
+assert not missing, ('Aufruf ohne Staging: %s — der Job laeuft ins Leere (exit 127, '
+                     'Vorfall #250)' % sorted(missing))
+"
 
 echo
 if [ "$FAIL" -eq 0 ]; then
