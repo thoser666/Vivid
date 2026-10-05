@@ -909,6 +909,8 @@ class StreamingEngine @Inject constructor(
                 restorePreviewAfterRecordingFailure(cam, standalone)
                 return false
             }
+            // RootEncoder prepares GL again when its encoders start, restoring Camera2's rotation.
+            externalCapture?.restoreInputOrientation()
             applyPrivacyZones(desiredPrivacyZones.value)
             attachPreviewIfRunning()
             restoreCameraControls()
@@ -1206,6 +1208,7 @@ class StreamingEngine @Inject constructor(
             activeUrls.forEachIndexed { index, url ->
                 cam.startStream(MultiType.RTMP, index, url)
             }
+            externalCapture?.restoreInputOrientation()
             // RootEncoder opens Camera2 during startStream; attach after that transition.
             attachPreviewIfRunning()
             restoreCameraControls()

@@ -60,6 +60,12 @@ Hook. `RootEncoderExternalCapture` kapselt daher drei private Verträge:
 `cameraManager`, `prepareGlView(...)` und `Camera2ApiManager.isRunning`.
 Der Adapter konfiguriert denselben GL-Renderer und unterdrückt anschließend
 `openLastCamera`, solange der alternative Capture-Pfad die Kamera besitzt.
+Der Decoder liefert bereits native Landscape-Pixelachsen. Der Adapter setzt
+`setCameraOrientation(0)` nach seiner Vorbereitung und die Engine erneut nach
+`startRecord`/`startStream`: RootEncoder ruft bei diesen Starts intern nochmals
+`prepareGlView` auf und setzt sonst die Camera2-Texturrotation von 270 Grad.
+Diese Rotation auf Decoder-Frames verdrehte und verzerrte die GL-Eingabe.
+Display-Rotation und Center-Crop bleiben im separaten Preview-Schritt.
 Consumer-R8-Regeln sichern die reflektierten Namen. Bei einem Versionswechsel
 müssen diese Verträge und die Geräteprüfung erneut verifiziert werden; ein
 inkompatibler Vertrag fällt während Vorbereitung auf den Standardpfad zurück.
@@ -105,3 +111,14 @@ Die betroffenen Workflow-/Contributor-Dateien wurden nicht verändert.
 
 Rohvideos, vollständige Decode-Hashes und Testprotokolle liegen lokal unter
 `build/reports/experimental-camera-mode-2026-10-06/` (nicht eingecheckt).
+
+## Orientierungsregression
+
+`CameraOrientationInstrumentedTest` ist ein separater Opt-in-Test mit
+`runCameraOrientation=true` und einem expliziten Loopback-RTMP-Ziel. Er prüft
+Standard und Experimentell in Portrait, Landscape und Reverse-Landscape,
+wartet auf echte Encoder-FPS und kopiert die Preview-Surface über PixelCopy
+vor Start, im Stream und nach Stop. Die experimentelle Input-Rotationsmatrix
+muss nach Start identisch bleiben. Auf dem vorherigen APK schlug dieser
+Regressionstest fehl; nach der Korrektur bestehen alle sechs Übergänge auf
+POCO. Die Preview-Bildpaare wurden zusätzlich visuell geprüft.

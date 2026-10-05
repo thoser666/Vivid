@@ -115,6 +115,7 @@ class StreamingEngineTest {
             capture.prepare()
             adapter.claimCamera()
             camera.startStream(MultiType.RTMP, 0, LIVE_URL)
+            adapter.restoreInputOrientation()
         }
         assertEquals(CameraMode.EXPERIMENTAL_60_FPS, streamingEngine.cameraModeStatus.value.applied)
         assertFalse(streamingEngine.configureCameraMode(CameraMode.STANDARD))

@@ -23,7 +23,13 @@ internal class RootEncoderExternalCapture(private val camera: Camera2Base) : Aut
         prepareGl.invoke(camera, width, height, width, height, 0)
         val gl = camera.glInterface as GlStreamInterface
         check(gl.isRunning)
+        restoreInputOrientation()
         return gl
+    }
+
+    /** Decoder output already uses native landscape pixel axes, unlike Camera2's texture transform. */
+    fun restoreInputOrientation() {
+        (camera.glInterface as GlStreamInterface).setCameraOrientation(0)
     }
 
     fun claimCamera() {
