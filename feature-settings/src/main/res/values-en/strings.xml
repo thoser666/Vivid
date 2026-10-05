@@ -339,4 +339,20 @@
     <string name="a11y_not_selected">Not selected</string>
     <string name="a11y_switch_on">On</string>
     <string name="a11y_switch_off">Off</string>
+
+    <!-- Applied capture path and measured output, separate from the requested preset. -->
+    <string name="camera_mode_title">Camera mode</string>
+    <string name="camera_mode_standard">Standard</string>
+    <string name="camera_mode_experimental">60 FPS — experimental</string>
+    <string name="camera_mode_description">Alternative capture with GL filters and overlays. Higher load; camera controls are limited while the experimental mode is running.</string>
+    <string name="camera_mode_locked">Change only before starting a recording or stream.</string>
+    <string name="camera_mode_unsupported">Unavailable for the selected camera, resolution or codecs.</string>
+    <string name="camera_mode_applied">Applied mode: %1$s</string>
+    <string name="camera_mode_fps_pending">Measured FPS: awaiting frames</string>
+    <string name="camera_mode_measured_fps">Measured FPS: %1$d</string>
+    <string name="camera_mode_fallback_unsupported">60 FPS capture is unsupported. Using standard mode.</string>
+    <string name="camera_mode_fallback_preparation">60 FPS preparation failed. Using standard mode.</string>
+    <string name="camera_mode_capture_failed">Experimental camera failed. Recording and stream stopped.</string>
+    <string name="camera_mode_recording_failed">Recording could not start.</string>
+    <string name="camera_mode_preparing">Preparing 60 FPS camera…</string>
 </resources>

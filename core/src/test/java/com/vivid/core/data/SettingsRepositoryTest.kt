@@ -39,6 +39,22 @@ class SettingsRepositoryTest {
         assertEquals(testKey, settings.streamKey)
     }
 
+    @Test
+    fun `camera mode roundtrip survives a repository instance change`() = runTest {
+        val store = PreferenceDataStoreFactory.create(scope = this,
+            produceFile = { File(tempDir.toFile(), "camera_mode.preferences_pb") })
+        SettingsRepository(store).updateCameraMode(CameraMode.EXPERIMENTAL_60_FPS)
+        assertEquals(CameraMode.EXPERIMENTAL_60_FPS, SettingsRepository(store).appSettingsFlow.first().cameraMode)
+    }
+
+    @Test
+    fun `unknown camera mode is standard`() = runTest {
+        val store = PreferenceDataStoreFactory.create(scope = this,
+            produceFile = { File(tempDir.toFile(), "unknown_camera_mode.preferences_pb") })
+        store.edit { it[stringPreferencesKey("camera_mode")] = "future" }
+        assertEquals(CameraMode.STANDARD, SettingsRepository(store).appSettingsFlow.first().cameraMode)
+    }
+
     // Drei kleine Tests statt einem mit drei Edits: Der DataStore-Actor hat
     // unter Windows bei mehreren aufeinanderfolgenden Edits auf derselben
     // Instanz eine Rename-Race (tmp → final), das Hausmuster ist ein Edit

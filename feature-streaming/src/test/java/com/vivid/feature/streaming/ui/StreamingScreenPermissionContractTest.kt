@@ -82,6 +82,7 @@ class StreamingScreenPermissionContractTest {
     @Before
     fun setUp() {
         engine = mockk(relaxed = true)
+        every { engine.cameraModeStatus } returns MutableStateFlow(com.vivid.feature.streaming.CameraModeStatus())
         every { engine.streamingState } returns streamingState
         every { engine.targetStates } returns targetStates
         every { engine.activeEncoder } returns MutableStateFlow(null)

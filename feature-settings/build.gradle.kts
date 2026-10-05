@@ -56,6 +56,7 @@ dependencies {
     // Modules
     implementation(project(":core"))
     implementation(project(":domain"))
+    implementation(project(":feature-streaming"))
     // Live-Zählerstand des Chat-Bots (Settings-Screen: Kosten-Budget beobachten).
     implementation(project(":feature-chat"))
     implementation(project(":feature-widgets"))

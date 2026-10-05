@@ -1,0 +1,107 @@
+# Experimenteller Kameramodus mit GL
+
+In **Einstellungen → Kamera-Steuerung → Kameramodus** stehen `Standard` und
+`60 FPS — experimentell` zur Auswahl. Standard bleibt der bestehende normale
+Camera2-Pfad. Die Auswahl wird in DataStore gespeichert und vor Aufnahme sowie
+vor lokalen und entfernten Streamstarts gelesen.
+
+Der experimentelle Pfad verwendet ausschließlich gemeldete feste High-Speed-
+Bereiche ab 120 FPS und Hardware-Codecs:
+
+```text
+Camera2 High-Speed → AVC Surface-Encoder (max. 60 FPS)
+                 → Hardware-Decoder → bestehendes Vivid-GL
+                 → finaler Encoder → MP4 und/oder RTMP
+```
+
+GL-Effekte und Overlays werden nicht für einen direkten Encoder-Pfad umgangen.
+Im experimentellen Modus ersetzt der PrivacyComposer nur seine eigenen Effekte;
+extern hinzugefügte GL-Overlays bleiben bei einem Ketten-Rebuild erhalten.
+Die vorhandenen Compose-Overlays bleiben ebenfalls im bestehenden UI-Pfad.
+Die Einstellung fügt keine neue Übertragung von bisher ausschließlich in der
+Vorschau dargestellten Compose-Widgets in das codierte Video hinzu.
+
+## Zulassung und Lebenszyklus
+
+- Android 10 oder neuer; Kamera mit `CONSTRAINED_HIGH_SPEED_VIDEO` und passender
+  Auflösung plus festem FPS-Bereich. Der kleinste passende Bereich wird gewählt.
+- Die erste Version unterstützt vorhandene 60-FPS-Ausgabe-Presets: 1080p
+  (`FHD30` wird bei gleicher Auflösung auf `FHD60` angehoben) und 4K, sofern alle
+  Anforderungen tatsächlich erfüllt sind. 720p/480p-Presets sind gesperrt.
+- Hardware-AVC-Encoder und -Decoder müssen die Auflösung bei 60 FPS unterstützen;
+  der finale Codec wird ebenfalls geprüft. Gleichzeitige Codec-Verfügbarkeit
+  lässt sich erst während der Vorbereitung prüfen.
+- Umschalten ist während Vorbereitung, Aufnahme und Stream gesperrt. Eine
+  laufende Aufnahme und ein später gestarteter RTMP-Stream teilen denselben
+  Capture-Pfad. Das Stoppen eines Verbrauchers lässt den anderen weiterlaufen.
+- Vorbereitung läuft außerhalb des UI-Threads und wartet begrenzt auf echte
+  dekodierte Kamerabilder. Ein Stop während Vorbereitung verhindert einen
+  nachträglichen Start. Ungeeignete Konfigurationen oder vorbereitungsbedingte
+  Fehler wechseln sichtbar zum normalen Camera2-Pfad mit kompatiblem Profil.
+- Ein Fehler nach dem Start stoppt Aufnahme und Stream mit sichtbarer Meldung;
+  es gibt keinen verdeckten Pfadwechsel während einer laufenden Sitzung.
+- Die Kamera-Steuerung während High-Speed-Capture ist eingeschränkt und im
+  UI beschrieben. Bestehende Zoom/Fokus/Torch/Belichtungs-Aufrufe werden nicht
+  an den inaktiven normalen Camera2-Manager weitergereicht.
+
+## Angefordert, angewendet und gemessen
+
+Gespeicherter Modus, angewendeter Capture-Modus, tatsächlich vorbereitetes
+Encoder-Profil und gemessene finale Encoder-FPS sind getrennte Zustände. Die
+FPS-Anzeige nutzt RootEncoders Callback für tatsächlich ausgegebene Frames
+pro Realzeitfenster; sie übernimmt keine Kamera- oder Encoder-Metadaten.
+`60 FPS — experimentell` verspricht daher keine konstanten 60 FPS unter Last.
+MP4/RTMP-PTS und vollständige Decodes dienen zusätzlich der Geräteverifikation.
+
+## RootEncoder-Vertrag
+
+RootEncoder 2.7.5 bietet im `Camera2Base` keinen öffentlichen External-Capture-
+Hook. `RootEncoderExternalCapture` kapselt daher drei private Verträge:
+`cameraManager`, `prepareGlView(...)` und `Camera2ApiManager.isRunning`.
+Der Adapter konfiguriert denselben GL-Renderer und unterdrückt anschließend
+`openLastCamera`, solange der alternative Capture-Pfad die Kamera besitzt.
+Consumer-R8-Regeln sichern die reflektierten Namen. Bei einem Versionswechsel
+müssen diese Verträge und die Geräteprüfung erneut verifiziert werden; ein
+inkompatibler Vertrag fällt während Vorbereitung auf den Standardpfad zurück.
+
+## Tests
+
+Unit-Tests prüfen Capability-Auswahl, DataStore-Roundtrip, Vorbereitung vor
+Transport, Ressourcenfreigabe und Standard-Fallback, Stop während ausstehender
+Vorbereitung, Modussperre sowie Erhalt externer GL-Overlays. Compose-Tests prüfen
+Sperren, Nichtverfügbarkeit und die Anzeige von Fallback und gemessenen FPS.
+
+`ExperimentalCameraInstrumentedTest` ist ein expliziter Opt-in-Test mit
+`runExperimentalCamera=true` und einem `localRtmpUrl` unter `127.0.0.1`.
+Er zeichnet mit Audio auf, fügt Graustufen und einen GL-Text-Overlay hinzu,
+startet lokales RTMP auf derselben Aufnahme, stoppt beide Verbraucher getrennt
+und startet anschließend eine Standardaufnahme. Gespeicherte externe
+Streamziele werden nie verwendet und App-Daten nicht gelöscht.
+
+## Gerätebeleg vom 2026-10-06
+
+POCO X7 Pro (2412DPC0AG, Android 16), Hauptkamera, 1080p/H.264,
+High-Speed-Capture 120 → Decoder → Vivid-GL → finaler Encoder mit Audio:
+
+| Lauf | MP4-FPS | RTMP-FPS | Vollständig dekodierte Frames MP4 / RTMP | Benachbarte Duplikate |
+|------|---------|----------|----------------------------------------|----------------------|
+| 30 Sekunden | 57,33 | 57,33 | 1774 / 1715 | 0 / 0 |
+| 120 Sekunden | 52,58 | 52,59 | 6372 / 6311 | 0 / 0 |
+
+FPS wurden nach fünf Sekunden Anlauf anhand der Video-PTS berechnet;
+Metadaten wie `60/1` wurden nicht als Messwert übernommen. Die letzten
+30 Sekunden des langen Laufs lagen bei 52,51 FPS. Beide Tracks enthielten
+AAC mit 32 kHz; Graustufen und ein roter GL-Text-Overlay waren aktiv.
+Der anschließende Wechsel auf Standard und eine reine Videoaufnahme waren
+erfolgreich. **Konstante 60 FPS auf POCO sind damit nicht bestätigt.**
+Samsung und 4K wurden mit dieser Vivid-Integration noch nicht auf einem
+Gerät geprüft. Es gibt noch keinen Langzeit-/Thermal-Nachweis.
+
+Alle Modul-Unit-Tests, Standard-App-Tests, Lint und FOSS-Debug-/R8-Release-
+Build bestanden. Das vollständige `scripts/pre-push.sh` stoppt zuvor bei
+`test_contributors_reminder.sh` C18 (`Mutation konnte nicht angewendet werden`);
+derselbe Fehler wurde auf dem unveränderten Ausgangsbranch reproduziert.
+Die betroffenen Workflow-/Contributor-Dateien wurden nicht verändert.
+
+Rohvideos, vollständige Decode-Hashes und Testprotokolle liegen lokal unter
+`build/reports/experimental-camera-mode-2026-10-06/` (nicht eingecheckt).

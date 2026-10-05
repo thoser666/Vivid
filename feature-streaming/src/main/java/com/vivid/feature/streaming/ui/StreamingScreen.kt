@@ -69,6 +69,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
+import com.vivid.feature.streaming.CameraModeStatus
+import com.vivid.feature.streaming.CameraModeNotice
+import com.vivid.core.data.CameraMode
 import com.vivid.feature.streaming.StreamingEngine
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.viewinterop.AndroidView
@@ -148,6 +151,7 @@ fun StreamingScreen(
     val targetStates by streamingEngine.targetStates.collectAsStateWithLifecycle()
     val activeEncoder by streamingEngine.activeEncoder.collectAsStateWithLifecycle()
     val bitrateDiagnostics by streamingEngine.bitrateDiagnostics.collectAsStateWithLifecycle()
+    val cameraModeStatus by streamingEngine.cameraModeStatus.collectAsStateWithLifecycle()
     val measuredEncoderFps by streamingEngine.measuredEncoderFps.collectAsStateWithLifecycle()
     val activeSourceKind by streamingEngine.activeSourceKind.collectAsStateWithLifecycle()
     val configIssues by viewModel.configIssues.collectAsStateWithLifecycle()
@@ -192,7 +196,7 @@ fun StreamingScreen(
         startAttempted = startAttempted && granted
     }
 
-    val requestPermissionsAndRecord = rememberRecordingAction(streamingEngine, snackbarHostState, dismissLabel)
+    val requestPermissionsAndRecord = rememberRecordingAction(viewModel, snackbarHostState, dismissLabel)
 
     // Start idle preview only when camera permission is already granted.
     LaunchedEffect(Unit) {
@@ -331,6 +335,7 @@ fun StreamingScreen(
                             verticalArrangement = Arrangement.spacedBy(4.dp),
                         ) {
                             if (activeSourceKind == VideoSourceKind.CAMERA) {
+                                CameraModeFeedback(cameraModeStatus)
                                 activeEncoder?.let { AppliedCameraProfile(it, measuredEncoderFps) }
                                 bitrateDiagnostics?.let {
                                     Text(
@@ -962,7 +967,7 @@ private fun rememberDisplayRotation(): Int {
 }
 
 @Composable
-private fun rememberRecordingAction(streamingEngine: StreamingEngine, snackbarHostState: SnackbarHostState, dismissLabel: String): () -> Unit {
+private fun rememberRecordingAction(viewModel: StreamingViewModel, snackbarHostState: SnackbarHostState, dismissLabel: String): () -> Unit {
     val context = LocalContext.current
     var recordingError by remember { mutableStateOf(false) }
     val recordingErrorMessage = stringResource(R.string.streaming_replay_start_error)
@@ -976,7 +981,7 @@ private fun rememberRecordingAction(streamingEngine: StreamingEngine, snackbarHo
         }
     }
     fun startRecording() {
-        recordingError = !streamingEngine.startReplay()
+        viewModel.toggleReplay { recordingError = !it }
     }
     val recordingPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),

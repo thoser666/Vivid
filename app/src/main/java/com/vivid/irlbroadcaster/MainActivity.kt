@@ -40,7 +40,7 @@ import com.vivid.feature.playback.PlaybackScreen
 import com.vivid.feature.streaming.ui.ReplayLibraryScreen
 import com.vivid.feature.settings.ui.SettingsAboutScreen
 import com.vivid.feature.settings.ui.SettingsAppearanceScreen
-import com.vivid.feature.settings.ui.SettingsCameraScreen
+import com.vivid.feature.settings.ui.SettingsCameraRoute
 import com.vivid.feature.settings.ui.SettingsChatBotScreen
 import com.vivid.feature.settings.ui.SettingsLogsScreen
 import com.vivid.feature.settings.ui.SettingsOverlaysScreen
@@ -221,7 +221,7 @@ fun VividAppNavigation() {
             )
         }
         composable("settings_camera") {
-            SettingsCameraScreen()
+            SettingsCameraRoute(onBack = { navController.popBackStack() })
         }
         composable("settings_appearance") {
             val viewModel: SettingsViewModel = hiltViewModel()

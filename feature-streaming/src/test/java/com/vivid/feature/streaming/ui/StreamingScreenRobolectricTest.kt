@@ -83,6 +83,7 @@ class StreamingScreenRobolectricTest {
     @Before
     fun setUp() {
         engine = mockk(relaxed = true)
+        every { engine.cameraModeStatus } returns MutableStateFlow(com.vivid.feature.streaming.CameraModeStatus())
         every { engine.streamingState } returns streamingState
         every { engine.targetStates } returns targetStates
         every { engine.activeEncoder } returns MutableStateFlow(null)
@@ -105,6 +106,7 @@ class StreamingScreenRobolectricTest {
 
         viewModel = mockk(relaxed = true)
         every { viewModel.streamingEngine } returns engine
+        every { viewModel.toggleReplay(any()) } answers { firstArg<(Boolean) -> Unit>()(engine.startReplay()) }
         every { viewModel.configIssues } returns configIssues
         every { viewModel.scenes } returns MutableStateFlow(emptyList())
         every { viewModel.activeSceneId } returns MutableStateFlow<String?>(null)

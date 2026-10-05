@@ -72,6 +72,10 @@ class PrivacyComposer(
     },
 ) {
 
+    /** External GL overlays must survive effect rebuilds in the experimental capture path. */
+    @Volatile var preserveExternalFilters: Boolean = false
+    private val managedFilters = java.util.WeakHashMap<GlStreamInterface, List<BaseFilterRender>>()
+
     private val _privacyEnabled = MutableStateFlow(false)
 
     /** Ob die Anonymisierung aktiv ist (Position 0 in der Kette). */
@@ -91,6 +95,7 @@ class PrivacyComposer(
      * ist die Engine mit dem bereits aufgelösten [GlStreamInterface] — ohne
      * Kamera/GL ist der Aufruf ein No-Op (Idle-Guard liegt in der Engine).
      */
+    @Synchronized
     fun requestRebuild(gl: GlStreamInterface?) {
         if (gl == null) return
         val desired = mutableListOf<BaseFilterRender>()
@@ -107,8 +112,15 @@ class PrivacyComposer(
         lutRenderFactory()?.let { desired.add(it) }
         lowLightRenderFactory()?.let { desired.add(it) }
 
-        gl.clearFilters()
-        desired.forEach { gl.addFilter(it) }
+        if (preserveExternalFilters) {
+            managedFilters[gl].orEmpty().forEach { gl.removeFilter(it) }
+            // Own effects remain before external overlays, with privacy at position zero.
+            desired.forEachIndexed { index, filter -> gl.addFilter(index, filter) }
+        } else {
+            gl.clearFilters()
+            desired.forEach { gl.addFilter(it) }
+        }
+        managedFilters[gl] = desired
     }
 
     /**

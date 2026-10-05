@@ -66,6 +66,25 @@ class PrivacyComposerTest {
     }
 
     @Test
+    fun `experimental rebuild preserves external overlay while replacing owned filters`() {
+        val chain = mutableListOf<BaseFilterRender>()
+        val overlay = mockk<BaseFilterRender>(relaxed = true)
+        val video = mockk<BaseFilterRender>(relaxed = true)
+        val gl = mockk<GlStreamInterface>(relaxed = true) {
+            every { addFilter(any<Int>(), any()) } answers { chain.add(firstArg(), secondArg()) }
+            every { removeFilter(any<BaseFilterRender>()) } answers { chain.remove(firstArg()); Unit }
+            every { clearFilters() } answers { chain.clear() }
+        }
+        val composer = composer(RecordingGl(), filter = VideoFilter.GRAYSCALE, videoRender = video)
+        composer.preserveExternalFilters = true
+        composer.requestRebuild(gl)
+        chain.add(overlay)
+        composer.requestRebuild(gl)
+        assertEquals(listOf(video, overlay), chain)
+        io.mockk.verify(exactly = 0) { gl.clearFilters() }
+    }
+
+    @Test
     fun `empty slots rebuild to a single clear`() {
         val recorder = RecordingGl()
         val composer = composer(recorder)

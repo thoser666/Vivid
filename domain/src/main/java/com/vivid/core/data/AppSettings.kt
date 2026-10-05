@@ -207,6 +207,7 @@ data class AppSettings(
     // --- Encoder-Presets (4K/60fps + HEVC, v0.6.0-Bucket) ---
     // Aufloesung/FPS des Video-Encoders (RootEncoder prepareVideo). Default
     // FHD30 = 1080p @ 30 fps.
+    val cameraMode: CameraMode = CameraMode.STANDARD,
     val encoderPreset: EncoderPreset = EncoderPreset.FHD30,
     // Bevorzugter Video-Codec (AUTO = HEVC wenn verfuegbar, sonst H.264).
     val videoCodecPreference: VideoCodecPreference = VideoCodecPreference.AUTO,
