@@ -40,7 +40,7 @@ webrtcSdk = "150.7871.01"
 turbine = "1.2.1"
 ktor = "3.6.0"
 sentryGradlePlugin = "6.23.0"
-roborazzi = "1.75.0"
+roborazzi = "1.76.0"
 robolectric = "4.17"
 zxing = "3.5.4"
 
