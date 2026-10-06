@@ -2,6 +2,7 @@ package com.vivid.core.remote
 
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import com.vivid.core.log.LogStore
+import com.vivid.core.network.canConnectNow
 import io.ktor.server.cio.CIO
 import io.ktor.server.engine.embeddedServer
 import kotlinx.coroutines.CoroutineScope
@@ -34,6 +35,15 @@ import java.net.ServerSocket
  * nötig sind und die Kettenglieder nicht im heissen ephemeralen Bereich
  * liegen (dort belegen Kernel-Zuweisungen und fremde Prozesse laufend Ports —
  * das war die Flake-Ursache: bevorzugt+1 lag in der heissen Range).
+ *
+ * **Start vs. Test-Wartezeit (#268).** Diese Klasse wartet *nicht* selbst auf
+ * den Bind — [RemoteControlServer.start] tut das im Produktionscode
+ * (`awaitEngineBind`, NIO-Probe bis 2 s) und setzt `activePort` erst danach.
+ * Ein `awaitPortListening` im Test würde diese Produktionsgarantie nur
+ * verdecken. Der Test hält sie stattdessen fest: `start kehrt erst zurück,
+ * wenn der gemeldete Port wirklich lauscht`. Der Warte-Helper aus #264
+ * gehört dagegen in die Tests, deren Startpfad die Bind-Verzögerung *nicht*
+ * selbst abwartet — siehe `WHIPClientTest.startServer`.
  *
  * Bewusst `runBlocking` statt `runTest`: [RemoteControlServer.start] setzt
  * `_activePort` synchron vor der Rückgabe, daher genügt das direkte
@@ -104,8 +114,24 @@ class RemoteControlServerPortFallbackTest {
         val server = newServer()
         server.preferredPort = preferred
         try {
+            // #268: `coldRangePort()` hat den Port bereits wieder freigegeben.
+            // Nimmt ein Fremdprozess ihn im Fenster bis zur Probe in
+            // `start()`, ist das ein Umgebungszustand und kein Testfehler. Die
+            // Erwartung wird deshalb unmittelbar vor dem Start über dieselbe
+            // Policy + dieselbe Probe berechnet (Muster des zweiten Tests), statt
+            // `preferred` festzunageln. Die Aussage „freier Preferred-Port gewinnt“
+            // deckt PortFallbackPolicyTest deterministisch ab; hier zählt der Weg
+            // durch die echte Engine.
+            val expected = PortFallbackPolicy.selectPort(preferred) { candidate ->
+                RemoteControlServer.probePort(candidate)
+            }
             server.start()
-            assertEquals(preferred, server.activePort.value)
+            assertEquals(
+                expected,
+                server.activePort.value,
+                "start() muss genau den Port melden, den die Kette unmittelbar davor gewählt hat",
+            )
+            assertTrue(server.isRunning)
         } finally {
             server.stop()
         }
@@ -159,6 +185,38 @@ class RemoteControlServerPortFallbackTest {
             assertTrue(active > 0, "activePort muss einen konkreten Port melden (war $active)")
             assertNotEquals(preferred, active)
             assertTrue(server.isRunning)
+        } finally {
+            server.stop()
+        }
+    }
+
+    @Test
+    fun `start kehrt erst zurück, wenn der gemeldete Port wirklich lauscht`() = runBlocking {
+        // #268: `canConnectNow` pollt bewusst nicht — ein wartender Aufruf
+        // würde genau das wegprüfen, was diese Zusicherung behauptet. Fällt der
+        // Test, gibt `start()` den aktiven Port heraus, bevor die Engine
+        // gebunden hat; die Settings-UI würde dann einen toten Port zeigen.
+        //
+        // Ehrliche Grenze: das ist ein Zeitfenster, kein-deterministischer
+        // Nachweis. Die Mutation, die `awaitEngineBind` auf ein sofortiges
+        // `return true` verkürzt, blieb lokal grün — auch mit 20 Runden statt
+        // einer (gemessen, Protokoll im Issue #268). Der Test benennt die
+        // Annahme und fällt dort, wo sie tatsächlich bricht: auf belasteten
+        // CI-Runnern, für die das Pollen in `awaitEngineBind` überhaupt
+        // existiert. Wiederholung wurde bewusst nicht beibehalten, solange ihr
+        // Nutzen nicht messbar ist — sie kostete 40 % Laufzeit der Klasse.
+        val preferred = coldRangePort()
+        val server = newServer()
+        server.preferredPort = preferred
+        try {
+            server.start()
+            val active = server.activePort.value
+
+            assertTrue(active > 0, "activePort muss einen konkreten Port melden (war $active)")
+            assertTrue(
+                canConnectNow(active),
+                "start() darf erst zurückkehren, wenn der gemeldete Port lauscht (Port $active)",
+            )
         } finally {
             server.stop()
         }

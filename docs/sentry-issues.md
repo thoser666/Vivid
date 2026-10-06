@@ -200,7 +200,9 @@ C3 (Selbsttest F8/F9). Die Nicht-Crash-Befunde derselben Runde (#217/#218/#219/
 #224/#242/#244/#248) waren **error**-Level auf gefangenen Pfaden (OBS-WebSocket
 `OBSWebSocketClient.kt:131-133`, Socket-/Connect-Timeouts, RootEncoder-interner
 `JobCancellationException`) bzw. native Einzel-Signale (SIGSEGV/SIGABRT, je
-1 Event) — attribuiert und geschlossen.
+1 Event) — attribuiert und geschlossen. Dieselbe Fehlerklasse wie diese
+Nicht-Crash-Befunde, aber jetzt mit Ursachenbehebung statt wiederholter
+Triage: #267 ist in Punkt 7 beschrieben.
 
 6. **CrashAdvisory-Range beim Release-Schnitt konkretisieren:** Der Schnitt
    aktualisiert Workaround **und** `maxVersionCode` — der Vertrag der Registry
@@ -213,6 +215,90 @@ C3 (Selbsttest F8/F9). Die Nicht-Crash-Befunde derselben Runde (#217/#218/#219/
    ausgelieferter** betroffener Build, `evaluate(5194)` und `evaluate(5202)`
    müssen `null` liefern (Regressionstest in `CrashAdvisoryTest`), und die
    Release-Notes nennen dieselbe Range wie der Code.
+
+7. **Erwartete Netzwerk-Betriebszustände sind kein Meldegrund** (seit 05.10.2026,
+   #267 / Sentry VIVID-3P). Die Befunde #217/#218/#219/#224/#242/#244/#248 waren
+   allesamt **error**-Events auf gefangenen Pfaden und wurden korrekt als „kein
+   Defekt" geschlossen — aber sie waren damit die fünfte bis zwölfte Wiederholung
+   desselben Zustands, und der Watchdog legt für jede Wiederholung ein neues
+   Issue an. „Kein Defekt" beantwortet die Frage, ob ein **Fehler** vorliegt, nicht
+   die Frage, ob der Zustand **meldewürdig** ist; beides zu trennen ist Aufgabe des
+   Meldepfads, nicht der Triage.
+
+   **Wirkort:** `SentryTransportFilter.kt` (`app`) filtert im `beforeSend`-Callback
+   — verkettet **hinter** dem Opt-out (`applySentryOptOut`), beide Vorgänge bleiben
+   erhalten. Ein Event fällt nur durch, wenn **alle** drei Netze greifen:
+
+   1. Das Level ist **explizit gesetzt** und **nicht** `FATAL`. Fehlt das Level
+      (`null`), bleibt das Event stehen: ohne gesetztes Level lässt sich nicht
+      ausschließen, dass es doch ein FATAL-Crash ist.
+   2. Die **komplette** Cause-Kette besteht aus erlaubten Transporttypen. Ein
+      einzelner unbekannter Typ lässt das Event durch.
+   3. Es ist überhaupt ein Throwable vorhanden.
+
+   **Allowlist** (jeder Eintrag durch ein attribuiertes Issue belegt, die Liste
+   wächst nur mit einem echten Issue als Beleg): `java.net.NoRouteToHostException`
+   (#267), `java.net.ConnectException` (#217), `java.net.SocketTimeoutException`
+   (#219/#224/#244), `java.net.UnknownHostException` (#220),
+   `io.ktor.client.plugins.ConnectTimeoutException` (#248).
+
+   **Zwei Fallen, die den Filter still wirkungslos machen würden** — beide am
+   Sentry-Artefakt verifiziert, beide in Tests festgenagelt:
+
+   - **`SentryEvent.getExceptions()` ist auf dem `beforeSend`-Pfad `null`.** Auch
+     nach `setThrowable` — die Kette entsteht erst bei der Serialisierung. Eine
+     Policy, die `exceptions` auswertet, erkennt nichts und lässt das
+     Issue-Rauschen scheinbar verschwunden sein. Die Policy läuft über
+     `getThrowable()` (vererbt aus `SentryBaseEvent`), das die Kette trägt.
+   - **`Mechanism.isHandled()` taugt nicht als Kriterium.** Der vom SDK beim Init
+     gepflanzte `SentryTimberTree` ruft `captureEvent` **ohne** `Mechanism`; für
+     `captureEvent` gilt die Sentry-Konvention `handled=false`. Eine Regel
+     „unbehandelt → behalten" behielte damit jedes `Timber.e`-Event — das Filterziel
+     wäre exakt verfehlt. Getrennt wird stattdessen über das Level: der Tree mappt
+     Timber `ERROR` (Priorität 6) auf `SentryLevel.ERROR`, nur `ASSERT` (7) auf
+     `FATAL`.
+
+   **Basisklassen sind verboten.** `BindException` (#222/#228, VIVID-37/3E, echter
+   Start-Crash, Registry `REMOTE-EADDRINUSE-STARTUP`) ist Geschwister der hier
+   gefilterten Typen — alle vier erben von `java.net.SocketException`. Ein Abgleich
+   auf die Oberklasse würde den echten Crash verschlucken; deshalb wird
+   ausschließlich der **exakte** Typ verglichen. Ebenfalls außen vor: der
+   `JobCancellationException` (#218, verschluckt echte Coroutine-Bugs, weil fast
+   jede abgebrochene Koroutine damit endet) und der `ClosedReadChannelException`
+   (#242, ein vorzeitiger Server-Abbruch kann ein Serverfehler sein).
+
+   **Die beforeSend-Kette haengt an der Opt-out-Fabrik (R8-Vorbedingung, neu als
+   C0 im `check_sentry_optout_mapping.sh`).** Die Transport-Filter-Fabrik ruft
+   `sentryBeforeSendCallback` **auf**, statt den Opt-out inline nachzubauen. Der
+   Grund ist nicht Geschmack: C3–C6 weisen die Opt-out-Fabrik per R8-Mapping
+   nach, und dieser Nachweis traegt nur, solange genau diese Fabrik den
+   Aufrufpfad bildet. Wuerde `VividApplication` sie durch einen eigenen Callback
+   ersetzen, haette sie im Release-Build keinen Aufrufer mehr — R8 entfernte sie
+   und der Nachweis schlaege erst beim naechsten Release-Build fehl, also lange
+   nach der Ursache. C0 prueft die Komposition deshalb **quellenseitig** und ohne
+   Mapping, laeuft ueber `--composition-only` und ist im Pre-Push-Gate hart
+   verdrahtet, waehrend C2–C6 ohne Release-Build weich bleiben duerfen.
+
+   **Nebenbefund an C5, am echten Mapping gemessen (06.10.2026):** C5 suchte
+   bisher einen `io.sentry.SentryClient`-Record im geteilten Inline-Range. Mit der
+   neuen Fabrik legt R8 den Aufrufer als synthetische Lambda-Bruecke an
+   (`…$$ExternalSyntheticLambda0.execute(io.sentry.SentryEvent, io.sentry.Hint)`),
+   worauf der alte Check an beiden Release-Kanaelen **hart rot** schlug — bei
+   nachweislich vorhandener Logik (`sentryBeforeSendCallback`, sein Lambda,
+   `classifySentryEvent` und `throwableTypeChain` stehen alle im Mapping). C5
+   prueft deshalb jetzt die **vom SDK festgelegte Aufrufsignatur
+   `(SentryEvent, Hint)`** statt eines Klassennamens, den R8 frei waehlt; der
+   Stub im Selbsttest bildet genau diese gemessene Form ab. Das Verhalten bei
+   weiterer R8-Drift bleibt hart, nicht still: ein Layout, das die Signatur nicht
+   mehr traegt, faellt durch.
+
+   **Richtung des Fehlverhaltens:** Der Filter darf zu **wenig** durchlassen —
+   trifft die Kette einen Ktor-Wrapper, der nicht in der Allowlist steht, bleibt
+   das Event stehen und der Watchdog meldet es weiter. Zu **viel** durchzulassen
+   (ein echter Befund verschwindet) ist das schlimmere und laut Doku-Default nicht
+   vertretbar. Für #267 war die tatsächliche Kette am Event nicht lesbar (lokaler
+   Token ohne `project:read`, siehe §1), der Filter ist deshalb bewusst
+   konservativ kalibriert und der Befund unten nennt diese Lücke ausdrücklich.
 
 ## 6. Sicherheit
 
