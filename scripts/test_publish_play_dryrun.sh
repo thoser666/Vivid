@@ -19,7 +19,7 @@ set -euo pipefail
 # Bundler-Präfix: CI nutzt `bundle exec fastlane` (ruby/setup-ruby bundler-cache);
 # lokal reicht ggf. ein direkt installiertes fastlane.
 FASTLANE_CMD=("bundle" "exec" "fastlane")
-if ! command -v bundle >/dev/null 2>&1 && command -v fastlane >/dev/null 2>&1; then
+if ! bundle --version >/dev/null 2>&1 && command -v fastlane >/dev/null 2>&1; then
   FASTLANE_CMD=("fastlane")
 fi
 

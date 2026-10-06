@@ -22,7 +22,18 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR/.." || exit 1
 
 SCRATCH="$(mktemp -d)"
-trap 'rm -rf "$SCRATCH"' EXIT
+s9_fixture_ready=0
+restore_s9_apk() {
+  if [[ "$s9_fixture_ready" == 1 ]]; then
+    if [[ -f "$SCRATCH/s9-original.apk" ]]; then
+      cp "$SCRATCH/s9-original.apk" "$ROOT_DIR/$REL_APK"
+    else
+      rm -f "$ROOT_DIR/$REL_APK"
+    fi
+    s9_fixture_ready=0
+  fi
+}
+trap 'restore_s9_apk; rm -rf "$SCRATCH"' EXIT
 
 STATE="$SCRATCH/state"
 mkdir -p "$STATE"
@@ -270,13 +281,17 @@ assert_harness "S8.11 Harness bildet die gradle-Action-ENV-Pfade für Mapping/Me
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 REL_APK="app/build/outputs/apk/standard/release/app-standard-release.apk"
 mkdir -p "$ROOT_DIR/$(dirname "$REL_APK")"
+if [[ -f "$ROOT_DIR/$REL_APK" ]]; then
+  cp "$ROOT_DIR/$REL_APK" "$SCRATCH/s9-original.apk"
+fi
+s9_fixture_ready=1
 printf 'dummy apk (S9, git-ignored build dir)\n' > "$ROOT_DIR/$REL_APK"
 echo "== S9: relatives APK + CWD=fastlane/ → Root-Verankerung resolvt korrekt"
 reset_state
 OUT=$(MOCK_GH_APK_RELATIVE="$REL_APK" ruby "$HARNESS" 2>&1) || true
 echo "$OUT" | sed 's/^/   | /'
-rm -f "$ROOT_DIR/$REL_APK"
-assert_has "S9.1 Datei über Repo-Root gefunden (absoluter Pfad mit /app/)" "/Vivid/app/build/outputs/apk/standard/release/app-standard-release.apk"
+restore_s9_apk
+assert_has "S9.1 Datei über Repo-Root gefunden (absoluter Pfad mit /app/)" "$ROOT_DIR/$REL_APK"
 assert_has "S9.2 Release erstellt (Lane lief durch)" "Publishing GitHub release v9.9.9-test"
 assert_has "S9.3 lane ok" "LANE_OK"
 assert_count "S9.4 state" 1
