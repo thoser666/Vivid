@@ -120,6 +120,10 @@ class StreamingEngineTest {
         assertEquals(CameraMode.EXPERIMENTAL_60_FPS, streamingEngine.cameraModeStatus.value.applied)
         assertFalse(streamingEngine.configureCameraMode(CameraMode.STANDARD))
         every { camera.isStreaming } returns true
+        every { glStreamInterface.isRunning } returns true
+        streamingEngine.attachPreview(mockk(relaxed = true), 1920, 1080, 270)
+        verify { adapter.setInputOrientation(180) }
+        verify { glStreamInterface.setPreviewRotation(0) }
         streamingEngine.stopStream()
         verify { capture.close(); adapter.close() }
     }
@@ -1070,7 +1074,8 @@ class StreamingEngineTest {
         verify { glStreamInterface.setPreviewRotation(270) }
         verify { glStreamInterface.setPreviewIsPortrait(false) }
         streamingEngine.attachPreview(surface, 1920, 1080, rotationDegrees = 270)
-        verify { glStreamInterface.setPreviewRotation(90) }
+        verify { glStreamInterface.setPreviewRotation(270) }
+        verify { glStreamInterface.setCameraOrientation(180) }
         verify(exactly = 0) { camera.stopRecord() }
     }
 
@@ -1245,7 +1250,8 @@ class StreamingEngineTest {
         val surface = mockk<Surface>(relaxed = true)
         streamingEngine.attachPreview(surface, 1080, 1920, 0)
         streamingEngine.attachPreview(surface, 1080, 1920, 180)
-        verify { glStreamInterface.setPreviewRotation(180) }
+        verify { glStreamInterface.setCameraOrientation(180) }
+        verify { glStreamInterface.setPreviewRotation(0) }
         verify(exactly = 1) { idle.prepareCamera(any<android.graphics.SurfaceTexture>(), 1280, 720, 30) }
         verify(exactly = 0) { idle.closeCamera() }
     }

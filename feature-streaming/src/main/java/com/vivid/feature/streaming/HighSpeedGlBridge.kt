@@ -33,6 +33,7 @@ internal class HighSpeedGlBridge(
     private val profile: ExperimentalCameraProfile,
     private val glOutput: Surface,
     private val onFailure: (Throwable) -> Unit,
+    private val consumedTimestampNs: () -> Long,
 ) : ExperimentalCapture {
     private val thread = HandlerThread("VividHighSpeedCapture")
     private lateinit var handler: Handler
@@ -49,6 +50,7 @@ internal class HighSpeedGlBridge(
     private val pendingInfo = MediaCodec.BufferInfo()
     private val decodedInfo = MediaCodec.BufferInfo()
     private var decodedFrames = 0
+    private val latestDecoded = LatestDecodedFrame()
 
     override fun prepare(): Boolean {
         thread.start()
@@ -69,6 +71,10 @@ internal class HighSpeedGlBridge(
             setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1)
             setInteger(MediaFormat.KEY_MAX_B_FRAMES, 0)
             setFloat(MediaFormat.KEY_MAX_FPS_TO_ENCODER, 60f)
+            // The input Surface still receives 120+ FPS even when output is capped at 60.
+            setFloat(MediaFormat.KEY_OPERATING_RATE, profile.captureFps.toFloat())
+            setInteger(MediaFormat.KEY_PRIORITY, 0)
+            setInteger(MediaFormat.KEY_LATENCY, 0)
         }
         val codec = MediaCodec.createByCodecName(profile.captureEncoder).also { encoder = it }
         codec.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
@@ -129,12 +135,20 @@ internal class HighSpeedGlBridge(
 
     private fun pumpOnce() {
         val source = encoder ?: return
+        drainDecoder()
+        // Drain bursts without blocking Camera2 callbacks or starving decoder output.
+        for (step in 0 until 8) if (!feedDecoder(source)) break
+        drainDecoder()
+    }
+
+    private fun feedDecoder(source: MediaCodec): Boolean {
         if (pending < 0) {
             pending = source.dequeueOutputBuffer(pendingInfo, 0)
             if (pending == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
                 check(decoder == null) { "Unexpected bridge format change" }
                 val format = source.outputFormat
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) format.setInteger(MediaFormat.KEY_LOW_LATENCY, 1)
+                format.setInteger(MediaFormat.KEY_PRIORITY, 0)
                 decoder = MediaCodec.createByCodecName(profile.decoder).also {
                     it.configure(format, glOutput, null, 0)
                     it.start()
@@ -157,15 +171,29 @@ internal class HighSpeedGlBridge(
                     target.queueInputBuffer(index, 0, pendingInfo.size, pendingInfo.presentationTimeUs, 0)
                     source.releaseOutputBuffer(pending, false)
                     pending = -1
+                } else {
+                    return false
                 }
             }
         }
-        decoder?.let { target ->
+        return pending != MediaCodec.INFO_TRY_AGAIN_LATER
+    }
+
+    private fun drainDecoder() {
+        val target = decoder ?: return
+        for (step in 0 until 8) {
             val index = target.dequeueOutputBuffer(decodedInfo, 0)
             if (index >= 0) {
-                target.releaseOutputBuffer(index, true)
-                if (++decodedFrames >= 3) ready.countDown()
+                // Only decoded images may be discarded. Dropping compressed P frames breaks references.
+                latestDecoded.offer(index, decodedInfo.presentationTimeUs) { target.releaseOutputBuffer(it, false) }
+            } else if (index == MediaCodec.INFO_TRY_AGAIN_LATER) {
+                break
             }
+        }
+        // SurfaceTexture's timestamp advances when GL calls updateTexImage. Do not enqueue
+        // another frame event until then; under GL load keep the newest decoded image instead.
+        if (latestDecoded.renderIfConsumed(consumedTimestampNs()) { target.releaseOutputBuffer(it, true) }) {
+            if (++decodedFrames >= 3) ready.countDown()
         }
     }
 

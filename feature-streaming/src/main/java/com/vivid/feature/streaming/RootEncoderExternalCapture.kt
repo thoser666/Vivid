@@ -11,6 +11,7 @@ import com.pedro.library.view.GlStreamInterface
  * Consumer keep rules preserve these names. A changed contract throws before start.
  */
 internal class RootEncoderExternalCapture(private val camera: Camera2Base) : AutoCloseable {
+    @Volatile private var inputRotationDegrees = 0
     private val manager = Camera2Base::class.java.getDeclaredField("cameraManager").apply { isAccessible = true }
         .get(camera) as Camera2ApiManager
     private val running = Camera2ApiManager::class.java.getDeclaredField("isRunning").apply { isAccessible = true }
@@ -29,7 +30,14 @@ internal class RootEncoderExternalCapture(private val camera: Camera2Base) : Aut
 
     /** Decoder output already uses native landscape pixel axes, unlike Camera2's texture transform. */
     fun restoreInputOrientation() {
-        (camera.glInterface as GlStreamInterface).setCameraOrientation(0)
+        (camera.glInterface as GlStreamInterface).setCameraOrientation(inputRotationDegrees)
+    }
+
+    /** Rotate the camera source before GL filters, keeping overlay text upright in the output. */
+    fun setInputOrientation(rotationDegrees: Int) {
+        require(rotationDegrees == 0 || rotationDegrees == 180)
+        inputRotationDegrees = rotationDegrees
+        restoreInputOrientation()
     }
 
     fun claimCamera() {

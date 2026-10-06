@@ -59,7 +59,7 @@ class CameraOrientationInstrumentedTest {
                     engine.configureEncoder(ResolvedEncoderConfig(VideoCodecPreference.H264, EncoderPreset.FHD30, false), true)
                     assertTrue(engine.configureCameraMode(mode))
                     snapshot(scenario, engine, "${mode.name}-$orientation-idle")
-                    engine.startStream(url)
+                    engine.startStream("$url/${mode.name}-$orientation")
                     await { engine.streamingState.value is StreamingState.Streaming && !engine.cameraModeStatus.value.preparing }
                     await { (engine.measuredEncoderFps.value ?: 0) > 0 }
                     Thread.sleep(2_000)
@@ -102,8 +102,12 @@ class CameraOrientationInstrumentedTest {
         val rotation = value(camera, "rotationMatrix") as FloatArray
         Log.i("VividOrientationTest", "$label size=${value(gl, "encoderWidth")}x${value(gl, "encoderHeight")} previewRotation=${value(gl, "previewOrientation")} cameraMatrix=${rotation.joinToString()} file=${output.absolutePath}")
         if (label.startsWith("EXPERIMENTAL_60_FPS") && label.endsWith("-stream")) {
-            val identity = FloatArray(16) { if (it % 5 == 0) 1f else 0f }
-            assertArrayEquals("Decoded input must not receive Camera2's quarter-turn", identity, rotation, 0.001f)
+            val expected = FloatArray(16) { if (it % 5 == 0) 1f else 0f }
+            if (label.contains("-${ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE}-")) {
+                expected[0] = -1f
+                expected[5] = -1f
+            }
+            assertArrayEquals("Decoded input needs the display half-turn before filters, without Camera2's quarter-turn", expected, rotation, 0.001f)
         }
     }
 

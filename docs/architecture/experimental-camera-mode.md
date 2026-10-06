@@ -61,7 +61,7 @@ Hook. `RootEncoderExternalCapture` kapselt daher drei private Verträge:
 Der Adapter konfiguriert denselben GL-Renderer und unterdrückt anschließend
 `openLastCamera`, solange der alternative Capture-Pfad die Kamera besitzt.
 Der Decoder liefert bereits native Landscape-Pixelachsen. Der Adapter setzt
-`setCameraOrientation(0)` nach seiner Vorbereitung und die Engine erneut nach
+`setCameraOrientation(0/180)` nach seiner Vorbereitung und die Engine erneut nach
 `startRecord`/`startStream`: RootEncoder ruft bei diesen Starts intern nochmals
 `prepareGlView` auf und setzt sonst die Camera2-Texturrotation von 270 Grad.
 Diese Rotation auf Decoder-Frames verdrehte und verzerrte die GL-Eingabe.
@@ -122,3 +122,63 @@ vor Start, im Stream und nach Stop. Die experimentelle Input-Rotationsmatrix
 muss nach Start identisch bleiben. Auf dem vorherigen APK schlug dieser
 Regressionstest fehl; nach der Korrektur bestehen alle sechs Übergänge auf
 POCO. Die Preview-Bildpaare wurden zusätzlich visuell geprüft.
+
+## Latenz und umgekehrtes Landscape (2026-10-06)
+
+Auf POCO lagen die bereits am Capture-Encoder ausgegebenen Frames zuvor rund
+830 ms zurück; die GL-Queue war dabei fast leer. `KEY_FRAME_RATE=60` allein
+beschreibt nicht die 120-FPS-Eingabe. Der Bridge-Encoder erhält jetzt zusätzlich
+`KEY_OPERATING_RATE=captureFps`, Realtime-Priorität und einen optionalen
+Null-Latenz-Hinweis. Die [Android-Referenz](https://developer.android.com/reference/android/media/MediaFormat#KEY_OPERATING_RATE)
+beschreibt Operating Rate ausdrücklich für High-Speed-Eingaben mit abweichender
+Wiedergaberate. Der POCO-Encoder meldet weiterhin `latency=2`: der optionale
+Null-Latenz-Hinweis wird nicht als bestätigte Eigenschaft ausgegeben.
+
+Die Bridge leert beide Codecs in begrenzten, nicht blockierenden Batches. Vor
+GL hält sie höchstens einen neuen dekodierten Frame und einen bereits an die
+Surface übergebenen Frame. Die ursprüngliche PTS muss in `SurfaceTexture`
+angekommen sein, bevor ein weiterer Frame übergeben wird. Bei GL-Rückstau wird
+nur der wartende **dekodierte** Frame durch den neuesten ersetzt; komprimierte
+P-Frames werden vollständig dekodiert, damit ihre Referenzen erhalten bleiben.
+Filter und Overlays bleiben aktiv. Keine PTS wird auf die aktuelle Zeit umgeschrieben.
+
+Der zweite Orientierungsfehler betraf die Ausgabe bei Reverse-Landscape:
+Preview drehte um 180 Grad, der Stream nicht. Der halbe Umlauf wird jetzt auf
+die Kameraquelle **vor** den Filtern angewendet, bei Standard und Experimentell.
+Die Preview kompensiert denselben Umlauf; Overlay-Text wird nicht auf den Kopf
+gedreht. Der externe Adapter merkt sich 0/180 Grad und stellt diesen Wert auch
+nach einem späteren Encoder-Start wieder her. Native Landscape-Ausgabe wird bei
+Experimentell auch ohne gespeichertes Encoder-Preset korrekt berücksichtigt.
+
+`CameraLatencyInstrumentedTest` ist opt-in (`runCameraLatency=true`, ausschließlich
+Loopback-RTMP). Er misst den Frame-Alter am GL-Eingang nach fünf Sekunden Anlauf,
+vergleicht Standard und Experimentell und verlangt standardmäßig P95 <250 ms.
+Camera2-SurfaceTexture verwendet bei REALTIME-Sensoren die Boot-Zeit, ein direkt
+an Camera2 gegebener Encoder-Surface die monotone Zeit. Der Test prüft den
+Sensor-Zeitquellentyp und verwendet für jede Route die passende Uhr; siehe
+[Android CameraX Timebase](https://android.googlesource.com/platform/frameworks/support/+/d62cb99c5e97384ccd6d0a97707f656ffb4f35cf/camera/camera-video/src/main/java/androidx/camera/video/VideoCapture.java).
+Dies ist kein Motion-to-Photon- oder Ende-zu-Ende-Streaming-Latenztest.
+
+POCO, 1080p/H.264, jeweils 60 Sekunden mit Graustufen, rotem GL-Text und einer
+expliziten GL-Pause von 250 ms:
+
+| Route | Median Frame-Alter | P95 | Tatsächlich dekodierte RTMP-FPS |
+|-------|--------------------|-----|-------------------------------|
+| Standard | 112 ms | 132 ms | 29,90 |
+| Experimentell | 102 ms | 117 ms | 59,29 |
+
+Nach der erzwungenen Pause fiel der experimentelle Frame-Alter innerhalb von
+31 ms nach der ersten verzögerten Messung wieder unter 150 ms. Der gleiche
+Regressions-Test auf der alten Bridge schlägt mit P95 **950 ms** fehl.
+Eine zusätzliche 30-Sekunden-Aufnahme mit Audio und gleichzeitigem RTMP hielt
+58,01 FPS in MP4 und 57,93 FPS im RTMP-Segment; beide H.264/1080p plus AAC/32 kHz.
+Vollständige Decodes: 1792 MP4-, 1728 RTMP-Audio- und 3449 RTMP-Latenztest-Frames,
+keine benachbarten Hash-Duplikate. **Konstante 60 FPS unter beliebiger Last sind
+weiterhin nicht bestätigt.** Die Verbesserung betrifft gemessene Frame-Frische.
+
+Der Reverse-Landscape-Gerätetest ist auf dem alten Orientierungsverhalten rot
+und nach dem Fix grün. Sechs Idle → Stream → Idle-Übergänge, PixelCopy-Vorschauen
+und tatsächlich empfangene RTMP-Bilder wurden geprüft. Das alte Reverse-Bild
+passt erst nach 180 Grad zur Preview, die korrigierten Landscape-Bilder beider
+Modi passen ohne weitere Drehung. Lokale Rohdaten und Messbericht:
+`build/reports/camera-latency-2026-10-06/` (nicht eingecheckt).

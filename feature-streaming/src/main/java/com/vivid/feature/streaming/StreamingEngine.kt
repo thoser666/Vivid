@@ -140,7 +140,9 @@ class StreamingEngine @Inject constructor(
     internal var experimentalCaptureFactory: (String, ExperimentalCameraProfile, Surface, (Throwable) -> Unit) -> ExperimentalCapture =
         { id, profile, surface, failure ->
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                HighSpeedGlBridge(context.getSystemService(CameraManager::class.java), id, profile, surface, failure)
+                val texture = requireNotNull(camera?.glInterface?.surfaceTexture)
+                HighSpeedGlBridge(context.getSystemService(CameraManager::class.java), id, profile, surface, failure,
+                    consumedTimestampNs = { texture.timestamp })
             } else error("Experimental capture requires Android 10")
         }
 
@@ -1283,7 +1285,10 @@ class StreamingEngine @Inject constructor(
                     (cam.glInterface as? GlStreamInterface)?.stop()
                     false
                 }
-                if (prepared) return true
+                if (prepared) {
+                    encoderRotationDegrees = 0 // The resolved bridge output always uses native landscape axes.
+                    return true
+                }
             }
             if (generation != captureGeneration.get()) return false
             // A capture fallback must retain the requested mode's GL overlay preservation.
@@ -1462,8 +1467,16 @@ class StreamingEngine @Inject constructor(
                 glPreviewSurface = request.surface
             }
             gl.setPreviewResolution(request.width, request.height)
+            // Fixed encoder dimensions still need a half-turn for the opposite device orientation.
+            // Apply it to the source before filters; rotating the final output would invert overlays.
+            val inputHalfTurn = if (request.rotationDegrees >= 180) 180 else 0
+            val external = externalCapture
+            if (external != null) external.setInputOrientation(inputHalfTurn) else {
+                val inputRotation = if (encoderRotationDegrees == 0) 270 else encoderRotationDegrees - 90
+                gl.setCameraOrientation((inputRotation + inputHalfTurn) % 360)
+            }
             gl.setPreviewIsPortrait(request.rotationDegrees % 180 == 0)
-            gl.setPreviewRotation((90 - request.rotationDegrees - encoderRotationDegrees + 720) % 360)
+            gl.setPreviewRotation((90 - request.rotationDegrees - encoderRotationDegrees - inputHalfTurn + 720) % 360)
             gl.setAspectRatioMode(AspectRatioMode.Fill)
         }
     }
