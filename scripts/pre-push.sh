@@ -222,6 +222,9 @@ run bash scripts/test_emulator_matrix.sh
 echo "▶ [pre-push] Roadmap-Reservierung (scripts/test_roadmap_reservation.sh)"
 run bash scripts/test_roadmap_reservation.sh
 
+echo "▶ [pre-push] Sentry-beforeSend-Komposition (C0, scripts/check_sentry_optout_mapping.sh --composition-only)"
+run bash scripts/check_sentry_optout_mapping.sh --composition-only
+
 echo "▶ [pre-push] Sentry-Opt-out-Mapping-Check (scripts/check_sentry_optout_mapping.sh)"
 if [[ "${PRE_PUSH_RELEASE:-0}" == "1" ]]; then
   # Nach PRE_PUSH_RELEASE=1 sind BEIDE Mappings garantiert gebaut → streng:

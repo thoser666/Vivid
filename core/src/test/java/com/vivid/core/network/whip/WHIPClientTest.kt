@@ -1,6 +1,8 @@
 package com.vivid.core.network.whip
 
 import com.vivid.core.network.KtorClientFactory
+import com.vivid.core.network.awaitPortListening
+import com.vivid.core.network.canConnectNow
 import io.ktor.client.HttpClient
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
@@ -41,6 +43,12 @@ import java.util.concurrent.atomic.AtomicInteger
  * Hausmuster (#226): koroutinenfreie Testkörper über runTest auf echtem
  * Socket-I/O, blockierende Polls vermeiden, Teardown schließt HttpClient und
  * Server explizit (CIO-Threads sind nicht-daemonisch).
+ *
+ * Hausmuster (#268): `startServer()` wartet über `awaitPortListening` auf den
+ * tatsächlichen Bind, bevor der erste HTTP-Request rausgeht. `WHIPClient` hat
+ * keinen Request-Retry — ein `connect refused` wird direkt zu
+ * `WHIPFailure.NETWORK`, `publish()` liefert `null`, und der Test scheitert am
+ * Transport statt am WHIP-Vertrag.
  */
 @Timeout(30)
 class WHIPClientTest {
@@ -100,6 +108,12 @@ class WHIPClientTest {
         s.start(wait = false)
         port = freePort
         server = s
+        // #268: Der Port ist mit `ServerSocket(0)` nur *reserviert*; CIO bindet
+        // asynchron, `start(wait = false)` kehrt vorher zurück. Dieselbe Schranke
+        // wie in den OBS-E2E-Tests (#264).
+        check(awaitPortListening(freePort)) {
+            "CIO-Server hat den Port $freePort nicht innerhalb von 5s gebunden"
+        }
     }
 
     private fun endpoint() = "http://127.0.0.1:$port/mystream/whip"
@@ -224,6 +238,24 @@ class WHIPClientTest {
         assertNotNull(client.publish(endpoint(), offerSdp))
         sessionAlive.set(false)
         assertTrue(client.terminate())
+    }
+
+    @Test
+    fun `server port accepts connections as soon as startServer returns`() {
+        // #268: Der Bind-Race. `ServerSocket(0)` reserviert nur, CIO bindet
+        // asynchron. Fällt dieser Test, war startServer() zu früh zurück und
+        // jeder weitere E2E-Test dieser Klasse trifft ins Leere.
+        startServer {
+            post("/mystream/whip") {
+                call.response.header(HttpHeaders.Location, "/mystream/whip/s")
+                call.respondText(answerSdp, applicationSdp, HttpStatusCode.Created)
+            }
+        }
+
+        assertTrue(
+            canConnectNow(port),
+            "startServer() muss erst zurückkehren, wenn der Port wirklich lauscht",
+        )
     }
 
     @Test

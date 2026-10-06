@@ -258,6 +258,39 @@ läuft über `connect()` weiter — der Anker war an eine Reihenfolge gebunden, 
 verloren hat. Ersetzt durch `reconnect keeps issuing version requests with a fresh request id`,
 das die Zählersemantik positiv prüft (drei Runden, Id 1/2/3) statt sie festzunageln.
 
+**Der Helper gilt für *jeden* E2E-Server — aber nicht dort, wo der Produktionscode den Bind
+selbst abwartet (#268).** Punkt 1 oben war nach #264 nicht überall umgesetzt. `WHIPClientTest`
+reservierte seinen Port genauso und fuhr direkt HTTP — nur eben ohne Schadensminderung, weil
+`WHIPClient.publish()` keinen Request-Retry hat: ein `connect refused` wird sofort zu
+`WHIPFailure.NETWORK`, `publish()` liefert `null`, und `assertNotNull(resource)` schlägt an einer
+Stelle fehl, die nichts mit dem WHIP-Vertrag zu tun hat. Betroffen waren 6 der 7 netzwerkfähigen
+Tests dieser Klasse. `startServer()` wartet jetzt über `awaitPortListening`, wie in den OBS-Tests.
+
+Die Kehrseite ist wichtig, sonst wird der Helper zum Deckel. `RemoteControlServerPortFallbackTest`
+wartet **nicht** — und soll es auch nicht. `RemoteControlServer.start()` verifiziert den Engine-Bind
+selbst (`awaitEngineBind`: NIO-Probe, bis 2 s) und setzt `activePort` erst danach. Ein
+`awaitPortListening` im Test würde die Produktionsgarantie verdecken, nicht prüfen. Gemessen: die
+Variante „der Test wartet selbst" ist **grün**, auch wenn die Bind-Verifikation fehlt — sie prüft
+dann nichts mehr. Der Test prüft stattdessen den Vertrag mit `canConnectNow` (ohne Polling, ein
+wartender Aufruf würde genau das wegprüfen, was die Zusicherung behauptet).
+
+**Die Regel:** Wer `EmbeddedServer.start(wait = false)` in einem Test benutzt, wartet im Test auf
+den Bind. Wer einen Produktions-Startpfad testet, der den Bind selbst verifiziert, prüft diese
+Verifikation, statt sie mit einem zweiten Warten zu überdecken. Zweiter Nebenbefund derselben
+Runde: `coldRangePort()` gibt den Port sofort wieder frei, und der Preferred-Port-Test nagelte
+daraufhin fest auf `preferred`. Belegt ein Fremdprozess den Port im Mikrosekundenfenster bis zur
+Probe, war das ein Umgebungszustand und wurde als Testfehler gemeldet. Die Erwartung wird jetzt
+unmittelbar vor `start()` über dieselbe Policy + dieselbe Probe berechnet — das Muster, das der
+Nachbartest im selben File schon immer benutzt.
+
+**Und noch einmal ehrlich zur Beweislage.** Auch hier gilt: der Bind-Race ist ein Zeitfenster.
+Gemessen wurde — die Mutation „Warteblock entfernen" im WHIP-Test bleibt grün, und die Mutation
+„`awaitEngineBind` auf ein sofortiges `return true` verkürzen" bleibt ebenfalls grün, auch mit 20
+Runden statt einer (die Runden wurden wieder entfernt: 40 % mehr Laufzeit der Klasse, kein
+messbarer Gewinn). Ein Test, dessen Richtigkeit man lokal nicht falsch machen kann, ist trotzdem
+richtig — wenn er die Annahme benennt und dort fällt, wo sie bricht: auf belasteten CI-Runnern, für
+die `awaitEngineBind` überhaupt existiert. Erfundene Nachweise wären schlimmer als diese Grenze.
+
 ### Doku-Guards (Handbuch & Wiki aktuell halten)
 
 Die Dokumentation kann nicht mehr unbemerkt veralten — drei Guards erzwingen das:
