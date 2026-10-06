@@ -6,6 +6,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.printToLog
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -52,10 +53,12 @@ class AccessibilityComplianceInstrumentedTest {
     }
 
     @Test
-    fun streamingScreen_helpButtonHasDescription() {
-        // ❓-Button muss einen contentDescription haben (nicht leer)
+    fun streamingScreen_helpMenuItemHasLabel() {
+        // Help ist im Controls-Menü; sein lokalisierter Text ist das A11y-Label.
+        composeRule.onNodeWithText(str(StreamingR.string.streaming_controls)).performClick()
         composeRule
-            .onNodeWithContentDescription(str(StreamingR.string.streaming_help_content_desc))
+            .onNodeWithText(str(StreamingR.string.streaming_help_content_desc))
+            .performScrollTo()
             .assertIsDisplayed()
     }
 
@@ -69,9 +72,11 @@ class AccessibilityComplianceInstrumentedTest {
 
     @Test
     fun helpScreen_accessibleElementsPresent() {
-        // Navigiere zum HelpScreen via ❓-Button
+        // Navigiere zum HelpScreen über Controls → Help.
+        composeRule.onNodeWithText(str(StreamingR.string.streaming_controls)).performClick()
         composeRule
-            .onNodeWithContentDescription(str(StreamingR.string.streaming_help_content_desc))
+            .onNodeWithText(str(StreamingR.string.streaming_help_content_desc))
+            .performScrollTo()
             .performClick()
         composeRule.waitForIdle()
 
