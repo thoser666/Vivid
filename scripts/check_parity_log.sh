@@ -99,9 +99,11 @@ for row in rows:
     # Backticks (wie in der echten PARITY.md: | 2026-08-20 | `cee9141` | …)
     # sind Teil der Markdown-Formatierung, nicht des Hashes.
     commit = commit.strip("`")
-    if not re.fullmatch(r"[0-9a-f]{7}", commit):
+    # GitHub zeigt --short-Hashes kontextabhängig an (7 oder 8 Zeichen);
+    # ein echtes Objekt mit 7 oder 8 hex-Zeichen akzeptieren.
+    if not re.fullmatch(r"[0-9a-f]{7,8}", commit):
         errors.append(
-            f"{date}: Commit-Spalte '{commit}' ist kein 7-Zeichen-Git-Hash "
+            f"{date}: Commit-Spalte '{commit}' ist kein 7- oder 8-Zeichen-Git-Hash "
             f"(0-9a-f) — bitte `git rev-parse --short <commit>` eintragen."
         )
         continue
@@ -128,6 +130,23 @@ if check_exists and hashes:
             )
             if anc.returncode == 0:
                 continue
+            # Commit ist kein Vorfahre von HEAD — das kann passieren, wenn
+            # HEAD auf einem lokalen Merge-Commit aus einem PR sitzt, der
+            # Remote-Merge (Squash-Merge) aber auf origin/develop landete
+            # (PR #276: acc75b60 auf origin/develop, lokaler Branch aber auf
+            # eigener Merge-Kopie). Fallback: erst einmal origin/develop
+            # aktualisieren, dann erneut prüfen — das macht den Guard
+            # robust gegen veraltete Remote-Refs im Pre-Push-Kontext.
+            _fetch = subprocess.run(
+                ["git", "fetch", "origin", "develop", "--quiet"],
+                capture_output=True,
+            )
+            remote_anc = subprocess.run(
+                ["git", "merge-base", "--is-ancestor", h, "origin/develop"],
+                capture_output=True,
+            )
+            if remote_anc.returncode == 0:
+                continue
             exists = subprocess.run(
                 ["git", "cat-file", "-e", h + "^{commit}"],
                 capture_output=True,
@@ -139,9 +158,9 @@ if check_exists and hashes:
                 )
             else:
                 errors.append(
-                    f"{date}: Hash '{h}' ist kein Vorfahre von HEAD — wurde "
-                    f"der Commit rebased/orphaned? Bitte auf den tatsächlichen "
-                    f"Hash korrigieren."
+                    f"{date}: Hash '{h}' ist weder Vorfahre von HEAD noch "
+                    f"von origin/develop — wurde der Commit rebased/orphaned? "
+                    f"Bitte auf den tatsächlichen Hash korrigieren."
                 )
 
 if errors:
@@ -151,7 +170,7 @@ if errors:
     sys.exit(1)
 
 if check_exists:
-    print(f"✅ [parity-log] {len(rows)} Log-Einträge, alle mit gültigem 7-Zeichen-Commit-Hash und existierendem Vorfahren von HEAD.")
+    print(f"✅ [parity-log] {len(rows)} Log-Einträge, alle mit gültigem 7-/8-Zeichen-Commit-Hash und existierendem Vorfahren von HEAD/origin/develop.")
 else:
-    print(f"✅ [parity-log] {len(rows)} Log-Einträge, alle mit gültigem 7-Zeichen-Commit-Hash.")
+    print(f"✅ [parity-log] {len(rows)} Log-Einträge, alle mit gültigem 7-/8-Zeichen-Commit-Hash.")
 PYEOF
