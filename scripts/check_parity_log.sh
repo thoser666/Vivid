@@ -130,10 +130,17 @@ if check_exists and hashes:
             )
             if anc.returncode == 0:
                 continue
-            # Commit ist im Objektstore, aber kein Vorfahre von HEAD — z.
-            # B. weil HEAD auf einem lokalen Merge-Commit aus PR-276 sitzt,
-            #     der Remote-Merge (Squash-Merge auf develop) aber auf
-            #     origin/develop liegt. Prüfe zusätzlich origin/develop.
+            # Commit ist kein Vorfahre von HEAD — das kann passieren, wenn
+            # HEAD auf einem lokalen Merge-Commit aus einem PR sitzt, der
+            # Remote-Merge (Squash-Merge) aber auf origin/develop landete
+            # (PR #276: acc75b60 auf origin/develop, lokaler Branch aber auf
+            # eigener Merge-Kopie). Fallback: erst einmal origin/develop
+            # aktualisieren, dann erneut prüfen — das macht den Guard
+            # robust gegen veraltete Remote-Refs im Pre-Push-Kontext.
+            _fetch = subprocess.run(
+                ["git", "fetch", "origin", "develop", "--quiet"],
+                capture_output=True,
+            )
             remote_anc = subprocess.run(
                 ["git", "merge-base", "--is-ancestor", h, "origin/develop"],
                 capture_output=True,
