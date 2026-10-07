@@ -2,12 +2,9 @@ package com.vivid.feature.streaming
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.vivid.core.data.AndroidEncoderCapabilities
 import com.vivid.core.data.EncoderCapabilities
 import com.vivid.core.data.PrivacyZone
 import com.vivid.core.data.ReplayAudioMode
-import com.vivid.core.data.ResolvedEncoderConfig
-import com.vivid.core.data.resolveEncoderConfig
 import com.vivid.core.data.SceneRepository
 import com.vivid.core.data.SceneVideoSource
 import com.vivid.core.data.SettingsRepository
@@ -21,7 +18,6 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.util.UUID
@@ -36,9 +32,9 @@ class StreamingViewModel @Inject constructor(
     private val sceneController: SceneController,
     private val autoSceneSwitcher: AutoSceneSwitcher,
     private val zoneRepository: ZoneRepository,
+    private val streamStartCoordinator: StreamStartCoordinator,
 ) : ViewModel() {
 
-    private val _configIssues = MutableStateFlow<List<StreamConfigIssue>>(emptyList())
 
     /**
      * P1: Merker für einen Master-Toggle, den die Engine abgelehnt hat (keine
@@ -64,7 +60,7 @@ class StreamingViewModel @Inject constructor(
      * Die Meldungen sind String-Ressourcen (i18n) — die UI löst sie per
      * `stringResource` auf, daher gibt es keinen vorkomponierten String mehr.
      */
-    val configIssues: StateFlow<List<StreamConfigIssue>> = _configIssues.asStateFlow()
+    val configIssues: StateFlow<List<StreamConfigIssue>> = streamStartCoordinator.configIssues
 
     init {
         runConfigCheck()
@@ -82,100 +78,25 @@ class StreamingViewModel @Inject constructor(
     }
 
     /** Fähigkeiten-Erkennung (im Test austauschbar). */
-    internal var encoderCapabilities: EncoderCapabilities = AndroidEncoderCapabilities()
+    internal var encoderCapabilities: EncoderCapabilities
+        get() = streamStartCoordinator.encoderCapabilities
+        set(value) { streamStartCoordinator.encoderCapabilities = value }
 
     /** Führt den Selbst-Check mit den aktuell gespeicherten Einstellungen aus. */
     fun runConfigCheck() {
-        viewModelScope.launch {
-            val settings = settingsRepository.appSettingsFlow.first()
-            _configIssues.value = StreamConfigValidator.validate(
-                streamUrl = settings.streamUrl,
-                streamKey = settings.streamKey,
-                streamUseTls = settings.streamUseTls,
-                secondaryStreamUrl = settings.secondaryStreamUrl,
-                secondaryStreamKey = settings.secondaryStreamKey,
-                secondaryStreamUseTls = settings.secondaryStreamUseTls,
-            )
-        }
+        viewModelScope.launch { streamStartCoordinator.checkSettings() }
     }
 
-    /**
-     * Liest die gespeicherten Stream-Einstellungen, validiert sie per Selbst-Check
-     * und startet den Stream nur, wenn keine Fehler vorliegen.
-     */
+    /** Apply the same saved-settings preparation as a remote start. */
     fun startStream() {
         viewModelScope.launch {
-            val settings = settingsRepository.appSettingsFlow.first()
-
-            val issues = StreamConfigValidator.validate(
-                streamUrl = settings.streamUrl,
-                streamKey = settings.streamKey,
-                streamUseTls = settings.streamUseTls,
-                secondaryStreamUrl = settings.secondaryStreamUrl,
-                secondaryStreamKey = settings.secondaryStreamKey,
-                secondaryStreamUseTls = settings.secondaryStreamUseTls,
-            )
-            _configIssues.value = issues
-
-            // Harte Fehler blockieren den Go-Live (die UI zeigt sie als Banner).
-            if (issues.any { it.severity == ConfigIssueSeverity.ERROR }) return@launch
-
-            val urls = buildList {
-                buildStreamUrl(settings.streamUrl, settings.streamKey, settings.streamUseTls)?.let { add(it) }
-                // Optionales zweites Ziel (Multi-Streaming).
-                buildStreamUrl(
-                    settings.secondaryStreamUrl,
-                    settings.secondaryStreamKey,
-                    settings.secondaryStreamUseTls,
-                )?.let { add(it) }
-            }
-            if (urls.isEmpty()) {
-                // Defensiv: validate() liefert für leere primäre URL bereits den
-                // Fehler; falls er trotzdem fehlt, als Befund nachtragen.
-                _configIssues.value = issues + StreamConfigIssue(
-                    ConfigIssueSeverity.ERROR,
-                    R.string.stream_error_no_url,
-                )
-                return@launch
-            }
-            // Encoder-Preset (4K/60fps + HEVC, v0.6.0-Bucket): Wunsch-Kombi
-            // gegen die Geräte-Fähigkeiten auflösen (HEVC-First bei AUTO,
-            // Preset-Abstufung, wenn die Auflösung nicht geht) und die Engine
-            // konfigurieren — vor dem Start, prepareVideo ist danach fix.
-            val resolvedEncoder = if (settings.encoderAutoFallback) {
-                resolveEncoderConfig(
-                    preference = settings.videoCodecPreference,
-                    preset = settings.encoderPreset,
-                    capabilities = encoderCapabilities,
-                )
-            } else {
-                // Strict-Modus: Wunsch-Kombi ohne Fähigkeits-Prüfung — RootEncoder
-                // meldet Encoder-Fehler zur Laufzeit als FAILED.
-                ResolvedEncoderConfig(
-                    settings.videoCodecPreference,
-                    settings.encoderPreset,
-                    fallbackApplied = false,
-                )
-            }
-            streamingEngine.configureEncoder(resolvedEncoder, settings.encoderAutoFallback)
-
-            // Adaptive Bitrate (v0.6.0): Zielbitrate dynamisch an die
-            // gemessene Netzwerkstrecke anpassen (min. 1 Mbit/s Floor).
-            streamingEngine.configureAdaptiveBitrate(settings.adaptiveBitrateEnabled)
-
-            // P1: Nachholen eines Master-Toggles, den die Engine vor der
-            // Kamera-Initialisierung abgelehnt hat (sonst würde die
-            // Anonymisierung nach App-Neustart still fehlen).
-            pendingPrivacyToggle.value?.let { desired ->
-                if (streamingEngine.setPrivacyEnabled(desired)) {
-                    pendingPrivacyToggle.value = null
+            streamStartCoordinator.start {
+                pendingPrivacyToggle.value?.let { desired ->
+                    if (streamingEngine.setPrivacyEnabled(desired)) {
+                        pendingPrivacyToggle.value = null
+                    }
                 }
             }
-
-            // Der Stream läuft im Foreground-Service weiter, wenn die App in den
-            // Hintergrund geht (Prozess-Priorität + WakeLock). Der Service ruft
-            // seinerseits streamingEngine.startStream(urls) auf.
-            streamingServiceLauncher.startStreaming(urls)
         }
     }
 

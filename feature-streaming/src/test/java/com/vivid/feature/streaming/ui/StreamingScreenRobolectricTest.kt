@@ -85,6 +85,9 @@ class StreamingScreenRobolectricTest {
         engine = mockk(relaxed = true)
         every { engine.streamingState } returns streamingState
         every { engine.targetStates } returns targetStates
+        every { engine.activeEncoder } returns MutableStateFlow(null)
+        every { engine.bitrateDiagnostics } returns MutableStateFlow(null)
+        every { engine.measuredEncoderFps } returns MutableStateFlow(null)
         every { engine.focusMode } returns MutableStateFlow(FocusMode.AUTO)
         every { engine.stabilizationEnabled } returns MutableStateFlow(false)
         every { engine.torchEnabled } returns MutableStateFlow(false)
@@ -140,6 +143,31 @@ class StreamingScreenRobolectricTest {
         openControls()
         composeRule.onNodeWithText("Camera").assertIsNotEnabled()
         composeRule.onNodeWithText("Screen").assertIsEnabled()
+    }
+
+    @Test
+    fun `stream statistics show applied fallback profile and measured fps`() {
+        every { engine.activeEncoder } returns MutableStateFlow(
+            com.vivid.core.data.ResolvedEncoderConfig(
+                com.vivid.core.data.VideoCodecPreference.H264,
+                com.vivid.core.data.EncoderPreset.FHD30,
+                true,
+            ),
+        )
+        every { engine.measuredEncoderFps } returns MutableStateFlow(14)
+        every { engine.bitrateDiagnostics } returns MutableStateFlow(
+            com.vivid.feature.streaming.EncoderBitrateDiagnostics(
+                "c2.mtk.avc.encoder", com.vivid.feature.streaming.EncoderBitrateMode.VBR, false, 4_200,
+            ),
+        )
+        streamingState.value = StreamingState.Streaming
+        targetStates.value = listOf(StreamTargetState(url = STREAM_URL, status = StreamTargetStatus.STREAMING))
+        setContent()
+
+        composeRule.onNodeWithText("Camera profile: 1920×1080 · 30 fps").assertIsDisplayed()
+        composeRule.onNodeWithText("Compatible profile applied").assertIsDisplayed()
+        composeRule.onNodeWithText("Measured: 14 fps").assertIsDisplayed()
+        composeRule.onNodeWithText("Encoder: VBR · target 4200 kbps · c2.mtk.avc.encoder").assertIsDisplayed()
     }
 
     private fun openControls() {

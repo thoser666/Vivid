@@ -25,6 +25,7 @@ enum class EncoderPreset(
     val width: Int,
     val height: Int,
     val fps: Int,
+    /** Application bitrate in kbps; convert to bits/s at the RootEncoder boundary. */
     val videoBitrateKbps: Int,
 ) {
     S_4K60(3840, 2160, 60, 24_000),
@@ -79,11 +80,7 @@ class AndroidEncoderCapabilities : EncoderCapabilities {
             try {
                 val caps = info.getCapabilitiesForType(mime)
                 val video = caps.videoCapabilities ?: return@any false
-                // FPS-Range existiert seit API 21 — aber manche Encodern melden
-                // keine Ranges; dann gilt die Auflösungs-Prüfung allein.
-                val fpsOk = runCatching { video.supportedFrameRates }
-                    .getOrNull()?.contains(fps) ?: true
-                video.isSizeSupported(width, height) && fpsOk
+                video.areSizeAndRateSupported(width, height, fps.toDouble())
             } catch (_: IllegalArgumentException) {
                 false // Codec unterstützt den MIME-Typ nicht
             }

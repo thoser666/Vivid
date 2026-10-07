@@ -39,7 +39,9 @@ class StreamingViewModelTest {
     @TempDir
     lateinit var tempDir: java.io.File
 
-    private val engine = mockk<StreamingEngine>(relaxed = true)
+    private val engine = mockk<StreamingEngine>(relaxed = true) {
+        every { streamingState } returns MutableStateFlow(StreamingState.Idle)
+    }
     private val launcher = mockk<StreamingServiceLauncher>(relaxed = true)
 
     @AfterEach
@@ -79,7 +81,7 @@ class StreamingViewModelTest {
 
     private fun viewModel(
         repository: SettingsRepository = repositoryWith(AppSettings()),
-    ) = StreamingViewModel(engine, repository, launcher, sceneRepository, sceneController, autoSceneSwitcher, zoneRepository)
+    ) = StreamingViewModel(engine, repository, launcher, sceneRepository, sceneController, autoSceneSwitcher, zoneRepository, StreamStartCoordinator(repository, engine, launcher, com.vivid.core.data.AndroidEncoderCapabilities()))
 
     @Test
     fun `startStream uses saved url with appended stream key`() = runTest {
@@ -647,6 +649,7 @@ class StreamingViewModelTest {
             sceneController,
             autoSceneSwitcher,
             zoneRepositoryWithZones,
+            StreamStartCoordinator(repositoryWith(AppSettings()), engine, launcher, com.vivid.core.data.AndroidEncoderCapabilities()),
         )
         advanceUntilIdle()
 

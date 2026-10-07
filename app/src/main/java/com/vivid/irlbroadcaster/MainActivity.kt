@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Context
 import android.os.Build
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.compose.setContent
@@ -18,6 +19,9 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -69,10 +73,12 @@ class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Edge-to-Edge (targetSdk 37: ab SDK 35 vom System erzwungen): Die
-        // App zeichnet hinter Status-/Navigationsleiste; die Inset-Behandlung
-        // läuft über die M3-Scaffolds (paddingValues) und die Custom-Bars.
+        // Keep the preview bright while Vivid is visible; Android releases this
+        // automatically when the activity goes into the background.
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        // Draw into the camera cutout too; screens keep controls in safe insets.
         enableEdgeToEdge()
+        hideSystemBars()
         setContent {
             // Darstellung (Settings-Kategorie „Darstellung“): Design-Modus
             // (System/Hell/Dunkel/AMOLED) + Akzentfarbe live anwenden — das
@@ -113,6 +119,19 @@ class MainActivity : ComponentActivity() {
                 }
                 }
             }
+        }
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        // Restore fullscreen after returning from system dialogs or another app.
+        if (hasFocus) hideSystemBars()
+    }
+
+    private fun hideSystemBars() {
+        WindowCompat.getInsetsController(window, window.decorView).apply {
+            systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            hide(WindowInsetsCompat.Type.systemBars())
         }
     }
 

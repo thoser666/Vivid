@@ -11,6 +11,7 @@ import android.os.Build
 import android.view.Surface
 import android.view.SurfaceHolder
 import android.view.SurfaceView
+import android.view.ViewTreeObserver
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material.icons.Icons
@@ -31,6 +32,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.padding
@@ -70,13 +72,18 @@ import androidx.compose.ui.unit.Dp
 import com.vivid.feature.streaming.StreamingEngine
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.DialogWindowProvider
 import androidx.core.content.ContextCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
+import com.vivid.core.data.ResolvedEncoderConfig
 import com.vivid.core.data.StreamScene
 import com.vivid.core.ui.LocalWindowWidthClass
 import com.vivid.core.ui.adaptiveControlsMaxWidth
@@ -139,6 +146,9 @@ fun StreamingScreen(
     val streamingEngine = viewModel.streamingEngine
     val streamingState by streamingEngine.streamingState.collectAsStateWithLifecycle()
     val targetStates by streamingEngine.targetStates.collectAsStateWithLifecycle()
+    val activeEncoder by streamingEngine.activeEncoder.collectAsStateWithLifecycle()
+    val bitrateDiagnostics by streamingEngine.bitrateDiagnostics.collectAsStateWithLifecycle()
+    val measuredEncoderFps by streamingEngine.measuredEncoderFps.collectAsStateWithLifecycle()
     val activeSourceKind by streamingEngine.activeSourceKind.collectAsStateWithLifecycle()
     val configIssues by viewModel.configIssues.collectAsStateWithLifecycle()
     // Missing configuration should not obscure the preview before a Go-Live attempt.
@@ -218,6 +228,7 @@ fun StreamingScreen(
                 }
             },
         ) {
+            HideDialogSystemBars()
             Column(Modifier.testTag("scenes_panel")) {
                 SceneSwitcherBar(
                     scenes = scenes,
@@ -248,6 +259,8 @@ fun StreamingScreen(
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
+        // The preview uses the cutout area; only controls avoid the camera hole.
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
     ) { paddingValues ->
         BoxWithConstraints(
             modifier = Modifier
@@ -255,86 +268,100 @@ fun StreamingScreen(
                 .padding(paddingValues)
                 .background(MaterialTheme.colorScheme.surfaceVariant),
         ) {
-            val topButtonMaxWidth = maxWidth / 2 - 20.dp
             val density = LocalDensity.current
             val previewSize = with(density) { IntSize(maxWidth.roundToPx(), maxHeight.roundToPx()) }
             StreamingSourcePreview(streamingEngine, activeSourceKind, previewSize, displayRotationDegrees) {
                 requestVideoPicker()
             }
 
-            StreamStartButton(streamingState, onStop = viewModel::stopStream) {
-                startAttempted = true
-                if (configIssues.none { it.messageRes == R.string.stream_error_no_url }) requestPermissionsAndStart()
-            }
-
-            TextButton(
-                onClick = { scenesExpanded = true },
-                modifier = Modifier.align(Alignment.BottomCenter).testTag("open_scenes"),
+            BoxWithConstraints(
+                modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.displayCutout),
             ) {
-                Text(stringResource(R.string.scene_bar_title))
-            }
-
-            // Twitch-Status: Viewerzahl und Stream-Metadaten als kompakte Anzeige.
-            twitchState.streamInfo?.let { info ->
-                Surface(
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .padding(top = 12.dp),
-                    shape = MaterialTheme.shapes.medium,
-                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    contentColor = MaterialTheme.colorScheme.onSurface,
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(pluralStringResource(R.plurals.twitch_viewers_count, info.viewerCount, info.viewerCount))
-                        Text(
-                            text = info.category.ifBlank { info.title },
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
+                val topButtonMaxWidth = maxWidth / 2 - 20.dp
+                StreamStartButton(streamingState, onStop = viewModel::stopStream) {
+                    startAttempted = true
+                    if (configIssues.none { it.messageRes == R.string.stream_error_no_url }) requestPermissionsAndStart()
                 }
-            }
 
-            // Per-Ziel-Status (Multi-Streaming): zeigt jedes Ziel mit aktuellem Zustand.
-            if (targetStates.isNotEmpty() && streamingState !is StreamingState.Idle) {
-                Surface(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(start = 16.dp, end = 16.dp, bottom = 72.dp),
-                    shape = MaterialTheme.shapes.medium,
-                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    contentColor = MaterialTheme.colorScheme.onSurface,
+                TextButton(
+                    onClick = { scenesExpanded = true },
+                    modifier = Modifier.align(Alignment.BottomCenter).testTag("open_scenes"),
                 ) {
-                    Column(
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    Text(stringResource(R.string.scene_bar_title))
+                }
+
+                // Twitch-Status: Viewerzahl und Stream-Metadaten als kompakte Anzeige.
+                twitchState.streamInfo?.let { info ->
+                    Surface(
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .padding(top = 12.dp),
+                        shape = MaterialTheme.shapes.medium,
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        contentColor = MaterialTheme.colorScheme.onSurface,
                     ) {
-                        targetStates.forEach { state ->
-                            TargetStatusRow(state)
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(pluralStringResource(R.plurals.twitch_viewers_count, info.viewerCount, info.viewerCount))
+                            Text(
+                                text = info.category.ifBlank { info.title },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
                     }
                 }
-            }
 
-            StreamingControlsMenu(
-                streamingEngine, navController, topButtonMaxWidth,
-                onRecord = requestPermissionsAndRecord,
-                onScreenCapture = requestScreenCapture,
-                onVideoPicker = { requestVideoPicker() },
-            )
-            FilledIconButton(
-                onClick = { navController.navigate("settings_route") },
-                modifier = Modifier.align(Alignment.TopEnd).padding(top = 12.dp, end = 16.dp).testTag("open_settings"),
-            ) {
-                Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.streaming_settings_content_desc))
-            }
+                // Per-Ziel-Status (Multi-Streaming): zeigt jedes Ziel mit aktuellem Zustand.
+                if (targetStates.isNotEmpty() && streamingState !is StreamingState.Idle) {
+                    Surface(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(start = 16.dp, end = 16.dp, bottom = 72.dp),
+                        shape = MaterialTheme.shapes.medium,
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        contentColor = MaterialTheme.colorScheme.onSurface,
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            if (activeSourceKind == VideoSourceKind.CAMERA) {
+                                activeEncoder?.let { AppliedCameraProfile(it, measuredEncoderFps) }
+                                bitrateDiagnostics?.let {
+                                    Text(
+                                        stringResource(R.string.streaming_encoder_bitrate_mode, it.mode.name, it.targetKbps.toString(), it.encoderName),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        modifier = Modifier.testTag("encoder_bitrate_mode"),
+                                    )
+                                }
+                            }
+                            targetStates.forEach { state ->
+                                TargetStatusRow(state)
+                            }
+                        }
+                    }
+                }
 
-            StreamingIssueBanners(previewConfigIssues, streamingState, permissionDenied)
+                StreamingControlsMenu(
+                    streamingEngine, navController, topButtonMaxWidth,
+                    onRecord = requestPermissionsAndRecord,
+                    onScreenCapture = requestScreenCapture,
+                    onVideoPicker = { requestVideoPicker() },
+                )
+                FilledIconButton(
+                    onClick = { navController.navigate("settings_route") },
+                    modifier = Modifier.align(Alignment.TopEnd).padding(top = 12.dp, end = 16.dp).testTag("open_settings"),
+                ) {
+                    Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.streaming_settings_content_desc))
+                }
+
+                StreamingIssueBanners(previewConfigIssues, streamingState, permissionDenied)
+            }
 
             // Chat-Overlay + Widgets: als Slot ausgelagert (siehe Parameter-Doku).
             overlayContent()
@@ -352,6 +379,47 @@ fun StreamingScreen(
             }
 
         }
+    }
+}
+
+/** The scenes sheet owns a separate window, so it needs the same fullscreen policy. */
+@Composable
+private fun HideDialogSystemBars() {
+    val view = LocalView.current
+    DisposableEffect(view) {
+        val window = (view.parent as? DialogWindowProvider)?.window
+        fun hideBars() {
+            window?.let {
+                WindowCompat.getInsetsController(it, it.decorView).apply {
+                    systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                    hide(WindowInsetsCompat.Type.systemBars())
+                }
+            }
+        }
+        val listener = ViewTreeObserver.OnWindowFocusChangeListener { focused ->
+            if (focused) hideBars()
+        }
+        view.viewTreeObserver.addOnWindowFocusChangeListener(listener)
+        hideBars()
+        onDispose {
+            view.viewTreeObserver.removeOnWindowFocusChangeListener(listener)
+        }
+    }
+}
+
+@Composable
+internal fun AppliedCameraProfile(config: ResolvedEncoderConfig, measuredFps: Int?) {
+    val preset = config.preset
+    Text(
+        stringResource(R.string.streaming_camera_profile, preset.width, preset.height, preset.fps),
+        style = MaterialTheme.typography.bodySmall,
+        modifier = Modifier.testTag("applied_camera_profile"),
+    )
+    if (config.fallbackApplied) {
+        Text(stringResource(R.string.streaming_camera_profile_fallback), style = MaterialTheme.typography.bodySmall)
+    }
+    measuredFps?.let {
+        Text(stringResource(R.string.streaming_camera_measured_fps, it), style = MaterialTheme.typography.bodySmall)
     }
 }
 

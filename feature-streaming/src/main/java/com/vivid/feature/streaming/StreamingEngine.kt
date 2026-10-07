@@ -19,6 +19,9 @@ import com.pedro.library.multiple.MultiType
 import com.pedro.common.VideoCodec
 import com.pedro.library.view.GlStreamInterface
 import android.media.MediaCodecInfo
+import android.media.MediaCodec
+import com.pedro.library.base.recording.RecordController
+import com.pedro.library.util.AndroidMuxerRecordController
 import android.media.MediaCodecList
 import android.media.MediaFormat
 import android.os.SystemClock
@@ -26,6 +29,8 @@ import com.vivid.core.data.AdaptiveBitrateConfig
 import com.vivid.core.data.AdaptiveBitrateController
 import com.vivid.core.data.PrivacyZone
 import com.vivid.core.data.ResolvedEncoderConfig
+import com.vivid.core.data.AndroidEncoderCapabilities
+import com.vivid.core.data.EncoderCapabilities
 import com.vivid.core.data.VideoCodecPreference
 import com.vivid.feature.streaming.source.DisplayFactory
 import com.vivid.feature.streaming.source.PlayerFactory
@@ -109,6 +114,9 @@ class StreamingEngine @Inject constructor(
     private val videoSourceRegistry: VideoSourceRegistry, // <-- S1: Source-Abstraktion
 ) {
     private var camera: MultiCamera2? = null
+    private val keyframeController = KeyframeIntervalController()
+    private val _measuredKeyframeIntervalMs = MutableStateFlow<Long?>(null)
+    val measuredKeyframeIntervalMs: StateFlow<Long?> = _measuredKeyframeIntervalMs.asStateFlow()
     private var idlePreviewCamera: Camera2ApiManager? = null
     private var idlePreviewSurface: Surface? = null
     private var idlePreviewSize: Pair<Int, Int>? = null
@@ -117,11 +125,21 @@ class StreamingEngine @Inject constructor(
     /** Gemerkte Encoder-Konfiguration (null = Legacy-Pfad, RootEncoder-Default). */
     private val _encoderConfig = MutableStateFlow<ResolvedEncoderConfig?>(null)
     private val _encoderAutoFallback = MutableStateFlow(true)
+    private val _bitrateDiagnostics = MutableStateFlow<EncoderBitrateDiagnostics?>(null)
+    val bitrateDiagnostics: StateFlow<EncoderBitrateDiagnostics?> = _bitrateDiagnostics.asStateFlow()
+    internal var readBitrateDiagnostics: (Camera2Base) -> EncoderBitrateDiagnostics = RootEncoderBitrateDiagnostics::read
     private val _activeEncoder = MutableStateFlow<ResolvedEncoderConfig?>(null)
+    private val _measuredEncoderFps = MutableStateFlow<Int?>(null)
+    val measuredEncoderFps: StateFlow<Int?> = _measuredEncoderFps.asStateFlow()
+    internal var encoderCapabilities: EncoderCapabilities = AndroidEncoderCapabilities()
+    internal var captureCapabilities: (Camera2Base) -> CameraCaptureCapabilities = {
+        AndroidCameraCaptureCapabilities(it.cameraCharacteristics)
+    }
 
     /** Adaptive Bitrate (v0.6.0): Zielbitrate an gemessene Strecke anpassen. */
     private val _adaptiveBitrateEnabled = MutableStateFlow(false)
     private var adaptiveController: AdaptiveBitrateController? = null
+    private var stoppingStreams = false
     private var lastAdaptiveSampleMs = 0L
 
     /** Zeitquelle (injektierbar fuer Tests; Realzeit im Betrieb). */
@@ -408,35 +426,78 @@ class StreamingEngine @Inject constructor(
         }
 
         override fun onConnectionFailed(reason: String) {
-            updateTarget(index) {
-                it.copy(status = StreamTargetStatus.FAILED, failureReason = reason)
-            }
-            // Nur das fehlgeschlagene Ziel stoppen — andere Ziele streamen weiter.
-            camera?.stopStream(MultiType.RTMP, index)
+            failTarget(index, reason)
         }
 
         override fun onNewBitrate(bitrate: Long) {
-            // Upload-Statistik je Verbindung (kbps) live im Ziel-Status.
-            updateTarget(index) { it.copy(bitrateKbps = bitrate.toInt()) }
+            // RootEncoder reports bits/s; application state and adaptive control use kbps.
+            val measuredKbps = (bitrate / 1_000L).coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()
+            updateTarget(index) { it.copy(bitrateKbps = measuredKbps) }
             // Adaptive Steuerung: nur vom ersten Ziel sampeln — der
             // Encoder ist geteilt, alle Ziele sehen dieselbe Bitrate.
-            if (index == 0) sampleAdaptiveBitrate(bitrate)
+            if (index == 0) sampleAdaptiveBitrate(measuredKbps.toLong())
         }
 
         override fun onDisconnect() {
-            updateTarget(index) {
-                it.copy(status = StreamTargetStatus.IDLE, failureReason = null)
-            }
+            if (stoppingStreams) return
+            val target = _targetStates.value.getOrNull(index) ?: return
+            // Disconnect is also emitted by failed-client cleanup. Keep the cause
+            // visible and do not let cleanup callbacks revive/clear an old target.
+            if (target.status == StreamTargetStatus.FAILED || target.status == StreamTargetStatus.IDLE) return
+            updateTarget(index) { it.copy(status = StreamTargetStatus.IDLE, failureReason = null, bitrateKbps = null) }
+            finishEncodersIfNoActiveTargets()
         }
 
         override fun onAuthError() {
-            updateTarget(index) {
-                it.copy(status = StreamTargetStatus.FAILED, failureReason = "RTMP Auth Error")
-            }
+            failTarget(index, "RTMP Auth Error")
         }
 
         override fun onAuthSuccess() {
             // Optional: Handle auth success
+        }
+    }
+
+    private fun failTarget(index: Int, reason: String) {
+        if (stoppingStreams) return
+        val target = _targetStates.value.getOrNull(index) ?: return
+        if (target.status == StreamTargetStatus.IDLE || target.status == StreamTargetStatus.FAILED) return
+        updateTarget(index) { it.copy(status = StreamTargetStatus.FAILED, failureReason = reason, bitrateKbps = null) }
+        stopTargetStream(index)
+        finishEncodersIfNoActiveTargets()
+    }
+
+    private fun stopTargetStream(index: Int) {
+        when (activeSourceKind.value) {
+            VideoSourceKind.CAMERA -> camera?.stopStream(MultiType.RTMP, index)
+            VideoSourceKind.SCREEN_CAPTURE -> screenCaptureSource?.stopStream(index)
+            VideoSourceKind.VIDEO_PLAYER -> videoPlayerSource?.stopStream(index)
+            VideoSourceKind.REPLAY -> replaySource?.stopStream(index)
+        }
+    }
+
+    private fun finishEncodersIfNoActiveTargets() {
+        if (_targetStates.value.any { it.status == StreamTargetStatus.STREAMING || it.status == StreamTargetStatus.PREPARING }) return
+        stopSharedStreamEncoder()
+        adaptiveController = null
+        startIdlePreviewIfReady()
+    }
+
+    /** RootEncoder 2.7.5's indexed stop tests clients BEFORE disconnecting them.
+     * Explicitly finish the shared encoder after disconnecting the last target.
+     * Camera2Base preserves an ongoing local recording in this overload.
+     */
+    private fun stopSharedStreamEncoder() {
+        when (activeSourceKind.value) {
+            VideoSourceKind.CAMERA -> camera?.let { cam ->
+                if (cam.isStreaming) {
+                    if (!cam.isRecording) detachGlPreview()
+                    Timber.i("Stopping shared camera encoder after last RTMP target")
+                    cam.stopStream()
+                }
+            }
+            VideoSourceKind.SCREEN_CAPTURE -> screenCaptureSource?.stop()
+            VideoSourceKind.VIDEO_PLAYER -> videoPlayerSource?.stop()
+            VideoSourceKind.REPLAY -> replaySource?.stop()
         }
     }
 
@@ -605,6 +666,10 @@ class StreamingEngine @Inject constructor(
     fun initializeCamera() {
         if (camera == null) {
             camera = cameraFactory.create(List(MAX_STREAM_TARGETS) { createTargetChecker(it) })
+            camera!!.setRecordController(monitorKeyframes(AndroidMuxerRecordController()))
+            camera!!.setFpsListener { fps ->
+                if (_activeEncoder.value != null) _measuredEncoderFps.value = fps
+            }
             val encoderControls = RootEncoderCameraControls(camera!!)
             cameraControls = ActiveCameraControls { idlePreviewCamera?.let(::Camera2PreviewControls) ?: encoderControls }
             focusController = CameraFocusController(object : FocusableCamera {
@@ -742,11 +807,14 @@ class StreamingEngine @Inject constructor(
     }
 
     private fun prepareStandaloneRecording(cam: MultiCamera2, includeAudio: Boolean): Boolean {
+        _bitrateDiagnostics.value = null
+        resetKeyframeMonitoring()
+        syncSelectedCamera(cam)
         stopIdlePreview()
         val audioReady = !includeAudio || cam.prepareAudio()
         encoderRotationDegrees = if (_encoderConfig.value == null) CameraHelper.getCameraOrientation(context) else 0
         val videoReady = if (_encoderConfig.value == null) cam.prepareVideo() else applyEncoderPreset(cam)
-        if (audioReady && videoReady) return true
+        if (audioReady && videoReady && updateBitrateDiagnostics(cam)) return true
         startIdlePreviewIfReady()
         return false
     }
@@ -755,7 +823,7 @@ class StreamingEngine @Inject constructor(
         replayController?.takeIf { lastReplayIncludeAudio == includeAudio }
             ?: ReplayController(
                 storage = replayStorage(context),
-                recorder = TrackControlledReplayRecorder(cam, includeAudio = includeAudio),
+                recorder = TrackControlledReplayRecorder(cam, includeAudio = includeAudio, wrapController = ::monitorKeyframes),
                 _state = _replayState,
             ).also {
                 replayController = it
@@ -969,7 +1037,7 @@ class StreamingEngine @Inject constructor(
         startTarget: (Int, String) -> Unit,
     ) {
         if (source == null || source.isActive) return
-        _targetStates.value = urls.map { StreamTargetState(it) }
+        _targetStates.value = urls.map { StreamTargetState(it, status = StreamTargetStatus.PREPARING) }
         _streamingState.value = StreamingState.Preparing
         if (!source.start()) {
             failStream(ENCODER_PREPARATION_ERROR)
@@ -983,13 +1051,15 @@ class StreamingEngine @Inject constructor(
         // Kamera-Pfad (unverändert).
         val cam = camera ?: return
         if (cam.isStreaming) return
+        if (!cam.isRecording) resetKeyframeMonitoring()
+        syncSelectedCamera(cam)
         stopIdlePreview()
 
-        _targetStates.value = activeUrls.map { StreamTargetState(it) }
+        _targetStates.value = activeUrls.map { StreamTargetState(it, status = StreamTargetStatus.PREPARING) }
         _streamingState.value = StreamingState.Preparing
 
-        resetAdaptiveBitrate()
         if (prepareStreamEncoders(cam)) {
+            resetAdaptiveBitrate()
             // P1: Anonymisierung — persistierter Soll-Zustand ab dem ersten
             // Frame (Composer-Zustand überlebt stopStream bewusst).
             applyPrivacyZones(desiredPrivacyZones.value)
@@ -1009,7 +1079,7 @@ class StreamingEngine @Inject constructor(
 
     private fun resetAdaptiveBitrate() {
         if (_adaptiveBitrateEnabled.value) {
-            val presetKbps = _encoderConfig.value?.preset?.videoBitrateKbps
+            val presetKbps = _activeEncoder.value?.preset?.videoBitrateKbps
                 ?: DEFAULT_VIDEO_BITRATE_KBPS
             adaptiveController = AdaptiveBitrateController(
                 AdaptiveBitrateConfig(
@@ -1027,6 +1097,7 @@ class StreamingEngine @Inject constructor(
     private fun prepareStreamEncoders(cam: MultiCamera2): Boolean {
         // An ongoing local recording already owns the running encoders.
         val recording = cam.isRecording
+        if (!recording) _bitrateDiagnostics.value = null
         if (!recording) {
             encoderRotationDegrees = if (_encoderConfig.value == null) CameraHelper.getCameraOrientation(context) else 0
         }
@@ -1040,7 +1111,7 @@ class StreamingEngine @Inject constructor(
             // Preset-Pfad: applyEncoderPreset ruft prepareVideo(width, …) selbst.
             applyEncoderPreset(cam)
         }
-        return audioReady && videoReady
+        return audioReady && videoReady && (recording || updateBitrateDiagnostics(cam))
     }
 
     /**
@@ -1050,18 +1121,21 @@ class StreamingEngine @Inject constructor(
      * Kein Encoder konfiguriert (Standard): RootEncoder-Default unangetastet —
      * der Legacy-Pfad `prepareVideo()` bleibt unverändert bestehen. Mit
      * Encoder-Konfiguration läuft vor `prepareVideo()` die Fallback-Kette
-     * ([resolveEncoderConfig]): HEVC nur, wenn die Hardware es in der
+     * ([resolveCameraStreamProfile]): HEVC nur, wenn die Hardware es in der
      * gewählten Auflösung kann, sonst H.264 — je nach Preset-Abstufung auch
      * mit herabgesetzter Auflösung.
      *
-     * @return false, wenn die Fähigkeitsermittlung im Strict-Modus (Fallback
-     *   ausgeschaltet) die Wunsch-Kombination verneint.
+     * @return false, wenn Kamera und Encoder kein gemeinsames Profil unterstützen.
      */
     private fun applyEncoderPreset(cam: Camera2Base): Boolean {
-        // Die aufgelöste Konfiguration kommt vom ViewModel (Fähigkeits-Kette
-        // läuft dort) — die Engine wendet sie 1:1 an.
-        val resolved = _encoderConfig.value ?: return true
-        _activeEncoder.value = resolved
+        // Recheck against the selected camera before preparation; the ViewModel
+        // only checks encoder capabilities and the lens may have changed since then.
+        val requested = _encoderConfig.value ?: return true
+        _activeEncoder.value = null
+        _measuredEncoderFps.value = null
+        val resolved = resolveCameraStreamProfile(
+            requested, _encoderAutoFallback.value, captureCapabilities(cam), encoderCapabilities,
+        ) ?: return false
 
         val codec = when (resolved.codec) {
             VideoCodecPreference.H265 -> VideoCodec.H265
@@ -1073,17 +1147,61 @@ class StreamingEngine @Inject constructor(
             resolved.preset.width,
             resolved.preset.height,
             resolved.preset.fps,
-            resolved.preset.videoBitrateKbps,
-            2, // iFrameInterval in Sekunden (RootEncoder-üblich)
+            resolved.preset.videoBitrateKbps * 1_000, // RootEncoder expects bits/s.
+            KeyframeIntervalController.INTERVAL_SECONDS, // Seconds, paired with the resolved FPS above.
             0, // rotation
         )
+        if (prepared == true) _activeEncoder.value = resolved
         return prepared == true
     }
+
+    /** Lens selection during idle preview must also reach the streaming camera. */
+    private fun syncSelectedCamera(cam: MultiCamera2) {
+        val selectedId = idlePreviewCamera?.getCurrentCameraId() ?: return
+        if (selectedId != cam.currentCameraId) cam.switchCamera(selectedId)
+    }
+
+    private fun updateBitrateDiagnostics(cam: Camera2Base): Boolean {
+        _bitrateDiagnostics.value = null
+        return runCatching {
+            val diagnostics = readBitrateDiagnostics(cam)
+            _bitrateDiagnostics.value = diagnostics
+            Timber.i("Video encoder=%s mode=%s CBR supported=%s target=%d kbps",
+                diagnostics.encoderName, diagnostics.mode, diagnostics.cbrSupported, diagnostics.targetKbps)
+            if (diagnostics.mode != EncoderBitrateMode.CBR) {
+                Timber.w("CBR unavailable: encoder=%s uses %s", diagnostics.encoderName, diagnostics.mode)
+            }
+            true
+        }.getOrElse {
+            Timber.e(it, "Cannot verify video encoder bitrate mode")
+            false
+        }
+    }
+
+    private fun resetKeyframeMonitoring() {
+        keyframeController.reset()
+        _measuredKeyframeIntervalMs.value = null
+    }
+
+    private fun monitorKeyframes(inner: RecordController): RecordController =
+        KeyframeMonitoringRecordController(inner) { info ->
+            val cam = camera
+            if (cam != null && (cam.isStreaming || cam.isRecording)) {
+                val overdue = keyframeController.onFrame(
+                    info.presentationTimeUs, info.flags and MediaCodec.BUFFER_FLAG_KEY_FRAME != 0, timeSource(),
+                )
+                _measuredKeyframeIntervalMs.value = keyframeController.measuredIntervalMs
+                if (overdue) {
+                    Timber.w("Encoder missed the 2-second keyframe interval; requesting a sync frame")
+                    cam.requestKeyFrame()
+                }
+            }
+        }
 
     /**
      * Konfiguriert den Encoder für den nächsten Streamstart. Erwartet die
      * aufgelöste Konfiguration (UI/VoM resolven die Preset-Einstellung gegen
-     * die Fähigkeiten — die Engine wendet nur noch an).
+     * die Encoder-Fähigkeiten — die Engine prüft zusätzlich die gewählte Kamera).
      */
     fun configureEncoder(resolved: ResolvedEncoderConfig, autoFallback: Boolean) {
         _encoderConfig.value = resolved
@@ -1099,7 +1217,7 @@ class StreamingEngine @Inject constructor(
         if (!enabled) adaptiveController = null
     }
 
-    /** zuletzt aufgelöste Encoder-Konfiguration (UI-Anzeige/Tests). */
+    /** Successfully prepared camera/encoder profile, rather than the requested preset. */
     val activeEncoder: StateFlow<ResolvedEncoderConfig?> = _activeEncoder.asStateFlow()
 
     /** true = Strict-Modus (kein automatischer HEVC/Preset-Fallback). */
@@ -1136,40 +1254,20 @@ class StreamingEngine @Inject constructor(
 
     /** Stoppt alle laufenden/startenden Ziele und setzt den Zustand auf Idle. */
     fun stopStream() {
-        if (_streamingState.value !is StreamingState.Streaming &&
-            _streamingState.value !is StreamingState.Preparing
-        ) {
-            return
+        if (_streamingState.value is StreamingState.Idle && camera?.isStreaming != true) return
+        stoppingStreams = true
+        try {
+            _targetStates.value.indices.forEach(::stopTargetStream)
+            stopSharedStreamEncoder()
+            _targetStates.value = _targetStates.value.map {
+                it.copy(status = StreamTargetStatus.IDLE, failureReason = null, bitrateKbps = null)
+            }
+            _streamingState.value = StreamingState.Idle
+            adaptiveController = null
+        } finally {
+            stoppingStreams = false
         }
-        // S2/S3: Die aktive Quelle bestimmt, welcher Encoder gestoppt wird.
-        if (activeSourceKind.value == VideoSourceKind.SCREEN_CAPTURE) {
-            val source = screenCaptureSource ?: return
-            _targetStates.value.forEachIndexed { index, _ ->
-                source.stopStream(index)
-            }
-        } else if (activeSourceKind.value == VideoSourceKind.VIDEO_PLAYER) {
-            val source = videoPlayerSource ?: return
-            _targetStates.value.forEachIndexed { index, _ ->
-                source.stopStream(index)
-            }
-        } else if (activeSourceKind.value == VideoSourceKind.REPLAY) {
-            val source = replaySource ?: return
-            _targetStates.value.forEachIndexed { index, _ ->
-                source.stopStream(index)
-            }
-        } else {
-            val cam = camera ?: return
-            if (!cam.isRecording) detachGlPreview()
-            _targetStates.value.forEachIndexed { index, _ ->
-                cam.stopStream(MultiType.RTMP, index)
-            }
-            startIdlePreviewIfReady()
-        }
-        _targetStates.value = _targetStates.value.map {
-            it.copy(status = StreamTargetStatus.IDLE, failureReason = null, bitrateKbps = null)
-        }
-        _streamingState.value = StreamingState.Idle
-        adaptiveController = null
+        startIdlePreviewIfReady()
     }
 
     /**
@@ -1185,7 +1283,10 @@ class StreamingEngine @Inject constructor(
         val now = timeSource()
         if (now - lastAdaptiveSampleMs < ADAPTIVE_SAMPLE_INTERVAL_MS) return
         lastAdaptiveSampleMs = now
-        val next = controller.onSample(measuredKbps) ?: return
-        cam.setVideoBitrateOnFly(next)
+        val nextKbps = controller.onSample(measuredKbps) ?: return
+        cam.setVideoBitrateOnFly(nextKbps * 1_000) // RootEncoder expects bits/s.
+        _bitrateDiagnostics.value = _bitrateDiagnostics.value?.copy(targetKbps = nextKbps)
+        Timber.i("Adaptive bitrate: measured=%d kbps target=%d kbps mode=%s",
+            measuredKbps, nextKbps, _bitrateDiagnostics.value?.mode)
     }
 }

@@ -17,6 +17,11 @@ import org.junit.jupiter.api.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class StreamingEngineStreamControlTest {
+    private val launcher = mockk<StreamingServiceLauncher>(relaxed = true)
+    private val capabilities = object : com.vivid.core.data.EncoderCapabilities {
+        override fun supports(mime: String, width: Int, height: Int, fps: Int) = true
+    }
+
 
     private fun controlWith(
         engine: StreamingEngine,
@@ -28,7 +33,7 @@ class StreamingEngineStreamControlTest {
         val repository = mockk<SettingsRepository> {
             every { appSettingsFlow } returns MutableStateFlow(settings)
         }
-        return StreamingEngineStreamControl(engine, repository, scope)
+        return StreamingEngineStreamControl(engine, StreamStartCoordinator(repository, engine, launcher, capabilities), launcher, scope)
     }
 
     @Test
@@ -56,14 +61,14 @@ class StreamingEngineStreamControlTest {
     }
 
     @Test
-    fun `start builds url from settings and starts the engine`() = runTest {
+    fun `start prepares settings and launches the foreground service`() = runTest {
         val engine = mockk<StreamingEngine>(relaxed = true)
         val control = controlWith(
             engine,
             AppSettings(streamUrl = "rtmp://live.example/app", streamKey = "key-1"),
         )
         control.start()
-        coVerify { engine.startStream(listOf("rtmp://live.example/app/key-1")) }
+        coVerify { launcher.startStreaming(listOf("rtmp://live.example/app/key-1")) }
     }
 
     @Test
@@ -71,7 +76,7 @@ class StreamingEngineStreamControlTest {
         val engine = mockk<StreamingEngine>(relaxed = true)
         val control = controlWith(engine, AppSettings())
         control.start()
-        coVerify(exactly = 0) { engine.startStream(any<List<String>>()) }
+        coVerify(exactly = 0) { launcher.startStreaming(any()) }
     }
 
     @Test
@@ -89,7 +94,7 @@ class StreamingEngineStreamControlTest {
         )
         control.start()
         coVerify {
-            engine.startStream(
+            launcher.startStreaming(
                 listOf(
                     "rtmp://live.example/app/key-1",
                     "rtmps://second.example/app/key-2",
@@ -99,7 +104,7 @@ class StreamingEngineStreamControlTest {
     }
 
     @Test
-    fun `start with only a secondary target starts that target`() = runTest {
+    fun `start with only a secondary target is blocked like local start`() = runTest {
         val engine = mockk<StreamingEngine>(relaxed = true)
         val control = controlWith(
             engine,
@@ -109,11 +114,11 @@ class StreamingEngineStreamControlTest {
             ),
         )
         control.start()
-        coVerify { engine.startStream(listOf("rtmp://second.example/app/key-2")) }
+        verify(exactly = 0) { launcher.startStreaming(any()) }
     }
 
     @Test
-    fun `start ignores blank targets`() = runTest {
+    fun `start rejects a blank required primary target`() = runTest {
         val engine = mockk<StreamingEngine>(relaxed = true)
         val control = controlWith(
             engine,
@@ -125,15 +130,15 @@ class StreamingEngineStreamControlTest {
             ),
         )
         control.start()
-        coVerify { engine.startStream(listOf("rtmp://second.example/app")) }
+        verify(exactly = 0) { launcher.startStreaming(any()) }
     }
 
     @Test
-    fun `stop delegates to the engine`() = runTest {
+    fun `stop delegates to the foreground service`() = runTest {
         val engine = mockk<StreamingEngine>(relaxed = true)
         val control = controlWith(engine, AppSettings())
         control.stop()
-        verify { engine.stopStream() }
+        verify { launcher.stopStreaming() }
     }
 
     @Test

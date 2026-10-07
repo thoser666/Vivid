@@ -67,14 +67,15 @@ class RootEncoderReplayRecorder(
 class TrackControlledReplayRecorder(
     private val camera: Camera2Base,
     private val includeAudio: Boolean,
+    private val wrapController: (RecordController) -> RecordController = { it },
 ) : ReplayRecorder {
     override fun start(file: File): Boolean = runCatching {
         file.parentFile?.mkdirs()
         if (includeAudio) {
-            camera.setRecordController(AndroidMuxerRecordController())
+            camera.setRecordController(wrapController(AndroidMuxerRecordController()))
         } else {
             camera.setRecordController(
-                TrackFilteringRecordController(AndroidMuxerRecordController()),
+                wrapController(TrackFilteringRecordController(AndroidMuxerRecordController())),
             )
         }
         camera.startRecord(file.absolutePath)

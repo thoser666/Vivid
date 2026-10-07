@@ -21,6 +21,7 @@ import com.vivid.R
 import com.vivid.feature.chat.bot.ChatBotController
 import com.vivid.feature.streaming.StreamingEngine
 import com.vivid.feature.streaming.StreamingState
+import com.vivid.feature.streaming.source.VideoSourceKind
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -41,7 +42,7 @@ import javax.inject.Inject
  * - **Persistente Notification** mit Stop-Aktion, aktualisiert auf den
  *   Engine-Status (Preparing → Streaming/Failed).
  *
- * Der Service ist bewusst dünn: Die URL wird vom [StreamingViewModel] gebaut und
+ * Der Service ist bewusst dünn: Die gemeinsame Startvorbereitung baut die URLs und
  * per Intent-Extra übergeben, der eigentliche Stream läuft über die Singleton-
  * [StreamingEngine] (gleiche Instanz wie im UI).
  *
@@ -83,6 +84,9 @@ class StreamingService : Service() {
                 }
                 startAsForeground()
                 try {
+                    if (streamingEngine.activeSourceKind.value == VideoSourceKind.CAMERA) {
+                        streamingEngine.initializeCamera()
+                    }
                     streamingEngine.startStream(urls)
                 } catch (e: SecurityException) {
                     // VIVID-39 (#221): z. B. MediaProjection ohne FGS-Typ

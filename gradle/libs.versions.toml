@@ -1,4 +1,5 @@
 [versions]
+androidxTest = "1.7.0"
 agp = "9.4.1"
 kover = "0.9.9"
 # SDK Versionen
@@ -79,7 +80,8 @@ gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 java-websocket = { module = "org.java-websocket:Java-WebSocket", version.ref = "javaWebsocket" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
-androidx-test-core = { group = "androidx.test", name = "core", version = "1.7.0" }
+androidx-test-core = { group = "androidx.test", name = "core", version.ref = "androidxTest" }
+androidx-test-runner = { group = "androidx.test", name = "runner", version.ref = "androidxTest" }
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
 androidx-espresso-intents = { group = "androidx.test.espresso", name = "espresso-intents", version.ref = "espressoCore" }
 androidx-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling" }

@@ -133,4 +133,8 @@
     <string name="privacy_zone_editor_close">Zonen-Editor schließen</string>
     <string name="streaming_controls">Steuerung</string>
     <string name="streaming_replay_start_error">Aufnahme konnte nicht gestartet werden. Prüfe die Kamera- und Mikrofonberechtigungen und versuche es erneut.</string>
+    <string name="streaming_camera_profile">Kameraprofil: %1$d×%2$d · %3$d fps</string>
+    <string name="streaming_camera_profile_fallback">Kompatibles Profil angewendet</string>
+    <string name="streaming_camera_measured_fps">Gemessen: %1$d fps</string>
+    <string name="streaming_encoder_bitrate_mode">Encoder: %1$s · Ziel %2$s kbit/s · %3$s</string>
 </resources>

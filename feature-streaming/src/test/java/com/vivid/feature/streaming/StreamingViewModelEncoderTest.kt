@@ -13,6 +13,10 @@ import com.vivid.feature.streaming.scene.SceneController
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import io.mockk.verifyOrder
+import kotlinx.coroutines.CoroutineScope
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -42,7 +46,9 @@ class StreamingViewModelEncoderTest {
             Cap(mime, width, height, fps) in supported
     }
 
-    private val engine = mockk<StreamingEngine>(relaxed = true)
+    private val engine = mockk<StreamingEngine>(relaxed = true) {
+        every { streamingState } returns MutableStateFlow(StreamingState.Idle)
+    }
     private val launcher = mockk<StreamingServiceLauncher>(relaxed = true)
     private val sceneRepository = mockk<SceneRepository>(relaxed = true)
     private val sceneController = mockk<SceneController>(relaxed = true)
@@ -73,7 +79,73 @@ class StreamingViewModelEncoderTest {
             sceneController,
             autoSceneSwitcher,
             zoneRepository,
+            StreamStartCoordinator(repository, engine, launcher, com.vivid.core.data.AndroidEncoderCapabilities()),
         )
+
+    private suspend fun startViaRoute(remote: Boolean, settings: AppSettings, caps: EncoderCapabilities, scope: CoroutineScope) {
+        val repository = repositoryWith(settings)
+        if (remote) {
+            val coordinator = StreamStartCoordinator(repository, engine, launcher, caps)
+            StreamingEngineStreamControl(engine, coordinator, launcher, scope).start()
+        } else {
+            viewModel(repository).also { it.encoderCapabilities = caps }.startStream()
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = [false, true])
+    fun `local and remote configure fallback profile and adaptive control before service launch`(remote: Boolean) = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val saved = settings(adaptiveBitrate = true).copy(
+            streamUseTls = true,
+            secondaryStreamUrl = "rtmp://second.example/app", secondaryStreamKey = "key-2",
+        )
+        startViaRoute(remote, saved, FakeCaps(setOf(Cap("video/hevc", 1280, 720, 30))), backgroundScope)
+        advanceUntilIdle()
+        verifyOrder {
+            engine.configureEncoder(ResolvedEncoderConfig(VideoCodecPreference.H265, EncoderPreset.HD30, true), true)
+            engine.configureAdaptiveBitrate(true)
+            launcher.startStreaming(listOf("rtmps://live.example/app/key-1", "rtmp://second.example/app/key-2"))
+        }
+        verify(exactly = 0) { engine.startStream(any<List<String>>()) }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = [false, true])
+    fun `both routes block invalid secondary settings before applying encoder configuration`(remote: Boolean) = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val invalid = settings().copy(secondaryStreamUrl = "https://second.example/app")
+        startViaRoute(remote, invalid, FakeCaps(emptySet()), backgroundScope)
+        advanceUntilIdle()
+        verify(exactly = 0) { engine.configureEncoder(any(), any()) }
+        verify(exactly = 0) { engine.configureAdaptiveBitrate(any()) }
+        verify(exactly = 0) { launcher.startStreaming(any()) }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = [false, true])
+    fun `both routes preserve strict profile and disabled adaptive mode`(remote: Boolean) = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        startViaRoute(remote, settings(autoFallback = false, preference = VideoCodecPreference.H265), FakeCaps(emptySet()), backgroundScope)
+        advanceUntilIdle()
+        verifyOrder {
+            engine.configureEncoder(ResolvedEncoderConfig(VideoCodecPreference.H265, EncoderPreset.S_4K60, false), false)
+            engine.configureAdaptiveBitrate(false)
+            launcher.startStreaming(listOf("rtmp://live.example/app/key-1"))
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = [false, true])
+    fun `both routes ignore repeated start while streaming without reconfiguring adaptive control`(remote: Boolean) = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        every { engine.streamingState } returns MutableStateFlow(StreamingState.Streaming)
+        startViaRoute(remote, settings(adaptiveBitrate = false), FakeCaps(emptySet()), backgroundScope)
+        advanceUntilIdle()
+        verify(exactly = 0) { engine.configureEncoder(any(), any()) }
+        verify(exactly = 0) { engine.configureAdaptiveBitrate(any()) }
+        verify(exactly = 0) { launcher.startStreaming(any()) }
+    }
 
     private fun settings(
         preset: EncoderPreset = EncoderPreset.S_4K60,

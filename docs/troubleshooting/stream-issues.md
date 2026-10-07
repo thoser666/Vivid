@@ -59,6 +59,33 @@
 1. Kopfhörer verwenden (kein Speaker-Feedback)
 2. Lautstärke des Handys reduzieren
 
+## Encoder-Profil und Bitrate prüfen
+
+Das angezeigte aktive Profil ist die erfolgreich vorbereitete Kombination aus
+gewählter Kamera und Encoder. Reguläre Camera2-Ausgabegrößen, AE-FPS-Bereiche
+und Mindest-Framedauer begrenzen die Auswahl zusätzlich zu den Encoder-Fähigkeiten.
+Mit Auto-Fallback kann beispielsweise FHD60 auf FHD30 zurückfallen; ohne Fallback
+wird eine nicht unterstützte Kombination vor dem Streamstart abgelehnt.
+Separate High-Speed-Kamera-Modi sind in diesem Pfad nicht implementiert.
+Die gemessenen Encoder-FPS sind eine Beobachtung, keine Garantie der Sensor-FPS.
+
+Bitraten in Einstellungen, Ziel-Statistik und adaptiver Regelung sind in kbit/s.
+Die Diagnose zeigt den ausgewählten Encoder, seinen tatsächlichen Bitratenmodus
+und die Zielbitrate. Unterstützt dieser Encoder kein CBR, kann er VBR verwenden;
+eine feste Zielbitrate garantiert dann keinen konstanten Upload. Adaptive Bitrate
+ändert den Zielwert unabhängig vom angezeigten Codec-Modus.
+
+Das konfigurierte Keyframe-Intervall beträgt zwei Sekunden. Die App beobachtet
+die ausgegebenen Keyframes und fordert bei überfälligen Frames ein Sync-Frame an.
+Bei geringer Eingangs-FPS kann die Hardware trotzdem größere Abstände erzeugen;
+insbesondere der 14-FPS-Gerätetest hat noch keine verlässlich bestandene Kadenz.
+
+Lokaler Button, Web-Remote und Chat verwenden dieselben gespeicherten
+Stream-Einstellungen und denselben Foreground-Service-Start. Nach Stop wird der
+geteilte Encoder beendet, sobald kein Stream-Ziel mehr aktiv ist. Nach einem
+Verbindungsfehler bleibt der Fehler sichtbar; sobald der Empfänger wieder
+verfügbar ist, kann der Retry-Button ohne App-Neustart verwendet werden.
+
 ## Further Reading
 
 - [FAQ: Häufige Probleme](../faq/common-issues.md)
