@@ -7,11 +7,13 @@ allprojects {
                 "io.netty" to "netty-codec-http",
                 "io.netty" to "netty-common",
                 "io.netty" to "netty-buffer",
-                "io.netty" to "netty-transport" -> useVersion("4.1.137.Final")
+                "io.netty" to "netty-transport",
+                -> useVersion("4.1.137.Final")
                 "org.apache.commons" to "commons-lang3" -> useVersion("3.18.0")
                 "org.bouncycastle" to "bcprov-jdk18on",
                 "org.bouncycastle" to "bcpkix-jdk18on",
-                "org.bouncycastle" to "bcutil-jdk18on" -> useVersion("1.86")
+                "org.bouncycastle" to "bcutil-jdk18on",
+                -> useVersion("1.86")
             }
         }
     }
@@ -32,7 +34,8 @@ buildscript {
             when (requested.group to requested.name) {
                 "org.bouncycastle" to "bcprov-jdk18on",
                 "org.bouncycastle" to "bcpkix-jdk18on",
-                "org.bouncycastle" to "bcutil-jdk18on" -> useVersion("1.86")
+                "org.bouncycastle" to "bcutil-jdk18on",
+                -> useVersion("1.86")
                 // FreeMarker 2.3.32 kommt transitiv via Kover 0.9.9 (Latest
                 // auf Maven Central, Juli 2026): intellij-coverage-reporter
                 // -> coverage-report -> freemarker. CVE-2026-84939 (critical,
@@ -118,11 +121,13 @@ kover {
 // jvmArgs (Kover-Agent u. a.) nicht clobbered werden.
 subprojects {
     tasks.withType<Test>().configureEach {
-        jvmArgumentProviders.add(CommandLineArgumentProvider {
-            listOf(
-                "-Djdk.attach.allowAttachSelf=true",
-                "-XX:+EnableDynamicAgentLoading",
-            )
-        })
+        jvmArgumentProviders.add(
+            CommandLineArgumentProvider {
+                listOf(
+                    "-Djdk.attach.allowAttachSelf=true",
+                    "-XX:+EnableDynamicAgentLoading",
+                )
+            },
+        )
     }
 }
