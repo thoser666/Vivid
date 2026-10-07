@@ -628,6 +628,7 @@ Commit die Log-Zeile hinzufügte:
 | 2026-10-04 | `ae7c4e4` | #264 OBS-E2E-Flake: Bind-Race + Ordnungs-Race behoben, drei Vertragstests + awaitPortListening-Helper |
 | 2026-10-05 | `3a61afa` | #268 Restbefund aus #264 umgesetzt: WHIP-Test wartet auf den Bind, Remote-Control-Test prueft die Produktions-Bindgarantie statt sie zu ueberdecken |
 | 2026-10-06 | `b970a9e` | Sentry-Transport-Betriebszustände in beforeSend filtern | `b970a9e` | nur `b970a9e` fügt die Log-Zeile hinzu; Issue #267 |
+| 2026-10-06 | `6f19fa0` | Manifest-Guard C1/C2 auf Android-Semantik gehärtet (letzter Attributwert gewinnt), Selbsttest 9 → 24 Fälle | `6f19fa0` | nur `6f19fa0` fügt die Log-Zeile hinzu |
 statt gegen github.sha (Git-Graph + Peel annotated Tags, kein Rueckfall) + T15/T18 inkl.
 Git-Graphen-Stub | `c826822` | einmalig, ueber `git log -S` eindeutig |
 docs(parity): 8b1efa8 Play-Guard-Selbsttest P2/P3 auf stderr-Vertrag umgestellt (CI-Regression aus 99e20cf2)
