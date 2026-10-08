@@ -4,6 +4,9 @@
 #   - genau EINE Beitragstabelle mit Header `| Person | Beitrag | Referenz | Status |`
 #   - Datenreihen: 4 Zellen, Person/Beitrag nicht leer, Referenz = `#<Nummer>`
 #   (GitHub-Issue/-PR), Status ∈ {offen, umgesetzt}, Referenznummern eindeutig.
+#   - Zelltext balanciert: `Person`/`Beitrag` mit paarigen `()`, `[]` und gerader
+#   Backtick-Anzahl — Fänger für abgeschnittene Zeilen (#278: halb kopierte
+#   Zeile mit offenem Klammerrest, strukturell „valide").
 # Offline/deterministisch (kein Netzwerk) — der Selbsttest test_contributors.sh
 # beweist die Fälle.
 set -euo pipefail
@@ -43,6 +46,16 @@ for line in lines[i + 2:]:
     if not person or not beitrag:
         print(f"❌ [contributors-guard] Person/Beitrag darf nicht leer sein: {s}")
         sys.exit(1)
+    for cname, cell in (("Person", person), ("Beitrag", beitrag)):
+        for o, c in (("(", ")"), ("[", "]")):
+            if cell.count(o) != cell.count(c):
+                print(f"❌ [contributors-guard] unbalancierte Klammer {o}{c} in {cname} "
+                      f"(Zeile abgeschnitten?): {s}")
+                sys.exit(1)
+        if cell.count("`") % 2:
+            print(f"❌ [contributors-guard] ungerade Anzahl Backticks in {cname} "
+                  f"(Zeile abgeschnitten?): {s}")
+            sys.exit(1)
     if not re.fullmatch(r"#\d+", ref):
         print(f"❌ [contributors-guard] Referenz muss `#<Nummer>` (GitHub-Issue/-PR) sein, gefunden: {ref}")
         sys.exit(1)
