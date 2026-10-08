@@ -446,6 +446,16 @@ im eigenen PR selbst tun); `offen` → `umgesetzt`, sobald die Arbeit gemergt is
 Die Struktur erzwingt `scripts/check_contributors.sh` (Pre-Push-Gate + CI) —
 Formatfehler brechen den Build ab.
 
+Zusätzlich zum Aufbau prüft der Guard den Zelltext: `Person` und `Beitrag`
+müssen balancierte `()`, `[]` und eine gerade Anzahl von Backticks haben —
+der Fänger für abgeschnittene Zeilen. In #278 landete eine halb kopierte
+Zeile, die strukturell valide aussah, aber mit zwei offenen Klammern endete
+(`… aus entitlement`).
+
+Gewürdigt wird ausschließlich der Beitrag des Dritten selbst. Arbeiten des
+Maintainer-Teams (eigene PRs, etwa der Parity-Guard aus #279) gehören nicht
+in die Zeile eines Dritten — auch nicht ergänzend.
+
 **Fork-PR-Erinnerung + öffentlicher Dank (automatisch).** Das Mergen eines
 Fork-PRs aktualisiert CONTRIBUTORS.md nicht von selbst. Bei jedem Push auf
 develop listet der Workflow `Automation / Contributors Reminder`
