@@ -236,11 +236,12 @@ chmod +x "$tmp/gh"
 # ein oeffentliches Repo funktionieren dann weiterhin, schreibende Calls
 # scheitern mit 401, statt im echten Repo zu landen.
 mkdir -p "$tmp/home"
-run_e2e() { # $1 = Logdatei
+run_e2e() { # $1 = Logdatei, $2 = optionale Skriptkopie
   rm -f "$1"
   PATH="$tmp:$PATH" MOCK_LOG="$1" GITHUB_REPOSITORY=thoser666/Vivid \
+    CONTRIBUTORS_FILE="$tmp/CONTRIBUTORS.md" \
     HOME="$tmp/home" GH_TOKEN="" GITHUB_TOKEN="" \
-    bash "$script" >/dev/null 2>&1
+    bash "${2:-$script}" >/dev/null 2>&1
 }
 e2e_log="$tmp/e2e.log"
 run_e2e "$e2e_log"
@@ -266,21 +267,36 @@ fi
 # End-to-End-Lauf die unlesbare pending-Liste melden (der Mock laeuft mit
 # einer Kopie des Skripts, das Original bleibt unberuehrt).
 cp "$script" "$tmp/rem_mut.sh"
-sed -i 's|process_candidate "$(printf .*"$row" |process_candidate "$row"|' "$tmp/rem_mut.sh" 2>/dev/null || true
+perl -pi -e 's/^(\s*)process_candidate "\$\(printf .*"\$row".*$/${1}process_candidate "\$row"/' "$tmp/rem_mut.sh"
 if grep -qF 'process_candidate "$row"' "$tmp/rem_mut.sh"; then
   mut_log="$tmp/e2e_mut.log"; rm -f "$mut_log"
   PATH="$tmp:$PATH" MOCK_LOG="$mut_log" GITHUB_REPOSITORY=thoser666/Vivid \
+    CONTRIBUTORS_FILE="$tmp/CONTRIBUTORS.md" \
     HOME="$tmp/home" GH_TOKEN="" GITHUB_TOKEN="" \
-    bash "$tmp/rem_mut.sh" >/dev/null 2>&1 || true
+    bash "$tmp/rem_mut.sh" >"$tmp/mutation-output.log" 2>&1 || true
   mut_state=$(grep -o 'pending:[^ >]*' "$mut_log" 2>/dev/null | tail -1 || true)
   # Ohne das TSV->Pipe-Umstellen landet die GANZE Zeile in $num; der neue
   # State-Marker traegt dann eine pending-Liste mit Tab und Zeitstempel.
-  if [[ "$mut_state" =~ ^pending:[0-9,]*$ ]]; then
+  if [[ -z "$mut_state" ]]; then
+    cat "$tmp/mutation-output.log"
+    fail "C18: die Mutation hat keinen State-Marker erzeugt — fehlende Ausgabe ist kein Defekt-Nachweis"
+  elif [[ "$mut_state" =~ ^pending:[0-9,]*$ ]]; then
     fail "C18: die Mutation ist nicht wirksam — der Test kann Defekt C nicht erkennen"
   else ok; fi
 else
   fail "C18: Mutation konnte nicht angewendet werden (Zeile nicht gefunden)"
 fi
+
+# Negativkontrolle: eine reine Kommentar-Aenderung darf den E2E-Vertrag
+# nicht veraendern; auch die Skriptkopie muss die Fixture wirklich erreichen.
+cp "$script" "$tmp/rem_comment.sh"
+printf '\n# Kommentar-Negativkontrolle\n' >> "$tmp/rem_comment.sh"
+comment_log="$tmp/e2e_comment.log"
+run_e2e "$comment_log" "$tmp/rem_comment.sh"
+comment_state=$(grep -o 'pending:[^ ]*' "$comment_log" 2>/dev/null | tail -1 || true)
+if [[ -n "$comment_state" && "$comment_state" =~ ^pending:[0-9,]*$ ]] &&
+    grep -q 'READ-BODY-256' "$comment_log" && grep -q 'POST-THANKS-253' "$comment_log"; then ok
+else fail "C18: Kommentar-Negativkontrolle muss einen sauberen State und den Credit-Call erzeugen"; fi
 
 echo "✅ [contributors-reminder-test] $PASS Pass, $FAIL Fail"
 [[ "$FAIL" -eq 0 ]]

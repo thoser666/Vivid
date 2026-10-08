@@ -10,10 +10,8 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.espresso.intent.Intents
-import androidx.test.espresso.intent.Intents.intended
 import androidx.test.espresso.intent.Intents.intending
 import androidx.test.espresso.intent.matcher.IntentMatchers.hasAction
-import androidx.test.espresso.intent.matcher.IntentMatchers.hasData
 import androidx.test.platform.app.InstrumentationRegistry
 import com.vivid.R
 import com.vivid.feature.settings.R as SettingsR
@@ -26,8 +24,8 @@ import org.junit.Test
 /**
  * Deckt die Einstiege in den [HelpScreen] ab:
  *
- *   helpFromStreaming          — ❓-Button im Top-Bar des Streaming-Screens
- *                                (content-desc „Open Help“) → HelpScreen → Back → Streaming
+ *   helpFromStreaming          — Controls-Menü des Streaming-Screens
+ *                                (Menütext „Open Help“) → HelpScreen → Back → Streaming
  *   helpFromAbout              — Streaming → Settings → SettingsAbout → About →
  *                                „Help & User Guide“ → HelpScreen → Back → About
  *   helpExternalLinkOpensBrowser — HelpScreen → externer Doku-Link → ACTION_VIEW-Intent
@@ -68,15 +66,20 @@ class HelpNavigationTest {
     private fun str(resId: Int): String =
         InstrumentationRegistry.getInstrumentation().targetContext.getString(resId)
 
+    private fun openStreamingHelp() {
+        composeRule.onNodeWithText(str(StreamingR.string.streaming_controls)).performClick()
+        composeRule.onNodeWithText(str(StreamingR.string.streaming_help_content_desc))
+            .performScrollTo()
+            .performClick()
+        composeRule.waitForIdle()
+    }
+
     // ── Tests ────────────────────────────────────────────────────────────
 
     @Test
     fun helpFromStreaming() {
-        // ❓-Button im Streaming-Screen (content-desc „Open Help“)
-        composeRule
-            .onNodeWithContentDescription(str(StreamingR.string.streaming_help_content_desc))
-            .performClick()
-        composeRule.waitForIdle()
+        // Controls → Help im Streaming-Screen
+        openStreamingHelp()
 
         // Wir sind auf dem HelpScreen
         composeRule.onNodeWithText(str(R.string.help_title)).assertIsDisplayed()
@@ -130,11 +133,8 @@ class HelpNavigationTest {
 
     @Test
     fun helpExternalLinkOpensBrowser() {
-        // ❓-Button im Streaming-Screen → HelpScreen
-        composeRule
-            .onNodeWithContentDescription(str(StreamingR.string.streaming_help_content_desc))
-            .performClick()
-        composeRule.waitForIdle()
+        // Controls → Help im Streaming-Screen → HelpScreen
+        openStreamingHelp()
         composeRule.onNodeWithText(str(R.string.help_title)).assertIsDisplayed()
 
         // ACTION_VIEW-Intents abfangen, damit kein echter Browser startet
@@ -149,10 +149,15 @@ class HelpNavigationTest {
         composeRule.waitForIdle()
 
         // Der Browser-Intent wurde mit der exakten URL abgesetzt …
-        intended(hasAction(Intent.ACTION_VIEW))
-        intended(
-            hasData("https://github.com/thoser666/Vivid/blob/develop/docs/user-guide.md"),
-        )
+        // Prüfe den tatsächlich abgefangenen Intent. Espresso intended() wartet
+        // zusätzlich auf einen fokussierten View-Root, obwohl hier nur der
+        // Intent-Vertrag zählt (Popup-/Fullscreen-Fokus wechselt asynchron).
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            Intents.getIntents().any {
+                it.action == Intent.ACTION_VIEW &&
+                    it.dataString == "https://github.com/thoser666/Vivid/blob/develop/docs/user-guide.md"
+            }
+        }
 
         // … und es fand KEINE App-Navigation statt: HelpScreen ist noch im Vordergrund.
         // Der TopAppBar-Titel ist immer sichtbar; die Quick-Tips-Card kann durch das

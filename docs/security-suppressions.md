@@ -142,9 +142,9 @@ Annotationen sind kein „Ignoring" von Findings, sondern Maintainer-erklärter 
 
 | Prüfung | Skript | Verhalten |
 |---|---|---|
-| Register-Hygiene (offline) | `scripts/check_suppressions_register.sh` | Fehlt das Register, liegt ein Review-Datum in der Vergangenheit, divergieren SNYK-IDs zwischen `.snyk` und Register, trägt ein `NOSONAR` keine Begründung oder fehlt die Scorecard-Referenz → Gate-Fail |
+| Register-Hygiene (offline) | `scripts/check_suppressions_register.sh` | Fehlt das Register, ist ein Review-Datum ungültig oder liegt in der Vergangenheit, divergieren SNYK-IDs zwischen `.snyk` und Register, trägt ein `NOSONAR` keine Begründung oder fehlt die Scorecard-Referenz → Gate-Fail |
 | Live-Gegenprobe (optional) | dito, mit Netzwerk | Jeder per GitHub-API gelistete dismissed Code-Scanning-/Dependabot-Alert muss im Register stehen — neue Dismissals ohne Registereintrag schlagen an. Bei Netzwerk-/Berechtigungsfehlern neutral (bricht das Gate nie) |
-| Selbsttest | `scripts/test_suppressions_register.sh` | 12 Offline-Fixtures (gültig, abgelaufen, NOSONAR ohne Begründung, Register-Divergenz in beide Richtungen, fehlende Dateien, leerer Prüffrist-Block, G7 mit 403 → neutral, G7-Divergenz dismissed-ohne-Register → rot, G7-konsistent → grün; letztere per Stub-gh) |
+| Selbsttest | `scripts/test_suppressions_register.sh` | 13 Offline-Fixtures (gültig, abgelaufen, ungültiges Kalenderdatum, NOSONAR ohne Begründung, Register-Divergenz in beide Richtungen, fehlende Dateien, leerer Prüffrist-Block, G7 mit 403 → neutral, G7-Divergenz dismissed-ohne-Register → rot, G7-konsistent → grün; letztere per Stub-gh) |
 | Review-Workflow-Selbsttest | `scripts/test_suppressions_register_workflow.sh` | 15 Offline-Checks zu `automation-suppressions-register.yml`: Cron/Trigger, Minimalprivilegien, SHA-Pinning, Live-Modus, Idempotenz, Issue-Close, Gate-Konsistenz |
 
 ### Changelog des Registers

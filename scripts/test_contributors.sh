@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Selbsttest für scripts/check_contributors.sh (Offline-Fixtures, 10 Fälle).
+# Selbsttest für scripts/check_contributors.sh (Offline-Fixtures, 13 Fälle).
 # Der Guard liest CONTRIBUTORS_FILE (Env) — fertige Fixtures beweisen, dass
 # gültige Tabellen grün und jede Vertragsverletzung rot gemeldet wird.
 set -euo pipefail
@@ -19,7 +19,7 @@ valid_2rows() {
 
 | Person | Beitrag | Referenz | Status |
 |--------|---------|----------|--------|
-| smka (Ilya K) | In-App-Sprachauswahl + russische Lokalisierung | #213 | offen |
+| smka (Ilya K) | In-App-Sprachauswahl + russische Lokalisierung (Appearance, values-ru) | #213 | offen |
 | Ada Lovelace | Chat-Farbverlauf-Bugfix | #99 | umgesetzt |
 MD
 }
@@ -90,9 +90,33 @@ if CONTRIBUTORS_FILE="$tmp/norows.md" bash "$guard" >/dev/null 2>&1; then fail "
 # C10: das reale CONTRIBUTORS.md (Repo-Root) → grün
 if CONTRIBUTORS_FILE="$PWD/CONTRIBUTORS.md" bash "$guard" >/dev/null 2>&1; then ok; else fail "C10: reale CONTRIBUTORS.md muss grün sein"; fi
 
+# C11: abgeschnittene Zeile mit offenem Klammerrest → rot (#278-Defekt)
+cat > "$tmp/truncated.md" <<'MD'
+| Person | Beitrag | Referenz | Status |
+|--------|---------|----------|--------|
+| smka (Ilya K) | Streaming-Bitrate an RootEncoder-Grenze (kbit/s vs bit/s) + Entwicklungsgate (Parity-Guard: 8-Zeichen-Hashes und Squash-Merge-Commits aus entitlement | #276 | umgesetzt |
+MD
+if CONTRIBUTORS_FILE="$tmp/truncated.md" bash "$guard" >/dev/null 2>&1; then fail "C11: abgeschnittene Zeile mit unbalancierter Klammer muss rot sein"; else ok; fi
+
+# C12: ungerade Backtick-Anzahl (abgeschnittener Code-Span) → rot
+cat > "$tmp/oddbtick.md" <<'MD'
+| Person | Beitrag | Referenz | Status |
+|--------|---------|----------|--------|
+| smka | Russische Lokalisierung in `values-ru und values-de | #213 | offen |
+MD
+if CONTRIBUTORS_FILE="$tmp/oddbtick.md" bash "$guard" >/dev/null 2>&1; then fail "C12: ungerade Backtick-Anzahl muss rot sein"; else ok; fi
+
+# C13: unbalancierte Klammer in Person → rot
+cat > "$tmp/badperson.md" <<'MD'
+| Person | Beitrag | Referenz | Status |
+|--------|---------|----------|--------|
+| smka (Ilya K | Russisch | #213 | offen |
+MD
+if CONTRIBUTORS_FILE="$tmp/badperson.md" bash "$guard" >/dev/null 2>&1; then fail "C13: unbalancierte Klammer in Person muss rot sein"; else ok; fi
+
 echo "▶ [contributors-guard-test] $PASS Pass, $FAIL Fail"
 if [[ "$FAIL" -gt 0 ]]; then
-  echo "❌ [contributors-guard-test] Contributors-Guard vertragstreu (C1–C10): $FAIL Fall/Fälle rot."
+  echo "❌ [contributors-guard-test] Contributors-Guard vertragstreu (C1–C13): $FAIL Fall/Fälle rot."
   exit 1
 fi
-echo "✅ [contributors-guard-test] Contributors-Guard vertragstreu (C1–C10)."
+echo "✅ [contributors-guard-test] Contributors-Guard vertragstreu (C1–C13)."

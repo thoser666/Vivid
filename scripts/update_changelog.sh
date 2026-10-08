@@ -76,7 +76,7 @@ while read -r tag; do
   fi
   [ -z "$version" ] && version="$tag"
 
-  date="$(date -u -d "$published_at" +%Y-%m-%d)"
+  date="$(python -c 'from datetime import datetime, timezone; import sys; print(datetime.fromisoformat(sys.argv[1].replace("Z", "+00:00")).astimezone(timezone.utc).strftime("%Y-%m-%d"))' "$published_at")"
 
   entry="## $badge $version — $date"
   entry+=$'\n\n[GitHub-Release](https://github.com/'"$REPO"$'/releases/tag/'"$tag"')'

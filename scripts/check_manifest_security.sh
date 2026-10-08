@@ -24,19 +24,27 @@ fail() { echo "❌ [manifest-security] $1"; exit 1; }
 
 [[ -f "$MANIFEST" ]] || fail "AndroidManifest.xml nicht gefunden: $MANIFEST"
 
-# C1: allowBackup explizit false.
-if grep -q 'android:allowBackup="true"' "$MANIFEST"; then
-  fail "C1 verletzt: android:allowBackup=\"true\" — Backup muss deaktiviert sein (Finding #471)."
+# C1: allowBackup muss explizit false sein (attributfrei == true == Backup des gesamten App-Store einschließlich OAuth-Tokens).
+# Android-Semantik: der letzte Attributwert gewinnt — daher Zugriff auf alle allowBackup-Zeilen und Entscheidung über die letzte.
+mapfile -t ab_lines < <(grep -oE 'android:allowBackup="[^"]+"' "$MANIFEST" || true)
+if [[ ${#ab_lines[@]} -eq 0 ]]; then
+  fail "C1 verletzt: allowBackup fehlt (Default ist true) — muss explizit \"false\" sein (Finding #471)."
 fi
-if ! grep -q 'android:allowBackup="false"' "$MANIFEST"; then
-  fail "C1 verletzt: android:allowBackup fehlt (DEFAULT ist true) — muss explizit \"false\" sein (Finding #471)."
+last_ab="${ab_lines[-1]}"
+if [[ "$last_ab" != 'android:allowBackup="false"' ]]; then
+  fail "C1 verletzt: allowBackup endet nicht mit false (Default ist true) — muss explizit \"false\" sein (Finding #471)."
 fi
 
 # C2: jede verdrahtete Backup-Regeldatei muss existieren und real exclusen.
 BASE_DIR="$(dirname "$MANIFEST")"
+# C2: jede verdrahtete Backup-Regeldatei muss existieren und mindestens eine echte <exclude>-Regel enthalten.
+# Android-Semantik: der letzte Attributwert gewinnt — daher Zugriff auf alle Treffer, nicht nur auf den ersten (head -1).
+# Extrahiere alle Attributwerte pro Attributname (vollständige Liste), bilde den letzten.
 for attr in fullBackupContent dataExtractionRules; do
-  val=$(grep -oE "android:${attr}=\"[^\"]+\"" "$MANIFEST" | head -1 | sed -E 's/.*="([^"]+)"/\1/') || true
-  [[ -n "$val" ]] || continue
+  # Extrahiere alle Werte dieser Attribut-Art (mehrere sind möglich); tauche zurück zum letzten.
+  mapfile -t vals < <(grep -oE "android:${attr}=\"[^\"]+\"" "$MANIFEST" | sed -E 's/.*="([^"]+)"/\1/' || true)
+  [[ ${#vals[@]} -gt 0 ]] || continue
+  val="${vals[-1]}"   # Android: letzter Attributwert gewinnt
   file="${val#@xml/}"
   rules="$BASE_DIR/res/xml/$file.xml"
   if [[ ! -f "$rules" ]]; then

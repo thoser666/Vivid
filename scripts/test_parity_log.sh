@@ -105,3 +105,50 @@ EOF
 expect_exit 1 "P6 nicht-existenter Hash (--check-exists) -> rot" "$TMP/nonexist.md" "--check-exists"
 
 echo "OK: Alle 6 Faelle gruen."
+
+# ── P7: 8-Zeichen-Hash ist gueltig (GitHub zeigt --short kontextabhaengig 7 ODER 8 Zeichen) ─
+cat > "$TMP/eight.md" <<'EOF'
+## 🔄 Aktualisierungslog
+
+| Datum | Commit | Aenderung |
+|-------|--------|----------|
+| 2026-10-07 | `acc75b60` | Squash-Merge auf develop (PR #276) |
+EOF
+expect_exit 0 "P7 8-Zeichen-Hash als gueltig erkannt -> gruen" "$TMP/eight.md"
+
+# ── P8: Squash-Merge-Commit auf Remote-Ref (HEAD enthaelt ihn nicht, origin/develop schon)
+# Simulate: waehle ein Commit, der Vorfahre von origin/develop ist, aber nicht von HEAD
+# (head ist der lokale Branch, der auf einer eigenen Merge-Kopie aufbaut).
+# acc75b60 ist Vorfahre von origin/develop, aber nicht von lokalem HEAD (wenn HEAD auf
+# einer lokalen Merge-Kopie sitzt, z. B. c0e6f735 am Ende unseres lokalen Zweigs).
+# Der Guard soll ihn trotzdem akzeptieren (automatisches fetch + erneute Pruefung).
+# Test-Aufbau: erzeuge lokalen HEAD, der acc75b60 NICHT enthaelt, aber origin/develop schon.
+cat > "$TMP/squash_remote.md" <<'EOF'
+## 🔄 Aktualisierungslog
+
+| Datum | Commit | Aenderung |
+|-------|--------|----------|
+| 2026-10-07 | `acc75b60` | Squash-Merge auf develop (PR #276) |
+EOF
+
+# Lokalen HEAD so vorbereiten, dass er acc75b60 nicht enthaelt, aber origin/develop schon:
+# (wenn origin/develop aktualisiert ist und HEAD auf einem lokalen Vorgaenger sitzt,
+#  dann ist acc75b60 kein Vorfahre von HEAD, aber von origin/develop.)
+HEAD_BIS_ACC75B60_VORFAHRE=$(git merge-base acc75b60 origin/develop 2>/dev/null || true)
+# Pruefung nur wenn head wirklich vor acc75b60 liegt (sonst ist der Test kontraproduktiv)
+if git merge-base --is-ancestor acc75b60 HEAD >/dev/null 2>&1; then
+  echo "OK: P8 Squash-Merge auf Remote-Ref -> (HEAD enthaelt acc75b60 ohnehin, kein separater Test noetig)"
+else
+  # Guard soll origin/develop als Fallback nutzen und fetchten im Guard selbst
+  set +e
+  bash scripts/check_parity_log.sh --check-exists "$TMP/squash_remote.md" >/dev/null 2>&1
+  rc=$?
+  set -e
+  if [ "$rc" -eq 0 ]; then
+    echo "OK: P8 Squash-Merge auf Remote-Ref (HEAD enthaelt ihn nicht, origin/develop schon) -> gruen"
+  else
+    fail "P8 Squash-Merge auf Remote-Ref (HEAD enthaelt ihn nicht, origin/develop schon) -> rot (Exit $rc)"
+  fi
+fi
+
+echo "OK: Alle 8 Faelle gruen."

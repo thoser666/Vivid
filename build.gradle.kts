@@ -7,11 +7,13 @@ allprojects {
                 "io.netty" to "netty-codec-http",
                 "io.netty" to "netty-common",
                 "io.netty" to "netty-buffer",
-                "io.netty" to "netty-transport" -> useVersion("4.1.137.Final")
+                "io.netty" to "netty-transport",
+                -> useVersion("4.1.137.Final")
                 "org.apache.commons" to "commons-lang3" -> useVersion("3.18.0")
                 "org.bouncycastle" to "bcprov-jdk18on",
                 "org.bouncycastle" to "bcpkix-jdk18on",
-                "org.bouncycastle" to "bcutil-jdk18on" -> useVersion("1.85")
+                "org.bouncycastle" to "bcutil-jdk18on",
+                -> useVersion("1.86")
             }
         }
     }
@@ -21,15 +23,19 @@ allprojects {
 // Der Root-Buildscript-Classpath (AGP/Kover/Lint-Tooling) wird von
 // `allprojects { resolutionStrategy }` NICHT abgedeckt — dort resolviert
 // bcprov-jdk18on unforced auf 1.80.2, und genau diese Nodes landen im
-// GitHub-Dependency-Graph (Dependabot-Alerts #67/#68, critical/high,
-// Patch in 1.85). Der Pin hier deckt die Lücke.
+// GitHub-Dependency-Graph (Dependabot-Alerts #67/#68, critical/high).
+// Der Pin hier deckt die Lücke. Beide Stufen müssen gemeinsam stehen:
+// 1.85 (20.09.) schloss #67/#68, 1.86 (07.10.) die 4 Snyk-High-Findings,
+// die in 1.85 selbst liegen (#280) — Lint-Gradle + Robolectric als
+// transitive Quellen, kein App-Runtime-Pfad.
 buildscript {
     configurations.classpath {
         resolutionStrategy.eachDependency {
             when (requested.group to requested.name) {
                 "org.bouncycastle" to "bcprov-jdk18on",
                 "org.bouncycastle" to "bcpkix-jdk18on",
-                "org.bouncycastle" to "bcutil-jdk18on" -> useVersion("1.85")
+                "org.bouncycastle" to "bcutil-jdk18on",
+                -> useVersion("1.86")
                 // FreeMarker 2.3.32 kommt transitiv via Kover 0.9.9 (Latest
                 // auf Maven Central, Juli 2026): intellij-coverage-reporter
                 // -> coverage-report -> freemarker. CVE-2026-84939 (critical,
@@ -115,11 +121,13 @@ kover {
 // jvmArgs (Kover-Agent u. a.) nicht clobbered werden.
 subprojects {
     tasks.withType<Test>().configureEach {
-        jvmArgumentProviders.add(CommandLineArgumentProvider {
-            listOf(
-                "-Djdk.attach.allowAttachSelf=true",
-                "-XX:+EnableDynamicAgentLoading",
-            )
-        })
+        jvmArgumentProviders.add(
+            CommandLineArgumentProvider {
+                listOf(
+                    "-Djdk.attach.allowAttachSelf=true",
+                    "-XX:+EnableDynamicAgentLoading",
+                )
+            },
+        )
     }
 }

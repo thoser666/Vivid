@@ -132,7 +132,7 @@ Verbleibende Scorecard-Hinweise (Repository-Einstellungen bzw. bewusst versionie
 
 ### Transitive Dependency-Härtung
 
-`settings.gradle.kts` erzwingt für bekannte transitive Snyk-Fundstellen sichere Patchstände: Netty `4.1.137.Final`, Commons Lang `3.18.0` und Bouncy Castle `1.85`. Die Constraints gelten für alle Konfigurationen, einschließlich Android-Test-/Tooling-Abhängigkeiten. `scripts/test_dependency_security_constraints.sh` schützt die zentrale Konfiguration gegen versehentliches Entfernen.
+`build.gradle.kts` erzwingt für bekannte transitive Snyk-Fundstellen sichere Patchstände: Netty `4.1.137.Final`, Commons Lang `3.18.0` und Bouncy Castle `1.86`. Die Constraints gelten für alle Konfigurationen, einschließlich Android-Test-/Tooling-Abhängigkeiten — sie stehen in `allprojects { resolutionStrategy }` **und** im `buildscript { configurations.classpath }`, weil der Root-Buildscript-Classpath (AGP/Kover/Lint-Tooling) von `allprojects` nicht abgedeckt wird. `scripts/test_dependency_security_constraints.sh` schützt beide Blöcke gegen versehentliches Entfernen (block-scharf, fail-closed).
 
 ### Netzwerk-Sicherheit (Cleartext blockiert)
 

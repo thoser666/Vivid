@@ -121,7 +121,8 @@ class VividApplication : Application(), ImageLoaderFactory {
         // Sentry explizit initialisieren (Auto-Init im Manifest deaktiviert):
         //  - sendDefaultPii=false → keine IP-/Gerätename-Erhebung
         //  - beforeSend → verwirft alle Events, wenn der Nutzer das
-        //    Fehler-Reporting in den Settings deaktiviert hat (Opt-out)
+        //    Fehler-Reporting in den Settings deaktiviert hat (Opt-out) und
+        //    verwirft erwartete Netzwerk-Betriebszustände (#267)
         //  - FOSS_BUILD → kein Sentry für F-Droid (kein Tracking, kein Telemetry)
         //  - Session Replay als Error-Replay (Retro-Puffer ~30 s vor einem Fehler):
         //    onErrorSampleRate 1.0, sessionSampleRate 0.0 — kein Dauer-Recording;
@@ -140,7 +141,13 @@ class VividApplication : Application(), ImageLoaderFactory {
                     versionName = BuildConfig.VERSION_NAME,
                 ).toSentryTags()
                 appTags.forEach { (tag, value) -> options.setTag(tag, value) }
-                options.beforeSend = sentryBeforeSendCallback { sentryEnabled }
+                // beforeSend → zwei Filter in einer Kette: (1) Opt-out des Nutzers,
+                // (2) erwartete Netzwerk-Betriebszustände (SentryTransportFilter).
+                // Punkt (2) verhindert, dass der GitHub-Issue-Watchdog für jeden
+                // nicht erreichbaren OBS/WHIP-Host ein Issue anlegt (Sentry VIVID-3P
+                // #267 und seine Vorgänger #217/#219/#220/#224/#244/#248). Echte
+                // FATAL-Crashes laufen immer durch.
+                options.beforeSend = sentryBeforeSendWithTransportFilter { sentryEnabled }
                 // Error-Replay-Konfiguration (Opt-out-fähig, siehe SentryReplayPolicy):
                 val replayPlan = SentryReplayPolicy.plan(sentryEnabled)
                 options.sessionReplay.onErrorSampleRate = replayPlan.errorSampleRate

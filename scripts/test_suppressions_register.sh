@@ -88,10 +88,10 @@ trap 'rm -rf "$TMP"' EXIT
 for n in 1 2 3 4 5 6 7 8 9; do setup_repo "$TMP/t$n"; done
 
 # T2: Prüffrist in der Vergangenheit
-sed -i 's/2027-03-11 Halbjährlicher/2020-01-01 Halbjährlicher/' "$TMP/t2/docs/security-suppressions.md"
+perl -pi -e 's/2027-03-11 Halbjährlicher/2020-01-01 Halbjährlicher/' "$TMP/t2/docs/security-suppressions.md"
 
 # T3: Block-Marker entfernen
-sed -i 's/<!-- review-dates-data//' "$TMP/t3/docs/security-suppressions.md"
+perl -pi -e 's/<!-- review-dates-data//' "$TMP/t3/docs/security-suppressions.md"
 
 # T4: .snyk ohne Registereintrag (zweite ID nur in der Policy)
 python - "$TMP/t4/.snyk" <<'PYEOF'
@@ -103,7 +103,7 @@ open(p, "w").write(s)
 PYEOF
 
 # T5: Register ohne .snyk-Entsprechung (ID-Zeile im Register ergänzen)
-sed -i 's#| SNYK-RUBY-RUBYZIP-19666145 | rubyzip 2.4.1 (via fastlane) |#| SNYK-RUBY-RUBYZIP-19666145 | rubyzip 2.4.1 (via fastlane) |\n| SNYK-JAVA-OTHERPKG-8888888 | java-pkg |#' "$TMP/t5/docs/security-suppressions.md"
+printf '\n| SNYK-JAVA-OTHERPKG-8888888 | java-pkg |\n' >> "$TMP/t5/docs/security-suppressions.md"
 
 # T6: unbegründeter NOSONAR im Code
 mkdir -p "$TMP/t6/feature-x"
@@ -117,8 +117,7 @@ echo ' * Deshalb `// NOSONAR` später — siehe Register.' > "$TMP/t7/feature-x/
 rm "$TMP/t8/docs/security-suppressions.md"
 
 # T9: Scorecard-Referenz aus dem Register entfernen
-sed -i '/scorecard.yml Annotations/d' "$TMP/t9/docs/security-suppressions.md"
-sed -i '/scorecard.yml/d' "$TMP/t9/docs/security-suppressions.md" 2>/dev/null || true
+perl -ni -e 'print unless /scorecard\.yml/' "$TMP/t9/docs/security-suppressions.md"
 
 # --- Tests --------------------------------------------------------------------
 check 1 "gültiges Setup → RC 0"          0 "konsistent"
@@ -130,6 +129,11 @@ check 6 "NOSONAR ohne Begründung (G5)"   1 "ohne Begründung"
 check 7 "NOSONAR-Prosa erlaubt (G5)"     0 "konsistent"
 check 8 "Registerdatei fehlt (G1)"       1 "Registerdatei fehlt"
 check 9 "Scorecard nicht dokumentiert (G6)" 1 "nicht im Register"
+
+# Ungültige Kalenderdaten dürfen nicht wie eine bestandene Prüfung aussehen.
+setup_repo "$TMP/t13"
+perl -pi -e 's/2027-03-11/2027-99-11/' "$TMP/t13/docs/security-suppressions.md"
+check 13 "ungültige Prüffrist (G2)" 1 "Ungültige Prüffrist"
 
 # T10: G7 mit 403-Antwort (Stub-gh ohne Berechtigung) -> neutral, RC 0
 mkdir -p "$TMP/t10/scripts" "$TMP/t10/docs" "$TMP/t10/.github" "$TMP/t10/bin"

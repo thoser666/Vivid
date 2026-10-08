@@ -42,7 +42,10 @@ DATES_BLOCK="$(sed -n '/<!-- review-dates-data/,/^-->/p' "$REGISTER" | grep -E '
 while IFS= read -r line; do
     due="$(echo "$line" | awk '{print $1}')"
     label="$(echo "$line" | cut -d' ' -f2-)"
-    if [ "$(date -d "$due" +%s 2>/dev/null || echo 0)" -lt "$(date -d "$TODAY" +%s)" ]; then
+    python -c 'from datetime import date; import sys; date.fromisoformat(sys.argv[1])' "$due" \
+        >/dev/null 2>&1 || fail "Ungültige Prüffrist ($due): $label (G2)"
+    # Validierte ISO-Daten sind lexikographisch sortierbar; kein GNU-date nötig.
+    if [[ "$due" < "$TODAY" ]]; then
         fail "Prüffrist abgelaufen ($due): $label — Register aktualisieren und Review durchführen (G2)"
     fi
 done <<< "$DATES_BLOCK"
