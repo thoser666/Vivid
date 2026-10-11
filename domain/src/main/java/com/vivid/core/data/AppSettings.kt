@@ -200,6 +200,13 @@ data class AppSettings(
     val slideshowWidgetIntervalSeconds: Int = 30,
     val slideshowWidgetSizeDp: Int = 240,
     val slideshowWidgetOpacity: Float = 1f,
+    // --- Pomodoro-Timer (In-App, PARITY-Zeile 143) ---
+    // Schaltet den In-App-Pomodoro-Timer frei (Timer-Screen nutzbar).
+    val pomodoroEnabled: Boolean = false,
+    // Länge der Arbeitsphase in Minuten (1–120, Standard 25).
+    val pomodoroWorkDurationMinutes: Int = 25,
+    // Länge der Pause in Minuten (1–60, Standard 5).
+    val pomodoroBreakDurationMinutes: Int = 5,
     // --- Replay-Aufnahme (Record-to-Disk) ---
     // Audio-Konfiguration der MP4-Replays: ALL = Bild + Ton (Standard),
     // VIDEO_ONLY = nur Bild (keine Audiospur in der Aufnahme).

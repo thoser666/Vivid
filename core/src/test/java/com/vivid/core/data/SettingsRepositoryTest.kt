@@ -684,4 +684,60 @@ class SettingsRepositoryTest {
         repository.updateLogsRetentionDays(0)
         assertEquals(1, repository.appSettingsFlow.first().logsRetentionDays)
     }
+
+    @Test
+    fun `appSettingsFlow should default the pomodoro timer to off with 25-5 durations`() = runTest {
+        val testDataStore = PreferenceDataStoreFactory.create(
+            scope = this,
+            produceFile = { File(tempDir.toFile(), "test_pomodoro_default.preferences_pb") }
+        )
+
+        val settings = SettingsRepository(testDataStore).appSettingsFlow.first()
+
+        assertEquals(false, settings.pomodoroEnabled)
+        assertEquals(25, settings.pomodoroWorkDurationMinutes)
+        assertEquals(5, settings.pomodoroBreakDurationMinutes)
+    }
+
+    @Test
+    fun `updatePomodoroSettings persists enabled flag and durations`() = runTest {
+        val testDataStore = PreferenceDataStoreFactory.create(
+            scope = this,
+            produceFile = { File(tempDir.toFile(), "test_pomodoro_update.preferences_pb") }
+        )
+        val repository = SettingsRepository(testDataStore)
+
+        repository.updatePomodoroSettings(
+            enabled = true,
+            workDurationMinutes = 50,
+            breakDurationMinutes = 10,
+        )
+        val settings = repository.appSettingsFlow.first()
+
+        assertEquals(true, settings.pomodoroEnabled)
+        assertEquals(50, settings.pomodoroWorkDurationMinutes)
+        assertEquals(10, settings.pomodoroBreakDurationMinutes)
+        // Pomodoro-Schreiben darf andere Einstellungen nicht anfassen.
+        assertEquals(false, settings.widgetEnabled)
+        assertEquals(true, settings.sentryEnabled)
+    }
+
+    @Test
+    fun `updatePomodoroSettings clamps durations to their valid ranges`() = runTest {
+        val testDataStore = PreferenceDataStoreFactory.create(
+            scope = this,
+            produceFile = { File(tempDir.toFile(), "test_pomodoro_clamp.preferences_pb") }
+        )
+        val repository = SettingsRepository(testDataStore)
+
+        repository.updatePomodoroSettings(
+            enabled = true,
+            workDurationMinutes = 999,
+            breakDurationMinutes = 0,
+        )
+        val settings = repository.appSettingsFlow.first()
+
+        assertEquals(120, settings.pomodoroWorkDurationMinutes)
+        assertEquals(1, settings.pomodoroBreakDurationMinutes)
+    }
 }

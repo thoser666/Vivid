@@ -25,6 +25,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Pomodoro-Timer: kurze Vibration am Phasenende (In-App-Timer). -->
+    <uses-permission android:name="android.permission.VIBRATE" />
 
     <application
         android:name=".irlbroadcaster.VividApplication"
