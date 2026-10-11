@@ -762,8 +762,14 @@ jobs:
           # Klammer-sed lieferte beim Version-Tag leere Werte — der Rebuild
           # wäre mit leeren -P-Properties gelaufen. Die Metadaten sind exakt
           # die, mit denen der Build parametrisiert wurde.
-          VERSION_NAME=$(jq -r '.versionName // empty' published-output-metadata.json)
-          VERSION_CODE=$(jq -r '.versionCode // empty' published-output-metadata.json)
+          # Die Datei ist AGPs output-metadata.json (Schema v3): versionName/
+          # versionCode stehen NICHT auf Top-Level, sondern unter elements[0].
+          # Eine Top-Level-Abfrage lieferte am 2026-10-11 leere Werte (Run
+          # 38049290429: "versionName/versionCode nicht lesbar"). Die Datei wird
+          # im Compare-Step 1:1 gegen den rohen Gradle-Output geprüft, ist also
+          # genau diese AGP-Form.
+          VERSION_NAME=$(jq -r '.elements[0].versionName // empty' published-output-metadata.json)
+          VERSION_CODE=$(jq -r '.elements[0].versionCode // empty' published-output-metadata.json)
           if [ -z "$VERSION_NAME" ] || [ -z "$VERSION_CODE" ]; then
             echo "::error::versionName/versionCode nicht lesbar (name='$VERSION_NAME' code='$VERSION_CODE')"
             exit 1

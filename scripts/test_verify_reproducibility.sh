@@ -209,10 +209,16 @@ check "T13.1 Zielwahl hängt an github.ref_type" \
   grep -q 'github.ref_type' <<<"$READ_RUN"
 check "T13.2 Tag kommt aus github.ref_name" \
   grep -q 'github.ref_name' <<<"$READ_RUN"
-check "T13.3 Version aus den publizierten Metadaten (jq)" \
-  grep -q "jq -r '.versionName // empty' published-output-metadata.json" <<<"$READ_RUN"
-check "T13.4 versionCode ebenfalls aus den Metadaten" \
-  grep -q "jq -r '.versionCode // empty' published-output-metadata.json" <<<"$READ_RUN"
+# AGPs output-metadata.json (Schema v3) verschachtelt versionName/versionCode
+# unter elements[0] — NICHT auf Top-Level. Die Top-Level-Abfrage lieferte am
+# 2026-10-11 leere Werte (Run 38049290429: "versionName/versionCode nicht
+# lesbar"), weil der Job erst nach dem AUTOMATION_TOKEN-Fix überhaupt bis hier
+# lief. Der Guard pinnt daher den verschachtelten Pfad (Blöcke escaped, sonst
+# matcht `[0]` in BRE nur das Zeichen `0`).
+check "T13.3 Version aus den publizierten Metadaten (jq, AGP-elements[0])" \
+  grep -q "jq -r '.elements\[0\].versionName // empty' published-output-metadata.json" <<<"$READ_RUN"
+check "T13.4 versionCode ebenfalls aus den Metadaten (AGP-elements[0])" \
+  grep -q "jq -r '.elements\[0\].versionCode // empty' published-output-metadata.json" <<<"$READ_RUN"
 # Der Klammer-sed auf den Release-Titel lieferte bei "Vivid v0.5.20-beta"
 # leere Werte (keine Klammern im Titel) — der Rebuild waere mit leeren
 # -P-Properties gelaufen. Er darf nicht zurückkehren.
@@ -281,7 +287,11 @@ done
 [ -n "$url" ] && echo "$url" >> "$VR_LOG"
 case "$url" in
   *output-metadata.json)
-    printf '{"versionName":"%s","versionCode":%s}\n' "$VR_VNAME" "$VR_VCODE" > "$out" ;;
+    # AGP Schema v3: versionName/versionCode liegen unter elements[0] — genau
+    # wie im echten Release-Asset (roher Gradle-Output). Der Stub MUSS diese
+    # Form nachbilden: mit einem flachen {"versionName":...} war T14 gruen,
+    # obwohl der Job an der echten (verschachtelten) Datei scheiterte.
+    printf '{"elements":[{"versionName":"%s","versionCode":%s}]}\n' "$VR_VNAME" "$VR_VCODE" > "$out" ;;
   *app-standard-playRelease.aab)
     exit 22 ;;   # kein AAB im Release → Optional-Zweig
   *) printf 'dummy' > "$out" ;;
