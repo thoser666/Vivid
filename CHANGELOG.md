@@ -73,6 +73,18 @@ Nightly feature build — installable via Obtainium (enable pre-releases).
 
 **Artefakte:** `app-standard-release.apk` · `SHA256SUMS.txt` · `mapping.txt` · `output-metadata.json`
 
+## 🟡 **Beta** v0.5.22-beta — 2026-10-11
+
+[GitHub-Release](https://github.com/thoser666/Vivid/releases/tag/v0.5.22-beta)
+
+- VERSION auf `0.5.22-beta` gehoben (vorher `0.5.20-beta` — stale vs. `v0.5.21-beta`-Tag)
+- Pomodoro In-App-Timer + Settings-Kategorie (`6ed8bc9`)
+- Sentry EOFException-Filter (`java.io.EOFException` als Transport-Abbruch, `0c83392`)
+- CI/Emulator-Gate-Fixes (`fail-loud` `set -eu`, `PIPEFAIL`-Regress, `#249` offen)
+- Dependency-Bumps (roborazzi, Kotlinx-Kover, Guava 33.7.2-jre, Bouncy Castle 1.86)
+
+**Full Changelog**: https://github.com/thoser666/Vivid/compare/v0.5.20-beta...v0.5.22-beta
+
 ## 🟡 **Beta** v0.5.20-beta — 2026-10-02
 
 [GitHub-Release](https://github.com/thoser666/Vivid/releases/tag/v0.5.20-beta)
