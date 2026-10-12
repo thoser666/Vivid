@@ -27,7 +27,7 @@ DIST=.github/workflows/distribution-stable.yml
 FDROID=.github/workflows/deploy-fdroid.yml
 RELEASE=.github/workflows/release-pipeline.yml
 
-echo "▶ [test_distribution_stable] Szenarien D1–D16"
+echo "▶ [test_distribution_stable] Szenarien D1–D21"
 
 FAILED=0
 check() {
@@ -117,11 +117,11 @@ check "D10.1 nur app-standard-release.apk herunterladen" \
   "$FDROID" --pattern "app-standard-release.apk"
 notcheck "D10.2 kein .apk-Wildcard-Download mehr" "$FDROID" '--pattern "\*\.apk"'
 
-# D11: YAML-Validität (CI: python3+yaml; lokal übersprungen, wenn python3 oder
-# pyyaml fehlen — die Workflows sind durch andere Guards abgedeckt).
-if command -v python3 >/dev/null 2>&1 && python3 -c 'import yaml' >/dev/null 2>&1; then
+# D11: YAML-Validität (python + pyyaml; lokal/CI übersprungen, wenn beides
+# fehlt — die Workflows sind durch andere Guards abgedeckt).
+if command -v python >/dev/null 2>&1 && python -c 'import yaml' >/dev/null 2>&1; then
   for f in "$DIST" "$FDROID" "$RELEASE"; do
-    if python3 - "$f" <<'PY' 2>/dev/null
+    if python - "$f" <<'PY' 2>/dev/null
 import io, sys, yaml
 src = io.open(sys.argv[1], encoding="utf-8").read()
 # YAML 1.1: "on:" parst als boolean True → key 'true'; für den Validity-Check egal
@@ -136,7 +136,7 @@ PY
     fi
   done
 else
-  echo "  (python3/pyyaml nicht verfügbar — YAML-Parse-Check übersprungen)"
+  echo "  (python/pyyaml nicht verfügbar — YAML-Parse-Check übersprungen)"
 fi
 
 # D12: Es existiert ein Selbsttest, der den release_github-STABLE-Pfad (foss)
@@ -395,7 +395,7 @@ fi
 # Geprueft wird strukturell ueber ALLE Workflows, nicht nur diesen einen: die
 # Fehlerklasse ist nicht dateigebunden, und der Emulator-Runner steckt in
 # release-pipeline.yml ebenfalls.
-D20_HITS="$(python3 - <<'PYEOF'
+D20_HITS="$(python - <<'PYEOF'
 import glob, io, sys, yaml
 bad = []
 for wf in sorted(glob.glob(".github/workflows/*.yml")):
@@ -426,6 +426,29 @@ if [ -z "$D20_HITS" ]; then
 else
   echo "FAIL: D20.1 script:-Block mit Backslash am Zeilenende oder mit Backslash + r:"
   echo "$D20_HITS" | sed 's/^/    /'
+  FAILED=1
+fi
+
+# D21: Fail-Loud der Publish-/Merge-Snippets (distribution-stable). Beide
+# Snippets sind publish-kritisch: ein still auf blosses `set -e`
+# zurückgebauter Scope überlebt einen ungesetzten Variablennamen (ohne -u)
+# und einen toten Pipe-Teil (ohne -pipefail). Die Erwartung ist EXAKT — jede
+# Aufweichung wird rot; ein Tippfehler im Step-Namen liefert "-" vom
+# wf_step_run-Helper und ebenfalls rot (kein Stillgruen bei unbekanntem Pfad).
+stage_first="$(wf_step_run "$DIST" publish-stable 'Stage CI gate scripts' \
+  | tr -d '\r' | awk 'NF && $1 !~ /^#/ {print; exit}')"
+merge_first="$(wf_step_run "$DIST" publish-stable 'Auto-merge (checks' \
+  | tr -d '\r' | awk 'NF && $1 !~ /^#/ {print; exit}')"
+if [ "$stage_first" = "set -eu" ]; then
+  echo "  ✅ D21.1 Stage-CI-gate-Scripts-Snippet beginnt mit set -eu"
+else
+  echo "  ❌ D21.1 Stage-Snippet beginnt mit '$stage_first' (erwartet set -eu)"
+  FAILED=1
+fi
+if [ "$merge_first" = "set -euo pipefail" ]; then
+  echo "  ✅ D21.2 Auto-Merge-Snippet beginnt mit set -euo pipefail (Pipes)"
+else
+  echo "  ❌ D21.2 Auto-Merge-Snippet beginnt mit '$merge_first' (erwartet set -euo pipefail)"
   FAILED=1
 fi
 

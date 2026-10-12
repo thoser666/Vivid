@@ -13,6 +13,9 @@
 #   T9: FASTLANE_LOCKED erlaubt 3.x               → ::warning:: (Ignore entfernen)
 #   T10: FASTLANE_LOCKED hält < 3.0               → still
 #   T11: Netzwerk tot (leere Antwort)             → still (advisory, exit 0)
+#   T12 python3 = Windows-Store-Alias (Exit 49)    → grün (Fallback auf python)
+#   T13 nur python3 vorhanden (CI ohne `python`)   → grün
+#   T14 keines der Pythons läuft                   → rot (fail-loud, Precondition)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -116,4 +119,61 @@ pass "T11 Netzwerk tot → still (advisory)"
 # Konsistenz: der echte Guard-Output bei T9 erwähnt die Advisory-ID
 grep -q "SNYK-RUBY-RUBYZIP-19666145" <<<"$t9" || fail "T9: Warning nennt die Advisory-ID nicht"
 
-echo "✅ [test-snyk-policy] Alle 11 Selbsttests bestanden."
+# --- T12–T14: Python-Interpreter-Resolution (Windows-Store-Alias-Klasse) -----
+# Der Guard wählt den Interpreter per Execution-Probe (Hausmuster:
+# gh_mock_release.sh) — `command -v` allein trügt, weil die Windows-Store-
+# Alias-Stubs (python3.exe) existieren und erst bei der Ausführung mit
+# Exit 49 scheitern. Diese Verhaltenstests legen beide Fehlschläge fest:
+#   T12 python3 = Store-Stub, python echt       → muss grün laufen
+#   T13 nur python3 echt, python kaputt (CI)    → muss grün laufen
+#   T14 beide kaputt                            → hart rot, fail-loud
+REALPY=""
+for cand in python3 python; do
+  if command -v "$cand" >/dev/null 2>&1 && "$cand" -c 'import sys' >/dev/null 2>&1; then
+    # ABSOLUTER Pfad, nicht der Kandidatenname: der Stub würde sonst per
+    # PATH-Lookup sich selbst auflösen und unendlich rekursieren (Vorfall
+    # beim ersten Entwurf dieses Tests — Hänger bis zum Timeout).
+    REALPY="$(command -v "$cand")"
+    break
+  fi
+done
+[ -n "$REALPY" ] || fail "T12: kein lauffaehiges Python im Testsystem — Selbsttest nicht ausführbar"
+case "$REALPY" in
+  /*) ;;
+  *) fail "T12: command -v liefert keinen absoluten Pfad ('$REALPY') — Stub-Wrapper wuerde rekursieren" ;;
+esac
+STUB="$TMP/pystub"
+mkdir -p "$STUB"
+write_stub() { # $1 = Name, $2 = exec-Ziel oder '' für Exit-49-Stub (Store-Alias)
+  if [ -n "$2" ]; then
+    printf '#!/bin/sh\nexec %s "$@"\n' "$2" >"$STUB/$1"
+  else
+    printf '#!/bin/sh\necho "Python wurde nicht gefunden ..." >&2\nexit 49\n' >"$STUB/$1"
+  fi
+  chmod +x "$STUB/$1"
+}
+
+# T12: `command -v python3` findet den Stub, die Ausführung scheitert (49).
+# Variante „nur command -v“ (ohne Execution-Probe) würde hier rot.
+write_stub python3 ''
+write_stub python "$REALPY"
+expect_ok SNYK_GUARD_NO_NET=1 PATH="$STUB:$PATH"
+pass "T12 Store-Alias-python3 wird per Execution-Probe umgangen (Fallback python)"
+
+# T13: CI-Box ohne `python` — nur python3 trägt den Guard.
+# Variante „nur python“ (ohne python3-Fallback) würde hier rot.
+write_stub python3 "$REALPY"
+write_stub python ''
+expect_ok SNYK_GUARD_NO_NET=1 PATH="$STUB:$PATH"
+pass "T13 python3-only-Umgebung trägt den Guard"
+
+# T14: keiner der Kandidaten läuft → harter Abbruch mit Precondition-Meldung
+# (fail-loud: der Guard ist Voraussetzung des Pre-Push-Gates, kein Skip).
+write_stub python3 ''
+write_stub python ''
+out="$(env SNYK_GUARD_NO_NET=1 PATH="$STUB:$PATH" bash "$GUARD" 2>&1 || true)"
+grep -q "kein lauffaehiges Python" <<<"$out" \
+  || fail "T14: Guard bricht nicht fail-loud ab (Ausgabe: $out)"
+pass "T14 kein lauffaehiges Python → harter Abbruch mit Precondition-Meldung"
+
+echo "✅ [test-snyk-policy] Alle 14 Selbsttests bestanden."
