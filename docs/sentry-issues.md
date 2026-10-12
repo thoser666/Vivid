@@ -240,7 +240,8 @@ Triage: #267 ist in Punkt 7 beschrieben.
    wächst nur mit einem echten Issue als Beleg): `java.net.NoRouteToHostException`
    (#267), `java.net.ConnectException` (#217), `java.net.SocketTimeoutException`
    (#219/#224/#244), `java.net.UnknownHostException` (#220),
-   `io.ktor.client.plugins.ConnectTimeoutException` (#248).
+   `io.ktor.client.plugins.ConnectTimeoutException` (#248),
+   `java.io.EOFException` (#284, VIVID-3S).
 
    **Zwei Fallen, die den Filter still wirkungslos machen würden** — beide am
    Sentry-Artefakt verifiziert, beide in Tests festgenagelt:
@@ -265,7 +266,12 @@ Triage: #267 ist in Punkt 7 beschrieben.
    ausschließlich der **exakte** Typ verglichen. Ebenfalls außen vor: der
    `JobCancellationException` (#218, verschluckt echte Coroutine-Bugs, weil fast
    jede abgebrochene Koroutine damit endet) und der `ClosedReadChannelException`
-   (#242, ein vorzeitiger Server-Abbruch kann ein Serverfehler sein).
+   (#242, ein vorzeitiger Server-Abbruch kann ein Serverfehler sein). Der
+   gefilterte `java.io.EOFException` (#284, VIVID-3S) wird bewusst **nicht** mit dem
+   `ClosedReadChannelException` gleichgesetzt: der `EOF` ist der unvermittelte
+   Transport-Abbruch ohne Close-Handshake (Gegenseite beendet, Netz weg) auf einem
+   gefangenen Pfad und damit Umgebung; der protokollnahe Kanal-Schluss kann dagegen
+   ein Serverfehler sein und bleibt sichtbar.
 
    **Die beforeSend-Kette haengt an der Opt-out-Fabrik (R8-Vorbedingung, neu als
    C0 im `check_sentry_optout_mapping.sh`).** Die Transport-Filter-Fabrik ruft

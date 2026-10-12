@@ -19,6 +19,8 @@ import io.sentry.SentryOptions
  *  - `java.net.SocketTimeoutException`               — #219, #224, #244
  *  - `java.net.UnknownHostException`                 — #220 (`"srt"`-Hostname)
  *  - `io.ktor.client.plugins.ConnectTimeoutException` — #248 (`ws://…:4455`)
+ *  - `java.io.EOFException`                          — #284 (VIVID-3S, `readByte`:
+ *    die Gegenseite hat den Stream ohne Close-Handshake beendet)
  *
  * **Bewusst NICHT enthalten** (jede dieser Klassen ist eine Falle):
  *
@@ -29,6 +31,11 @@ import io.sentry.SentryOptions
  *    ausschließlich der **exakte** Typ verglichen, nie die Oberklasse.
  *  - `ClosedReadChannelException` (#242): Der Server hat mitten im Protokoll
  *    geschlossen — das kann ein Serverfehler sein und bleibt deshalb sichtbar.
+ *    Bewusst **nicht** mit dem gefilterten `java.io.EOFException` (#284)
+ *    gleichgesetzt: der `EOF` ist der unvermittelte Transport-Abbruch ohne
+ *    Close-Handshake (Gegenseite beendet, Netz weg) auf einem gefangenen Pfad
+ *    und damit Umgebung; der protokollnahe Kanal-Schluss kann dagegen ein
+ *    Serverfehler sein.
  *  - `JobCancellationException` (#218): Verschluckt echte Coroutine-Bugs, weil fast
  *    jede abgebrochene Koroutine damit endet.
  *
@@ -41,6 +48,7 @@ internal val EXPECTED_TRANSPORT_EXCEPTIONS: Set<String> = setOf(
     "java.net.SocketTimeoutException",
     "java.net.UnknownHostException",
     "io.ktor.client.plugins.ConnectTimeoutException",
+    "java.io.EOFException",
 )
 
 /** Entscheidung über ein einzelnes Sentry-Event. */

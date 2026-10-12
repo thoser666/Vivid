@@ -3,6 +3,7 @@ package com.vivid.irlbroadcaster
 import io.sentry.Hint
 import io.sentry.SentryEvent
 import io.sentry.SentryLevel
+import java.io.EOFException
 import java.io.IOException
 import java.net.BindException
 import java.net.ConnectException
@@ -17,11 +18,12 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Vertrag der Transport-Betriebszustands-Filterung (Sentry VIVID-3P, #267).
+ * Vertrag der Transport-Betriebszustands-Filterung (Sentry VIVID-3P, #267;
+ * VIVID-3S, #284).
  *
  * Die Fehlerklassen stammen aus den bereits attribuierten Sentry-Issues des
- * Watchdogs (#217/#219/#220/#224/#244/#248/#267) — der Filter existiert, damit
- * dieser Zustand keinen neuen Triage-Lauf mehr erzeugt.
+ * Watchdogs (#217/#219/#220/#224/#244/#248/#267/#284) — der Filter existiert,
+ * damit dieser Zustand keinen neuen Triage-Lauf mehr erzeugt.
  */
 class SentryTransportFilterTest {
 
@@ -69,6 +71,45 @@ class SentryTransportFilterTest {
         val e = event(SentryLevel.ERROR, NoRouteToHostException("No route to host"))
 
         assertEquals(listOf(NoRouteToHostException::class.java.name), e.exceptionTypeNames())
+    }
+
+    // --- Der Befund aus #284 (VIVID-3S) ---
+
+    /**
+     * Top-Frame des Sentry-Issues ist `ByteReadChannelOperations.kt:readByte`
+     * (Ktor) — die Gegenseite hat den WebSocket-/Body-Stream ohne
+     * Close-Handshake beendet (OBS beendet, Netz weg). Die Ausnahme ist exakt
+     * `java.io.EOFException` mit „Not enough data available" und wird auf einem
+     * gefangenen Pfad als `Timber.e`-ERROR geloggt — dieselbe Klasse wie
+     * #217/#219/#248.
+     */
+    @Test
+    fun `EOFException aus einem unvermittelten Transport-Abbruch wird verworfen`() {
+        val disposition = classifySentryEvent(
+            SentryLevel.ERROR,
+            EOFException("Not enough data available"),
+        )
+
+        assertEquals(SentryEventDisposition.DROP_EXPECTED_TRANSPORT, disposition)
+    }
+
+    /**
+     * Der konkrete Typ ist erlaubt, seine Oberklasse nicht. Wäre `IOException` in
+     * der Allowlist, fiele jeder IO-Fehler durch — einschließlich echter Defekte
+     * (siehe die Basisklassen-Sektion).
+     */
+    @Test
+    fun `EOFException ist in der Allowlist, die IOException-Oberklasse nicht`() {
+        assertTrue(EOFException::class.java.name in EXPECTED_TRANSPORT_EXCEPTIONS)
+        assertTrue(IOException::class.java.name !in EXPECTED_TRANSPORT_EXCEPTIONS)
+        assertTrue(IOException::class.java.isAssignableFrom(EOFException::class.java))
+    }
+
+    @Test
+    fun `gemischte Kette mit EOFException und einem Produktfehler bleibt stehen`() {
+        val gemischt = IllegalStateException("boom", EOFException("Not enough data available"))
+
+        assertEquals(SentryEventDisposition.KEEP, classifySentryEvent(SentryLevel.ERROR, gemischt))
     }
 
     // --- Sicherheitsnetz 1: FATAL ist tabu ---
@@ -168,6 +209,7 @@ class SentryTransportFilterTest {
             "java.net.SocketTimeoutException",
             "java.net.UnknownHostException",
             "io.ktor.client.plugins.ConnectTimeoutException",
+            "java.io.EOFException",
         )
 
         assertEquals(erwartet, EXPECTED_TRANSPORT_EXCEPTIONS)
@@ -194,6 +236,7 @@ class SentryTransportFilterTest {
             ConnectException("Failed to connect"),
             SocketTimeoutException("Read timed out"),
             UnknownHostException("Unable to resolve host"),
+            EOFException("Not enough data available"),
         )
 
         echteInstanzen.forEach { instanz ->
