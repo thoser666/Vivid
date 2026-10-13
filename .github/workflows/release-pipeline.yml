@@ -115,7 +115,7 @@ jobs:
 
       - name: Upload test reports
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: test-results
           path: '**/build/test-results/**/*.xml'
@@ -309,7 +309,7 @@ jobs:
 
       - name: Upload instrumented test reports
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: instrumented-test-results-${{ matrix.name }}
           path: '**/build/outputs/androidTest-results/**/*.xml'
@@ -344,7 +344,7 @@ jobs:
         run: bundle exec fastlane build_debug
 
       - name: Upload Debug APK
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: app-debug
           path: app/build/outputs/apk/debug/app-debug.apk
@@ -401,7 +401,7 @@ jobs:
         run: bundle exec fastlane build_release
 
       - name: Upload Release APK
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: app-release
           # Flavor-Pfad: die App hat die Flavors standard/foss — assembleRelease
