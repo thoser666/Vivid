@@ -365,6 +365,14 @@ run bash scripts/test_codeql_blockade.sh
 echo "▶ [pre-push] CodeQL-Extractor-Pin-Selbsttest (scripts/test_codeql_kotlin.sh)"
 run bash scripts/test_codeql_kotlin.sh
 
+# CodeQL-Familien-Bump-Selbsttest (offline): Mutationsnachweis, dass der
+# K1.4-Vertrag eine GETEILTE Familie rot meldet (Vorfall #290/#293: zwei
+# gruene Einzel-PRs, beide BLOCKED auf K1.4) und eine einheitliche wieder
+# gruen bleibt — plus der Dependabot-Gruppen-Vertrag, ohne den der naechste
+# Familien-Bump wieder in Einzel-PRs zerfaellt und wieder BLOCKED landet.
+echo "▶ [pre-push] CodeQL-Familien-Selbsttest (scripts/test_codeql_family.sh)"
+run bash scripts/test_codeql_family.sh
+
 # Dashboard aktualisieren (statisch generiert, committed)
 echo "▶ [pre-push] Dashboard generieren (scripts/generate_status_dashboard.sh)"
 run bash scripts/generate_status_dashboard.sh

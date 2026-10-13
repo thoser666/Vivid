@@ -188,6 +188,15 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    # codeql-action als Familie: init/analyze/upload-sarif muessen IMMER
+    # gemeinsam landen (K1.4-Same-Release-Vertrag, Vorfall #290/#293) —
+    # so ist es im Repo auch umgesetzt
+    groups:
+      codeql-action:
+        patterns:
+          - "github/codeql-action/init"
+          - "github/codeql-action/analyze"
+          - "github/codeql-action/upload-sarif"
 ```
 
 **Phase 2 (optional):** Renovate installieren

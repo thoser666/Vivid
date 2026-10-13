@@ -109,3 +109,14 @@ wf_step_if() { _wf_query "$1" "next((s.get('if') for s in d['jobs']['$2'].get('s
 # nur per grep angelesen. Der Wert ist mehrzeilig — Aufrufer müssen ihn
 # quoten und nicht per Zeilenabstand zerlegen.
 wf_step_run() { _wf_query "$1" "next((s.get('run') for s in d['jobs']['$2'].get('steps', []) if '$3' in str(s.get('name','')) or '$3' in str(s.get('uses',''))), None)"; }
+
+# wf_dependabot_group_patterns <datei> <package-ecosystem> -> JSON-Array mit
+# allen Patterns der Gruppen dieses Updates-Eintrags, sonst "-" (fehlende
+# Datei, unbekanntes Ecosystem, KEINE Gruppen). Nie ein leerer String: eine
+# [[ -z … ]]-Pruefung auf "-" ist bei Tippfehler IMMER wahr, genau wie bei den
+# uebrigen Helfern (W7 in test_no_line_windows.sh).
+# Strukturfakt statt Zeilenfenster: "die codeql-action-Familie wird von der
+# github-actions-Gruppe abgedeckt" ist eine Eigenschaft des YAML-Baums — als
+# grep-Fenster auf die .github/dependabot.yml ausgedrueckt waere die Aussage
+# schon nach der naechsten Kommentarzeile kaputt.
+wf_dependabot_group_patterns() { _wf_query "$1" "[p for g in (next((u.get('groups') for u in (d.get('updates') or []) if u.get('package-ecosystem') == '$2'), {}) or {}).values() for p in (g.get('patterns') or [])]"; }

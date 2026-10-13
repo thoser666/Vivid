@@ -226,6 +226,14 @@ jobs:
       - name: Test CodeQL-Kotlin-Extractor-Pin
         run: bash scripts/test_codeql_kotlin.sh
 
+      # CodeQL-Familien-Bump (Vorfall #290/#293, 12.10.2026): Dependabot loest
+      # init/analyze/upload-sarif einzeln auf, der K1.4-Vertrag laesst
+      # EINZEL-PRs deshalb nie gruen werden — Selbsttest mit Mutationsnachweis
+      # (geteilte Familie rot, einheitlich gruen) + Gruppen-Vertrag der
+      # dependabot.yml (die Familie muss in EINEM PR landen).
+      - name: Test CodeQL-Familien-Bump
+        run: bash scripts/test_codeql_family.sh
+
       # Suppressions-Register-Review-Workflow (automation-suppressions-
       # register.yml): Vertrage des monatlichen Issue-Automaten (Cron,
       # Minimalprivilegien, SHA-Pins, Live-Modus, Idempotenz, Issue-Close).
