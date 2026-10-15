@@ -34,8 +34,20 @@ SKIP_NET="${SNYK_GUARD_NO_NET:-}"
 fail() { echo "❌ [snyk-policy-guard] $1" >&2; exit 1; }
 warn() { echo "::warning::[snyk-policy] $1"; }
 
-PY="$(command -v python3 || command -v python || true)"
-[ -n "$PY" ] || fail "weder python3 noch python gefunden (Precondition des Pre-Push-Gates)"
+# Python-Interpreter robust bestimmen — `command -v` ALLEIN reicht nicht: die
+# Windows-Store-Alias-Stubs (python3.exe) melden sich als vorhanden und
+# scheitern erst beim Aufruf mit Exit 49. Deshalb wird jeder Kandidat
+# AUSGEFUEHRT (Hausmuster: gh_mock_release.sh, lib_workflow_yaml.sh).
+# Reihenfolge CI-first (ubuntu-latest hat python3), dann python (Windows-
+# Installer), damit BEIDE Plattformen denselben Guard tragen.
+PY=""
+for cand in python3 python; do
+  if command -v "$cand" >/dev/null 2>&1 && "$cand" -c 'import sys' >/dev/null 2>&1; then
+    PY="$cand"
+    break
+  fi
+done
+[ -n "$PY" ] || fail "kein lauffaehiges Python gefunden (python3/python) — Precondition des Pre-Push-Gates"
 
 [ -s "$POLICY_FILE" ] || fail "Snyk-Policy $POLICY_FILE fehlt oder ist leer"
 

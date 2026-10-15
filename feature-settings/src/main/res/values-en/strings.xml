@@ -7,6 +7,8 @@
     <string name="cat_appearance_subtitle">Language, theme mode, accent color</string>
     <string name="cat_overlays_title">Overlays &amp; Widgets</string>
     <string name="cat_overlays_subtitle">Twitch chat, text/info, image, QR code, battery and grid widgets</string>
+    <string name="cat_pomodoro_title">Pomodoro</string>
+    <string name="cat_pomodoro_subtitle">In-app timer: work/break cycle, auto loop, vibration</string>
     <string name="cat_chatbot_title">Chat Bot &amp; AI</string>
     <string name="cat_chatbot_subtitle">Mode, bot account/LLM, limits, owner access, media commands</string>
     <string name="cat_remote_title">Remote &amp; Privacy</string>
@@ -184,6 +186,14 @@
     <string name="overlays_battery_show_icon">Show charging icon</string>
     <string name="overlays_battery_show_percent">Show percentage</string>
     <string name="overlays_battery_threshold">Low battery threshold: %1$d%%</string>
+
+    <!-- ===== Pomodoro timer (SettingsPomodoroScreen.kt) ===== -->
+    <string name="pomodoro_title">Pomodoro timer</string>
+    <string name="pomodoro_desc">Focus timer based on the Pomodoro Technique: work sessions with short breaks. The countdown runs as an in-app timer straight from the streaming screen — no overlay widget.</string>
+    <string name="pomodoro_enabled">Enable timer</string>
+    <string name="pomodoro_work_minutes">Work session: %1$d min</string>
+    <string name="pomodoro_break_minutes">Break: %1$d min</string>
+    <string name="pomodoro_open_timer">Open timer</string>
 
     <!-- ===== Remote & Privacy (SettingsRemotePrivacyScreen.kt) ===== -->
     <string name="remote_section_title">Web remote control</string>

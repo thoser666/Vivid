@@ -71,6 +71,18 @@ updates:
       day: "monday"
       time: "06:00"
       timezone: "Europe/Berlin"
+    # CodeQL-Familie muss IN EINEM PR landen: init/analyze/upload-sarif
+    # verteilen sich auf 4 Pin-Stellen in 3 Workflows, und der K1.4-Vertrag
+    # (scripts/test_codeql_kotlin.sh) verlangt Same-Release über ALLE
+    # Stellen — Einzel-PRs sind strukturell unmergebar (Vorfall #290/#293,
+    # 12.10.2026: zwei grüne Einzel-PRs, beide BLOCKED auf K1.4).
+    # Exakte Paketnamen statt Wildcard (Hausregel wie bei den gradle-Gruppen).
+    groups:
+      codeql-action:
+        patterns:
+          - "github/codeql-action/init"
+          - "github/codeql-action/analyze"
+          - "github/codeql-action/upload-sarif"
     # SHA-Pins werden automatisch erkannt
     # Dependabot liest die `# vX`-Kommentare
     labels:

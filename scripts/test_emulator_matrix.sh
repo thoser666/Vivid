@@ -136,7 +136,7 @@ check "T13.4 Gate nutzt denselben SHA-gepinnten Emulator-Runner" \
 # verschob connectedStandardDebugAndroidTest aus dem -A35-Fenster und ließ
 # T13.5/T13.6/T14.3 ohne Änderung der Gate-Logik rot werden).
 gate_script() {
-  python3 -c "
+  python -c "
 import yaml, io
 with io.open('$DIST', encoding='utf-8') as f:
     d = yaml.safe_load(f)
@@ -174,7 +174,7 @@ echo "== T14: Beide Flavors im Emulator-Gate =="
 # dem connected-Task heraus — der Check wird rot, obwohl der Workflow korrekt
 # ist (das war die Ursache des lokalen Rot bei T14.1/T14.2 nach der
 # POSIX-Haertung: der Block ist laenger geworden, nicht falsch).
-EMU_JOB=$(PYTHONIOENCODING=utf-8 python3 -c "
+EMU_JOB=$(PYTHONIOENCODING=utf-8 python -c "
 import yaml, io
 with io.open('$WORKFLOW', encoding='utf-8') as f:
     d = yaml.safe_load(f)
@@ -227,7 +227,7 @@ check "T15.12 distribution-stable: Assemble-Step vor dem Gate-Step" \
 # Zeile 1 des Script-Blocks und `emulator_test_setup.sh` lief nie
 # (Vorfall 02.10.2026, Release-Dispatch 36963108418: alle drei
 # ubuntu-Legs rot nach 38 s erfolgreichem Boot).
-check "T15.13 release-pipeline Gate-Script: set -eu im Script-Block" python3 -c "
+check "T15.13 release-pipeline Gate-Script: set -eu im Script-Block" python -c "
 import yaml, io
 with io.open('.github/workflows/release-pipeline.yml', encoding='utf-8') as f:
     d = yaml.safe_load(f)
@@ -237,7 +237,7 @@ assert len(emu) == 1, emu
 lines = [l for l in emu[0]['with']['script'].strip().splitlines() if l.strip() and not l.strip().startswith('#')]
 assert lines[0].strip() == 'set -eu', lines[0]
 "
-check "T15.14 distribution-stable Gate-Script: set -eu im Script-Block" python3 -c "
+check "T15.14 distribution-stable Gate-Script: set -eu im Script-Block" python -c "
 import yaml, io
 with io.open('.github/workflows/distribution-stable.yml', encoding='utf-8') as f:
     d = yaml.safe_load(f)
@@ -257,7 +257,7 @@ check "T15.16 Begruendung fuer set -e im Script-Block dokumentiert" \
 # Regression (Vorfall 02.10.2026, Dispatch-Run 36963108418): das Snippet laeuft
 # ueber `/usr/bin/sh -c`. Auf ubuntu ist /usr/bin/sh dash, und dash kennt
 # `set -o pipefail` nicht -> "Illegal option", exit 2, Gate startet nie.
-check "T15.17 Gate-Script-Block ist POSIX-sh-kompatibel (kein pipefail)" python3 -c "
+check "T15.17 Gate-Script-Block ist POSIX-sh-kompatibel (kein pipefail)" python -c "
 import yaml, io
 for path, job in (('.github/workflows/release-pipeline.yml', 'emulator-tests'),
                   ('.github/workflows/distribution-stable.yml', 'publish-stable')):
@@ -279,30 +279,36 @@ for path, job in (('.github/workflows/release-pipeline.yml', 'emulator-tests'),
 # Exit-Code 0 liefert (bei pipefail: 2).
 check "T15.18 Erste ausfuehrbare Zeile der Gate-Bloecke laeuft unter /bin/sh" bash -c '
 set -euo pipefail
-tmp=$(mktemp -d)
-trap "rm -rf $tmp" EXIT
-python3 - "$tmp" <<PY
-import yaml, io, sys, os
-out = sys.argv[1]
-specs = [(".github/workflows/release-pipeline.yml", "emulator-tests"),
-         (".github/workflows/distribution-stable.yml", "publish-stable")]
-for i, (path, job) in enumerate(specs):
+stage=$(mktemp -d)
+trap "rm -rf $stage" EXIT
+cat > "$stage/extract_first_lines.py" <<'PY'
+import io, sys, yaml
+specs = [
+    (".github/workflows/release-pipeline.yml", "emulator-tests"),
+    (".github/workflows/distribution-stable.yml", "publish-stable"),
+]
+out = []
+for path, job in specs:
     with io.open(path, encoding="utf-8") as f:
         d = yaml.safe_load(f)
     steps = d["jobs"][job]["steps"]
     runner = [s for s in steps if str(s.get("uses","")).startswith("ReactiveCircus/android-emulator-runner")]
-    body = runner[0]["with"]["script"].strip().splitlines()
-    first = [l for l in body if l.strip() and not l.strip().startswith("#")][0]
-    with io.open(os.path.join(out, str(i)), "w", encoding="utf-8") as fh:
-        fh.write(first + "\n")
+    code = [l for l in runner[0]["with"]["script"].strip().splitlines()
+            if l.strip() and not l.strip().startswith("#")]
+    assert code, (path, "keine ausfuehrbare Zeile im Runner-Snippet")
+    out.append(code[0])
+sys.stdout.write("\n".join(out) + "\n")
 PY
-for f in "$tmp"/*; do
-  if ! /bin/sh "$f"; then
-    echo "  /bin/sh lehnt die Zeile in $f ab:" >&2
-    cat "$f" >&2
-    exit 1
-  fi
-done
+first_lines=$(python "$stage/extract_first_lines.py")
+if [ -z "$first_lines" ]; then
+  echo "  T15.18: keine erste Zeile extrahiert" >&2
+  exit 1
+fi
+printf '%s\n' "$first_lines" > "$stage/first.sh"
+if ! /bin/sh "$stage/first.sh"; then
+  echo "  /bin/sh lehnt die erste Zeile des GATES ab: $first_lines" >&2
+  exit 1
+fi
 '
 
 echo "== T17: matrix_only — Matrix-Verifikation ohne Publizieren =="
@@ -318,7 +324,7 @@ echo "== T17: matrix_only — Matrix-Verifikation ohne Publizieren =="
 # Selbsttests haben das nicht nur nicht gefangen, sondern mit
 # `assert "!= 'true'" in cond` aktiv erzwungen — ein Test, der den Bug festschreibt.
 # T17.4 haelt jetzt Typ und Vergleichsliteral zusammen.
-check "T17.1 matrix_only ist ein workflow_dispatch-Input (boolean, default false)" python3 -c "
+check "T17.1 matrix_only ist ein workflow_dispatch-Input (boolean, default false)" python -c "
 import yaml, io
 with io.open('.github/workflows/release-pipeline.yml', encoding='utf-8') as f:
     d = yaml.safe_load(f)
@@ -328,7 +334,7 @@ spec = inp['matrix_only']
 assert spec.get('type') == 'boolean', spec
 assert str(spec['default']).lower() == 'false', spec
 "
-check "T17.2 jeder Publizier-Job respektiert matrix_only" python3 -c "
+check "T17.2 jeder Publizier-Job respektiert matrix_only" python -c "
 import yaml, io
 with io.open('.github/workflows/release-pipeline.yml', encoding='utf-8') as f:
     d = yaml.safe_load(f)
@@ -340,7 +346,7 @@ for name in mutating:
     assert 'matrix_only' in cond, (name, cond)
     assert 'inputs.matrix_only != true' in cond, (name, cond)
 "
-check "T17.3 Matrix laeuft auch ohne matrix_only (Default: normale Nightly-Publikation bleibt)" python3 -c "
+check "T17.3 Matrix laeuft auch ohne matrix_only (Default: normale Nightly-Publikation bleibt)" python -c "
 import yaml, io
 with io.open('.github/workflows/release-pipeline.yml', encoding='utf-8') as f:
     d = yaml.safe_load(f)
@@ -351,7 +357,7 @@ assert 'matrix_only' not in cond, cond
 # Regression auf den konkreten Vorfall: bei `type: boolean` MUSS der Vergleich
 # gegen das Boolean-Literal gehen. Gegen den String verglichen ist der Guard
 # wirkungslos, ohne dass YAML oder GitHub einen Fehler melden.
-check "T17.4 Vergleichsliteral passt zum deklarierten Input-Typ" python3 -c "
+check "T17.4 Vergleichsliteral passt zum deklarierten Input-Typ" python -c "
 import yaml, io
 with io.open('.github/workflows/release-pipeline.yml', encoding='utf-8') as f:
     d = yaml.safe_load(f)
@@ -375,7 +381,7 @@ print('Typ-Literal-Kopplung konsistent')
 "
 
 echo "== T12: Workflow-YAML valide + API-Staffelung =="
-check "T12.1 release-pipeline.yml parst als YAML" python3 -c "
+check "T12.1 release-pipeline.yml parst als YAML" python -c "
 import yaml, io
 with io.open('.github/workflows/release-pipeline.yml', encoding='utf-8') as f:
     d = yaml.safe_load(f)
@@ -410,7 +416,7 @@ echo "== T16: Provisionierbare API-Level (Vorbedingung des Emulator-Runners) =="
 # Der Contract, den T16 festschreibt: API-Level im Emulator-Gate MUSS im
 # Stable-SDK-Kanal verfügbar sein. compileSdk/targetSdk (37) sind davon nicht
 # betroffen — Kompilieren und Emulator-Provisionierung sind verschiedene Dinge.
-check "T16.1 Matrix-Level liegen im provisionierbaren Bereich (<= 36)" python3 -c "
+check "T16.1 Matrix-Level liegen im provisionierbaren Bereich (<= 36)" python -c "
 import yaml, io
 with io.open('.github/workflows/release-pipeline.yml', encoding='utf-8') as f:
     d = yaml.safe_load(f)
@@ -422,7 +428,7 @@ bad = [l for l in levels if l > MAX_PROVISIONABLE]
 assert not bad, ('nicht provisionierbare API-Level(s) in der Matrix: %s — Leg waere '
                  'dauerhaft tot (sdkmanager: Failed to find package)' % bad)
 "
-check "T16.2 distribution-stable-Gate nutzt einen provisionierbaren Level" python3 -c "
+check "T16.2 distribution-stable-Gate nutzt einen provisionierbaren Level" python -c "
 import yaml, io
 with io.open('.github/workflows/distribution-stable.yml', encoding='utf-8') as f:
     d = yaml.safe_load(f)
@@ -487,7 +493,7 @@ check "T17.10 Sentry-Step setzt VIVID_REPO_ROOT" \
 # Konsistenz statt Liste: jeder Aufruf ueber $CI_SCRIPTS_DIR muss im Stage-Step
 # auch gestaged werden. Eine handgepflegte for-Liste driftet sonst still vorbei
 # (Mutation M8: Sentry aus der Liste entfernt -> nur exit 127 zur Laufzeit).
-check "T17.11 jeder \$CI_SCRIPTS_DIR-Aufruf ist auch im Stage-Step gestaged" python3 -c "
+check "T17.11 jeder \$CI_SCRIPTS_DIR-Aufruf ist auch im Stage-Step gestaged" python -c "
 import re, io
 with io.open('.github/workflows/distribution-stable.yml', encoding='utf-8') as f:
     t = f.read()

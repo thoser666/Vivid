@@ -44,6 +44,7 @@ import com.vivid.feature.settings.ui.SettingsCameraRoute
 import com.vivid.feature.settings.ui.SettingsChatBotScreen
 import com.vivid.feature.settings.ui.SettingsLogsScreen
 import com.vivid.feature.settings.ui.SettingsOverlaysScreen
+import com.vivid.feature.settings.ui.SettingsPomodoroScreen
 import com.vivid.feature.settings.ui.SettingsRemotePrivacyScreen
 import com.vivid.feature.settings.ui.SettingsScreen
 import com.vivid.feature.settings.ui.SettingsStreamingObsScreen
@@ -53,6 +54,8 @@ import com.vivid.feature.streaming.ui.StreamingScreen
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.vivid.irlbroadcaster.ui.about.AboutScreen
 import com.vivid.irlbroadcaster.ui.help.HelpScreen
+import com.vivid.irlbroadcaster.ui.pomodoro.PomodoroScreen
+import com.vivid.irlbroadcaster.ui.pomodoro.PomodoroViewModel
 import com.vivid.irlbroadcaster.ui.theme.VividTheme
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -241,6 +244,16 @@ fun VividAppNavigation() {
                 onBack = { navController.popBackStack() },
             )
         }
+        composable("settings_pomodoro") {
+            val viewModel: SettingsViewModel = hiltViewModel()
+            val uiState by viewModel.uiState.collectAsState()
+            SettingsPomodoroScreen(
+                uiState = uiState,
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() },
+                onOpenTimer = { navController.navigate("pomodoro_route") },
+            )
+        }
         composable("settings_chatbot") {
             val viewModel: SettingsViewModel = hiltViewModel()
             val uiState by viewModel.uiState.collectAsState()
@@ -292,6 +305,19 @@ fun VividAppNavigation() {
         }
         composable("about_route") {
             AboutScreen(navController = navController)
+        }
+        composable("pomodoro_route") {
+            val viewModel: PomodoroViewModel = hiltViewModel()
+            val uiState by viewModel.uiState.collectAsState()
+            PomodoroScreen(
+                uiState = uiState,
+                phaseComplete = viewModel.phaseComplete,
+                onToggleRunning = viewModel::toggleRunning,
+                onSkip = viewModel::skipPhase,
+                onReset = viewModel::reset,
+                onOpenSettings = { navController.navigate("settings_pomodoro") },
+                onBack = { navController.popBackStack() },
+            )
         }
         composable("help_route") {
             HelpScreen(navController = navController)

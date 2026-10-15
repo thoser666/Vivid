@@ -31,9 +31,9 @@ bad() { echo "FAIL W$1: $2"; FAIL=$((FAIL + 1)); }
 
 grep_q() { grep -q -- "$2" "$1" 2>/dev/null; }
 
-# W1: YAML-Validierung (python3 + yaml, sonst Struktur-Grobcheck)
-if python3 -c "import yaml" 2>/dev/null; then
-    python3 - "$WF" <<'PYEOF' && ok 1 "YAML gültig" || bad 1 "YAML ungültig"
+# W1: YAML-Validierung (python + yaml, sonst Struktur-Grobcheck)
+if python -c "import yaml" 2>/dev/null; then
+    python - "$WF" <<'PYEOF' && ok 1 "YAML gültig" || bad 1 "YAML ungültig"
 import sys, yaml
 yaml.safe_load(open(sys.argv[1], encoding="utf-8"))
 PYEOF

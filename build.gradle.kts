@@ -10,6 +10,12 @@ allprojects {
                 "io.netty" to "netty-transport",
                 -> useVersion("4.1.137.Final")
                 "org.apache.commons" to "commons-lang3" -> useVersion("3.18.0")
+                // Guava: CVE-2026-102554 / SNYK-JAVA-COMGOOGLEGUAVA-20825054
+                // (Deserialisierungs-DoS in CompactHashMap/CompactHashSet/
+                // MapMakerInternalMap, High; fix in 33.7.2). Trifft auch den
+                // App-Runtime-Classpath — androidx.media3:media3-common:1.11.1
+                // zieht guava:33.3.1-android ins APK; Pin hebt auf 33.7.2-jre.
+                "com.google.guava" to "guava" -> useVersion("33.7.2-jre")
                 "org.bouncycastle" to "bcprov-jdk18on",
                 "org.bouncycastle" to "bcpkix-jdk18on",
                 "org.bouncycastle" to "bcutil-jdk18on",
@@ -44,6 +50,11 @@ buildscript {
                 // APK. Pin entfällt, sobald Kover freemarker >= 2.3.35
                 // ausliefert.
                 "org.freemarker" to "freemarker" -> useVersion("2.3.35")
+                // Guava: CVE-2026-102554 / SNYK-JAVA-COMGOOGLEGUAVA-20825054
+                // (Deserialisierungs-DoS, High; fix in 33.7.2). AGP/Kover-
+                // Tooling zieht guava (33.4.0/33.3.1/32.0.1/18.0-jre) auf den
+                // Root-Buildscript-Classpath; `allprojects` deckt den nicht ab.
+                "com.google.guava" to "guava" -> useVersion("33.7.2-jre")
             }
         }
     }

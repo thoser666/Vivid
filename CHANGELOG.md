@@ -9,6 +9,68 @@ Alle Änderungen an Vivid — **automatisch aus den GitHub-Releases gespiegelt**
 - 🎯 Feature-Tracking: [PARITY.md](PARITY.md)
 
 <!-- CHANGELOG-START -->
+## 🌙 **Nightly** 0.5.21-nightly.589 — 2026-10-14
+
+[GitHub-Release](https://github.com/thoser666/Vivid/releases/tag/nightly-20261014-111411)
+
+Nightly feature build — installable via Obtainium (enable pre-releases).
+
+**Artefakte:** `app-standard-release.apk` · `SHA256SUMS.txt` · `mapping.txt` · `output-metadata.json`
+
+## 🌙 **Nightly** 0.5.21-nightly.585 — 2026-10-13
+
+[GitHub-Release](https://github.com/thoser666/Vivid/releases/tag/nightly-20261013-133323)
+
+Nightly feature build — installable via Obtainium (enable pre-releases).
+
+**Artefakte:** `app-standard-release.apk` · `SHA256SUMS.txt` · `mapping.txt` · `output-metadata.json`
+
+## 🌙 **Nightly** 0.5.21-nightly.579 — 2026-10-12
+
+[GitHub-Release](https://github.com/thoser666/Vivid/releases/tag/nightly-20261012-141901)
+
+Nightly feature build — installable via Obtainium (enable pre-releases).
+
+**Artefakte:** `app-standard-release.apk` · `SHA256SUMS.txt` · `mapping.txt` · `output-metadata.json`
+
+## 🟡 **Beta** v0.5.21-beta — 2026-10-12
+
+[GitHub-Release](https://github.com/thoser666/Vivid/releases/tag/v0.5.21-beta)
+
+**Full Changelog**: https://github.com/thoser666/Vivid/compare/nightly-20261009-124044...v0.5.21-beta
+
+## 🌙 **Nightly** 0.5.21-nightly.569 — 2026-10-11
+
+[GitHub-Release](https://github.com/thoser666/Vivid/releases/tag/nightly-20261011-121246)
+
+Nightly feature build — installable via Obtainium (enable pre-releases).
+
+**Artefakte:** `app-standard-release.apk` · `SHA256SUMS.txt` · `mapping.txt` · `output-metadata.json`
+
+## 🌙 **Nightly** 0.5.20-nightly.563 — 2026-10-11
+
+[GitHub-Release](https://github.com/thoser666/Vivid/releases/tag/nightly-20261011-091014)
+
+Nightly feature build — installable via Obtainium (enable pre-releases).
+
+**Artefakte:** `app-standard-release.apk` · `SHA256SUMS.txt` · `mapping.txt` · `output-metadata.json`
+
+## 🌙 **Nightly** 0.5.20-nightly.563 — 2026-10-10
+
+[GitHub-Release](https://github.com/thoser666/Vivid/releases/tag/nightly-20261010-115315)
+
+Nightly feature build — installable via Obtainium (enable pre-releases).
+
+**Artefakte:** `app-standard-release.apk` · `SHA256SUMS.txt` · `mapping.txt` · `output-metadata.json`
+
+## 🌙 **Nightly** 0.5.20-nightly.562 — 2026-10-09
+
+[GitHub-Release](https://github.com/thoser666/Vivid/releases/tag/nightly-20261009-124044)
+
+Nightly feature build — installable via Obtainium (enable pre-releases).
+
+**Artefakte:** `app-standard-release.apk` · `SHA256SUMS.txt` · `mapping.txt` · `output-metadata.json`
+
 ## 🌙 **Nightly** 0.5.20-nightly.546 — 2026-10-05
 
 [GitHub-Release](https://github.com/thoser666/Vivid/releases/tag/nightly-20261005-133006)
@@ -40,6 +102,18 @@ Nightly feature build — installable via Obtainium (enable pre-releases).
 Nightly feature build — installable via Obtainium (enable pre-releases).
 
 **Artefakte:** `app-standard-release.apk` · `SHA256SUMS.txt` · `mapping.txt` · `output-metadata.json`
+
+## 🟡 **Beta** v0.5.22-beta — 2026-10-11
+
+[GitHub-Release](https://github.com/thoser666/Vivid/releases/tag/v0.5.22-beta)
+
+- VERSION auf `0.5.22-beta` gehoben (vorher `0.5.20-beta` — stale vs. `v0.5.21-beta`-Tag)
+- Pomodoro In-App-Timer + Settings-Kategorie (`6ed8bc9`)
+- Sentry EOFException-Filter (`java.io.EOFException` als Transport-Abbruch, `0c83392`)
+- CI/Emulator-Gate-Fixes (`fail-loud` `set -eu`, `PIPEFAIL`-Regress, `#249` offen)
+- Dependency-Bumps (roborazzi, Kotlinx-Kover, Guava 33.7.2-jre, Bouncy Castle 1.86)
+
+**Full Changelog**: https://github.com/thoser666/Vivid/compare/v0.5.20-beta...v0.5.22-beta
 
 ## 🟡 **Beta** v0.5.20-beta — 2026-10-02
 

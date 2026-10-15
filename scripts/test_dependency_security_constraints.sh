@@ -14,7 +14,10 @@ for marker in \
   'bcprov-jdk18on' \
   'bcpkix-jdk18on' \
   'bcutil-jdk18on' \
-  '1.86'; do
+  '1.86' \
+  '"com.google.guava"' \
+  'guava' \
+  '33.7.2-jre'; do
   grep -Fq "$marker" "$file" || fail "Constraint fehlt: $marker"
 done
 echo "✅ [dependency-security-test] Sicherheitsconstraints vollständig."
@@ -36,8 +39,11 @@ for marker in \
   'useVersion("1.86")' \
   '"org.freemarker" to "freemarker"' \
   'useVersion("2.3.35")' \
-  'CVE-2026-84939'; do
+  'CVE-2026-84939' \
+  '"com.google.guava" to "guava"' \
+  'useVersion("33.7.2-jre")' \
+  'CVE-2026-102554'; do
   grep -Fq "$marker" <<<"$buildscript_block" || \
     fail "Buildscript-Classpath-Pin fehlt: $marker"
 done
-echo "✅ [dependency-security-test] Buildscript-Classpath-Pins (BC 1.86, FreeMarker 2.3.35) block-scharf verankert."
+echo "✅ [dependency-security-test] Buildscript-Classpath-Pins (BC 1.86, FreeMarker 2.3.35, Guava 33.7.2-jre) block-scharf verankert."

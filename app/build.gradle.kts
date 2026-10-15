@@ -29,11 +29,11 @@ sentry {
 configurations.configureEach {
     if (name.contains("UnitTestRuntimeClasspath")) {
         resolutionStrategy {
-            force("org.ow2.asm:asm:9.10.1")
-            force("org.ow2.asm:asm-tree:9.10.1")
-            force("org.ow2.asm:asm-commons:9.10.1")
-            force("org.ow2.asm:asm-util:9.10.1")
-            force("org.ow2.asm:asm-analysis:9.10.1")
+            force("org.ow2.asm:asm:9.11")
+            force("org.ow2.asm:asm-tree:9.11")
+            force("org.ow2.asm:asm-commons:9.11")
+            force("org.ow2.asm:asm-util:9.11")
+            force("org.ow2.asm:asm-analysis:9.11")
         }
     }
 }
@@ -207,8 +207,6 @@ android {
         compose = true
         buildConfig = true
     }
-
-
 
     packaging {
         resources {

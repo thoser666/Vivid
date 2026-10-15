@@ -7,6 +7,8 @@
     <string name="cat_appearance_subtitle">Langue, mode de design, couleur d\'accent</string>
     <string name="cat_overlays_title">Overlays &amp; widgets</string>
     <string name="cat_overlays_subtitle">Chat Twitch, widgets texte/info, image, code QR, batterie et grille</string>
+    <string name="cat_pomodoro_title">Pomodoro</string>
+    <string name="cat_pomodoro_subtitle">Minuteur integre : cycles travail/pause, boucle automatique, vibration</string>
     <string name="cat_chatbot_title">Chat-bot &amp; IA</string>
     <string name="cat_chatbot_subtitle">Mode de fonctionnement, compte de bot/LLM, limites, accès propriétaire, commandes média</string>
     <string name="cat_remote_title">Remote &amp; confidentialité</string>
@@ -185,6 +187,14 @@
     <string name="overlays_battery_show_icon">Afficher l’icône de charge</string>
     <string name="overlays_battery_show_percent">Afficher le pourcentage</string>
     <string name="overlays_battery_threshold">Seuil batterie faible : %1$d%%</string>
+
+    <!-- ===== Minuteur Pomodoro (SettingsPomodoroScreen.kt) ===== -->
+    <string name="pomodoro_title">Minuteur Pomodoro</string>
+    <string name="pomodoro_desc">Minuteur de concentration base sur la technique Pomodoro : sessions de travail entrecoupees de courtes pauses. Le compte a rebours fonctionne comme un minuteur integre, directement depuis l ecran de streaming — sans widget d incrustation.</string>
+    <string name="pomodoro_enabled">Activer le minuteur</string>
+    <string name="pomodoro_work_minutes">Session de travail : %1$d min</string>
+    <string name="pomodoro_break_minutes">Pause : %1$d min</string>
+    <string name="pomodoro_open_timer">Ouvrir le minuteur</string>
 
     <!-- ===== Remote & confidentialité (SettingsRemotePrivacyScreen.kt) ===== -->
     <string name="remote_section_title">Télécommande web</string>

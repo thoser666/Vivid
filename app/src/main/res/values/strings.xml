@@ -90,4 +90,17 @@
     <string name="crash_diag_copied">Absturz kopiert</string>
     <string name="crash_diag_share">Absturzbericht teilen</string>
     <string name="crash_diag_retry">Vollständigen Start versuchen</string>
+
+    <!-- Pomodoro-Timer (ui/pomodoro/PomodoroScreen.kt) -->
+    <string name="pomodoro_screen_title">Pomodoro-Timer</string>
+    <string name="pomodoro_back">Zurück</string>
+    <string name="pomodoro_phase_work">Arbeitsphase</string>
+    <string name="pomodoro_phase_break">Pause</string>
+    <string name="pomodoro_completed_sessions">Abgeschlossene Arbeitsphasen: %1$d</string>
+    <string name="pomodoro_start">Start</string>
+    <string name="pomodoro_pause">Pause</string>
+    <string name="pomodoro_skip">Phase überspringen</string>
+    <string name="pomodoro_reset">Zurücksetzen</string>
+    <string name="pomodoro_disabled_hint">Der Pomodoro-Timer ist in den Einstellungen deaktiviert.</string>
+    <string name="pomodoro_open_settings">Einstellungen öffnen</string>
 </resources>

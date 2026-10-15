@@ -40,6 +40,9 @@
 #       nicht ein altes Nightly), Nightly-Pfad, und der Fehlerfall ohne
 #       Nightly. Erst dadurch ist die Aussage belegt statt behauptet: mit dem
 #       alten Code lieferte Szenario T14 ein nightly-*-Tag.
+#   T19 die Publish-/Merge-Snippets (Signierung, Auto-Merge) sind auf
+#       fail-loud verriegelt (set -eu bzw. set -euo pipefail) — ein still
+#       auf blosses `set -e` zurückgebauter Scope wird hier rot.
 
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -142,12 +145,12 @@ check "T9.6 genau 2 Prüfsummen-Anhänge (stable + nightly)" \
   bash -c '[ "$(grep -cF "options[:checksums] && File.exist?(options[:checksums])" fastlane/Fastfile)" -eq 2 ]'
 
 echo "== T10: Workflow-YAML valide =="
-check "T10.1 release-pipeline.yml parst als YAML" python3 -c "
+check "T10.1 release-pipeline.yml parst als YAML" python -c "
 import yaml, io
 with io.open('.github/workflows/release-pipeline.yml', encoding='utf-8') as f:
     yaml.safe_load(f)
 "
-check "T10.2 android-ci.yml parst als YAML" python3 -c "
+check "T10.2 android-ci.yml parst als YAML" python -c "
 import yaml, io
 with io.open('.github/workflows/android-ci.yml', encoding='utf-8') as f:
     yaml.safe_load(f)
@@ -209,10 +212,16 @@ check "T13.1 Zielwahl hängt an github.ref_type" \
   grep -q 'github.ref_type' <<<"$READ_RUN"
 check "T13.2 Tag kommt aus github.ref_name" \
   grep -q 'github.ref_name' <<<"$READ_RUN"
-check "T13.3 Version aus den publizierten Metadaten (jq)" \
-  grep -q "jq -r '.versionName // empty' published-output-metadata.json" <<<"$READ_RUN"
-check "T13.4 versionCode ebenfalls aus den Metadaten" \
-  grep -q "jq -r '.versionCode // empty' published-output-metadata.json" <<<"$READ_RUN"
+# AGPs output-metadata.json (Schema v3) verschachtelt versionName/versionCode
+# unter elements[0] — NICHT auf Top-Level. Die Top-Level-Abfrage lieferte am
+# 2026-10-11 leere Werte (Run 38049290429: "versionName/versionCode nicht
+# lesbar"), weil der Job erst nach dem AUTOMATION_TOKEN-Fix überhaupt bis hier
+# lief. Der Guard pinnt daher den verschachtelten Pfad (Blöcke escaped, sonst
+# matcht `[0]` in BRE nur das Zeichen `0`).
+check "T13.3 Version aus den publizierten Metadaten (jq, AGP-elements[0])" \
+  grep -q "jq -r '.elements\[0\].versionName // empty' published-output-metadata.json" <<<"$READ_RUN"
+check "T13.4 versionCode ebenfalls aus den Metadaten (AGP-elements[0])" \
+  grep -q "jq -r '.elements\[0\].versionCode // empty' published-output-metadata.json" <<<"$READ_RUN"
 # Der Klammer-sed auf den Release-Titel lieferte bei "Vivid v0.5.20-beta"
 # leere Werte (keine Klammern im Titel) — der Rebuild waere mit leeren
 # -P-Properties gelaufen. Er darf nicht zurückkehren.
@@ -281,7 +290,11 @@ done
 [ -n "$url" ] && echo "$url" >> "$VR_LOG"
 case "$url" in
   *output-metadata.json)
-    printf '{"versionName":"%s","versionCode":%s}\n' "$VR_VNAME" "$VR_VCODE" > "$out" ;;
+    # AGP Schema v3: versionName/versionCode liegen unter elements[0] — genau
+    # wie im echten Release-Asset (roher Gradle-Output). Der Stub MUSS diese
+    # Form nachbilden: mit einem flachen {"versionName":...} war T14 gruen,
+    # obwohl der Job an der echten (verschachtelten) Datei scheiterte.
+    printf '{"elements":[{"versionName":"%s","versionCode":%s}]}\n' "$VR_VNAME" "$VR_VCODE" > "$out" ;;
   *app-standard-playRelease.aab)
     exit 22 ;;   # kein AAB im Release → Optional-Zweig
   *) printf 'dummy' > "$out" ;;
@@ -403,7 +416,7 @@ fi
 # Gegenprobe auf die Quelle aus T13.6: dieselbe Aussage, dort am Read-STEP
 # geprueft und seit #263 dort nicht mehr vorhanden. Verhindert, dass ein
 # spaeterer Umbau die Meldung wieder in den falschen Step zurueckwandert.
-VERIFY_SHA_USES="$(python3 -c "
+VERIFY_SHA_USES="$(python -c "
 import io, re, sys, yaml
 d = yaml.safe_load(io.open('$WORKFLOW', encoding='utf-8'))
 job = d['jobs']['verify-reproducibility'] or {}
@@ -418,7 +431,7 @@ print(','.join(hits))
 check "T15.1 Ausdruck github.sha kommt im Verify-Job nicht mehr vor" \
   test -z "$VERIFY_SHA_USES"
 check "T15.2 Resolve-Step hat die ID ref" \
-  test "$(python3 -c "
+  test "$(python -c "
 import io, yaml
 d = yaml.safe_load(io.open('$WORKFLOW', encoding='utf-8'))
 step = next((s for s in d['jobs']['verify-reproducibility']['steps']
@@ -595,6 +608,23 @@ else
   echo "  ❌ T18.7 RC=$VR_RC (erwartet != 0). Log: $VR_STDOUT"
   FAIL=$((FAIL + 1))
 fi
+
+echo "== T19: Fail-Loud der Publish-/Merge-Snippets (release-pipeline) =="
+# Die publish-kritischen run-Snippets sind auf fail-loud verriegelt (Stand
+# des Repo-Commits). Ein still auf blosses `set -e` zurückgebauter Scope
+# überlebt einen ungesetzten Variablennamen (ohne -u) und einen toten
+# Pipe-Teil (ohne -pipefail) — genau die Fehlerklasse, die dieses Gate
+# schliesst. Die Erwartung ist EXAKT: jede Aufweichung wird hier rot, und ein
+# Tippfehler im Step-Namen liefert "-" vom wf_step_run-Helper und ebenfalls
+# rot (kein stillgruen bei unbekanntem Pfad).
+rel_sign_first="$(wf_step_run "$WORKFLOW" publish-release 'Sign SHA256SUMS and attach' \
+  | tr -d '\r' | awk 'NF && $1 !~ /^#/ {print; exit}')"
+rel_merge_first="$(wf_step_run "$WORKFLOW" publish-release 'Auto-merge (checks' \
+  | tr -d '\r' | awk 'NF && $1 !~ /^#/ {print; exit}')"
+check "T19.1 Sign-Snippet (SHA256SUMS) beginnt mit set -eu" \
+  test "$rel_sign_first" = "set -eu"
+check "T19.2 Auto-Merge-Snippet beginnt mit set -euo pipefail (Pipes)" \
+  test "$rel_merge_first" = "set -euo pipefail"
 
 echo
 if [ "$FAIL" -eq 0 ]; then

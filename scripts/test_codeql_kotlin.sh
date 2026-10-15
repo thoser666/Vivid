@@ -22,9 +22,13 @@
 #   K6  Katalog-Versionen synchron (kotlin == jetbrainsKotlinJvm), KSP < 2.4.20
 # Exit 0 = grün.
 # Offline-Testbarkeit: nur grep/awk auf die committed Workflow-/Katalog-Dateien.
+# Test-Root ueber CODEQL_TEST_ROOT ueberschreibbar (Standard: Repo-Root) —
+# so kann scripts/test_codeql_family.sh den Vorfallzustand #290/#293 auf eine
+# Temp-Kopie der Workflows schreiben und den K1.4-Vertrag dort rot nachweisen,
+# ohne das Repo selbst anzufassen.
 set -euo pipefail
 
-cd "$(dirname "$0")/.."
+cd "${CODEQL_TEST_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
 
 CODEDQL=.github/workflows/security-codeql.yml
 TOML=gradle/libs.versions.toml

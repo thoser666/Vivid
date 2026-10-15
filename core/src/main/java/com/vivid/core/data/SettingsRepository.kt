@@ -86,6 +86,9 @@ class SettingsRepository @Inject constructor(
         val SLIDESHOW_WIDGET_INTERVAL_SECONDS = intPreferencesKey("slideshow_widget_interval_seconds")
         val SLIDESHOW_WIDGET_SIZE_DP = intPreferencesKey("slideshow_widget_size_dp")
         val SLIDESHOW_WIDGET_OPACITY = floatPreferencesKey("slideshow_widget_opacity")
+        val POMODORO_ENABLED = booleanPreferencesKey("pomodoro_enabled")
+        val POMODORO_WORK_DURATION = intPreferencesKey("pomodoro_work_duration")
+        val POMODORO_BREAK_DURATION = intPreferencesKey("pomodoro_break_duration")
         val SENTRY_ENABLED = booleanPreferencesKey("sentry_enabled")
         val REMOTE_CONTROL_ENABLED = booleanPreferencesKey("remote_control_enabled")
         val REPLAY_AUDIO_MODE = stringPreferencesKey("replay_audio_mode")
@@ -216,6 +219,9 @@ class SettingsRepository @Inject constructor(
                 slideshowWidgetIntervalSeconds = prefs[PrefKeys.SLIDESHOW_WIDGET_INTERVAL_SECONDS] ?: 30,
                 slideshowWidgetSizeDp = prefs[PrefKeys.SLIDESHOW_WIDGET_SIZE_DP] ?: 240,
                 slideshowWidgetOpacity = prefs[PrefKeys.SLIDESHOW_WIDGET_OPACITY] ?: 1f,
+                pomodoroEnabled = prefs[PrefKeys.POMODORO_ENABLED] ?: false,
+                pomodoroWorkDurationMinutes = prefs[PrefKeys.POMODORO_WORK_DURATION] ?: 25,
+                pomodoroBreakDurationMinutes = prefs[PrefKeys.POMODORO_BREAK_DURATION] ?: 5,
                 replayAudioMode = ReplayAudioMode.fromName(prefs[PrefKeys.REPLAY_AUDIO_MODE]),
                 cameraMode = CameraMode.fromName(prefs[PrefKeys.CAMERA_MODE]),
                 encoderPreset = EncoderPreset.fromName(prefs[PrefKeys.ENCODER_PRESET]),
@@ -301,6 +307,9 @@ class SettingsRepository @Inject constructor(
                 slideshowWidgetIntervalSeconds = widgetData.slideshowWidgetIntervalSeconds,
             slideshowWidgetSizeDp = widgetData.slideshowWidgetSizeDp,
             slideshowWidgetOpacity = widgetData.slideshowWidgetOpacity,
+            pomodoroEnabled = widgetData.pomodoroEnabled,
+            pomodoroWorkDurationMinutes = widgetData.pomodoroWorkDurationMinutes,
+            pomodoroBreakDurationMinutes = widgetData.pomodoroBreakDurationMinutes,
             replayAudioMode = widgetData.replayAudioMode,
             cameraMode = widgetData.cameraMode,
             encoderPreset = widgetData.encoderPreset,
@@ -574,6 +583,9 @@ class SettingsRepository @Inject constructor(
         val slideshowWidgetIntervalSeconds: Int,
         val slideshowWidgetSizeDp: Int,
         val slideshowWidgetOpacity: Float,
+        val pomodoroEnabled: Boolean,
+        val pomodoroWorkDurationMinutes: Int,
+        val pomodoroBreakDurationMinutes: Int,
         val replayAudioMode: ReplayAudioMode,
         val cameraMode: CameraMode,
         val encoderPreset: EncoderPreset,
@@ -776,6 +788,19 @@ class SettingsRepository @Inject constructor(
             prefs[PrefKeys.SLIDESHOW_WIDGET_INTERVAL_SECONDS] = intervalSeconds.coerceIn(5, 3600)
             prefs[PrefKeys.SLIDESHOW_WIDGET_SIZE_DP] = sizeDp.coerceIn(120, 600)
             prefs[PrefKeys.SLIDESHOW_WIDGET_OPACITY] = opacity.coerceIn(0f, 1f)
+        }
+    }
+
+    /** Pomodoro-Timer-Einstellungen speichern (In-App-Timer, PARITY-Zeile 143). */
+    suspend fun updatePomodoroSettings(
+        enabled: Boolean,
+        workDurationMinutes: Int,
+        breakDurationMinutes: Int,
+    ) {
+        dataStore.edit { prefs ->
+            prefs[PrefKeys.POMODORO_ENABLED] = enabled
+            prefs[PrefKeys.POMODORO_WORK_DURATION] = workDurationMinutes.coerceIn(1, 120)
+            prefs[PrefKeys.POMODORO_BREAK_DURATION] = breakDurationMinutes.coerceIn(1, 60)
         }
     }
 

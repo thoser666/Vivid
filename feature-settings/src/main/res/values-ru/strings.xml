@@ -7,6 +7,8 @@
     <string name="cat_appearance_subtitle">Язык, тема и акцентный цвет</string>
     <string name="cat_overlays_title">Наложения и виджеты</string>
     <string name="cat_overlays_subtitle">Чат Twitch, виджеты текста/информации, изображения, QR-кода, батареи и сетки</string>
+    <string name="cat_pomodoro_title">Помодоро</string>
+    <string name="cat_pomodoro_subtitle">Таймер в приложении: цикл работа/перерыв, автоповтор, вибрация</string>
     <string name="cat_chatbot_title">Чат-бот и искусственный интеллект</string>
     <string name="cat_chatbot_subtitle">Режим, учетная запись бота/LLM, лимиты, доступ владельца, медиа-команды</string>
     <string name="cat_remote_title">Удаленное управление и конфиденциальность</string>
@@ -186,6 +188,14 @@
     <string name="overlays_battery_show_icon">Показать значок зарядки</string>
     <string name="overlays_battery_show_percent">Показать процент</string>
     <string name="overlays_battery_threshold">Порог низкого заряда: %1$d%%</string>
+
+    <!-- ===== Таймер Помодоро (SettingsPomodoroScreen.kt) ===== -->
+    <string name="pomodoro_title">Таймер Помодоро</string>
+    <string name="pomodoro_desc">Таймер концентрации по технике Помодоро: рабочие интервалы с короткими перерывами. Отсчет идет как таймер прямо в приложении, с экрана трансляции — без виджета-наложения.</string>
+    <string name="pomodoro_enabled">Включить таймер</string>
+    <string name="pomodoro_work_minutes">Рабочий интервал: %1$d мин</string>
+    <string name="pomodoro_break_minutes">Перерыв: %1$d мин</string>
+    <string name="pomodoro_open_timer">Открыть таймер</string>
 
     <!-- ===== Remote & Privacy (SettingsRemotePrivacyScreen.kt) ===== -->
     <string name="remote_section_title">Веб-удаленное управление</string>

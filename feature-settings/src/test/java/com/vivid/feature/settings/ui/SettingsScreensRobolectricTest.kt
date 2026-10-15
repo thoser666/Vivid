@@ -4,6 +4,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isToggleable
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onNodeWithTag
@@ -227,5 +228,28 @@ class SettingsScreensRobolectricTest {
         composeRule.onAllNodesWithText("3 / 10", substring = true)[0].assertExists()
         composeRule.onAllNodesWithText("Replies this stream: 42", substring = true)[0].assertExists()
         composeRule.onAllNodesWithText("Alice (2)", substring = true)[0].assertExists()
+    }
+
+    // --- Pomodoro -----------------------------------------------------------
+
+    @Test
+    fun `pomodoro renders durations and forwards enable toggle and opens timer`() {
+        val viewModel = settingsViewModel()
+        var opened = false
+        composeRule.setContent {
+            SettingsPomodoroScreen(
+                uiState = AppSettings(),
+                viewModel = viewModel,
+                onBack = {},
+                onOpenTimer = { opened = true },
+            )
+        }
+        composeRule.onNodeWithText("Pomodoro").assertIsDisplayed()
+        composeRule.onNodeWithText("Work session: 25 min").assertExists()
+        composeRule.onNode(isToggleable()).performClick()
+        verify { viewModel.onPomodoroEnabledChange(true) }
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Open timer"))
+        composeRule.onNodeWithText("Open timer").performClick()
+        org.junit.Assert.assertTrue(opened)
     }
 }
