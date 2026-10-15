@@ -240,6 +240,17 @@ jobs:
       - name: Test Suppressions-Register-Workflow
         run: bash scripts/test_suppressions_register_workflow.sh
 
+      # Dependabot Auto-Merge (dependabot-auto-merge.yml): die Fehlerursache
+      # wird GELESEN statt geraten. Verweigerung wegen fehlendem `workflows`-
+      # Scope endet gruen mit Warnung + Hinweiskommentar am PR, alles andere
+      # hart rot mit echtem Fehlertext (Vorfall Run 38247604436: `2>/dev/null`
+      # verschluckte den Grund, der Fallback erriet "keine Branch-Protection"
+      # und der direkte Nachschub-Merge fiel rot). Verhaltenstests gegen einen
+      # gh-Stub + 4 Mutationen, inkl. Gegenprobe zur Behauptung, Workflow-PRs
+      # seien prinzipiell unmergebar (PR #291 wurde ueber --auto gemergt).
+      - name: Test Dependabot-Auto-Merge
+        run: bash scripts/test_dependabot_auto_merge.sh
+
       # PyPI-Drift-Workflow (automation-pypi-drift.yml): Verträge des
       # wöchentlichen Drift-Wächters (Cron, Minimalprivilegien, SHA-Pins,
       # Credential-/REST-/Rollback-/Rebase-Konvention, Loop-Sicherheit).

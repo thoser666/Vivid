@@ -56,17 +56,54 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Enable auto-merge
+        id: merge
         if: steps.check.outputs.auto_merge == 'true'
         run: |
-          # Auto-Merge erfordert Branch-Protection-Regeln (required status checks)
-          # Fallback: Direkter Merge nach Approve, wenn CI grün ist
-          if gh pr merge --auto --squash "$PR_URL" 2>/dev/null; then
+          # Frueherer Defekt (Run 38247604436, 13.10.2026, upload-artifact-Bump):
+          # `gh pr merge --auto` scheiterte, der Fehlertext ging in einem
+          # verschluckten stderr verloren, und der Fallback erriet daraus
+          # "keine Branch-Protection" — falsch, denn auto-merge ist im Repo
+          # aktiv (allow_auto_merge=true) und die Pflicht-Checks "Build & Test"
+          # und "Secret Guard" stehen. Der Nachschub, ein direkter Merge, fiel
+          # dann mit dem ECHTEN Grund rot:
+          #   GraphQL: refusing to allow a GitHub App to create or update
+          #   workflow `.github/workflows/release-pipeline.yml` without
+          #   `workflows` permission (mergePullRequest)
+          # Gegenprobe: PR #291 (setup-ruby) aenderte dieselben
+          # Workflow-Dateien und wurde ueber --auto gemergt — die Verweigerung
+          # ist also nicht pro Datei vorhersehbar. Deshalb wird hier nicht
+          # vorbeblockiert, sondern die Ursache gelesen und klassifiziert:
+          # nur der erwartete Zustand endet gruen, mit Warnung und
+          # Hinweiskommentar am PR statt mit einem roten Job.
+          ERR="$(mktemp)"
+          if gh pr merge --auto --squash "$PR_URL" 2>"$ERR"; then
+            echo "merge_action=auto-merge" >> "$GITHUB_OUTPUT"
             echo "✅ Auto-Merge aktiviert (squash)"
+          elif grep -qF 'without `workflows` permission' "$ERR"; then
+            # Erwarteter Zustand: das GITHUB_TOKEN hat keinen `workflows`-Scope
+            # und darf PRs, die .github/workflows/* aendern, nicht mergen
+            # (auch nicht per --admin; Beleg cli/cli#11493). Der PR bleibt
+            # offen und braucht einen menschlichen Merge.
+            echo "merge_action=manual-required" >> "$GITHUB_OUTPUT"
+            echo "::warning title=Manueller Merge noetig::GITHUB_TOKEN darf PRs mit .github/workflows/*-Aenderung nicht mergen — bitte manuell mergen."
+            marker='dependabot-auto-merge: manual-merge-required'
+            have="$(gh pr view "$PR_URL" --json comments --jq "[.comments[] | select(.body != null) | .body] | any(contains(\"$marker\"))" 2>>"$ERR" || echo false)"
+            if [ "$have" != "true" ]; then
+              body="⚠️ **Manueller Merge erforderlich** — das GITHUB_TOKEN darf diesen PR nicht mergen, weil er \`.github/workflows/*\` ändert. Minor/Patch ist bestätigt; bitte einmal manuell mergen. (Marker: \`$marker\`)"
+              gh pr comment "$PR_URL" --body "$body" >>"$ERR" 2>&1 || echo "::warning::Hinweiskommentar fehlgeschlagen: $(tr '\n' ' ' <"$ERR")"
+            fi
+          elif grep -qF 'Auto merge is not allowed' "$ERR"; then
+            # Repo-Setting (Settings → General → Pull Requests → Auto-merge)
+            # ist aus — Konfigurationsfehler, kein PR-Zustand: hart rot.
+            echo "merge_action=disabled" >> "$GITHUB_OUTPUT"
+            echo "::error::Auto-Merge ist fuer das Repository deaktiviert — $(tr '\n' ' ' <"$ERR")"
+            exit 1
           else
-            echo "⚠️ Auto-Merge nicht verfügbar (keine Branch-Protection). Versuche direkten Merge..."
-            # Warte auf grüne CI und merge dann direkt
-            gh pr merge --squash "$PR_URL"
-            echo "✅ Direkter Merge durchgeführt (squash)"
+            # Unbekannter Grund: hart rot, mit dem VOLLSTAENDIGEN Fehlertext —
+            # genau die Verdeckung, die dieser Step frueher hatte.
+            echo "merge_action=failed" >> "$GITHUB_OUTPUT"
+            echo "::error::gh pr merge --auto fehlgeschlagen: $(tr '\n' ' ' <"$ERR")"
+            exit 1
           fi
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
@@ -82,12 +119,23 @@ jobs:
           echo "| Dependency | ${{ steps.metadata.outputs.dependency-name }} |" >> "$GITHUB_STEP_SUMMARY"
           echo "| Version | ${{ steps.metadata.outputs.previous-version }} → ${{ steps.metadata.outputs.new-version }} |" >> "$GITHUB_STEP_SUMMARY"
           echo "| Auto-Merge | ${{ steps.check.outputs.auto_merge }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Merge-Versuch | ${MERGE_OUTCOME:-nicht versucht} |" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           if [ "${{ steps.check.outputs.auto_merge }}" = "true" ]; then
             echo "✅ Minor/Patch Update — wird nach grüner CI automatisch gemergt." >> "$GITHUB_STEP_SUMMARY"
           else
             echo "⚠️ Major Update — erfordert manuellen Review." >> "$GITHUB_STEP_SUMMARY"
           fi
+          case "${MERGE_OUTCOME:-}" in
+            manual-required)
+              echo "⚠️ Dieser PR ändert .github/workflows/* — manueller Merge erforderlich; der Hinweis liegt als Kommentar am PR." >> "$GITHUB_STEP_SUMMARY"
+              ;;
+            disabled|failed)
+              echo "❌ Merge nicht möglich (${MERGE_OUTCOME}) — echte Ursache steht im Schritt „Enable auto-merge“." >> "$GITHUB_STEP_SUMMARY"
+              ;;
+          esac
+        env:
+          MERGE_OUTCOME: ${{ steps.merge.outputs.merge_action }}
 
   # Benachrichtigung bei Major-Updates (optional)
   notify-major:

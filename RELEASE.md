@@ -765,11 +765,32 @@ Vivid nutzt mehrere GitHub Apps und Workflows für automatisierte Prozesse:
 
 **Datei:** `.github/workflows/dependabot-auto-merge.yml`
 
-ungit **Sicherheit:**
+**Sicherheit:**
 - Nur Minor/Patch Updates werden automatisch gemergt
 - CI muss grün sein (Tests + Lint)
 - Major-Updates bleiben als Draft für manuellen Review
 - Dependabot-PRs werden per squash gemergt (saubere Historie)
+
+**Fehlerbehandlung (Stand 15.10.2026) — der alte Fallback war selbst die Fehlerquelle:**
+
+Hinter `gh pr merge --auto` stand ein verschlucktes stderr (`2>/dev/null`), und der else-Zweig erriet daraus „Auto-Merge nicht verfügbar (keine Branch-Protection)“ und schickte einen direkten Merge nach. Beides war falsch: auto-merge ist im Repo **aktiv** (`allow_auto_merge=true`), die Pflicht-Checks `Build & Test` und `Secret Guard` stehen — und der **echte** Grund stand im verworfenen stderr (Run `38247604436`, 13.10.2026, upload-artifact-Bump / PR #289):
+
+```
+GraphQL: refusing to allow a GitHub App to create or update workflow `.github/workflows/release-pipeline.yml` without `workflows` permission (mergePullRequest)
+```
+
+Der direkte Nachschub-Merge scheiterte an derselben Verweigerung und machte den Job rot, ohne dass die Ursache je im Log stand. Der Step liest den Fehler jetzt und klassifiziert:
+
+| Fall | `merge_action` | Ergebnis |
+|------|----------------|----------|
+| `gh pr merge --auto` erfolgreich | `auto-merge` | grün |
+| Verweigerung wegen fehlendem `workflows`-Scope | `manual-required` | grün + `::warning::` + Hinweiskommentar am PR (Marker `dependabot-auto-merge: manual-merge-required`, idempotent) |
+| Auto-Merge im Repo deaktiviert (`Auto merge is not allowed`) | `disabled` | rot, echter Fehlertext + Setting-Hinweis |
+| alles Übrige | `failed` | rot, **vollständiger** Fehlertext statt leerer Meldung |
+
+Das Ergebnis steht zusätzlich in der Step-Summary (`Merge-Versuch`). **Bewusst kein Vorab-Blocking nach Dateiliste:** die Behauptung, Workflow-PRs seien prinzipiell unmergebar, hat eine Gegenprobe — PR #291 (setup-ruby) änderte `distribution-stable.yml` **und** `release-pipeline.yml` und wurde über `--auto` von `app/github-actions` gemergt (Run `38247767474`, „Auto-Merge aktiviert“). Ob GitHub die Verweigerung ausspricht, ist pro Merge nicht vorhersehbar; deshalb wird am Fehler klassifiziert statt vorab blockiert (ein Vorab-Block würde genau diese PRs regressieren).
+
+**Selbsttest:** [scripts/test_dependabot_auto_merge.sh](scripts/test_dependabot_auto_merge.sh) — Verhaltenstests, der `run`-Block wird per `wf_step_run` gezogen und gegen einen `gh`-Stub ausgeführt, der `--jq` selbst auswertet (#262-Hausregel); 6 Verhaltensszenarien, 4 Mutationen mit Mechanismus-Nachweis (die mutierte Fassung muss in den falschen Zweig laufen), 5 Struktur-Checks. Verdrahtet in `scripts/pre-push.sh` und `.github/workflows/android-ci.yml`. Mutationsprobe gegen den alten Code-Stand: alle Verhaltensszenarien rot, Restore per `cmp` (nie `git checkout --`), Negativkontrolle grün.
 
 ### Stateless Token Kompatibilität
 

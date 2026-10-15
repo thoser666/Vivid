@@ -31,6 +31,17 @@
 - ❌ Keine automatische Gruppierung
 - ❌ Manuelles Konfigurieren von Gruppen nötig
 
+**Stand Auto-Merge (15.10.2026):** Der Merge-Step klassifiziert seine Fehlerursachen,
+statt sie zu erraten — drei dokumentierte Fälle: Erfolg → auto-merge; Verweigerung
+wegen fehlendem `workflows`-Scope (PR ändert `.github/workflows/*`) → grün mit
+`::warning::` und idempotentem Hinweiskommentar am PR, der manuell mergen muss;
+Repo-Setting „Auto merge is not allowed“ → rot mit echtem Fehlertext. Der frühere
+`2>/dev/null`-Fallback samt Fehldiagnose „keine Branch-Protection“ (Run
+`38247604436`) ist entfernt. Kein Vorab-Blocking nach Dateiliste: PR #291 änderte
+zwei Workflow-Dateien und wurde trotzdem über `--auto` gemergt (Run `38247767474`).
+Selbsttest: [`scripts/test_dependabot_auto_merge.sh`](../scripts/test_dependabot_auto_merge.sh)
+(6 Verhaltensszenarien + 4 Mutationen, Pre-Push-Gate + CI).
+
 ### Renovate — ⚠️ Optionale Ergänzung
 
 **Vorteile:**
