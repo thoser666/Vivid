@@ -75,6 +75,7 @@ class StreamingViewModelTest {
     private val zoneRepository = mockk<ZoneRepository> {
         every { zonesFlow } returns MutableStateFlow(emptyList())
         every { privacyEnabledFlow } returns MutableStateFlow(false)
+        every { faceBlurEnabledFlow } returns MutableStateFlow(false)
         coEvery { setZones(any()) } just Runs
         coEvery { setPrivacyEnabled(any()) } just Runs
     }
@@ -636,6 +637,7 @@ class StreamingViewModelTest {
         val zoneRepositoryWithZones = mockk<ZoneRepository> {
             every { zonesFlow } returns MutableStateFlow(zones)
             every { privacyEnabledFlow } returns MutableStateFlow(true)
+            every { faceBlurEnabledFlow } returns MutableStateFlow(false)
             coEvery { setZones(any()) } just Runs
             coEvery { setPrivacyEnabled(any()) } just Runs
         }

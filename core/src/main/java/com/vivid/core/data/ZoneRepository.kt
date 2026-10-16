@@ -21,7 +21,8 @@ import javax.inject.Singleton
  *
  * Die Zonen-Liste liegt als JSON-String unter einem einzigen Key
  * (`privacy_zones_json`), der Master-Toggle „Anonymisierung“ als
- * `privacy_enabled`. JSON (kotlinx.serialization) statt Einzel-Keys hält das
+ * `privacy_enabled` und der P2-Toggle „Gesichter unkenntlich machen“ als
+ * `face_blur_enabled`. JSON (kotlinx.serialization) statt Einzel-Keys hält das
  * Schema erweiterbar: neue Felder in [PrivacyZone] sind abwärtskompatibel
  * (decode mit `ignoreUnknownKeys` analog zum Rest des Projekts).
  *
@@ -36,6 +37,7 @@ class ZoneRepository @Inject constructor(
     private object PrefKeys {
         val ZONES_JSON = stringPreferencesKey("privacy_zones_json")
         val PRIVACY_ENABLED = booleanPreferencesKey("privacy_enabled")
+        val FACE_BLUR_ENABLED = booleanPreferencesKey("face_blur_enabled")
     }
 
     private val json = Json {
@@ -54,6 +56,15 @@ class ZoneRepository @Inject constructor(
     }
 
     /**
+     * P2-Toggle „Gesichter unkenntlich machen“ (Default aus). Wirkt nur
+     * zusätzlich zum Master-Toggle — die Engine zieht beide zusammen und
+     * schaltet die Hardware-Erkennung nur dann an (Skizze §5, P2).
+     */
+    val faceBlurEnabledFlow: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[PrefKeys.FACE_BLUR_ENABLED] ?: false
+    }
+
+    /**
      * Ersetzt die komplette Zonen-Liste (der Zonen-Editor editiert immer die
      * ganze Liste; das ist einfacher und race-freier als Einzel-CRUD).
      * Mehr als [PrivacyZone.MAX_ZONES] Einträge werden auf die ersten
@@ -69,6 +80,13 @@ class ZoneRepository @Inject constructor(
     suspend fun setPrivacyEnabled(enabled: Boolean) {
         dataStore.edit { prefs ->
             prefs[PrefKeys.PRIVACY_ENABLED] = enabled
+        }
+    }
+
+    /** Setzt den P2-Toggle „Gesichter unkenntlich machen“. */
+    suspend fun setFaceBlurEnabled(enabled: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[PrefKeys.FACE_BLUR_ENABLED] = enabled
         }
     }
 

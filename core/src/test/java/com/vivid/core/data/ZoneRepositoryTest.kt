@@ -94,6 +94,37 @@ class ZoneRepositoryTest {
     }
 
     @Test
+    fun `faceBlurEnabledFlow defaults to false`() = runTest {
+        assertFalse(repository().faceBlurEnabledFlow.first())
+    }
+
+    @Test
+    fun `setFaceBlurEnabled persists the toggle independently of the master toggle`() =
+        runTest {
+            val repository = repository()
+
+            repository.setFaceBlurEnabled(true)
+            assertTrue(repository.faceBlurEnabledFlow.first())
+            // Der P2-Toggle darf den Master-Toggle nicht mitziehen.
+            assertFalse(repository.privacyEnabledFlow.first())
+
+            repository.setFaceBlurEnabled(false)
+            assertFalse(repository.faceBlurEnabledFlow.first())
+        }
+
+    @Test
+    fun `face blur survives an unrelated write in the same store`() = runTest {
+        val repository = repository()
+        repository.setFaceBlurEnabled(true)
+
+        repository.setZones(listOf(zone(0.5f, 0.5f)))
+        repository.setPrivacyEnabled(true)
+
+        assertTrue(repository.faceBlurEnabledFlow.first())
+        assertEquals(listOf(zone(0.5f, 0.5f)), repository.zonesFlow.first())
+    }
+
+    @Test
     fun `a corrupted zones cell decodes to an empty list instead of crashing`() = runTest {
         // Direct-Write, wie es ein Abbruch beim Schreiben hinterlassen könnte:
         // kein valides JSON unter dem Zonen-Key.

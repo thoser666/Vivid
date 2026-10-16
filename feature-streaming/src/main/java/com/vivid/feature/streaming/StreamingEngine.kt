@@ -4,15 +4,19 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Rect
 import android.net.Uri
 import android.view.MotionEvent
 import android.view.Surface
 import android.view.View
+import android.view.WindowManager
 import java.io.File
 import com.pedro.common.ConnectChecker
 import com.pedro.library.base.Camera2Base
 import com.pedro.encoder.input.video.Camera2ApiManager
 import com.pedro.encoder.input.video.CameraHelper
+import com.pedro.encoder.input.video.facedetector.Face
+import com.pedro.encoder.input.video.facedetector.FaceDetectorCallback
 import com.pedro.encoder.utils.gl.AspectRatioMode
 import com.pedro.library.multiple.MultiCamera2
 import com.pedro.library.multiple.MultiType
@@ -327,7 +331,15 @@ class StreamingEngine @Inject constructor(
      */
     fun setPrivacyEnabled(enabled: Boolean): Boolean {
         val gl = activeGlInterface() ?: return false
-        return privacyComposer.setPrivacyEnabled(enabled, gl)
+        val changed = privacyComposer.setPrivacyEnabled(enabled, gl)
+        if (changed) {
+            // Der Master-Toggle bestimmt mit, ob überhaupt geblurrt wird:
+            // ohne ihn läuft die Gesichtserkennung nicht (P2-Ziel ist die
+            // sichtbare Unkenntlichmachung, nicht das Erkennen selbst).
+            syncFaceDetectionDesire()
+            publishPrivacyEllipses()
+        }
+        return changed
     }
 
     /**
@@ -358,7 +370,7 @@ class StreamingEngine @Inject constructor(
      */
     fun setPrivacyZones(zones: List<PrivacyZone>) {
         desiredPrivacyZones.value = zones.take(PrivacyZone.MAX_ZONES)
-        applyPrivacyZones(desiredPrivacyZones.value)
+        applyPrivacyZones()
     }
 
     /**
@@ -366,13 +378,197 @@ class StreamingEngine @Inject constructor(
      * Y-Flip) und übergibt sie dem Composer. Ohne GL-Interface ein No-Op —
      * der Aufruf ist dann beim Stream-Start/Quellwechsel nachgeholt.
      */
-    private fun applyPrivacyZones(zones: List<PrivacyZone>) {
+    private fun applyPrivacyZones() {
         val gl = activeGlInterface() ?: return
-        privacyComposer.setEllipses(zones.map { it.toPrivacyEllipse() })
+        publishPrivacyEllipses()
         // Der Toggle-Zustand liegt im Composer; ein Rebuild stellt sicher,
         // dass die Kette den Soll-Zustand (inkl. neuer Zonen) trägt.
         privacyComposer.requestRebuild(gl)
     }
+
+    // --- P2: Automatische Gesichter (Skizze §5, Route A: Hardware) ----------
+
+    /**
+     * Soll-Zustand des P2-Toggles „Gesichter unkenntlich machen“ aus der
+     * Persistenz (`ZoneRepository.faceBlurEnabledFlow`). Wirkt nur **zusammen**
+     * mit dem Master-Toggle — [faceDetectionDesired] zieht beide.
+     */
+    private val _faceBlurEnabled = MutableStateFlow(false)
+
+    /** P2-Toggle (Default aus; die Erkennung startet beim nächsten attach). */
+    val faceBlurEnabled: StateFlow<Boolean> = _faceBlurEnabled.asStateFlow()
+
+    /**
+     * Capability der Hardware-Gesichtserkennung: `null` = noch nie versucht,
+     * `true` = Gerät liefert Face-Modus, `false` = kein Face-Modus (Emulator
+     * oder Kamera ohne `STATISTICS_FACE_DETECT_MODE`). Die manuellen Zonen
+     * hängen nicht daran — sie bleiben die Garantie (Skizze §8).
+     */
+    private val _faceDetectionAvailable = MutableStateFlow<Boolean?>(null)
+    val faceDetectionAvailable: StateFlow<Boolean?> = _faceDetectionAvailable.asStateFlow()
+
+    /** Geglättete Gesichts-Ellipsen (leer, solange P2 nicht greift). */
+    private var faceEllipses: List<PrivacyEllipse> = emptyList()
+
+    private val faceSmoother = FaceSmoother()
+
+    /**
+     * Lebenszyklus der RootEncoder-Erkennung. `lazy`, weil die Defaults über
+     * einen Haupt-Handler laufen, der erst beim ersten Versuch existiert —
+     * die JVM-Engine-Tests bleiben dadurch ohne Looper lauffähig.
+     */
+    private val faceProducer by lazy {
+        FaceDetectionProducer(
+            onAvailableChanged = { available -> _faceDetectionAvailable.value = available },
+        )
+    }
+
+    /** Drehung der Anzeige in Grad (0/90/180/270) — injizierbar für Tests. */
+    internal var displayRotationDegrees: () -> Int = ::readDisplayRotationDegrees
+
+    /** Adapter auf die Face-API des Stream-Encoders (Muster `idlePreviewFactory`). */
+    internal var cameraFaceDetectableFactory: (MultiCamera2) -> FaceDetectable = { cam ->
+        faceDetectable(
+            facing = { cam.cameraFacing },
+            enable = { callback -> cam.enableFaceDetection(callback) },
+            disable = { cam.disableFaceDetection() },
+        )
+    }
+
+    /** Adapter auf die Face-API der Idle-Preview-Kamera. */
+    internal var idleFaceDetectableFactory: (Camera2ApiManager) -> FaceDetectable = { preview ->
+        faceDetectable(
+            facing = { preview.cameraFacing },
+            enable = { callback -> preview.enableFaceDetection(callback) },
+            disable = { preview.disableFaceDetection() },
+        )
+    }
+
+    /** true, wenn die Erkennung laufen soll: Master- **und** P2-Toggle an. */
+    private val faceDetectionDesired: Boolean
+        get() = _faceBlurEnabled.value && privacyComposer.privacyEnabled.value
+
+    /**
+     * Schaltet P2 „Gesichter unkenntlich machen“ um (Persistenz-Ziel der
+     * ViewModel-Schicht; die Engine hält den Soll-Zustand hier im Speicher).
+     *
+     * @return true, wenn sich der Zustand geändert hat.
+     */
+    fun setFaceBlurEnabled(enabled: Boolean): Boolean {
+        if (_faceBlurEnabled.value == enabled) return false
+        _faceBlurEnabled.value = enabled
+        if (!enabled) {
+            faceSmoother.reset()
+            faceEllipses = emptyList()
+        }
+        syncFaceDetectionDesire()
+        publishPrivacyEllipses()
+        return true
+    }
+
+    /** Hält den Erkennungswunsch mit den beiden Toggles synchron. */
+    private fun syncFaceDetectionDesire() {
+        faceProducer.setDesired(faceDetectionDesired)
+    }
+
+    /**
+     * Hängt die Erkennung an eine laufende Kamera-Instanz an (Idle-Preview,
+     * Stream, Standalone-Aufnahme). Ein nicht gewünschter Wunsch wird beim
+     * attach nur gemerkt — der Toggle kann ihn danach ohne Re-Attach an.
+     */
+    private fun attachFaceDetection(target: FaceDetectable) {
+        faceProducer.setDesired(faceDetectionDesired)
+        faceProducer.attach(target) { frame -> onFaceFrame(frame) }
+    }
+
+    /** Adapter über die beiden RootEncoder-Ziele (Stream-Encoder, Idle-Kamera). */
+    private fun faceDetectable(
+        facing: () -> CameraHelper.Facing,
+        enable: (FaceDetectorCallback) -> Boolean,
+        disable: () -> Unit,
+    ): FaceDetectable = object : FaceDetectable {
+        override fun enableFaceDetection(onFaces: (FaceFrame) -> Unit): Boolean =
+            enable(faceCallback(onFaces, facing))
+
+        override fun disableFaceDetection() = disable()
+    }
+
+    /** Baut pro Capture-Frame aus RootEncoder-Typen einen [FaceFrame]. */
+    private fun faceCallback(
+        onFaces: (FaceFrame) -> Unit,
+        facing: () -> CameraHelper.Facing,
+    ): FaceDetectorCallback = object : FaceDetectorCallback {
+        override fun onGetFaces(faces: Array<Face>, scaleSensor: Rect?, sensorOrientation: Int) {
+            onFaces(
+                FaceFrame(
+                    faces = faces.map { face ->
+                        val rect = face.rect
+                        DetectedFace(
+                            left = rect.left,
+                            top = rect.top,
+                            right = rect.right,
+                            bottom = rect.bottom,
+                            score = face.score,
+                        )
+                    },
+                    meta = FaceFrameMeta(
+                        // Ohne Skalierungs-Rechteck ist keine Normalisierung
+                        // möglich — der Mapper verwirft den Frame dann (0×0).
+                        activeArrayWidth = scaleSensor?.width() ?: 0,
+                        activeArrayHeight = scaleSensor?.height() ?: 0,
+                        sensorOrientationDegrees = sensorOrientation,
+                        displayRotationDegrees = displayRotationDegrees(),
+                        frontFacing = facing() == CameraHelper.Facing.FRONT,
+                    ),
+                ),
+            )
+        }
+    }
+
+    /**
+     * Verarbeitet ein Erkennungs-Frame: mappen (Sensor → Textur), glätten,
+     * Slot-Budget rechnen, Composer aktualisieren — **ohne** Ketten-Rebuild,
+     * weil Gesichts-Boxen nur Uniforms ändern (Skizze §5).
+     */
+    private fun onFaceFrame(frame: FaceFrame) {
+        if (!faceDetectionDesired) return
+        faceEllipses = faceSmoother.update(FaceEllipseMapper.map(frame))
+        publishPrivacyEllipses()
+    }
+
+    /**
+     * Der zuletzt an den Composer übergebene Ellipsen-Satz (Zonen zuerst,
+     * dann Gesichter bis zum Slot-Budget). Reine Lesegröße — sie macht die
+     * Merge-Regel beobachtbar, ohne an den Render-Zustand zu müssen.
+     */
+    private val _publishedPrivacyEllipses = MutableStateFlow<List<PrivacyEllipse>>(emptyList())
+    internal val publishedPrivacyEllipses: StateFlow<List<PrivacyEllipse>> =
+        _publishedPrivacyEllipses.asStateFlow()
+
+    /**
+     * Vereinigt Zonen- und Gesichts-Ellipsen auf die 8 Uniform-Slots des
+     * Privacy-Shaders: Zonen sind die Garantie und belegen ihre Slots zuerst,
+     * Gesichter füllen nur den Rest. Ohne GL ein No-Op.
+     */
+    private fun publishPrivacyEllipses() {
+        val gl = activeGlInterface() ?: return
+        val zones = desiredPrivacyZones.value.map { it.toPrivacyEllipse() }
+        val budget = (PrivacyBlurFilterRender.MAX_ELLIPSES - zones.size).coerceAtLeast(0)
+        val faces = if (faceDetectionDesired) faceEllipses.take(budget) else emptyList()
+        _publishedPrivacyEllipses.value = zones + faces
+        privacyComposer.setEllipses(_publishedPrivacyEllipses.value)
+    }
+
+    /** Drehung der Anzeige relativ zur nativen Orientierung (Risiko #2, §8). */
+    private fun readDisplayRotationDegrees(): Int = runCatching {
+        val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        when (windowManager.defaultDisplay.rotation) {
+            Surface.ROTATION_90 -> 90
+            Surface.ROTATION_180 -> 180
+            Surface.ROTATION_270 -> 270
+            else -> 0
+        }
+    }.getOrDefault(0)
 
     companion object {
         private const val ENCODER_PREPARATION_ERROR = "Failed to prepare audio/video"
@@ -490,7 +686,13 @@ class StreamingEngine @Inject constructor(
         when (activeSourceKind.value) {
             VideoSourceKind.CAMERA -> camera?.let { cam ->
                 if (cam.isStreaming) {
-                    if (!cam.isRecording) detachGlPreview()
+                    if (!cam.isRecording) {
+                        // Der Stream-Encoder hält an (eine laufende Lokal-
+                        // Aufnahme übernimmt ohnehin): keine Frames mehr, also
+                        // die Gesichtserkennung abschalten (P2).
+                        detachGlPreview()
+                        faceProducer.detach()
+                    }
                     Timber.i("Stopping shared camera encoder after last RTMP target")
                     cam.stopStream()
                 }
@@ -577,7 +779,7 @@ class StreamingEngine @Inject constructor(
         // P1: Quellwechsel — die Zonen sind quellrelativ; der Soll-Zustand
         // wird auf die neue Quelle angewendet (relative Bildmitte bleibt
         // erhalten; Persistenz je Quelle prüft P3, Skizze §9).
-        applyPrivacyZones(desiredPrivacyZones.value)
+        applyPrivacyZones()
         return switched
     }
 
@@ -795,7 +997,10 @@ class StreamingEngine @Inject constructor(
                 restorePreviewAfterRecordingFailure(cam, standalone)
                 return false
             }
-            applyPrivacyZones(desiredPrivacyZones.value)
+            applyPrivacyZones()
+            // Standalone-Aufnahme ohne Stream: die Kamera läuft dann allein,
+            // die P2-Erkennung hängt an ihr (beim Stream bereits geschehen).
+            if (standalone) attachFaceDetection(cameraFaceDetectableFactory(cam))
             attachPreviewIfRunning()
             restoreCameraControls()
             return true
@@ -964,6 +1169,9 @@ class StreamingEngine @Inject constructor(
             idlePreviewSurface = request.surface
             idlePreviewSize = size
             attachPreviewIfRunning()
+            // Kamera wird gerade geöffnet: der Producer versucht das Einschalten
+            // der Erkennung nach, bis das Input-Surface steht (Risiko #1).
+            attachFaceDetection(idleFaceDetectableFactory(preview))
             privacyComposer.requestRebuild(gl)
             restoreCameraControls()
         } catch (error: Exception) {
@@ -976,6 +1184,9 @@ class StreamingEngine @Inject constructor(
         idlePreviewSurface = null
         idlePreviewSize = null
         if (idlePreviewCamera != null) {
+            // Erkennung zuerst abschalten, solange die Kamera noch offen ist
+            // (Callbacks hängen am Gerät) — laufende Nachversuche fallen weg.
+            faceProducer.detach()
             runCatching { idlePreviewCamera?.closeCamera() }
             idlePreviewCamera = null
             detachGlPreview()
@@ -1043,7 +1254,7 @@ class StreamingEngine @Inject constructor(
             failStream(ENCODER_PREPARATION_ERROR)
             return
         }
-        applyPrivacyZones(desiredPrivacyZones.value)
+        applyPrivacyZones()
         urls.forEachIndexed(startTarget)
     }
 
@@ -1062,12 +1273,13 @@ class StreamingEngine @Inject constructor(
             resetAdaptiveBitrate()
             // P1: Anonymisierung — persistierter Soll-Zustand ab dem ersten
             // Frame (Composer-Zustand überlebt stopStream bewusst).
-            applyPrivacyZones(desiredPrivacyZones.value)
+            applyPrivacyZones()
             activeUrls.forEachIndexed { index, url ->
                 cam.startStream(MultiType.RTMP, index, url)
             }
             // RootEncoder opens Camera2 during startStream; attach after that transition.
             attachPreviewIfRunning()
+            attachFaceDetection(cameraFaceDetectableFactory(cam))
             restoreCameraControls()
         } else {
             failStream(ENCODER_PREPARATION_ERROR)
