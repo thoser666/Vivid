@@ -352,20 +352,21 @@ run bash scripts/check_gh_cli_flags.sh
 echo "▶ [pre-push] gh-CLI-Flag-Guard-Selbsttest (scripts/test_gh_cli_flags.sh)"
 run bash scripts/test_gh_cli_flags.sh
 
-# CodeQL-Blockade-Wächter (advisory — nie push-blockierend): CodeQL-Bundle
-# 2.27.0 kann Kotlin 2.4.20 nicht extrahieren (Stand 2.27.0, empirisch
-# 2026-09-10); security-codeql.yml pinnt den Trace-Build deshalb auf 2.4.10.
-# Er warnt, sobald ein neueres Bundle den Pin entbehrlich macht.
+# CodeQL-Blockade-Wächter (advisory — nie push-blockierend): Frühwarnung für
+# den nächsten Kotlin-Bump über dem empirisch verifizierten Extractor-Stand
+# 2.4.21 (Bundle 2.27.2, Blockade am 15.10.2026 gefallen). Er warnt, sobald
+# der Katalog darüber driftet — dann erst per workflow_dispatch verifizieren.
 echo "▶ [pre-push] CodeQL-Blockade-Wächter (scripts/check_codeql_blockade.sh)"
 run bash scripts/check_codeql_blockade.sh
 
 echo "▶ [pre-push] CodeQL-Blockade-Wächter-Selbsttest (scripts/test_codeql_blockade.sh)"
 run bash scripts/test_codeql_blockade.sh
 
-# CodeQL-Extractor-Pin-Selbsttest (security-codeql.yml): der Pin-Step muss vor
-# dem Build-Step liegen, beide codeql-action-Steps SHA-gepinnt sein und kein
-# anderer Workflow den Katalog downgraden (Normal-CI bleibt 2.4.20).
-echo "▶ [pre-push] CodeQL-Extractor-Pin-Selbsttest (scripts/test_codeql_kotlin.sh)"
+# CodeQL-Kotlin-Trace-Selbsttest (security-codeql.yml): KEIN Kotlin-Override
+# im Trace-Pfad (Pin-Step entfernt 15.10.2026), beide codeql-action-Steps
+# SHA-gepinnt und kein Workflow downgradet den Katalog — der Trace baut die
+# Katalog-Version wie die normale CI.
+echo "▶ [pre-push] CodeQL-Kotlin-Trace-Selbsttest (scripts/test_codeql_kotlin.sh)"
 run bash scripts/test_codeql_kotlin.sh
 
 # CodeQL-Familien-Bump-Selbsttest (offline): Mutationsnachweis, dass der

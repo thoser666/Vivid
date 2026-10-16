@@ -40,12 +40,17 @@ done
 # CodeQL guard note: the weekly automation-codeql-kotlin.yml workflow was
 # removed on 2026-09-10 and its premise was WRONG: action pin and default
 # BUNDLE are separate versions, and even bundle 2.27.0 (action v4.38.0,
-# released 2026-09-09) still REJECTS Kotlin 2.4.20 ("too recent") — support
-# is merged upstream (github/codeql#20018, issue #22404 closed 2026-09-08)
-# but not shipped in any released bundle yet. Empirical evidence: CodeQL run
-# 34509237841. The advisory watcher scripts/check_codeql_blockade.sh tracks
-# the blockade; all codeql-action pins across workflows must use the SAME
-# release (init/analyze/upload-sarif) to avoid the mixed-version warning;
+# released 2026-09-09) still REJECTED Kotlin 2.4.20 ("too recent") — support
+# was merged upstream (github/codeql#20018, issue #22404 closed 2026-09-08)
+# but not shipped in any released bundle then. Empirical evidence: CodeQL run
+# 34509237841. RESOLVED 2026-10-15: bundle 2.27.2 (action v4.38.3 default,
+# lib/defaults.json) ships the extractor — the temporary pin step (trace on
+# Kotlin 2.4.10) was removed and the trace builds the catalog version again,
+# verified per workflow_dispatch run (see RELEASE.md Bundle-Lag-Lehre).
+# The advisory watcher scripts/check_codeql_blockade.sh now warns when the
+# catalog drifts ABOVE the empirically verified extractor stand 2.4.21;
+# all codeql-action pins across workflows must use the SAME release
+# (init/analyze/upload-sarif) to avoid the mixed-version warning;
 # see RELEASE.md Bundle-Lag-Lehre.
 
 # The PR title is data passed through the environment, never interpolated into a
