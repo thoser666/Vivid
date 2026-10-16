@@ -466,6 +466,33 @@ class StreamingEngine @Inject constructor(
         return true
     }
 
+    /**
+     * P2b-Soll-Zustand „Ganzbild verpixeln“: das **gesamte** Bild wird mit
+     * der groben Mosaik-Stufe unkenntlich gemacht, damit Architektur und
+     * Umgebung des Streamers den Standort nicht verraten (Skizze §5, P2b).
+     * Wirkt nur zusammen mit dem Master-Toggle — die Privacy-Render-Instanz
+     * hängt nur dann in der Kette (Garantie-Postulat, §4).
+     */
+    private val _fullFramePrivacy = MutableStateFlow(false)
+
+    /** P2b-Toggle (Default aus; reiner Render-Zustand, kein Ketten-Rebuild). */
+    val fullFramePrivacy: StateFlow<Boolean> = _fullFramePrivacy.asStateFlow()
+
+    /**
+     * Schaltet P2b „Ganzbild verpixeln“ um (Persistenz-Ziel der ViewModel-
+     * Schicht). Der Voll-Frame-Modus ist — genau wie die Ellipsen — reiner
+     * Uniform-Zustand des Privacy-Renders: kein Ketten-Rebuild, kein Slot-
+     * Verbrauch, wirksam ab dem nächsten Frame.
+     *
+     * @return true, wenn sich der Zustand geändert hat.
+     */
+    fun setFullFramePrivacy(enabled: Boolean): Boolean {
+        if (_fullFramePrivacy.value == enabled) return false
+        _fullFramePrivacy.value = enabled
+        privacyComposer.setFullFrame(enabled)
+        return true
+    }
+
     /** Hält den Erkennungswunsch mit den beiden Toggles synchron. */
     private fun syncFaceDetectionDesire() {
         faceProducer.setDesired(faceDetectionDesired)

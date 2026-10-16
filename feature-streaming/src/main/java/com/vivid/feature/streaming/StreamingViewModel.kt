@@ -80,6 +80,12 @@ class StreamingViewModel @Inject constructor(
             if (zoneRepository.faceBlurEnabledFlow.first()) {
                 streamingEngine.setFaceBlurEnabled(true)
             }
+            // P2b: „Ganzbild verpixeln“ — reiner Render-Zustand des Privacy-
+            // Filters; wird sofort übernommen, wirksam sobald die Privacy-
+            // Kette hängt (Master-Toggle).
+            if (zoneRepository.fullFrameBlurEnabledFlow.first()) {
+                streamingEngine.setFullFramePrivacy(true)
+            }
         }
     }
 
@@ -194,6 +200,13 @@ class StreamingViewModel @Inject constructor(
     val faceBlurEnabled: Flow<Boolean> = zoneRepository.faceBlurEnabledFlow
 
     /**
+     * Persistierter P2b-Toggle „Ganzbild verpixeln“ (Default aus). Wirkt nur
+     * zusammen mit [privacyEnabled], aber unabhängig von Zonen/Gesichtern:
+     * das ganze Bild wird grob verpixelt (Skizze §5, P2b).
+     */
+    val fullFrameBlurEnabled: Flow<Boolean> = zoneRepository.fullFrameBlurEnabledFlow
+
+    /**
      * Capability der Hardware-Gesichtserkennung: `null` = noch nie versucht,
      * `false` = Gerät ohne Face-Modus. Das UI zeigt diesen Fall später als
      * Hinweis an; die manuellen Zonen bleiben davon unberührt (Skizze §8).
@@ -223,6 +236,18 @@ class StreamingViewModel @Inject constructor(
         viewModelScope.launch {
             zoneRepository.setFaceBlurEnabled(enabled)
             streamingEngine.setFaceBlurEnabled(enabled)
+        }
+    }
+
+    /**
+     * Setzt den P2b-Toggle „Ganzbild verpixeln“: persistiert und sofort an
+     * die Engine. Die Engine lehnt diesen Toggle nie ab (reiner Uniform-
+     * Zustand, wirksam ab dem nächsten Frame der Privacy-Kette).
+     */
+    fun setFullFrameBlurEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            zoneRepository.setFullFrameBlurEnabled(enabled)
+            streamingEngine.setFullFramePrivacy(enabled)
         }
     }
 

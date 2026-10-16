@@ -178,4 +178,24 @@ class ZoneRepositoryTest {
         assertEquals(0f, PrivacyZone.shift(0.05f, -0.1f))
         assertEquals(1f, PrivacyZone.shift(0.95f, 0.1f))
     }
+
+    @Test
+    fun `fullFrameBlurEnabledFlow defaults to false`() = runTest {
+        assertFalse(repository().fullFrameBlurEnabledFlow.first())
+    }
+
+    @Test
+    fun `setFullFrameBlurEnabled persists the toggle independently of zones and master`() =
+        runTest {
+            val repository = repository()
+
+            repository.setFullFrameBlurEnabled(true)
+            assertTrue(repository.fullFrameBlurEnabledFlow.first())
+            // Der P2b-Toggle darf weder Master noch Zonen mitziehen.
+            assertFalse(repository.privacyEnabledFlow.first())
+            assertTrue(repository.zonesFlow.first().isEmpty())
+
+            repository.setFullFrameBlurEnabled(false)
+            assertFalse(repository.fullFrameBlurEnabledFlow.first())
+        }
 }

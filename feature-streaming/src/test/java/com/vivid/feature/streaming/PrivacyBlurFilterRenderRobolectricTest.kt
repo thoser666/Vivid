@@ -1,6 +1,8 @@
 package com.vivid.feature.streaming
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -53,5 +55,45 @@ class PrivacyBlurFilterRenderRobolectricTest {
                 PrivacyEllipse(0.75f, 0.75f, 0.2f, 0.15f),
             ),
         )
+    }
+
+    // --- P2b: Voll-Frame-Modus + Mosaik-Kantenlänge --------------------------
+
+    @Test
+    fun `full frame and pixel grid are framesync snapshots with sane defaults`() {
+        val render = PrivacyBlurFilterRender()
+        // Defaults: Voll-Frame aus, feine Mosaik-Stufe für Zonen/Gesichter.
+        assertFalse(render.fullFrameSnapshot)
+        assertEquals(PrivacyBlurFilterRender.DEFAULT_PIXEL_GRID, render.pixelGridSnapshot, 1e-6f)
+
+        render.setFullFrame(true)
+        render.setPixelGrid(PrivacyBlurFilterRender.FULL_FRAME_PIXEL_GRID)
+        assertTrue(render.fullFrameSnapshot)
+        assertEquals(
+            PrivacyBlurFilterRender.FULL_FRAME_PIXEL_GRID,
+            render.pixelGridSnapshot,
+            1e-6f,
+        )
+        // Die Voll-Frame-Stufe muss grober sein als die Zonen-Stufe — sonst
+        // bleibt Umgebung lesbar (der eigentliche Standort-Schutz).
+        assertTrue(
+            PrivacyBlurFilterRender.FULL_FRAME_PIXEL_GRID >
+                PrivacyBlurFilterRender.DEFAULT_PIXEL_GRID,
+        )
+
+        render.setFullFrame(false)
+        render.setPixelGrid(PrivacyBlurFilterRender.DEFAULT_PIXEL_GRID)
+        assertFalse(render.fullFrameSnapshot)
+    }
+
+    @Test
+    fun `pixel grid rejects non-positive values`() {
+        val render = PrivacyBlurFilterRender()
+        org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {
+            render.setPixelGrid(0f)
+        }
+        org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {
+            render.setPixelGrid(-1f)
+        }
     }
 }

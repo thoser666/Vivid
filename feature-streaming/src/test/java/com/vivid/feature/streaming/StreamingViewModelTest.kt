@@ -76,8 +76,10 @@ class StreamingViewModelTest {
         every { zonesFlow } returns MutableStateFlow(emptyList())
         every { privacyEnabledFlow } returns MutableStateFlow(false)
         every { faceBlurEnabledFlow } returns MutableStateFlow(false)
+        every { fullFrameBlurEnabledFlow } returns MutableStateFlow(false)
         coEvery { setZones(any()) } just Runs
         coEvery { setPrivacyEnabled(any()) } just Runs
+        coEvery { setFullFrameBlurEnabled(any()) } just Runs
     }
 
     private fun viewModel(
@@ -638,6 +640,7 @@ class StreamingViewModelTest {
             every { zonesFlow } returns MutableStateFlow(zones)
             every { privacyEnabledFlow } returns MutableStateFlow(true)
             every { faceBlurEnabledFlow } returns MutableStateFlow(false)
+            every { fullFrameBlurEnabledFlow } returns MutableStateFlow(false)
             coEvery { setZones(any()) } just Runs
             coEvery { setPrivacyEnabled(any()) } just Runs
         }
@@ -670,5 +673,48 @@ class StreamingViewModelTest {
 
         coVerify(exactly = 1) { zoneRepository.setZones(zones) }
         verify(exactly = 1) { engine.setPrivacyZones(zones) }
+    }
+
+    // --- Datenschutz-Anonymisierung P2b: Ganzbild-Verpixelung ----------------
+
+    @Test
+    fun `setFullFrameBlurEnabled persists the toggle and forwards it to the engine`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val viewModel = viewModel()
+
+        viewModel.setFullFrameBlurEnabled(true)
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { zoneRepository.setFullFrameBlurEnabled(true) }
+        verify(exactly = 1) { engine.setFullFramePrivacy(true) }
+    }
+
+    @Test
+    fun `init restores a persisted full frame toggle`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val zoneRepositoryWithFullFrame = mockk<ZoneRepository> {
+            every { zonesFlow } returns MutableStateFlow(emptyList())
+            every { privacyEnabledFlow } returns MutableStateFlow(false)
+            every { faceBlurEnabledFlow } returns MutableStateFlow(false)
+            every { fullFrameBlurEnabledFlow } returns MutableStateFlow(true)
+            coEvery { setZones(any()) } just Runs
+            coEvery { setPrivacyEnabled(any()) } just Runs
+        }
+
+        StreamingViewModel(
+            engine,
+            repositoryWith(AppSettings()),
+            launcher,
+            sceneRepository,
+            sceneController,
+            autoSceneSwitcher,
+            zoneRepositoryWithFullFrame,
+            StreamStartCoordinator(repositoryWith(AppSettings()), engine, launcher, com.vivid.core.data.AndroidEncoderCapabilities()),
+        )
+        advanceUntilIdle()
+
+        // Der Toggle ist reiner Render-Zustand: er wird sofort übernommen,
+        // auch wenn der Master-Toggle noch aus ist.
+        verify(exactly = 1) { engine.setFullFramePrivacy(true) }
     }
 }

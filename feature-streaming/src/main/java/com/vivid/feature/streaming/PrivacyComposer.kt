@@ -45,7 +45,8 @@ import kotlinx.coroutines.flow.asStateFlow
  * grün.
  *
  * P0-Umfang: die Ellipsen des Privacy-Filters werden nur programmatisch
- * gesetzt ([setEllipses]) — Zonen-UI folgt in P1, BlazeFace-Producer in P2.
+ * gesetzt ([setEllipses]) — Zonen-UI folgt in P1, Gesichter in P2 (Route A),
+ * der Voll-Frame-Modus in P2b ([setFullFrame]).
  */
 class PrivacyComposer(
     private val filterController: VideoFilterController,
@@ -76,6 +77,18 @@ class PrivacyComposer(
 
     /** Ob die Anonymisierung aktiv ist (Position 0 in der Kette). */
     val privacyEnabled: StateFlow<Boolean> = _privacyEnabled.asStateFlow()
+
+    /**
+     * Voll-Frame-Modus (P2b): das ganze Bild wird mit der groben Mosaik-
+     * Stufe pixeliert. Wie die Ellipsen reiner Render-Zustand (Uniforms) —
+     * kein Ketten-Zustand, deshalb über Rebuilds hinweg erhalten.
+     */
+    @Volatile
+    private var fullFrameEnabled = false
+
+    /** Test-Lesegröße des Voll-Frame-Soll-Zustands. */
+    internal val fullFrame: Boolean
+        get() = fullFrameEnabled
 
     /**
      * Die wiederverwendete Privacy-Render-Instanz. Bewusst genau einmal
@@ -130,6 +143,25 @@ class PrivacyComposer(
      */
     fun setEllipses(ellipses: List<PrivacyEllipse>) {
         privacyRender?.setEllipses(ellipses)
+    }
+
+    /**
+     * Schaltet den Voll-Frame-Modus (P2b, Skizze §5) um: das **gesamte**
+     * Bild wird pixeliert, mit der groben Mosaik-Stufe
+     * [PrivacyBlurFilterRender.FULL_FRAME_PIXEL_GRID] statt der feinen
+     * Zonen-Stufe — damit Umgebung und Architektur nicht lesbar bleiben.
+     * Framesynchron wie [setEllipses], ohne Ketten-Rebuild.
+     */
+    fun setFullFrame(enabled: Boolean) {
+        fullFrameEnabled = enabled
+        privacyRender?.setFullFrame(enabled)
+        privacyRender?.setPixelGrid(
+            if (enabled) {
+                PrivacyBlurFilterRender.FULL_FRAME_PIXEL_GRID
+            } else {
+                PrivacyBlurFilterRender.DEFAULT_PIXEL_GRID
+            },
+        )
     }
 
     companion object {

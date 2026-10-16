@@ -232,6 +232,65 @@ class PrivacyComposerTest {
         composer.setEllipses(listOf(PrivacyEllipse(0.5f, 0.5f, 0.1f, 0.1f)))
     }
 
+    // --- P2b: Voll-Frame-Modus -----------------------------------------------
+
+    @Test
+    fun `setFullFrame forwards flag and grid to the render without touching the chain`() {
+        val recorder = RecordingGl()
+        val fullFrameCalls = mutableListOf<Boolean>()
+        val gridCalls = mutableListOf<Float>()
+        val privacy = mockk<PrivacyBlurFilterRender>(relaxed = true) {
+            every { setFullFrame(any()) } answers { fullFrameCalls.add(firstArg()) }
+            every { setPixelGrid(any()) } answers { gridCalls.add(firstArg()) }
+        }
+        val composer = composer(recorder, privacyRender = privacy)
+        composer.setPrivacyEnabled(true, recorder.gl)
+        val callsBefore = recorder.ops.size
+
+        composer.setFullFrame(true)
+        // Reiner Uniform-Zustand: die Kette wird nicht neu gebaut.
+        assertEquals(callsBefore, recorder.ops.size)
+        assertEquals(listOf(true), fullFrameCalls)
+        assertEquals(listOf(PrivacyBlurFilterRender.FULL_FRAME_PIXEL_GRID), gridCalls)
+        assertTrue(composer.fullFrame)
+
+        // Zurück auf die Zonen-Stufe: Flag aus, grobe Stufe auf Standard.
+        composer.setFullFrame(false)
+        assertEquals(listOf(true, false), fullFrameCalls)
+        assertEquals(
+            listOf(
+                PrivacyBlurFilterRender.FULL_FRAME_PIXEL_GRID,
+                PrivacyBlurFilterRender.DEFAULT_PIXEL_GRID,
+            ),
+            gridCalls,
+        )
+        assertFalse(composer.fullFrame)
+    }
+
+    @Test
+    fun `setFullFrame is a no-op without a privacy render`() {
+        val composer = composer(RecordingGl(), privacyRender = null)
+        // Darf nicht werfen; der Soll-Zustand bleibt erhalten und greift beim
+        // nächsten Rebuild (JVM-Realität ohne GL).
+        composer.setFullFrame(true)
+        assertTrue(composer.fullFrame)
+    }
+
+    @Test
+    fun `full frame state survives a chain rebuild`() {
+        val recorder = RecordingGl()
+        val privacy = mockk<PrivacyBlurFilterRender>(relaxed = true)
+        val composer = composer(recorder, privacyRender = privacy)
+        composer.setPrivacyEnabled(true, recorder.gl)
+        composer.setFullFrame(true)
+
+        composer.requestRebuild(recorder.gl)
+
+        // Der Rebuild berührt den Voll-Frame-Soll-Zustand nicht (die
+        // wiederverwendete Render-Instanz trägt ihn ohnehin weiter).
+        assertTrue(composer.fullFrame)
+    }
+
     // --- PrivacyEllipse-Modell-Verträge --------------------------------------
 
     @Test

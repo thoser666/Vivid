@@ -8,14 +8,23 @@ varying vec2 vTextureCoord;
 // (Zentrum + Radii in Textur-Koordinaten 0..1) werden mit Mosaik-Pixelierung
 // unkenntlich gemacht. Ein-Pass (kein Extra-Blur-Framebuffer) — läuft damit
 // in der bestehenden FBO-Filterkette von RootEncoder. Die Zonen-Koordinaten
-// kommen vom PrivacyComposer (P1: manuelle Zonen, P2: BlazeFace-Boxen).
+// kommen vom PrivacyComposer (P1: manuelle Zonen, P2: Gesichter).
+//
+// P2b: uFullFrame (0/1) pixeliert zusätzlich das **gesamte** Bild — der
+// Standort des Streamers bleibt auch ohne erkennbare Zonen verborgen. Die
+// Mosaik-Kantenlänge uPixelGrid (Textur-Koordinaten) unterscheidet dabei die
+// schwache Stufe für Zonen/Gesichter (DEFAULT_PIXEL_GRID) von der groben
+// Voll-Frame-Stufe (FULL_FRAME_PIXEL_GRID), für die Architektur nicht mehr
+// lesbar ist.
 
 #define MAX_ELLIPSES 8
 uniform vec2 uEllipseCenter[MAX_ELLIPSES];
 uniform vec2 uEllipseRadii[MAX_ELLIPSES];
+uniform float uFullFrame;
+uniform float uPixelGrid;
 
 // Mosaik-Kantenlänge in Textur-Koordinaten (1/48 ≈ 15 px bei 720p-Breite).
-const float PIXEL_GRID = 0.0208333;
+const float DEFAULT_PIXEL_GRID = 0.0208333;
 
 void main() {
     vec4 color = texture2D(uSampler, vTextureCoord);
@@ -29,9 +38,13 @@ void main() {
         // Weiche Kante: voll ab 0.85 Radius, Ausblenden bis 1.0.
         mask = max(mask, active * (1.0 - smoothstep(0.85, 1.0, dist)));
     }
+    // Voll-Frame-Modus: die Maske ist überall maximal (kein Ecken-Leck).
+    mask = max(mask, clamp(uFullFrame, 0.0, 1.0));
     if (mask > 0.0) {
-        vec2 grid = vec2(PIXEL_GRID);
-        vec2 pixUv = (floor(vTextureCoord / grid) + 0.5) * grid;
+        // uPixelGrid wird framesynchron vom Render gesetzt; der Fallback
+        // deckt den ungesetzten Fall (0.0) ab, bevor der erste draw folgt.
+        float grid = uPixelGrid > 0.00001 ? uPixelGrid : DEFAULT_PIXEL_GRID;
+        vec2 pixUv = (floor(vTextureCoord / vec2(grid)) + 0.5) * vec2(grid);
         vec4 mosaik = texture2D(uSampler, pixUv);
         color = mix(color, mosaik, mask);
     }
