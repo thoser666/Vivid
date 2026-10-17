@@ -46,7 +46,7 @@ internal fun UvcSourceDialog(engine: StreamingEngine, onDismiss: () -> Unit) {
         val requested = permissionRequestedFor
         permissionRequestedFor = null
         if (granted && requested == selectedId && !busy) {
-            devices.firstOrNull { it.stableSessionId == requested }?.let(engine::connectUsbDevice)
+            devices.firstOrNull { it.stableSessionId == requested }?.let { engine.connectUsbDevice(it) }
         }
     }
     val description = when (val current = state) {
