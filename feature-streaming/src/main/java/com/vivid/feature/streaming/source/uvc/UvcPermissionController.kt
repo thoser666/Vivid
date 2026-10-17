@@ -85,6 +85,7 @@ class UvcPermissionController @Inject constructor(
     fun request(device: UsbDevice): Boolean {
         if (gateway.hasPermission(device)) {
             _pendingDevice.value = null
+            requestToken = null
             return true
         }
         if (_pendingDevice.value?.deviceName == device.deviceName) return false
@@ -94,6 +95,7 @@ class UvcPermissionController @Inject constructor(
             .onFailure { error ->
                 Timber.e(error, "UvcPermissionController: Anfrage fehlgeschlagen")
                 _pendingDevice.value = null
+                requestToken = null
             }
         return false
     }
@@ -103,15 +105,22 @@ class UvcPermissionController @Inject constructor(
      *
      * @return true, wenn das Ergebnis zu einer ausstehenden Anfrage gehörte.
      */
-    fun onResult(device: UsbDevice, granted: Boolean): Boolean {
-        synchronized(this) {
+    fun onResult(device: UsbDevice, granted: Boolean): Boolean =
+        completeResult(device, granted, expectedToken = null)
+
+    private fun completeResult(device: UsbDevice, granted: Boolean, expectedToken: String?): Boolean {
+        val callback = synchronized(this) {
             val pending = _pendingDevice.value ?: return false
             if (pending.deviceName != device.deviceName) return false
+            // Validate and consume the token in the SAME critical section.
+            // A stale grant for the same reconnected device cannot complete a newer request.
+            if (expectedToken != null && requestToken != expectedToken) return false
             _pendingDevice.value = null
             requestToken = null
+            resultListener
         }
-        // Invoke outside the permission lock: teardown may acquire this controller again.
-        resultListener?.invoke(device, granted)
+        // Never invoke callbacks while holding the permission monitor.
+        callback?.invoke(device, granted)
         return true
     }
 
@@ -120,6 +129,7 @@ class UvcPermissionController @Inject constructor(
     fun clearPending(device: UsbDevice) {
         if (_pendingDevice.value?.deviceName == device.deviceName) {
             _pendingDevice.value = null
+            requestToken = null
         }
     }
 
@@ -146,8 +156,11 @@ class UvcPermissionController @Inject constructor(
     }
 
     fun acceptBroadcast(intent: Intent, device: UsbDevice): Boolean {
-        if (intent.data?.lastPathSegment != requestToken || requestToken == null) return false
-        return onResult(device, intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false))
+        val token = intent.data?.lastPathSegment ?: return false
+        return completeResult(device,
+            intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false),
+            expectedToken = token,
+        )
     }
 
     companion object {
