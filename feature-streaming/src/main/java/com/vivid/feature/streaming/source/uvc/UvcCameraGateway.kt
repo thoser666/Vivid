@@ -193,19 +193,27 @@ class HerohanUvcCameraGateway : UvcCameraGateway {
     }
     override fun stopPreview() {
         frameEpoch.incrementAndGet()
-        helper?.setFrameCallback(null, UVCCamera.PIXEL_FORMAT_RAW)
-        helper?.stopPreview()
+        // A failed/unavailable RAW callback must never prevent native preview cleanup.
+        try {
+            helper?.setFrameCallback(null, UVCCamera.PIXEL_FORMAT_RAW)
+        } finally {
+            helper?.stopPreview()
+        }
     }
     override fun release() {
         if (!released.compareAndSet(false, true)) return
         frameEpoch.incrementAndGet()
         listener = null
         worker.execute {
-            helper?.setStateCallback(null)
-            helper?.setFrameCallback(null, UVCCamera.PIXEL_FORMAT_RAW)
-            helper?.release()
-            helper = null
-            selectedDevice = null
+            val oldHelper = helper
+            try {
+                runCatching { oldHelper?.setStateCallback(null) }
+                runCatching { oldHelper?.setFrameCallback(null, UVCCamera.PIXEL_FORMAT_RAW) }
+                oldHelper?.release()
+            } finally {
+                helper = null
+                selectedDevice = null
+            }
         }
         worker.shutdown()
     }
