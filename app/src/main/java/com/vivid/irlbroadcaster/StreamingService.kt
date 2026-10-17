@@ -30,6 +30,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.combine
+import com.vivid.feature.streaming.ReplayState
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -46,10 +48,9 @@ import javax.inject.Inject
  * per Intent-Extra übergeben, der eigentliche Stream läuft über die Singleton-
  * [StreamingEngine] (gleiche Instanz wie im UI).
  *
- * Einschränkung: Die Kamera-Preview wird von der Activity erzeugt. Wenn die
- * Activity zerstört wird (z. B. Wischen aus den Recents), stirbt auch die
- * Preview-Surface und damit der Stream — im reinen Hintergrund-Fall
- * (Home-Taste, Bildschirm aus) bleibt er aktiv.
+ * Die Encoder-Surface gehört der Singleton-Engine; die Activity kann ihre
+ * Preview-Surface unabhängig abmelden. Lokale Aufnahmen behalten denselben
+ * Foreground-Owner auch nach dem letzten RTMP-Ziel.
  */
 @AndroidEntryPoint
 class StreamingService : Service() {
@@ -82,7 +83,7 @@ class StreamingService : Service() {
                     stopSelf()
                     return START_NOT_STICKY
                 }
-                startAsForeground()
+                if (!startAsForeground()) return START_NOT_STICKY
                 try {
                     if (streamingEngine.activeSourceKind.value == VideoSourceKind.CAMERA) {
                         streamingEngine.initializeCamera()
@@ -101,6 +102,15 @@ class StreamingService : Service() {
                 scheduleStartupWatchdog()
             }
 
+            StreamingServiceSupport.ACTION_KEEP_RECORDING -> {
+                if (streamingEngine.replayState.value !is ReplayState.Recording) return START_NOT_STICKY
+                if (!startAsForeground()) { streamingEngine.stopReplay(); return START_NOT_STICKY }
+                observeStreamState()
+            }
+            StreamingServiceSupport.ACTION_STOP_RECORDING -> {
+                streamingEngine.stopReplay()
+                if (streamingEngine.streamingState.value is StreamingState.Idle) stopService()
+            }
             StreamingServiceSupport.ACTION_STOP_STREAM -> stopStreaming()
 
             // Prozess-Neustart ohne Intent: nur weiterlaufen, wenn wirklich gestreamt wird.
@@ -124,7 +134,7 @@ class StreamingService : Service() {
      * App im Hintergrund ist) werden die Typen nur mit erteilter Berechtigung gesetzt
      * und ein fehlgeschlagener Start beendet den Service sauber statt zu crashen.
      */
-    private fun startAsForeground() {
+    private fun startAsForeground(): Boolean {
         createNotificationChannel()
         val type = foregroundServiceType()
         // API 34+: Ist der Manifest-Typ-FGS deklariert, darf startForeground() nicht
@@ -133,7 +143,7 @@ class StreamingService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE && type == 0) {
             Timber.w("StreamingService: FGS-Typ-Berechtigungen fehlen — Stream nicht gestartet")
             teardown()
-            return
+            return false
         }
         val notification = buildNotification(streamingEngine.streamingState.value)
         try {
@@ -147,7 +157,9 @@ class StreamingService : Service() {
             // z. B. RECORD_AUDIO/CAMERA zwischen Go-Live und Start entzogen.
             Timber.e(e, "StreamingService: startForeground verweigert (FGS-Typ-Berechtigung?)")
             teardown()
+            return false
         }
+        return true
     }
 
     /**
@@ -197,15 +209,14 @@ class StreamingService : Service() {
     private fun observeStreamState() {
         stateJob?.cancel()
         stateJob = serviceScope.launch {
-            var previous: StreamingState = StreamingState.Idle
-            streamingEngine.streamingState.collect { state ->
+            combine(streamingEngine.streamingState, streamingEngine.replayState) { stream, replay -> stream to replay }
+                .collect { (state, replay) ->
                 // Remote-Controlled-Stopp (z. B. Web-Remote-Control / OBS) beendet den Service.
-                if (state is StreamingState.Idle && previous !is StreamingState.Idle && !stopped) {
+                if (state is StreamingState.Idle && replay !is ReplayState.Recording && !stopped) {
                     stopService()
                 } else {
                     updateNotification(state)
                 }
-                previous = state
             }
         }
     }
@@ -234,7 +245,8 @@ class StreamingService : Service() {
     private fun scheduleStartupWatchdog() {
         serviceScope.launch {
             delay(15_000)
-            if (streamingEngine.streamingState.value is StreamingState.Idle && !stopped) {
+            if (streamingEngine.streamingState.value is StreamingState.Idle &&
+                streamingEngine.replayState.value !is ReplayState.Recording && !stopped) {
                 Timber.w("StreamingService: nach 15s kein Stream-Start — stoppe")
                 stopService()
             }
@@ -242,9 +254,11 @@ class StreamingService : Service() {
     }
 
     private fun stopStreaming() {
-        stopped = true
         streamingEngine.stopStream()
-        teardown()
+        if (streamingEngine.replayState.value !is ReplayState.Recording) {
+            stopped = true
+            teardown()
+        }
     }
 
     /** Beendet den Foreground-Zustand, gibt WakeLock frei und stoppt den Service. */
@@ -264,6 +278,12 @@ class StreamingService : Service() {
 
     override fun onDestroy() {
         serviceScope.cancel()
+        if (streamingEngine.activeSourceKind.value == VideoSourceKind.USB_UVC &&
+            (streamingEngine.replayState.value is ReplayState.Recording ||
+                streamingEngine.streamingState.value is StreamingState.Streaming ||
+                streamingEngine.streamingState.value is StreamingState.Preparing)) {
+            streamingEngine.disconnectUsbDevice()
+        }
         chatBotController.onStreamStopped()
         releaseWakeLock()
         super.onDestroy()
@@ -330,13 +350,21 @@ class StreamingService : Service() {
         val failureReason = (state as? StreamingState.Failed)?.reason ?: ""
         return NotificationCompat.Builder(this, StreamingServiceSupport.CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentTitle(getString(StreamingServiceSupport.notificationTitleRes(state)))
-            .setContentText(getString(StreamingServiceSupport.notificationTextRes(state), failureReason))
+            .setContentTitle(getString(if (streamingEngine.replayState.value is ReplayState.Recording)
+                R.string.notif_title_recording else StreamingServiceSupport.notificationTitleRes(state)))
+            .setContentText(if (streamingEngine.replayState.value is ReplayState.Recording)
+                getString(R.string.notif_text_recording) else getString(StreamingServiceSupport.notificationTextRes(state), failureReason))
             .setContentIntent(contentIntent)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .apply {
+                if (streamingEngine.replayState.value is ReplayState.Recording) {
+                    val stopRecording = PendingIntent.getService(this@StreamingService, 3,
+                        Intent(this@StreamingService, StreamingService::class.java).setAction(StreamingServiceSupport.ACTION_STOP_RECORDING),
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+                    addAction(android.R.drawable.ic_media_pause, getString(R.string.notif_stop_recording), stopRecording)
+                }
                 if (StreamingServiceSupport.showStopAction(state)) {
                     addAction(
                         NotificationCompat.Action.Builder(
@@ -361,6 +389,11 @@ class StreamingService : Service() {
             } else {
                 context.startService(intent)
             }
+        }
+
+        fun keepRecordingAlive(context: Context) {
+            val intent = Intent(context, StreamingService::class.java).setAction(StreamingServiceSupport.ACTION_KEEP_RECORDING)
+            ContextCompat.startForegroundService(context, intent)
         }
 
         /** Stoppt den Service (und damit den Stream). */

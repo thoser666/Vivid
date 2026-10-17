@@ -103,4 +103,7 @@
     <string name="pomodoro_reset">Сбросить</string>
     <string name="pomodoro_disabled_hint">Таймер Помодоро отключен в настройках.</string>
     <string name="pomodoro_open_settings">Открыть настройки</string>
+    <string name="notif_text_recording">Выполняется локальная запись</string>
+    <string name="notif_title_recording">Vivid записывает</string>
+    <string name="notif_stop_recording">Остановить запись</string>
 </resources>

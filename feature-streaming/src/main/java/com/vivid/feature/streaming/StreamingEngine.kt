@@ -19,6 +19,7 @@ import com.pedro.encoder.input.video.facedetector.Face
 import com.pedro.encoder.input.video.facedetector.FaceDetectorCallback
 import com.pedro.encoder.utils.gl.AspectRatioMode
 import com.pedro.library.multiple.MultiCamera2
+import com.pedro.library.multiple.MultiStream
 import com.pedro.library.multiple.MultiType
 import com.pedro.common.VideoCodec
 import com.pedro.library.view.GlStreamInterface
@@ -40,13 +41,19 @@ import com.vivid.feature.streaming.source.DisplayFactory
 import com.vivid.feature.streaming.source.PlayerFactory
 import com.vivid.feature.streaming.source.ReplayVideoSource
 import com.vivid.feature.streaming.source.ScreenCaptureVideoSource
+import com.vivid.feature.streaming.source.UsbVideoSource
 import com.vivid.feature.streaming.source.VideoPlayerVideoSource
 import com.vivid.feature.streaming.source.VideoSourceKind
 import com.vivid.feature.streaming.source.VideoSourceRegistry
+import com.vivid.feature.streaming.source.uvc.UvcConnectionManager
+import com.vivid.feature.streaming.source.uvc.UvcConnectionState
+import com.vivid.feature.streaming.source.uvc.UvcStreamFactory
 import timber.log.Timber
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.asStateFlow
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -116,6 +123,8 @@ class StreamingEngine @Inject constructor(
     private val displayFactory: DisplayFactory, // <-- S2: Screen-Capture-Encoder
     private val playerFactory: PlayerFactory, // <-- S3: Video-Datei-Encoder
     private val videoSourceRegistry: VideoSourceRegistry, // <-- S1: Source-Abstraktion
+    private val uvcStreamFactory: UvcStreamFactory, // <-- USB/UVC-Encoder (#305)
+    private val uvcConnectionManager: UvcConnectionManager, // <-- USB-Lebenszyklus (#305)
 ) {
     private var camera: MultiCamera2? = null
     private val keyframeController = KeyframeIntervalController()
@@ -157,6 +166,20 @@ class StreamingEngine @Inject constructor(
 
     /** Replay-als-Quelle (MultiFromFile, Loop-Modus), lazy erzeugt (wie die Kamera). */
     private var replaySource: ReplayVideoSource? = null
+
+    /** USB/UVC-Quelle (MultiStream + UVC-Adapter), lazy erzeugt (#305). */
+    private var usbBackendGeneration = 0
+    private var usbRecordTracks: com.vivid.feature.streaming.source.uvc.UvcTrackRecordController? = null
+    private var usbVideoSource: UsbVideoSource? = null
+    private val usbScope by lazy { kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Main.immediate) }
+    private var usbConnectAttemptJob: kotlinx.coroutines.Job? = null
+    private var usbConnectionPending = false
+    private val _usbRecordingInterrupted = MutableStateFlow(false)
+    val usbRecordingInterrupted = _usbRecordingInterrupted.asStateFlow()
+
+
+    /** USB/UVC-Lebenszyklus für UI und Picker (nur lesend weitergereicht). */
+    val uvcManager: UvcConnectionManager get() = uvcConnectionManager
 
     private val _streamingState = MutableStateFlow<StreamingState>(StreamingState.Idle)
     val streamingState: StateFlow<StreamingState> = _streamingState.asStateFlow()
@@ -239,6 +262,7 @@ class StreamingEngine @Inject constructor(
         VideoSourceKind.SCREEN_CAPTURE -> screenCaptureSource?.glInterface
         VideoSourceKind.VIDEO_PLAYER -> videoPlayerSource?.glInterface
         VideoSourceKind.REPLAY -> replaySource?.glInterface
+        VideoSourceKind.USB_UVC -> usbVideoSource?.glInterface
     }
 
     /**
@@ -680,6 +704,38 @@ class StreamingEngine @Inject constructor(
         }
     }
 
+    /** Native/RTMP callbacks may arrive on worker threads; UVC engine transitions run on Main. */
+    private fun createUsbTargetChecker(index: Int): ConnectChecker {
+        val delegate = createTargetChecker(index)
+        val generation = usbBackendGeneration
+        fun dispatch(block: () -> Unit) {
+            usbScope.launch {
+                if (generation == usbBackendGeneration && activeSourceKind.value == VideoSourceKind.USB_UVC) block()
+            }
+        }
+        return object : ConnectChecker {
+            override fun onConnectionStarted(url: String) { dispatch {
+                if (_targetStates.value.getOrNull(index)?.status == StreamTargetStatus.PREPARING) delegate.onConnectionStarted(url)
+            } }
+            override fun onConnectionSuccess() {
+                usbScope.launch {
+                    val capture = uvcConnectionManager.connectionState.first {
+                        it is UvcConnectionState.Capturing || it is UvcConnectionState.Error || it is UvcConnectionState.Disconnected
+                    }
+                    if (generation != usbBackendGeneration || activeSourceKind.value != VideoSourceKind.USB_UVC) return@launch
+                    if (_targetStates.value.getOrNull(index)?.status != StreamTargetStatus.PREPARING) return@launch
+                    if (capture is UvcConnectionState.Capturing) delegate.onConnectionSuccess()
+                    else delegate.onConnectionFailed(ENCODER_PREPARATION_ERROR)
+                }
+            }
+            override fun onConnectionFailed(reason: String) { dispatch { delegate.onConnectionFailed(reason) } }
+            override fun onNewBitrate(bitrate: Long) { dispatch { delegate.onNewBitrate(bitrate) } }
+            override fun onDisconnect() { dispatch { delegate.onDisconnect() } }
+            override fun onAuthError() { dispatch { delegate.onAuthError() } }
+            override fun onAuthSuccess() { dispatch { delegate.onAuthSuccess() } }
+        }
+    }
+
     private fun failTarget(index: Int, reason: String) {
         if (stoppingStreams) return
         val target = _targetStates.value.getOrNull(index) ?: return
@@ -695,6 +751,7 @@ class StreamingEngine @Inject constructor(
             VideoSourceKind.SCREEN_CAPTURE -> screenCaptureSource?.stopStream(index)
             VideoSourceKind.VIDEO_PLAYER -> videoPlayerSource?.stopStream(index)
             VideoSourceKind.REPLAY -> replaySource?.stopStream(index)
+            VideoSourceKind.USB_UVC -> usbVideoSource?.stopStream(index)
         }
     }
 
@@ -703,6 +760,7 @@ class StreamingEngine @Inject constructor(
         stopSharedStreamEncoder()
         adaptiveController = null
         startIdlePreviewIfReady()
+        startUsbIdlePreviewIfReady()
     }
 
     /** RootEncoder 2.7.5's indexed stop tests clients BEFORE disconnecting them.
@@ -727,6 +785,15 @@ class StreamingEngine @Inject constructor(
             VideoSourceKind.SCREEN_CAPTURE -> screenCaptureSource?.stop()
             VideoSourceKind.VIDEO_PLAYER -> videoPlayerSource?.stop()
             VideoSourceKind.REPLAY -> replaySource?.stop()
+            VideoSourceKind.USB_UVC -> usbVideoSource?.let { usb ->
+                if (usb.isStreaming) {
+                    if (!usb.isRecording) {
+                        usb.deAttachPreview()
+                    }
+                    Timber.i("Stopping shared USB encoder after last RTMP target")
+                    usb.stop()
+                }
+            }
         }
     }
 
@@ -770,6 +837,26 @@ class StreamingEngine @Inject constructor(
      * initialisiert (MultiFromFile, Datei wird über [setVideoPlayerUri] gesetzt).
      */
     fun switchSource(kind: VideoSourceKind): Boolean {
+        if (usbConnectionPending && kind != VideoSourceKind.USB_UVC) {
+            usbConnectAttemptJob?.cancel()
+            usbConnectAttemptJob = null
+            usbConnectionPending = false
+            uvcConnectionManager.disconnect()
+        }
+        if (kind == activeSourceKind.value && kind != VideoSourceKind.USB_UVC) {
+            if (kind == VideoSourceKind.CAMERA) startIdlePreviewIfReady()
+            return true
+        }
+        if (kind == VideoSourceKind.USB_UVC && kind == activeSourceKind.value &&
+            usbVideoSource != null && uvcConnectionManager.isCaptureReady
+        ) {
+            startUsbIdlePreviewIfReady()
+            return true
+        }
+        if ((kind == VideoSourceKind.USB_UVC || activeSourceKind.value == VideoSourceKind.USB_UVC) &&
+            (_streamingState.value is StreamingState.Streaming || _streamingState.value is StreamingState.Preparing ||
+                _replayState.value is ReplayState.Recording || usbVideoSource?.isActive == true)) return false
+        val previousKind = activeSourceKind.value
         val switched = when (kind) {
             VideoSourceKind.CAMERA -> videoSourceRegistry.switchTo(VideoSourceKind.CAMERA)
 
@@ -798,14 +885,48 @@ class StreamingEngine @Inject constructor(
                 }
                 videoSourceRegistry.switchTo(VideoSourceKind.REPLAY)
             }
+
+            VideoSourceKind.USB_UVC -> {
+                if (!uvcConnectionManager.isCaptureReady) return false
+                val source = ensureUsbVideoSource() ?: return false
+                // Transaktional: Ohne bereites Gerät (Berechtigung/Öffnen/Modus
+                // fehlt) wird die Quelle NICHT aktiv — kein kaputter USB-Zustand
+                // ohne Rückweg (der Picker bleibt zuständig).
+                if (!uvcConnectionManager.isCaptureReady) return false
+                _activeEncoder.value = null
+                _measuredEncoderFps.value = null
+                _bitrateDiagnostics.value = null
+                videoSourceRegistry.registerFactory(VideoSourceKind.USB_UVC) { requested ->
+                    if (requested == VideoSourceKind.USB_UVC) source else null
+                }
+                videoSourceRegistry.switchTo(VideoSourceKind.USB_UVC)
+            }
+        }
+        if (switched && previousKind != kind) {
+            replayController = null
+            lastReplayIncludeAudio = null
+            glPreviewSurface = null
         }
         if (switched && kind != VideoSourceKind.CAMERA) {
             if (_replayState.value is ReplayState.Recording) stopReplay()
             stopIdlePreview()
         }
+        if (switched && kind != VideoSourceKind.USB_UVC) {
+            usbVideoSource?.stopIdlePreview()
+            if (previousKind == VideoSourceKind.USB_UVC) {
+                // Switching away must relinquish the native USB handle. Without
+                // this, the camera stays open and unavailable to other apps.
+                releaseUsbBackend()
+                uvcConnectionManager.disconnect()
+            }
+        }
         // P1: Quellwechsel — die Zonen sind quellrelativ; der Soll-Zustand
         // wird auf die neue Quelle angewendet (relative Bildmitte bleibt
         // erhalten; Persistenz je Quelle prüft P3, Skizze §9).
+        if (switched) {
+            if (previousKind == VideoSourceKind.USB_UVC) startIdlePreviewIfReady()
+            startUsbIdlePreviewIfReady()
+        }
         applyPrivacyZones()
         return switched
     }
@@ -841,6 +962,129 @@ class StreamingEngine @Inject constructor(
         if (replaySource != null) return replaySource
         val player = playerFactory.create(List(MAX_STREAM_TARGETS) { createTargetChecker(it) })
         return ReplayVideoSource(context, player).also { replaySource = it }
+    }
+
+    /**
+     * Erzeugt die USB/UVC-Quelle einmalig (#305) — ein [MultiStream] mit einem
+     * ConnectChecker pro RTMP-Ziel, genau einer UVC-Videoquelle und dem
+     * Mikrofon (kein doppelter UVC-Zugriff, kein USB-Audio-Mixing).
+     *
+     * Der Verlust-Handler fällt bei Entfernen/Fehler während aktivem Capture
+     * auf die Telefon-Kamera zurück (Ziele werden sauber beendet, danach Idle-
+     * Vorschau der Kamera) — statt die UI in einem toten USB-Zustand zu lassen.
+     */
+    private fun ensureUsbVideoSource(): UsbVideoSource? {
+        usbVideoSource?.let { return it }
+        val multi = try {
+            uvcStreamFactory.create(List(MAX_STREAM_TARGETS) { createUsbTargetChecker(it) })
+        } catch (e: Exception) {
+            Timber.e(e, "USB/UVC-Quelle konnte nicht erzeugt werden")
+            return null
+        }
+        multi.setVideoCodec(VideoCodec.H264)
+        multi.setAudioCodec(com.pedro.common.AudioCodec.AAC)
+        val tracks = com.vivid.feature.streaming.source.uvc.UvcTrackRecordController(
+            monitorUsbKeyframes(AndroidMuxerRecordController(), multi),
+        )
+        usbRecordTracks = tracks
+        multi.setRecordController(tracks)
+        return UsbVideoSource(multi, uvcConnectionManager).also { source ->
+            uvcConnectionManager.onCaptureLost = { usbScope.launch { onUsbCaptureLost() } }
+            usbVideoSource = source
+        }
+    }
+
+    private fun onUsbCaptureLost() {
+        if (activeSourceKind.value != VideoSourceKind.USB_UVC) return
+        Timber.w("USB/UVC capture lost; finalizing outputs")
+        if (_replayState.value is ReplayState.Recording) {
+            _usbRecordingInterrupted.value = true
+            stopReplay()
+        }
+        stopStream()
+        usbVideoSource?.stopIdlePreview()
+        releaseUsbBackend()
+        // Keep the USB identity/error visible; user can reconnect or select CAMERA.
+
+    }
+
+    /** USB-Gerät verbinden (explizite Nutzeraktion aus dem Picker). */
+    fun connectUsbDevice(
+        descriptor: com.vivid.feature.streaming.source.uvc.UvcDeviceDescriptor,
+        mode: com.vivid.feature.streaming.source.uvc.UvcCaptureMode? = null,
+    ) {
+        if (_streamingState.value is StreamingState.Streaming || _streamingState.value is StreamingState.Preparing ||
+            _replayState.value is ReplayState.Recording) return
+        stopUsbIdlePreview()
+        // Keep the phone camera from appearing to be the selected source while
+        // the user-requested USB camera is opening. The source remains staged
+        // as CAMERA until UVC reports a negotiated, usable mode; the picker
+        // restores this preview if that attempt fails.
+        if (activeSourceKind.value == VideoSourceKind.CAMERA) stopIdlePreview()
+        usbConnectionPending = true
+        uvcConnectionManager.connect(descriptor, mode)
+        observeUsbConnectionAttempt(restoreCameraOnFailure = true)
+    }
+
+    /** USB-Gerät trennen (idempotent). */
+    fun disconnectUsbDevice() {
+        usbConnectionPending = false
+        usbConnectAttemptJob?.cancel()
+        usbConnectAttemptJob = null
+        if (activeSourceKind.value == VideoSourceKind.USB_UVC) {
+            stopReplay()
+            stopStream()
+        }
+        usbVideoSource?.stopIdlePreview()
+        releaseUsbBackend()
+        uvcConnectionManager.disconnect()
+        if (activeSourceKind.value == VideoSourceKind.CAMERA) startIdlePreviewIfReady()
+    }
+
+    private fun releaseUsbBackend() {
+        usbBackendGeneration++
+        try { usbVideoSource?.multiStream?.release() }
+        catch (_: Exception) { Timber.w("USB encoder cleanup failed") }
+        usbVideoSource = null
+        usbRecordTracks = null
+        if (activeSourceKind.value == VideoSourceKind.USB_UVC) {
+            replayController = null
+            lastReplayIncludeAudio = null
+        }
+        glPreviewSurface = null
+    }
+
+    /** USB-Aufnahmemodus wechseln (nur gemeldete Modi, mit Reconnect). */
+    fun setUsbCaptureMode(mode: com.vivid.feature.streaming.source.uvc.UvcCaptureMode) {
+        if (usbVideoSource?.isActive == true) return
+        stopUsbIdlePreview()
+        usbConnectionPending = true
+        uvcConnectionManager.setMode(mode)
+        observeUsbConnectionAttempt(restoreCameraOnFailure = false)
+    }
+
+    private fun observeUsbConnectionAttempt(restoreCameraOnFailure: Boolean) {
+        usbConnectAttemptJob?.cancel()
+        usbConnectAttemptJob = usbScope.launch {
+            val result = uvcConnectionManager.connectionState.first { state ->
+                state is UvcConnectionState.Ready ||
+                    state is UvcConnectionState.Error ||
+                    state == UvcConnectionState.Disconnected
+            }
+            usbConnectionPending = false
+            if (result is UvcConnectionState.Ready) {
+                if (!switchSource(VideoSourceKind.USB_UVC) && restoreCameraOnFailure &&
+                    activeSourceKind.value == VideoSourceKind.CAMERA
+                ) startIdlePreviewIfReady()
+            } else if (restoreCameraOnFailure && activeSourceKind.value == VideoSourceKind.CAMERA) {
+                startIdlePreviewIfReady()
+            }
+        }
+    }
+
+    /** USB-Geräteliste aktualisieren (Picker-Refresh). */
+    fun refreshUsbDevices() {
+        uvcConnectionManager.refresh()
     }
 
     /**
@@ -922,11 +1166,21 @@ class StreamingEngine @Inject constructor(
     }
 
     /**
+     * true, wenn die Telefon-Kamera aktiv ist — nur dann gelten die
+     * Camera2-Steuerungen (Torch, Fokus, Stabilisierung, Zoom, Belichtung).
+     * Bei USB/UVC sind sie No-Ops (kein versehentlicher Eingriff in die
+     * Telefon-Kamera, kein Crash); die UI deaktiviert sie zusätzlich.
+     */
+    private fun isPhoneCameraActive(): Boolean =
+        activeSourceKind.value == VideoSourceKind.CAMERA
+
+    /**
      * Schaltet zwischen Autofokus und Fokus-Lock (Unendlich) um (Moblin #377).
      *
      * @return true, wenn der neue Modus von der Kamera übernommen wurde.
      */
     fun toggleFocusLock(): Boolean {
+        if (!isPhoneCameraActive()) return false
         val controller = focusController ?: return false
         val changed = controller.toggleFocusLock()
         if (changed) {
@@ -942,6 +1196,7 @@ class StreamingEngine @Inject constructor(
      * Kein-op, solange die Kamera nicht initialisiert ist.
      */
     fun zoomBy(scaleFactor: Float) {
+        if (!isPhoneCameraActive()) return
         val controls = cameraControls ?: return
         val range = controls.getZoomRange() ?: return
         controls.setZoom(ZoomCalculator.zoomForScale(controls.getZoom(), scaleFactor, range))
@@ -949,6 +1204,7 @@ class StreamingEngine @Inject constructor(
 
     /** Setzt den Zoom auf 1.0 zurück (z. B. per Doppeltipp). */
     fun resetZoom() {
+        if (!isPhoneCameraActive()) return
         val controls = cameraControls ?: return
         val range = controls.getZoomRange() ?: return
         controls.setZoom(ZoomCalculator.clamp(ZoomCalculator.MIN_ZOOM, range))
@@ -956,6 +1212,7 @@ class StreamingEngine @Inject constructor(
 
     /** Tap-to-Focus auf die getippte Stelle der Kamera-Vorschau. */
     fun tapToFocus(view: View, event: MotionEvent) {
+        if (!isPhoneCameraActive()) return
         cameraControls?.tapToFocus(view, event)
     }
 
@@ -965,6 +1222,7 @@ class StreamingEngine @Inject constructor(
      * @return true, wenn die Kamera den neuen Zustand übernommen hat.
      */
     fun toggleStabilization(): Boolean {
+        if (!isPhoneCameraActive()) return false
         val controller = stabilizationController ?: return false
         val changed = controller.toggle()
         if (changed) {
@@ -979,6 +1237,7 @@ class StreamingEngine @Inject constructor(
      * @return true, wenn die Kamera den neuen Zustand übernommen hat.
      */
     fun toggleTorch(): Boolean {
+        if (!isPhoneCameraActive()) return false
         val controls = cameraControls ?: return false
         val changed = if (controls.isTorchEnabled()) {
             controls.disableTorch()
@@ -998,11 +1257,14 @@ class StreamingEngine @Inject constructor(
      * @param distance 0.0 = Unendlich, höhere Werte = näher.
      */
     fun setManualFocusDistance(distance: Float) {
+        if (!isPhoneCameraActive()) return
         manualCameraController?.setFocusDistance(distance)
     }
 
     /** Wechselt auf die Linse mit der angegebenen ID. */
-    fun selectLens(lensId: String): Boolean = manualCameraController?.selectLens(lensId) ?: false
+    fun selectLens(lensId: String): Boolean =
+        if (!isPhoneCameraActive()) false
+        else manualCameraController?.selectLens(lensId) ?: false
 
     /** Verfügbare Linsen. */
     fun getAvailableLenses(): List<LensInfo> = manualCameraController?.getAvailableLenses() ?: emptyList()
@@ -1013,9 +1275,81 @@ class StreamingEngine @Inject constructor(
      * @param includeAudio true = Bild + Ton (Standard), false = nur Bild
      *   (ReplayAudioMode.VIDEO_ONLY — der Muxer schreibt keine Audiospur).
      */
-    fun startReplay(nowMillis: Long = System.currentTimeMillis(), includeAudio: Boolean = true): Boolean {
+    fun startReplay(nowMillis: Long = System.currentTimeMillis(), includeAudio: Boolean = true): Boolean =
+        when (activeSourceKind.value) {
+            VideoSourceKind.CAMERA -> startCameraReplay(nowMillis, includeAudio)
+            VideoSourceKind.USB_UVC -> startUsbReplay(nowMillis, includeAudio)
+            else -> false
+        }
+
+    /**
+     * Startet eine lokale MP4-Aufnahme der USB/UVC-Quelle (#305, Phase E).
+     *
+     * Gleicher Muxer, gleiches Verzeichnis, gleiche Track-Politik
+     * ([ReplayAudioMode]) wie die Kamera — über den [MultiStream] der
+     * USB-Quelle: offline (kein RTMP-Ziel) ebenso wie parallel zum laufenden
+     * Stream (Shared-Encoder, kein zweiter UVC-Zugriff). Bitraten-Diagnostik
+     * und Kamera-Profile entfallen (nicht anwendbar, kein Cast auf
+     * `Camera2Base`).
+     */
+    private fun startUsbReplay(nowMillis: Long, includeAudio: Boolean): Boolean {
+        _usbRecordingInterrupted.value = false
+        val usb = usbVideoSource ?: return false
+        if (_replayState.value is ReplayState.Recording) return false
+        val multi = usb.multiStream
+        val standalone = !multi.isStreaming
+        try {
+            if (standalone) {
+                resetKeyframeMonitoring()
+                stopUsbIdlePreview()
+                if (!usb.start()) {
+                    startUsbIdlePreviewIfReady()
+                    return false
+                }
+            }
+            val controller = usbRecordingController(multi, includeAudio)
+            if (!controller.start(nowMillis)) {
+                restoreUsbPreviewAfterRecordingFailure(multi, standalone)
+                return false
+            }
+            applyPrivacyZones()
+            attachPreviewIfRunning()
+            return true
+        } catch (error: Exception) {
+            Timber.e(error, "Could not start USB local recording")
+            restoreUsbPreviewAfterRecordingFailure(multi, standalone)
+            return false
+        }
+    }
+
+    private fun usbRecordingController(multi: MultiStream, includeAudio: Boolean): ReplayController =
+        replayController?.takeIf { lastReplayIncludeAudio == includeAudio }
+            ?: ReplayController(
+                storage = replayStorage(context),
+                recorder = com.vivid.feature.streaming.source.uvc.UvcReplayRecorder(
+                    multi, checkNotNull(usbRecordTracks), includeAudio,
+                ) {
+                    usbScope.launch {
+                        _usbRecordingInterrupted.value = true
+                        stopReplay()
+                    }
+                },
+                _state = _replayState,
+            ).also {
+                replayController = it
+                lastReplayIncludeAudio = includeAudio
+            }
+
+    private fun restoreUsbPreviewAfterRecordingFailure(multi: MultiStream, standalone: Boolean) {
+        if (!standalone) return
+        runCatching { multi.stopRecord() }
+        _replayState.value = ReplayState.Idle
+        startUsbIdlePreviewIfReady()
+    }
+
+    private fun startCameraReplay(nowMillis: Long, includeAudio: Boolean): Boolean {
         val cam = camera ?: return false
-        if (activeSourceKind.value != VideoSourceKind.CAMERA || _replayState.value is ReplayState.Recording) return false
+        if (_replayState.value is ReplayState.Recording) return false
         val standalone = !cam.isStreaming
         try {
             if (standalone && !prepareStandaloneRecording(cam, includeAudio)) return false
@@ -1071,9 +1405,17 @@ class StreamingEngine @Inject constructor(
 
     /** Stoppt die lokale Replay-Aufnahme und gibt die Datei zurück. */
     fun stopReplay(): java.io.File? {
-        if (camera?.isStreaming != true) detachGlPreview()
+        // Aufnahme-Finalisierung bei entferntem USB-Gerät: Der Muxer wird über
+        // stop() geschlossen (kein hängender Muxer); die Datei landet wie jede
+        // Kamera-Aufnahme in der Replay-Bibliothek.
+        if (activeSourceKind.value == VideoSourceKind.USB_UVC) {
+            if (usbVideoSource?.isStreaming != true) usbVideoSource?.deAttachPreview()
+        } else if (camera?.isStreaming != true) {
+            detachGlPreview()
+        }
         val file = replayController?.stop()
         startIdlePreviewIfReady()
+        startUsbIdlePreviewIfReady()
         return file
     }
 
@@ -1117,13 +1459,16 @@ class StreamingEngine @Inject constructor(
     }
 
     fun setAutoExposure(enabled: Boolean): Boolean =
-        (manualCameraController?.setAutoExposure(enabled) ?: false).also { refreshCameraControls() }
+        if (!isPhoneCameraActive()) false
+        else (manualCameraController?.setAutoExposure(enabled) ?: false).also { refreshCameraControls() }
 
     fun setExposure(value: Int): Boolean =
-        (manualCameraController?.setExposure(value) ?: false).also { refreshCameraControls() }
+        if (!isPhoneCameraActive()) false
+        else (manualCameraController?.setExposure(value) ?: false).also { refreshCameraControls() }
 
     fun setAutoWhiteBalance(enabled: Boolean): Boolean =
-        (manualCameraController?.setAutoWhiteBalance(enabled) ?: false).also { refreshCameraControls() }
+        if (!isPhoneCameraActive()) false
+        else (manualCameraController?.setAutoWhiteBalance(enabled) ?: false).also { refreshCameraControls() }
 
     fun hasWhiteBalanceControl(): Boolean = manualCameraController?.hasWhiteBalanceControl() ?: false
 
@@ -1147,7 +1492,12 @@ class StreamingEngine @Inject constructor(
         rotationDegrees: Int = if (height > width) 0 else 90,
     ) {
         previewRequest = PreviewRequest(surface, width, height, rotationDegrees)
-        if (activeSourceKind.value == VideoSourceKind.CAMERA && camera?.isStreaming != true && camera?.isRecording != true) {
+        if (usbConnectionPending) return
+        if (activeSourceKind.value == VideoSourceKind.USB_UVC &&
+            usbVideoSource?.isStreaming != true && usbVideoSource?.isRecording != true
+        ) {
+            startUsbIdlePreviewIfReady()
+        } else if (activeSourceKind.value == VideoSourceKind.CAMERA && camera?.isStreaming != true && camera?.isRecording != true) {
             startIdlePreviewIfReady()
         } else {
             attachPreviewIfRunning()
@@ -1157,7 +1507,7 @@ class StreamingEngine @Inject constructor(
     /** Open Camera2 into the same GL pipeline used by recording, without starting encoders. */
     fun startIdlePreviewIfReady() {
         val request = previewRequest ?: return
-        if (activeSourceKind.value != VideoSourceKind.CAMERA || camera?.isStreaming == true || camera?.isRecording == true ||
+        if (usbConnectionPending || activeSourceKind.value != VideoSourceKind.CAMERA || camera?.isStreaming == true || camera?.isRecording == true ||
             request.width <= 0 || request.height <= 0 ||
             context.checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED
         ) return
@@ -1221,12 +1571,38 @@ class StreamingEngine @Inject constructor(
         }
     }
 
+    /**
+     * Startet die USB-Idle-Vorschau mit echten Frames (#305): über den
+     * [MultiStream] der USB-Quelle (dieselbe GL-Pipeline wie Stream/Recording),
+     * ohne Encoder-Streaming. Android P+ verlangt CAMERA zusätzlich zum USB-Grant.
+     */
+    private fun startUsbIdlePreviewIfReady() {
+        val request = previewRequest ?: return
+        if (usbConnectionPending || activeSourceKind.value != VideoSourceKind.USB_UVC) return
+        val usb = usbVideoSource ?: return
+        if (usb.isStreaming || usb.isRecording) return
+        if (request.width <= 0 || request.height <= 0) return
+        if (!request.surface.isValid) return
+        if (!usb.startIdlePreview(request.surface, request.width, request.height)) {
+            Timber.w("USB/UVC-Idle-Vorschau konnte nicht gestartet werden")
+        } else {
+            applyPrivacyZones()
+        }
+    }
+
+    /** Beendet die USB-Idle-Vorschau (Stream/Recording laufen ungestört weiter). */
+    private fun stopUsbIdlePreview() {
+        usbVideoSource?.stopIdlePreview()
+    }
+
     /** Löst die Preview-Surface (Activity zerstört/verdeckt). Der Stream läuft weiter. */
     fun detachPreview(surface: Surface? = null) {
         if (surface != null && previewRequest?.surface !== surface) return
         previewRequest = null
         stopIdlePreview()
         (camera?.glInterface as? GlStreamInterface)?.deAttachPreview()
+        stopUsbIdlePreview()
+        usbVideoSource?.deAttachPreview()
         glPreviewSurface = null
     }
 
@@ -1265,6 +1641,9 @@ class StreamingEngine @Inject constructor(
             VideoSourceKind.REPLAY -> replaySource?.let { source ->
                 startSourceStream(source, activeUrls, source::startStream)
             }
+            VideoSourceKind.USB_UVC -> usbVideoSource?.let { source ->
+                startSourceStream(source, activeUrls, source::startStream)
+            }
             VideoSourceKind.CAMERA -> startCameraStream(activeUrls)
         }
     }
@@ -1274,15 +1653,29 @@ class StreamingEngine @Inject constructor(
         urls: List<String>,
         startTarget: (Int, String) -> Unit,
     ) {
-        if (source == null || source.isActive) return
+        if (source == null || (source.isActive && source !is UsbVideoSource)) return
+        if (source is UsbVideoSource && !uvcConnectionManager.isCaptureReady) return
         _targetStates.value = urls.map { StreamTargetState(it, status = StreamTargetStatus.PREPARING) }
         _streamingState.value = StreamingState.Preparing
+        if (source is UsbVideoSource) {
+            source.videoBitrate = (_encoderConfig.value?.preset?.videoBitrateKbps ?: DEFAULT_VIDEO_BITRATE_KBPS) * 1_000
+            if (!source.isRecording) resetKeyframeMonitoring()
+        }
         if (!source.start()) {
             failStream(ENCODER_PREPARATION_ERROR)
+            if (source is UsbVideoSource) startUsbIdlePreviewIfReady()
             return
         }
+        if (source is UsbVideoSource) resetAdaptiveBitrate()
         applyPrivacyZones()
-        urls.forEachIndexed(startTarget)
+        try {
+            urls.forEachIndexed(startTarget)
+            attachPreviewIfRunning()
+        } catch (_: Exception) {
+            urls.indices.forEach(::stopTargetStream)
+            stopSharedStreamEncoder()
+            failStream(ENCODER_PREPARATION_ERROR)
+        }
     }
 
     private fun startCameraStream(activeUrls: List<String>) {
@@ -1318,8 +1711,9 @@ class StreamingEngine @Inject constructor(
 
     private fun resetAdaptiveBitrate() {
         if (_adaptiveBitrateEnabled.value) {
-            val presetKbps = _activeEncoder.value?.preset?.videoBitrateKbps
-                ?: DEFAULT_VIDEO_BITRATE_KBPS
+            val presetKbps = if (activeSourceKind.value == VideoSourceKind.USB_UVC) {
+                _encoderConfig.value?.preset?.videoBitrateKbps ?: DEFAULT_VIDEO_BITRATE_KBPS
+            } else _activeEncoder.value?.preset?.videoBitrateKbps ?: DEFAULT_VIDEO_BITRATE_KBPS
             adaptiveController = AdaptiveBitrateController(
                 AdaptiveBitrateConfig(
                     minBitrateKbps = ADAPTIVE_MIN_BITRATE_KBPS,
@@ -1422,6 +1816,25 @@ class StreamingEngine @Inject constructor(
         _measuredKeyframeIntervalMs.value = null
     }
 
+    /**
+     * Keyframe-Monitoring für die USB/UVC-Quelle (#305): wie [monitorKeyframes],
+     * aber am [MultiStream] statt an der Kamera — bewusst separate Funktion,
+     * damit der Kamera-Pfad (`requestKeyFrame`) unangetastet bleibt.
+     */
+    private fun monitorUsbKeyframes(inner: RecordController, multi: MultiStream): RecordController =
+        KeyframeMonitoringRecordController(inner) { info ->
+            if (multi.isStreaming || multi.isRecording) {
+                val overdue = keyframeController.onFrame(
+                    info.presentationTimeUs, info.flags and MediaCodec.BUFFER_FLAG_KEY_FRAME != 0, timeSource(),
+                )
+                _measuredKeyframeIntervalMs.value = keyframeController.measuredIntervalMs
+                if (overdue) {
+                    Timber.w("USB encoder missed the 2-second keyframe interval; requesting a sync frame")
+                    multi.requestKeyframe()
+                }
+            }
+        }
+
     private fun monitorKeyframes(inner: RecordController): RecordController =
         KeyframeMonitoringRecordController(inner) { info ->
             val cam = camera
@@ -1478,22 +1891,32 @@ class StreamingEngine @Inject constructor(
     /** Hängt die gemerkte Preview-Surface an, sobald die GL-Pipeline läuft. */
     private fun attachPreviewIfRunning() {
         val request = previewRequest ?: return
-        val gl = camera?.glInterface as? GlStreamInterface ?: return
+        val usbActive = activeSourceKind.value == VideoSourceKind.USB_UVC
+        val gl = if (usbActive) {
+            usbVideoSource?.glInterface
+        } else {
+            camera?.glInterface as? GlStreamInterface
+        } ?: return
+        // UVC liefert nativ Landscape (keine 90°-Kamera-Rotation wie Camera2).
+        val encoderRotation = if (usbActive) 0 else encoderRotationDegrees
         if (gl.isRunning) {
             if (glPreviewSurface !== request.surface) {
+                if (usbActive && glPreviewSurface != null) gl.deAttachPreview()
                 gl.attachPreview(request.surface)
                 glPreviewSurface = request.surface
             }
             gl.setPreviewResolution(request.width, request.height)
             gl.setPreviewIsPortrait(request.rotationDegrees % 180 == 0)
-            gl.setPreviewRotation((90 - request.rotationDegrees - encoderRotationDegrees + 720) % 360)
-            gl.setAspectRatioMode(AspectRatioMode.Fill)
+            gl.setPreviewRotation(if (usbActive) 0 else (90 - request.rotationDegrees - encoderRotation + 720) % 360)
+            gl.setAspectRatioMode(if (usbActive) AspectRatioMode.Adjust else AspectRatioMode.Fill)
         }
     }
 
     /** Stoppt alle laufenden/startenden Ziele und setzt den Zustand auf Idle. */
     fun stopStream() {
-        if (_streamingState.value is StreamingState.Idle && camera?.isStreaming != true) return
+        if (_streamingState.value is StreamingState.Idle && camera?.isStreaming != true &&
+            usbVideoSource?.isStreaming != true
+        ) return
         stoppingStreams = true
         try {
             _targetStates.value.indices.forEach(::stopTargetStream)
@@ -1507,6 +1930,7 @@ class StreamingEngine @Inject constructor(
             stoppingStreams = false
         }
         startIdlePreviewIfReady()
+        startUsbIdlePreviewIfReady()
     }
 
     /**
@@ -1517,13 +1941,16 @@ class StreamingEngine @Inject constructor(
      */
     private fun sampleAdaptiveBitrate(measuredKbps: Long) {
         if (!_adaptiveBitrateEnabled.value) return
-        val cam = camera ?: return
         val controller = adaptiveController ?: return
         val now = timeSource()
         if (now - lastAdaptiveSampleMs < ADAPTIVE_SAMPLE_INTERVAL_MS) return
         lastAdaptiveSampleMs = now
         val nextKbps = controller.onSample(measuredKbps) ?: return
-        cam.setVideoBitrateOnFly(nextKbps * 1_000) // RootEncoder expects bits/s.
+        when (activeSourceKind.value) {
+            VideoSourceKind.CAMERA -> camera?.setVideoBitrateOnFly(nextKbps * 1_000)
+            VideoSourceKind.USB_UVC -> usbVideoSource?.multiStream?.setVideoBitrateOnFly(nextKbps * 1_000)
+            else -> return
+        }
         _bitrateDiagnostics.value = _bitrateDiagnostics.value?.copy(targetKbps = nextKbps)
         Timber.i("Adaptive bitrate: measured=%d kbps target=%d kbps mode=%s",
             measuredKbps, nextKbps, _bitrateDiagnostics.value?.mode)

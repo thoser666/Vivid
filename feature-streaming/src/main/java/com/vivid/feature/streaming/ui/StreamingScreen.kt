@@ -108,6 +108,7 @@ import com.vivid.feature.streaming.StreamingViewModel
 import com.vivid.feature.streaming.source.VideoSourceKind
 import com.vivid.feature.streaming.R
 import kotlin.math.abs
+import kotlinx.coroutines.launch
 
 /** Keep the camera's native output proportions, then crop equally to cover the viewport. */
 internal fun cameraPreviewZoom(
@@ -195,7 +196,7 @@ fun StreamingScreen(
         startAttempted = startAttempted && granted
     }
 
-    val requestPermissionsAndRecord = rememberRecordingAction(streamingEngine, snackbarHostState, dismissLabel)
+    val requestPermissionsAndRecord = rememberRecordingAction(viewModel, snackbarHostState, dismissLabel)
 
     // Start idle preview only when camera permission is already granted.
     LaunchedEffect(Unit) {
@@ -211,6 +212,9 @@ fun StreamingScreen(
     val requestVideoPicker = rememberVideoPickerAction(streamingEngine)
 
     RefreshStreamingScreenOnResume(viewModel, streamingEngine)
+
+    var usbExpanded by rememberSaveable { mutableStateOf(false) }
+    if (usbExpanded) UvcSourceDialog(streamingEngine) { usbExpanded = false }
 
     var scenesExpanded by rememberSaveable { mutableStateOf(false) }
 
@@ -277,6 +281,16 @@ fun StreamingScreen(
             val previewSize = with(density) { IntSize(maxWidth.roundToPx(), maxHeight.roundToPx()) }
             StreamingSourcePreview(streamingEngine, activeSourceKind, previewSize, displayRotationDegrees) {
                 requestVideoPicker()
+            }
+
+            if (activeSourceKind == VideoSourceKind.USB_UVC) {
+                val usbState by streamingEngine.uvcManager.connectionState.collectAsStateWithLifecycle()
+                val interrupted by streamingEngine.usbRecordingInterrupted.collectAsStateWithLifecycle()
+                val usbLabel = stringResource(uvcStatusResource(usbState))
+                Surface(Modifier.align(Alignment.TopCenter).padding(top = 64.dp).testTag("uvc_source_status")) {
+                    Text(if (interrupted) stringResource(R.string.uvc_recording_interrupted) else usbLabel,
+                        Modifier.padding(8.dp).semantics { stateDescription = usbLabel })
+                }
             }
 
             BoxWithConstraints(
@@ -357,6 +371,7 @@ fun StreamingScreen(
                     onRecord = requestPermissionsAndRecord,
                     onScreenCapture = requestScreenCapture,
                     onVideoPicker = { requestVideoPicker() },
+                    onUsbPicker = { usbExpanded = true },
                 )
                 FilledIconButton(
                     onClick = { navController.navigate("settings_route") },
@@ -436,6 +451,7 @@ private fun BoxScope.StreamingControlsMenu(
     onRecord: () -> Unit,
     onScreenCapture: () -> Unit,
     onVideoPicker: () -> Unit,
+    onUsbPicker: () -> Unit,
 ) {
     var controlsExpanded by remember { mutableStateOf(false) }
     fun dismissControls() { controlsExpanded = false }
@@ -454,7 +470,7 @@ private fun BoxScope.StreamingControlsMenu(
             onDismissRequest = { controlsExpanded = false },
             modifier = Modifier.width(adaptiveControlsMaxWidth(LocalWindowWidthClass.current)).testTag("controls_menu"),
         ) {
-            SourceSelectionItems(streamingEngine, ::dismissControls, onScreenCapture, onVideoPicker)
+            SourceSelectionItems(streamingEngine, ::dismissControls, onScreenCapture, onVideoPicker, onUsbPicker)
             HorizontalDivider()
             RecordingMenuItem(streamingEngine, onRecord)
             CameraToggleItems(streamingEngine, navController, ::dismissControls)
@@ -466,8 +482,19 @@ private fun BoxScope.StreamingControlsMenu(
 }
 
 @Composable
-private fun SourceSelectionItems(streamingEngine: StreamingEngine, onDismiss: () -> Unit, onScreenCapture: () -> Unit, onVideoPicker: () -> Unit) {
+private fun SourceSelectionItems(streamingEngine: StreamingEngine, onDismiss: () -> Unit, onScreenCapture: () -> Unit, onVideoPicker: () -> Unit, onUsbPicker: () -> Unit) {
     val activeSourceKind by streamingEngine.activeSourceKind.collectAsStateWithLifecycle()
+    DropdownMenuItem(
+        onClick = { onDismiss(); onUsbPicker() },
+        modifier = Modifier.testTag("source_usb_uvc"),
+        enabled = streamingEngine.uvcManager.hasUsbHostFeature(),
+        text = {
+            Column {
+                Text(stringResource(R.string.uvc_source))
+                if (!streamingEngine.uvcManager.hasUsbHostFeature()) Text(stringResource(R.string.uvc_host_unavailable))
+            }
+        },
+    )
     DropdownMenuItem(
         onClick = {
             onDismiss()
@@ -506,7 +533,7 @@ private fun RecordingMenuItem(streamingEngine: StreamingEngine, onRecord: () -> 
     val replayState by streamingEngine.replayState.collectAsStateWithLifecycle()
     DropdownMenuItem(
         modifier = Modifier.testTag("replay_record"),
-        enabled = activeSourceKind == VideoSourceKind.CAMERA,
+        enabled = activeSourceKind == VideoSourceKind.CAMERA || activeSourceKind == VideoSourceKind.USB_UVC,
         onClick = {
             if (replayState is ReplayState.Recording) streamingEngine.stopReplay()
             else onRecord()
@@ -773,12 +800,12 @@ private fun StreamingSourcePreview(streamingEngine: StreamingEngine, activeSourc
     // deren Zerstörung (Recents-Wischen, Rotation) weiter.
     // S2: Bei aktiver Screen-Capture-Quelle wird keine Kamera-Vorschau
     // angehängt — stattdessen erscheint ein Platzhalter mit Hinweis.
-    if (activeSourceKind == VideoSourceKind.CAMERA) {
+    if (activeSourceKind == VideoSourceKind.CAMERA || activeSourceKind == VideoSourceKind.USB_UVC) {
         AndroidView(
             factory = { context ->
                 @SuppressLint("ClickableViewAccessibility")
                 SurfaceView(context).also { view ->
-                    streamingEngine.initializeCamera()
+                    if (activeSourceKind == VideoSourceKind.CAMERA) streamingEngine.initializeCamera()
                     view.holder.addCallback(
                         object : SurfaceHolder.Callback {
                             override fun surfaceCreated(holder: SurfaceHolder) {
@@ -967,9 +994,11 @@ private fun rememberDisplayRotation(): Int {
 }
 
 @Composable
-private fun rememberRecordingAction(streamingEngine: StreamingEngine, snackbarHostState: SnackbarHostState, dismissLabel: String): () -> Unit {
+private fun rememberRecordingAction(viewModel: StreamingViewModel, snackbarHostState: SnackbarHostState, dismissLabel: String): () -> Unit {
     val context = LocalContext.current
     var recordingError by remember { mutableStateOf(false) }
+    val streamingEngine = viewModel.streamingEngine
+    val scope = rememberCoroutineScope()
     val recordingErrorMessage = stringResource(R.string.streaming_replay_start_error)
     LaunchedEffect(recordingError) {
         if (recordingError) {
@@ -981,7 +1010,7 @@ private fun rememberRecordingAction(streamingEngine: StreamingEngine, snackbarHo
         }
     }
     fun startRecording() {
-        recordingError = !streamingEngine.startReplay()
+        scope.launch { recordingError = !viewModel.startReplayRecording() }
     }
     val recordingPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),

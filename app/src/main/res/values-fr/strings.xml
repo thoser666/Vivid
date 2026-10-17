@@ -103,4 +103,7 @@
     <string name="pomodoro_reset">Reinitialiser</string>
     <string name="pomodoro_disabled_hint">Le minuteur Pomodoro est desactive dans les parametres.</string>
     <string name="pomodoro_open_settings">Ouvrir les parametres</string>
+    <string name="notif_text_recording">Enregistrement local en cours</string>
+    <string name="notif_title_recording">Vivid enregistre</string>
+    <string name="notif_stop_recording">Arrêter l’enregistrement</string>
 </resources>

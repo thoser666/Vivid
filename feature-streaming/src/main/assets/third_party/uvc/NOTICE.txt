@@ -1,0 +1,31 @@
+USB/UVC video support (#305)
+
+RootEncoder extra-sources/encoder/library/rtmp 2.7.5
+Copyright (C) pedroSG94. Apache License 2.0 (Apache-2.0.txt).
+https://github.com/pedroSG94/RootEncoder/tree/2.7.5
+
+UVCAndroid 1.0.13 (unmodified Maven AAR com.herohan:UVCAndroid)
+Copyright shiyinghan and contributors; underlying UVCCamera code
+Copyright (c) 2014-2017 saki <t_saki@serenegiant.com>.
+Apache License 2.0, except bundled native components listed below.
+Pinned source commit: 6018c7f20238832929cf61427427bb7828056260
+Complete corresponding source and native build scripts:
+https://github.com/shiyinghan/UVCAndroid/tree/6018c7f20238832929cf61427427bb7828056260
+https://github.com/shiyinghan/UVCAndroid/archive/6018c7f20238832929cf61427427bb7828056260.tar.gz
+
+libusb (libusb1.0.so): LGPL 2.1 or later; see libusb-LGPL-2.1.txt.
+libuvc (libuvc.so): BSD; see libuvc-BSD.txt.
+libjpeg-turbo (libjpeg-turbo212.so): IJG/BSD/zlib; see libjpeg-turbo.txt
+and jpeg-IJG.txt. This software is based in part on the work of the
+Independent JPEG Group.
+libyuv (libyuv.so): Copyright The LibYuv Project Authors; BSD;
+see libyuv-BSD.txt.
+RapidJSON: MIT and third-party notices; see rapidjson.txt.
+
+These native libraries are dynamically linked and unmodified by Vivid.
+Their complete source, including Android.mk build scripts, is in the
+UVCAndroid source archive above under libuvccamera/src/main/jni/.
+Recipients may modify/rebuild and replace the LGPL library in a rebuilt
+Vivid APK; reverse engineering for debugging such modifications is permitted.
+Vivid's application source and Gradle packaging are available at:
+https://github.com/thoser666/Vivid

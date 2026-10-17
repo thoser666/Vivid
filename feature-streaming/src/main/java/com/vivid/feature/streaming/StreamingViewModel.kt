@@ -123,13 +123,19 @@ class StreamingViewModel @Inject constructor(
      * Audio-Konfiguration (ReplayAudioMode) berücksichtigt: VIDEO_ONLY erzeugt
      * eine Aufnahme ohne Audiospur.
      */
+    suspend fun startReplayRecording(): Boolean {
+        val settings = settingsRepository.appSettingsFlow.first()
+        val started = streamingEngine.startReplay(includeAudio = settings.replayAudioMode == ReplayAudioMode.ALL)
+        if (started) streamingServiceLauncher.keepRecordingAlive()
+        return started
+    }
+
     fun toggleReplay() {
         viewModelScope.launch {
             if (streamingEngine.replayState.value is ReplayState.Recording) {
                 streamingEngine.stopReplay()
             } else {
-                val settings = settingsRepository.appSettingsFlow.first()
-                streamingEngine.startReplay(includeAudio = settings.replayAudioMode == ReplayAudioMode.ALL)
+                startReplayRecording()
             }
         }
     }
@@ -269,7 +275,7 @@ private fun VideoSourceKind.toSceneVideoSource(): SceneVideoSource = when (this)
     VideoSourceKind.SCREEN_CAPTURE -> SceneVideoSource.SCREEN_CAPTURE
     VideoSourceKind.REPLAY -> SceneVideoSource.REPLAY
     // S3 (Video-Player) speichert keine Content-Uris in Szenen — Fallback auf Kamera.
-    VideoSourceKind.VIDEO_PLAYER -> SceneVideoSource.CAMERA
+    VideoSourceKind.VIDEO_PLAYER, VideoSourceKind.USB_UVC -> SceneVideoSource.CAMERA
 }
 
 /**

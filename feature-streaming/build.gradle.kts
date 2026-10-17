@@ -90,6 +90,12 @@ dependencies {
     implementation(libs.rootencoder.encoder)
     implementation(libs.rootencoder.library)
     implementation(libs.rootencoder.rtmp)
+    // USB/UVC-Quelle (#305): extra-sources liefert den UVCAndroid-Helper
+    // (com.herohan.uvcapp, 1.0.13) für den Vivid-eigenen UVC-Adapter.
+    // Die Beispielklasse CameraUvcSource wird NICHT verwendet (siehe
+    // source/uvc/VividUvcVideoSource.kt zur Begründung).
+    implementation(libs.rootencoder.extra.sources)
+    implementation(libs.uvc.android)
     // =============================================================
 
     // [WHIP P0-Spike] libwebrtc-Prebuild — NUR für den P0-Spike (feature-branch):

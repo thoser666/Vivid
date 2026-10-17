@@ -21,6 +21,8 @@ enum class VideoSourceKind {
     VIDEO_PLAYER,
     /** Gespeicherte Replay-Aufnahme (MP4) als Quelle — wird in Dauerschleife gestreamt. */
     REPLAY,
+    /** Externe USB/UVC-Kamera oder HDMI-Capture-Card über USB-Host/OTG (#305). */
+    USB_UVC,
 }
 
 /**
