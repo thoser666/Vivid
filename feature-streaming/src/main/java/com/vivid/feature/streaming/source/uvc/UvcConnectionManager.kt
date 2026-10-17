@@ -352,7 +352,15 @@ class UvcConnectionManager @Inject constructor(
         openedMode = null
     }
     private inline fun cleanup(block: () -> Unit) {
-        try { block() } catch (_: Exception) { Timber.w("UVC resource cleanup failed") }
+        try {
+            block()
+        } catch (error: Exception) {
+            Timber.w(error, "UVC resource cleanup failed")
+        } catch (error: LinkageError) {
+            // An unavailable native library must not prevent release of later
+            // resources during detach or a failed partial initialization.
+            Timber.w(error, "UVC native resource cleanup failed")
+        }
     }
     companion object {
         private const val OPEN_TIMEOUT_MS = 10_000L
