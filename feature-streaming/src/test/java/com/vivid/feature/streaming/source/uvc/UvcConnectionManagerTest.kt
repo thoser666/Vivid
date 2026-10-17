@@ -242,6 +242,26 @@ class UvcConnectionManagerTest {
     }
 
     @Test
+    fun `permission grant after USB bus path reuse cannot open a replacement device`() {
+        val original = usbDevice("reused-path")
+        val descriptor = descriptorFor(original)
+        manager.connect(descriptor)
+        assertTrue(manager.connectionState.value is UvcConnectionState.PermissionRequired)
+        val replacement = usbDevice("reused-path")
+        every { replacement.vendorId } returns 0x1234
+        hostGateway.devices = listOf(replacement)
+        hostGateway.granted = true
+        permissionGateway.granted = true
+
+        // The original grant may be delivered after the bus path was reused.
+        permissionController.onResult(original, true)
+
+        assertEquals(UvcFailure.PermissionDenied,
+            (manager.connectionState.value as UvcConnectionState.Error).reason)
+        assertTrue(gateways.isEmpty())
+    }
+
+    @Test
     fun `denial returns to safe error state with retry path`() {
         val device = usbDevice("dev3")
         val descriptor = descriptorFor(device)
