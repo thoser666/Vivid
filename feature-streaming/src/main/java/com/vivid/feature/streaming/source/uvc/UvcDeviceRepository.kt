@@ -111,7 +111,14 @@ class UvcDeviceRepository @Inject constructor(
     /** Roher Geräte-Handle für [sessionId] (null, wenn nicht mehr angeschlossen). */
     fun deviceHandle(sessionId: String): UsbDevice? =
         deviceHandles[sessionId]?.takeIf { current ->
-            gateway.attachedDevices().any { it.deviceName == current.deviceName }
+            // USB bus paths can be reused by another device after an unplug.
+            // Never resolve an older session token to a different VID/PID.
+            gateway.attachedDevices().any {
+                it.deviceName == current.deviceName &&
+                    it.vendorId == current.vendorId &&
+                    it.productId == current.productId &&
+                    isUvcCandidate(it)
+            }
         }
 
     /** Gerätedeskriptor für [sessionId] aus dem letzten Refresh (null, wenn unbekannt). */
