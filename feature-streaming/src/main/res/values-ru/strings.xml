@@ -151,7 +151,7 @@
     <string name="uvc_connect">Подключить</string>
     <string name="uvc_disconnect">Отключить</string>
     <string name="uvc_disconnected">USB-устройство отключено</string>
-    <string name="uvc_permission_required">Требуется разрешение USB</string>
+    <string name="uvc_permission_required">Разрешите доступ к USB в окне Android …</string>
     <string name="uvc_permission_denied">В разрешении камеры или USB отказано. Подключите снова для повтора.</string>
     <string name="uvc_opening">Открытие USB-камеры …</string>
     <string name="uvc_ready">USB-камера готова</string>

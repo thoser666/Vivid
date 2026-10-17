@@ -71,7 +71,6 @@ class UvcConnectionManager @Inject constructor(
                 intent.getParcelableExtra(UsbManager.EXTRA_DEVICE)
             }
             when (intent.action) {
-                UvcPermissionController.ACTION_USB_PERMISSION -> if (device != null) permission.acceptBroadcast(intent, device)
                 UsbManager.ACTION_USB_DEVICE_ATTACHED -> refresh()
                 UsbManager.ACTION_USB_DEVICE_DETACHED -> if (device != null) detached(device)
             }
@@ -81,7 +80,6 @@ class UvcConnectionManager @Inject constructor(
     init {
         permission.resultListener = ::permissionResult
         ContextCompat.registerReceiver(context, receiver, IntentFilter().apply {
-            addAction(UvcPermissionController.ACTION_USB_PERMISSION)
             addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED)
             addAction(UsbManager.ACTION_USB_DEVICE_DETACHED)
         }, ContextCompat.RECEIVER_NOT_EXPORTED)

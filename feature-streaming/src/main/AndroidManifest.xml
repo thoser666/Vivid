@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- UsbManager grants are returned via a system-owned PendingIntent.
+             Keep the receiver explicit and non-exported. -->
+        <receiver
+            android:name="com.vivid.feature.streaming.source.uvc.UvcUsbPermissionReceiver"
+            android:exported="false" />
+    </application>
+</manifest>

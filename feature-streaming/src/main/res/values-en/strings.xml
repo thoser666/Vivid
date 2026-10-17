@@ -149,7 +149,7 @@
     <string name="uvc_connect">Connect</string>
     <string name="uvc_disconnect">Disconnect</string>
     <string name="uvc_disconnected">USB device disconnected</string>
-    <string name="uvc_permission_required">USB permission required</string>
+    <string name="uvc_permission_required">Allow USB access in the Android prompt …</string>
     <string name="uvc_permission_denied">Camera or USB permission denied. Connect again to retry.</string>
     <string name="uvc_opening">Opening USB camera …</string>
     <string name="uvc_ready">USB camera ready</string>

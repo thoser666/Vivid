@@ -127,7 +127,14 @@ class UvcPermissionController @Inject constructor(
     fun hasPending(): Boolean = _pendingDevice.value != null
 
     private fun permissionIntent(): PendingIntent {
-        val intent = Intent(ACTION_USB_PERMISSION).setPackage(context.packageName)
+        // Use an explicit manifest receiver. UsbManager delivers this callback
+        // through a system-owned PendingIntent; Android may omit privileged
+        // broadcasts from dynamically registered RECEIVER_NOT_EXPORTED
+        // receivers. The receiver itself remains non-exported, and the random
+        // URI token still rejects stale grants from earlier sessions.
+        val intent = Intent(context, UvcUsbPermissionReceiver::class.java)
+            .setAction(ACTION_USB_PERMISSION)
+            .setPackage(context.packageName)
             .setData("vivid-uvc://permission/$requestToken".toUri())
         val flags = PendingIntent.FLAG_UPDATE_CURRENT or
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {

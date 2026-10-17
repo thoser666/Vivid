@@ -149,7 +149,7 @@
     <string name="uvc_connect">Verbinden</string>
     <string name="uvc_disconnect">Trennen</string>
     <string name="uvc_disconnected">USB-Gerät getrennt</string>
-    <string name="uvc_permission_required">USB-Berechtigung erforderlich</string>
+    <string name="uvc_permission_required">Bitte den USB-Zugriff im Android-Dialog erlauben …</string>
     <string name="uvc_permission_denied">Kamera- oder USB-Berechtigung verweigert. Bitte erneut verbinden.</string>
     <string name="uvc_opening">USB-Kamera wird geöffnet …</string>
     <string name="uvc_ready">USB-Kamera bereit</string>

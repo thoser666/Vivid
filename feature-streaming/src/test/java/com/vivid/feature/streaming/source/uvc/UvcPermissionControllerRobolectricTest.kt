@@ -178,4 +178,25 @@ class UvcPermissionControllerRobolectricTest {
         assertEquals(device, controller.pendingDevice.value)
     }
 
+    @Test
+    fun `grant callback targets the non exported manifest receiver and resumes opening`() {
+        val device = usbDevice("dev-explicit")
+        var notified: Pair<UsbDevice, Boolean>? = null
+        controller.resultListener = { notifiedDevice, granted -> notified = notifiedDevice to granted }
+
+        controller.request(device)
+
+        val callbackIntent = org.robolectric.Shadows.shadowOf(gateway.intents.single()).savedIntent
+        assertEquals(
+            UvcUsbPermissionReceiver::class.java.name,
+            callbackIntent.component?.className,
+        )
+        callbackIntent.putExtra(android.hardware.usb.UsbManager.EXTRA_DEVICE, device)
+        callbackIntent.putExtra(android.hardware.usb.UsbManager.EXTRA_PERMISSION_GRANTED, true)
+
+        assertTrue(controller.acceptBroadcast(callbackIntent, device))
+        assertEquals(device to true, notified)
+        assertNull(controller.pendingDevice.value)
+    }
+
 }

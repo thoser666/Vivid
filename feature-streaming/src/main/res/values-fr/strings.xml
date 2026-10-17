@@ -150,7 +150,7 @@
     <string name="uvc_connect">Connecter</string>
     <string name="uvc_disconnect">Déconnecter</string>
     <string name="uvc_disconnected">Appareil USB déconnecté</string>
-    <string name="uvc_permission_required">Autorisation USB requise</string>
+    <string name="uvc_permission_required">Autorisez l’accès USB dans la fenêtre Android …</string>
     <string name="uvc_permission_denied">Autorisation caméra ou USB refusée. Reconnectez pour réessayer.</string>
     <string name="uvc_opening">Ouverture de la caméra USB …</string>
     <string name="uvc_ready">Caméra USB prête</string>
