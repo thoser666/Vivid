@@ -34,7 +34,8 @@ class AndroidUsbPermissionGateway @Inject constructor(
         usbManager?.hasPermission(device) == true
 
     override fun requestPermission(device: UsbDevice, intent: PendingIntent) {
-        usbManager?.requestPermission(device, intent)
+        val manager = checkNotNull(usbManager) { "USB manager unavailable" }
+        manager.requestPermission(device, intent)
     }
 }
 
