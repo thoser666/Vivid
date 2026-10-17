@@ -49,6 +49,7 @@ class UvcConnectionManagerTest {
         var released = false
         var failSelect = false
         var reportActualMode = true
+        var autoConfirmMode = true
 
         override fun setListener(listener: UvcCameraGateway.Listener?) {
             this.callback = listener
@@ -75,6 +76,9 @@ class UvcConnectionManagerTest {
                 nativeCameraOpenRequested = true
             } else {
                 openedMode = mode
+                if (autoConfirmMode) {
+                    callback?.onModeConfigured(selected.last(), mode)
+                }
             }
         }
 
@@ -363,6 +367,52 @@ class UvcConnectionManagerTest {
         val state = manager.connectionState.value
         assertTrue(state is UvcConnectionState.Ready)
         assertEquals(yuy2, (state as UvcConnectionState.Ready).mode)
+    }
+
+    @Test
+    fun `mode change remains opening until native readback is confirmed`() {
+        val device = usbDevice("delayed-mode")
+        connectReady(device)
+        val requested = UvcCaptureMode(640, 480, 30, UvcPixelFormat.YUY2)
+        manager.setMode(requested)
+        val pending = gateways.last()
+        pending.autoConfirmMode = false
+        pending.emitDeviceOpen(device)
+        pending.emitCameraOpen(device)
+        assertTrue(manager.connectionState.value is UvcConnectionState.Opening)
+        pending.callback?.onModeConfigured(device, requested)
+        assertEquals(requested, (manager.connectionState.value as UvcConnectionState.Ready).mode)
+    }
+
+    @Test
+    fun `native rejection of advertised mode fails rather than claiming ready`() {
+        val device = usbDevice("rejected-mode")
+        connectReady(device)
+        val requested = UvcCaptureMode(640, 480, 30, UvcPixelFormat.YUY2)
+        manager.setMode(requested)
+        val pending = gateways.last()
+        pending.autoConfirmMode = false
+        pending.emitDeviceOpen(device)
+        pending.emitCameraOpen(device)
+        pending.emitError(device, UvcFailure.ModeNegotiationFailed)
+        assertEquals(UvcFailure.ModeNegotiationFailed,
+            (manager.connectionState.value as UvcConnectionState.Error).reason)
+    }
+
+    @Test
+    fun `stale native mode confirmation is ignored after disconnect`() {
+        val device = usbDevice("stale-mode")
+        connectReady(device)
+        val requested = UvcCaptureMode(640, 480, 30, UvcPixelFormat.YUY2)
+        manager.setMode(requested)
+        val pending = gateways.last()
+        pending.autoConfirmMode = false
+        pending.emitDeviceOpen(device)
+        pending.emitCameraOpen(device)
+        val staleListener = pending.callback
+        manager.disconnect()
+        staleListener?.onModeConfigured(device, requested)
+        assertEquals(UvcConnectionState.Disconnected, manager.connectionState.value)
     }
 
     @Test
