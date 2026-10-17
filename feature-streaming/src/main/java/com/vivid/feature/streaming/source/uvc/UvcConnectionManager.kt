@@ -157,29 +157,41 @@ class UvcConnectionManager @Inject constructor(
         override fun onDeviceOpen(device: UsbDevice, firstOpen: Boolean) {
             synchronized(lock) {
                 if (!valid(gen, device) || _state.value !is UvcConnectionState.Opening) return
-                val modes = mapUvcModes(gateway?.supportedFormats().orEmpty())
-                val mode = requestedMode?.takeIf { it in modes } ?: selectDefaultUvcMode(modes)
-                if (mode == null) { failLocked(UvcFailure.ModeNegotiationFailed); return }
-                if (requestedMode != null && mode != requestedMode) _notice.value = UvcFailure.UnsupportedMode
-                descriptor = descriptor?.copy(modes = modes)
-                openedMode = mode
-                try { gateway?.open(mode) } catch (_: Exception) { failLocked(UvcFailure.OpenFailed) }
+                // USB access is open, but UVCAndroid has not opened its native
+                // camera yet; the descriptor mode list is only available after
+                // the subsequent onCameraOpen callback.
+                try { gateway?.open(null) } catch (_: Exception) { failLocked(UvcFailure.OpenFailed) }
             }
         }
         override fun onCameraOpen(device: UsbDevice) {
             synchronized(lock) {
                 if (!valid(gen, device) || _state.value !is UvcConnectionState.Opening) return
                 val description = descriptor ?: return
-                val actual = gateway?.actualMode()
-                if (actual == null || actual !in description.modes) {
+                val modes = mapUvcModes(gateway?.supportedFormats().orEmpty())
+                val reported = gateway?.actualMode()
+                val preferred = requestedMode?.takeIf { it in modes }
+                val mode = preferred
+                    ?: reported?.takeIf { it in modes }
+                    ?: selectDefaultUvcMode(modes)
+                if (mode == null) {
                     failLocked(UvcFailure.ModeNegotiationFailed)
                     return
                 }
-                if (actual != openedMode) _notice.value = UvcFailure.UnsupportedMode
-                openedMode = actual
-                _state.value = UvcConnectionState.Ready(description, actual)
-                preferences[description.preferenceKey()] = actual
-                scope.launch { settingsRepository.updateUvcPreference(description.preferenceKey(), actual.preferenceString()) }
+                if (requestedMode != null && requestedMode != mode) _notice.value = UvcFailure.UnsupportedMode
+                val updatedDescription = description.copy(modes = modes)
+                descriptor = updatedDescription
+                try {
+                    // Apply a valid advertised choice after native open and
+                    // before any preview Surface is attached.
+                    if (reported != mode) gateway?.open(mode)
+                } catch (_: Exception) {
+                    failLocked(UvcFailure.OpenFailed)
+                    return
+                }
+                openedMode = mode
+                _state.value = UvcConnectionState.Ready(updatedDescription, mode)
+                preferences[updatedDescription.preferenceKey()] = mode
+                scope.launch { settingsRepository.updateUvcPreference(updatedDescription.preferenceKey(), mode.preferenceString()) }
             }
         }
         override fun onFirstFrame(device: UsbDevice) {

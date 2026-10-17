@@ -42,6 +42,9 @@ class UvcConnectionManagerTest {
         var callback: UvcCameraGateway.Listener? = null
         val selected = mutableListOf<UsbDevice>()
         var openedMode: UvcCaptureMode? = null
+        var nativeCameraOpenRequested = false
+        var nativeCameraOpened = false
+        val openRequests = mutableListOf<UvcCaptureMode?>()
         var previewStarted = false
         var released = false
         var failSelect = false
@@ -58,11 +61,21 @@ class UvcConnectionManagerTest {
             selected += device
         }
 
-        override fun supportedFormats(): List<UvcFormatInfo> = formats
-        override fun actualMode(): UvcCaptureMode? = if (reportActualMode) openedMode else null
+        // UVCAndroid does not expose supportedSizeList until openCamera() has
+        // opened its native camera. Model that contract so querying too early
+        // fails the regression test instead of returning plausible fake data.
+        override fun supportedFormats(): List<UvcFormatInfo> = if (nativeCameraOpened) formats else emptyList()
+        override fun actualMode(): UvcCaptureMode? = if (reportActualMode && nativeCameraOpened) {
+            openedMode ?: selectDefaultUvcMode(mapUvcModes(formats))
+        } else null
 
-        override fun open(mode: UvcCaptureMode) {
-            openedMode = mode
+        override fun open(mode: UvcCaptureMode?) {
+            openRequests += mode
+            if (mode == null) {
+                nativeCameraOpenRequested = true
+            } else {
+                openedMode = mode
+            }
         }
 
         override fun closeCamera() = Unit
@@ -82,7 +95,10 @@ class UvcConnectionManagerTest {
         }
 
         fun emitDeviceOpen(device: UsbDevice) = callback?.onDeviceOpen(device, true)
-        fun emitCameraOpen(device: UsbDevice) = callback?.onCameraOpen(device)
+        fun emitCameraOpen(device: UsbDevice) {
+            if (nativeCameraOpenRequested) nativeCameraOpened = true
+            callback?.onCameraOpen(device)
+        }
         fun emitDetach(device: UsbDevice) = callback?.onDetach(device)
         fun emitError(device: UsbDevice, failure: UvcFailure) =
             callback?.onError(device, failure)
@@ -181,12 +197,16 @@ class UvcConnectionManagerTest {
 
         assertEquals(UvcConnectionState.Opening(descriptor), manager.connectionState.value)
         gateways.single().emitDeviceOpen(device)
+        assertEquals(listOf(null), gateways.single().openRequests)
+        // Formats remain unavailable until native camera-open completes.
+        assertTrue(gateways.single().supportedFormats().isEmpty())
+        gateways.single().emitCameraOpen(device)
+        assertTrue(gateways.single().supportedFormats().isNotEmpty())
         // Moduswahl: MJPEG-Default, kein erfundener Modus.
         assertEquals(
             UvcCaptureMode(1280, 720, 30, UvcPixelFormat.MJPEG),
-            gateways.single().openedMode,
+            (manager.connectionState.value as UvcConnectionState.Ready).mode,
         )
-        gateways.single().emitCameraOpen(device)
         assertEquals(
             UvcConnectionState.Ready(
                 descriptor.copy(modes = mapUvcModes(gateways.single().formats)),
@@ -367,13 +387,14 @@ class UvcConnectionManagerTest {
         )
         strict.connect(strict.devices.value.single())
         gateways.single().emitDeviceOpen(device)
+        gateways.single().emitCameraOpen(device)
 
         val state = strict.connectionState.value
         assertTrue(state is UvcConnectionState.Error)
     }
 
     @Test
-    fun `failed mode negotiation keeps one error and allows choosing a reported fallback`() {
+    fun `unavailable persisted mode falls back to a native reported mode`() {
         val device = usbDevice("dev12")
         val descriptor = descriptorFor(device)
         hostGateway.granted = true
@@ -382,15 +403,15 @@ class UvcConnectionManagerTest {
         manager.connect(descriptor, unavailable)
         val firstGateway = gateways.single()
         firstGateway.emitDeviceOpen(device)
-        assertEquals(UvcFailure.UnsupportedMode, manager.notice.value)
+        assertEquals(listOf(null), firstGateway.openRequests)
 
         firstGateway.reportActualMode = false
         firstGateway.emitCameraOpen(device)
 
-        val error = manager.connectionState.value as UvcConnectionState.Error
-        assertEquals(UvcFailure.ModeNegotiationFailed, error.reason)
-        assertEquals(2, error.device?.modes?.size)
-        assertEquals(null, manager.notice.value)
+        val readyWithFallback = manager.connectionState.value as UvcConnectionState.Ready
+        assertEquals(UvcCaptureMode(1280, 720, 30, UvcPixelFormat.MJPEG), readyWithFallback.mode)
+        assertEquals(2, readyWithFallback.device.modes.size)
+        assertEquals(UvcFailure.UnsupportedMode, manager.notice.value)
 
         val fallback = UvcCaptureMode(640, 480, 30, UvcPixelFormat.YUY2)
         manager.setMode(fallback)

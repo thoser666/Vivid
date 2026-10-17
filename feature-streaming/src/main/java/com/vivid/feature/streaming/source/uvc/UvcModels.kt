@@ -135,17 +135,6 @@ fun mapUvcModes(formats: List<UvcFormatInfo>): List<UvcCaptureMode> =
     }.distinct().sortedWith(compareBy({ it.format }, { it.width * it.height }, { it.fps }))
 
 /**
- * Some UVCAndroid devices report a successful open but leave `previewSize` null.
- * In that case the successfully opened, previously advertised request is the
- * only valid fallback. A non-null reported mode is never silently rewritten.
- */
-internal fun resolveOpenedUvcMode(
-    reported: UvcCaptureMode?,
-    requested: UvcCaptureMode?,
-    supported: List<UvcCaptureMode>,
-): UvcCaptureMode? = reported ?: requested?.takeIf { it in supported }
-
-/**
  * Vernünftiger Standardmodus: MJPEG bevorzugt (geringere USB-Bandbreite),
  * 1280×720@30 wenn gemeldet, sonst größte MJPEG-Fläche, sonst größte YUY2-Fläche.
  * Konservative Fallbacks (640×480) ergeben sich automatisch, wenn das Gerät

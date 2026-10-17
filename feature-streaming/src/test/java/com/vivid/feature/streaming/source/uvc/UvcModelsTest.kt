@@ -72,20 +72,6 @@ class UvcModelsTest {
     }
 
     @Test
-    fun `successful open may use only its advertised request when helper omits preview size`() {
-        val requested = UvcCaptureMode(640, 480, 30, UvcPixelFormat.YUY2)
-        assertEquals(requested, resolveOpenedUvcMode(null, requested, listOf(requested)))
-        assertNull(resolveOpenedUvcMode(null, requested, emptyList()))
-    }
-
-    @Test
-    fun `reported negotiated mode is never rewritten to the requested mode`() {
-        val requested = UvcCaptureMode(640, 480, 30, UvcPixelFormat.YUY2)
-        val reported = UvcCaptureMode(1280, 720, 30, UvcPixelFormat.MJPEG)
-        assertEquals(reported, resolveOpenedUvcMode(reported, requested, listOf(requested)))
-    }
-
-    @Test
     fun `preference roundtrip keeps mode without device paths`() {
         val mode = UvcCaptureMode(1280, 720, 30, UvcPixelFormat.MJPEG)
 

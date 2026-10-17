@@ -17,7 +17,8 @@ interface UvcCameraGateway {
     fun select(device: UsbDevice)
     fun supportedFormats(): List<UvcFormatInfo>
     fun actualMode(): UvcCaptureMode?
-    fun open(mode: UvcCaptureMode)
+    /** Null opens the helper's default camera so it can expose native formats. */
+    fun open(mode: UvcCaptureMode?)
     fun closeCamera()
     fun addSurface(surface: Surface): Boolean
     fun removeSurface(surface: Surface): Boolean
@@ -44,8 +45,8 @@ class HerohanUvcCameraGateway : UvcCameraGateway {
     @Volatile private var listener: UvcCameraGateway.Listener? = null
     @Volatile private var helper: ICameraHelper? = null
     @Volatile private var formats: List<UvcFormatInfo> = emptyList()
+    @Volatile private var supportedSizes: List<Size> = emptyList()
     @Volatile private var mode: UvcCaptureMode? = null
-    @Volatile private var requestedMode: UvcCaptureMode? = null
     private val released = AtomicBoolean(false)
     private val firstFrame = AtomicBoolean(false)
 
@@ -53,20 +54,22 @@ class HerohanUvcCameraGateway : UvcCameraGateway {
         override fun onAttach(device: UsbDevice) { listener?.onAttach(device) }
         override fun onDeviceOpen(device: UsbDevice, isFirstOpen: Boolean) {
             execute(device) {
-                formats = helper?.supportedSizeList.orEmpty().flatMap { size ->
-                    size.fpsList.orEmpty().ifEmpty { listOf(size.fps) }.map { fps ->
-                        UvcFormatInfo(size.type, size.width, size.height, fps)
-                    }
-                }
                 listener?.onDeviceOpen(device, isFirstOpen)
             }
         }
         override fun onCameraOpen(device: UsbDevice) {
             execute(device) {
-                val reportedMode = helper?.previewSize?.let { size ->
+                // UVCAndroid exposes supportedSizeList only after native
+                // openCamera() completes; onDeviceOpen is too early.
+                supportedSizes = helper?.supportedSizeList.orEmpty().toList()
+                formats = supportedSizes.flatMap { size ->
+                    size.fpsList.orEmpty().ifEmpty { listOf(size.fps) }.map { fps ->
+                        UvcFormatInfo(size.type, size.width, size.height, fps)
+                    }
+                }
+                mode = helper?.previewSize?.let { size ->
                     mapUvcModes(listOf(UvcFormatInfo(size.type, size.width, size.height, size.fps))).singleOrNull()
                 }
-                mode = resolveOpenedUvcMode(reportedMode, requestedMode, mapUvcModes(formats))
                 firstFrame.set(false)
                 // RAW callback only observes delivery; frames stay on the native Surface/GPU path.
                 helper?.setFrameCallback({ frame ->
@@ -110,11 +113,22 @@ class HerohanUvcCameraGateway : UvcCameraGateway {
     }
     override fun supportedFormats(): List<UvcFormatInfo> = formats
     override fun actualMode(): UvcCaptureMode? = mode
-    override fun open(mode: UvcCaptureMode) {
-        requestedMode = mode
-        this.mode = null
+    override fun open(mode: UvcCaptureMode?) {
+        val camera = checkNotNull(helper)
+        if (mode == null) {
+            this.mode = null
+            camera.openCamera()
+            return
+        }
         val type = if (mode.format == UvcPixelFormat.MJPEG) UVCCamera.UVC_VS_FRAME_MJPEG else UVCCamera.UVC_VS_FRAME_UNCOMPRESSED
-        checkNotNull(helper).openCamera(Size(type, mode.width, mode.height, mode.fps, listOf(mode.fps)))
+        val advertised = supportedSizes.firstOrNull {
+            it.type == type && it.width == mode.width && it.height == mode.height &&
+                (it.fpsList.orEmpty().contains(mode.fps) || (it.fpsList.isNullOrEmpty() && it.fps == mode.fps))
+        }
+        checkNotNull(advertised) { "Selected USB mode is no longer advertised" }
+        val fpsList = advertised.fpsList.orEmpty().ifEmpty { listOf(mode.fps) }
+        camera.previewSize = Size(type, mode.width, mode.height, mode.fps, fpsList)
+        this.mode = mode
     }
     override fun closeCamera() { helper?.closeCamera() }
     override fun addSurface(surface: Surface): Boolean {
