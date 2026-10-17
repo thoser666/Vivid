@@ -1,11 +1,15 @@
 package com.vivid.feature.streaming
 
 import android.content.Context
+import android.content.pm.PackageManager
+import android.graphics.SurfaceTexture
 import android.view.Surface
 import com.pedro.common.ConnectChecker
+import com.pedro.encoder.input.video.Camera2ApiManager
 import com.pedro.library.base.recording.RecordController
 import com.pedro.library.multiple.MultiStream
 import com.pedro.library.multiple.MultiType
+import com.pedro.library.view.GlStreamInterface
 import com.vivid.feature.streaming.source.VideoSourceKind
 import com.vivid.feature.streaming.source.VideoSourceRegistry
 import com.vivid.feature.streaming.source.uvc.*
@@ -25,6 +29,9 @@ class StreamingEngineUvcTest {
     private val multi = mockk<MultiStream>(relaxed = true)
     private val manager = mockk<UvcConnectionManager>(relaxed = true)
     private val sourceFactory = mockk<UvcStreamFactory>()
+    private val camera = mockk<com.pedro.library.multiple.MultiCamera2>(relaxed = true)
+    private val cameraGl = mockk<GlStreamInterface>(relaxed = true)
+    private val cameraFactory = mockk<CameraFactory>()
     private val device = UvcDeviceDescriptor("session", 1, 2, "Capture")
     private val mode = UvcCaptureMode(1280, 720, 30, UvcPixelFormat.MJPEG)
     private val connection = MutableStateFlow<UvcConnectionState>(UvcConnectionState.Ready(device, mode))
@@ -37,9 +44,13 @@ class StreamingEngineUvcTest {
         Dispatchers.setMain(UnconfinedTestDispatcher())
         val context = mockk<Context>(relaxed = true)
         every { context.filesDir } returns directory
+        every { context.checkSelfPermission(android.Manifest.permission.CAMERA) } returns PackageManager.PERMISSION_GRANTED
         every { manager.connectionState } returns connection
         every { manager.isCaptureReady } answers { connection.value is UvcConnectionState.Ready || connection.value is UvcConnectionState.Capturing }
         every { sourceFactory.create(any()) } answers { checkers = firstArg(); multi }
+        every { cameraFactory.create(any()) } returns camera
+        every { camera.glInterface } returns cameraGl
+        every { cameraGl.surfaceTexture } returns mockk<SurfaceTexture>(relaxed = true)
         every { multi.isStreaming } answers { streaming }
         every { multi.isRecording } answers { recording }
         every { multi.prepareAudio(any(), any(), any(), any(), any()) } returns true
@@ -48,7 +59,7 @@ class StreamingEngineUvcTest {
         every { multi.stopStream() } answers { streaming = false; true }
         every { multi.startRecord(any<String>(), any(), any()) } answers { recording = true }
         every { multi.stopRecord() } answers { recording = false; true }
-        engine = StreamingEngine(context, mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true),
+        engine = StreamingEngine(context, cameraFactory, mockk(relaxed = true), mockk(relaxed = true),
             VideoSourceRegistry(), sourceFactory, manager)
     }
     @AfterEach fun teardown() { Dispatchers.resetMain() }
@@ -60,7 +71,26 @@ class StreamingEngineUvcTest {
         verify(exactly = 0) { multi.prepareVideo(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) }
     }
 
+    @Test fun `phone preview stays paused through UVC negotiation and surface recomposition`() {
+        engine.initializeCamera()
+        val phonePreview = mockk<Camera2ApiManager>(relaxed = true)
+        engine.idlePreviewFactory = { phonePreview }
+        val surface = mockk<Surface>(relaxed = true)
+        engine.attachPreview(surface, 720, 1280)
+        verify(exactly = 1) { phonePreview.openCameraBack() }
+
+        connection.value = UvcConnectionState.Opening(device)
+        engine.connectUsbDevice(device)
+        engine.attachPreview(surface, 720, 1280)
+
+        verify(exactly = 1) { phonePreview.closeCamera() }
+        verify(exactly = 1) { phonePreview.openCameraBack() }
+
+        connection.value = UvcConnectionState.Error(UvcFailure.OpenFailed, device)
+    }
+
     @Test fun `one factory creates two checker clients and shared target failure preserves healthy output`() {
+        assertTrue(engine.switchSource(VideoSourceKind.USB_UVC))
         assertTrue(engine.switchSource(VideoSourceKind.USB_UVC))
         engine.startStream(listOf("rtmp://one/live", "rtmps://two/live"))
         assertEquals(2, checkers.size)

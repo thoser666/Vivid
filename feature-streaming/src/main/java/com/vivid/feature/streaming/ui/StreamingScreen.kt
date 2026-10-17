@@ -801,15 +801,6 @@ private fun StreamingSourcePreview(streamingEngine: StreamingEngine, activeSourc
     // S2: Bei aktiver Screen-Capture-Quelle wird keine Kamera-Vorschau
     // angehängt — stattdessen erscheint ein Platzhalter mit Hinweis.
     if (activeSourceKind == VideoSourceKind.CAMERA || activeSourceKind == VideoSourceKind.USB_UVC) {
-        val usbState = if (activeSourceKind == VideoSourceKind.USB_UVC) {
-            streamingEngine.uvcManager.connectionState.collectAsStateWithLifecycle().value
-        } else null
-        // Recompose the existing SurfaceView after asynchronous USB open/mode changes.
-        LaunchedEffect(usbState) {
-            if (usbState is com.vivid.feature.streaming.source.uvc.UvcConnectionState.Ready) {
-                streamingEngine.switchSource(VideoSourceKind.USB_UVC)
-            }
-        }
         AndroidView(
             factory = { context ->
                 @SuppressLint("ClickableViewAccessibility")

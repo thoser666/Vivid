@@ -3,6 +3,7 @@ package com.vivid.feature.streaming.source
 import android.view.Surface
 import com.pedro.library.multiple.MultiStream
 import com.pedro.library.multiple.MultiType
+import com.pedro.library.view.GlStreamInterface
 import com.vivid.feature.streaming.source.uvc.UvcCaptureMode
 import com.vivid.feature.streaming.source.uvc.UvcConnectionManager
 import com.vivid.feature.streaming.source.uvc.UvcConnectionState
@@ -21,6 +22,7 @@ import org.junit.jupiter.api.Test
 class UsbVideoSourceTest {
 
     private lateinit var multi: MultiStream
+    private lateinit var glInterface: GlStreamInterface
     private lateinit var connectionManager: UvcConnectionManager
     private lateinit var connectionState: MutableStateFlow<UvcConnectionState>
     private lateinit var source: UsbVideoSource
@@ -36,6 +38,8 @@ class UsbVideoSourceTest {
     @BeforeEach
     fun setUp() {
         multi = mockk(relaxed = true)
+        glInterface = mockk(relaxed = true)
+        every { multi.getGlInterface() } returns glInterface
         connectionManager = mockk(relaxed = true)
         connectionState =
             MutableStateFlow<UvcConnectionState>(UvcConnectionState.Disconnected)
@@ -120,6 +124,35 @@ class UsbVideoSourceTest {
 
         verify(exactly = 1) { multi.startPreview(surface, 1280, 720) }
         verify(exactly = 0) { multi.startStream(any(), any(), any()) }
+    }
+
+    @Test
+    fun `recomposing idle preview does not attach the same surface twice`() {
+        connectionState.value = UvcConnectionState.Ready(device, mode)
+        val surface = mockk<Surface>()
+        every { multi.isOnPreview } returnsMany listOf(false, true)
+        every { multi.prepareVideo(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } returns true
+
+        assertTrue(source.startIdlePreview(surface, 1280, 720))
+        assertTrue(source.startIdlePreview(surface, 1280, 720))
+
+        verify(exactly = 1) { multi.startPreview(surface, 1280, 720) }
+        verify(exactly = 0) { glInterface.attachPreview(any<Surface>()) }
+    }
+
+    @Test
+    fun `replacing preview surface detaches the old output before attaching the new one`() {
+        connectionState.value = UvcConnectionState.Ready(device, mode)
+        val oldSurface = mockk<Surface>()
+        val newSurface = mockk<Surface>()
+        every { multi.isOnPreview } returnsMany listOf(false, true)
+        every { multi.prepareVideo(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } returns true
+
+        assertTrue(source.startIdlePreview(oldSurface, 1280, 720))
+        assertTrue(source.startIdlePreview(newSurface, 1280, 720))
+
+        verify(exactly = 1) { glInterface.deAttachPreview() }
+        verify(exactly = 1) { glInterface.attachPreview(newSurface) }
     }
 
     @Test

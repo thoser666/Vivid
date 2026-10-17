@@ -31,6 +31,9 @@ class UsbVideoSource(
     private val connectionManager: UvcConnectionManager,
 ) : VideoSource {
 
+    private var previewSurface: Surface? = null
+    private var previewSize: Pair<Int, Int>? = null
+
     internal val glInterface get() = stream.getGlInterface()
 
     /** Der gekapselte Encoder (für Record-Controller und Keyframe-Monitoring). */
@@ -67,7 +70,7 @@ class UsbVideoSource(
         if (stream.isRecording || stream.isStreaming) return currentMode() != null
         val mode = currentMode() ?: return false
         return try {
-            if (stream.isOnPreview) stream.stopPreview()
+            stopIdlePreview()
             // Dieselben Audio-Defaults wie der Kamera-Pfad
             // (`Camera2Base.prepareAudio()` = 64 kbit/s, 32 kHz, Stereo).
             val audioReady = stream.prepareAudio(
@@ -96,6 +99,8 @@ class UsbVideoSource(
     /** Deaktiviert die Quelle: stoppt alle Ziele und den Shared-Encoder. */
     override fun stop(): Boolean {
         runCatching { stream.stopStream() }
+        previewSurface = null
+        previewSize = null
         return true
     }
 
@@ -119,9 +124,22 @@ class UsbVideoSource(
             if (!stream.isOnPreview) {
                 if (!prepareForPreview(mode)) return false
                 stream.startPreview(surface, width, height)
+                previewSurface = surface
+                previewSize = width to height
             } else {
-                stream.getGlInterface().attachPreview(surface)
-                stream.getGlInterface().setPreviewResolution(width, height)
+                val gl = stream.getGlInterface()
+                if (previewSurface !== surface) {
+                    // Activity recreation can leave the old Surface attached.
+                    // Detach it before the replacement connects to the same GL output.
+                    if (previewSurface != null) gl.deAttachPreview()
+                    gl.attachPreview(surface)
+                    previewSurface = surface
+                }
+                val size = width to height
+                if (previewSize != size) {
+                    gl.setPreviewResolution(width, height)
+                    previewSize = size
+                }
             }
             stream.getGlInterface().setPreviewRotation(0)
             stream.getGlInterface().setAspectRatioMode(com.pedro.encoder.utils.gl.AspectRatioMode.Adjust)
@@ -129,6 +147,8 @@ class UsbVideoSource(
         } catch (e: Exception) {
             Timber.e(e, "UsbVideoSource: Idle-Vorschau fehlgeschlagen")
             runCatching { stream.stopPreview() }
+            previewSurface = null
+            previewSize = null
             false
         }
     }
@@ -137,12 +157,16 @@ class UsbVideoSource(
     fun stopIdlePreview() {
         if (stream.isOnPreview && !stream.isStreaming && !stream.isRecording) {
             runCatching { stream.stopPreview() }
+            previewSurface = null
+            previewSize = null
         }
     }
 
     /** Löst die UI-Vorschau von der GL-Pipeline (Stream/Recording laufen weiter). */
     fun deAttachPreview() {
-        runCatching { glInterface?.deAttachPreview() }
+        runCatching { glInterface.deAttachPreview() }
+        previewSurface = null
+        previewSize = null
     }
 
     private fun prepareForPreview(mode: com.vivid.feature.streaming.source.uvc.UvcCaptureMode): Boolean =

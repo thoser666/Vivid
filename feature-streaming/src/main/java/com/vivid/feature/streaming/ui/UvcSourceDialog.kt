@@ -23,7 +23,6 @@ import com.vivid.feature.streaming.R
 import com.vivid.feature.streaming.ReplayState
 import com.vivid.feature.streaming.StreamingEngine
 import com.vivid.feature.streaming.StreamingState
-import com.vivid.feature.streaming.source.VideoSourceKind
 import com.vivid.feature.streaming.source.uvc.*
 
 @Composable
@@ -37,19 +36,11 @@ internal fun UvcSourceDialog(engine: StreamingEngine, onDismiss: () -> Unit) {
     val context = LocalContext.current
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
     var cameraDenied by remember { mutableStateOf(false) }
-    var connecting by rememberSaveable { mutableStateOf(false) }
     val busy = stream is StreamingState.Streaming || stream is StreamingState.Preparing || recording is ReplayState.Recording
     val cameraPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         cameraDenied = !granted
         if (granted) devices.firstOrNull { it.stableSessionId == selectedId }?.let {
-            connecting = true
             engine.connectUsbDevice(it)
-        }
-    }
-    LaunchedEffect(state) {
-        if (state is UvcConnectionState.Ready && connecting) {
-            engine.switchSource(VideoSourceKind.USB_UVC)
-            connecting = false
         }
     }
     val description = when (val current = state) {
@@ -93,7 +84,6 @@ internal fun UvcSourceDialog(engine: StreamingEngine, onDismiss: () -> Unit) {
                             if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
                                 cameraPermission.launch(Manifest.permission.CAMERA)
                             } else if (selected != null) {
-                                connecting = true
                                 engine.connectUsbDevice(selected)
                             }
                         },
@@ -114,7 +104,7 @@ internal fun UvcSourceDialog(engine: StreamingEngine, onDismiss: () -> Unit) {
                         FilterChip(
                             selected = mode == activeMode,
                             enabled = !busy,
-                            onClick = { connecting = true; engine.setUsbCaptureMode(mode) },
+                            onClick = { engine.setUsbCaptureMode(mode) },
                             label = { Text(stringResource(R.string.uvc_mode, mode.width, mode.height, mode.fps, mode.format.name)) },
                             modifier = Modifier.testTag("uvc_mode_${mode.preferenceString()}"),
                         )

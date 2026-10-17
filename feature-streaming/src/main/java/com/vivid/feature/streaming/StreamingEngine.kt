@@ -172,6 +172,8 @@ class StreamingEngine @Inject constructor(
     private var usbRecordTracks: com.vivid.feature.streaming.source.uvc.UvcTrackRecordController? = null
     private var usbVideoSource: UsbVideoSource? = null
     private val usbScope by lazy { kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Main.immediate) }
+    private var usbConnectAttemptJob: kotlinx.coroutines.Job? = null
+    private var usbConnectionPending = false
     private val _usbRecordingInterrupted = MutableStateFlow(false)
     val usbRecordingInterrupted = _usbRecordingInterrupted.asStateFlow()
 
@@ -835,7 +837,22 @@ class StreamingEngine @Inject constructor(
      * initialisiert (MultiFromFile, Datei wird über [setVideoPlayerUri] gesetzt).
      */
     fun switchSource(kind: VideoSourceKind): Boolean {
-        if (kind == activeSourceKind.value && kind != VideoSourceKind.USB_UVC) return true
+        if (usbConnectionPending && kind != VideoSourceKind.USB_UVC) {
+            usbConnectAttemptJob?.cancel()
+            usbConnectAttemptJob = null
+            usbConnectionPending = false
+            uvcConnectionManager.disconnect()
+        }
+        if (kind == activeSourceKind.value && kind != VideoSourceKind.USB_UVC) {
+            if (kind == VideoSourceKind.CAMERA) startIdlePreviewIfReady()
+            return true
+        }
+        if (kind == VideoSourceKind.USB_UVC && kind == activeSourceKind.value &&
+            usbVideoSource != null && uvcConnectionManager.isCaptureReady
+        ) {
+            startUsbIdlePreviewIfReady()
+            return true
+        }
         if ((kind == VideoSourceKind.USB_UVC || activeSourceKind.value == VideoSourceKind.USB_UVC) &&
             (_streamingState.value is StreamingState.Streaming || _streamingState.value is StreamingState.Preparing ||
                 _replayState.value is ReplayState.Recording)) return false
@@ -993,11 +1010,21 @@ class StreamingEngine @Inject constructor(
         if (_streamingState.value is StreamingState.Streaming || _streamingState.value is StreamingState.Preparing ||
             _replayState.value is ReplayState.Recording) return
         stopUsbIdlePreview()
+        // Keep the phone camera from appearing to be the selected source while
+        // the user-requested USB camera is opening. The source remains staged
+        // as CAMERA until UVC reports a negotiated, usable mode; the picker
+        // restores this preview if that attempt fails.
+        if (activeSourceKind.value == VideoSourceKind.CAMERA) stopIdlePreview()
+        usbConnectionPending = true
         uvcConnectionManager.connect(descriptor, mode)
+        observeUsbConnectionAttempt(restoreCameraOnFailure = true)
     }
 
     /** USB-Gerät trennen (idempotent). */
     fun disconnectUsbDevice() {
+        usbConnectionPending = false
+        usbConnectAttemptJob?.cancel()
+        usbConnectAttemptJob = null
         if (activeSourceKind.value == VideoSourceKind.USB_UVC) {
             stopReplay()
             stopStream()
@@ -1005,6 +1032,7 @@ class StreamingEngine @Inject constructor(
         usbVideoSource?.stopIdlePreview()
         releaseUsbBackend()
         uvcConnectionManager.disconnect()
+        if (activeSourceKind.value == VideoSourceKind.CAMERA) startIdlePreviewIfReady()
     }
 
     private fun releaseUsbBackend() {
@@ -1024,7 +1052,28 @@ class StreamingEngine @Inject constructor(
     fun setUsbCaptureMode(mode: com.vivid.feature.streaming.source.uvc.UvcCaptureMode) {
         if (usbVideoSource?.isActive == true) return
         stopUsbIdlePreview()
+        usbConnectionPending = true
         uvcConnectionManager.setMode(mode)
+        observeUsbConnectionAttempt(restoreCameraOnFailure = false)
+    }
+
+    private fun observeUsbConnectionAttempt(restoreCameraOnFailure: Boolean) {
+        usbConnectAttemptJob?.cancel()
+        usbConnectAttemptJob = usbScope.launch {
+            val result = uvcConnectionManager.connectionState.first { state ->
+                state is UvcConnectionState.Ready ||
+                    state is UvcConnectionState.Error ||
+                    state == UvcConnectionState.Disconnected
+            }
+            usbConnectionPending = false
+            if (result is UvcConnectionState.Ready) {
+                if (!switchSource(VideoSourceKind.USB_UVC) && restoreCameraOnFailure &&
+                    activeSourceKind.value == VideoSourceKind.CAMERA
+                ) startIdlePreviewIfReady()
+            } else if (restoreCameraOnFailure && activeSourceKind.value == VideoSourceKind.CAMERA) {
+                startIdlePreviewIfReady()
+            }
+        }
     }
 
     /** USB-Geräteliste aktualisieren (Picker-Refresh). */
@@ -1437,6 +1486,7 @@ class StreamingEngine @Inject constructor(
         rotationDegrees: Int = if (height > width) 0 else 90,
     ) {
         previewRequest = PreviewRequest(surface, width, height, rotationDegrees)
+        if (usbConnectionPending) return
         if (activeSourceKind.value == VideoSourceKind.USB_UVC &&
             usbVideoSource?.isStreaming != true && usbVideoSource?.isRecording != true
         ) {
@@ -1451,7 +1501,7 @@ class StreamingEngine @Inject constructor(
     /** Open Camera2 into the same GL pipeline used by recording, without starting encoders. */
     fun startIdlePreviewIfReady() {
         val request = previewRequest ?: return
-        if (activeSourceKind.value != VideoSourceKind.CAMERA || camera?.isStreaming == true || camera?.isRecording == true ||
+        if (usbConnectionPending || activeSourceKind.value != VideoSourceKind.CAMERA || camera?.isStreaming == true || camera?.isRecording == true ||
             request.width <= 0 || request.height <= 0 ||
             context.checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED
         ) return
@@ -1522,7 +1572,7 @@ class StreamingEngine @Inject constructor(
      */
     private fun startUsbIdlePreviewIfReady() {
         val request = previewRequest ?: return
-        if (activeSourceKind.value != VideoSourceKind.USB_UVC) return
+        if (usbConnectionPending || activeSourceKind.value != VideoSourceKind.USB_UVC) return
         val usb = usbVideoSource ?: return
         if (usb.isStreaming || usb.isRecording) return
         if (request.width <= 0 || request.height <= 0) return
@@ -1845,6 +1895,7 @@ class StreamingEngine @Inject constructor(
         val encoderRotation = if (usbActive) 0 else encoderRotationDegrees
         if (gl.isRunning) {
             if (glPreviewSurface !== request.surface) {
+                if (usbActive && glPreviewSurface != null) gl.deAttachPreview()
                 gl.attachPreview(request.surface)
                 glPreviewSurface = request.surface
             }
