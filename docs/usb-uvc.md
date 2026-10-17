@@ -58,8 +58,12 @@ Die nativen `FRAME_FORMAT_*`-Werte 0/1 sind dort falsch. Bildraten stammen aus
 `Size.fpsList`, der tatsächliche Modus aus `previewSize` nach `onCameraOpen`.
 HEVC-/Camera2-Profile werden für USB nicht übernommen; H.264/AAC ist der
 bewusste RTMP-Kompatibilitätspfad. Adaptive Bitrate bleibt anwendbar.
-Ein RAW-Frame-Callback bestätigt die erste Bildlieferung ohne Java-Framekopien;
-die eigentlichen Bilder bleiben im nativen Surface-/GPU-Pfad. Ein RTMP-Ziel
+Ein kurzzeitig aktivierter RAW-Frame-Callback bestätigt die erste Bildlieferung. Da
+UVCAndroid RAW-Frames über Java-Callbacks kopieren kann, wird der Callback
+unmittelbar nach dem ersten gültigen Frame wieder abgemeldet. Der dauerhafte
+Video-Pfad verwendet weiter Surface/GPU. Ein gemeldeter Frame allein ist noch
+kein Hardwarebeleg für korrekte GL-Anzeige oder fehlerfreie RTMP-/MP4-Ausgabe.
+Die eigentlichen Videobilder bleiben im nativen Surface-/GPU-Pfad. Ein RTMP-Ziel
 wird erst nach dieser Bestätigung als STREAMING angezeigt.
 
 Ein Anwendungssingleton besitzt den ausgewählten Helper. Sperre und
@@ -93,6 +97,17 @@ Camera2-spezifische Steuerungen (Torch/Fokus/Stabilisierung/Belichtung) sind fü
 USB gesperrt. Generische GL-Effekte verwenden die aktive USB-GL-Pipeline.
 USB startet niemals MediaProjection. Aufnahmen nutzen dasselbe app-interne
 `replays/`-Verzeichnis und dieselbe Replay-Bibliothek.
+
+
+**Native Modusbestätigung:** `CameraHelper.previewSize = Size(...)` schreibt
+asynchron; UVCAndroid kann einen fehlgeschlagenen nativen Moduswechsel intern
+loggen, ohne dem Aufrufer einen Fehler zu werfen. Vivid liest daher den
+tatsächlich übernommenen Modus innerhalb eines begrenzten Prüfzeitraums
+zurück, bevor `Ready` erreicht wird. Scheitert die Aushandlung, erscheint
+`ModeNegotiationFailed` statt eines falschen Erfolgszustands. Nach einem
+fehlenden USB-Permission-Broadcast endet `PermissionRequired` spätestens
+nach 60 Sekunden kontrolliert. Späte Ergebnisse dürfen keine neue Session
+übernehmen.
 
 ## Plattform, Abhängigkeiten und Lizenzen
 
