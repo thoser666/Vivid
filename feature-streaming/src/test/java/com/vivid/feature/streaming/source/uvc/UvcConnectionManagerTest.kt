@@ -391,16 +391,18 @@ class UvcConnectionManagerTest {
         val device = usbDevice("native-unavailable")
         hostGateway.granted = true
         permissionGateway.granted = true
-        val descriptor = descriptorFor(device)
-        // The fake factory already created by the production manager is used
-        // synchronously in connect, so trigger a linkage failure from select().
-        gateways.clear()
-        manager.connect(descriptor)
-        // A normal gateway has already been selected: simulate native failure
-        // from its late camera callback before any capture was started.
-        gateways.single().emitError(device, UvcFailure.NativeLibraryMissing)
+        hostGateway.devices = listOf(device)
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        val strict = UvcConnectionManager(
+            context,
+            UvcDeviceRepository(hostGateway),
+            UvcPermissionController(context, permissionGateway),
+            UvcGatewayFactory { FakeUvcCameraGateway().apply { failNativeLinkage = true } },
+            settingsRepository,
+        )
+        strict.connect(strict.devices.value.single())
         assertEquals(UvcFailure.NativeLibraryMissing,
-            (manager.connectionState.value as UvcConnectionState.Error).reason)
+            (strict.connectionState.value as UvcConnectionState.Error).reason)
     }
 
     @Test
