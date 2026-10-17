@@ -64,6 +64,14 @@ class StreamingEngineUvcTest {
     }
     @AfterEach fun teardown() { Dispatchers.resetMain() }
 
+    @Test fun `switching away from idle USB releases the native backend and USB session`() {
+        assertTrue(engine.switchSource(VideoSourceKind.USB_UVC))
+        assertTrue(engine.switchSource(VideoSourceKind.CAMERA))
+        verify(exactly = 1) { multi.release() }
+        verify(exactly = 1) { manager.disconnect() }
+        assertEquals(VideoSourceKind.CAMERA, engine.activeSourceKind.value)
+    }
+
     @Test fun `unavailable USB selection preserves active camera and does not build a backend`() {
         connection.value = UvcConnectionState.Disconnected
         assertFalse(engine.switchSource(VideoSourceKind.USB_UVC))
