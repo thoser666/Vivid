@@ -9,6 +9,7 @@ import com.serenegiant.usb.Size
 import com.serenegiant.usb.UVCCamera
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 
 /** Injectable boundary over UVCAndroid 1.0.13 (Apache-2.0). No device is auto-selected. */
 interface UvcCameraGateway {
@@ -30,6 +31,8 @@ interface UvcCameraGateway {
         fun onAttach(device: UsbDevice)
         fun onDeviceOpen(device: UsbDevice, firstOpen: Boolean)
         fun onCameraOpen(device: UsbDevice)
+        /** Called only after native previewSize readback confirms a requested mode. */
+        fun onModeConfigured(device: UsbDevice, mode: UvcCaptureMode)
         fun onFirstFrame(device: UsbDevice)
         fun onCameraClose(device: UsbDevice)
         fun onDeviceClose(device: UsbDevice)
@@ -44,11 +47,13 @@ class HerohanUvcCameraGateway : UvcCameraGateway {
     private val worker = Executors.newSingleThreadExecutor()
     @Volatile private var listener: UvcCameraGateway.Listener? = null
     @Volatile private var helper: ICameraHelper? = null
+    @Volatile private var selectedDevice: UsbDevice? = null
     @Volatile private var formats: List<UvcFormatInfo> = emptyList()
     @Volatile private var supportedSizes: List<Size> = emptyList()
     @Volatile private var mode: UvcCaptureMode? = null
     private val released = AtomicBoolean(false)
     private val firstFrame = AtomicBoolean(false)
+    private val frameEpoch = AtomicInteger(0)
 
     private val callback = object : ICameraHelper.StateCallback {
         override fun onAttach(device: UsbDevice) { listener?.onAttach(device) }
@@ -70,13 +75,6 @@ class HerohanUvcCameraGateway : UvcCameraGateway {
                 mode = helper?.previewSize?.let { size ->
                     mapUvcModes(listOf(UvcFormatInfo(size.type, size.width, size.height, size.fps))).singleOrNull()
                 }
-                firstFrame.set(false)
-                // RAW callback only observes delivery; frames stay on the native Surface/GPU path.
-                helper?.setFrameCallback({ frame ->
-                    if (frame != null && frame.remaining() > 0 && firstFrame.compareAndSet(false, true)) {
-                        listener?.onFirstFrame(device)
-                    }
-                }, UVCCamera.PIXEL_FORMAT_RAW)
                 listener?.onCameraOpen(device)
             }
         }
@@ -105,6 +103,7 @@ class HerohanUvcCameraGateway : UvcCameraGateway {
     override fun setListener(listener: UvcCameraGateway.Listener?) { this.listener = listener }
     override fun deviceList(): List<UsbDevice> = emptyList() // Enumeration belongs to UsbManager.
     override fun select(device: UsbDevice) = execute(device) {
+        selectedDevice = device
         Class.forName("com.serenegiant.usb.UVCCamera") // Load native ABI here, inside the guarded worker.
         val camera = CameraHelper()
         helper = camera
@@ -127,8 +126,36 @@ class HerohanUvcCameraGateway : UvcCameraGateway {
         }
         checkNotNull(advertised) { "Selected USB mode is no longer advertised" }
         val fpsList = advertised.fpsList.orEmpty().ifEmpty { listOf(mode.fps) }
-        camera.previewSize = Size(type, mode.width, mode.height, mode.fps, fpsList)
-        this.mode = mode
+        // CameraHelper.setPreviewSize() is asynchronous. It can log and swallow
+        // native errors (and even destroy its internal camera) without throwing.
+        // Never claim the selected mode until reading it back from the helper.
+        val requested = Size(type, mode.width, mode.height, mode.fps, fpsList)
+        val device = checkNotNull(selectedDevice)
+        execute(device) {
+            camera.previewSize = requested
+            var confirmed: UvcCaptureMode? = null
+            for (attempt in 0 until MODE_CONFIRMATION_ATTEMPTS) {
+                val actual = camera.previewSize
+                if (actual != null) {
+                    val candidate = mapUvcModes(
+                        listOf(UvcFormatInfo(actual.type, actual.width, actual.height, actual.fps)),
+                    ).singleOrNull()
+                    if (candidate == mode) {
+                        confirmed = candidate
+                        break
+                    }
+                }
+                if (released.get()) return@execute
+                Thread.sleep(MODE_CONFIRMATION_POLL_MS)
+            }
+            if (released.get()) return@execute
+            if (confirmed == mode) {
+                this.mode = mode
+                listener?.onModeConfigured(device, mode)
+            } else {
+                listener?.onError(device, UvcFailure.ModeNegotiationFailed)
+            }
+        }
     }
     override fun closeCamera() { helper?.closeCamera() }
     override fun addSurface(surface: Surface): Boolean {
@@ -143,20 +170,49 @@ class HerohanUvcCameraGateway : UvcCameraGateway {
     }
     override fun startPreview(): Boolean {
         val camera = helper ?: return false
+        val device = selectedDevice ?: return false
+        val epoch = frameEpoch.incrementAndGet()
         firstFrame.set(false)
+        // UVCAndroid's RAW callback copies full frames into Java. Unregister it
+        // after the first frame so a long-running RTMP stream uses only the GPU
+        // Surface pipeline rather than paying that cost on every frame.
+        camera.setFrameCallback({ frame ->
+            if (frame != null && frame.remaining() > 0 && epoch == frameEpoch.get() &&
+                firstFrame.compareAndSet(false, true)
+            ) {
+                listener?.onFirstFrame(device)
+                execute(device) {
+                    if (epoch == frameEpoch.get()) {
+                        helper?.setFrameCallback(null, UVCCamera.PIXEL_FORMAT_RAW)
+                    }
+                }
+            }
+        }, UVCCamera.PIXEL_FORMAT_RAW)
         camera.startPreview()
         return true
     }
-    override fun stopPreview() { helper?.stopPreview() }
+    override fun stopPreview() {
+        frameEpoch.incrementAndGet()
+        helper?.setFrameCallback(null, UVCCamera.PIXEL_FORMAT_RAW)
+        helper?.stopPreview()
+    }
     override fun release() {
         if (!released.compareAndSet(false, true)) return
+        frameEpoch.incrementAndGet()
         listener = null
         worker.execute {
             helper?.setStateCallback(null)
+            helper?.setFrameCallback(null, UVCCamera.PIXEL_FORMAT_RAW)
             helper?.release()
             helper = null
+            selectedDevice = null
         }
         worker.shutdown()
+    }
+
+    private companion object {
+        const val MODE_CONFIRMATION_ATTEMPTS = 20
+        const val MODE_CONFIRMATION_POLL_MS = 100L
     }
 }
 
