@@ -25,8 +25,10 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 fun interface UvcGatewayFactory { fun create(): UvcCameraGateway }
-class HerohanUvcGatewayFactory @Inject constructor() : UvcGatewayFactory {
-    override fun create(): UvcCameraGateway = HerohanUvcCameraGateway()
+class HerohanUvcGatewayFactory @Inject constructor(
+    @ApplicationContext private val context: Context,
+) : UvcGatewayFactory {
+    override fun create(): UvcCameraGateway = HerohanUvcCameraGateway(context)
 }
 
 /** One application owner. Lock serializes ownership; generation rejects callbacks from retired helpers. */
