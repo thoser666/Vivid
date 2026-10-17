@@ -104,6 +104,7 @@ class StreamingScreenRobolectricTest {
         every { engine.hasWhiteBalanceControl() } returns false
 
         viewModel = mockk(relaxed = true)
+        io.mockk.coEvery { viewModel.startReplayRecording() } answers { engine.startReplay() }
         every { viewModel.streamingEngine } returns engine
         every { viewModel.configIssues } returns configIssues
         every { viewModel.scenes } returns MutableStateFlow(emptyList())

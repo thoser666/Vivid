@@ -139,4 +139,28 @@
     <string name="streaming_camera_profile_fallback">Kompatibles Profil angewendet</string>
     <string name="streaming_camera_measured_fps">Gemessen: %1$d fps</string>
     <string name="streaming_encoder_bitrate_mode">Encoder: %1$s · Ziel %2$s kbit/s · %3$s</string>
+
+    <!-- External USB/UVC video source (#305). -->
+    <string name="uvc_source">USB-Kamera / Capture-Card</string>
+    <string name="uvc_choose_device">Gerät auswählen</string>
+    <string name="uvc_host_unavailable">USB-Host auf diesem Gerät nicht verfügbar</string>
+    <string name="uvc_no_device">Kein USB-Videogerät angeschlossen</string>
+    <string name="uvc_device_label">%1$s · Gerät %2$d</string>
+    <string name="uvc_connect">Verbinden</string>
+    <string name="uvc_disconnect">Trennen</string>
+    <string name="uvc_disconnected">USB-Gerät getrennt</string>
+    <string name="uvc_permission_required">USB-Berechtigung erforderlich</string>
+    <string name="uvc_permission_denied">Kamera- oder USB-Berechtigung verweigert. Bitte erneut verbinden.</string>
+    <string name="uvc_opening">USB-Kamera wird geöffnet …</string>
+    <string name="uvc_ready">USB-Kamera bereit</string>
+    <string name="uvc_capturing">USB-Kamera liefert Livebilder</string>
+    <string name="uvc_busy">USB-Kamera belegt. Stream und Aufnahme vor Änderungen stoppen.</string>
+    <string name="uvc_unsupported_mode">Modus nicht verfügbar. Der angezeigte unterstützte Modus wird verwendet.</string>
+    <string name="uvc_native_unavailable">Native USB-Kamerabibliothek für diese Architektur nicht verfügbar</string>
+    <string name="uvc_open_failed">USB-Kamera konnte nicht geöffnet werden. Verbindung und Stromversorgung prüfen und erneut versuchen.</string>
+    <string name="uvc_refresh">Aktualisieren</string>
+    <string name="uvc_mode_heading">Auflösung · Bildrate · Pixelformat</string>
+    <string name="uvc_mode">%1$d × %2$d · %3$d fps · %4$s</string>
+    <string name="uvc_recording_interrupted">USB-Aufnahme unterbrochen. Die Datei wurde soweit möglich abgeschlossen.</string>
+    <string name="uvc_retry">Erneut versuchen</string>
 </resources>

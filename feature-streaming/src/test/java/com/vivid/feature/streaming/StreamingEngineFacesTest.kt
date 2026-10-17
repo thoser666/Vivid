@@ -108,6 +108,8 @@ class StreamingEngineFacesTest {
                 override fun create(connectCheckers: List<ConnectChecker>): MultiFromFile = mockk(relaxed = true)
             },
             VideoSourceRegistry(),
+            mockk(relaxed = true),
+            mockk(relaxed = true),
         )
         streamingEngine.readBitrateDiagnostics = {
             EncoderBitrateDiagnostics("test.encoder", EncoderBitrateMode.CBR, true, 6_000)

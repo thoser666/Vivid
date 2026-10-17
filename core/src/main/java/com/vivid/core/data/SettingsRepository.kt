@@ -92,6 +92,8 @@ class SettingsRepository @Inject constructor(
         val SENTRY_ENABLED = booleanPreferencesKey("sentry_enabled")
         val REMOTE_CONTROL_ENABLED = booleanPreferencesKey("remote_control_enabled")
         val REPLAY_AUDIO_MODE = stringPreferencesKey("replay_audio_mode")
+        val UVC_LAST_DEVICE = stringPreferencesKey("uvc_last_device")
+        val UVC_LAST_MODE = stringPreferencesKey("uvc_last_mode")
         val ENCODER_PRESET = stringPreferencesKey("encoder_preset")
         val ENCODER_CODEC_PREFERENCE = stringPreferencesKey("encoder_codec_preference")
         val ENCODER_AUTO_FALLBACK = booleanPreferencesKey("encoder_auto_fallback")
@@ -640,6 +642,24 @@ class SettingsRepository @Inject constructor(
             prefs[PrefKeys.REPLAY_AUDIO_MODE] = mode.name
         }
     }
+
+    /**
+     * USB/UVC-Wunsch (#305): zuletzt genutztes Gerät (`vid:pid`) + Modus
+     * (`WxH@fps:FORMAT`). Keine Gerätepfade, keine Seriennummern — die
+     * Auswahl wird bei jedem Connect gegen die gemeldeten Modi revalidiert.
+     */
+    suspend fun updateUvcPreference(deviceKey: String, mode: String) {
+        dataStore.edit { prefs ->
+            prefs[PrefKeys.UVC_LAST_DEVICE] = deviceKey
+            prefs[PrefKeys.UVC_LAST_MODE] = mode
+        }
+    }
+
+    /** USB/UVC-Wunsch als Paar (Geräteschlüssel, Modus-String, je null wenn nie gesetzt). */
+    fun uvcPreferenceFlow(): Flow<Pair<String?, String?>> =
+        dataStore.data.map { prefs ->
+            prefs[PrefKeys.UVC_LAST_DEVICE] to prefs[PrefKeys.UVC_LAST_MODE]
+        }
 
     /** Encoder-Preset (Aufloesung/FPS) speichern. */
     suspend fun updateEncoderPreset(preset: EncoderPreset) {

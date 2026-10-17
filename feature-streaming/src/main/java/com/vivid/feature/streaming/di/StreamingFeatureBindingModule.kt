@@ -13,6 +13,7 @@ import com.vivid.feature.streaming.source.DisplayFactory
 import com.vivid.feature.streaming.source.PlayerFactory
 import com.vivid.feature.streaming.source.RtmpDisplay2Factory
 import com.vivid.feature.streaming.source.RtmpPlayerFactory
+import com.vivid.feature.streaming.source.uvc.*
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -26,6 +27,15 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class StreamingFeatureBindingModule {
+    @Binds @Singleton
+    abstract fun bindUsbHost(impl: AndroidUsbHostGateway): UsbHostGateway
+    @Binds @Singleton
+    abstract fun bindUsbPermission(impl: AndroidUsbPermissionGateway): UsbPermissionGateway
+    @Binds @Singleton
+    abstract fun bindUvcGateway(impl: HerohanUvcGatewayFactory): UvcGatewayFactory
+    @Binds @Singleton
+    abstract fun bindUvcStream(impl: RtmpUvcStreamFactory): UvcStreamFactory
+
 
     @Binds
     @Singleton

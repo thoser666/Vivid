@@ -139,4 +139,28 @@
     <string name="streaming_camera_profile_fallback">Compatible profile applied</string>
     <string name="streaming_camera_measured_fps">Measured: %1$d fps</string>
     <string name="streaming_encoder_bitrate_mode">Encoder: %1$s · target %2$s kbps · %3$s</string>
+
+    <!-- External USB/UVC video source (#305). -->
+    <string name="uvc_source">USB camera / capture card</string>
+    <string name="uvc_choose_device">Choose device</string>
+    <string name="uvc_host_unavailable">USB host unavailable on this device</string>
+    <string name="uvc_no_device">No USB video device connected</string>
+    <string name="uvc_device_label">%1$s · device %2$d</string>
+    <string name="uvc_connect">Connect</string>
+    <string name="uvc_disconnect">Disconnect</string>
+    <string name="uvc_disconnected">USB device disconnected</string>
+    <string name="uvc_permission_required">USB permission required</string>
+    <string name="uvc_permission_denied">Camera or USB permission denied. Connect again to retry.</string>
+    <string name="uvc_opening">Opening USB camera …</string>
+    <string name="uvc_ready">USB camera ready</string>
+    <string name="uvc_capturing">USB camera delivering live frames</string>
+    <string name="uvc_busy">USB camera busy. Stop streaming and recording before making changes.</string>
+    <string name="uvc_unsupported_mode">Mode unavailable. The displayed supported mode is being used.</string>
+    <string name="uvc_native_unavailable">Native USB camera library unavailable for this architecture</string>
+    <string name="uvc_open_failed">Could not open USB camera. Check connection and power, then retry.</string>
+    <string name="uvc_refresh">Refresh</string>
+    <string name="uvc_mode_heading">Resolution · Frame rate · Pixel format</string>
+    <string name="uvc_mode">%1$d × %2$d · %3$d fps · %4$s</string>
+    <string name="uvc_recording_interrupted">USB recording interrupted. The file was finalized where possible.</string>
+    <string name="uvc_retry">Retry</string>
 </resources>

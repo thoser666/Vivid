@@ -14,4 +14,7 @@ interface StreamingServiceLauncher {
 
     /** Stoppt den Foreground-Service (und damit den Stream). */
     fun stopStreaming()
+
+    /** Retain the same foreground owner for a standalone local recording. */
+    fun keepRecordingAlive()
 }

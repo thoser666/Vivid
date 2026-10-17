@@ -3,6 +3,14 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-feature android:name="android.hardware.camera.any" />
+    <!-- USB/UVC-Quelle (#305): USB-Host ist optional — Geräte ohne OTG/Host
+         laufen normal mit der Telefon-Kamera weiter. Die USB-Berechtigung wird
+         dynamisch per UsbManager angefragt (keine Manifest-Permission nötig). -->
+    <uses-feature android:name="android.hardware.usb.host" android:required="false" tools:replace="android:required" />
+    <!-- UVCAndroid's optional file-capture API is unused; Vivid records app-internal MP4s. -->
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" tools:node="remove" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" tools:node="remove" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" tools:node="remove" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.INTERNET" />

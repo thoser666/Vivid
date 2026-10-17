@@ -31,7 +31,7 @@ class KeyframeMonitoringRecordControllerTest {
         every { context.checkSelfPermission(any()) } returns PackageManager.PERMISSION_DENIED
         val factory = mockk<CameraFactory>()
         every { factory.create(any()) } returns camera
-        val engine = StreamingEngine(context, factory, mockk(relaxed = true), mockk(relaxed = true), VideoSourceRegistry())
+        val engine = StreamingEngine(context, factory, mockk(relaxed = true), mockk(relaxed = true), VideoSourceRegistry(), mockk(relaxed = true), mockk(relaxed = true))
         var nowMs = 0L
         engine.timeSource = { nowMs }
         engine.initializeCamera()

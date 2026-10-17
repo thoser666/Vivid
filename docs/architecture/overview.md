@@ -23,7 +23,7 @@ app/                    ← Haupt-App (Hilt, Navigation, UI)
 ### 1. Streaming-Engine (`feature-streaming`)
 
 Zuständig für:
-- **Video-Quellen**: Kamera, Screen-Capture, Video-Player
+- **Video-Quellen**: Kamera, Screen-Capture, Video-Player, Replay, USB/UVC
 - **Encoder**: RootEncoder (RTMP/SRT)
 - **Video-Effekte**: Filter, LUTs, Color-Spaces
 - **Kamera-Steuerung**: Zoom, Fokus, Torch, Stabilisierung
@@ -93,6 +93,7 @@ User Input → SettingsViewModel → SettingsRepository → DataStore
 
 ## Weiterführende Dokumentation
 
+- [USB/UVC-Kamera und Capture-Card](../usb-uvc.md) - Architektur, Berechtigungen, native Lizenzen und offene Hardware-Abnahme
 - [PARITY.md](https://github.com/thoser666/Vivid/blob/develop/PARITY.md) - Feature-Parität mit Moblin
 - [RELEASE.md](https://github.com/thoser666/Vivid/blob/develop/RELEASE.md) - Release-Strategie
 - [ai-chat-bot.md](../ai-chat-bot.md) - Bot-Architektur

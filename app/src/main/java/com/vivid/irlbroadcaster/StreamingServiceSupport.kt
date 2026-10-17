@@ -21,6 +21,9 @@ object StreamingServiceSupport {
     const val NOTIFICATION_ID = 1001
 
     const val ACTION_START_STREAM = "com.vivid.action.START_STREAM"
+    const val ACTION_STOP_RECORDING = "com.vivid.action.STOP_RECORDING"
+    const val ACTION_KEEP_RECORDING = "com.vivid.action.KEEP_RECORDING"
+
     const val ACTION_STOP_STREAM = "com.vivid.action.STOP_STREAM"
 
     /** Stream-Ziele (RTMP-URLs) als ArrayList<String> — Multi-Streaming. */

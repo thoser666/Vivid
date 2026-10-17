@@ -524,6 +524,16 @@ class StreamingViewModelTest {
     }
 
     @Test
+    fun `USB scene saves camera fallback without unstable device identity`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        every { engine.activeSourceKind } returns MutableStateFlow(VideoSourceKind.USB_UVC)
+        val viewModel = viewModel()
+        viewModel.saveScene("External camera")
+        advanceUntilIdle()
+        coVerify { sceneRepository.saveScene(match { it.videoSource == SceneVideoSource.CAMERA }) }
+    }
+
+    @Test
     fun `saveScene with a blank name is a no-op`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val viewModel = viewModel()

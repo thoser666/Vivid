@@ -25,6 +25,10 @@ class AndroidStreamingServiceLauncher @Inject constructor(
         StreamingService.start(context, urls)
     }
 
+    override fun keepRecordingAlive() {
+        StreamingService.keepRecordingAlive(context)
+    }
+
     override fun stopStreaming() {
         StreamingService.stop(context)
     }
