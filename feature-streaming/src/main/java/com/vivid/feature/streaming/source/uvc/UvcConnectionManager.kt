@@ -110,8 +110,23 @@ class UvcConnectionManager @Inject constructor(
             requestedMode = mode ?: preferences[device.preferenceKey()]
             _notice.value = null
             _state.value = UvcConnectionState.PermissionRequired(device)
-            if (permission.request(handle)) openLocked()
-            else if (!permission.hasPending()) failLocked(UvcFailure.PermissionDenied)
+            if (permission.request(handle)) {
+                openLocked()
+            } else if (!permission.hasPending()) {
+                failLocked(UvcFailure.PermissionDenied)
+            } else {
+                // Some OEMs never deliver UsbManager's PendingIntent after
+                // device removal/activity loss. Never leave the picker spinning forever.
+                val gen = generation
+                scope.launch {
+                    delay(PERMISSION_TIMEOUT_MS)
+                    synchronized(lock) {
+                        if (gen == generation && _state.value is UvcConnectionState.PermissionRequired) {
+                            failLocked(UvcFailure.OpenFailed)
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -337,5 +352,8 @@ class UvcConnectionManager @Inject constructor(
     private inline fun cleanup(block: () -> Unit) {
         try { block() } catch (_: Exception) { Timber.w("UVC resource cleanup failed") }
     }
-    companion object { private const val OPEN_TIMEOUT_MS = 10_000L }
+    companion object {
+        private const val OPEN_TIMEOUT_MS = 10_000L
+        private const val PERMISSION_TIMEOUT_MS = 60_000L
+    }
 }
