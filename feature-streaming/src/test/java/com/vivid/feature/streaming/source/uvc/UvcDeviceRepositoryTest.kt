@@ -154,6 +154,21 @@ class UvcDeviceRepositoryTest {
     }
 
     @Test
+    fun `reused bus address cannot redirect a stale UVC session to another device`() {
+        val path = "/dev/bus/usb/001/007"
+        val first = usbDevice(path, 0x046d, 0x0825, 0,
+            listOf(UsbConstants.USB_CLASS_VIDEO))
+        val replacement = usbDevice(path, 0x1234, 0xabcd, 0,
+            listOf(UsbConstants.USB_CLASS_VIDEO))
+        val gateway = FakeUsbHostGateway(devices = listOf(first))
+        val repository = UvcDeviceRepository(gateway)
+        val oldSessionId = repository.refresh().single().stableSessionId
+
+        gateway.devices = listOf(replacement)
+        assertNull(repository.deviceHandle(oldSessionId))
+    }
+
+    @Test
     fun `permission delegates to gateway`() {
         val webcam = usbDevice(
             name = "/dev/bus/usb/001/008",
