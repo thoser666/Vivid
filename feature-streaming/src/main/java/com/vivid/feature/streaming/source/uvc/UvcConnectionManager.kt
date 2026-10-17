@@ -142,7 +142,8 @@ class UvcConnectionManager @Inject constructor(
             gateway = gatewayFactory.create()
             gateway?.setListener(gatewayListener(gen))
             gateway?.select(device)
-        } catch (_: UvcNativeLibraryException) { failLocked(UvcFailure.NativeLibraryMissing) }
+        } catch (_: LinkageError) { failLocked(UvcFailure.NativeLibraryMissing) }
+        catch (_: UvcNativeLibraryException) { failLocked(UvcFailure.NativeLibraryMissing) }
         catch (_: Exception) { failLocked(UvcFailure.OpenFailed) }
         scope.launch {
             delay(OPEN_TIMEOUT_MS)
@@ -185,6 +186,8 @@ class UvcConnectionManager @Inject constructor(
                     // Ready until the gateway reads back the negotiated mode.
                     try {
                         gateway?.open(mode) ?: failLocked(UvcFailure.OpenFailed)
+                    } catch (_: LinkageError) {
+                        failLocked(UvcFailure.NativeLibraryMissing)
                     } catch (_: Exception) {
                         failLocked(UvcFailure.ModeNegotiationFailed)
                     }
@@ -268,7 +271,8 @@ class UvcConnectionManager @Inject constructor(
                 failLocked(UvcFailure.PreviewFailed)
                 return false
             }
-        } catch (_: Exception) { failLocked(UvcFailure.PreviewFailed); return false }
+        } catch (_: LinkageError) { failLocked(UvcFailure.NativeLibraryMissing); return false }
+        catch (_: Exception) { failLocked(UvcFailure.PreviewFailed); return false }
         val gen = generation
         scope.launch {
             delay(OPEN_TIMEOUT_MS)
