@@ -151,12 +151,15 @@
     <string name="uvc_disconnect">Déconnecter</string>
     <string name="uvc_disconnected">Appareil USB déconnecté</string>
     <string name="uvc_permission_required">Autorisez l’accès USB dans la fenêtre Android …</string>
-    <string name="uvc_permission_denied">Autorisation caméra ou USB refusée. Reconnectez pour réessayer.</string>
+    <string name="uvc_permission_denied">Accès USB refusé. Appuyez sur Connecter pour refaire la demande.</string>
+    <string name="uvc_camera_permission_denied">Android exige l’autorisation Caméra pour accéder à la vidéo USB. Accordez-la puis réessayez ; Vivid utilise uniquement l’appareil USB choisi.</string>
+    <string name="uvc_camera_permission_rationale">À partir d’Android 9, Android exige l’autorisation Caméra pour les appareils vidéo USB. Vivid accède uniquement à l’appareil USB choisi ; Android demande séparément l’accès USB.</string>
     <string name="uvc_opening">Ouverture de la caméra USB …</string>
     <string name="uvc_ready">Caméra USB prête</string>
     <string name="uvc_capturing">La caméra USB transmet des images en direct</string>
     <string name="uvc_busy">Caméra USB occupée. Arrêtez la diffusion et l’enregistrement avant de modifier.</string>
     <string name="uvc_unsupported_mode">Mode indisponible. Le mode compatible affiché est utilisé.</string>
+    <string name="uvc_mode_negotiation_failed">Impossible de confirmer un mode vidéo USB annoncé. Choisissez un autre mode affiché ou réessayez.</string>
     <string name="uvc_native_unavailable">Bibliothèque native de caméra USB indisponible pour cette architecture</string>
     <string name="uvc_open_failed">Impossible d’ouvrir la caméra USB. Vérifiez la connexion et l’alimentation, puis réessayez.</string>
     <string name="uvc_refresh">Actualiser</string>

@@ -102,7 +102,7 @@ class UvcConnectionManager @Inject constructor(
             // Android P+ requires CAMERA for USB video-class permission, separately from the USB grant.
             if (android.os.Build.VERSION.SDK_INT >= 28 &&
                 ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED
-            ) { failLocked(UvcFailure.PermissionDenied); return }
+            ) { failLocked(UvcFailure.CameraPermissionDenied); return }
             val handle = repository.deviceHandle(device.stableSessionId)
             if (handle == null) { failLocked(UvcFailure.OpenFailed); return }
             selected = handle
@@ -117,7 +117,7 @@ class UvcConnectionManager @Inject constructor(
 
     fun setMode(mode: UvcCaptureMode) {
         synchronized(lock) {
-            val device = descriptor ?: return
+            val device = descriptor ?: (_state.value as? UvcConnectionState.Error)?.device ?: return
             if (captureSurface != null) { _notice.value = UvcFailure.DeviceBusy; return }
             if (mode !in device.modes) { _notice.value = UvcFailure.UnsupportedMode; return }
             // A fresh helper per mode eliminates late close/open callbacks from an earlier negotiation.
@@ -159,7 +159,7 @@ class UvcConnectionManager @Inject constructor(
                 if (!valid(gen, device) || _state.value !is UvcConnectionState.Opening) return
                 val modes = mapUvcModes(gateway?.supportedFormats().orEmpty())
                 val mode = requestedMode?.takeIf { it in modes } ?: selectDefaultUvcMode(modes)
-                if (mode == null) { failLocked(UvcFailure.UnsupportedMode); return }
+                if (mode == null) { failLocked(UvcFailure.ModeNegotiationFailed); return }
                 if (requestedMode != null && mode != requestedMode) _notice.value = UvcFailure.UnsupportedMode
                 descriptor = descriptor?.copy(modes = modes)
                 openedMode = mode
@@ -171,7 +171,10 @@ class UvcConnectionManager @Inject constructor(
                 if (!valid(gen, device) || _state.value !is UvcConnectionState.Opening) return
                 val description = descriptor ?: return
                 val actual = gateway?.actualMode()
-                if (actual == null || actual !in description.modes) { failLocked(UvcFailure.UnsupportedMode); return }
+                if (actual == null || actual !in description.modes) {
+                    failLocked(UvcFailure.ModeNegotiationFailed)
+                    return
+                }
                 if (actual != openedMode) _notice.value = UvcFailure.UnsupportedMode
                 openedMode = actual
                 _state.value = UvcConnectionState.Ready(description, actual)
@@ -209,8 +212,14 @@ class UvcConnectionManager @Inject constructor(
             if (!matches(device)) { refresh(); return }
             val active = captureSurface != null
             permission.clearPending(device)
+            _notice.value = null
+            val lastKnownDevice = descriptor
             teardownLocked()
-            _state.value = if (active) UvcConnectionState.Error(UvcFailure.DetachedDuringCapture) else UvcConnectionState.Disconnected
+            _state.value = if (active) {
+                UvcConnectionState.Error(UvcFailure.DetachedDuringCapture, lastKnownDevice)
+            } else {
+                UvcConnectionState.Disconnected
+            }
             refresh()
             active
         }
@@ -256,6 +265,7 @@ class UvcConnectionManager @Inject constructor(
         val notify = synchronized(lock) {
             val active = captureSurface != null
             teardownLocked()
+            _notice.value = null
             _state.value = UvcConnectionState.Disconnected
             active
         }
@@ -265,9 +275,12 @@ class UvcConnectionManager @Inject constructor(
     private fun matches(device: UsbDevice) = selected?.deviceName == device.deviceName
     private fun valid(gen: Int, device: UsbDevice) = gen == generation && matches(device)
     private fun failLocked(failure: UvcFailure) {
+        val lastKnownDevice = descriptor?.let { it.copy(modes = it.modes.toList()) }
         teardownLocked()
-        _notice.value = failure
-        _state.value = UvcConnectionState.Error(failure)
+        // The state is the single source of truth for terminal errors. Keeping a
+        // duplicate notice made the same failure render twice in the picker.
+        _notice.value = null
+        _state.value = UvcConnectionState.Error(failure, lastKnownDevice)
     }
     private fun teardownLocked() {
         generation++

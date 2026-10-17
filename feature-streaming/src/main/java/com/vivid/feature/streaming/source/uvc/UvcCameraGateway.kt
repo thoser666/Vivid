@@ -45,6 +45,7 @@ class HerohanUvcCameraGateway : UvcCameraGateway {
     @Volatile private var helper: ICameraHelper? = null
     @Volatile private var formats: List<UvcFormatInfo> = emptyList()
     @Volatile private var mode: UvcCaptureMode? = null
+    @Volatile private var requestedMode: UvcCaptureMode? = null
     private val released = AtomicBoolean(false)
     private val firstFrame = AtomicBoolean(false)
 
@@ -62,9 +63,10 @@ class HerohanUvcCameraGateway : UvcCameraGateway {
         }
         override fun onCameraOpen(device: UsbDevice) {
             execute(device) {
-                mode = helper?.previewSize?.let { size ->
+                val reportedMode = helper?.previewSize?.let { size ->
                     mapUvcModes(listOf(UvcFormatInfo(size.type, size.width, size.height, size.fps))).singleOrNull()
                 }
+                mode = resolveOpenedUvcMode(reportedMode, requestedMode, mapUvcModes(formats))
                 firstFrame.set(false)
                 // RAW callback only observes delivery; frames stay on the native Surface/GPU path.
                 helper?.setFrameCallback({ frame ->
@@ -109,6 +111,8 @@ class HerohanUvcCameraGateway : UvcCameraGateway {
     override fun supportedFormats(): List<UvcFormatInfo> = formats
     override fun actualMode(): UvcCaptureMode? = mode
     override fun open(mode: UvcCaptureMode) {
+        requestedMode = mode
+        this.mode = null
         val type = if (mode.format == UvcPixelFormat.MJPEG) UVCCamera.UVC_VS_FRAME_MJPEG else UVCCamera.UVC_VS_FRAME_UNCOMPRESSED
         checkNotNull(helper).openCamera(Size(type, mode.width, mode.height, mode.fps, listOf(mode.fps)))
     }

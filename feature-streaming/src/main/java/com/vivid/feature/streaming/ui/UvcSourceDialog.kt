@@ -53,6 +53,7 @@ internal fun UvcSourceDialog(engine: StreamingEngine, onDismiss: () -> Unit) {
         }
     }
     val description = when (val current = state) {
+        is UvcConnectionState.Error -> current.device
         is UvcConnectionState.Ready -> current.device
         is UvcConnectionState.Starting -> current.device
         is UvcConnectionState.Capturing -> current.device
@@ -65,6 +66,9 @@ internal fun UvcSourceDialog(engine: StreamingEngine, onDismiss: () -> Unit) {
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()).testTag("uvc_picker"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(stringResource(if (manager.hasUsbHostFeature()) R.string.uvc_choose_device else R.string.uvc_host_unavailable))
+                if (manager.hasUsbHostFeature() && devices.isNotEmpty()) {
+                    Text(stringResource(R.string.uvc_camera_permission_rationale), Modifier.testTag("uvc_camera_permission_rationale"))
+                }
                 if (devices.isEmpty()) Text(stringResource(R.string.uvc_no_device))
                 devices.forEachIndexed { index, device ->
                     FilterChip(
@@ -77,8 +81,10 @@ internal fun UvcSourceDialog(engine: StreamingEngine, onDismiss: () -> Unit) {
                 }
                 val status = stringResource(uvcStatusResource(state))
                 Text(status, Modifier.testTag("uvc_status").semantics { stateDescription = status })
-                if (cameraDenied) Text(stringResource(R.string.uvc_permission_denied))
-                notice?.let { Text(stringResource(uvcFailureResource(it)), Modifier.testTag("uvc_notice")) }
+                if (cameraDenied) Text(stringResource(R.string.uvc_camera_permission_denied), Modifier.testTag("uvc_camera_permission_denied"))
+                if (state !is UvcConnectionState.Error) {
+                    notice?.let { Text(stringResource(uvcFailureResource(it)), Modifier.testTag("uvc_notice")) }
+                }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(
                         enabled = selected != null && !busy && state !is UvcConnectionState.Opening && state !is UvcConnectionState.PermissionRequired,
@@ -132,9 +138,11 @@ internal fun uvcStatusResource(state: UvcConnectionState): Int = when (state) {
 }
 
 internal fun uvcFailureResource(failure: UvcFailure): Int = when (failure) {
+    UvcFailure.CameraPermissionDenied -> R.string.uvc_camera_permission_denied
     UvcFailure.PermissionDenied -> R.string.uvc_permission_denied
     UvcFailure.DeviceBusy -> R.string.uvc_busy
     UvcFailure.UnsupportedMode -> R.string.uvc_unsupported_mode
+    UvcFailure.ModeNegotiationFailed -> R.string.uvc_mode_negotiation_failed
     UvcFailure.DetachedDuringCapture -> R.string.uvc_disconnected
     UvcFailure.NativeLibraryMissing -> R.string.uvc_native_unavailable
     UvcFailure.UnsupportedHost -> R.string.uvc_host_unavailable

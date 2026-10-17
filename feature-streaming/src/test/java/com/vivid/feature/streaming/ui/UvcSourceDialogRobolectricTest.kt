@@ -64,4 +64,20 @@ class UvcSourceDialogRobolectricTest {
         compose.onNodeWithTag("uvc_device_0").performClick()
         compose.onNodeWithTag("uvc_connect").assertIsEnabled()
     }
+
+    @Test fun failedNegotiationExplainsCameraPermissionOnceAndOffersReportedModes() {
+        val fallback = UvcCaptureMode(640, 480, 30, UvcPixelFormat.YUY2)
+        val device = UvcDeviceDescriptor("first", 1, 2, "Webcam", modes = listOf(fallback))
+        devices.value = listOf(device)
+        connection.value = UvcConnectionState.Error(UvcFailure.ModeNegotiationFailed, device)
+        every { manager.notice } returns MutableStateFlow(UvcFailure.UnsupportedMode)
+        show()
+
+        compose.onNodeWithTag("uvc_camera_permission_rationale").assertExists()
+        compose.onNodeWithTag("uvc_status").assertExists()
+        compose.onNodeWithTag("uvc_notice").assertDoesNotExist()
+        compose.onNodeWithTag("uvc_mode_${fallback.preferenceString()}").assertExists()
+        compose.onNodeWithTag("uvc_mode_${fallback.preferenceString()}").performScrollTo().performClick()
+        verify(exactly = 1) { engine.setUsbCaptureMode(fallback) }
+    }
 }

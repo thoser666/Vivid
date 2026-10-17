@@ -152,12 +152,15 @@
     <string name="uvc_disconnect">Отключить</string>
     <string name="uvc_disconnected">USB-устройство отключено</string>
     <string name="uvc_permission_required">Разрешите доступ к USB в окне Android …</string>
-    <string name="uvc_permission_denied">В разрешении камеры или USB отказано. Подключите снова для повтора.</string>
+    <string name="uvc_permission_denied">В доступе к USB отказано. Нажмите «Подключить», чтобы запросить его снова.</string>
+    <string name="uvc_camera_permission_denied">Android требует разрешение «Камера» для доступа к USB-видео. Разрешите его и повторите попытку; Vivid использует только выбранное USB-устройство.</string>
+    <string name="uvc_camera_permission_rationale">В Android 9 и новее система требует разрешение «Камера» для USB-видеоустройств. Vivid обращается только к выбранному USB-устройству; доступ к USB запрашивается отдельно.</string>
     <string name="uvc_opening">Открытие USB-камеры …</string>
     <string name="uvc_ready">USB-камера готова</string>
     <string name="uvc_capturing">USB-камера передаёт видео</string>
     <string name="uvc_busy">USB-камера занята. Перед изменением остановите трансляцию и запись.</string>
     <string name="uvc_unsupported_mode">Режим недоступен. Используется показанный поддерживаемый режим.</string>
+    <string name="uvc_mode_negotiation_failed">Не удалось подтвердить заявленный режим USB-видео. Выберите другой режим из списка или повторите попытку.</string>
     <string name="uvc_native_unavailable">Нативная библиотека USB-камеры недоступна для этой архитектуры</string>
     <string name="uvc_open_failed">Не удалось открыть USB-камеру. Проверьте подключение и питание, затем повторите.</string>
     <string name="uvc_refresh">Обновить</string>

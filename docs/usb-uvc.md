@@ -12,8 +12,12 @@ Die unten aufgeführten Übertragungs- und Aufnahmeprüfungen sind nicht ausgef�
    Strombedarf einen versorgten USB-Hub verwenden.
 2. Unter Streaming-Steuerung **USB-Kamera / Capture-Card** öffnen, das konkrete
    Gerät wählen und **Verbinden** drücken. Erst diese Aktion fragt erforderliche
-   Kamera- und USB-Berechtigungen ab. Ein neu angeschlossenes Gerät übernimmt
-   niemals automatisch die aktive Quelle.
+   Android-Kamera- und USB-Berechtigungen ab. Android verlangt die Runtime-
+   Berechtigung `CAMERA` ab Android 9 auch für direkten USB-UVC-Zugriff über
+   `UsbManager`; das ist keine Aufforderung, die Telefonkamera zu verwenden.
+   Vivid öffnet nur das ausgewählte USB-Gerät. USB-Zugriff wird separat
+   bestätigt. Ein neu angeschlossenes Gerät übernimmt niemals automatisch die
+   aktive Quelle.
 3. Nach erfolgreichem Öffnen einen tatsächlich gemeldeten Modus wählen
    (Auflösung, Bildrate, MJPEG/YUY2). Der Wunschmodus wird beim nächsten
    Verbinden erneut geprüft. Nicht verfügbare Wünsche erzeugen einen Hinweis;
@@ -76,6 +80,14 @@ empfangenen Codec-Formate für eine später begonnene Aufnahme erhalten bleiben.
 Bei Detach werden Recorder und Ziele beendet und Ressourcen freigegeben; eine
 Datei wird soweit möglich abgeschlossen und als unterbrochen gekennzeichnet.
 Eine ohne Abschluss entstandene Datei ist kein nachgewiesen gültiges MP4.
+
+UVCAndroid meldet auf manchen Geräten nach erfolgreichem `onCameraOpen` kein
+`previewSize`. In diesem Fall verwendet Vivid ausschließlich den vorher vom
+Gerät gemeldeten und an `openCamera(Size)` übergebenen Modus. Wenn der Helper
+einen tatsächlichen Modus meldet, wird dieser unverändert gegen die vom Gerät
+gemeldeten Modi geprüft; unbekannte oder nicht unterstützte Modi werden nicht
+als gültig ausgegeben. Ein Fehler behält die letzte Modusliste, damit ein
+anderer tatsächlich gemeldeter Modus gewählt werden kann.
 
 Camera2-spezifische Steuerungen (Torch/Fokus/Stabilisierung/Belichtung) sind für
 USB gesperrt. Generische GL-Effekte verwenden die aktive USB-GL-Pipeline.

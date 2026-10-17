@@ -150,12 +150,15 @@
     <string name="uvc_disconnect">Disconnect</string>
     <string name="uvc_disconnected">USB device disconnected</string>
     <string name="uvc_permission_required">Allow USB access in the Android prompt …</string>
-    <string name="uvc_permission_denied">Camera or USB permission denied. Connect again to retry.</string>
+    <string name="uvc_permission_denied">USB access was denied. Tap Connect to request it again.</string>
+    <string name="uvc_camera_permission_denied">Android requires the Camera permission for USB video access. Allow it and retry; Vivid uses only the USB device you select.</string>
+    <string name="uvc_camera_permission_rationale">On Android 9 and later, Android requires the Camera permission for USB video devices. Vivid accesses only the USB device you select; Android asks for USB access separately.</string>
     <string name="uvc_opening">Opening USB camera …</string>
     <string name="uvc_ready">USB camera ready</string>
     <string name="uvc_capturing">USB camera delivering live frames</string>
     <string name="uvc_busy">USB camera busy. Stop streaming and recording before making changes.</string>
     <string name="uvc_unsupported_mode">Mode unavailable. The displayed supported mode is being used.</string>
+    <string name="uvc_mode_negotiation_failed">Could not confirm a reported USB video mode. Choose another listed mode or retry.</string>
     <string name="uvc_native_unavailable">Native USB camera library unavailable for this architecture</string>
     <string name="uvc_open_failed">Could not open USB camera. Check connection and power, then retry.</string>
     <string name="uvc_refresh">Refresh</string>

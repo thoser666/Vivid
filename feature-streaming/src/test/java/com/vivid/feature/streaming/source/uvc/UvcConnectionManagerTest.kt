@@ -45,6 +45,7 @@ class UvcConnectionManagerTest {
         var previewStarted = false
         var released = false
         var failSelect = false
+        var reportActualMode = true
 
         override fun setListener(listener: UvcCameraGateway.Listener?) {
             this.callback = listener
@@ -58,7 +59,7 @@ class UvcConnectionManagerTest {
         }
 
         override fun supportedFormats(): List<UvcFormatInfo> = formats
-        override fun actualMode(): UvcCaptureMode? = openedMode
+        override fun actualMode(): UvcCaptureMode? = if (reportActualMode) openedMode else null
 
         override fun open(mode: UvcCaptureMode) {
             openedMode = mode
@@ -224,11 +225,23 @@ class UvcConnectionManagerTest {
         // Verweigerung direkt über den Controller (Broadcast-Äquivalent).
         permissionController.onResult(device, false)
 
-        assertEquals(
-            UvcConnectionState.Error(UvcFailure.PermissionDenied),
-            manager.connectionState.value,
-        )
+        val error = manager.connectionState.value as UvcConnectionState.Error
+        assertEquals(UvcFailure.PermissionDenied, error.reason)
+        assertEquals(descriptor, error.device)
         assertFalse(manager.isCaptureReady)
+    }
+
+    @Test
+    fun `Android camera runtime permission is checked before requesting USB access`() {
+        val device = usbDevice("dev13")
+        val descriptor = descriptorFor(device)
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        org.robolectric.Shadows.shadowOf(context).denyPermissions(android.Manifest.permission.CAMERA)
+
+        manager.connect(descriptor)
+
+        assertEquals(UvcFailure.CameraPermissionDenied, (manager.connectionState.value as UvcConnectionState.Error).reason)
+        assertTrue(permissionGateway.requests.isEmpty())
     }
 
     @Test
@@ -297,10 +310,7 @@ class UvcConnectionManagerTest {
 
         gateways.single().emitDetach(device)
 
-        assertEquals(
-            UvcConnectionState.Error(UvcFailure.DetachedDuringCapture),
-            manager.connectionState.value,
-        )
+        assertEquals(UvcFailure.DetachedDuringCapture, (manager.connectionState.value as UvcConnectionState.Error).reason)
         assertTrue(lost)
     }
 
@@ -363,6 +373,36 @@ class UvcConnectionManagerTest {
     }
 
     @Test
+    fun `failed mode negotiation keeps one error and allows choosing a reported fallback`() {
+        val device = usbDevice("dev12")
+        val descriptor = descriptorFor(device)
+        hostGateway.granted = true
+        permissionGateway.granted = true
+        val unavailable = UvcCaptureMode(3840, 2160, 30, UvcPixelFormat.MJPEG)
+        manager.connect(descriptor, unavailable)
+        val firstGateway = gateways.single()
+        firstGateway.emitDeviceOpen(device)
+        assertEquals(UvcFailure.UnsupportedMode, manager.notice.value)
+
+        firstGateway.reportActualMode = false
+        firstGateway.emitCameraOpen(device)
+
+        val error = manager.connectionState.value as UvcConnectionState.Error
+        assertEquals(UvcFailure.ModeNegotiationFailed, error.reason)
+        assertEquals(2, error.device?.modes?.size)
+        assertEquals(null, manager.notice.value)
+
+        val fallback = UvcCaptureMode(640, 480, 30, UvcPixelFormat.YUY2)
+        manager.setMode(fallback)
+        assertTrue(firstGateway.released)
+        val retryGateway = gateways.last()
+        retryGateway.emitDeviceOpen(device)
+        retryGateway.emitCameraOpen(device)
+        val ready = manager.connectionState.value as UvcConnectionState.Ready
+        assertEquals(fallback, ready.mode)
+    }
+
+    @Test
     fun `gateway error during capture tears down and notifies loss`() {
         val device = usbDevice("dev11")
         connectReady(device)
@@ -372,10 +412,7 @@ class UvcConnectionManagerTest {
 
         gateways.single().emitError(device, UvcFailure.DeviceBusy)
 
-        assertEquals(
-            UvcConnectionState.Error(UvcFailure.DeviceBusy),
-            manager.connectionState.value,
-        )
+        assertEquals(UvcFailure.DeviceBusy, (manager.connectionState.value as UvcConnectionState.Error).reason)
         assertTrue(lost)
     }
 }

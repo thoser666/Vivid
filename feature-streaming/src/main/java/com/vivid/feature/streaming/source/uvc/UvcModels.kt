@@ -91,9 +91,11 @@ data class UvcDeviceDescriptor(
 
 /** Erwartete UVC-Fehler — kein stilles Catch-and-Ignore, sondern expliziter Zustand. */
 sealed interface UvcFailure {
+    data object CameraPermissionDenied : UvcFailure
     data object PermissionDenied : UvcFailure
     data object DeviceBusy : UvcFailure
     data object UnsupportedMode : UvcFailure
+    data object ModeNegotiationFailed : UvcFailure
     data object OpenFailed : UvcFailure
     data object PreviewFailed : UvcFailure
     data object DetachedDuringCapture : UvcFailure
@@ -110,7 +112,11 @@ sealed interface UvcConnectionState {
     data class Ready(val device: UvcDeviceDescriptor, val mode: UvcCaptureMode) : UvcConnectionState
     data class Starting(val device: UvcDeviceDescriptor, val mode: UvcCaptureMode) : UvcConnectionState
     data class Capturing(val device: UvcDeviceDescriptor, val mode: UvcCaptureMode) : UvcConnectionState
-    data class Error(val reason: UvcFailure) : UvcConnectionState
+    /** Keep the last enumerated modes available so the user can recover by choosing another. */
+    data class Error(
+        val reason: UvcFailure,
+        val device: UvcDeviceDescriptor? = null,
+    ) : UvcConnectionState
 }
 
 /**
@@ -127,6 +133,17 @@ fun mapUvcModes(formats: List<UvcFormatInfo>): List<UvcCaptureMode> =
         if (info.width <= 0 || info.height <= 0 || info.fps <= 0) return@mapNotNull null
         UvcCaptureMode(info.width, info.height, info.fps, format)
     }.distinct().sortedWith(compareBy({ it.format }, { it.width * it.height }, { it.fps }))
+
+/**
+ * Some UVCAndroid devices report a successful open but leave `previewSize` null.
+ * In that case the successfully opened, previously advertised request is the
+ * only valid fallback. A non-null reported mode is never silently rewritten.
+ */
+internal fun resolveOpenedUvcMode(
+    reported: UvcCaptureMode?,
+    requested: UvcCaptureMode?,
+    supported: List<UvcCaptureMode>,
+): UvcCaptureMode? = reported ?: requested?.takeIf { it in supported }
 
 /**
  * Vernünftiger Standardmodus: MJPEG bevorzugt (geringere USB-Bandbreite),
