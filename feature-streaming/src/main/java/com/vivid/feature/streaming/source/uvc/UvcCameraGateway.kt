@@ -1,5 +1,6 @@
 package com.vivid.feature.streaming.source.uvc
 
+import android.content.Context
 import android.hardware.usb.UsbDevice
 import android.view.Surface
 import com.herohan.uvcapp.CameraException
@@ -7,6 +8,7 @@ import com.herohan.uvcapp.CameraHelper
 import com.herohan.uvcapp.ICameraHelper
 import com.serenegiant.usb.Size
 import com.serenegiant.usb.UVCCamera
+import com.serenegiant.utils.UVCUtils
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
@@ -43,7 +45,7 @@ interface UvcCameraGateway {
 }
 
 /** Helper calls are queued; descriptor reads and native initialization run off the UI thread. */
-class HerohanUvcCameraGateway : UvcCameraGateway {
+class HerohanUvcCameraGateway(private val context: Context) : UvcCameraGateway {
     private val worker = Executors.newSingleThreadExecutor()
     @Volatile private var listener: UvcCameraGateway.Listener? = null
     @Volatile private var helper: ICameraHelper? = null
@@ -105,6 +107,9 @@ class HerohanUvcCameraGateway : UvcCameraGateway {
     override fun select(device: UsbDevice) = execute(device) {
         selectedDevice = device
         Class.forName("com.serenegiant.usb.UVCCamera") // Load native ABI here, inside the guarded worker.
+        // Do not rely on hidden Android ActivityThread reflection for obtaining
+        // Application; Android P+ can restrict hidden platform API access.
+        UVCUtils.init(context)
         val camera = CameraHelper()
         helper = camera
         camera.setStateCallback(callback)
