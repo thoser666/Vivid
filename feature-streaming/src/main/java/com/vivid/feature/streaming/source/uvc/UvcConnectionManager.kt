@@ -145,7 +145,8 @@ class UvcConnectionManager @Inject constructor(
     private fun permissionResult(device: UsbDevice, granted: Boolean) {
         synchronized(lock) {
             if (!matches(device) || _state.value !is UvcConnectionState.PermissionRequired) return
-            if (granted && repository.hasPermission(device)) openLocked()
+            val stillAttached = descriptor?.stableSessionId?.let(repository::deviceHandle) != null
+            if (granted && stillAttached && repository.hasPermission(device)) openLocked()
             else failLocked(UvcFailure.PermissionDenied)
         }
     }
@@ -324,7 +325,11 @@ class UvcConnectionManager @Inject constructor(
         if (notify) onCaptureLost?.invoke()
     }
 
-    private fun matches(device: UsbDevice) = selected?.deviceName == device.deviceName
+    private fun matches(device: UsbDevice): Boolean = selected?.let {
+        it.deviceName == device.deviceName &&
+            it.vendorId == device.vendorId &&
+            it.productId == device.productId
+    } == true
     private fun valid(gen: Int, device: UsbDevice) = gen == generation && matches(device)
     private fun failLocked(failure: UvcFailure) {
         val lastKnownDevice = descriptor?.let { it.copy(modes = it.modes.toList()) }
