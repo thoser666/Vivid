@@ -855,7 +855,7 @@ class StreamingEngine @Inject constructor(
         }
         if ((kind == VideoSourceKind.USB_UVC || activeSourceKind.value == VideoSourceKind.USB_UVC) &&
             (_streamingState.value is StreamingState.Streaming || _streamingState.value is StreamingState.Preparing ||
-                _replayState.value is ReplayState.Recording)) return false
+                _replayState.value is ReplayState.Recording || usbVideoSource?.isActive == true)) return false
         val previousKind = activeSourceKind.value
         val switched = when (kind) {
             VideoSourceKind.CAMERA -> videoSourceRegistry.switchTo(VideoSourceKind.CAMERA)
@@ -913,6 +913,12 @@ class StreamingEngine @Inject constructor(
         }
         if (switched && kind != VideoSourceKind.USB_UVC) {
             usbVideoSource?.stopIdlePreview()
+            if (previousKind == VideoSourceKind.USB_UVC) {
+                // Switching away must relinquish the native USB handle. Without
+                // this, the camera stays open and unavailable to other apps.
+                releaseUsbBackend()
+                uvcConnectionManager.disconnect()
+            }
         }
         // P1: Quellwechsel — die Zonen sind quellrelativ; der Soll-Zustand
         // wird auf die neue Quelle angewendet (relative Bildmitte bleibt
