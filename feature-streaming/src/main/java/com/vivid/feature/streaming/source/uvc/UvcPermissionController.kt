@@ -147,7 +147,10 @@ class UvcPermissionController @Inject constructor(
             .setAction(ACTION_USB_PERMISSION)
             .setPackage(context.packageName)
             .setData("vivid-uvc://permission/$requestToken".toUri())
-        val flags = PendingIntent.FLAG_UPDATE_CURRENT or
+        // The USB framework fills in EXTRA_DEVICE/EXTRA_PERMISSION_GRANTED:
+        // the callback must be mutable, but it is explicit, app-private and
+        // one-shot so it cannot be replayed after the first delivery.
+        val flags = PendingIntent.FLAG_CANCEL_CURRENT or PendingIntent.FLAG_ONE_SHOT or
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 PendingIntent.FLAG_MUTABLE
             } else {
