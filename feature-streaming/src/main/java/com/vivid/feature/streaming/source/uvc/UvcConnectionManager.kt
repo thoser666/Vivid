@@ -178,20 +178,29 @@ class UvcConnectionManager @Inject constructor(
                     return
                 }
                 if (requestedMode != null && requestedMode != mode) _notice.value = UvcFailure.UnsupportedMode
-                val updatedDescription = description.copy(modes = modes)
-                descriptor = updatedDescription
-                try {
-                    // Apply a valid advertised choice after native open and
-                    // before any preview Surface is attached.
-                    if (reported != mode) gateway?.open(mode)
-                } catch (_: Exception) {
-                    failLocked(UvcFailure.OpenFailed)
+                descriptor = description.copy(modes = modes)
+                if (reported != mode) {
+                    // UVCAndroid's previewSize setter posts to its own Handler and
+                    // silently swallows native negotiation failures. Do not publish
+                    // Ready until the gateway reads back the negotiated mode.
+                    try {
+                        gateway?.open(mode) ?: failLocked(UvcFailure.OpenFailed)
+                    } catch (_: Exception) {
+                        failLocked(UvcFailure.ModeNegotiationFailed)
+                    }
                     return
                 }
-                openedMode = mode
-                _state.value = UvcConnectionState.Ready(updatedDescription, mode)
-                preferences[updatedDescription.preferenceKey()] = mode
-                scope.launch { settingsRepository.updateUvcPreference(updatedDescription.preferenceKey(), mode.preferenceString()) }
+                completeOpenLocked(mode)
+            }
+        }
+        override fun onModeConfigured(device: UsbDevice, mode: UvcCaptureMode) {
+            synchronized(lock) {
+                if (!valid(gen, device) || _state.value !is UvcConnectionState.Opening) return
+                if (mode !in descriptor?.modes.orEmpty()) {
+                    failLocked(UvcFailure.ModeNegotiationFailed)
+                    return
+                }
+                completeOpenLocked(mode)
             }
         }
         override fun onFirstFrame(device: UsbDevice) {
@@ -206,6 +215,16 @@ class UvcConnectionManager @Inject constructor(
         override fun onDetach(device: UsbDevice) { if (synchronized(lock) { valid(gen, device) }) detached(device) }
         override fun onCancel(device: UsbDevice) = onError(device, UvcFailure.PermissionDenied)
         override fun onError(device: UsbDevice, failure: UvcFailure) { lost(device, gen, failure) }
+    }
+
+    private fun completeOpenLocked(mode: UvcCaptureMode) {
+        val device = descriptor ?: return
+        openedMode = mode
+        _state.value = UvcConnectionState.Ready(device, mode)
+        preferences[device.preferenceKey()] = mode
+        scope.launch {
+            settingsRepository.updateUvcPreference(device.preferenceKey(), mode.preferenceString())
+        }
     }
 
     private fun unexpectedClose(device: UsbDevice, gen: Int) { lost(device, gen, UvcFailure.OpenFailed) }
