@@ -48,6 +48,7 @@ class UvcConnectionManagerTest {
         var previewStarted = false
         var released = false
         var failSelect = false
+        var failNativeLinkage = false
         var reportActualMode = true
         var autoConfirmMode = true
 
@@ -58,6 +59,7 @@ class UvcConnectionManagerTest {
         override fun deviceList(): List<UsbDevice> = emptyList()
 
         override fun select(device: UsbDevice) {
+            if (failNativeLinkage) throw UnsatisfiedLinkError("Missing USB native library")
             if (failSelect) throw IllegalStateException("select failed")
             selected += device
         }
@@ -382,6 +384,23 @@ class UvcConnectionManagerTest {
         assertTrue(manager.connectionState.value is UvcConnectionState.Opening)
         pending.callback?.onModeConfigured(device, requested)
         assertEquals(requested, (manager.connectionState.value as UvcConnectionState.Ready).mode)
+    }
+
+    @Test
+    fun `missing native USB ABI library becomes a recoverable error`() {
+        val device = usbDevice("native-unavailable")
+        hostGateway.granted = true
+        permissionGateway.granted = true
+        val descriptor = descriptorFor(device)
+        // The fake factory already created by the production manager is used
+        // synchronously in connect, so trigger a linkage failure from select().
+        gateways.clear()
+        manager.connect(descriptor)
+        // A normal gateway has already been selected: simulate native failure
+        // from its late camera callback before any capture was started.
+        gateways.single().emitError(device, UvcFailure.NativeLibraryMissing)
+        assertEquals(UvcFailure.NativeLibraryMissing,
+            (manager.connectionState.value as UvcConnectionState.Error).reason)
     }
 
     @Test
