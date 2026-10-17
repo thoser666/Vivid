@@ -2,6 +2,7 @@ package com.vivid.feature.streaming.ui
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -36,11 +37,16 @@ internal fun UvcSourceDialog(engine: StreamingEngine, onDismiss: () -> Unit) {
     val context = LocalContext.current
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
     var cameraDenied by remember { mutableStateOf(false) }
+    var permissionRequestedFor by remember { mutableStateOf<String?>(null) }
     val busy = stream is StreamingState.Streaming || stream is StreamingState.Preparing || recording is ReplayState.Recording
     val cameraPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         cameraDenied = !granted
-        if (granted) devices.firstOrNull { it.stableSessionId == selectedId }?.let {
-            engine.connectUsbDevice(it)
+        // A permission dialog can outlive device-selection changes or a USB detach.
+        // Only connect the device for which the user explicitly pressed Connect.
+        val requested = permissionRequestedFor
+        permissionRequestedFor = null
+        if (granted && requested == selectedId && !busy) {
+            devices.firstOrNull { it.stableSessionId == requested }?.let(engine::connectUsbDevice)
         }
     }
     val description = when (val current = state) {
@@ -81,7 +87,10 @@ internal fun UvcSourceDialog(engine: StreamingEngine, onDismiss: () -> Unit) {
                         enabled = selected != null && !busy && state !is UvcConnectionState.Opening && state !is UvcConnectionState.PermissionRequired,
                         modifier = Modifier.testTag("uvc_connect"),
                         onClick = {
-                            if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P &&
+                                ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED
+                            ) {
+                                permissionRequestedFor = selectedId
                                 cameraPermission.launch(Manifest.permission.CAMERA)
                             } else if (selected != null) {
                                 engine.connectUsbDevice(selected)
@@ -103,7 +112,9 @@ internal fun UvcSourceDialog(engine: StreamingEngine, onDismiss: () -> Unit) {
                         }
                         FilterChip(
                             selected = mode == activeMode,
-                            enabled = !busy,
+                            enabled = !busy && state !is UvcConnectionState.Opening &&
+                                state !is UvcConnectionState.PermissionRequired &&
+                                state !is UvcConnectionState.Starting,
                             onClick = { engine.setUsbCaptureMode(mode) },
                             label = { Text(stringResource(R.string.uvc_mode, mode.width, mode.height, mode.fps, mode.format.name)) },
                             modifier = Modifier.testTag("uvc_mode_${mode.preferenceString()}"),
