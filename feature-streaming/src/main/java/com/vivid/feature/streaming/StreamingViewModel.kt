@@ -270,6 +270,7 @@ private fun VideoSourceKind.toSceneVideoSource(): SceneVideoSource = when (this)
     VideoSourceKind.REPLAY -> SceneVideoSource.REPLAY
     // S3 (Video-Player) speichert keine Content-Uris in Szenen — Fallback auf Kamera.
     VideoSourceKind.VIDEO_PLAYER -> SceneVideoSource.CAMERA
+    VideoSourceKind.UVC -> SceneVideoSource.CAMERA
 }
 
 /**

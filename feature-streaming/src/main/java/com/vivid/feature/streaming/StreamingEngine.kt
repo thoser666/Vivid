@@ -42,7 +42,8 @@ import com.vivid.feature.streaming.source.ReplayVideoSource
 import com.vivid.feature.streaming.source.ScreenCaptureVideoSource
 import com.vivid.feature.streaming.source.VideoPlayerVideoSource
 import com.vivid.feature.streaming.source.VideoSourceKind
-import com.vivid.feature.streaming.source.VideoSourceRegistry
+import com.vivid.feature.streaming.source.VideoSourceRegistryimport com.vivid.feature.streaming.source.UvcVideoSource
+
 import timber.log.Timber
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -157,6 +158,7 @@ class StreamingEngine @Inject constructor(
 
     /** Replay-als-Quelle (MultiFromFile, Loop-Modus), lazy erzeugt (wie die Kamera). */
     private var replaySource: ReplayVideoSource? = null
+    private var uvcVideoSource: UvcVideoSource? = null
 
     private val _streamingState = MutableStateFlow<StreamingState>(StreamingState.Idle)
     val streamingState: StateFlow<StreamingState> = _streamingState.asStateFlow()
@@ -239,6 +241,7 @@ class StreamingEngine @Inject constructor(
         VideoSourceKind.SCREEN_CAPTURE -> screenCaptureSource?.glInterface
         VideoSourceKind.VIDEO_PLAYER -> videoPlayerSource?.glInterface
         VideoSourceKind.REPLAY -> replaySource?.glInterface
+        VideoSourceKind.UVC -> uvcVideoSource?.glInterface
     }
 
     /**
@@ -695,6 +698,7 @@ class StreamingEngine @Inject constructor(
             VideoSourceKind.SCREEN_CAPTURE -> screenCaptureSource?.stopStream(index)
             VideoSourceKind.VIDEO_PLAYER -> videoPlayerSource?.stopStream(index)
             VideoSourceKind.REPLAY -> replaySource?.stopStream(index)
+            VideoSourceKind.UVC -> uvcVideoSource?.stopStream(index)
         }
     }
 
@@ -727,6 +731,7 @@ class StreamingEngine @Inject constructor(
             VideoSourceKind.SCREEN_CAPTURE -> screenCaptureSource?.stop()
             VideoSourceKind.VIDEO_PLAYER -> videoPlayerSource?.stop()
             VideoSourceKind.REPLAY -> replaySource?.stop()
+            VideoSourceKind.UVC -> uvcVideoSource?.stop()
         }
     }
 
@@ -797,6 +802,15 @@ class StreamingEngine @Inject constructor(
                     if (requested == VideoSourceKind.REPLAY) source else null
                 }
                 videoSourceRegistry.switchTo(VideoSourceKind.REPLAY)
+            }
+            VideoSourceKind.UVC -> {
+                val source = videoSourceRegistry.activeSource.value
+                    ?.let { if (it.kind == VideoSourceKind.UVC) it else null }
+                    ?: return false
+                videoSourceRegistry.registerFactory(VideoSourceKind.UVC) { requested ->
+                    if (requested == VideoSourceKind.UVC) source else null
+                }
+                videoSourceRegistry.switchTo(VideoSourceKind.UVC)
             }
         }
         if (switched && kind != VideoSourceKind.CAMERA) {
@@ -1263,6 +1277,9 @@ class StreamingEngine @Inject constructor(
                 startSourceStream(source, activeUrls, source::startStream)
             }
             VideoSourceKind.REPLAY -> replaySource?.let { source ->
+                startSourceStream(source, activeUrls, source::startStream)
+            }
+            VideoSourceKind.UVC -> uvcVideoSource?.let { source ->
                 startSourceStream(source, activeUrls, source::startStream)
             }
             VideoSourceKind.CAMERA -> startCameraStream(activeUrls)
