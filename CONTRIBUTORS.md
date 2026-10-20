@@ -20,3 +20,5 @@ gemergt ist. Erlaubte Werte und Struktur sind in `CONTRIBUTING.md` dokumentiert.
 | smka (Ilya K) | Kamera-Vorschau wiederhergestellt + seitenverhältnistreu (Idle-Camera2-Preview vor dem Stream, Buffer/View auf unterstützte Ausgabe-Größen gematcht, Guards gegen Kamera-Konkurrenz) | #230 | umgesetzt |
 | smka (Ilya K) | Main-Screen refaktoriert (Controls-Menü statt überlappender App-Bar, Scenes im Bottom-Sheet) + Kamera-Controls an den offenen Camera2-Manager, lokale MP4-Aufnahme ohne Stream, Idle-Preview durch GL (Filter/LUT/Boost), LUT-Indexierung korrigiert + trilineare Interpolation | #253 | umgesetzt |
 | smka (Ilya K) | Streaming-Bitrate an RootEncoder-Grenze (App-Ökosystem in kbit/s, Encoder-Flächen in bit/s, Fehler-Alignment + Safe-Top-Off) + einheitlicher Stream-Start und Wiederherstellung des Encoder-States nach Fehlerfällen | #276 | umgesetzt |
+| smca | WHIP P0-Spike (RFC 9725 HTTP signaling: POST/PATCH/DELETE, ETag-Handling, StateFlow, failure taxonomy) | #307 | offen |
+| smca | UVC video source support via Pedro's MultiDisplay library | #305 | offen |
