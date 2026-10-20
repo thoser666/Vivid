@@ -1,10 +1,10 @@
 package com.vivid.feature.streaming
 
+import android.hardware.camera2.CameraCharacteristics
+import android.hardware.camera2.CameraMetadata
 import android.view.MotionEvent
 import android.view.View
 import com.pedro.encoder.input.video.Camera2ApiManager
-import android.hardware.camera2.CameraCharacteristics
-import android.hardware.camera2.CameraMetadata
 
 /** Controls for the Camera2 manager feeding the idle GL preview. */
 internal class Camera2PreviewControls(
@@ -32,8 +32,10 @@ internal class Camera2PreviewControls(
     }
 
     override fun hasOpticalStabilization(): Boolean =
-        runCatching { cameraManager.cameraCharacteristics?.get(CameraCharacteristics.LENS_INFO_AVAILABLE_OPTICAL_STABILIZATION)
-            ?.contains(CameraMetadata.LENS_OPTICAL_STABILIZATION_MODE_ON) == true }.getOrDefault(false)
+        runCatching {
+            cameraManager.cameraCharacteristics?.get(CameraCharacteristics.LENS_INFO_AVAILABLE_OPTICAL_STABILIZATION)
+                ?.contains(CameraMetadata.LENS_OPTICAL_STABILIZATION_MODE_ON) == true
+        }.getOrDefault(false)
 
     override fun isStabilizationEnabled(): Boolean =
         cameraManager.isVideoStabilizationEnabled || cameraManager.isOpticalStabilizationEnabled
