@@ -158,6 +158,23 @@ nicht gezogen wurde):
    Assignee ist ausdrücklich **kein** Mangel. (Die frühere Regel — Zuweisung
    schon beim Anlegen, Hausmuster aus #215/#225 — war das Gegenteil und hat
    durch die Vorabreservierung jede Selbstbedienung blockiert.)
+
+### 5a. ProGuard / R8 Keep-Rules für Gson und Request-Interface (Issue #320)
+
+**Problem:** R8 kann Gson-Datenklassen und das Request-Interface nicht obfuscen,
+weil Gson zur Laufzeit Klassen instanziiert und das Interface als Typ nutzt.
+Das führt zu `JsonIOException: Abstract classes can't be instantiated!`
+(Issue #320 / VIVID-3V).
+
+**Lösung:** ProGuard-Keep-Rules in `app/proguard-rules.pro`:
+- `-keep class com.vivid.core.network.obs.security.** { *; }` — schützt Security-Datenklassen
+- `-keepclassmembers class com.vivid.core.network.obs.requests.Request { *; }` — schützt das Request-Interface
+- `-keep class com.vivid.core.network.obs.requests.* { *; }` — schützt Request-Implementierungen
+
+**Test:** `scripts/test_issue_320_proguard.sh` validiert die Anwesenheit dieser Keep-Rules im ProGuard-File.
+
+**Docs-Update:** Die ProGuard-Regeln sind in der Issue-Description und im PARITY.md dokumentiert (siehe Abschnitt „Moblin-Features & Android-Plattform“).
+
 6. **Schließung: GitHub-Issue manuell, Sentry-Issue per Automation.** Der
    fix-release-Tag (siehe `docs/sentry-stats.md` §6) arbeitet **nur
    Sentry-seitig** — beim Stable-Publish resolvt der Resolve-Guard die
