@@ -178,6 +178,9 @@ fun StreamingScreen(
     // (Zonen persistiert im ZoneRepository, framesynchron an die Engine).
     val privacyEnabled by viewModel.privacyEnabled.collectAsStateWithLifecycle(initialValue = false)
     val privacyZones by viewModel.privacyZones.collectAsStateWithLifecycle(initialValue = emptyList())
+    // P2b: „Ganzbild verpixeln“ — grobe Voll-Frame-Mosaikstufe des Privacy-
+    // Filters (Standort-Schutz), nur zusammen mit dem Master-Toggle sichtbar.
+    val fullFrameBlurEnabled by viewModel.fullFrameBlurEnabled.collectAsStateWithLifecycle(initialValue = false)
     var privacyEditing by remember { mutableStateOf(false) }
 
     // #249: Der Screen-Eintritt fordert NIE Permissions an — auch nicht die
@@ -252,6 +255,8 @@ fun StreamingScreen(
                         if (!enabled) privacyEditing = false
                         viewModel.setPrivacyEnabled(enabled)
                     },
+                    fullFrameBlurEnabled = fullFrameBlurEnabled,
+                    onFullFrameBlurChange = viewModel::setFullFrameBlurEnabled,
                     onOpenZoneEditor = {
                         scenesExpanded = false
                         privacyEditing = true
@@ -1303,6 +1308,8 @@ private fun SceneSwitcherBar(
     onAutoSwitchIntervalChange: (Long) -> Unit,
     privacyEnabled: Boolean,
     onPrivacyEnabledChange: (Boolean) -> Unit,
+    fullFrameBlurEnabled: Boolean,
+    onFullFrameBlurChange: (Boolean) -> Unit,
     onOpenZoneEditor: () -> Unit,
 ) {
     var adding by remember { mutableStateOf(false) }
@@ -1468,6 +1475,34 @@ private fun SceneSwitcherBar(
                             stateDescription = if (privacyEnabled) privacyOn else privacyOff
                         },
                 )
+            }
+            // P2b: „Ganzbild verpixeln“ — grobe Voll-Frame-Mosaikstufe unter
+            // dem Master-Toggle (Standort-Schutz); sichtbar nur, wenn die
+            // Anonymisierung überhaupt wirkt.
+            if (privacyEnabled) {
+                val fullFrameOn = stringResource(R.string.streaming_a11y_state_on)
+                val fullFrameOff = stringResource(R.string.streaming_a11y_state_off)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = stringResource(R.string.privacy_full_frame_toggle_label),
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Switch(
+                        checked = fullFrameBlurEnabled,
+                        onCheckedChange = onFullFrameBlurChange,
+                        modifier = Modifier
+                            .padding(start = 8.dp)
+                            .testTag("full_frame_toggle")
+                            .semantics {
+                                role = Role.Switch
+                                stateDescription = if (fullFrameBlurEnabled) fullFrameOn else fullFrameOff
+                            },
+                    )
+                }
             }
         }
     }

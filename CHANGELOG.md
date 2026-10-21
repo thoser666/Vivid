@@ -9,6 +9,62 @@ Alle Änderungen an Vivid — **automatisch aus den GitHub-Releases gespiegelt**
 - 🎯 Feature-Tracking: [PARITY.md](PARITY.md)
 
 <!-- CHANGELOG-START -->
+## 🌙 **Nightly** 0.5.21-nightly.611 — 2026-10-21
+
+[GitHub-Release](https://github.com/thoser666/Vivid/releases/tag/nightly-20261021-111418)
+
+Nightly feature build — installable via Obtainium (enable pre-releases).
+
+**Artefakte:** `app-standard-release.apk` · `SHA256SUMS.txt` · `mapping.txt` · `output-metadata.json`
+
+## 🌙 **Nightly** 0.5.21-nightly.607 — 2026-10-20
+
+[GitHub-Release](https://github.com/thoser666/Vivid/releases/tag/nightly-20261020-110256)
+
+Nightly feature build — installable via Obtainium (enable pre-releases).
+
+**Artefakte:** `app-standard-release.apk` · `SHA256SUMS.txt` · `mapping.txt` · `output-metadata.json`
+
+## 🌙 **Nightly** 0.5.21-nightly.605 — 2026-10-19
+
+[GitHub-Release](https://github.com/thoser666/Vivid/releases/tag/nightly-20261019-120210)
+
+Nightly feature build — installable via Obtainium (enable pre-releases).
+
+**Artefakte:** `app-standard-release.apk` · `SHA256SUMS.txt` · `mapping.txt` · `output-metadata.json`
+
+## 🌙 **Nightly** 0.5.21-nightly.600 — 2026-10-18
+
+[GitHub-Release](https://github.com/thoser666/Vivid/releases/tag/nightly-20261018-102652)
+
+Nightly feature build — installable via Obtainium (enable pre-releases).
+
+**Artefakte:** `app-standard-release.apk` · `SHA256SUMS.txt` · `mapping.txt` · `output-metadata.json`
+
+## 🌙 **Nightly** 0.5.21-nightly.598 — 2026-10-17
+
+[GitHub-Release](https://github.com/thoser666/Vivid/releases/tag/nightly-20261017-101528)
+
+Nightly feature build — installable via Obtainium (enable pre-releases).
+
+**Artefakte:** `app-standard-release.apk` · `SHA256SUMS.txt` · `mapping.txt` · `output-metadata.json`
+
+## 🌙 **Nightly** 0.5.21-nightly.595 — 2026-10-16
+
+[GitHub-Release](https://github.com/thoser666/Vivid/releases/tag/nightly-20261016-104258)
+
+Nightly feature build — installable via Obtainium (enable pre-releases).
+
+**Artefakte:** `app-standard-release.apk` · `SHA256SUMS.txt` · `mapping.txt` · `output-metadata.json`
+
+## 🌙 **Nightly** 0.5.21-nightly.592 — 2026-10-15
+
+[GitHub-Release](https://github.com/thoser666/Vivid/releases/tag/nightly-20261015-105227)
+
+Nightly feature build — installable via Obtainium (enable pre-releases).
+
+**Artefakte:** `app-standard-release.apk` · `SHA256SUMS.txt` · `mapping.txt` · `output-metadata.json`
+
 ## 🌙 **Nightly** 0.5.21-nightly.589 — 2026-10-14
 
 [GitHub-Release](https://github.com/thoser666/Vivid/releases/tag/nightly-20261014-111411)

@@ -1,5 +1,6 @@
 package com.vivid.core.network.obs.security
 
+import com.google.gson.Gson
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -34,5 +35,93 @@ class SecurityTest {
         assertTrue(generateAuthenticationString("pw2", "salt", "challenge") != base)
         assertTrue(generateAuthenticationString("pw", "salt2", "challenge") != base)
         assertTrue(generateAuthenticationString("pw", "salt", "challenge2") != base)
+    }
+
+    // --- #320: Gson-De-/Serialisierung der Security-Datenklassen, die R8
+    // durch ProGuard-Keep-Rules (app/proguard-rules.pro) geschützt werden.
+    // Ohne Keep-Rules würde R8 die Klassen umbenennen/auslagern und Gson
+    // könnte sie zur Laufzeit nicht mehr instanziieren → JsonIOException:
+    // "Abstract classes can't be instantiated!" (VIVID-3V).
+
+    private val gson = Gson()
+
+    @Test
+    fun `Gson deserializer can reconstruct an AuthenticationChallenge with authentication data`() {
+        val challengeJson = """
+            {
+              "op": 0,
+              "d": {
+                "rpcVersion": 1,
+                "authentication": {
+                  "challenge": "challengeValue",
+                  "salt": "saltValue"
+                }
+              }
+            }
+        """.trimIndent()
+
+        val challenge = gson.fromJson(challengeJson, AuthenticationChallenge::class.java)
+
+        assertEquals(0, challenge.op)
+        assertEquals(1, challenge.d.rpcVersion)
+        assertEquals("saltValue", challenge.d.authentication?.salt)
+        assertEquals("challengeValue", challenge.d.authentication?.challenge)
+    }
+
+    @Test
+    fun `Gson deserializer handles a challenge without authentication field`() {
+        val challengeJson = """
+            {
+              "op": 0,
+              "d": {
+                "rpcVersion": 1,
+                "authentication": null
+              }
+            }
+        """.trimIndent()
+
+        val challenge = gson.fromJson(challengeJson, AuthenticationChallenge::class.java)
+
+        assertEquals(1, challenge.d.rpcVersion)
+        assertTrue(challenge.d.authentication == null)
+    }
+
+    @Test
+    fun `Gson serializer produces a valid AuthenticationResponse envelope`() {
+        val response = AuthenticationResponse(
+            op = 1,
+            d = AuthenticationResponse.Data(
+                rpcVersion = 1,
+                authentication = "encodedAuthString",
+                eventSubscriptions = 8192 + 8 + 1,
+            ),
+        )
+
+        val json = gson.toJson(response)
+
+        assertTrue(json.contains("\"op\":1"))
+        assertTrue(json.contains("\"rpcVersion\":1"))
+        assertTrue(json.contains("\"authentication\":\"encodedAuthString\""))
+        assertTrue(json.contains("\"eventSubscriptions\":8201"))
+    }
+
+    @Test
+    fun `Gson round-trips AuthenticationResponse`() {
+        val original = AuthenticationResponse(
+            op = 1,
+            d = AuthenticationResponse.Data(
+                rpcVersion = 1,
+                authentication = "encodedAuthString",
+                eventSubscriptions = 8201,
+            ),
+        )
+
+        val json = gson.toJson(original)
+        val restored = gson.fromJson(json, AuthenticationResponse::class.java)
+
+        assertEquals(original.op, restored.op)
+        assertEquals(original.d.rpcVersion, restored.d.rpcVersion)
+        assertEquals(original.d.authentication, restored.d.authentication)
+        assertEquals(original.d.eventSubscriptions, restored.d.eventSubscriptions)
     }
 }

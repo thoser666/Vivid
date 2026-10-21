@@ -114,6 +114,7 @@ class StreamingScreenRobolectricTest {
         every { viewModel.autoSwitchIntervalSeconds } returns MutableStateFlow(30L)
         every { viewModel.privacyEnabled } returns MutableStateFlow(false)
         every { viewModel.privacyZones } returns MutableStateFlow(emptyList())
+        every { viewModel.fullFrameBlurEnabled } returns MutableStateFlow(false)
 
         twitchViewModel = mockk(relaxed = true)
         every { twitchViewModel.uiState } returns MutableStateFlow(TwitchChannelUiState())
@@ -536,6 +537,27 @@ class StreamingScreenRobolectricTest {
         composeRule.onNodeWithTag(ZONE_EDITOR_TAG).assertDoesNotExist()
         verify(exactly = 1) { viewModel.setPrivacyEnabled(false) }
     }
+    // --- P2b: Ganzbild-Verpixelung (Standort-Schutz) --------------------------
+
+    @Test
+    fun `full frame toggle appears with privacy on and forwards the new state`() {
+        every { viewModel.privacyEnabled } returns MutableStateFlow(true)
+        setContent()
+        openScenes()
+
+        composeRule.onNodeWithText(FULL_FRAME_LABEL).assertIsDisplayed()
+        composeRule.onNodeWithTag(FULL_FRAME_TOGGLE_TAG).performClick()
+        verify(exactly = 1) { viewModel.setFullFrameBlurEnabled(true) }
+    }
+
+    @Test
+    fun `no full frame toggle while privacy is disabled`() {
+        setContent()
+        openScenes()
+
+        composeRule.onNodeWithTag(FULL_FRAME_TOGGLE_TAG).assertDoesNotExist()
+    }
+
     private companion object {
         private const val START_STREAMING_LABEL = "Start Streaming"
         private const val CONTROLS_BUTTON_TAG = "open_controls"
@@ -546,6 +568,8 @@ class StreamingScreenRobolectricTest {
         private const val CAMERA_PANEL_TAG = "camera_controls_panel"
         private const val ZONES_LABEL = "Zones"
         private const val ZONE_EDITOR_TAG = "zone_editor"
+        private const val FULL_FRAME_LABEL = "Full-frame pixelation"
+        private const val FULL_FRAME_TOGGLE_TAG = "full_frame_toggle"
     }
 
 }

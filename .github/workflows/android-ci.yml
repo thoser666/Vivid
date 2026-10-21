@@ -66,7 +66,7 @@ jobs:
           fetch-depth: 0
 
       - name: Set up JDK 25 (LTS)
-        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: temurin
           java-version: 25
@@ -219,11 +219,12 @@ jobs:
       - name: Check gh CLI flags
         run: bash scripts/check_gh_cli_flags.sh
 
-      # CodeQL-Extractor-Pin (github/codeql#22404): security-codeql.yml baut den
-      # Trace mit Kotlin 2.4.10 (< 2.4.20, Bundle-Limit von Bundle 2.27.0), der
-      # Pin-Step muss vor dem Build liegen und kein anderer Workflow den Katalog
-      # downgraden — sonst bleibt CodeQL auf develop rot.
-      - name: Test CodeQL-Kotlin-Extractor-Pin
+      # CodeQL-Kotlin-Trace (github/codeql#22404): Der Trace-Build in
+      # security-codeql.yml baut MIT DER Katalog-Version — der ehemalige
+      # Pin-Step (2.4.10) ist entfernt (Blockade mit Bundle 2.27.2 gefallen,
+      # 15.10.2026). Kein Kotlin-Override im Trace-Pfad, kein Workflow darf
+      # den Katalog downgraden — sonst geht der Vertrag K2/K3/K5 rot.
+      - name: Test CodeQL-Kotlin-Trace (Katalog-Version)
         run: bash scripts/test_codeql_kotlin.sh
 
       # CodeQL-Familien-Bump (Vorfall #290/#293, 12.10.2026): Dependabot loest
@@ -239,6 +240,17 @@ jobs:
       # Minimalprivilegien, SHA-Pins, Live-Modus, Idempotenz, Issue-Close).
       - name: Test Suppressions-Register-Workflow
         run: bash scripts/test_suppressions_register_workflow.sh
+
+      # Dependabot Auto-Merge (dependabot-auto-merge.yml): die Fehlerursache
+      # wird GELESEN statt geraten. Verweigerung wegen fehlendem `workflows`-
+      # Scope endet gruen mit Warnung + Hinweiskommentar am PR, alles andere
+      # hart rot mit echtem Fehlertext (Vorfall Run 38247604436: `2>/dev/null`
+      # verschluckte den Grund, der Fallback erriet "keine Branch-Protection"
+      # und der direkte Nachschub-Merge fiel rot). Verhaltenstests gegen einen
+      # gh-Stub + 4 Mutationen, inkl. Gegenprobe zur Behauptung, Workflow-PRs
+      # seien prinzipiell unmergebar (PR #291 wurde ueber --auto gemergt).
+      - name: Test Dependabot-Auto-Merge
+        run: bash scripts/test_dependabot_auto_merge.sh
 
       # PyPI-Drift-Workflow (automation-pypi-drift.yml): Verträge des
       # wöchentlichen Drift-Wächters (Cron, Minimalprivilegien, SHA-Pins,
@@ -340,7 +352,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up JDK 25 (LTS)
-        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: temurin
           java-version: 25

@@ -41,10 +41,28 @@ class PrivacyBlurFilterRender : BaseFilterRender() {
     private var uSamplerHandle = -1
     private var uCenterHandle = -1
     private var uRadiiHandle = -1
+    private var uFullFrameHandle = -1
+    private var uPixelGridHandle = -1
 
     /** Ellipsen-Snapshot (Textur-Koordinaten 0..1); Index >= count = deaktiviert. */
     @Volatile
     private var ellipses: List<PrivacyEllipse> = emptyList()
+
+    /** Voll-Frame-Modus (P2b): true = das ganze Bild wird pixeliert. */
+    @Volatile
+    private var fullFrame = false
+
+    /** Mosaik-Kantenlänge in Textur-Koordinaten (Framesync, wie die Ellipsen). */
+    @Volatile
+    private var pixelGrid = DEFAULT_PIXEL_GRID
+
+    /** Test-Lesegröße des Voll-Frame-Snapshots. */
+    internal val fullFrameSnapshot: Boolean
+        get() = fullFrame
+
+    /** Test-Lesegröße des Mosaik-Grid-Snapshots. */
+    internal val pixelGridSnapshot: Float
+        get() = pixelGrid
 
     init {
         squareVertex = ByteBuffer
@@ -65,6 +83,25 @@ class PrivacyBlurFilterRender : BaseFilterRender() {
         this.ellipses = ellipses
     }
 
+    /**
+     * Setzt den Voll-Frame-Modus (P2b): `true` pixeliert das **gesamte**
+     * Bild — unabhängig von den Ellipsen-Slots, damit Architektur und
+     * Umgebung des Streamers nicht lesbar bleiben (Skizze §5, P2b).
+     */
+    fun setFullFrame(enabled: Boolean) {
+        fullFrame = enabled
+    }
+
+    /**
+     * Setzt die Mosaik-Kantenlänge in Textur-Koordinaten (framesynchron).
+     * Zonen/Gesichter nutzen [DEFAULT_PIXEL_GRID], der Voll-Frame-Modus die
+     * grobere Stufe [FULL_FRAME_PIXEL_GRID] (Komponente wählt das Preset).
+     */
+    fun setPixelGrid(grid: Float) {
+        require(grid > 0f) { "PixelGrid muss positiv sein, got $grid" }
+        pixelGrid = grid
+    }
+
     override fun initGlFilter(context: Context) {
         val vertexShader = GlUtil.getStringFromRaw(context, R.raw.simple_vertex)
         val fragmentShader = GlUtil.getStringFromRaw(context, R.raw.privacy_blur_fragment)
@@ -76,6 +113,8 @@ class PrivacyBlurFilterRender : BaseFilterRender() {
         uSamplerHandle = GLES20.glGetUniformLocation(program, "uSampler")
         uCenterHandle = GLES20.glGetUniformLocation(program, "uEllipseCenter")
         uRadiiHandle = GLES20.glGetUniformLocation(program, "uEllipseRadii")
+        uFullFrameHandle = GLES20.glGetUniformLocation(program, "uFullFrame")
+        uPixelGridHandle = GLES20.glGetUniformLocation(program, "uPixelGrid")
     }
 
     override fun drawFilter() {
@@ -111,6 +150,10 @@ class PrivacyBlurFilterRender : BaseFilterRender() {
         }
         GLES20.glUniform2fv(uCenterHandle, MAX_ELLIPSES, centers, 0)
         GLES20.glUniform2fv(uRadiiHandle, MAX_ELLIPSES, radii, 0)
+        // Voll-Frame-Flag + Mosaik-Kantenlänge ebenfalls framesynchron
+        // (Snapshot, kein Ketten-Rebuild — P2b).
+        GLES20.glUniform1f(uFullFrameHandle, if (fullFrame) 1f else 0f)
+        GLES20.glUniform1f(uPixelGridHandle, pixelGrid)
     }
 
     override fun disableResources() {
@@ -124,5 +167,19 @@ class PrivacyBlurFilterRender : BaseFilterRender() {
     companion object {
         /** Max. Ellipsen-Zonen (Skizze §3: 4 Zonen + 4 Gesichter). */
         const val MAX_ELLIPSES = 8
+
+        /**
+         * Mosaik-Kantenlänge für Zonen/Gesichter in Textur-Koordinaten
+         * (1/48 ≈ 15 px bei 720p, ≈ 23 px bei 1080p) — Details weg,
+         * Silhouetten bleiben als Prüfhinweis erkennbar.
+         */
+        const val DEFAULT_PIXEL_GRID = 1f / 48f
+
+        /**
+         * Grobe Mosaik-Kantenlänge für den Voll-Frame-Modus (1/16 ≈ 45 px
+         * bei 720p, ≈ 120 px bei 1080p): Umgebung und Architektur sind dann
+         * nicht mehr lesbar — der eigentliche Standort-Schutz (P2b).
+         */
+        const val FULL_FRAME_PIXEL_GRID = 1f / 16f
     }
 }

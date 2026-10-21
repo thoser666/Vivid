@@ -74,6 +74,18 @@ class StreamingViewModel @Inject constructor(
                     pendingPrivacyToggle.value = true
                 }
             }
+            // P2: „Gesichter unkenntlich machen“ — der Toggle überlebt den
+            // App-Neustart; die Engine merkt sich den Wunsch und schaltet die
+            // Erkennung beim nächsten Kamera-Attach ein (Skizze §5).
+            if (zoneRepository.faceBlurEnabledFlow.first()) {
+                streamingEngine.setFaceBlurEnabled(true)
+            }
+            // P2b: „Ganzbild verpixeln“ — reiner Render-Zustand des Privacy-
+            // Filters; wird sofort übernommen, wirksam sobald die Privacy-
+            // Kette hängt (Master-Toggle).
+            if (zoneRepository.fullFrameBlurEnabledFlow.first()) {
+                streamingEngine.setFullFramePrivacy(true)
+            }
         }
     }
 
@@ -176,13 +188,33 @@ class StreamingViewModel @Inject constructor(
         autoSceneSwitcher.setIntervalSeconds(seconds)
     }
 
-    // --- Datenschutz-Anonymisierung (P1, Skizze §5) ---
+    // --- Datenschutz-Anonymisierung (P1/P2, Skizze §5) ---
 
     /** Persistierte manuelle Zonen (Anlage-Reihenfolge, max. 4). */
     val privacyZones: Flow<List<PrivacyZone>> = zoneRepository.zonesFlow
 
     /** Persistierter Master-Toggle „Anonymisierung“ (Default aus). */
     val privacyEnabled: Flow<Boolean> = zoneRepository.privacyEnabledFlow
+
+    /**
+     * Persistierter P2-Toggle „Gesichter unkenntlich machen“ (Default aus).
+     * Wirkt nur zusammen mit [privacyEnabled] — die Engine zieht beide.
+     */
+    val faceBlurEnabled: Flow<Boolean> = zoneRepository.faceBlurEnabledFlow
+
+    /**
+     * Persistierter P2b-Toggle „Ganzbild verpixeln“ (Default aus). Wirkt nur
+     * zusammen mit [privacyEnabled], aber unabhängig von Zonen/Gesichtern:
+     * das ganze Bild wird grob verpixelt (Skizze §5, P2b).
+     */
+    val fullFrameBlurEnabled: Flow<Boolean> = zoneRepository.fullFrameBlurEnabledFlow
+
+    /**
+     * Capability der Hardware-Gesichtserkennung: `null` = noch nie versucht,
+     * `false` = Gerät ohne Face-Modus. Das UI zeigt diesen Fall später als
+     * Hinweis an; die manuellen Zonen bleiben davon unberührt (Skizze §8).
+     */
+    val faceDetectionAvailable: StateFlow<Boolean?> = streamingEngine.faceDetectionAvailable
 
     /**
      * Setzt den Master-Toggle „Anonymisierung“: persistiert und sofort an die
@@ -195,6 +227,30 @@ class StreamingViewModel @Inject constructor(
             if (!streamingEngine.setPrivacyEnabled(enabled)) {
                 pendingPrivacyToggle.value = enabled
             }
+        }
+    }
+
+    /**
+     * Setzt den P2-Toggle „Gesichter unkenntlich machen“: persistiert und
+     * sofort an die Engine. Die Engine lehnt diesen Toggle nie ab (sie merkt
+     * sich den Wunsch und wendet ihn beim nächsten Kamera-Attach an).
+     */
+    fun setFaceBlurEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            zoneRepository.setFaceBlurEnabled(enabled)
+            streamingEngine.setFaceBlurEnabled(enabled)
+        }
+    }
+
+    /**
+     * Setzt den P2b-Toggle „Ganzbild verpixeln“: persistiert und sofort an
+     * die Engine. Die Engine lehnt diesen Toggle nie ab (reiner Uniform-
+     * Zustand, wirksam ab dem nächsten Frame der Privacy-Kette).
+     */
+    fun setFullFrameBlurEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            zoneRepository.setFullFrameBlurEnabled(enabled)
+            streamingEngine.setFullFramePrivacy(enabled)
         }
     }
 
@@ -217,6 +273,7 @@ private fun VideoSourceKind.toSceneVideoSource(): SceneVideoSource = when (this)
     VideoSourceKind.REPLAY -> SceneVideoSource.REPLAY
     // S3 (Video-Player) speichert keine Content-Uris in Szenen — Fallback auf Kamera.
     VideoSourceKind.VIDEO_PLAYER -> SceneVideoSource.CAMERA
+    VideoSourceKind.UVC -> SceneVideoSource.CAMERA
 }
 
 /**
