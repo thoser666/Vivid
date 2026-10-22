@@ -195,3 +195,25 @@ und tatsächlich empfangene RTMP-Bilder wurden geprüft. Das alte Reverse-Bild
 passt erst nach 180 Grad zur Preview, die korrigierten Landscape-Bilder beider
 Modi passen ohne weitere Drehung. Lokale Rohdaten und Messbericht:
 `build/reports/camera-latency-2026-10-06/` (nicht eingecheckt).
+
+
+## PR-Validierung (2026-10-22)
+
+Die Feature-Branch enthält `upstream/develop` bis `3ceaff61`. Der vollständige
+`PRE_PUSH_RELEASE=1 bash scripts/pre-push.sh` ist grün, einschließlich
+Release-APKs/AAB und beider strengen Sentry-R8-Mapping-Nachweise. Die privaten
+RootEncoder-Felder und die GL-Methodensignatur sind zusätzlich direkt in den
+DEX-Dateien aller drei Release-Artefakte geprüft.
+
+2.027 JVM-Tests (Module + Standard/FOSS-App) haben keine Fehler und fünf
+bestehende Skips; Kover XML/HTML und alle Shell-Selbsttests sind grün. Der
+signierte Play-Dry-Run hat keinen Upload ausgeführt. Auf API 31 bestehen
+je Flavor elf UI-Tests; sechs lokale RTMP-/Kamera-Opt-in-Szenarien werden
+per Assumption ausgelassen. Die AGP-JUnit-XML-Dateien schreiben diese
+Assumptions als `failure`, während beide Connected-Test-Tasks korrekt grün
+enden; es gibt keine zusätzlichen Assertion-Fehler.
+
+Es war kein Telefon verbunden. Die Hardware-Encoder-/Keyframe-Tests und die
+oben datierten POCO-Latenz-, Orientierungs- und RTMP-Messungen wurden bei
+dieser PR-Vorbereitung nicht wiederholt. Der HUD-/Stopp-Gerätebeleg vom
+22.10. ist separat in `build/reports/stream-hud-2026-10-22/` abgelegt.
