@@ -6,6 +6,7 @@ import android.content.ContextWrapper
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
@@ -84,6 +85,7 @@ class StreamingScreenPermissionContractTest {
         engine = mockk(relaxed = true)
         every { engine.cameraModeStatus } returns MutableStateFlow(com.vivid.feature.streaming.CameraModeStatus())
         every { engine.streamingState } returns streamingState
+        every { engine.streamStartedAtMs } returns MutableStateFlow<Long?>(null)
         every { engine.targetStates } returns targetStates
         every { engine.activeEncoder } returns MutableStateFlow(null)
         every { engine.bitrateDiagnostics } returns MutableStateFlow(null)
@@ -233,6 +235,6 @@ class StreamingScreenPermissionContractTest {
 
         setContent()
 
-        composeRule.onNodeWithText("rtmp://a.example/live · live", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithTag("stream_status_overlay").assertIsDisplayed()
     }
 }

@@ -48,9 +48,17 @@ Vorschau dargestellten Compose-Widgets in das codierte Video hinzu.
 
 Gespeicherter Modus, angewendeter Capture-Modus, tatsächlich vorbereitetes
 Encoder-Profil und gemessene finale Encoder-FPS sind getrennte Zustände. Die
-FPS-Anzeige nutzt RootEncoders Callback für tatsächlich ausgegebene Frames
-pro Realzeitfenster; sie übernimmt keine Kamera- oder Encoder-Metadaten.
-`60 FPS — experimentell` verspricht daher keine konstanten 60 FPS unter Last.
+kompakte Statusanzeige liegt als drei halbtransparente Texte auf der lokalen
+Vorschau: angewendeter 30-/60-FPS-Modus, gemessene Sendebitrate eines aktiven
+Ziels und Zeit seit der ersten erfolgreichen Verbindung. Der Modus ist kein
+FPS-Messwert; RootEncoders tatsächliche Encoder-FPS bleiben als Diagnosewert
+in der Engine verfügbar. Die Anzeige wird nicht ins gesendete Video eingebrannt.
+Ein Capture-Fallback bleibt per Snackbar sichtbar und zeigt den Standardmodus.
+Der monotone Session-Start bleibt beim Neuaufbau der UI erhalten, solange ein
+Ziel live ist; nach Stopp/Verbindungsende startet der Timer bei der nächsten
+Verbindung neu. Ein manueller Stopp über den Preview-Button braucht eine
+Bestätigung; Abbrechen, Zurück und ein Klick außerhalb lassen den Stream laufen.
+`60 FPS — experimentell` verspricht keine konstanten 60 FPS unter Last.
 MP4/RTMP-PTS und vollständige Decodes dienen zusätzlich der Geräteverifikation.
 
 ## RootEncoder-Vertrag
@@ -83,6 +91,11 @@ Er zeichnet mit Audio auf, fügt Graustufen und einen GL-Text-Overlay hinzu,
 startet lokales RTMP auf derselben Aufnahme, stoppt beide Verbraucher getrennt
 und startet anschließend eine Standardaufnahme. Gespeicherte externe
 Streamziele werden nie verwendet und App-Daten nicht gelöscht.
+
+`StreamStatusOverlayInstrumentedTest` prüft mit `runStreamHud=true` und einer
+expliziten Loopback-RTMP-Adresse die drei Preview-Texte, den laufenden Timer,
+das Weiterlaufen nach Abbrechen und den bestätigten Stopp. Er verwendet keine
+gespeicherten Streamziele und ändert keine gespeicherten Einstellungen.
 
 ## Gerätebeleg vom 2026-10-06
 

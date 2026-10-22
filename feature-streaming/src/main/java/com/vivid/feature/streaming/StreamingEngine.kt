@@ -248,6 +248,10 @@ class StreamingEngine @Inject constructor(
     private val _streamingState = MutableStateFlow<StreamingState>(StreamingState.Idle)
     val streamingState: StateFlow<StreamingState> = _streamingState.asStateFlow()
 
+    /** Monotonic start of the current live session, owned here to survive UI recreation. */
+    private val _streamStartedAtMs = MutableStateFlow<Long?>(null)
+    val streamStartedAtMs: StateFlow<Long?> = _streamStartedAtMs.asStateFlow()
+
     private val _targetStates = MutableStateFlow<List<StreamTargetState>>(emptyList())
 
     /** Zustand jedes einzelnen Stream-Ziels (URL, Status, Fehlerursache). */
@@ -836,6 +840,12 @@ class StreamingEngine @Inject constructor(
      */
     private fun recomputeStreamingState() {
         val states = _targetStates.value
+        val live = states.any { it.status == StreamTargetStatus.STREAMING }
+        if (live) {
+            if (_streamStartedAtMs.value == null) _streamStartedAtMs.value = timeSource()
+        } else {
+            _streamStartedAtMs.value = null
+        }
         _streamingState.value = when {
             states.any { it.status == StreamTargetStatus.STREAMING } -> StreamingState.Streaming
             states.any { it.status == StreamTargetStatus.PREPARING } -> StreamingState.Preparing
@@ -1701,6 +1711,7 @@ class StreamingEngine @Inject constructor(
 
     /** Setzt alle Ziele auf Failed und den Gesamt-Status auf Failed (mit Ursache). */
     private fun failStream(reason: String) {
+        _streamStartedAtMs.value = null
         _streamingState.value = StreamingState.Failed(reason)
         _targetStates.value = _targetStates.value.map {
             it.copy(status = StreamTargetStatus.FAILED, failureReason = reason)
@@ -1738,6 +1749,7 @@ class StreamingEngine @Inject constructor(
 
     /** Stoppt alle laufenden/startenden Ziele und setzt den Zustand auf Idle. */
     fun stopStream() {
+        _streamStartedAtMs.value = null
         if (_cameraModeStatus.value.preparing) {
             captureGeneration.incrementAndGet()
             _streamingState.value = StreamingState.Idle

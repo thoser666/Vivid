@@ -157,4 +157,11 @@
     <string name="camera_mode_capture_failed">Ошибка экспериментального захвата. Запись и трансляция остановлены.</string>
     <string name="camera_mode_recording_failed">Не удалось начать запись.</string>
     <string name="camera_mode_preparing">Подготовка камеры 60 FPS…</string>
+    <string name="streaming_mode_fps">%1$d FPS</string>
+    <string name="streaming_bitrate_pending">— кбит/с</string>
+    <string name="streaming_uptime">%1$02d:%2$02d:%3$02d</string>
+    <string name="streaming_stop_confirm_title">Остановить эфир?</string>
+    <string name="streaming_stop_confirm_message">Трансляция будет остановлена для всех площадок.</string>
+    <string name="streaming_stop_confirm">Остановить</string>
+    <string name="streaming_keep_live">Продолжить эфир</string>
 </resources>

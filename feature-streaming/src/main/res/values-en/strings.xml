@@ -155,4 +155,11 @@
     <string name="camera_mode_capture_failed">Experimental camera failed. Recording and stream stopped.</string>
     <string name="camera_mode_recording_failed">Recording could not start.</string>
     <string name="camera_mode_preparing">Preparing 60 FPS camera…</string>
+    <string name="streaming_mode_fps">%1$d FPS</string>
+    <string name="streaming_bitrate_pending">— kbps</string>
+    <string name="streaming_uptime">%1$02d:%2$02d:%3$02d</string>
+    <string name="streaming_stop_confirm_title">Stop streaming?</string>
+    <string name="streaming_stop_confirm_message">This will end the live stream for all destinations.</string>
+    <string name="streaming_stop_confirm">Stop</string>
+    <string name="streaming_keep_live">Keep streaming</string>
 </resources>

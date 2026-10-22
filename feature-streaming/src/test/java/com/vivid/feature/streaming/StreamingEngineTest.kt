@@ -86,6 +86,7 @@ class StreamingEngineTest {
             playerFactory,
             VideoSourceRegistry(),
         )
+        streamingEngine.timeSource = { 1_000L }
         streamingEngine.readBitrateDiagnostics = {
             EncoderBitrateDiagnostics("test.encoder", EncoderBitrateMode.CBR, true, 6_000)
         }
@@ -93,6 +94,40 @@ class StreamingEngineTest {
         streamingEngine.encoderCapabilities = object : EncoderCapabilities {
             override fun supports(mime: String, width: Int, height: Int, fps: Int) = true
         }
+    }
+
+    @Test
+    fun `live session clock starts on first connection and survives target and bitrate updates`() {
+        var now = 10_000L
+        streamingEngine.timeSource = { now }
+        streamingEngine.initializeCamera()
+        streamingCameraReady()
+        streamingEngine.startStream(listOf(PRIMARY_URL, SECONDARY_URL))
+        assertNull(streamingEngine.streamStartedAtMs.value)
+        capturedCheckers[0].onConnectionSuccess()
+        assertEquals(10_000L, streamingEngine.streamStartedAtMs.value)
+        now = 17_000L
+        capturedCheckers[0].onNewBitrate(3_100_000)
+        capturedCheckers[1].onConnectionSuccess()
+        capturedCheckers[0].onConnectionFailed(CAMERA_ERROR)
+        assertEquals(10_000L, streamingEngine.streamStartedAtMs.value)
+        capturedCheckers[1].onConnectionFailed(CAMERA_ERROR)
+        assertNull(streamingEngine.streamStartedAtMs.value)
+        streamingEngine.startStream(PRIMARY_URL)
+        capturedCheckers[0].onConnectionSuccess()
+        assertEquals(17_000L, streamingEngine.streamStartedAtMs.value)
+    }
+
+    @Test
+    fun `stopping a live stream clears its session clock`() {
+        streamingEngine.timeSource = { 12_000L }
+        streamingEngine.initializeCamera()
+        streamingCameraReady()
+        streamingEngine.startStream(LIVE_URL)
+        capturedCheckers[0].onConnectionSuccess()
+        streamingEngine.stopStream()
+        assertNull(streamingEngine.streamStartedAtMs.value)
+        assertEquals(StreamingState.Idle, streamingEngine.streamingState.value)
     }
 
     @Test

@@ -156,4 +156,11 @@
     <string name="camera_mode_capture_failed">Caméra expérimentale en panne. Enregistrement et diffusion arrêtés.</string>
     <string name="camera_mode_recording_failed">Impossible de démarrer l’enregistrement.</string>
     <string name="camera_mode_preparing">Préparation de la caméra à 60 FPS…</string>
+    <string name="streaming_mode_fps">%1$d FPS</string>
+    <string name="streaming_bitrate_pending">— kbit/s</string>
+    <string name="streaming_uptime">%1$02d:%2$02d:%3$02d</string>
+    <string name="streaming_stop_confirm_title">Arrêter la diffusion ?</string>
+    <string name="streaming_stop_confirm_message">La diffusion en direct sera arrêtée pour toutes les destinations.</string>
+    <string name="streaming_stop_confirm">Arrêter</string>
+    <string name="streaming_keep_live">Continuer la diffusion</string>
 </resources>
