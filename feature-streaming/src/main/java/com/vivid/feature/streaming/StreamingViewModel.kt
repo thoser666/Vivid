@@ -123,13 +123,16 @@ class StreamingViewModel @Inject constructor(
      * Audio-Konfiguration (ReplayAudioMode) berücksichtigt: VIDEO_ONLY erzeugt
      * eine Aufnahme ohne Audiospur.
      */
-    fun toggleReplay() {
+    fun toggleReplay(onStartResult: (Boolean) -> Unit = {}) {
         viewModelScope.launch {
             if (streamingEngine.replayState.value is ReplayState.Recording) {
                 streamingEngine.stopReplay()
             } else {
                 val settings = settingsRepository.appSettingsFlow.first()
-                streamingEngine.startReplay(includeAudio = settings.replayAudioMode == ReplayAudioMode.ALL)
+                streamingEngine.configureCameraMode(settings.cameraMode)
+                streamingEngine.configureEncoder(com.vivid.core.data.ResolvedEncoderConfig(
+                    settings.videoCodecPreference, settings.encoderPreset, false), settings.encoderAutoFallback)
+                onStartResult(streamingEngine.startReplay(includeAudio = settings.replayAudioMode == ReplayAudioMode.ALL))
             }
         }
     }

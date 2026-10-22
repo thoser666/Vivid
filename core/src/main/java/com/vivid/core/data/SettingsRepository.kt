@@ -92,6 +92,7 @@ class SettingsRepository @Inject constructor(
         val SENTRY_ENABLED = booleanPreferencesKey("sentry_enabled")
         val REMOTE_CONTROL_ENABLED = booleanPreferencesKey("remote_control_enabled")
         val REPLAY_AUDIO_MODE = stringPreferencesKey("replay_audio_mode")
+        val CAMERA_MODE = stringPreferencesKey("camera_mode")
         val ENCODER_PRESET = stringPreferencesKey("encoder_preset")
         val ENCODER_CODEC_PREFERENCE = stringPreferencesKey("encoder_codec_preference")
         val ENCODER_AUTO_FALLBACK = booleanPreferencesKey("encoder_auto_fallback")
@@ -222,6 +223,7 @@ class SettingsRepository @Inject constructor(
                 pomodoroWorkDurationMinutes = prefs[PrefKeys.POMODORO_WORK_DURATION] ?: 25,
                 pomodoroBreakDurationMinutes = prefs[PrefKeys.POMODORO_BREAK_DURATION] ?: 5,
                 replayAudioMode = ReplayAudioMode.fromName(prefs[PrefKeys.REPLAY_AUDIO_MODE]),
+                cameraMode = CameraMode.fromName(prefs[PrefKeys.CAMERA_MODE]),
                 encoderPreset = EncoderPreset.fromName(prefs[PrefKeys.ENCODER_PRESET]),
                 encoderCodecPreference = VideoCodecPreference.fromName(
                     prefs[PrefKeys.ENCODER_CODEC_PREFERENCE],
@@ -309,6 +311,7 @@ class SettingsRepository @Inject constructor(
             pomodoroWorkDurationMinutes = widgetData.pomodoroWorkDurationMinutes,
             pomodoroBreakDurationMinutes = widgetData.pomodoroBreakDurationMinutes,
             replayAudioMode = widgetData.replayAudioMode,
+            cameraMode = widgetData.cameraMode,
             encoderPreset = widgetData.encoderPreset,
             videoCodecPreference = widgetData.encoderCodecPreference,
             encoderAutoFallback = widgetData.encoderAutoFallback,
@@ -584,6 +587,7 @@ class SettingsRepository @Inject constructor(
         val pomodoroWorkDurationMinutes: Int,
         val pomodoroBreakDurationMinutes: Int,
         val replayAudioMode: ReplayAudioMode,
+        val cameraMode: CameraMode,
         val encoderPreset: EncoderPreset,
         val encoderCodecPreference: VideoCodecPreference,
         val encoderAutoFallback: Boolean,
@@ -639,6 +643,10 @@ class SettingsRepository @Inject constructor(
         dataStore.edit { prefs ->
             prefs[PrefKeys.REPLAY_AUDIO_MODE] = mode.name
         }
+    }
+
+    suspend fun updateCameraMode(mode: CameraMode) {
+        dataStore.edit { it[PrefKeys.CAMERA_MODE] = mode.name }
     }
 
     /** Encoder-Preset (Aufloesung/FPS) speichern. */

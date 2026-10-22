@@ -141,4 +141,27 @@
     <string name="streaming_camera_profile_fallback">Применён совместимый профиль</string>
     <string name="streaming_camera_measured_fps">Фактически: %1$d кадр/с</string>
     <string name="streaming_encoder_bitrate_mode">Кодировщик: %1$s · цель %2$s кбит/с · %3$s</string>
+
+    <!-- Applied capture path and measured output, separate from the requested preset. -->
+    <string name="camera_mode_title">Режим камеры</string>
+    <string name="camera_mode_standard">Стандартный</string>
+    <string name="camera_mode_experimental">60 FPS — экспериментальный</string>
+    <string name="camera_mode_description">Альтернативный захват с GL-фильтрами и оверлеями. Повышенная нагрузка; управление камерой во время экспериментального захвата ограничено.</string>
+    <string name="camera_mode_locked">Можно менять только до начала записи или трансляции.</string>
+    <string name="camera_mode_unsupported">Недоступно для выбранной камеры, разрешения или кодеков.</string>
+    <string name="camera_mode_applied">Применённый режим: %1$s</string>
+    <string name="camera_mode_fps_pending">Измеренный FPS: ожидание кадров</string>
+    <string name="camera_mode_measured_fps">Измеренный FPS: %1$d</string>
+    <string name="camera_mode_fallback_unsupported">Захват 60 FPS не поддерживается. Используется стандартный режим.</string>
+    <string name="camera_mode_fallback_preparation">Не удалось подготовить захват 60 FPS. Используется стандартный режим.</string>
+    <string name="camera_mode_capture_failed">Ошибка экспериментального захвата. Запись и трансляция остановлены.</string>
+    <string name="camera_mode_recording_failed">Не удалось начать запись.</string>
+    <string name="camera_mode_preparing">Подготовка камеры 60 FPS…</string>
+    <string name="streaming_mode_fps">%1$d FPS</string>
+    <string name="streaming_bitrate_pending">— кбит/с</string>
+    <string name="streaming_uptime">%1$02d:%2$02d:%3$02d</string>
+    <string name="streaming_stop_confirm_title">Остановить эфир?</string>
+    <string name="streaming_stop_confirm_message">Трансляция будет остановлена для всех площадок.</string>
+    <string name="streaming_stop_confirm">Остановить</string>
+    <string name="streaming_keep_live">Продолжить эфир</string>
 </resources>

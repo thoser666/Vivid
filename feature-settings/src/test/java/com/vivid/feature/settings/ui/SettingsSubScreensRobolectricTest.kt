@@ -1,5 +1,7 @@
 package com.vivid.feature.settings.ui
 
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.hasAnyChild
@@ -67,6 +69,26 @@ class SettingsSubScreensRobolectricTest {
             coEvery { updateLogsRetentionDays(any()) } returns Unit
         },
     )
+
+    @Test
+    fun `camera mode disables unsupported experimental capture and locks both choices while active`() {
+        composeRule.setContent { CameraModeSection(CameraModeUiState(locked = true, experimentalSupported = true)) {} }
+        composeRule.onNodeWithTag("camera_mode_STANDARD").assertIsNotEnabled()
+        composeRule.onNodeWithTag("camera_mode_EXPERIMENTAL_60_FPS").assertIsNotEnabled()
+    }
+
+    @Test
+    fun `camera mode shows fallback and measured fps rather than requested fps`() {
+        composeRule.setContent {
+            CameraModeSection(CameraModeUiState(status = com.vivid.feature.streaming.CameraModeStatus(
+                applied = com.vivid.core.data.CameraMode.STANDARD,
+                notice = com.vivid.feature.streaming.CameraModeNotice.PREPARATION_FAILED), measuredFps = 30)) {}
+        }
+        composeRule.onNodeWithTag("camera_mode_EXPERIMENTAL_60_FPS").assertIsNotEnabled()
+        composeRule.onNodeWithTag("camera_mode_STANDARD").assertIsEnabled()
+        composeRule.onNodeWithText("Measured FPS: 30").assertIsDisplayed()
+        composeRule.onNodeWithText("60 FPS preparation failed. Using standard mode.").assertIsDisplayed()
+    }
 
     // --- Camera Controls ----------------------------------------------------
 
