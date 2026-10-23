@@ -1,0 +1,53 @@
+# Gespeicherte Streams
+
+„Streaming & OBS“ öffnet die Liste gespeicherter Streams. Der Text einer
+Material-3-Listenzeile öffnet deren Einstellungen; der getrennte Switch wählt
+höchstens einen Stream aus. Er startet keine Übertragung. Alle Switches dürfen
+aus sein. „Start streaming“ verwendet beim nächsten Start den ausgewählten
+Stream einschließlich seines optionalen zweiten Ziels.
+
+„Stream erstellen“ führt über Twitch, YouTube, Kick oder Custom zu Name,
+URL, Schlüssel und TLS. Speichern legt das Profil zunächst ausgeschaltet an.
+Jedes Profil hat eigene Unterseiten für Multi-Streaming, Video, Replay,
+Twitch-Kanalsteuerung (nur Twitch) und OBS. Video enthält Encoder-Presets,
+Codec/Fallback/Adaptivbitrate sowie getrennte FPS-, LLB-, Bitraten- und
+Schlüsselbildintervall-Seiten. Die Bitrate ist 1–15 Mbit/s in 1-Mbit/s-Schritten;
+das Schlüsselbildintervall ist 1–10 Sekunden. Unterseiten bearbeiten denselben
+Entwurf; erst „Speichern“ auf der Profilseite persistiert ihn. Zurück von der
+Profilseite verwirft ungespeicherte Änderungen.
+
+`StreamProfile` liegt im Domain-Modul. Profile und eine optionale aktive ID
+werden gemeinsam in einer DataStore-Transaktion geschrieben. Der
+`SettingsRepository.appSettingsFlow` legt das aktive Profil über die bisherigen
+AppSettings-Felder; UI, Web-Remote und Chat nutzen denselben Start-Koordinator.
+Ohne aktive ID sind beide Transportziele leer. Bestehende Installationen sehen
+das bisherige Stream-Ziel als aktiviertes Profil; die erste Profiländerung
+persistiert die Migration. Ohne bisherige URL bleibt die Liste leer. Alte
+Preset-Bitraten oberhalb 15 Mbit/s werden beim Übernehmen in ein Profil auf die
+neue Obergrenze begrenzt.
+
+FPS werden gegen Kamera und Codec geprüft. Explizite 30 FPS verwenden den
+Standard-Kamerapfad; 60 FPS können den vorhandenen experimentellen Modus nutzen.
+Fallbacks bleiben sichtbar wie zuvor. Bitrate und GOP werden vor Encoder-Start
+an RootEncoder übergeben; der Keyframe-Watchdog verwendet dasselbe Intervall.
+Eine laufende Aufnahme oder Übertragung behält ihren vorbereiteten Encoder.
+Profilwechsel konfigurieren den nächsten Start und schalten keinen Live-Stream um.
+
+Der OBS-Switch sperrt Verbindungsaufbau und trennt eine bestehende Verbindung,
+wenn er ausgeschaltet wird. Die Twitch-Unterseite verwendet den Token des
+bearbeiteten Entwurfs statt der Werte eines anderen aktiven Profils. Die
+bestehende verschlüsselte Twitch-OAuth-Session behält ihren Vorrang.
+
+JVM-Tests prüfen DataStore-Roundtrip, Migration, isolierte Profile, Auswahl und
+Ausschalten, fehlgeschlagene Saves sowie Encoder-Übergabe und GOP-Zeitsteuerung.
+Compose-Tests prüfen Erstellen, getrennte Zeilen-/Switch-Aktionen und die
+Unterseiten. Eine echte Geräte-/Ingest-Verifikation bleibt ein eigener Schritt.
+
+## Validierung (2026-10-24)
+
+Vollständiges `bash scripts/pre-push.sh` grün: Modul-Tests, Lint und alle
+Shell-Guards. Ergänzend Standard-App-Tests, letzter OBS-Abbruch-Test und
+FOSS-Debug-APK grün. Insgesamt 1.879 JVM-Testfälle, keine Fehler und fünf
+bestehende Skips. Die Compose-Bilder von Liste, Video und Encoder wurden
+auf 320 dp Breite visuell geprüft (`feature-settings/build/reports/stream-menu/`).
+Geräte-/Ingest-Tests wurden in diesem Schritt nicht ausgeführt.

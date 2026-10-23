@@ -366,4 +366,17 @@
     <string name="camera_mode_capture_failed">Caméra expérimentale en panne. Enregistrement et diffusion arrêtés.</string>
     <string name="camera_mode_recording_failed">Impossible de démarrer l’enregistrement.</string>
     <string name="camera_mode_preparing">Préparation de la caméra à 60 FPS…</string>
+    <string name="stream_create">Créer un stream</string>
+    <string name="stream_choose_type">Choisir le type de stream</string>
+    <string name="stream_name">Nom du stream</string>
+    <string name="stream_video">Vidéo</string>
+    <string name="stream_fps">Fréquence d’images</string>
+    <string name="stream_llb">Amplification en faible lumière (LLB)</string>
+    <string name="stream_bitrate">Débit</string>
+    <string name="stream_keyframe">Intervalle des images clés</string>
+    <string name="stream_obs_remote">Contrôle OBS à distance</string>
+    <string name="stream_fps_value">%1$d FPS</string>
+    <string name="stream_bitrate_value">%1$d Mbit/s</string>
+    <string name="stream_keyframe_value">%1$d s</string>
+    <string name="stream_save_failed">Échec de l’enregistrement. Veuillez réessayer.</string>
 </resources>

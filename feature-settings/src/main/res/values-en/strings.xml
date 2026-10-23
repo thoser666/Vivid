@@ -365,4 +365,17 @@
     <string name="camera_mode_capture_failed">Experimental camera failed. Recording and stream stopped.</string>
     <string name="camera_mode_recording_failed">Recording could not start.</string>
     <string name="camera_mode_preparing">Preparing 60 FPS camera…</string>
+    <string name="stream_create">Create stream</string>
+    <string name="stream_choose_type">Choose stream type</string>
+    <string name="stream_name">Stream name</string>
+    <string name="stream_video">Video</string>
+    <string name="stream_fps">Frame rate</string>
+    <string name="stream_llb">Low-light boost (LLB)</string>
+    <string name="stream_bitrate">Bitrate</string>
+    <string name="stream_keyframe">Keyframe interval</string>
+    <string name="stream_obs_remote">OBS remote control</string>
+    <string name="stream_fps_value">%1$d FPS</string>
+    <string name="stream_bitrate_value">%1$d Mbps</string>
+    <string name="stream_keyframe_value">%1$d s</string>
+    <string name="stream_save_failed">Could not save. Please try again.</string>
 </resources>

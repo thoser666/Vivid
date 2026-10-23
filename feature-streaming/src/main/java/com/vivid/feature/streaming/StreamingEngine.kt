@@ -1496,7 +1496,7 @@ class StreamingEngine @Inject constructor(
 
     private fun resetAdaptiveBitrate() {
         if (_adaptiveBitrateEnabled.value) {
-            val presetKbps = _activeEncoder.value?.preset?.videoBitrateKbps
+            val presetKbps = savedBitrateKbps ?: _activeEncoder.value?.preset?.videoBitrateKbps
                 ?: DEFAULT_VIDEO_BITRATE_KBPS
             adaptiveController = AdaptiveBitrateController(
                 AdaptiveBitrateConfig(
@@ -1630,9 +1630,9 @@ class StreamingEngine @Inject constructor(
         val prepared = cam.prepareVideo(
             resolved.preset.width,
             resolved.preset.height,
-            resolved.preset.fps,
-            resolved.preset.videoBitrateKbps * 1_000, // RootEncoder expects bits/s.
-            KeyframeIntervalController.INTERVAL_SECONDS, // Seconds, paired with the resolved FPS above.
+            resolved.fps,
+            (savedBitrateKbps ?: resolved.preset.videoBitrateKbps) * 1_000, // RootEncoder expects bits/s.
+            keyframeController.intervalSeconds, // Seconds, paired with the resolved FPS above.
             0, // rotation
         )
         if (prepared == true) _activeEncoder.value = resolved
@@ -1677,7 +1677,7 @@ class StreamingEngine @Inject constructor(
                 )
                 _measuredKeyframeIntervalMs.value = keyframeController.measuredIntervalMs
                 if (overdue) {
-                    Timber.w("Encoder missed the 2-second keyframe interval; requesting a sync frame")
+                    Timber.w("Encoder missed the configured keyframe interval; requesting a sync frame")
                     cam.requestKeyFrame()
                 }
             }
@@ -1688,6 +1688,18 @@ class StreamingEngine @Inject constructor(
      * aufgelöste Konfiguration (UI/VoM resolven die Preset-Einstellung gegen
      * die Encoder-Fähigkeiten — die Engine prüft zusätzlich die gewählte Kamera).
      */
+    private var savedBitrateKbps: Int? = null
+
+    /** Applies profile overrides only before encoders are owned by a live consumer. */
+    fun configureStreamVideo(settings: com.vivid.core.data.AppSettings) {
+        if (!canChangeCameraMode()) return
+        savedBitrateKbps = settings.videoBitrateKbps?.coerceIn(1_000, 15_000)
+        keyframeController.intervalSeconds = settings.keyframeIntervalSeconds.coerceIn(1, 10)
+        lowLightBoostController.setEnabled(settings.lowLightBoostEnabled) {
+            privacyComposer.requestRebuild(activeGlInterface())
+        }
+    }
+
     fun configureEncoder(resolved: ResolvedEncoderConfig, autoFallback: Boolean) {
         if (!canChangeCameraMode()) return
         _encoderConfig.value = resolved

@@ -36,4 +36,5 @@
     <string name="obs_blackout_button">Затемнить экран</string>
     <string name="obs_blackout_restore">Восстановить сцену</string>
     <string name="obs_blackout_preparing">Подготовка затемнения…</string>
+    <string name="obs_remote_disabled">Дистанционное управление OBS выключено для этого стрима.</string>
 </resources>

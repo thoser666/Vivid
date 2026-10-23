@@ -2,6 +2,13 @@ package com.vivid.core.data
 
 // Diese Datenklasse MUSS alle Felder enthalten, die die UI braucht.
 data class AppSettings(
+    val streamProfiles: List<StreamProfile> = emptyList(),
+    val activeStreamId: String? = null,
+    val obsRemoteEnabled: Boolean = true,
+    val videoFps: Int? = null,
+    val videoBitrateKbps: Int? = null,
+    val keyframeIntervalSeconds: Int = 2,
+    val lowLightBoostEnabled: Boolean = false,
     val streamUrl: String = "",
     val streamKey: String = "",
     // false = rtmp:// (Klartext), true = rtmps:// (RTMP über TLS)

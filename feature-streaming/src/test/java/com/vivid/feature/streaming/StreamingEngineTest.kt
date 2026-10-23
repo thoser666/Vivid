@@ -221,6 +221,30 @@ class StreamingEngineTest {
         assertTrue(streamingEngine.canChangeCameraMode())
     }
 
+    @Test
+    fun `saved profile applies fps bitrate and keyframe interval at encoder boundary`() = runTest {
+        streamingCameraReady()
+        streamingEngine.initializeCamera()
+        streamingEngine.configureStreamVideo(com.vivid.core.data.AppSettings(
+            videoBitrateKbps = 11_000, keyframeIntervalSeconds = 5))
+        streamingEngine.configureEncoder(
+            ResolvedEncoderConfig(VideoCodecPreference.H264, EncoderPreset.HD30, false, fps = 60), false)
+        streamingEngine.startStream(LIVE_URL)
+        verify { camera.prepareVideo(1280, 720, 60, 11_000_000, 5, 0) }
+        assertEquals(60, streamingEngine.activeEncoder.value?.fps)
+    }
+
+    @Test
+    fun `recording owns encoder so later profile does not change preparation`() = runTest {
+        streamingCameraReady()
+        streamingEngine.initializeCamera()
+        every { camera.isRecording } returns true
+        streamingEngine.configureStreamVideo(com.vivid.core.data.AppSettings(videoBitrateKbps = 15_000))
+        streamingEngine.configureEncoder(ResolvedEncoderConfig(VideoCodecPreference.H264, EncoderPreset.HD30, false), false)
+        streamingEngine.startStream(LIVE_URL)
+        verify(exactly = 0) { camera.prepareVideo(any(), any(), any(), any(), any(), any()) }
+    }
+
     private fun streamingCameraReady() {
         every { camera.isStreaming } returns false
         every { camera.prepareAudio() } returns true

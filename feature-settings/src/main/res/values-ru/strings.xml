@@ -367,4 +367,17 @@
     <string name="camera_mode_capture_failed">Ошибка экспериментального захвата. Запись и трансляция остановлены.</string>
     <string name="camera_mode_recording_failed">Не удалось начать запись.</string>
     <string name="camera_mode_preparing">Подготовка камеры 60 FPS…</string>
+    <string name="stream_create">Создать стрим</string>
+    <string name="stream_choose_type">Выберите тип стрима</string>
+    <string name="stream_name">Название стрима</string>
+    <string name="stream_video">Видео</string>
+    <string name="stream_fps">Частота кадров</string>
+    <string name="stream_llb">Усиление при слабом освещении (LLB)</string>
+    <string name="stream_bitrate">Битрейт</string>
+    <string name="stream_keyframe">Интервал ключевых кадров</string>
+    <string name="stream_obs_remote">Дистанционное управление OBS</string>
+    <string name="stream_fps_value">%1$d FPS</string>
+    <string name="stream_bitrate_value">%1$d Мбит/с</string>
+    <string name="stream_keyframe_value">%1$d с</string>
+    <string name="stream_save_failed">Не удалось сохранить. Попробуйте ещё раз.</string>
 </resources>

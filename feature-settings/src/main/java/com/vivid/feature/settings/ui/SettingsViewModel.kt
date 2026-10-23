@@ -11,6 +11,8 @@ import com.vivid.core.data.EncoderPreset
 import com.vivid.core.data.ChatBotMode
 import com.vivid.core.data.ChatOverlayPosition
 import com.vivid.core.data.ReplayAudioMode
+import com.vivid.core.data.StreamProfile
+import com.vivid.core.data.StreamPlatformType
 import com.vivid.core.data.SettingsRepository
 import com.vivid.core.data.ThemeMode
 import com.vivid.core.data.VideoCodecPreference
@@ -151,6 +153,79 @@ class SettingsViewModel @Inject constructor(
                 if (_remoteControl.value.port != active) {
                     _remoteControl.value = _remoteControl.value.copy(port = active)
                 }
+            }
+        }
+    }
+
+    private val _streamDraft = MutableStateFlow<StreamProfile?>(null)
+    val streamDraft = _streamDraft.asStateFlow()
+    private val _streamSaving = MutableStateFlow(false)
+    val streamSaving = _streamSaving.asStateFlow()
+    private val _streamSaveFailed = MutableStateFlow(false)
+    val streamSaveFailed = _streamSaveFailed.asStateFlow()
+    private val streamMutex = kotlinx.coroutines.sync.Mutex()
+
+    fun createStream(platform: StreamPlatform) {
+        _streamSaveFailed.value = false
+        _streamDraft.value = StreamProfile(
+            id = java.util.UUID.randomUUID().toString(), name = "",
+            platform = StreamPlatformType.valueOf(platform.name),
+            streamUrl = platform.ingestUrl, streamUseTls = platform != StreamPlatform.Custom,
+        )
+    }
+
+    fun editStream(id: String) {
+        _streamSaveFailed.value = false
+        _streamDraft.value = _uiState.value.streamProfiles.firstOrNull { it.id == id }
+    }
+
+    fun updateStreamDraft(transform: (StreamProfile) -> StreamProfile) {
+        if (!_streamSaving.value) _streamDraft.update { it?.let(transform) }
+    }
+
+    fun discardStreamDraft() { if (!_streamSaving.value) _streamDraft.value = null }
+
+    fun saveStreamDraft(onSaved: () -> Unit) {
+        val draft = _streamDraft.value ?: return
+        if (draft.name.isBlank() || draft.streamUrl.isBlank() || _streamSaving.value) return
+        _streamSaving.value = true
+        _streamSaveFailed.value = false
+        viewModelScope.launch {
+            streamMutex.lock()
+            try {
+                val settings = settingsRepository.appSettingsFlow.first()
+                val saved = draft.copy(name = draft.name.trim(), streamUrl = draft.streamUrl.trim())
+                val profiles = settings.streamProfiles.toMutableList()
+                val index = profiles.indexOfFirst { it.id == saved.id }
+                if (index < 0) profiles.add(saved) else profiles[index] = saved
+                settingsRepository.updateStreamProfiles(profiles, settings.activeStreamId)
+                _streamDraft.value = null
+                onSaved()
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                _streamSaveFailed.value = true
+            } finally {
+                streamMutex.unlock()
+                _streamSaving.value = false
+            }
+        }
+    }
+
+    fun setStreamEnabled(id: String, enabled: Boolean) {
+        viewModelScope.launch {
+            streamMutex.lock()
+            try {
+                val settings = settingsRepository.appSettingsFlow.first()
+                if (settings.streamProfiles.none { it.id == id }) return@launch
+                val active = if (enabled) id else settings.activeStreamId.takeUnless { it == id }
+                settingsRepository.updateStreamProfiles(settings.streamProfiles, active)
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                _streamSaveFailed.value = true
+            } finally {
+                streamMutex.unlock()
             }
         }
     }

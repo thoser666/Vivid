@@ -41,15 +41,23 @@ internal fun resolveCameraStreamProfile(
     val presets = if (autoFallback) EncoderPreset.entries.dropWhile { it != requested.preset } else listOf(requested.preset)
     for (codec in codecs) {
         for (preset in presets) {
-            if (camera.supports(preset.width, preset.height, preset.fps) &&
-                encoder.supports(codec.toMimeType(), preset.width, preset.height, preset.fps)
-            ) {
-                return ResolvedEncoderConfig(
-                    codec, preset,
-                    requested.fallbackApplied || codec != preferredCodec || preset != requested.preset,
-                )
+            val preferredFps = if (preset == requested.preset) requested.fps else minOf(preset.fps, requested.fps)
+            val rates = if (autoFallback && preset.fps < preferredFps) {
+                listOf(preferredFps, preset.fps)
+            } else listOf(preferredFps)
+            for (fps in rates) {
+                if (camera.supports(preset.width, preset.height, fps) &&
+                    encoder.supports(codec.toMimeType(), preset.width, preset.height, fps)
+                ) {
+                    return ResolvedEncoderConfig(
+                        codec, preset,
+                        requested.fallbackApplied || codec != preferredCodec || preset != requested.preset || fps != requested.fps,
+                        fps,
+                    )
+                }
             }
         }
     }
+
     return null
 }

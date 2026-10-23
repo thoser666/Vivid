@@ -68,6 +68,15 @@ On first open, Vivid shows the **streaming screen** (live preview). Before you g
 
 Open **Settings** (⚙️ top-right in the streaming screen) → **"Streaming & OBS"**.
 
+This opens your saved streams. Tap **Create stream**, choose Twitch, YouTube,
+Kick or Custom, enter a name, URL, key and secure-connection setting, then **Save**.
+Enable a stream using its switch; enabling another turns the previous one off.
+All streams may be off. **Start streaming** starts the selected stream.
+Tap a stream row to edit it. Separate pages contain Multi-streaming, Video
+(resolution/codec, FPS, LLB, 1–15 Mbps bitrate and keyframe interval), Replay
+recording, Twitch channel control (Twitch only), and OBS remote control with
+its own switch. Save on the stream details page to keep changes.
+
 ### 3.1 Pick a Platform Template
 
 Vivid offers templates for the most common platforms:
@@ -84,7 +93,7 @@ Vivid offers templates for the most common platforms:
 1. Tap a **platform template** → the URL is pre-filled
 2. Adjust the **Stream URL** if needed (e.g. `rtmps://` for TLS — the **"TLS"** toggle enables encryption)
 3. Enter your **Stream Key**
-4. **Done** — settings are saved
+4. Enter a **stream name**, tap **Save**, then enable this stream in the list
 
 ### 3.3 Multi-Streaming (Two Targets in Parallel)
 
@@ -283,7 +292,7 @@ Vivid can control OBS Studio via **WebSocket** (switch scenes, start/stop record
 1. **In OBS:** Tools → **WebSocket Server Settings** → enable *"WebSocket Server"* (port `4455`)
 2. Optionally set a **password**
 3. Find the **IP of the OBS machine** (Windows: `ipconfig`, Mac/Linux: `ip addr`) — phone and PC on the **same Wi-Fi**
-4. **In Vivid:** Settings → **Streaming & OBS** → OBS section:
+4. **In Vivid:** Settings → **Streaming & OBS** → select a stream → **OBS remote control**:
    - Host = PC's IP
    - Port = `4455`
    - Password (if set)
@@ -328,7 +337,7 @@ The settings screen is organized into six categories (like Moblin):
 
 | Category | Contents |
 |---|---|
-| 🎬 **Streaming & OBS** | Stream URL/key, platform templates (Twitch/YouTube/Kick/Custom), multi-streaming, OBS connection (host/port/password/TLS/QR import) |
+| 🎬 **Streaming & OBS** | Saved streams (Twitch/YouTube/Kick/Custom), one active stream, per-stream video/replay/multi-streaming/OBS settings |
 | 🎨 **Appearance** | Theme mode (System/Light/Dark/AMOLED) + accent color (6 curated colors, Vivid Green as default) |
 | 🧩 **Overlays & Widgets** | Twitch chat overlay (channel + toggle; optional merged YouTube chat, read anonymously), text/info widget (time/GPS/speed/altitude — each with toggle + runtime permission; custom template text with variables like `{time}`, `{speed}`, `{road}`, `{city}`, `{country}` — placenames are resolved automatically via reverse geocoding and cached) |
 | 💬 **Chat Bot & AI** | Mode, bot account (login/token/client ID), LLM endpoint/key/model/prompt, cooldown, mentions-only, rate limit, limits + presets, owner access (allow-list + Owner AI), media commands, notification access |

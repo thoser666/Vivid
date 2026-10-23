@@ -1249,4 +1249,82 @@ class SettingsViewModelTest {
 
         coVerify(exactly = 1) { repository.updateChatOverlayHypeTrainEnabled(false) }
     }
+
+    @Test fun `profile editor saves inactive stream independently and trims name`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val a = com.vivid.core.data.StreamProfile("a", "Live", streamUrl = "rtmp://live.example/app")
+        val b = com.vivid.core.data.StreamProfile("b", "Other", streamUrl = "rtmp://other.example/app")
+        val repo = repository()
+        every { repo.appSettingsFlow } returns MutableStateFlow(AppSettings(streamProfiles = listOf(a, b), activeStreamId = "a"))
+        val vm = createViewModel(repo)
+        advanceUntilIdle()
+        vm.editStream("b")
+        vm.updateStreamDraft { it.copy(name = "  Edited  ", videoBitrateKbps = 11_000) }
+        var saved = false
+        vm.saveStreamDraft { saved = true }
+        advanceUntilIdle()
+        coVerify { repo.updateStreamProfiles(listOf(a, b.copy(name = "Edited", videoBitrateKbps = 11_000)), "a") }
+        assertTrue(saved)
+        assertEquals(null, vm.streamDraft.value)
+        assertEquals(a, vm.uiState.value.streamProfiles.first())
+    }
+
+    @Test fun `profile switches select one or none and ignore unknown ids`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val a = com.vivid.core.data.StreamProfile("a", "A")
+        val b = com.vivid.core.data.StreamProfile("b", "B")
+        val state = MutableStateFlow(AppSettings(streamProfiles = listOf(a,b), activeStreamId = "a"))
+        val repo = repository()
+        every { repo.appSettingsFlow } returns state
+        coEvery { repo.updateStreamProfiles(any(), any()) } answers {
+            state.value = state.value.copy(streamProfiles = firstArg(), activeStreamId = secondArg())
+        }
+        val vm = createViewModel(repo)
+        advanceUntilIdle()
+        vm.setStreamEnabled("b", true)
+        advanceUntilIdle()
+        assertEquals("b", vm.uiState.value.activeStreamId)
+        vm.setStreamEnabled("a", false)
+        advanceUntilIdle()
+        assertEquals("b", vm.uiState.value.activeStreamId)
+        vm.setStreamEnabled("b", false)
+        advanceUntilIdle()
+        assertEquals(null, vm.uiState.value.activeStreamId)
+        vm.setStreamEnabled("missing", true)
+        advanceUntilIdle()
+        assertEquals(null, vm.uiState.value.activeStreamId)
+    }
+
+    @Test fun `new stream remains a draft until saved and cancel discards it`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repo = repository()
+        val vm = createViewModel(repo)
+        advanceUntilIdle()
+        vm.createStream(StreamPlatform.YouTube)
+        assertEquals(StreamPlatform.YouTube.ingestUrl, vm.streamDraft.value?.streamUrl)
+        assertTrue(vm.streamDraft.value!!.streamUseTls)
+        vm.saveStreamDraft {}
+        advanceUntilIdle()
+        coVerify(exactly = 0) { repo.updateStreamProfiles(any(), any()) }
+        vm.discardStreamDraft()
+        assertEquals(null, vm.streamDraft.value)
+        assertTrue(vm.uiState.value.streamProfiles.isEmpty())
+    }
+
+    @Test fun `failed profile save keeps draft for retry`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repo = repository()
+        coEvery { repo.updateStreamProfiles(any(), any()) } throws java.io.IOException("disk")
+        val vm = createViewModel(repo)
+        advanceUntilIdle()
+        vm.createStream(StreamPlatform.Twitch)
+        vm.updateStreamDraft { it.copy(name = "My stream") }
+        var saved = false
+        vm.saveStreamDraft { saved = true }
+        advanceUntilIdle()
+        assertFalse(saved)
+        assertTrue(vm.streamSaveFailed.value)
+        assertEquals("My stream", vm.streamDraft.value?.name)
+        assertFalse(vm.streamSaving.value)
+    }
 }

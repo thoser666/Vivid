@@ -68,6 +68,15 @@ Au premier lancement, Vivid affiche l'**écran de streaming** (aperçu en direct
 
 Ouvre les **paramètres** (⚙️ en haut à droite de l'écran de streaming) → **« Streaming & OBS »**.
 
+La liste affiche les streams enregistrés. « Créer un stream » propose Twitch,
+YouTube, Kick ou Personnalisé, puis nom, URL, clé, connexion sécurisée et
+« Enregistrer ». Active un stream avec son interrupteur : le précédent se
+désactive. Tous peuvent être désactivés. « Start streaming » démarre le stream
+sélectionné. Toucher une ligne ouvre les pages Multi-streaming, Vidéo
+(résolution/codec, FPS, LLB, débit de 1 à 15 Mbit/s et intervalle des images clés),
+Enregistrement, contrôle Twitch (Twitch uniquement) et contrôle OBS avec son
+interrupteur. Enregistre les modifications sur la page du stream.
+
 ### 3.1 Choisir un modèle de plateforme
 
 Vivid propose des modèles pour les plateformes courantes :
@@ -84,7 +93,7 @@ Vivid propose des modèles pour les plateformes courantes :
 1. Toucher le **modèle de plateforme** → l'URL est préremplie
 2. Adapter si besoin l'**URL du stream** (p. ex. `rtmps://` pour TLS — le toggle **« TLS »** active le chiffrement)
 3. Saisir la **clé de stream**
-4. **Terminé** — les paramètres sont enregistrés
+4. Saisir un **nom**, toucher **Enregistrer**, puis activer ce stream dans la liste
 
 ### 3.3 Multi-streaming (deux cibles en parallèle)
 
@@ -288,7 +297,7 @@ Vivid peut piloter OBS Studio via **WebSocket** (changer de scène, démarrer/ar
 1. **Dans OBS :** Outils → **Paramètres du serveur WebSocket** → cocher *« Activer le serveur WebSocket »* (port `4455`)
 2. Optionnel : définir un **mot de passe**
 3. Déterminer l'**IP de l'ordinateur OBS** (Windows : `ipconfig`, Mac/Linux : `ip addr`) — téléphone et PC sur le **même Wi-Fi**
-4. **Dans Vivid :** Paramètres → **Streaming & OBS** → section OBS :
+4. **Dans Vivid :** Paramètres → **Streaming & OBS** → ouvrir un stream → **Contrôle OBS à distance** :
    - Hôte = IP du PC
    - Port = `4455`
    - Mot de passe (si défini)
@@ -333,7 +342,7 @@ L'écran des paramètres est organisé en six catégories (comme Moblin) :
 
 | Catégorie | Contenu |
 |---|---|
-| 🎬 **Streaming & OBS** | URL/clé de stream, modèles de plateforme (Twitch/YouTube/Kick/Custom), multi-streaming, connexion OBS (hôte/port/mot de passe/TLS/import QR) |
+| 🎬 **Streaming & OBS** | Streams enregistrés (Twitch/YouTube/Kick/Custom), un seul stream actif, paramètres vidéo/enregistrement/multi-streaming/OBS par stream |
 | 🎨 **Apparence** | Mode de design (Système/Clair/Sombre/AMOLED) + couleur d'accent (6 couleurs choisies, vert Vivid par défaut) |
 | 🧩 **Overlays & widgets** | Overlay de chat Twitch (chaîne + toggle), widget texte/info (heure/GPS/vitesse/altitude — chacun avec toggle + autorisation d'exécution ; texte de modèle personnalisé avec variables comme `{time}`, `{speed}`, `{road}`, `{city}`, `{country}` — les noms de lieux sont résolus automatiquement par géocodage inverse et mis en cache) |
 | 💬 **Chat-bot & IA** | Mode de fonctionnement, compte du bot (login/jeton/ID client), endpoint/clé/modèle LLM, prompt, cooldown, mentions only, limite de débit, limites + presets, accès owner (liste d'autorisation + IA owner), commandes média, accès aux notifications |

@@ -69,6 +69,15 @@ Beim ersten Öffnen zeigt Vivid den **Streaming-Screen** (Live-Vorschau). Bevor 
 
 Öffne die **Einstellungen** (⚙️ oben rechts im Streaming-Screen) → **„Streaming & OBS"**.
 
+Hier stehen gespeicherte Streams. „Stream erstellen“ führt über Twitch, YouTube,
+Kick oder Benutzerdefiniert zu Name, URL, Schlüssel, TLS und „Speichern“.
+Der Switch aktiviert einen Stream; ein anderer Switch deaktiviert den vorherigen.
+Alle dürfen aus sein. „Start streaming“ startet den ausgewählten Stream.
+Antippen der Zeile öffnet eigene Seiten für Multi-Streaming, Video
+(Auflösung/Codec, FPS, LLB, 1–15 Mbit/s und Schlüsselbildintervall), Replay,
+Twitch-Kanalsteuerung (nur Twitch) und OBS-Fernsteuerung mit eigenem Switch.
+Änderungen mit „Speichern“ auf der Stream-Detailseite übernehmen.
+
 ### 3.1 Plattform-Vorlage wählen
 
 Vivid bietet Vorlagen für die gängigsten Plattformen:
@@ -85,7 +94,7 @@ Vivid bietet Vorlagen für die gängigsten Plattformen:
 1. **Plattform-Vorlage** antippen → die URL wird vorausgefüllt
 2. **Stream-URL** ggf. anpassen (z. B. `rtmps://` für TLS — das **„TLS"**-Toggle aktiviert Verschlüsselung)
 3. **Stream-Key** eintragen
-4. **Fertig** — die Einstellungen werden gespeichert
+4. **Stream-Namen** eingeben, **Speichern** antippen und den Stream in der Liste aktivieren
 
 ### 3.3 Multi-Streaming (zwei Ziele parallel)
 
@@ -292,7 +301,7 @@ Vivid kann OBS Studio über **WebSocket** steuern (Szenen wechseln, Recording/St
 1. **In OBS:** Extras → **WebSocket-Server-Einstellungen** → *„WebSocket-Server aktivieren"* anhaken (Port `4455`)
 2. Optional **Passwort** setzen
 3. **IP des OBS-Rechners** ermitteln (Windows: `ipconfig`, Mac/Linux: `ip addr`) — Handy und PC im **selben WLAN**
-4. **In Vivid:** Einstellungen → **Streaming & OBS** → OBS-Bereich:
+4. **In Vivid:** Einstellungen → **Streaming & OBS** → Stream öffnen → **OBS-Fernsteuerung**:
    - Host = IP des PCs
    - Port = `4455`
    - Passwort (falls gesetzt)
@@ -337,7 +346,7 @@ Der Einstellungen-Screen ist in sechs Kategorien gegliedert (wie Moblin):
 
 | Kategorie | Inhalt |
 |---|---|
-| 🎬 **Streaming & OBS** | Stream-URL/-Key, Plattform-Vorlagen (Twitch/YouTube/Kick/Custom), Multi-Streaming, OBS-Verbindung (Host/Port/Passwort/TLS/QR-Import) |
+| 🎬 **Streaming & OBS** | Gespeicherte Streams (Twitch/YouTube/Kick/Custom), ein aktiver Stream, eigene Video-/Replay-/Multi-Streaming-/OBS-Einstellungen |
 | 🎨 **Darstellung** | Design-Modus (System/Hell/Dunkel/AMOLED) + Akzentfarbe (6 kuratierte Farben, Vivid-Grün als Standard) |
 | 🧩 **Overlays & Widgets** | Twitch-Chat-Overlay (Kanal + Toggle; optional YouTube- und Kick-Chat gemergt, anonym gelesen), Text-/Info-Widget (Zeit/GPS/Geschwindigkeit/Höhenmeter — je mit Toggle + Runtime-Permission; eigener Template-Text mit Variablen wie `{time}`, `{speed}`, `{road}`, `{city}`, `{country}` — Ortsnamen werden automatisch per Reverse-Geocoding ermittelt und zwischengespeichert) |
 | 💬 **Chat-Bot & KI** | Betriebsmodus, Bot-Konto (Login/Token/Client-ID), LLM-Endpunkt/Key/Modell/Prompt, Cooldown, Mentions-only, Rate-Limit, Limits + Presets, Owner-Zugriff (Allow-List + Owner-KI), Media-Befehle, Benachrichtigungszugriff |

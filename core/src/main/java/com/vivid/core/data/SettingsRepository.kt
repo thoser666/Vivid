@@ -122,7 +122,7 @@ class SettingsRepository @Inject constructor(
     // Er kombiniert die Daten für Stream (primär + sekundär), OBS, Chat,
     // Chat-Bot, Widget (innerer 5-Flow-Combine — combine hat nur typisierte
     // Overloads bis 5) sowie Darstellung + Sentry-Opt-out (äußerer Combine).
-    val appSettingsFlow: Flow<AppSettings> = combine(
+    private val legacySettingsFlow: Flow<AppSettings> = combine(
         combine(
         // Flow für Stream-Daten
         dataStore.data.map { prefs ->
@@ -380,10 +380,61 @@ class SettingsRepository @Inject constructor(
         )
     }
 
+    private val profilesKey = stringPreferencesKey("stream_profiles_v1")
+    private val activeProfileKey = stringPreferencesKey("active_stream_profile")
+    private val profilesJson = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+
+    val appSettingsFlow: Flow<AppSettings> = combine(legacySettingsFlow, dataStore.data) { legacy, prefs ->
+        if (prefs[profilesKey] == null) {
+            // Existing installations retain their destination and settings as a named profile.
+            if (legacy.streamUrl.isBlank()) legacy else {
+                val host = runCatching { java.net.URI(legacy.streamUrl).host.orEmpty() }.getOrDefault("")
+                val platform = when {
+                    host.endsWith(".twitch.tv") -> StreamPlatformType.Twitch
+                    host.endsWith(".youtube.com") -> StreamPlatformType.YouTube
+                    host.endsWith(".kick.com") -> StreamPlatformType.Kick
+                    else -> StreamPlatformType.Custom
+                }
+                legacy.copy(streamProfiles = listOf(legacy.toStreamProfile("legacy", platform.name, platform)),
+                    activeStreamId = "legacy")
+            }
+        } else {
+            val profiles = profilesJson.decodeFromString<List<StreamProfile>>(prefs[profilesKey]!!)
+            val active = profiles.firstOrNull { it.id == prefs[activeProfileKey] }
+            val base = legacy.copy(streamProfiles = profiles, activeStreamId = active?.id)
+            active?.applyTo(base) ?: base.copy(streamUrl = "", streamKey = "",
+                secondaryStreamUrl = "", secondaryStreamKey = "", obsRemoteEnabled = false)
+        }
+    }
+
+    /** Save all profile fields and selection in one DataStore transaction. */
+    suspend fun updateStreamProfiles(profiles: List<StreamProfile>, activeId: String?) {
+        require(profiles.map { it.id }.distinct().size == profiles.size)
+        require(activeId == null || profiles.any { it.id == activeId })
+        dataStore.edit { prefs ->
+            prefs[profilesKey] = profilesJson.encodeToString(kotlinx.serialization.builtins.ListSerializer(StreamProfile.serializer()), profiles)
+            if (activeId == null) prefs.remove(activeProfileKey) else prefs[activeProfileKey] = activeId
+        }
+    }
+
+    /** Keep existing scene/OBS/channel editors targeting the selected profile. */
+    private fun androidx.datastore.preferences.core.MutablePreferences.updateActiveProfile(
+        transform: (StreamProfile) -> StreamProfile,
+    ) {
+        val raw = this[profilesKey] ?: return
+        val activeId = this[activeProfileKey] ?: return
+        val profiles = profilesJson.decodeFromString<List<StreamProfile>>(raw)
+        this[profilesKey] = profilesJson.encodeToString(
+            kotlinx.serialization.builtins.ListSerializer(StreamProfile.serializer()),
+            profiles.map { if (it.id == activeId) transform(it) else it },
+        )
+    }
+
     // Update-Funktionen bleiben getrennt, das ist in Ordnung.
     // useTls: false = rtmp:// (Klartext), true = rtmps:// (RTMP über TLS).
     suspend fun updateStreamSettings(url: String, key: String, useTls: Boolean = false) {
         dataStore.edit { prefs ->
+            prefs.updateActiveProfile { it.copy(streamUrl = url, streamKey = key, streamUseTls = useTls) }
             prefs[PrefKeys.STREAM_URL] = url
             prefs[PrefKeys.STREAM_KEY] = key
             prefs[PrefKeys.STREAM_USE_TLS] = useTls
@@ -393,6 +444,7 @@ class SettingsRepository @Inject constructor(
     // Zweites (optionales) Stream-Ziel für Multi-Streaming.
     suspend fun updateSecondaryStreamSettings(url: String, key: String, useTls: Boolean = false) {
         dataStore.edit { prefs ->
+            prefs.updateActiveProfile { it.copy(secondaryStreamUrl = url, secondaryStreamKey = key, secondaryStreamUseTls = useTls) }
             prefs[PrefKeys.SECONDARY_STREAM_URL] = url
             prefs[PrefKeys.SECONDARY_STREAM_KEY] = key
             prefs[PrefKeys.SECONDARY_STREAM_USE_TLS] = useTls
@@ -404,6 +456,7 @@ class SettingsRepository @Inject constructor(
     // still auf ws:// zurückgesetzt.
     suspend fun updateObsSettings(host: String, port: String, password: String, useTls: Boolean = false) {
         dataStore.edit { prefs ->
+            prefs.updateActiveProfile { it.copy(obsHost = host, obsPort = port, obsPassword = password, obsUseTls = useTls) }
             prefs[PrefKeys.OBS_HOST] = host
             prefs[PrefKeys.OBS_PORT] = port
             prefs[PrefKeys.OBS_PASSWORD] = password
@@ -437,6 +490,7 @@ class SettingsRepository @Inject constructor(
         category: String,
     ) {
         dataStore.edit { prefs ->
+            prefs.updateActiveProfile { it.copy(twitchChannelOauthToken = oauthToken, twitchStreamTitle = title, twitchStreamCategory = category) }
             prefs[PrefKeys.CHAT_CHANNEL] = channel.trim()
             prefs[PrefKeys.TWITCH_CHANNEL_OAUTH_TOKEN] = oauthToken
             prefs[PrefKeys.TWITCH_STREAM_TITLE] = title
@@ -641,6 +695,7 @@ class SettingsRepository @Inject constructor(
     /** Audio-Konfiguration der Replay-Aufnahme speichern. */
     suspend fun updateReplayAudioMode(mode: ReplayAudioMode) {
         dataStore.edit { prefs ->
+            prefs.updateActiveProfile { it.copy(replayAudioMode = mode) }
             prefs[PrefKeys.REPLAY_AUDIO_MODE] = mode.name
         }
     }
@@ -652,6 +707,7 @@ class SettingsRepository @Inject constructor(
     /** Encoder-Preset (Aufloesung/FPS) speichern. */
     suspend fun updateEncoderPreset(preset: EncoderPreset) {
         dataStore.edit { prefs ->
+            prefs.updateActiveProfile { it.copy(encoderPreset = preset) }
             prefs[PrefKeys.ENCODER_PRESET] = preset.name
         }
     }
@@ -659,6 +715,7 @@ class SettingsRepository @Inject constructor(
     /** Bevorzugten Video-Codec speichern. */
     suspend fun updateEncoderCodecPreference(preference: VideoCodecPreference) {
         dataStore.edit { prefs ->
+            prefs.updateActiveProfile { it.copy(videoCodecPreference = preference) }
             prefs[PrefKeys.ENCODER_CODEC_PREFERENCE] = preference.name
         }
     }
@@ -666,6 +723,7 @@ class SettingsRepository @Inject constructor(
     /** HEVC-Fallback-Kette ein-/ausschalten. */
     suspend fun updateEncoderAutoFallback(enabled: Boolean) {
         dataStore.edit { prefs ->
+            prefs.updateActiveProfile { it.copy(encoderAutoFallback = enabled) }
             prefs[PrefKeys.ENCODER_AUTO_FALLBACK] = enabled
         }
     }
@@ -673,6 +731,7 @@ class SettingsRepository @Inject constructor(
     /** Adaptive Bitrate (dynamische Zielbitrate) ein-/ausschalten. */
     suspend fun updateAdaptiveBitrateEnabled(enabled: Boolean) {
         dataStore.edit { prefs ->
+            prefs.updateActiveProfile { it.copy(adaptiveBitrateEnabled = enabled) }
             prefs[PrefKeys.ADAPTIVE_BITRATE_ENABLED] = enabled
         }
     }

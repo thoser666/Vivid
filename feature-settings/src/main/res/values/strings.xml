@@ -365,4 +365,18 @@
     <string name="camera_mode_capture_failed">Experimentelle Kamera ausgefallen. Aufnahme und Stream gestoppt.</string>
     <string name="camera_mode_recording_failed">Aufnahme konnte nicht gestartet werden.</string>
     <string name="camera_mode_preparing">60-FPS-Kamera wird vorbereitet…</string>
+    <string name="stream_create">Stream erstellen</string>
+    <string name="stream_choose_type">Stream-Typ auswählen</string>
+    <string name="stream_name">Stream-Name</string>
+    <string name="stream_video">Video</string>
+    <string name="stream_fps">Bildrate</string>
+    <string name="stream_llb">Low-Light-Boost (LLB)</string>
+    <string name="stream_bitrate">Bitrate</string>
+    <string name="stream_keyframe">Schlüsselbildintervall</string>
+    <string name="stream_obs_remote">OBS-Fernsteuerung</string>
+    <string name="stream_fps_value">%1$d FPS</string>
+    <!-- Mbit/s is an invariant unit abbreviation, not a countable noun. -->
+    <string name="stream_bitrate_value" tools:ignore="PluralsCandidate">%1$d Mbit/s</string>
+    <string name="stream_keyframe_value">%1$d s</string>
+    <string name="stream_save_failed">Speichern fehlgeschlagen. Bitte erneut versuchen.</string>
 </resources>

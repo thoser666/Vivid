@@ -36,4 +36,5 @@
     <string name="obs_blackout_button">Écran noir</string>
     <string name="obs_blackout_restore">Restaurer la scène</string>
     <string name="obs_blackout_preparing">Préparation de l’écran noir…</string>
+    <string name="obs_remote_disabled">Le contrôle OBS à distance est désactivé pour ce stream.</string>
 </resources>

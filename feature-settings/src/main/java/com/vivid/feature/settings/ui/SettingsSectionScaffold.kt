@@ -58,7 +58,8 @@ import com.vivid.core.data.ThemeMode
 fun SettingsSectionScaffold(
     title: String,
     onBack: () -> Unit,
-    onSave: () -> Unit,
+    onSave: (() -> Unit)?,
+    saveEnabled: Boolean = true,
     content: @Composable () -> Unit,
 ) {
     Scaffold(
@@ -98,7 +99,8 @@ fun SettingsSectionScaffold(
         ) {
             content()
 
-            Button(
+            if (onSave != null) Button(
+                enabled = saveEnabled,
                 onClick = onSave,
                 modifier = Modifier.fillMaxWidth(),
             ) {

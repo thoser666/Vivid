@@ -19,13 +19,10 @@ import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import com.vivid.core.data.AppSettings
-import com.vivid.core.data.EncoderPreset
 import com.vivid.core.log.LogBuffer
 import com.vivid.core.log.LogEntry
 import com.vivid.core.log.LogLevel
 import com.vivid.core.log.LogStore
-import com.vivid.feature.chat.twitch.TwitchChannelUiState
-import com.vivid.feature.chat.twitch.TwitchChannelViewModel
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
@@ -214,105 +211,7 @@ class SettingsSubScreensRobolectricTest {
         org.junit.Assert.assertTrue(viewModel.uiState.value.errorsOnly)
     }
 
-    // --- Streaming / OBS ------------------------------------------------------
-
-    @Test
-    fun `streaming-obs renders stream fields and twitch section`() {
-        composeRule.setContent {
-            SettingsStreamingObsScreen(
-                uiState = AppSettings(),
-                viewModel = settingsViewModel(),
-                twitchViewModel = mockk<TwitchChannelViewModel>(relaxed = true) {
-                    every { uiState } returns MutableStateFlow(TwitchChannelUiState())
-                },
-                twitchState = TwitchChannelUiState(),
-                onBack = {},
-            )
-        }
-        composeRule.onAllNodesWithText("Stream URL")[0].assertExists()
-        composeRule.onAllNodesWithText("Twitch channel control")[0].assertExists()
-        composeRule.onAllNodesWithText("Stream title")[0].assertExists()
-    }
-
-    @Test
-    fun `streaming-obs forwards stream url edits`() {
-        val viewModel = settingsViewModel()
-        composeRule.setContent {
-            SettingsStreamingObsScreen(
-                uiState = AppSettings(),
-                viewModel = viewModel,
-                twitchViewModel = mockk<TwitchChannelViewModel>(relaxed = true) {
-                    every { uiState } returns MutableStateFlow(TwitchChannelUiState())
-                },
-                twitchState = TwitchChannelUiState(),
-                onBack = {},
-            )
-        }
-        composeRule.onAllNodesWithText("Stream URL")[0].performTextInput("rtmp://a.live/b")
-        verify { viewModel.onStreamUrlChange("rtmp://a.live/b") }
-    }
-
-    // --- Encoder-Presets (4K/60fps + HEVC) --------------------------------------
-
-    @Test
-    fun `streaming-obs shows encoder preset chips and codec preference`() {
-        composeRule.setContent {
-            SettingsStreamingObsScreen(
-                uiState = AppSettings(encoderPreset = EncoderPreset.S_4K60),
-                viewModel = settingsViewModel(),
-                twitchViewModel = mockk<TwitchChannelViewModel>(relaxed = true) {
-                    every { uiState } returns MutableStateFlow(TwitchChannelUiState())
-                },
-                twitchState = TwitchChannelUiState(),
-                onBack = {},
-            )
-        }
-        composeRule.onAllNodesWithText("Encoder (resolution & codec)")[0].assertExists()
-        composeRule.onAllNodesWithText("2160p60")[0].assertExists()
-        composeRule.onAllNodesWithText("1080p30")[0].assertExists()
-        composeRule.onAllNodesWithText("H.265 (HEVC)")[0].assertExists()
-    }
-
-    @Test
-    fun `streaming-obs encoder preset click forwards to viewmodel`() {
-        val viewModel = settingsViewModel()
-        composeRule.setContent {
-            SettingsStreamingObsScreen(
-                uiState = AppSettings(),
-                viewModel = viewModel,
-                twitchViewModel = mockk<TwitchChannelViewModel>(relaxed = true) {
-                    every { uiState } returns MutableStateFlow(TwitchChannelUiState())
-                },
-                twitchState = TwitchChannelUiState(),
-                onBack = {},
-            )
-        }
-        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("2160p60"))
-        composeRule.onAllNodesWithText("2160p60")[0].performClick()
-        composeRule.onAllNodesWithText("2160p60")[0].performClick()
-        verify { viewModel.onEncoderPresetChange(EncoderPreset.S_4K60) }
-    }
-
-    @Test
-    fun `streaming-obs shows adaptive bitrate toggle reflecting the state`() {
-        composeRule.setContent {
-            SettingsStreamingObsScreen(
-                uiState = AppSettings(adaptiveBitrateEnabled = true),
-                viewModel = settingsViewModel(),
-                twitchViewModel = mockk<TwitchChannelViewModel>(relaxed = true) {
-                    every { uiState } returns MutableStateFlow(TwitchChannelUiState())
-                },
-                twitchState = TwitchChannelUiState(),
-                onBack = {},
-            )
-        }
-        composeRule.onNode(hasScrollAction()).performScrollToNode(
-            hasText("Automatically adapt bitrate to the connection"),
-        )
-        composeRule.onAllNodesWithText("Automatically adapt bitrate to the connection")[0].assertExists()
-        // Der zweite Toggle im Encoder-Block ist der Adaptive-Switch.
-        composeRule.onAllNodes(isToggleable())[1].assertIsOn()
-    }
+    // Streaming profile navigation is covered by StreamProfilesScreenTest.
 
     // --- Remote & Privacy -------------------------------------------------------
 
@@ -354,62 +253,4 @@ class SettingsSubScreensRobolectricTest {
         composeRule.onAllNodes(isToggleable())[0].assertIsOff()
     }
 
-    // --- Accessibility: Semantics der Encoder-Steuerungen -----------------------
-
-    @Test
-    fun `encoder preset chips expose localized selected state`() {
-        composeRule.setContent {
-            SettingsStreamingObsScreen(
-                uiState = AppSettings(encoderPreset = EncoderPreset.S_4K60),
-                viewModel = settingsViewModel(),
-                twitchViewModel = mockk<TwitchChannelViewModel>(relaxed = true) {
-                    every { uiState } returns MutableStateFlow(TwitchChannelUiState())
-                },
-                twitchState = TwitchChannelUiState(),
-                onBack = {},
-            )
-        }
-        composeRule.onNode(
-            hasText("2160p60").and(hasStateDescription("Selected")),
-        ).assertExists()
-        composeRule.onNode(
-            hasText("1080p30").and(hasStateDescription("Not selected")),
-        ).assertExists()
-    }
-
-    @Test
-    fun `codec chips expose localized selected state`() {
-        composeRule.setContent {
-            SettingsStreamingObsScreen(
-                uiState = AppSettings(),
-                viewModel = settingsViewModel(),
-                twitchViewModel = mockk<TwitchChannelViewModel>(relaxed = true) {
-                    every { uiState } returns MutableStateFlow(TwitchChannelUiState())
-                },
-                twitchState = TwitchChannelUiState(),
-                onBack = {},
-            )
-        }
-        composeRule.onNode(
-            hasText("H.265 (HEVC)").and(hasStateDescription("Not selected")),
-        ).assertExists()
-    }
-
-    @Test
-    fun `encoder auto fallback switch exposes its state for talkback`() {
-        composeRule.setContent {
-            SettingsStreamingObsScreen(
-                uiState = AppSettings(encoderAutoFallback = true),
-                viewModel = settingsViewModel(),
-                twitchViewModel = mockk<TwitchChannelViewModel>(relaxed = true) {
-                    every { uiState } returns MutableStateFlow(TwitchChannelUiState())
-                },
-                twitchState = TwitchChannelUiState(),
-                onBack = {},
-            )
-        }
-        // Nur der Auto-Fallback-Switch trägt eine explizite StateDescription —
-        // der Adaptive-Switch (ohne Semantics-Ergänzung) matcht nicht.
-        composeRule.onNode(hasStateDescription("On")).assertExists()
-    }
 }

@@ -129,9 +129,10 @@ class StreamingViewModel @Inject constructor(
                 streamingEngine.stopReplay()
             } else {
                 val settings = settingsRepository.appSettingsFlow.first()
-                streamingEngine.configureCameraMode(settings.cameraMode)
+                streamingEngine.configureCameraMode(if (settings.videoFps == 30) com.vivid.core.data.CameraMode.STANDARD else settings.cameraMode)
+                streamingEngine.configureStreamVideo(settings)
                 streamingEngine.configureEncoder(com.vivid.core.data.ResolvedEncoderConfig(
-                    settings.videoCodecPreference, settings.encoderPreset, false), settings.encoderAutoFallback)
+                    settings.videoCodecPreference, settings.encoderPreset, false, settings.videoFps ?: settings.encoderPreset.fps), settings.encoderAutoFallback)
                 onStartResult(streamingEngine.startReplay(includeAudio = settings.replayAudioMode == ReplayAudioMode.ALL))
             }
         }

@@ -41,9 +41,13 @@ class TwitchChannelViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(TwitchChannelUiState())
     val uiState: StateFlow<TwitchChannelUiState> = _uiState.asStateFlow()
 
-    fun refresh() {
+    fun refresh() = refreshWithSettings(null)
+
+    fun refreshForStream(settings: AppSettings) = refreshWithSettings(settings)
+
+    private fun refreshWithSettings(override: AppSettings?) {
         viewModelScope.launch {
-            val settings = settingsRepository.appSettingsFlow.first()
+            val settings = override ?: settingsRepository.appSettingsFlow.first()
             val config = settings.channelConfig()
             if (!config.isConfigured) {
                 _uiState.value = TwitchChannelUiState(
@@ -69,9 +73,14 @@ class TwitchChannelViewModel @Inject constructor(
     }
 
     /** Setzt Titel/Kategorie und speichert die Eingaben für den nächsten Abruf. */
-    fun updateChannelInfo(title: String, category: String) {
+    fun updateChannelInfo(title: String, category: String) = updateWithSettings(null, title, category)
+
+    fun updateChannelInfoForStream(settings: AppSettings, title: String, category: String) =
+        updateWithSettings(settings, title, category)
+
+    private fun updateWithSettings(override: AppSettings?, title: String, category: String) {
         viewModelScope.launch {
-            val settings = settingsRepository.appSettingsFlow.first()
+            val settings = override ?: settingsRepository.appSettingsFlow.first()
             val config = settings.channelConfig()
             if (!config.isConfigured) {
                 _uiState.value = _uiState.value.copy(
@@ -82,7 +91,7 @@ class TwitchChannelViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(saving = true, error = null)
             runCatching { channelClient.updateChannelInfo(config, title, category) }
                 .onSuccess {
-                    settingsRepository.updateTwitchChannelSettings(
+                    if (override == null) settingsRepository.updateTwitchChannelSettings(
                         channel = settings.chatChannel,
                         oauthToken = settings.twitchChannelOauthToken,
                         title = title.trim(),
