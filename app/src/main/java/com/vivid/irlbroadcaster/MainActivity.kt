@@ -16,6 +16,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -26,6 +30,7 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.navArgument
 import com.vivid.BuildConfig
 import com.vivid.core.startup.CrashLoopGuard
@@ -63,6 +68,8 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
+    private var previewFullscreen = false
+
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(AppLanguage.wrapBaseContext(newBase))
     }
@@ -81,7 +88,7 @@ class MainActivity : ComponentActivity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         // Draw into the camera cutout too; screens keep controls in safe insets.
         enableEdgeToEdge()
-        hideSystemBars()
+        applySystemBarsVisibility()
         setContent {
             // Darstellung (Settings-Kategorie „Darstellung“): Design-Modus
             // (System/Hell/Dunkel/AMOLED) + Akzentfarbe live anwenden — das
@@ -118,7 +125,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background,
                 ) {
-                    VividAppNavigation()
+                    VividAppNavigation(onPreviewFullscreenChange = ::setPreviewFullscreen)
                 }
                 }
             }
@@ -127,14 +134,23 @@ class MainActivity : ComponentActivity() {
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        // Restore fullscreen after returning from system dialogs or another app.
-        if (hasFocus) hideSystemBars()
+        // Reapply the current screen policy after dialogs or another app.
+        if (hasFocus) applySystemBarsVisibility()
     }
 
-    private fun hideSystemBars() {
+    private fun setPreviewFullscreen(fullscreen: Boolean) {
+        if (previewFullscreen == fullscreen) return
+        previewFullscreen = fullscreen
+        applySystemBarsVisibility()
+    }
+
+    private fun applySystemBarsVisibility() {
         WindowCompat.getInsetsController(window, window.decorView).apply {
-            systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-            hide(WindowInsetsCompat.Type.systemBars())
+            systemBarsBehavior = if (previewFullscreen) {
+                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            } else WindowInsetsControllerCompat.BEHAVIOR_DEFAULT
+            if (previewFullscreen) hide(WindowInsetsCompat.Type.systemBars())
+            else show(WindowInsetsCompat.Type.systemBars())
         }
     }
 
@@ -183,11 +199,15 @@ private fun resolveSafeWindowWidthSizeClass(activity: Activity): WindowWidthSize
 }
 
 @Composable
-fun VividAppNavigation() {
+fun VividAppNavigation(onPreviewFullscreenChange: (Boolean) -> Unit = {}) {
     val navController = rememberNavController()
+    val currentEntry by navController.currentBackStackEntryAsState()
+    var previewRequestsFullscreen by remember { mutableStateOf(true) }
+    val previewFullscreen = currentEntry?.destination?.route == "streaming_route" && previewRequestsFullscreen
+    SideEffect { onPreviewFullscreenChange(previewFullscreen) }
     NavHost(navController = navController, startDestination = "streaming_route") {
         composable("streaming_route") {
-            StreamingScreen(navController = navController)
+            StreamingScreen(navController = navController, onPreviewFullscreenChange = { previewRequestsFullscreen = it })
         }
         composable("playback/{streamUrl}") { backStackEntry ->
             val streamUrl = backStackEntry.arguments?.getString("streamUrl")

@@ -7,12 +7,12 @@ import android.os.Build
 import com.vivid.feature.settings.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -24,9 +24,7 @@ import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -35,6 +33,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -49,7 +51,7 @@ import com.vivid.core.i18n.AppLanguage
  * App-Sprache, Design-Modus (System/Hell/Dunkel/AMOLED) und Akzentfarbe.
  * Die Sprache wirkt sofort; Theme-Änderungen werden beim Speichern übernommen.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun SettingsAppearanceScreen(
     uiState: AppSettings,
@@ -59,6 +61,7 @@ fun SettingsAppearanceScreen(
     val context = LocalContext.current
     var selectedLanguage by remember(context) { mutableStateOf(AppLanguage.current(context)) }
     var languageMenuExpanded by remember { mutableStateOf(false) }
+    var accentMenuExpanded by remember { mutableStateOf(false) }
 
     SettingsSectionScaffold(
         title = stringResource(R.string.cat_appearance_title),
@@ -114,16 +117,17 @@ fun SettingsAppearanceScreen(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-            ThemeMode.entries.forEachIndexed { index, mode ->
-                SegmentedButton(
+        FlowRow(
+            modifier = Modifier.fillMaxWidth().selectableGroup(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            ThemeMode.entries.forEach { mode ->
+                FilterChip(
                     selected = uiState.themeMode == mode,
                     onClick = { viewModel.onThemeModeChange(mode) },
-                    shape = SegmentedButtonDefaults.itemShape(
-                        index = index,
-                        count = ThemeMode.entries.size,
-                    ),
                     label = { Text(stringResource(mode.displayNameRes)) },
+                    modifier = Modifier.semantics { role = Role.RadioButton },
                 )
             }
         }
@@ -140,29 +144,45 @@ fun SettingsAppearanceScreen(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
-        // Akzentfarbe: kuratierte Material-3-Paletten (Swatch = HCT-Seed)
-        Text(
-            text = stringResource(R.string.appearance_accent_title),
-            style = MaterialTheme.typography.titleLarge,
+        ExposedDropdownMenuBox(
+            expanded = accentMenuExpanded,
+            onExpandedChange = { accentMenuExpanded = it },
             modifier = Modifier.padding(top = 8.dp),
-        )
+        ) {
+            OutlinedTextField(
+                value = stringResource(uiState.themeAccent.displayNameRes),
+                onValueChange = {},
+                readOnly = true,
+                label = { Text(stringResource(R.string.appearance_accent_title)) },
+                leadingIcon = { AccentColorSample(uiState.themeAccent) },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = accentMenuExpanded) },
+                modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
+                    .fillMaxWidth().testTag("accent_picker"),
+            )
+            ExposedDropdownMenu(
+                expanded = accentMenuExpanded,
+                onDismissRequest = { accentMenuExpanded = false },
+            ) {
+                AccentColor.entries.forEach { accent ->
+                    DropdownMenuItem(
+                        text = { Text(stringResource(accent.displayNameRes)) },
+                        leadingIcon = { AccentColorSample(accent) },
+                        modifier = Modifier.testTag("accent_option_${accent.name}").semantics {
+                            selected = uiState.themeAccent == accent
+                        },
+                        onClick = {
+                            accentMenuExpanded = false
+                            viewModel.onAccentColorChange(accent)
+                        },
+                    )
+                }
+            }
+        }
         Text(
             text = stringResource(R.string.appearance_accent_desc),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            AccentColor.entries.forEach { accent ->
-                AccentSwatch(
-                    accent = accent,
-                    selected = uiState.themeAccent == accent,
-                    onClick = { viewModel.onAccentColorChange(accent) },
-                )
-            }
-        }
     }
 }
 
@@ -181,35 +201,11 @@ private tailrec fun Context.findActivity(): Activity? = when (this) {
     else -> null
 }
 
-/** Farb-Kreis einer Akzentfarbe; ausgewählt → Auswahl-Ring in Primary-Farbe. */
+/** Decorative color sample; the adjacent localized name supplies the accessible label. */
 @Composable
-private fun AccentSwatch(
-    accent: AccentColor,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
-    val ringColor = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        Box(
-            modifier = Modifier
-                .size(40.dp)
-                .clip(CircleShape)
-                .clickable(onClick = onClick)
-                .border(
-                    width = if (selected) 3.dp else 1.dp,
-                    color = ringColor,
-                    shape = CircleShape,
-                )
-                .padding(if (selected) 3.dp else 5.dp)
-                .background(color = accent.seedColor, shape = CircleShape),
-        )
-        Text(
-            text = stringResource(accent.displayNameRes),
-            style = MaterialTheme.typography.labelSmall,
-            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
+private fun AccentColorSample(accent: AccentColor) {
+    Box(Modifier.size(24.dp).testTag("accent_sample_${accent.name}")
+        .clip(CircleShape)
+        .background(accent.seedColor)
+        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape))
 }

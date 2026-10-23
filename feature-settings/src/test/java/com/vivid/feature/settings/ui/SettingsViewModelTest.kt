@@ -1327,4 +1327,21 @@ class SettingsViewModelTest {
         assertEquals("My stream", vm.streamDraft.value?.name)
         assertFalse(vm.streamSaving.value)
     }
+    @Test fun `reordering persists order and preserves active stream and all settings`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val a = com.vivid.core.data.StreamProfile("a", "A", streamKey = "a-key", videoBitrateKbps = 10_000)
+        val b = com.vivid.core.data.StreamProfile("b", "B", streamKey = "b-key", obsRemoteEnabled = true)
+        val repo = repository()
+        every { repo.appSettingsFlow } returns MutableStateFlow(AppSettings(streamProfiles = listOf(a,b), activeStreamId = "b"))
+        val vm = createViewModel(repo)
+        advanceUntilIdle()
+        vm.reorderStreams(listOf("b", "a"))
+        advanceUntilIdle()
+        coVerify(exactly = 1) { repo.updateStreamProfiles(listOf(b,a), "b") }
+        vm.reorderStreams(listOf("a", "a"))
+        vm.reorderStreams(listOf("a"))
+        vm.reorderStreams(listOf("a", "missing"))
+        advanceUntilIdle()
+        coVerify(exactly = 1) { repo.updateStreamProfiles(any(), any()) }
+    }
 }

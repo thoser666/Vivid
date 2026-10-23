@@ -73,7 +73,7 @@ Hier stehen gespeicherte Streams. „Stream erstellen“ führt über Twitch, Yo
 Kick oder Benutzerdefiniert zu Name, URL, Schlüssel, TLS und „Speichern“.
 Der Switch aktiviert einen Stream; ein anderer Switch deaktiviert den vorherigen.
 Alle dürfen aus sein. „Start streaming“ startet den ausgewählten Stream.
-Antippen der Zeile öffnet eigene Seiten für Multi-Streaming, Video
+Gedrückt halten und Ziehen am Griff sortiert die Streams; Loslassen speichert die Reihenfolge. Antippen der Zeile öffnet eigene Seiten für Multi-Streaming, Video
 (Auflösung/Codec, FPS, LLB, 1–15 Mbit/s und Schlüsselbildintervall), Replay,
 Twitch-Kanalsteuerung (nur Twitch) und OBS-Fernsteuerung mit eigenem Switch.
 Änderungen mit „Speichern“ auf der Stream-Detailseite übernehmen.

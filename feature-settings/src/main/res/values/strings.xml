@@ -379,4 +379,7 @@
     <string name="stream_bitrate_value" tools:ignore="PluralsCandidate">%1$d Mbit/s</string>
     <string name="stream_keyframe_value">%1$d s</string>
     <string name="stream_save_failed">Speichern fehlgeschlagen. Bitte erneut versuchen.</string>
+    <string name="stream_reorder">%1$s verschieben (gedrückt halten)</string>
+    <string name="stream_move_up">Nach oben</string>
+    <string name="stream_move_down">Nach unten</string>
 </resources>

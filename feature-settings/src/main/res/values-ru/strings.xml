@@ -380,4 +380,7 @@
     <string name="stream_bitrate_value">%1$d Мбит/с</string>
     <string name="stream_keyframe_value">%1$d с</string>
     <string name="stream_save_failed">Не удалось сохранить. Попробуйте ещё раз.</string>
+    <string name="stream_reorder">Изменить порядок %1$s (нажмите и удерживайте)</string>
+    <string name="stream_move_up">Переместить вверх</string>
+    <string name="stream_move_down">Переместить вниз</string>
 </resources>

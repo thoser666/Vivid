@@ -72,7 +72,7 @@ This opens your saved streams. Tap **Create stream**, choose Twitch, YouTube,
 Kick or Custom, enter a name, URL, key and secure-connection setting, then **Save**.
 Enable a stream using its switch; enabling another turns the previous one off.
 All streams may be off. **Start streaming** starts the selected stream.
-Tap a stream row to edit it. Separate pages contain Multi-streaming, Video
+Touch and hold a stream’s drag handle to reorder the list; the order is saved on release. Tap a stream row to edit it. Separate pages contain Multi-streaming, Video
 (resolution/codec, FPS, LLB, 1–15 Mbps bitrate and keyframe interval), Replay
 recording, Twitch channel control (Twitch only), and OBS remote control with
 its own switch. Save on the stream details page to keep changes.

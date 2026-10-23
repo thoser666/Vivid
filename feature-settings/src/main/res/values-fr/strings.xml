@@ -379,4 +379,7 @@
     <string name="stream_bitrate_value">%1$d Mbit/s</string>
     <string name="stream_keyframe_value">%1$d s</string>
     <string name="stream_save_failed">Échec de l’enregistrement. Veuillez réessayer.</string>
+    <string name="stream_reorder">Réordonner %1$s (appui long)</string>
+    <string name="stream_move_up">Monter</string>
+    <string name="stream_move_down">Descendre</string>
 </resources>

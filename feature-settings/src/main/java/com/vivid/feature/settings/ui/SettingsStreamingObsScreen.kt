@@ -3,6 +3,13 @@ package com.vivid.feature.settings.ui
 import com.vivid.feature.settings.R
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.Surface
+import androidx.compose.material3.VerticalDivider
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Button
@@ -35,9 +42,6 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Slider
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -66,11 +70,12 @@ fun SettingsStreamingObsScreen(
     val saving by viewModel.streamSaving.collectAsState()
     val failed by viewModel.streamSaveFailed.collectAsState()
     var page by rememberSaveable { mutableStateOf("list") }
+    val scrollState = rememberScrollState()
+    LaunchedEffect(page) { scrollState.scrollTo(0) }
     val back: () -> Unit = {
         if (!saving) when (page) {
             "list" -> onBack()
             "platform", "create", "details" -> { viewModel.discardStreamDraft(); page = "list" }
-            "encoder", "fps", "llb", "bitrate", "keyframe" -> page = "video"
             else -> page = "details"
         }
     }
@@ -83,11 +88,6 @@ fun SettingsStreamingObsScreen(
         "create" -> stringResource(R.string.stream_create)
         "details" -> draft?.name.orEmpty()
         "video" -> stringResource(R.string.stream_video)
-        "encoder" -> stringResource(R.string.encoder_preset_title)
-        "fps" -> stringResource(R.string.stream_fps)
-        "llb" -> stringResource(R.string.stream_llb)
-        "bitrate" -> stringResource(R.string.stream_bitrate)
-        "keyframe" -> stringResource(R.string.stream_keyframe)
         "multi" -> stringResource(R.string.multi_streaming_title)
         "recording" -> stringResource(R.string.replay_audio_title)
         "twitch" -> stringResource(R.string.twitch_channel_title)
@@ -96,6 +96,7 @@ fun SettingsStreamingObsScreen(
     }
     SettingsSectionScaffold(
         title = title,
+        scrollState = scrollState,
         onBack = back,
         onSave = if (page == "create" || page == "details") {
             { viewModel.saveStreamDraft { page = "list" } }
@@ -105,25 +106,14 @@ fun SettingsStreamingObsScreen(
         if (failed) Text(stringResource(R.string.stream_save_failed), color = MaterialTheme.colorScheme.error)
         when (page) {
             "list" -> {
-                if (uiState.streamProfiles.isNotEmpty()) Column {
-                    uiState.streamProfiles.forEach { profile ->
-                        ListItem(
-                            headlineContent = { Text(profile.name) },
-                            supportingContent = { Text(stringResource(StreamPlatform.valueOf(profile.platform.name).labelRes)) },
-                            trailingContent = {
-                                Switch(checked = uiState.activeStreamId == profile.id,
-                                    onCheckedChange = { viewModel.setStreamEnabled(profile.id, it) },
-                                    modifier = Modifier.testTag("stream_toggle_" + profile.id).semantics {
-                                        contentDescription = profile.name
-                                    })
-                            },
-                            modifier = Modifier.fillMaxWidth().testTag("stream_row_" + profile.id).clickable {
-                                viewModel.editStream(profile.id); page = "details"
-                            },
-                        )
-                        HorizontalDivider()
-                    }
-                }
+                StreamProfilesList(
+                    profiles = uiState.streamProfiles,
+                    activeId = uiState.activeStreamId,
+                    scrollState = scrollState,
+                    onOpen = { viewModel.editStream(it); page = "details" },
+                    onToggle = viewModel::setStreamEnabled,
+                    onReorder = viewModel::reorderStreams,
+                )
                 Button(onClick = { page = "platform" }, modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(R.string.stream_create))
                 }
@@ -140,13 +130,36 @@ fun SettingsStreamingObsScreen(
     }
 }
 
+/** A menu group with inset separators, matching the two independent row actions. */
 @Composable
-private fun StreamSettingLink(label: String, onClick: () -> Unit, trailing: (@Composable () -> Unit)? = null) {
+private fun StreamMenuGroup(content: @Composable () -> Unit) {
+    Surface(shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surfaceContainerLow) {
+        Column(Modifier.fillMaxWidth().testTag("stream_settings_menu")) { content() }
+    }
+}
+
+@Composable
+internal fun StreamSwitchAction(tag: String, content: @Composable () -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        VerticalDivider(modifier = Modifier.height(32.dp).testTag(tag))
+        Row(Modifier.padding(start = 16.dp), verticalAlignment = Alignment.CenterVertically) { content() }
+    }
+}
+
+@Composable
+private fun StreamSettingLink(
+    label: String,
+    onClick: () -> Unit,
+    divider: Boolean = true,
+    trailing: (@Composable () -> Unit)? = null,
+) {
     ListItem(
         headlineContent = { Text(label) },
-        trailingContent = trailing ?: { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null) },
+        trailingContent = trailing,
+        colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
     )
+    if (divider) HorizontalDivider(Modifier.padding(horizontal = 16.dp))
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -162,8 +175,6 @@ private fun StreamProfilePage(
 ) {
     val uiState = profile.applyTo(settings)
     val obsLabel = stringResource(R.string.stream_obs_remote)
-    val bitrateLabel = stringResource(R.string.stream_bitrate)
-    val keyframeLabel = stringResource(R.string.stream_keyframe)
     when (page) {
         "create", "details" -> {
             OutlinedTextField(value = profile.name,
@@ -182,57 +193,68 @@ private fun StreamProfilePage(
                 Checkbox(checked = profile.streamUseTls,
                     onCheckedChange = { value -> viewModel.updateStreamDraft { it.copy(streamUseTls = value) } })
             }
-            if (page == "details") {
+            if (page == "details") StreamMenuGroup {
                 StreamSettingLink(stringResource(R.string.multi_streaming_title), { navigate("multi") })
                 StreamSettingLink(stringResource(R.string.stream_video), { navigate("video") })
                 StreamSettingLink(stringResource(R.string.replay_audio_title), { navigate("recording") })
                 if (profile.platform == StreamPlatformType.Twitch) {
                     StreamSettingLink(stringResource(R.string.twitch_channel_title), { navigate("twitch") })
                 }
-                StreamSettingLink(stringResource(R.string.stream_obs_remote), { navigate("obs") }, trailing = {
-                    Switch(checked = profile.obsRemoteEnabled,
-                        onCheckedChange = { value -> viewModel.updateStreamDraft { it.copy(obsRemoteEnabled = value) } },
-                        modifier = Modifier.semantics { contentDescription = obsLabel })
+                StreamSettingLink(stringResource(R.string.stream_obs_remote), { navigate("obs") }, divider = false, trailing = {
+                    StreamSwitchAction("obs_switch_divider") {
+                        Switch(checked = profile.obsRemoteEnabled,
+                            onCheckedChange = { value -> viewModel.updateStreamDraft { it.copy(obsRemoteEnabled = value) } },
+                            modifier = Modifier.testTag("obs_profile_toggle").semantics { contentDescription = obsLabel })
+                    }
                 })
             }
         }
-        "video" -> {
-            StreamSettingLink(stringResource(R.string.encoder_preset_title), { navigate("encoder") })
-            StreamSettingLink(stringResource(R.string.stream_fps), { navigate("fps") })
-            StreamSettingLink(stringResource(R.string.stream_llb), { navigate("llb") })
-            StreamSettingLink(stringResource(R.string.stream_bitrate), { navigate("bitrate") })
-            StreamSettingLink(stringResource(R.string.stream_keyframe), { navigate("keyframe") })
-        }
-        "fps" -> FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        "video" -> StreamVideoSettings(profile, uiState, viewModel)
+        "recording" -> StreamRecordingSettings(uiState, viewModel)
+        "twitch" -> StreamTwitchSettings(uiState, viewModel, twitchViewModel, twitchState)
+        "multi" -> StreamMultiSettings(uiState, viewModel)
+        "obs" -> StreamObsSettings(uiState, viewModel)
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun StreamVideoSettings(profile: StreamProfile, uiState: AppSettings, viewModel: SettingsViewModel) {
+    val bitrateLabel = stringResource(R.string.stream_bitrate)
+    val keyframeLabel = stringResource(R.string.stream_keyframe)
+    Text(stringResource(R.string.encoder_preset_title), style = MaterialTheme.typography.titleMedium)
+    StreamEncoderSettings(uiState, viewModel)
+    HorizontalDivider()
+    Text(stringResource(R.string.stream_fps), style = MaterialTheme.typography.titleMedium)
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf(30, 60).forEach { fps ->
                 FilterChip(selected = profile.videoFps == fps,
                     onClick = { viewModel.updateStreamDraft { it.copy(videoFps = fps) } },
                     label = { Text(stringResource(R.string.stream_fps_value, fps)) })
             }
         }
-        "llb" -> Row(verticalAlignment = Alignment.CenterVertically) {
+    HorizontalDivider()
+    Row(verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(R.string.stream_llb), modifier = Modifier.weight(1f))
             Switch(checked = profile.lowLightBoostEnabled,
                 onCheckedChange = { value -> viewModel.updateStreamDraft { it.copy(lowLightBoostEnabled = value) } })
         }
-        "bitrate" -> {
+    HorizontalDivider()
+    Text(stringResource(R.string.stream_bitrate), style = MaterialTheme.typography.titleMedium)
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(stringResource(R.string.stream_bitrate_value, profile.videoBitrateKbps / 1_000))
             Slider(value = (profile.videoBitrateKbps / 1_000f).coerceIn(1f, 15f), valueRange = 1f..15f, steps = 13,
                 onValueChange = { value -> viewModel.updateStreamDraft { it.copy(videoBitrateKbps = value.roundToInt() * 1_000) } },
                 modifier = Modifier.semantics { contentDescription = bitrateLabel })
         }
-        "keyframe" -> {
+    HorizontalDivider()
+    Text(stringResource(R.string.stream_keyframe), style = MaterialTheme.typography.titleMedium)
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(stringResource(R.string.stream_keyframe_value, profile.keyframeIntervalSeconds))
             Slider(value = profile.keyframeIntervalSeconds.toFloat(), valueRange = 1f..10f, steps = 8,
                 onValueChange = { value -> viewModel.updateStreamDraft { it.copy(keyframeIntervalSeconds = value.roundToInt()) } },
                 modifier = Modifier.semantics { contentDescription = keyframeLabel })
         }
-        "recording" -> StreamRecordingSettings(uiState, viewModel)
-        "encoder" -> StreamEncoderSettings(uiState, viewModel)
-        "twitch" -> StreamTwitchSettings(uiState, viewModel, twitchViewModel, twitchState)
-        "multi" -> StreamMultiSettings(uiState, viewModel)
-        "obs" -> StreamObsSettings(uiState, viewModel)
-    }
 }
 
 @Composable

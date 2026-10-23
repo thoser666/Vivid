@@ -72,7 +72,7 @@ La liste affiche les streams enregistrés. « Créer un stream » propose Twitch
 YouTube, Kick ou Personnalisé, puis nom, URL, clé, connexion sécurisée et
 « Enregistrer ». Active un stream avec son interrupteur : le précédent se
 désactive. Tous peuvent être désactivés. « Start streaming » démarre le stream
-sélectionné. Toucher une ligne ouvre les pages Multi-streaming, Vidéo
+sélectionné. Un appui long puis un glissement sur la poignée réorganise la liste ; relâcher enregistre cet ordre. Toucher une ligne ouvre les pages Multi-streaming, Vidéo
 (résolution/codec, FPS, LLB, débit de 1 à 15 Mbit/s et intervalle des images clés),
 Enregistrement, contrôle Twitch (Twitch uniquement) et contrôle OBS avec son
 interrupteur. Enregistre les modifications sur la page du stream.

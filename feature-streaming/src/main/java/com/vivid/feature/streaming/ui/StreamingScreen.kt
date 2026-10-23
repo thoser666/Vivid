@@ -75,9 +75,8 @@ import com.vivid.core.data.CameraMode
 import com.vivid.feature.streaming.StreamingEngine
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.compose.ui.window.DialogWindowProvider
 import androidx.core.content.ContextCompat
-import androidx.core.view.WindowCompat
+import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -140,6 +139,7 @@ fun StreamingScreen(
     navController: NavController,
     viewModel: StreamingViewModel = hiltViewModel(),
     twitchViewModel: TwitchChannelViewModel = hiltViewModel(),
+    onPreviewFullscreenChange: (Boolean) -> Unit = {},
     // Overlays (Chat + Widgets) als Slot: Die Kinder holen ihre ViewModels
     // selbst per hiltViewModel() — der Slot erlaubt Tests/Embedding, sie durch
     // eigenen Inhalt zu ersetzen (Default = [DefaultStreamingOverlay]).
@@ -215,6 +215,9 @@ fun StreamingScreen(
     RefreshStreamingScreenOnResume(viewModel, streamingEngine)
 
     var scenesExpanded by rememberSaveable { mutableStateOf(false) }
+    var controlsExpanded by remember { mutableStateOf(false) }
+    val previewFullscreen = !scenesExpanded && !controlsExpanded
+    SideEffect { onPreviewFullscreenChange(previewFullscreen) }
 
     if (scenesExpanded) {
         ModalBottomSheet(
@@ -233,7 +236,7 @@ fun StreamingScreen(
                 }
             },
         ) {
-            HideDialogSystemBars()
+            ShowMenuSystemBars()
             Column(Modifier.testTag("scenes_panel")) {
                 SceneSwitcherBar(
                     scenes = scenes,
@@ -324,6 +327,8 @@ fun StreamingScreen(
 
                 StreamingControlsMenu(
                     streamingEngine, navController, topButtonMaxWidth,
+                    controlsExpanded = controlsExpanded,
+                    onControlsExpandedChange = { controlsExpanded = it },
                     onRecord = requestPermissionsAndRecord,
                     onScreenCapture = requestScreenCapture,
                     onVideoPicker = { requestVideoPicker() },
@@ -369,27 +374,24 @@ fun StreamingScreen(
     }
 }
 
-/** The scenes sheet owns a separate window, so it needs the same fullscreen policy. */
+/** Popups and sheets own a window; their navigation buttons must stay available too. */
 @Composable
-private fun HideDialogSystemBars() {
+private fun ShowMenuSystemBars() {
     val view = LocalView.current
     DisposableEffect(view) {
-        val window = (view.parent as? DialogWindowProvider)?.window
-        fun hideBars() {
-            window?.let {
-                WindowCompat.getInsetsController(it, it.decorView).apply {
-                    systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-                    hide(WindowInsetsCompat.Type.systemBars())
-                }
+        fun showBars() {
+            ViewCompat.getWindowInsetsController(view)?.apply {
+                systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_DEFAULT
+                show(WindowInsetsCompat.Type.systemBars())
             }
         }
         val listener = ViewTreeObserver.OnWindowFocusChangeListener { focused ->
-            if (focused) hideBars()
+            if (focused) showBars()
         }
         view.viewTreeObserver.addOnWindowFocusChangeListener(listener)
-        hideBars()
+        showBars()
         onDispose {
-            view.viewTreeObserver.removeOnWindowFocusChangeListener(listener)
+            if (view.viewTreeObserver.isAlive) view.viewTreeObserver.removeOnWindowFocusChangeListener(listener)
         }
     }
 }
@@ -399,17 +401,18 @@ private fun BoxScope.StreamingControlsMenu(
     streamingEngine: StreamingEngine,
     navController: NavController,
     topButtonMaxWidth: Dp,
+    controlsExpanded: Boolean,
+    onControlsExpandedChange: (Boolean) -> Unit,
     onRecord: () -> Unit,
     onScreenCapture: () -> Unit,
     onVideoPicker: () -> Unit,
 ) {
-    var controlsExpanded by remember { mutableStateOf(false) }
-    fun dismissControls() { controlsExpanded = false }
+    fun dismissControls() { onControlsExpandedChange(false) }
     Box(
         modifier = Modifier.align(Alignment.TopStart).padding(top = 12.dp, start = 16.dp),
     ) {
         FilledTonalButton(
-            onClick = { controlsExpanded = true },
+            onClick = { onControlsExpandedChange(true) },
             modifier = Modifier.widthIn(max = topButtonMaxWidth).testTag("open_controls"),
             contentPadding = PaddingValues(horizontal = 12.dp),
         ) {
@@ -417,9 +420,10 @@ private fun BoxScope.StreamingControlsMenu(
         }
         DropdownMenu(
             expanded = controlsExpanded,
-            onDismissRequest = { controlsExpanded = false },
+            onDismissRequest = { onControlsExpandedChange(false) },
             modifier = Modifier.width(adaptiveControlsMaxWidth(LocalWindowWidthClass.current)).testTag("controls_menu"),
         ) {
+            ShowMenuSystemBars()
             SourceSelectionItems(streamingEngine, ::dismissControls, onScreenCapture, onVideoPicker)
             HorizontalDivider()
             RecordingMenuItem(streamingEngine, onRecord)

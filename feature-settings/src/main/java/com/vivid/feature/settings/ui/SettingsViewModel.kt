@@ -230,6 +230,25 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    fun reorderStreams(ids: List<String>) {
+        viewModelScope.launch {
+            streamMutex.lock()
+            try {
+                val settings = settingsRepository.appSettingsFlow.first()
+                val profiles = settings.streamProfiles.associateBy { it.id }
+                if (ids.size != profiles.size || ids.toSet() != profiles.keys) return@launch
+                _streamSaveFailed.value = false
+                settingsRepository.updateStreamProfiles(ids.map { profiles.getValue(it) }, settings.activeStreamId)
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                _streamSaveFailed.value = true
+            } finally {
+                streamMutex.unlock()
+            }
+        }
+    }
+
     // Diese Funktionen aktualisieren den State. Sie funktionieren dank .copy() perfekt.
     fun onStreamUrlChange(newUrl: String) { _uiState.value = _uiState.value.copy(streamUrl = newUrl) }
     fun onStreamKeyChange(newKey: String) { _uiState.value = _uiState.value.copy(streamKey = newKey) }

@@ -1,6 +1,7 @@
 package com.vivid.feature.settings.ui
 
 import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -47,6 +48,10 @@ class StreamProfilesScreenTest {
         every { vm.discardStreamDraft() } answers { draft.value = null }
         every { vm.setStreamEnabled(any(), any()) } answers {
             settings.value = settings.value.copy(activeStreamId = if (secondArg<Boolean>()) firstArg() else null)
+        }
+        every { vm.reorderStreams(any()) } answers {
+            val byId = settings.value.streamProfiles.associateBy { it.id }
+            settings.value = settings.value.copy(streamProfiles = firstArg<List<String>>().map { byId.getValue(it) })
         }
         every { vm.saveStreamDraft(any()) } answers {
             settings.value = settings.value.copy(streamProfiles = profiles + draft.value!!)
@@ -109,37 +114,63 @@ class StreamProfilesScreenTest {
         compose.onNodeWithText("Stream title").assertExists()
     }
 
-    @Test fun `video opens separate encoder page and wraps selected codec and preset chips`() {
+    @Test fun `all video settings share a single scrollable page`() {
         show(listOf(first))
         details()
         scrollClick("Video")
         screenshot("video")
         compose.onNodeWithText("Stream URL").assertDoesNotExist()
-        scrollClick("Encoder (resolution & codec)")
-        screenshot("encoder")
-        compose.onNode(hasText("H.265 (HEVC)").and(hasStateDescription("Not selected"))).assertExists()
-        compose.onNode(hasStateDescription("On")).assertExists()
         compose.onNode(hasText("2160p60").and(hasStateDescription("Selected"))).assertExists()
+        compose.onNode(hasText("H.265 (HEVC)").and(hasStateDescription("Not selected"))).assertExists()
         compose.onNodeWithText("1080p30").performClick()
-        verify { vm.updateStreamDraft(any()) }
-        compose.onNode(hasScrollAction()).performScrollToNode(hasText("H.265 (HEVC)"))
-        compose.onNodeWithText("H.265 (HEVC)").assertIsDisplayed()
-        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Automatically adapt bitrate to the connection"))
-        compose.onNodeWithText("Automatically adapt bitrate to the connection").assertExists()
-    }
-
-    @Test fun `nested pages keep draft and return through video to details`() {
-        show(listOf(first))
-        details()
-        scrollClick("Video")
-        scrollClick("Bitrate")
-        compose.onNodeWithText("6 Mbps").assertExists()
+        compose.onNode(hasScrollAction()).performScrollToNode(hasText("60 FPS"))
+        compose.onNodeWithText("60 FPS").performClick()
+        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Low-light boost (LLB)"))
+        compose.onNodeWithText("Low-light boost (LLB)").assertIsDisplayed()
+        compose.onNode(hasScrollAction()).performScrollToNode(hasContentDescription("Bitrate"))
         compose.onNodeWithContentDescription("Bitrate").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.SetProgress) { it(15f) }
         compose.onNodeWithText("15 Mbps").assertExists()
-        compose.onNodeWithContentDescription("Back").performClick()
-        compose.onNodeWithText("Frame rate").assertExists()
+        compose.onNode(hasScrollAction()).performScrollToNode(hasContentDescription("Keyframe interval"))
+        compose.onNodeWithContentDescription("Keyframe interval").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.SetProgress) { it(4f) }
+        compose.onNodeWithText("4 s").assertExists()
         compose.onNodeWithContentDescription("Back").performClick()
         compose.onNodeWithText("Stream URL").assertExists()
+        org.junit.Assert.assertEquals(60, draft.value!!.videoFps)
+        org.junit.Assert.assertEquals(15_000, draft.value!!.videoBitrateKbps)
+        org.junit.Assert.assertEquals(4, draft.value!!.keyframeIntervalSeconds)
+    }
+
+    @Test fun `dragging reorders streams without toggling or opening them`() {
+        val third = second.copy(id = "c", name = "Third")
+        show(listOf(first, second, third), "b")
+        val start = compose.onNodeWithTag("stream_drag_a", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot.center
+        val end = compose.onNodeWithTag("stream_drag_c", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot.center
+        compose.onNodeWithTag("stream_drag_a", useUnmergedTree = true).performTouchInput {
+            down(center)
+            advanceEventTime(700)
+            moveBy(Offset(0f, end.y - start.y + 8f), delayMillis = 300)
+            up()
+        }
+        compose.waitForIdle()
+        org.junit.Assert.assertEquals(listOf("b", "c", "a"), settings.value.streamProfiles.map { it.id })
+        compose.onNodeWithTag("stream_toggle_b").assertIsOn()
+        verify(exactly = 0) { vm.editStream(any()) }
+        verify(exactly = 0) { vm.setStreamEnabled(any(), any()) }
+        verify { vm.reorderStreams(listOf("b", "c", "a")) }
+    }
+
+    @Test fun `menu has separators and OBS switch is independent of navigation`() {
+        show(listOf(first), "a")
+        compose.onNodeWithTag("stream_switch_divider_a", useUnmergedTree = true).assertExists()
+        details()
+        compose.onNode(hasScrollAction()).performScrollToNode(hasTestTag("obs_profile_toggle"))
+        screenshot("stream-details")
+        compose.onNodeWithTag("stream_settings_menu").assertExists()
+        compose.onNodeWithTag("obs_switch_divider", useUnmergedTree = true).assertExists()
+        compose.onNodeWithTag("obs_profile_toggle").performClick().assertIsOn()
+        compose.onNodeWithText("OBS host").assertDoesNotExist()
+        scrollClick("OBS remote control")
+        compose.onNodeWithText("OBS host").assertExists()
     }
 
     @Test fun `multi recording and OBS pages retain existing fields`() {

@@ -378,4 +378,7 @@
     <string name="stream_bitrate_value">%1$d Mbps</string>
     <string name="stream_keyframe_value">%1$d s</string>
     <string name="stream_save_failed">Could not save. Please try again.</string>
+    <string name="stream_reorder">Reorder %1$s (touch and hold)</string>
+    <string name="stream_move_up">Move up</string>
+    <string name="stream_move_down">Move down</string>
 </resources>
