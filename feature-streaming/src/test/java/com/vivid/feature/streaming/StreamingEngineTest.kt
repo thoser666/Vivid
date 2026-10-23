@@ -545,7 +545,10 @@ class StreamingEngineTest {
 
         streamingEngine.startStream(TEST_URL)
 
-        assertEquals(StreamingState.Failed(PREPARATION_ERROR), streamingEngine.streamingState.value)
+        assertEquals(
+            StreamingState.Failed(reasonRes = R.string.streaming_error_encoder_preparation),
+            streamingEngine.streamingState.value,
+        )
         coVerify(exactly = 0) { camera.startStream(any(), any(), any()) }
     }
 
@@ -819,7 +822,10 @@ class StreamingEngineTest {
 
         streamingEngine.startStream(TEST_URL)
 
-        assertEquals(StreamingState.Failed(PREPARATION_ERROR), streamingEngine.streamingState.value)
+        assertEquals(
+            StreamingState.Failed(reasonRes = R.string.streaming_error_encoder_preparation),
+            streamingEngine.streamingState.value,
+        )
         coVerify(exactly = 0) { player.startStream(any(), any(), any()) }
     }
 
@@ -890,13 +896,69 @@ class StreamingEngineTest {
     fun `startStream on screen capture fails without consent`() = runTest {
         streamingEngine.initializeCamera()
         streamingEngine.switchSource(VideoSourceKind.SCREEN_CAPTURE)
-        // Kein Consent erteilt -> prepareAudio/Video werden nicht aufgerufen.
+        // Kein Consent erteilt -> weder Encoder noch Ziele werden angefasst;
+        // #326/#327 melden das als fehlenden Consent statt als Encoder-Fehler.
         every { display.isStreaming } returns false
 
         streamingEngine.startStream(TEST_URL)
 
-        assertEquals(StreamingState.Failed(PREPARATION_ERROR), streamingEngine.streamingState.value)
+        assertEquals(
+            // Eigene Ursache = String-Ressource (i18n), kein String-Literal.
+            StreamingState.Failed(reasonRes = R.string.streaming_error_screen_capture_consent),
+            streamingEngine.streamingState.value,
+        )
+        verify(exactly = 0) { display.prepareAudio() }
+        verify(exactly = 0) { display.prepareVideo() }
         coVerify(exactly = 0) { display.startStream(any(), any(), any()) }
+    }
+
+    @Test
+    fun `needsScreenCaptureConsent tracks the per-start consent of the active source`() = runTest {
+        streamingEngine.initializeCamera()
+
+        // Kamera: nie ein MediaProjection-Consent nötig.
+        assertFalse(streamingEngine.needsScreenCaptureConsent())
+
+        streamingEngine.switchSource(VideoSourceKind.SCREEN_CAPTURE)
+        // Quelle aktiv, aber der Dialog lief noch nicht.
+        assertTrue(streamingEngine.needsScreenCaptureConsent())
+
+        streamingEngine.onScreenCaptureConsentResult(Activity.RESULT_OK, mockk())
+        assertFalse(streamingEngine.needsScreenCaptureConsent())
+    }
+
+    @Test
+    fun `startStream on screen capture needs a fresh consent after a stop`() = runTest {
+        streamingEngine.initializeCamera()
+        streamingEngine.switchSource(VideoSourceKind.SCREEN_CAPTURE)
+        streamingEngine.onScreenCaptureConsentResult(Activity.RESULT_OK, mockk())
+        screenCaptureReady()
+
+        streamingEngine.startStream(TEST_URL)
+        streamingEngine.stopStream()
+
+        // Android 14+: das Token ist nach dem ersten Stream verbraucht (#326).
+        assertTrue(streamingEngine.needsScreenCaptureConsent())
+
+        streamingEngine.startStream(TEST_URL)
+
+        assertEquals(
+            StreamingState.Failed(reasonRes = R.string.streaming_error_screen_capture_consent),
+            streamingEngine.streamingState.value,
+        )
+        coVerify(exactly = 1) { display.startStream(any(), any(), any()) }
+    }
+
+    @Test
+    fun `reportStreamStartFailure publishes the service start error`() {
+        // #327: Der Service fängt den Startfehler ab und meldet ihn hier, damit
+        // die UI Failed statt eines stillen Idle-Zustands sieht.
+        streamingEngine.reportStreamStartFailure()
+
+        assertEquals(
+            StreamingState.Failed(reasonRes = R.string.streaming_error_service_start),
+            streamingEngine.streamingState.value,
+        )
     }
 
     @Test
@@ -1519,7 +1581,6 @@ class StreamingEngineTest {
     private companion object {
         private const val LIVE_URL = "rtmp://live/app"
         private const val TEST_URL = "rtmp://test.com/app"
-        private const val PREPARATION_ERROR = "Failed to prepare audio/video"
         private const val CAMERA_ERROR = "boom"
         private const val PRIMARY_URL = "rtmp://a.example/app"
         private const val SECONDARY_URL = "rtmp://b.example/app"

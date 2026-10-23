@@ -29,6 +29,7 @@ import com.pedro.library.util.AndroidMuxerRecordController
 import android.media.MediaCodecList
 import android.media.MediaFormat
 import android.os.SystemClock
+import androidx.annotation.StringRes
 import com.vivid.core.data.AdaptiveBitrateConfig
 import com.vivid.core.data.AdaptiveBitrateController
 import com.vivid.core.data.PrivacyZone
@@ -601,7 +602,22 @@ class StreamingEngine @Inject constructor(
     }.getOrDefault(0)
 
     companion object {
-        private const val ENCODER_PREPARATION_ERROR = "Failed to prepare audio/video"
+        /**
+         * Fehlerursachen sind String-Ressourcen (i18n), keine Literale: sie
+         * erscheinen im Banner, in der Notification und im Chat-Status.
+         * Rohmeldungen von RTMP/Encoder laufen weiter über
+         * [StreamingState.Failed.reason].
+         */
+        @StringRes
+        private val ENCODER_PREPARATION_ERROR = R.string.streaming_error_encoder_preparation
+
+        /** Startfehler außerhalb der Engine (Foreground-Service, #327). */
+        @StringRes
+        private val SERVICE_START_ERROR = R.string.streaming_error_service_start
+
+        /** Screen-Capture ohne gültigen MediaProjection-Consent (#326). */
+        @StringRes
+        private val SCREEN_CAPTURE_CONSENT_REQUIRED = R.string.streaming_error_screen_capture_consent
 
         /**
          * Maximale Anzahl paralleler Stream-Ziele (MVP: primär + 1 sekundär).
@@ -758,7 +774,12 @@ class StreamingEngine @Inject constructor(
             else -> {
                 val failed = states.firstOrNull { it.status == StreamTargetStatus.FAILED }
                 if (failed != null) {
-                    StreamingState.Failed(failed.failureReason ?: "unknown error")
+                    // Rohmeldung der Library, sonst lokalisierter Fallback.
+                    val rawReason = failed.failureReason
+                    StreamingState.Failed(
+                        reason = rawReason,
+                        reasonRes = if (rawReason == null) R.string.streaming_error_unknown else null,
+                    )
                 } else {
                     StreamingState.Idle
                 }
@@ -898,6 +919,19 @@ class StreamingEngine @Inject constructor(
      */
     fun onScreenCaptureConsentResult(resultCode: Int, data: Intent?): Boolean =
         screenCaptureSource?.onConsentResult(resultCode, data) == true
+
+    /**
+     * true, wenn der nächste Start der Screen-Capture-Quelle einen neuen
+     * MediaProjection-Consent braucht (#326).
+     *
+     * Der Consent ist ab Android 14 ein einmaliges Token: nach einem Start oder
+     * Stop ist er verbraucht. UI und Service starten deshalb erst nach einem
+     * frischen Dialog; ohne ihn würde die Projektion sofort sterben (#327).
+     * Für alle anderen Quellen immer false.
+     */
+    fun needsScreenCaptureConsent(): Boolean =
+        activeSourceKind.value == VideoSourceKind.SCREEN_CAPTURE &&
+            (screenCaptureSource?.requiresFreshConsent() ?: true)
 
     /**
      * Erstellt die Kamera einmalig, view-unabhängig.
@@ -1270,7 +1304,15 @@ class StreamingEngine @Inject constructor(
         }
 
         when (activeSourceKind.value) {
-            VideoSourceKind.SCREEN_CAPTURE -> screenCaptureSource?.let { source ->
+            VideoSourceKind.SCREEN_CAPTURE -> {
+                val source = screenCaptureSource ?: return
+                // #326: Das MediaProjection-Token ist einmalig verwendbar — ohne
+                // frischen Consent würde die Projektion (und mit ihr der Service)
+                // beim Start sterben (#327). Klar melden statt blind zu starten.
+                if (source.requiresFreshConsent()) {
+                    failStream(SCREEN_CAPTURE_CONSENT_REQUIRED)
+                    return
+                }
                 startSourceStream(source, activeUrls, source::startStream)
             }
             VideoSourceKind.VIDEO_PLAYER -> videoPlayerSource?.let { source ->
@@ -1479,12 +1521,24 @@ class StreamingEngine @Inject constructor(
     /** true = Strict-Modus (kein automatischer HEVC/Preset-Fallback). */
     val encoderAutoFallback: StateFlow<Boolean> = _encoderAutoFallback.asStateFlow()
 
-    /** Setzt alle Ziele auf Failed und den Gesamt-Status auf Failed (mit Ursache). */
-    private fun failStream(reason: String) {
-        _streamingState.value = StreamingState.Failed(reason)
+    /** Setzt alle Ziele auf Failed und den Gesamt-Status auf Failed (mit lokalisierter Ursache). */
+    private fun failStream(@StringRes reasonRes: Int) {
+        _streamingState.value = StreamingState.Failed(reasonRes = reasonRes)
         _targetStates.value = _targetStates.value.map {
-            it.copy(status = StreamTargetStatus.FAILED, failureReason = reason)
+            it.copy(status = StreamTargetStatus.FAILED)
         }
+    }
+
+    /**
+     * Meldet einen Startfehler von außerhalb der Engine (Service, #327).
+     *
+     * Der Foreground-Service fängt Exceptions aus `onStartCommand` ab, damit der
+     * Prozess nicht als „Unable to start service“ stirbt. Damit die UI trotzdem
+     * einen Failed-Status statt eines stillen Idle-Zustands sieht, wird die
+     * lokalisierte Ursache hier in den Zustand geschrieben.
+     */
+    fun reportStreamStartFailure() {
+        failStream(SERVICE_START_ERROR)
     }
 
     /** Einfacher Einstieg für genau ein Ziel. */

@@ -16,6 +16,11 @@
     <string name="streaming_focus_inf">Fokus: ∞</string>
     <string name="streaming_focus_auto">Fokus: Auto</string>
     <string name="streaming_error_prefix">Fehler: %1$s</string>
+    <!-- Fehlerursachen der Engine (StreamingState.Failed.reasonRes) -->
+    <string name="streaming_error_encoder_preparation">Audio/Video konnte nicht vorbereitet werden</string>
+    <string name="streaming_error_screen_capture_consent">Bildschirmübertragung nicht freigegeben — bitte erneut starten und im Systemdialog zustimmen</string>
+    <string name="streaming_error_service_start">Der Stream-Dienst konnte nicht gestartet werden</string>
+    <string name="streaming_error_unknown">Unbekannter Fehler</string>
     <string name="streaming_permission_required">Kamera-, Mikrofon- und Benachrichtigungs-Berechtigung werden für Streaming benötigt. Bitte erneut auf Go Live tippen und erlauben.</string>
     <string name="streaming_target_idle">bereit</string>
     <string name="streaming_target_preparing">verbinde…</string>

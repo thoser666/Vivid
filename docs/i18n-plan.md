@@ -49,7 +49,8 @@
 
 - **Bot-Antworten & LLM-Prompts** (`feature-chat`, inkl. der `!diag`-Ausgabe in `AppChatStreamControl`): bewusst in der Sprache des Streamers/Viewers — der System-Prompt ist bereits konfigurierbar (Settings). Bot-Kommandos wie `!help`/`!diag` bleiben deterministisch (Englisch/Deutsch gemischt, dokumentiert in [ai-chat-bot.md](ai-chat-bot.md)).
 - **Plattform-/Technik-Texte:** Stream-Keys, URLs, JSON-Feldnamen, Fehler von Dritt-Bibliotheken.
-- **Technische Fehlerdetails:** Exception-Messages werden in lokalisierte Rahmen eingesetzt (z. B. „Update-Check fehlgeschlagen: %1$s“, „Fehler: %1$s“); das Detail selbst bleibt unübersetzt. Technische Fallbacks sind bewusst englisch (z. B. `unknown error`, `network error`).
+- **Technische Fehlerdetails:** Exception-Messages werden in lokalisierte Rahmen eingesetzt (z. B. „Update-Check fehlgeschlagen: %1$s“, „Fehler: %1$s“); das Detail selbst bleibt unübersetzt (z. B. `network error` oder die RTMP-Meldung der Library).
+- **Eigene Fehlerursachen sind dagegen Ressourcen:** was die App selbst als Ursache formuliert, liegt als String-Ressource vor und wird erst bei der Anzeige aufgelöst — `StreamingState.Failed.reasonRes` (z. B. `streaming_error_encoder_preparation`, `streaming_error_screen_capture_consent`) hat in Banner, Notification und Chat-Status Vorrang vor der Rohdiagnose `reason`.
 - **Versionierungstexte:** Release-Kanal-Suffixe (`nightly`/`alpha`/`beta`/`rc`/`stable`) sind Teil der Versionsidentifikation und bleiben unübersetzt.
 - **Log-Ausgaben** (dürfen englisch bleiben, sind nicht UI).
 

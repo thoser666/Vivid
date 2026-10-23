@@ -16,6 +16,11 @@
     <string name="streaming_focus_inf">Focus: ∞</string>
     <string name="streaming_focus_auto">Focus: Auto</string>
     <string name="streaming_error_prefix">Error: %1$s</string>
+    <!-- Engine failure causes (StreamingState.Failed.reasonRes) -->
+    <string name="streaming_error_encoder_preparation">Failed to prepare audio/video</string>
+    <string name="streaming_error_screen_capture_consent">Screen capture not approved — start again and confirm in the system dialog</string>
+    <string name="streaming_error_service_start">The streaming service could not be started</string>
+    <string name="streaming_error_unknown">Unknown error</string>
     <string name="streaming_permission_required">Camera, microphone and notification permissions are required for streaming. Tap Go Live again and allow them.</string>
     <string name="streaming_target_idle">ready</string>
     <string name="streaming_target_preparing">connecting…</string>

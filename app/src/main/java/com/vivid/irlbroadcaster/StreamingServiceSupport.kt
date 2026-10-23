@@ -47,6 +47,19 @@ object StreamingServiceSupport {
         state is StreamingState.Streaming || state is StreamingState.Failed
 
     /**
+     * Sichtbare Ursache eines Failed-Zustands.
+     *
+     * Lokalisierte Ressource ([StreamingState.Failed.reasonRes]) vor der
+     * Rohdiagnose der RTMP-/Encoder-Library ([StreamingState.Failed.reason]) —
+     * eigene Ausgaben sind i18n-Pflicht, Fremdtexte sind nicht übersetzbar.
+     * Der Resolver ist injizierbar, damit die Auswahl pur testbar ist.
+     */
+    fun failureText(state: StreamingState, resolve: (Int) -> String): String {
+        val failed = state as? StreamingState.Failed ?: return ""
+        return failed.reasonRes?.let(resolve) ?: failed.reason.orEmpty()
+    }
+
+    /**
      * True, wenn der Streaming-Service den FGS-Typ `mediaProjection` anmelden muss.
      *
      * Android 14+ verlangt für jeden `MediaProjection.createVirtualDisplay()`-

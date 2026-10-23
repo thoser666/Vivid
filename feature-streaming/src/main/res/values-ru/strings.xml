@@ -16,6 +16,11 @@
     <string name="streaming_focus_inf">Фокус: ∞</string>
     <string name="streaming_focus_auto">Фокус: Авто</string>
     <string name="streaming_error_prefix">Ошибка: %1$s</string>
+    <!-- Причины сбоя движка (StreamingState.Failed.reasonRes) -->
+    <string name="streaming_error_encoder_preparation">Не удалось подготовить аудио/видео</string>
+    <string name="streaming_error_screen_capture_consent">Захват экрана не разрешён — запустите трансляцию заново и подтвердите в системном диалоге</string>
+    <string name="streaming_error_service_start">Не удалось запустить службу трансляции</string>
+    <string name="streaming_error_unknown">Неизвестная ошибка</string>
     <string name="streaming_permission_required">Для трансляции нужны разрешения на доступ к камере, микрофону и уведомлениям. Нажмите «Начать трансляцию» снова и предоставьте разрешения.</string>
     <string name="streaming_target_idle">готово</string>
     <string name="streaming_target_preparing">подключение…</string>
