@@ -275,6 +275,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 
 | Datum | Commit | Änderung |
 |-------|--------|----------|
+| 2026-10-23 | `b1c8a0a` | **fix(ci): Pre-Push-Gate führt den #320-ProGuard-Guard aus (vorher toter Helfer)** — der Guard existierte seit `744a519`, wurde aber von `pre-push.sh` und keiner Pipeline aufgerufen; ein verlorenes `-keep` wäre nur per Hand aufgefallen. Er läuft jetzt in der frühen Guard-Sektion vor dem Gradle-Block (Abbruch nach ~72 s statt nach dem 10–15-min-Testlauf), `test_pre_push.sh` prüft die Verdrahtung im Dry-Run-Vertrag. Mutationsprobe: `-keep class com.vivid.core.network.obs.security.**` entfernt → Gate exit 1 an genau dieser Zeile, Datei byte-identisch wiederhergestellt; Dry-Run-Gate grün (275 s), `test_pre_push.sh` grün (503 s). |
 | 2026-10-20 | `1c3a33c` | **fix(obs): R8 keep-rules für Gson / Request-Interface (#320 / VIVID-3V)**
 - ProGuard-Rules für OBS Security-Klassen und Request-Interface ergänzt
 - Verhindert JsonIOException (Abstract classes can't be instantiated) bei handleHello
@@ -559,6 +560,7 @@ Commit die Log-Zeile hinzufügte:
 
 | Datum | Commit | Eintrag | Kandidaten (Phrase in PARITY.md) | Vermerk |
 |-------|--------|---------|----------------------------------|---------|
+| 2026-10-23 | `b1c8a0a` | fix(ci): Pre-Push-Gate führt den #320-ProGuard-Guard aus | `b1c8a0a` | Log-Zeile folgt im docs(parity)-Commit — der eigene Hash ist erst nach dem Code-Commit bekannt; Belege: Mutationslauf (exit 1 nach 72 s) und `test_pre_push.sh` (exit 0, 503 s) |
 | 2026-10-20 | `1c3a33c` | fix(obs): R8 keep-rules für Gson / Request-Interface (#320 / VIVID-3V) | `1c3a33c` | Fix-Commit bringt die Log-Zeile selbst; ProGuard-Keep-Rules für Security-Klassen und Request-Interface; Sentry-Report VIVID-3V (JsonIOException: Abstract classes can't be instantiated) |
 | 2026-10-16 | `2b4a4e2` | Anonymisierung P2b: Ganzbild-Verpixelung (uFullFrame/uPixelGrid) + Persistenz + UI | `2b4a4e2` | Code-Commit bringt die Log-Zeile selbst (nachgeschoben, da der Log-Eintrag nach dem Code-Commit entsteht); Testlauf-Zahlen aus dieser Sitzung |
 | 2026-10-16 | `06e761d` | Anonymisierung P2: Gesichtserkennung Route A (RootEncoder-Hardware) + Slot-Merge + Persistenz | `06e761d` | Code-Commit bringt die Log-Zeile selbst (nachgeschoben, da Log-Eintrag nach dem Code-Commit entsteht); Beleg die grünen Testlauf-Zahlen aus `:feature-streaming:testDebugUnitTest` (558) dieser Sitzung |
