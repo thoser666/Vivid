@@ -242,7 +242,14 @@ fun SettingsStreamingObsScreen(
                 ),
             )
         }
-        twitchState.error?.let { error ->
+        // Fehlerursache: lokalisierte Ressource hat Vorrang, Rohdetail bleibt
+        // unübersetzt (i18n-plan §4).
+        val twitchErrorText = if (twitchState.errorRes != 0) {
+            stringResource(twitchState.errorRes, *twitchState.formatArgs.toTypedArray())
+        } else {
+            twitchState.error
+        }
+        twitchErrorText?.let { error ->
             Text(
                 text = error,
                 color = MaterialTheme.colorScheme.error,

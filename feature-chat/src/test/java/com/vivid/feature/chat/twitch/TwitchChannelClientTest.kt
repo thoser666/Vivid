@@ -1,5 +1,6 @@
 package com.vivid.feature.chat.twitch
 
+import com.vivid.feature.chat.R
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -96,7 +97,7 @@ class TwitchChannelClientTest {
             }
         }
 
-        assertTrue(exception.message.orEmpty().contains("nicht konfiguriert"))
+        assertEquals(R.string.twitch_channel_error_client_not_configured, exception.messageRes)
     }
 
     @Test
@@ -109,7 +110,7 @@ class TwitchChannelClientTest {
             }
         }
 
-        assertTrue(exception.message.orEmpty().contains("nicht konfiguriert"))
+        assertEquals(R.string.twitch_channel_error_client_not_configured, exception.messageRes)
         assertTrue(requests.isEmpty())
     }
 
@@ -142,7 +143,8 @@ class TwitchChannelClientTest {
         val exception = assertThrows(TwitchChannelException::class.java) {
             kotlinx.coroutines.runBlocking { channelClient.getStreamInfo(config) }
         }
-        assertTrue(exception.message.orEmpty().contains("401"))
+        assertEquals(R.string.twitch_channel_error_http_401, exception.messageRes)
+        assertEquals(401, exception.statusCode)
     }
 
     @Test
@@ -207,7 +209,8 @@ class TwitchChannelClientTest {
             kotlinx.coroutines.runBlocking { channelClient.getStreamInfo(config) }
         }
 
-        assertTrue(exception.message.orEmpty().contains("401"))
+        assertEquals(R.string.twitch_channel_error_http_401, exception.messageRes)
+        assertEquals(401, exception.statusCode)
     }
 
     @Test
@@ -227,7 +230,27 @@ class TwitchChannelClientTest {
             kotlinx.coroutines.runBlocking { channelClient.getStreamInfo(config) }
         }
 
-        assertTrue(exception.message.orEmpty().contains("401"))
+        assertEquals(R.string.twitch_channel_error_http_401, exception.messageRes)
+        assertEquals(401, exception.statusCode)
         coVerify(exactly = 0) { store.saveSession(any()) }
+    }
+
+    @Test
+    fun `maps unexpected http statuses to the generic localized error`() = runTest {
+        val userClient = mockk<TwitchWhisperClient> {
+            coEvery { resolveUserId(any(), "streamer") } returns "123"
+        }
+        val http = HttpClient(MockEngine {
+            respond("", status = HttpStatusCode.InternalServerError)
+        }) { install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) } }
+        val channelClient = TwitchChannelClient(http, userClient, tokenStore())
+
+        val exception = assertThrows(TwitchChannelException::class.java) {
+            kotlinx.coroutines.runBlocking { channelClient.getStreamInfo(config) }
+        }
+
+        assertEquals(R.string.twitch_channel_error_http, exception.messageRes)
+        assertEquals(listOf("500"), exception.formatArgs)
+        assertEquals(500, exception.statusCode)
     }
 }
