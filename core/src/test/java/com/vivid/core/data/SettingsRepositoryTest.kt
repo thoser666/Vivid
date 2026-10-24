@@ -19,6 +19,30 @@ class SettingsRepositoryTest {
     lateinit var tempDir: Path
 
     @Test
+    fun `camera controls persist independently of profiles including empty lists and preset order`() = runTest {
+        val store = PreferenceDataStoreFactory.create(scope = backgroundScope,
+            produceFile = { File(tempDir.toFile(), "camera_controls.preferences_pb") })
+        val repository = SettingsRepository(store)
+        assertEquals(CameraControlSettings(), repository.appSettingsFlow.first().cameraControls)
+        repository.updateCameraControls { it.copy(zoomSpeed = 2.3f,
+            rearZoomPresets = listOf(2f, 0.5f, 1.5f), frontZoomPresets = emptyList(),
+            stabilization = StabilizationMode.CINEMATIC, mirrorFrontCamera = true) }
+        repository.updateStreamSettings("rtmp://test/live", "key")
+        val controls = SettingsRepository(store).appSettingsFlow.first().cameraControls
+        assertEquals(2.3f, controls.zoomSpeed)
+        assertEquals(listOf(2f, 0.5f, 1.5f), controls.rearZoomPresets)
+        assertEquals(emptyList<Float>(), controls.frontZoomPresets)
+        assertEquals(StabilizationMode.CINEMATIC, controls.stabilization)
+        assertTrue(controls.mirrorFrontCamera)
+        repository.updateCameraControls { it.copy(zoomSpeed = Float.NaN,
+            frontZoomPresets = listOf(1f, 1f, Float.POSITIVE_INFINITY, -1f)) }
+        val normalized = repository.appSettingsFlow.first().cameraControls
+        assertEquals(5.0f, normalized.zoomSpeed)
+        assertEquals(listOf(1f), normalized.frontZoomPresets)
+        assertEquals(controls.rearZoomPresets, normalized.rearZoomPresets)
+    }
+
+    @Test
     fun `appSettingsFlow should return saved values`() = runTest {
         val testDataStore = PreferenceDataStoreFactory.create(
             scope = this,

@@ -181,7 +181,26 @@ Wenn dein Gerät mehrere Kameras hat (z. B. Ultraweit/Weit/Tele):
 
 > Die Verfügbarkeit hängt vom Gerät ab — nicht alle Kameras bieten alle Linsen.
 
-### 6.3 Tipps
+### 6.3 Zoom, Stabilisierung und Spiegelung
+
+**Kamera-Steuerung → Zoom** speichert getrennte Vorgaben für Rück- und
+Frontkamera. Standard hinten: 0,5×, 1×, 1,5×, 2×; vorne: 0,5×, 1×.
+Werte antippen zum Bearbeiten, erstellen oder per Löschsymbol entfernen.
+Vorgaben am linken Griff lange drücken und innerhalb der jeweiligen
+Kameraliste ziehen. Die Reihenfolge wird beim Loslassen gespeichert; Abbrechen
+stellt die alte Reihenfolge wieder her. Andere Änderungen werden sofort
+gespeichert. Die Geschwindigkeit (Standard 5,0; Bereich 0,1–10 Zoom-Einheiten
+pro Sekunde) steuert Übergänge zwischen Vorgaben. Diese Seite bearbeitet die
+Vorgaben; das spätere Zoom-Widget verwendet dieselben Einstellungen. Die
+verfügbaren Zoom-Werte hängen von der Kamera ab.
+
+Stabilisierung: Aus, Standard (OIS, sonst EIS), Kinematisch (EIS). Die verfügbaren
+Optionen hängen von der aktiven Kamera ab; kein herstellerspezifischer
+Kinomodus. Frontkamera spiegeln wirkt auf Vorschau und gesendetes/aufgezeichnetes
+Video, niemals auf die Rückkamera. Bei Fußball vom stabilen Schwenkstativ mit
+Aus beginnen, Standard nur bei verbleibenden Vibrationen ausprobieren.
+
+### 6.4 Tipps
 
 - **Tap-to-Focus** auf der Vorschau überschreibt die manuelle Einstellung temporär
 - **Fokus-Lock** (Button oben rechts) hält den aktuellen Fokus fest

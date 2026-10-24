@@ -1,5 +1,6 @@
 package com.vivid.feature.streaming
 
+import com.vivid.core.data.StabilizationMode
 import android.view.MotionEvent
 import android.view.View
 
@@ -14,7 +15,7 @@ data class ZoomRange(val min: Float, val max: Float)
  * echte Kamera bzw. Android-Framework-Klassen prüfbar.
  */
 interface CameraControls {
-    /** Aktueller Zoom-Faktor (≥ 1.0). */
+    /** Aktueller Zoom-Faktor (unter 1.0 bei unterstütztem Ultraweitwinkel). */
     fun getZoom(): Float
 
     /** Unterstützter Zoom-Bereich oder null, wenn die Kamera keinen Zoom bietet. */
@@ -34,6 +35,14 @@ interface CameraControls {
 
     /** Aktiviert Stabilisierung (optisch bevorzugt, sonst digital). */
     fun enableStabilization(): Boolean
+
+    fun supportedStabilizationModes(): Set<StabilizationMode> = setOf(StabilizationMode.OFF, StabilizationMode.STANDARD)
+
+    fun setStabilizationMode(mode: StabilizationMode): Boolean = when (mode) {
+        StabilizationMode.OFF -> disableStabilization()
+        StabilizationMode.STANDARD -> enableStabilization()
+        StabilizationMode.CINEMATIC -> false
+    }
 
     /** Deaktiviert optische und digitale Stabilisierung. */
     fun disableStabilization(): Boolean

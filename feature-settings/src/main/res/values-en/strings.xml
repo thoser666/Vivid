@@ -300,7 +300,7 @@
 
     <!-- ===== Camera Controls (SettingsCameraScreen.kt) ===== -->
     <string name="camera_section_title">Camera Controls</string>
-    <string name="camera_section_desc">Manual focus and lens selection (Ultra-wide/Wide/Tele)</string>
+    <string name="camera_section_desc">Focus, lenses, zoom, stabilization and front camera mirroring</string>
     <string name="camera_focus_title">Focus</string>
     <string name="camera_focus_desc">Set the focus distance manually — 0 = infinity (landscape), 10 = macro (close-up).</string>
     <string name="camera_focus_far">Infinity</string>
@@ -381,4 +381,23 @@
     <string name="stream_reorder">Reorder %1$s (touch and hold)</string>
     <string name="stream_move_up">Move up</string>
     <string name="stream_move_down">Move down</string>
+    <string name="camera_zoom_title">Zoom</string>
+    <string name="camera_zoom_speed">Speed</string>
+    <string name="camera_zoom_rear_presets">Rear camera presets</string>
+    <string name="camera_zoom_front_presets">Front camera presets</string>
+    <string name="camera_zoom_create">Create preset</string>
+    <string name="camera_zoom_edit">Edit preset</string>
+    <string name="camera_zoom_value">Zoom ratio</string>
+    <string name="camera_zoom_ratio">%1$sx</string>
+    <string name="camera_zoom_value_hint">Unique value between 0.1 and 100.</string>
+    <string name="camera_zoom_delete">Delete preset</string>
+    <string name="camera_zoom_settings_hint">Higher speed gives a faster transition between zoom presets. Changes are saved immediately.</string>
+    <string name="camera_stabilization_title">Stabilization</string>
+    <string name="camera_stabilization_off">Off</string>
+    <string name="camera_stabilization_standard">Standard</string>
+    <string name="camera_stabilization_cinematic">Cinematic</string>
+    <string name="camera_stabilization_hint">Standard: optical, otherwise electronic. Cinematic: electronic with cropping. Availability depends on the active camera.</string>
+    <string name="camera_mirror_front">Mirror front camera</string>
+    <string name="camera_zoom_reorder">Reorder zoom preset %1$s</string>
+    <string name="camera_zoom_reorder_hint">Touch and hold a preset’s handle to drag it. The order is saved on release.</string>
 </resources>

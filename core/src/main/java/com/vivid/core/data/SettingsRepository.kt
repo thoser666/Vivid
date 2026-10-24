@@ -92,6 +92,11 @@ class SettingsRepository @Inject constructor(
         val SENTRY_ENABLED = booleanPreferencesKey("sentry_enabled")
         val REMOTE_CONTROL_ENABLED = booleanPreferencesKey("remote_control_enabled")
         val REPLAY_AUDIO_MODE = stringPreferencesKey("replay_audio_mode")
+        val ZOOM_SPEED = floatPreferencesKey("camera_zoom_speed")
+        val REAR_ZOOM_PRESETS = stringPreferencesKey("camera_rear_zoom_presets")
+        val FRONT_ZOOM_PRESETS = stringPreferencesKey("camera_front_zoom_presets")
+        val STABILIZATION = stringPreferencesKey("camera_stabilization")
+        val MIRROR_FRONT = booleanPreferencesKey("camera_mirror_front")
         val CAMERA_MODE = stringPreferencesKey("camera_mode")
         val ENCODER_PRESET = stringPreferencesKey("encoder_preset")
         val ENCODER_CODEC_PREFERENCE = stringPreferencesKey("encoder_codec_preference")
@@ -384,7 +389,8 @@ class SettingsRepository @Inject constructor(
     private val activeProfileKey = stringPreferencesKey("active_stream_profile")
     private val profilesJson = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
 
-    val appSettingsFlow: Flow<AppSettings> = combine(legacySettingsFlow, dataStore.data) { legacy, prefs ->
+    val appSettingsFlow: Flow<AppSettings> = combine(legacySettingsFlow, dataStore.data) { stored, prefs ->
+        val legacy = stored.copy(cameraControls = prefs.cameraControls())
         if (prefs[profilesKey] == null) {
             // Existing installations retain their destination and settings as a named profile.
             if (legacy.streamUrl.isBlank()) legacy else {
@@ -404,6 +410,31 @@ class SettingsRepository @Inject constructor(
             val base = legacy.copy(streamProfiles = profiles, activeStreamId = active?.id)
             active?.applyTo(base) ?: base.copy(streamUrl = "", streamKey = "",
                 secondaryStreamUrl = "", secondaryStreamKey = "", obsRemoteEnabled = false)
+        }
+    }
+
+    private fun Preferences.cameraControls(): CameraControlSettings {
+        val defaults = CameraControlSettings()
+        fun presets(key: Preferences.Key<String>, fallback: List<Float>): List<Float> =
+            this[key]?.split(",")?.mapNotNull { it.toFloatOrNull() } ?: fallback
+        return CameraControlSettings(
+            zoomSpeed = this[PrefKeys.ZOOM_SPEED] ?: defaults.zoomSpeed,
+            rearZoomPresets = presets(PrefKeys.REAR_ZOOM_PRESETS, defaults.rearZoomPresets),
+            frontZoomPresets = presets(PrefKeys.FRONT_ZOOM_PRESETS, defaults.frontZoomPresets),
+            stabilization = StabilizationMode.fromName(this[PrefKeys.STABILIZATION]),
+            mirrorFrontCamera = this[PrefKeys.MIRROR_FRONT] ?: false,
+        ).normalized()
+    }
+
+    /** Atomic edit so a fast slider change cannot overwrite a simultaneous preset edit. */
+    suspend fun updateCameraControls(update: (CameraControlSettings) -> CameraControlSettings) {
+        dataStore.edit { prefs ->
+            val value = update(prefs.cameraControls()).normalized()
+            prefs[PrefKeys.ZOOM_SPEED] = value.zoomSpeed
+            prefs[PrefKeys.REAR_ZOOM_PRESETS] = value.rearZoomPresets.joinToString(",")
+            prefs[PrefKeys.FRONT_ZOOM_PRESETS] = value.frontZoomPresets.joinToString(",")
+            prefs[PrefKeys.STABILIZATION] = value.stabilization.name
+            prefs[PrefKeys.MIRROR_FRONT] = value.mirrorFrontCamera
         }
     }
 

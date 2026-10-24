@@ -27,7 +27,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
-import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -61,7 +61,7 @@ internal fun StreamProfilesList(
     val centers = remember { mutableStateMapOf<String, Float>() }
     val heights = remember { mutableStateMapOf<String, Int>() }
     val density = LocalDensity.current
-    val screenBottom = with(density) { LocalConfiguration.current.screenHeightDp.dp.toPx() }
+    val screenBottom = LocalWindowInfo.current.containerSize.height.toFloat()
     val edge = with(density) { 80.dp.toPx() }
     val scrollStep = with(density) { 12.dp.toPx() }
     val moveUp = stringResource(R.string.stream_move_up)

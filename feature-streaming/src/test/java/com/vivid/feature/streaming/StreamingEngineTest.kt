@@ -97,6 +97,17 @@ class StreamingEngineTest {
     }
 
     @Test
+    fun `front mirror applies to preview and encoded output and is cleared on rear camera`() {
+        streamingEngine.initializeCamera()
+        every { camera.cameraFacing } returns com.pedro.encoder.input.video.CameraHelper.Facing.FRONT
+        streamingEngine.configureCameraControls(com.vivid.core.data.CameraControlSettings(mirrorFrontCamera = true))
+        verify { glStreamInterface.setIsPreviewHorizontalFlip(true); glStreamInterface.setIsStreamHorizontalFlip(true) }
+        every { camera.cameraFacing } returns com.pedro.encoder.input.video.CameraHelper.Facing.BACK
+        streamingEngine.configureCameraControls(com.vivid.core.data.CameraControlSettings(mirrorFrontCamera = true))
+        verify { glStreamInterface.setIsPreviewHorizontalFlip(false); glStreamInterface.setIsStreamHorizontalFlip(false) }
+    }
+
+    @Test
     fun `live session clock starts on first connection and survives target and bitrate updates`() {
         var now = 10_000L
         streamingEngine.timeSource = { now }

@@ -301,7 +301,7 @@
 
     <!-- ===== Contrôles caméra (SettingsCameraScreen.kt) ===== -->
     <string name="camera_section_title">Contrôles caméra</string>
-    <string name="camera_section_desc">Mise au point manuelle et sélection de l’objectif (Ultra-grand angle/Grand angle/Télé)</string>
+    <string name="camera_section_desc">Mise au point, objectifs, zoom, stabilisation et miroir avant</string>
     <string name="camera_focus_title">Mise au point</string>
     <string name="camera_focus_desc">Réglez la distance de mise au point manuellement — 0 = infini (paysage), 10 = macro (gros plan).</string>
     <string name="camera_focus_far">Infini</string>
@@ -382,4 +382,23 @@
     <string name="stream_reorder">Réordonner %1$s (appui long)</string>
     <string name="stream_move_up">Monter</string>
     <string name="stream_move_down">Descendre</string>
+    <string name="camera_zoom_title">Zoom</string>
+    <string name="camera_zoom_speed">Vitesse</string>
+    <string name="camera_zoom_rear_presets">Préréglages caméra arrière</string>
+    <string name="camera_zoom_front_presets">Préréglages caméra avant</string>
+    <string name="camera_zoom_create">Créer un préréglage</string>
+    <string name="camera_zoom_edit">Modifier le préréglage</string>
+    <string name="camera_zoom_value">Facteur de zoom</string>
+    <string name="camera_zoom_ratio">%1$sx</string>
+    <string name="camera_zoom_value_hint">Valeur unique entre 0,1 et 100.</string>
+    <string name="camera_zoom_delete">Supprimer le préréglage</string>
+    <string name="camera_zoom_settings_hint">Une vitesse plus élevée accélère la transition entre les préréglages de zoom. Les modifications sont enregistrées immédiatement.</string>
+    <string name="camera_stabilization_title">Stabilisation</string>
+    <string name="camera_stabilization_off">Désactivée</string>
+    <string name="camera_stabilization_standard">Standard</string>
+    <string name="camera_stabilization_cinematic">Cinématique</string>
+    <string name="camera_stabilization_hint">Standard : optique, sinon électronique. Cinématique : électronique avec recadrage. La disponibilité dépend de la caméra active.</string>
+    <string name="camera_mirror_front">Miroir caméra avant</string>
+    <string name="camera_zoom_reorder">Réorganiser le préréglage %1$s</string>
+    <string name="camera_zoom_reorder_hint">Maintenez la poignée du préréglage puis faites-la glisser. L’ordre est enregistré au relâchement.</string>
 </resources>

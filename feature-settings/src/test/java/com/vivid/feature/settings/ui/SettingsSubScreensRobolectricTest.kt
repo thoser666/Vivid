@@ -11,6 +11,7 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.hasStateDescription
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.assertIsOn
@@ -165,6 +166,40 @@ class SettingsSubScreensRobolectricTest {
             )
             every { currentLensId } returns MutableStateFlow("0")
         }
+
+    @Test
+    fun `zoom creates and deletes independent front presets without camera actions`() {
+        val controls = androidx.compose.runtime.mutableStateOf(CameraControlsUiState(loaded = true))
+        composeRule.setContent {
+            CameraZoomScreen(controls.value, {}, { update -> controls.value = controls.value.copy(settings = update(controls.value.settings)) })
+        }
+        composeRule.onNodeWithContentDescription("Apply zoom").assertDoesNotExist()
+        composeRule.onNode(hasScrollAction()).performScrollToNode(androidx.compose.ui.test.hasTestTag("front_zoom_create"))
+        composeRule.onNodeWithTag("front_zoom_create").performClick()
+        composeRule.onNodeWithTag("camera_zoom_value").performTextInput("2,5")
+        composeRule.onNodeWithText("Save").performClick()
+        composeRule.runOnIdle {
+            org.junit.Assert.assertEquals(listOf(0.5f, 1f, 2.5f), controls.value.settings.frontZoomPresets)
+            org.junit.Assert.assertEquals(listOf(0.5f, 1f, 1.5f, 2f), controls.value.settings.rearZoomPresets)
+        }
+        composeRule.onNode(hasScrollAction()).performScrollToNode(androidx.compose.ui.test.hasTestTag("front_zoom_delete_2"))
+        composeRule.onNodeWithTag("front_zoom_delete_2").performClick()
+        composeRule.runOnIdle { org.junit.Assert.assertEquals(listOf(0.5f, 1f), controls.value.settings.frontZoomPresets) }
+    }
+
+    @Test
+    fun `camera mirror switch and stabilization dropdown forward changes and disable unsupported modes`() {
+        val state = androidx.compose.runtime.mutableStateOf(CameraControlsUiState(loaded = true,
+            stabilizationModes = setOf(com.vivid.core.data.StabilizationMode.OFF, com.vivid.core.data.StabilizationMode.STANDARD)))
+        composeRule.setContent {
+            CameraAdditionalControls(state.value, {}, { update -> state.value = state.value.copy(settings = update(state.value.settings)) })
+        }
+        composeRule.onNodeWithTag("camera_mirror_front").performClick().assertIsOn()
+        composeRule.onNodeWithTag("camera_stabilization").performClick()
+        composeRule.onNodeWithTag("camera_stabilization_CINEMATIC").assertIsNotEnabled()
+        composeRule.onNodeWithTag("camera_stabilization_STANDARD").performClick()
+        composeRule.runOnIdle { org.junit.Assert.assertEquals(com.vivid.core.data.StabilizationMode.STANDARD, state.value.settings.stabilization) }
+    }
 
     // --- Logs & Diagnostics ---------------------------------------------------
 

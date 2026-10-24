@@ -21,6 +21,8 @@ internal class Camera2PreviewControls(
     camera::enableAutoWhiteBalance,
     camera::disableAutoWhiteBalance,
     { camera.zoomRange },
+    { runCatching { camera.cameraCharacteristics?.get(CameraCharacteristics.CONTROL_AVAILABLE_VIDEO_STABILIZATION_MODES)
+        ?.contains(CameraMetadata.CONTROL_VIDEO_STABILIZATION_MODE_ON) == true }.getOrDefault(false) },
 ) {
 
     override fun getZoom(): Float = camera.zoom

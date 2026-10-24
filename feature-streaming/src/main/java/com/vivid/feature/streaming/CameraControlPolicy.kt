@@ -1,5 +1,6 @@
 package com.vivid.feature.streaming
 
+import com.vivid.core.data.StabilizationMode
 import android.hardware.camera2.CameraMetadata
 import android.util.Range
 
@@ -16,6 +17,7 @@ abstract class CameraControlPolicy(
     private val enableWhiteBalance: (Int) -> Boolean,
     private val disableWhiteBalance: () -> Unit,
     private val zoomRangeProvider: () -> Range<Float>?,
+    private val hasDigitalStabilization: () -> Boolean = { false },
 ) : CameraControls {
     /** Each adapter reads torch state from its own active camera. */
     abstract override fun isTorchEnabled(): Boolean
@@ -25,6 +27,27 @@ abstract class CameraControlPolicy(
 
     final override fun enableStabilization(): Boolean =
         if (hasOpticalStabilization()) enableOptical() else enableDigital()
+
+    final override fun supportedStabilizationModes(): Set<StabilizationMode> = buildSet {
+        add(StabilizationMode.OFF)
+        if (hasOpticalStabilization() || hasDigitalStabilization()) add(StabilizationMode.STANDARD)
+        if (hasDigitalStabilization()) add(StabilizationMode.CINEMATIC)
+    }
+
+    final override fun setStabilizationMode(mode: StabilizationMode): Boolean {
+        if (mode !in supportedStabilizationModes()) return false
+        if (mode == StabilizationMode.OFF) return disableStabilization()
+        // OIS and EIS are mutually exclusive here; do not leave an old mode enabled.
+        return runCatching {
+            if (mode == StabilizationMode.CINEMATIC) {
+                disableOptical()
+                enableDigital()
+            } else {
+                disableDigital()
+                enableStabilization()
+            }
+        }.getOrDefault(false)
+    }
 
     final override fun disableStabilization(): Boolean = applyAndVerify(
         // Clear request defaults even when Camera2's cached flags are inactive.

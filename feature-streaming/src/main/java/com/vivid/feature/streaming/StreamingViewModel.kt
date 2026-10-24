@@ -21,6 +21,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.util.UUID
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.distinctUntilChanged
 import javax.inject.Inject
 
 @HiltViewModel
@@ -64,6 +66,11 @@ class StreamingViewModel @Inject constructor(
 
     init {
         runConfigCheck()
+        viewModelScope.launch {
+            settingsRepository.appSettingsFlow.map { it.cameraControls }.distinctUntilChanged().collect {
+                streamingEngine.configureCameraControls(it)
+            }
+        }
         // P1: Anonymisierung — persistierten Soll-Zustand (Zonen + Master-Toggle)
         // in die Engine übernehmen. Ohne Kamera/GL bleiben die Engine-Aufrufe
         // No-Ops; beim Stream-Start wendet die Engine den Soll-Zustand selbst an.

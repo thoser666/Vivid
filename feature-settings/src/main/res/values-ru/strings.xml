@@ -302,7 +302,7 @@
 
     <!-- ===== Camera Controls (SettingsCameraScreen.kt) ===== -->
     <string name="camera_section_title">Управление камерой</string>
-    <string name="camera_section_desc">Ручная фокусировка и выбор объектива (сверхширокий/широкий/теле)</string>
+    <string name="camera_section_desc">Фокус, объективы, зум, стабилизация и зеркалирование передней камеры</string>
     <string name="camera_focus_title">Фокус</string>
     <string name="camera_focus_desc">Установите дистанцию ​​фокусировки вручную — 0 = бесконечность (пейзаж), 10 = макро (крупный план).</string>
     <string name="camera_focus_far">Бесконечность</string>
@@ -383,4 +383,23 @@
     <string name="stream_reorder">Изменить порядок %1$s (нажмите и удерживайте)</string>
     <string name="stream_move_up">Переместить вверх</string>
     <string name="stream_move_down">Переместить вниз</string>
+    <string name="camera_zoom_title">Масштаб</string>
+    <string name="camera_zoom_speed">Скорость</string>
+    <string name="camera_zoom_rear_presets">Пресеты задней камеры</string>
+    <string name="camera_zoom_front_presets">Пресеты передней камеры</string>
+    <string name="camera_zoom_create">Создать пресет</string>
+    <string name="camera_zoom_edit">Изменить пресет</string>
+    <string name="camera_zoom_value">Значение зума</string>
+    <string name="camera_zoom_ratio">%1$sx</string>
+    <string name="camera_zoom_value_hint">Уникальное значение от 0,1 до 100.</string>
+    <string name="camera_zoom_delete">Удалить пресет</string>
+    <string name="camera_zoom_settings_hint">Чем выше скорость, тем быстрее переход между пресетами зума. Изменения сохраняются сразу.</string>
+    <string name="camera_stabilization_title">Стабилизация</string>
+    <string name="camera_stabilization_off">Выкл.</string>
+    <string name="camera_stabilization_standard">Стандартная</string>
+    <string name="camera_stabilization_cinematic">Кинематографическая</string>
+    <string name="camera_stabilization_hint">Стандартная: оптическая, иначе электронная. Кинематографическая: электронная с кадрированием. Доступность зависит от активной камеры.</string>
+    <string name="camera_mirror_front">Отзеркалить переднюю камеру</string>
+    <string name="camera_zoom_reorder">Переместить пресет зума %1$s</string>
+    <string name="camera_zoom_reorder_hint">Удерживайте значок слева и перетащите пресет. Порядок сохраняется после отпускания.</string>
 </resources>

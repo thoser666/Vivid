@@ -178,7 +178,26 @@ If your device has multiple cameras (e.g., ultra-wide/wide/tele):
 
 > Availability depends on the device — not all cameras offer all lenses.
 
-### 6.3 Tips
+### 6.3 Zoom, stabilization and mirroring
+
+**Camera Controls → Zoom** stores separate rear/front presets (rear defaults:
+0.5×, 1×, 1.5×, 2×; front: 0.5×, 1×). Tap a value to edit it, Create preset
+to add one, or the delete icon to remove it. Hold the handle on the left to
+drag presets within either camera list. The new order saves on release;
+cancelling the drag restores the previous order. Other changes save immediately.
+The saved speed (default 5.0; range 0.1–10 zoom-ratio units per second) controls
+transitions between presets. This page edits presets; the preview zoom widget
+will use these settings in a later update. Available zoom ratios depend on the camera.
+
+The stabilization dropdown offers Off, Standard (OIS, otherwise EIS) and
+Cinematic (EIS). Availability depends on the active camera; this does not
+request a manufacturer-specific cinematic mode. Mirror front camera affects
+both the camera preview and outgoing/recorded video, and never the rear camera.
+
+For football from a stable panning tripod, start with stabilization Off;
+try Standard only if small vibrations remain.
+
+### 6.4 Tips
 
 - **Tap-to-Focus** on the preview temporarily overrides the manual setting
 - **Focus Lock** (button top-right) holds the current focus

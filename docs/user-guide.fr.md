@@ -180,7 +180,26 @@ Si votre appareil possède plusieurs caméras (par ex. ultra-grand angle/grand a
 
 > La disponibilité dépend de l'appareil — toutes les caméras n'offrent pas tous les objectifs.
 
-### 6.3 Conseils
+### 6.3 Zoom, stabilisation et miroir
+
+**Contrôles caméra → Zoom** enregistre des préréglages distincts pour les
+caméras arrière (0,5×, 1×, 1,5×, 2×) et avant (0,5×, 1×). Touchez une valeur
+pour la modifier, créez un préréglage ou supprimez-le avec la corbeille.
+Maintenez la poignée à gauche pour déplacer un préréglage dans sa liste.
+L’ordre est enregistré au relâchement ; une annulation restaure l’ordre
+précédent. Les autres modifications sont enregistrées immédiatement. La vitesse
+(valeur par défaut 5,0 ; plage de 0,1 à 10 unités de zoom par seconde) règle les
+transitions entre les préréglages. Cette page permet de les configurer ; le futur
+widget de zoom utilisera ces mêmes paramètres. Les valeurs disponibles dépendent de la caméra.
+
+Stabilisation : Désactivée, Standard (OIS, sinon EIS), Cinématique (EIS).
+La disponibilité dépend de la caméra active ; aucun mode cinéma propre au
+fabricant n’est demandé. Le miroir avant affecte l’aperçu et la vidéo diffusée
+ou enregistrée, sans modifier la caméra arrière. Pour le football sur trépied
+avec panoramique, commencez sans stabilisation et essayez Standard si de
+petites vibrations persistent.
+
+### 6.4 Conseils
 
 - Le **tap-to-focus** sur l'aperçu rem temporairement le réglage manuel
 - Le **verrou de mise au point** (bouton en haut à droite) maintient la mise au point actuelle

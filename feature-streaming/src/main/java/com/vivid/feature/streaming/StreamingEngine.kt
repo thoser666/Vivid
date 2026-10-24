@@ -311,6 +311,10 @@ class StreamingEngine @Inject constructor(
      */
     val activeSourceKind: StateFlow<VideoSourceKind> = videoSourceRegistry.activeKind
 
+    private var cameraControlSettings = com.vivid.core.data.CameraControlSettings()
+    private val cameraControlScope by lazy { CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate) }
+    private val zoomController = CameraZoomController { cameraControlScope }
+    private val savedZoom = mutableMapOf<Boolean, Float>()
     private var cameraControls: CameraControls? = null
     private var stabilizationController: CameraStabilizationController? = null
     private var replayController: ReplayController? = null
@@ -1045,6 +1049,55 @@ class StreamingEngine @Inject constructor(
         return changed
     }
 
+    fun configureCameraControls(settings: com.vivid.core.data.CameraControlSettings) {
+        val next = settings.normalized()
+        val stabilizationChanged = next.stabilization != cameraControlSettings.stabilization
+        cameraControlSettings = next
+        applyFrontCameraMirror()
+        if (stabilizationChanged) applySavedStabilization()
+    }
+
+    fun isFrontCamera(): Boolean = (idlePreviewCamera?.cameraFacing ?: camera?.cameraFacing) == CameraHelper.Facing.FRONT
+
+    fun cameraZoomRange(): ZoomRange? = if (experimentalCapture != null || _cameraModeStatus.value.preparing) null
+        else cameraControls?.getZoomRange()
+
+    fun supportedStabilizationModes(): Set<com.vivid.core.data.StabilizationMode> =
+        if (experimentalCapture != null || _cameraModeStatus.value.preparing) setOf(com.vivid.core.data.StabilizationMode.OFF)
+        else cameraControls?.supportedStabilizationModes().orEmpty()
+
+    /** Presets retain their exact value: an unsupported 0.5x must never silently become 1x. */
+    fun applyZoomPreset(front: Boolean, value: Float): Boolean {
+        if (activeSourceKind.value != VideoSourceKind.CAMERA || front != isFrontCamera() ||
+            experimentalCapture != null || _cameraModeStatus.value.preparing) return false
+        val controls = cameraControls ?: return false
+        val id = controls.getCurrentCameraId()
+        val moved = zoomController.move(controls, value, cameraControlSettings.zoomSpeed) {
+            experimentalCapture == null && !_cameraModeStatus.value.preparing &&
+                controls.getCurrentCameraId() == id && activeSourceKind.value == VideoSourceKind.CAMERA
+        }
+        if (moved) savedZoom[front] = value
+        return moved
+    }
+
+    private fun applySavedStabilization() {
+        if (experimentalCapture != null || _cameraModeStatus.value.preparing) return
+        val controls = cameraControls ?: return
+        if (!controls.setStabilizationMode(cameraControlSettings.stabilization)) {
+            controls.disableStabilization()
+        }
+        _stabilizationEnabled.value = controls.isStabilizationEnabled()
+        stabilizationController?.syncState()
+    }
+
+    private fun applyFrontCameraMirror() {
+        val mirrored = cameraControlSettings.mirrorFrontCamera && isFrontCamera()
+        (camera?.glInterface as? GlStreamInterface)?.let {
+            it.setIsPreviewHorizontalFlip(mirrored)
+            it.setIsStreamHorizontalFlip(mirrored)
+        }
+    }
+
     /**
      * Pinch-Zoom: multipliziert den aktuellen Zoom mit dem [scaleFactor] des
      * ScaleGestureDetectors und begrenzt auf den Kamera-Zoombereich.
@@ -1055,7 +1108,10 @@ class StreamingEngine @Inject constructor(
         if (experimentalCapture != null || _cameraModeStatus.value.preparing) return
         val controls = cameraControls ?: return
         val range = controls.getZoomRange() ?: return
-        controls.setZoom(ZoomCalculator.zoomForScale(controls.getZoom(), scaleFactor, range))
+        zoomController.cancel()
+        val value = ZoomCalculator.zoomForScale(controls.getZoom(), scaleFactor, range)
+        controls.setZoom(value)
+        savedZoom[isFrontCamera()] = value
     }
 
     /** Setzt den Zoom auf 1.0 zurück (z. B. per Doppeltipp). */
@@ -1063,7 +1119,10 @@ class StreamingEngine @Inject constructor(
         if (experimentalCapture != null || _cameraModeStatus.value.preparing) return
         val controls = cameraControls ?: return
         val range = controls.getZoomRange() ?: return
-        controls.setZoom(ZoomCalculator.clamp(ZoomCalculator.MIN_ZOOM, range))
+        zoomController.cancel()
+        val value = ZoomCalculator.clamp(ZoomCalculator.MIN_ZOOM, range)
+        controls.setZoom(value)
+        savedZoom[isFrontCamera()] = value
     }
 
     /** Tap-to-Focus auf die getippte Stelle der Kamera-Vorschau. */
@@ -1083,6 +1142,8 @@ class StreamingEngine @Inject constructor(
         val changed = controller.toggle()
         if (changed) {
             _stabilizationEnabled.value = controller.isEnabled
+            cameraControlSettings = cameraControlSettings.copy(stabilization = if (controller.isEnabled)
+                com.vivid.core.data.StabilizationMode.STANDARD else com.vivid.core.data.StabilizationMode.OFF)
         }
         return changed
     }
@@ -1121,7 +1182,11 @@ class StreamingEngine @Inject constructor(
     fun selectLens(lensId: String): Boolean {
         if (_cameraModeStatus.value.preparing || experimentalCapture != null) return false
         return (manualCameraController?.selectLens(lensId) ?: false).also {
-            if (it) _cameraSelectionVersion.value++
+            if (it) {
+                zoomController.cancel()
+                applyFrontCameraMirror()
+                _cameraSelectionVersion.value++
+            }
         }
     }
 
@@ -1241,10 +1306,14 @@ class StreamingEngine @Inject constructor(
     val autoWhiteBalanceEnabled: StateFlow<Boolean> = _autoWhiteBalanceEnabled.asStateFlow()
 
     private fun restoreCameraControls() {
+        applyFrontCameraMirror()
         if (experimentalCapture != null) return
         val controls = cameraControls ?: return
         if (_torchEnabled.value) controls.enableTorch()
-        if (_stabilizationEnabled.value) controls.enableStabilization() else controls.disableStabilization()
+        applySavedStabilization()
+        savedZoom[isFrontCamera()]?.let { controls.getZoomRange()?.let { range ->
+            controls.setZoom(ZoomCalculator.clamp(it, range))
+        } }
         focusController?.apply(_focusMode.value)
         if (_autoExposureEnabled.value) controls.enableAutoExposure() else controls.disableAutoExposure()
         if (_autoExposureEnabled.value) controls.setExposure(_exposure.value)
@@ -1363,6 +1432,7 @@ class StreamingEngine @Inject constructor(
     }
 
     private fun stopIdlePreview() {
+        zoomController.cancel()
         idlePreviewSurface = null
         idlePreviewSize = null
         if (idlePreviewCamera != null) {
@@ -1692,6 +1762,7 @@ class StreamingEngine @Inject constructor(
 
     /** Applies profile overrides only before encoders are owned by a live consumer. */
     fun configureStreamVideo(settings: com.vivid.core.data.AppSettings) {
+        configureCameraControls(settings.cameraControls)
         if (!canChangeCameraMode()) return
         savedBitrateKbps = settings.videoBitrateKbps?.coerceIn(1_000, 15_000)
         keyframeController.intervalSeconds = settings.keyframeIntervalSeconds.coerceIn(1, 10)

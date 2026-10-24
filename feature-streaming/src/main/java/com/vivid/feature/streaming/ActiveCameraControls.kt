@@ -12,6 +12,8 @@ internal class ActiveCameraControls(private val current: () -> CameraControls) :
     override fun hasOpticalStabilization(): Boolean = current().hasOpticalStabilization()
     override fun isStabilizationEnabled(): Boolean = current().isStabilizationEnabled()
     override fun enableStabilization(): Boolean = current().enableStabilization()
+    override fun supportedStabilizationModes() = current().supportedStabilizationModes()
+    override fun setStabilizationMode(mode: com.vivid.core.data.StabilizationMode) = current().setStabilizationMode(mode)
     override fun disableStabilization(): Boolean = current().disableStabilization()
     override fun hasTorch(): Boolean = current().hasTorch()
     override fun isTorchEnabled(): Boolean = current().isTorchEnabled()
