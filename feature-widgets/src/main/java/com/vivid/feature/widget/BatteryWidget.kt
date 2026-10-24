@@ -1,5 +1,6 @@
 package com.vivid.feature.widget
 
+import androidx.compose.runtime.getValue
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -12,14 +13,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -39,6 +36,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 
 /** UI-Zustand des Akku-Widgets. */
 data class BatteryWidgetUiState(
@@ -81,6 +80,11 @@ class BatteryWidgetViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val settingsRepository: SettingsRepository,
 ) : ViewModel() {
+    private val selectedWidget = MutableStateFlow<String?>(null)
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val widgetSettings = selectedWidget.flatMapLatest { if (it == null) settingsRepository.appSettingsFlow else settingsRepository.widgetSettingsFlow(it) }
+    fun useWidget(id: String?) { selectedWidget.value = id }
+
 
     /** Test-Hook: Batterie-Reader kann durch Test-Funktion ersetzt werden. */
     internal var batteryLevelReader: BatteryLevelReader = { systemBatteryLevel(context) }
@@ -106,7 +110,7 @@ class BatteryWidgetViewModel @Inject constructor(
     init {
         // Settings übernehmen.
         viewModelScope.launch {
-            settingsRepository.appSettingsFlow.collect { settings ->
+            widgetSettings.collect { settings ->
                 _uiState.update {
                     it.copy(
                         enabled = settings.batteryEnabled,

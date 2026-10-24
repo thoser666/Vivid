@@ -15,6 +15,7 @@ import com.vivid.core.data.StreamProfile
 import com.vivid.core.data.StreamPlatformType
 import com.vivid.core.data.SettingsRepository
 import com.vivid.core.data.ThemeMode
+import com.vivid.core.data.AppOrientation
 import com.vivid.core.data.VideoCodecPreference
 import com.vivid.core.remote.RemoteControlServer
 import com.vivid.core.remote.RemoteControlTokenStore
@@ -403,10 +404,6 @@ class SettingsViewModel @Inject constructor(
     fun onSlideshowWidgetSizeChange(newValue: Int) { _uiState.value = _uiState.value.copy(slideshowWidgetSizeDp = newValue.coerceIn(120, 600)) }
     fun onSlideshowWidgetOpacityChange(newValue: Float) { _uiState.value = _uiState.value.copy(slideshowWidgetOpacity = newValue.coerceIn(0f, 1f)) }
 
-    // Pomodoro-Timer (In-App, PARITY-Zeile 143): Enabled + Work/Break-Dauer.
-    fun onPomodoroEnabledChange(newValue: Boolean) { _uiState.value = _uiState.value.copy(pomodoroEnabled = newValue) }
-    fun onPomodoroWorkDurationChange(newValue: Int) { _uiState.value = _uiState.value.copy(pomodoroWorkDurationMinutes = newValue.coerceIn(1, 120)) }
-    fun onPomodoroBreakDurationChange(newValue: Int) { _uiState.value = _uiState.value.copy(pomodoroBreakDurationMinutes = newValue.coerceIn(1, 60)) }
 
     // Akku-Anzeige-Widget.
     fun onBatteryEnabledChange(newValue: Boolean) { _uiState.value = _uiState.value.copy(batteryEnabled = newValue) }
@@ -420,6 +417,10 @@ class SettingsViewModel @Inject constructor(
     fun onRemoteControlEnabledChange(newEnabled: Boolean) { _uiState.value = _uiState.value.copy(remoteControlEnabled = newEnabled) }
 
     // Darstellung (Theme): Design-Modus + Akzentfarbe.
+    fun onAppOrientationChange(orientation: AppOrientation) {
+        // Persist before Activity recreation; no separate Save action is required.
+        viewModelScope.launch { settingsRepository.updateAppOrientation(orientation) }
+    }
     fun onThemeModeChange(newMode: ThemeMode) { _uiState.value = _uiState.value.copy(themeMode = newMode) }
     fun onAccentColorChange(newAccent: AccentColor) { _uiState.value = _uiState.value.copy(themeAccent = newAccent) }
 
@@ -526,11 +527,7 @@ class SettingsViewModel @Inject constructor(
                 sizeDp = currentSettings.slideshowWidgetSizeDp,
                 opacity = currentSettings.slideshowWidgetOpacity,
             )
-            settingsRepository.updatePomodoroSettings(
-                enabled = currentSettings.pomodoroEnabled,
-                workDurationMinutes = currentSettings.pomodoroWorkDurationMinutes,
-                breakDurationMinutes = currentSettings.pomodoroBreakDurationMinutes,
-            )
+
             settingsRepository.updateSentryEnabled(currentSettings.sentryEnabled)
             settingsRepository.updateRemoteControlEnabled(currentSettings.remoteControlEnabled)
             settingsRepository.updateReplayAudioMode(currentSettings.replayAudioMode)

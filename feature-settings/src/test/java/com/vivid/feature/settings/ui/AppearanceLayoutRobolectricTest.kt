@@ -12,6 +12,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.test.core.app.ApplicationProvider
 import com.vivid.core.data.AccentColor
 import com.vivid.core.data.AppSettings
+import com.vivid.core.data.AppOrientation
 import com.vivid.core.data.ThemeMode
 import com.vivid.feature.settings.R
 import io.mockk.mockk
@@ -63,6 +64,15 @@ class AppearanceLayoutRobolectricTest {
             }
         }
 
+        val picker = compose.onNodeWithTag("orientation_picker").assertIsDisplayed()
+        assertTrue("Operating mode must precede language", picker.getUnclippedBoundsInRoot().top <
+            compose.onNodeWithTag("language_picker").getUnclippedBoundsInRoot().top)
+        AppOrientation.entries.forEach { orientation ->
+            val option = compose.onNodeWithTag("orientation_${orientation.name}")
+            option.performScrollTo().assertIsDisplayed().performClick()
+            verify { vm.onAppOrientationChange(orientation) }
+        }
+        screenshot("$screenshotName-orientation")
         ThemeMode.entries.forEach { mode ->
             val label = context.getString(mode.displayNameRes)
             val option = compose.onNode(hasText(label).and(isSelectable()))

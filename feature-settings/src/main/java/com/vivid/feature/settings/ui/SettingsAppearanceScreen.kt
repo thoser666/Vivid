@@ -43,12 +43,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.vivid.core.data.AccentColor
 import com.vivid.core.data.AppSettings
+import com.vivid.core.data.AppOrientation
 import com.vivid.core.data.ThemeMode
 import com.vivid.core.i18n.AppLanguage
 
 /**
  * Kategorie „Darstellung“ (PARITY-Zusatz „UI-Farbschemata“, Stufe 2):
- * App-Sprache, Design-Modus (System/Hell/Dunkel/AMOLED) und Akzentfarbe.
+ * Feste Ausrichtung, App-Sprache, Design-Modus und Akzentfarbe.
  * Die Sprache wirkt sofort; Theme-Änderungen werden beim Speichern übernommen.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -68,6 +69,33 @@ fun SettingsAppearanceScreen(
         onBack = onBack,
         onSave = viewModel::saveSettings,
     ) {
+        Text(stringResource(R.string.appearance_orientation_title), style = MaterialTheme.typography.titleLarge)
+        FlowRow(
+            modifier = Modifier.fillMaxWidth().selectableGroup().testTag("orientation_picker"),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            AppOrientation.entries.forEach { orientation ->
+                FilterChip(
+                    selected = uiState.appOrientation == orientation,
+                    onClick = { viewModel.onAppOrientationChange(orientation) },
+                    label = {
+                        Text(stringResource(when (orientation) {
+                            AppOrientation.PORTRAIT -> R.string.appearance_orientation_portrait
+                            AppOrientation.LANDSCAPE -> R.string.appearance_orientation_landscape
+                        }))
+                    },
+                    modifier = Modifier.testTag("orientation_${orientation.name}")
+                        .semantics { role = Role.RadioButton },
+                )
+            }
+        }
+        Text(
+            stringResource(R.string.appearance_orientation_desc),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
         ExposedDropdownMenuBox(
             expanded = languageMenuExpanded,
             onExpandedChange = { languageMenuExpanded = it },

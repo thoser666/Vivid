@@ -1,14 +1,13 @@
 package com.vivid.feature.widget
 
+import androidx.compose.runtime.getValue
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -23,6 +22,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 
 /** UI-Zustand des Grid-Overlays. */
 data class GridOverlayUiState(
@@ -34,13 +35,18 @@ data class GridOverlayUiState(
 class GridOverlayViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
 ) : ViewModel() {
+    private val selectedWidget = MutableStateFlow<String?>(null)
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val widgetSettings = selectedWidget.flatMapLatest { if (it == null) settingsRepository.appSettingsFlow else settingsRepository.widgetSettingsFlow(it) }
+    fun useWidget(id: String?) { selectedWidget.value = id }
+
 
     private val _uiState = MutableStateFlow(GridOverlayUiState())
     val uiState: StateFlow<GridOverlayUiState> = _uiState.asStateFlow()
 
     init {
         viewModelScope.launch {
-            settingsRepository.appSettingsFlow.collect { settings ->
+            widgetSettings.collect { settings ->
                 _uiState.update {
                     it.copy(
                         enabled = settings.gridOverlayEnabled,

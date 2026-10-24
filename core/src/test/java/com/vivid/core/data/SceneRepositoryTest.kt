@@ -25,12 +25,15 @@ class SceneRepositoryTest {
      */
     private class FakeDataStore : DataStore<Preferences> {
         private val state = MutableStateFlow(preferencesOf())
+        var writes = 0
+            private set
 
         override val data: Flow<Preferences> = state
 
         override suspend fun updateData(transform: suspend (Preferences) -> Preferences): Preferences {
             val updated = transform(state.value)
             state.value = updated
+            writes++
             return updated
         }
     }
@@ -154,5 +157,170 @@ class SceneRepositoryTest {
         repository.setActiveScene("")
 
         assertNull(repository.activeSceneIdFlow.first())
+    }
+
+    @Test
+    fun `editing and reordering scenes preserves all fields and stable order`() = runTest {
+        val repo = repository()
+        repo.saveScene(scene("a"))
+        repo.saveScene(scene("b"))
+        repo.saveScene(scene("c"))
+        repo.reorderScenes(listOf("c", "a", "b"))
+        repo.saveScene(scene("a").copy(name = "Changed", enabled = false, cameraId = "front"))
+        assertEquals(listOf("c", "a", "b"), repo.scenesFlow.first().map { it.id })
+        assertEquals("front", repo.scenesFlow.first()[1].cameraId)
+        assertEquals(false, repo.scenesFlow.first()[1].enabled)
+    }
+
+    @Test
+    fun `shared widget has independent placement and visibility per scene`() = runTest {
+        val store = FakeDataStore()
+        val repo = SceneRepository(store)
+        val settings = SettingsRepository(store)
+        repo.saveWidget(StreamWidget("w", "Caption", WidgetType.TEXT,
+            configuration = WidgetConfiguration(widgetTemplate = "First")))
+        repo.saveScene(scene("a").copy(widgets = listOf(SceneWidget("w", x = 10f, y = 20f))))
+        repo.saveScene(scene("b").copy(widgets = listOf(SceneWidget("w", enabled = false, x = 70f, y = 80f))))
+        repo.setActiveScene("a")
+        assertEquals(true, settings.widgetSettingsFlow("w").first().widgetEnabled)
+        assertEquals("First", settings.widgetSettingsFlow("w").first().widgetTemplate)
+        repo.setActiveScene("b")
+        assertEquals(false, settings.widgetSettingsFlow("w").first().widgetEnabled)
+        repo.saveWidget(repo.widgetsFlow.first().single().copy(configuration = WidgetConfiguration(widgetTemplate = "Updated")))
+        assertEquals(listOf(10f, 70f), repo.scenesFlow.first().map { it.widgets!!.single().x })
+        repo.setActiveScene("a")
+        assertEquals("Updated", settings.widgetSettingsFlow("w").first().widgetTemplate)
+        repo.saveWidget(repo.widgetsFlow.first().single().copy(enabled = false))
+        assertEquals(false, settings.widgetSettingsFlow("w").first().widgetEnabled)
+    }
+
+    @Test
+    fun `deleting library widget cleans references in every scene and keeps other widgets`() = runTest {
+        val repo = repository()
+        repo.saveWidget(StreamWidget("w", "One", WidgetType.TEXT))
+        repo.saveWidget(StreamWidget("other", "Two", WidgetType.IMAGE))
+        repo.saveScene(scene("a").copy(widgets = listOf(SceneWidget("w"), SceneWidget("other"))))
+        repo.saveScene(scene("b").copy(widgets = listOf(SceneWidget("w"))))
+        repo.deleteWidget("w")
+        assertEquals(listOf("other"), repo.widgetsFlow.first().map { it.id })
+        assertEquals(listOf(SceneWidget("other")), repo.scenesFlow.first()[0].widgets)
+        assertTrue(repo.scenesFlow.first()[1].widgets!!.isEmpty())
+    }
+
+    @Test
+    fun `migration preserves legacy scene text configurations and runs only once`() = runTest {
+        val repo = repository()
+        repo.saveScene(scene("a").copy(widgetTemplate = "A"))
+        repo.saveScene(scene("b").copy(widgetTemplate = "B"))
+        val names = WidgetType.entries.associateWith { it.name }
+        repo.initializeLibrary(AppSettings(imageWidgetEnabled = true, imageWidgetUri = "content://logo"), "Default", names)
+        val migrated = repo.scenesFlow.first()
+        assertEquals(listOf("legacy-IMAGE", "legacy-text-a"), migrated[0].widgets!!.map { it.widgetId })
+        assertEquals(listOf("legacy-IMAGE", "legacy-text-b"), migrated[1].widgets!!.map { it.widgetId })
+        assertEquals("A", repo.widgetsFlow.first().find { it.id == "legacy-text-a" }!!.configuration.widgetTemplate)
+        val before = repo.widgetsFlow.first()
+        repo.initializeLibrary(AppSettings(), "Ignored", names)
+        assertEquals(before, repo.widgetsFlow.first())
+    }
+
+    @Test
+    fun `saved layout survives reopening repository and can be loaded for another widget`() = runTest {
+        val store = FakeDataStore()
+        val repo = SceneRepository(store)
+        repo.saveLayout(SceneWidget("a", x = 45f, y = 5f, scale = 0.37f))
+        val loaded = SceneRepository(store).savedLayoutFlow.first()!!.copy(widgetId = "b")
+        assertEquals(SceneWidget("b", x = 45f, y = 5f, scale = 0.37f), loaded)
+    }
+
+    @Test
+    fun `browser viewport and widget order survive persistence`() = runTest {
+        val repo = repository()
+        repo.saveWidget(StreamWidget("a", "Page", WidgetType.BROWSER,
+            configuration = WidgetConfiguration(browserUrl = "https://example.com/overlay", browserWidth = 800, browserHeight = 600)))
+        repo.saveWidget(StreamWidget("b", "Logo", WidgetType.IMAGE))
+        repo.reorderWidgets(listOf("b", "a"))
+        assertEquals(listOf("b", "a"), repo.widgetsFlow.first().map { it.id })
+        assertEquals(800, repo.widgetsFlow.first()[1].configuration.browserWidth)
+        assertEquals(600, repo.widgetsFlow.first()[1].configuration.browserHeight)
+        assertTrue(isBrowserWidgetUrl("https://example.com/overlay"))
+        assertEquals(false, isBrowserWidgetUrl("file:///etc/passwd"))
+        assertEquals(false, isBrowserWidgetUrl("javascript:alert(1)"))
+    }
+
+    @Test
+    fun `widget editor saves scene visibility atomically while retaining placement and layer order`() = runTest {
+        val store = FakeDataStore()
+        val repo = SceneRepository(store)
+        val widget = StreamWidget("w", "Caption", WidgetType.TEXT)
+        val placement = SceneWidget("w", x = 45f, y = 5f, scale = 0.37f)
+        repo.saveWidget(widget)
+        repo.saveScene(scene("a").copy(widgets = listOf(SceneWidget("other"), placement, SceneWidget("top"))))
+        repo.saveScene(scene("b").copy(widgets = listOf(SceneWidget("other"))))
+        val untouched = scene("c").copy(widgets = listOf(placement.copy(x = 70f)))
+        repo.saveScene(untouched)
+        repo.setActiveScene("a")
+        val writesBefore = store.writes
+
+        repo.saveWidgetWithSceneVisibility(widget.copy(name = "Updated"), mapOf("a" to false, "b" to true, "deleted" to true))
+
+        assertEquals(writesBefore + 1, store.writes)
+        assertEquals("Updated", repo.widgetsFlow.first().single().name)
+        val saved = repo.scenesFlow.first()
+        assertEquals(listOf(SceneWidget("other"), placement.copy(enabled = false), SceneWidget("top")), saved[0].widgets)
+        assertEquals(listOf(SceneWidget("other"), SceneWidget("w")), saved[1].widgets)
+        assertEquals(untouched, saved[2])
+        assertEquals(false, SettingsRepository(store).widgetSettingsFlow("w").first().widgetEnabled)
+
+        repo.saveWidgetWithSceneVisibility(widget, mapOf("a" to true, "b" to true))
+        assertEquals(placement, repo.scenesFlow.first()[0].widgets!![1])
+        assertEquals(1, repo.scenesFlow.first()[1].widgets!!.count { it.widgetId == "w" })
+        assertEquals(true, SettingsRepository(store).widgetSettingsFlow("w").first().widgetEnabled)
+    }
+
+    @Test
+    fun `unchecked missing widget does not create a placement and content-only save keeps latest scenes`() = runTest {
+        val repo = repository()
+        val widget = StreamWidget("w", "Caption", WidgetType.TEXT)
+        val original = scene("a").copy(widgets = emptyList())
+        repo.saveScene(original)
+        repo.saveWidgetWithSceneVisibility(widget, mapOf("a" to false))
+        assertEquals(original, repo.scenesFlow.first().single())
+        val latest = original.copy(name = "Renamed elsewhere", widgets = listOf(SceneWidget("other")))
+        repo.saveScene(latest)
+        repo.saveWidgetWithSceneVisibility(widget.copy(name = "New caption"), emptyMap())
+        assertEquals(latest, repo.scenesFlow.first().single())
+    }
+
+    @Test
+    fun `legacy enabled pomodoro migrates once into existing library and active scene`() = runTest {
+        val repo = repository()
+        repo.saveWidget(StreamWidget("text", "Caption", WidgetType.TEXT))
+        repo.saveScene(scene("a").copy(widgets = listOf(SceneWidget("text", x = 30f))))
+        repo.setActiveScene("a")
+        val names = WidgetType.entries.associateWith { it.name }
+        val settings = AppSettings(pomodoroEnabled = true, pomodoroWorkDurationMinutes = 40, pomodoroBreakDurationMinutes = 8)
+        repo.initializeLibrary(settings, "Default", names)
+        val timer = repo.widgetsFlow.first().single { it.type == WidgetType.POMODORO }
+        assertEquals(40, timer.configuration.pomodoroWorkDurationMinutes)
+        assertEquals(8, timer.configuration.pomodoroBreakDurationMinutes)
+        assertTrue(timer.enabled)
+        assertEquals(listOf(SceneWidget("text", x = 30f), SceneWidget(timer.id)), repo.scenesFlow.first().single().widgets)
+        repo.initializeLibrary(settings, "Default", names)
+        assertEquals(1, repo.widgetsFlow.first().count { it.type == WidgetType.POMODORO })
+        repo.deleteWidget(timer.id)
+        repo.initializeLibrary(settings, "Default", names)
+        assertTrue(repo.widgetsFlow.first().none { it.type == WidgetType.POMODORO })
+    }
+
+    @Test
+    fun `custom legacy pomodoro durations are preserved without enabling a disabled timer`() = runTest {
+        val repo = repository()
+        repo.saveWidget(StreamWidget("image", "Logo", WidgetType.IMAGE))
+        repo.saveScene(scene("a").copy(widgets = emptyList()))
+        repo.initializeLibrary(AppSettings(pomodoroWorkDurationMinutes = 50), "Default", WidgetType.entries.associateWith { it.name })
+        val timer = repo.widgetsFlow.first().single { it.type == WidgetType.POMODORO }
+        assertEquals(false, timer.enabled)
+        assertEquals(50, timer.configuration.pomodoroWorkDurationMinutes)
+        assertTrue(repo.scenesFlow.first().single().widgets!!.isEmpty())
     }
 }

@@ -71,11 +71,14 @@ class PrivacyComposer(
             null
         }
     },
+    private val emptySourceRenderFactory: () -> BaseFilterRender = { com.pedro.encoder.input.gl.render.filters.BlackFilterRender() },
 ) {
 
     /** External GL overlays must survive effect rebuilds in the experimental capture path. */
     @Volatile var preserveExternalFilters: Boolean = false
     private val managedFilters = java.util.WeakHashMap<GlStreamInterface, List<BaseFilterRender>>()
+
+    @Volatile var sceneEmpty: Boolean = false
 
     private val _privacyEnabled = MutableStateFlow(false)
 
@@ -124,6 +127,8 @@ class PrivacyComposer(
             ?.let { desired.add(it) }
         lutRenderFactory()?.let { desired.add(it) }
         lowLightRenderFactory()?.let { desired.add(it) }
+
+        if (sceneEmpty) desired.add(emptySourceRenderFactory())
 
         if (preserveExternalFilters) {
             managedFilters[gl].orEmpty().forEach { gl.removeFilter(it) }

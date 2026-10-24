@@ -1,5 +1,7 @@
 package com.vivid.core.data
 
+import kotlinx.coroutines.flow.distinctUntilChanged
+
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
 import kotlinx.coroutines.flow.Flow
@@ -104,6 +106,7 @@ class SettingsRepository @Inject constructor(
         val ADAPTIVE_BITRATE_ENABLED = booleanPreferencesKey("adaptive_bitrate_enabled")
         val SUBTITLES_ENABLED = booleanPreferencesKey("subtitles_enabled")
         val THEME_MODE = stringPreferencesKey("theme_mode")
+        val APP_ORIENTATION = stringPreferencesKey("app_orientation")
         val THEME_ACCENT = stringPreferencesKey("theme_accent")
         val LOGS_RETENTION_DAYS = intPreferencesKey("logs_retention_days")
         val EMOTES_BTTV_ENABLED = booleanPreferencesKey("emotes_bttv_enabled")
@@ -327,6 +330,7 @@ class SettingsRepository @Inject constructor(
         // 6. Flow: Darstellung (Theme-Modus + Akzentfarbe)
         dataStore.data.map { prefs ->
             ThemePrefs(
+                orientation = AppOrientation.fromName(prefs[PrefKeys.APP_ORIENTATION]),
                 mode = ThemeMode.fromName(prefs[PrefKeys.THEME_MODE]),
                 accent = AccentColor.fromName(prefs[PrefKeys.THEME_ACCENT]),
             )
@@ -365,6 +369,7 @@ class SettingsRepository @Inject constructor(
             sentryEnabled = privacy.sentryEnabled,
             remoteControlEnabled = privacy.remoteControlEnabled,
             themeMode = themeData.mode,
+            appOrientation = themeData.orientation,
             themeAccent = themeData.accent,
             logsRetentionDays = logsRetentionDays,
             emotesBttvEnabled = emotePrefs.bttvEnabled,
@@ -411,6 +416,17 @@ class SettingsRepository @Inject constructor(
             active?.applyTo(base) ?: base.copy(streamUrl = "", streamKey = "",
                 secondaryStreamUrl = "", secondaryStreamKey = "", obsRemoteEnabled = false)
         }
+    }
+
+    /** Per-instance widget settings; credentials and unrelated app settings stay global. */
+    fun widgetSettingsFlow(widgetId: String?): Flow<AppSettings> {
+        if (widgetId == null) return appSettingsFlow
+        return combine(appSettingsFlow, dataStore.data) { base, prefs ->
+            val widget = SceneRepository.decodeWidgets(prefs).find { it.id == widgetId }
+            val scene = SceneRepository.decodeScenes(prefs).find { it.id == prefs[SceneRepository.ACTIVE_SCENE_ID] }
+            val visible = scene?.enabled == true && scene.widgets.orEmpty().any { it.widgetId == widgetId && it.enabled }
+            (widget ?: StreamWidget(widgetId, "", WidgetType.TEXT, enabled = false)).settings(base, visible && widget?.enabled == true)
+        }.distinctUntilChanged()
     }
 
     private fun Preferences.cameraControls(): CameraControlSettings {
@@ -681,6 +697,7 @@ class SettingsRepository @Inject constructor(
     )
 
     private data class ThemePrefs(
+        val orientation: AppOrientation,
         val mode: ThemeMode,
         val accent: AccentColor,
     )
@@ -772,6 +789,11 @@ class SettingsRepository @Inject constructor(
         dataStore.edit { prefs ->
             prefs[PrefKeys.SUBTITLES_ENABLED] = enabled
         }
+    }
+
+    /** Only an explicit Appearance selection changes the fixed app orientation. */
+    suspend fun updateAppOrientation(orientation: AppOrientation) {
+        dataStore.edit { prefs -> prefs[PrefKeys.APP_ORIENTATION] = orientation.name }
     }
 
     /** Darstellung speichern: Design-Modus + Akzentfarbe. */

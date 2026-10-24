@@ -95,6 +95,15 @@ fun SettingsChatBotScreen(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
+        // The bot channel is global; reusable chat widgets can read different channels.
+        OutlinedTextField(
+            value = uiState.chatChannel,
+            onValueChange = viewModel::onChatChannelChange,
+            label = { Text(stringResource(R.string.overlays_channel_label)) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+
         // Bot-Konto (Twitch) + LLM-Zugang
         Text(stringResource(R.string.chatbot_account_title), style = MaterialTheme.typography.titleMedium)
         OutlinedTextField(

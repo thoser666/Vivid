@@ -14,6 +14,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 
 /**
  * Verdrahtet das Untertitel-Overlay (PARITY-Zeile 143): Settings-Toggle →
@@ -25,8 +27,13 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class SubtitleWidgetViewModel @Inject constructor(
     settingsRepository: SettingsRepository,
-    private val engine: SpeechToTextEngine,
+    @param:com.vivid.feature.widget.di.WidgetSpeech private val engine: SpeechToTextEngine,
 ) : ViewModel() {
+    private val selectedWidget = MutableStateFlow<String?>(null)
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val widgetSettings = selectedWidget.flatMapLatest { if (it == null) settingsRepository.appSettingsFlow else settingsRepository.widgetSettingsFlow(it) }
+    fun useWidget(id: String?) { selectedWidget.value = id }
+
 
     private val machine = SubtitleStateMachine()
 
@@ -62,7 +69,7 @@ class SubtitleWidgetViewModel @Inject constructor(
     init {
         engine.setListener(engineListener)
         viewModelScope.launch {
-            settingsRepository.appSettingsFlow.collect { settings ->
+            widgetSettings.collect { settings ->
                 setEnabled(settings.subtitlesEnabled)
             }
         }

@@ -72,9 +72,12 @@
                 android:resource="@xml/file_paths" />
         </provider>
 
+        <!-- Explicit user-selected operating mode; portrait is the startup default until preferences load. -->
         <activity
             android:name=".irlbroadcaster.MainActivity"
             android:exported="true"
+            android:screenOrientation="portrait"
+            tools:ignore="LockedOrientationActivity,DiscouragedApi"
             android:theme="@style/Theme.Vivid">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

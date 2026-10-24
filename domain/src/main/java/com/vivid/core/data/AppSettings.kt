@@ -146,6 +146,7 @@ data class AppSettings(
     // benötigen. Ein laufender Server bleibt unberührt.
     val remoteControlEnabled: Boolean = true,
     // --- Darstellung (Theme) ---
+    val appOrientation: AppOrientation = AppOrientation.PORTRAIT,
     // Design-Modus: SYSTEM (System folgen) | LIGHT | DARK | AMOLED (schwarze Flächen).
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     // Kuratierte Akzentfarbe (Standard: Vivid-Grün — unverändert gegenüber Stufe 1).
@@ -207,8 +208,8 @@ data class AppSettings(
     val slideshowWidgetIntervalSeconds: Int = 30,
     val slideshowWidgetSizeDp: Int = 240,
     val slideshowWidgetOpacity: Float = 1f,
-    // --- Pomodoro-Timer (In-App, PARITY-Zeile 143) ---
-    // Schaltet den In-App-Pomodoro-Timer frei (Timer-Screen nutzbar).
+    // --- Legacy Pomodoro preferences, imported once into the widget library ---
+    // Retained for migration from the standalone timer.
     val pomodoroEnabled: Boolean = false,
     // Länge der Arbeitsphase in Minuten (1–120, Standard 25).
     val pomodoroWorkDurationMinutes: Int = 25,

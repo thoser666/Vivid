@@ -5,10 +5,8 @@
     <string name="cat_streaming_subtitle">URL и ключ трансляции, пресеты платформ, несколько трансляций, подключение OBS</string>
     <string name="cat_appearance_title">Внешний вид</string>
     <string name="cat_appearance_subtitle">Язык, тема и акцентный цвет</string>
-    <string name="cat_overlays_title">Наложения и виджеты</string>
+    <string name="cat_overlays_title">Сцены и виджеты</string>
     <string name="cat_overlays_subtitle">Чат Twitch, виджеты текста/информации, изображения, QR-кода, батареи и сетки</string>
-    <string name="cat_pomodoro_title">Помодоро</string>
-    <string name="cat_pomodoro_subtitle">Таймер в приложении: цикл работа/перерыв, автоповтор, вибрация</string>
     <string name="cat_chatbot_title">Чат-бот и искусственный интеллект</string>
     <string name="cat_chatbot_subtitle">Режим, учетная запись бота/LLM, лимиты, доступ владельца, медиа-команды</string>
     <string name="cat_remote_title">Удаленное управление и конфиденциальность</string>
@@ -191,11 +189,9 @@
 
     <!-- ===== Таймер Помодоро (SettingsPomodoroScreen.kt) ===== -->
     <string name="pomodoro_title">Таймер Помодоро</string>
-    <string name="pomodoro_desc">Таймер концентрации по технике Помодоро: рабочие интервалы с короткими перерывами. Отсчет идет как таймер прямо в приложении, с экрана трансляции — без виджета-наложения.</string>
-    <string name="pomodoro_enabled">Включить таймер</string>
+    <string name="pomodoro_desc">Виджет сцены с рабочими интервалами, перерывами, автоматической сменой фаз и счётчиком циклов. Один виджет использует общий таймер во всех выбранных сценах.</string>
     <string name="pomodoro_work_minutes">Рабочий интервал: %1$d мин</string>
     <string name="pomodoro_break_minutes">Перерыв: %1$d мин</string>
-    <string name="pomodoro_open_timer">Открыть таймер</string>
 
     <!-- ===== Remote & Privacy (SettingsRemotePrivacyScreen.kt) ===== -->
     <string name="remote_section_title">Веб-удаленное управление</string>
@@ -402,4 +398,47 @@
     <string name="camera_mirror_front">Отзеркалить переднюю камеру</string>
     <string name="camera_zoom_reorder">Переместить пресет зума %1$s</string>
     <string name="camera_zoom_reorder_hint">Удерживайте значок слева и перетащите пресет. Порядок сохраняется после отпускания.</string>
+    <string name="cat_overlays_desc">Сцены, источники и общие виджеты</string>
+    <string name="scene_widget_library">Виджеты</string>
+    <string name="scene_widget_add_scene">Добавить сцену</string>
+    <string name="scene_widget_add">Добавить виджет</string>
+    <string name="scene_widget_add_existing">Добавить из списка виджетов</string>
+    <string name="scene_widget_scene_widgets">Виджеты сцены</string>
+    <string name="scene_widget_create_first">Сначала создайте виджет в общем списке.</string>
+    <string name="scene_widget_browser">Браузер</string>
+    <string name="scene_widget_name">Название виджета</string>
+    <string name="scene_widget_url">URL страницы</string>
+    <string name="scene_widget_page_width">Ширина страницы (px)</string>
+    <string name="scene_widget_page_height">Высота страницы (px)</string>
+    <string name="scene_widget_activate">Активировать сцену</string>
+    <string name="scene_widget_active">Активная сцена</string>
+    <string name="scene_widget_source">Источник: %1$s</string>
+    <string name="scene_widget_camera_front">Фронтальная камера (%1$s)</string>
+    <string name="scene_widget_camera_back">Задняя камера (%1$s)</string>
+    <string name="scene_widget_camera_other">Камера (%1$s)</string>
+    <string name="scene_widget_camera_default">Камера</string>
+    <string name="scene_widget_screen">Трансляция экрана</string>
+    <string name="scene_widget_empty">Пустой источник</string>
+    <string name="scene_widget_replay">Повтор</string>
+    <string name="scene_widget_layout">Макет</string>
+    <string name="scene_widget_layout_hint">Перетащите виджет или задайте положение в процентах.</string>
+    <string name="scene_widget_save_layout">Сохранить макет</string>
+    <string name="scene_widget_load_layout">Загрузить макет</string>
+    <string name="scene_widget_numeric">Числовые значения</string>
+    <string name="scene_widget_x">По горизонтали: %1$d%%</string>
+    <string name="scene_widget_y">По вертикали: %1$d%%</string>
+    <string name="scene_widget_scale">Масштаб: %1$d%%</string>
+    <string name="scene_widget_reorder">Переместить %1$s</string>
+    <string name="scene_widget_delete">Удалить</string>
+    <string name="scene_widget_shared_settings">Общие настройки виджета</string>
+    <string name="scene_widget_shared_hint">Изменения содержимого применяются во всех сценах; положение и масштаб — только в этой сцене.</string>
+    <string name="scene_widget_anchor">Привязка: ряд %1$d, столбец %2$d</string>
+    <string name="scene_widget_show_in_scenes">Показывать на сценах</string>
+    <string name="scene_widget_show_in_scenes_hint">Выбор применяется при сохранении. При выключении положение и масштаб сохраняются. Сама сцена и виджет тоже должны быть включены.</string>
+    <string name="scene_widget_no_scenes">Сцен пока нет. Добавьте сцену в предыдущем меню.</string>
+    <string name="pomodoro_controls_hint">«Сохранить и запустить» применяет текущие значения. Изменение длительностей сбрасывает таймер. Переключение сцен не ставит его на паузу.</string>
+    <string name="appearance_orientation_title">Режим работы</string>
+    <string name="appearance_orientation_portrait">Портретный</string>
+    <string name="appearance_orientation_landscape">Горизонтальный</string>
+    <string name="appearance_orientation_desc">Применяется сразу и сохраняется. Поворот устройства не меняет режим.</string>
 </resources>

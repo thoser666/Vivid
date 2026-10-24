@@ -5,10 +5,8 @@
     <string name="cat_streaming_subtitle">URL/clé de stream, modèles de plateforme, multi-streaming, connexion OBS</string>
     <string name="cat_appearance_title">Apparence</string>
     <string name="cat_appearance_subtitle">Langue, mode de design, couleur d\'accent</string>
-    <string name="cat_overlays_title">Overlays &amp; widgets</string>
+    <string name="cat_overlays_title">Scènes et widgets</string>
     <string name="cat_overlays_subtitle">Chat Twitch, widgets texte/info, image, code QR, batterie et grille</string>
-    <string name="cat_pomodoro_title">Pomodoro</string>
-    <string name="cat_pomodoro_subtitle">Minuteur integre : cycles travail/pause, boucle automatique, vibration</string>
     <string name="cat_chatbot_title">Chat-bot &amp; IA</string>
     <string name="cat_chatbot_subtitle">Mode de fonctionnement, compte de bot/LLM, limites, accès propriétaire, commandes média</string>
     <string name="cat_remote_title">Remote &amp; confidentialité</string>
@@ -190,11 +188,9 @@
 
     <!-- ===== Minuteur Pomodoro (SettingsPomodoroScreen.kt) ===== -->
     <string name="pomodoro_title">Minuteur Pomodoro</string>
-    <string name="pomodoro_desc">Minuteur de concentration base sur la technique Pomodoro : sessions de travail entrecoupees de courtes pauses. Le compte a rebours fonctionne comme un minuteur integre, directement depuis l ecran de streaming — sans widget d incrustation.</string>
-    <string name="pomodoro_enabled">Activer le minuteur</string>
+    <string name="pomodoro_desc">Widget de scène avec phases de travail et de pause, cycle automatique et compteur de sessions. Le même minuteur est partagé entre les scènes choisies.</string>
     <string name="pomodoro_work_minutes">Session de travail : %1$d min</string>
     <string name="pomodoro_break_minutes">Pause : %1$d min</string>
-    <string name="pomodoro_open_timer">Ouvrir le minuteur</string>
 
     <!-- ===== Remote & confidentialité (SettingsRemotePrivacyScreen.kt) ===== -->
     <string name="remote_section_title">Télécommande web</string>
@@ -401,4 +397,47 @@
     <string name="camera_mirror_front">Miroir caméra avant</string>
     <string name="camera_zoom_reorder">Réorganiser le préréglage %1$s</string>
     <string name="camera_zoom_reorder_hint">Maintenez la poignée du préréglage puis faites-la glisser. L’ordre est enregistré au relâchement.</string>
+    <string name="cat_overlays_desc">Scènes, sources et widgets partagés</string>
+    <string name="scene_widget_library">Widgets</string>
+    <string name="scene_widget_add_scene">Ajouter une scène</string>
+    <string name="scene_widget_add">Ajouter un widget</string>
+    <string name="scene_widget_add_existing">Ajouter depuis les widgets</string>
+    <string name="scene_widget_scene_widgets">Widgets de la scène</string>
+    <string name="scene_widget_create_first">Créez d’abord un widget dans la bibliothèque.</string>
+    <string name="scene_widget_browser">Navigateur</string>
+    <string name="scene_widget_name">Nom du widget</string>
+    <string name="scene_widget_url">URL de la page</string>
+    <string name="scene_widget_page_width">Largeur de page (px)</string>
+    <string name="scene_widget_page_height">Hauteur de page (px)</string>
+    <string name="scene_widget_activate">Activer la scène</string>
+    <string name="scene_widget_active">Scène active</string>
+    <string name="scene_widget_source">Source : %1$s</string>
+    <string name="scene_widget_camera_front">Caméra avant (%1$s)</string>
+    <string name="scene_widget_camera_back">Caméra arrière (%1$s)</string>
+    <string name="scene_widget_camera_other">Caméra (%1$s)</string>
+    <string name="scene_widget_camera_default">Caméra</string>
+    <string name="scene_widget_screen">Capture d’écran</string>
+    <string name="scene_widget_empty">Source vide</string>
+    <string name="scene_widget_replay">Replay</string>
+    <string name="scene_widget_layout">Disposition</string>
+    <string name="scene_widget_layout_hint">Déplacez le widget ou réglez sa position en pourcentage.</string>
+    <string name="scene_widget_save_layout">Enregistrer la disposition</string>
+    <string name="scene_widget_load_layout">Charger la disposition</string>
+    <string name="scene_widget_numeric">Valeurs numériques</string>
+    <string name="scene_widget_x">Horizontal : %1$d%%</string>
+    <string name="scene_widget_y">Vertical : %1$d%%</string>
+    <string name="scene_widget_scale">Échelle : %1$d%%</string>
+    <string name="scene_widget_reorder">Déplacer %1$s</string>
+    <string name="scene_widget_delete">Supprimer</string>
+    <string name="scene_widget_shared_settings">Réglages du widget partagé</string>
+    <string name="scene_widget_shared_hint">Le contenu change dans toutes les scènes ; cette disposition reste propre à cette scène.</string>
+    <string name="scene_widget_anchor">Ancrage ligne %1$d, colonne %2$d</string>
+    <string name="scene_widget_show_in_scenes">Afficher dans les scènes</string>
+    <string name="scene_widget_show_in_scenes_hint">La sélection est appliquée à l’enregistrement. Désactiver une scène ici conserve la position et l’échelle. La scène et le widget doivent aussi être activés.</string>
+    <string name="scene_widget_no_scenes">Aucune scène. Ajoutez une scène dans le menu précédent.</string>
+    <string name="pomodoro_controls_hint">Enregistrer et démarrer applique les valeurs actuelles. Changer les durées réinitialise le minuteur. Changer de scène ne le met pas en pause.</string>
+    <string name="appearance_orientation_title">Mode de fonctionnement</string>
+    <string name="appearance_orientation_portrait">Portrait</string>
+    <string name="appearance_orientation_landscape">Paysage</string>
+    <string name="appearance_orientation_desc">Le choix est appliqué immédiatement et mémorisé. Tourner l’appareil ne change pas le mode.</string>
 </resources>

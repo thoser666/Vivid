@@ -60,6 +60,7 @@ class StreamingViewModelTest {
     private val sceneRepository = mockk<SceneRepository> {
         every { scenesFlow } returns scenesState
         every { activeSceneIdFlow } returns activeSceneState
+        every { libraryInitializedFlow } returns MutableStateFlow(false)
         coEvery { saveScene(any()) } just Runs
         coEvery { deleteScene(any()) } just Runs
     }

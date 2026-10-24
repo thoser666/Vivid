@@ -46,6 +46,7 @@ class PrivacyComposerTest {
         privacyRender: PrivacyBlurFilterRender? = null,
         videoRender: BaseFilterRender? = null,
         lowLightRender: BaseFilterRender? = null,
+        emptySource: BaseFilterRender = mockk(relaxed = true),
     ): PrivacyComposer {
         val filterController = VideoFilterController()
         if (filter != VideoFilter.NONE) {
@@ -62,7 +63,23 @@ class PrivacyComposerTest {
             videoFilterRenderFactory = { videoRender },
             lutRenderFactory = { lutRender },
             lowLightRenderFactory = { lowLightRender },
+            emptySourceRenderFactory = { emptySource },
         )
+    }
+
+    @Test
+    fun `empty scene replaces processed camera image with black and restores the source when disabled`() {
+        val recorder = RecordingGl()
+        val video = mockk<BaseFilterRender>(relaxed = true)
+        val black = mockk<BaseFilterRender>(relaxed = true)
+        val composer = composer(recorder, filter = VideoFilter.SEPIA, videoRender = video, emptySource = black)
+        composer.sceneEmpty = true
+        composer.requestRebuild(recorder.gl)
+        assertEquals(listOf(video, black), recorder.added)
+        recorder.added.clear()
+        composer.sceneEmpty = false
+        composer.requestRebuild(recorder.gl)
+        assertEquals(listOf(video), recorder.added)
     }
 
     @Test

@@ -120,7 +120,7 @@ Avant le démarrage, Vivid valide la configuration et affiche des messages clair
 3. Vivid se connecte — le statut passe à **« Préparation… »** → **« en direct »**
 4. L'affichage de statut montre chaque cible séparément (en multi-streaming)
 
-Le menu **Contrôles** regroupe les sources Caméra, Écran et Vidéo, puis **Enregistrer**, les contrôles caméra, les filtres, Boost, LUT et le traitement des couleurs. L'engrenage en haut à droite ouvre les paramètres. **Scènes** ouvre un panneau inférieur masqué par défaut ; le faire glisser vers le bas le ferme. **Enregistrer** sauvegarde la vidéo actuelle de la caméra en MP4 local, sans URL de stream ni stream actif. Une URL vide est signalée uniquement après un appui sur Démarrer. Les contrôles caméra et les effets fonctionnent aussi dans l'aperçu au repos si l'autorisation caméra est déjà accordée.
+Le menu **Contrôles** regroupe les sources Caméra, Écran et Vidéo, puis **Enregistrer**, les contrôles caméra, les filtres, Boost, LUT et le traitement des couleurs. L'engrenage en haut à droite ouvre les paramètres. Les scènes se gèrent dans **Paramètres → Scènes et widgets** : réorganiser, activer ou supprimer par balayage les scènes et les widgets partagés. Chaque scène choisit une caméra, la capture d’écran ou une source vide et possède ses propres positions de widgets. Le changement automatique et la confidentialité suivent les deux listes. **Enregistrer** sauvegarde la vidéo actuelle de la caméra en MP4 local, sans URL de stream ni stream actif. Une URL vide est signalée uniquement après un appui sur Démarrer. Les contrôles caméra et les effets fonctionnent aussi dans l'aperçu au repos si l'autorisation caméra est déjà accordée.
 
 ### Arrêter le stream
 
@@ -215,12 +215,13 @@ phase P1) — les deux chats sont fusionnés dans le même overlay.
 
 ### 7.1 Activer
 
-1. **Paramètres** → **« Overlays & widgets »**
-2. Activer **l'overlay de chat**
+1. **Paramètres** → **« Scènes et widgets »**
+2. Ajouter un widget **Overlay de chat** (ou ouvrir le widget migré) et activer son interrupteur dans la bibliothèque.
 3. Saisir le **canal de chat** (ton nom de chaîne Twitch, p. ex. `thoser666`)
 4. Optionnel : activer **le chat YouTube** et saisir l'**ID de chaîne YouTube** (`UC…`)
    — le chat live est lu anonymement (pas d'OAuth) et fusionné dans le même overlay ;
    les messages YouTube portent un badge de plateforme rouge ▶.
+5. Enregistrer le widget, ouvrir une scène et utiliser **Ajouter depuis les widgets**. Activer le widget dans cette scène, puis activer la scène.
 
 ### 7.2 Ce qu'il te faut
 
@@ -362,8 +363,8 @@ L'écran des paramètres est organisé en six catégories (comme Moblin) :
 | Catégorie | Contenu |
 |---|---|
 | 🎬 **Streaming & OBS** | Streams enregistrés (Twitch/YouTube/Kick/Custom), un seul stream actif, paramètres vidéo/enregistrement/multi-streaming/OBS par stream |
-| 🎨 **Apparence** | Mode de design (Système/Clair/Sombre/AMOLED) + couleur d'accent (6 couleurs choisies, vert Vivid par défaut) |
-| 🧩 **Overlays & widgets** | Overlay de chat Twitch (chaîne + toggle), widget texte/info (heure/GPS/vitesse/altitude — chacun avec toggle + autorisation d'exécution ; texte de modèle personnalisé avec variables comme `{time}`, `{speed}`, `{road}`, `{city}`, `{country}` — les noms de lieux sont résolus automatiquement par géocodage inverse et mis en cache) |
+| 🎨 **Apparence** | En premier : mode Portrait (par défaut) / Paysage, mémorisé immédiatement ; tourner l’appareil ne change pas le mode. Mode de design (Système/Clair/Sombre/AMOLED) + couleur d'accent (6 couleurs choisies, vert Vivid par défaut) |
+| 🧩 **Scènes et widgets** | Overlay de chat Twitch (chaîne + toggle), widget texte/info (heure/GPS/vitesse/altitude — chacun avec toggle + autorisation d'exécution ; texte de modèle personnalisé avec variables comme `{time}`, `{speed}`, `{road}`, `{city}`, `{country}` — les noms de lieux sont résolus automatiquement par géocodage inverse et mis en cache) |
 | 💬 **Chat-bot & IA** | Mode de fonctionnement, compte du bot (login/jeton/ID client), endpoint/clé/modèle LLM, prompt, cooldown, mentions only, limite de débit, limites + presets, accès owner (liste d'autorisation + IA owner), commandes média, accès aux notifications |
 | 🔒 **Remote & confidentialité** | Télécommande web (jeton + accès LAN, toggle d\'autostart), rapports d'erreurs Sentry + error replay (toggle d'exclusion) |
 | ℹ️ **À propos & mises à jour** | Version, badge de mise à jour, recherche manuelle de mises à jour (releases GitHub), notes de version |

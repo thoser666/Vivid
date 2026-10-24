@@ -50,6 +50,24 @@ class StreamingViewModel @Inject constructor(
     /** Alle gespeicherten Szenen (Anlage-Reihenfolge). */
     val scenes: Flow<List<StreamScene>> = sceneRepository.scenesFlow
 
+    val savedWidgetLayout get() = sceneRepository.savedLayoutFlow
+    fun saveWidgetLayout(layout: com.vivid.core.data.SceneWidget) { viewModelScope.launch { sceneRepository.saveLayout(layout) } }
+    val widgets get() = sceneRepository.widgetsFlow
+    val libraryInitialized get() = sceneRepository.libraryInitializedFlow
+
+    fun initializeWidgets(defaultName: String, names: Map<com.vivid.core.data.WidgetType, String>) {
+        viewModelScope.launch { sceneRepository.initializeLibrary(settingsRepository.appSettingsFlow.first(), defaultName, names) }
+    }
+
+    fun updateScene(scene: StreamScene) { viewModelScope.launch { sceneRepository.saveScene(scene) } }
+    fun reorderScenes(ids: List<String>) { viewModelScope.launch { sceneRepository.reorderScenes(ids) } }
+    fun updateWidget(widget: com.vivid.core.data.StreamWidget) { viewModelScope.launch { sceneRepository.saveWidget(widget) } }
+    fun updateWidgetScenes(widget: com.vivid.core.data.StreamWidget, visibility: Map<String, Boolean>) {
+        viewModelScope.launch { sceneRepository.saveWidgetWithSceneVisibility(widget, visibility) }
+    }
+    fun deleteWidget(id: String) { viewModelScope.launch { sceneRepository.deleteWidget(id) } }
+    fun reorderWidgets(ids: List<String>) { viewModelScope.launch { sceneRepository.reorderWidgets(ids) } }
+
     /** ID der zuletzt angewendeten Szene (null = keine aktiv). */
     val activeSceneId: Flow<String?> = sceneRepository.activeSceneIdFlow
 
@@ -157,9 +175,14 @@ class StreamingViewModel @Inject constructor(
         if (trimmed.isEmpty()) return
         viewModelScope.launch {
             val settings = settingsRepository.appSettingsFlow.first()
+            val placements = if (sceneRepository.libraryInitializedFlow.first()) {
+                val activeId = sceneRepository.activeSceneIdFlow.first()
+                sceneRepository.scenesFlow.first().find { it.id == activeId }?.widgets.orEmpty()
+            } else null
             val scene = StreamScene(
                 id = UUID.randomUUID().toString(),
                 name = trimmed,
+                widgets = placements,
                 videoSource = streamingEngine.activeSourceKind.value.toSceneVideoSource(),
                 replayPath = streamingEngine.activeReplayFile?.absolutePath,
                 widgetEnabled = settings.widgetEnabled,

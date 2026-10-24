@@ -1,7 +1,10 @@
 package com.vivid.irlbroadcaster
 
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
 import android.app.Activity
 import android.content.Context
+import android.content.pm.ActivityInfo
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
@@ -19,9 +22,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -35,6 +36,7 @@ import androidx.navigation.navArgument
 import com.vivid.BuildConfig
 import com.vivid.core.startup.CrashLoopGuard
 import com.vivid.core.data.AppSettings
+import com.vivid.core.data.AppOrientation
 import com.vivid.core.data.SettingsRepository
 import com.vivid.core.data.ThemeMode
 import com.vivid.core.data.resolveDark
@@ -49,7 +51,6 @@ import com.vivid.feature.settings.ui.SettingsCameraRoute
 import com.vivid.feature.settings.ui.SettingsChatBotScreen
 import com.vivid.feature.settings.ui.SettingsLogsScreen
 import com.vivid.feature.settings.ui.SettingsOverlaysScreen
-import com.vivid.feature.settings.ui.SettingsPomodoroScreen
 import com.vivid.feature.settings.ui.SettingsRemotePrivacyScreen
 import com.vivid.feature.settings.ui.SettingsScreen
 import com.vivid.feature.settings.ui.SettingsStreamingObsScreen
@@ -59,8 +60,6 @@ import com.vivid.feature.streaming.ui.StreamingScreen
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.vivid.irlbroadcaster.ui.about.AboutScreen
 import com.vivid.irlbroadcaster.ui.help.HelpScreen
-import com.vivid.irlbroadcaster.ui.pomodoro.PomodoroScreen
-import com.vivid.irlbroadcaster.ui.pomodoro.PomodoroViewModel
 import com.vivid.irlbroadcaster.ui.theme.VividTheme
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -93,7 +92,12 @@ class MainActivity : ComponentActivity() {
             // Darstellung (Settings-Kategorie „Darstellung“): Design-Modus
             // (System/Hell/Dunkel/AMOLED) + Akzentfarbe live anwenden — das
             // Theme reagiert sofort, ohne App-Neustart.
-            val settings by settingsRepository.appSettingsFlow.collectAsState(initial = AppSettings())
+            val savedSettings by settingsRepository.appSettingsFlow.collectAsState(initial = null)
+            val settings = savedSettings ?: AppSettings()
+            SideEffect {
+                // Wait for persisted settings: a transient default must not flip a restored landscape Activity.
+                savedSettings?.let { applyAppOrientation(it.appOrientation) }
+            }
             val systemDark = isSystemInDarkTheme()
             val dark = settings.themeMode.resolveDark(systemDark)
             // Window Size Class (M3): Einmal pro Activity-Erstellung berechnet
@@ -130,6 +134,15 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    @Suppress("SourceLockedOrientationActivity")
+    internal fun applyAppOrientation(orientation: AppOrientation) {
+        val requested = when (orientation) {
+            AppOrientation.PORTRAIT -> ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            AppOrientation.LANDSCAPE -> ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+        }
+        if (requestedOrientation != requested) requestedOrientation = requested
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -256,23 +269,7 @@ fun VividAppNavigation(onPreviewFullscreenChange: (Boolean) -> Unit = {}) {
             )
         }
         composable("settings_overlays") {
-            val viewModel: SettingsViewModel = hiltViewModel()
-            val uiState by viewModel.uiState.collectAsState()
-            SettingsOverlaysScreen(
-                uiState = uiState,
-                viewModel = viewModel,
-                onBack = { navController.popBackStack() },
-            )
-        }
-        composable("settings_pomodoro") {
-            val viewModel: SettingsViewModel = hiltViewModel()
-            val uiState by viewModel.uiState.collectAsState()
-            SettingsPomodoroScreen(
-                uiState = uiState,
-                viewModel = viewModel,
-                onBack = { navController.popBackStack() },
-                onOpenTimer = { navController.navigate("pomodoro_route") },
-            )
+            SettingsOverlaysScreen(onBack = { navController.popBackStack() })
         }
         composable("settings_chatbot") {
             val viewModel: SettingsViewModel = hiltViewModel()
@@ -325,19 +322,6 @@ fun VividAppNavigation(onPreviewFullscreenChange: (Boolean) -> Unit = {}) {
         }
         composable("about_route") {
             AboutScreen(navController = navController)
-        }
-        composable("pomodoro_route") {
-            val viewModel: PomodoroViewModel = hiltViewModel()
-            val uiState by viewModel.uiState.collectAsState()
-            PomodoroScreen(
-                uiState = uiState,
-                phaseComplete = viewModel.phaseComplete,
-                onToggleRunning = viewModel::toggleRunning,
-                onSkip = viewModel::skipPhase,
-                onReset = viewModel::reset,
-                onOpenSettings = { navController.navigate("settings_pomodoro") },
-                onBack = { navController.popBackStack() },
-            )
         }
         composable("help_route") {
             HelpScreen(navController = navController)

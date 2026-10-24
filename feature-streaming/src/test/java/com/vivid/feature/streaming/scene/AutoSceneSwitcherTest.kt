@@ -157,4 +157,17 @@ class AutoSceneSwitcherTest {
             harness.switcher.intervalSeconds.value,
         )
     }
+
+    @Test
+    fun `auto switch skips disabled scenes and follows saved order`() = runTest {
+        val harness = createSwitcher(CoroutineScope(UnconfinedTestDispatcher(testScheduler)),
+            scenes = MutableStateFlow(listOf(scene("a"), scene("b").copy(enabled = false), scene("c"))))
+        harness.switcher.setIntervalSeconds(10)
+        harness.switcher.setEnabled(true)
+        advanceTimeBy(10_000)
+        runCurrent()
+        coVerify(exactly = 1) { harness.controller.applyScene(match { it.id == "c" }) }
+        coVerify(exactly = 0) { harness.controller.applyScene(match { it.id == "b" }) }
+        harness.switcher.setEnabled(false)
+    }
 }

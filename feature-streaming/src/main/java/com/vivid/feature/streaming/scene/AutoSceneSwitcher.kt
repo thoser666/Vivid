@@ -59,7 +59,7 @@ class AutoSceneSwitcher @Inject constructor(
     private suspend fun runLoop() {
         while (_enabled.value) {
             delay(_intervalSeconds.value * 1000)
-            val scenes = sceneRepository.scenesFlow.first()
+            val scenes = sceneRepository.scenesFlow.first().filter { it.enabled }
             if (scenes.size >= 2) {
                 val nextIndex = nextSceneIndex(scenes, sceneRepository.activeSceneIdFlow.first())
                 sceneController.applyScene(scenes[nextIndex])

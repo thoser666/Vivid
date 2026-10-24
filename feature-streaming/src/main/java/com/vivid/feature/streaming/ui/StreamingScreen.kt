@@ -15,9 +15,6 @@ import android.view.ViewTreeObserver
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Podcasts
 import androidx.compose.material3.*
@@ -33,7 +30,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.displayCutout
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -41,9 +37,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.background
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.Lock
@@ -85,19 +78,10 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
-import com.vivid.core.data.StreamScene
 import com.vivid.core.ui.LocalWindowWidthClass
 import com.vivid.core.ui.adaptiveControlsMaxWidth
 import com.vivid.core.ui.theme.LocalExtendedColors
-import com.vivid.feature.chat.twitch.TwitchChannelUiState
 import com.vivid.feature.chat.twitch.TwitchChannelViewModel
-import com.vivid.feature.chat.ui.ChatOverlay
-import com.vivid.feature.widget.GridOverlay
-import com.vivid.feature.widget.ImageWidget
-import com.vivid.feature.widget.QrCodeWidget
-import com.vivid.feature.widget.SlideshowWidget
-import com.vivid.feature.widget.SubtitlesOverlay
-import com.vivid.feature.widget.TextInfoWidget
 import com.vivid.feature.streaming.ConfigIssueSeverity
 import com.vivid.feature.streaming.FocusMode
 import com.vivid.feature.streaming.ReplayState
@@ -165,22 +149,6 @@ fun StreamingScreen(
 
     RefreshTwitchStatus(streamingState, twitchViewModel)
 
-    // Szenen (Basic Scenes) + Auto-Scene-Switcher: Liste, aktive Szene,
-    // Auto-Wechsel-Zustand — aus SceneRepository/AutoSceneSwitcher.
-    val scenes by viewModel.scenes.collectAsStateWithLifecycle(initialValue = emptyList())
-    val activeSceneId by viewModel.activeSceneId.collectAsStateWithLifecycle(initialValue = null)
-    val autoSwitchEnabled by viewModel.autoSwitchEnabled.collectAsStateWithLifecycle()
-    val autoSwitchIntervalSeconds by viewModel.autoSwitchIntervalSeconds.collectAsStateWithLifecycle()
-
-    // P1: Datenschutz-Anonymisierung — Master-Toggle + Zonen-Editor-Zustand
-    // (Zonen persistiert im ZoneRepository, framesynchron an die Engine).
-    val privacyEnabled by viewModel.privacyEnabled.collectAsStateWithLifecycle(initialValue = false)
-    val privacyZones by viewModel.privacyZones.collectAsStateWithLifecycle(initialValue = emptyList())
-    // P2b: „Ganzbild verpixeln“ — grobe Voll-Frame-Mosaikstufe des Privacy-
-    // Filters (Standort-Schutz), nur zusammen mit dem Master-Toggle sichtbar.
-    val fullFrameBlurEnabled by viewModel.fullFrameBlurEnabled.collectAsStateWithLifecycle(initialValue = false)
-    var privacyEditing by remember { mutableStateOf(false) }
-
     // #249: Der Screen-Eintritt fordert NIE Permissions an — auch nicht die
     // Kamera-Permission für die Idle-Vorschau. Ein Auto-Request öffnete den
     // Systemdialog beim bloßen Betreten des Screens (GrantPermissionsActivity
@@ -214,58 +182,9 @@ fun StreamingScreen(
 
     RefreshStreamingScreenOnResume(viewModel, streamingEngine)
 
-    var scenesExpanded by rememberSaveable { mutableStateOf(false) }
     var controlsExpanded by remember { mutableStateOf(false) }
-    val previewFullscreen = !scenesExpanded && !controlsExpanded
+    val previewFullscreen = !controlsExpanded
     SideEffect { onPreviewFullscreenChange(previewFullscreen) }
-
-    if (scenesExpanded) {
-        ModalBottomSheet(
-            onDismissRequest = { scenesExpanded = false },
-            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-            dragHandle = {
-                Box(
-                    modifier = Modifier.fillMaxWidth().height(24.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Box(
-                        Modifier.size(width = 32.dp, height = 4.dp)
-                            .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f), CircleShape),
-                    )
-                }
-            },
-        ) {
-            ShowMenuSystemBars()
-            Column(Modifier.testTag("scenes_panel")) {
-                SceneSwitcherBar(
-                    scenes = scenes,
-                    activeSceneId = activeSceneId,
-                    autoSwitchEnabled = autoSwitchEnabled,
-                    autoSwitchIntervalSeconds = autoSwitchIntervalSeconds,
-                    isStreaming = streamingState is StreamingState.Streaming,
-                    onApplyScene = viewModel::applyScene,
-                    onSaveScene = viewModel::saveScene,
-                    onDeleteScene = viewModel::deleteScene,
-                    onAutoSwitchEnabledChange = viewModel::setAutoSwitchEnabled,
-                    onAutoSwitchIntervalChange = viewModel::setAutoSwitchIntervalSeconds,
-                    privacyEnabled = privacyEnabled,
-                    onPrivacyEnabledChange = { enabled ->
-                        // Deaktivieren schließt zugleich den Zonen-Editor (die
-                        // Zonen sind ohne Toggle nicht mehr im Bild).
-                        if (!enabled) privacyEditing = false
-                        viewModel.setPrivacyEnabled(enabled)
-                    },
-                    fullFrameBlurEnabled = fullFrameBlurEnabled,
-                    onFullFrameBlurChange = viewModel::setFullFrameBlurEnabled,
-                    onOpenZoneEditor = {
-                        scenesExpanded = false
-                        privacyEditing = true
-                    },
-                )
-            }
-        }
-    }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -291,13 +210,6 @@ fun StreamingScreen(
                 StreamStartButton(streamingState, onStop = viewModel::stopStream) {
                     startAttempted = true
                     if (configIssues.none { it.messageRes == R.string.stream_error_no_url }) requestPermissionsAndStart()
-                }
-
-                TextButton(
-                    onClick = { scenesExpanded = true },
-                    modifier = Modifier.align(Alignment.BottomCenter).testTag("open_scenes"),
-                ) {
-                    Text(stringResource(R.string.scene_bar_title))
                 }
 
                 // Twitch-Status: Viewerzahl und Stream-Metadaten als kompakte Anzeige.
@@ -358,17 +270,6 @@ fun StreamingScreen(
                 )
             }
 
-            // P1: Zonen-Editor (Anonymisierung, Skizze §5) über der Vorschau —
-            // nur im Idle-Modus geöffnet (Szenen-Sperre-Muster: während des
-            // Streams wird nicht editiert), Zonen via ViewModel persistiert und
-            // framesynchron an die Engine.
-            if (privacyEditing) {
-                ZoneEditorOverlay(
-                    zones = privacyZones,
-                    onZonesChange = viewModel::savePrivacyZones,
-                    onClose = { privacyEditing = false },
-                )
-            }
 
         }
     }
@@ -1160,44 +1061,7 @@ private fun RefreshStreamingScreenOnResume(viewModel: StreamingViewModel, stream
  */
 @Composable
 private fun BoxScope.DefaultStreamingOverlay() {
-    ChatOverlay(
-        modifier = Modifier
-            .align(Alignment.BottomStart)
-            .padding(start = 12.dp, bottom = 84.dp),
-    )
-
-    TextInfoWidget(
-        modifier = Modifier
-            .align(Alignment.BottomEnd)
-            .padding(end = 12.dp, bottom = 84.dp),
-    )
-
-    GridOverlay()
-
-    ImageWidget(
-        modifier = Modifier
-            .align(Alignment.TopStart)
-            .padding(start = 12.dp, top = 12.dp),
-    )
-
-    QrCodeWidget(
-        modifier = Modifier
-            .align(Alignment.TopEnd)
-            .padding(end = 12.dp, top = 12.dp),
-    )
-
-    SlideshowWidget(
-        modifier = Modifier
-            .align(Alignment.Center)
-            .padding(12.dp),
-    )
-
-    // Untertitel (Speech-to-Text) ueber der Vorschau, unten mittig.
-    SubtitlesOverlay(
-        modifier = Modifier
-            .align(Alignment.BottomCenter)
-            .padding(bottom = 140.dp),
-    )
+    SceneWidgetsOverlay()
 }
 
 private const val TWITCH_REFRESH_INTERVAL_MS = 30_000L
@@ -1258,228 +1122,5 @@ private fun PreviewMessageBanner(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
             style = MaterialTheme.typography.bodyMedium,
         )
-    }
-}
-
-/**
- * Szenen-Leiste (Moblin: Basic Scenes) als Bottom-Bar des Streaming-Screens.
- *
- * - Chips für jede gespeicherte Szene (Tipp = anwenden; während des Streams
- *   gesperrt, weil die Engine-Quelle nur zwischen Starts gewechselt wird)
- * - „+“ öffnet die Eingabe für eine neue Szene (Name vorbefüllt, lokalisiert)
- * - Mülleimer löscht die aktive Szene
- * - Auto-Scene-Switcher: An/Aus-Toggle + Intervall (Sekunden, Minimum 5 s)
- */
-@Composable
-private fun SceneSwitcherBar(
-    scenes: List<StreamScene>,
-    activeSceneId: String?,
-    autoSwitchEnabled: Boolean,
-    autoSwitchIntervalSeconds: Long,
-    isStreaming: Boolean,
-    onApplyScene: (StreamScene) -> Unit,
-    onSaveScene: (String) -> Unit,
-    onDeleteScene: (String) -> Unit,
-    onAutoSwitchEnabledChange: (Boolean) -> Unit,
-    onAutoSwitchIntervalChange: (Long) -> Unit,
-    privacyEnabled: Boolean,
-    onPrivacyEnabledChange: (Boolean) -> Unit,
-    fullFrameBlurEnabled: Boolean,
-    onFullFrameBlurChange: (Boolean) -> Unit,
-    onOpenZoneEditor: () -> Unit,
-) {
-    var adding by remember { mutableStateOf(false) }
-    var sceneName by remember { mutableStateOf("") }
-    // Lokalisierter Standardname (z. B. „Szene 1“) — der Nutzer kann ihn editieren.
-    val defaultSceneName = stringResource(R.string.scene_default_name, scenes.size + 1)
-
-    // Custom bottomBar: Das M3-Scaffold paddet eigene bottomBars NICHT mit den
-    // Navigationsleisten-Insets — ohne dieses Padding läge die Szenen-Leiste
-    // unter der Gesture-Navigation (Edge-to-Edge).
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceContainer,
-        modifier = Modifier.windowInsetsPadding(WindowInsets.navigationBars),
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-        ) {
-            if (adding) {
-                // Eingabe-Modus: Name + Speichern/Abbrechen.
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    OutlinedTextField(
-                        value = sceneName,
-                        onValueChange = { sceneName = it },
-                        label = { Text(stringResource(R.string.scene_name_hint)) },
-                        singleLine = true,
-                        modifier = Modifier.weight(1f),
-                    )
-                    Button(
-                        onClick = {
-                            onSaveScene(sceneName)
-                            sceneName = ""
-                            adding = false
-                        },
-                        enabled = sceneName.isNotBlank(),
-                    ) {
-                        Text(stringResource(R.string.scene_add))
-                    }
-                    IconButton(onClick = {
-                        sceneName = ""
-                        adding = false
-                    }) {
-                        Icon(
-                            imageVector = Icons.Filled.Close,
-                            contentDescription = stringResource(R.string.scene_add_cancel),
-                        )
-                    }
-                }
-            } else {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Text(
-                        text = stringResource(R.string.scene_bar_title),
-                        style = MaterialTheme.typography.labelLarge,
-                    )
-                    if (scenes.isEmpty()) {
-                        Text(
-                            text = stringResource(R.string.scene_empty_hint),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.weight(1f),
-                        )
-                    } else {
-                        Row(
-                            modifier = Modifier
-                                .weight(1f)
-                                .horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            scenes.forEach { scene ->
-                                FilterChip(
-                                    selected = scene.id == activeSceneId,
-                                    onClick = { onApplyScene(scene) },
-                                    enabled = !isStreaming,
-                                    label = { Text(scene.name) },
-                                )
-                            }
-                        }
-                    }
-                    FilledTonalIconButton(onClick = {
-                        sceneName = defaultSceneName
-                        adding = true
-                    }) {
-                        Icon(
-                            imageVector = Icons.Filled.Add,
-                            contentDescription = stringResource(R.string.scene_add),
-                        )
-                    }
-                    if (activeSceneId != null) {
-                        FilledTonalIconButton(onClick = { onDeleteScene(activeSceneId) }) {
-                            Icon(
-                                imageVector = Icons.Filled.Delete,
-                                contentDescription = stringResource(R.string.scene_delete_desc),
-                            )
-                        }
-                    }
-                }
-            }
-            // Auto-Scene-Switcher: An/Aus + Intervall (nur bei An editierbar).
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = stringResource(R.string.scene_auto_switch),
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.weight(1f),
-                )
-                OutlinedTextField(
-                    value = autoSwitchIntervalSeconds.toString(),
-                    onValueChange = { raw ->
-                        raw.toLongOrNull()?.let(onAutoSwitchIntervalChange)
-                    },
-                    label = { Text(stringResource(R.string.scene_interval_seconds)) },
-                    singleLine = true,
-                    enabled = autoSwitchEnabled,
-                    modifier = Modifier.width(120.dp),
-                )
-                Switch(
-                    checked = autoSwitchEnabled,
-                    onCheckedChange = onAutoSwitchEnabledChange,
-                    modifier = Modifier.padding(start = 8.dp),
-                )
-            }
-            // P1: Datenschutz-Anonymisierung (Skizze §5) — Master-Toggle wirkt
-            // auch während des Streams (Composer-Rebuild an Position 0), der
-            // Zonen-Editor folgt der Szenen-Sperre (nur im Idle-Modus).
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                val privacyOn = stringResource(R.string.streaming_a11y_state_on)
-                val privacyOff = stringResource(R.string.streaming_a11y_state_off)
-                Text(
-                    text = stringResource(R.string.privacy_master_toggle_label),
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.weight(1f),
-                )
-                if (privacyEnabled) {
-                    FilledTonalButton(
-                        onClick = onOpenZoneEditor,
-                        enabled = !isStreaming,
-                    ) {
-                        Text(stringResource(R.string.streaming_privacy_zones))
-                    }
-                }
-                Switch(
-                    checked = privacyEnabled,
-                    onCheckedChange = onPrivacyEnabledChange,
-                    modifier = Modifier
-                        .padding(start = 8.dp)
-                        .testTag("privacy_toggle")
-                        .semantics {
-                            role = Role.Switch
-                            stateDescription = if (privacyEnabled) privacyOn else privacyOff
-                        },
-                )
-            }
-            // P2b: „Ganzbild verpixeln“ — grobe Voll-Frame-Mosaikstufe unter
-            // dem Master-Toggle (Standort-Schutz); sichtbar nur, wenn die
-            // Anonymisierung überhaupt wirkt.
-            if (privacyEnabled) {
-                val fullFrameOn = stringResource(R.string.streaming_a11y_state_on)
-                val fullFrameOff = stringResource(R.string.streaming_a11y_state_off)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = stringResource(R.string.privacy_full_frame_toggle_label),
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.weight(1f),
-                    )
-                    Switch(
-                        checked = fullFrameBlurEnabled,
-                        onCheckedChange = onFullFrameBlurChange,
-                        modifier = Modifier
-                            .padding(start = 8.dp)
-                            .testTag("full_frame_toggle")
-                            .semantics {
-                                role = Role.Switch
-                                stateDescription = if (fullFrameBlurEnabled) fullFrameOn else fullFrameOff
-                            },
-                    )
-                }
-            }
-        }
     }
 }

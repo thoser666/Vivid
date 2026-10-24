@@ -872,6 +872,11 @@ class StreamingEngine @Inject constructor(
      * registriert; der Video-Player (S3) wird beim ersten Wechsel lazy
      * initialisiert (MultiFromFile, Datei wird über [setVideoPlayerUri] gesetzt).
      */
+    fun setSceneEmpty(enabled: Boolean) {
+        privacyComposer.sceneEmpty = enabled
+        privacyComposer.requestRebuild(activeGlInterface())
+    }
+
     fun switchSource(kind: VideoSourceKind): Boolean {
         if (_cameraModeStatus.value.preparing) return false
         val switched = when (kind) {

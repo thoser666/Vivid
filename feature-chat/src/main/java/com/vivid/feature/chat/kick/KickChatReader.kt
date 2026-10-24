@@ -147,6 +147,9 @@ class KickChatReader @Inject constructor(
     private val socketFactory: KickSocketFactory,
     private val http: HttpClient,
 ) : ChatReader {
+    /** Independent read session for one overlay; never controls the bot session. */
+    fun independent() = KickChatReader(scope, socketFactory, http)
+
 
     private val _state = MutableStateFlow<ChatConnectionState>(ChatConnectionState.Disconnected)
     override val state: StateFlow<ChatConnectionState> = _state

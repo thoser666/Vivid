@@ -5,10 +5,8 @@
     <string name="cat_streaming_subtitle">Stream-URL/-Key, Plattform-Vorlagen, Multi-Streaming, OBS-Verbindung</string>
     <string name="cat_appearance_title">Darstellung</string>
     <string name="cat_appearance_subtitle">Sprache, Design-Modus, Akzentfarbe</string>
-    <string name="cat_overlays_title">Overlays &amp; Widgets</string>
+    <string name="cat_overlays_title">Szenen &amp; Widgets</string>
     <string name="cat_overlays_subtitle">Twitch-Chat, Text-/Info-, Bild-, QR-Code-, Akku- und Grid-Widgets</string>
-    <string name="cat_pomodoro_title">Pomodoro</string>
-    <string name="cat_pomodoro_subtitle">In-App-Timer: Arbeit/Pause-Zyklus, Automatik-Loop, Vibration</string>
     <string name="cat_chatbot_title">Chat-Bot &amp; KI</string>
     <string name="cat_chatbot_subtitle">Betriebsmodus, Bot-Konto/LLM, Limits, Owner-Zugriff, Media-Befehle</string>
     <string name="cat_remote_title">Remote &amp; Datenschutz</string>
@@ -189,11 +187,9 @@
 
     <!-- ===== Pomodoro-Timer (SettingsPomodoroScreen.kt) ===== -->
     <string name="pomodoro_title">Pomodoro-Timer</string>
-    <string name="pomodoro_desc">Konzentrations-Timer nach der Pomodoro-Technik: Arbeitsphasen mit kurzen Pausen. Der Countdown läuft als In-App-Timer direkt vom Streaming-Screen aus — kein Overlay-Widget.</string>
-    <string name="pomodoro_enabled">Timer aktivieren</string>
+    <string name="pomodoro_desc">Szenen-Widget mit Arbeits-/Pausenphasen, automatischem Wechsel und Sitzungszähler. Ein Widget teilt seinen Timer über alle zugewiesenen Szenen.</string>
     <string name="pomodoro_work_minutes">Arbeitsphase: %1$d min</string>
     <string name="pomodoro_break_minutes">Pause: %1$d min</string>
-    <string name="pomodoro_open_timer">Timer öffnen</string>
 
     <!-- ===== Remote & Datenschutz (SettingsRemotePrivacyScreen.kt) ===== -->
     <string name="remote_section_title">Web-Remote-Control</string>
@@ -401,4 +397,47 @@
     <string name="camera_mirror_front">Frontkamera spiegeln</string>
     <string name="camera_zoom_reorder">Zoom-Vorgabe %1$s verschieben</string>
     <string name="camera_zoom_reorder_hint">Ziehe eine Vorgabe am Griff nach langem Drücken. Die Reihenfolge wird beim Loslassen gespeichert.</string>
+    <string name="cat_overlays_desc">Szenen, Quellen und gemeinsame Widgets</string>
+    <string name="scene_widget_library">Widgets</string>
+    <string name="scene_widget_add_scene">Szene hinzufügen</string>
+    <string name="scene_widget_add">Widget hinzufügen</string>
+    <string name="scene_widget_add_existing">Aus Widgets hinzufügen</string>
+    <string name="scene_widget_scene_widgets">Widgets dieser Szene</string>
+    <string name="scene_widget_create_first">Zuerst ein Widget in der Bibliothek anlegen.</string>
+    <string name="scene_widget_browser">Browser</string>
+    <string name="scene_widget_name">Widget-Name</string>
+    <string name="scene_widget_url">Seiten-URL</string>
+    <string name="scene_widget_page_width">Seitenbreite (px)</string>
+    <string name="scene_widget_page_height">Seitenhöhe (px)</string>
+    <string name="scene_widget_activate">Szene aktivieren</string>
+    <string name="scene_widget_active">Aktive Szene</string>
+    <string name="scene_widget_source">Quelle: %1$s</string>
+    <string name="scene_widget_camera_front">Frontkamera (%1$s)</string>
+    <string name="scene_widget_camera_back">Rückkamera (%1$s)</string>
+    <string name="scene_widget_camera_other">Kamera (%1$s)</string>
+    <string name="scene_widget_camera_default">Kamera</string>
+    <string name="scene_widget_screen">Bildschirmübertragung</string>
+    <string name="scene_widget_empty">Leere Quelle</string>
+    <string name="scene_widget_replay">Replay</string>
+    <string name="scene_widget_layout">Layout</string>
+    <string name="scene_widget_layout_hint">Widget ziehen oder Koordinaten in Prozent einstellen.</string>
+    <string name="scene_widget_save_layout">Layout speichern</string>
+    <string name="scene_widget_load_layout">Layout laden</string>
+    <string name="scene_widget_numeric">Numerische Werte</string>
+    <string name="scene_widget_x">Horizontal: %1$d%%</string>
+    <string name="scene_widget_y">Vertikal: %1$d%%</string>
+    <string name="scene_widget_scale">Größe: %1$d%%</string>
+    <string name="scene_widget_reorder">%1$s verschieben</string>
+    <string name="scene_widget_delete">Löschen</string>
+    <string name="scene_widget_shared_settings">Gemeinsame Widget-Einstellungen</string>
+    <string name="scene_widget_shared_hint">Inhaltsänderungen gelten in allen Szenen; das Layout gilt nur in dieser Szene.</string>
+    <string name="scene_widget_anchor">Anker Zeile %1$d, Spalte %2$d</string>
+    <string name="scene_widget_show_in_scenes">In Szenen anzeigen</string>
+    <string name="scene_widget_show_in_scenes_hint">Die Auswahl wird beim Speichern übernommen. Ausschalten erhält Position und Größe. Szene und Widget müssen ebenfalls eingeschaltet sein.</string>
+    <string name="scene_widget_no_scenes">Noch keine Szenen. Eine Szene im vorherigen Menü hinzufügen.</string>
+    <string name="pomodoro_controls_hint">Speichern und starten übernimmt die aktuellen Werte. Neue Dauern setzen den Timer zurück. Ein Szenenwechsel hält ihn nicht an.</string>
+    <string name="appearance_orientation_title">Betriebsmodus</string>
+    <string name="appearance_orientation_portrait">Hochformat</string>
+    <string name="appearance_orientation_landscape">Querformat</string>
+    <string name="appearance_orientation_desc">Wirkt sofort und bleibt gespeichert. Die Ausrichtung folgt nicht der Gerätedrehung.</string>
 </resources>

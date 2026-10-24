@@ -14,7 +14,6 @@ import androidx.navigation.NavHostController
 import com.vivid.core.data.AppSettings
 import com.vivid.core.data.ThemeMode
 import com.vivid.feature.chat.bot.ChatBotUsage
-import com.vivid.core.data.ChatBotMode
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -142,64 +141,29 @@ class SettingsScreensRobolectricTest {
         composeRule.onNodeWithText("English").assertIsDisplayed()
     }
 
-    // --- Overlays & Widgets -------------------------------------------------
-
+    // Content editors remain available for individual reusable widgets.
     @Test
-    fun `overlays renders chat and widget sections`() {
+    fun `text widget editor inserts variables without changing another widget`() {
+        val changes = mutableListOf<AppSettings>()
         composeRule.setContent {
-            SettingsOverlaysScreen(
-                uiState = AppSettings(),
-                viewModel = settingsViewModel(),
-                onBack = {},
-            )
+            SettingsSectionScaffold("Text", {}, null) {
+                WidgetSettingsEditor(com.vivid.core.data.WidgetType.TEXT, AppSettings(), changes::add)
+            }
         }
-        composeRule.onNodeWithText("Overlays & Widgets").assertIsDisplayed()
-        composeRule.onNodeWithText("Chat overlay").assertIsDisplayed()
-        // YouTube-Feld (P1) verlängert die Chat-Sektion — Widget-Titel liegt
-        // jetzt unter dem Falz, also hinscrollen (Muster Template-Test).
-        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Text/info widget"))
-        composeRule.onNodeWithText("Text/info widget").assertIsDisplayed()
-    }
-
-    @Test
-    fun `overlays template editor inserts variables via chips and shows resolved preview`() {
-        val viewModel = settingsViewModel()
-        composeRule.setContent {
-            SettingsOverlaysScreen(
-                uiState = AppSettings(),
-                viewModel = viewModel,
-                onBack = {},
-            )
-        }
-        // Template-Sektion liegt unterhalb des Falzes — zum Widget-Template-Feld
-        // scrollen (Aktion muss auf dem scrollbaren Container selbst passieren).
-        composeRule.onNode(hasScrollAction())
-            .performScrollToNode(hasText("Widget template"))
-
-        // Chip-Klicks hängen den Platzhalter ans Template-Ende an (uiState bleibt
-        // im Test fixiert — der Aufruf basiert auf dem übergebenen Zustand).
-        // Vor jedem Klick scrollen: performClick scrollt nicht selbst.
         composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("{speed}"))
         composeRule.onAllNodesWithText("{speed}")[0].performClick()
         composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("{road}"))
         composeRule.onAllNodesWithText("{lat}")[0].performClick()
-        verify { viewModel.onWidgetTemplateChange("{speed}") }
-        verify { viewModel.onWidgetTemplateChange("{lat}") }
-
-        // Platzhalter-Beschreibung listet alle Variablen auf.
-        composeRule.onNodeWithText(
-            "Custom text with placeholders instead of the individual toggles. Available placeholders: {time} (time), {date} (date), {speed} (speed), {altitude} (altitude), {lat}/{lon} (GPS coordinates), {road} (street), {city} (city), {country} (country — placenames take a moment but are cached), {timer} (stopwatch since enabling), {distance} (distance since enabling), {gforce} (g-force). Empty template = toggle mode.",
-        ).assertExists()
+        org.junit.Assert.assertEquals(listOf("{speed}", "{lat}"), changes.map { it.widgetTemplate })
     }
 
     @Test
-    fun `overlays template preview resolves variables with sample values`() {
+    fun `text widget template preview resolves variables with sample values`() {
         composeRule.setContent {
-            SettingsOverlaysScreen(
-                uiState = AppSettings(widgetTemplate = "{time} | {speed}"),
-                viewModel = settingsViewModel(),
-                onBack = {},
-            )
+            SettingsSectionScaffold("Text", {}, null) {
+                WidgetSettingsEditor(com.vivid.core.data.WidgetType.TEXT,
+                    AppSettings(widgetTemplate = "{time} | {speed}"), {})
+            }
         }
         composeRule.onNodeWithText("Preview: 14:05:32 | 52.3 km/h").assertExists()
     }
@@ -230,26 +194,4 @@ class SettingsScreensRobolectricTest {
         composeRule.onAllNodesWithText("Alice (2)", substring = true)[0].assertExists()
     }
 
-    // --- Pomodoro -----------------------------------------------------------
-
-    @Test
-    fun `pomodoro renders durations and forwards enable toggle and opens timer`() {
-        val viewModel = settingsViewModel()
-        var opened = false
-        composeRule.setContent {
-            SettingsPomodoroScreen(
-                uiState = AppSettings(),
-                viewModel = viewModel,
-                onBack = {},
-                onOpenTimer = { opened = true },
-            )
-        }
-        composeRule.onNodeWithText("Pomodoro").assertIsDisplayed()
-        composeRule.onNodeWithText("Work session: 25 min").assertExists()
-        composeRule.onNode(isToggleable()).performClick()
-        verify { viewModel.onPomodoroEnabledChange(true) }
-        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Open timer"))
-        composeRule.onNodeWithText("Open timer").performClick()
-        org.junit.Assert.assertTrue(opened)
-    }
 }

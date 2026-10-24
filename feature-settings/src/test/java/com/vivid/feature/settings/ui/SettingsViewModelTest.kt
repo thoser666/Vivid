@@ -1073,6 +1073,20 @@ class SettingsViewModelTest {
     }
 
     @Test
+    fun `orientation selection persists immediately without saving other settings`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repository = mockk<SettingsRepository>(relaxed = true) {
+            every { appSettingsFlow } returns MutableStateFlow(AppSettings())
+        }
+        val viewModel = createViewModel(repository)
+        advanceUntilIdle()
+        viewModel.onAppOrientationChange(com.vivid.core.data.AppOrientation.LANDSCAPE)
+        advanceUntilIdle()
+        coVerify(exactly = 1) { repository.updateAppOrientation(com.vivid.core.data.AppOrientation.LANDSCAPE) }
+        coVerify(exactly = 0) { repository.updateThemeSettings(any(), any()) }
+    }
+
+    @Test
     fun `loads theme settings from repository`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val repository = mockk<SettingsRepository> {

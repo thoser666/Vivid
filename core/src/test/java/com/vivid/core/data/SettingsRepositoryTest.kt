@@ -622,6 +622,26 @@ class SettingsRepositoryTest {
     }
 
     @Test
+    fun `app orientation defaults safely and survives repository recreation`() = runTest {
+        val store = PreferenceDataStoreFactory.create(
+            scope = this,
+            produceFile = { File(tempDir.toFile(), "orientation.preferences_pb") },
+        )
+        val repository = SettingsRepository(store)
+        assertEquals(AppOrientation.PORTRAIT, repository.appSettingsFlow.first().appOrientation)
+        repository.updateThemeSettings(ThemeMode.AMOLED, AccentColor.ROSE_PINK)
+        for (orientation in listOf(AppOrientation.LANDSCAPE, AppOrientation.PORTRAIT)) {
+            repository.updateAppOrientation(orientation)
+            val restored = SettingsRepository(store).appSettingsFlow.first()
+            assertEquals(orientation, restored.appOrientation)
+            assertEquals(ThemeMode.AMOLED, restored.themeMode)
+            assertEquals(AccentColor.ROSE_PINK, restored.themeAccent)
+        }
+        store.edit { it[stringPreferencesKey("app_orientation")] = "SENSOR" }
+        assertEquals(AppOrientation.PORTRAIT, repository.appSettingsFlow.first().appOrientation)
+    }
+
+    @Test
     fun `appSettingsFlow should default theme to SYSTEM and Vivid Green`() = runTest {
         val testDataStore = PreferenceDataStoreFactory.create(
             scope = this,

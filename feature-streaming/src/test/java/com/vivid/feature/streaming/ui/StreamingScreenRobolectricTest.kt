@@ -1,9 +1,5 @@
 package com.vivid.feature.streaming.ui
 
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.ViewModelStore
-import androidx.lifecycle.ViewModelStoreOwner
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.runtime.CompositionLocalProvider
@@ -19,8 +15,6 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performTouchInput
-import androidx.compose.ui.test.swipeDown
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.assertWidthIsEqualTo
@@ -136,7 +130,7 @@ class StreamingScreenRobolectricTest {
     }
 
     @Test
-    fun `idle shows controls and collapsed scenes without an app bar`() {
+    fun `idle shows controls without an app bar`() {
         setContent()
 
         composeRule.onNodeWithText("Live Stream").assertDoesNotExist()
@@ -219,22 +213,6 @@ class StreamingScreenRobolectricTest {
         composeRule.onNodeWithTag(CONTROLS_BUTTON_TAG).performClick()
     }
 
-    private fun openScenes() {
-        composeRule.onNodeWithTag("open_scenes").performClick()
-    }
-
-    @Test
-    fun `scenes can be expanded closed and reopened`() {
-        setContent()
-        composeRule.onNodeWithTag(SCENES_PANEL_TAG).assertDoesNotExist()
-        openScenes()
-        composeRule.onNodeWithTag(SCENES_PANEL_TAG).assertIsDisplayed()
-        composeRule.onNodeWithTag("close_scenes").assertDoesNotExist()
-        composeRule.onNodeWithTag(SCENES_PANEL_TAG).performTouchInput { swipeDown(durationMillis = 200) }
-        composeRule.onNodeWithTag(SCENES_PANEL_TAG).assertDoesNotExist()
-        openScenes()
-        composeRule.onNodeWithText("Auto switch").assertIsDisplayed()
-    }
 
     @Test
     @Config(sdk = [34], qualifiers = "ru")
@@ -529,75 +507,12 @@ class StreamingScreenRobolectricTest {
             .assertWidthIsEqualTo(220.dp)
     }
 
-    // --- P1: Datenschutz-Anonymisierung (Master-Toggle + Zonen-Editor) --------
-
     @Test
-    fun `privacy master toggle is visible and forwards the new state`() {
+    fun `scenes button and panel are removed from the main screen`() {
         setContent()
-        openScenes()
-
-        composeRule.onNodeWithText("Privacy").assertIsDisplayed()
-        composeRule.onNodeWithTag("privacy_toggle").performClick()
-        verify(exactly = 1) { viewModel.setPrivacyEnabled(true) }
-    }
-
-    @Test
-    fun `zones button appears when privacy is enabled and opens the editor`() {
-        every { viewModel.privacyEnabled } returns MutableStateFlow(true)
-        every { viewModel.privacyZones } returns MutableStateFlow(
-            listOf(com.vivid.core.data.PrivacyZone(0.5f, 0.5f, 0.15f, 0.15f)),
-        )
-        setContent()
-        openScenes()
-
-        composeRule.onNodeWithText(ZONES_LABEL).performClick()
-
-        composeRule.onNodeWithTag(ZONE_EDITOR_TAG).assertIsDisplayed()
-        composeRule.onNodeWithText("Zone editor (privacy)").assertIsDisplayed()
-    }
-
-    @Test
-    fun `no zones button while privacy is disabled`() {
-        setContent()
-        openScenes()
-
-        composeRule.onNodeWithText(ZONES_LABEL).assertDoesNotExist()
-    }
-
-    @Test
-    fun `turning privacy off closes the open zone editor`() {
-        every { viewModel.privacyEnabled } returns MutableStateFlow(true)
-        every { viewModel.privacyZones } returns MutableStateFlow(emptyList())
-        setContent()
-        openScenes()
-
-        composeRule.onNodeWithText(ZONES_LABEL).performClick()
-        composeRule.onNodeWithTag(ZONE_EDITOR_TAG).assertIsDisplayed()
-        openScenes()
-        composeRule.onNodeWithTag("privacy_toggle").performClick()
-
-        composeRule.onNodeWithTag(ZONE_EDITOR_TAG).assertDoesNotExist()
-        verify(exactly = 1) { viewModel.setPrivacyEnabled(false) }
-    }
-    // --- P2b: Ganzbild-Verpixelung (Standort-Schutz) --------------------------
-
-    @Test
-    fun `full frame toggle appears with privacy on and forwards the new state`() {
-        every { viewModel.privacyEnabled } returns MutableStateFlow(true)
-        setContent()
-        openScenes()
-
-        composeRule.onNodeWithText(FULL_FRAME_LABEL).assertIsDisplayed()
-        composeRule.onNodeWithTag(FULL_FRAME_TOGGLE_TAG).performClick()
-        verify(exactly = 1) { viewModel.setFullFrameBlurEnabled(true) }
-    }
-
-    @Test
-    fun `no full frame toggle while privacy is disabled`() {
-        setContent()
-        openScenes()
-
-        composeRule.onNodeWithTag(FULL_FRAME_TOGGLE_TAG).assertDoesNotExist()
+        composeRule.onNodeWithTag("open_scenes").assertDoesNotExist()
+        composeRule.onNodeWithTag("scenes_panel").assertDoesNotExist()
+        composeRule.onNodeWithTag("privacy_toggle").assertDoesNotExist()
     }
 
     private companion object {

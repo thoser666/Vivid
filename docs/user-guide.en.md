@@ -120,7 +120,7 @@ Before starting, Vivid validates the configuration and shows clear messages:
 3. Vivid connects — status changes to **"Preparing…"** → **"live"**
 4. The status display shows each target individually (for multi-streaming)
 
-The **Controls** menu groups Camera, Screen and Video sources, then **Record**, camera controls, filters, Boost, LUT and color processing. The settings gear remains at the top-right. **Scenes** opens a bottom sheet that is hidden by default; swipe it down to close it. **Record** saves the current camera video to a local MP4 and works without a stream URL or an active stream. An empty stream URL is reported only after tapping Start Streaming. Camera controls and image effects also work in idle preview when camera permission is already granted.
+The **Controls** menu groups Camera, Screen and Video sources, then **Record**, camera controls, filters, Boost, LUT and color processing. The settings gear remains at the top-right. Manage scenes in **Settings → Scenes & widgets**: reorder, enable or swipe to delete scenes and reusable widgets. Each scene selects a camera, screen capture or an empty source, and has its own widget positions. Automatic switching and privacy are below the two lists. **Record** saves the current camera video to a local MP4 and works without a stream URL or an active stream. An empty stream URL is reported only after tapping Start Streaming. Camera controls and image effects also work in idle preview when camera permission is already granted.
 
 ### Stop the Stream
 
@@ -213,12 +213,13 @@ phase P1) — both chats are merged into the same overlay.
 
 ### 7.1 Enable
 
-1. **Settings** → **"Overlays & Widgets"**
-2. Toggle **Chat Overlay** on
+1. **Settings** → **"Scenes & widgets"**
+2. Add a **Chat overlay** widget (or open the migrated chat widget) and enable its library switch.
 3. Enter your **Chat Channel** (your Twitch channel name, e.g. `thoser666`)
 4. Optional: toggle **YouTube chat** on and enter the **YouTube channel ID** (`UC…`)
    — the live chat is read anonymously (no OAuth) and merged into the same overlay;
    YouTube messages carry a red ▶ platform badge.
+5. Save the widget, open a scene and use **Add from widgets** to attach it. Enable the scene placement and activate the scene.
 
 ### 7.2 What You Need
 
@@ -357,8 +358,8 @@ The settings screen is organized into six categories (like Moblin):
 | Category | Contents |
 |---|---|
 | 🎬 **Streaming & OBS** | Saved streams (Twitch/YouTube/Kick/Custom), one active stream, per-stream video/replay/multi-streaming/OBS settings |
-| 🎨 **Appearance** | Theme mode (System/Light/Dark/AMOLED) + accent color (6 curated colors, Vivid Green as default) |
-| 🧩 **Overlays & Widgets** | Twitch chat overlay (channel + toggle; optional merged YouTube chat, read anonymously), text/info widget (time/GPS/speed/altitude — each with toggle + runtime permission; custom template text with variables like `{time}`, `{speed}`, `{road}`, `{city}`, `{country}` — placenames are resolved automatically via reverse geocoding and cached) |
+| 🎨 **Appearance** | Operating mode first: Portrait (default) / Landscape, saved immediately; device rotation does not switch modes. Theme mode (System/Light/Dark/AMOLED) + accent color (6 curated colors, Vivid Green as default) |
+| 🧩 **Scenes & widgets** | Twitch chat overlay (channel + toggle; optional merged YouTube chat, read anonymously), text/info widget (time/GPS/speed/altitude — each with toggle + runtime permission; custom template text with variables like `{time}`, `{speed}`, `{road}`, `{city}`, `{country}` — placenames are resolved automatically via reverse geocoding and cached) |
 | 💬 **Chat Bot & AI** | Mode, bot account (login/token/client ID), LLM endpoint/key/model/prompt, cooldown, mentions-only, rate limit, limits + presets, owner access (allow-list + Owner AI), media commands, notification access |
 | 🔒 **Remote & Privacy** | Web remote control (token + LAN access, autostart toggle), Sentry error reports + error replay (opt-out toggle) |
 | ℹ️ **About & Updates** | Version, update badge, manual update check (GitHub Releases), release notes |

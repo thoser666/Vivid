@@ -1,4 +1,4 @@
-package com.vivid.irlbroadcaster.ui.pomodoro
+package com.vivid.core.data
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

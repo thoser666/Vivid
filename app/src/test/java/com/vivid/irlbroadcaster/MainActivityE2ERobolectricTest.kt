@@ -1,6 +1,8 @@
 package com.vivid.irlbroadcaster
 
 import android.view.WindowManager
+import android.content.pm.ActivityInfo
+import com.vivid.core.data.AppOrientation
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.core.view.WindowCompat
 import dagger.hilt.android.testing.HiltAndroidRule
@@ -48,6 +50,19 @@ class MainActivityE2ERobolectricTest {
 
     @get:Rule(order = 1)
     val composeRule = createAndroidComposeRule<MainActivity>()
+
+    @Test
+    fun `operating modes lock Activity orientation instead of following sensors`() {
+        composeRule.waitForIdle()
+        composeRule.runOnUiThread {
+            val activity = composeRule.activity
+            assertEquals(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT, activity.requestedOrientation)
+            activity.applyAppOrientation(AppOrientation.LANDSCAPE)
+            assertEquals(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE, activity.requestedOrientation)
+            activity.applyAppOrientation(AppOrientation.PORTRAIT)
+            assertEquals(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT, activity.requestedOrientation)
+        }
+    }
 
     @Test
     fun `edge-to-edge is enabled and the app draws behind system bars`() {

@@ -143,4 +143,44 @@ class SceneControllerTest {
         coVerify(exactly = 1) { streamingEngine.switchSource(VideoSourceKind.REPLAY) }
         coVerify(exactly = 0) { streamingEngine.useReplayAsSource(any()) }
     }
+
+    @Test
+    fun `managed scene selects its camera without changing the active stream destination`() = runTest {
+        val repo = mockk<SceneRepository>(relaxed = true)
+        val settings = mockk<SettingsRepository>(relaxed = true)
+        val engine = mockk<StreamingEngine>(relaxed = true) {
+            every { switchSource(any()) } returns true
+            every { selectLens("front") } returns true
+        }
+        controller(repo, settings, engine).applyScene(scene().copy(cameraId = "front", widgets = emptyList()))
+        coVerify { engine.selectLens("front"); repo.setActiveScene("1") }
+        coVerify(exactly = 0) { settings.updateStreamSettings(any(), any(), any()) }
+    }
+
+    @Test
+    fun `failed camera selection does not mark a scene active`() = runTest {
+        val repo = mockk<SceneRepository>(relaxed = true)
+        val engine = mockk<StreamingEngine>(relaxed = true) {
+            every { switchSource(any()) } returns true
+            every { selectLens(any()) } returns false
+        }
+        controller(repo, mockk(relaxed = true), engine).applyScene(scene().copy(cameraId = "missing", widgets = emptyList()))
+        coVerify(exactly = 0) { repo.setActiveScene(any()) }
+    }
+
+    @Test
+    fun `disabled scene does not change the source or active scene`() = runTest {
+        val repo = mockk<SceneRepository>(relaxed = true)
+        val engine = mockk<StreamingEngine>(relaxed = true)
+        controller(repo, mockk(relaxed = true), engine).applyScene(scene().copy(enabled = false))
+        coVerify(exactly = 0) { engine.switchSource(any()); repo.setActiveScene(any()) }
+    }
+
+    @Test
+    fun `empty scene blanks video while keeping widget composition active`() = runTest {
+        val repo = mockk<SceneRepository>(relaxed = true)
+        val engine = mockk<StreamingEngine>(relaxed = true) { every { switchSource(any()) } returns true }
+        controller(repo, mockk(relaxed = true), engine).applyScene(scene(source = SceneVideoSource.EMPTY).copy(widgets = emptyList()))
+        coVerify { engine.setSceneEmpty(true); repo.setActiveScene("1") }
+    }
 }
