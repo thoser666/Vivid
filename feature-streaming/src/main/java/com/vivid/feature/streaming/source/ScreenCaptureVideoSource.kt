@@ -99,7 +99,7 @@ class ScreenCaptureVideoSource(
         return try {
             display.prepareAudio() && display.prepareVideo()
         } catch (e: SecurityException) {
-            Timber.e(e, "ScreenCaptureVideoSource: Vorbereitung verweigert (SecurityException)")
+            Timber.e(e, "ScreenCaptureVideoSource: preparation denied (SecurityException)")
             false
         } finally {
             // Ab hier ist das Token verbraucht — auch wenn die Vorbereitung

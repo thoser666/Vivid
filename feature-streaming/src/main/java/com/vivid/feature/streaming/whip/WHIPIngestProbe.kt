@@ -32,6 +32,6 @@ object WHIPIngestProbe {
         runCatching { factory?.dispose() }
         ok
     }.onFailure {
-        Timber.e(it, "WHIP P0 SDK-Smoke fehlgeschlagen")
+        Timber.e(it, "WHIP P0 SDK smoke failed")
     }.getOrDefault(false)
 }

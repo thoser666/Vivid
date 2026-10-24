@@ -78,7 +78,7 @@ class StreamingService : Service() {
                     ?.filter { it.isNotEmpty() }
                     .orEmpty()
                 if (urls.isEmpty()) {
-                    Timber.w("StreamingService: START ohne Stream-Ziel — stoppe")
+                    Timber.w("StreamingService: START without stream target - stopping")
                     stopSelf()
                     return START_NOT_STICKY
                 }
@@ -103,7 +103,7 @@ class StreamingService : Service() {
                     // und AMS meldet "Unable to start service"; deshalb wird der
                     // Fehler in den Engine-Zustand geschrieben (UI sieht Failed)
                     // und der Service räumt sauber auf.
-                    Timber.e(e, "StreamingService: Start des Streams fehlgeschlagen")
+                    Timber.e(e, "StreamingService: failed to start stream")
                     streamingEngine.reportStreamStartFailure()
                     teardown()
                     return START_NOT_STICKY
@@ -147,7 +147,7 @@ class StreamingService : Service() {
         // mit Type 0 aufgerufen werden (MissingForegroundServiceTypeException).
         // Ohne jede erteilte FGS-Berechtigung gar nicht erst starten.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE && type == 0) {
-            Timber.w("StreamingService: FGS-Typ-Berechtigungen fehlen — Stream nicht gestartet")
+            Timber.w("StreamingService: FGS type permissions missing - stream not started")
             teardown()
             return false
         }
@@ -162,7 +162,7 @@ class StreamingService : Service() {
             true
         } catch (e: SecurityException) {
             // z. B. RECORD_AUDIO/CAMERA zwischen Go-Live und Start entzogen.
-            Timber.e(e, "StreamingService: startForeground verweigert (FGS-Typ-Berechtigung?)")
+            Timber.e(e, "StreamingService: startForeground denied (FGS type permission?)")
             teardown()
             false
         }
@@ -253,7 +253,7 @@ class StreamingService : Service() {
         serviceScope.launch {
             delay(15_000)
             if (streamingEngine.streamingState.value is StreamingState.Idle && !stopped) {
-                Timber.w("StreamingService: nach 15s kein Stream-Start — stoppe")
+                Timber.w("StreamingService: no stream start after 15s - stopping")
                 stopService()
             }
         }
