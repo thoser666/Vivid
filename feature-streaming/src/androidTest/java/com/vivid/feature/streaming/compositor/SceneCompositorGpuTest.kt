@@ -426,6 +426,67 @@ class SceneCompositorGpuTest {
         } finally { image.delete() }
     }
 
+    @Test fun stableFilterContainerKeepsPrivacyPixelsAndSourceAttachmentAcrossEffectChanges() {
+        val pattern = IntArray(SIZE * SIZE * 4) { index ->
+            when (index % 4) {
+                0 -> if ((index / 4) % SIZE % 2 == 0) 255 else 0
+                1 -> if ((index / 4) % SIZE % 2 == 0) 0 else 255
+                2 -> 0
+                else -> 255
+            }
+        }
+        frames["pattern"] = texture(SIZE, SIZE, pattern)
+        var attached = 0
+        var detached = 0
+        val provider = object : SceneTextureProvider {
+            override fun attach(context: Context, width: Int, height: Int) { attached++ }
+            override fun update(plan: SceneFramePlan, nowMillis: Long) = Unit
+            override fun texture(sourceId: String) = frames[sourceId]
+            override fun detach() { detached++ }
+        }
+        val scene = SceneCompositorFilterRender(provider).apply {
+            setScene(SceneRenderState(composition("pattern")), animate = false)
+        }
+        val privacy = com.vivid.feature.streaming.PrivacyBlurFilterRender().apply {
+            setFullFrame(true)
+            setPixelGrid(0.25f)
+        }
+        val chain = com.vivid.feature.streaming.compositor.gl.SceneFilterChainRender()
+        chain.setChain(listOf(scene, privacy))
+        chain.initGl(SIZE, SIZE, InstrumentationRegistry.getInstrumentation().targetContext, SIZE, SIZE)
+        chain.initFBOLink()
+        chain.setPreviousTexId(texture(1, 1, intArrayOf(0, 0, 0, 255)).textureId)
+        try {
+            val output = chain.texId
+            repeat(6) { index ->
+                val effects = if (index % 2 == 0) listOf(
+                    com.pedro.encoder.input.gl.render.filters.NegativeFilterRender()) else emptyList()
+                chain.setChain(listOf(scene, privacy) + effects)
+                chain.draw()
+                assertEquals(output, chain.texId)
+                val protected = pixel(1, 1, chain)
+                for (x in 2..6) assertArrayEquals(protected, pixel(x, 1, chain))
+                assertEquals(1, attached)
+                assertEquals(0, detached)
+            }
+            privacy.setFullFrame(false)
+            chain.setChain(listOf(scene, privacy))
+            chain.draw()
+            assertFalse("Negative control must reveal the original alternating pixels",
+                pixel(1, 1, chain).contentEquals(pixel(2, 1, chain)))
+            privacy.setFullFrame(true)
+            chain.setChain(listOf(privacy))
+            chain.draw()
+            assertEquals(1, detached)
+            assertColor(pixel(16, 16, chain), 0, 0, 0)
+            chain.setChain(emptyList())
+            chain.draw()
+            assertEquals(output, chain.texId)
+            assertColor(pixel(16, 16, chain), 0, 0, 0)
+        } finally { chain.release() }
+        assertEquals(1, detached)
+    }
+
     private fun composition(vararg ids: String) = SceneComposition(
         canvasWidth = SIZE, canvasHeight = SIZE,
         sources = ids.map { SceneSource(it, SceneSourceType.IMAGE) },
@@ -464,8 +525,9 @@ class SceneCompositorGpuTest {
         return SceneTextureFrame(id[0])
     }
 
-    private fun pixel(x: Int, yFromTop: Int): IntArray {
-        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, requireNotNull(renderer).getRenderHandler().fboId[0])
+    private fun pixel(x: Int, yFromTop: Int,
+        target: com.pedro.encoder.input.gl.render.filters.BaseFilterRender = requireNotNull(renderer)): IntArray {
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, target.getRenderHandler().fboId[0])
         val pixels = ByteBuffer.allocateDirect(4)
         GLES20.glReadPixels(x, SIZE - 1 - yFromTop, 1, 1, GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE, pixels)
         assertEquals(GLES20.GL_NO_ERROR, GLES20.glGetError())

@@ -196,4 +196,57 @@ class StreamingEngineSceneOutputTest {
         verify(exactly = 0) { legacyGl.onFrameAvailable(any()) }
     }
 
+    private fun sceneRender(engine: StreamingEngine): com.vivid.feature.streaming.compositor.gl.SceneCompositorFilterRender =
+        StreamingEngine::class.java.getDeclaredField("sceneRender").run {
+            isAccessible = true
+            get(engine) as com.vivid.feature.streaming.compositor.gl.SceneCompositorFilterRender
+        }
+
+    @Test fun `effect changes reuse the scene renderer queued for the current GL owner`() {
+        val engine = engine()
+        engine.setSceneComposition(graph())
+        engine.attachPreview(mockk(relaxed = true), 640, 360)
+        val first = sceneRender(engine)
+        engine.setVideoFilter(VideoFilter.GRAYSCALE)
+        assertSame(first, sceneRender(engine))
+        engine.setVideoFilter(VideoFilter.SEPIA)
+        assertSame(first, sceneRender(engine))
+        assertFalse(first.isReleased)
+    }
+
+    @Test fun `a released scene renderer is replaced after the same GL owner restarts`() {
+        val engine = engine()
+        engine.setSceneComposition(graph())
+        engine.attachPreview(mockk(relaxed = true), 640, 360)
+        val first = sceneRender(engine)
+        running = false
+        first.release()
+        assertTrue(first.isReleased)
+        running = true
+        engine.setVideoFilter(VideoFilter.GRAYSCALE)
+        assertNotSame(first, sceneRender(engine))
+        assertFalse(sceneRender(engine).isReleased)
+    }
+
+    @Test fun `the first filter selection and its replacement reach the existing scene output immediately`() {
+        val queued = slot<com.pedro.encoder.input.gl.render.filters.BaseFilterRender>()
+        every { sceneGl.setFilter(capture(queued)) } just Runs
+        val engine = engine()
+        engine.setSceneComposition(graph())
+        engine.attachPreview(mockk(relaxed = true), 640, 360)
+        val chain = queued.captured as com.vivid.feature.streaming.compositor.gl.SceneFilterChainRender
+        val gray = mockk<com.pedro.encoder.input.gl.render.filters.BaseFilterRender>(relaxed = true)
+        val sepia = mockk<com.pedro.encoder.input.gl.render.filters.BaseFilterRender>(relaxed = true)
+        mockkObject(VideoFilterController.Companion)
+        try {
+            every { VideoFilterController.createFilterRender(VideoFilter.GRAYSCALE) } returns gray
+            every { VideoFilterController.createFilterRender(VideoFilter.SEPIA) } returns sepia
+            assertTrue(engine.setVideoFilter(VideoFilter.GRAYSCALE))
+            assertSame(gray, chain.requestedChain().last())
+            assertTrue(engine.setVideoFilter(VideoFilter.SEPIA))
+            assertSame(sepia, chain.requestedChain().last())
+            verify(exactly = 1) { sceneGl.setFilter(any<com.pedro.encoder.input.gl.render.filters.BaseFilterRender>()) }
+        } finally { unmockkObject(VideoFilterController.Companion) }
+    }
+
 }

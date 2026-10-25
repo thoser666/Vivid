@@ -293,12 +293,53 @@ Selbsttests scheiterten sechs von 471 unveränderten Chat-Tests am Conscrypt-
 Loader (`libpthread.so.0` fehlt auf Termux). Gesamt-Lint/Release und die echte
 Geräte-Matrix bleiben damit offen.
 
-Weitere Integrationsprüfung: `PrivacyComposer` baut die RootEncoder-Filterkette
-per CLEAR/ADD neu auf. Der Scene-Render besitzt derzeit auch den TextureProvider;
-sein Release beendet damit Captures bei einem Effekt-Rebuild. SourceIds bleiben
-stabil, aber dieser Producer-Lifecycle ist noch nicht unabhängig genug. Capture-
-Ownership über Filter-/GL-Rebuilds und eine Pixel-Regression für aktiv bleibende
-Privacy während solcher Updates sind vor vollständiger Parität noch umzusetzen.
+## Capture-Lifetime bei kreativen Effektänderungen
+
+`PrivacyComposer` verwendet ab dem ersten aktiven Filter einen stabilen
+`SceneFilterChainRender` als einzelnen RootEncoder-Slot, auch ohne Scene. Seine Kind-Passes werden gemeinsam zwischen
+vollständigen Frames aktualisiert. Der Scene-Renderer und die eingeschaltete
+Privacy bleiben initialisiert; nur entfernte kreative Passes werden freigegeben.
+Mehrere Änderungen vor einem Frame initialisieren nur die letzte gewünschte
+Kette. Der letzte Pass zeichnet direkt in den stabilen Ausgabe-FBO des Containers,
+ohne zusätzlichen Blit oder CPU-Pixelkopie. Zwischenpuffer werden nur bei Bedarf
+angelegt und beim Entfernen ihrer Besitzer im passenden EGL-Kontext freigegeben.
+
+Die bestehende Privacy-/Kreativ-Kette lebt von Anfang an im selben Container.
+Das Hinzufügen einer Scene erfordert daher keinen Root-CLEAR/SET-Wechsel und
+keine vorübergehend doppelt ausgeführten Legacy-Passes. Es gibt keine indizierten
+Inserts, die nach einem GL-Stopp auf eine inzwischen leere Kette treffen könnten;
+RootEncoder behält ausstehende Filter-Kommandos über Stopps hinweg. Nach Entfernen
+der Scene bleibt der Container für aktive Privacy oder kreative Effekte bestehen;
+eine vollständig leere Kette entfernt ihn, ohne einen zusätzlichen Passthrough-Draw
+dauerhaft beizubehalten. Ein echter GL-Stopp invalidiert den Owner; Retirement
+wird vor Capture-Cleanup sichtbar. Verspätetes Retirement darf eine neue Container-
+Instanz auf demselben GL-Owner nicht verwerfen.
+Auch bei Fehlern im Retirement-Callback oder einem Kind-Pass werden die übrigen
+Captures freigegeben und ausstehende Zustände geleert; Fehler bleiben sichtbar.
+
+Der Video-Filter-Controller publiziert den gewünschten Filter vor dem synchronen
+Composer-Callback. So fordert der erste Klick GRAYSCALE und der nächste SEPIA an,
+statt jeweils den vorherigen Zustand zu rendern. Schlägt der Callback fehl, wird
+der vorige Zustand wiederhergestellt. Zwei Controller-Regressionen und ein
+Engine-Integrationsfall reproduzierten die falsche Reihenfolge (23 Tests, drei
+gezielte Fehler) und bestanden nach der Korrektur. Der finale Testlauf bestand
+**179 Szenen-/Privacy-/Filter-Tests** und kompilierte alle **15 GLES-Fixtures**.
+
+Die fokussierte Prüfung bestand **72 Container-/Privacy-/Engine-Tests**; alle
+**15 GLES-Fixtures** einschließlich der neuen Privacy-/Lifetime-Fixture kompilieren.
+Der erste breitere Lauf bestand 164 Tests und Streaming-Lint ohne Fehler/Warnungen
+(ein bestehender Hint). Drei zusätzliche Regressionen reproduzierten danach
+veraltetes Retirement und unvollständiges Cleanup (14 Tests, drei erwartete Fehler)
+und bestanden nach der Korrektur. Der anschließende Lauf bestand 167 Tests, kompilierte 15 GLES-Fixtures und bestand
+Streaming-Lint (keine Fehler/Warnungen, ein bestehender Hint). Nach Vereinheitlichung
+der Container-Nutzung ab dem ersten aktiven Filter und der Filter-State-Korrektur
+bestand der finale Lauf 179 Tests und die Instrumented-Kompilierung; die separate
+Streaming-Lint-Prüfung läuft noch. Die Fixture prüft konstante Privacy-Mosaikpixel bei
+wiederholten Effektwechseln, stabile Ausgabe-Textur und einmaliges Source-Attach;
+ihr negativer Kontrollfall schaltet Privacy aus. Sie ist noch nicht auf einem
+Gerät/Emulator ausgeführt. Capture über einen tatsächlichen EGL-Kontextwechsel
+bleibt gesondert offen: Dort werden die bisherigen Texturen und Captures weiterhin
+freigegeben und neu erstellt. Geräte-, Latenz- und Leistungsnachweise fehlen.
 
 ## Capture-FPS nach Ausgabebedarf
 

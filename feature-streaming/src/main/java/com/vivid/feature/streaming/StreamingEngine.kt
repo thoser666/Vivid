@@ -244,7 +244,14 @@ class StreamingEngine @Inject constructor(
     private var sceneRenderGl: GlStreamInterface? = null
 
     private fun createSceneRender(): com.pedro.encoder.input.gl.render.filters.BaseFilterRender? {
-        val desired = desiredSceneRender ?: return null
+        val desired = desiredSceneRender ?: run {
+            sceneRender = null
+            sceneTextures = null
+            sceneRenderGl = null
+            return null
+        }
+        val renderOwner = activeGlInterface()
+        sceneRender?.takeIf { sceneRenderGl === renderOwner && !it.isReleased }?.let { return it }
         val textures = AndroidSceneTextureProvider(
             projections = sceneProjections,
             bitmaps = sceneBitmaps,
@@ -262,7 +269,6 @@ class StreamingEngine @Inject constructor(
             },
         )
         sceneTextures = textures
-        val renderOwner = activeGlInterface()
         sceneRenderGl = renderOwner
         return SceneCompositorFilterRender(textures, frameRendered = {
             renderOwner?.let(sceneRenderClock::frameRendered)

@@ -2,6 +2,7 @@ package com.vivid.feature.streaming
 
 import com.pedro.encoder.input.gl.render.filters.BaseFilterRender
 import com.pedro.library.view.GlStreamInterface
+import com.vivid.feature.streaming.compositor.gl.SceneFilterChainRender
 import io.mockk.every
 import io.mockk.mockk
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -28,9 +29,17 @@ class PrivacyComposerTest {
     private class RecordingGl {
         val ops = mutableListOf<String>()
         val added = mutableListOf<BaseFilterRender>()
+        private var container: SceneFilterChainRender? = null
+        val chain: List<BaseFilterRender> get() = container?.requestedChain().orEmpty()
 
         val gl = mockk<GlStreamInterface>(relaxed = true) {
-            every { clearFilters() } answers { ops.add("clear") }
+            every { clearFilters() } answers { container = null; ops.add("clear") }
+            every { setFilter(any<BaseFilterRender>()) } answers {
+                val root = firstArg<SceneFilterChainRender>()
+                container = root
+                added.add(root)
+                ops.add("set")
+            }
             every { addFilter(any()) } answers {
                 added.add(firstArg())
                 ops.add("add")
@@ -84,8 +93,8 @@ class PrivacyComposerTest {
         val video = mockk<BaseFilterRender>(relaxed = true)
         val composer = composer(recorder, filter = VideoFilter.GRAYSCALE, videoRender = video)
         composer.requestRebuild(recorder.gl)
-        assertEquals(listOf("clear", "add"), recorder.ops)
-        assertSame(video, recorder.added.single())
+        assertEquals(listOf("set"), recorder.ops)
+        assertSame(video, recorder.chain.single())
     }
 
     @Test
@@ -103,10 +112,10 @@ class PrivacyComposerTest {
             lowLightRender = lowLight,
         )
         composer.requestRebuild(recorder.gl)
-        assertEquals(listOf("clear", "add", "add", "add"), recorder.ops)
-        assertSame(video, recorder.added[0])
-        assertSame(lut, recorder.added[1])
-        assertSame(lowLight, recorder.added[2])
+        assertEquals(listOf("set"), recorder.ops)
+        assertSame(video, recorder.chain[0])
+        assertSame(lut, recorder.chain[1])
+        assertSame(lowLight, recorder.chain[2])
     }
 
     @Test
@@ -126,11 +135,11 @@ class PrivacyComposerTest {
             lowLightRender = lowLight,
         )
         assertTrue(composer.setPrivacyEnabled(true, recorder.gl))
-        assertEquals(listOf("clear", "add", "add", "add", "add"), recorder.ops)
-        assertSame(privacy, recorder.added[0])
-        assertSame(video, recorder.added[1])
-        assertSame(lut, recorder.added[2])
-        assertSame(lowLight, recorder.added[3])
+        assertEquals(listOf("set"), recorder.ops)
+        assertSame(privacy, recorder.chain[0])
+        assertSame(video, recorder.chain[1])
+        assertSame(lut, recorder.chain[2])
+        assertSame(lowLight, recorder.chain[3])
     }
 
     @Test
@@ -148,8 +157,8 @@ class PrivacyComposerTest {
         recorder.ops.clear()
         recorder.added.clear()
         composer.setPrivacyEnabled(false, recorder.gl)
-        assertEquals(listOf("clear", "add"), recorder.ops)
-        assertSame(video, recorder.added.single())
+        assertTrue(recorder.ops.isEmpty())
+        assertSame(video, recorder.chain.single())
         assertFalse(composer.privacyEnabled.value)
     }
 
@@ -184,8 +193,8 @@ class PrivacyComposerTest {
         composer.setPrivacyEnabled(true, recorder.gl)
         // Privacy-Slot fällt aus, Kette bleibt wohlgeformt (kein Crash, kein
         // Teilzustand) — JVM-Realität ohne GL.
-        assertEquals(listOf("clear", "add"), recorder.ops)
-        assertSame(video, recorder.added.single())
+        assertEquals(listOf("set"), recorder.ops)
+        assertSame(video, recorder.chain.single())
         assertTrue(composer.privacyEnabled.value)
     }
 
@@ -203,12 +212,12 @@ class PrivacyComposerTest {
         composer.setPrivacyEnabled(true, recorder.gl)
         recorder.added.clear()
         composer.requestRebuild(recorder.gl)
-        assertSame(privacy, recorder.added[0])
+        assertSame(privacy, recorder.chain[0])
         recorder.added.clear()
         composer.requestRebuild(recorder.gl)
         // Bei jedem Rebuild dieselbe Instanz in der Kette (Ellipsen-Uniforms
         // bleiben erhalten, kein Ketten-Flackern).
-        assertSame(privacy, recorder.added[0])
+        assertSame(privacy, recorder.chain[0])
     }
 
     @Test
@@ -321,7 +330,8 @@ class PrivacyComposerTest {
             lowLight = true, privacyRender = privacy, videoRender = video,
             lowLightRender = lowLight, sceneRender = scene)
         composer.setPrivacyEnabled(true, recorder.gl)
-        assertEquals(listOf(privacy, video, lut, lowLight, scene), recorder.added)
+        assertEquals(listOf(privacy, video, lut, lowLight, scene),
+            recorder.chain)
     }
     @Test
     fun `camera free scene becomes the input to privacy and creative effects`() {
@@ -333,7 +343,8 @@ class PrivacyComposerTest {
             privacyRender = privacy, videoRender = video, sceneRender = scene,
             sceneIsInput = true)
         composer.setPrivacyEnabled(true, recorder.gl)
-        assertEquals(listOf(scene, privacy, video), recorder.added)
+        assertEquals(listOf(scene, privacy, video),
+            recorder.chain)
     }
 
 }

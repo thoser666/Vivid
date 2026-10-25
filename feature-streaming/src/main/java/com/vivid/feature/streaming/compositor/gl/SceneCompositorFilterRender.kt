@@ -30,6 +30,10 @@ class SceneCompositorFilterRender(
     private val inputAvailable: () -> Boolean = { true },
     private val frameRendered: () -> Unit = {},
 ) : BaseFilterRender() {
+    @Volatile
+    var isReleased: Boolean = false
+        private set
+
     private data class Submission(val state: SceneRenderState?, val animate: Boolean)
     private data class Program(val id: Int, val position: Int, val uv: Int,
         val transform: Int, val sampler: Int, val opacity: Int, val offline: Int, val privacy: Int)
@@ -65,6 +69,7 @@ class SceneCompositorFilterRender(
 
     @Synchronized
     override fun initGlFilter(context: Context) {
+        isReleased = false
         attachedContext = EGL14.eglGetCurrentContext()
         textureProgram = createProgram(external = false)
         if (GLES20.glGetString(GLES20.GL_EXTENSIONS)?.contains("GL_OES_EGL_image_external") == true) {
@@ -245,6 +250,8 @@ class SceneCompositorFilterRender(
 
     @Synchronized
     override fun release() {
+        // Retire before cleanup can publish producer state and trigger another rebuild.
+        isReleased = true
         textures.detach()
         if (attachedContext != null && EGL14.eglGetCurrentContext() == attachedContext) {
             textureProgram?.let { GLES20.glDeleteProgram(it.id) }

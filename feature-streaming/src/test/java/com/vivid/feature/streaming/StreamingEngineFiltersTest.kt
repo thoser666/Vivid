@@ -386,13 +386,14 @@ class StreamingEngineFiltersTest {
             transform = com.vivid.core.data.SceneTransform(x = 0.2f, width = 0.7f))))
         streamingEngine.setSceneComposition(moved, animate = false)
         assertEquals(moved, streamingEngine.sceneComposition.value)
-        verify(exactly = 1) { glStreamInterface.clearFilters() }
-        verify(exactly = 1) { glStreamInterface.addFilter(match {
-            it is com.vivid.feature.streaming.compositor.gl.SceneCompositorFilterRender
+        verify(exactly = 0) { glStreamInterface.clearFilters() }
+        verify(exactly = 1) { glStreamInterface.setFilter(match<com.pedro.encoder.input.gl.render.filters.BaseFilterRender> {
+            it is com.vivid.feature.streaming.compositor.gl.SceneFilterChainRender
         }) }
         streamingEngine.setSceneComposition(null)
         assertNull(streamingEngine.sceneComposition.value)
-        verify(exactly = 2) { glStreamInterface.clearFilters() }
+        verify(exactly = 0) { glStreamInterface.clearFilters() }
+        verify(exactly = 1) { glStreamInterface.setFilter(any<com.pedro.encoder.input.gl.render.filters.BaseFilterRender>()) }
     }
 
     @Test
