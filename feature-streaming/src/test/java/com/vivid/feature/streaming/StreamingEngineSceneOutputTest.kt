@@ -59,6 +59,8 @@ class StreamingEngineSceneOutputTest {
 
     @Test fun `image scene starts without camera permission and uses only the scene transport`() {
         val engine = engine()
+        val fallbackDriver = mockk<com.pedro.library.view.ForceRenderer>(relaxed = true)
+        engine.sceneRenderClock = com.vivid.feature.streaming.compositor.SceneRenderClock(fallbackDriver)
         engine.setSceneComposition(graph())
         assertFalse(engine.sceneNeedsCameraPermission())
         engine.startStream(listOf("rtmp://one/live", "rtmp://two/live"))
@@ -69,6 +71,7 @@ class StreamingEngineSceneOutputTest {
         checkers[1].onConnectionSuccess()
         assertEquals(StreamingState.Streaming, engine.streamingState.value)
         assertEquals(2, targets.size)
+        verify(exactly = 0) { fallbackDriver.start(any()) }
         engine.stopStream()
         assertTrue(targets.isEmpty())
         assertEquals(StreamingState.Idle, engine.streamingState.value)
@@ -150,6 +153,47 @@ class StreamingEngineSceneOutputTest {
         assertFalse(engine.sceneNeedsCameraPermission())
         assertTrue(engine.startReplay(100L, false))
         engine.stopReplay()
+    }
+
+    @Test fun `scene added to existing legacy stream starts an independent clock and clearing it retires ticks`() {
+        val engine = engine()
+        val driver = mockk<com.pedro.library.view.ForceRenderer>(relaxed = true)
+        val tick = slot<() -> Unit>()
+        every { driver.start(capture(tick)) } just Runs
+        engine.sceneRenderClock = com.vivid.feature.streaming.compositor.SceneRenderClock(driver)
+        engine.initializeCamera()
+        every { camera.isStreaming } returns true
+        every { legacyGl.isRunning } returns true
+        engine.setSceneComposition(graph())
+        tick.captured()
+        verify { legacyGl.onFrameAvailable(null) }
+        verify(exactly = 0) { camera.prepareVideo(); camera.prepareAudio() }
+        assertEquals(0, created)
+        engine.setSceneComposition(graph().copy(canvasWidth = 1920))
+        verify(exactly = 1) { driver.start(any()) }
+        engine.setSceneComposition(null)
+        clearMocks(legacyGl, answers = false, recordedCalls = true, childMocks = false)
+        tick.captured()
+        verify(exactly = 0) { legacyGl.onFrameAvailable(any()) }
+    }
+
+    @Test fun `stopping a headless legacy stream retires its scene clock`() {
+        val engine = engine()
+        val driver = mockk<com.pedro.library.view.ForceRenderer>(relaxed = true)
+        val tick = slot<() -> Unit>()
+        every { driver.start(capture(tick)) } just Runs
+        engine.sceneRenderClock = com.vivid.feature.streaming.compositor.SceneRenderClock(driver)
+        engine.initializeCamera()
+        var live = true
+        every { camera.isStreaming } answers { live }
+        every { legacyGl.isRunning } answers { live }
+        every { camera.stopStream() } answers { live = false }
+        engine.setSceneComposition(graph())
+        engine.stopStream()
+        clearMocks(legacyGl, answers = false, recordedCalls = true, childMocks = false)
+        live = true // Even if this old GL is restarted, its retired callback must stay inert.
+        tick.captured()
+        verify(exactly = 0) { legacyGl.onFrameAvailable(any()) }
     }
 
 }

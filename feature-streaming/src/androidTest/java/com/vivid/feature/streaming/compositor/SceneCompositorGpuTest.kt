@@ -112,8 +112,10 @@ class SceneCompositorGpuTest {
 
     @Test fun missingSourceNeverReusesItsLastVisibleFrame() {
         frames["green"] = texture(1, 1, intArrayOf(0, 255, 0, 255))
-        val render = start(composition("green"))
+        var rendered = 0
+        val render = start(composition("green"), frameRendered = { rendered++ })
         render.draw()
+        assertEquals(1, rendered)
         assertColor(pixel(16, 16), 0, 255, 0)
         frames.clear()
         render.draw()
@@ -122,6 +124,7 @@ class SceneCompositorGpuTest {
         assertEquals(offline[1], offline[2])
         assertTrue(offline[0] in 25..50)
         assertEquals(255, offline[3])
+        assertEquals(2, rendered)
     }
 
     @Test fun legacyInputRetainsFramebufferOrientationAndCanReturnToPassthrough() {
@@ -327,14 +330,15 @@ class SceneCompositorGpuTest {
         layers = ids.map { SceneLayer("layer:$it", it) },
     )
 
-    private fun start(scene: SceneComposition, input: Int? = null, inputId: String? = null): SceneCompositorFilterRender {
+    private fun start(scene: SceneComposition, input: Int? = null, inputId: String? = null,
+        frameRendered: () -> Unit = {}): SceneCompositorFilterRender {
         val provider = object : SceneTextureProvider {
             override fun attach(context: Context, width: Int, height: Int) = Unit
             override fun update(plan: SceneFramePlan, nowMillis: Long) { lastPlan = plan }
             override fun texture(sourceId: String) = frames[sourceId]
             override fun detach() = Unit
         }
-        return SceneCompositorFilterRender(provider, clockMillis = { now }).also {
+        return SceneCompositorFilterRender(provider, clockMillis = { now }, frameRendered = frameRendered).also {
             renderer = it
             it.initGl(SIZE, SIZE, InstrumentationRegistry.getInstrumentation().targetContext, SIZE, SIZE)
             it.initFBOLink()

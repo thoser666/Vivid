@@ -129,6 +129,7 @@ class StreamingEngine @Inject constructor(
     private val videoSourceRegistry: VideoSourceRegistry, // <-- S1: Source-Abstraktion
 ) {
     private var camera: MultiCamera2? = null
+    internal var sceneRenderClock = com.vivid.feature.streaming.compositor.SceneRenderClock()
     private var sceneSession: com.vivid.feature.streaming.compositor.encoding.SceneEncoderSession? = null
     internal var sceneSessionFactory: (List<ConnectChecker>) -> com.vivid.feature.streaming.compositor.encoding.SceneEncoderSession = {
         com.vivid.feature.streaming.compositor.encoding.SceneEncoderSession.create(context, it)
@@ -256,8 +257,11 @@ class StreamingEngine @Inject constructor(
             sourceReady = ::sceneSourceReady,
         )
         sceneTextures = textures
-        sceneRenderGl = activeGlInterface()
-        return SceneCompositorFilterRender(textures, inputAvailable = {
+        val renderOwner = activeGlInterface()
+        sceneRenderGl = renderOwner
+        return SceneCompositorFilterRender(textures, frameRendered = {
+            renderOwner?.let(sceneRenderClock::frameRendered)
+        }, inputAvailable = {
             activeSourceKind.value != VideoSourceKind.CAMERA || sceneCameraAvailable.get()
         }).also {
             it.setScene(desired, animate = false)
@@ -301,6 +305,7 @@ class StreamingEngine @Inject constructor(
         sceneProjections.retainSources(composition?.sources?.filter { it.type == SceneSourceType.SCREEN_CAPTURE }
             ?.map { it.id }?.toSet().orEmpty())
         val gl = activeGlInterface()
+        updateSceneRenderClock()
         if (sceneRouteRequested() && previewRequest != null && !sceneEncoding()) {
             startIdlePreviewIfReady()
             if (sceneSession != null) {
@@ -551,7 +556,7 @@ class StreamingEngine @Inject constructor(
      */
     private fun applyPrivacyZones() {
         val gl = activeGlInterface() ?: return
-        gl.setForceRender(desiredSceneRender != null, _activeEncoder.value?.preset?.fps ?: 30)
+        gl.setForceRender(desiredSceneRender != null && sceneSession != null, _activeEncoder.value?.preset?.fps ?: 30)
         publishPrivacyEllipses()
         // Der Toggle-Zustand liegt im Composer; ein Rebuild stellt sicher,
         // dass die Kette den Soll-Zustand (inkl. neuer Zonen) trägt.
@@ -1450,6 +1455,7 @@ class StreamingEngine @Inject constructor(
 
     /** Open Camera2 into the same GL pipeline used by recording, without starting encoders. */
     fun startIdlePreviewIfReady() {
+        updateSceneRenderClock()
         val request = previewRequest ?: return
         if (request.width <= 0 || request.height <= 0) return
         if (sceneRouteRequested()) { startScenePreview(request); return }
@@ -1475,7 +1481,7 @@ class StreamingEngine @Inject constructor(
             gl.setEncoderSize(720, 1280)
             gl.setIsPortrait(true)
             gl.setRotation(0)
-            gl.setForceRender(desiredSceneRender != null, 30)
+            gl.setForceRender(false, 30)
             gl.start()
             val preview = idlePreviewFactory(context)
             idlePreviewCamera = preview
@@ -1534,6 +1540,7 @@ class StreamingEngine @Inject constructor(
         (glPreviewOwner ?: (camera?.glInterface as? GlStreamInterface))?.deAttachPreview()
         glPreviewOwner = null
         glPreviewSurface = null
+        updateSceneRenderClock()
     }
 
     private fun detachGlPreview() {
@@ -1809,6 +1816,7 @@ class StreamingEngine @Inject constructor(
 
     /** Hängt die gemerkte Preview-Surface an, sobald die GL-Pipeline läuft. */
     private fun attachPreviewIfRunning() {
+        updateSceneRenderClock()
         val request = previewRequest ?: return
         val composed = _sceneComposition.value != null
         val gl = if (composed) activeGlInterface() else camera?.glInterface as? GlStreamInterface
@@ -1872,6 +1880,12 @@ class StreamingEngine @Inject constructor(
         Timber.i("Adaptive bitrate: measured=%d kbps target=%d kbps mode=%s",
             measuredKbps, nextKbps, _bitrateDiagnostics.value?.mode)
     }
+    private fun updateSceneRenderClock() {
+        val gl = activeGlInterface()
+        val legacyOutput = sceneSession == null && desiredSceneRender != null && gl?.isRunning == true
+        sceneRenderClock.update(if (legacyOutput) gl else null, _activeEncoder.value?.preset?.fps ?: 30)
+    }
+
     private fun sceneEncoding(): Boolean = sceneSession?.let { it.isStreaming || it.isRecording } == true
     private fun legacyEncoding(): Boolean = camera?.isStreaming == true || camera?.isRecording == true ||
         screenCaptureSource?.isActive == true || videoPlayerSource?.isActive == true ||

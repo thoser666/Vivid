@@ -19,7 +19,7 @@ von noch fehlender Integration und Geräte-Evidenz.
 | Reihenfolge, Position, Größe, Rotation, Crop, Sichtbarkeit | Validiertes Modell, `SceneGeometry` für GPU-Vertices und Hit-Tests | GLES-Zeichenpfad verdrahtet; Pixeltests und Compose-Editor vorhanden; Geräte-Verifikation offen |
 | PiP, Presets, Duplizieren | Fullscreen/PiP/Split-Modell, Duplikate teilen SourceId | Compose-Bedienoberfläche vorhanden; Live-Ausgabe auf Geräten verifizieren |
 | Touch-Editor und Alignment-Guides | Geometrie, Pixel-Snapping und Guide-Koordinaten | Compose-Canvas mit Drag/Pinch/Resize/Rotate und alternativen beschrifteten Slidern; Geräte- und Accessibility-Smoke offen |
-| Transitionen, Reconnect, Offline-Platzhalter | Persistierte Cut/Fade-Spezifikation, Reconnect-Backoff und Permission-Zustände | Whole-Scene-Fade, Platzhalter und Disconnect-Reconnect implementiert; Hauptquellen-Reconnect, Clock bei erstmaligem Live-Aktivieren und Geräte-Verifikation offen |
+| Transitionen, Reconnect, Offline-Platzhalter | Persistierte Cut/Fade-Spezifikation, Reconnect-Backoff und Permission-Zustände | Whole-Scene-Fade, Platzhalter und Disconnect-Reconnect implementiert; Unabhängiger Takt beim erstmaligen Live-Aktivieren implementiert; Hauptquellen-Reconnect und Geräte-Verifikation offen |
 | Performance, Speicher, Thermik, Latenz, Akku | Messverfahren im RFC | Baseline und echte Gerätemessungen |
 | Bestehende Funktionen erhalten | Altes Szenenformat bleibt gültig | Vollständige Streaming-/Chat-/Widget-Suites und Geräte-Smoke |
 
@@ -196,7 +196,8 @@ Wechsel dorthin während einer Scene-Aufnahme oder eines Scene-Streams wird
 zurückgewiesen, bevor der Legacy-Dateipfad vorbereitet wird. Die gemeinsame
 Datei-Audioanbindung und diese Live-Wechsel fehlen weiterhin. Ein bereits
 laufender Legacy-Stream migriert beim Öffnen des Editors nicht den Encoder;
-auch dessen unabhängiger Scene-Takt bei ausgefallenem Legacy-Eingang bleibt offen.
+sein Scene-Takt läuft jetzt auch unabhängig vom Legacy-Eingang. Die physische
+Wiederverbindung dieser Hauptquelle bleibt gesondert offen.
 Diese Einschränkungen sind kein Nachweis vollständiger Feature-Parität.
 
 Die neun Output-/Capture-Tests wurden zusammen regulär per Gradle ausgeführt
@@ -223,3 +224,26 @@ Repository-Selbsttests bestanden, anschließend scheiterten wieder sechs von
 Conscrypt-Loader (`libpthread.so.0` fehlt auf Termux). Der aktuelle Gesamt-Gate
 ist damit weiterhin rot; vollständige App-Lint-/Release- und Geräte-Nachweise
 bleiben offen.
+
+## Unabhängiger Takt bei nachträglicher Scene-Aktivierung
+
+RootEncoder 2.7.5 startet seinen internen ForceRenderer nur beim GL-Start.
+Ein Scene-Graph, der während eines bestehenden Legacy-Streams aktiviert wird,
+erhält daher jetzt einen eigenen `SceneRenderClock`. Der bestehende RootEncoder-
+Treiber fordert ohne neue Pixelpuffer weitere GL-Zeichnungen an; Encoder und
+Capture werden dabei nicht neu gestartet. Normale Scene-Draws unterdrücken
+unnötige Fallback-Draws. Eigene Fallback-Draws behalten ihre Soll-FPS, statt den
+nächsten eigenen Tick ebenfalls zu unterdrücken. Native NoVideoSource-Sessions
+behalten ihren vorhandenen RootEncoder-Takt und starten keinen zweiten Treiber.
+
+Ein Wechsel von GL-Owner/FPS oder das Entfernen des Graphen beendet den alten
+Takt. Generationen verwerfen bereits ausgelieferte alte Timer-Callbacks; ein
+GL-Stopp zwischen Statusprüfung und Executor-Submission wird abgefangen. Der
+Takt endet auch beim Stopp eines Streams ohne Preview und beendet sich selbst,
+wenn GL extern gestoppt wurde. Ein alter Owner darf dabei keinen neuen Takt
+beenden. Die finale gezielte Prüfung bestand **151 Tests**, darunter sechs
+Clock-Verträge und zwei neue Engine-Integrationsfälle. Die zehn GLES-Fixtures
+kompilieren einschließlich der neuen Frame-Callback-Assertions. Streaming-Lint
+bestand ohne Fehler und Warnungen; der bestehende Autoboxing-Hint bleibt.
+Echte GPU-Ausführung, Frame-Pacing unter Last und Geräte-Lifecycle bleiben
+nachzuweisen. Der vollständige Pre-Push-Gate wird gesondert ausgeführt.

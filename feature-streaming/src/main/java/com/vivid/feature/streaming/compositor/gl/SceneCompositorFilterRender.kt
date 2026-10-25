@@ -28,6 +28,7 @@ class SceneCompositorFilterRender(
     private val textures: SceneTextureProvider,
     private val clockMillis: () -> Long = SystemClock::elapsedRealtime,
     private val inputAvailable: () -> Boolean = { true },
+    private val frameRendered: () -> Unit = {},
 ) : BaseFilterRender() {
     private data class Submission(val state: SceneRenderState?, val animate: Boolean)
     private data class Program(val id: Int, val position: Int, val uv: Int,
@@ -124,6 +125,7 @@ class SceneCompositorFilterRender(
             GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
         }
         GlUtil.checkGlError("scene compositor")
+        frameRendered()
     }
 
     private fun drawScene(state: SceneRenderState, framebuffer: Int) {
