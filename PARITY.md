@@ -275,6 +275,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 
 | Datum | Commit | Änderung |
 |-------|--------|----------|
+| 2026-10-25 | `b8944ae` | **Scene-Compositor #306: Unabhängiger Takt bei Live-Aktivierung** — Nachträglich aktivierte Scene-Graphen zeichnen auch ohne Legacy-Eingangsframes weiter; normale Draws unterdrücken unnötige Ticks, eigene Fallback-Draws behalten die Soll-FPS. Owner-/FPS-Wechsel, GL-Stopp und verspätete Callbacks sind abgesichert; native Scene-Sessions starten keinen zweiten Takt. 151 gezielte Tests und Streaming-Lint grün, zehn GLES-Fixtures kompiliert; Geräte-Frame-Pacing und Hauptquellen-Reconnect weiter offen. |
 | 2026-10-25 | `2be82d4` | **Scene-Compositor #306: Gemeinsamer Encoderpfad angebunden** — Kameraunabhängige Scene-Preview ohne Encoder-Vorbereitung, ein RTMP-/MP4-Output, geliehene Kamera-Controls, Session-Generationen und Recording-Menü für Scene-Quellen; 207 gezielte Tests grün. Datei-Audio, Legacy-Live-Takt, selektive Layer-Privacy und Geräte-Parität weiter offen; Streaming-Lint ohne Fehler/Warnungen und Standard-App kompiliert; Gesamt-Gate am bestehenden Conscrypt-Hostfehler rot. |
 | 2026-10-24 | `c59a608` | **Scene-Compositor #306: Kameraunabhängige Output-Ownership vorbereitet** — NoVideoSource-Session mit einem Hardware-Videoencoder für RTMP/MP4, expliziten Video-Tracks und bedarfsabhängigem Mikrofon; zusätzliche Camera2-Captures verwenden bestehende RootEncoder-Manager mit geliehenen Controls und klarer Surface-Ownership. Neun fokussierte Tests und Streaming-Lint grün, Instrumented-Quellen kompiliert. Engine-Routing und Geräte-Parität weiter offen. |
 | 2026-10-24 | `224c128` | **GPU-Workflow-Guard portabel** — UTF-8 für extrahierte Emulator-Snippets und Mutationsfixtures explizit gesetzt; mktemp-Fehler scheitert geschlossen. Emulator-Matrix-Guard einschließlich Mutations-/Negativkontrollen grün. |
@@ -572,6 +573,7 @@ Commit die Log-Zeile hinzufügte:
 
 | Datum | Commit | Eintrag | Kandidaten (Phrase in PARITY.md) | Vermerk |
 |-------|--------|---------|----------------------------------|---------|
+| 2026-10-25 | `b8944ae` | Unabhängiger Takt bei Live-Aktivierung (#306) | `b8944ae` | 151 gezielte Tests und Streaming-Lint grün, Instrumented-Quellen kompiliert; kein GPU-/Geräte-Nachweis. |
 | 2026-10-25 | `2be82d4` | Gemeinsamer Scene-Encoderpfad (#306) | `2be82d4` | 207 gezielte Tests und Streaming-Lint grün, Standard-App kompiliert; Gesamt-Gate am Conscrypt-Hostfehler rot, kein GPU-/Geräte-Nachweis. |
 | 2026-10-24 | `c59a608` | Scene-Output- und Capture-Ownership (#306) | `c59a608` | Session vorbereitet, App-Routing noch nicht migriert; kein GPU-/Geräte-Nachweis. |
 | 2026-10-24 | `224c128` | GPU-Workflow-Guard UTF-8 (#306) | `224c128` | Guard-Nachweis, kein GPU-Ausführungsnachweis. |
