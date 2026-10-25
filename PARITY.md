@@ -275,6 +275,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 
 | Datum | Commit | Änderung |
 |-------|--------|----------|
+| 2026-10-24 | `6c91614` | **Scene-Compositor #306: Chat-Lifecycle erhalten** — Bei Remote-Stream-Stopp endet der Chat-Bot auch dann, wenn ein aktiver Scene-Projection-Grant den Foreground-Service für die Vorschau weiter benötigt. Geräte-Smoke bleibt offen. |
 | 2026-10-24 | `9b65986` | **Scene-Compositor #306: API-24-Kompatibilität** — Uhr-Feed verwendet API-24-verfügbares Datumsformat statt Java-Time-APIs ohne Desugaring; KTX-Aufrufe und leerer ViewModel-Super-Aufruf gemäß Lint korrigiert. Gesamtumfang und Geräte-Nachweise bleiben offen. |
 | 2026-10-24 | `4d96959` | **Scene-Compositor #306: Live-Editor und Capture-Consent** — Compose-Layer-Editor mit Gesten/Guides, Undo/Redo, atomarem Save/Cancel, Quellenwahl und vier Sprachen; Text-/Uhr-Feed und MediaProjection-FGS-Handoff mit Grant-/Lease-Lifecycle. Geräte-/GPU-/Performance-Nachweise und weitere Runtime-Integration bleiben offen. |
 | 2026-10-24 | `e63867b` | **Scene-Compositor GPU-/Capture-Integration (#306, WIP):** GLES2-Layer/FBO-Pass mit Alpha, Transforms, Crop, Offline-Platzhaltern und Whole-Scene-Fade; encoderfreie Camera2-/MediaProjection-/Video-Adapter, Bild-Upload und Widget-Bitmap-Bridge; Legacy-Input als GPU-Textur, SceneController-/PrivacyComposer-Anbindung, zusätzliche Live-Quellen unter Privacy vorsorglich mosaikiert. Gezielter Gradle-Lauf **52 Domain + 14 Repository + 85 Streaming grün**, anschließend **15 Capture-Reuse-/Rename-Regressionsprüfungen grün**; Android-Testquellen kompiliert, sieben GLES-Gerätetests noch nicht ausgeführt. Editor, USB ohne Camera-HAL, vollständiger Hauptquellen-Lifecycle und Gerätemessungen weiterhin offen — siehe [Umsetzungsstand](docs/architecture/scene-compositor-implementation.md). |
@@ -567,6 +568,7 @@ Commit die Log-Zeile hinzufügte:
 
 | Datum | Commit | Eintrag | Kandidaten (Phrase in PARITY.md) | Vermerk |
 |-------|--------|---------|----------------------------------|---------|
+| 2026-10-24 | `6c91614` | Chat-Lifecycle bei Scene-Capture (#306) | `6c91614` | Stream- und Capture-Lifetime getrennt; Geräte-Smoke offen. |
 | 2026-10-24 | `9b65986` | Scene-Widget API-24-Kompatibilität (#306) | `9b65986` | Kompatibilitätskorrektur aus Lint; kein Feature-Abschluss. |
 | 2026-10-24 | `4d96959` | Live-Editor und Capture-Consent (#306) | Szenen; Bild-in-Bild (PiP) | WIP: Editor und Capture-Handoff implementiert; Geräte-/GPU-/Performance-Verifikation offen. |
 | 2026-10-24 | `e63867b` | Scene-Compositor GPU-/Capture-Integration (#306) | `e63867b` | Implementierungs-Commit, Gesamtumfang und Hardware-Nachweise offen. |

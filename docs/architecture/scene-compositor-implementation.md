@@ -113,3 +113,8 @@ expliziter Zeitzone; die weiteren Befunde sind korrigiert. Anschließend bestand
 `:feature-streaming:lintDebug` (**0 Fehler, 0 Warnungen**, ein unveränderter Hint
 in ZoneEditor) und **52 betroffene Tests** (überlappend mit den vorherigen 65).
 Das ersetzt weder den vollständigen Repository-Gate noch Geräteprüfungen.
+
+Beim Geräte-Smoke zusätzlich Remote-Stream-Stopp mit weiterlaufender
+Screen-Vorschau prüfen: Der Chat-Bot muss mit dem Stream enden, während die
+Capture-Notification bis zum Grant-Ende bestehen bleibt. Der Service behandelt
+diesen Übergang getrennt vom vollständigen Foreground-Service-Stopp.
