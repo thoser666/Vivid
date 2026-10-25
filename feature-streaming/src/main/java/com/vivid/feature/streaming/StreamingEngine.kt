@@ -2,6 +2,14 @@ package com.vivid.feature.streaming
 
 import android.Manifest
 import android.content.Context
+import com.vivid.core.data.SceneComposition
+import com.vivid.core.data.SceneSourceType
+import com.vivid.feature.streaming.compositor.SceneProducerState
+import com.vivid.feature.streaming.compositor.SceneRenderState
+import com.vivid.feature.streaming.compositor.capture.SceneBitmapRegistry
+import com.vivid.feature.streaming.compositor.capture.SceneProjectionRegistry
+import com.vivid.feature.streaming.compositor.gl.AndroidSceneTextureProvider
+import com.vivid.feature.streaming.compositor.gl.SceneCompositorFilterRender
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Rect
@@ -203,11 +211,116 @@ class StreamingEngine @Inject constructor(
      * Single-Slot-Exklusivität der drei Bestands-Controller). Die
      * Applier-Lambdas der Filter-APIs rufen nur noch den Rebuild.
      */
+    private val _sceneComposition = MutableStateFlow<SceneComposition?>(null)
+    val sceneComposition: StateFlow<SceneComposition?> = _sceneComposition.asStateFlow()
+    private val _sceneProducerStates = MutableStateFlow<Map<String, SceneProducerState>>(emptyMap())
+    val sceneProducerStates: StateFlow<Map<String, SceneProducerState>> = _sceneProducerStates.asStateFlow()
+    private val sceneProjections by lazy { SceneProjectionRegistry() }
+    private val sceneBitmaps = SceneBitmapRegistry()
+    private val sceneCameraAvailable = java.util.concurrent.atomic.AtomicBoolean(true)
+    private var desiredSceneRender: SceneRenderState? = null
+    private var sceneRender: SceneCompositorFilterRender? = null
+    private var sceneTextures: AndroidSceneTextureProvider? = null
+    private var sceneRenderGl: GlStreamInterface? = null
+
+    private fun createSceneRender(): com.pedro.encoder.input.gl.render.filters.BaseFilterRender? {
+        val desired = desiredSceneRender ?: return null
+        val textures = AndroidSceneTextureProvider(
+            projections = sceneProjections,
+            bitmaps = sceneBitmaps,
+            legacyCameraId = {
+                if (activeSourceKind.value == VideoSourceKind.CAMERA)
+                    idlePreviewCamera?.getCurrentCameraId() ?: camera?.currentCameraId else null
+            },
+            privacyEnabled = { privacyComposer.privacyEnabled.value },
+            publishStates = { _sceneProducerStates.value = it },
+        )
+        sceneTextures = textures
+        sceneRenderGl = activeGlInterface()
+        return SceneCompositorFilterRender(textures, inputAvailable = {
+            activeSourceKind.value != VideoSourceKind.CAMERA || sceneCameraAvailable.get()
+        }).also {
+            it.setScene(desired, animate = false)
+            sceneRender = it
+        }
+    }
+
+    /** Scene edits update desired GPU state; no source encoder is created here. */
+    fun setSceneComposition(composition: SceneComposition?, animate: Boolean = true) {
+        if (activeSourceKind.value == VideoSourceKind.CAMERA) {
+            composition?.sources?.firstOrNull { it.type == SceneSourceType.CAMERA }
+                ?.locator?.takeIf { it.isNotBlank() }?.let {
+                    val current = idlePreviewCamera?.getCurrentCameraId() ?: camera?.currentCameraId
+                    if (it != current) {
+                        val previousAvailable = sceneCameraAvailable.getAndSet(false)
+                        if (!selectLens(it)) sceneCameraAvailable.set(previousAvailable)
+                    }
+                }
+        }
+        val inputType = when (activeSourceKind.value) {
+            VideoSourceKind.CAMERA -> SceneSourceType.CAMERA
+            VideoSourceKind.SCREEN_CAPTURE -> SceneSourceType.SCREEN_CAPTURE
+            VideoSourceKind.VIDEO_PLAYER, VideoSourceKind.REPLAY -> SceneSourceType.VIDEO
+            // The old UVC adapter is MediaProjection, not an external-camera producer.
+            VideoSourceKind.UVC -> null
+        }
+        val cameraId = idlePreviewCamera?.getCurrentCameraId() ?: camera?.currentCameraId
+        val inputId = composition?.sources?.firstOrNull {
+            it.type == inputType && (it.type != SceneSourceType.CAMERA ||
+                it.locator.isBlank() || it.locator == cameraId)
+        }?.id
+        val previous = desiredSceneRender
+        val next = composition?.let { SceneRenderState(it, inputId) }
+        desiredSceneRender = next
+        _sceneComposition.value = composition
+        sceneBitmaps.retainSources(composition?.sources?.filter { it.type == SceneSourceType.WIDGET }
+            ?.map { it.id }?.toSet().orEmpty())
+        sceneProjections.retainSources(composition?.sources?.filter { it.type == SceneSourceType.SCREEN_CAPTURE }
+            ?.map { it.id }?.toSet().orEmpty())
+        val gl = activeGlInterface()
+        if (previous == null && next != null && idlePreviewCamera != null &&
+            camera?.isStreaming != true && camera?.isRecording != true) {
+            stopIdlePreview()
+            startIdlePreviewIfReady()
+            return
+        }
+        val render = sceneRender
+        if (render != null && previous != null && next != null && sceneRenderGl === gl) {
+            render.setScene(next, animate)
+        } else {
+            render?.setScene(null, animate = false)
+            privacyComposer.requestRebuild(gl)
+        }
+    }
+
+    fun retrySceneSource(sourceId: String) { sceneTextures?.retry(sourceId) }
+
+    /** Permission handles are runtime-only and supplied after the normal Android consent flow. */
+    fun grantSceneProjection(sourceId: String, projection: android.media.projection.MediaProjection): Boolean {
+        if (_sceneComposition.value?.sources?.none {
+            it.id == sourceId && it.type == SceneSourceType.SCREEN_CAPTURE
+        } != false) {
+            projection.stop()
+            return false
+        }
+        sceneProjections.grant(sourceId, projection)
+        sceneTextures?.restart(sourceId)
+        return true
+    }
+
+    fun publishSceneWidget(sourceId: String, bitmap: android.graphics.Bitmap): Boolean {
+        if (_sceneComposition.value?.sources?.none { it.id == sourceId && it.type == SceneSourceType.WIDGET } != false) {
+            return false
+        }
+        return try { sceneBitmaps.publish(sourceId, bitmap); true } catch (_: IllegalArgumentException) { false }
+    }
+
     private val privacyComposer = PrivacyComposer(
         filterController = filterController,
         lowLightBoostController = lowLightBoostController,
         lutController = lutController,
         lutSize = LUT_SIZE,
+        sceneRenderFactory = ::createSceneRender,
     )
 
     /** Der aktive LUT-Preset. */
@@ -384,6 +497,7 @@ class StreamingEngine @Inject constructor(
      */
     private fun applyPrivacyZones() {
         val gl = activeGlInterface() ?: return
+        gl.setForceRender(desiredSceneRender != null, _activeEncoder.value?.preset?.fps ?: 30)
         publishPrivacyEllipses()
         // Der Toggle-Zustand liegt im Composer; ein Rebuild stellt sicher,
         // dass die Kette den Soll-Zustand (inkl. neuer Zonen) trägt.
@@ -943,6 +1057,12 @@ class StreamingEngine @Inject constructor(
     fun initializeCamera() {
         if (camera == null) {
             camera = cameraFactory.create(List(MAX_STREAM_TARGETS) { createTargetChecker(it) })
+            camera!!.setCameraCallbacks(object : com.pedro.encoder.input.video.CameraCallbacks {
+                override fun onCameraOpened() { sceneCameraAvailable.set(true) }
+                override fun onCameraChanged(facing: CameraHelper.Facing) = Unit
+                override fun onCameraError(error: String) { sceneCameraAvailable.set(false) }
+                override fun onCameraDisconnected() { sceneCameraAvailable.set(false) }
+            })
             camera!!.setRecordController(monitorKeyframes(AndroidMuxerRecordController()))
             camera!!.setFpsListener { fps ->
                 if (_activeEncoder.value != null) _measuredEncoderFps.value = fps
@@ -1227,16 +1347,23 @@ class StreamingEngine @Inject constructor(
             gl.setEncoderSize(720, 1280)
             gl.setIsPortrait(true)
             gl.setRotation(0)
+            gl.setForceRender(desiredSceneRender != null, 30)
             gl.start()
             val preview = idlePreviewFactory(context)
             idlePreviewCamera = preview
             preview.setCameraCallbacks(object : com.pedro.encoder.input.video.CameraCallbacks {
                 override fun onCameraOpened() {
-                    if (idlePreviewCamera === preview) restoreCameraControls()
+                    if (idlePreviewCamera === preview) {
+                        sceneCameraAvailable.set(true)
+                        restoreCameraControls()
+                    }
                 }
                 override fun onCameraChanged(facing: CameraHelper.Facing) = Unit
-                override fun onCameraError(error: String) { Timber.e("Idle camera: %s", error) }
-                override fun onCameraDisconnected() = Unit
+                override fun onCameraError(error: String) {
+                    sceneCameraAvailable.set(false)
+                    Timber.e("Idle camera: %s", error)
+                }
+                override fun onCameraDisconnected() { sceneCameraAvailable.set(false) }
             })
             preview.prepareCamera(gl.surfaceTexture, 1280, 720, 30)
             val cameraId = camera?.currentCameraId

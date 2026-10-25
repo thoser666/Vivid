@@ -46,6 +46,7 @@ class PrivacyComposerTest {
         privacyRender: PrivacyBlurFilterRender? = null,
         videoRender: BaseFilterRender? = null,
         lowLightRender: BaseFilterRender? = null,
+        sceneRender: BaseFilterRender? = null,
     ): PrivacyComposer {
         val filterController = VideoFilterController()
         if (filter != VideoFilter.NONE) {
@@ -58,6 +59,7 @@ class PrivacyComposerTest {
             lowLightBoostController = lowLightController,
             lutController = LutController(),
             lutSize = 16,
+            sceneRenderFactory = { sceneRender },
             privacyRenderFactory = { privacyRender },
             videoFilterRenderFactory = { videoRender },
             lutRenderFactory = { lutRender },
@@ -303,5 +305,20 @@ class PrivacyComposerTest {
         }
         // Deaktivierter Slot (Radius 0) ist gültig.
         assertEquals(0f, PrivacyEllipse.DISABLED.radiusX)
+    }
+
+    @Test
+    fun `scene compositor follows privacy and every creative slot`() {
+        val recorder = RecordingGl()
+        val privacy = mockk<PrivacyBlurFilterRender>(relaxed = true)
+        val video = mockk<BaseFilterRender>(relaxed = true)
+        val lut = mockk<BaseFilterRender>(relaxed = true)
+        val lowLight = mockk<BaseFilterRender>(relaxed = true)
+        val scene = mockk<BaseFilterRender>(relaxed = true)
+        val composer = composer(recorder, filter = VideoFilter.GRAYSCALE, lutRender = lut,
+            lowLight = true, privacyRender = privacy, videoRender = video,
+            lowLightRender = lowLight, sceneRender = scene)
+        composer.setPrivacyEnabled(true, recorder.gl)
+        assertEquals(listOf(privacy, video, lut, lowLight, scene), recorder.added)
     }
 }

@@ -135,4 +135,33 @@ class SceneProducerManagerTest {
         assertEquals(SceneProducerStatus.OFFLINE, manager.states.getValue(source.id).status)
         assertEquals(SceneProducerStatus.ACTIVE, manager.states.getValue(healthy.id).status)
     }
+
+    @Test fun `async opens without frames retain backoff until a real frame confirms recovery`() {
+        val manager = SceneProducerManager { Producer() }
+        manager.reconcile(listOf(graph), 0)
+        val first = manager.states.getValue(source.id).generation
+        manager.disconnected(source.id, 10, first)
+        manager.reconcile(listOf(graph), 510)
+        val second = manager.states.getValue(source.id).generation
+        manager.disconnected(source.id, 520, second)
+        assertEquals(1520L, manager.states.getValue(source.id).retryAtMillis)
+        manager.reconcile(listOf(graph), 1520)
+        val third = manager.states.getValue(source.id).generation
+        manager.markHealthy(source.id, first)
+        assertEquals(2, manager.states.getValue(source.id).failures)
+        manager.markHealthy(source.id, third)
+        assertEquals(0, manager.states.getValue(source.id).failures)
+    }
+
+    @Test fun `renaming a source across scenes reuses its capture and updates its display metadata`() {
+        val created = mutableListOf<Producer>()
+        val manager = SceneProducerManager { Producer().also(created::add) }
+        manager.reconcile(listOf(graph), 0)
+        val renamed = graph.copy(sources = listOf(source.copy(name = "Renamed camera")))
+        manager.reconcile(listOf(graph, renamed), 1)
+        assertEquals(1, created.size)
+        assertEquals(0, created.single().stops)
+        assertEquals("Renamed camera", manager.states.getValue(source.id).source.name)
+        assertEquals(4, manager.states.getValue(source.id).references)
+    }
 }

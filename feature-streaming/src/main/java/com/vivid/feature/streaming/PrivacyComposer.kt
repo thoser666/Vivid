@@ -53,6 +53,8 @@ class PrivacyComposer(
     private val lowLightBoostController: LowLightBoostController,
     private val lutController: LutController,
     private val lutSize: Int,
+    /** Optional scene pass, appended after the existing protected camera/effect chain. */
+    private val sceneRenderFactory: () -> BaseFilterRender? = { null },
     /** Fabrik der wiederverwendeten Privacy-Render-Instanz (Position 0). */
     private val privacyRenderFactory: () -> PrivacyBlurFilterRender? = { createPrivacyRender() },
     /** Fabrik für frische VideoFilter-Renders pro Rebuild (Bestands-Factory). */
@@ -119,6 +121,8 @@ class PrivacyComposer(
             ?.let { desired.add(it) }
         lutRenderFactory()?.let { desired.add(it) }
         lowLightRenderFactory()?.let { desired.add(it) }
+
+        sceneRenderFactory()?.let { desired.add(it) }
 
         gl.clearFilters()
         desired.forEach { gl.addFilter(it) }

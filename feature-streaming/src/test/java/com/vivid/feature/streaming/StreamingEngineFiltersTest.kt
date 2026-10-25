@@ -373,4 +373,34 @@ class StreamingEngineFiltersTest {
         // Render-Zustand (App-Verifikation auf dem Gerät, wie bei P0).
         verify(atLeast = 1) { glStreamInterface.clearFilters() }
     }
+
+    @Test
+    fun `scene edits update an existing compositor without rebuilding the capture chain`() {
+        streamingEngine.initializeCamera()
+        val graph = com.vivid.core.data.SceneComposition(
+            sources = listOf(com.vivid.core.data.SceneSource("camera", com.vivid.core.data.SceneSourceType.CAMERA)),
+            layers = listOf(com.vivid.core.data.SceneLayer("camera-layer", "camera")),
+        )
+        streamingEngine.setSceneComposition(graph)
+        val moved = graph.copy(layers = listOf(graph.layers.single().copy(
+            transform = com.vivid.core.data.SceneTransform(x = 0.2f, width = 0.7f))))
+        streamingEngine.setSceneComposition(moved, animate = false)
+        assertEquals(moved, streamingEngine.sceneComposition.value)
+        verify(exactly = 1) { glStreamInterface.clearFilters() }
+        verify(exactly = 1) { glStreamInterface.addFilter(match {
+            it is com.vivid.feature.streaming.compositor.gl.SceneCompositorFilterRender
+        }) }
+        streamingEngine.setSceneComposition(null)
+        assertNull(streamingEngine.sceneComposition.value)
+        verify(exactly = 2) { glStreamInterface.clearFilters() }
+    }
+
+    @Test
+    fun `scene configuration before camera initialization is retained without GL access`() {
+        val graph = com.vivid.core.data.SceneComposition()
+        streamingEngine.setSceneComposition(graph)
+        assertEquals(graph, streamingEngine.sceneComposition.value)
+        verify(exactly = 0) { glStreamInterface.clearFilters() }
+        assertTrue(streamingEngine.sceneProducerStates.value.isEmpty())
+    }
 }

@@ -1,6 +1,6 @@
 # Architektur: GPU-Szenenkompositor
 
-> **Status:** RFC zur Review, keine Implementierungsfreigabe · **Datum:** 2026-10-24
+> **Status:** RFC zur Review; inkrementelle Implementierung auf dem Feature-Branch, Gesamtumfang offen · **Datum:** 2026-10-24
 > **Issue:** [#306](https://github.com/thoser666/Vivid/issues/306)
 > **Entscheidungsvorschlag:** Phase 1 dokumentieren; Phasen 2–4 zurückstellen.
 > Der Maintainer entscheidet über Annahme und spätere Milestones.
@@ -16,9 +16,9 @@ Konsumenten dieses Pfads, keine automatisch mitgelieferte Funktion.
 **Priorität 2 ist PiP mit mehreren unabhängig laufenden Videoquellen.** Das hat
 andere Geräte-, Lifecycle- und Leistungsanforderungen und erhält ein eigenes Gate.
 
-Dieser RFC erfüllt die Dokumentationskriterien von #306. Er ändert weder die
-Streaming-Pipeline noch gespeicherte Szenen. Kein Proof of Concept, Editor,
-Live-Quellwechsel oder Benchmark-Ergebnis ist Bestandteil dieser Änderung.
+Dieser RFC beschreibt die Architektur zu #306. Der verlinkte Umsetzungsstand
+führt die inzwischen begonnenen Runtime-Änderungen und offenen Nachweise auf.
+Editor, vollständige Quellenparität und Gerätemessungen sind noch nicht fertig.
 Vorhandener Chat, Bot, Widgets, Replays, Audio und Multi-Streaming bleiben
 wiederzuverwendende Systeme. Ein Mobilgerät bekommt zunächst einfache
 Layout-Presets; ein freier Drag/Resize/Rotate-Editor ist kein Einstiegsziel.
@@ -215,7 +215,7 @@ reproduzierbare Messung blockiert Phase 3; Qualität nicht stillschweigend senke
 
 | Phase | Liefergegenstand | Voraussetzung für den nächsten Schritt |
 |---|---|---|
-| 1: RFC (dieser PR) | Priorität, Bestandsabgleich, Optionen, Modell und Messplan | Maintainer-Review beantwortet Geräteauswahl, Grenzwerte und Option A; kein Runtime-Code |
+| 1: RFC | Priorität, Bestandsabgleich, Optionen, Modell und Messplan | Maintainer-Review beantwortet Geräteauswahl, Grenzwerte und Option A; kein Runtime-Code |
 | 2: Textur-Proof (zurückgestellt) | Baseline zuerst, dann eine Kamera + Logo durch bestehende Filterkette | Reale Geräte A/B, Messprotokolle und Output-Parität; automatisierte Ketten-/Lifecycle-Tests plus bestehende Streaming-Suites; eigener Implementierungsauftrag |
 | 3: Producer / Multi-Source (zurückgestellt) | Encoderfreie Producer, SourceIds, Szene v2, Bild/PiP, Persistenz; zwei Live-Quellen nur bei Capability | Eigenes Design-Review für EGL/Clock/Privacy, Migrationstests, Disconnect-/Reconnect- und Dauerlastnachweise; separates UVC-Gate |
 | 4: Bedienung (zurückgestellt) | Presets zuerst; später optional Touch-Transforms, Guides und Transitionen | Einhändige Bedienbarkeit und Accessibility testen; Übergänge unter Ressourcenbudget, erneute Thermikmessung |

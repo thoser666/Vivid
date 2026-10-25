@@ -43,6 +43,7 @@ class SceneController @Inject constructor(
             template = scene.widgetTemplate,
         )
         applySceneSource(scene)
+        streamingEngine.setSceneComposition(scene.composition)
         sceneRepository.setActiveScene(scene.id)
     }
 

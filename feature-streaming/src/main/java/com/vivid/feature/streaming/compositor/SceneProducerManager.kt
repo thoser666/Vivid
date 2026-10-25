@@ -34,7 +34,7 @@ data class SceneProducerState(
  */
 class SceneProducerManager(private val factory: SceneProducerFactory) {
     private data class Entry(
-        val source: SceneSource,
+        var source: SceneSource,
         var references: Int,
         var generation: Long = 0,
         var producer: SceneProducer? = null,
@@ -63,7 +63,7 @@ class SceneProducerManager(private val factory: SceneProducerFactory) {
             for (layer in composition.layers.filter { it.visible && it.opacity > 0f }) {
                 val source = sources.getValue(layer.sourceId)
                 val previous = desired[source.id]
-                require(previous == null || previous.first == source) {
+                require(previous == null || sameCapture(previous.first, source)) {
                     "Conflicting descriptions for source ${source.id}"
                 }
                 desired[source.id] = source to (previous?.second?.plus(1) ?: 1)
@@ -71,12 +71,13 @@ class SceneProducerManager(private val factory: SceneProducerFactory) {
         }
         // A transition may temporarily retain two scenes, but never unlimited producers.
         require(desired.size <= SceneComposition.MAX_SOURCES)
-        entries.values.filter { desired[it.source.id]?.first != it.source }.forEach { entry ->
+        entries.values.filter { entry -> desired[entry.source.id]?.first?.let { sameCapture(it, entry.source) } != true }.forEach { entry ->
             dispose(entry)
             entries.remove(entry.source.id)
         }
         for ((id, request) in desired) {
             val entry = entries.getOrPut(id) { Entry(request.first, request.second) }
+            entry.source = request.first
             entry.references = request.second
             if (suspended) {
                 entry.status = SceneProducerStatus.SUSPENDED
@@ -96,6 +97,12 @@ class SceneProducerManager(private val factory: SceneProducerFactory) {
         if (entry.generation != generation || entry.producer == null) return
         dispose(entry)
         failed(entry, nowMillis, permissionRequired)
+    }
+
+    /** Async capture is healthy only after producing a frame, not after openCamera returns. */
+    fun markHealthy(sourceId: String, generation: Long) {
+        val entry = entries[sourceId] ?: return
+        if (entry.generation == generation && entry.producer != null) entry.failures = 0
     }
 
     /** Permission retries are explicit: a denied dialog must never become a retry loop. */
@@ -130,7 +137,6 @@ class SceneProducerManager(private val factory: SceneProducerFactory) {
             candidate.start()
             entry.producer = candidate
             entry.status = SceneProducerStatus.ACTIVE
-            entry.failures = 0
             entry.retryAtMillis = 0
         } catch (_: SceneProducerPermissionException) {
             candidate?.let(::disposeProducer)
@@ -163,6 +169,9 @@ class SceneProducerManager(private val factory: SceneProducerFactory) {
         try { producer.stop() } catch (_: Exception) { }
         try { producer.release() } catch (_: Exception) { }
     }
+
+    private fun sameCapture(first: SceneSource, second: SceneSource): Boolean =
+        first.id == second.id && first.type == second.type && first.locator == second.locator
 
     companion object {
         const val FIRST_RETRY_MILLIS = 500L
