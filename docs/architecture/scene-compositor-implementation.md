@@ -246,4 +246,8 @@ Clock-Verträge und zwei neue Engine-Integrationsfälle. Die zehn GLES-Fixtures
 kompilieren einschließlich der neuen Frame-Callback-Assertions. Streaming-Lint
 bestand ohne Fehler und Warnungen; der bestehende Autoboxing-Hint bleibt.
 Echte GPU-Ausführung, Frame-Pacing unter Last und Geräte-Lifecycle bleiben
-nachzuweisen. Der vollständige Pre-Push-Gate wird gesondert ausgeführt.
+nachzuweisen. Der vollständige Pre-Push-Gate wurde erneut ausgeführt: Nach
+bestandenen Repository-Selbsttests scheiterten sechs von 471 unveränderten
+Chat-Tests wieder am Conscrypt-Loader (`libpthread.so.0` auf Termux). Der
+Gesamt-Gate bleibt rot; die gezielten Clock-/Engine- und Lint-Nachweise sind
+ausdrücklich kein vollständiger App-/Release-Nachweis.
