@@ -212,5 +212,14 @@ Vorbereitung, ignorierte alte Callbacks, Recording für Screen-Szenen und
 SourceId-/Canvas-Erhalt beim erneuten Öffnen des Editors. Die UI-Testfixtures
 geben die Kamera-Permission-/Recording-Capabilities ihres bisherigen Kamera-
 Setups explizit an; ihre Ausführung ist kein Bestandteil dieser 207 Tests.
-Standard-App und Instrumented-Testquellen kompilierten im vorherigen Lauf;
-die spätere Recording-Menü-Anpassung wird im folgenden Lint-/App-Lauf geprüft.
+Der anschließende Lauf prüfte auch die finale Recording-Menü-Anpassung:
+`:app:compileStandardDebugKotlin` und `:feature-streaming:lintDebug` bestanden
+zusammen mit den 207 Tests. Der Streaming-Lint-XML-Report enthält keine Fehler
+oder Warnungen; ein bestehender `AutoboxingStateCreation`-Hint bleibt bestehen.
+Die Instrumented-Testquellen kompilierten zuvor separat; GPU-Ausführung bleibt
+offen. Der vollständige Pre-Push-Gate wurde danach erneut ausgeführt: Die
+Repository-Selbsttests bestanden, anschließend scheiterten wieder sechs von
+471 Chat-Tests in unveränderten `ChatAlertRowRenderRobolectricTest`-Fällen am
+Conscrypt-Loader (`libpthread.so.0` fehlt auf Termux). Der aktuelle Gesamt-Gate
+ist damit weiterhin rot; vollständige App-Lint-/Release- und Geräte-Nachweise
+bleiben offen.
