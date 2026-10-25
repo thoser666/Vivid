@@ -178,14 +178,14 @@ class StreamingEngine @Inject constructor(
             } catch (error: Exception) {
                 Timber.e(error, "Camera preparation/start failed")
                 runCatching { closeExperimentalCapture() }
-                runCatching { camera?.stopRecord() }
+                runCatching { retireSceneSurfaces(); camera?.stopRecord() }
                 runCatching { camera?.stopStream() }
                 failStream(ENCODER_PREPARATION_ERROR)
                 _cameraModeStatus.value = _cameraModeStatus.value.copy(notice = CameraModeNotice.CAPTURE_FAILED)
             } finally {
                 if (preparationGeneration != captureGeneration.get()) {
                     runCatching { closeExperimentalCapture() }
-                    runCatching { camera?.stopRecord() }
+                    runCatching { retireSceneSurfaces(); camera?.stopRecord() }
                     runCatching { camera?.stopStream() }
                     _replayState.value = ReplayState.Idle
                     _streamingState.value = StreamingState.Idle
@@ -211,6 +211,8 @@ class StreamingEngine @Inject constructor(
     private var idlePreviewCamera: Camera2ApiManager? = null
     private var idlePreviewSurface: Surface? = null
     private var idlePreviewSize: Pair<Int, Int>? = null
+    private var idlePreviewCanvasSize: Pair<Int, Int>? = null
+    private var previewVideoConfiguration: PreviewVideoConfiguration? = null
     internal var idlePreviewFactory: (Context) -> Camera2ApiManager = ::Camera2ApiManager
 
     /** Gemerkte Encoder-Konfiguration (null = Legacy-Pfad, RootEncoder-Default). */
@@ -299,6 +301,28 @@ class StreamingEngine @Inject constructor(
         lutSize = LUT_SIZE,
     )
 
+    @Volatile private var sceneCameraMirrored = false
+    @Inject lateinit var sceneLayerHost: com.vivid.feature.streaming.scene.SceneLayerHost
+
+    private fun retireSceneSurfaces() {
+        if (::sceneLayerHost.isInitialized) sceneLayerHost.releaseOutputSurfaces()
+    }
+
+    private fun stopComposedGl(gl: GlStreamInterface?) {
+        retireSceneSurfaces()
+        gl?.stop()
+    }
+
+    private fun installSceneLayer() {
+        if (::sceneLayerHost.isInitialized && privacyComposer.sceneLayerFactory == null) {
+            privacyComposer.ownFilter = ::OwnedFilterRender
+            privacyComposer.sceneLayerFactory = { gl, hidden ->
+                val cameraLayer = gl === camera?.glInterface
+                sceneLayerHost.createFilter(hidden) { cameraLayer && sceneCameraMirrored }
+            }
+        }
+    }
+
     /** Der aktive LUT-Preset. */
     val activeLutPreset: StateFlow<LutPreset> = lutController.activePreset
 
@@ -313,6 +337,7 @@ class StreamingEngine @Inject constructor(
     val activeSourceKind: StateFlow<VideoSourceKind> = videoSourceRegistry.activeKind
 
     private var cameraControlSettings = com.vivid.core.data.CameraControlSettings()
+    private var cameraControlSettingsLoaded = false
     private val cameraControlScope by lazy { CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate) }
     private val zoomController = CameraZoomController { cameraControlScope }
     private val savedZoom = mutableMapOf<Boolean, Float>()
@@ -741,7 +766,17 @@ class StreamingEngine @Inject constructor(
     // beim Stream-Start oder nach Rotation an die laufende GL-Pipeline angebunden.
     private var previewRequest: PreviewRequest? = null
     private var glPreviewSurface: Surface? = null
+    private var glPreviewInterface: GlStreamInterface? = null
     private var encoderRotationDegrees = 90
+    private var requestedOutputOrientation: com.vivid.core.data.AppOrientation? = null
+
+    private fun outputRotationDegrees(): Int = when (requestedOutputOrientation) {
+        com.vivid.core.data.AppOrientation.PORTRAIT -> 90
+        com.vivid.core.data.AppOrientation.LANDSCAPE -> 0
+        null -> if (_encoderConfig.value == null) CameraHelper.getCameraOrientation(context) else 0
+    }
+
+    private fun outputEncoderCapabilities() = orientedEncoderCapabilities(encoderCapabilities, encoderRotationDegrees % 180 != 0)
 
 
     /**
@@ -823,10 +858,12 @@ class StreamingEngine @Inject constructor(
      * Camera2Base preserves an ongoing local recording in this overload.
      */
     private fun stopSharedStreamEncoder() {
+        if (activeSourceKind.value != VideoSourceKind.CAMERA) retireSceneSurfaces()
         when (activeSourceKind.value) {
             VideoSourceKind.CAMERA -> camera?.let { cam ->
                 if (cam.isStreaming) {
                     if (!cam.isRecording) {
+                        retireSceneSurfaces()
                         // Stop both capture paths and face detection when the final consumer leaves.
                         faceProducer.detach()
                         closeExperimentalCapture()
@@ -893,7 +930,13 @@ class StreamingEngine @Inject constructor(
      * registriert; der Video-Player (S3) wird beim ersten Wechsel lazy
      * initialisiert (MultiFromFile, Datei wird über [setVideoPlayerUri] gesetzt).
      */
+    fun dispatchSceneTouch(width: Int, height: Int, event: android.view.MotionEvent): Boolean =
+        if (::sceneLayerHost.isInitialized) sceneLayerHost.dispatchTouch(width, height, event) else false
+
+    fun isSceneEmpty(): Boolean = privacyComposer.sceneEmpty
+
     fun setSceneEmpty(enabled: Boolean) {
+        installSceneLayer()
         privacyComposer.sceneEmpty = enabled
         privacyComposer.requestRebuild(activeGlInterface())
     }
@@ -1045,6 +1088,7 @@ class StreamingEngine @Inject constructor(
      * (Rotation, Recents) nicht ersetzt — der laufende Stream bleibt erhalten.
      */
     fun initializeCamera() {
+        installSceneLayer()
         if (camera == null) {
             camera = cameraFactory.create(List(MAX_STREAM_TARGETS) { createTargetChecker(it) })
             camera!!.setRecordController(monitorKeyframes(AndroidMuxerRecordController()))
@@ -1092,11 +1136,19 @@ class StreamingEngine @Inject constructor(
         val next = settings.normalized()
         val stabilizationChanged = next.stabilization != cameraControlSettings.stabilization
         cameraControlSettings = next
+        cameraControlSettingsLoaded = true
+        // DataStore may finish loading after the preview has already opened.
+        if (savedZoom[isFrontCamera()] == null &&
+            (idlePreviewCamera?.isRunning == true || camera?.isStreaming == true || camera?.isRecording == true)) {
+            restoreCameraZoom()
+        }
         applyFrontCameraMirror()
         if (stabilizationChanged) applySavedStabilization()
     }
 
     fun isFrontCamera(): Boolean = (idlePreviewCamera?.cameraFacing ?: camera?.cameraFacing) == CameraHelper.Facing.FRONT
+
+    fun currentCameraZoom(): Float? = cameraControls?.getZoom()
 
     fun cameraZoomRange(): ZoomRange? = if (experimentalCapture != null || _cameraModeStatus.value.preparing) null
         else cameraControls?.getZoomRange()
@@ -1131,6 +1183,7 @@ class StreamingEngine @Inject constructor(
 
     private fun applyFrontCameraMirror() {
         val mirrored = cameraControlSettings.mirrorFrontCamera && isFrontCamera()
+        sceneCameraMirrored = mirrored
         (camera?.glInterface as? GlStreamInterface)?.let {
             it.setIsPreviewHorizontalFlip(mirrored)
             it.setIsStreamHorizontalFlip(mirrored)
@@ -1225,6 +1278,7 @@ class StreamingEngine @Inject constructor(
                 zoomController.cancel()
                 applyFrontCameraMirror()
                 _cameraSelectionVersion.value++
+                if (idlePreviewCamera != null) startIdlePreviewIfReady()
             }
         }
     }
@@ -1253,12 +1307,14 @@ class StreamingEngine @Inject constructor(
     }
 
     private fun startReplayNow(nowMillis: Long, includeAudio: Boolean): Boolean {
+        installSceneLayer()
         val cam = camera ?: return false
         if (activeSourceKind.value != VideoSourceKind.CAMERA || _replayState.value is ReplayState.Recording) return false
         val standalone = !cam.isStreaming
         try {
             if (standalone && !prepareStandaloneRecording(cam, includeAudio)) return false
             if (_cameraModeStatus.value.preparing && preparationGeneration != captureGeneration.get()) {
+                retireSceneSurfaces()
                 closeExperimentalCapture()
                 cam.stopStream()
                 return false
@@ -1289,11 +1345,11 @@ class StreamingEngine @Inject constructor(
         syncSelectedCamera(cam)
         stopIdlePreview()
         val audioReady = prepareStandaloneRecordingAudio(cam, includeAudio)
-        encoderRotationDegrees = if (_encoderConfig.value == null) CameraHelper.getCameraOrientation(context) else 0
+        encoderRotationDegrees = outputRotationDegrees()
         val videoReady = prepareCameraVideo(cam)
         if (audioReady && videoReady && updateBitrateDiagnostics(cam)) return true
         closeExperimentalCapture()
-        (cam.glInterface as? GlStreamInterface)?.stop()
+        stopComposedGl(cam.glInterface as? GlStreamInterface)
         startIdlePreviewIfReady()
         return false
     }
@@ -1311,6 +1367,7 @@ class StreamingEngine @Inject constructor(
 
     private fun restorePreviewAfterRecordingFailure(cam: MultiCamera2, standalone: Boolean) {
         if (!standalone) return
+        retireSceneSurfaces()
         closeExperimentalCapture()
         runCatching { cam.stopRecord() }
         _replayState.value = ReplayState.Idle
@@ -1323,8 +1380,11 @@ class StreamingEngine @Inject constructor(
             captureGeneration.incrementAndGet()
             return null
         }
-        if (camera?.isStreaming != true) closeExperimentalCapture()
-        if (camera?.isStreaming != true) detachGlPreview()
+        if (camera?.isStreaming != true) {
+            if (_replayState.value is ReplayState.Recording || camera?.isRecording == true) retireSceneSurfaces()
+            closeExperimentalCapture()
+            detachGlPreview()
+        }
         val file = replayController?.stop()
         startIdlePreviewIfReady()
         return file
@@ -1350,14 +1410,29 @@ class StreamingEngine @Inject constructor(
         val controls = cameraControls ?: return
         if (_torchEnabled.value) controls.enableTorch()
         applySavedStabilization()
-        savedZoom[isFrontCamera()]?.let { controls.getZoomRange()?.let { range ->
-            controls.setZoom(ZoomCalculator.clamp(it, range))
-        } }
+        restoreCameraZoom()
         focusController?.apply(_focusMode.value)
         if (_autoExposureEnabled.value) controls.enableAutoExposure() else controls.disableAutoExposure()
         if (_autoExposureEnabled.value) controls.setExposure(_exposure.value)
         if (_autoWhiteBalanceEnabled.value) controls.enableAutoWhiteBalance() else controls.disableAutoWhiteBalance()
         refreshCameraControls()
+    }
+
+    /** Wait for real settings/capabilities; an unopened Camera2 reports a fallback 1..1 range. */
+    private fun restoreCameraZoom() {
+        if (!cameraControlSettingsLoaded || experimentalCapture != null || _cameraModeStatus.value.preparing ||
+            idlePreviewCamera?.isRunning == false) return
+        val controls = cameraControls ?: return
+        val range = controls.getZoomRange() ?: return
+        val front = isFrontCamera()
+        val presets = if (front) cameraControlSettings.frontZoomPresets else cameraControlSettings.rearZoomPresets
+        val target = savedZoom[front]?.let { ZoomCalculator.clamp(it, range) }
+            ?: presets.firstOrNull { it in range.min..range.max }
+            ?: return
+        controls.setZoom(target)
+        // Camera2 silently ignores requests before its capture request builder exists.
+        // Do not remember an unapplied startup default; the open callback will retry it.
+        if (controls.getZoom() == target) savedZoom[front] = target
     }
 
     private fun refreshCameraControls(opened: Boolean = true) {
@@ -1413,8 +1488,37 @@ class StreamingEngine @Inject constructor(
         }
     }
 
-    /** Open Camera2 into the same GL pipeline used by recording, without starting encoders. */
+    /** Remember profile changes during a live session and apply them once the encoder is idle. */
+    internal fun configurePreviewVideo(configuration: PreviewVideoConfiguration) {
+        previewVideoConfiguration = configuration
+        requestedOutputOrientation = configuration.orientation
+        startIdlePreviewIfReady()
+    }
+
+    private fun previewCanvasSize(portrait: Boolean): Pair<Int, Int> {
+        val configuration = previewVideoConfiguration
+            ?: return if (portrait) 720 to 1280 else 1280 to 720
+        val requested = configuration.requestedEncoder(encoderCapabilities)
+        val cam = camera ?: return if (portrait) requested.preset.height to requested.preset.width
+            else requested.preset.width to requested.preset.height
+        val characteristics = idlePreviewCamera?.cameraCharacteristics ?: cam.cameraCharacteristics
+        val experimental = if (configuration.usesExperimentalCapture) {
+            runCatching { experimentalProfile(requested, characteristics)?.output }.getOrNull()
+        } else null
+        val capture = if (idlePreviewCamera?.cameraCharacteristics != null) {
+            AndroidCameraCaptureCapabilities(characteristics)
+        } else captureCapabilities(cam)
+        val resolved = experimental ?: resolveCameraStreamProfile(
+            requested, configuration.autoFallback || configuration.usesExperimentalCapture, capture,
+            orientedEncoderCapabilities(encoderCapabilities, portrait),
+        ) ?: requested
+        return if (portrait) resolved.preset.height to resolved.preset.width
+            else resolved.preset.width to resolved.preset.height
+    }
+
+    /** Open ordinary 720p30 capture into the stream-sized GL canvas, without starting encoders. */
     fun startIdlePreviewIfReady() {
+        installSceneLayer()
         val request = previewRequest ?: return
         if (_cameraModeStatus.value.preparing) return
         if (activeSourceKind.value != VideoSourceKind.CAMERA || camera?.isStreaming == true || camera?.isRecording == true ||
@@ -1424,22 +1528,27 @@ class StreamingEngine @Inject constructor(
         // Layout-Maße dienen der Reattach-Erkennung; der Camera2-Buffer kann
         // eine andere, unterstützte Größe haben (z. B. 1088×1088 im Portrait).
         val size = request.width to request.height
-        if (idlePreviewSurface === request.surface && idlePreviewSize == size) {
+        val portrait = previewVideoConfiguration?.orientation?.let { it == com.vivid.core.data.AppOrientation.PORTRAIT }
+            ?: (request.rotationDegrees % 180 == 0)
+        val canvas = previewCanvasSize(portrait)
+        if (idlePreviewSurface === request.surface && idlePreviewSize == size && idlePreviewCanvasSize == canvas) {
             attachPreviewIfRunning()
             return
         }
 
+        val selectedCameraId = idlePreviewCamera?.getCurrentCameraId() ?: camera?.currentCameraId
         stopIdlePreview()
         // GlStreamInterface.stop() does not release its preview EGL surface.
         // Disconnect that producer before Camera2 reconnects to the same SurfaceView.
         detachGlPreview()
         try {
             val gl = camera?.glInterface as? GlStreamInterface ?: return
-            encoderRotationDegrees = 90
-            gl.setEncoderSize(720, 1280)
-            gl.setIsPortrait(true)
+            encoderRotationDegrees = if (portrait) 90 else 0
+            gl.setEncoderSize(canvas.first, canvas.second)
+            gl.setIsPortrait(portrait)
             gl.setRotation(0)
             gl.start()
+            privacyComposer.requestRebuild(gl)
             val preview = idlePreviewFactory(context)
             idlePreviewCamera = preview
             preview.setCameraCallbacks(object : com.pedro.encoder.input.video.CameraCallbacks {
@@ -1454,15 +1563,14 @@ class StreamingEngine @Inject constructor(
                 override fun onCameraDisconnected() = Unit
             })
             preview.prepareCamera(gl.surfaceTexture, 1280, 720, 30)
-            val cameraId = camera?.currentCameraId
-            if (cameraId.isNullOrBlank()) preview.openCameraBack() else preview.openCameraId(cameraId)
             idlePreviewSurface = request.surface
             idlePreviewSize = size
+            idlePreviewCanvasSize = canvas
+            if (selectedCameraId.isNullOrBlank()) preview.openCameraBack() else preview.openCameraId(selectedCameraId)
             attachPreviewIfRunning()
             // Kamera wird gerade geöffnet: der Producer versucht das Einschalten
             // der Erkennung nach, bis das Input-Surface steht (Risiko #1).
             attachFaceDetection(idleFaceDetectableFactory(preview))
-            privacyComposer.requestRebuild(gl)
             restoreCameraControls()
         } catch (error: Exception) {
             stopIdlePreview()
@@ -1474,6 +1582,7 @@ class StreamingEngine @Inject constructor(
         zoomController.cancel()
         idlePreviewSurface = null
         idlePreviewSize = null
+        idlePreviewCanvasSize = null
         if (idlePreviewCamera != null) {
             // Erkennung zuerst abschalten, solange die Kamera noch offen ist
             // (Callbacks hängen am Gerät) — laufende Nachversuche fallen weg.
@@ -1481,7 +1590,7 @@ class StreamingEngine @Inject constructor(
             runCatching { idlePreviewCamera?.closeCamera() }
             idlePreviewCamera = null
             detachGlPreview()
-            (camera?.glInterface as? GlStreamInterface)?.stop()
+            stopComposedGl(camera?.glInterface as? GlStreamInterface)
         }
     }
 
@@ -1490,14 +1599,16 @@ class StreamingEngine @Inject constructor(
         if (surface != null && previewRequest?.surface !== surface) return
         previewRequest = null
         stopIdlePreview()
-        (camera?.glInterface as? GlStreamInterface)?.deAttachPreview()
+        (glPreviewInterface ?: camera?.glInterface as? GlStreamInterface)?.deAttachPreview()
         glPreviewSurface = null
+        glPreviewInterface = null
     }
 
     private fun detachGlPreview() {
         if (glPreviewSurface == null) return
-        (camera?.glInterface as? GlStreamInterface)?.deAttachPreview()
+        (glPreviewInterface ?: camera?.glInterface as? GlStreamInterface)?.deAttachPreview()
         glPreviewSurface = null
+        glPreviewInterface = null
     }
 
     /**
@@ -1507,6 +1618,7 @@ class StreamingEngine @Inject constructor(
      * Ziele gestartet. Läuft bereits ein Stream, wird nichts gestartet.
      */
     fun startStream(urls: List<String>) {
+        installSceneLayer()
         val activeUrls = urls
             .map { it.trim() }
             .filter { it.isNotEmpty() }
@@ -1564,6 +1676,7 @@ class StreamingEngine @Inject constructor(
         }
         applyPrivacyZones()
         urls.forEachIndexed(startTarget)
+        attachPreviewIfRunning()
     }
 
     private fun startCameraStream(activeUrls: List<String>) {
@@ -1579,6 +1692,7 @@ class StreamingEngine @Inject constructor(
 
         if (prepareStreamEncoders(cam)) {
             if (_cameraModeStatus.value.preparing && preparationGeneration != captureGeneration.get()) {
+                retireSceneSurfaces()
                 closeExperimentalCapture()
                 cam.stopStream()
                 _streamingState.value = StreamingState.Idle
@@ -1599,7 +1713,7 @@ class StreamingEngine @Inject constructor(
         } else {
             val hadExperimentalCapture = experimentalCapture != null
             closeExperimentalCapture()
-            if (hadExperimentalCapture) (cam.glInterface as? GlStreamInterface)?.stop()
+            if (hadExperimentalCapture) stopComposedGl(cam.glInterface as? GlStreamInterface)
             if (_cameraModeStatus.value.preparing && preparationGeneration != captureGeneration.get()) {
                 _streamingState.value = StreamingState.Idle
                 return
@@ -1642,7 +1756,7 @@ class StreamingEngine @Inject constructor(
                 val prepared = runCatching {
                     check(prepareResolvedVideo(cam, profile.output))
                     val adapter = externalCaptureFactory(cam).also { externalCapture = it }
-                    val gl = adapter.prepare(profile.output.preset.width, profile.output.preset.height)
+                    val gl = adapter.prepare(profile.output.preset.width, profile.output.preset.height, encoderRotationDegrees)
                     privacyComposer.requestRebuild(gl)
                     val capture = experimentalCaptureFactory(cam.currentCameraId, profile, gl.surface) { error ->
                         Timber.e(error, "Experimental camera capture failed")
@@ -1664,13 +1778,10 @@ class StreamingEngine @Inject constructor(
                 }.getOrElse {
                     Timber.w(it, "Experimental camera preparation failed; returning to standard capture")
                     closeExperimentalCapture()
-                    (cam.glInterface as? GlStreamInterface)?.stop()
+                    stopComposedGl(cam.glInterface as? GlStreamInterface)
                     false
                 }
-                if (prepared) {
-                    encoderRotationDegrees = 0 // The resolved bridge output always uses native landscape axes.
-                    return true
-                }
+                if (prepared) return true
             }
             if (generation != captureGeneration.get()) return false
             // A capture fallback must retain the requested mode's GL overlay preservation.
@@ -1681,7 +1792,7 @@ class StreamingEngine @Inject constructor(
             // Capture fallback is explicit, independent of the requested strict encoder setting.
             val requestedStandard = _encoderConfig.value
             if (requestedStandard != null) {
-                val fallback = resolveCameraStreamProfile(requestedStandard, true, captureCapabilities(cam), encoderCapabilities)
+                val fallback = resolveCameraStreamProfile(requestedStandard, true, captureCapabilities(cam), outputEncoderCapabilities())
                     ?: return false
                 return prepareResolvedVideo(cam, fallback)
             }
@@ -1694,7 +1805,7 @@ class StreamingEngine @Inject constructor(
         val recording = cam.isRecording
         if (!recording) _bitrateDiagnostics.value = null
         if (!recording) {
-            encoderRotationDegrees = if (_encoderConfig.value == null) CameraHelper.getCameraOrientation(context) else 0
+            encoderRotationDegrees = outputRotationDegrees()
         }
         val audioReady = recording || cam.prepareAudio() == true
         val videoReady = if (recording) {
@@ -1725,7 +1836,7 @@ class StreamingEngine @Inject constructor(
         _activeEncoder.value = null
         _measuredEncoderFps.value = null
         val resolved = resolveCameraStreamProfile(
-            requested, _encoderAutoFallback.value, captureCapabilities(cam), encoderCapabilities,
+            requested, _encoderAutoFallback.value, captureCapabilities(cam), outputEncoderCapabilities(),
         ) ?: return false
 
         val codec = when (resolved.codec) {
@@ -1750,9 +1861,11 @@ class StreamingEngine @Inject constructor(
             resolved.fps,
             (savedBitrateKbps ?: resolved.preset.videoBitrateKbps) * 1_000, // RootEncoder expects bits/s.
             keyframeController.intervalSeconds, // Seconds, paired with the resolved FPS above.
-            0, // rotation
+            encoderRotationDegrees,
         )
-        if (prepared == true) _activeEncoder.value = resolved
+        if (prepared == true) {
+            _activeEncoder.value = resolved
+        }
         return prepared == true
     }
 
@@ -1811,6 +1924,7 @@ class StreamingEngine @Inject constructor(
     fun configureStreamVideo(settings: com.vivid.core.data.AppSettings) {
         configureCameraControls(settings.cameraControls)
         if (!canChangeCameraMode()) return
+        requestedOutputOrientation = settings.appOrientation
         savedBitrateKbps = settings.videoBitrateKbps?.coerceIn(1_000, 15_000)
         keyframeController.intervalSeconds = settings.keyframeIntervalSeconds.coerceIn(1, 10)
         lowLightBoostController.setEnabled(settings.lowLightBoostEnabled) {
@@ -1868,24 +1982,33 @@ class StreamingEngine @Inject constructor(
     /** Hängt die gemerkte Preview-Surface an, sobald die GL-Pipeline läuft. */
     private fun attachPreviewIfRunning() {
         val request = previewRequest ?: return
-        val gl = camera?.glInterface as? GlStreamInterface ?: return
+        val gl = activeGlInterface() ?: return
+        if (glPreviewInterface != null && glPreviewInterface !== gl) detachGlPreview()
         if (gl.isRunning) {
             if (glPreviewSurface !== request.surface) {
                 gl.attachPreview(request.surface)
                 glPreviewSurface = request.surface
+                glPreviewInterface = gl
             }
             gl.setPreviewResolution(request.width, request.height)
             // Fixed encoder dimensions still need a half-turn for the opposite device orientation.
             // Apply it to the source before filters; rotating the final output would invert overlays.
+            if (activeSourceKind.value != VideoSourceKind.CAMERA) {
+                gl.setPreviewRotation(0)
+                gl.setPreviewIsPortrait(gl.encoderSize.y > gl.encoderSize.x)
+                gl.setAspectRatioMode(AspectRatioMode.Adjust)
+                return
+            }
             val inputHalfTurn = if (request.rotationDegrees >= 180) 180 else 0
             val external = externalCapture
-            if (external != null) external.setInputOrientation(inputHalfTurn) else {
+            if (external != null) external.setInputOrientation((encoderRotationDegrees + inputHalfTurn) % 360) else {
                 val inputRotation = if (encoderRotationDegrees == 0) 270 else encoderRotationDegrees - 90
                 gl.setCameraOrientation((inputRotation + inputHalfTurn) % 360)
             }
-            gl.setPreviewIsPortrait(request.rotationDegrees % 180 == 0)
-            gl.setPreviewRotation((90 - request.rotationDegrees - encoderRotationDegrees - inputHalfTurn + 720) % 360)
-            gl.setAspectRatioMode(AspectRatioMode.Fill)
+            // Preview the final frame without rotating the scene text a second time.
+            gl.setPreviewIsPortrait(encoderRotationDegrees % 180 != 0)
+            gl.setPreviewRotation(0)
+            gl.setAspectRatioMode(AspectRatioMode.Adjust)
         }
     }
 

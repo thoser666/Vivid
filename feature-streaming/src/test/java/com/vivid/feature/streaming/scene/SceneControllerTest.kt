@@ -53,7 +53,7 @@ class SceneControllerTest {
                 any(), any(), any(), any(), any(), any(),
             ) } just Runs
         }
-        val streamingEngine = mockk<StreamingEngine> {
+        val streamingEngine = mockk<StreamingEngine>(relaxed = true) {
             every { switchSource(any()) } returns true
         }
         val controller = controller(
@@ -94,7 +94,7 @@ class SceneControllerTest {
                 any(), any(), any(), any(), any(), any(),
             ) } just Runs
         }
-        val streamingEngine = mockk<StreamingEngine> {
+        val streamingEngine = mockk<StreamingEngine>(relaxed = true) {
             every { switchSource(any()) } returns true
         }
         val controller = controller(
@@ -110,7 +110,7 @@ class SceneControllerTest {
 
     @Test
     fun `applyScene prepares the replay file for a replay scene`() = runTest {
-        val streamingEngine = mockk<StreamingEngine> {
+        val streamingEngine = mockk<StreamingEngine>(relaxed = true) {
             every { useReplayAsSource(any()) } returns true
         }
         val controller = controller(
@@ -129,7 +129,7 @@ class SceneControllerTest {
 
     @Test
     fun `applyScene without a replay path falls back to switching the replay source`() = runTest {
-        val streamingEngine = mockk<StreamingEngine> {
+        val streamingEngine = mockk<StreamingEngine>(relaxed = true) {
             every { switchSource(any()) } returns true
         }
         val controller = controller(
@@ -182,5 +182,32 @@ class SceneControllerTest {
         val engine = mockk<StreamingEngine>(relaxed = true) { every { switchSource(any()) } returns true }
         controller(repo, mockk(relaxed = true), engine).applyScene(scene(source = SceneVideoSource.EMPTY).copy(widgets = emptyList()))
         coVerify { engine.setSceneEmpty(true); repo.setActiveScene("1") }
+    }
+
+    @Test
+    fun `empty source gate closes before switching and stays closed through activation`() = runTest {
+        val repo = mockk<SceneRepository>(relaxed = true)
+        val engine = mockk<StreamingEngine>(relaxed = true) { every { switchSource(any()) } returns true }
+        controller(repo, mockk(relaxed = true), engine).applyScene(scene(source = SceneVideoSource.EMPTY).copy(widgets = emptyList()))
+        io.mockk.coVerifyOrder {
+            engine.setSceneEmpty(true)
+            engine.switchSource(VideoSourceKind.CAMERA)
+            repo.setActiveScene("1")
+            engine.setSceneEmpty(true)
+        }
+        io.mockk.verify(exactly = 0) { engine.setSceneEmpty(false) }
+    }
+
+    @Test
+    fun `rejected switch restores the previous blackout without activating the scene`() = runTest {
+        val repo = mockk<SceneRepository>(relaxed = true)
+        val engine = mockk<StreamingEngine>(relaxed = true) {
+            every { isSceneEmpty() } returns true
+            every { switchSource(any()) } returns false
+        }
+        controller(repo, mockk(relaxed = true), engine).applyScene(scene(source = SceneVideoSource.SCREEN_CAPTURE))
+        io.mockk.verify(exactly = 2) { engine.setSceneEmpty(true) }
+        io.mockk.verify(exactly = 0) { engine.setSceneEmpty(false) }
+        coVerify(exactly = 0) { repo.setActiveScene(any()) }
     }
 }

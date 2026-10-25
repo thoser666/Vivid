@@ -19,11 +19,32 @@ class SettingsRepositoryTest {
     lateinit var tempDir: Path
 
     @Test
+    fun `local overlay toggles survive reload and stream profile changes independently`() = runTest {
+        val store = PreferenceDataStoreFactory.create(scope = backgroundScope,
+            produceFile = { File(tempDir.toFile(), "local_overlays.preferences_pb") })
+        val repository = SettingsRepository(store)
+        assertEquals(LocalOverlaySettings(), repository.appSettingsFlow.first().localOverlays)
+        repository.updateLocalOverlays { it.copy(showZoom = false) }
+        repository.updateLocalOverlays { it.copy(showDuration = false) }
+        repository.updateLocalOverlays { it.copy(showScenes = false) }
+        repository.updateLocalOverlays { it.copy(showBitrate = false) }
+        val profiles = listOf(StreamProfile("one", "One"), StreamProfile("two", "Two"))
+        repository.updateStreamProfiles(profiles, "one")
+        repository.updateStreamProfiles(profiles, "two")
+        val restored = SettingsRepository(store).appSettingsFlow.first()
+        assertEquals(LocalOverlaySettings(showZoom = false, showDuration = false, showScenes = false, showBitrate = false), restored.localOverlays)
+        assertEquals("two", restored.activeStreamId)
+        repository.updateLocalOverlays { it.copy(showFps = false) }
+        assertEquals(LocalOverlaySettings(false, false, false, false, false), repository.appSettingsFlow.first().localOverlays)
+    }
+
+    @Test
     fun `camera controls persist independently of profiles including empty lists and preset order`() = runTest {
         val store = PreferenceDataStoreFactory.create(scope = backgroundScope,
             produceFile = { File(tempDir.toFile(), "camera_controls.preferences_pb") })
         val repository = SettingsRepository(store)
         assertEquals(CameraControlSettings(), repository.appSettingsFlow.first().cameraControls)
+        assertEquals(listOf(1f, 1.5f, 2f), repository.appSettingsFlow.first().cameraControls.rearZoomPresets)
         repository.updateCameraControls { it.copy(zoomSpeed = 2.3f,
             rearZoomPresets = listOf(2f, 0.5f, 1.5f), frontZoomPresets = emptyList(),
             stabilization = StabilizationMode.CINEMATIC, mirrorFrontCamera = true) }

@@ -180,7 +180,7 @@ class SettingsSubScreensRobolectricTest {
         composeRule.onNodeWithText("Save").performClick()
         composeRule.runOnIdle {
             org.junit.Assert.assertEquals(listOf(0.5f, 1f, 2.5f), controls.value.settings.frontZoomPresets)
-            org.junit.Assert.assertEquals(listOf(0.5f, 1f, 1.5f, 2f), controls.value.settings.rearZoomPresets)
+            org.junit.Assert.assertEquals(listOf(1f, 1.5f, 2f), controls.value.settings.rearZoomPresets)
         }
         composeRule.onNode(hasScrollAction()).performScrollToNode(androidx.compose.ui.test.hasTestTag("front_zoom_delete_2"))
         composeRule.onNodeWithTag("front_zoom_delete_2").performClick()

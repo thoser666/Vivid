@@ -141,55 +141,62 @@ internal fun <T> SceneItemsList(
                                 heights[id] = it.size.height
                             },
                     ) {
-                        val dismissState = rememberSwipeToDismissBoxState()
-                        LaunchedEffect(dismissState.currentValue) {
-                            if (dismissState.currentValue == SwipeToDismissBoxValue.EndToStart) onDelete(id)
-                        }
-                        SwipeToDismissBox(
-                            state = dismissState,
-                            enableDismissFromStartToEnd = false,
-                            enableDismissFromEndToStart = dragging == null,
-                            backgroundContent = {
-                                Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.CenterEnd) {
-                                    Icon(Icons.Default.Delete, stringResource(R.string.scene_widget_delete), tint = MaterialTheme.colorScheme.error)
+                        var dismissAttempt by remember { mutableIntStateOf(0) }
+                        key(dismissAttempt) {
+                            val dismissState = rememberSwipeToDismissBoxState()
+                            LaunchedEffect(dismissState.currentValue) {
+                                if (dismissState.currentValue == SwipeToDismissBoxValue.EndToStart) {
+                                    onDelete(id)
+                                    // Replace the completed swipe state; cancelling a library dialog keeps this row usable.
+                                    dismissAttempt++
                                 }
-                            },
-                        ) {
-                        ListItem(
-                            headlineContent = { Text(itemName(item)) },
-
-                            leadingContent = {
-                                val description = stringResource(R.string.scene_widget_reorder, itemName(item))
-                                Box(Modifier.size(48.dp).testTag("scene_item_drag_$id").semantics {
-                                    contentDescription = description
-                                    customActions = buildList {
-                                        fun move(to: Int): Boolean {
-                                            val updated = order.toMutableList().apply { add(to, removeAt(index)) }
-                                            order = updated
-                                            currentReorder(updated)
-                                            return true
-                                        }
-                                        if (index > 0) add(CustomAccessibilityAction(moveUp) { move(index - 1) })
-                                        if (index < order.lastIndex) add(CustomAccessibilityAction(moveDown) { move(index + 1) })
+                            }
+                            SwipeToDismissBox(
+                                state = dismissState,
+                                enableDismissFromStartToEnd = false,
+                                enableDismissFromEndToStart = dragging == null,
+                                backgroundContent = {
+                                    Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.CenterEnd) {
+                                        Icon(Icons.Default.Delete, stringResource(R.string.scene_widget_delete), tint = MaterialTheme.colorScheme.error)
                                     }
-                                }, contentAlignment = Alignment.Center) {
-                                    Icon(Icons.Default.DragHandle, contentDescription = null)
-                                }
-                            },
-                            trailingContent = {
-                                StreamSwitchAction("scene_item_switch_divider_$id") {
-                                    Switch(checked = itemEnabled(item), onCheckedChange = { onToggle(id, it) },
-                                        modifier = Modifier.testTag("scene_item_toggle_$id").semantics { contentDescription = itemName(item) })
-                                }
-                            },
-                            colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-                            modifier = Modifier.fillMaxWidth().testTag("scene_item_row_$id")
-                                .graphicsLayer {
-                                    translationY = if (dragging == id) dragCenter - (centers[id] ?: dragCenter) else 0f
-                                    shadowElevation = if (dragging == id) 8.dp.toPx() else 0f
-                                }
-                                .clickable { onOpen(id) },
-                        )
+                                },
+                            ) {
+                            ListItem(
+                                headlineContent = { Text(itemName(item)) },
+
+                                leadingContent = {
+                                    val description = stringResource(R.string.scene_widget_reorder, itemName(item))
+                                    Box(Modifier.size(48.dp).testTag("scene_item_drag_$id").semantics {
+                                        contentDescription = description
+                                        customActions = buildList {
+                                            fun move(to: Int): Boolean {
+                                                val updated = order.toMutableList().apply { add(to, removeAt(index)) }
+                                                order = updated
+                                                currentReorder(updated)
+                                                return true
+                                            }
+                                            if (index > 0) add(CustomAccessibilityAction(moveUp) { move(index - 1) })
+                                            if (index < order.lastIndex) add(CustomAccessibilityAction(moveDown) { move(index + 1) })
+                                        }
+                                    }, contentAlignment = Alignment.Center) {
+                                        Icon(Icons.Default.DragHandle, contentDescription = null)
+                                    }
+                                },
+                                trailingContent = {
+                                    StreamSwitchAction("scene_item_switch_divider_$id") {
+                                        Switch(checked = itemEnabled(item), onCheckedChange = { onToggle(id, it) },
+                                            modifier = Modifier.testTag("scene_item_toggle_$id").semantics { contentDescription = itemName(item) })
+                                    }
+                                },
+                                colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                                modifier = Modifier.fillMaxWidth().testTag("scene_item_row_$id")
+                                    .graphicsLayer {
+                                        translationY = if (dragging == id) dragCenter - (centers[id] ?: dragCenter) else 0f
+                                        shadowElevation = if (dragging == id) 8.dp.toPx() else 0f
+                                    }
+                                    .clickable { onOpen(id) },
+                            )
+                            }
                         }
                     }
                     if (index < order.lastIndex) HorizontalDivider(Modifier.padding(horizontal = 16.dp))

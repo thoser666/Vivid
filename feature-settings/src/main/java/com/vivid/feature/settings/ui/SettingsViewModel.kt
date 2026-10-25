@@ -188,7 +188,7 @@ class SettingsViewModel @Inject constructor(
 
     fun saveStreamDraft(onSaved: () -> Unit) {
         val draft = _streamDraft.value ?: return
-        if (draft.name.isBlank() || draft.streamUrl.isBlank() || _streamSaving.value) return
+        if (draft.name.isBlank() || streamDraftErrors(draft).isNotEmpty() || _streamSaving.value) return
         _streamSaving.value = true
         _streamSaveFailed.value = false
         viewModelScope.launch {

@@ -1,9 +1,9 @@
 package com.vivid.core.data
 
-/** Saved independently of stream profiles; order is shared with the future zoom widget. */
+/** Saved independently of stream profiles; order is shared with the local zoom controls. */
 data class CameraControlSettings(
     val zoomSpeed: Float = 5.0f,
-    val rearZoomPresets: List<Float> = listOf(0.5f, 1f, 1.5f, 2f),
+    val rearZoomPresets: List<Float> = listOf(1f, 1.5f, 2f),
     val frontZoomPresets: List<Float> = listOf(0.5f, 1f),
     val stabilization: StabilizationMode = StabilizationMode.OFF,
     val mirrorFrontCamera: Boolean = false,

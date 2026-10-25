@@ -130,4 +130,17 @@ class VideoFilterControllerTest {
         assertEquals(VideoFilter.SEPIA, controller.activeFilter.value)
         assertEquals(2, applyCount)
     }
+
+    @Test
+    fun `composer callback sees the new filter immediately and failure restores state`() {
+        val controller = VideoFilterController()
+        assertTrue(controller.setFilter(VideoFilter.SEPIA) {
+            assertEquals(VideoFilter.SEPIA, controller.activeFilter.value)
+        })
+        assertFalse(controller.setFilter(VideoFilter.NONE) {
+            assertEquals(VideoFilter.NONE, controller.activeFilter.value)
+            error("failed to enqueue")
+        })
+        assertEquals(VideoFilter.SEPIA, controller.activeFilter.value)
+    }
 }

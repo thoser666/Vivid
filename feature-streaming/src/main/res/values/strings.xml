@@ -167,4 +167,7 @@
     <string name="streaming_stop_confirm_message">Die Live-Übertragung wird für alle Ziele beendet.</string>
     <string name="streaming_stop_confirm">Beenden</string>
     <string name="streaming_keep_live">Weiter streamen</string>
+    <string name="preview_zoom_picker">Zoom-Steuerung</string>
+    <string name="preview_zoom_ratio">%1$s×</string>
+    <string name="streaming_fps_pending">— FPS</string>
 </resources>

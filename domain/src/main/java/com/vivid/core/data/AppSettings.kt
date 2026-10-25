@@ -147,6 +147,7 @@ data class AppSettings(
     val remoteControlEnabled: Boolean = true,
     // --- Darstellung (Theme) ---
     val appOrientation: AppOrientation = AppOrientation.PORTRAIT,
+    val localOverlays: LocalOverlaySettings = LocalOverlaySettings(),
     // Design-Modus: SYSTEM (System folgen) | LIGHT | DARK | AMOLED (schwarze Flächen).
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     // Kuratierte Akzentfarbe (Standard: Vivid-Grün — unverändert gegenüber Stufe 1).

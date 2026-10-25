@@ -36,7 +36,7 @@ class StreamProfilesScreenTest {
 
     private fun show(profiles: List<StreamProfile> = emptyList(), active: String? = null) {
         settings.value = AppSettings(streamProfiles = profiles, activeStreamId = active)
-        every { vm.editStream(any()) } answers { draft.value = profiles.first { it.id == firstArg<String>() } }
+        every { vm.editStream(any()) } answers { draft.value = settings.value.streamProfiles.first { it.id == firstArg<String>() } }
         every { vm.createStream(any()) } answers {
             val platform = firstArg<StreamPlatform>()
             draft.value = StreamProfile("new", "", StreamPlatformType.valueOf(platform.name),
@@ -54,7 +54,11 @@ class StreamProfilesScreenTest {
             settings.value = settings.value.copy(streamProfiles = firstArg<List<String>>().map { byId.getValue(it) })
         }
         every { vm.saveStreamDraft(any()) } answers {
-            settings.value = settings.value.copy(streamProfiles = profiles + draft.value!!)
+            val saved = requireNotNull(draft.value)
+            val latest = settings.value.streamProfiles
+            settings.value = settings.value.copy(streamProfiles = if (latest.any { it.id == saved.id }) {
+                latest.map { if (it.id == saved.id) saved else it }
+            } else latest + saved)
             draft.value = null
             firstArg<() -> Unit>()()
         }
@@ -89,6 +93,45 @@ class StreamProfilesScreenTest {
         compose.onNodeWithText("My YouTube").assertExists()
         compose.onNodeWithText("Stream URL").assertDoesNotExist()
         verify { vm.saveStreamDraft(any()) }
+    }
+
+    @Test fun `primary URL validates while typing and blocks save until corrected`() {
+        show(listOf(first))
+        details()
+        val field = compose.onNodeWithTag("stream_primary_url")
+        field.performTextReplacement("djfj")
+        compose.onNodeWithText("Unsupported protocol \"djfj\". Allowed are rtmp, rtmps and srt.").assertIsDisplayed()
+        compose.onNodeWithText("Save").assertIsNotEnabled().performClick()
+        verify(exactly = 0) { vm.saveStreamDraft(any()) }
+        field.performTextReplacement("rtmp:///app")
+        compose.onNodeWithText("The stream URL contains no valid server host (e.g. rtmp://live.twitch.tv/app).").assertExists()
+        compose.onNodeWithText("Save").assertIsNotEnabled()
+        field.performTextReplacement("rtmp://srt/app")
+        compose.onNodeWithText("Save").assertIsNotEnabled()
+        // Missing separate keys remain warnings: a key can already be included in the URL.
+        field.performTextReplacement("rtmps://localhost:1936/app/included-key")
+        compose.onNodeWithText("Save").assertIsEnabled()
+        scrollClick("Save")
+        org.junit.Assert.assertEquals("rtmps://localhost:1936/app/included-key", settings.value.streamProfiles.single().streamUrl)
+    }
+
+    @Test fun `optional second URL rejects malformed input but can be cleared or use SRT`() {
+        show(listOf(first))
+        details()
+        scrollClick("Multi-streaming (optional)")
+        val field = compose.onNodeWithTag("stream_secondary_url")
+        compose.onNodeWithText("Save").assertIsEnabled()
+        field.performTextReplacement("https://server.example/live")
+        compose.onNodeWithText("Unsupported protocol \"https\". Allowed are rtmp, rtmps and srt.").assertIsDisplayed()
+        compose.onNodeWithText("Save").assertIsNotEnabled()
+        field.performTextReplacement("srt://")
+        compose.onNodeWithText("Save").assertIsNotEnabled()
+        field.performTextReplacement("")
+        compose.onNodeWithText("Save").assertIsEnabled()
+        field.performTextReplacement("srt://server.example:9000?streamid=live")
+        compose.onNodeWithText("Save").assertIsEnabled()
+        scrollClick("Save")
+        org.junit.Assert.assertEquals("srt://server.example:9000?streamid=live", settings.value.streamProfiles.single().secondaryStreamUrl)
     }
 
     @Test fun `switches do not navigate and selecting another turns first off`() {
@@ -171,6 +214,56 @@ class StreamProfilesScreenTest {
         compose.onNodeWithText("OBS host").assertDoesNotExist()
         scrollClick("OBS remote control")
         compose.onNodeWithText("OBS host").assertExists()
+    }
+
+    @Test fun `each source subpage saves the edited profile without another parent save`() {
+        show(listOf(first), "a")
+        val pages = listOf("Video", "Replay recording", "Multi-streaming (optional)", "OBS remote control")
+        pages.forEachIndexed { index, page ->
+            details()
+            scrollClick(page)
+            when (page) {
+                "Video" -> compose.onNodeWithText("1080p30").performClick()
+                "Replay recording" -> compose.onNode(isToggleable()).performClick()
+                "Multi-streaming (optional)" -> compose.onNodeWithText("Second stream URL")
+                    .performTextReplacement("rtmp://second.example/live")
+                "OBS remote control" -> compose.onNodeWithText("OBS host").performTextReplacement("192.0.2.10")
+            }
+            val edited = requireNotNull(draft.value)
+            scrollClick("Save")
+            compose.onNodeWithTag("stream_row_a").assertExists()
+            org.junit.Assert.assertNull(draft.value)
+            org.junit.Assert.assertEquals(listOf(edited), settings.value.streamProfiles)
+            org.junit.Assert.assertEquals("a", settings.value.activeStreamId)
+            verify(exactly = index + 1) { vm.saveStreamDraft(any()) }
+        }
+        org.junit.Assert.assertEquals(EncoderPreset.FHD30, settings.value.streamProfiles.single().encoderPreset)
+        org.junit.Assert.assertEquals("rtmp://second.example/live", settings.value.streamProfiles.single().secondaryStreamUrl)
+        org.junit.Assert.assertEquals("192.0.2.10", settings.value.streamProfiles.single().obsHost)
+    }
+
+    @Test fun `failed subpage save keeps edits and shows the error for retry`() {
+        val failure = MutableStateFlow(false)
+        every { vm.streamSaveFailed } returns failure
+        show(listOf(first))
+        every { vm.saveStreamDraft(any()) } answers { failure.value = true }
+        details()
+        scrollClick("OBS remote control")
+        compose.onNodeWithText("OBS host").performTextReplacement("192.0.2.11")
+        scrollClick("Save")
+        org.junit.Assert.assertEquals("192.0.2.11", draft.value!!.obsHost)
+        org.junit.Assert.assertEquals(first, settings.value.streamProfiles.single())
+        compose.onNodeWithText("OBS host").assertIsDisplayed()
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        compose.onNodeWithText(context.getString(com.vivid.feature.settings.R.string.stream_save_failed)).assertIsDisplayed()
+        every { vm.saveStreamDraft(any()) } answers {
+            settings.value = settings.value.copy(streamProfiles = listOf(requireNotNull(draft.value)))
+            draft.value = null
+            firstArg<() -> Unit>()()
+        }
+        scrollClick("Save")
+        compose.onNodeWithTag("stream_row_a").assertExists()
+        org.junit.Assert.assertEquals("192.0.2.11", settings.value.streamProfiles.single().obsHost)
     }
 
     @Test fun `multi recording and OBS pages retain existing fields`() {

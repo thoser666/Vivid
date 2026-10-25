@@ -3,6 +3,7 @@ package com.vivid.irlbroadcaster
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
+import com.vivid.feature.streaming.R as StreamingR
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -48,7 +49,9 @@ class PlayScreenshotsTest {
     @Test
     fun captureSettings() {
         composeRule.waitForIdle()
-        composeRule.onNodeWithContentDescription("Open Settings").performClick()
+        composeRule.onNodeWithContentDescription(
+            composeRule.activity.getString(StreamingR.string.streaming_settings_content_desc),
+        ).performClick()
         composeRule.waitForIdle()
         Screengrab.screenshot("2_settings")
     }

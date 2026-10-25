@@ -169,4 +169,7 @@
     <string name="streaming_stop_confirm_message">Трансляция будет остановлена для всех площадок.</string>
     <string name="streaming_stop_confirm">Остановить</string>
     <string name="streaming_keep_live">Продолжить эфир</string>
+    <string name="preview_zoom_picker">Управление масштабом</string>
+    <string name="preview_zoom_ratio">%1$s×</string>
+    <string name="streaming_fps_pending">— FPS</string>
 </resources>

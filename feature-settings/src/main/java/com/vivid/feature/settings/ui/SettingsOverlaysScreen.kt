@@ -57,6 +57,7 @@ fun SettingsOverlaysScreen(
     var widgetId by rememberSaveable { mutableStateOf<String?>(null) }
     var placementId by rememberSaveable { mutableStateOf<String?>(null) }
     var zonesEditing by rememberSaveable { mutableStateOf(false) }
+    var deletingWidgetId by rememberSaveable { mutableStateOf<String?>(null) }
     val names = WidgetType.entries.associateWith { stringResource(it.titleRes) }
     val defaultSceneName = stringResource(StreamingR.string.scene_default_name, 1)
     LaunchedEffect(Unit) { scenesViewModel.initializeWidgets(defaultSceneName, names) }
@@ -75,6 +76,25 @@ fun SettingsOverlaysScreen(
     val placement = scene?.widgets?.find { it.widgetId == placementId }
     val placedWidget = widgets.find { it.id == placementId }
     var draftLayout by remember(sceneId, placementId) { mutableStateOf<SceneWidget?>(null) }
+    val deletingWidget = widgets.find { it.id == deletingWidgetId }
+    if (deletingWidget != null) {
+        AlertDialog(
+            modifier = Modifier.testTag("library_widget_delete_dialog"),
+            onDismissRequest = { deletingWidgetId = null },
+            title = { Text(stringResource(R.string.scene_widget_delete_title)) },
+            text = { Text(stringResource(R.string.scene_widget_delete_message, deletingWidget.name)) },
+            confirmButton = {
+                TextButton(modifier = Modifier.testTag("library_widget_delete_confirm"), onClick = {
+                    scenesViewModel.deleteWidget(deletingWidget.id)
+                    deletingWidgetId = null
+                }) { Text(stringResource(R.string.scene_widget_delete)) }
+            },
+            dismissButton = {
+                TextButton(modifier = Modifier.testTag("library_widget_delete_cancel"),
+                    onClick = { deletingWidgetId = null }) { Text(stringResource(android.R.string.cancel)) }
+            },
+        )
+    }
     when {
         zonesEditing -> {
             val zones by scenesViewModel.privacyZones.collectAsStateWithLifecycle(emptyList())
@@ -115,7 +135,10 @@ fun SettingsOverlaysScreen(
                     Text(stringResource(R.string.scene_widget_add_scene))
                 }
                 Text(stringResource(R.string.scene_widget_library), style = MaterialTheme.typography.titleLarge)
-                SceneItemsList(widgets, { it.id }, { it.name }, { it.enabled }, scenesViewModel::deleteWidget,
+                Text(stringResource(R.string.scene_widget_library_hint),
+                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.testTag("widget_library_hint"))
+                SceneItemsList(widgets, { it.id }, { it.name }, { it.enabled }, { deletingWidgetId = it },
                     scroll, onOpen = { widgetId = it },
                     onToggle = { id, enabled -> widgets.find { it.id == id }?.let { scenesViewModel.updateWidget(it.copy(enabled = enabled)) } },
                     onReorder = scenesViewModel::reorderWidgets)
@@ -185,6 +208,9 @@ private fun SceneEditor(
             Text(stringResource(if (scene.id == activeId) R.string.scene_widget_active else R.string.scene_widget_activate))
         }
         Text(stringResource(R.string.scene_widget_scene_widgets), style = MaterialTheme.typography.titleLarge)
+        Text(stringResource(R.string.scene_widget_scene_widgets_hint),
+            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.testTag("scene_widgets_hint"))
         val placements = scene.widgets.orEmpty()
         SceneItemsList(placements, { it.widgetId }, { item -> widgets.find { it.id == item.widgetId }?.name.orEmpty() },
             { it.enabled }, onDelete = { id -> viewModel.updateScene(scene.copy(widgets = placements.filterNot { it.widgetId == id })) },
@@ -418,6 +444,7 @@ private fun SceneAutomationAndPrivacy(viewModel: StreamingViewModel, idle: Boole
     val interval by viewModel.autoSwitchIntervalSeconds.collectAsStateWithLifecycle()
     val privacy by viewModel.privacyEnabled.collectAsStateWithLifecycle(false)
     val fullFrame by viewModel.fullFrameBlurEnabled.collectAsStateWithLifecycle(false)
+    Text(stringResource(R.string.scene_widget_scene_management), style = MaterialTheme.typography.titleLarge)
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(stringResource(StreamingR.string.scene_auto_switch), Modifier.weight(1f))
         Switch(auto, viewModel::setAutoSwitchEnabled)

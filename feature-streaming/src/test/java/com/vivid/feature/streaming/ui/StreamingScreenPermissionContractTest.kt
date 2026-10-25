@@ -38,22 +38,10 @@ import org.robolectric.annotation.GraphicsMode
 import org.robolectric.shadows.ShadowActivity
 
 /**
- * Vertrags-Tests zum Permission-Verhalten beim Screen-Eintritt (#249, Vorfall
- * Tag-Run 36849526447): Der CAMERA-Auto-Request aus 94c4e7db feuerte beim
- * bloßen Betreten des Start-Screens den Systemdialog GrantPermissionsActivity
- * ÜBER der MainActivity (im selben Task) — instrumentierte Compose-Tests sahen
- * einen leeren Semantik-Baum ("No compose hierarchies found", 11 Tests /
- * 5 Klassen rot im Tag-Run v0.5.20-beta).
- *
- * Hausregel seit #249: Der Screen-Eintritt fordert NIE Permissions an. Die
- * Kamera-Permission wird nur noch im Go-Live-Flow (explizite User-Geste)
- * angefordert; die Idle-Preview startet nur bei bereits erteilter Permission
- * (die Engine guardt startIdlePreviewIfReady zusätzlich selbst per
- * checkSelfPermission). Der Repair-Pfad auf der Emulator-Gate-Seite
- * (scripts/emulator_test_setup.sh, `adb shell pm grant`-Pendant) bleibt
- * testbar: Diese Tests reparieren den Permission-Zustand VOR dem ersten
- * setContent über grantPermissions/denyPermissions am Shadow-Kontext — der
- * Robolectric-Spiegel der adb-Grants aus der CI-Emulator-Matrix.
+ * Screen navigation never requests permissions automatically. MainActivity owns a
+ * separate, one-time first-launch request (covered by MainActivityE2ERobolectricTest).
+ * These isolated screen tests cover idle-preview guards and explicit Start retries
+ * after denial, without opening the Activity's onboarding request.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], qualifiers = "en")
@@ -109,6 +97,7 @@ class StreamingScreenPermissionContractTest {
         every { viewModel.streamingEngine } returns engine
         every { viewModel.configIssues } returns MutableStateFlow(emptyList())
         every { viewModel.scenes } returns MutableStateFlow(emptyList())
+        every { viewModel.appSettings } returns MutableStateFlow(com.vivid.core.data.AppSettings())
         every { viewModel.activeSceneId } returns MutableStateFlow<String?>(null)
         every { viewModel.autoSwitchEnabled } returns MutableStateFlow(false)
         every { viewModel.autoSwitchIntervalSeconds } returns MutableStateFlow(30L)

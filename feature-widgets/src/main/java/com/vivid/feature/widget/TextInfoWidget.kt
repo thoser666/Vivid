@@ -2,6 +2,7 @@ package com.vivid.feature.widget
 
 import android.Manifest
 import android.content.pm.PackageManager
+import androidx.activity.compose.LocalActivityResultRegistryOwner
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -38,15 +39,16 @@ import com.vivid.feature.widgets.R
 fun TextInfoWidget(
     modifier: Modifier = Modifier,
     viewModel: TextInfoWidgetViewModel = hiltViewModel(),
+    requestLocationPermission: Boolean = true,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     if (!uiState.enabled) return
 
     // GPS-Permission anfragen, sobald das Widget Standortfelder anzeigen soll.
     val context = LocalContext.current
-    val locationLauncher = rememberLauncherForActivityResult(
+    val locationLauncher = if (requestLocationPermission && LocalActivityResultRegistryOwner.current != null) rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
-    ) { }
+    ) { } else null
     LaunchedEffect(uiState.enabled, uiState.showLocation, uiState.showSpeed, uiState.showAltitude, uiState.template) {
         val hasTemplate = uiState.template.isNotBlank()
         val needsLocation = uiState.enabled && (uiState.showLocation || uiState.showSpeed || uiState.showAltitude || hasTemplate)
@@ -54,7 +56,7 @@ fun TextInfoWidget(
             ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) !=
             PackageManager.PERMISSION_GRANTED
         ) {
-            locationLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+            locationLauncher?.launch(Manifest.permission.ACCESS_FINE_LOCATION)
         }
     }
 

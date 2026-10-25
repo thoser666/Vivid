@@ -79,6 +79,9 @@ class PrivacyComposer(
     private val managedFilters = java.util.WeakHashMap<GlStreamInterface, List<BaseFilterRender>>()
 
     @Volatile var sceneEmpty: Boolean = false
+    var sceneLayerFactory: ((GlStreamInterface, () -> Boolean) -> com.vivid.feature.streaming.scene.SceneLayerFilterRender)? = null
+    internal var ownFilter: (BaseFilterRender) -> BaseFilterRender = { it }
+    private val sceneLayers = java.util.WeakHashMap<GlStreamInterface, com.vivid.feature.streaming.scene.SceneLayerFilterRender>()
 
     private val _privacyEnabled = MutableStateFlow(false)
 
@@ -128,17 +131,32 @@ class PrivacyComposer(
         lutRenderFactory()?.let { desired.add(it) }
         lowLightRenderFactory()?.let { desired.add(it) }
 
-        if (sceneEmpty) desired.add(emptySourceRenderFactory())
+        var sceneLayer = sceneLayers[gl]
+        if (sceneLayer?.released == true) {
+            sceneLayers.remove(gl)
+            managedFilters.remove(gl)
+            sceneLayer = null
+        }
+        if (sceneLayer == null) {
+            sceneLayer = sceneLayerFactory?.invoke(gl) { sceneEmpty }
+            if (sceneLayer != null) {
+                // Queue the safety gate first, before any creative effect is added.
+                sceneLayers[gl] = sceneLayer
+                gl.addFilter(sceneLayer)
+            }
+        }
+        if (sceneEmpty && sceneLayer == null) desired.add(emptySourceRenderFactory())
 
-        if (preserveExternalFilters) {
+        val owned = desired.map(ownFilter)
+        if (preserveExternalFilters || sceneLayer != null) {
             managedFilters[gl].orEmpty().forEach { gl.removeFilter(it) }
             // Own effects remain before external overlays, with privacy at position zero.
-            desired.forEachIndexed { index, filter -> gl.addFilter(index, filter) }
+            owned.forEachIndexed { index, filter -> gl.addFilter(index, filter) }
         } else {
             gl.clearFilters()
-            desired.forEach { gl.addFilter(it) }
+            owned.forEach { gl.addFilter(it) }
         }
-        managedFilters[gl] = desired
+        managedFilters[gl] = owned
     }
 
     /**

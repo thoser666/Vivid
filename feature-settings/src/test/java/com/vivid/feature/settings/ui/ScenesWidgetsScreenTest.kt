@@ -81,11 +81,40 @@ class ScenesWidgetsScreenTest {
     @Test fun `scene widget has its own enable switch and swipe removal`() {
         open()
         composeRule.onNodeWithText("Scene A").performClick()
-        composeRule.onNodeWithTag("scene_item_toggle_text").performClick()
+        composeRule.onNodeWithText("Tap a widget to adjust its position in this scene.").assertIsDisplayed()
+        composeRule.onNodeWithTag("scene_item_toggle_text").performScrollTo().performClick()
         verify { vm.updateScene(match { it.id == "a" && !it.widgets!!.single().enabled }) }
         composeRule.onNodeWithTag("scene_item_row_text").performTouchInput { swipeLeft() }
         composeRule.waitForIdle()
         verify { vm.updateScene(match { it.id == "a" && it.widgets!!.isEmpty() }) }
+        composeRule.onNodeWithTag("library_widget_delete_dialog").assertDoesNotExist()
+        verify(exactly = 0) { vm.deleteWidget(any()) }
+        org.junit.Assert.assertTrue(widgets.value.any { it.id == "text" })
+    }
+
+    @Test fun `library warns about all scenes and deletion can be cancelled and retried`() {
+        open()
+        composeRule.onNodeWithTag("widget_library_hint").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Enabling, disabling or deleting a widget here affects every scene where it is used.")
+            .assertIsDisplayed()
+        scrollTo("My text")
+        composeRule.onNodeWithTag("scene_item_row_text").performTouchInput { swipeLeft() }
+        composeRule.onNodeWithTag("library_widget_delete_dialog").assertIsDisplayed()
+        composeRule.onNodeWithText("Remove “My text” from the widget library and every scene where it is used?")
+            .assertIsDisplayed()
+        verify(exactly = 0) { vm.deleteWidget(any()) }
+        composeRule.onNodeWithTag("library_widget_delete_cancel").performClick()
+        composeRule.onNodeWithTag("library_widget_delete_dialog").assertDoesNotExist()
+        composeRule.onNodeWithTag("scene_item_row_text").assertIsDisplayed()
+        verify(exactly = 0) { vm.deleteWidget(any()) }
+
+        composeRule.onNodeWithTag("scene_item_row_text").performTouchInput { swipeLeft() }
+        composeRule.onNodeWithTag("library_widget_delete_dialog").assertIsDisplayed()
+        verify(exactly = 0) { vm.deleteWidget(any()) }
+        composeRule.onNodeWithTag("library_widget_delete_confirm").performClick()
+        composeRule.onNodeWithTag("library_widget_delete_dialog").assertDoesNotExist()
+        verify(exactly = 1) { vm.deleteWidget("text") }
+        verify(exactly = 0) { vm.updateScene(any()) }
     }
 
     @Test fun `placement drag saves scene coordinates and keeps shared content untouched`() {
@@ -142,8 +171,8 @@ class ScenesWidgetsScreenTest {
         scrollTo("Add widget")
         composeRule.onNodeWithText("Add widget").performClick()
         composeRule.onNodeWithText("Browser").performClick()
-        scrollTo("Page URL")
-        composeRule.onNodeWithText("Page URL").assertIsDisplayed()
+        scrollTo("Page URL (HTTPS)")
+        composeRule.onNodeWithText("Page URL (HTTPS)").assertIsDisplayed()
         composeRule.onNodeWithText("Page width (px)").assertExists()
         composeRule.onNodeWithText("Page height (px)").assertExists()
         scrollTo("Save")

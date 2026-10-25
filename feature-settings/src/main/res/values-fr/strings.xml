@@ -3,8 +3,8 @@
     <!-- ===== Vue des catégories (SettingsCategories.kt) ===== -->
     <string name="cat_streaming_title">Streaming &amp; OBS</string>
     <string name="cat_streaming_subtitle">URL/clé de stream, modèles de plateforme, multi-streaming, connexion OBS</string>
-    <string name="cat_appearance_title">Apparence</string>
-    <string name="cat_appearance_subtitle">Langue, mode de design, couleur d\'accent</string>
+    <string name="cat_appearance_title">Interface</string>
+    <string name="cat_appearance_subtitle">Orientation de l’écran de diffusion, langue, apparence et superpositions locales.</string>
     <string name="cat_overlays_title">Scènes et widgets</string>
     <string name="cat_overlays_subtitle">Chat Twitch, widgets texte/info, image, code QR, batterie et grille</string>
     <string name="cat_chatbot_title">Chat-bot &amp; IA</string>
@@ -50,6 +50,7 @@
     <string name="appearance_language_english">English</string>
     <string name="appearance_language_french">Français</string>
     <string name="appearance_language_russian">Русский</string>
+    <string name="appearance_theme_title">Thème</string>
     <string name="appearance_mode_title">Mode de design</string>
     <string name="appearance_mode_desc">Définit si Vivid apparaît en clair, en sombre ou en mode AMOLED — ou suit le système. L\'AMOLED utilise des surfaces d\'un noir pur (économie d\'énergie sur les écrans OLED).</string>
     <string name="appearance_mode_system_desc">Suit le réglage système de votre appareil (par défaut).</string>
@@ -398,15 +399,18 @@
     <string name="camera_zoom_reorder">Réorganiser le préréglage %1$s</string>
     <string name="camera_zoom_reorder_hint">Maintenez la poignée du préréglage puis faites-la glisser. L’ordre est enregistré au relâchement.</string>
     <string name="cat_overlays_desc">Scènes, sources et widgets partagés</string>
+    <string name="scene_widget_scene_management">Gestion des scènes</string>
     <string name="scene_widget_library">Widgets</string>
+    <string name="scene_widget_library_hint">Activer, désactiver ou supprimer un widget ici affecte toutes les scènes où il est utilisé.</string>
     <string name="scene_widget_add_scene">Ajouter une scène</string>
     <string name="scene_widget_add">Ajouter un widget</string>
     <string name="scene_widget_add_existing">Ajouter depuis les widgets</string>
     <string name="scene_widget_scene_widgets">Widgets de la scène</string>
+    <string name="scene_widget_scene_widgets_hint">Appuyez sur un widget pour régler sa position dans cette scène.</string>
     <string name="scene_widget_create_first">Créez d’abord un widget dans la bibliothèque.</string>
     <string name="scene_widget_browser">Navigateur</string>
     <string name="scene_widget_name">Nom du widget</string>
-    <string name="scene_widget_url">URL de la page</string>
+    <string name="scene_widget_url">URL de la page (HTTPS)</string>
     <string name="scene_widget_page_width">Largeur de page (px)</string>
     <string name="scene_widget_page_height">Hauteur de page (px)</string>
     <string name="scene_widget_activate">Activer la scène</string>
@@ -429,6 +433,8 @@
     <string name="scene_widget_scale">Échelle : %1$d%%</string>
     <string name="scene_widget_reorder">Déplacer %1$s</string>
     <string name="scene_widget_delete">Supprimer</string>
+    <string name="scene_widget_delete_title">Supprimer le widget ?</string>
+    <string name="scene_widget_delete_message">Supprimer « %1$s » de la bibliothèque de widgets et de toutes les scènes où il est utilisé ?</string>
     <string name="scene_widget_shared_settings">Réglages du widget partagé</string>
     <string name="scene_widget_shared_hint">Le contenu change dans toutes les scènes ; cette disposition reste propre à cette scène.</string>
     <string name="scene_widget_anchor">Ancrage ligne %1$d, colonne %2$d</string>
@@ -439,5 +445,13 @@
     <string name="appearance_orientation_title">Mode de fonctionnement</string>
     <string name="appearance_orientation_portrait">Portrait</string>
     <string name="appearance_orientation_landscape">Paysage</string>
-    <string name="appearance_orientation_desc">Le choix est appliqué immédiatement et mémorisé. Tourner l’appareil ne change pas le mode.</string>
+    <string name="appearance_orientation_desc">Orientation de l’écran principal et de la caméra diffusée : 9:16 ou 16:9. Les menus suivent l’orientation de l’appareil.</string>
+    <string name="local_overlays_title">Superpositions locales</string>
+    <string name="local_overlays_manage">Configurer les superpositions</string>
+    <string name="local_overlays_description">Superpositions système visibles uniquement sur cet écran, sans apparaître dans la diffusion. Les modifications sont enregistrées immédiatement.</string>
+    <string name="local_overlays_zoom">Commandes de zoom</string>
+    <string name="local_overlays_fps">Compteur FPS</string>
+    <string name="local_overlays_bitrate">Débit</string>
+    <string name="local_overlays_duration">Durée de diffusion</string>
+    <string name="local_overlays_scenes">Sélection de scène</string>
 </resources>

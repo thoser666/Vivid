@@ -1,6 +1,6 @@
 package com.vivid.core.data
 
-/** Fixed app orientation, controlled exclusively from Appearance settings. */
+/** Fixed streaming-screen orientation, controlled from Appearance; menus follow device rotation. */
 enum class AppOrientation {
     PORTRAIT,
     LANDSCAPE;

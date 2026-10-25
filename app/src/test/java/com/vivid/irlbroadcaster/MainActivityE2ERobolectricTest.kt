@@ -4,6 +4,15 @@ import android.view.WindowManager
 import android.content.pm.ActivityInfo
 import com.vivid.core.data.AppOrientation
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.isSelected
+import kotlinx.coroutines.runBlocking
 import androidx.core.view.WindowCompat
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
@@ -52,15 +61,85 @@ class MainActivityE2ERobolectricTest {
     val composeRule = createAndroidComposeRule<MainActivity>()
 
     @Test
-    fun `operating modes lock Activity orientation instead of following sensors`() {
+    fun `first launch requests capture permissions once and recreation does not repeat it`() {
+        composeRule.waitForIdle()
+        val activity = composeRule.activity
+        val request = org.robolectric.Shadows.shadowOf(activity).lastRequestedPermission
+        org.junit.Assert.assertNotNull(request)
+        assertEquals(setOf(android.Manifest.permission.CAMERA, android.Manifest.permission.RECORD_AUDIO,
+            android.Manifest.permission.POST_NOTIFICATIONS), request!!.requestedPermissions.toSet())
+        assertTrue(activity.getSharedPreferences("capture_permissions", android.content.Context.MODE_PRIVATE)
+            .getBoolean("initial_request_complete", false))
+        composeRule.activityRule.scenario.recreate()
+        composeRule.waitForIdle()
+        org.junit.Assert.assertNull(org.robolectric.Shadows.shadowOf(composeRule.activity).lastRequestedPermission)
+    }
+
+    @Test
+    fun `operating modes lock only the streaming screen orientation`() {
         composeRule.waitForIdle()
         composeRule.runOnUiThread {
             val activity = composeRule.activity
             assertEquals(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT, activity.requestedOrientation)
-            activity.applyAppOrientation(AppOrientation.LANDSCAPE)
+            activity.applyAppOrientation(AppOrientation.LANDSCAPE, streamingScreen = true)
             assertEquals(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE, activity.requestedOrientation)
-            activity.applyAppOrientation(AppOrientation.PORTRAIT)
+            activity.applyAppOrientation(AppOrientation.PORTRAIT, streamingScreen = true)
             assertEquals(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT, activity.requestedOrientation)
+        }
+    }
+
+    @Test
+    fun `menus follow sensors regardless of saved operating mode`() {
+        composeRule.waitForIdle()
+        composeRule.runOnUiThread {
+            val activity = composeRule.activity
+            AppOrientation.entries.forEach { mode ->
+                activity.applyAppOrientation(mode, streamingScreen = false)
+                assertEquals(ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR, activity.requestedOrientation)
+            }
+            activity.applyAppOrientation(null, streamingScreen = false)
+            assertEquals(ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR, activity.requestedOrientation)
+            activity.applyAppOrientation(null, streamingScreen = true)
+            assertEquals(ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR, activity.requestedOrientation)
+        }
+    }
+
+    @Test
+    fun `settings and restored submenus follow sensors then return to saved stream mode`() {
+        try {
+            composeRule.onNodeWithTag("open_settings").performClick()
+            composeRule.waitForIdle()
+            assertEquals(ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR, composeRule.activity.requestedOrientation)
+            composeRule.onNodeWithText(composeRule.activity.getString(
+                com.vivid.feature.settings.R.string.cat_appearance_title)).performScrollTo().performClick()
+            composeRule.onNodeWithTag("orientation_LANDSCAPE").performClick()
+            awaitLandscapeSelection()
+            composeRule.onNodeWithTag("orientation_LANDSCAPE").assertIsSelected()
+            assertEquals(ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR, composeRule.activity.requestedOrientation)
+
+            // Rotation recreates the Activity: restored navigation must keep the menu policy.
+            composeRule.activityRule.scenario.recreate()
+            awaitLandscapeSelection()
+            composeRule.onNodeWithTag("orientation_LANDSCAPE").assertIsSelected()
+            assertEquals(ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR, composeRule.activity.requestedOrientation)
+            composeRule.onNodeWithContentDescription(composeRule.activity.getString(
+                com.vivid.feature.settings.R.string.settings_back)).performClick()
+            composeRule.waitForIdle()
+            assertEquals(ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR, composeRule.activity.requestedOrientation)
+            composeRule.runOnUiThread { composeRule.activity.onBackPressedDispatcher.onBackPressed() }
+            composeRule.waitForIdle()
+            assertEquals(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE, composeRule.activity.requestedOrientation)
+        } finally {
+            runBlocking { composeRule.activity.settingsRepository.updateAppOrientation(AppOrientation.PORTRAIT) }
+            composeRule.waitForIdle()
+        }
+    }
+
+    private fun awaitLandscapeSelection() {
+        // DataStore writes and restoration are asynchronous beyond Compose idleness.
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodes(hasTestTag("orientation_LANDSCAPE") and isSelected())
+                .fetchSemanticsNodes().isNotEmpty()
         }
     }
 

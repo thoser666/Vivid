@@ -2,6 +2,7 @@ package com.vivid.feature.streaming
 
 import com.vivid.core.data.CameraMode
 import com.vivid.core.data.AppSettings
+import com.vivid.core.data.AppOrientation
 import com.vivid.core.data.EncoderCapabilities
 import com.vivid.core.data.ResolvedEncoderConfig
 import com.vivid.core.data.SettingsRepository
@@ -48,7 +49,7 @@ class StreamStartCoordinator @Inject constructor(
             return@withLock
         }
         val resolved = if (settings.encoderAutoFallback && settings.cameraMode == CameraMode.STANDARD) {
-            resolveEncoderConfig(settings.videoCodecPreference, settings.encoderPreset, encoderCapabilities, settings.videoFps ?: settings.encoderPreset.fps)
+            resolveEncoderConfig(settings.videoCodecPreference, settings.encoderPreset, orientedEncoderCapabilities(encoderCapabilities, settings.appOrientation == AppOrientation.PORTRAIT), settings.videoFps ?: settings.encoderPreset.fps)
         } else {
             ResolvedEncoderConfig(settings.videoCodecPreference, settings.encoderPreset, fallbackApplied = false, fps = settings.videoFps ?: settings.encoderPreset.fps)
         }

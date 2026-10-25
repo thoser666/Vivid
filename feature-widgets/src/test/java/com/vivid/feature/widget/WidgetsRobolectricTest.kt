@@ -237,4 +237,16 @@ class WidgetsRobolectricTest {
         composeRule.setContent { SubtitlesOverlay(viewModel = viewModel) }
         composeRule.onNodeWithText("Microphone unavailable (in use by another app?)").assertIsDisplayed()
     }
+
+    @Test
+    fun `text widget renders in an encoder host without an activity result registry`() {
+        val vm = mockk<TextInfoWidgetViewModel>(relaxed = true) {
+            every { uiState } returns MutableStateFlow(TextInfoWidgetUiState(enabled = true,
+                showLocation = false, showSpeed = false, time = "12:34:56"))
+        }
+        composeRule.setContent {
+            TextInfoWidget(viewModel = vm, requestLocationPermission = false)
+        }
+        composeRule.onNodeWithText("12:34:56").assertIsDisplayed()
+    }
 }

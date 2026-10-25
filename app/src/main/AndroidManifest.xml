@@ -72,11 +72,11 @@
                 android:resource="@xml/file_paths" />
         </provider>
 
-        <!-- Explicit user-selected operating mode; portrait is the startup default until preferences load. -->
+        <!-- MainActivity applies the saved operating mode only on the streaming destination. -->
         <activity
             android:name=".irlbroadcaster.MainActivity"
             android:exported="true"
-            android:screenOrientation="portrait"
+            android:screenOrientation="fullSensor"
             tools:ignore="LockedOrientationActivity,DiscouragedApi"
             android:theme="@style/Theme.Vivid">
             <intent-filter>

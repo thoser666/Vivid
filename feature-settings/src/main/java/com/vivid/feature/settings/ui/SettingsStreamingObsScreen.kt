@@ -50,6 +50,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.platform.testTag
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
+import com.vivid.feature.streaming.ConfigIssueSeverity
+import com.vivid.feature.streaming.StreamConfigIssue
+import com.vivid.feature.streaming.StreamConfigValidator
 import androidx.compose.ui.semantics.contentDescription
 import com.vivid.core.data.StreamProfile
 import com.vivid.core.data.StreamPlatformType
@@ -72,6 +77,7 @@ fun SettingsStreamingObsScreen(
     var page by rememberSaveable { mutableStateOf("list") }
     val scrollState = rememberScrollState()
     LaunchedEffect(page) { scrollState.scrollTo(0) }
+    LaunchedEffect(failed) { if (failed) scrollState.scrollTo(0) }
     val back: () -> Unit = {
         if (!saving) when (page) {
             "list" -> onBack()
@@ -98,12 +104,24 @@ fun SettingsStreamingObsScreen(
         title = title,
         scrollState = scrollState,
         onBack = back,
-        onSave = if (page == "create" || page == "details") {
+        onSave = if (draft != null && page != "list" && page != "platform") {
             { viewModel.saveStreamDraft { page = "list" } }
         } else null,
-        saveEnabled = !saving && draft?.name?.isNotBlank() == true && draft?.streamUrl?.isNotBlank() == true,
+        saveEnabled = !saving && draft?.name?.isNotBlank() == true && draft?.let { streamDraftErrors(it).isEmpty() } == true,
     ) {
         if (failed) Text(stringResource(R.string.stream_save_failed), color = MaterialTheme.colorScheme.error)
+        // Errors in another subpage must still explain why its Save button is disabled.
+        draft?.let(::streamDraftErrors).orEmpty().filter { issue ->
+            when (page) {
+                "create", "details" -> issue.prefixRes != 0
+                "multi" -> issue.prefixRes == 0
+                else -> true
+            }
+        }.forEach { issue ->
+            val prefix = if (issue.prefixRes != 0) stringResource(issue.prefixRes) else ""
+            Text(prefix + stringResource(issue.messageRes, *issue.formatArgs.toTypedArray()),
+                color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+        }
         when (page) {
             "list" -> {
                 StreamProfilesList(
@@ -181,9 +199,10 @@ private fun StreamProfilePage(
                 onValueChange = { value -> viewModel.updateStreamDraft { it.copy(name = value) } },
                 label = { Text(stringResource(R.string.stream_name)) }, singleLine = true,
                 modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(value = profile.streamUrl,
-                onValueChange = { value -> viewModel.updateStreamDraft { it.copy(streamUrl = value) } },
-                label = { Text(stringResource(R.string.stream_url_label)) }, modifier = Modifier.fillMaxWidth())
+            StreamUrlField(profile.streamUrl, R.string.stream_url_label,
+                streamDraftErrors(profile).filter { it.prefixRes == 0 }, "stream_primary_url") { value ->
+                viewModel.updateStreamDraft { it.copy(streamUrl = value) }
+            }
             Text(stringResource(STREAM_URL_HINT_RES), style = MaterialTheme.typography.bodySmall)
             SecretField(value = profile.streamKey,
                 onValueChange = { value -> viewModel.updateStreamDraft { it.copy(streamKey = value) } },
@@ -194,12 +213,12 @@ private fun StreamProfilePage(
                     onCheckedChange = { value -> viewModel.updateStreamDraft { it.copy(streamUseTls = value) } })
             }
             if (page == "details") StreamMenuGroup {
-                StreamSettingLink(stringResource(R.string.multi_streaming_title), { navigate("multi") })
                 StreamSettingLink(stringResource(R.string.stream_video), { navigate("video") })
                 StreamSettingLink(stringResource(R.string.replay_audio_title), { navigate("recording") })
                 if (profile.platform == StreamPlatformType.Twitch) {
                     StreamSettingLink(stringResource(R.string.twitch_channel_title), { navigate("twitch") })
                 }
+                StreamSettingLink(stringResource(R.string.multi_streaming_title), { navigate("multi") })
                 StreamSettingLink(stringResource(R.string.stream_obs_remote), { navigate("obs") }, divider = false, trailing = {
                     StreamSwitchAction("obs_switch_divider") {
                         Switch(checked = profile.obsRemoteEnabled,
@@ -437,12 +456,13 @@ private fun StreamMultiSettings(uiState: AppSettings, viewModel: SettingsViewMod
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
-    OutlinedTextField(
-        value = uiState.secondaryStreamUrl,
-        onValueChange = { value -> viewModel.updateStreamDraft { it.copy(secondaryStreamUrl = value) } },
-        label = { Text(stringResource(R.string.secondary_url_label)) },
-        modifier = Modifier.fillMaxWidth(),
-    )
+    StreamUrlField(uiState.secondaryStreamUrl, R.string.secondary_url_label,
+        StreamConfigValidator.validate(uiState.streamUrl, uiState.streamKey, uiState.streamUseTls,
+            uiState.secondaryStreamUrl, uiState.secondaryStreamKey, uiState.secondaryStreamUseTls)
+            .filter { it.severity == ConfigIssueSeverity.ERROR && it.prefixRes != 0 },
+        "stream_secondary_url") { value ->
+        viewModel.updateStreamDraft { it.copy(secondaryStreamUrl = value) }
+    }
     OutlinedTextField(
         value = uiState.secondaryStreamKey,
         onValueChange = { value -> viewModel.updateStreamDraft { it.copy(secondaryStreamKey = value) } },
@@ -493,4 +513,27 @@ private fun StreamObsSettings(uiState: AppSettings, viewModel: SettingsViewModel
             onCheckedChange = { value -> viewModel.updateStreamDraft { it.copy(obsUseTls = value) } },
         )
     }
+}
+
+@Composable
+private fun StreamUrlField(
+    value: String,
+    @androidx.annotation.StringRes label: Int,
+    errors: List<StreamConfigIssue>,
+    tag: String,
+    onValueChange: (String) -> Unit,
+) {
+    val error = errors.takeIf { value.isNotEmpty() }?.firstOrNull()
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(stringResource(label)) },
+        isError = error != null,
+        supportingText = error?.let { issue ->
+            { Text(stringResource(issue.messageRes, *issue.formatArgs.toTypedArray())) }
+        },
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+        modifier = Modifier.fillMaxWidth().testTag(tag),
+    )
 }

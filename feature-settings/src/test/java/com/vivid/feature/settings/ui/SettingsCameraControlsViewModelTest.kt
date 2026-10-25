@@ -41,7 +41,7 @@ class SettingsCameraControlsViewModelTest {
             model.update { it.copy(zoomSpeed = 2f) }
             advanceUntilIdle()
             assertEquals(listOf(1f, 3f), saved.value.cameraControls.frontZoomPresets)
-            assertEquals(listOf(0.5f, 1f, 1.5f, 2f), saved.value.cameraControls.rearZoomPresets)
+            assertEquals(listOf(1f, 1.5f, 2f), saved.value.cameraControls.rearZoomPresets)
             verify { engine.configureCameraControls(saved.value.cameraControls) }
             assertEquals(StabilizationMode.entries.toSet(), model.uiState.value.stabilizationModes)
             every { engine.supportedStabilizationModes() } returns setOf(StabilizationMode.OFF)

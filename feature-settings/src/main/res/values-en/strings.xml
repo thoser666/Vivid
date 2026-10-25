@@ -3,8 +3,8 @@
     <!-- ===== Category overview (SettingsCategories.kt) ===== -->
     <string name="cat_streaming_title">Streaming &amp; OBS</string>
     <string name="cat_streaming_subtitle">Stream URL/key, platform presets, multi-streaming, OBS connection</string>
-    <string name="cat_appearance_title">Appearance</string>
-    <string name="cat_appearance_subtitle">Language, theme mode, accent color</string>
+    <string name="cat_appearance_title">Interface</string>
+    <string name="cat_appearance_subtitle">Stream screen orientation, language, appearance and local overlays.</string>
     <string name="cat_overlays_title">Scenes &amp; widgets</string>
     <string name="cat_overlays_subtitle">Twitch chat, text/info, image, QR code, battery and grid widgets</string>
     <string name="cat_chatbot_title">Chat Bot &amp; AI</string>
@@ -50,6 +50,7 @@
     <string name="appearance_language_english">English</string>
     <string name="appearance_language_french">Français</string>
     <string name="appearance_language_russian">Русский</string>
+    <string name="appearance_theme_title">Theme</string>
     <string name="appearance_mode_title">Theme mode</string>
     <string name="appearance_mode_desc">Choose whether Vivid appears light, dark or in AMOLED mode — or follows the system. AMOLED uses pure-black surfaces (saves battery on OLED displays).</string>
     <string name="appearance_mode_system_desc">Follows your device\'s system setting (default).</string>
@@ -397,15 +398,18 @@
     <string name="camera_zoom_reorder">Reorder zoom preset %1$s</string>
     <string name="camera_zoom_reorder_hint">Touch and hold a preset’s handle to drag it. The order is saved on release.</string>
     <string name="cat_overlays_desc">Scenes, sources and shared widgets</string>
+    <string name="scene_widget_scene_management">Scene controls</string>
     <string name="scene_widget_library">Widgets</string>
+    <string name="scene_widget_library_hint">Enabling, disabling or deleting a widget here affects every scene where it is used.</string>
     <string name="scene_widget_add_scene">Add scene</string>
     <string name="scene_widget_add">Add widget</string>
     <string name="scene_widget_add_existing">Add from widgets</string>
     <string name="scene_widget_scene_widgets">Scene widgets</string>
+    <string name="scene_widget_scene_widgets_hint">Tap a widget to adjust its position in this scene.</string>
     <string name="scene_widget_create_first">Create a widget in the library first.</string>
     <string name="scene_widget_browser">Browser</string>
     <string name="scene_widget_name">Widget name</string>
-    <string name="scene_widget_url">Page URL</string>
+    <string name="scene_widget_url">Page URL (HTTPS)</string>
     <string name="scene_widget_page_width">Page width (px)</string>
     <string name="scene_widget_page_height">Page height (px)</string>
     <string name="scene_widget_activate">Activate scene</string>
@@ -428,6 +432,8 @@
     <string name="scene_widget_scale">Scale: %1$d%%</string>
     <string name="scene_widget_reorder">Reorder %1$s</string>
     <string name="scene_widget_delete">Delete</string>
+    <string name="scene_widget_delete_title">Delete widget?</string>
+    <string name="scene_widget_delete_message">Remove “%1$s” from the widget library and every scene where it is used?</string>
     <string name="scene_widget_shared_settings">Shared widget settings</string>
     <string name="scene_widget_shared_hint">Content changes apply to every scene; this layout applies only to this scene.</string>
     <string name="scene_widget_anchor">Anchor row %1$d, column %2$d</string>
@@ -438,5 +444,13 @@
     <string name="appearance_orientation_title">Operating mode</string>
     <string name="appearance_orientation_portrait">Portrait</string>
     <string name="appearance_orientation_landscape">Landscape</string>
-    <string name="appearance_orientation_desc">Applies immediately and stays saved. Rotating the device does not change the mode.</string>
+    <string name="appearance_orientation_desc">Main screen and streamed camera orientation: 9:16 or 16:9. Menus follow device rotation.</string>
+    <string name="local_overlays_title">Local overlays</string>
+    <string name="local_overlays_manage">Configure overlays</string>
+    <string name="local_overlays_description">System overlays shown only on your screen. They are not included in the broadcast. Changes are saved immediately.</string>
+    <string name="local_overlays_zoom">Zoom controls</string>
+    <string name="local_overlays_fps">FPS counter</string>
+    <string name="local_overlays_bitrate">Bitrate</string>
+    <string name="local_overlays_duration">Stream duration</string>
+    <string name="local_overlays_scenes">Scene selector</string>
 </resources>

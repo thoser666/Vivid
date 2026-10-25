@@ -524,6 +524,31 @@ class StreamingViewModelTest {
         }
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = [false, true])
+    fun `new scene starts without widgets before or after library initialization`(initialized: Boolean) = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        every { sceneRepository.libraryInitializedFlow } returns MutableStateFlow(initialized)
+        every { engine.activeSourceKind } returns MutableStateFlow(VideoSourceKind.CAMERA)
+        every { engine.activeReplayFile } returns null
+        val active = StreamScene("active", "Active", widgets = listOf(
+            com.vivid.core.data.SceneWidget("score", x = 30f, y = 40f),
+            com.vivid.core.data.SceneWidget("hidden", enabled = false),
+        ))
+        scenesState.value = listOf(active)
+        activeSceneState.value = active.id
+        val viewModel = viewModel(repositoryWith(AppSettings(widgetEnabled = true, widgetTemplate = "1:0")))
+
+        viewModel.saveScene("  New scene  ")
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { sceneRepository.saveScene(match {
+            it.id != active.id && it.name == "New scene" && it.widgets == emptyList<com.vivid.core.data.SceneWidget>()
+        }) }
+        assertEquals(listOf(active), scenesState.value)
+        assertEquals(active.id, activeSceneState.value)
+    }
+
     @Test
     fun `saveScene with a blank name is a no-op`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))

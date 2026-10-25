@@ -3,6 +3,11 @@ package com.vivid.irlbroadcaster
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import android.app.Activity
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+import androidx.core.content.edit
 import android.content.Context
 import android.content.pm.ActivityInfo
 import android.os.Build
@@ -47,6 +52,7 @@ import com.vivid.feature.playback.PlaybackScreen
 import com.vivid.feature.streaming.ui.ReplayLibraryScreen
 import com.vivid.feature.settings.ui.SettingsAboutScreen
 import com.vivid.feature.settings.ui.SettingsAppearanceScreen
+import com.vivid.feature.settings.ui.SettingsLocalOverlaysRoute
 import com.vivid.feature.settings.ui.SettingsCameraRoute
 import com.vivid.feature.settings.ui.SettingsChatBotScreen
 import com.vivid.feature.settings.ui.SettingsLogsScreen
@@ -68,6 +74,22 @@ import javax.inject.Inject
 class MainActivity : ComponentActivity() {
 
     private var previewFullscreen = false
+    private val initialCapturePermissions = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions(),
+    ) { /* ON_RESUME restarts the idle preview after the permission dialog closes. */ }
+
+    internal fun requestInitialCapturePermissions() {
+        val preferences = getSharedPreferences("capture_permissions", Context.MODE_PRIVATE)
+        if (preferences.getBoolean("initial_request_complete", false)) return
+        val missing = buildList {
+            add(Manifest.permission.CAMERA)
+            add(Manifest.permission.RECORD_AUDIO)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) add(Manifest.permission.POST_NOTIFICATIONS)
+        }.filter { ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED }
+        // Persist before launching: rotation/re-entry must not repeat a denied request.
+        preferences.edit { putBoolean("initial_request_complete", true) }
+        if (missing.isNotEmpty()) initialCapturePermissions.launch(missing.toTypedArray())
+    }
 
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(AppLanguage.wrapBaseContext(newBase))
@@ -94,10 +116,6 @@ class MainActivity : ComponentActivity() {
             // Theme reagiert sofort, ohne App-Neustart.
             val savedSettings by settingsRepository.appSettingsFlow.collectAsState(initial = null)
             val settings = savedSettings ?: AppSettings()
-            SideEffect {
-                // Wait for persisted settings: a transient default must not flip a restored landscape Activity.
-                savedSettings?.let { applyAppOrientation(it.appOrientation) }
-            }
             val systemDark = isSystemInDarkTheme()
             val dark = settings.themeMode.resolveDark(systemDark)
             // Window Size Class (M3): Einmal pro Activity-Erstellung berechnet
@@ -129,19 +147,33 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background,
                 ) {
-                    VividAppNavigation(onPreviewFullscreenChange = ::setPreviewFullscreen)
+                    VividAppNavigation(
+                        onPreviewFullscreenChange = ::setPreviewFullscreen,
+                        onStreamingScreenChange = { streamingScreen ->
+                            applyAppOrientation(savedSettings?.appOrientation, streamingScreen)
+                        },
+                    )
                 }
                 }
             }
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        if (!CrashSafeModeState.active) requestInitialCapturePermissions()
+    }
+
     @Suppress("SourceLockedOrientationActivity")
-    internal fun applyAppOrientation(orientation: AppOrientation) {
-        val requested = when (orientation) {
-            AppOrientation.PORTRAIT -> ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-            AppOrientation.LANDSCAPE -> ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
-        }
+    internal fun applyAppOrientation(orientation: AppOrientation?, streamingScreen: Boolean) {
+        val requested = if (streamingScreen) {
+            // Await persisted mode instead of briefly applying the default on restoration.
+            when (orientation) {
+                AppOrientation.PORTRAIT -> ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                AppOrientation.LANDSCAPE -> ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+                null -> return
+            }
+        } else ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
         if (requestedOrientation != requested) requestedOrientation = requested
     }
 
@@ -212,12 +244,19 @@ private fun resolveSafeWindowWidthSizeClass(activity: Activity): WindowWidthSize
 }
 
 @Composable
-fun VividAppNavigation(onPreviewFullscreenChange: (Boolean) -> Unit = {}) {
+fun VividAppNavigation(
+    onPreviewFullscreenChange: (Boolean) -> Unit = {},
+    onStreamingScreenChange: (Boolean) -> Unit = {},
+) {
     val navController = rememberNavController()
     val currentEntry by navController.currentBackStackEntryAsState()
     var previewRequestsFullscreen by remember { mutableStateOf(true) }
     val previewFullscreen = currentEntry?.destination?.route == "streaming_route" && previewRequestsFullscreen
-    SideEffect { onPreviewFullscreenChange(previewFullscreen) }
+    SideEffect {
+        onPreviewFullscreenChange(previewFullscreen)
+        // Wait for navigation restoration so a settings screen never inherits the stream lock.
+        currentEntry?.let { onStreamingScreenChange(it.destination.route == "streaming_route") }
+    }
     NavHost(navController = navController, startDestination = "streaming_route") {
         composable("streaming_route") {
             StreamingScreen(navController = navController, onPreviewFullscreenChange = { previewRequestsFullscreen = it })
@@ -265,8 +304,12 @@ fun VividAppNavigation(onPreviewFullscreenChange: (Boolean) -> Unit = {}) {
             SettingsAppearanceScreen(
                 uiState = uiState,
                 viewModel = viewModel,
+                onLocalOverlays = { navController.navigate("settings_local_overlays") },
                 onBack = { navController.popBackStack() },
             )
+        }
+        composable("settings_local_overlays") {
+            SettingsLocalOverlaysRoute(onBack = { navController.popBackStack() })
         }
         composable("settings_overlays") {
             SettingsOverlaysScreen(onBack = { navController.popBackStack() })

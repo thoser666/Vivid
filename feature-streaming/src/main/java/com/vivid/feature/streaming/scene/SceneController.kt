@@ -7,6 +7,8 @@ import com.vivid.core.data.StreamScene
 import com.vivid.feature.streaming.StreamingEngine
 import com.vivid.feature.streaming.source.VideoSourceKind
 import java.io.File
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -20,9 +22,17 @@ class SceneController @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val streamingEngine: StreamingEngine,
 ) {
-    suspend fun applyScene(scene: StreamScene) {
-        if (!scene.enabled) return
-        if (!applySceneSource(scene)) return
+    private val activation = Mutex()
+
+    suspend fun applyScene(scene: StreamScene) = activation.withLock {
+        if (!scene.enabled) return@withLock
+        val wasEmpty = streamingEngine.isSceneEmpty()
+        // Close the source gate before any camera/source/effect transition.
+        streamingEngine.setSceneEmpty(true)
+        if (!applySceneSource(scene)) {
+            streamingEngine.setSceneEmpty(wasEmpty)
+            return@withLock
+        }
         if (scene.widgets == null) {
             settingsRepository.updateStreamSettings(
                 url = scene.streamUrl,
@@ -39,6 +49,7 @@ class SceneController @Inject constructor(
             )
         }
         sceneRepository.setActiveScene(scene.id)
+        streamingEngine.setSceneEmpty(scene.videoSource == SceneVideoSource.EMPTY)
     }
 
     /**
@@ -55,7 +66,6 @@ class SceneController @Inject constructor(
             SceneVideoSource.SCREEN_CAPTURE -> streamingEngine.switchSource(VideoSourceKind.SCREEN_CAPTURE)
         }
         if (!switched) return false
-        if (scene.widgets != null) streamingEngine.setSceneEmpty(scene.videoSource == SceneVideoSource.EMPTY)
         val cameraId = scene.cameraId
         if (scene.videoSource == SceneVideoSource.CAMERA && cameraId != null) {
             return streamingEngine.selectLens(cameraId)

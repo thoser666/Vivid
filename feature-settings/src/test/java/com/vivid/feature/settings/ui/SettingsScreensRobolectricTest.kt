@@ -9,6 +9,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.navigation.NavHostController
 import com.vivid.core.data.AppSettings
@@ -70,7 +71,7 @@ class SettingsScreensRobolectricTest {
         composeRule.onNodeWithText("Settings").assertIsDisplayed()
         // Version sitzt unter den Kategorie-Karten (below the fold) — Existenz prüfen.
         composeRule.onAllNodesWithText("Version 1.2.3")[0].assertExists()
-        composeRule.onAllNodesWithText("Appearance")[0].assertExists()
+        composeRule.onAllNodesWithText("Interface")[0].assertExists()
         composeRule.onAllNodesWithText("Logs & Diagnostics")[0].assertExists()
     }
 
@@ -84,7 +85,7 @@ class SettingsScreensRobolectricTest {
                 viewModel = settingsViewModel(),
             )
         }
-        composeRule.onNodeWithText("Appearance").performClick()
+        composeRule.onNodeWithText("Interface").performClick()
         verify { navController.navigate(any<String>()) }
     }
 
@@ -131,8 +132,8 @@ class SettingsScreensRobolectricTest {
                 onBack = {},
             )
         }
-        composeRule.onNodeWithText("Appearance").assertIsDisplayed()
-        composeRule.onNodeWithText("Language").assertIsDisplayed()
+        composeRule.onNodeWithText("Interface").assertIsDisplayed()
+        composeRule.onNodeWithTag("language_picker").performScrollTo().assertIsDisplayed()
         composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Dark"))
         composeRule.onNodeWithText("Dark").performClick()
         verify { viewModel.onThemeModeChange(ThemeMode.DARK) }

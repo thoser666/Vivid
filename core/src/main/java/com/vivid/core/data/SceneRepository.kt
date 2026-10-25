@@ -46,21 +46,24 @@ class SceneRepository @Inject constructor(private val dataStore: DataStore<Prefe
 
     suspend fun saveWidget(widget: StreamWidget) = saveWidgetWithSceneVisibility(widget, emptyMap())
 
-    /** Saves content and only the scene switches edited by the user, in one transaction. */
+    /** Global enable changes update every existing placement; content-only edits keep scene visibility. */
     suspend fun saveWidgetWithSceneVisibility(widget: StreamWidget, visibility: Map<String, Boolean>) {
         dataStore.edit { prefs ->
             val widgets = decodeWidgets(prefs)
+            val previous = widgets.find { it.id == widget.id }
+            val globalVisibility = previous?.takeIf { it.enabled != widget.enabled }?.let { widget.enabled }
             prefs[WIDGETS_JSON] = json.encodeToString(if (widgets.any { it.id == widget.id }) {
                 widgets.map { if (it.id == widget.id) widget else it }
             } else widgets + widget)
-            if (visibility.isNotEmpty()) {
+            if (globalVisibility != null || visibility.isNotEmpty()) {
                 prefs[SCENES_JSON] = json.encodeToString(decodeScenes(prefs).map { scene ->
-                    val enabled = visibility[scene.id] ?: return@map scene
+                    val enabled = globalVisibility ?: visibility[scene.id] ?: return@map scene
                     val placements = scene.widgets.orEmpty()
                     if (placements.any { it.widgetId == widget.id }) {
                         scene.copy(widgets = placements.map { if (it.widgetId == widget.id) it.copy(enabled = enabled) else it })
-                    } else if (enabled) {
-                        scene.copy(widgets = placements + SceneWidget(widget.id))
+                    } else if (visibility[scene.id] == true) {
+                        // A global toggle changes existing placements without adding the widget to new scenes.
+                        scene.copy(widgets = placements + SceneWidget(widget.id, enabled = enabled))
                     } else scene
                 })
             }
@@ -103,6 +106,8 @@ class SceneRepository @Inject constructor(private val dataStore: DataStore<Prefe
             }
             val old = decodeScenes(prefs)
             val scenes = if (old.isEmpty()) listOf(StreamScene("default", defaultName, widgets = placements())) else old.map { scene ->
+                // Explicit placements belong to managed scenes, including deliberately empty new scenes.
+                if (scene.widgets != null) return@map scene
                 val text = StreamWidget("legacy-text-${scene.id}", "${names.getValue(WidgetType.TEXT)} · ${scene.name}", WidgetType.TEXT,
                     enabled = scene.widgetEnabled,
                     configuration = config.copy(widgetShowTime = scene.widgetShowTime,

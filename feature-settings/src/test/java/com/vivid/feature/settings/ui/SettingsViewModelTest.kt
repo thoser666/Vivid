@@ -1283,6 +1283,32 @@ class SettingsViewModelTest {
         assertEquals(a, vm.uiState.value.streamProfiles.first())
     }
 
+    @Test fun `saving malformed primary or secondary URL never writes settings`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repo = repository()
+        val vm = createViewModel(repo)
+        advanceUntilIdle()
+        vm.createStream(StreamPlatform.Custom)
+        vm.updateStreamDraft { it.copy(name = "Custom") }
+        listOf("djfj", "http://example.com/app", "rtmp:///app", "rtmp://srt/app").forEach { url ->
+            vm.updateStreamDraft { it.copy(streamUrl = url) }
+            vm.saveStreamDraft { error("Invalid URL must not be saved") }
+            advanceUntilIdle()
+            assertEquals(url, vm.streamDraft.value!!.streamUrl)
+            assertFalse(vm.streamSaving.value)
+        }
+        vm.updateStreamDraft { it.copy(streamUrl = "rtmp://valid.example/live", secondaryStreamUrl = "djfj") }
+        vm.saveStreamDraft { error("Invalid second URL must not be saved") }
+        advanceUntilIdle()
+        coVerify(exactly = 0) { repo.updateStreamProfiles(any(), any()) }
+        vm.updateStreamDraft { it.copy(secondaryStreamUrl = "") }
+        var saved = false
+        vm.saveStreamDraft { saved = true }
+        advanceUntilIdle()
+        assertTrue(saved)
+        coVerify(exactly = 1) { repo.updateStreamProfiles(any(), any()) }
+    }
+
     @Test fun `profile switches select one or none and ignore unknown ids`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val a = com.vivid.core.data.StreamProfile("a", "A")

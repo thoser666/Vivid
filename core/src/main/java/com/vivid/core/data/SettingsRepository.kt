@@ -16,6 +16,11 @@ class SettingsRepository @Inject constructor(
     private val dataStore: DataStore<Preferences>,
 ) {
     private object PrefKeys {
+        val LOCAL_ZOOM = booleanPreferencesKey("local_overlay_zoom")
+        val LOCAL_FPS = booleanPreferencesKey("local_overlay_fps")
+        val LOCAL_DURATION = booleanPreferencesKey("local_overlay_duration")
+        val LOCAL_SCENES = booleanPreferencesKey("local_overlay_scenes")
+        val LOCAL_BITRATE = booleanPreferencesKey("local_overlay_bitrate")
         val STREAM_URL = stringPreferencesKey("stream_url")
         val STREAM_KEY = stringPreferencesKey("stream_key")
         val STREAM_USE_TLS = booleanPreferencesKey("stream_use_tls")
@@ -395,7 +400,7 @@ class SettingsRepository @Inject constructor(
     private val profilesJson = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
 
     val appSettingsFlow: Flow<AppSettings> = combine(legacySettingsFlow, dataStore.data) { stored, prefs ->
-        val legacy = stored.copy(cameraControls = prefs.cameraControls())
+        val legacy = stored.copy(cameraControls = prefs.cameraControls(), localOverlays = prefs.localOverlays())
         if (prefs[profilesKey] == null) {
             // Existing installations retain their destination and settings as a named profile.
             if (legacy.streamUrl.isBlank()) legacy else {
@@ -427,6 +432,26 @@ class SettingsRepository @Inject constructor(
             val visible = scene?.enabled == true && scene.widgets.orEmpty().any { it.widgetId == widgetId && it.enabled }
             (widget ?: StreamWidget(widgetId, "", WidgetType.TEXT, enabled = false)).settings(base, visible && widget?.enabled == true)
         }.distinctUntilChanged()
+    }
+
+    private fun Preferences.localOverlays() = LocalOverlaySettings(
+        showZoom = this[PrefKeys.LOCAL_ZOOM] ?: true,
+        showFps = this[PrefKeys.LOCAL_FPS] ?: true,
+        showDuration = this[PrefKeys.LOCAL_DURATION] ?: true,
+        showScenes = this[PrefKeys.LOCAL_SCENES] ?: true,
+        showBitrate = this[PrefKeys.LOCAL_BITRATE] ?: true,
+    )
+
+    /** Atomic per-toggle edits preserve concurrent changes to the other local overlays. */
+    suspend fun updateLocalOverlays(update: (LocalOverlaySettings) -> LocalOverlaySettings) {
+        dataStore.edit { prefs ->
+            val settings = update(prefs.localOverlays())
+            prefs[PrefKeys.LOCAL_ZOOM] = settings.showZoom
+            prefs[PrefKeys.LOCAL_FPS] = settings.showFps
+            prefs[PrefKeys.LOCAL_DURATION] = settings.showDuration
+            prefs[PrefKeys.LOCAL_SCENES] = settings.showScenes
+            prefs[PrefKeys.LOCAL_BITRATE] = settings.showBitrate
+        }
     }
 
     private fun Preferences.cameraControls(): CameraControlSettings {
@@ -791,7 +816,7 @@ class SettingsRepository @Inject constructor(
         }
     }
 
-    /** Only an explicit Appearance selection changes the fixed app orientation. */
+    /** Only an explicit Appearance selection changes the fixed streaming-screen orientation. */
     suspend fun updateAppOrientation(orientation: AppOrientation) {
         dataStore.edit { prefs -> prefs[PrefKeys.APP_ORIENTATION] = orientation.name }
     }

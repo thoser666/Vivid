@@ -19,8 +19,12 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.layout.onSizeChanged
 import kotlin.math.roundToInt
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelStore
+import androidx.lifecycle.ViewModelStoreOwner
+import androidx.lifecycle.HasDefaultViewModelProviderFactory
+import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vivid.core.data.*
 import com.vivid.feature.chat.ui.ChatOverlay
@@ -37,16 +41,20 @@ class SceneWidgetsOverlayViewModel @Inject constructor(repository: SceneReposito
         val scene = scenes.find { it.id == activeId && it.enabled }
         SceneOverlayState(initialized, scene?.widgets.orEmpty().mapNotNull { placement ->
             widgets.find { it.id == placement.widgetId && it.enabled && placement.enabled }?.let { placement to it }
-        })
+        }, sourceEmpty = scene?.videoSource == SceneVideoSource.EMPTY)
     }
 }
 
-data class SceneOverlayState(val initialized: Boolean = false, val widgets: List<Pair<SceneWidget, StreamWidget>> = emptyList())
+data class SceneOverlayState(val initialized: Boolean = false, val widgets: List<Pair<SceneWidget, StreamWidget>> = emptyList(), val sourceEmpty: Boolean = false)
 
 @Composable
-internal fun SceneWidgetsOverlay(viewModel: SceneWidgetsOverlayViewModel = hiltViewModel()) {
+internal fun SceneWidgetsOverlay(
+    viewModel: SceneWidgetsOverlayViewModel = viewModel(),
+    onStateLoaded: (SceneOverlayState) -> Unit = {},
+) {
     val loaded by viewModel.state.collectAsStateWithLifecycle<SceneOverlayState?>(null)
     val state = loaded ?: return
+    SideEffect { onStateLoaded(state) }
     if (!state.initialized) {
         LegacyWidgetsOverlay()
         return
@@ -79,21 +87,28 @@ internal fun SceneWidgetsOverlay(viewModel: SceneWidgetsOverlayViewModel = hiltV
     }
 }
 
-/** ViewModels belong to the navigation entry; retire their runtime when a widget leaves composition. */
+/** Each mounted widget owns its runtime; removal closes readers, recognizers and collectors. */
 @Composable
 private inline fun <reified VM : ViewModel> activeWidgetViewModel(
     id: String?, storeKey: String? = id, crossinline select: (VM, String?) -> Unit,
 ): VM {
-    val vm: VM = hiltViewModel(key = storeKey)
+    val parent = requireNotNull(LocalViewModelStoreOwner.current) as HasDefaultViewModelProviderFactory
+    val owner = remember(id, storeKey, VM::class) {
+        object : ViewModelStoreOwner, HasDefaultViewModelProviderFactory {
+            override val viewModelStore = ViewModelStore()
+            override val defaultViewModelProviderFactory = parent.defaultViewModelProviderFactory
+        }
+    }
+    val vm: VM = viewModel(viewModelStoreOwner = owner, key = storeKey)
     select(vm, id)
-    DisposableEffect(vm) { onDispose { select(vm, "__inactive__") } }
+    DisposableEffect(owner) { onDispose { owner.viewModelStore.clear() } }
     return vm
 }
 
 @Composable
 private fun WidgetContent(widget: StreamWidget, subtitles: SubtitleWidgetViewModel?) {
     when (widget.type) {
-        WidgetType.TEXT -> TextInfoWidget(viewModel = activeWidgetViewModel<TextInfoWidgetViewModel>(widget.id) { vm, id -> vm.useWidget(id) })
+        WidgetType.TEXT -> TextInfoWidget(requestLocationPermission = false, viewModel = activeWidgetViewModel<TextInfoWidgetViewModel>(widget.id) { vm, id -> vm.useWidget(id) })
         WidgetType.IMAGE -> ImageWidget(viewModel = activeWidgetViewModel<ImageWidgetViewModel>(widget.id) { vm, id -> vm.useWidget(id) })
         WidgetType.QR_CODE -> QrCodeWidget(viewModel = activeWidgetViewModel<QrCodeWidgetViewModel>(widget.id) { vm, id -> vm.useWidget(id) })
         WidgetType.SLIDESHOW -> SlideshowWidget(viewModel = activeWidgetViewModel<SlideshowWidgetViewModel>(widget.id) { vm, id -> vm.useWidget(id) })
@@ -102,7 +117,7 @@ private fun WidgetContent(widget: StreamWidget, subtitles: SubtitleWidgetViewMod
         WidgetType.SUBTITLES -> SubtitlesOverlay(viewModel = requireNotNull(subtitles))
         WidgetType.CHAT -> ChatOverlay(viewModel = activeWidgetViewModel<ChatOverlayViewModel>(widget.id) { vm, id -> vm.useWidget(id) })
         WidgetType.BROWSER -> BrowserWidget(widget.configuration)
-        WidgetType.POMODORO -> PomodoroWidget(widget)
+        WidgetType.POMODORO -> PomodoroWidget(widget, viewModel = activeWidgetViewModel<PomodoroWidgetViewModel>(widget.id) { _, _ -> })
     }
 }
 
@@ -136,7 +151,7 @@ private fun BrowserWidget(configuration: WidgetConfiguration) {
 private fun LegacyWidgetsOverlay() {
     Box(Modifier.fillMaxSize()) {
         ChatOverlay(Modifier.align(Alignment.BottomStart).padding(start = 12.dp, bottom = 84.dp), viewModel = activeWidgetViewModel<ChatOverlayViewModel>(null) { vm, id -> vm.useWidget(id) })
-        TextInfoWidget(Modifier.align(Alignment.BottomEnd).padding(end = 12.dp, bottom = 84.dp), viewModel = activeWidgetViewModel<TextInfoWidgetViewModel>(null) { vm, id -> vm.useWidget(id) })
+        TextInfoWidget(requestLocationPermission = false, modifier = Modifier.align(Alignment.BottomEnd).padding(end = 12.dp, bottom = 84.dp), viewModel = activeWidgetViewModel<TextInfoWidgetViewModel>(null) { vm, id -> vm.useWidget(id) })
         GridOverlay(viewModel = activeWidgetViewModel<GridOverlayViewModel>(null) { vm, id -> vm.useWidget(id) })
         ImageWidget(Modifier.align(Alignment.TopStart).padding(12.dp), viewModel = activeWidgetViewModel<ImageWidgetViewModel>(null) { vm, id -> vm.useWidget(id) })
         QrCodeWidget(Modifier.align(Alignment.TopEnd).padding(12.dp), viewModel = activeWidgetViewModel<QrCodeWidgetViewModel>(null) { vm, id -> vm.useWidget(id) })

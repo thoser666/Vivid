@@ -49,6 +49,7 @@ class StreamingViewModel @Inject constructor(
 
     /** Alle gespeicherten Szenen (Anlage-Reihenfolge). */
     val scenes: Flow<List<StreamScene>> = sceneRepository.scenesFlow
+    val appSettings get() = settingsRepository.appSettingsFlow
 
     val savedWidgetLayout get() = sceneRepository.savedLayoutFlow
     fun saveWidgetLayout(layout: com.vivid.core.data.SceneWidget) { viewModelScope.launch { sceneRepository.saveLayout(layout) } }
@@ -87,6 +88,11 @@ class StreamingViewModel @Inject constructor(
         viewModelScope.launch {
             settingsRepository.appSettingsFlow.map { it.cameraControls }.distinctUntilChanged().collect {
                 streamingEngine.configureCameraControls(it)
+            }
+        }
+        viewModelScope.launch {
+            settingsRepository.appSettingsFlow.map { PreviewVideoConfiguration(it) }.distinctUntilChanged().collect {
+                streamingEngine.configurePreviewVideo(it)
             }
         }
         // P1: Anonymisierung — persistierten Soll-Zustand (Zonen + Master-Toggle)
@@ -175,14 +181,10 @@ class StreamingViewModel @Inject constructor(
         if (trimmed.isEmpty()) return
         viewModelScope.launch {
             val settings = settingsRepository.appSettingsFlow.first()
-            val placements = if (sceneRepository.libraryInitializedFlow.first()) {
-                val activeId = sceneRepository.activeSceneIdFlow.first()
-                sceneRepository.scenesFlow.first().find { it.id == activeId }?.widgets.orEmpty()
-            } else null
             val scene = StreamScene(
                 id = UUID.randomUUID().toString(),
                 name = trimmed,
-                widgets = placements,
+                widgets = emptyList(),
                 videoSource = streamingEngine.activeSourceKind.value.toSceneVideoSource(),
                 replayPath = streamingEngine.activeReplayFile?.absolutePath,
                 widgetEnabled = settings.widgetEnabled,

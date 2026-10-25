@@ -19,23 +19,25 @@ internal class RootEncoderExternalCapture(private val camera: Camera2Base) : Aut
         Int::class.javaPrimitiveType, Int::class.javaPrimitiveType, Int::class.javaPrimitiveType,
         Int::class.javaPrimitiveType, Int::class.javaPrimitiveType).apply { isAccessible = true }
 
-    fun prepare(width: Int, height: Int): GlStreamInterface {
+    fun prepare(width: Int, height: Int, rotationDegrees: Int = 0): GlStreamInterface {
         check(!camera.isStreaming && !camera.isRecording && !manager.isRunning)
-        prepareGl.invoke(camera, width, height, width, height, 0)
+        require(rotationDegrees == 0 || rotationDegrees == 90)
+        inputRotationDegrees = rotationDegrees
+        prepareGl.invoke(camera, width, height, width, height, rotationDegrees)
         val gl = camera.glInterface as GlStreamInterface
         check(gl.isRunning)
         restoreInputOrientation()
         return gl
     }
 
-    /** Decoder output already uses native landscape pixel axes, unlike Camera2's texture transform. */
+    /** Decoder output uses native axes; portrait rotation is applied before scene composition. */
     fun restoreInputOrientation() {
         (camera.glInterface as GlStreamInterface).setCameraOrientation(inputRotationDegrees)
     }
 
     /** Rotate the camera source before GL filters, keeping overlay text upright in the output. */
     fun setInputOrientation(rotationDegrees: Int) {
-        require(rotationDegrees == 0 || rotationDegrees == 180)
+        require(rotationDegrees in setOf(0, 90, 180, 270))
         inputRotationDegrees = rotationDegrees
         restoreInputOrientation()
     }

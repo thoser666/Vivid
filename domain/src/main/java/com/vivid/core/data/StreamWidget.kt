@@ -200,5 +200,5 @@ fun StreamWidget.settings(base: AppSettings, visible: Boolean): AppSettings = co
 
 fun isBrowserWidgetUrl(url: String): Boolean = runCatching {
     val uri = java.net.URI(url)
-    uri.scheme in setOf("https", "http") && !uri.host.isNullOrBlank()
+    uri.scheme.equals("https", ignoreCase = true) && !uri.host.isNullOrBlank()
 }.getOrDefault(false)

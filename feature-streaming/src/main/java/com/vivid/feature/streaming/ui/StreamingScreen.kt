@@ -37,17 +37,20 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.background
-import androidx.compose.material.icons.filled.Error
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
@@ -80,7 +83,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.vivid.core.ui.LocalWindowWidthClass
 import com.vivid.core.ui.adaptiveControlsMaxWidth
-import com.vivid.core.ui.theme.LocalExtendedColors
 import com.vivid.feature.chat.twitch.TwitchChannelViewModel
 import com.vivid.feature.streaming.ConfigIssueSeverity
 import com.vivid.feature.streaming.FocusMode
@@ -124,39 +126,42 @@ fun StreamingScreen(
     viewModel: StreamingViewModel = hiltViewModel(),
     twitchViewModel: TwitchChannelViewModel = hiltViewModel(),
     onPreviewFullscreenChange: (Boolean) -> Unit = {},
-    // Overlays (Chat + Widgets) als Slot: Die Kinder holen ihre ViewModels
-    // selbst per hiltViewModel() — der Slot erlaubt Tests/Embedding, sie durch
-    // eigenen Inhalt zu ersetzen (Default = [DefaultStreamingOverlay]).
-    overlayContent: @Composable BoxScope.() -> Unit = { DefaultStreamingOverlay() },
+    // Optional local UI overlay. Scene widgets are composed in the encoder GL path.
+    // The default slot owns Activity permission prompts; tests may replace it.
+    overlayContent: @Composable BoxScope.() -> Unit = { SceneLocationPermission() },
 ) {
     val streamingEngine = viewModel.streamingEngine
     val streamingState by streamingEngine.streamingState.collectAsStateWithLifecycle()
     val targetStates by streamingEngine.targetStates.collectAsStateWithLifecycle()
+    val measuredFps by streamingEngine.measuredEncoderFps.collectAsStateWithLifecycle()
     val streamStartedAtMs by streamingEngine.streamStartedAtMs.collectAsStateWithLifecycle()
     val cameraModeStatus by streamingEngine.cameraModeStatus.collectAsStateWithLifecycle()
     val activeSourceKind by streamingEngine.activeSourceKind.collectAsStateWithLifecycle()
+    val appSettings by viewModel.appSettings.collectAsStateWithLifecycle(com.vivid.core.data.AppSettings())
+    val scenes by viewModel.scenes.collectAsStateWithLifecycle(emptyList())
+    val activeSceneId by viewModel.activeSceneId.collectAsStateWithLifecycle(null)
     val configIssues by viewModel.configIssues.collectAsStateWithLifecycle()
-    // Missing configuration should not obscure the preview before a Go-Live attempt.
-    val previewConfigIssues = configIssues.filterNot { it.messageRes == R.string.stream_error_no_url }
+    var startAttempt by remember { mutableIntStateOf(0) }
     var startAttempted by remember { mutableStateOf(false) }
-    val snackbarHostState = remember { SnackbarHostState() }
-    val dismissLabel = stringResource(android.R.string.ok)
-    StreamConfigurationFeedback(startAttempted, configIssues, streamingState, snackbarHostState) {
-        startAttempted = false
+    var notice by remember { mutableStateOf<PreviewNotice?>(null) }
+    var noticeSequence by remember { mutableIntStateOf(0) }
+    fun showNotice(text: String, error: Boolean, source: String) {
+        notice = PreviewNotice(text, error, source, ++noticeSequence)
     }
-    StreamSessionFeedback(cameraModeStatus, targetStates, streamingState, snackbarHostState)
+    StreamConfigurationFeedback(startAttempted, startAttempt, configIssues, streamingState,
+        onMessage = { text, error -> showNotice(text, error, "configuration") },
+        onClear = { if (notice?.source == "configuration") notice = null },
+        onAttemptConsumed = { startAttempted = false })
+    StreamSessionFeedback(cameraModeStatus, targetStates, streamingState, startAttempt) { text, error ->
+        showNotice(text, error, "session")
+    }
     val twitchState by twitchViewModel.uiState.collectAsStateWithLifecycle()
 
     RefreshTwitchStatus(streamingState, twitchViewModel)
 
-    // #249: Der Screen-Eintritt fordert NIE Permissions an — auch nicht die
-    // Kamera-Permission für die Idle-Vorschau. Ein Auto-Request öffnete den
-    // Systemdialog beim bloßen Betreten des Screens (GrantPermissionsActivity
-    // über der MainActivity, im selben Task) und leerte damit den Semantik-Baum
-    // instrumentierter Compose-Tests im Emulator-Gate (Tag-Run 36849526447).
-    // CAMERA/Mikrofon/Notifications werden ausschließlich im Go-Live-Flow
-    // (User-Geste) angefordert; die Idle-Preview startet nur bei bereits
-    // erteilter Permission (Guard hier + in startIdlePreviewIfReady).
+    // MainActivity requests capture permissions once on the first app launch.
+    // Navigation to this screen never repeats a denied request; Start can retry.
+    // The idle preview still requires an actual camera grant.
     val context = LocalContext.current
     val displayRotationDegrees = rememberDisplayRotation()
     var permissionDenied by remember { mutableStateOf(false) }
@@ -165,7 +170,14 @@ fun StreamingScreen(
         startAttempted = startAttempted && granted
     }
 
-    val requestPermissionsAndRecord = rememberRecordingAction(viewModel, snackbarHostState, dismissLabel)
+    val permissionMessage = stringResource(R.string.streaming_permission_required)
+    LaunchedEffect(permissionDenied, startAttempt) {
+        if (permissionDenied) showNotice(permissionMessage, true, "permission")
+        else if (notice?.source == "permission") notice = null
+    }
+    val requestPermissionsAndRecord = rememberRecordingAction(viewModel) { message ->
+        showNotice(message, true, "recording")
+    }
 
     // Start idle preview only when camera permission is already granted.
     LaunchedEffect(Unit) {
@@ -179,6 +191,7 @@ fun StreamingScreen(
     val requestScreenCapture = rememberScreenCaptureAction(streamingEngine)
 
     val requestVideoPicker = rememberVideoPickerAction(streamingEngine)
+    val selectScene = rememberSceneSelectionAction(viewModel, scenes)
 
     RefreshStreamingScreenOnResume(viewModel, streamingEngine)
 
@@ -187,7 +200,6 @@ fun StreamingScreen(
     SideEffect { onPreviewFullscreenChange(previewFullscreen) }
 
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
         // The preview uses the cutout area; only controls avoid the camera hole.
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
     ) { paddingValues ->
@@ -199,17 +211,39 @@ fun StreamingScreen(
         ) {
             val density = LocalDensity.current
             val previewSize = with(density) { IntSize(maxWidth.roundToPx(), maxHeight.roundToPx()) }
-            StreamingSourcePreview(streamingEngine, activeSourceKind, previewSize, displayRotationDegrees) {
-                requestVideoPicker()
-            }
+            StreamingSourcePreview(streamingEngine, activeSourceKind, previewSize, displayRotationDegrees)
 
             BoxWithConstraints(
-                modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.displayCutout),
+                modifier = Modifier.fillMaxSize().zIndex(1f).windowInsetsPadding(WindowInsets.displayCutout),
             ) {
                 val topButtonMaxWidth = maxWidth / 2 - 20.dp
-                StreamStartButton(streamingState, onStop = viewModel::stopStream) {
-                    startAttempted = true
-                    if (configIssues.none { it.messageRes == R.string.stream_error_no_url }) requestPermissionsAndStart()
+                var bottomControlsHeight by remember { mutableIntStateOf(0) }
+                Box(
+                    Modifier.fillMaxSize().padding(top = 72.dp,
+                        bottom = with(density) { bottomControlsHeight.toDp() }),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    notice?.let { message ->
+                        TransientPreviewMessage(message, onDismiss = { if (notice == message) notice = null })
+                    }
+                }
+                Column(
+                    Modifier.align(Alignment.BottomCenter).fillMaxWidth()
+                        .onSizeChanged { bottomControlsHeight = it.height }
+                        .padding(start = 16.dp, end = 16.dp, bottom = if (maxWidth > maxHeight) 16.dp else 48.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    PreviewSelectionControls(scenes, activeSceneId, appSettings.cameraControls,
+                        streamingEngine, activeSourceKind, selectScene,
+                        showZoom = appSettings.localOverlays.showZoom,
+                        showScenes = appSettings.localOverlays.showScenes,
+                        modifier = Modifier.align(Alignment.End).widthIn(max = 720.dp))
+                    StreamStartButton(streamingState, onStop = viewModel::stopStream) {
+                        startAttempted = true
+                        startAttempt++
+                        if (configIssues.none { it.messageRes == R.string.stream_error_no_url }) requestPermissionsAndStart()
+                    }
                 }
 
                 // Twitch-Status: Viewerzahl und Stream-Metadaten als kompakte Anzeige.
@@ -252,7 +286,6 @@ fun StreamingScreen(
                     Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.streaming_settings_content_desc))
                 }
 
-                StreamingIssueBanners(previewConfigIssues, streamingState, permissionDenied)
             }
 
             // Chat-Overlay + Widgets: als Slot ausgelagert (siehe Parameter-Doku).
@@ -260,10 +293,12 @@ fun StreamingScreen(
 
             if (streamingState is StreamingState.Streaming) {
                 StreamStatusOverlay(
-                    modeFps = if (activeSourceKind == VideoSourceKind.CAMERA &&
-                        cameraModeStatus.applied == CameraMode.EXPERIMENTAL_60_FPS) 60 else 30,
+                    fps = measuredFps,
                     bitrateKbps = currentStreamBitrateKbps(targetStates),
                     startedAtMs = streamStartedAtMs,
+                    showFps = appSettings.localOverlays.showFps,
+                    showDuration = appSettings.localOverlays.showDuration,
+                    showBitrate = appSettings.localOverlays.showBitrate,
                     modifier = Modifier.align(Alignment.TopStart)
                         .windowInsetsPadding(WindowInsets.displayCutout)
                         .padding(start = 16.dp, top = 64.dp),
@@ -312,8 +347,12 @@ private fun BoxScope.StreamingControlsMenu(
     Box(
         modifier = Modifier.align(Alignment.TopStart).padding(top = 12.dp, start = 16.dp),
     ) {
-        FilledTonalButton(
+        Button(
             onClick = { onControlsExpandedChange(true) },
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+            ),
             modifier = Modifier.widthIn(max = topButtonMaxWidth).testTag("open_controls"),
             contentPadding = PaddingValues(horizontal = 12.dp),
         ) {
@@ -638,110 +677,75 @@ private fun ControlsNavigationItems(navController: NavController, onDismiss: () 
 }
 
 @Composable
-private fun StreamingSourcePreview(streamingEngine: StreamingEngine, activeSourceKind: VideoSourceKind, previewSize: IntSize, displayRotationDegrees: Int, onVideoPicker: () -> Unit) {
-    // Camera2 and encoding both render through GL, so idle preview shows effects too.
-    // Der Encoder hängt nicht an der Activity-Surface und läuft bei
-    // deren Zerstörung (Recents-Wischen, Rotation) weiter.
-    // S2: Bei aktiver Screen-Capture-Quelle wird keine Kamera-Vorschau
-    // angehängt — stattdessen erscheint ein Platzhalter mit Hinweis.
-    if (activeSourceKind == VideoSourceKind.CAMERA) {
-        AndroidView(
-            factory = { context ->
-                @SuppressLint("ClickableViewAccessibility")
-                SurfaceView(context).also { view ->
-                    streamingEngine.initializeCamera()
-                    view.holder.addCallback(
-                        object : SurfaceHolder.Callback {
-                            override fun surfaceCreated(holder: SurfaceHolder) {
-                                streamingEngine.attachPreview(
-                                    holder.surface,
-                                    view.width,
-                                    view.height,
-                                    (view.display?.rotation ?: Surface.ROTATION_0) * 90,
-                                )
-                            }
+private fun StreamingSourcePreview(streamingEngine: StreamingEngine, activeSourceKind: VideoSourceKind, previewSize: IntSize, displayRotationDegrees: Int) {
+    // Every source previews the same composed GL output that reaches the encoder.
+    AndroidView(
+        factory = { context ->
+            @SuppressLint("ClickableViewAccessibility")
+            SurfaceView(context).also { view ->
+                if (activeSourceKind == VideoSourceKind.CAMERA) streamingEngine.initializeCamera()
+                view.holder.addCallback(
+                    object : SurfaceHolder.Callback {
+                        override fun surfaceCreated(holder: SurfaceHolder) {
+                            streamingEngine.attachPreview(
+                                holder.surface,
+                                view.width,
+                                view.height,
+                                (view.display?.rotation ?: Surface.ROTATION_0) * 90,
+                            )
+                        }
 
-                            override fun surfaceChanged(
-                                holder: SurfaceHolder,
-                                format: Int,
-                                width: Int,
-                                height: Int,
-                            ) {
-                                streamingEngine.attachPreview(
-                                    holder.surface, width, height,
-                                    (view.display?.rotation ?: Surface.ROTATION_0) * 90,
-                                )
-                            }
+                        override fun surfaceChanged(
+                            holder: SurfaceHolder,
+                            format: Int,
+                            width: Int,
+                            height: Int,
+                        ) {
+                            streamingEngine.attachPreview(
+                                holder.surface, width, height,
+                                (view.display?.rotation ?: Surface.ROTATION_0) * 90,
+                            )
+                        }
 
-                            override fun surfaceDestroyed(holder: SurfaceHolder) {
-                                streamingEngine.detachPreview(holder.surface)
-                            }
-                        },
-                    )
-                    // Tap-to-Focus (Tipp), Pinch-Zoom und Zoom-Reset (Doppeltipp)
-                    // auf der Kamera-Vorschau (RootEncoder-Kamera, nicht CameraX).
-                    val gestures = StreamingPreviewGestures(
-                        context = context,
-                        onTapToFocus = { v, e -> streamingEngine.tapToFocus(v, e) },
-                        onZoomScale = { scale -> streamingEngine.zoomBy(scale) },
-                        onDoubleTap = { streamingEngine.resetZoom() },
-                    )
-                    view.setOnTouchListener(gestures.onTouch)
-                }
-            },
-            update = { view ->
-                // GL crops the native camera buffer to this viewport without stretching.
-                view.holder.setFixedSize(previewSize.width, previewSize.height)
-                view.scaleX = 1f
-                view.scaleY = 1f
-                val surface = view.holder.surface
-                if (surface?.isValid == true) {
-                    streamingEngine.attachPreview(
-                        surface, previewSize.width, previewSize.height,
-                        displayRotationDegrees,
-                    )
-                }
-            },
-            modifier = Modifier.fillMaxSize(),
-        )
-    } else {
-        // S2/S3/Replay: Screen-Capture, Video-Player oder Replay aktiv — kein
-        // Kamera-Bild, stattdessen ein dunkler Platzhalter, damit klar ist, dass
-        // der Gerätebildschirm bzw. die Datei (und nicht die Kamera) die
-        // Videoquelle ist.
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.surfaceVariant),
-            contentAlignment = Alignment.Center,
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = stringResource(
-                        when (activeSourceKind) {
-                            VideoSourceKind.VIDEO_PLAYER -> R.string.streaming_source_video_active_hint
-                            VideoSourceKind.REPLAY -> R.string.streaming_source_replay_active_hint
-                            else -> R.string.streaming_source_screen_active_hint
-                        },
-                    ),
-                    style = MaterialTheme.typography.bodyLarge,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(horizontal = 32.dp),
+                        override fun surfaceDestroyed(holder: SurfaceHolder) {
+                            streamingEngine.detachPreview(holder.surface)
+                        }
+                    },
                 )
-                if (activeSourceKind == VideoSourceKind.VIDEO_PLAYER) {
-                    Spacer(Modifier.size(12.dp))
-                    Button(onClick = { onVideoPicker() }) {
-                        Text(stringResource(R.string.streaming_source_video_pick))
-                    }
+                // Tap-to-Focus (Tipp), Pinch-Zoom und Zoom-Reset (Doppeltipp)
+                // auf der Kamera-Vorschau (RootEncoder-Kamera, nicht CameraX).
+                val gestures = StreamingPreviewGestures(
+                    context = context,
+                    onTapToFocus = { v, e -> streamingEngine.tapToFocus(v, e) },
+                    onZoomScale = { scale -> streamingEngine.zoomBy(scale) },
+                    onDoubleTap = { streamingEngine.resetZoom() },
+                )
+                view.setOnTouchListener { target, event ->
+                    streamingEngine.dispatchSceneTouch(target.width, target.height, event) ||
+                        gestures.onTouch.onTouch(target, event)
                 }
             }
-        }
-    }
+        },
+        update = { view ->
+            // GL crops the native camera buffer to this viewport without stretching.
+            view.holder.setFixedSize(previewSize.width, previewSize.height)
+            view.scaleX = 1f
+            view.scaleY = 1f
+            val surface = view.holder.surface
+            if (surface?.isValid == true) {
+                streamingEngine.attachPreview(
+                    surface, previewSize.width, previewSize.height,
+                    displayRotationDegrees,
+                )
+            }
+        },
+        modifier = Modifier.fillMaxSize(),
+    )
 
 }
 
 @Composable
-private fun BoxScope.StreamStartButton(streamingState: StreamingState, onStop: () -> Unit, onStart: () -> Unit) {
+private fun StreamStartButton(streamingState: StreamingState, onStop: () -> Unit, onStart: () -> Unit) {
     var confirmStop by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(streamingState) {
         if (streamingState !is StreamingState.Streaming) confirmStop = false
@@ -773,7 +777,7 @@ private fun BoxScope.StreamStartButton(streamingState: StreamingState, onStop: (
             }
         },
         enabled = streamingState !is StreamingState.Preparing,
-        modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 48.dp),
+        modifier = Modifier.testTag("stream_start_stop"),
     ) {
         val buttonText = when (streamingState) {
             is StreamingState.Idle -> stringResource(R.string.streaming_start)
@@ -786,59 +790,29 @@ private fun BoxScope.StreamStartButton(streamingState: StreamingState, onStop: (
 
 }
 
-@Composable
-private fun BoxScope.StreamingIssueBanners(previewConfigIssues: List<StreamConfigIssue>, streamingState: StreamingState, permissionDenied: Boolean) {
-    val errorIssues = previewConfigIssues.filter { it.severity == ConfigIssueSeverity.ERROR }
-    if (streamingState is StreamingState.Failed) {
-        // Lokalisierte Ursache (reasonRes) vor der Rohdiagnose der Library:
-        // eigene Ausgaben sind i18n-Pflicht, Fremdtexte nicht übersetzbar.
-        val reason = streamingState.reasonRes
-            ?.let { stringResource(it) }
-            ?: streamingState.reason.orEmpty()
-        PreviewMessageBanner(
-            text = stringResource(R.string.streaming_error_prefix, reason),
-            isError = true,
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-        )
-    } else if (permissionDenied) {
-        PreviewMessageBanner(
-            text = stringResource(R.string.streaming_permission_required),
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-        )
-    } else if (errorIssues.isNotEmpty() && streamingState !is StreamingState.Streaming) {
-        PreviewMessageBanner(
-            text = errorIssues.map { resolveIssueText(it) }.joinToString("\n"),
-            isError = true,
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-        )
-    }
+internal data class PreviewNotice(val text: String, val isError: Boolean, val source: String, val sequence: Int)
 
-    // Selbst-Check: Befunde nur im Idle-Zustand anzeigen (nicht während/nach dem
-    // Streamen). Bei gesetzten Fehler-Befunden (errorIssues) wird die Liste ausgeblendet
-    // — das Banner zeigt dieselben Fehler bereits, eine Doppelanzeige überlappte sonst.
-    if (previewConfigIssues.isNotEmpty() && streamingState !is StreamingState.Streaming && errorIssues.isEmpty()) {
+/** Local, bounded feedback: it cannot cover the top buttons or the bottom selectors. */
+@Composable
+internal fun TransientPreviewMessage(notice: PreviewNotice, onDismiss: () -> Unit) {
+    val dismiss by rememberUpdatedState(onDismiss)
+    LaunchedEffect(notice) {
+        kotlinx.coroutines.delay(3_000)
+        dismiss()
+    }
+    BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
         Surface(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+            onClick = onDismiss,
+            modifier = Modifier.align(Alignment.Center).widthIn(max = 560.dp).heightIn(max = maxHeight)
+                .testTag("stream_preview_message"),
             shape = MaterialTheme.shapes.medium,
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            contentColor = MaterialTheme.colorScheme.onSurface,
+            color = if (notice.isError) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
+            contentColor = if (notice.isError) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurface,
         ) {
-            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                previewConfigIssues.forEach { issue ->
-                    ConfigIssueRow(issue)
-                }
-            }
+            Text(notice.text, style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 10.dp))
         }
     }
-
 }
 
 @Composable
@@ -864,26 +838,17 @@ private fun rememberDisplayRotation(): Int {
 }
 
 @Composable
-private fun rememberRecordingAction(viewModel: StreamingViewModel, snackbarHostState: SnackbarHostState, dismissLabel: String): () -> Unit {
+private fun rememberRecordingAction(viewModel: StreamingViewModel, onError: (String) -> Unit): () -> Unit {
     val context = LocalContext.current
-    var recordingError by remember { mutableStateOf(false) }
     val recordingErrorMessage = stringResource(R.string.streaming_replay_start_error)
-    LaunchedEffect(recordingError) {
-        if (recordingError) {
-            try {
-                snackbarHostState.showSnackbar(recordingErrorMessage, actionLabel = dismissLabel)
-            } finally {
-                recordingError = false
-            }
-        }
-    }
+    val latestOnError by rememberUpdatedState(onError)
     fun startRecording() {
-        viewModel.toggleReplay { recordingError = !it }
+        viewModel.toggleReplay { if (!it) latestOnError(recordingErrorMessage) }
     }
     val recordingPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),
     ) { grants ->
-        if (grants.values.all { it }) startRecording() else recordingError = true
+        if (grants.values.all { it }) startRecording() else latestOnError(recordingErrorMessage)
     }
     fun requestPermissionsAndRecord() {
         val missing = listOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO).filter {
@@ -969,23 +934,23 @@ private fun rememberStreamStartAction(
 @Composable
 private fun StreamConfigurationFeedback(
     startAttempted: Boolean,
+    startAttempt: Int,
     configIssues: List<StreamConfigIssue>,
     streamingState: StreamingState,
-    snackbarHostState: SnackbarHostState,
+    onMessage: (String, Boolean) -> Unit,
+    onClear: () -> Unit,
     onAttemptConsumed: () -> Unit,
 ) {
-    val missingUrlMessage = stringResource(R.string.stream_error_no_url)
-    val dismissLabel = stringResource(android.R.string.ok)
-    LaunchedEffect(startAttempted, configIssues, streamingState) {
-        if (!startAttempted) return@LaunchedEffect
-        if (configIssues.any { it.messageRes == R.string.stream_error_no_url }) {
-            try {
-                snackbarHostState.showSnackbar(missingUrlMessage, actionLabel = dismissLabel)
-            } finally {
-                onAttemptConsumed()
-            }
-        } else if (streamingState !is StreamingState.Idle) {
+    val issues = configIssues.filter { it.messageRes != R.string.stream_error_no_url || startAttempted }
+    val message = issues.map { resolveIssueText(it) }.joinToString("\n")
+    // Consuming an attempt must not re-open the same message on the next recomposition.
+    LaunchedEffect(configIssues, streamingState, startAttempt) {
+        if (issues.isNotEmpty() && streamingState !is StreamingState.Streaming && streamingState !is StreamingState.Failed) {
+            onMessage(message, issues.any { it.severity == ConfigIssueSeverity.ERROR })
             onAttemptConsumed()
+        } else {
+            onClear()
+            if (streamingState !is StreamingState.Idle) onAttemptConsumed()
         }
     }
 }
@@ -995,7 +960,8 @@ private fun StreamSessionFeedback(
     cameraStatus: CameraModeStatus,
     targets: List<StreamTargetState>,
     state: StreamingState,
-    host: SnackbarHostState,
+    startAttempt: Int,
+    onMessage: (String, Boolean) -> Unit,
 ) {
     val cameraMessage = cameraStatus.notice?.let { notice ->
         stringResource(when (notice) {
@@ -1005,16 +971,17 @@ private fun StreamSessionFeedback(
             CameraModeNotice.RECORDING_FAILED -> R.string.camera_mode_recording_failed
         })
     }
-    LaunchedEffect(cameraMessage) {
-        cameraMessage?.let { host.showSnackbar(it) }
-    }
+    LaunchedEffect(cameraMessage) { cameraMessage?.let { onMessage(it, false) } }
     val failedTarget = targets.firstOrNull { it.status == StreamTargetStatus.FAILED }
-    val targetMessage = if (state is StreamingState.Streaming && failedTarget != null) {
-        stringResource(R.string.streaming_error_prefix, failedTarget.failureReason.orEmpty())
-    } else null
-    LaunchedEffect(targetMessage) {
-        targetMessage?.let { host.showSnackbar(it) }
+    val failure = when {
+        state is StreamingState.Failed -> state.reasonRes
+            ?.let { stringResource(it) }
+            ?: state.reason.orEmpty()
+        state is StreamingState.Streaming && failedTarget != null -> failedTarget.failureReason.orEmpty()
+        else -> null
     }
+    val failureMessage = failure?.let { stringResource(R.string.streaming_error_prefix, it) }
+    LaunchedEffect(failureMessage, startAttempt) { failureMessage?.let { onMessage(it, true) } }
 }
 
 @Composable
@@ -1029,6 +996,37 @@ private fun RefreshTwitchStatus(streamingState: StreamingState, twitchViewModel:
         }
     }
 
+}
+
+@Composable
+private fun rememberSceneSelectionAction(
+    viewModel: StreamingViewModel,
+    scenes: List<com.vivid.core.data.StreamScene>,
+): (com.vivid.core.data.StreamScene) -> Unit {
+    val engine = viewModel.streamingEngine
+    val latestScenes by rememberUpdatedState(scenes)
+    var pendingId by rememberSaveable { mutableStateOf<String?>(null) }
+    var previousSource by rememberSaveable { mutableStateOf(VideoSourceKind.CAMERA.name) }
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val scene = latestScenes.find { it.id == pendingId && it.enabled &&
+            it.videoSource == com.vivid.core.data.SceneVideoSource.SCREEN_CAPTURE }
+        pendingId = null
+        val granted = engine.onScreenCaptureConsentResult(result.resultCode, result.data)
+        if (granted && scene != null) viewModel.applyScene(scene)
+        else engine.switchSource(VideoSourceKind.valueOf(previousSource))
+    }
+    return { scene ->
+        if (scene.videoSource == com.vivid.core.data.SceneVideoSource.SCREEN_CAPTURE) {
+            previousSource = engine.activeSourceKind.value.name
+            if (engine.switchSource(VideoSourceKind.SCREEN_CAPTURE)) {
+                val intent = engine.createScreenCaptureConsentIntent()
+                if (intent != null) {
+                    pendingId = scene.id
+                    launcher.launch(intent)
+                } else engine.switchSource(VideoSourceKind.valueOf(previousSource))
+            }
+        } else viewModel.applyScene(scene)
+    }
 }
 
 @Composable
@@ -1092,73 +1090,29 @@ private fun RefreshStreamingScreenOnResume(viewModel: StreamingViewModel, stream
 
 }
 
-/**
- * Standard-Overlay-Inhalt des Streaming-Screens: Chat-Overlay (Twitch) links
- * unten, Text-/Info-Widget rechts unten, Grid/Bild/QR/Slideshow über der
- * Vorschau. Jedes Kind blendet sich bei deaktivierter Einstellung selbst aus.
- */
+/** Permission dialogs are owned by the visible Activity, never by the encoder display. */
 @Composable
-private fun BoxScope.DefaultStreamingOverlay() {
-    SceneWidgetsOverlay()
+private fun SceneLocationPermission(viewModel: SceneWidgetsOverlayViewModel = hiltViewModel()) {
+    val scene by viewModel.state.collectAsStateWithLifecycle(SceneOverlayState())
+    val needsLocation = scene.widgets.any { (_, widget) ->
+        widget.type == com.vivid.core.data.WidgetType.TEXT && with(widget.configuration) {
+            widgetShowLocation || widgetShowSpeed || widgetShowAltitude ||
+                Regex("\\{(lat|lon|location|speed|altitude|road|city|country|distance|gforce)\\}").containsMatchIn(widgetTemplate)
+        }
+    }
+    val context = LocalContext.current
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+    LaunchedEffect(needsLocation) {
+        if (needsLocation && ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) !=
+            PackageManager.PERMISSION_GRANTED) launcher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+    }
 }
 
 private const val TWITCH_REFRESH_INTERVAL_MS = 30_000L
-
-/** Zeigt einen einzelnen Selbst-Check-Befund mit passendem Icon und Farbe an. */
-@Composable
-private fun ConfigIssueRow(issue: StreamConfigIssue) {
-    val isError = issue.severity == ConfigIssueSeverity.ERROR
-    val tint = if (isError) {
-        MaterialTheme.colorScheme.error
-    } else {
-        LocalExtendedColors.current.warning
-    }
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.padding(vertical = 2.dp),
-    ) {
-        Icon(
-            imageVector = if (isError) Icons.Filled.Error else Icons.Filled.Warning,
-            contentDescription = null,
-            tint = tint,
-        )
-        Spacer(Modifier.width(8.dp))
-        Text(
-            text = resolveIssueText(issue),
-            color = tint,
-        )
-    }
-}
 
 /** Löst einen Selbst-Check-Befund in die lokalisierte Meldung auf. */
 @Composable
 private fun resolveIssueText(issue: StreamConfigIssue): String {
     val prefix = if (issue.prefixRes != 0) stringResource(issue.prefixRes) else ""
     return prefix + stringResource(issue.messageRes, *issue.formatArgs.toTypedArray())
-}
-
-/** Banner über der Kamera-Vorschau: opaker Container garantiert Kontrast auf dem schwarzen Preview. */
-@Composable
-private fun PreviewMessageBanner(
-    text: String,
-    modifier: Modifier = Modifier,
-    isError: Boolean = false,
-) {
-    val container = if (isError) {
-        MaterialTheme.colorScheme.errorContainer to MaterialTheme.colorScheme.onErrorContainer
-    } else {
-        MaterialTheme.colorScheme.surfaceContainerHigh to MaterialTheme.colorScheme.onSurface
-    }
-    Surface(
-        modifier = modifier,
-        shape = MaterialTheme.shapes.medium,
-        color = container.first,
-        contentColor = container.second,
-    ) {
-        Text(
-            text = text,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-            style = MaterialTheme.typography.bodyMedium,
-        )
-    }
 }

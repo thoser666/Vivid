@@ -3,8 +3,8 @@
     <!-- ===== Category overview (SettingsCategories.kt) ===== -->
     <string name="cat_streaming_title">Стриминг и OBS</string>
     <string name="cat_streaming_subtitle">URL и ключ трансляции, пресеты платформ, несколько трансляций, подключение OBS</string>
-    <string name="cat_appearance_title">Внешний вид</string>
-    <string name="cat_appearance_subtitle">Язык, тема и акцентный цвет</string>
+    <string name="cat_appearance_title">Интерфейс</string>
+    <string name="cat_appearance_subtitle">Ориентация экрана стрима, язык, оформление и локальные оверлеи.</string>
     <string name="cat_overlays_title">Сцены и виджеты</string>
     <string name="cat_overlays_subtitle">Чат Twitch, виджеты текста/информации, изображения, QR-кода, батареи и сетки</string>
     <string name="cat_chatbot_title">Чат-бот и искусственный интеллект</string>
@@ -50,6 +50,7 @@
     <string name="appearance_language_english">English</string>
     <string name="appearance_language_french">Français</string>
     <string name="appearance_language_russian">Русский</string>
+    <string name="appearance_theme_title">Тема</string>
     <string name="appearance_mode_title">Режим темы</string>
     <string name="appearance_mode_desc">Выберите светлую, тёмную или AMOLED-тему либо следуйте настройке устройства. В режиме AMOLED фон полностью чёрный, что экономит заряд на OLED-экранах.</string>
     <string name="appearance_mode_system_desc">Соответствует системным настройкам вашего устройства (по умолчанию).</string>
@@ -399,15 +400,18 @@
     <string name="camera_zoom_reorder">Переместить пресет зума %1$s</string>
     <string name="camera_zoom_reorder_hint">Удерживайте значок слева и перетащите пресет. Порядок сохраняется после отпускания.</string>
     <string name="cat_overlays_desc">Сцены, источники и общие виджеты</string>
+    <string name="scene_widget_scene_management">Управление сценами</string>
     <string name="scene_widget_library">Виджеты</string>
+    <string name="scene_widget_library_hint">Включение, выключение и удаление виджета здесь повлияет на все сцены, где он используется.</string>
     <string name="scene_widget_add_scene">Добавить сцену</string>
     <string name="scene_widget_add">Добавить виджет</string>
     <string name="scene_widget_add_existing">Добавить из списка виджетов</string>
     <string name="scene_widget_scene_widgets">Виджеты сцены</string>
+    <string name="scene_widget_scene_widgets_hint">Нажмите на виджет, чтобы настроить его расположение на этой сцене.</string>
     <string name="scene_widget_create_first">Сначала создайте виджет в общем списке.</string>
     <string name="scene_widget_browser">Браузер</string>
     <string name="scene_widget_name">Название виджета</string>
-    <string name="scene_widget_url">URL страницы</string>
+    <string name="scene_widget_url">URL страницы (HTTPS)</string>
     <string name="scene_widget_page_width">Ширина страницы (px)</string>
     <string name="scene_widget_page_height">Высота страницы (px)</string>
     <string name="scene_widget_activate">Активировать сцену</string>
@@ -430,6 +434,8 @@
     <string name="scene_widget_scale">Масштаб: %1$d%%</string>
     <string name="scene_widget_reorder">Переместить %1$s</string>
     <string name="scene_widget_delete">Удалить</string>
+    <string name="scene_widget_delete_title">Удалить виджет?</string>
+    <string name="scene_widget_delete_message">Удалить «%1$s» из библиотеки виджетов и всех сцен, где он используется?</string>
     <string name="scene_widget_shared_settings">Общие настройки виджета</string>
     <string name="scene_widget_shared_hint">Изменения содержимого применяются во всех сценах; положение и масштаб — только в этой сцене.</string>
     <string name="scene_widget_anchor">Привязка: ряд %1$d, столбец %2$d</string>
@@ -440,5 +446,13 @@
     <string name="appearance_orientation_title">Режим работы</string>
     <string name="appearance_orientation_portrait">Портретный</string>
     <string name="appearance_orientation_landscape">Горизонтальный</string>
-    <string name="appearance_orientation_desc">Применяется сразу и сохраняется. Поворот устройства не меняет режим.</string>
+    <string name="appearance_orientation_desc">Ориентация основного экрана и кадра камеры в трансляции: 9:16 или 16:9. Меню поворачивается вместе с устройством.</string>
+    <string name="local_overlays_title">Локальные оверлеи</string>
+    <string name="local_overlays_manage">Настроить оверлеи</string>
+    <string name="local_overlays_description">Системные оверлеи видны только на вашем экране и не попадают в трансляцию. Изменения сохраняются сразу.</string>
+    <string name="local_overlays_zoom">Управление масштабом</string>
+    <string name="local_overlays_fps">Счётчик FPS</string>
+    <string name="local_overlays_bitrate">Битрейт</string>
+    <string name="local_overlays_duration">Длительность трансляции</string>
+    <string name="local_overlays_scenes">Выбор сцены</string>
 </resources>

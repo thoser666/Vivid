@@ -195,16 +195,70 @@ class SceneRepositoryTest {
     }
 
     @Test
+    fun `global widget toggle updates every existing placement atomically and preserves layouts`() = runTest {
+        val store = FakeDataStore()
+        val repo = SceneRepository(store)
+        val widget = StreamWidget("w", "Caption", WidgetType.TEXT)
+        repo.saveWidget(widget)
+        val scenes = listOf(
+            scene("a").copy(widgets = listOf(SceneWidget("other"), SceneWidget("w", x = 10f, y = 20f, scale = 0.5f))),
+            scene("b").copy(enabled = false, widgets = listOf(SceneWidget("w", enabled = false, x = 70f, y = 80f))),
+            scene("empty").copy(widgets = emptyList()),
+            scene("legacy"),
+        )
+        scenes.forEach { repo.saveScene(it) }
+        for (enabled in listOf(false, true)) {
+            val before = store.writes
+            repo.saveWidget(widget.copy(enabled = enabled))
+            assertEquals(before + 1, store.writes)
+            assertEquals(enabled, repo.widgetsFlow.first().single().enabled)
+            assertEquals(scenes.map { scene -> scene.copy(widgets = scene.widgets?.map {
+                if (it.widgetId == widget.id) it.copy(enabled = enabled) else it
+            }) }, SceneRepository(store).scenesFlow.first())
+        }
+        val beforeEdit = repo.scenesFlow.first()
+        repo.saveWidget(widget.copy(name = "Renamed"))
+        assertEquals(beforeEdit, repo.scenesFlow.first())
+    }
+
+    @Test
     fun `deleting library widget cleans references in every scene and keeps other widgets`() = runTest {
-        val repo = repository()
+        val store = FakeDataStore()
+        val repo = SceneRepository(store)
         repo.saveWidget(StreamWidget("w", "One", WidgetType.TEXT))
         repo.saveWidget(StreamWidget("other", "Two", WidgetType.IMAGE))
-        repo.saveScene(scene("a").copy(widgets = listOf(SceneWidget("w"), SceneWidget("other"))))
-        repo.saveScene(scene("b").copy(widgets = listOf(SceneWidget("w"))))
+        val other = SceneWidget("other", x = 33f, y = 66f, scale = 1.5f)
+        val scenes = listOf(
+            scene("a").copy(widgets = listOf(SceneWidget("w"), other)),
+            scene("b").copy(widgets = listOf(SceneWidget("w"))),
+            scene("disabled").copy(enabled = false, widgets = listOf(other, SceneWidget("w", enabled = false))),
+            scene("empty").copy(widgets = emptyList()),
+            scene("legacy"),
+        )
+        scenes.forEach { repo.saveScene(it) }
+        repo.setActiveScene("a")
+        val before = store.writes
         repo.deleteWidget("w")
+
+        assertEquals(before + 1, store.writes)
         assertEquals(listOf("other"), repo.widgetsFlow.first().map { it.id })
-        assertEquals(listOf(SceneWidget("other")), repo.scenesFlow.first()[0].widgets)
-        assertTrue(repo.scenesFlow.first()[1].widgets!!.isEmpty())
+        assertEquals(scenes.map { it.copy(widgets = it.widgets?.filterNot { placement -> placement.widgetId == "w" }) },
+            SceneRepository(store).scenesFlow.first())
+        assertEquals("a", repo.activeSceneIdFlow.first())
+    }
+
+    @Test
+    fun `removing a placement from one scene keeps its definition and other scenes`() = runTest {
+        val repo = repository()
+        val widget = StreamWidget("w", "Caption", WidgetType.TEXT)
+        val a = scene("a").copy(widgets = listOf(SceneWidget("w")))
+        val b = scene("b").copy(widgets = listOf(SceneWidget("w", x = 70f)))
+        repo.saveWidget(widget)
+        repo.saveScene(a)
+        repo.saveScene(b)
+        repo.saveScene(a.copy(widgets = emptyList()))
+        assertEquals(listOf(widget), repo.widgetsFlow.first())
+        assertEquals(listOf(a.copy(widgets = emptyList()), b), repo.scenesFlow.first())
     }
 
     @Test
@@ -221,6 +275,20 @@ class SceneRepositoryTest {
         val before = repo.widgetsFlow.first()
         repo.initializeLibrary(AppSettings(), "Ignored", names)
         assertEquals(before, repo.widgetsFlow.first())
+    }
+
+    @Test
+    fun `library migration preserves explicitly empty new scenes alongside legacy scenes`() = runTest {
+        val repo = repository()
+        val empty = scene("new").copy(widgets = emptyList())
+        repo.saveScene(empty)
+        repo.saveScene(scene("legacy"))
+        repo.initializeLibrary(AppSettings(widgetEnabled = true, batteryEnabled = true), "Default",
+            WidgetType.entries.associateWith { it.name })
+
+        assertEquals(empty, repo.scenesFlow.first().first())
+        assertTrue(repo.scenesFlow.first().last().widgets!!.isNotEmpty())
+        assertTrue(repo.widgetsFlow.first().none { it.id == "legacy-text-new" })
     }
 
     @Test
@@ -243,6 +311,7 @@ class SceneRepositoryTest {
         assertEquals(800, repo.widgetsFlow.first()[1].configuration.browserWidth)
         assertEquals(600, repo.widgetsFlow.first()[1].configuration.browserHeight)
         assertTrue(isBrowserWidgetUrl("https://example.com/overlay"))
+        assertEquals(false, isBrowserWidgetUrl("http://example.com/overlay"))
         assertEquals(false, isBrowserWidgetUrl("file:///etc/passwd"))
         assertEquals(false, isBrowserWidgetUrl("javascript:alert(1)"))
     }

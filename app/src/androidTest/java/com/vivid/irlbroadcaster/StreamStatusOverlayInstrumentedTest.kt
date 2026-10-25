@@ -48,7 +48,8 @@ class StreamStatusOverlayInstrumentedTest {
         try {
             composeRule.waitUntil(20_000) { engine.streamingState.value is StreamingState.Streaming }
             composeRule.waitUntil(10_000) { engine.targetStates.value.any { (it.bitrateKbps ?: 0) > 0 } }
-            composeRule.onNodeWithText("30 FPS").assertIsDisplayed()
+            composeRule.waitUntil(10_000) { engine.measuredEncoderFps.value != null }
+            composeRule.onNodeWithTag("stream_mode_fps").assertIsDisplayed()
             composeRule.onNodeWithTag("stream_current_bitrate").assertIsDisplayed()
             composeRule.onNodeWithTag("applied_camera_profile").assertDoesNotExist()
             Thread.sleep(2_000)
