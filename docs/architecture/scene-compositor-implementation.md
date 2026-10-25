@@ -118,3 +118,9 @@ Beim Geräte-Smoke zusätzlich Remote-Stream-Stopp mit weiterlaufender
 Screen-Vorschau prüfen: Der Chat-Bot muss mit dem Stream enden, während die
 Capture-Notification bis zum Grant-Ende bestehen bleibt. Der Service behandelt
 diesen Übergang getrennt vom vollständigen Foreground-Service-Stopp.
+
+Der vollständige Pre-Push-Lauf nach dem Editor-/Kompatibilitäts-Checkpoint
+wurde erneut beendet: Repository-Selbsttests liefen durch; im unveränderten
+OBS-Modul scheiterten **21 von 48 Tests** am Conscrypt-Laden wegen fehlendem
+`libpthread.so.0` auf Termux. Das Gesamt-Gate bleibt rot. Die separaten grünen
+Streaming-Lint-/Test-Nachweise bleiben ausdrücklich auf ihren Umfang begrenzt.
