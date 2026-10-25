@@ -330,7 +330,10 @@ alle **15 GLES-Fixtures**. Streaming-Lint bestand ohne Fehler/Warnungen (ein
 bestehender Autoboxing-Hint). Die Retirement-/Cleanup-Regressionen reproduzierten
 zuvor drei gezielte Fehler in 14 Tests; nach Korrektur bestanden sie. Die finale
 Container-Nutzung gilt ab dem ersten aktiven Filter. Der vollständige Repository-
-Gate wird für diesen Checkpoint gesondert ausgeführt.
+Gate wurde ausgeführt: Nach bestandenen Repository-Selbsttests scheiterten sechs
+von 471 unveränderten Chat-Tests am Conscrypt-Loader (`libpthread.so.0` fehlt auf
+Termux), durch die XML-Reports bestätigt. Das Gesamt-Gate bleibt rot; vollständige
+App-Lint-/Release- und Geräte-Nachweise bleiben offen.
 Die Fixture prüft konstante Privacy-Mosaikpixel bei
 wiederholten Effektwechseln, stabile Ausgabe-Textur und einmaliges Source-Attach;
 ihr negativer Kontrollfall schaltet Privacy aus. Sie ist noch nicht auf einem
