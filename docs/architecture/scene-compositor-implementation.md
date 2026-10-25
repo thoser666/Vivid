@@ -325,16 +325,13 @@ Engine-Integrationsfall reproduzierten die falsche Reihenfolge (23 Tests, drei
 gezielte Fehler) und bestanden nach der Korrektur. Der finale Testlauf bestand
 **179 Szenen-/Privacy-/Filter-Tests** und kompilierte alle **15 GLES-Fixtures**.
 
-Die fokussierte Prüfung bestand **72 Container-/Privacy-/Engine-Tests**; alle
-**15 GLES-Fixtures** einschließlich der neuen Privacy-/Lifetime-Fixture kompilieren.
-Der erste breitere Lauf bestand 164 Tests und Streaming-Lint ohne Fehler/Warnungen
-(ein bestehender Hint). Drei zusätzliche Regressionen reproduzierten danach
-veraltetes Retirement und unvollständiges Cleanup (14 Tests, drei erwartete Fehler)
-und bestanden nach der Korrektur. Der anschließende Lauf bestand 167 Tests, kompilierte 15 GLES-Fixtures und bestand
-Streaming-Lint (keine Fehler/Warnungen, ein bestehender Hint). Nach Vereinheitlichung
-der Container-Nutzung ab dem ersten aktiven Filter und der Filter-State-Korrektur
-bestand der finale Lauf 179 Tests und die Instrumented-Kompilierung; die separate
-Streaming-Lint-Prüfung läuft noch. Die Fixture prüft konstante Privacy-Mosaikpixel bei
+Die finale Prüfung bestand **179 Szenen-/Privacy-/Filter-Tests** und kompilierte
+alle **15 GLES-Fixtures**. Streaming-Lint bestand ohne Fehler/Warnungen (ein
+bestehender Autoboxing-Hint). Die Retirement-/Cleanup-Regressionen reproduzierten
+zuvor drei gezielte Fehler in 14 Tests; nach Korrektur bestanden sie. Die finale
+Container-Nutzung gilt ab dem ersten aktiven Filter. Der vollständige Repository-
+Gate wird für diesen Checkpoint gesondert ausgeführt.
+Die Fixture prüft konstante Privacy-Mosaikpixel bei
 wiederholten Effektwechseln, stabile Ausgabe-Textur und einmaliges Source-Attach;
 ihr negativer Kontrollfall schaltet Privacy aus. Sie ist noch nicht auf einem
 Gerät/Emulator ausgeführt. Capture über einen tatsächlichen EGL-Kontextwechsel
