@@ -127,6 +127,33 @@ class SceneCompositorGpuTest {
         assertEquals(2, rendered)
     }
 
+    @Test fun cameraSamplingKeepsEmbeddedSensorRotationAndCropExactlyOnce() {
+        val raw = texture(4, 2, intArrayOf(0, 0, 0, 255, 255, 0, 0, 255,
+            0, 0, 255, 255, 255, 255, 255, 255, 0, 0, 0, 255, 0, 255, 0, 255,
+            255, 255, 0, 255, 255, 255, 255, 255))
+        val crop = identityTextureMatrix().apply { this[0] = .5f; this[12] = .25f }
+        val surfaceTransform = FloatArray(16)
+        android.opengl.Matrix.multiplyMM(surfaceTransform, 0, crop, 0,
+            SceneCameraGeometry.samplingMatrix(270), 0) // Embedded sensor rotation and GL flip.
+        val transform = FloatArray(16)
+        android.opengl.Matrix.multiplyMM(transform, 0, surfaceTransform, 0,
+            SceneCameraGeometry.samplingMatrix(0), 0)
+        frames["camera"] = raw.copy(transform = transform)
+        val render = start(composition("camera"))
+        render.draw()
+        assertColor(pixel(2, 2), 0, 255, 0)
+        assertColor(pixel(29, 2), 255, 0, 0)
+        assertColor(pixel(2, 29), 255, 255, 0)
+        assertColor(pixel(29, 29), 0, 0, 255)
+        android.opengl.Matrix.multiplyMM(transform, 0, surfaceTransform, 0,
+            SceneCameraGeometry.samplingMatrix(SceneCameraGeometry.displayCorrection(90)), 0)
+        render.draw()
+        assertColor(pixel(2, 2), 255, 0, 0)
+        assertColor(pixel(29, 2), 0, 0, 255)
+        assertColor(pixel(2, 29), 0, 255, 0)
+        assertColor(pixel(29, 29), 255, 255, 0)
+    }
+
     @Test fun legacyInputRetainsFramebufferOrientationAndCanReturnToPassthrough() {
         val input = texture(1, 2, intArrayOf(255, 0, 0, 255, 0, 0, 255, 255))
         val scene = composition("camera")
@@ -234,10 +261,60 @@ class SceneCompositorGpuTest {
         assertEquals(1, capture.stopped)
     }
 
+    @Test fun lateCameraMetadataMakesTheExistingTextureUsableWithoutRestartingCapture() {
+        val capture = captureFixture(SceneSourceType.CAMERA)
+        capture.rotation = null
+        awaitSampling(capture, previousTimestamp = null)
+        assertNull(capture.provider.texture("capture"))
+        capture.rotation = 90
+        requireNotNull(renderer).draw()
+        assertNotNull(capture.provider.texture("capture"))
+        assertColor(pixel(16, 16), 0, 255, 0)
+        assertEquals(1, capture.opened)
+        assertEquals(1, capture.ready)
+        capture.rotation = null
+        requireNotNull(renderer).draw()
+        capture.rotation = 90
+        requireNotNull(renderer).draw()
+        assertEquals(1, capture.ready)
+    }
+
+    @Test fun cameraFramesWithoutUsableMetadataTimeOutEvenWhileBuffersKeepArriving() {
+        val capture = captureFixture(SceneSourceType.CAMERA)
+        awaitCapture(capture.provider)
+        capture.rotation = null
+        repeat(6) { index ->
+            now = (index + 1) * 1_000L
+            val previous = capture.sampledTimestamp
+            val surface = requireNotNull(capture.surface)
+            val canvas = surface.lockCanvas(null)
+            canvas.drawColor(android.graphics.Color.GREEN)
+            surface.unlockCanvasAndPost(canvas)
+            awaitSampling(capture, previous)
+        }
+        assertNull(capture.provider.texture("capture"))
+        assertEquals(SceneProducerStatus.OFFLINE, capture.states.getValue("capture").status)
+        assertEquals(1, capture.stopped)
+    }
+
+    private fun awaitSampling(capture: CaptureFixture, previousTimestamp: Long?) {
+        val deadline = android.os.SystemClock.elapsedRealtime() + 3_000
+        do {
+            requireNotNull(renderer).draw()
+            if (capture.sampledTimestamp != previousTimestamp) return
+            Thread.sleep(10)
+        } while (android.os.SystemClock.elapsedRealtime() < deadline)
+        fail("Camera texture was not sampled")
+    }
+
     private class CaptureFixture {
         lateinit var provider: AndroidSceneTextureProvider
         var opened = 0
         var stopped = 0
+        var ready = 0
+        var rotation: Int? = 0
+        var sampledTimestamp: Long? = null
+        var surface: android.view.Surface? = null
         var disconnect: ((Boolean) -> Unit)? = null
         var states: Map<String, SceneProducerState> = emptyMap()
     }
@@ -245,12 +322,17 @@ class SceneCompositorGpuTest {
     private fun captureFixture(type: SceneSourceType, postFrame: Boolean = true): CaptureFixture {
         val fixture = CaptureFixture()
         fixture.provider = AndroidSceneTextureProvider(SceneProjectionRegistry(), SceneBitmapRegistry(),
-            clockMillis = { now }, publishStates = { fixture.states = it }, backendFactory = {
+            clockMillis = { now }, publishStates = { fixture.states = it }, sourceReady = { fixture.ready++ }, backendFactory = {
                 object : SceneCaptureBackend {
                     override fun configure(sources: List<SceneSource>) = Unit
+                    override fun samplingRotationDegrees(sourceId: String, timestamp: Long): Int? {
+                        fixture.sampledTimestamp = timestamp
+                        return fixture.rotation
+                    }
                     override fun create(source: SceneSource, target: SceneCaptureTarget,
                         failed: (Boolean) -> Unit): SceneProducer {
                         fixture.opened++
+                        fixture.surface = target.surface
                         fixture.disconnect = failed
                         return object : SceneProducer {
                             override fun start() {

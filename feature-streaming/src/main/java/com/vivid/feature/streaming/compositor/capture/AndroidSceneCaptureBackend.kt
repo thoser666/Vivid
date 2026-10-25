@@ -6,6 +6,9 @@ import android.content.pm.PackageManager
 import android.graphics.SurfaceTexture
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
+import android.hardware.camera2.CaptureRequest
+import android.hardware.camera2.CaptureResult
+import androidx.annotation.RequiresApi
 import android.media.MediaPlayer
 import androidx.core.net.toUri
 import android.os.Build
@@ -26,12 +29,21 @@ import kotlin.math.abs
 class AndroidSceneCaptureBackend(
     private val context: Context,
     private val projections: SceneProjectionRegistry,
+    private val deviceRotationDegrees: (() -> Int)? = null,
     private val cameraFactory: () -> Camera2ApiManager = { Camera2ApiManager(context) },
 ) : SceneCaptureBackend {
     private val cameraManager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
-    private val cameras = ConcurrentHashMap<String, Camera2ApiManager>()
+    private val cameras = ConcurrentHashMap<String, CameraProducer>()
+    private var displayRotation: SceneDisplayRotation? = null
 
-    override fun camera(sourceId: String): Camera2ApiManager? = cameras[sourceId]
+    override fun camera(sourceId: String): Camera2ApiManager? = cameras[sourceId]?.camera
+    override fun samplingRotationDegrees(sourceId: String, timestamp: Long): Int? {
+        val capture = cameras[sourceId] ?: return 0
+        return capture.sampling.rotation(timestamp)
+    }
+
+    private fun currentRotationDegrees(): Int = deviceRotationDegrees?.invoke() ?: (
+        displayRotation ?: SceneDisplayRotation(context).also { displayRotation = it }).degrees
     private var requestedSources: List<SceneSource> = emptyList()
     private var cameraRequests: Set<String> = emptySet()
     private var duplicateCameraIds: Set<String> = emptySet()
@@ -62,12 +74,23 @@ class AndroidSceneCaptureBackend(
                     "Requested concurrent cameras are unsupported on this device"
                 }
             }
-            val sizes = cameraManager.getCameraCharacteristics(cameraId)
-                .get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
+            val metadata = cameraManager.getCameraCharacteristics(cameraId)
+            val sensor = metadata.get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 0
+            val external = source.type == SceneSourceType.UVC ||
+                metadata.get(CameraCharacteristics.LENS_FACING) == CameraCharacteristics.LENS_FACING_EXTERNAL
+            // A USB/HDMI source is independent of the phone's physical pose.
+            val displayDegrees = if (external) ({ 0 }) else ::currentRotationDegrees
+            val swapped = SceneCameraGeometry.swapsBufferAxes(sensor, displayDegrees())
+            val sizes = metadata.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
                 ?.getOutputSizes(SurfaceTexture::class.java).orEmpty()
-            val size = selectSize(sizes, target.width, target.height)
+            val size = selectSize(sizes, if (swapped) target.height else target.width,
+                if (swapped) target.width else target.height, concurrent = cameraRequests.size > 1)
             target.texture.setDefaultBufferSize(size.width, size.height)
-            CameraProducer(source.id, cameraId, target, failed)
+            val needsRotationMetadata = Build.VERSION.SDK_INT >= 31 &&
+                metadata.get(CameraCharacteristics.SCALER_AVAILABLE_ROTATE_AND_CROP_MODES)
+                    ?.any { it != CaptureRequest.SCALER_ROTATE_AND_CROP_NONE } == true
+            CameraProducer(source.id, cameraId, target, failed,
+                SceneCameraSampling(displayDegrees, needsRotationMetadata), needsRotationMetadata)
         }
         SceneSourceType.SCREEN_CAPTURE -> object : SceneProducer {
             private var lease: Closeable? = null
@@ -102,8 +125,10 @@ class AndroidSceneCaptureBackend(
     }
 
     override fun release() {
-        cameras.values.toList().forEach { runCatching { it.closeCamera(false) } }
+        cameras.values.toList().forEach { runCatching { it.stop() } }
         cameras.clear()
+        displayRotation?.close()
+        displayRotation = null
     }
 
     /** Reuse the same Camera2 implementation and controls as the existing preview. */
@@ -112,19 +137,51 @@ class AndroidSceneCaptureBackend(
         private val cameraId: String,
         private val target: SceneCaptureTarget,
         private val failed: (Boolean) -> Unit,
+        val sampling: SceneCameraSampling,
+        private val needsRotationMetadata: Boolean,
     ) : SceneProducer {
         private val closed = AtomicBoolean(false)
         private val started = AtomicBoolean(false)
-        private val camera = cameraFactory()
+        val camera = cameraFactory()
+        private val rawRequested = AtomicBoolean(false)
 
         init {
-            cameras[sourceId] = camera
+            cameras[sourceId] = this
             camera.setCameraCallbacks(object : CameraCallbacks {
-                override fun onCameraOpened() = Unit // Health is acknowledged by the first texture frame.
+                override fun onCameraOpened() {
+                    // Health still requires a texture frame with a known sampling transform.
+                    if (needsRotationMetadata && Build.VERSION.SDK_INT >= 31) requestRawOrientation()
+                }
                 override fun onCameraChanged(facing: CameraHelper.Facing) = Unit
                 override fun onCameraError(error: String) = reportFailure()
                 override fun onCameraDisconnected() = reportFailure()
             })
+            if (needsRotationMetadata && Build.VERSION.SDK_INT >= 31) trackRotationMetadata()
+        }
+
+        @RequiresApi(31)
+        private fun requestRawOrientation() {
+            if (!closed.get() && !rawRequested.get() && camera.setCustomRequest {
+                it.set(CaptureRequest.SCALER_ROTATE_AND_CROP, CaptureRequest.SCALER_ROTATE_AND_CROP_NONE)
+            }) rawRequested.set(true)
+        }
+
+        @RequiresApi(31)
+        private fun trackRotationMetadata() {
+            camera.setCustomOnCaptureCompletedCallback capture@{ _, request, result ->
+                if (closed.get()) return@capture
+                val rotation = when (result.get(CaptureResult.SCALER_ROTATE_AND_CROP)) {
+                    CaptureRequest.SCALER_ROTATE_AND_CROP_NONE -> 0
+                    CaptureRequest.SCALER_ROTATE_AND_CROP_90 -> 90
+                    CaptureRequest.SCALER_ROTATE_AND_CROP_180 -> 180
+                    CaptureRequest.SCALER_ROTATE_AND_CROP_270 -> 270
+                    else -> null
+                }
+                val timestamp = result.get(CaptureResult.SENSOR_TIMESTAMP)
+                if (rotation != null && timestamp != null) sampling.record(timestamp, rotation,
+                    request.get(CaptureRequest.SCALER_ROTATE_AND_CROP) == CaptureRequest.SCALER_ROTATE_AND_CROP_NONE)
+                requestRawOrientation() // The capture session is now configured; retry an early request.
+            }
         }
 
         private fun reportFailure() {
@@ -142,9 +199,19 @@ class AndroidSceneCaptureBackend(
 
         override fun stop() {
             if (!closed.compareAndSet(false, true)) return
-            cameras.remove(sourceId, camera)
-            try { camera.setCameraCallbacks(null) }
-            finally { camera.closeCamera(false) }
+            cameras.remove(sourceId, this)
+            try {
+                camera.setCameraCallbacks(null)
+                camera.setCustomOnCaptureCompletedCallback(null)
+            } finally {
+                try { camera.closeCamera(false) }
+                finally {
+                    if (cameras.isEmpty()) {
+                        displayRotation?.close()
+                        displayRotation = null
+                    }
+                }
+            }
         }
         override fun release() = stop()
     }
@@ -190,14 +257,26 @@ class AndroidSceneCaptureBackend(
     }
 
     companion object {
-        /** Prefer 720p-or-smaller secondary captures and a matching canvas aspect ratio. */
-        internal fun selectSize(sizes: Array<out Size>, width: Int, height: Int): Size {
+        /** One camera may match the output; concurrent sessions retain a bounded 720p budget. */
+        internal fun selectSize(sizes: Array<out Size>, width: Int, height: Int, concurrent: Boolean = true): Size {
             require(sizes.isNotEmpty()) { "Camera has no SurfaceTexture output sizes" }
+            require(width > 0 && height > 0)
             val ratio = width.toDouble() / height
-            val bounded = sizes.filter { it.width <= 1280 && it.height <= 1280 }.ifEmpty { sizes.toList() }
+            val maxPixels = if (concurrent) 1280L * 720 else minOf(width.toLong() * height, 3840L * 2160)
+            val bounded = sizes.filter { it.width.toLong() * it.height <= maxPixels &&
+                maxOf(it.width, it.height) <= 4096 }
+            // An OEM may expose no size within our budget. Choose its smallest output instead of 4K by aspect.
+            if (bounded.isEmpty()) {
+                val smallest = sizes.minBy { it.width.toLong() * it.height }
+                check(maxOf(smallest.width, smallest.height) <= 4096 &&
+                    smallest.width.toLong() * smallest.height <= 3840L * 2160) {
+                    "Camera has no output within the capture memory budget"
+                }
+                return smallest
+            }
             return bounded.minBy { size ->
                 abs(size.width.toDouble() / size.height - ratio) * 1000 +
-                    abs(size.width.toLong() * size.height - minOf(width, 1280).toLong() * minOf(height, 720)) / 1_000_000.0
+                    abs(size.width.toLong() * size.height - maxPixels) / 1_000_000.0
             }
         }
     }

@@ -25,6 +25,7 @@ import com.vivid.feature.streaming.compositor.capture.AndroidSceneCaptureBackend
 import com.vivid.feature.streaming.compositor.capture.SceneBitmapRegistry
 import com.vivid.feature.streaming.compositor.capture.SceneCaptureBackend
 import com.vivid.feature.streaming.compositor.capture.SceneCaptureTarget
+import com.vivid.feature.streaming.compositor.capture.SceneCameraGeometry
 import com.vivid.feature.streaming.compositor.capture.SceneProjectionRegistry
 import java.io.File
 import java.io.InputStream
@@ -53,6 +54,12 @@ class AndroidSceneTextureProvider(
         val closed = AtomicBoolean(false)
         var frame = SceneTextureFrame(id, external)
         var ready = false
+        var announced = false
+        var hasFrame = false
+        var timestamp = 0L
+        var rotationDegrees = -1
+        var lastUsableAt: Long = createdAt
+        val surfaceMatrix = identityTextureMatrix()
         var bitmapRevision = 0L
     }
     private data class Failure(val slot: Slot, val generation: Long, val permission: Boolean)
@@ -72,8 +79,7 @@ class AndroidSceneTextureProvider(
     private var width = 0
     private var height = 0
     private var lastPublished: Map<String, SceneProducerState> = emptyMap()
-    private val sourceMatrix = identityTextureMatrix()
-    private val topLeftToGl = identityTextureMatrix().apply { this[5] = -1f; this[13] = 1f }
+    private val samplingMatrices = Array(4) { SceneCameraGeometry.samplingMatrix(it * 90) }
 
     @Synchronized
     override fun attach(context: Context, width: Int, height: Int) {
@@ -139,24 +145,37 @@ class AndroidSceneTextureProvider(
         for (slot in slots.values.toList()) {
             if (slot.external) {
                 try {
-                    if (slot.pendingFrame.getAndSet(false)) {
+                    val newFrame = slot.pendingFrame.getAndSet(false)
+                    if (newFrame) {
                         requireNotNull(slot.texture).updateTexImage()
-                        slot.texture.getTransformMatrix(sourceMatrix)
-                        Matrix.multiplyMM(slot.frame.transform, 0, sourceMatrix, 0, topLeftToGl, 0)
-                        val firstFrame = !slot.ready
-                        if (firstFrame) lifecycle.states[slot.source.id]?.let {
-                            lifecycle.markHealthy(slot.source.id, it.generation)
+                        slot.texture.getTransformMatrix(slot.surfaceMatrix)
+                        slot.timestamp = slot.texture.timestamp
+                        slot.hasFrame = true
+                    }
+                    // Capture metadata can arrive after the texture callback. Retry the same
+                    // sampled frame without consuming a newer buffer or restarting capture.
+                    val rotation = if (slot.hasFrame) backend?.samplingRotationDegrees(slot.source.id, slot.timestamp) else null
+                    val wasReady = slot.ready
+                    slot.ready = rotation != null
+                    if (rotation != null) {
+                        if (newFrame || !wasReady) slot.lastUsableAt = nowMillis
+                        if (newFrame || !wasReady || rotation != slot.rotationDegrees) {
+                            Matrix.multiplyMM(slot.frame.transform, 0, slot.surfaceMatrix, 0,
+                                samplingMatrices[rotation / 90], 0)
+                            slot.rotationDegrees = rotation
                         }
-                        slot.ready = true
-                        if (firstFrame && slot.source.type in listOf(SceneSourceType.CAMERA, SceneSourceType.UVC)) {
-                            sourceReady(slot.source.id)
+                        if (!slot.announced) {
+                            lifecycle.states[slot.source.id]?.let { lifecycle.markHealthy(slot.source.id, it.generation) }
+                            slot.announced = true
+                            if (slot.source.type in listOf(SceneSourceType.CAMERA, SceneSourceType.UVC)) sourceReady(slot.source.id)
                         }
                     }
                     // MediaProjection is event-driven: a still screen can legitimately keep
                     // the same buffer indefinitely. Its grant callback reports revocation.
                     // Keep the initial-frame deadline so a broken start still reconnects.
                     val expectsFrame = !slot.ready || slot.source.type != SceneSourceType.SCREEN_CAPTURE
-                    if (expectsFrame && nowMillis - slot.lastArrival.get() > FRAME_TIMEOUT_MILLIS) {
+                    val healthAt = if (slot.announced) minOf(slot.lastArrival.get(), slot.lastUsableAt) else slot.createdAt
+                    if (expectsFrame && nowMillis - healthAt > FRAME_TIMEOUT_MILLIS) {
                         val generation = lifecycle.states[slot.source.id]?.generation ?: continue
                         lifecycle.disconnected(slot.source.id, nowMillis, generation)
                     }

@@ -11,7 +11,7 @@ von noch fehlender Integration und Geräte-Evidenz.
 | Anforderung | Aktueller Baustein | Noch erforderlich |
 |---|---|---|
 | Persistente Szenen mit mehreren Layern | `SceneComposition`, optionales `StreamScene.composition`, atomare SceneRepository-Writes, Migrationsbackup | `SceneController` und Editor/ViewModel mit atomarem Draft-Save angebunden; App-Smoke offen |
-| Stabile SourceIds, wiederverwendbare Producer | Source-/Layer-Modell und referenzbasierter `SceneProducerManager`, Generationen gegen verspätete Disconnects | `AndroidSceneTextureProvider` bindet zusätzliche Producer an GLES; Geräte-Smoke und unabhängiger Hauptquellen-Lifecycle offen |
+| Stabile SourceIds, wiederverwendbare Producer | Source-/Layer-Modell und referenzbasierter `SceneProducerManager`, Generationen gegen verspätete Disconnects | `AndroidSceneTextureProvider` bindet zusätzliche Producer an GLES; Geräte-Smoke, unabhängiger Hauptquellen-Lifecycle und Capture-Ownership bei Effekt-/GL-Rebuilds offen |
 | Gleichzeitige Kameras, UVC, Screen, Bilder und Widgets | Typisierte SourceSpecs | Camera2-, MediaProjection-, lokaler Video- und Bild-Adapter vorhanden; Text-/Uhr-Feed und Consent-UI/Foreground-Service implementiert; weitere Widget-/Chat-Feeds, USB-Backend ohne Camera-HAL und Geräte-Matrix offen |
 | GLES/EGL-Offscreen-Ausgabe zum Hardware-Encoder | RootEncoder-2.7.5-Quellcode lokal geprüft | `SceneCompositorFilterRender` und Textur-/Surface-Lifecycle implementiert und SDK/AAR-kompiliert; echte GLES-Pixeltests noch nicht ausgeführt |
 | Ein Ergebnis für Streaming und Recording | Bestehender RootEncoder-Fanout als Integrationsziel | Filter am gemeinsamen RootEncoder-FBO angeschlossen; Stream-/Recording-/Preview-Parität auf Geräten verifizieren |
@@ -251,3 +251,48 @@ bestandenen Repository-Selbsttests scheiterten sechs von 471 unveränderten
 Chat-Tests wieder am Conscrypt-Loader (`libpthread.so.0` auf Termux). Der
 Gesamt-Gate bleibt rot; die gezielten Clock-/Engine- und Lint-Nachweise sind
 ausdrücklich kein vollständiger App-/Release-Nachweis.
+
+## Native Kameratexturen und Capture-Auflösung
+
+Der Kompositor bewahrt die bereits in SurfaceTexture enthaltene Sensorrotation,
+Spiegelung und den Crop. Er ergänzt nur die Display-Korrektur; eine zweite
+Sensorrotation wäre falsch. Sensor-/Displayachsen bestimmen separat die Wahl
+der Capture-Puffergröße. Displayänderungen werden per Listener gespeichert,
+nicht pro Videoframe beim Display-Service abgefragt. UVC/HDMI bleibt von der
+physischen Pose des Telefons unabhängig.
+
+Auf Geräten mit Rotate-and-Crop-Unterstützung wird ein expliziter NONE-Request
+angefordert. Der Renderer wartet auf dessen Bestätigung und einen entsprechenden
+SurfaceTexture-Zeitstempel, damit AUTO-Bilder mit zusätzlicher Pixelrotation
+nicht falsch ausgegeben werden. Der Metadatenzustand ist konstant groß;
+verspätete ältere Ergebnisse dürfen einen neuen Request nicht zurücksetzen.
+Eine verspätete Bestätigung aktualisiert auch den zuletzt gespeicherten
+SurfaceTexture-Transform, selbst wenn sich der Korrekturwinkel nicht geändert hat.
+Referenzen: [Camera preview](https://developer.android.com/media/camera/camera2/camera-preview),
+[SCALER_ROTATE_AND_CROP](https://developer.android.com/reference/android/hardware/camera2/CaptureResult#SCALER_ROTATE_AND_CROP),
+[CameraX GL transform handling](https://android.googlesource.com/platform/frameworks/support/+/6353c5d0cbdb0a766f9640dde3ffcb0f9e4cfcf1/camera/camera-core/src/main/java/androidx/camera/core/processing/SurfaceOutputImpl.java).
+
+Einzelne Kameras können die Ausgabeauflösung bis zum 4K-Capture-Budget verwenden;
+gleichzeitige Kameras bevorzugen weiterhin höchstens 720p. Falls der Treiber
+keine entsprechend kleine Größe anbietet, wird seine kleinste Größe gewählt,
+sofern sie noch im absoluten Speicherbudget liegt. Der Kamera-Manager bleibt
+mit den bestehenden Controls geteilt; Backend-Release und spätere Producer-
+Freigabe schließen ihn gemeinsam höchstens einmal. Camera-FPS-Profilierung,
+selektive Face-/Zonen-Koordinaten und die tatsächliche Geräteausgabe sind weiter
+offen. Die abschließende Prüfung bestand **108 Szenen-Tests**, einschließlich
+elf Camera2-Verträgen mit SDK-28-/SDK-34-Shadows sowie Geometrie, Projection,
+Bitmap-Ownership, Widgets, Editor, Producer-Lifecycle und Output-Ownership.
+Streaming-Lint bestand ohne Fehler/Warnungen (ein bestehender Autoboxing-Hint).
+Dreizehn GLES-Fixtures einschließlich eingebettetem Kameratransform plus Crop,
+nachgereichter Capture-Metadaten und Timeout trotz weiter eintreffender
+unbrauchbarer Frames kompilieren. Sie wurden weiterhin nicht auf einem
+Gerät/Emulator ausgeführt. Die Camera2-Verträge mocken den echten Hardware-
+Manager; dies ist kein Kamera-/GPU-/Thermik-Nachweis. Der vollständige Gate
+wird nach diesem Checkpoint erneut ausgeführt.
+
+Weitere Integrationsprüfung: `PrivacyComposer` baut die RootEncoder-Filterkette
+per CLEAR/ADD neu auf. Der Scene-Render besitzt derzeit auch den TextureProvider;
+sein Release beendet damit Captures bei einem Effekt-Rebuild. SourceIds bleiben
+stabil, aber dieser Producer-Lifecycle ist noch nicht unabhängig genug. Capture-
+Ownership über Filter-/GL-Rebuilds und eine Pixel-Regression für aktiv bleibende
+Privacy während solcher Updates sind vor vollständiger Parität noch umzusetzen.
