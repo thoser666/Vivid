@@ -2,6 +2,7 @@ package com.vivid.feature.chat.twitch
 
 import com.vivid.core.data.AppSettings
 import com.vivid.core.data.SettingsRepository
+import com.vivid.feature.chat.R
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -78,12 +79,32 @@ class TwitchChannelViewModelTest {
         viewModel.refresh()
         advanceUntilIdle()
 
-        assertTrue(viewModel.uiState.value.error.orEmpty().contains("nicht vollständig konfiguriert"))
+        assertEquals(R.string.twitch_channel_error_not_configured, viewModel.uiState.value.errorRes)
+        assertEquals(null, viewModel.uiState.value.error)
         coVerify(exactly = 0) { client.getStreamInfo(any()) }
     }
 
     @Test
     fun `refresh forwards client failures without crashing the ui`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val client = mockk<TwitchChannelClient>()
+        coEvery { client.getStreamInfo(any()) } throws TwitchChannelException(
+            "twitch http 429 (viewer count)",
+            statusCode = 429,
+            messageRes = R.string.twitch_channel_error_http_429,
+        )
+        val viewModel = TwitchChannelViewModel(repository(), client, tokenStore())
+
+        viewModel.refresh()
+        advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.loading)
+        assertEquals(R.string.twitch_channel_error_http_429, viewModel.uiState.value.errorRes)
+        assertEquals(null, viewModel.uiState.value.error)
+    }
+
+    @Test
+    fun `refresh keeps a raw exception detail untranslated`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val client = mockk<TwitchChannelClient>()
         coEvery { client.getStreamInfo(any()) } throws TwitchChannelException("Rate-Limit")
@@ -92,8 +113,40 @@ class TwitchChannelViewModelTest {
         viewModel.refresh()
         advanceUntilIdle()
 
-        assertFalse(viewModel.uiState.value.loading)
         assertEquals("Rate-Limit", viewModel.uiState.value.error)
+        assertEquals(0, viewModel.uiState.value.errorRes)
+    }
+
+    @Test
+    fun `refresh falls back to the localized message when the failure carries no detail`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val client = mockk<TwitchChannelClient>()
+        coEvery { client.getStreamInfo(any()) } throws TwitchChannelException("")
+        val viewModel = TwitchChannelViewModel(repository(), client, tokenStore())
+
+        viewModel.refresh()
+        advanceUntilIdle()
+
+        assertEquals(R.string.twitch_channel_error_load_failed, viewModel.uiState.value.errorRes)
+        assertEquals(null, viewModel.uiState.value.error)
+    }
+
+    @Test
+    fun `refresh forwards the format arguments of the localized message`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val client = mockk<TwitchChannelClient>()
+        coEvery { client.getStreamInfo(any()) } throws TwitchChannelException(
+            "category not found: Just Chatting",
+            messageRes = R.string.twitch_channel_error_category_not_found,
+            formatArgs = listOf("Just Chatting"),
+        )
+        val viewModel = TwitchChannelViewModel(repository(), client, tokenStore())
+
+        viewModel.refresh()
+        advanceUntilIdle()
+
+        assertEquals(R.string.twitch_channel_error_category_not_found, viewModel.uiState.value.errorRes)
+        assertEquals(listOf("Just Chatting"), viewModel.uiState.value.formatArgs)
     }
 
     @Test
@@ -158,14 +211,19 @@ class TwitchChannelViewModelTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val repository = repository()
         val client = mockk<TwitchChannelClient>()
-        coEvery { client.updateChannelInfo(any(), any(), any()) } throws TwitchChannelException("Scope fehlt")
+        coEvery { client.updateChannelInfo(any(), any(), any()) } throws TwitchChannelException(
+            "twitch http 403 (channel info)",
+            statusCode = 403,
+            messageRes = R.string.twitch_channel_error_http_403,
+        )
         val viewModel = TwitchChannelViewModel(repository, client, tokenStore())
 
         viewModel.updateChannelInfo("Titel", "Kategorie")
         advanceUntilIdle()
 
         assertFalse(viewModel.uiState.value.saving)
-        assertEquals("Scope fehlt", viewModel.uiState.value.error)
+        assertEquals(R.string.twitch_channel_error_http_403, viewModel.uiState.value.errorRes)
+        assertEquals(null, viewModel.uiState.value.error)
         coVerify(exactly = 0) { repository.updateTwitchChannelSettings(any(), any(), any(), any()) }
     }
     @Test

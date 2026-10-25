@@ -1,5 +1,6 @@
 package com.vivid.core.model
 
+import com.vivid.core.R
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -80,7 +81,8 @@ class ObsQrCodeParserTest {
         val result = ObsQrCodeParser.parse("   ")
 
         assertTrue(result is ObsQrCodeParseResult.Error)
-        assertTrue((result as ObsQrCodeParseResult.Error).message.isNotBlank())
+        // Ressourcen-ID statt hartkodiertem Text (i18n-plan §4).
+        assertEquals(R.string.qr_error_empty, (result as ObsQrCodeParseResult.Error).messageRes)
     }
 
     @Test
@@ -88,6 +90,7 @@ class ObsQrCodeParserTest {
         val result = ObsQrCodeParser.parse("https://example.com")
 
         assertTrue(result is ObsQrCodeParseResult.Error)
+        assertEquals(R.string.qr_error_invalid, (result as ObsQrCodeParseResult.Error).messageRes)
     }
 
     @Test
@@ -95,6 +98,7 @@ class ObsQrCodeParserTest {
         val result = ObsQrCodeParser.parse("das ist kein qr code")
 
         assertTrue(result is ObsQrCodeParseResult.Error)
+        assertEquals(R.string.qr_error_invalid, (result as ObsQrCodeParseResult.Error).messageRes)
     }
 
     @Test
@@ -102,5 +106,6 @@ class ObsQrCodeParserTest {
         val result = ObsQrCodeParser.parse("obsws://192.168.1.50:notaport/pw")
 
         assertTrue(result is ObsQrCodeParseResult.Error)
+        assertEquals(R.string.qr_error_invalid, (result as ObsQrCodeParseResult.Error).messageRes)
     }
 }

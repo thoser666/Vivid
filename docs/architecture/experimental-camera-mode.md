@@ -217,3 +217,14 @@ Es war kein Telefon verbunden. Die Hardware-Encoder-/Keyframe-Tests und die
 oben datierten POCO-Latenz-, Orientierungs- und RTMP-Messungen wurden bei
 dieser PR-Vorbereitung nicht wiederholt. Der HUD-/Stopp-Gerätebeleg vom
 22.10. ist separat in `build/reports/stream-hud-2026-10-22/` abgelegt.
+
+
+## Integration mit develop (2026-10-25)
+
+Der Merge bis `83a40ba1` erhält die lokalisierten Startfehler und den frischen
+MediaProjection-Consent aus develop. `failStream` veröffentlicht die Ressource
+und setzt zugleich den Live-Timer zurück; der Regressionstest wird ohne diesen
+Reset gezielt rot. 1.715 Modul- und 166 Standard-App-Tests haben keine Fehler
+(fünf bestehende Modul-Skips), Lint und der vollständige pre-push mit Ruby 3.2
+sind grün. Release-Builds/R8-Mappings und Geräteprüfungen wurden in diesem
+Konfliktlauf nicht wiederholt.

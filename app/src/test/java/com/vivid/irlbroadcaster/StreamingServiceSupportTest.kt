@@ -67,6 +67,32 @@ class StreamingServiceSupportTest {
     }
 
     @Test
+    fun `failureText prefers the localized resource over the raw library reason`() {
+        val state = StreamingState.Failed(reason = "RTMP Auth Error", reasonRes = R.string.notif_text_failed)
+        var resolved: Int? = null
+
+        val text = StreamingServiceSupport.failureText(state) { resolved = it; "lokalisierter Grund" }
+
+        assertEquals(R.string.notif_text_failed, resolved)
+        assertEquals("lokalisierter Grund", text)
+    }
+
+    @Test
+    fun `failureText falls back to the raw reason of the library`() {
+        val text = StreamingServiceSupport.failureText(StreamingState.Failed("RTMP Auth Error")) {
+            error("Ressource darf hier nicht aufgelöst werden")
+        }
+
+        assertEquals("RTMP Auth Error", text)
+    }
+
+    @Test
+    fun `failureText is empty without failure state or cause`() {
+        assertEquals("", StreamingServiceSupport.failureText(StreamingState.Streaming) { "x" })
+        assertEquals("", StreamingServiceSupport.failureText(StreamingState.Failed()) { "x" })
+    }
+
+    @Test
     fun `requiresMediaProjectionFgs is true only for screen capture`() {
         assertTrue(StreamingServiceSupport.requiresMediaProjectionFgs(VideoSourceKind.SCREEN_CAPTURE))
         assertFalse(StreamingServiceSupport.requiresMediaProjectionFgs(VideoSourceKind.CAMERA))

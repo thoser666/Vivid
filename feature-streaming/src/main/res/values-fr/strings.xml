@@ -16,6 +16,11 @@
     <string name="streaming_focus_inf">Mise au point : ∞</string>
     <string name="streaming_focus_auto">Mise au point : auto</string>
     <string name="streaming_error_prefix">Erreur : %1$s</string>
+    <!-- Causes d'échec du moteur (StreamingState.Failed.reasonRes) -->
+    <string name="streaming_error_encoder_preparation">Préparation audio/vidéo impossible</string>
+    <string name="streaming_error_screen_capture_consent">Capture d\'écran non autorisée — relancez le stream et confirmez dans la boîte de dialogue système</string>
+    <string name="streaming_error_service_start">Le service de streaming n\'a pas pu démarrer</string>
+    <string name="streaming_error_unknown">Erreur inconnue</string>
     <string name="streaming_permission_required">Les autorisations de caméra, de microphone et de notifications sont requises pour le streaming. Appuyez à nouveau sur Go Live et autorisez-les.</string>
     <string name="streaming_target_idle">prêt</string>
     <string name="streaming_target_preparing">connexion…</string>

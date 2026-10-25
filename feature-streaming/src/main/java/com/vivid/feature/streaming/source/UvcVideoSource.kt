@@ -55,7 +55,7 @@ class UvcVideoSource @Inject constructor(
         return try {
             display.prepareAudio() && display.prepareVideo()
         } catch (e: SecurityException) {
-            Timber.e(e, "UvcVideoSource: Vorbereitung verweigert (SecurityException)")
+            Timber.e(e, "UvcVideoSource: preparation denied (SecurityException)")
             false
         }
     }

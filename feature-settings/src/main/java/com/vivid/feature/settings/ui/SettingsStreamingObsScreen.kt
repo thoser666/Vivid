@@ -415,7 +415,12 @@ private fun StreamTwitchSettings(uiState: AppSettings, viewModel: SettingsViewMo
             ),
         )
     }
-    twitchState.error?.let { error ->
+    val twitchErrorText = if (twitchState.errorRes != 0) {
+        stringResource(twitchState.errorRes, *twitchState.formatArgs.toTypedArray())
+    } else {
+        twitchState.error
+    }
+    twitchErrorText?.let { error ->
         Text(
             text = error,
             color = MaterialTheme.colorScheme.error,
