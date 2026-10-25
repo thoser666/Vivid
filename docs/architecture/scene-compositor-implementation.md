@@ -97,3 +97,11 @@ GL-Rebuilds verwenden denselben VirtualDisplay erneut. Alte Lease-Handles prüfe
 zusätzlich die Grant-Identität, damit sie einen späteren Grant nicht abtrennen.
 Android-14+-Consent und die tatsächliche Preview-/Encoder-Orientierung benötigen
 weiterhin Geräteevidenz.
+
+Die Editor-/Capture-Prüfung bestand **65 ausgewählte Streaming-Tests**
+(einschließlich Session/Undo, Gestenmathematik, ViewModel-Save/Cancel,
+Widget-Inhalt/Bitmap-Ownership und Projection-Grant-/Lease-Lifecycle) sowie
+**14 StreamingServiceSupport-Tests** im Foss-App-Modul. Der Foss-App-Code und
+seine Unit-Test-Quellen kompilierten. Der folgende Lint-/Gesamt-Gate-Lauf wurde
+bei einer Sitzungsunterbrechung beendet und wird separat erneut geprüft;
+diese Testzahlen sind kein Lint- oder Geräte-Nachweis.
