@@ -328,4 +328,8 @@ Thermik bleiben offen. Streaming-Lint bestand ohne Fehler/Warnungen (ein
 bestehender Autoboxing-Hint). Der erste breitere Testlauf stoppte an einem
 inkrementellen Kotlin-Cachefehler vor der Testausführung; der sequenzielle
 Wiederholungslauf ohne inkrementelle Kompilierung bestand. Der vollständige
-Pre-Push-Gate läuft für diesen Checkpoint noch.
+Pre-Push-Gate wurde erneut ausgeführt: Nach bestandenen Repository-Selbsttests
+scheiterten diesmal 21 von 48 unveränderten OBS-Tests am Conscrypt-Loader
+(`libpthread.so.0` fehlt auf Termux), durch die XML-Reports belegt. Der
+Gesamt-Gate bleibt rot; vollständige App-Lint-/Release- und Geräte-Nachweise
+bleiben offen.
