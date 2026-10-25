@@ -288,7 +288,10 @@ nachgereichter Capture-Metadaten und Timeout trotz weiter eintreffender
 unbrauchbarer Frames kompilieren. Sie wurden weiterhin nicht auf einem
 Gerät/Emulator ausgeführt. Die Camera2-Verträge mocken den echten Hardware-
 Manager; dies ist kein Kamera-/GPU-/Thermik-Nachweis. Der vollständige Gate
-wird nach diesem Checkpoint erneut ausgeführt.
+wurde nach diesem Checkpoint erneut ausgeführt: Nach bestandenen Repository-
+Selbsttests scheiterten sechs von 471 unveränderten Chat-Tests am Conscrypt-
+Loader (`libpthread.so.0` fehlt auf Termux). Gesamt-Lint/Release und die echte
+Geräte-Matrix bleiben damit offen.
 
 Weitere Integrationsprüfung: `PrivacyComposer` baut die RootEncoder-Filterkette
 per CLEAR/ADD neu auf. Der Scene-Render besitzt derzeit auch den TextureProvider;
