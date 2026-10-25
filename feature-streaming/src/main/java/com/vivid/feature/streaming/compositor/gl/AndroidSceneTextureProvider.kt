@@ -178,6 +178,10 @@ class AndroidSceneTextureProvider(
         return slot.frame
     }
 
+    /** Shares the capture's manager with existing focus/exposure/face adapters. */
+    @Synchronized
+    fun camera(sourceId: String): com.pedro.encoder.input.video.Camera2ApiManager? = backend?.camera(sourceId)
+
     fun retry(sourceId: String) { retries.add(Retry(sourceId, false)) }
 
     /** A newly granted projection replaces any old session on the render thread. */

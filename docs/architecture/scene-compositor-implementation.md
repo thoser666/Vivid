@@ -153,3 +153,30 @@ stoppte bereits im Chat-Modul: **471 Tests, sechs Fehler** in unveränderten
 Conscrypt-Loaderfehler (`libpthread.so.0` fehlt), nicht eine Shader- oder
 Capture-Assertion. Das Gesamt-Gate bleibt rot; die OBS-Fehler des vorherigen
 Laufs sind dadurch nicht als behoben nachgewiesen.
+
+## Vorbereitung des kameraunabhängigen Encoderpfads
+
+`SceneEncoderSession` kapselt einen RootEncoder-`MultiStream` mit
+`NoVideoSource` und zunächst `NoAudioSource`. Eine Hardware-Videoencoder-
+Konfiguration wird von mehreren RTMP-Zielen und dem MP4-Muxer geteilt; es wird
+keine zweite Recording-Auflösung angefordert. MP4-Tracks werden explizit auf
+VIDEO bzw. ALL gesetzt, weil RootEncoder bei NoVideoSource sonst AUDIO wählt.
+Der Mikrofoneingang wird nur für einen Stream oder eine Aufnahme mit Audio
+aktiviert, nicht für eine reine Videoaufnahme. Der letzte Ziel-Stopp erhält
+eine laufende Aufnahme; Cleanup-Fehler dürfen Disconnect und Release nicht
+überspringen. Sechs fokussierte Ownership-/Fehlerpfad-Tests bestanden.
+
+Zusätzliche Camera2-Producer verwenden jetzt RootEncoders `Camera2ApiManager`,
+dessen bestehende Fokus-/Belichtungs-/Torch-/Stabilisierungs-/Face-Adapter damit
+auch für diese Capture-Session verfügbar werden. Backend und TextureProvider
+stellen den vorhandenen Manager als geliehene Referenz bereit. Stop entfernt
+diese Referenz und schließt die Kamera genau einmal; die Capture-Surface bleibt
+Eigentum des TextureProviders. Drei portable Robolectric-Vertragstests bestanden.
+
+**Noch keine Engine-Umschaltung:** Die App verwendet weiterhin den bisherigen
+Encoderpfad. Die neue Session ist noch an Routing, Preview, Replay,
+Quellenwechsel, Encoder-Fallback und Privacy-/Effekt-Vorverarbeitung der
+Hauptquelle anzubinden. Ebenso sind die geliehenen Kamera-Controls und
+Face-Callbacks noch mit der primären Scene-Quelle zu verbinden. Diese Bausteine
+allein weisen weder das Abschalten der unbenutzten Legacy-Kamera noch
+Stream-/Recording-/Preview-Parität nach.

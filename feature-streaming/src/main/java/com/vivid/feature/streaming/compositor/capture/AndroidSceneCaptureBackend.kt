@@ -4,32 +4,34 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.SurfaceTexture
-import android.hardware.camera2.CameraCaptureSession
 import android.hardware.camera2.CameraCharacteristics
-import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CameraManager
-import android.hardware.camera2.CaptureRequest
 import android.media.MediaPlayer
 import androidx.core.net.toUri
 import android.os.Build
-import android.os.Handler
-import android.os.HandlerThread
 import android.util.Size
 import com.vivid.core.data.SceneSource
 import com.vivid.core.data.SceneSourceType
 import com.vivid.feature.streaming.compositor.SceneProducer
 import com.vivid.feature.streaming.compositor.SceneProducerPermissionException
 import java.io.Closeable
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
+import com.pedro.encoder.input.video.Camera2ApiManager
+import com.pedro.encoder.input.video.CameraCallbacks
+import com.pedro.encoder.input.video.CameraHelper
 import kotlin.math.abs
 
 /** Encoder-free capture; UVC is supported through Android's external-camera HAL. */
 class AndroidSceneCaptureBackend(
     private val context: Context,
     private val projections: SceneProjectionRegistry,
+    private val cameraFactory: () -> Camera2ApiManager = { Camera2ApiManager(context) },
 ) : SceneCaptureBackend {
     private val cameraManager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
-    private val callbacksThread = HandlerThread("VividSceneCapture").apply { start() }
-    private val handler = Handler(callbacksThread.looper)
+    private val cameras = ConcurrentHashMap<String, Camera2ApiManager>()
+
+    override fun camera(sourceId: String): Camera2ApiManager? = cameras[sourceId]
     private var requestedSources: List<SceneSource> = emptyList()
     private var cameraRequests: Set<String> = emptySet()
     private var duplicateCameraIds: Set<String> = emptySet()
@@ -65,7 +67,7 @@ class AndroidSceneCaptureBackend(
                 ?.getOutputSizes(SurfaceTexture::class.java).orEmpty()
             val size = selectSize(sizes, target.width, target.height)
             target.texture.setDefaultBufferSize(size.width, size.height)
-            CameraProducer(cameraManager, cameraId, target, handler, failed)
+            CameraProducer(source.id, cameraId, target, failed)
         }
         SceneSourceType.SCREEN_CAPTURE -> object : SceneProducer {
             private var lease: Closeable? = null
@@ -99,80 +101,50 @@ class AndroidSceneCaptureBackend(
         } ?: error("Requested camera is unavailable")
     }
 
-    override fun release() { callbacksThread.quitSafely() }
+    override fun release() {
+        cameras.values.toList().forEach { runCatching { it.closeCamera(false) } }
+        cameras.clear()
+    }
 
-    private class CameraProducer(
-        private val manager: CameraManager,
+    /** Reuse the same Camera2 implementation and controls as the existing preview. */
+    private inner class CameraProducer(
+        private val sourceId: String,
         private val cameraId: String,
         private val target: SceneCaptureTarget,
-        private val handler: Handler,
         private val failed: (Boolean) -> Unit,
     ) : SceneProducer {
-        private val lock = Any()
-        private var active = false
-        private var device: CameraDevice? = null
-        private var session: CameraCaptureSession? = null
+        private val closed = AtomicBoolean(false)
+        private val started = AtomicBoolean(false)
+        private val camera = cameraFactory()
+
+        init {
+            cameras[sourceId] = camera
+            camera.setCameraCallbacks(object : CameraCallbacks {
+                override fun onCameraOpened() = Unit // Health is acknowledged by the first texture frame.
+                override fun onCameraChanged(facing: CameraHelper.Facing) = Unit
+                override fun onCameraError(error: String) = reportFailure()
+                override fun onCameraDisconnected() = reportFailure()
+            })
+        }
+
+        private fun reportFailure() {
+            if (!closed.get()) failed(context.checkSelfPermission(Manifest.permission.CAMERA) !=
+                PackageManager.PERMISSION_GRANTED)
+        }
 
         override fun start() {
-            synchronized(lock) {
-                check(!active)
-                active = true
-            }
-            // Permission is checked by the backend and can still be revoked between calls.
-            @Suppress("MissingPermission")
-            manager.openCamera(cameraId, object : CameraDevice.StateCallback() {
-                override fun onOpened(camera: CameraDevice) {
-                    synchronized(lock) {
-                        if (!active) { camera.close(); return }
-                        device = camera
-                        try { createSession(camera) } catch (_: Exception) { fail(camera, false) }
-                    }
-                }
-                override fun onDisconnected(camera: CameraDevice) = fail(camera, false)
-                override fun onError(camera: CameraDevice, error: Int) = fail(camera, false)
-            }, handler)
-        }
-
-        @Suppress("DEPRECATION")
-        private fun createSession(camera: CameraDevice) {
-            camera.createCaptureSession(listOf(target.surface), object : CameraCaptureSession.StateCallback() {
-                override fun onConfigured(configured: CameraCaptureSession) {
-                    synchronized(lock) {
-                        if (!active || device !== camera) { configured.close(); return }
-                        session = configured
-                        try {
-                            val request = camera.createCaptureRequest(CameraDevice.TEMPLATE_RECORD).apply {
-                                addTarget(target.surface)
-                                set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO)
-                            }.build()
-                            configured.setRepeatingRequest(request, null, handler)
-                        } catch (_: SecurityException) { fail(camera, true) }
-                        catch (_: Exception) { fail(camera, false) }
-                    }
-                }
-                override fun onConfigureFailed(session: CameraCaptureSession) {
-                    session.close()
-                    fail(camera, false)
-                }
-            }, handler)
-        }
-
-        private fun fail(camera: CameraDevice, permission: Boolean) {
-            synchronized(lock) {
-                camera.close()
-                if (!active || (device != null && device !== camera)) return
-                failed(permission)
-            }
+            check(!closed.get() && started.compareAndSet(false, true))
+            // The bounded buffer dimensions were selected before creating the producer.
+            // Surface preparation creates no encoder and retains the provider's ownership.
+            camera.prepareCamera(target.surface, 30)
+            camera.openCameraId(cameraId)
         }
 
         override fun stop() {
-            synchronized(lock) {
-                active = false
-                session?.close()
-                session = null
-                device?.close()
-                device = null
-            }
+            if (!closed.compareAndSet(false, true)) return
+            cameras.remove(sourceId, camera)
+            try { camera.setCameraCallbacks(null) }
+            finally { camera.closeCamera(false) }
         }
         override fun release() = stop()
     }
