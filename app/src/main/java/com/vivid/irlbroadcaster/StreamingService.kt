@@ -268,8 +268,12 @@ class StreamingService : Service() {
             var previous: StreamingState = StreamingState.Idle
             streamingEngine.streamingState.collect { state ->
                 // Remote-Controlled-Stopp (z. B. Web-Remote-Control / OBS) beendet den Service.
-                if (state is StreamingState.Idle && previous !is StreamingState.Idle && !stopped && !streamingEngine.sceneProjectionActive.value) {
-                    stopService()
+                if (state is StreamingState.Idle && previous !is StreamingState.Idle && !stopped) {
+                    // Preview capture may keep the service alive after a remote stream stop.
+                    // The chat bot still follows the stream, rather than the capture grant.
+                    chatBotController.onStreamStopped()
+                    if (streamingEngine.sceneProjectionActive.value) updateNotification(state)
+                    else stopService()
                 } else {
                     updateNotification(state)
                 }
