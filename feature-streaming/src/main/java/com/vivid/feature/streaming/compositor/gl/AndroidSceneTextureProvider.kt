@@ -147,7 +147,11 @@ class AndroidSceneTextureProvider(
                         }
                         slot.ready = true
                     }
-                    if (nowMillis - slot.lastArrival.get() > FRAME_TIMEOUT_MILLIS) {
+                    // MediaProjection is event-driven: a still screen can legitimately keep
+                    // the same buffer indefinitely. Its grant callback reports revocation.
+                    // Keep the initial-frame deadline so a broken start still reconnects.
+                    val expectsFrame = !slot.ready || slot.source.type != SceneSourceType.SCREEN_CAPTURE
+                    if (expectsFrame && nowMillis - slot.lastArrival.get() > FRAME_TIMEOUT_MILLIS) {
                         val generation = lifecycle.states[slot.source.id]?.generation ?: continue
                         lifecycle.disconnected(slot.source.id, nowMillis, generation)
                     }

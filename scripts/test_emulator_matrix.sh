@@ -505,6 +505,67 @@ assert not missing, ('Aufruf ohne Staging: %s — der Job laeuft ins Leere (exit
                      'Vorfall #250)' % sorted(missing))
 "
 
+# T18: The library GPU suite is a separate instrumentation APK. App connected
+# tests cannot execute it. Execute the real workflow snippet with command stubs
+# to prove both invocation and fail-loud behavior, including regression canaries.
+scene_gpu_command_contract() {
+  local workflow="$1" snippet scratch result
+  snippet=$(wf_step_with "$workflow" emulator-tests 'Run instrumented tests on emulator' script)
+  [[ -n "$snippet" && "$snippet" != "-" ]] || return 1
+  scratch=$(mktemp -d)
+  printf '%s\n' "$snippet" > "$scratch/raw.sh"
+  python - "$scratch/raw.sh" "$scratch/run.sh" <<'PYSCENE'
+import pathlib, sys
+text = pathlib.Path(sys.argv[1]).read_text()
+text = text.replace('${{ matrix.api-level }}', '34')
+pathlib.Path(sys.argv[2]).write_text(text)
+PYSCENE
+  cat > "$scratch/gradlew" <<'SCENEGRADLE'
+#!/usr/bin/env sh
+printf '%s\n' "$@" > "$SCENE_LOG"
+exit "${SCENE_GRADLE_EXIT:-0}"
+SCENEGRADLE
+  cat > "$scratch/bash" <<'SCENESETUP'
+#!/usr/bin/env sh
+exit 0
+SCENESETUP
+  chmod +x "$scratch/gradlew" "$scratch/bash"
+  result=0
+  (cd "$scratch" && PATH="$scratch:$PATH" SCENE_LOG="$scratch/args" sh run.sh) || result=$?
+  if [[ "$result" -ne 0 ]] || ! grep -Fxq ':feature-streaming:connectedDebugAndroidTest' "$scratch/args"; then
+    rm -rf "$scratch"
+    return 1
+  fi
+  result=0
+  (cd "$scratch" && PATH="$scratch:$PATH" SCENE_LOG="$scratch/args" SCENE_GRADLE_EXIT=29 sh run.sh) || result=$?
+  rm -rf "$scratch"
+  [[ "$result" -eq 29 ]]
+}
+
+check 'T18.1 compositor instrumentation runs and propagates failure' \
+  scene_gpu_command_contract .github/workflows/release-pipeline.yml
+SCENE_FIXTURES=$(mktemp -d)
+python - "$SCENE_FIXTURES" <<'PYSCENE'
+import pathlib, sys
+root = pathlib.Path(sys.argv[1])
+original = pathlib.Path('.github/workflows/release-pipeline.yml').read_text()
+root.joinpath('removed.yml').write_text(original.replace(' :feature-streaming:connectedDebugAndroidTest', ''))
+root.joinpath('layout.yml').write_text(original + '\n# unrelated formatting must preserve the contract\n')
+root.joinpath('missing.yml').write_text('jobs: {}\n')
+PYSCENE
+if scene_gpu_command_contract "$SCENE_FIXTURES/removed.yml"; then
+  check 'T18.2 removed GPU task must fail the guard' false
+else
+  check 'T18.2 removed GPU task is detected' true
+fi
+if scene_gpu_command_contract "$SCENE_FIXTURES/missing.yml"; then
+  check 'T18.3 missing workflow step must fail the guard' false
+else
+  check 'T18.3 missing workflow step is detected' true
+fi
+check 'T18.4 unrelated layout change stays green' scene_gpu_command_contract "$SCENE_FIXTURES/layout.yml"
+rm -rf "$SCENE_FIXTURES"
+
 echo
 if [ "$FAIL" -eq 0 ]; then
   echo "✅ Alle Checks bestanden (test_emulator_matrix.sh)"

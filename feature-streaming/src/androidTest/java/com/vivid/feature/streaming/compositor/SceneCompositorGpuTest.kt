@@ -192,6 +192,99 @@ class SceneCompositorGpuTest {
         assertEquals(1, released)
     }
 
+    @Test fun staticScreenKeepsItsFrameUntilTheGrantIsRevoked() {
+        val capture = captureFixture(SceneSourceType.SCREEN_CAPTURE)
+        awaitCapture(capture.provider)
+        now = 60_000
+        requireNotNull(renderer).draw()
+        assertNotNull(capture.provider.texture("capture"))
+        assertColor(pixel(16, 16), 0, 255, 0)
+        assertEquals(1, capture.opened)
+        assertEquals(SceneProducerStatus.ACTIVE, capture.states.getValue("capture").status)
+        requireNotNull(capture.disconnect).invoke(true)
+        requireNotNull(renderer).draw()
+        assertNull(capture.provider.texture("capture"))
+        assertEquals(SceneProducerStatus.PERMISSION_REQUIRED, capture.states.getValue("capture").status)
+        assertEquals(1, capture.stopped)
+    }
+
+    @Test fun silentCameraDropsItsLastFrameAndBecomesOffline() {
+        val capture = captureFixture(SceneSourceType.CAMERA)
+        awaitCapture(capture.provider)
+        now = 6_000
+        requireNotNull(renderer).draw()
+        assertNull(capture.provider.texture("capture"))
+        assertEquals(SceneProducerStatus.OFFLINE, capture.states.getValue("capture").status)
+        val offline = pixel(16, 16)
+        assertEquals(offline[0], offline[1])
+        assertEquals(offline[1], offline[2])
+        assertEquals(1, capture.stopped)
+    }
+
+    @Test fun screenWithoutAnInitialFrameStillTimesOut() {
+        val capture = captureFixture(SceneSourceType.SCREEN_CAPTURE, postFrame = false)
+        requireNotNull(renderer).draw()
+        now = 6_000
+        requireNotNull(renderer).draw()
+        assertNull(capture.provider.texture("capture"))
+        assertEquals(SceneProducerStatus.OFFLINE, capture.states.getValue("capture").status)
+        assertEquals(1, capture.stopped)
+    }
+
+    private class CaptureFixture {
+        lateinit var provider: AndroidSceneTextureProvider
+        var opened = 0
+        var stopped = 0
+        var disconnect: ((Boolean) -> Unit)? = null
+        var states: Map<String, SceneProducerState> = emptyMap()
+    }
+
+    private fun captureFixture(type: SceneSourceType, postFrame: Boolean = true): CaptureFixture {
+        val fixture = CaptureFixture()
+        fixture.provider = AndroidSceneTextureProvider(SceneProjectionRegistry(), SceneBitmapRegistry(),
+            clockMillis = { now }, publishStates = { fixture.states = it }, backendFactory = {
+                object : SceneCaptureBackend {
+                    override fun configure(sources: List<SceneSource>) = Unit
+                    override fun create(source: SceneSource, target: SceneCaptureTarget,
+                        failed: (Boolean) -> Unit): SceneProducer {
+                        fixture.opened++
+                        fixture.disconnect = failed
+                        return object : SceneProducer {
+                            override fun start() {
+                                if (postFrame) {
+                                    val canvas = target.surface.lockCanvas(null)
+                                    canvas.drawColor(android.graphics.Color.GREEN)
+                                    target.surface.unlockCanvasAndPost(canvas)
+                                }
+                            }
+                            override fun stop() { fixture.stopped++ }
+                            override fun release() = Unit
+                        }
+                    }
+                    override fun release() = Unit
+                }
+            })
+        renderer = SceneCompositorFilterRender(fixture.provider, clockMillis = { now }).also {
+            it.initGl(SIZE, SIZE, InstrumentationRegistry.getInstrumentation().targetContext, SIZE, SIZE)
+            it.initFBOLink()
+            it.setPreviousTexId(texture(1, 1, intArrayOf(0, 0, 0, 255)).textureId)
+            it.setScene(SceneRenderState(SceneComposition(canvasWidth = SIZE, canvasHeight = SIZE,
+                sources = listOf(SceneSource("capture", type)),
+                layers = listOf(SceneLayer("capture-layer", "capture")))), animate = false)
+        }
+        return fixture
+    }
+
+    private fun awaitCapture(provider: AndroidSceneTextureProvider) {
+        val deadline = android.os.SystemClock.elapsedRealtime() + 3_000
+        do {
+            requireNotNull(renderer).draw()
+            if (provider.texture("capture") != null) return
+            Thread.sleep(10)
+        } while (android.os.SystemClock.elapsedRealtime() < deadline)
+        fail("Surface frame did not arrive")
+    }
+
     @Test fun imageDocumentIsDecodedAndUploadedWithoutASeparateVideoProducer() {
         val app = InstrumentationRegistry.getInstrumentation().targetContext
         val image = java.io.File.createTempFile("scene-source", ".png", app.cacheDir)

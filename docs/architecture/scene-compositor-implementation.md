@@ -60,7 +60,7 @@ Source-Rename-/Capture-Reuse-Regressionsprüfungen bestanden **15 Tests** (über
 mit dem vorherigen Lauf). Ein vollständiger Pre-Push-Lauf bleibt gesondert
 nachzuweisen.
 
-`SceneCompositorGpuTest` enthält sieben echte EGL/GLES2-Tests für Layer-/Alpha-
+`SceneCompositorGpuTest` enthält zehn echte EGL/GLES2-Tests für Layer-/Alpha-
 Blend, Crop/Rotation, Fade, Offline-Frames, Legacy-Orientierung, geteilte externe
 Surfaces und Bilddatei-Upload. Der Fixture-Quellcode wurde gegen Android 37 und
 RootEncoder 2.7.5 kompiliert. Kein angeschlossenes ADB-Gerät war verfügbar;
@@ -124,3 +124,25 @@ wurde erneut beendet: Repository-Selbsttests liefen durch; im unveränderten
 OBS-Modul scheiterten **21 von 48 Tests** am Conscrypt-Laden wegen fehlendem
 `libpthread.so.0` auf Termux. Das Gesamt-Gate bleibt rot. Die separaten grünen
 Streaming-Lint-/Test-Nachweise bleiben ausdrücklich auf ihren Umfang begrenzt.
+
+## Statische Screen-Frames und Emulator-Suite
+
+MediaProjection-Quellen behalten nach dem ersten Frame ihr letztes Bild, auch
+wenn der Bildschirm länger als fünf Sekunden unverändert bleibt. Explizite
+Capture-Fehler und Grant-Revocation entfernen das Bild weiterhin sofort. Für
+Kameras/Video und das Warten auf den ersten Screen-Frame gilt der bisherige
+Timeout weiter. Drei zusätzliche EGL-Regressionen prüfen diese Unterschiede.
+Alle zehn Instrumented-Testquellen kompilieren; Streaming-Lint bleibt grün.
+
+Der bestehende manuelle Emulator-Workflow ruft nun zusätzlich
+`:feature-streaming:connectedDebugAndroidTest` auf: Die App-Instrumentierung
+führt die separate Library-Test-APK nicht aus. Der Workflow-Selbsttest führt das
+echte Shell-Snippet mit Stubs aus, prüft die Library-Task und den Fehler-Exit und
+weist entfernte Tasks/fehlende Steps zurück; eine Layout-Negativkontrolle bleibt
+grün. Workflow-Security und der Zeilenfenster-Guard bestanden ebenfalls.
+
+Der Fork meldet über die GitHub-API `actions.enabled = false` und keine
+registrierten Workflows. Es wurde kein Emulatorlauf ausgelöst und kein
+GPU-Erfolg behauptet. Die Upstream-PR meldet außerdem einen roten externen
+DeepSource-Kotlin-Status; dessen Bericht war über die verfügbaren Schnittstellen
+nicht abrufbar. Dieser Befund bleibt offen.
