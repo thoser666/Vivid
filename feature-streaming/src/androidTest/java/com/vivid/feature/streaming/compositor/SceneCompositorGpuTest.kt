@@ -307,11 +307,27 @@ class SceneCompositorGpuTest {
         fail("Camera texture was not sampled")
     }
 
+    @Test fun outputRateChangesReachCaptureWithoutReopeningTheSource() {
+        val capture = captureFixture(SceneSourceType.CAMERA, outputFrameRate = 60)
+        awaitCapture(capture.provider)
+        assertEquals(60, capture.initialFrameRate)
+        assertEquals(60, capture.rateRequests.last())
+        capture.outputFrameRate = 30
+        requireNotNull(renderer).draw()
+        assertEquals(30, capture.rateRequests.last())
+        assertEquals(1, capture.opened)
+        assertEquals(0, capture.stopped)
+        assertNotNull(capture.provider.texture("capture"))
+    }
+
     private class CaptureFixture {
         lateinit var provider: AndroidSceneTextureProvider
         var opened = 0
         var stopped = 0
         var ready = 0
+        var outputFrameRate = 30
+        var initialFrameRate = 0
+        val rateRequests = mutableListOf<Int>()
         var rotation: Int? = 0
         var sampledTimestamp: Long? = null
         var surface: android.view.Surface? = null
@@ -319,12 +335,15 @@ class SceneCompositorGpuTest {
         var states: Map<String, SceneProducerState> = emptyMap()
     }
 
-    private fun captureFixture(type: SceneSourceType, postFrame: Boolean = true): CaptureFixture {
-        val fixture = CaptureFixture()
+    private fun captureFixture(type: SceneSourceType, postFrame: Boolean = true, outputFrameRate: Int = 30): CaptureFixture {
+        val fixture = CaptureFixture().also { it.outputFrameRate = outputFrameRate }
         fixture.provider = AndroidSceneTextureProvider(SceneProjectionRegistry(), SceneBitmapRegistry(),
-            clockMillis = { now }, publishStates = { fixture.states = it }, sourceReady = { fixture.ready++ }, backendFactory = {
+            clockMillis = { now }, publishStates = { fixture.states = it }, sourceReady = { fixture.ready++ }, captureFrameRate = { fixture.outputFrameRate }, backendFactory = {
                 object : SceneCaptureBackend {
                     override fun configure(sources: List<SceneSource>) = Unit
+                    override fun setTargetFrameRate(frameRate: Int) {
+                        if (fixture.rateRequests.lastOrNull() != frameRate) fixture.rateRequests.add(frameRate)
+                    }
                     override fun samplingRotationDegrees(sourceId: String, timestamp: Long): Int? {
                         fixture.sampledTimestamp = timestamp
                         return fixture.rotation
@@ -332,6 +351,7 @@ class SceneCompositorGpuTest {
                     override fun create(source: SceneSource, target: SceneCaptureTarget,
                         failed: (Boolean) -> Unit): SceneProducer {
                         fixture.opened++
+                        fixture.initialFrameRate = target.frameRate
                         fixture.surface = target.surface
                         fixture.disconnect = failed
                         return object : SceneProducer {

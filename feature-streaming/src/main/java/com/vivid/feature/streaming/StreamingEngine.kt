@@ -255,6 +255,11 @@ class StreamingEngine @Inject constructor(
             privacyEnabled = { privacyComposer.privacyEnabled.value },
             publishStates = { _sceneProducerStates.value = it },
             sourceReady = ::sceneSourceReady,
+            captureFrameRate = {
+                val streaming = _streamingState.value
+                if (streaming is StreamingState.Preparing || streaming is StreamingState.Streaming ||
+                    _replayState.value is ReplayState.Recording) _activeEncoder.value?.preset?.fps ?: 30 else 30
+            },
         )
         sceneTextures = textures
         val renderOwner = activeGlInterface()
@@ -1974,6 +1979,7 @@ class StreamingEngine @Inject constructor(
         val session = ensureSceneSession()
         if (session.isStreaming || session.isRecording) { attachPreviewIfRunning(); return }
         if (glPreviewOwner === session.gl && glPreviewSurface === request.surface && session.gl.isRunning) {
+            session.gl.setForceRender(true, 30)
             attachPreviewIfRunning()
             return
         }

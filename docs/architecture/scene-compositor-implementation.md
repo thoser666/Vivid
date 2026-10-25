@@ -299,3 +299,32 @@ sein Release beendet damit Captures bei einem Effekt-Rebuild. SourceIds bleiben
 stabil, aber dieser Producer-Lifecycle ist noch nicht unabhängig genug. Capture-
 Ownership über Filter-/GL-Rebuilds und eine Pixel-Regression für aktiv bleibende
 Privacy während solcher Updates sind vor vollständiger Parität noch umzusetzen.
+
+## Capture-FPS nach Ausgabebedarf
+
+Der TextureProvider übergibt den aktuellen Ausgabebedarf an den Capture-Adapter:
+Idle-Preview fordert 30 FPS an, Stream/Aufnahme das aktive Encoderprofil.
+Eine einzelne Kamera fordert höhere reguläre Raten nur an, wenn Outputgröße,
+minimale Frame-Dauer und AE-Bereiche sie gemeinsam unterstützen. Gleichzeitige
+Kameras bleiben bei höchstens 30 FPS. Fehlende Timing-Metadaten gelten nicht als
+Nachweis für 60 FPS; dann bleibt der begrenzte bisherige 30-FPS-Default erhalten
+(bei kleinerem Ausgabebedarf dessen Wert). Dies sind Request-Werte, keine Messung
+der tatsächlich gelieferten Frames.
+
+Änderungen verwenden die bestehende Capture-Session. Ausstehende Requests werden
+zusammengefasst, erst nach einem brauchbaren Puffer angewendet und beim Stop
+verworfen. Der gemeinsame Request-Builder behält andere Controls; schlägt eine
+FPS-Änderung fehl, wird sein vorheriger AE-Bereich wiederhergestellt. Nach drei
+Fehlversuchen bleibt die bisherige Rate bestehen. Ein geänderter Bedarf oder eine
+neu geöffnete Session erlaubt einen neuen Versuch. Die Surface und der Kamera-
+Manager werden dafür nicht neu geöffnet. Eine wiederverwendete Idle-Preview
+setzt auch den vorhandenen RootEncoder-Zeichentakt auf 30 FPS zurück.
+
+Die gezielten Rate-/Kamera-/Engine-Vertragstests bestanden. Eine zusätzliche
+GLES-Fixture prüft die Weitergabe von 60 auf 30 FPS bei unverändertem Producer;
+ihre Geräteausführung und die tatsächliche Capture-Rate, Leistungsaufnahme und
+Thermik bleiben offen. Streaming-Lint bestand für diesen
+Checkpoint ohne Fehler/Warnungen (ein bestehender Autoboxing-Hint). Der erste
+breitere Testlauf stoppte an einem inkrementellen Kotlin-Cachefehler vor der
+Testausführung; der sequenzielle Wiederholungslauf läuft noch. Daraus wird hier
+noch kein bestandener Gesamt-Gate abgeleitet.

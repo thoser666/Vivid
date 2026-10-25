@@ -12,7 +12,11 @@ import androidx.annotation.RequiresApi
 import android.media.MediaPlayer
 import androidx.core.net.toUri
 import android.os.Build
+import android.os.Handler
+import com.vivid.feature.streaming.AndroidCameraCaptureCapabilities
+import java.util.concurrent.atomic.AtomicInteger
 import android.util.Size
+import android.util.Range
 import com.vivid.core.data.SceneSource
 import com.vivid.core.data.SceneSourceType
 import com.vivid.feature.streaming.compositor.SceneProducer
@@ -24,12 +28,14 @@ import com.pedro.encoder.input.video.Camera2ApiManager
 import com.pedro.encoder.input.video.CameraCallbacks
 import com.pedro.encoder.input.video.CameraHelper
 import kotlin.math.abs
+import timber.log.Timber
 
 /** Encoder-free capture; UVC is supported through Android's external-camera HAL. */
 class AndroidSceneCaptureBackend(
     private val context: Context,
     private val projections: SceneProjectionRegistry,
     private val deviceRotationDegrees: (() -> Int)? = null,
+    private val dispatchCameraTask: ((() -> Unit) -> Unit)? = null,
     private val cameraFactory: () -> Camera2ApiManager = { Camera2ApiManager(context) },
 ) : SceneCaptureBackend {
     private val cameraManager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
@@ -44,12 +50,32 @@ class AndroidSceneCaptureBackend(
 
     private fun currentRotationDegrees(): Int = deviceRotationDegrees?.invoke() ?: (
         displayRotation ?: SceneDisplayRotation(context).also { displayRotation = it }).degrees
+    private val mainHandler by lazy { Handler(context.mainLooper) }
+    private var concurrentBudget = false
     private var requestedSources: List<SceneSource> = emptyList()
     private var cameraRequests: Set<String> = emptySet()
     private var duplicateCameraIds: Set<String> = emptySet()
 
     override fun configure(sources: List<SceneSource>) {
         requestedSources = sources.distinctBy { it.id }
+        val concurrent = requestedSources.filter { it.type == SceneSourceType.CAMERA || it.type == SceneSourceType.UVC }
+            .map { it.locator.ifBlank { "default:${it.type}" } }.distinct().size > 1
+        if (concurrent != concurrentBudget) {
+            concurrentBudget = concurrent
+            cameras.values.forEach { it.updateConcurrentBudget(concurrentBudget) }
+        }
+    }
+
+    override fun setTargetFrameRate(frameRate: Int) {
+        require(frameRate in 1..120)
+        cameras.values.forEach { it.requestFrameRate(frameRate, concurrentBudget) }
+    }
+
+    override fun frameReady(sourceId: String) { cameras[sourceId]?.frameReady() }
+
+    private fun dispatch(action: () -> Unit) {
+        val custom = dispatchCameraTask
+        if (custom != null) custom(action) else mainHandler.post(action)
     }
 
     /** Refresh on open/retry so hotplug works without querying camera metadata every frame. */
@@ -90,7 +116,8 @@ class AndroidSceneCaptureBackend(
                 metadata.get(CameraCharacteristics.SCALER_AVAILABLE_ROTATE_AND_CROP_MODES)
                     ?.any { it != CaptureRequest.SCALER_ROTATE_AND_CROP_NONE } == true
             CameraProducer(source.id, cameraId, target, failed,
-                SceneCameraSampling(displayDegrees, needsRotationMetadata), needsRotationMetadata)
+                SceneCameraSampling(displayDegrees, needsRotationMetadata), needsRotationMetadata, metadata,
+                size, cameraRequests.size > 1)
         }
         SceneSourceType.SCREEN_CAPTURE -> object : SceneProducer {
             private var lease: Closeable? = null
@@ -139,18 +166,33 @@ class AndroidSceneCaptureBackend(
         private val failed: (Boolean) -> Unit,
         val sampling: SceneCameraSampling,
         private val needsRotationMetadata: Boolean,
+        private val metadata: CameraCharacteristics,
+        private val size: Size,
+        initialConcurrent: Boolean,
     ) : SceneProducer {
         private val closed = AtomicBoolean(false)
         private val started = AtomicBoolean(false)
         val camera = cameraFactory()
         private val rawRequested = AtomicBoolean(false)
+        private val capabilities = AndroidCameraCaptureCapabilities(metadata)
+        @Volatile private var lastOutputRate = target.frameRate
+        @Volatile private var lastConcurrent = initialConcurrent
+        private val desiredFrameRate = AtomicInteger(resolveSceneCaptureFrameRate(size.width, size.height,
+            target.frameRate, initialConcurrent, capabilities))
+        @Volatile private var preparedFrameRate = desiredFrameRate.get()
+        private val rateTaskQueued = AtomicBoolean(false)
+        private val sessionReady = AtomicBoolean(false)
+        private val failedRateUpdates = AtomicInteger(0)
 
         init {
             cameras[sourceId] = this
             camera.setCameraCallbacks(object : CameraCallbacks {
                 override fun onCameraOpened() {
                     // Health still requires a texture frame with a known sampling transform.
+                    sessionReady.set(false)
+                    rawRequested.set(false)
                     if (needsRotationMetadata && Build.VERSION.SDK_INT >= 31) requestRawOrientation()
+                    requestFrameRate(lastOutputRate, lastConcurrent, force = true)
                 }
                 override fun onCameraChanged(facing: CameraHelper.Facing) = Unit
                 override fun onCameraError(error: String) = reportFailure()
@@ -184,6 +226,69 @@ class AndroidSceneCaptureBackend(
             }
         }
 
+        fun updateConcurrentBudget(concurrent: Boolean) = requestFrameRate(lastOutputRate, concurrent)
+
+        @Synchronized
+        fun requestFrameRate(outputRate: Int, concurrent: Boolean, force: Boolean = false) {
+            if (closed.get()) return
+            if (force || outputRate != lastOutputRate || concurrent != lastConcurrent) {
+                lastOutputRate = outputRate
+                lastConcurrent = concurrent
+                desiredFrameRate.set(resolveSceneCaptureFrameRate(size.width, size.height,
+                    outputRate, concurrent, capabilities))
+                failedRateUpdates.set(0)
+            }
+            scheduleFrameRateUpdate()
+        }
+
+        fun frameReady() {
+            if (!closed.get() && sessionReady.compareAndSet(false, true)) scheduleFrameRateUpdate()
+        }
+
+        private fun scheduleFrameRateUpdate() {
+            if (closed.get() || !started.get() || !sessionReady.get() || desiredFrameRate.get() == preparedFrameRate ||
+                !rateTaskQueued.compareAndSet(false, true)) return
+            dispatch {
+                try {
+                    if (!closed.get() && started.get() && sessionReady.get()) {
+                        val wanted = desiredFrameRate.get()
+                        if (wanted != preparedFrameRate) {
+                            val range = selectSceneCaptureFpsRange(metadata.get(
+                                CameraCharacteristics.CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES).orEmpty(), wanted)
+                            if (range == null) {
+                                // No known live request is safe. Keep the existing camera settings
+                                // and avoid retrying missing metadata on every frame.
+                                desiredFrameRate.compareAndSet(wanted, preparedFrameRate)
+                            } else if (applyFrameRateRange(range)) {
+                                camera.prepareCamera(target.surface, wanted)
+                                preparedFrameRate = wanted
+                                failedRateUpdates.set(0)
+                            } else if (desiredFrameRate.get() == wanted && failedRateUpdates.incrementAndGet() >= 3) {
+                                desiredFrameRate.compareAndSet(wanted, preparedFrameRate)
+                                Timber.w("Could not change scene capture frame rate; retaining %d fps", preparedFrameRate)
+                            }
+                        }
+                    }
+                } finally { rateTaskQueued.set(false) }
+            }
+        }
+
+        private fun applyFrameRateRange(range: Range<Int>): Boolean {
+            var previous: Range<Int>? = null
+            var changed = false
+            val applied = camera.setCustomRequest {
+                previous = it.get(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE)
+                it.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, range)
+                changed = true
+            }
+            if (!applied && changed) {
+                // RootEncoder keeps the shared builder even if the request fails. Restore
+                // its old value so a later focus/exposure update cannot apply a stale rate.
+                camera.setCustomRequest { it.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, previous) }
+            }
+            return applied
+        }
+
         private fun reportFailure() {
             if (!closed.get()) failed(context.checkSelfPermission(Manifest.permission.CAMERA) !=
                 PackageManager.PERMISSION_GRANTED)
@@ -193,7 +298,9 @@ class AndroidSceneCaptureBackend(
             check(!closed.get() && started.compareAndSet(false, true))
             // The bounded buffer dimensions were selected before creating the producer.
             // Surface preparation creates no encoder and retains the provider's ownership.
-            camera.prepareCamera(target.surface, 30)
+            val fps = desiredFrameRate.get()
+            camera.prepareCamera(target.surface, fps)
+            preparedFrameRate = fps
             camera.openCameraId(cameraId)
         }
 

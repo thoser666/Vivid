@@ -11,9 +11,16 @@ data class SceneCaptureTarget(
     val surface: Surface,
     val width: Int,
     val height: Int,
-)
+    val frameRate: Int = 30,
+) {
+    init { require(frameRate in 1..120) }
+}
 
 interface SceneCaptureBackend {
+    /** Output demand changes may update camera AE ranges without replacing their surfaces. */
+    fun setTargetFrameRate(frameRate: Int) = Unit
+    /** A usable texture proves that this camera's capture session is configured. */
+    fun frameReady(sourceId: String) = Unit
     /** Remaining clockwise sampling correction; null waits for matching Camera2 metadata. */
     fun samplingRotationDegrees(sourceId: String, timestamp: Long): Int? = 0
     /** Borrowed controls for the currently open source; never a second capture session. */

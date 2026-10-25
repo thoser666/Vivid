@@ -45,6 +45,7 @@ class AndroidSceneTextureProvider(
     private val privacyEnabled: () -> Boolean = { false },
     private val publishStates: (Map<String, SceneProducerState>) -> Unit = {},
     private val sourceReady: (String) -> Unit = {},
+    private val captureFrameRate: () -> Int = { 30 },
     private val backendFactory: (Context) -> SceneCaptureBackend = { AndroidSceneCaptureBackend(it, projections) },
 ) : SceneTextureProvider {
     private class Slot(val source: SceneSource, val id: Int, val external: Boolean,
@@ -116,6 +117,7 @@ class AndroidSceneTextureProvider(
             it.type == SceneSourceType.CAMERA && it.locator == legacyCamera
         }) requested.add(SceneSource("pipeline-camera:$legacyCamera", SceneSourceType.CAMERA, legacyCamera))
         backend?.configure(requested)
+        backend?.setTargetFrameRate(captureFrameRate())
         val captureScenes = states.map { state -> state.composition.copy(
             sources = state.composition.sources.filter { it.id != state.inputSourceId },
             layers = state.composition.layers.filter { it.sourceId != state.inputSourceId },
@@ -158,7 +160,10 @@ class AndroidSceneTextureProvider(
                     val wasReady = slot.ready
                     slot.ready = rotation != null
                     if (rotation != null) {
-                        if (newFrame || !wasReady) slot.lastUsableAt = nowMillis
+                        if (newFrame || !wasReady) {
+                            slot.lastUsableAt = nowMillis
+                            if (slot.source.type in listOf(SceneSourceType.CAMERA, SceneSourceType.UVC)) backend?.frameReady(slot.source.id)
+                        }
                         if (newFrame || !wasReady || rotation != slot.rotationDegrees) {
                             Matrix.multiplyMM(slot.frame.transform, 0, slot.surfaceMatrix, 0,
                                 samplingMatrices[rotation / 90], 0)
@@ -225,7 +230,7 @@ class AndroidSceneTextureProvider(
                     override fun release() = Unit
                 }
                 else -> requireNotNull(backend).create(source,
-                    SceneCaptureTarget(requireNotNull(slot.texture), requireNotNull(slot.surface), width, height)) {
+                    SceneCaptureTarget(requireNotNull(slot.texture), requireNotNull(slot.surface), width, height, captureFrameRate())) {
                     permission -> failures.add(Failure(slot, generation, permission))
                 }
             }
