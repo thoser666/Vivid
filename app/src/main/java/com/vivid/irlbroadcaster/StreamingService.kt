@@ -250,8 +250,9 @@ class StreamingService : Service() {
         // FOREGROUND_SERVICE_MEDIA_PROJECTION ist eine normale Permission
         // (Installzeit erteilt) — kein Runtime-Check wie bei camera/microphone.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
-            StreamingServiceSupport.requiresMediaProjectionFgs(streamingEngine.activeSourceKind.value,
-                pendingProjection || streamingEngine.sceneProjectionActive.value)
+            StreamingServiceSupport.requiresMediaProjectionFgs(
+                if (streamingEngine.sceneComposition.value == null) streamingEngine.activeSourceKind.value else VideoSourceKind.CAMERA,
+                pendingProjection || streamingEngine.sceneProjectionForegroundRequired())
         ) {
             type = type or ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
         }

@@ -53,8 +53,10 @@ class PrivacyComposer(
     private val lowLightBoostController: LowLightBoostController,
     private val lutController: LutController,
     private val lutSize: Int,
-    /** Optional scene pass, appended after the existing protected camera/effect chain. */
+    /** Scene input precedes effects in camera-free mode; legacy input is already protected. */
     private val sceneRenderFactory: () -> BaseFilterRender? = { null },
+    /** In camera-free mode the composition is the input, before privacy and creative effects. */
+    private val sceneIsInput: () -> Boolean = { false },
     /** Fabrik der wiederverwendeten Privacy-Render-Instanz (Position 0). */
     private val privacyRenderFactory: () -> PrivacyBlurFilterRender? = { createPrivacyRender() },
     /** Fabrik für frische VideoFilter-Renders pro Rebuild (Bestands-Factory). */
@@ -109,7 +111,7 @@ class PrivacyComposer(
     fun requestRebuild(gl: GlStreamInterface?) {
         if (gl == null) return
         val desired = mutableListOf<BaseFilterRender>()
-        // Position 0: Anonymisierung (immer zuerst — Garantie-Postulat).
+        // Privacy precedes creative effects; a camera-free scene is their input.
         if (_privacyEnabled.value) {
             privacyRender?.let { desired.add(it) }
         }
@@ -122,7 +124,7 @@ class PrivacyComposer(
         lutRenderFactory()?.let { desired.add(it) }
         lowLightRenderFactory()?.let { desired.add(it) }
 
-        sceneRenderFactory()?.let { desired.add(it) }
+        sceneRenderFactory()?.let { if (sceneIsInput()) desired.add(0, it) else desired.add(it) }
 
         gl.clearFilters()
         desired.forEach { gl.addFilter(it) }

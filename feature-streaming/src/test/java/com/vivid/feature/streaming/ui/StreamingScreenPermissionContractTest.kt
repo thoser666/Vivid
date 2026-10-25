@@ -91,6 +91,9 @@ class StreamingScreenPermissionContractTest {
         every { engine.stabilizationEnabled } returns MutableStateFlow(false)
         every { engine.torchEnabled } returns MutableStateFlow(false)
         every { engine.activeSourceKind } returns MutableStateFlow(VideoSourceKind.CAMERA)
+        every { engine.sceneNeedsCameraPermission() } returns true
+        every { engine.canRecordReplay() } returns true
+        every { engine.sceneComposition } returns MutableStateFlow(null)
         every { engine.activeFilter } returns MutableStateFlow(VideoFilter.NONE)
         every { engine.lowLightBoostEnabled } returns MutableStateFlow(false)
         every { engine.activeLutPreset } returns MutableStateFlow(LutPreset.NONE)

@@ -1,6 +1,7 @@
 package com.vivid.feature.streaming.compositor.encoding
 
 import android.content.Context
+import android.view.Surface
 import com.pedro.common.ConnectChecker
 import com.pedro.common.VideoCodec
 import com.pedro.encoder.input.sources.audio.MicrophoneSource
@@ -20,7 +21,7 @@ import java.io.File
 /**
  * One compositor output encoder shared by all RTMP targets and the MP4 muxer.
  * Owns no camera; sources render into [gl]. Calls must be serialized by the owner.
- * Engine routing/control migration is separate from this transport's lifetime.
+ * StreamingEngine owns routing and borrows source controls from the capture backend.
  */
 class SceneEncoderSession internal constructor(
     private val stream: MultiStream,
@@ -116,6 +117,19 @@ class SceneEncoderSession internal constructor(
         finally { prepared = stream.stopRecord() }
     }
 
+    /** Idle preview starts GL/NoVideoSource without allocating hardware encoders. */
+    fun startPreview(surface: Surface, width: Int, height: Int) {
+        check(!closed)
+        if (stream.isOnPreview) stream.stopPreview()
+        stream.startPreview(surface, width, height)
+    }
+
+    fun stopPreview() {
+        if (stream.isOnPreview) stream.stopPreview()
+    }
+
+    fun setFpsListener(listener: (Int) -> Unit) { stream.setFpsListener { listener(it) } }
+
     fun setRecordController(controller: RecordController) { stream.setRecordController(controller) }
 
     fun setBitrateKbps(kbps: Int) {
@@ -147,7 +161,11 @@ class SceneEncoderSession internal constructor(
         } finally {
             closed = true
             prepared = false
-            stream.release()
+            try { stream.release() }
+            finally {
+                try { gl.deAttachPreview() }
+                finally { if (gl.isRunning) gl.stop() }
+            }
         }
     }
 

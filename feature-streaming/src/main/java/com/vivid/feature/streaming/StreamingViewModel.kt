@@ -61,8 +61,9 @@ class StreamingViewModel @Inject constructor(
         editorOriginalCamera = streamingEngine.currentSceneCameraId
         editorOriginalAutoSwitch = autoSceneSwitcher.enabled.value
         autoSceneSwitcher.setEnabled(false)
-        var graph = scene.effectiveComposition()
-        if (scene.composition == null) {
+        val liveGraph = streamingEngine.sceneComposition.value
+        var graph = liveGraph ?: scene.effectiveComposition()
+        if (scene.composition == null && liveGraph == null) {
             val size = streamingEngine.scenePreviewSize()
             graph = graph.copy(canvasWidth = size.first, canvasHeight = size.second,
                 sources = graph.sources.map {

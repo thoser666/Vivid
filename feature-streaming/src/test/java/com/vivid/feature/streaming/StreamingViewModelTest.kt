@@ -112,6 +112,21 @@ class StreamingViewModelTest {
     }
 
     @Test
+    fun `editor reuses live source identities and canvas rather than migrating the saved legacy scene again`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        prepareEditor()
+        val graph = com.vivid.core.data.SceneComposition(canvasWidth = 1920, canvasHeight = 1080,
+            sources = listOf(com.vivid.core.data.SceneSource("consented-screen", com.vivid.core.data.SceneSourceType.SCREEN_CAPTURE)),
+            layers = listOf(com.vivid.core.data.SceneLayer("screen-layer", "consented-screen")))
+        every { engine.sceneComposition } returns MutableStateFlow(graph)
+        val vm = viewModel()
+        vm.openSceneEditor(StreamScene("draft", "Draft"))
+        assertEquals(graph, vm.sceneEditor.value!!.composition)
+        vm.cancelSceneEditor()
+        verify { engine.setSceneComposition(graph, animate = false) }
+    }
+
+    @Test
     fun `editor saves complete draft once and ignores further mutations while saving`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         prepareEditor()

@@ -43,6 +43,7 @@ class AndroidSceneTextureProvider(
     private val legacyCameraId: () -> String? = { null },
     private val privacyEnabled: () -> Boolean = { false },
     private val publishStates: (Map<String, SceneProducerState>) -> Unit = {},
+    private val sourceReady: (String) -> Unit = {},
     private val backendFactory: (Context) -> SceneCaptureBackend = { AndroidSceneCaptureBackend(it, projections) },
 ) : SceneTextureProvider {
     private class Slot(val source: SceneSource, val id: Int, val external: Boolean,
@@ -142,10 +143,14 @@ class AndroidSceneTextureProvider(
                         requireNotNull(slot.texture).updateTexImage()
                         slot.texture.getTransformMatrix(sourceMatrix)
                         Matrix.multiplyMM(slot.frame.transform, 0, sourceMatrix, 0, topLeftToGl, 0)
-                        if (!slot.ready) lifecycle.states[slot.source.id]?.let {
+                        val firstFrame = !slot.ready
+                        if (firstFrame) lifecycle.states[slot.source.id]?.let {
                             lifecycle.markHealthy(slot.source.id, it.generation)
                         }
                         slot.ready = true
+                        if (firstFrame && slot.source.type in listOf(SceneSourceType.CAMERA, SceneSourceType.UVC)) {
+                            sourceReady(slot.source.id)
+                        }
                     }
                     // MediaProjection is event-driven: a still screen can legitimately keep
                     // the same buffer indefinitely. Its grant callback reports revocation.

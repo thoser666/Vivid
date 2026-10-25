@@ -518,9 +518,14 @@ private fun SourceSelectionItems(streamingEngine: StreamingEngine, onDismiss: ()
 private fun RecordingMenuItem(streamingEngine: StreamingEngine, onRecord: () -> Unit) {
     val activeSourceKind by streamingEngine.activeSourceKind.collectAsStateWithLifecycle()
     val replayState by streamingEngine.replayState.collectAsStateWithLifecycle()
+    val composition by streamingEngine.sceneComposition.collectAsStateWithLifecycle()
+    val streamingState by streamingEngine.streamingState.collectAsStateWithLifecycle()
+    val canRecord = remember(activeSourceKind, composition, streamingState, replayState) {
+        streamingEngine.canRecordReplay()
+    }
     DropdownMenuItem(
         modifier = Modifier.testTag("replay_record"),
-        enabled = activeSourceKind == VideoSourceKind.CAMERA,
+        enabled = replayState is ReplayState.Recording || canRecord,
         onClick = {
             if (replayState is ReplayState.Recording) streamingEngine.stopReplay()
             else onRecord()
@@ -1007,7 +1012,10 @@ private fun rememberRecordingAction(streamingEngine: StreamingEngine, snackbarHo
         if (grants.values.all { it }) startRecording() else recordingError = true
     }
     fun requestPermissionsAndRecord() {
-        val missing = listOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO).filter {
+        val missing = buildList {
+            if (streamingEngine.sceneNeedsCameraPermission()) add(Manifest.permission.CAMERA)
+            add(Manifest.permission.RECORD_AUDIO)
+        }.filter {
             ContextCompat.checkSelfPermission(context, it) != PackageManager.PERMISSION_GRANTED
         }
         if (missing.isEmpty()) startRecording() else recordingPermissionLauncher.launch(missing.toTypedArray())
@@ -1066,7 +1074,7 @@ private fun rememberStreamStartAction(
 
     fun requestPermissionsAndStart() {
         val needed = buildList {
-            add(Manifest.permission.CAMERA)
+            if (streamingEngine.sceneNeedsCameraPermission()) add(Manifest.permission.CAMERA)
             add(Manifest.permission.RECORD_AUDIO)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 add(Manifest.permission.POST_NOTIFICATIONS)

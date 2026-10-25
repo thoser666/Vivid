@@ -15,7 +15,7 @@ von noch fehlender Integration und Geräte-Evidenz.
 | Gleichzeitige Kameras, UVC, Screen, Bilder und Widgets | Typisierte SourceSpecs | Camera2-, MediaProjection-, lokaler Video- und Bild-Adapter vorhanden; Text-/Uhr-Feed und Consent-UI/Foreground-Service implementiert; weitere Widget-/Chat-Feeds, USB-Backend ohne Camera-HAL und Geräte-Matrix offen |
 | GLES/EGL-Offscreen-Ausgabe zum Hardware-Encoder | RootEncoder-2.7.5-Quellcode lokal geprüft | `SceneCompositorFilterRender` und Textur-/Surface-Lifecycle implementiert und SDK/AAR-kompiliert; echte GLES-Pixeltests noch nicht ausgeführt |
 | Ein Ergebnis für Streaming und Recording | Bestehender RootEncoder-Fanout als Integrationsziel | Filter am gemeinsamen RootEncoder-FBO angeschlossen; Stream-/Recording-/Preview-Parität auf Geräten verifizieren |
-| Keine zusätzlichen CPU-Framekopien/Encoder | Producer-Vertrag besitzt keinen Encoder | Zusätzliche Capture-Adapter verwenden Surface/Texture ohne Encoder; Profiling und NoVideoSource-Route ohne unbenutzte Hauptkamera offen |
+| Keine zusätzlichen CPU-Framekopien/Encoder | Producer-Vertrag besitzt keinen Encoder | Zusätzliche Capture-Adapter verwenden Surface/Texture ohne Encoder; NoVideoSource-Route für aktive Scene-Graphen integriert; Profiling und Geräte-Parität offen |
 | Reihenfolge, Position, Größe, Rotation, Crop, Sichtbarkeit | Validiertes Modell, `SceneGeometry` für GPU-Vertices und Hit-Tests | GLES-Zeichenpfad verdrahtet; Pixeltests und Compose-Editor vorhanden; Geräte-Verifikation offen |
 | PiP, Presets, Duplizieren | Fullscreen/PiP/Split-Modell, Duplikate teilen SourceId | Compose-Bedienoberfläche vorhanden; Live-Ausgabe auf Geräten verifizieren |
 | Touch-Editor und Alignment-Guides | Geometrie, Pixel-Snapping und Guide-Koordinaten | Compose-Canvas mit Drag/Pinch/Resize/Rotate und alternativen beschrifteten Slidern; Geräte- und Accessibility-Smoke offen |
@@ -173,15 +173,44 @@ stellen den vorhandenen Manager als geliehene Referenz bereit. Stop entfernt
 diese Referenz und schließt die Kamera genau einmal; die Capture-Surface bleibt
 Eigentum des TextureProviders. Drei portable Robolectric-Vertragstests bestanden.
 
-**Noch keine Engine-Umschaltung:** Die App verwendet weiterhin den bisherigen
-Encoderpfad. Die neue Session ist noch an Routing, Preview, Replay,
-Quellenwechsel, Encoder-Fallback und Privacy-/Effekt-Vorverarbeitung der
-Hauptquelle anzubinden. Ebenso sind die geliehenen Kamera-Controls und
-Face-Callbacks noch mit der primären Scene-Quelle zu verbinden. Diese Bausteine
-allein weisen weder das Abschalten der unbenutzten Legacy-Kamera noch
-Stream-/Recording-/Preview-Parität nach.
+**Engine-Umschaltung für Scene-Graphen:** Idle-Preview, Stream-Fanout und
+Replay-Aufnahme verwenden die kameraunabhängige Session, sofern kein bestehender
+Legacy-Stream oder primärer Datei-/Replay-Audiopfad aktiv ist. Ein Bild-/Widget-
+Graph benötigt keine unbenutzte Kamera und keine Camera-Permission. Die Preview
+startet GL ohne Encoder-Vorbereitung; Recording und Streaming teilen dieselbe
+Vorbereitung, solange ein Consumer aktiv bleibt. Beim Entfernen des Graphen
+während einer Aufnahme bleibt ein äquivalenter Basis-Graph erhalten, damit der
+Encoder nicht während des Schreibens ersetzt wird. Callback-Generationen
+verhindern Zustandsänderungen einer bereits freigegebenen Session.
+
+Die primäre sichtbare Kamera stellt ihre vorhandenen Controls und Face-Callbacks
+bereit; fehlt diese Kamera, fallen Controls nicht auf eine unbenutzte Legacy-
+Kamera zurück. Im neuen Pfad ist die Komposition der Eingang von Privacy und
+kreativen Effekten. Live-Layer bleiben unter aktiviertem Privacy-Modus
+vorsorglich vollständig mosaikiert; selektive Face-/Zonen-Abbildung auf beliebig
+transformierte Kamera-Layer ist noch offen. Kamera-Sensororientierung und
+Capture-Auflösung/FPS müssen zusätzlich auf Geräteprofile abgestimmt werden.
+
+Primäre Video-/Replay-Dateien behalten vorerst den bestehenden Audiopfad. Ein
+Wechsel dorthin während einer Scene-Aufnahme oder eines Scene-Streams wird
+zurückgewiesen, bevor der Legacy-Dateipfad vorbereitet wird. Die gemeinsame
+Datei-Audioanbindung und diese Live-Wechsel fehlen weiterhin. Ein bereits
+laufender Legacy-Stream migriert beim Öffnen des Editors nicht den Encoder;
+auch dessen unabhängiger Scene-Takt bei ausgefallenem Legacy-Eingang bleibt offen.
+Diese Einschränkungen sind kein Nachweis vollständiger Feature-Parität.
 
 Die neun Output-/Capture-Tests wurden zusammen regulär per Gradle ausgeführt
 (**6 + 3 grün**). Danach bestanden Streaming-Lint und die Kompilierung der
 Instrumented-Testquellen. Die Kamera-Vertragstests verwenden SDK-28-Shadows und
 Mocks der Geräte-/Manager-Grenze; sie sind kein realer Kamera-Test.
+
+Der gezielte Routing-Lauf bestand **207 Tests**: 100 bestehende Engine-, 29
+Filter-, 17 PrivacyComposer-, 47 ViewModel-, sieben neue Scene-Output- und sieben
+Session-Tests. Die neuen Fälle prüfen gemeinsames Recording/RTMP-Ownership,
+kameraunabhängige Preview, Wiederherstellung nach fehlgeschlagener Encoder-
+Vorbereitung, ignorierte alte Callbacks, Recording für Screen-Szenen und
+SourceId-/Canvas-Erhalt beim erneuten Öffnen des Editors. Die UI-Testfixtures
+geben die Kamera-Permission-/Recording-Capabilities ihres bisherigen Kamera-
+Setups explizit an; ihre Ausführung ist kein Bestandteil dieser 207 Tests.
+Standard-App und Instrumented-Testquellen kompilierten im vorherigen Lauf;
+die spätere Recording-Menü-Anpassung wird im folgenden Lint-/App-Lauf geprüft.

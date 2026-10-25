@@ -101,4 +101,16 @@ class SceneEncoderSessionTest {
         session.close()
         assertThrows(IllegalStateException::class.java) { session.startTarget(0, "rtmp://one/live") }
     }
+    @Test fun `idle preview needs no encoder preparation and close releases its GL surface`() {
+        val session = SceneEncoderSession(stream, 2)
+        val surface = mockk<android.view.Surface>(relaxed = true)
+        session.startPreview(surface, 640, 360)
+        verify { stream.startPreview(surface, 640, 360) }
+        verify(exactly = 0) { stream.prepareVideo(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) }
+        every { gl.isRunning } returns true
+        session.close()
+        verify { gl.deAttachPreview(); gl.stop(); stream.release() }
+        assertThrows(IllegalStateException::class.java) { session.startPreview(surface, 640, 360) }
+    }
+
 }

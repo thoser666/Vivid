@@ -47,6 +47,7 @@ class PrivacyComposerTest {
         videoRender: BaseFilterRender? = null,
         lowLightRender: BaseFilterRender? = null,
         sceneRender: BaseFilterRender? = null,
+        sceneIsInput: Boolean = false,
     ): PrivacyComposer {
         val filterController = VideoFilterController()
         if (filter != VideoFilter.NONE) {
@@ -60,6 +61,7 @@ class PrivacyComposerTest {
             lutController = LutController(),
             lutSize = 16,
             sceneRenderFactory = { sceneRender },
+            sceneIsInput = { sceneIsInput },
             privacyRenderFactory = { privacyRender },
             videoFilterRenderFactory = { videoRender },
             lutRenderFactory = { lutRender },
@@ -321,4 +323,17 @@ class PrivacyComposerTest {
         composer.setPrivacyEnabled(true, recorder.gl)
         assertEquals(listOf(privacy, video, lut, lowLight, scene), recorder.added)
     }
+    @Test
+    fun `camera free scene becomes the input to privacy and creative effects`() {
+        val recorder = RecordingGl()
+        val privacy = mockk<PrivacyBlurFilterRender>(relaxed = true)
+        val video = mockk<BaseFilterRender>(relaxed = true)
+        val scene = mockk<BaseFilterRender>(relaxed = true)
+        val composer = composer(recorder, filter = VideoFilter.GRAYSCALE,
+            privacyRender = privacy, videoRender = video, sceneRender = scene,
+            sceneIsInput = true)
+        composer.setPrivacyEnabled(true, recorder.gl)
+        assertEquals(listOf(scene, privacy, video), recorder.added)
+    }
+
 }
