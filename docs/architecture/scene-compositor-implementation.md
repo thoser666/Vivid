@@ -443,3 +443,10 @@ geparst: Debug enthält ausschließlich das bestehende WRITE-Recht mit maxSdk 18
 Release kein Storage-Recht. USB-Host ist in beiden optional und die Consent-
 Activity nicht exportiert. Dies ist ein Merge-/PackageManager-Nachweis, kein
 realer Android-USB-Permission- oder JNI-Capture-Test.
+
+Der vollständige Pre-Push-Gate des USB-Checkpoints wurde nach Code- und Parity-
+Commit ausgeführt. Die Repository-Selbsttests bestanden; anschließend scheiterten
+**21 von 48 unveränderten OBS-Tests** am Conscrypt-Laden (`libpthread.so.0` fehlt
+auf Termux). Alle 21 XML-Fehler belegen diesen Loader-Pfad. Der Gesamt-Gate bleibt
+rot; die separaten 182 Szenen-/drei Manifest-Tests und Streaming-Lint sind kein
+vollständiger App-/Release- oder Geräte-Nachweis.
