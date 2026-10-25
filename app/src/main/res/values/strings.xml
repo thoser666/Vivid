@@ -103,4 +103,6 @@
     <string name="pomodoro_reset">Zurücksetzen</string>
     <string name="pomodoro_disabled_hint">Der Pomodoro-Timer ist in den Einstellungen deaktiviert.</string>
     <string name="pomodoro_open_settings">Einstellungen öffnen</string>
+    <string name="notif_scene_capture_title">Szenenaufnahme aktiv</string>
+    <string name="notif_scene_capture_text">Bildschirmaufnahme für die Szenenvorschau</string>
 </resources>

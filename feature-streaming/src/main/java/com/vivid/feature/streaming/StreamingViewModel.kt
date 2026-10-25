@@ -9,6 +9,11 @@ import com.vivid.core.data.SceneRepository
 import com.vivid.core.data.SceneVideoSource
 import com.vivid.core.data.SettingsRepository
 import com.vivid.core.data.StreamScene
+import com.vivid.core.data.SceneComposition
+import com.vivid.core.data.SceneSourceType
+import com.vivid.core.data.effectiveComposition
+import com.vivid.feature.streaming.scene.editor.SceneEditorSession
+import com.vivid.feature.streaming.scene.editor.SceneEditorState
 import com.vivid.core.data.ZoneRepository
 import com.vivid.feature.streaming.ReplayState
 import com.vivid.feature.streaming.scene.AutoSceneSwitcher
@@ -42,6 +47,89 @@ class StreamingViewModel @Inject constructor(
      * Kamera-Initialisierung). Wird beim Go-Live nachgeholt (Skizze §5 P1).
      */
     private val pendingPrivacyToggle = MutableStateFlow<Boolean?>(null)
+
+    private val _sceneEditor = MutableStateFlow<SceneEditorState?>(null)
+    val sceneEditor: StateFlow<SceneEditorState?> = _sceneEditor
+    private var editorSession: SceneEditorSession? = null
+    private var editorOriginalComposition: SceneComposition? = null
+    private var editorOriginalCamera: String? = null
+    private var editorOriginalAutoSwitch = false
+
+    fun openSceneEditor(scene: StreamScene) {
+        if (editorSession != null || streamingEngine.streamingState.value is StreamingState.Preparing) return
+        editorOriginalComposition = streamingEngine.sceneComposition.value
+        editorOriginalCamera = streamingEngine.currentSceneCameraId
+        editorOriginalAutoSwitch = autoSceneSwitcher.enabled.value
+        autoSceneSwitcher.setEnabled(false)
+        var graph = scene.effectiveComposition()
+        if (scene.composition == null) {
+            val size = streamingEngine.scenePreviewSize()
+            graph = graph.copy(canvasWidth = size.first, canvasHeight = size.second,
+                sources = graph.sources.map {
+                    if (it.type == SceneSourceType.CAMERA) it.copy(locator = editorOriginalCamera.orEmpty()) else it
+                })
+        }
+        editorSession = SceneEditorSession(scene, graph)
+        publishEditor()
+    }
+
+    /** All draft mutations pass through one preview path; dragging never writes DataStore. */
+    fun editScene(action: SceneEditorSession.() -> Unit) {
+        val session = editorSession ?: return
+        if (session.state.saving) return
+        session.action()
+        publishEditor()
+    }
+
+    private fun publishEditor() {
+        val state = editorSession?.state ?: return
+        _sceneEditor.value = state
+        streamingEngine.setSceneComposition(state.composition, animate = false)
+    }
+
+    fun saveSceneEditor() {
+        val session = editorSession ?: return
+        if (session.state.saving) return
+        session.endGesture()
+        session.setSaving(true)
+        _sceneEditor.value = session.state
+        viewModelScope.launch {
+            try {
+                sceneRepository.saveScene(session.state.scene)
+                sceneRepository.setActiveScene(session.state.scene.id)
+                finishEditor(restore = false)
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                session.setSaving(false, failed = true)
+                _sceneEditor.value = session.state
+            }
+        }
+    }
+
+    fun grantSceneProjection(sourceId: String, resultCode: Int, data: android.content.Intent): Boolean =
+        streamingServiceLauncher.startSceneProjection(sourceId, resultCode, data)
+
+    fun cancelSceneEditor() {
+        if (editorSession?.state?.saving == true) return
+        finishEditor(restore = true)
+    }
+
+    private fun finishEditor(restore: Boolean) {
+        if (editorSession == null) return
+        if (restore) {
+            editorOriginalCamera?.let { streamingEngine.selectLens(it) }
+            streamingEngine.setSceneComposition(editorOriginalComposition, animate = false)
+        }
+        editorSession = null
+        _sceneEditor.value = null
+        autoSceneSwitcher.setEnabled(editorOriginalAutoSwitch)
+    }
+
+    override fun onCleared() {
+        finishEditor(restore = true)
+        super.onCleared()
+    }
 
     // --- Szenen (Basic Scenes) + Auto-Scene-Switcher ---
 
@@ -160,6 +248,7 @@ class StreamingViewModel @Inject constructor(
                 streamUrl = settings.streamUrl,
                 streamKey = settings.streamKey,
                 streamUseTls = settings.streamUseTls,
+                composition = streamingEngine.sceneComposition.value,
             )
             sceneRepository.saveScene(scene)
         }

@@ -8,6 +8,8 @@ import android.os.Looper
 import android.view.Surface
 import com.vivid.feature.streaming.compositor.SceneProducerPermissionException
 import java.io.Closeable
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * Owns runtime-only grants. Rebinds an existing VirtualDisplay across GL rebuilds:
@@ -24,16 +26,23 @@ class SceneProjectionRegistry(
         var revoked: (() -> Unit)? = null
     }
     private val grants = mutableMapOf<String, Grant>()
+    private val _active = MutableStateFlow(false)
+    val active = _active.asStateFlow()
 
     @Synchronized
     fun grant(sourceId: String, projection: MediaProjection) {
         require(sourceId.isNotBlank())
-        remove(sourceId)
+        remove(sourceId, publish = false)
         val callback = object : MediaProjection.Callback() {
             override fun onStop() { revoked(sourceId, projection) }
         }
-        projection.registerCallback(callback, handler)
-        grants[sourceId] = Grant(projection, callback)
+        try {
+            projection.registerCallback(callback, handler)
+            grants[sourceId] = Grant(projection, callback)
+        } catch (failure: RuntimeException) {
+            projection.stop()
+            throw failure
+        } finally { _active.value = grants.isNotEmpty() }
     }
 
     @Synchronized
@@ -61,12 +70,12 @@ class SceneProjectionRegistry(
             remove(sourceId)
             throw failure
         }
-        return Closeable { releaseLease(sourceId, generation) }
+        return Closeable { releaseLease(sourceId, grant, generation) }
     }
 
     @Synchronized
-    private fun releaseLease(sourceId: String, generation: Long) {
-        val grant = grants[sourceId]?.takeIf { it.generation == generation } ?: return
+    private fun releaseLease(sourceId: String, expected: Grant, generation: Long) {
+        val grant = grants[sourceId]?.takeIf { it === expected && it.generation == generation } ?: return
         grant.leased = false
         grant.revoked = null
         grant.display?.surface = null
@@ -85,14 +94,18 @@ class SceneProjectionRegistry(
     private fun revoked(sourceId: String, projection: MediaProjection) {
         val grant = grants[sourceId]?.takeIf { it.projection === projection } ?: return
         grants.remove(sourceId)
+        _active.value = grants.isNotEmpty()
         grant.projection.unregisterCallback(grant.callback)
         grant.display?.release()
         grant.revoked?.invoke()
     }
 
     @Synchronized
-    fun remove(sourceId: String) {
+    fun remove(sourceId: String) = remove(sourceId, publish = true)
+
+    private fun remove(sourceId: String, publish: Boolean) {
         val grant = grants.remove(sourceId) ?: return
+        if (publish) _active.value = grants.isNotEmpty()
         grant.projection.unregisterCallback(grant.callback)
         grant.display?.release()
         grant.projection.stop()

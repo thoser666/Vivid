@@ -16,6 +16,17 @@ import org.robolectric.annotation.GraphicsMode
 @ConscryptMode(ConscryptMode.Mode.OFF)
 @GraphicsMode(GraphicsMode.Mode.LEGACY)
 class SceneBitmapRegistryRobolectricTest {
+    @Test fun `automatic widget renderer produces a bounded owned bitmap`() {
+        val bitmap = com.vivid.feature.streaming.compositor.capture.SceneWidgetFeed.render("Hello\nworld".repeat(400))
+        assertEquals(640, bitmap.width)
+        assertTrue(bitmap.height in 96..512)
+        val registry = SceneBitmapRegistry()
+        registry.publish("text", bitmap)
+        bitmap.recycle()
+        registry.consumeChanged("text", 0) { _, owned -> assertFalse(owned.isRecycled) }
+        registry.close()
+    }
+
     @Test fun `widget updates own a copy and are consumed only once per revision`() {
         val registry = SceneBitmapRegistry()
         val original = Bitmap.createBitmap(2, 2, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.GREEN) }

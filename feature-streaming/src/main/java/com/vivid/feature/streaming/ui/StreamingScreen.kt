@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Podcasts
 import androidx.compose.material3.*
@@ -85,6 +86,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.vivid.core.data.ResolvedEncoderConfig
 import com.vivid.core.data.StreamScene
+import com.vivid.feature.streaming.ui.scene.SceneEditorScreen
 import com.vivid.core.ui.LocalWindowWidthClass
 import com.vivid.core.ui.adaptiveControlsMaxWidth
 import com.vivid.core.ui.theme.LocalExtendedColors
@@ -167,6 +169,9 @@ fun StreamingScreen(
     // Auto-Wechsel-Zustand — aus SceneRepository/AutoSceneSwitcher.
     val scenes by viewModel.scenes.collectAsStateWithLifecycle(initialValue = emptyList())
     val activeSceneId by viewModel.activeSceneId.collectAsStateWithLifecycle(initialValue = null)
+    val sceneEditor by viewModel.sceneEditor.collectAsStateWithLifecycle()
+    val sceneComposition by streamingEngine.sceneComposition.collectAsStateWithLifecycle()
+    val sceneSourceStates by streamingEngine.sceneProducerStates.collectAsStateWithLifecycle()
     val autoSwitchEnabled by viewModel.autoSwitchEnabled.collectAsStateWithLifecycle()
     val autoSwitchIntervalSeconds by viewModel.autoSwitchIntervalSeconds.collectAsStateWithLifecycle()
 
@@ -214,6 +219,14 @@ fun StreamingScreen(
 
     var scenesExpanded by rememberSaveable { mutableStateOf(false) }
 
+    sceneEditor?.let { editor ->
+        SceneEditorScreen(editor, streamingEngine, activeSourceKind, sceneSourceStates,
+            scenes.flatMap { it.composition?.sources.orEmpty() }, privacyEnabled,
+            viewModel::editScene, viewModel::saveSceneEditor, viewModel::cancelSceneEditor,
+            viewModel::grantSceneProjection)
+        return
+    }
+
     if (scenesExpanded) {
         ModalBottomSheet(
             onDismissRequest = { scenesExpanded = false },
@@ -242,6 +255,7 @@ fun StreamingScreen(
                     onApplyScene = viewModel::applyScene,
                     onSaveScene = viewModel::saveScene,
                     onDeleteScene = viewModel::deleteScene,
+                    onEditScene = { scene -> scenesExpanded = false; viewModel.openSceneEditor(scene) },
                     onAutoSwitchEnabledChange = viewModel::setAutoSwitchEnabled,
                     onAutoSwitchIntervalChange = viewModel::setAutoSwitchIntervalSeconds,
                     privacyEnabled = privacyEnabled,
@@ -275,7 +289,7 @@ fun StreamingScreen(
         ) {
             val density = LocalDensity.current
             val previewSize = with(density) { IntSize(maxWidth.roundToPx(), maxHeight.roundToPx()) }
-            StreamingSourcePreview(streamingEngine, activeSourceKind, previewSize, displayRotationDegrees) {
+            StreamingSourcePreview(streamingEngine, activeSourceKind, previewSize, displayRotationDegrees, showComposition = sceneComposition != null) {
                 requestVideoPicker()
             }
 
@@ -767,18 +781,18 @@ private fun ControlsNavigationItems(navController: NavController, onDismiss: () 
 }
 
 @Composable
-private fun StreamingSourcePreview(streamingEngine: StreamingEngine, activeSourceKind: VideoSourceKind, previewSize: IntSize, displayRotationDegrees: Int, onVideoPicker: () -> Unit) {
+internal fun StreamingSourcePreview(streamingEngine: StreamingEngine, activeSourceKind: VideoSourceKind, previewSize: IntSize, displayRotationDegrees: Int, showComposition: Boolean = false, onVideoPicker: () -> Unit) {
     // Camera2 and encoding both render through GL, so idle preview shows effects too.
     // Der Encoder hängt nicht an der Activity-Surface und läuft bei
     // deren Zerstörung (Recents-Wischen, Rotation) weiter.
     // S2: Bei aktiver Screen-Capture-Quelle wird keine Kamera-Vorschau
     // angehängt — stattdessen erscheint ein Platzhalter mit Hinweis.
-    if (activeSourceKind == VideoSourceKind.CAMERA) {
+    if (activeSourceKind == VideoSourceKind.CAMERA || showComposition) {
         AndroidView(
             factory = { context ->
                 @SuppressLint("ClickableViewAccessibility")
                 SurfaceView(context).also { view ->
-                    streamingEngine.initializeCamera()
+                    if (activeSourceKind == VideoSourceKind.CAMERA) streamingEngine.initializeCamera()
                     view.holder.addCallback(
                         object : SurfaceHolder.Callback {
                             override fun surfaceCreated(holder: SurfaceHolder) {
@@ -1337,6 +1351,7 @@ private fun SceneSwitcherBar(
     onApplyScene: (StreamScene) -> Unit,
     onSaveScene: (String) -> Unit,
     onDeleteScene: (String) -> Unit,
+    onEditScene: (StreamScene) -> Unit,
     onAutoSwitchEnabledChange: (Boolean) -> Unit,
     onAutoSwitchIntervalChange: (Long) -> Unit,
     privacyEnabled: Boolean,
@@ -1438,6 +1453,11 @@ private fun SceneSwitcherBar(
                             imageVector = Icons.Filled.Add,
                             contentDescription = stringResource(R.string.scene_add),
                         )
+                    }
+                    scenes.firstOrNull { it.id == activeSceneId }?.let { active ->
+                        FilledTonalIconButton(onClick = { onEditScene(active) }) {
+                            Icon(Icons.Filled.Edit, contentDescription = stringResource(R.string.scene_editor_open))
+                        }
                     }
                     if (activeSceneId != null) {
                         FilledTonalIconButton(onClick = { onDeleteScene(activeSceneId) }) {

@@ -51,7 +51,8 @@ import com.vivid.feature.streaming.source.ReplayVideoSource
 import com.vivid.feature.streaming.source.ScreenCaptureVideoSource
 import com.vivid.feature.streaming.source.VideoPlayerVideoSource
 import com.vivid.feature.streaming.source.VideoSourceKind
-import com.vivid.feature.streaming.source.VideoSourceRegistryimport com.vivid.feature.streaming.source.UvcVideoSource
+import com.vivid.feature.streaming.source.VideoSourceRegistry
+import com.vivid.feature.streaming.source.UvcVideoSource
 
 import timber.log.Timber
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -216,7 +217,12 @@ class StreamingEngine @Inject constructor(
     private val _sceneProducerStates = MutableStateFlow<Map<String, SceneProducerState>>(emptyMap())
     val sceneProducerStates: StateFlow<Map<String, SceneProducerState>> = _sceneProducerStates.asStateFlow()
     private val sceneProjections by lazy { SceneProjectionRegistry() }
+    val sceneProjectionActive: StateFlow<Boolean> get() = sceneProjections.active
+    fun stopSceneProjections() { sceneProjections.close() }
     private val sceneBitmaps = SceneBitmapRegistry()
+    private val sceneWidgets by lazy {
+        com.vivid.feature.streaming.compositor.capture.SceneWidgetFeed(::publishSceneWidget)
+    }
     private val sceneCameraAvailable = java.util.concurrent.atomic.AtomicBoolean(true)
     private var desiredSceneRender: SceneRenderState? = null
     private var sceneRender: SceneCompositorFilterRender? = null
@@ -273,6 +279,7 @@ class StreamingEngine @Inject constructor(
         val next = composition?.let { SceneRenderState(it, inputId) }
         desiredSceneRender = next
         _sceneComposition.value = composition
+        sceneWidgets.update(composition?.sources.orEmpty())
         sceneBitmaps.retainSources(composition?.sources?.filter { it.type == SceneSourceType.WIDGET }
             ?.map { it.id }?.toSet().orEmpty())
         sceneProjections.retainSources(composition?.sources?.filter { it.type == SceneSourceType.SCREEN_CAPTURE }
@@ -291,6 +298,27 @@ class StreamingEngine @Inject constructor(
             render?.setScene(null, animate = false)
             privacyComposer.requestRebuild(gl)
         }
+    }
+
+    val currentSceneCameraId: String?
+        get() = idlePreviewCamera?.getCurrentCameraId() ?: camera?.currentCameraId
+
+    /** Physical camera IDs are stable source locators; labels are resolved by the UI. */
+    fun sceneCameraOptions(): List<Pair<String, Int>> {
+        val manager = context.getSystemService(Context.CAMERA_SERVICE) as? android.hardware.camera2.CameraManager
+            ?: return emptyList()
+        return runCatching {
+            manager.cameraIdList.map { id ->
+                id to (manager.getCameraCharacteristics(id)
+                    .get(android.hardware.camera2.CameraCharacteristics.LENS_FACING) ?: -1)
+            }
+        }.getOrDefault(emptyList())
+    }
+
+    fun scenePreviewSize(): Pair<Int, Int> {
+        val size = activeGlInterface()?.encoderSize
+        return if (size != null && size.x > 0 && size.y > 0) size.x to size.y else
+            (_sceneComposition.value?.canvasWidth ?: 720) to (_sceneComposition.value?.canvasHeight ?: 1280)
     }
 
     fun retrySceneSource(sourceId: String) { sceneTextures?.retry(sourceId) }
@@ -761,6 +789,7 @@ class StreamingEngine @Inject constructor(
     // Die zuletzt gemeldete Preview-Surface. Im Leerlauf direkt an Camera2,
     // beim Stream-Start oder nach Rotation an die laufende GL-Pipeline angebunden.
     private var previewRequest: PreviewRequest? = null
+    private var glPreviewOwner: GlStreamInterface? = null
     private var glPreviewSurface: Surface? = null
     private var encoderRotationDegrees = 90
 
@@ -1401,13 +1430,15 @@ class StreamingEngine @Inject constructor(
         if (surface != null && previewRequest?.surface !== surface) return
         previewRequest = null
         stopIdlePreview()
-        (camera?.glInterface as? GlStreamInterface)?.deAttachPreview()
+        (glPreviewOwner ?: (camera?.glInterface as? GlStreamInterface))?.deAttachPreview()
+        glPreviewOwner = null
         glPreviewSurface = null
     }
 
     private fun detachGlPreview() {
         if (glPreviewSurface == null) return
-        (camera?.glInterface as? GlStreamInterface)?.deAttachPreview()
+        (glPreviewOwner ?: (camera?.glInterface as? GlStreamInterface))?.deAttachPreview()
+        glPreviewOwner = null
         glPreviewSurface = null
     }
 
@@ -1676,16 +1707,26 @@ class StreamingEngine @Inject constructor(
     /** Hängt die gemerkte Preview-Surface an, sobald die GL-Pipeline läuft. */
     private fun attachPreviewIfRunning() {
         val request = previewRequest ?: return
-        val gl = camera?.glInterface as? GlStreamInterface ?: return
-        if (gl.isRunning) {
-            if (glPreviewSurface !== request.surface) {
+        val composed = _sceneComposition.value != null
+        val gl = if (composed) activeGlInterface() else camera?.glInterface as? GlStreamInterface
+        if (gl?.isRunning == true) {
+            if (glPreviewSurface !== request.surface || glPreviewOwner !== gl) {
+                glPreviewOwner?.deAttachPreview()
                 gl.attachPreview(request.surface)
                 glPreviewSurface = request.surface
+                glPreviewOwner = gl
             }
             gl.setPreviewResolution(request.width, request.height)
-            gl.setPreviewIsPortrait(request.rotationDegrees % 180 == 0)
-            gl.setPreviewRotation((90 - request.rotationDegrees - encoderRotationDegrees + 720) % 360)
-            gl.setAspectRatioMode(AspectRatioMode.Fill)
+            if (composed) {
+                // Editor geometry refers to the complete FBO, including its canvas letterbox.
+                gl.setPreviewIsPortrait(false)
+                gl.setPreviewRotation(0)
+                gl.setAspectRatioMode(AspectRatioMode.Adjust)
+            } else {
+                gl.setPreviewIsPortrait(request.rotationDegrees % 180 == 0)
+                gl.setPreviewRotation((90 - request.rotationDegrees - encoderRotationDegrees + 720) % 360)
+                gl.setAspectRatioMode(AspectRatioMode.Fill)
+            }
         }
     }
 

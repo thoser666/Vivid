@@ -10,15 +10,15 @@ von noch fehlender Integration und Geräte-Evidenz.
 
 | Anforderung | Aktueller Baustein | Noch erforderlich |
 |---|---|---|
-| Persistente Szenen mit mehreren Layern | `SceneComposition`, optionales `StreamScene.composition`, atomare SceneRepository-Writes, Migrationsbackup | `SceneController`-Anbindung vorhanden; Editor-/ViewModel-Anbindung und App-Smoke offen |
+| Persistente Szenen mit mehreren Layern | `SceneComposition`, optionales `StreamScene.composition`, atomare SceneRepository-Writes, Migrationsbackup | `SceneController` und Editor/ViewModel mit atomarem Draft-Save angebunden; App-Smoke offen |
 | Stabile SourceIds, wiederverwendbare Producer | Source-/Layer-Modell und referenzbasierter `SceneProducerManager`, Generationen gegen verspätete Disconnects | `AndroidSceneTextureProvider` bindet zusätzliche Producer an GLES; Geräte-Smoke und unabhängiger Hauptquellen-Lifecycle offen |
-| Gleichzeitige Kameras, UVC, Screen, Bilder und Widgets | Typisierte SourceSpecs | Camera2-, MediaProjection-, lokaler Video- und Bild-Adapter vorhanden; Widget-Datenfeed, Consent-UI/Foreground-Service, USB-Backend ohne Camera-HAL und Geräte-Matrix offen |
+| Gleichzeitige Kameras, UVC, Screen, Bilder und Widgets | Typisierte SourceSpecs | Camera2-, MediaProjection-, lokaler Video- und Bild-Adapter vorhanden; Text-/Uhr-Feed und Consent-UI/Foreground-Service implementiert; weitere Widget-/Chat-Feeds, USB-Backend ohne Camera-HAL und Geräte-Matrix offen |
 | GLES/EGL-Offscreen-Ausgabe zum Hardware-Encoder | RootEncoder-2.7.5-Quellcode lokal geprüft | `SceneCompositorFilterRender` und Textur-/Surface-Lifecycle implementiert und SDK/AAR-kompiliert; echte GLES-Pixeltests noch nicht ausgeführt |
 | Ein Ergebnis für Streaming und Recording | Bestehender RootEncoder-Fanout als Integrationsziel | Filter am gemeinsamen RootEncoder-FBO angeschlossen; Stream-/Recording-/Preview-Parität auf Geräten verifizieren |
 | Keine zusätzlichen CPU-Framekopien/Encoder | Producer-Vertrag besitzt keinen Encoder | Zusätzliche Capture-Adapter verwenden Surface/Texture ohne Encoder; Profiling und NoVideoSource-Route ohne unbenutzte Hauptkamera offen |
-| Reihenfolge, Position, Größe, Rotation, Crop, Sichtbarkeit | Validiertes Modell, `SceneGeometry` für GPU-Vertices und Hit-Tests | GLES-Zeichenpfad verdrahtet; Pixeltests vorhanden, Editor und Geräte-Verifikation offen |
-| PiP, Presets, Duplizieren | Fullscreen/PiP/Split-Modell, Duplikate teilen SourceId | Bedienoberfläche und Live-Ausgabe |
-| Touch-Editor und Alignment-Guides | Geometrie, Pixel-Snapping und Guide-Koordinaten | Compose-Editor, Drag/Resize/Rotate, Accessibility |
+| Reihenfolge, Position, Größe, Rotation, Crop, Sichtbarkeit | Validiertes Modell, `SceneGeometry` für GPU-Vertices und Hit-Tests | GLES-Zeichenpfad verdrahtet; Pixeltests und Compose-Editor vorhanden; Geräte-Verifikation offen |
+| PiP, Presets, Duplizieren | Fullscreen/PiP/Split-Modell, Duplikate teilen SourceId | Compose-Bedienoberfläche vorhanden; Live-Ausgabe auf Geräten verifizieren |
+| Touch-Editor und Alignment-Guides | Geometrie, Pixel-Snapping und Guide-Koordinaten | Compose-Canvas mit Drag/Pinch/Resize/Rotate und alternativen beschrifteten Slidern; Geräte- und Accessibility-Smoke offen |
 | Transitionen, Reconnect, Offline-Platzhalter | Persistierte Cut/Fade-Spezifikation, Reconnect-Backoff und Permission-Zustände | Whole-Scene-Fade, Platzhalter und Disconnect-Reconnect implementiert; Hauptquellen-Reconnect, Clock bei erstmaligem Live-Aktivieren und Geräte-Verifikation offen |
 | Performance, Speicher, Thermik, Latenz, Akku | Messverfahren im RFC | Baseline und echte Gerätemessungen |
 | Bestehende Funktionen erhalten | Altes Szenenformat bleibt gültig | Vollständige Streaming-/Chat-/Widget-Suites und Geräte-Smoke |
@@ -43,8 +43,7 @@ Der Kompositor hängt nach Privacy/VideoFilter/LUT/LowLight in der kanonischen
 Filterkette. Der Legacy-Eingang wird als vorhandene GPU-Textur referenziert;
 weitere Quellen besitzen eigene SurfaceTexture-Eingänge, aber keinen Encoder.
 Unter globalem Privacy-Modus werden zusätzliche Live-Quellen vorsorglich vollflächig
-mosaikiert. Der Editor muss diese Semantik noch sichtbar machen und Kamera-/Crop-
-Orientierung auf realen Geräten abgleichen.
+mosaikiert. Der Editor erklärt diese Semantik; Kamera-/Crop-Orientierung bleibt auf realen Geräten abzugleichen.
 
 Der erste reguläre Gradle-Lauf erreichte Domain-Tests (5 grün) und scheiterte dann
 am x86-Linux-AAPT2 auf Android ARM64. Mit dem lokalen Override
@@ -74,3 +73,27 @@ frühen Repository-Guards liefen durch; der Gradle-Gesamtlauf stoppte in bestehe
 (`libpthread.so.0` auf Android/Termux nicht vorhanden). Der vollständige Gate-Lauf
 ist deshalb **nicht grün**, und nachfolgende Lint-/Release-Nachweise sind offen.
 Die OBS-Tests wurden für diesen Kompositor-PR nicht geändert.
+
+## Interaktiver Editor und Capture-Consent
+
+Der aktive Szenen-Preset öffnet einen Editor mit GPU-Vorschau, Layer-Auswahl,
+Reihenfolge, Duplikaten mit geteilter SourceId, Sichtbarkeit, Crop, Deckkraft,
+Layout-Presets und Fade-Einstellungen. Drag/Pinch und Resize-/Rotationsgriffe
+verwenden dieselbe Geometrie wie der Renderer; beschriftete Slider erlauben
+alternative Eingaben. Ein Gesture ist ein Undo-Schritt. Live-Änderungen schreiben
+keinen DataStore; Save speichert den vollständigen Draft, Cancel stellt die
+vorherige Komposition und Kamera wieder her. Automatischer Szenenwechsel pausiert
+für die Editor-Sitzung und erhält danach seinen vorherigen Zustand.
+
+Der Quellen-Dialog bietet Camera2-IDs einschließlich externer HAL-Kameras,
+persistente SAF-Bild-/Video-URIs, wiederverwendbare Quellen, Text, Uhr und
+MediaProjection-Consent. Text/Uhr veröffentlichen begrenzte Bitmaps nur bei
+Inhaltsänderung. Andere Widget-/Chat-Inhalte sind weiterhin offen.
+
+Der Service aktiviert den mediaProjection-FGS-Typ vor `getMediaProjection`.
+Runtime-Grants veröffentlichen ihren aktiven Zustand; Preview-only-Capture hat
+eine Stop-Notification und endet bei Revocation oder Freigabe der letzten Quelle.
+GL-Rebuilds verwenden denselben VirtualDisplay erneut. Alte Lease-Handles prüfen
+zusätzlich die Grant-Identität, damit sie einen späteren Grant nicht abtrennen.
+Android-14+-Consent und die tatsächliche Preview-/Encoder-Orientierung benötigen
+weiterhin Geräteevidenz.
