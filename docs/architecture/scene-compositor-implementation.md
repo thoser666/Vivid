@@ -180,3 +180,8 @@ Hauptquelle anzubinden. Ebenso sind die geliehenen Kamera-Controls und
 Face-Callbacks noch mit der primären Scene-Quelle zu verbinden. Diese Bausteine
 allein weisen weder das Abschalten der unbenutzten Legacy-Kamera noch
 Stream-/Recording-/Preview-Parität nach.
+
+Die neun Output-/Capture-Tests wurden zusammen regulär per Gradle ausgeführt
+(**6 + 3 grün**). Danach bestanden Streaming-Lint und die Kompilierung der
+Instrumented-Testquellen. Die Kamera-Vertragstests verwenden SDK-28-Shadows und
+Mocks der Geräte-/Manager-Grenze; sie sind kein realer Kamera-Test.

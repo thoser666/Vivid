@@ -275,6 +275,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 
 | Datum | Commit | Änderung |
 |-------|--------|----------|
+| 2026-10-24 | `c59a608` | **Scene-Compositor #306: Kameraunabhängige Output-Ownership vorbereitet** — NoVideoSource-Session mit einem Hardware-Videoencoder für RTMP/MP4, expliziten Video-Tracks und bedarfsabhängigem Mikrofon; zusätzliche Camera2-Captures verwenden bestehende RootEncoder-Manager mit geliehenen Controls und klarer Surface-Ownership. Neun fokussierte Tests und Streaming-Lint grün, Instrumented-Quellen kompiliert. Engine-Routing und Geräte-Parität weiter offen. |
 | 2026-10-24 | `224c128` | **GPU-Workflow-Guard portabel** — UTF-8 für extrahierte Emulator-Snippets und Mutationsfixtures explizit gesetzt; mktemp-Fehler scheitert geschlossen. Emulator-Matrix-Guard einschließlich Mutations-/Negativkontrollen grün. |
 | 2026-10-24 | `5253f4a` | **Scene-Compositor #306: Statische Screen-Frames erhalten** — Nach erstem Frame kein Heartbeat-Timeout für unveränderte MediaProjection-Bilder; Kamera-/Initial-Frame-Timeout und Revocation bleiben aktiv. Drei zusätzliche EGL-Regressionen (zehn kompiliert, noch nicht ausgeführt), Library-Instrumentierung im manuellen Emulator-Workflow, ausführbarer Workflow-Guard mit Mutations-/Negativkontrollen; Streaming-Lint grün. |
 | 2026-10-24 | `6c91614` | **Scene-Compositor #306: Chat-Lifecycle erhalten** — Bei Remote-Stream-Stopp endet der Chat-Bot auch dann, wenn ein aktiver Scene-Projection-Grant den Foreground-Service für die Vorschau weiter benötigt. Geräte-Smoke bleibt offen. |
@@ -570,6 +571,7 @@ Commit die Log-Zeile hinzufügte:
 
 | Datum | Commit | Eintrag | Kandidaten (Phrase in PARITY.md) | Vermerk |
 |-------|--------|---------|----------------------------------|---------|
+| 2026-10-24 | `c59a608` | Scene-Output- und Capture-Ownership (#306) | `c59a608` | Session vorbereitet, App-Routing noch nicht migriert; kein GPU-/Geräte-Nachweis. |
 | 2026-10-24 | `224c128` | GPU-Workflow-Guard UTF-8 (#306) | `224c128` | Guard-Nachweis, kein GPU-Ausführungsnachweis. |
 | 2026-10-24 | `5253f4a` | Statische Screen-Frames und GPU-Emulator-Task (#306) | `5253f4a` | Tests kompiliert, kein GPU-Lauf; Fork-Actions deaktiviert. |
 | 2026-10-24 | `6c91614` | Chat-Lifecycle bei Scene-Capture (#306) | `6c91614` | Stream- und Capture-Lifetime getrennt; Geräte-Smoke offen. |
