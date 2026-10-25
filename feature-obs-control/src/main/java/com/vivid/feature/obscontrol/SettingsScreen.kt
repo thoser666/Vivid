@@ -91,9 +91,9 @@ fun SettingsScreen(
             singleLine = true,
         )
 
-        uiState.qrMessage?.let { message ->
+        uiState.qrMessageRes?.let { messageRes ->
             Text(
-                text = message,
+                text = stringResource(messageRes),
                 color = androidx.compose.material3.MaterialTheme.colorScheme.error,
                 modifier = Modifier.fillMaxWidth(),
             )

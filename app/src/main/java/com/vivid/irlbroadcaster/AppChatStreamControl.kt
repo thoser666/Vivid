@@ -128,7 +128,11 @@ class AppChatStreamControl @Inject constructor(
             is StreamingState.Idle -> ChatStreamStatus.Idle
             is StreamingState.Preparing -> ChatStreamStatus.Preparing
             is StreamingState.Streaming -> ChatStreamStatus.Streaming
-            is StreamingState.Failed -> ChatStreamStatus.Failed(engineState.reason)
+            // Eigene Ursachen sind String-Ressourcen (i18n); Rohdiagnosen der
+            // Library bleiben unübersetzt.
+            is StreamingState.Failed -> ChatStreamStatus.Failed(
+                engineState.reason ?: engineState.reasonRes?.let(context::getString),
+            )
         }
         val settings = settingsRepository.appSettingsFlow.first()
         val obsConnected = streamingRepository.isConnectedToObs.value

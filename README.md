@@ -461,7 +461,7 @@ Die Option **„Secure connection (wss://)“** in den OBS-Settings von Vivid mu
 
 Bild läuft, aber Zuschauer hören nichts? Das sind die häufigsten Ursachen:
 
-1. **Mikrofon-Berechtigung prüfen:** Settings → Apps → Vivid → Berechtigungen → **Mikrofon = Erlauben** — ohne sie startet der Audio-Encoder nicht (Vivid zeigt „Failed to prepare audio/video“)
+1. **Mikrofon-Berechtigung prüfen:** Settings → Apps → Vivid → Berechtigungen → **Mikrofon = Erlauben** — ohne sie startet der Audio-Encoder nicht (Vivid zeigt „Audio/Video konnte nicht vorbereitet werden“)
 2. **Mikrofon ist belegt:** Android gibt das Mikrofon nur an **eine** App gleichzeitig — schließe andere Apps, die es nutzen (Anrufe, Sprachassistent, andere Streaming-/Aufnahme-Apps), und starte den Stream neu
 3. **Bluetooth trennen:** Ist ein BT-Headset/Headset verbunden, nutzt Android dessen Mikrofon — für IRL-Streaming das Bluetooth-Gerät trennen oder in den Bluetooth-Settings aufs Handy-Mikrofon umstellen
 4. **Lautstärke:** Prüfe die **Media-Lautstärke** (nicht nur Klingelton) — bei 0 ist auch das Streaming stumm

@@ -78,21 +78,33 @@ class StreamingService : Service() {
                     ?.filter { it.isNotEmpty() }
                     .orEmpty()
                 if (urls.isEmpty()) {
-                    Timber.w("StreamingService: START ohne Stream-Ziel — stoppe")
+                    Timber.w("StreamingService: START without stream target - stopping")
                     stopSelf()
                     return START_NOT_STICKY
                 }
-                startAsForeground()
+                if (!startAsForeground()) {
+                    // Ohne laufenden Foreground-Service startet kein Stream: der
+                    // mediaProjection-Typ fehlt (VIVID-39/#221) und jede
+                    // Projektion danach stirbt — früher als AMS-"Unable to
+                    // start service" sichtbar (#327).
+                    streamingEngine.reportStreamStartFailure()
+                    return START_NOT_STICKY
+                }
                 try {
                     if (streamingEngine.activeSourceKind.value == VideoSourceKind.CAMERA) {
                         streamingEngine.initializeCamera()
                     }
                     streamingEngine.startStream(urls)
-                } catch (e: SecurityException) {
-                    // VIVID-39 (#221): z. B. MediaProjection ohne FGS-Typ
-                    // mediaProjection — Defense-in-Depth, darf den Prozess nie
-                    // als "Unable to start service" crashen.
-                    Timber.e(e, "StreamingService: Start des Streams verweigert (SecurityException)")
+                } catch (e: Exception) {
+                    // VIVID-39 (#221) + #327: Hier landen sowohl die
+                    // SecurityException (MediaProjection ohne FGS-Typ/ohne
+                    // gültiges Token) als auch RuntimeException aus der
+                    // RootEncoder-Vorbereitung. Ungetragen killt sie den Prozess
+                    // und AMS meldet "Unable to start service"; deshalb wird der
+                    // Fehler in den Engine-Zustand geschrieben (UI sieht Failed)
+                    // und der Service räumt sauber auf.
+                    Timber.e(e, "StreamingService: failed to start stream")
+                    streamingEngine.reportStreamStartFailure()
                     teardown()
                     return START_NOT_STICKY
                 }
@@ -123,30 +135,36 @@ class StreamingService : Service() {
      * an, aber als Defense-in-Depth (z. B. Revoke in den Einstellungen während die
      * App im Hintergrund ist) werden die Typen nur mit erteilter Berechtigung gesetzt
      * und ein fehlgeschlagener Start beendet den Service sauber statt zu crashen.
+     *
+     * @return true, wenn der Foreground-Zustand steht. false heißt: kein Stream
+     *   starten (das Flag/der Typ ist nicht durchsetzbar, jede Projektion würde
+     *   ohnehin scheitern) — der Aufrufer meldet den Fehler und beendet sich.
      */
-    private fun startAsForeground() {
+    private fun startAsForeground(): Boolean {
         createNotificationChannel()
         val type = foregroundServiceType()
         // API 34+: Ist der Manifest-Typ-FGS deklariert, darf startForeground() nicht
         // mit Type 0 aufgerufen werden (MissingForegroundServiceTypeException).
         // Ohne jede erteilte FGS-Berechtigung gar nicht erst starten.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE && type == 0) {
-            Timber.w("StreamingService: FGS-Typ-Berechtigungen fehlen — Stream nicht gestartet")
+            Timber.w("StreamingService: FGS type permissions missing - stream not started")
             teardown()
-            return
+            return false
         }
         val notification = buildNotification(streamingEngine.streamingState.value)
-        try {
+        return try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 startForeground(StreamingServiceSupport.NOTIFICATION_ID, notification, type)
             } else {
                 startForeground(StreamingServiceSupport.NOTIFICATION_ID, notification)
             }
             acquireWakeLock()
+            true
         } catch (e: SecurityException) {
             // z. B. RECORD_AUDIO/CAMERA zwischen Go-Live und Start entzogen.
-            Timber.e(e, "StreamingService: startForeground verweigert (FGS-Typ-Berechtigung?)")
+            Timber.e(e, "StreamingService: startForeground denied (FGS type permission?)")
             teardown()
+            false
         }
     }
 
@@ -235,7 +253,7 @@ class StreamingService : Service() {
         serviceScope.launch {
             delay(15_000)
             if (streamingEngine.streamingState.value is StreamingState.Idle && !stopped) {
-                Timber.w("StreamingService: nach 15s kein Stream-Start — stoppe")
+                Timber.w("StreamingService: no stream start after 15s - stopping")
                 stopService()
             }
         }
@@ -327,7 +345,7 @@ class StreamingService : Service() {
         // notif_text_failed enthält einen %1$s-Platzhalter für die technische
         // Fehlerursache; bei anderen Stati werden die überzähligen Argumente
         // von String.format ignoriert.
-        val failureReason = (state as? StreamingState.Failed)?.reason ?: ""
+        val failureReason = StreamingServiceSupport.failureText(state, ::getString)
         return NotificationCompat.Builder(this, StreamingServiceSupport.CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(getString(StreamingServiceSupport.notificationTitleRes(state)))

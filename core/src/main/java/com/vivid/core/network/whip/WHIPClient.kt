@@ -86,7 +86,7 @@ class WHIPClient @Inject constructor(
                 if (generation.get() == gen) {
                     _state.value = WHIPState.Failed(mapFailure(response.status), detail)
                 }
-                Timber.w("WHIP publish abgelehnt: HTTP ${response.status}")
+                Timber.w("WHIP publish rejected: HTTP ${response.status}")
                 return null
             }
             val location = response.headers[HttpHeaders.Location]
@@ -94,7 +94,7 @@ class WHIPClient @Inject constructor(
                 if (generation.get() == gen) {
                     _state.value = WHIPState.Failed(WHIPFailure.PROTOCOL, "201 ohne Location-Header")
                 }
-                Timber.w("WHIP publish: 201 ohne Location-Header (Endpoint nicht RFC-konform)")
+                Timber.w("WHIP publish: 201 without Location header (endpoint not RFC-conformant)")
                 return null
             }
             val created = WHIPResource(
@@ -112,7 +112,7 @@ class WHIPClient @Inject constructor(
             if (t is CancellationException) throw t
             if (generation.get() == gen) {
                 _state.value = WHIPState.Failed(WHIPFailure.NETWORK, t.message?.take(MAX_DETAIL))
-                Timber.e(t, "WHIP publish fehlgeschlagen")
+                Timber.e(t, "WHIP publish failed")
             }
             return null
         }
@@ -150,7 +150,7 @@ class WHIPClient @Inject constructor(
             if (t is CancellationException) throw t
             if (generation.get() == gen) {
                 _state.value = WHIPState.Failed(WHIPFailure.NETWORK, t.message?.take(MAX_DETAIL))
-                Timber.e(t, "WHIP PATCH fehlgeschlagen")
+                Timber.e(t, "WHIP PATCH failed")
             }
             false
         }
@@ -176,7 +176,7 @@ class WHIPClient @Inject constructor(
             response.status == HttpStatusCode.OK || response.status == HttpStatusCode.NotFound
         } catch (t: Throwable) {
             if (t is CancellationException) throw t
-            if (generation.get() == gen) Timber.e(t, "WHIP DELETE fehlgeschlagen")
+            if (generation.get() == gen) Timber.e(t, "WHIP DELETE failed")
             false
         }
         if (generation.get() == gen) _state.value = WHIPState.Closed

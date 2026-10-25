@@ -1,6 +1,7 @@
 package com.vivid.core.network
 
 import com.vivid.core.BuildConfig
+import com.vivid.core.R
 import com.vivid.domain.model.LoginRequest
 import com.vivid.domain.model.LoginResult
 import com.vivid.domain.model.RegistrationRequest
@@ -39,7 +40,13 @@ class VividApiImpl @Inject constructor(
             }.body()
             LoginResult.Success(response)
         } catch (e: Exception) {
-            LoginResult.Error(e.message ?: "Unknown error")
+            // App-eigene Ursache = Ressource (i18n-plan §4): nur wenn die
+            // Exception kein Rohdetail liefert, tritt der lokalisierte
+            // Fallback "api_error_unknown" an seine Stelle.
+            LoginResult.Error(
+                message = e.message.orEmpty(),
+                messageRes = if (e.message == null) R.string.api_error_unknown else null,
+            )
         }
     }
 
@@ -51,7 +58,11 @@ class VividApiImpl @Inject constructor(
             }.body<Unit>() // Korrektur: Wir erwarten hier keinen User-Body zurück
             RegistrationResult.Success
         } catch (e: Exception) {
-            RegistrationResult.Error(e.message ?: "Unknown error")
+            // Gleiche Regel wie beim Login: Rohdetail bleibt, Fallback wird lokalisiert.
+            RegistrationResult.Error(
+                message = e.message.orEmpty(),
+                messageRes = if (e.message == null) R.string.api_error_unknown else null,
+            )
         }
     }
 

@@ -192,7 +192,7 @@ fun StreamingScreen(
     val context = LocalContext.current
     val displayRotationDegrees = rememberDisplayRotation()
     var permissionDenied by remember { mutableStateOf(false) }
-    val requestPermissionsAndStart = rememberStreamStartAction(viewModel) { granted ->
+    val requestPermissionsAndStart = rememberStreamStartAction(viewModel, streamingEngine) { granted ->
         permissionDenied = !granted
         startAttempted = startAttempted && granted
     }
@@ -885,9 +885,13 @@ private fun BoxScope.StreamStartButton(streamingState: StreamingState, onStop: (
 private fun BoxScope.StreamingIssueBanners(previewConfigIssues: List<StreamConfigIssue>, streamingState: StreamingState, permissionDenied: Boolean) {
     val errorIssues = previewConfigIssues.filter { it.severity == ConfigIssueSeverity.ERROR }
     if (streamingState is StreamingState.Failed) {
-        val reason = (streamingState as StreamingState.Failed).reason
+        // Lokalisierte Ursache (reasonRes) vor der Rohdiagnose der Library:
+        // eigene Ausgaben sind i18n-Pflicht, Fremdtexte nicht übersetzbar.
+        val reason = streamingState.reasonRes
+            ?.let { stringResource(it) }
+            ?: streamingState.reason.orEmpty()
         PreviewMessageBanner(
-            text = stringResource(R.string.streaming_error_prefix, reason ?: ""),
+            text = stringResource(R.string.streaming_error_prefix, reason),
             isError = true,
             modifier = Modifier
                 .align(Alignment.TopCenter)
@@ -987,14 +991,48 @@ private fun rememberRecordingAction(viewModel: StreamingViewModel, snackbarHostS
 }
 
 @Composable
-private fun rememberStreamStartAction(viewModel: StreamingViewModel, onPermissionsChanged: (Boolean) -> Unit): () -> Unit {
+private fun rememberStreamStartAction(
+    viewModel: StreamingViewModel,
+    streamingEngine: StreamingEngine,
+    onPermissionsChanged: (Boolean) -> Unit,
+): () -> Unit {
     val context = LocalContext.current
+
+    // #326: Der MediaProjection-Consent ist ab Android 14 ein einmaliges Token.
+    // Für die aktive Screen-Capture-Quelle wird der System-Dialog deshalb vor
+    // jedem Go-Live neu gezeigt — sonst startet der Stream mit toter Projektion
+    // und der Service stirbt als "Unable to start service" (#327).
+    val consentLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) { result ->
+        if (streamingEngine.onScreenCaptureConsentResult(result.resultCode, result.data)) {
+            viewModel.startStream()
+        }
+        // Abgelehnt/abgebrochen: kein Start ohne gültigen Consent. Die Quelle
+        // bleibt aktiv, damit der nächste Versuch den Dialog erneut zeigt.
+    }
+
+    fun startStreamWithFreshConsent() {
+        if (!streamingEngine.needsScreenCaptureConsent()) {
+            viewModel.startStream()
+            return
+        }
+        val consentIntent = streamingEngine.createScreenCaptureConsentIntent()
+        if (consentIntent == null) {
+            // Quelle (noch) nicht erzeugt — der Start scheitert kontrolliert
+            // über den Engine-Zustand statt über eine tote Projektion.
+            viewModel.startStream()
+        } else {
+            consentLauncher.launch(consentIntent)
+        }
+    }
+
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),
     ) { grants ->
         if (grants.values.all { it }) {
             onPermissionsChanged(true)
-            viewModel.startStream()
+            startStreamWithFreshConsent()
         } else {
             onPermissionsChanged(false)
         }
@@ -1013,7 +1051,7 @@ private fun rememberStreamStartAction(viewModel: StreamingViewModel, onPermissio
         }
         if (missing.isEmpty()) {
             onPermissionsChanged(true)
-            viewModel.startStream()
+            startStreamWithFreshConsent()
         } else {
             onPermissionsChanged(false)
             permissionLauncher.launch(missing.toTypedArray())
