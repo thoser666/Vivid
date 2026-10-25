@@ -12,7 +12,7 @@ von noch fehlender Integration und Geräte-Evidenz.
 |---|---|---|
 | Persistente Szenen mit mehreren Layern | `SceneComposition`, optionales `StreamScene.composition`, atomare SceneRepository-Writes, Migrationsbackup | `SceneController` und Editor/ViewModel mit atomarem Draft-Save angebunden; App-Smoke offen |
 | Stabile SourceIds, wiederverwendbare Producer | Source-/Layer-Modell und referenzbasierter `SceneProducerManager`, Generationen gegen verspätete Disconnects | `AndroidSceneTextureProvider` bindet zusätzliche Producer an GLES; Geräte-Smoke, unabhängiger Hauptquellen-Lifecycle und Capture-Ownership bei Effekt-/GL-Rebuilds offen |
-| Gleichzeitige Kameras, UVC, Screen, Bilder und Widgets | Typisierte SourceSpecs | Camera2-, MediaProjection-, lokaler Video- und Bild-Adapter vorhanden; Text-/Uhr-Feed und Consent-UI/Foreground-Service implementiert; weitere Widget-/Chat-Feeds, USB-Backend ohne Camera-HAL und Geräte-Matrix offen |
+| Gleichzeitige Kameras, UVC, Screen, Bilder und Widgets | Typisierte SourceSpecs | Camera2-, MediaProjection-, lokaler Video- und Bild-Adapter vorhanden; Text-/Uhr-Feed und Consent-UI/Foreground-Service implementiert; USB-Backend ohne Camera-HAL mit Consent/Editor implementiert; weitere Widget-/Chat-Feeds und Geräte-Matrix offen |
 | GLES/EGL-Offscreen-Ausgabe zum Hardware-Encoder | RootEncoder-2.7.5-Quellcode lokal geprüft | `SceneCompositorFilterRender` und Textur-/Surface-Lifecycle implementiert und SDK/AAR-kompiliert; echte GLES-Pixeltests noch nicht ausgeführt |
 | Ein Ergebnis für Streaming und Recording | Bestehender RootEncoder-Fanout als Integrationsziel | Filter am gemeinsamen RootEncoder-FBO angeschlossen; Stream-/Recording-/Preview-Parität auf Geräten verifizieren |
 | Keine zusätzlichen CPU-Framekopien/Encoder | Producer-Vertrag besitzt keinen Encoder | Zusätzliche Capture-Adapter verwenden Surface/Texture ohne Encoder; NoVideoSource-Route für aktive Scene-Graphen integriert; Profiling und Geräte-Parität offen |
@@ -374,3 +374,72 @@ scheiterten diesmal 21 von 48 unveränderten OBS-Tests am Conscrypt-Loader
 (`libpthread.so.0` fehlt auf Termux), durch die XML-Reports belegt. Der
 Gesamt-Gate bleibt rot; vollständige App-Lint-/Release- und Geräte-Nachweise
 bleiben offen.
+
+## USB-Kameras ohne Android-Camera-HAL
+
+Der zusätzliche UVC-Adapter verwendet `com.herohan:UVCAndroid:1.0.13` nur für
+Capture auf die vorhandene geliehene Surface. Er besitzt keinen Encoder und
+verwendet weder Bitmap-Framecallbacks noch die Recording-/Storage-Helfer des SDK.
+Öffnen, Moduswechsel und Schließen laufen auf einem eigenen seriellen Worker,
+nicht im GL-Draw. Die Oberfläche bietet einen USB-Quellenpicker und Androids
+CAMERA-/USB-Consent-Dialoge. Wiederholte Quellen teilen ihre bestehende SourceId;
+ein zweiter Producer für dasselbe physische Gerät wird abgewiesen.
+
+Persistierte Identitäten enthalten VID/PID, die nach erteilter Permission lesbare
+Seriennummer und einen Pfad-Hinweis. Eindeutige Seriennummern überleben eine neue
+Busadresse; doppelte Seriennummern und seriennummerlose Geräte werden nicht nach
+zufälliger Enumeration gewählt. Eine unbekannte Seriennummer wird erst nach
+Consent erneut aufgelöst. Ein Grant für ein anderes Gerät bindet eine bestehende
+Quelle nicht automatisch um. Grants werden nicht persistiert; Rotation hält den
+laufenden Consent, Prozessverlust prüft nur einen tatsächlich vorhandenen Grant.
+
+Der SDK-Monitor wird nicht registriert und fordert selbst keine Permission an.
+Der Adapter erzeugt über einen mit Consumer-Regeln erhaltenen privaten
+Konstruktor der gepinnten App-Bibliothek einen noch ungeöffneten ControlBlock;
+dessen SDK-Clone öffnet nach der echten Permission-Prüfung den Device-FD.
+Zwei Tests prüfen diesen Vertrag an den tatsächlichen AAR-Java-Klassen, ohne
+Native-Capture zu starten. App-eigene nicht exportierte Receiver behandeln
+Consent/Detach. USB-Host bleibt optional. Die App entfernt die unbenutzten Storage-Rechte explizit. Selektoren auf das SDK
+haben sowohl auf Library- als auch auf App-Ebene die SDK-Nodes abgewiesen, aber
+die Marker selbst als Berechtigungen im finalen Manifest hinterlassen. Ein neuer
+App-Manifest-Vertrag prüft diesen konkreten Merge-Fehler. Die bestehende Debug-
+Deklaration für Screenshots (maxSdk 18) überschreibt die WRITE-Removal-Regel;
+die finalen Debug-/Release-Manifeste werden gesondert geprüft. Lizenztexte und Quellenverweise liegen in den APK-Assets unter
+`licenses/uvc-android`.
+
+Moduswahl begrenzt Kanten auf 4096 und Pixel auf 4K; konkurrierende Kameras
+bevorzugen 720p und höchstens 30 FPS. Ratenänderungen werden zusammengefasst;
+fehlgeschlagene Änderungen versuchen den vorherigen Modus wiederherzustellen.
+Stop/Detach entwerten ausstehende Arbeit und geben das physische Lease erst nach
+Driver-Cleanup frei. Das zuletzt gemeldete Soll-FPS ist keine gemessene Framerate.
+
+Der erste finale USB-Lauf bestand **50 Tests** für Locator, Auswahl, Consent,
+Activity-Rotation/Prozessverlust, Modusbudget, Worker-/Lease-Lifecycle und den
+gepinnten SDK-ControlBlock-Vertrag. Der Streaming-Code einschließlich Picker
+kompilierte in diesem Lauf. JNI-Capture, tatsächliche USB-Permission-Dialoge,
+Hotplug, gemischtes Camera2/UVC-Capture, Orientierung, Stream-/Recording-Parität,
+R8/Release und Performance benötigen weiterhin reale Geräte-Evidenz. Der
+vollständige Repository-Gate und der aktuelle Lint werden gesondert nachgewiesen.
+
+Der anschließende breitere Lauf bestand **182 Scene-Tests**, darunter **59 USB-
+Tests**, und kompilierte die Standard-Debug-App sowie alle GLES-Fixtures.
+Sechs zusätzliche Editor-Identitätsfälle prüfen unter anderem SourceId-/Label-
+Erhalt nach Bus-Renummerierung, abweichende Seriennummern nach Consent und doppelte
+Firmware-Seriennummern. Zwei weitere Worker-Fälle prüfen begrenzte Modus-Retries
+und Stop vor einer ausstehenden Neuverhandlung. Der feste 30-FPS-Modus bleibt
+auch bei 24-FPS-Ausgabe und konkurrierender Kamera verwendbar; der Kompositor
+samplet mit seiner Ausgaberate. Der entsprechende neue Test scheiterte zuvor
+gezielt (19 Tests, ein Fehler) und bestand nach Korrektur im breiteren Lauf.
+Der erste Streaming-Lint-Lauf bestand ohne Fehler/Warnungen (ein bestehender
+Autoboxing-Hint); nach den folgenden Helper-/Modus-/Manifest-Änderungen bestand auch der
+abschließende Streaming-Lint ohne Fehler/Warnungen mit demselben bestehenden Hint.
+
+Der Manifest-Vertrag reproduzierte den Storage-Leak mit **drei Tests, einem
+gezielten Fehler**; optionaler USB-Host und interne Activity bestanden bereits.
+Das Verschieben der Selektoren ins App-Manifest allein beseitigte den Fehler
+nicht. Explizite App-Removals ohne Selektor und die eigene Debug-Überschreibung
+bestanden danach **alle drei Tests**. Beide finalen Manifeste wurden zusätzlich
+geparst: Debug enthält ausschließlich das bestehende WRITE-Recht mit maxSdk 18,
+Release kein Storage-Recht. USB-Host ist in beiden optional und die Consent-
+Activity nicht exportiert. Dies ist ein Merge-/PackageManager-Nachweis, kein
+realer Android-USB-Permission- oder JNI-Capture-Test.

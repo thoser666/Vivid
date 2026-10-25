@@ -5,3 +5,8 @@
 -keepclassmembers class com.pedro.encoder.BaseEncoder {
     android.media.MediaCodec codec;
 }
+
+# Pinned UVCAndroid 1.0.13 bridge opens already-authorized devices without its permission UI.
+-keepclassmembers class com.serenegiant.usb.USBMonitor$UsbControlBlock {
+    private <init>(com.serenegiant.usb.USBMonitor, android.hardware.usb.UsbDevice);
+}

@@ -235,6 +235,22 @@ class SceneCameraCaptureBackendRobolectricTest {
         backend.release()
     }
 
+    @Test fun `raw USB alongside Camera2 applies the shared capture budget without HAL concurrency requirements`() {
+        every { characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP) } returns mockk<StreamConfigurationMap> {
+            every { getOutputSizes(SurfaceTexture::class.java) } returns arrayOf(Size(1280, 720), Size(1920, 1080))
+        }
+        val usb = SceneSource("raw-usb", SceneSourceType.UVC, SceneUsbLocator(1, 2).encode())
+        val backend = AndroidSceneCaptureBackend(context, SceneProjectionRegistry(), deviceRotationDegrees = { 0 }) { camera }
+        backend.configure(listOf(source, usb))
+        val producer = backend.create(source, target.copy(width = 1920, height = 1080, frameRate = 60)) { }
+        producer.start()
+        verify { target.texture.setDefaultBufferSize(1280, 720) }
+        verify { camera.prepareCamera(target.surface, 30); camera.openCameraId("rear") }
+        verify(exactly = 0) { manager.getCameraCharacteristics(usb.locator) }
+        producer.release()
+        backend.release()
+    }
+
     @Test fun `portrait output chooses buffer dimensions before the embedded sensor transform`() {
         every { characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION) } returns 90
         every { characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP) } returns mockk<StreamConfigurationMap> {

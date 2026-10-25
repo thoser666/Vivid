@@ -199,4 +199,6 @@
     <string name="scene_editor_percent">%1$d%%</string>
     <string name="scene_editor_property_value">%1$s: %2$s</string>
     <string name="scene_editor_open">Изменить слои</string>
+    <string name="scene_editor_usb">USB-камера</string>
+    <string name="scene_editor_usb_device">%1$s (%2$s)</string>
 </resources>

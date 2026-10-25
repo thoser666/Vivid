@@ -30,7 +30,7 @@ import com.pedro.encoder.input.video.CameraHelper
 import kotlin.math.abs
 import timber.log.Timber
 
-/** Encoder-free capture; UVC is supported through Android's external-camera HAL. */
+/** Encoder-free Camera2, raw USB, projection and local-video capture. */
 class AndroidSceneCaptureBackend(
     private val context: Context,
     private val projections: SceneProjectionRegistry,
@@ -41,6 +41,11 @@ class AndroidSceneCaptureBackend(
     private val cameraManager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
     private val cameras = ConcurrentHashMap<String, CameraProducer>()
     private var displayRotation: SceneDisplayRotation? = null
+    private var usb: AndroidSceneUsbCaptureBackend? = null
+    private fun usbBackend(): AndroidSceneUsbCaptureBackend = usb ?: AndroidSceneUsbCaptureBackend(context).also {
+        usb = it
+        it.configure(requestedSources)
+    }
 
     override fun camera(sourceId: String): Camera2ApiManager? = cameras[sourceId]?.camera
     override fun samplingRotationDegrees(sourceId: String, timestamp: Long): Int? {
@@ -58,6 +63,7 @@ class AndroidSceneCaptureBackend(
 
     override fun configure(sources: List<SceneSource>) {
         requestedSources = sources.distinctBy { it.id }
+        usb?.configure(requestedSources)
         val concurrent = requestedSources.filter { it.type == SceneSourceType.CAMERA || it.type == SceneSourceType.UVC }
             .map { it.locator.ifBlank { "default:${it.type}" } }.distinct().size > 1
         if (concurrent != concurrentBudget) {
@@ -69,6 +75,7 @@ class AndroidSceneCaptureBackend(
     override fun setTargetFrameRate(frameRate: Int) {
         require(frameRate in 1..120)
         cameras.values.forEach { it.requestFrameRate(frameRate, concurrentBudget) }
+        usb?.setTargetFrameRate(frameRate)
     }
 
     override fun frameReady(sourceId: String) { cameras[sourceId]?.frameReady() }
@@ -80,14 +87,16 @@ class AndroidSceneCaptureBackend(
 
     /** Refresh on open/retry so hotplug works without querying camera metadata every frame. */
     private fun refreshCameraRequests() {
-        val cameras = requestedSources.filter { it.type == SceneSourceType.CAMERA || it.type == SceneSourceType.UVC }
+        val cameras = requestedSources.filter { it.type == SceneSourceType.CAMERA || (it.type == SceneSourceType.UVC && !SceneUsbLocator.isRawLocator(it.locator)) }
             .mapNotNull { runCatching { cameraId(it) }.getOrNull() }
         cameraRequests = cameras.toSet()
         duplicateCameraIds = cameras.groupingBy { it }.eachCount().filterValues { it > 1 }.keys
     }
 
     override fun create(source: SceneSource, target: SceneCaptureTarget,
-        failed: (Boolean) -> Unit): SceneProducer = when (source.type) {
+        failed: (Boolean) -> Unit): SceneProducer = if (source.type == SceneSourceType.UVC && SceneUsbLocator.isRawLocator(source.locator)) {
+        usbBackend().create(source, target, failed)
+    } else when (source.type) {
         SceneSourceType.CAMERA, SceneSourceType.UVC -> {
             if (context.checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
                 throw SceneProducerPermissionException()
@@ -110,14 +119,14 @@ class AndroidSceneCaptureBackend(
             val sizes = metadata.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
                 ?.getOutputSizes(SurfaceTexture::class.java).orEmpty()
             val size = selectSize(sizes, if (swapped) target.height else target.width,
-                if (swapped) target.width else target.height, concurrent = cameraRequests.size > 1)
+                if (swapped) target.width else target.height, concurrent = concurrentBudget)
             target.texture.setDefaultBufferSize(size.width, size.height)
             val needsRotationMetadata = Build.VERSION.SDK_INT >= 31 &&
                 metadata.get(CameraCharacteristics.SCALER_AVAILABLE_ROTATE_AND_CROP_MODES)
                     ?.any { it != CaptureRequest.SCALER_ROTATE_AND_CROP_NONE } == true
             CameraProducer(source.id, cameraId, target, failed,
                 SceneCameraSampling(displayDegrees, needsRotationMetadata), needsRotationMetadata, metadata,
-                size, cameraRequests.size > 1)
+                size, concurrentBudget)
         }
         SceneSourceType.SCREEN_CAPTURE -> object : SceneProducer {
             private var lease: Closeable? = null
@@ -152,6 +161,8 @@ class AndroidSceneCaptureBackend(
     }
 
     override fun release() {
+        runCatching { usb?.release() }.onFailure { Timber.w(it, "Could not release scene USB capture") }
+        usb = null
         cameras.values.toList().forEach { runCatching { it.stop() } }
         cameras.clear()
         displayRotation?.close()

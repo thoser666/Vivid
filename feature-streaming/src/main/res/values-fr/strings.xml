@@ -198,4 +198,6 @@
     <string name="scene_editor_percent">%1$d%%</string>
     <string name="scene_editor_property_value">%1$s : %2$s</string>
     <string name="scene_editor_open">Modifier les calques</string>
+    <string name="scene_editor_usb">Caméra USB</string>
+    <string name="scene_editor_usb_device">%1$s (%2$s)</string>
 </resources>

@@ -37,6 +37,10 @@ import androidx.core.content.ContextCompat
 import com.vivid.core.data.*
 import com.vivid.feature.streaming.R
 import com.vivid.feature.streaming.StreamingEngine
+import com.vivid.feature.streaming.compositor.capture.SceneUsbDevices
+import com.vivid.feature.streaming.compositor.capture.SceneUsbLocator
+import com.vivid.feature.streaming.compositor.capture.SceneUsbSources
+import com.vivid.feature.streaming.compositor.capture.SceneUsbPermissionActivity
 import com.vivid.feature.streaming.compositor.SceneProducerState
 import com.vivid.feature.streaming.compositor.SceneProducerStatus
 import com.vivid.feature.streaming.scene.editor.*
@@ -70,6 +74,11 @@ internal fun SceneEditorScreen(
     var pendingCamera by remember { mutableStateOf<SceneSource?>(null) }
     var pendingProjection by rememberSaveable { mutableStateOf<String?>(null) }
     var cameras by remember { mutableStateOf<List<Pair<String, Int>>>(emptyList()) }
+    val usbDevices = remember(context) { SceneUsbDevices(context) }
+    val usbSources = remember(usbDevices) { SceneUsbSources(usbDevices) }
+    var usbNames by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
+    var pendingUsbName by rememberSaveable { mutableStateOf<String?>(null) }
+    var retryUsbId by rememberSaveable { mutableStateOf<String?>(null) }
     var output by remember { mutableStateOf(engine.scenePreviewSize()) }
     val imageName = stringResource(R.string.scene_editor_image)
     val videoName = stringResource(R.string.scene_editor_video)
@@ -91,6 +100,32 @@ internal fun SceneEditorScreen(
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
             onEdit { if (!addSource(source)) error = true }
         } else { pendingCamera = source; permission.launch(Manifest.permission.CAMERA) }
+    }
+    val usbPermission = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val name = pendingUsbName
+        val retryId = retryUsbId
+        pendingUsbName = null
+        retryUsbId = null
+        val device = name?.let(usbDevices::deviceNamed)
+        if (name == null || result.resultCode != Activity.RESULT_OK ||
+            result.data?.getStringExtra(SceneUsbPermissionActivity.EXTRA_DEVICE_NAME) != name ||
+            device == null || !usbDevices.hasPermission(device)) {
+            error = true
+        } else if (retryId != null) {
+            val source = state.composition.sources.firstOrNull { it.id == retryId }
+            if (source != null && usbSources.matchesGrantedDevice(source, name)) engine.retrySceneSource(retryId)
+            else error = true
+        } else {
+            val source = usbSources.sourceForGrantedDevice(name, state.composition.sources + catalog)
+            if (source == null) error = true else onEdit { if (!addSource(source)) error = true }
+        }
+    }
+    fun authorizeUsb(name: String, retryId: String? = null) {
+        if (pendingUsbName != null) return
+        pendingUsbName = name
+        retryUsbId = retryId
+        usbPermission.launch(Intent(context, SceneUsbPermissionActivity::class.java)
+            .putExtra(SceneUsbPermissionActivity.EXTRA_DEVICE_NAME, name))
     }
     fun addDocument(uri: android.net.Uri?, type: SceneSourceType, defaultName: String) {
         if (uri == null) return
@@ -122,6 +157,10 @@ internal fun SceneEditorScreen(
     }
     LaunchedEffect(picker) {
         if (picker == "camera") cameras = withContext(Dispatchers.IO) { engine.sceneCameraOptions() }
+        if (picker == "usb") usbNames = withContext(Dispatchers.IO) {
+            usbDevices.videoDevices().map { it.deviceName to
+                it.productName?.take(80).orEmpty().ifBlank { it.deviceName } }
+        }
     }
     BackHandler { if (!state.saving) onCancel() }
     Scaffold(topBar = {
@@ -213,9 +252,17 @@ internal fun SceneEditorScreen(
                                 when (source.type) {
                                     SceneSourceType.SCREEN_CAPTURE -> authorizeScreen(source.id)
                                     SceneSourceType.CAMERA, SceneSourceType.UVC -> {
-                                        pendingCamera = null
-                                        if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED)
-                                            engine.retrySceneSource(source.id) else { retryCameraId = source.id; permission.launch(Manifest.permission.CAMERA) }
+                                        val locator = source.locator.takeIf { source.type == SceneSourceType.UVC }
+                                            ?.let(SceneUsbLocator::parse)
+                                        if (locator != null) {
+                                            val name = usbSources.permissionDevice(source)
+                                            if (name != null) authorizeUsb(name, source.id)
+                                            else error = true
+                                        } else {
+                                            pendingCamera = null
+                                            if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED)
+                                                engine.retrySceneSource(source.id) else { retryCameraId = source.id; permission.launch(Manifest.permission.CAMERA) }
+                                        }
                                     }
                                     else -> engine.retrySceneSource(source.id)
                                 }
@@ -266,6 +313,7 @@ internal fun SceneEditorScreen(
                 when (picker) {
                     "types" -> {
                         TextButton(onClick = { picker = "camera" }) { Text(stringResource(R.string.scene_editor_camera)) }
+                        TextButton(onClick = { picker = "usb" }) { Text(stringResource(R.string.scene_editor_usb)) }
                         TextButton(onClick = { picker = null; images.launch(arrayOf("image/*")) }) { Text(imageName) }
                         TextButton(onClick = { picker = null; videos.launch(arrayOf("video/*")) }) { Text(videoName) }
                         TextButton(onClick = { picker = null; textDialog = "text"; input = "" }) { Text(stringResource(R.string.scene_editor_text)) }
@@ -293,6 +341,12 @@ internal fun SceneEditorScreen(
                                 addCamera(SceneSource("camera:$id", if (facing == CameraCharacteristics.LENS_FACING_EXTERNAL)
                                     SceneSourceType.UVC else SceneSourceType.CAMERA, id, label))
                             }) { Text(label) }
+                        }
+                    }
+                    "usb" -> {
+                        if (usbNames.isEmpty()) Text(stringResource(R.string.scene_editor_no_sources))
+                        usbNames.forEach { (name, label) ->
+                            TextButton(onClick = { picker = null; authorizeUsb(name) }) { Text(stringResource(R.string.scene_editor_usb_device, label, name)) }
                         }
                     }
                     "reuse" -> {

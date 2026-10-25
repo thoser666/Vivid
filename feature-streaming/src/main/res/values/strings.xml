@@ -197,4 +197,6 @@
     <string name="scene_editor_percent">%1$d%%</string>
     <string name="scene_editor_property_value">%1$s: %2$s</string>
     <string name="scene_editor_open">Ebenen bearbeiten</string>
+    <string name="scene_editor_usb">USB-Kamera</string>
+    <string name="scene_editor_usb_device">%1$s (%2$s)</string>
 </resources>
