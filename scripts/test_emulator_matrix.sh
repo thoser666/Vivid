@@ -512,13 +512,13 @@ scene_gpu_command_contract() {
   local workflow="$1" snippet scratch result
   snippet=$(wf_step_with "$workflow" emulator-tests 'Run instrumented tests on emulator' script)
   [[ -n "$snippet" && "$snippet" != "-" ]] || return 1
-  scratch=$(mktemp -d)
+  scratch=$(mktemp -d) || return 1
   printf '%s\n' "$snippet" > "$scratch/raw.sh"
   python - "$scratch/raw.sh" "$scratch/run.sh" <<'PYSCENE'
 import pathlib, sys
-text = pathlib.Path(sys.argv[1]).read_text()
+text = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8")
 text = text.replace('${{ matrix.api-level }}', '34')
-pathlib.Path(sys.argv[2]).write_text(text)
+pathlib.Path(sys.argv[2]).write_text(text, encoding="utf-8")
 PYSCENE
   cat > "$scratch/gradlew" <<'SCENEGRADLE'
 #!/usr/bin/env sh
@@ -548,10 +548,10 @@ SCENE_FIXTURES=$(mktemp -d)
 python - "$SCENE_FIXTURES" <<'PYSCENE'
 import pathlib, sys
 root = pathlib.Path(sys.argv[1])
-original = pathlib.Path('.github/workflows/release-pipeline.yml').read_text()
-root.joinpath('removed.yml').write_text(original.replace(' :feature-streaming:connectedDebugAndroidTest', ''))
-root.joinpath('layout.yml').write_text(original + '\n# unrelated formatting must preserve the contract\n')
-root.joinpath('missing.yml').write_text('jobs: {}\n')
+original = pathlib.Path('.github/workflows/release-pipeline.yml').read_text(encoding='utf-8')
+root.joinpath('removed.yml').write_text(original.replace(' :feature-streaming:connectedDebugAndroidTest', ''), encoding='utf-8')
+root.joinpath('layout.yml').write_text(original + '\n# unrelated formatting must preserve the contract\n', encoding='utf-8')
+root.joinpath('missing.yml').write_text('jobs: {}\n', encoding='utf-8')
 PYSCENE
 if scene_gpu_command_contract "$SCENE_FIXTURES/removed.yml"; then
   check 'T18.2 removed GPU task must fail the guard' false
