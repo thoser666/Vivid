@@ -11,6 +11,8 @@ import kotlinx.coroutines.test.*
 import org.junit.Assert.*
 import org.junit.Test
 
+private const val SCENE_ID = "scene"
+
 @OptIn(ExperimentalCoroutinesApi::class)
 class PomodoroWidgetManagerTest {
     private fun widget(id: String = "timer", work: Int = 1) = StreamWidget(id, "Pomodoro", WidgetType.POMODORO,
@@ -109,13 +111,13 @@ class PomodoroWidgetManagerTest {
             val timer = widget(work = 25)
             val h = Harness(this, listOf(timer))
             val edited = widget(work = 1)
-            coEvery { h.repository.saveWidgetWithSceneVisibility(edited, mapOf("scene" to true)) } answers {
+            coEvery { h.repository.saveWidgetWithSceneVisibility(edited, mapOf(SCENE_ID to true)) } answers {
                 h.definitions.value = listOf(edited)
             }
             val viewModel = PomodoroWidgetViewModel(h.repository, h.manager)
             runCurrent()
-            viewModel.saveAndStart(edited, mapOf("scene" to true)); runCurrent()
-            coVerify { h.repository.saveWidgetWithSceneVisibility(edited, mapOf("scene" to true)) }
+            viewModel.saveAndStart(edited, mapOf(SCENE_ID to true)); runCurrent()
+            coVerify { h.repository.saveWidgetWithSceneVisibility(edited, mapOf(SCENE_ID to true)) }
             val state = h.manager.states.value.getValue(edited.id)
             assertEquals(60, state.remainingSeconds)
             assertTrue(state.enabled)

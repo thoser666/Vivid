@@ -37,6 +37,9 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
+private const val TELE_LENS_LABEL = "Tele"
+private const val FAILURE_SENTINEL = "boom sentinel"
+
 /**
  * Robolectric-Compose-Tests für die restlichen Settings-Screens (Camera,
  * Logs & Diagnose, Streaming/OBS, Remote & Privacy). Gleiche Technik wie
@@ -111,7 +114,7 @@ class SettingsSubScreensRobolectricTest {
             every { availableLenses } returns MutableStateFlow(
                 listOf(
                     SettingsCameraViewModel.LensUiState(id = "0", displayName = "Wide", isActive = true),
-                    SettingsCameraViewModel.LensUiState(id = "1", displayName = "Tele", isActive = false),
+                    SettingsCameraViewModel.LensUiState(id = "1", displayName = TELE_LENS_LABEL, isActive = false),
                 ),
             )
             every { currentLensId } returns MutableStateFlow("0")
@@ -120,7 +123,7 @@ class SettingsSubScreensRobolectricTest {
         composeRule.onNodeWithText("Focus").assertIsDisplayed()
         composeRule.onNodeWithText("Infinity").assertIsDisplayed()
         composeRule.onNodeWithText("Macro").assertIsDisplayed()
-        composeRule.onNodeWithText("Tele").performClick()
+        composeRule.onNodeWithText(TELE_LENS_LABEL).performClick()
         verify { viewModel.selectLens("1") }
     }
 
@@ -150,8 +153,8 @@ class SettingsSubScreensRobolectricTest {
         // Messung des doppelten Scrolls mit der Infinite-Height-Exception).
         composeRule.setContent { SettingsCameraScreen(viewModel = cameraViewModel()) }
 
-        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Tele"))
-        composeRule.onNodeWithText("Tele").assertIsDisplayed()
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText(TELE_LENS_LABEL))
+        composeRule.onNodeWithText(TELE_LENS_LABEL).assertIsDisplayed()
     }
 
     private fun cameraViewModel(): SettingsCameraViewModel =
@@ -161,7 +164,7 @@ class SettingsSubScreensRobolectricTest {
             every { availableLenses } returns MutableStateFlow(
                 listOf(
                     SettingsCameraViewModel.LensUiState(id = "0", displayName = "Wide", isActive = true),
-                    SettingsCameraViewModel.LensUiState(id = "1", displayName = "Tele", isActive = false),
+                    SettingsCameraViewModel.LensUiState(id = "1", displayName = TELE_LENS_LABEL, isActive = false),
                 ),
             )
             every { currentLensId } returns MutableStateFlow("0")
@@ -215,7 +218,7 @@ class SettingsSubScreensRobolectricTest {
                             timestampMillis = System.currentTimeMillis(),
                             level = LogLevel.INFO,
                             tag = "Test",
-                            message = "boom sentinel",
+                            message = FAILURE_SENTINEL,
                         ),
                     ),
                 ),
@@ -226,9 +229,9 @@ class SettingsSubScreensRobolectricTest {
         composeRule.onNodeWithText("Logs & Diagnostics").assertIsDisplayed()
         // Log-Liste liegt teils below the fold — gezielt zum Eintrag scrollen.
         composeRule.onNodeWithTag("logs_list").performScrollToNode(
-            androidx.compose.ui.test.hasText("boom sentinel", substring = true),
+            androidx.compose.ui.test.hasText(FAILURE_SENTINEL, substring = true),
         )
-        composeRule.onAllNodesWithText("boom sentinel", substring = true)[0].assertExists()
+        composeRule.onAllNodesWithText(FAILURE_SENTINEL, substring = true)[0].assertExists()
         composeRule.onAllNodesWithText("Copy")[0].assertExists()
         composeRule.onAllNodesWithText("Share")[0].assertExists()
         composeRule.onAllNodesWithText("Retention (days)")[0].assertExists()

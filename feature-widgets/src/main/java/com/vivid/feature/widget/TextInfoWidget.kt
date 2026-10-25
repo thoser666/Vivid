@@ -44,6 +44,12 @@ fun TextInfoWidget(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     if (!uiState.enabled) return
 
+    RequestTextInfoLocation(uiState, requestLocationPermission)
+    TextInfoContent(uiState, modifier)
+}
+
+@Composable
+private fun RequestTextInfoLocation(uiState: TextInfoWidgetUiState, requestLocationPermission: Boolean) {
     // GPS-Permission anfragen, sobald das Widget Standortfelder anzeigen soll.
     val context = LocalContext.current
     val locationLauncher = if (requestLocationPermission && LocalActivityResultRegistryOwner.current != null) rememberLauncherForActivityResult(
@@ -59,7 +65,10 @@ fun TextInfoWidget(
             locationLauncher?.launch(Manifest.permission.ACCESS_FINE_LOCATION)
         }
     }
+}
 
+@Composable
+private fun TextInfoContent(uiState: TextInfoWidgetUiState, modifier: Modifier) {
     Column(
         modifier = modifier
             .widthIn(max = 220.dp)
@@ -75,42 +84,47 @@ fun TextInfoWidget(
                 color = Color.White,
             )
         } else {
-            if (uiState.showTime) {
-                Text(
-                    text = uiState.time,
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                )
-                if (uiState.date.isNotBlank()) {
-                    Text(
-                        text = uiState.date,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = Color.White.copy(alpha = 0.7f),
-                    )
-                }
-            }
-            if (uiState.showLocation && uiState.location.isNotBlank()) {
-                Text(
-                    text = stringResource(R.string.widget_location_label, uiState.location),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.White,
-                )
-            }
-            if (uiState.showSpeed && uiState.speed.isNotBlank()) {
-                Text(
-                    text = stringResource(R.string.widget_speed_label, uiState.speed),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.White,
-                )
-            }
-            if (uiState.showAltitude && uiState.altitude.isNotBlank()) {
-                Text(
-                    text = stringResource(R.string.widget_altitude_label, uiState.altitude),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.White,
-                )
-            }
+            TextInfoFields(uiState)
         }
+    }
+}
+
+@Composable
+private fun TextInfoFields(uiState: TextInfoWidgetUiState) {
+    if (uiState.showTime) {
+        Text(
+            text = uiState.time,
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+            color = Color.White,
+        )
+        if (uiState.date.isNotBlank()) {
+            Text(
+                text = uiState.date,
+                style = MaterialTheme.typography.labelMedium,
+                color = Color.White.copy(alpha = 0.7f),
+            )
+        }
+    }
+    if (uiState.showLocation && uiState.location.isNotBlank()) {
+        Text(
+            text = stringResource(R.string.widget_location_label, uiState.location),
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White,
+        )
+    }
+    if (uiState.showSpeed && uiState.speed.isNotBlank()) {
+        Text(
+            text = stringResource(R.string.widget_speed_label, uiState.speed),
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White,
+        )
+    }
+    if (uiState.showAltitude && uiState.altitude.isNotBlank()) {
+        Text(
+            text = stringResource(R.string.widget_altitude_label, uiState.altitude),
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White,
+        )
     }
 }

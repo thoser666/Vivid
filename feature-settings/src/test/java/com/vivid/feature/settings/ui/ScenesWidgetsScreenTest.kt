@@ -17,15 +17,26 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
+private const val FIRST_SCENE_NAME = "Scene A"
+private const val TEXT_WIDGET_ID = "text"
+private const val TEXT_WIDGET_NAME = "My text"
+private const val IMAGE_WIDGET_NAME = "My logo"
+private const val TEXT_WIDGET_ROW_TAG = "scene_item_row_text"
+private const val DELETE_DIALOG_TAG = "library_widget_delete_dialog"
+private const val SAVE_LABEL = "Save"
+private const val ADD_WIDGET_LABEL = "Add widget"
+private const val FIRST_SCENE_TOGGLE_TAG = "widget_scene_toggle_a"
+private const val SHARED_SETTINGS_LABEL = "Shared widget settings"
+
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], qualifiers = "en")
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class ScenesWidgetsScreenTest {
     @get:Rule val composeRule = createComposeRule()
-    private val scenes = MutableStateFlow(listOf(StreamScene("a", "Scene A", widgets = listOf(SceneWidget("text"))),
+    private val scenes = MutableStateFlow(listOf(StreamScene("a", FIRST_SCENE_NAME, widgets = listOf(SceneWidget(TEXT_WIDGET_ID))),
         StreamScene("b", "Scene B", widgets = emptyList())))
-    private val widgets = MutableStateFlow(listOf(StreamWidget("text", "My text", WidgetType.TEXT),
-        StreamWidget("image", "My logo", WidgetType.IMAGE)))
+    private val widgets = MutableStateFlow(listOf(StreamWidget(TEXT_WIDGET_ID, TEXT_WIDGET_NAME, WidgetType.TEXT),
+        StreamWidget("image", IMAGE_WIDGET_NAME, WidgetType.IMAGE)))
     private val privacy = MutableStateFlow(false)
     private val vm = mockk<StreamingViewModel>(relaxed = true) {
         every { this@mockk.scenes } returns this@ScenesWidgetsScreenTest.scenes
@@ -80,16 +91,16 @@ class ScenesWidgetsScreenTest {
 
     @Test fun `scene widget has its own enable switch and swipe removal`() {
         open()
-        composeRule.onNodeWithText("Scene A").performClick()
+        composeRule.onNodeWithText(FIRST_SCENE_NAME).performClick()
         composeRule.onNodeWithText("Tap a widget to adjust its position in this scene.").assertIsDisplayed()
         composeRule.onNodeWithTag("scene_item_toggle_text").performScrollTo().performClick()
         verify { vm.updateScene(match { it.id == "a" && !it.widgets!!.single().enabled }) }
-        composeRule.onNodeWithTag("scene_item_row_text").performTouchInput { swipeLeft() }
+        composeRule.onNodeWithTag(TEXT_WIDGET_ROW_TAG).performTouchInput { swipeLeft() }
         composeRule.waitForIdle()
         verify { vm.updateScene(match { it.id == "a" && it.widgets!!.isEmpty() }) }
-        composeRule.onNodeWithTag("library_widget_delete_dialog").assertDoesNotExist()
+        composeRule.onNodeWithTag(DELETE_DIALOG_TAG).assertDoesNotExist()
         verify(exactly = 0) { vm.deleteWidget(any()) }
-        org.junit.Assert.assertTrue(widgets.value.any { it.id == "text" })
+        org.junit.Assert.assertTrue(widgets.value.any { it.id == TEXT_WIDGET_ID })
     }
 
     @Test fun `library warns about all scenes and deletion can be cancelled and retried`() {
@@ -97,37 +108,37 @@ class ScenesWidgetsScreenTest {
         composeRule.onNodeWithTag("widget_library_hint").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Enabling, disabling or deleting a widget here affects every scene where it is used.")
             .assertIsDisplayed()
-        scrollTo("My text")
-        composeRule.onNodeWithTag("scene_item_row_text").performTouchInput { swipeLeft() }
-        composeRule.onNodeWithTag("library_widget_delete_dialog").assertIsDisplayed()
+        scrollTo(TEXT_WIDGET_NAME)
+        composeRule.onNodeWithTag(TEXT_WIDGET_ROW_TAG).performTouchInput { swipeLeft() }
+        composeRule.onNodeWithTag(DELETE_DIALOG_TAG).assertIsDisplayed()
         composeRule.onNodeWithText("Remove “My text” from the widget library and every scene where it is used?")
             .assertIsDisplayed()
         verify(exactly = 0) { vm.deleteWidget(any()) }
         composeRule.onNodeWithTag("library_widget_delete_cancel").performClick()
-        composeRule.onNodeWithTag("library_widget_delete_dialog").assertDoesNotExist()
-        composeRule.onNodeWithTag("scene_item_row_text").assertIsDisplayed()
+        composeRule.onNodeWithTag(DELETE_DIALOG_TAG).assertDoesNotExist()
+        composeRule.onNodeWithTag(TEXT_WIDGET_ROW_TAG).assertIsDisplayed()
         verify(exactly = 0) { vm.deleteWidget(any()) }
 
-        composeRule.onNodeWithTag("scene_item_row_text").performTouchInput { swipeLeft() }
-        composeRule.onNodeWithTag("library_widget_delete_dialog").assertIsDisplayed()
+        composeRule.onNodeWithTag(TEXT_WIDGET_ROW_TAG).performTouchInput { swipeLeft() }
+        composeRule.onNodeWithTag(DELETE_DIALOG_TAG).assertIsDisplayed()
         verify(exactly = 0) { vm.deleteWidget(any()) }
         composeRule.onNodeWithTag("library_widget_delete_confirm").performClick()
-        composeRule.onNodeWithTag("library_widget_delete_dialog").assertDoesNotExist()
-        verify(exactly = 1) { vm.deleteWidget("text") }
+        composeRule.onNodeWithTag(DELETE_DIALOG_TAG).assertDoesNotExist()
+        verify(exactly = 1) { vm.deleteWidget(TEXT_WIDGET_ID) }
         verify(exactly = 0) { vm.updateScene(any()) }
     }
 
     @Test fun `placement drag saves scene coordinates and keeps shared content untouched`() {
         open()
-        composeRule.onNodeWithText("Scene A").performClick()
-        composeRule.onNodeWithText("My text").performClick()
+        composeRule.onNodeWithText(FIRST_SCENE_NAME).performClick()
+        composeRule.onNodeWithText(TEXT_WIDGET_NAME).performClick()
         screenshot("layout")
         scrollTo("Numeric values")
         composeRule.onNodeWithTag("scene_widget_canvas").performTouchInput {
             swipe(center, center + Offset(40f, 20f), durationMillis = 300)
         }
-        scrollTo("Save")
-        composeRule.onNodeWithText("Save").performClick()
+        scrollTo(SAVE_LABEL)
+        composeRule.onNodeWithText(SAVE_LABEL).performClick()
         verify { vm.updateScene(match { it.id == "a" && it.widgets!!.single().x > 0f && it.widgets!!.single().y > 0f }) }
         verify(exactly = 0) { vm.updateWidget(any()) }
     }
@@ -136,25 +147,25 @@ class ScenesWidgetsScreenTest {
         open()
         composeRule.onNodeWithText("Scenes & widgets").assertIsDisplayed()
         screenshot("scenes-and-widgets")
-        composeRule.onNodeWithText("Scene A").assertIsDisplayed()
+        composeRule.onNodeWithText(FIRST_SCENE_NAME).assertIsDisplayed()
         composeRule.onNodeWithText("Add scene").performClick()
         verify { vm.saveScene("Scene 3") }
-        scrollTo("My logo")
-        composeRule.onNodeWithText("My logo").assertIsDisplayed()
+        scrollTo(IMAGE_WIDGET_NAME)
+        composeRule.onNodeWithText(IMAGE_WIDGET_NAME).assertIsDisplayed()
     }
 
     @Test fun `scene dropdown attaches an existing widget without duplicating the library`() {
         open()
         composeRule.onNodeWithText("Scene B").performClick()
         composeRule.onNodeWithText("Add from widgets").performClick()
-        composeRule.onNodeWithText("My text").performClick()
-        verify { vm.updateScene(match { it.id == "b" && it.widgets == listOf(SceneWidget("text")) }) }
+        composeRule.onNodeWithText(TEXT_WIDGET_NAME).performClick()
+        verify { vm.updateScene(match { it.id == "b" && it.widgets == listOf(SceneWidget(TEXT_WIDGET_ID)) }) }
         verify(exactly = 0) { vm.updateWidget(any()) }
     }
 
     @Test fun `library toggle affects only the selected definition`() {
         open()
-        scrollTo("My logo")
+        scrollTo(IMAGE_WIDGET_NAME)
         composeRule.onNodeWithTag("scene_item_toggle_image").performClick()
         verify { vm.updateWidget(match { it.id == "image" && !it.enabled }) }
     }
@@ -168,75 +179,75 @@ class ScenesWidgetsScreenTest {
 
     @Test fun `browser editor saves a named page with its viewport`() {
         open()
-        scrollTo("Add widget")
-        composeRule.onNodeWithText("Add widget").performClick()
+        scrollTo(ADD_WIDGET_LABEL)
+        composeRule.onNodeWithText(ADD_WIDGET_LABEL).performClick()
         composeRule.onNodeWithText("Browser").performClick()
         scrollTo("Page URL (HTTPS)")
         composeRule.onNodeWithText("Page URL (HTTPS)").assertIsDisplayed()
         composeRule.onNodeWithText("Page width (px)").assertExists()
         composeRule.onNodeWithText("Page height (px)").assertExists()
-        scrollTo("Save")
-        composeRule.onNodeWithText("Save").performClick()
+        scrollTo(SAVE_LABEL)
+        composeRule.onNodeWithText(SAVE_LABEL).performClick()
         verify { vm.updateWidget(match { it.type == WidgetType.BROWSER && it.configuration.browserWidth == 1280 }) }
     }
 
     @Test fun `widget editor shows scene selection and saves only edited switches`() {
         open()
-        scrollTo("My text")
-        composeRule.onNodeWithText("My text").performClick()
+        scrollTo(TEXT_WIDGET_NAME)
+        composeRule.onNodeWithText(TEXT_WIDGET_NAME).performClick()
         composeRule.onNodeWithText("Show in scenes").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithTag("widget_scene_toggle_a").performScrollTo().assertIsOn()
+        composeRule.onNodeWithTag(FIRST_SCENE_TOGGLE_TAG).performScrollTo().assertIsOn()
         composeRule.onNodeWithTag("widget_scene_toggle_b").performScrollTo().assertIsOff().performClick().assertIsOn()
         verify(exactly = 0) { vm.updateWidgetScenes(any(), any()) }
         screenshot("widget-scenes")
-        scrollTo("Save")
-        composeRule.onNodeWithText("Save").performClick()
-        verify { vm.updateWidgetScenes(match { it.id == "text" }, mapOf("b" to true)) }
+        scrollTo(SAVE_LABEL)
+        composeRule.onNodeWithText(SAVE_LABEL).performClick()
+        verify { vm.updateWidgetScenes(match { it.id == TEXT_WIDGET_ID }, mapOf("b" to true)) }
     }
 
     @Test fun `widget editor can hide an existing placement and cancel without saving`() {
         open()
-        scrollTo("My text")
-        composeRule.onNodeWithText("My text").performClick()
-        composeRule.onNodeWithTag("widget_scene_toggle_a").performScrollTo().performClick().assertIsOff()
+        scrollTo(TEXT_WIDGET_NAME)
+        composeRule.onNodeWithText(TEXT_WIDGET_NAME).performClick()
+        composeRule.onNodeWithTag(FIRST_SCENE_TOGGLE_TAG).performScrollTo().performClick().assertIsOff()
         composeRule.onNodeWithContentDescription("Back").performClick()
         verify(exactly = 0) { vm.updateWidgetScenes(any(), any()) }
-        scrollTo("My text")
-        composeRule.onNodeWithText("My text").performClick()
-        composeRule.onNodeWithTag("widget_scene_toggle_a").performScrollTo().assertIsOn().performClick()
-        scrollTo("Save")
-        composeRule.onNodeWithText("Save").performClick()
-        verify { vm.updateWidgetScenes(match { it.id == "text" }, mapOf("a" to false)) }
+        scrollTo(TEXT_WIDGET_NAME)
+        composeRule.onNodeWithText(TEXT_WIDGET_NAME).performClick()
+        composeRule.onNodeWithTag(FIRST_SCENE_TOGGLE_TAG).performScrollTo().assertIsOn().performClick()
+        scrollTo(SAVE_LABEL)
+        composeRule.onNodeWithText(SAVE_LABEL).performClick()
+        verify { vm.updateWidgetScenes(match { it.id == TEXT_WIDGET_ID }, mapOf("a" to false)) }
     }
 
     @Test fun `scene placement toggle is reflected when opening shared widget settings`() {
         open()
-        composeRule.onNodeWithText("Scene A").performClick()
+        composeRule.onNodeWithText(FIRST_SCENE_NAME).performClick()
         composeRule.onNodeWithTag("scene_item_toggle_text").performClick()
-        composeRule.onNodeWithText("My text").performClick()
-        scrollTo("Shared widget settings")
-        composeRule.onNodeWithText("Shared widget settings").performClick()
-        composeRule.onNodeWithTag("widget_scene_toggle_a").performScrollTo().assertIsOff()
+        composeRule.onNodeWithText(TEXT_WIDGET_NAME).performClick()
+        scrollTo(SHARED_SETTINGS_LABEL)
+        composeRule.onNodeWithText(SHARED_SETTINGS_LABEL).performClick()
+        composeRule.onNodeWithTag(FIRST_SCENE_TOGGLE_TAG).performScrollTo().assertIsOff()
         composeRule.onNodeWithTag("widget_scene_toggle_b").performScrollTo().assertIsOff()
     }
 
     @Test fun `saving a layout after changing shared scene visibility keeps the new visibility`() {
         every { vm.updateWidgetScenes(any(), any()) } answers {
             scenes.value = scenes.value.map { scene ->
-                if (scene.id == "a") scene.copy(widgets = listOf(SceneWidget("text", enabled = false))) else scene
+                if (scene.id == "a") scene.copy(widgets = listOf(SceneWidget(TEXT_WIDGET_ID, enabled = false))) else scene
             }
         }
         open()
-        composeRule.onNodeWithText("Scene A").performClick()
-        composeRule.onNodeWithText("My text").performClick()
-        scrollTo("Shared widget settings")
-        composeRule.onNodeWithText("Shared widget settings").performClick()
-        composeRule.onNodeWithTag("widget_scene_toggle_a").performScrollTo().performClick()
-        scrollTo("Save")
-        composeRule.onNodeWithText("Save").performClick()
+        composeRule.onNodeWithText(FIRST_SCENE_NAME).performClick()
+        composeRule.onNodeWithText(TEXT_WIDGET_NAME).performClick()
+        scrollTo(SHARED_SETTINGS_LABEL)
+        composeRule.onNodeWithText(SHARED_SETTINGS_LABEL).performClick()
+        composeRule.onNodeWithTag(FIRST_SCENE_TOGGLE_TAG).performScrollTo().performClick()
+        scrollTo(SAVE_LABEL)
+        composeRule.onNodeWithText(SAVE_LABEL).performClick()
         composeRule.onNodeWithText("Layout").assertExists()
-        scrollTo("Save")
-        composeRule.onNodeWithText("Save").performClick()
+        scrollTo(SAVE_LABEL)
+        composeRule.onNodeWithText(SAVE_LABEL).performClick()
         verify { vm.updateScene(match { it.id == "a" && !it.widgets!!.single().enabled }) }
     }
 
@@ -245,8 +256,8 @@ class ScenesWidgetsScreenTest {
             every { states } returns MutableStateFlow<Map<String, PomodoroUiState>>(emptyMap())
         }
         open(timer)
-        scrollTo("Add widget")
-        composeRule.onNodeWithText("Add widget").performClick()
+        scrollTo(ADD_WIDGET_LABEL)
+        composeRule.onNodeWithText(ADD_WIDGET_LABEL).performClick()
         composeRule.onNodeWithText("Pomodoro timer").performClick()
         scrollTo("Work session: 25 min")
         composeRule.onNodeWithTag("pomodoro_work_duration").performScrollTo()

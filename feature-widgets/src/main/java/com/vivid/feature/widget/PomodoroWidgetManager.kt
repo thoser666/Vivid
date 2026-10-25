@@ -51,9 +51,11 @@ class PomodoroWidgetManager @Inject constructor(
     scope: CoroutineScope,
     private val notifier: PomodoroNotifier,
 ) {
-    private class Runtime(val controller: PomodoroController, var lastTickMs: Long) {
-        var phaseCompleted = false
-    }
+    private data class Runtime(
+        val controller: PomodoroController,
+        var lastTickMs: Long,
+        var phaseCompleted: Boolean = false,
+    )
     private val timers = mutableMapOf<String, Runtime>()
     private val _states = MutableStateFlow<Map<String, PomodoroUiState>>(emptyMap())
     val states = _states.asStateFlow()

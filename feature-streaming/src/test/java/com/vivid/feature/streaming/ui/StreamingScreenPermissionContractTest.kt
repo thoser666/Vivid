@@ -37,6 +37,8 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import org.robolectric.shadows.ShadowActivity
 
+private const val START_STREAM_LABEL = "Start Streaming"
+
 /**
  * Screen navigation never requests permissions automatically. MainActivity owns a
  * separate, one-time first-launch request (covered by MainActivityE2ERobolectricTest).
@@ -140,7 +142,7 @@ class StreamingScreenPermissionContractTest {
         // Semantik-Baum bleibt vollständig (das instrumentierte Pendant dieses
         // Vertrags ist der StartupSmokeTest auf dem Emulator ohne Grants).
         composeRule.onNodeWithText("Controls").assertIsDisplayed()
-        composeRule.onNodeWithText("Start Streaming").assertIsDisplayed()
+        composeRule.onNodeWithText(START_STREAM_LABEL).assertIsDisplayed()
         org.junit.Assert.assertNull(
             "Screen-Eintritt darf keinen Permission-Request auslösen (#249)",
             lastRequestedPermission(),
@@ -154,7 +156,7 @@ class StreamingScreenPermissionContractTest {
 
         setContent()
 
-        composeRule.onNodeWithText("Start Streaming").assertIsDisplayed()
+        composeRule.onNodeWithText(START_STREAM_LABEL).assertIsDisplayed()
         // Entweder der Entry-Effekt oder der ON_RESUME-Beobachter (beide Pfade
         // sind erlaubt, exakt gezählt wird nur der verbotene Auto-Request).
         verify(atLeast = 1) { engine.startIdlePreviewIfReady() }
@@ -172,7 +174,7 @@ class StreamingScreenPermissionContractTest {
         )
 
         setContent()
-        composeRule.onNodeWithText("Start Streaming").performClick()
+        composeRule.onNodeWithText(START_STREAM_LABEL).performClick()
         composeRule.waitForIdle()
 
         val request = lastRequestedPermission()
@@ -206,7 +208,7 @@ class StreamingScreenPermissionContractTest {
         )
 
         setContent()
-        composeRule.onNodeWithText("Start Streaming").performClick()
+        composeRule.onNodeWithText(START_STREAM_LABEL).performClick()
         composeRule.waitForIdle()
 
         verify(exactly = 1) { viewModel.startStream() }

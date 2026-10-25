@@ -20,6 +20,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
 
+private const val ORIENTATION_FIXTURE_PREFIX = "orientation-"
+
 /** Opt-in local MP4 proof of the shared stream encoder's pixel axes. Never connects to an ingest. */
 @RunWith(AndroidJUnit4::class)
 class CameraOutputOrientationInstrumentedTest {
@@ -44,17 +46,7 @@ class CameraOutputOrientationInstrumentedTest {
                 controller = field("sceneController") as SceneController
             }
             assertTrue("Do not interrupt a live stream or recording", engine.canChangeCameraMode())
-            runBlocking {
-                val all = scenes.scenesFlow.first()
-                val current = scenes.activeSceneIdFlow.first()
-                if (current?.startsWith("orientation-") == true) {
-                    val restored = all.firstOrNull { !it.id.startsWith("orientation-") && it.enabled }
-                    scenes.setActiveScene(restored?.id)
-                    settings.updateAppOrientation(AppOrientation.PORTRAIT)
-                }
-                all.filter { it.id.startsWith("orientation-") }.forEach { scenes.deleteScene(it.id) }
-                scenes.widgetsFlow.first().filter { it.id.startsWith("orientation-") }.forEach { scenes.deleteWidget(it.id) }
-            }
+            recoverInterruptedFixtures(scenes, settings)
             val original = runBlocking { settings.appSettingsFlow.first() }
             assertFalse("Do not activate a configured chat bot", original.chatBotEnabled)
             val active = runBlocking { scenes.activeSceneIdFlow.first() }
@@ -108,32 +100,7 @@ class CameraOutputOrientationInstrumentedTest {
                     val measuredFps = engine.measuredEncoderFps.value
                     scenario.onActivity { engine.stopReplay() }
                     assertTrue(file.length() > 0L)
-                    val extractor = MediaExtractor()
-                    val format = try {
-                        extractor.setDataSource(file.absolutePath)
-                        (0 until extractor.trackCount).map(extractor::getTrackFormat)
-                            .first { it.getString(MediaFormat.KEY_MIME)?.startsWith("video/") == true }
-                    } finally { extractor.release() }
-                    val expectedWidth = if (orientation == AppOrientation.PORTRAIT) applied.preset.height else applied.preset.width
-                    val expectedHeight = if (orientation == AppOrientation.PORTRAIT) applied.preset.width else applied.preset.height
-                    assertEquals("Encoded width", expectedWidth, format.getInteger(MediaFormat.KEY_WIDTH))
-                    assertEquals("Encoded height", expectedHeight, format.getInteger(MediaFormat.KEY_HEIGHT))
-                    val retriever = MediaMetadataRetriever()
-                    try {
-                        retriever.setDataSource(file.absolutePath)
-                        val frame = requireNotNull(retriever.getFrameAtTime(2_000_000))
-                        File(evidence, "${orientation.name}-$fps-frame.png").outputStream().use {
-                            frame.compress(Bitmap.CompressFormat.PNG, 100, it)
-                        }
-                        assertEquals(expectedWidth, frame.width)
-                        assertEquals(expectedHeight, frame.height)
-                        val markerY = expectedHeight / 4 + minOf(expectedWidth, expectedHeight) / 30
-                        val color = frame.getPixel(expectedWidth / 2, markerY)
-                        assertTrue("Scene marker must remain visible after encoder restart: $color",
-                            android.graphics.Color.red(color) > 200 && android.graphics.Color.blue(color) > 200 &&
-                                android.graphics.Color.green(color) < 80)
-                        frame.recycle()
-                    } finally { retriever.release() }
+                    val format = assertEncodedFrame(file, evidence, orientation, fps, applied.preset)
                     File(evidence, "${orientation.name}-$fps-metrics.txt").writeText(
                         "orientation=$orientation\nformat=$format\napplied=$applied\nmode=$cameraMode\nmeasuredFps=$measuredFps\n")
                     file.copyTo(File(evidence, "${orientation.name}-$fps.mp4"), overwrite = true)
@@ -156,6 +123,52 @@ class CameraOutputOrientationInstrumentedTest {
                 }
             }
         }
+    }
+
+    private fun recoverInterruptedFixtures(scenes: SceneRepository, settings: SettingsRepository) {
+        runBlocking {
+            val all = scenes.scenesFlow.first()
+            val current = scenes.activeSceneIdFlow.first()
+            if (current?.startsWith(ORIENTATION_FIXTURE_PREFIX) == true) {
+                val restored = all.firstOrNull { !it.id.startsWith(ORIENTATION_FIXTURE_PREFIX) && it.enabled }
+                scenes.setActiveScene(restored?.id)
+                settings.updateAppOrientation(AppOrientation.PORTRAIT)
+            }
+            all.filter { it.id.startsWith(ORIENTATION_FIXTURE_PREFIX) }.forEach { scenes.deleteScene(it.id) }
+            scenes.widgetsFlow.first().filter { it.id.startsWith(ORIENTATION_FIXTURE_PREFIX) }.forEach { scenes.deleteWidget(it.id) }
+        }
+    }
+
+    private fun assertEncodedFrame(
+        file: File, evidence: File, orientation: AppOrientation, fps: Int, preset: EncoderPreset,
+    ): MediaFormat {
+        val extractor = MediaExtractor()
+        val format = try {
+            extractor.setDataSource(file.absolutePath)
+            (0 until extractor.trackCount).map(extractor::getTrackFormat)
+                .first { it.getString(MediaFormat.KEY_MIME)?.startsWith("video/") == true }
+        } finally { extractor.release() }
+        val expectedWidth = if (orientation == AppOrientation.PORTRAIT) preset.height else preset.width
+        val expectedHeight = if (orientation == AppOrientation.PORTRAIT) preset.width else preset.height
+        assertEquals("Encoded width", expectedWidth, format.getInteger(MediaFormat.KEY_WIDTH))
+        assertEquals("Encoded height", expectedHeight, format.getInteger(MediaFormat.KEY_HEIGHT))
+        val retriever = MediaMetadataRetriever()
+        try {
+            retriever.setDataSource(file.absolutePath)
+            val frame = requireNotNull(retriever.getFrameAtTime(2_000_000))
+            File(evidence, "${orientation.name}-$fps-frame.png").outputStream().use {
+                frame.compress(Bitmap.CompressFormat.PNG, 100, it)
+            }
+            assertEquals(expectedWidth, frame.width)
+            assertEquals(expectedHeight, frame.height)
+            val markerY = expectedHeight / 4 + minOf(expectedWidth, expectedHeight) / 30
+            val color = frame.getPixel(expectedWidth / 2, markerY)
+            assertTrue("Scene marker must remain visible after encoder restart: $color",
+                android.graphics.Color.red(color) > 200 && android.graphics.Color.blue(color) > 200 &&
+                    android.graphics.Color.green(color) < 80)
+            frame.recycle()
+        } finally { retriever.release() }
+        return format
     }
 
     private fun screenshot(directory: File, name: String) {

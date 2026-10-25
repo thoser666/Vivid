@@ -17,6 +17,17 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
+private const val STREAM_URL_LABEL = "Stream URL"
+private const val SAVE_LABEL = "Save"
+private const val MULTI_STREAM_LABEL = "Multi-streaming (optional)"
+private const val SECOND_STREAM_TOGGLE_TAG = "stream_toggle_b"
+private const val BACK_LABEL = "Back"
+private const val VIDEO_LABEL = "Video"
+private const val OBS_HOST_LABEL = "OBS host"
+private const val OBS_CONTROL_LABEL = "OBS remote control"
+private const val REPLAY_LABEL = "Replay recording"
+private const val TEST_OBS_HOST = "192.0.2.11"
+
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], qualifiers = "en")
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -82,16 +93,16 @@ class StreamProfilesScreenTest {
 
     @Test fun `empty list starts at create then type then form and save returns to list`() {
         show()
-        compose.onNodeWithText("Stream URL").assertDoesNotExist()
-        compose.onNodeWithText("Save").assertDoesNotExist()
+        compose.onNodeWithText(STREAM_URL_LABEL).assertDoesNotExist()
+        compose.onNodeWithText(SAVE_LABEL).assertDoesNotExist()
         compose.onNodeWithText("Create stream").performClick()
         listOf("Twitch", "YouTube", "Kick", "Custom").forEach { compose.onNodeWithText(it).assertExists() }
         compose.onNodeWithText("YouTube").performClick()
-        compose.onNodeWithText("Save").assertIsNotEnabled()
+        compose.onNodeWithText(SAVE_LABEL).assertIsNotEnabled()
         compose.onNodeWithText("Stream name").performTextInput("My YouTube")
-        scrollClick("Save")
+        scrollClick(SAVE_LABEL)
         compose.onNodeWithText("My YouTube").assertExists()
-        compose.onNodeWithText("Stream URL").assertDoesNotExist()
+        compose.onNodeWithText(STREAM_URL_LABEL).assertDoesNotExist()
         verify { vm.saveStreamDraft(any()) }
     }
 
@@ -101,36 +112,36 @@ class StreamProfilesScreenTest {
         val field = compose.onNodeWithTag("stream_primary_url")
         field.performTextReplacement("djfj")
         compose.onNodeWithText("Unsupported protocol \"djfj\". Allowed are rtmp, rtmps and srt.").assertIsDisplayed()
-        compose.onNodeWithText("Save").assertIsNotEnabled().performClick()
+        compose.onNodeWithText(SAVE_LABEL).assertIsNotEnabled().performClick()
         verify(exactly = 0) { vm.saveStreamDraft(any()) }
         field.performTextReplacement("rtmp:///app")
         compose.onNodeWithText("The stream URL contains no valid server host (e.g. rtmp://live.twitch.tv/app).").assertExists()
-        compose.onNodeWithText("Save").assertIsNotEnabled()
+        compose.onNodeWithText(SAVE_LABEL).assertIsNotEnabled()
         field.performTextReplacement("rtmp://srt/app")
-        compose.onNodeWithText("Save").assertIsNotEnabled()
+        compose.onNodeWithText(SAVE_LABEL).assertIsNotEnabled()
         // Missing separate keys remain warnings: a key can already be included in the URL.
         field.performTextReplacement("rtmps://localhost:1936/app/included-key")
-        compose.onNodeWithText("Save").assertIsEnabled()
-        scrollClick("Save")
+        compose.onNodeWithText(SAVE_LABEL).assertIsEnabled()
+        scrollClick(SAVE_LABEL)
         org.junit.Assert.assertEquals("rtmps://localhost:1936/app/included-key", settings.value.streamProfiles.single().streamUrl)
     }
 
     @Test fun `optional second URL rejects malformed input but can be cleared or use SRT`() {
         show(listOf(first))
         details()
-        scrollClick("Multi-streaming (optional)")
+        scrollClick(MULTI_STREAM_LABEL)
         val field = compose.onNodeWithTag("stream_secondary_url")
-        compose.onNodeWithText("Save").assertIsEnabled()
+        compose.onNodeWithText(SAVE_LABEL).assertIsEnabled()
         field.performTextReplacement("https://server.example/live")
         compose.onNodeWithText("Unsupported protocol \"https\". Allowed are rtmp, rtmps and srt.").assertIsDisplayed()
-        compose.onNodeWithText("Save").assertIsNotEnabled()
+        compose.onNodeWithText(SAVE_LABEL).assertIsNotEnabled()
         field.performTextReplacement("srt://")
-        compose.onNodeWithText("Save").assertIsNotEnabled()
+        compose.onNodeWithText(SAVE_LABEL).assertIsNotEnabled()
         field.performTextReplacement("")
-        compose.onNodeWithText("Save").assertIsEnabled()
+        compose.onNodeWithText(SAVE_LABEL).assertIsEnabled()
         field.performTextReplacement("srt://server.example:9000?streamid=live")
-        compose.onNodeWithText("Save").assertIsEnabled()
-        scrollClick("Save")
+        compose.onNodeWithText(SAVE_LABEL).assertIsEnabled()
+        scrollClick(SAVE_LABEL)
         org.junit.Assert.assertEquals("srt://server.example:9000?streamid=live", settings.value.streamProfiles.single().secondaryStreamUrl)
     }
 
@@ -138,20 +149,20 @@ class StreamProfilesScreenTest {
         show(listOf(first, second), "a")
         screenshot("streams")
         compose.onNodeWithTag("stream_toggle_a").assertIsOn()
-        compose.onNodeWithTag("stream_toggle_b").performClick().assertIsOn()
+        compose.onNodeWithTag(SECOND_STREAM_TOGGLE_TAG).performClick().assertIsOn()
         compose.onNodeWithTag("stream_toggle_a").assertIsOff()
-        compose.onNodeWithText("Stream URL").assertDoesNotExist()
+        compose.onNodeWithText(STREAM_URL_LABEL).assertDoesNotExist()
         verify(exactly = 0) { vm.editStream(any()) }
-        compose.onNodeWithTag("stream_toggle_b").performClick().assertIsOff()
+        compose.onNodeWithTag(SECOND_STREAM_TOGGLE_TAG).performClick().assertIsOff()
     }
 
     @Test fun `row opens details without toggling and Twitch control is conditional`() {
         show(listOf(first, second), "a")
         details("b")
-        compose.onNodeWithText("Stream URL").assertExists()
+        compose.onNodeWithText(STREAM_URL_LABEL).assertExists()
         compose.onNodeWithText("Twitch channel control").assertDoesNotExist()
         verify(exactly = 0) { vm.setStreamEnabled(any(), any()) }
-        compose.onNodeWithContentDescription("Back").performClick()
+        compose.onNodeWithContentDescription(BACK_LABEL).performClick()
         details()
         scrollClick("Twitch channel control")
         compose.onNodeWithText("Stream title").assertExists()
@@ -160,9 +171,9 @@ class StreamProfilesScreenTest {
     @Test fun `all video settings share a single scrollable page`() {
         show(listOf(first))
         details()
-        scrollClick("Video")
+        scrollClick(VIDEO_LABEL)
         screenshot("video")
-        compose.onNodeWithText("Stream URL").assertDoesNotExist()
+        compose.onNodeWithText(STREAM_URL_LABEL).assertDoesNotExist()
         compose.onNode(hasText("2160p60").and(hasStateDescription("Selected"))).assertExists()
         compose.onNode(hasText("H.265 (HEVC)").and(hasStateDescription("Not selected"))).assertExists()
         compose.onNodeWithText("1080p30").performClick()
@@ -176,8 +187,8 @@ class StreamProfilesScreenTest {
         compose.onNode(hasScrollAction()).performScrollToNode(hasContentDescription("Keyframe interval"))
         compose.onNodeWithContentDescription("Keyframe interval").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.SetProgress) { it(4f) }
         compose.onNodeWithText("4 s").assertExists()
-        compose.onNodeWithContentDescription("Back").performClick()
-        compose.onNodeWithText("Stream URL").assertExists()
+        compose.onNodeWithContentDescription(BACK_LABEL).performClick()
+        compose.onNodeWithText(STREAM_URL_LABEL).assertExists()
         org.junit.Assert.assertEquals(60, draft.value!!.videoFps)
         org.junit.Assert.assertEquals(15_000, draft.value!!.videoBitrateKbps)
         org.junit.Assert.assertEquals(4, draft.value!!.keyframeIntervalSeconds)
@@ -196,7 +207,7 @@ class StreamProfilesScreenTest {
         }
         compose.waitForIdle()
         org.junit.Assert.assertEquals(listOf("b", "c", "a"), settings.value.streamProfiles.map { it.id })
-        compose.onNodeWithTag("stream_toggle_b").assertIsOn()
+        compose.onNodeWithTag(SECOND_STREAM_TOGGLE_TAG).assertIsOn()
         verify(exactly = 0) { vm.editStream(any()) }
         verify(exactly = 0) { vm.setStreamEnabled(any(), any()) }
         verify { vm.reorderStreams(listOf("b", "c", "a")) }
@@ -211,26 +222,26 @@ class StreamProfilesScreenTest {
         compose.onNodeWithTag("stream_settings_menu").assertExists()
         compose.onNodeWithTag("obs_switch_divider", useUnmergedTree = true).assertExists()
         compose.onNodeWithTag("obs_profile_toggle").performClick().assertIsOn()
-        compose.onNodeWithText("OBS host").assertDoesNotExist()
-        scrollClick("OBS remote control")
-        compose.onNodeWithText("OBS host").assertExists()
+        compose.onNodeWithText(OBS_HOST_LABEL).assertDoesNotExist()
+        scrollClick(OBS_CONTROL_LABEL)
+        compose.onNodeWithText(OBS_HOST_LABEL).assertExists()
     }
 
     @Test fun `each source subpage saves the edited profile without another parent save`() {
         show(listOf(first), "a")
-        val pages = listOf("Video", "Replay recording", "Multi-streaming (optional)", "OBS remote control")
+        val pages = listOf(VIDEO_LABEL, REPLAY_LABEL, MULTI_STREAM_LABEL, OBS_CONTROL_LABEL)
         pages.forEachIndexed { index, page ->
             details()
             scrollClick(page)
             when (page) {
-                "Video" -> compose.onNodeWithText("1080p30").performClick()
-                "Replay recording" -> compose.onNode(isToggleable()).performClick()
-                "Multi-streaming (optional)" -> compose.onNodeWithText("Second stream URL")
+                VIDEO_LABEL -> compose.onNodeWithText("1080p30").performClick()
+                REPLAY_LABEL -> compose.onNode(isToggleable()).performClick()
+                MULTI_STREAM_LABEL -> compose.onNodeWithText("Second stream URL")
                     .performTextReplacement("rtmp://second.example/live")
-                "OBS remote control" -> compose.onNodeWithText("OBS host").performTextReplacement("192.0.2.10")
+                OBS_CONTROL_LABEL -> compose.onNodeWithText(OBS_HOST_LABEL).performTextReplacement("192.0.2.10")
             }
             val edited = requireNotNull(draft.value)
-            scrollClick("Save")
+            scrollClick(SAVE_LABEL)
             compose.onNodeWithTag("stream_row_a").assertExists()
             org.junit.Assert.assertNull(draft.value)
             org.junit.Assert.assertEquals(listOf(edited), settings.value.streamProfiles)
@@ -248,12 +259,12 @@ class StreamProfilesScreenTest {
         show(listOf(first))
         every { vm.saveStreamDraft(any()) } answers { failure.value = true }
         details()
-        scrollClick("OBS remote control")
-        compose.onNodeWithText("OBS host").performTextReplacement("192.0.2.11")
-        scrollClick("Save")
-        org.junit.Assert.assertEquals("192.0.2.11", draft.value!!.obsHost)
+        scrollClick(OBS_CONTROL_LABEL)
+        compose.onNodeWithText(OBS_HOST_LABEL).performTextReplacement(TEST_OBS_HOST)
+        scrollClick(SAVE_LABEL)
+        org.junit.Assert.assertEquals(TEST_OBS_HOST, draft.value!!.obsHost)
         org.junit.Assert.assertEquals(first, settings.value.streamProfiles.single())
-        compose.onNodeWithText("OBS host").assertIsDisplayed()
+        compose.onNodeWithText(OBS_HOST_LABEL).assertIsDisplayed()
         val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
         compose.onNodeWithText(context.getString(com.vivid.feature.settings.R.string.stream_save_failed)).assertIsDisplayed()
         every { vm.saveStreamDraft(any()) } answers {
@@ -261,21 +272,21 @@ class StreamProfilesScreenTest {
             draft.value = null
             firstArg<() -> Unit>()()
         }
-        scrollClick("Save")
+        scrollClick(SAVE_LABEL)
         compose.onNodeWithTag("stream_row_a").assertExists()
-        org.junit.Assert.assertEquals("192.0.2.11", settings.value.streamProfiles.single().obsHost)
+        org.junit.Assert.assertEquals(TEST_OBS_HOST, settings.value.streamProfiles.single().obsHost)
     }
 
     @Test fun `multi recording and OBS pages retain existing fields`() {
         show(listOf(first))
         details()
-        scrollClick("Multi-streaming (optional)")
+        scrollClick(MULTI_STREAM_LABEL)
         compose.onNodeWithText("Second stream URL").assertExists()
-        compose.onNodeWithContentDescription("Back").performClick()
-        scrollClick("Replay recording")
+        compose.onNodeWithContentDescription(BACK_LABEL).performClick()
+        scrollClick(REPLAY_LABEL)
         compose.onNodeWithText("Record audio in replays").assertExists()
-        compose.onNodeWithContentDescription("Back").performClick()
-        scrollClick("OBS remote control")
-        compose.onNodeWithText("OBS host").assertExists()
+        compose.onNodeWithContentDescription(BACK_LABEL).performClick()
+        scrollClick(OBS_CONTROL_LABEL)
+        compose.onNodeWithText(OBS_HOST_LABEL).assertExists()
     }
 }

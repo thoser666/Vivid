@@ -61,6 +61,16 @@ import com.vivid.core.data.StreamPlatformType
 import com.vivid.core.data.applyTo
 import kotlin.math.roundToInt
 
+private const val STREAM_PAGE_LIST = "list"
+private const val STREAM_PAGE_PLATFORM = "platform"
+private const val STREAM_PAGE_CREATE = "create"
+private const val STREAM_PAGE_DETAILS = "details"
+private const val STREAM_PAGE_VIDEO = "video"
+private const val STREAM_PAGE_MULTI = "multi"
+private const val STREAM_PAGE_RECORDING = "recording"
+private const val STREAM_PAGE_TWITCH = "twitch"
+private const val STREAM_PAGE_OBS = "obs"
+
 /** Saved streams, with separate navigation and toggle actions on each row. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -74,70 +84,42 @@ fun SettingsStreamingObsScreen(
     val draft by viewModel.streamDraft.collectAsState()
     val saving by viewModel.streamSaving.collectAsState()
     val failed by viewModel.streamSaveFailed.collectAsState()
-    var page by rememberSaveable { mutableStateOf("list") }
+    var page by rememberSaveable { mutableStateOf(STREAM_PAGE_LIST) }
     val scrollState = rememberScrollState()
     LaunchedEffect(page) { scrollState.scrollTo(0) }
     LaunchedEffect(failed) { if (failed) scrollState.scrollTo(0) }
-    val back: () -> Unit = {
-        if (!saving) when (page) {
-            "list" -> onBack()
-            "platform", "create", "details" -> { viewModel.discardStreamDraft(); page = "list" }
-            else -> page = "details"
-        }
-    }
-    BackHandler(enabled = page != "list", onBack = back)
+    val back: () -> Unit = { streamPageBack(page, saving, viewModel, onBack) { page = it } }
+    BackHandler(enabled = page != STREAM_PAGE_LIST, onBack = back)
     LaunchedEffect(page, draft) {
-        if (page != "list" && page != "platform" && draft == null) page = "list"
+        if (page != STREAM_PAGE_LIST && page != STREAM_PAGE_PLATFORM && draft == null) page = STREAM_PAGE_LIST
     }
-    val title = when (page) {
-        "platform" -> stringResource(R.string.stream_choose_type)
-        "create" -> stringResource(R.string.stream_create)
-        "details" -> draft?.name.orEmpty()
-        "video" -> stringResource(R.string.stream_video)
-        "multi" -> stringResource(R.string.multi_streaming_title)
-        "recording" -> stringResource(R.string.replay_audio_title)
-        "twitch" -> stringResource(R.string.twitch_channel_title)
-        "obs" -> stringResource(R.string.stream_obs_remote)
-        else -> stringResource(R.string.cat_streaming_title)
-    }
+    val title = streamPageTitle(page, draft)
     SettingsSectionScaffold(
         title = title,
         scrollState = scrollState,
         onBack = back,
-        onSave = if (draft != null && page != "list" && page != "platform") {
-            { viewModel.saveStreamDraft { page = "list" } }
+        onSave = if (editableStreamPage(page, draft)) {
+            { viewModel.saveStreamDraft { page = STREAM_PAGE_LIST } }
         } else null,
-        saveEnabled = !saving && draft?.name?.isNotBlank() == true && draft?.let { streamDraftErrors(it).isEmpty() } == true,
+        saveEnabled = streamDraftSaveEnabled(draft, saving),
     ) {
-        if (failed) Text(stringResource(R.string.stream_save_failed), color = MaterialTheme.colorScheme.error)
-        // Errors in another subpage must still explain why its Save button is disabled.
-        draft?.let(::streamDraftErrors).orEmpty().filter { issue ->
-            when (page) {
-                "create", "details" -> issue.prefixRes != 0
-                "multi" -> issue.prefixRes == 0
-                else -> true
-            }
-        }.forEach { issue ->
-            val prefix = if (issue.prefixRes != 0) stringResource(issue.prefixRes) else ""
-            Text(prefix + stringResource(issue.messageRes, *issue.formatArgs.toTypedArray()),
-                color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-        }
+        StreamDraftFeedback(page, draft, failed)
         when (page) {
-            "list" -> {
+            STREAM_PAGE_LIST -> {
                 StreamProfilesList(
                     profiles = uiState.streamProfiles,
                     activeId = uiState.activeStreamId,
                     scrollState = scrollState,
-                    onOpen = { viewModel.editStream(it); page = "details" },
+                    onOpen = { viewModel.editStream(it); page = STREAM_PAGE_DETAILS },
                     onToggle = viewModel::setStreamEnabled,
                     onReorder = viewModel::reorderStreams,
                 )
-                Button(onClick = { page = "platform" }, modifier = Modifier.fillMaxWidth()) {
+                Button(onClick = { page = STREAM_PAGE_PLATFORM }, modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(R.string.stream_create))
                 }
             }
-            "platform" -> StreamPlatform.entries.forEach { platform ->
-                Button(onClick = { viewModel.createStream(platform); page = "create" }, modifier = Modifier.fillMaxWidth()) {
+            STREAM_PAGE_PLATFORM -> StreamPlatform.entries.forEach { platform ->
+                Button(onClick = { viewModel.createStream(platform); page = STREAM_PAGE_CREATE }, modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(platform.labelRes))
                 }
             }
@@ -145,6 +127,58 @@ fun SettingsStreamingObsScreen(
                 StreamProfilePage(page, profile, uiState, viewModel, twitchViewModel, twitchState) { page = it }
             }
         }
+    }
+}
+
+private fun streamPageBack(
+    page: String, saving: Boolean, viewModel: SettingsViewModel,
+    onBack: () -> Unit, navigate: (String) -> Unit,
+) {
+    if (!saving) when (page) {
+        STREAM_PAGE_LIST -> onBack()
+        STREAM_PAGE_PLATFORM, STREAM_PAGE_CREATE, STREAM_PAGE_DETAILS -> {
+            viewModel.discardStreamDraft()
+            navigate(STREAM_PAGE_LIST)
+        }
+        else -> navigate(STREAM_PAGE_DETAILS)
+    }
+}
+
+@Composable
+private fun streamPageTitle(page: String, draft: StreamProfile?): String = when (page) {
+    STREAM_PAGE_PLATFORM -> stringResource(R.string.stream_choose_type)
+    STREAM_PAGE_CREATE -> stringResource(R.string.stream_create)
+    STREAM_PAGE_DETAILS -> draft?.name.orEmpty()
+    STREAM_PAGE_VIDEO -> stringResource(R.string.stream_video)
+    STREAM_PAGE_MULTI -> stringResource(R.string.multi_streaming_title)
+    STREAM_PAGE_RECORDING -> stringResource(R.string.replay_audio_title)
+    STREAM_PAGE_TWITCH -> stringResource(R.string.twitch_channel_title)
+    STREAM_PAGE_OBS -> stringResource(R.string.stream_obs_remote)
+    else -> stringResource(R.string.cat_streaming_title)
+}
+
+private fun editableStreamPage(page: String, draft: StreamProfile?): Boolean =
+    draft != null && page != STREAM_PAGE_LIST && page != STREAM_PAGE_PLATFORM
+
+private fun streamDraftSaveEnabled(draft: StreamProfile?, saving: Boolean): Boolean {
+    if (draft == null) return false
+    return !saving && draft.name.isNotBlank() && streamDraftErrors(draft).isEmpty()
+}
+
+@Composable
+private fun StreamDraftFeedback(page: String, draft: StreamProfile?, failed: Boolean) {
+    if (failed) Text(stringResource(R.string.stream_save_failed), color = MaterialTheme.colorScheme.error)
+    // Errors in another subpage must still explain why its Save button is disabled.
+    draft?.let(::streamDraftErrors).orEmpty().filter { issue ->
+        when (page) {
+            STREAM_PAGE_CREATE, STREAM_PAGE_DETAILS -> issue.prefixRes != 0
+            STREAM_PAGE_MULTI -> issue.prefixRes == 0
+            else -> true
+        }
+    }.forEach { issue ->
+        val prefix = if (issue.prefixRes != 0) stringResource(issue.prefixRes) else ""
+        Text(prefix + stringResource(issue.messageRes, *issue.formatArgs.toTypedArray()),
+            color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
     }
 }
 
@@ -194,7 +228,7 @@ private fun StreamProfilePage(
     val uiState = profile.applyTo(settings)
     val obsLabel = stringResource(R.string.stream_obs_remote)
     when (page) {
-        "create", "details" -> {
+        STREAM_PAGE_CREATE, STREAM_PAGE_DETAILS -> {
             OutlinedTextField(value = profile.name,
                 onValueChange = { value -> viewModel.updateStreamDraft { it.copy(name = value) } },
                 label = { Text(stringResource(R.string.stream_name)) }, singleLine = true,
@@ -212,14 +246,14 @@ private fun StreamProfilePage(
                 Checkbox(checked = profile.streamUseTls,
                     onCheckedChange = { value -> viewModel.updateStreamDraft { it.copy(streamUseTls = value) } })
             }
-            if (page == "details") StreamMenuGroup {
-                StreamSettingLink(stringResource(R.string.stream_video), { navigate("video") })
-                StreamSettingLink(stringResource(R.string.replay_audio_title), { navigate("recording") })
+            if (page == STREAM_PAGE_DETAILS) StreamMenuGroup {
+                StreamSettingLink(stringResource(R.string.stream_video), { navigate(STREAM_PAGE_VIDEO) })
+                StreamSettingLink(stringResource(R.string.replay_audio_title), { navigate(STREAM_PAGE_RECORDING) })
                 if (profile.platform == StreamPlatformType.Twitch) {
-                    StreamSettingLink(stringResource(R.string.twitch_channel_title), { navigate("twitch") })
+                    StreamSettingLink(stringResource(R.string.twitch_channel_title), { navigate(STREAM_PAGE_TWITCH) })
                 }
-                StreamSettingLink(stringResource(R.string.multi_streaming_title), { navigate("multi") })
-                StreamSettingLink(stringResource(R.string.stream_obs_remote), { navigate("obs") }, divider = false, trailing = {
+                StreamSettingLink(stringResource(R.string.multi_streaming_title), { navigate(STREAM_PAGE_MULTI) })
+                StreamSettingLink(stringResource(R.string.stream_obs_remote), { navigate(STREAM_PAGE_OBS) }, divider = false, trailing = {
                     StreamSwitchAction("obs_switch_divider") {
                         Switch(checked = profile.obsRemoteEnabled,
                             onCheckedChange = { value -> viewModel.updateStreamDraft { it.copy(obsRemoteEnabled = value) } },
@@ -228,11 +262,11 @@ private fun StreamProfilePage(
                 })
             }
         }
-        "video" -> StreamVideoSettings(profile, uiState, viewModel)
-        "recording" -> StreamRecordingSettings(uiState, viewModel)
-        "twitch" -> StreamTwitchSettings(uiState, viewModel, twitchViewModel, twitchState)
-        "multi" -> StreamMultiSettings(uiState, viewModel)
-        "obs" -> StreamObsSettings(uiState, viewModel)
+        STREAM_PAGE_VIDEO -> StreamVideoSettings(profile, uiState, viewModel)
+        STREAM_PAGE_RECORDING -> StreamRecordingSettings(uiState, viewModel)
+        STREAM_PAGE_TWITCH -> StreamTwitchSettings(uiState, viewModel, twitchViewModel, twitchState)
+        STREAM_PAGE_MULTI -> StreamMultiSettings(uiState, viewModel)
+        STREAM_PAGE_OBS -> StreamObsSettings(uiState, viewModel)
     }
 }
 

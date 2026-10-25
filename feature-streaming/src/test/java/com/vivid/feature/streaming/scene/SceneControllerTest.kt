@@ -16,6 +16,8 @@ import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 
+private const val FRONT_CAMERA_ID = "front"
+
 class SceneControllerTest {
 
     private fun controller(
@@ -150,10 +152,10 @@ class SceneControllerTest {
         val settings = mockk<SettingsRepository>(relaxed = true)
         val engine = mockk<StreamingEngine>(relaxed = true) {
             every { switchSource(any()) } returns true
-            every { selectLens("front") } returns true
+            every { selectLens(FRONT_CAMERA_ID) } returns true
         }
-        controller(repo, settings, engine).applyScene(scene().copy(cameraId = "front", widgets = emptyList()))
-        coVerify { engine.selectLens("front"); repo.setActiveScene("1") }
+        controller(repo, settings, engine).applyScene(scene().copy(cameraId = FRONT_CAMERA_ID, widgets = emptyList()))
+        coVerify { engine.selectLens(FRONT_CAMERA_ID); repo.setActiveScene("1") }
         coVerify(exactly = 0) { settings.updateStreamSettings(any(), any(), any()) }
     }
 

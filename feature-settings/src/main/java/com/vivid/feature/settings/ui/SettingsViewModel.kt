@@ -202,9 +202,8 @@ class SettingsViewModel @Inject constructor(
                 settingsRepository.updateStreamProfiles(profiles, settings.activeStreamId)
                 _streamDraft.value = null
                 onSaved()
-            } catch (cancelled: kotlinx.coroutines.CancellationException) {
-                throw cancelled
-            } catch (_: Exception) {
+            } catch (error: Exception) {
+                if (error is kotlinx.coroutines.CancellationException) throw error
                 _streamSaveFailed.value = true
             } finally {
                 streamMutex.unlock()
@@ -221,9 +220,8 @@ class SettingsViewModel @Inject constructor(
                 if (settings.streamProfiles.none { it.id == id }) return@launch
                 val active = if (enabled) id else settings.activeStreamId.takeUnless { it == id }
                 settingsRepository.updateStreamProfiles(settings.streamProfiles, active)
-            } catch (cancelled: kotlinx.coroutines.CancellationException) {
-                throw cancelled
-            } catch (_: Exception) {
+            } catch (error: Exception) {
+                if (error is kotlinx.coroutines.CancellationException) throw error
                 _streamSaveFailed.value = true
             } finally {
                 streamMutex.unlock()
@@ -240,9 +238,8 @@ class SettingsViewModel @Inject constructor(
                 if (ids.size != profiles.size || ids.toSet() != profiles.keys) return@launch
                 _streamSaveFailed.value = false
                 settingsRepository.updateStreamProfiles(ids.map { profiles.getValue(it) }, settings.activeStreamId)
-            } catch (cancelled: kotlinx.coroutines.CancellationException) {
-                throw cancelled
-            } catch (_: Exception) {
+            } catch (error: Exception) {
+                if (error is kotlinx.coroutines.CancellationException) throw error
                 _streamSaveFailed.value = true
             } finally {
                 streamMutex.unlock()

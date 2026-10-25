@@ -61,15 +61,8 @@ fun SettingsOverlaysScreen(
     val names = WidgetType.entries.associateWith { stringResource(it.titleRes) }
     val defaultSceneName = stringResource(StreamingR.string.scene_default_name, 1)
     LaunchedEffect(Unit) { scenesViewModel.initializeWidgets(defaultSceneName, names) }
-    fun back() {
-        when {
-            zonesEditing -> zonesEditing = false
-            widgetId != null -> widgetId = null
-            placementId != null -> placementId = null
-            sceneId != null -> sceneId = null
-            else -> onBack()
-        }
-    }
+    val back = overlayBackAction(zonesEditing, widgetId, placementId, sceneId,
+        { zonesEditing = false }, { widgetId = null }, { placementId = null }, { sceneId = null }, onBack)
     BackHandler(sceneId != null || widgetId != null || zonesEditing) { back() }
     val scene = scenes.find { it.id == sceneId }
     val widget = widgets.find { it.id == widgetId }
@@ -77,91 +70,124 @@ fun SettingsOverlaysScreen(
     val placedWidget = widgets.find { it.id == placementId }
     var draftLayout by remember(sceneId, placementId) { mutableStateOf<SceneWidget?>(null) }
     val deletingWidget = widgets.find { it.id == deletingWidgetId }
-    if (deletingWidget != null) {
-        AlertDialog(
-            modifier = Modifier.testTag("library_widget_delete_dialog"),
-            onDismissRequest = { deletingWidgetId = null },
-            title = { Text(stringResource(R.string.scene_widget_delete_title)) },
-            text = { Text(stringResource(R.string.scene_widget_delete_message, deletingWidget.name)) },
-            confirmButton = {
-                TextButton(modifier = Modifier.testTag("library_widget_delete_confirm"), onClick = {
-                    scenesViewModel.deleteWidget(deletingWidget.id)
-                    deletingWidgetId = null
-                }) { Text(stringResource(R.string.scene_widget_delete)) }
-            },
-            dismissButton = {
-                TextButton(modifier = Modifier.testTag("library_widget_delete_cancel"),
-                    onClick = { deletingWidgetId = null }) { Text(stringResource(android.R.string.cancel)) }
-            },
-        )
-    }
+    DeleteLibraryWidgetDialog(deletingWidget, { deletingWidgetId = null }, scenesViewModel::deleteWidget)
     when {
         zonesEditing -> {
             val zones by scenesViewModel.privacyZones.collectAsStateWithLifecycle(emptyList())
-            SettingsSectionScaffold(stringResource(StreamingR.string.privacy_zone_editor_title), ::back, null) {
+            SettingsSectionScaffold(stringResource(StreamingR.string.privacy_zone_editor_title), back, null) {
                 Box(Modifier.fillMaxWidth().height(500.dp)) {
                     ZoneEditorOverlay(zones, scenesViewModel::savePrivacyZones) { zonesEditing = false }
                 }
             }
         }
-        widget != null -> SharedWidgetEditor(widget, scenes, ::back, pomodoroViewModel) { updated, visibility ->
-            if (visibility.isEmpty()) scenesViewModel.updateWidget(updated)
-            else scenesViewModel.updateWidgetScenes(updated, visibility)
+        widget != null -> SharedWidgetEditor(widget, scenes, back, pomodoroViewModel) { updated, visibility ->
+            scenesViewModel.saveWidgetChanges(updated, visibility)
             widgetId = null
         }
         placement != null && placedWidget != null -> PlacementEditor(
-            widget = placedWidget, placement = draftLayout ?: placement, onEditSettings = { draftLayout = it; widgetId = placedWidget.id }, savedLayout = savedLayout, onSaveLayout = scenesViewModel::saveWidgetLayout, onBack = ::back,
+            widget = placedWidget, placement = draftLayout ?: placement, onEditSettings = { draftLayout = it; widgetId = placedWidget.id }, savedLayout = savedLayout, onSaveLayout = scenesViewModel::saveWidgetLayout, onBack = back,
             onSave = { updated ->
-                scenesViewModel.updateScene(scene.copy(widgets = scene.widgets.orEmpty().map {
-                    if (it.widgetId == updated.widgetId) it.copy(x = updated.x, y = updated.y, scale = updated.scale) else it
-                }))
+                scenesViewModel.updateScene(scene.withPlacement(updated))
                 placementId = null
             },
         )
         scene != null -> SceneEditor(
             scene, widgets, activeId, streaming !is StreamingState.Streaming && streaming !is StreamingState.Preparing,
-            scenesViewModel, ::back, onPlacement = { placementId = it },
+            scenesViewModel, back, onPlacement = { placementId = it },
         )
-        else -> {
-            val scroll = rememberScrollState()
-            SettingsSectionScaffold(stringResource(R.string.cat_overlays_title), onBack, null, scrollState = scroll) {
-                Text(stringResource(StreamingR.string.scene_bar_title), style = MaterialTheme.typography.titleLarge)
-                SceneItemsList(scenes, { it.id }, { it.name }, { it.enabled }, scenesViewModel::deleteScene,
-                    scroll, onOpen = { sceneId = it },
-                    onToggle = { id, enabled -> scenes.find { it.id == id }?.let { scenesViewModel.updateScene(it.copy(enabled = enabled)) } },
-                    onReorder = scenesViewModel::reorderScenes)
-                val newName = stringResource(StreamingR.string.scene_default_name, scenes.size + 1)
-                OutlinedButton(onClick = { scenesViewModel.saveScene(newName) }, enabled = initialized, modifier = Modifier.fillMaxWidth()) {
-                    Text(stringResource(R.string.scene_widget_add_scene))
+        else -> SceneWidgetLibrary(scenes, widgets, names, initialized,
+            streaming !is StreamingState.Streaming && streaming !is StreamingState.Preparing,
+            scenesViewModel, onBack, { sceneId = it }, { widgetId = it },
+            { deletingWidgetId = it }, { zonesEditing = true })
+    }
+}
+
+private fun overlayBackAction(
+    zonesEditing: Boolean, widgetId: String?, placementId: String?, sceneId: String?,
+    closeZones: () -> Unit, closeWidget: () -> Unit, closePlacement: () -> Unit,
+    closeScene: () -> Unit, onBack: () -> Unit,
+): () -> Unit = when {
+    zonesEditing -> closeZones
+    widgetId != null -> closeWidget
+    placementId != null -> closePlacement
+    sceneId != null -> closeScene
+    else -> onBack
+}
+
+private fun StreamingViewModel.saveWidgetChanges(widget: StreamWidget, visibility: Map<String, Boolean>) {
+    if (visibility.isEmpty()) updateWidget(widget) else updateWidgetScenes(widget, visibility)
+}
+
+private fun StreamScene.withPlacement(updated: SceneWidget) = copy(widgets = widgets.orEmpty().map {
+    if (it.widgetId == updated.widgetId) it.copy(x = updated.x, y = updated.y, scale = updated.scale) else it
+})
+
+@Composable
+private fun DeleteLibraryWidgetDialog(widget: StreamWidget?, onDismiss: () -> Unit, onDelete: (String) -> Unit) {
+    if (widget != null) {
+        AlertDialog(
+            modifier = Modifier.testTag("library_widget_delete_dialog"),
+            onDismissRequest = { onDismiss() },
+            title = { Text(stringResource(R.string.scene_widget_delete_title)) },
+            text = { Text(stringResource(R.string.scene_widget_delete_message, widget.name)) },
+            confirmButton = {
+                TextButton(modifier = Modifier.testTag("library_widget_delete_confirm"), onClick = {
+                    onDelete(widget.id)
+                    onDismiss()
+                }) { Text(stringResource(R.string.scene_widget_delete)) }
+            },
+            dismissButton = {
+                TextButton(modifier = Modifier.testTag("library_widget_delete_cancel"),
+                    onClick = { onDismiss() }) { Text(stringResource(android.R.string.cancel)) }
+            },
+        )
+    }
+}
+
+@Composable
+private fun SceneWidgetLibrary(
+    scenes: List<StreamScene>, widgets: List<StreamWidget>, names: Map<WidgetType, String>,
+    initialized: Boolean, idle: Boolean, scenesViewModel: StreamingViewModel, onBack: () -> Unit,
+    onScene: (String) -> Unit, onWidget: (String) -> Unit, onDeleteWidget: (String) -> Unit,
+    onZones: () -> Unit,
+) {
+    val scroll = rememberScrollState()
+    SettingsSectionScaffold(stringResource(R.string.cat_overlays_title), onBack, null, scrollState = scroll) {
+        Text(stringResource(StreamingR.string.scene_bar_title), style = MaterialTheme.typography.titleLarge)
+        SceneItemsList(scenes, { it.id }, { it.name }, { it.enabled }, scenesViewModel::deleteScene,
+            scroll, onOpen = { onScene(it) },
+            onToggle = { id, enabled -> scenes.find { it.id == id }?.let { scenesViewModel.updateScene(it.copy(enabled = enabled)) } },
+            onReorder = scenesViewModel::reorderScenes)
+        val newName = stringResource(StreamingR.string.scene_default_name, scenes.size + 1)
+        OutlinedButton(onClick = { scenesViewModel.saveScene(newName) }, enabled = initialized, modifier = Modifier.fillMaxWidth()) {
+            Text(stringResource(R.string.scene_widget_add_scene))
+        }
+        Text(stringResource(R.string.scene_widget_library), style = MaterialTheme.typography.titleLarge)
+        Text(stringResource(R.string.scene_widget_library_hint),
+            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.testTag("widget_library_hint"))
+        SceneItemsList(widgets, { it.id }, { it.name }, { it.enabled }, { onDeleteWidget(it) },
+            scroll, onOpen = { onWidget(it) },
+            onToggle = { id, enabled -> widgets.find { it.id == id }?.let { scenesViewModel.updateWidget(it.copy(enabled = enabled)) } },
+            onReorder = scenesViewModel::reorderWidgets)
+        var adding by remember { mutableStateOf(false) }
+        Box {
+            OutlinedButton(onClick = { adding = true }, enabled = initialized, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.scene_widget_add))
+            }
+            DropdownMenu(expanded = adding, onDismissRequest = { adding = false }) {
+                WidgetType.entries.forEach { type ->
+                    DropdownMenuItem(text = { Text(names.getValue(type)) }, onClick = {
+                        val id = UUID.randomUUID().toString()
+                        scenesViewModel.updateWidget(StreamWidget(id, names.getValue(type), type))
+                        onWidget(id)
+                        adding = false
+                    })
                 }
-                Text(stringResource(R.string.scene_widget_library), style = MaterialTheme.typography.titleLarge)
-                Text(stringResource(R.string.scene_widget_library_hint),
-                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.testTag("widget_library_hint"))
-                SceneItemsList(widgets, { it.id }, { it.name }, { it.enabled }, { deletingWidgetId = it },
-                    scroll, onOpen = { widgetId = it },
-                    onToggle = { id, enabled -> widgets.find { it.id == id }?.let { scenesViewModel.updateWidget(it.copy(enabled = enabled)) } },
-                    onReorder = scenesViewModel::reorderWidgets)
-                var adding by remember { mutableStateOf(false) }
-                Box {
-                    OutlinedButton(onClick = { adding = true }, enabled = initialized, modifier = Modifier.fillMaxWidth()) {
-                        Text(stringResource(R.string.scene_widget_add))
-                    }
-                    DropdownMenu(expanded = adding, onDismissRequest = { adding = false }) {
-                        WidgetType.entries.forEach { type ->
-                            DropdownMenuItem(text = { Text(names.getValue(type)) }, onClick = {
-                                val id = UUID.randomUUID().toString()
-                                scenesViewModel.updateWidget(StreamWidget(id, names.getValue(type), type))
-                                widgetId = id
-                                adding = false
-                            })
-                        }
-                    }
-                }
-                Spacer(Modifier.height(16.dp))
-                SceneAutomationAndPrivacy(scenesViewModel, streaming !is StreamingState.Streaming && streaming !is StreamingState.Preparing) { zonesEditing = true }
             }
         }
+        Spacer(Modifier.height(16.dp))
+        SceneAutomationAndPrivacy(scenesViewModel, idle, onZones)
     }
 }
 
@@ -299,43 +325,59 @@ private fun SharedWidgetEditor(widget: StreamWidget, scenes: List<StreamScene>, 
             }
         }
         if (widget.type == WidgetType.POMODORO) {
-            val timerViewModel = pomodoroViewModel ?: hiltViewModel<PomodoroWidgetViewModel>(key = "pomodoro-editor-${widget.id}")
-            val timers by timerViewModel.states.collectAsStateWithLifecycle()
-            val state = timers[widget.id] ?: PomodoroUiState(enabled = widget.enabled,
-                remainingSeconds = config.pomodoroWorkDurationMinutes * 60)
-            val editedWidget = widget.copy(name = name.trim(), configuration = config)
-            Text(stringResource(R.string.pomodoro_controls_hint), style = MaterialTheme.typography.bodySmall)
-            PomodoroWidgetContent(name, state.copy(enabled = widget.enabled && name.isNotBlank()),
-                onToggle = {
-                    if (state.running) timerViewModel.pause(widget.id)
-                    else timerViewModel.saveAndStart(editedWidget, sceneChanges)
-                },
-                onSkip = { timerViewModel.skip(widget.id) }, onReset = { timerViewModel.reset(widget.id) },
-                startLabelRes = WidgetR.string.pomodoro_save_start)
+            PomodoroEditorControls(widget, name, config, sceneChanges, pomodoroViewModel)
         }
         HorizontalDivider(Modifier.padding(top = 8.dp))
-        Card(
-            modifier = Modifier.fillMaxWidth().testTag("widget_scene_selection"),
-            shape = MaterialTheme.shapes.large,
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-        ) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(stringResource(R.string.scene_widget_show_in_scenes), style = MaterialTheme.typography.titleMedium)
-                Text(stringResource(R.string.scene_widget_show_in_scenes_hint), style = MaterialTheme.typography.bodySmall)
-                if (scenes.isEmpty()) Text(stringResource(R.string.scene_widget_no_scenes))
-                scenes.forEach { scene ->
-                    val enabled = scene.widgets.orEmpty().any { it.widgetId == widget.id && it.enabled }
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text(scene.name, Modifier.weight(1f))
-                        Switch(
-                            checked = sceneChanges[scene.id] ?: enabled,
-                            onCheckedChange = { checked ->
-                                sceneChanges = if (checked == enabled) sceneChanges - scene.id else sceneChanges + (scene.id to checked)
-                            },
-                            modifier = Modifier.testTag("widget_scene_toggle_${scene.id}")
-                                .semantics { contentDescription = scene.name },
-                        )
-                    }
+        WidgetSceneSelection(widget, scenes, sceneChanges) { sceneChanges = it }
+    }
+}
+
+@Composable
+private fun PomodoroEditorControls(
+    widget: StreamWidget, name: String, config: WidgetConfiguration, sceneChanges: Map<String, Boolean>,
+    pomodoroViewModel: PomodoroWidgetViewModel?,
+) {
+    val timerViewModel = pomodoroViewModel ?: hiltViewModel<PomodoroWidgetViewModel>(key = "pomodoro-editor-${widget.id}")
+    val timers by timerViewModel.states.collectAsStateWithLifecycle()
+    val state = timers[widget.id] ?: PomodoroUiState(enabled = widget.enabled,
+        remainingSeconds = config.pomodoroWorkDurationMinutes * 60)
+    val editedWidget = widget.copy(name = name.trim(), configuration = config)
+    Text(stringResource(R.string.pomodoro_controls_hint), style = MaterialTheme.typography.bodySmall)
+    PomodoroWidgetContent(name, state.copy(enabled = widget.enabled && name.isNotBlank()),
+        onToggle = {
+            if (state.running) timerViewModel.pause(widget.id)
+            else timerViewModel.saveAndStart(editedWidget, sceneChanges)
+        },
+        onSkip = { timerViewModel.skip(widget.id) }, onReset = { timerViewModel.reset(widget.id) },
+        startLabelRes = WidgetR.string.pomodoro_save_start)
+}
+
+@Composable
+private fun WidgetSceneSelection(
+    widget: StreamWidget, scenes: List<StreamScene>, sceneChanges: Map<String, Boolean>,
+    onChange: (Map<String, Boolean>) -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth().testTag("widget_scene_selection"),
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(stringResource(R.string.scene_widget_show_in_scenes), style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.scene_widget_show_in_scenes_hint), style = MaterialTheme.typography.bodySmall)
+            if (scenes.isEmpty()) Text(stringResource(R.string.scene_widget_no_scenes))
+            scenes.forEach { scene ->
+                val enabled = scene.widgets.orEmpty().any { it.widgetId == widget.id && it.enabled }
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(scene.name, Modifier.weight(1f))
+                    Switch(
+                        checked = sceneChanges[scene.id] ?: enabled,
+                        onCheckedChange = { checked ->
+                            onChange(if (checked == enabled) sceneChanges - scene.id else sceneChanges + (scene.id to checked))
+                        },
+                        modifier = Modifier.testTag("widget_scene_toggle_${scene.id}")
+                            .semantics { contentDescription = scene.name },
+                    )
                 }
             }
         }

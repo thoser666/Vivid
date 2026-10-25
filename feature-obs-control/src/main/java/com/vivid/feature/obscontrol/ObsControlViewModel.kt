@@ -124,9 +124,8 @@ class ObsControlViewModel @Inject constructor(
                 }
                 streamingRepository.connectToObs(password, ip, portNumber, useTls)
                 _uiState.value = if (streamingRepository.isConnectedToObs.value) ConnectionState.Connected else ConnectionState.Connecting
-            } catch (cancelled: kotlinx.coroutines.CancellationException) {
-                throw cancelled
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 _uiState.value = ConnectionState.Error(
                     message = e.message ?: "",
                     messageRes = if (e.message.isNullOrBlank()) R.string.obs_connect_failed_message else 0,

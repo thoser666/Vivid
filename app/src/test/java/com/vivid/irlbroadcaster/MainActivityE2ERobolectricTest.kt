@@ -26,6 +26,8 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
+private const val LANDSCAPE_OPTION_TAG = "orientation_LANDSCAPE"
+
 /**
  * Edge-to-Edge-Tests für die echte [MainActivity] (PARITY
  * „Edge-to-Edge/UX-Modernisierung“).
@@ -112,15 +114,15 @@ class MainActivityE2ERobolectricTest {
             assertEquals(ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR, composeRule.activity.requestedOrientation)
             composeRule.onNodeWithText(composeRule.activity.getString(
                 com.vivid.feature.settings.R.string.cat_appearance_title)).performScrollTo().performClick()
-            composeRule.onNodeWithTag("orientation_LANDSCAPE").performClick()
+            composeRule.onNodeWithTag(LANDSCAPE_OPTION_TAG).performClick()
             awaitLandscapeSelection()
-            composeRule.onNodeWithTag("orientation_LANDSCAPE").assertIsSelected()
+            composeRule.onNodeWithTag(LANDSCAPE_OPTION_TAG).assertIsSelected()
             assertEquals(ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR, composeRule.activity.requestedOrientation)
 
             // Rotation recreates the Activity: restored navigation must keep the menu policy.
             composeRule.activityRule.scenario.recreate()
             awaitLandscapeSelection()
-            composeRule.onNodeWithTag("orientation_LANDSCAPE").assertIsSelected()
+            composeRule.onNodeWithTag(LANDSCAPE_OPTION_TAG).assertIsSelected()
             assertEquals(ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR, composeRule.activity.requestedOrientation)
             composeRule.onNodeWithContentDescription(composeRule.activity.getString(
                 com.vivid.feature.settings.R.string.settings_back)).performClick()
@@ -138,7 +140,7 @@ class MainActivityE2ERobolectricTest {
     private fun awaitLandscapeSelection() {
         // DataStore writes and restoration are asynchronous beyond Compose idleness.
         composeRule.waitUntil(timeoutMillis = 5_000) {
-            composeRule.onAllNodes(hasTestTag("orientation_LANDSCAPE") and isSelected())
+            composeRule.onAllNodes(hasTestTag(LANDSCAPE_OPTION_TAG) and isSelected())
                 .fetchSemanticsNodes().isNotEmpty()
         }
     }

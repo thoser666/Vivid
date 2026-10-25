@@ -24,6 +24,8 @@ import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
+private const val CAMERA_MODE_LOG_TAG = "VividCameraModeTest"
+
 /** Opt-in physical-device evidence. Uses an explicit loopback endpoint, never saved destinations. */
 @RunWith(AndroidJUnit4::class)
 class ExperimentalCameraInstrumentedTest {
@@ -65,7 +67,7 @@ class ExperimentalCameraInstrumentedTest {
                 await { engine.streamingState.value is StreamingState.Streaming }
                 repeat(duration) {
                     Thread.sleep(1_000)
-                    Log.i("VividCameraModeTest", "second=$it mode=${engine.cameraModeStatus.value} fps=${engine.measuredEncoderFps.value}")
+                    Log.i(CAMERA_MODE_LOG_TAG, "second=$it mode=${engine.cameraModeStatus.value} fps=${engine.measuredEncoderFps.value}")
                     assertEquals(CameraMode.EXPERIMENTAL_60_FPS, engine.cameraModeStatus.value.applied)
                     assertEquals(VideoFilter.GRAYSCALE, engine.activeFilter.value)
                 }
@@ -76,20 +78,20 @@ class ExperimentalCameraInstrumentedTest {
                 output = engine.stopReplay()
                 assertNotNull(output)
                 assertTrue(requireNotNull(output).length() > 0)
-                Log.i("VividCameraModeTest", "RESULT file=${output?.absolutePath} measured=${engine.measuredEncoderFps.value}")
+                Log.i(CAMERA_MODE_LOG_TAG, "RESULT file=${output?.absolutePath} measured=${engine.measuredEncoderFps.value}")
                 assertTrue(engine.configureCameraMode(CameraMode.STANDARD))
                 // Standard recording after external capture verifies camera ownership was released.
                 assertTrue(engine.startReplay(includeAudio = false))
                 Thread.sleep(2_000)
                 val standard = engine.stopReplay()
                 assertNotNull(standard)
-                Log.i("VividCameraModeTest", "STANDARD file=${standard?.absolutePath}")
+                Log.i(CAMERA_MODE_LOG_TAG, "STANDARD file=${standard?.absolutePath}")
             } finally {
                 engine.stopStream()
                 engine.stopReplay()
                 engine.configureCameraMode(CameraMode.STANDARD)
                 engine.setVideoFilter(previousFilter)
-                Log.i("VividCameraModeTest", "CLEANUP file=${output?.absolutePath}")
+                Log.i(CAMERA_MODE_LOG_TAG, "CLEANUP file=${output?.absolutePath}")
             }
         }
     }

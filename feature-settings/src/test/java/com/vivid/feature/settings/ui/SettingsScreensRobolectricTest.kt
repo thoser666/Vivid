@@ -27,6 +27,10 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
+private const val TEST_VERSION = "1.2.3"
+private const val INTERFACE_LABEL = "Interface"
+private const val SPEED_TEMPLATE = "{speed}"
+
 /**
  * Robolectric-Compose-Tests für die Settings-Haupt-Screens (Hub, About,
  * Appearance, Overlays, ChatBot).
@@ -64,14 +68,14 @@ class SettingsScreensRobolectricTest {
         composeRule.setContent {
             SettingsScreen(
                 navController = mockk(relaxed = true),
-                installedVersionName = "1.2.3",
+                installedVersionName = TEST_VERSION,
                 viewModel = settingsViewModel(),
             )
         }
         composeRule.onNodeWithText("Settings").assertIsDisplayed()
         // Version sitzt unter den Kategorie-Karten (below the fold) — Existenz prüfen.
         composeRule.onAllNodesWithText("Version 1.2.3")[0].assertExists()
-        composeRule.onAllNodesWithText("Interface")[0].assertExists()
+        composeRule.onAllNodesWithText(INTERFACE_LABEL)[0].assertExists()
         composeRule.onAllNodesWithText("Logs & Diagnostics")[0].assertExists()
     }
 
@@ -81,11 +85,11 @@ class SettingsScreensRobolectricTest {
         composeRule.setContent {
             SettingsScreen(
                 navController = navController,
-                installedVersionName = "1.2.3",
+                installedVersionName = TEST_VERSION,
                 viewModel = settingsViewModel(),
             )
         }
-        composeRule.onNodeWithText("Interface").performClick()
+        composeRule.onNodeWithText(INTERFACE_LABEL).performClick()
         verify { navController.navigate(any<String>()) }
     }
 
@@ -109,7 +113,7 @@ class SettingsScreensRobolectricTest {
         var opened = false
         composeRule.setContent {
             SettingsAboutScreen(
-                installedVersionName = "1.2.3",
+                installedVersionName = TEST_VERSION,
                 updateState = SettingsUpdateState(),
                 onOpenAbout = { opened = true },
                 onBack = {},
@@ -132,7 +136,7 @@ class SettingsScreensRobolectricTest {
                 onBack = {},
             )
         }
-        composeRule.onNodeWithText("Interface").assertIsDisplayed()
+        composeRule.onNodeWithText(INTERFACE_LABEL).assertIsDisplayed()
         composeRule.onNodeWithTag("language_picker").performScrollTo().assertIsDisplayed()
         composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Dark"))
         composeRule.onNodeWithText("Dark").performClick()
@@ -151,11 +155,11 @@ class SettingsScreensRobolectricTest {
                 WidgetSettingsEditor(com.vivid.core.data.WidgetType.TEXT, AppSettings(), changes::add)
             }
         }
-        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("{speed}"))
-        composeRule.onAllNodesWithText("{speed}")[0].performClick()
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText(SPEED_TEMPLATE))
+        composeRule.onAllNodesWithText(SPEED_TEMPLATE)[0].performClick()
         composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("{road}"))
         composeRule.onAllNodesWithText("{lat}")[0].performClick()
-        org.junit.Assert.assertEquals(listOf("{speed}", "{lat}"), changes.map { it.widgetTemplate })
+        org.junit.Assert.assertEquals(listOf(SPEED_TEMPLATE, "{lat}"), changes.map { it.widgetTemplate })
     }
 
     @Test

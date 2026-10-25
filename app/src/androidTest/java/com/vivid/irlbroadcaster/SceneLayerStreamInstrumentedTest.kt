@@ -28,14 +28,8 @@ class SceneLayerStreamInstrumentedTest {
     @Test fun sceneLayerSurvivesNavigationBackgroundAndEffects() {
         val args = InstrumentationRegistry.getArguments()
         assumeTrue(args.getString("runSceneLayerStream") == "true")
-        val port = requireNotNull(args.getString("localRtmpPort")).toInt()
-        require(port in 1024..65535)
-        val fps = (args.getString("fps") ?: "30").toInt()
-        require(fps == 30 || fps == 60)
-        val fullHd = args.getString("fullHd") == "true"
-        val steadySeconds = (args.getString("steadySeconds") ?: "0").toInt()
-        require(steadySeconds in 0..600)
-        val orientation = AppOrientation.valueOf(args.getString("orientation") ?: "LANDSCAPE")
+        val options = streamProbeOptions(args)
+        val (port, fps, fullHd, steadySeconds, orientation) = options
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val context = instrumentation.targetContext
         val evidence = File(context.filesDir, "scene-layer-stream").apply { mkdirs() }
@@ -82,9 +76,7 @@ class SceneLayerStreamInstrumentedTest {
                 }
                 Thread.sleep(2_000)
                 scenario.onActivity {
-                    engine.configureCameraMode(if (fps == 60) CameraMode.EXPERIMENTAL_60_FPS else CameraMode.STANDARD)
-                    if (fps == 60) engine.configureEncoder(ResolvedEncoderConfig(VideoCodecPreference.H264, EncoderPreset.FHD60, false), false)
-                    else if (fullHd) engine.configureEncoder(ResolvedEncoderConfig(VideoCodecPreference.H264, EncoderPreset.FHD30, false), false)
+                    configureProbeCamera(engine, fps, fullHd)
                     runBlocking { controller.applyScene(scene) }
                     StreamingService.start(it, listOf("rtmp://127.0.0.1:$port/live/audit"))
                 }
@@ -131,22 +123,8 @@ class SceneLayerStreamInstrumentedTest {
                 runBlocking { scenes.saveWidget(changed) }
                 mark("background_edit")
                 Thread.sleep(6_000)
-                val latch = CountDownLatch(1)
-                var ticks = ""
-                instrumentation.runOnMainSync {
-                    requireNotNull(browser(engine)).evaluateJavascript("window.probeTicks") { ticks = it; latch.countDown() }
-                }
-                assertTrue(latch.await(3, TimeUnit.SECONDS))
-                assertTrue("Browser JavaScript must keep ticking in background: $ticks", (ticks.toIntOrNull() ?: 0) >= 10)
+                val (ticks, wsResult) = assertBackgroundBrowser(engine)
                 mark("browser_ticks_$ticks")
-                val wsLatch = CountDownLatch(1)
-                var wsResult = ""
-                instrumentation.runOnMainSync {
-                    requireNotNull(browser(engine)).evaluateJavascript("window.wssState+':'+window.wssReceived") { wsResult = it; wsLatch.countDown() }
-                }
-                assertTrue(wsLatch.await(3, TimeUnit.SECONDS))
-                assertTrue("Live WSS echo messages must update the background widget: $wsResult", wsResult.contains("open:") &&
-                    (wsResult.trim('"').substringAfter(':').toIntOrNull() ?: 0) >= 10)
                 mark("wss_$wsResult")
                 scenario.moveToState(androidx.lifecycle.Lifecycle.State.RESUMED)
                 instrumentation.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
@@ -154,13 +132,7 @@ class SceneLayerStreamInstrumentedTest {
                 // Frequent effect rebuilds while empty must not remove the source gate.
                 scenario.onActivity { runBlocking { controller.applyScene(empty) } }
                 mark("empty_no_widgets")
-                repeat(12) { index ->
-                    scenario.onActivity {
-                        engine.setVideoFilter(if (index % 2 == 0) VideoFilter.SEPIA else VideoFilter.NONE)
-                        engine.toggleLowLightBoost()
-                    }
-                    Thread.sleep(100)
-                }
+                rebuildEffectsOnEmptySource(scenario, engine)
                 Thread.sleep(2_000)
                 mark("camera")
                 scenario.onActivity { runBlocking { controller.applyScene(cameraScene) } }
@@ -283,6 +255,58 @@ class SceneLayerStreamInstrumentedTest {
                 }
             }
         }
+    }
+
+    private fun rebuildEffectsOnEmptySource(scenario: ActivityScenario<MainActivity>, engine: StreamingEngine) {
+        repeat(12) { index ->
+            scenario.onActivity {
+                engine.setVideoFilter(if (index % 2 == 0) VideoFilter.SEPIA else VideoFilter.NONE)
+                engine.toggleLowLightBoost()
+            }
+            Thread.sleep(100)
+        }
+    }
+
+    private data class StreamProbeOptions(
+        val port: Int, val fps: Int, val fullHd: Boolean, val steadySeconds: Int, val orientation: AppOrientation,
+    )
+
+    private fun streamProbeOptions(args: android.os.Bundle): StreamProbeOptions {
+        val port = requireNotNull(args.getString("localRtmpPort")).toInt()
+        require(port in 1024..65535)
+        val fps = (args.getString("fps") ?: "30").toInt()
+        require(fps == 30 || fps == 60)
+        val fullHd = args.getString("fullHd") == "true"
+        val steadySeconds = (args.getString("steadySeconds") ?: "0").toInt()
+        require(steadySeconds in 0..600)
+        val orientation = AppOrientation.valueOf(args.getString("orientation") ?: "LANDSCAPE")
+        return StreamProbeOptions(port, fps, fullHd, steadySeconds, orientation)
+    }
+
+    private fun configureProbeCamera(engine: StreamingEngine, fps: Int, fullHd: Boolean) {
+        engine.configureCameraMode(if (fps == 60) CameraMode.EXPERIMENTAL_60_FPS else CameraMode.STANDARD)
+        if (fps == 60) engine.configureEncoder(ResolvedEncoderConfig(VideoCodecPreference.H264, EncoderPreset.FHD60, false), false)
+        else if (fullHd) engine.configureEncoder(ResolvedEncoderConfig(VideoCodecPreference.H264, EncoderPreset.FHD30, false), false)
+    }
+
+    private fun assertBackgroundBrowser(engine: StreamingEngine): Pair<String, String> {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val latch = CountDownLatch(1)
+        var ticks = ""
+        instrumentation.runOnMainSync {
+            requireNotNull(browser(engine)).evaluateJavascript("window.probeTicks") { ticks = it; latch.countDown() }
+        }
+        assertTrue(latch.await(3, TimeUnit.SECONDS))
+        assertTrue("Browser JavaScript must keep ticking in background: $ticks", (ticks.toIntOrNull() ?: 0) >= 10)
+        val wsLatch = CountDownLatch(1)
+        var wsResult = ""
+        instrumentation.runOnMainSync {
+            requireNotNull(browser(engine)).evaluateJavascript("window.wssState+':'+window.wssReceived") { wsResult = it; wsLatch.countDown() }
+        }
+        assertTrue(wsLatch.await(3, TimeUnit.SECONDS))
+        assertTrue("Live WSS echo messages must update the background widget: $wsResult", wsResult.contains("open:") &&
+            (wsResult.trim('"').substringAfter(':').toIntOrNull() ?: 0) >= 10)
+        return ticks to wsResult
     }
 
     private fun findText(node: android.view.accessibility.AccessibilityNodeInfo, text: String): android.view.accessibility.AccessibilityNodeInfo? {

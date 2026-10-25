@@ -70,6 +70,9 @@ import com.vivid.irlbroadcaster.ui.theme.VividTheme
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
+private const val STREAMING_ROUTE = "streaming_route"
+private const val VERSION_NAME_FIELD = "versionName"
+
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
@@ -251,14 +254,14 @@ fun VividAppNavigation(
     val navController = rememberNavController()
     val currentEntry by navController.currentBackStackEntryAsState()
     var previewRequestsFullscreen by remember { mutableStateOf(true) }
-    val previewFullscreen = currentEntry?.destination?.route == "streaming_route" && previewRequestsFullscreen
+    val previewFullscreen = currentEntry?.destination?.route == STREAMING_ROUTE && previewRequestsFullscreen
     SideEffect {
         onPreviewFullscreenChange(previewFullscreen)
         // Wait for navigation restoration so a settings screen never inherits the stream lock.
-        currentEntry?.let { onStreamingScreenChange(it.destination.route == "streaming_route") }
+        currentEntry?.let { onStreamingScreenChange(it.destination.route == STREAMING_ROUTE) }
     }
-    NavHost(navController = navController, startDestination = "streaming_route") {
-        composable("streaming_route") {
+    NavHost(navController = navController, startDestination = STREAMING_ROUTE) {
+        composable(STREAMING_ROUTE) {
             StreamingScreen(navController = navController, onPreviewFullscreenChange = { previewRequestsFullscreen = it })
         }
         composable("playback/{streamUrl}") { backStackEntry ->
@@ -271,7 +274,7 @@ fun VividAppNavigation(
         composable(
             route = "settings_route?versionName={versionName}",
             arguments = listOf(
-                navArgument("versionName") {
+                navArgument(VERSION_NAME_FIELD) {
                     type = NavType.StringType
                     defaultValue = BuildConfig.VERSION_NAME
                 },
@@ -279,7 +282,7 @@ fun VividAppNavigation(
         ) { backStackEntry ->
             SettingsScreen(
                 navController = navController,
-                installedVersionName = backStackEntry.arguments?.getString("versionName") ?: BuildConfig.VERSION_NAME,
+                installedVersionName = backStackEntry.arguments?.getString(VERSION_NAME_FIELD) ?: BuildConfig.VERSION_NAME,
             )
         }
         composable("settings_streaming") {
@@ -344,7 +347,7 @@ fun VividAppNavigation(
         composable(
             route = "settings_about?versionName={versionName}",
             arguments = listOf(
-                navArgument("versionName") {
+                navArgument(VERSION_NAME_FIELD) {
                     type = NavType.StringType
                     defaultValue = BuildConfig.VERSION_NAME
                 },
@@ -353,7 +356,7 @@ fun VividAppNavigation(
             val viewModel: SettingsViewModel = hiltViewModel()
             val updateState by viewModel.updateState.collectAsState()
             SettingsAboutScreen(
-                installedVersionName = backStackEntry.arguments?.getString("versionName")
+                installedVersionName = backStackEntry.arguments?.getString(VERSION_NAME_FIELD)
                     ?: BuildConfig.VERSION_NAME,
                 updateState = updateState,
                 onOpenAbout = { navController.navigate("about_route") },

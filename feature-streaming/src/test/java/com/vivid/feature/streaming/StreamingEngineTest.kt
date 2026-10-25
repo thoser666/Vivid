@@ -44,6 +44,10 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 
+private const val TEST_ENCODER_NAME = "test.encoder"
+private const val BRIDGE_ENCODER_NAME = "encoder"
+private const val BRIDGE_DECODER_NAME = "decoder"
+
 class StreamingEngineTest {
 
     private lateinit var camera: MultiCamera2
@@ -89,7 +93,7 @@ class StreamingEngineTest {
         )
         streamingEngine.timeSource = { 1_000L }
         streamingEngine.readBitrateDiagnostics = {
-            EncoderBitrateDiagnostics("test.encoder", EncoderBitrateMode.CBR, true, 6_000)
+            EncoderBitrateDiagnostics(TEST_ENCODER_NAME, EncoderBitrateMode.CBR, true, 6_000)
         }
         streamingEngine.captureCapabilities = { CameraCaptureCapabilities { _, _, _ -> true } }
         streamingEngine.encoderCapabilities = object : EncoderCapabilities {
@@ -154,7 +158,7 @@ class StreamingEngineTest {
         streamingEngine.launchCameraPreparation = { it() }
         streamingEngine.externalCaptureFactory = { adapter }
         streamingEngine.experimentalProfile = { _, _ -> ExperimentalCameraProfile(
-            ResolvedEncoderConfig(VideoCodecPreference.H264, EncoderPreset.FHD60, false), 120, "encoder", "decoder") }
+            ResolvedEncoderConfig(VideoCodecPreference.H264, EncoderPreset.FHD60, false), 120, BRIDGE_ENCODER_NAME, BRIDGE_DECODER_NAME) }
         streamingEngine.experimentalCaptureFactory = { _, _, _, _ -> capture }
         assertTrue(streamingEngine.configureCameraMode(CameraMode.EXPERIMENTAL_60_FPS))
         streamingEngine.startStream(LIVE_URL)
@@ -187,7 +191,7 @@ class StreamingEngineTest {
         streamingEngine.launchCameraPreparation = { it() }
         streamingEngine.externalCaptureFactory = { adapter }
         streamingEngine.experimentalProfile = { _, _ -> ExperimentalCameraProfile(
-            ResolvedEncoderConfig(VideoCodecPreference.H264, EncoderPreset.FHD60, false), 120, "encoder", "decoder") }
+            ResolvedEncoderConfig(VideoCodecPreference.H264, EncoderPreset.FHD60, false), 120, BRIDGE_ENCODER_NAME, BRIDGE_DECODER_NAME) }
         streamingEngine.experimentalCaptureFactory = { _, _, _, _ -> capture }
         streamingEngine.configureCameraMode(CameraMode.EXPERIMENTAL_60_FPS)
         io.mockk.clearMocks(glStreamInterface, answers = false, recordedCalls = true)
@@ -332,7 +336,7 @@ class StreamingEngineTest {
         streamingCameraReady()
         streamingEngine.initializeCamera()
         streamingEngine.readBitrateDiagnostics = {
-            EncoderBitrateDiagnostics("test.encoder", EncoderBitrateMode.CBR, true, 6_000)
+            EncoderBitrateDiagnostics(TEST_ENCODER_NAME, EncoderBitrateMode.CBR, true, 6_000)
         }
         streamingEngine.captureCapabilities = { CameraCaptureCapabilities { _, _, fps -> fps == 30 } }
         streamingEngine.configureEncoder(
@@ -357,7 +361,7 @@ class StreamingEngineTest {
         streamingCameraReady()
         streamingEngine.initializeCamera()
         streamingEngine.readBitrateDiagnostics = {
-            EncoderBitrateDiagnostics("test.encoder", EncoderBitrateMode.CBR, true, 6_000)
+            EncoderBitrateDiagnostics(TEST_ENCODER_NAME, EncoderBitrateMode.CBR, true, 6_000)
         }
         streamingEngine.captureCapabilities = { CameraCaptureCapabilities { _, _, _ -> false } }
         streamingEngine.configureEncoder(
@@ -411,7 +415,7 @@ class StreamingEngineTest {
         streamingEngine.idlePreviewFactory = { idle }
         streamingEngine.attachPreview(mockk(relaxed = true), 640, 480)
         streamingEngine.readBitrateDiagnostics = {
-            EncoderBitrateDiagnostics("test.encoder", EncoderBitrateMode.CBR, true, 6_000)
+            EncoderBitrateDiagnostics(TEST_ENCODER_NAME, EncoderBitrateMode.CBR, true, 6_000)
         }
         streamingEngine.captureCapabilities = { cam ->
             assertEquals("1", cam.currentCameraId)
@@ -1291,7 +1295,7 @@ class StreamingEngineTest {
             encoderPreset = EncoderPreset.FHD60, videoFps = 60, cameraMode = CameraMode.EXPERIMENTAL_60_FPS,
             appOrientation = com.vivid.core.data.AppOrientation.LANDSCAPE)))
         streamingEngine.experimentalProfile = { requested, _ ->
-            ExperimentalCameraProfile(requested, 120, "capture", "decoder")
+            ExperimentalCameraProfile(requested, 120, "capture", BRIDGE_DECODER_NAME)
         }
         streamingEngine.attachPreview(mockk(relaxed = true), 2712, 1220, 90)
         verify { glStreamInterface.setEncoderSize(1920, 1080) }
@@ -1352,7 +1356,7 @@ class StreamingEngineTest {
         streamingEngine.launchCameraPreparation = { it() }
         streamingEngine.externalCaptureFactory = { adapter }
         streamingEngine.experimentalProfile = { _, _ -> ExperimentalCameraProfile(
-            ResolvedEncoderConfig(VideoCodecPreference.H264, EncoderPreset.FHD60, false), 120, "encoder", "decoder") }
+            ResolvedEncoderConfig(VideoCodecPreference.H264, EncoderPreset.FHD60, false), 120, BRIDGE_ENCODER_NAME, BRIDGE_DECODER_NAME) }
         streamingEngine.experimentalCaptureFactory = { _, _, _, _ -> capture }
         streamingEngine.configureCameraMode(CameraMode.EXPERIMENTAL_60_FPS)
         streamingEngine.startStream(TEST_URL)

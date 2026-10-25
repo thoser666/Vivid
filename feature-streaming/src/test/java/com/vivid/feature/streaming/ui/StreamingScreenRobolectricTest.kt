@@ -55,6 +55,21 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
+private const val ZOOM_PICKER_TAG = "preview_zoom_picker"
+private const val ZOOM_PRESET_TAG = "preview_zoom_1.5"
+private const val SCENE_PICKER_TAG = "preview_scene_picker"
+private const val FIRST_SCENE_ID = "one"
+private const val MAIN_SCENE_NAME = "Main"
+private const val BITRATE_TAG = "stream_current_bitrate"
+private const val STATUS_OVERLAY_TAG = "stream_status_overlay"
+private const val STOP_STREAM_LABEL = "Stop Streaming"
+private const val STOP_CONFIRM_LABEL = "Stop streaming?"
+private const val SETTINGS_BUTTON_TAG = "open_settings"
+private const val PREVIEW_NOTICE_TAG = "stream_preview_message"
+private const val CONNECTION_REFUSED = "connection refused"
+private const val SETTINGS_ROUTE = "settings_route"
+private const val CONTROLS_MENU_TAG = "controls_menu"
+
 /**
  * Robolectric-Compose-Tests für [StreamingScreen].
  *
@@ -163,12 +178,12 @@ class StreamingScreenRobolectricTest {
                 StreamingScreen(navController, viewModel, twitchViewModel, overlayContent = {})
             }
         }
-        composeRule.onNodeWithTag("preview_zoom_picker").assertIsDisplayed()
+        composeRule.onNodeWithTag(ZOOM_PICKER_TAG).assertIsDisplayed()
         composeRule.onNodeWithTag("preview_scene_hidden").assertDoesNotExist()
         composeRule.onNodeWithTag("preview_scene_street").performTouchInput { click() }
         verify(exactly = 1) { viewModel.applyScene(scenes[1]) }
         composeRule.onNodeWithTag("preview_scene_street").assert(androidx.compose.ui.test.isSelected())
-        composeRule.onNodeWithTag("preview_zoom_1.5").performTouchInput { click() }
+        composeRule.onNodeWithTag(ZOOM_PRESET_TAG).performTouchInput { click() }
         verify(exactly = 1) { engine.applyZoomPreset(false, 1.5f) }
         // Capture the actual production screen with fixture scenes; no camera is attached on the JVM.
         val bitmap = composeRule.onRoot().captureToImage().asAndroidBitmap()
@@ -176,7 +191,7 @@ class StreamingScreenRobolectricTest {
         file.parentFile!!.mkdirs()
         file.outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
         val start = composeRule.onNodeWithText("Начать трансляцию").fetchSemanticsNode().boundsInRoot
-        val scenesBounds = composeRule.onNodeWithTag("preview_scene_picker").fetchSemanticsNode().boundsInRoot
+        val scenesBounds = composeRule.onNodeWithTag(SCENE_PICKER_TAG).fetchSemanticsNode().boundsInRoot
         org.junit.Assert.assertTrue("Scene selector must leave Start accessible", scenesBounds.bottom <= start.top)
     }
 
@@ -189,34 +204,34 @@ class StreamingScreenRobolectricTest {
     @Test fun `saved visibility toggles independently update selectors and all HUD indicators`() {
         val settings = MutableStateFlow(com.vivid.core.data.AppSettings())
         every { viewModel.appSettings } returns settings
-        every { viewModel.scenes } returns MutableStateFlow(listOf(com.vivid.core.data.StreamScene("one", "Main")))
+        every { viewModel.scenes } returns MutableStateFlow(listOf(com.vivid.core.data.StreamScene(FIRST_SCENE_ID, MAIN_SCENE_NAME)))
         every { engine.cameraZoomRange() } returns com.vivid.feature.streaming.ZoomRange(1f, 4f)
         every { engine.currentCameraZoom() } returns 1f
         streamingState.value = StreamingState.Streaming
         setContent()
-        composeRule.onNodeWithTag("preview_zoom_picker").assertIsDisplayed()
+        composeRule.onNodeWithTag(ZOOM_PICKER_TAG).assertIsDisplayed()
         composeRule.onNodeWithTag("stream_mode_fps").assertIsDisplayed()
         composeRule.onNodeWithTag("stream_uptime").assertIsDisplayed()
         composeRule.runOnIdle { settings.value = settings.value.copy(localOverlays = com.vivid.core.data.LocalOverlaySettings(false, false, false)) }
-        composeRule.onNodeWithTag("preview_zoom_picker").assertDoesNotExist()
+        composeRule.onNodeWithTag(ZOOM_PICKER_TAG).assertDoesNotExist()
         composeRule.onNodeWithTag("stream_mode_fps").assertDoesNotExist()
         composeRule.onNodeWithTag("stream_uptime").assertDoesNotExist()
-        composeRule.onNodeWithTag("preview_scene_picker").assertIsDisplayed()
-        composeRule.onNodeWithTag("stream_current_bitrate").assertIsDisplayed()
+        composeRule.onNodeWithTag(SCENE_PICKER_TAG).assertIsDisplayed()
+        composeRule.onNodeWithTag(BITRATE_TAG).assertIsDisplayed()
         composeRule.runOnIdle { settings.value = settings.value.copy(localOverlays =
             settings.value.localOverlays.copy(showBitrate = false)) }
-        composeRule.onNodeWithTag("stream_current_bitrate").assertDoesNotExist()
-        composeRule.onNodeWithTag("stream_status_overlay").assertDoesNotExist()
-        composeRule.onNodeWithTag("preview_scene_picker").assertIsDisplayed()
+        composeRule.onNodeWithTag(BITRATE_TAG).assertDoesNotExist()
+        composeRule.onNodeWithTag(STATUS_OVERLAY_TAG).assertDoesNotExist()
+        composeRule.onNodeWithTag(SCENE_PICKER_TAG).assertIsDisplayed()
         composeRule.runOnIdle { settings.value = settings.value.copy(localOverlays =
             com.vivid.core.data.LocalOverlaySettings(showScenes = false)) }
-        composeRule.onNodeWithTag("stream_current_bitrate").assertIsDisplayed()
-        composeRule.onNodeWithTag("preview_scene_picker").assertDoesNotExist()
-        composeRule.onNodeWithTag("preview_zoom_picker").assertIsDisplayed()
+        composeRule.onNodeWithTag(BITRATE_TAG).assertIsDisplayed()
+        composeRule.onNodeWithTag(SCENE_PICKER_TAG).assertDoesNotExist()
+        composeRule.onNodeWithTag(ZOOM_PICKER_TAG).assertIsDisplayed()
         verify(exactly = 0) { viewModel.applyScene(any()) }
         composeRule.runOnIdle { settings.value = settings.value.copy(localOverlays = com.vivid.core.data.LocalOverlaySettings()) }
-        composeRule.onNodeWithTag("preview_zoom_picker").assertIsDisplayed()
-        composeRule.onNodeWithTag("preview_scene_picker").assertIsDisplayed()
+        composeRule.onNodeWithTag(ZOOM_PICKER_TAG).assertIsDisplayed()
+        composeRule.onNodeWithTag(SCENE_PICKER_TAG).assertIsDisplayed()
     }
 
     @Test fun `front camera uses saved front presets and updates after settings change`() {
@@ -228,7 +243,7 @@ class StreamingScreenRobolectricTest {
         every { engine.cameraZoomRange() } returns com.vivid.feature.streaming.ZoomRange(1f, 4f)
         every { engine.currentCameraZoom() } returns 1f
         setContent()
-        composeRule.onNodeWithTag("preview_zoom_1.5").assertDoesNotExist()
+        composeRule.onNodeWithTag(ZOOM_PRESET_TAG).assertDoesNotExist()
         composeRule.onNodeWithTag("preview_zoom_3.0").performClick()
         verify(exactly = 1) { engine.applyZoomPreset(true, 3f) }
         composeRule.runOnIdle { settings.value = settings.value.copy(cameraControls =
@@ -240,14 +255,14 @@ class StreamingScreenRobolectricTest {
         org.junit.Assert.assertTrue(two.left < one.left)
         composeRule.runOnIdle { front = false }
         composeRule.mainClock.advanceTimeBy(200)
-        composeRule.onNodeWithTag("preview_zoom_1.5").assertIsDisplayed().performClick()
+        composeRule.onNodeWithTag(ZOOM_PRESET_TAG).assertIsDisplayed().performClick()
         verify(exactly = 1) { engine.applyZoomPreset(false, 1.5f) }
     }
 
     @Test fun `unsupported zoom remains disabled without clamping and empty source hides zoom`() {
-        val scenes = MutableStateFlow(listOf(com.vivid.core.data.StreamScene("one", "Main")))
+        val scenes = MutableStateFlow(listOf(com.vivid.core.data.StreamScene(FIRST_SCENE_ID, MAIN_SCENE_NAME)))
         every { viewModel.scenes } returns scenes
-        every { viewModel.activeSceneId } returns MutableStateFlow<String?>("one")
+        every { viewModel.activeSceneId } returns MutableStateFlow<String?>(FIRST_SCENE_ID)
         every { engine.cameraZoomRange() } returns com.vivid.feature.streaming.ZoomRange(1f, 4f)
         every { engine.currentCameraZoom() } returns 1f
         every { viewModel.appSettings } returns MutableStateFlow(com.vivid.core.data.AppSettings(cameraControls =
@@ -256,16 +271,16 @@ class StreamingScreenRobolectricTest {
         composeRule.onNodeWithTag("preview_zoom_0.5").assertIsNotEnabled().performClick()
         verify(exactly = 0) { engine.applyZoomPreset(any(), any()) }
         composeRule.runOnIdle { scenes.value = listOf(scenes.value.single().copy(videoSource = com.vivid.core.data.SceneVideoSource.EMPTY)) }
-        composeRule.onNodeWithTag("preview_zoom_picker").assertDoesNotExist()
-        composeRule.onNodeWithTag("preview_scene_picker").assertIsDisplayed()
+        composeRule.onNodeWithTag(ZOOM_PICKER_TAG).assertDoesNotExist()
+        composeRule.onNodeWithTag(SCENE_PICKER_TAG).assertIsDisplayed()
     }
 
     @Test fun `controls and selected scenes follow primary accent roles`() {
         val colors = androidx.compose.runtime.mutableStateOf(androidx.compose.material3.darkColorScheme(
             primary = androidx.compose.ui.graphics.Color.Magenta,
             primaryContainer = androidx.compose.ui.graphics.Color.Blue))
-        every { viewModel.scenes } returns MutableStateFlow(listOf(com.vivid.core.data.StreamScene("one", "Main")))
-        every { viewModel.activeSceneId } returns MutableStateFlow<String?>("one")
+        every { viewModel.scenes } returns MutableStateFlow(listOf(com.vivid.core.data.StreamScene(FIRST_SCENE_ID, MAIN_SCENE_NAME)))
+        every { viewModel.activeSceneId } returns MutableStateFlow<String?>(FIRST_SCENE_ID)
         composeRule.setContent { androidx.compose.material3.MaterialTheme(colorScheme = colors.value) {
             StreamingScreen(navController, viewModel, twitchViewModel, overlayContent = {})
         } }
@@ -273,11 +288,11 @@ class StreamingScreenRobolectricTest {
             val bitmap = composeRule.onNodeWithTag(tag).captureToImage().asAndroidBitmap()
             return bitmap.getPixel(bitmap.width / 2, bitmap.height / 8)
         }
-        assertEquals(android.graphics.Color.MAGENTA, background("open_controls"))
+        assertEquals(android.graphics.Color.MAGENTA, background(CONTROLS_BUTTON_TAG))
         assertEquals(android.graphics.Color.MAGENTA, background("preview_scene_one"))
         composeRule.runOnIdle { colors.value = colors.value.copy(primary = androidx.compose.ui.graphics.Color.Cyan,
             primaryContainer = androidx.compose.ui.graphics.Color.Red) }
-        assertEquals(android.graphics.Color.CYAN, background("open_controls"))
+        assertEquals(android.graphics.Color.CYAN, background(CONTROLS_BUTTON_TAG))
         assertEquals(android.graphics.Color.CYAN, background("preview_scene_one"))
     }
 
@@ -341,7 +356,7 @@ class StreamingScreenRobolectricTest {
         setContent()
 
         composeRule.onNodeWithText("58 FPS").assertIsDisplayed()
-        composeRule.onNodeWithTag("stream_current_bitrate").assertIsDisplayed()
+        composeRule.onNodeWithTag(BITRATE_TAG).assertIsDisplayed()
         composeRule.onNodeWithText("3.1 Mbit/s").assertIsDisplayed()
         composeRule.onNodeWithText("00:00:00").assertIsDisplayed()
         composeRule.onNodeWithTag("applied_camera_profile").assertDoesNotExist()
@@ -353,20 +368,20 @@ class StreamingScreenRobolectricTest {
     @Test
     fun `idle preview has no live stats`() {
         setContent()
-        composeRule.onNodeWithTag("stream_status_overlay").assertDoesNotExist()
+        composeRule.onNodeWithTag(STATUS_OVERLAY_TAG).assertDoesNotExist()
     }
 
     @Test
     fun `stop requires confirmation and cancel keeps the stream live`() {
         streamingState.value = StreamingState.Streaming
         setContent()
-        composeRule.onNodeWithText("Stop Streaming").performClick()
+        composeRule.onNodeWithText(STOP_STREAM_LABEL).performClick()
         verify(exactly = 0) { viewModel.stopStream() }
-        composeRule.onNodeWithText("Stop streaming?").assertIsDisplayed()
+        composeRule.onNodeWithText(STOP_CONFIRM_LABEL).assertIsDisplayed()
         composeRule.onNodeWithText("Keep streaming").performClick()
         verify(exactly = 0) { viewModel.stopStream() }
-        composeRule.onNodeWithText("Stop streaming?").assertDoesNotExist()
-        composeRule.onNodeWithText("Stop Streaming").performClick()
+        composeRule.onNodeWithText(STOP_CONFIRM_LABEL).assertDoesNotExist()
+        composeRule.onNodeWithText(STOP_STREAM_LABEL).performClick()
         composeRule.onNodeWithTag("confirm_stop_stream").performClick()
         verify(exactly = 1) { viewModel.stopStream() }
     }
@@ -375,11 +390,11 @@ class StreamingScreenRobolectricTest {
     fun `external stop closes confirmation and a new stream has no stale dialog`() {
         streamingState.value = StreamingState.Streaming
         setContent()
-        composeRule.onNodeWithText("Stop Streaming").performClick()
+        composeRule.onNodeWithText(STOP_STREAM_LABEL).performClick()
         composeRule.runOnIdle { streamingState.value = StreamingState.Idle }
-        composeRule.onNodeWithText("Stop streaming?").assertDoesNotExist()
+        composeRule.onNodeWithText(STOP_CONFIRM_LABEL).assertDoesNotExist()
         composeRule.runOnIdle { streamingState.value = StreamingState.Streaming }
-        composeRule.onNodeWithText("Stop streaming?").assertDoesNotExist()
+        composeRule.onNodeWithText(STOP_CONFIRM_LABEL).assertDoesNotExist()
         verify(exactly = 0) { viewModel.stopStream() }
     }
 
@@ -416,7 +431,7 @@ class StreamingScreenRobolectricTest {
             }
         }
         val controls = composeRule.onNodeWithTag(CONTROLS_BUTTON_TAG).assertIsDisplayed().fetchSemanticsNode().boundsInRoot
-        val recording = composeRule.onNodeWithTag("open_settings").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        val recording = composeRule.onNodeWithTag(SETTINGS_BUTTON_TAG).assertIsDisplayed().fetchSemanticsNode().boundsInRoot
         org.junit.Assert.assertTrue("Controls overlap settings", controls.right <= recording.left)
     }
 
@@ -467,7 +482,7 @@ class StreamingScreenRobolectricTest {
         streamingState.value = StreamingState.Streaming
         setContent()
 
-        composeRule.onNodeWithText("Stop Streaming").assertIsDisplayed()
+        composeRule.onNodeWithText(STOP_STREAM_LABEL).assertIsDisplayed()
     }
 
     @Test
@@ -485,7 +500,7 @@ class StreamingScreenRobolectricTest {
         composeRule.onNodeWithText(START_STREAMING_LABEL).performClick()
         composeRule.onNodeWithText(warning).assertIsDisplayed()
         verify(exactly = 0) { viewModel.startStream() }
-        composeRule.onNodeWithTag("stream_preview_message").performTouchInput { click() }
+        composeRule.onNodeWithTag(PREVIEW_NOTICE_TAG).performTouchInput { click() }
         composeRule.onNodeWithText(warning).assertDoesNotExist()
         composeRule.onNodeWithText(START_STREAMING_LABEL).performClick()
         composeRule.onNodeWithText(warning).assertIsDisplayed()
@@ -511,18 +526,18 @@ class StreamingScreenRobolectricTest {
 
     @Test
     fun `failed state shows error banner with reason`() {
-        streamingState.value = StreamingState.Failed("connection refused")
+        streamingState.value = StreamingState.Failed(CONNECTION_REFUSED)
         setContent()
 
         composeRule.onNodeWithText("Error: connection refused").assertIsDisplayed()
     }
 
     @Test fun `failure feedback dismisses on tap without changing the streaming state`() {
-        streamingState.value = StreamingState.Failed("connection refused")
+        streamingState.value = StreamingState.Failed(CONNECTION_REFUSED)
         setContent()
-        composeRule.onNodeWithTag("stream_preview_message").performTouchInput { click() }
+        composeRule.onNodeWithTag(PREVIEW_NOTICE_TAG).performTouchInput { click() }
         composeRule.onNodeWithText("Error: connection refused").assertDoesNotExist()
-        assertEquals(StreamingState.Failed("connection refused"), streamingState.value)
+        assertEquals(StreamingState.Failed(CONNECTION_REFUSED), streamingState.value)
         composeRule.onNodeWithText("Retry").assertIsEnabled()
     }
 
@@ -538,12 +553,12 @@ class StreamingScreenRobolectricTest {
         composeRule.mainClock.advanceTimeBy(1_500)
         composeRule.onNodeWithText("Error: second failure").assertIsDisplayed()
         composeRule.mainClock.advanceTimeBy(1_600)
-        composeRule.onNodeWithTag("stream_preview_message").assertDoesNotExist()
+        composeRule.onNodeWithTag(PREVIEW_NOTICE_TAG).assertDoesNotExist()
     }
 
     @Test @Config(sdk = [34], qualifiers = "en-w800dp-h400dp-land-xhdpi")
     fun `landscape feedback stays between buttons and selectors and does not intercept controls`() {
-        every { viewModel.scenes } returns MutableStateFlow(listOf(com.vivid.core.data.StreamScene("one", "Main")))
+        every { viewModel.scenes } returns MutableStateFlow(listOf(com.vivid.core.data.StreamScene(FIRST_SCENE_ID, MAIN_SCENE_NAME)))
         every { engine.cameraZoomRange() } returns com.vivid.feature.streaming.ZoomRange(1f, 4f)
         every { engine.currentCameraZoom() } returns 1f
         configIssues.value = listOf(
@@ -552,9 +567,9 @@ class StreamingScreenRobolectricTest {
             com.vivid.feature.streaming.StreamConfigIssue(com.vivid.feature.streaming.ConfigIssueSeverity.ERROR,
                 com.vivid.feature.streaming.R.string.stream_error_no_host))
         setContent()
-        val banner = composeRule.onNodeWithTag("stream_preview_message").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
-        val top = listOf("open_controls", "open_settings").map { composeRule.onNodeWithTag(it).fetchSemanticsNode().boundsInRoot }
-        val bottom = listOf("preview_zoom_picker", "preview_scene_picker", "stream_start_stop")
+        val banner = composeRule.onNodeWithTag(PREVIEW_NOTICE_TAG).assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        val top = listOf(CONTROLS_BUTTON_TAG, SETTINGS_BUTTON_TAG).map { composeRule.onNodeWithTag(it).fetchSemanticsNode().boundsInRoot }
+        val bottom = listOf(ZOOM_PICKER_TAG, SCENE_PICKER_TAG, "stream_start_stop")
             .map { composeRule.onNodeWithTag(it).assertIsDisplayed().fetchSemanticsNode().boundsInRoot }
         org.junit.Assert.assertTrue("Message covers top controls", top.all { banner.top >= it.bottom })
         org.junit.Assert.assertTrue("Message covers bottom controls", bottom.all { banner.bottom <= it.top })
@@ -563,10 +578,10 @@ class StreamingScreenRobolectricTest {
             .grantPermissions(android.Manifest.permission.POST_NOTIFICATIONS)
         composeRule.onNodeWithTag("stream_start_stop").performTouchInput { click() }
         verify(exactly = 1) { viewModel.startStream() }
-        composeRule.onNodeWithTag("open_settings").performTouchInput { click() }
-        verify(exactly = 1) { navController.navigate("settings_route") }
-        composeRule.onNodeWithTag("open_controls").performTouchInput { click() }
-        composeRule.onNodeWithTag("controls_menu").assertIsDisplayed()
+        composeRule.onNodeWithTag(SETTINGS_BUTTON_TAG).performTouchInput { click() }
+        verify(exactly = 1) { navController.navigate(SETTINGS_ROUTE) }
+        composeRule.onNodeWithTag(CONTROLS_BUTTON_TAG).performTouchInput { click() }
+        composeRule.onNodeWithTag(CONTROLS_MENU_TAG).assertIsDisplayed()
     }
 
     @Test
@@ -577,7 +592,7 @@ class StreamingScreenRobolectricTest {
         )
         setContent()
 
-        composeRule.onNodeWithTag("stream_status_overlay").assertIsDisplayed()
+        composeRule.onNodeWithTag(STATUS_OVERLAY_TAG).assertIsDisplayed()
     }
 
     @Test
@@ -633,7 +648,7 @@ class StreamingScreenRobolectricTest {
     fun `settings opens from standalone button`() {
         setContent()
         composeRule.onNodeWithContentDescription("Open Settings").performClick()
-        verify(exactly = 1) { navController.navigate("settings_route") }
+        verify(exactly = 1) { navController.navigate(SETTINGS_ROUTE) }
     }
 
     @Test
@@ -642,7 +657,7 @@ class StreamingScreenRobolectricTest {
         openControls()
         composeRule.onNodeWithText("Open OBS Control").performScrollTo().performClick()
         verify(exactly = 1) { navController.navigate("obs_control") }
-        composeRule.onNodeWithTag("controls_menu").assertDoesNotExist()
+        composeRule.onNodeWithTag(CONTROLS_MENU_TAG).assertDoesNotExist()
     }
 
     @Test
@@ -783,8 +798,8 @@ class StreamingScreenRobolectricTest {
     fun `settings receives real touches above an opaque clickable overlay`() {
         var overlayClicks = 0
         opaqueOverlay { overlayClicks++ }
-        composeRule.onNodeWithTag("open_settings").performTouchInput { click() }
-        verify(exactly = 1) { navController.navigate("settings_route") }
+        composeRule.onNodeWithTag(SETTINGS_BUTTON_TAG).performTouchInput { click() }
+        verify(exactly = 1) { navController.navigate(SETTINGS_ROUTE) }
         assertEquals(0, overlayClicks)
     }
 
@@ -792,8 +807,8 @@ class StreamingScreenRobolectricTest {
     fun `controls receives real touches above an opaque clickable overlay`() {
         var overlayClicks = 0
         opaqueOverlay { overlayClicks++ }
-        composeRule.onNodeWithTag("open_controls").performTouchInput { click() }
-        composeRule.onNodeWithTag("controls_menu").assertIsDisplayed()
+        composeRule.onNodeWithTag(CONTROLS_BUTTON_TAG).performTouchInput { click() }
+        composeRule.onNodeWithTag(CONTROLS_MENU_TAG).assertIsDisplayed()
         assertEquals(0, overlayClicks)
     }
 
@@ -807,7 +822,7 @@ class StreamingScreenRobolectricTest {
         composeRule.onNodeWithText("Start Streaming").performTouchInput { click() }
         verify(exactly = 1) { viewModel.startStream() }
         composeRule.runOnIdle { streamingState.value = StreamingState.Streaming }
-        composeRule.onNodeWithText("Stop Streaming").performTouchInput { click() }
+        composeRule.onNodeWithText(STOP_STREAM_LABEL).performTouchInput { click() }
         composeRule.onNodeWithTag("confirm_stop_stream").performTouchInput { click() }
         verify(exactly = 1) { viewModel.stopStream() }
         assertEquals(0, overlayClicks)

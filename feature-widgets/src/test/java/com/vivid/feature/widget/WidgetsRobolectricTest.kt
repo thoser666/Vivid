@@ -20,6 +20,9 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
+private const val TEST_TIME = "12:34:56"
+private const val TEST_TEXT = "Hallo Welt"
+
 /**
  * Robolectric-Compose-Tests für die Stream-Overlay-Widgets (Battery, TextInfo,
  * QR-Code, Image, Slideshow, GridOverlay). Die Widgets nehmen ihre ViewModels
@@ -84,13 +87,13 @@ class WidgetsRobolectricTest {
                     showLocation = false,
                     showSpeed = false,
                     showAltitude = false,
-                    time = "12:34:56",
+                    time = TEST_TIME,
                     date = "06.09.2026",
                 ),
             )
         }
         composeRule.setContent { TextInfoWidget(viewModel = viewModel) }
-        composeRule.onNodeWithText("12:34:56").assertIsDisplayed()
+        composeRule.onNodeWithText(TEST_TIME).assertIsDisplayed()
         composeRule.onNodeWithText("06.09.2026").assertIsDisplayed()
     }
 
@@ -200,11 +203,11 @@ class WidgetsRobolectricTest {
     fun `subtitles render lines and partial when enabled`() {
         val viewModel = mockk<SubtitleWidgetViewModel>(relaxed = true) {
             every { state } returns MutableStateFlow(
-                SubtitleState(enabled = true, lines = listOf("Hallo Welt", "Zweite Zeile"), partial = "Teil"),
+                SubtitleState(enabled = true, lines = listOf(TEST_TEXT, "Zweite Zeile"), partial = "Teil"),
             )
         }
         composeRule.setContent { SubtitlesOverlay(viewModel = viewModel) }
-        composeRule.onNodeWithText("Hallo Welt").assertIsDisplayed()
+        composeRule.onNodeWithText(TEST_TEXT).assertIsDisplayed()
         composeRule.onNodeWithText("Zweite Zeile").assertIsDisplayed()
         composeRule.onNodeWithText("Teil").assertIsDisplayed()
     }
@@ -215,7 +218,7 @@ class WidgetsRobolectricTest {
             every { state } returns MutableStateFlow(SubtitleState(enabled = false))
         }
         composeRule.setContent { SubtitlesOverlay(viewModel = viewModel) }
-        composeRule.onAllNodesWithText("Hallo Welt").assertCountEquals(0)
+        composeRule.onAllNodesWithText(TEST_TEXT).assertCountEquals(0)
     }
 
     @Test
@@ -242,11 +245,11 @@ class WidgetsRobolectricTest {
     fun `text widget renders in an encoder host without an activity result registry`() {
         val vm = mockk<TextInfoWidgetViewModel>(relaxed = true) {
             every { uiState } returns MutableStateFlow(TextInfoWidgetUiState(enabled = true,
-                showLocation = false, showSpeed = false, time = "12:34:56"))
+                showLocation = false, showSpeed = false, time = TEST_TIME))
         }
         composeRule.setContent {
             TextInfoWidget(viewModel = vm, requestLocationPermission = false)
         }
-        composeRule.onNodeWithText("12:34:56").assertIsDisplayed()
+        composeRule.onNodeWithText(TEST_TIME).assertIsDisplayed()
     }
 }

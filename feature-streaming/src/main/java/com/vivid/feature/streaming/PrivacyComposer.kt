@@ -117,6 +117,13 @@ class PrivacyComposer(
     @Synchronized
     fun requestRebuild(gl: GlStreamInterface?) {
         if (gl == null) return
+        val desired = desiredEffects()
+        val sceneLayer = ensureSceneLayer(gl)
+        if (sceneEmpty && sceneLayer == null) desired.add(emptySourceRenderFactory())
+        replaceManagedFilters(gl, desired, preserveExternalFilters || sceneLayer != null)
+    }
+
+    private fun desiredEffects(): MutableList<BaseFilterRender> {
         val desired = mutableListOf<BaseFilterRender>()
         // Position 0: Anonymisierung (immer zuerst — Garantie-Postulat).
         if (_privacyEnabled.value) {
@@ -131,6 +138,10 @@ class PrivacyComposer(
         lutRenderFactory()?.let { desired.add(it) }
         lowLightRenderFactory()?.let { desired.add(it) }
 
+        return desired
+    }
+
+    private fun ensureSceneLayer(gl: GlStreamInterface): com.vivid.feature.streaming.scene.SceneLayerFilterRender? {
         var sceneLayer = sceneLayers[gl]
         if (sceneLayer?.released == true) {
             sceneLayers.remove(gl)
@@ -145,10 +156,12 @@ class PrivacyComposer(
                 gl.addFilter(sceneLayer)
             }
         }
-        if (sceneEmpty && sceneLayer == null) desired.add(emptySourceRenderFactory())
+        return sceneLayer
+    }
 
+    private fun replaceManagedFilters(gl: GlStreamInterface, desired: List<BaseFilterRender>, preserve: Boolean) {
         val owned = desired.map(ownFilter)
-        if (preserveExternalFilters || sceneLayer != null) {
+        if (preserve) {
             managedFilters[gl].orEmpty().forEach { gl.removeFilter(it) }
             // Own effects remain before external overlays, with privacy at position zero.
             owned.forEachIndexed { index, filter -> gl.addFilter(index, filter) }

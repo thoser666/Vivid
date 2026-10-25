@@ -12,6 +12,8 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
+private const val TIMER_NAME = "Focus"
+
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], qualifiers = "en")
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -20,9 +22,9 @@ class PomodoroWidgetRobolectricTest {
 
     @Test fun `widget shows countdown and forwards start skip reset`() {
         val actions = mutableListOf<String>()
-        compose.setContent { PomodoroWidgetContent("Focus", PomodoroUiState(enabled = true),
+        compose.setContent { PomodoroWidgetContent(TIMER_NAME, PomodoroUiState(enabled = true),
             { actions += "start" }, { actions += "skip" }, { actions += "reset" }) }
-        compose.onNodeWithText("Focus").assertIsDisplayed()
+        compose.onNodeWithText(TIMER_NAME).assertIsDisplayed()
         compose.onNodeWithText("25:00").assertIsDisplayed()
         compose.onNodeWithText("Start").performClick()
         compose.onNodeWithContentDescription("Skip phase").performClick()
@@ -31,7 +33,7 @@ class PomodoroWidgetRobolectricTest {
     }
 
     @Test fun `running break widget shows pause and completed count`() {
-        compose.setContent { PomodoroWidgetContent("Focus", PomodoroUiState(enabled = true, running = true,
+        compose.setContent { PomodoroWidgetContent(TIMER_NAME, PomodoroUiState(enabled = true, running = true,
             phase = PomodoroPhase.BREAK, remainingSeconds = 65, completedWorkSessions = 2), {}, {}, {}) }
         compose.onNodeWithText("Break").assertIsDisplayed()
         compose.onNodeWithText("01:05").assertIsDisplayed()
@@ -40,7 +42,7 @@ class PomodoroWidgetRobolectricTest {
     }
 
     @Test fun `disabled library widget cannot start`() {
-        compose.setContent { PomodoroWidgetContent("Focus", PomodoroUiState(enabled = false), {}, {}, {}) }
+        compose.setContent { PomodoroWidgetContent(TIMER_NAME, PomodoroUiState(enabled = false), {}, {}, {}) }
         compose.onNodeWithText("Start").assertIsNotEnabled()
     }
 }

@@ -218,9 +218,9 @@ class KickChatReader @Inject constructor(
                     delay(backoffMs)
                     backoffMs = (backoffMs * 2).coerceAtMost(MAX_BACKOFF_MS)
                 }
-            } catch (e: CancellationException) {
-                throw e
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                timber.log.Timber.w(e, "Kick chat connection failed; retrying")
                 // Netz-/Protokollfehler: Status zurücksetzen und mit Backoff
                 // erneut — der Flow versendet nichts, Twitch bleibt unberührt.
                 _state.value = ChatConnectionState.Disconnected
@@ -400,28 +400,34 @@ internal fun mapKickMessage(data: String?, channel: String, chatroomId: Long): C
  */
 internal fun parseIsoToEpochMs(iso: String?): Long? {
     if (iso.isNullOrBlank()) return null
-    val datePart = iso.substringBefore('T')
+    val date = isoDateEpochMs(iso.substringBefore('T')) ?: return null
     val timePart = iso.substringAfter('T', "").substringBefore('Z').substringBefore('+').trim()
-    if (timePart.isBlank()) return null
+    val time = isoTimeOffsetMs(timePart) ?: return null
+    return date + time
+}
+
+private fun isoDateEpochMs(datePart: String): Long? {
     val date = datePart.split('-')
-    val time = timePart.split(':')
-    if (date.size != 3 || time.size < 3) return null
+    if (date.size != 3) return null
     val year = date[0].toIntOrNull() ?: return null
     val month = date[1].toIntOrNull() ?: return null
     val day = date[2].toIntOrNull() ?: return null
+    if (month !in 1..12 || day !in 1..31) return null
+    return daysFromCivil(year, month, day) * 86_400_000L
+}
+
+private fun isoTimeOffsetMs(timePart: String): Long? {
+    if (timePart.isBlank()) return null
+    val time = timePart.split(':')
+    if (time.size < 3) return null
     val hour = time[0].toIntOrNull() ?: return null
     val minute = time[1].toIntOrNull() ?: return null
     val secondAndFraction = time[2]
     val second = secondAndFraction.substringBefore('.').toIntOrNull() ?: return null
     val millis = secondAndFraction.substringAfter('.', "")
         .take(3).padEnd(3, '0').toIntOrNull() ?: 0
-    if (month !in 1..12 || day !in 1..31 ||
-        hour !in 0..23 || minute !in 0..59 || second !in 0..60
-    ) {
-        return null
-    }
-    return daysFromCivil(year, month, day) * 86_400_000L +
-        hour * 3_600_000L + minute * 60_000L + second * 1_000L + millis
+    if (hour !in 0..23 || minute !in 0..59 || second !in 0..60) return null
+    return hour * 3_600_000L + minute * 60_000L + second * 1_000L + millis
 }
 
 /** Tage seit Epoch (proleptisch gregorianisch, Howard-Hinnant-Algorithmus). */

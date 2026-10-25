@@ -943,44 +943,8 @@ class StreamingEngine @Inject constructor(
 
     fun switchSource(kind: VideoSourceKind): Boolean {
         if (_cameraModeStatus.value.preparing) return false
-        val switched = when (kind) {
-            VideoSourceKind.CAMERA -> videoSourceRegistry.switchTo(VideoSourceKind.CAMERA)
-
-            VideoSourceKind.SCREEN_CAPTURE -> {
-                val source = ensureScreenCaptureSource() ?: return false
-                // Die Quelle ist bereits erzeugt (Engine besitzt Display + Checker) —
-                // die Fabrik liefert genau diese Instanz für SCREEN_CAPTURE.
-                videoSourceRegistry.registerFactory(VideoSourceKind.SCREEN_CAPTURE) { requested ->
-                    if (requested == VideoSourceKind.SCREEN_CAPTURE) source else null
-                }
-                videoSourceRegistry.switchTo(VideoSourceKind.SCREEN_CAPTURE)
-            }
-
-            VideoSourceKind.VIDEO_PLAYER -> {
-                val source = ensureVideoPlayerSource() ?: return false
-                videoSourceRegistry.registerFactory(VideoSourceKind.VIDEO_PLAYER) { requested ->
-                    if (requested == VideoSourceKind.VIDEO_PLAYER) source else null
-                }
-                videoSourceRegistry.switchTo(VideoSourceKind.VIDEO_PLAYER)
-            }
-
-            VideoSourceKind.REPLAY -> {
-                val source = ensureReplaySource() ?: return false
-                videoSourceRegistry.registerFactory(VideoSourceKind.REPLAY) { requested ->
-                    if (requested == VideoSourceKind.REPLAY) source else null
-                }
-                videoSourceRegistry.switchTo(VideoSourceKind.REPLAY)
-            }
-            VideoSourceKind.UVC -> {
-                val source = videoSourceRegistry.activeSource.value
-                    ?.let { if (it.kind == VideoSourceKind.UVC) it else null }
-                    ?: return false
-                videoSourceRegistry.registerFactory(VideoSourceKind.UVC) { requested ->
-                    if (requested == VideoSourceKind.UVC) source else null
-                }
-                videoSourceRegistry.switchTo(VideoSourceKind.UVC)
-            }
-        }
+        val switched = if (kind == VideoSourceKind.CAMERA) videoSourceRegistry.switchTo(kind)
+            else switchManagedSource(kind) ?: return false
         if (switched && kind != VideoSourceKind.CAMERA) {
             if (_replayState.value is ReplayState.Recording) stopReplay()
             stopIdlePreview()
@@ -990,6 +954,20 @@ class StreamingEngine @Inject constructor(
         // erhalten; Persistenz je Quelle prüft P3, Skizze §9).
         applyPrivacyZones()
         return switched
+    }
+
+    private fun switchManagedSource(kind: VideoSourceKind): Boolean? {
+        val source = managedSource(kind) ?: return null
+        videoSourceRegistry.registerFactory(kind) { requested -> source.takeIf { requested == kind } }
+        return videoSourceRegistry.switchTo(kind)
+    }
+
+    private fun managedSource(kind: VideoSourceKind): com.vivid.feature.streaming.source.VideoSource? = when (kind) {
+        VideoSourceKind.SCREEN_CAPTURE -> ensureScreenCaptureSource()
+        VideoSourceKind.VIDEO_PLAYER -> ensureVideoPlayerSource()
+        VideoSourceKind.REPLAY -> ensureReplaySource()
+        VideoSourceKind.UVC -> videoSourceRegistry.activeSource.value?.takeIf { it.kind == VideoSourceKind.UVC }
+        VideoSourceKind.CAMERA -> null
     }
 
     /**
@@ -1520,11 +1498,7 @@ class StreamingEngine @Inject constructor(
     fun startIdlePreviewIfReady() {
         installSceneLayer()
         val request = previewRequest ?: return
-        if (_cameraModeStatus.value.preparing) return
-        if (activeSourceKind.value != VideoSourceKind.CAMERA || camera?.isStreaming == true || camera?.isRecording == true ||
-            request.width <= 0 || request.height <= 0 ||
-            context.checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED
-        ) return
+        if (!canStartIdlePreview(request)) return
         // Layout-Maße dienen der Reattach-Erkennung; der Camera2-Buffer kann
         // eine andere, unterstützte Größe haben (z. B. 1088×1088 im Portrait).
         val size = request.width to request.height
@@ -1577,6 +1551,12 @@ class StreamingEngine @Inject constructor(
             Timber.e(error, "Could not open idle camera preview")
         }
     }
+
+    private fun canStartIdlePreview(request: PreviewRequest): Boolean =
+        !_cameraModeStatus.value.preparing && activeSourceKind.value == VideoSourceKind.CAMERA &&
+            camera?.isStreaming != true && camera?.isRecording != true &&
+            request.width > 0 && request.height > 0 &&
+            context.checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
 
     private fun stopIdlePreview() {
         zoomController.cancel()
@@ -1632,17 +1612,7 @@ class StreamingEngine @Inject constructor(
         }
 
         when (activeSourceKind.value) {
-            VideoSourceKind.SCREEN_CAPTURE -> {
-                val source = screenCaptureSource ?: return
-                // #326: Das MediaProjection-Token ist einmalig verwendbar — ohne
-                // frischen Consent würde die Projektion (und mit ihr der Service)
-                // beim Start sterben (#327). Klar melden statt blind zu starten.
-                if (source.requiresFreshConsent()) {
-                    failStream(SCREEN_CAPTURE_CONSENT_REQUIRED)
-                    return
-                }
-                startSourceStream(source, activeUrls, source::startStream)
-            }
+            VideoSourceKind.SCREEN_CAPTURE -> startScreenCaptureStream(activeUrls)
             VideoSourceKind.VIDEO_PLAYER -> videoPlayerSource?.let { source ->
                 startSourceStream(source, activeUrls, source::startStream)
             }
@@ -1652,14 +1622,26 @@ class StreamingEngine @Inject constructor(
             VideoSourceKind.UVC -> uvcVideoSource?.let { source ->
                 startSourceStream(source, activeUrls, source::startStream)
             }
-            VideoSourceKind.CAMERA -> {
-                if (requestedCameraMode == CameraMode.EXPERIMENTAL_60_FPS && camera?.isRecording != true) {
-                    if (camera == null) return
-                    _streamingState.value = StreamingState.Preparing
-                    beginCameraPreparation { startCameraStream(activeUrls) }
-                } else startCameraStream(activeUrls)
-            }
+            VideoSourceKind.CAMERA -> startCameraWhenReady(activeUrls)
         }
+    }
+
+    private fun startScreenCaptureStream(activeUrls: List<String>) {
+        val source = screenCaptureSource ?: return
+        // MediaProjection consent is single-use; preserve the explicit retry notice.
+        if (source.requiresFreshConsent()) {
+            failStream(SCREEN_CAPTURE_CONSENT_REQUIRED)
+            return
+        }
+        startSourceStream(source, activeUrls, source::startStream)
+    }
+
+    private fun startCameraWhenReady(activeUrls: List<String>) {
+        if (requestedCameraMode == CameraMode.EXPERIMENTAL_60_FPS && camera?.isRecording != true) {
+            if (camera == null) return
+            _streamingState.value = StreamingState.Preparing
+            beginCameraPreparation { startCameraStream(activeUrls) }
+        } else startCameraStream(activeUrls)
     }
 
     private fun startSourceStream(
@@ -1748,56 +1730,62 @@ class StreamingEngine @Inject constructor(
         val generation = if (_cameraModeStatus.value.preparing) preparationGeneration else captureGeneration.get()
         if (generation != captureGeneration.get()) return false
         _cameraModeStatus.value = _cameraModeStatus.value.copy(applied = CameraMode.STANDARD, notice = null)
-        if (requestedCameraMode == CameraMode.EXPERIMENTAL_60_FPS) {
-            privacyComposer.preserveExternalFilters = true
-            val requested = _encoderConfig.value ?: ResolvedEncoderConfig(VideoCodecPreference.AUTO, EncoderPreset.FHD30, false)
-            val profile = runCatching { experimentalProfile(requested, cam.cameraCharacteristics) }.getOrNull()
-            if (profile != null) {
-                val prepared = runCatching {
-                    check(prepareResolvedVideo(cam, profile.output))
-                    val adapter = externalCaptureFactory(cam).also { externalCapture = it }
-                    val gl = adapter.prepare(profile.output.preset.width, profile.output.preset.height, encoderRotationDegrees)
-                    privacyComposer.requestRebuild(gl)
-                    val capture = experimentalCaptureFactory(cam.currentCameraId, profile, gl.surface) { error ->
-                        Timber.e(error, "Experimental camera capture failed")
-                        captureScope.launch {
-                            if (experimentalCapture != null && generation == captureGeneration.get() &&
-                                _cameraModeStatus.value.applied == CameraMode.EXPERIMENTAL_60_FPS && !_cameraModeStatus.value.preparing
-                            ) {
-                                stopReplay()
-                                stopStream()
-                                _cameraModeStatus.value = CameraModeStatus(notice = CameraModeNotice.CAPTURE_FAILED)
-                            }
-                        }
-                    }.also { experimentalCapture = it }
-                    check(capture.prepare()) { "High-speed bridge produced no decoded frames" }
-                    check(generation == captureGeneration.get()) { "Camera preparation cancelled" }
-                    adapter.claimCamera()
-                    _cameraModeStatus.value = _cameraModeStatus.value.copy(applied = CameraMode.EXPERIMENTAL_60_FPS)
-                    true
-                }.getOrElse {
-                    Timber.w(it, "Experimental camera preparation failed; returning to standard capture")
-                    closeExperimentalCapture()
-                    stopComposedGl(cam.glInterface as? GlStreamInterface)
-                    false
-                }
-                if (prepared) return true
-            }
-            if (generation != captureGeneration.get()) return false
-            // A capture fallback must retain the requested mode's GL overlay preservation.
-            _cameraModeStatus.value = _cameraModeStatus.value.copy(
-                applied = CameraMode.STANDARD,
-                notice = if (profile == null) CameraModeNotice.UNSUPPORTED else CameraModeNotice.PREPARATION_FAILED,
-            )
-            // Capture fallback is explicit, independent of the requested strict encoder setting.
-            val requestedStandard = _encoderConfig.value
-            if (requestedStandard != null) {
-                val fallback = resolveCameraStreamProfile(requestedStandard, true, captureCapabilities(cam), outputEncoderCapabilities())
-                    ?: return false
-                return prepareResolvedVideo(cam, fallback)
+        return if (requestedCameraMode == CameraMode.EXPERIMENTAL_60_FPS) prepareExperimentalOrFallback(cam, generation)
+            else prepareStandardCameraVideo(cam)
+    }
+
+    private fun prepareStandardCameraVideo(cam: MultiCamera2): Boolean =
+        if (_encoderConfig.value == null) cam.prepareVideo() else applyEncoderPreset(cam)
+
+    private fun prepareExperimentalOrFallback(cam: MultiCamera2, generation: Int): Boolean {
+        privacyComposer.preserveExternalFilters = true
+        val requested = _encoderConfig.value ?: ResolvedEncoderConfig(VideoCodecPreference.AUTO, EncoderPreset.FHD30, false)
+        val profile = runCatching { experimentalProfile(requested, cam.cameraCharacteristics) }.getOrNull()
+        if (profile != null && prepareExperimentalCapture(cam, profile, generation)) return true
+        if (generation != captureGeneration.get()) return false
+        _cameraModeStatus.value = _cameraModeStatus.value.copy(
+            applied = CameraMode.STANDARD,
+            notice = if (profile == null) CameraModeNotice.UNSUPPORTED else CameraModeNotice.PREPARATION_FAILED,
+        )
+        // Capture fallback is explicit, independent of the requested strict encoder setting.
+        val standard = _encoderConfig.value ?: return prepareStandardCameraVideo(cam)
+        val fallback = resolveCameraStreamProfile(standard, true, captureCapabilities(cam), outputEncoderCapabilities())
+            ?: return false
+        return prepareResolvedVideo(cam, fallback)
+    }
+
+    private fun prepareExperimentalCapture(cam: MultiCamera2, profile: ExperimentalCameraProfile, generation: Int): Boolean =
+        runCatching {
+            check(prepareResolvedVideo(cam, profile.output))
+            val adapter = externalCaptureFactory(cam).also { externalCapture = it }
+            val gl = adapter.prepare(profile.output.preset.width, profile.output.preset.height, encoderRotationDegrees)
+            privacyComposer.requestRebuild(gl)
+            val capture = experimentalCaptureFactory(cam.currentCameraId, profile, gl.surface) { error ->
+                handleExperimentalCaptureFailure(error, generation)
+            }.also { experimentalCapture = it }
+            check(capture.prepare()) { "High-speed bridge produced no decoded frames" }
+            check(generation == captureGeneration.get()) { "Camera preparation cancelled" }
+            adapter.claimCamera()
+            _cameraModeStatus.value = _cameraModeStatus.value.copy(applied = CameraMode.EXPERIMENTAL_60_FPS)
+            true
+        }.getOrElse {
+            Timber.w(it, "Experimental camera preparation failed; returning to standard capture")
+            closeExperimentalCapture()
+            stopComposedGl(cam.glInterface as? GlStreamInterface)
+            false
+        }
+
+    private fun handleExperimentalCaptureFailure(error: Throwable, generation: Int) {
+        Timber.e(error, "Experimental camera capture failed")
+        captureScope.launch {
+            if (experimentalCapture != null && generation == captureGeneration.get() &&
+                _cameraModeStatus.value.applied == CameraMode.EXPERIMENTAL_60_FPS && !_cameraModeStatus.value.preparing
+            ) {
+                stopReplay()
+                stopStream()
+                _cameraModeStatus.value = CameraModeStatus(notice = CameraModeNotice.CAPTURE_FAILED)
             }
         }
-        return if (_encoderConfig.value == null) cam.prepareVideo() else applyEncoderPreset(cam)
     }
 
     private fun prepareStreamEncoders(cam: MultiCamera2): Boolean {
