@@ -128,7 +128,6 @@ class StreamingViewModel @Inject constructor(
 
     override fun onCleared() {
         finishEditor(restore = true)
-        super.onCleared()
     }
 
     // --- Szenen (Basic Scenes) + Auto-Scene-Switcher ---

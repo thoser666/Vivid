@@ -8,9 +8,11 @@ import android.text.StaticLayout
 import android.text.TextPaint
 import com.vivid.core.data.SceneSource
 import com.vivid.core.data.SceneSourceType
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
+import androidx.core.graphics.createBitmap
 import kotlinx.coroutines.*
 
 /** Text/clock content updates independently of camera frame rate and shares one bitmap per source. */
@@ -33,7 +35,7 @@ class SceneWidgetFeed(private val publish: (String, Bitmap) -> Boolean) {
             val previous = mutableMapOf<String, String>()
             do {
                 automatic.forEach { source ->
-                    val text = content(source, Instant.now(), ZoneId.systemDefault()) ?: return@forEach
+                    val text = content(source, System.currentTimeMillis(), TimeZone.getDefault()) ?: return@forEach
                     if (previous[source.id] != text) {
                         val bitmap = render(text)
                         try {
@@ -51,9 +53,9 @@ class SceneWidgetFeed(private val publish: (String, Bitmap) -> Boolean) {
     }
 
     companion object {
-        fun content(source: SceneSource, instant: Instant, zone: ZoneId): String? = when {
+        fun content(source: SceneSource, timeMillis: Long, zone: TimeZone): String? = when {
             source.type != SceneSourceType.WIDGET -> null
-            source.locator == "clock" -> DateTimeFormatter.ofPattern("HH:mm:ss").withZone(zone).format(instant)
+            source.locator == "clock" -> SimpleDateFormat("HH:mm:ss", Locale.ROOT).apply { timeZone = zone }.format(Date(timeMillis))
             source.locator.startsWith("text:") -> source.locator.removePrefix("text:").take(2048)
             else -> null
         }
@@ -68,7 +70,7 @@ class SceneWidgetFeed(private val publish: (String, Bitmap) -> Boolean) {
             val layout = StaticLayout.Builder.obtain(text, 0, text.length, paint, 608)
                 .setAlignment(Layout.Alignment.ALIGN_CENTER).setMaxLines(6)
                 .setEllipsize(android.text.TextUtils.TruncateAt.END).setIncludePad(true).build()
-            return Bitmap.createBitmap(640, (layout.height + 32).coerceIn(96, 512), Bitmap.Config.ARGB_8888).also {
+            return createBitmap(640, (layout.height + 32).coerceIn(96, 512)).also {
                 val canvas = Canvas(it)
                 canvas.drawColor(Color.argb(160, 0, 0, 0))
                 canvas.translate(16f, 16f)

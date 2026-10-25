@@ -10,7 +10,7 @@ import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CameraManager
 import android.hardware.camera2.CaptureRequest
 import android.media.MediaPlayer
-import android.net.Uri
+import androidx.core.net.toUri
 import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
@@ -186,7 +186,7 @@ class AndroidSceneCaptureBackend(
         private val lock = Any()
         private var player: MediaPlayer? = null
         override fun start() {
-            val uri = Uri.parse(locator)
+            val uri = locator.toUri()
             require(uri.scheme in listOf("content", "file") || uri.scheme == null) {
                 "Video sources require a local document"
             }

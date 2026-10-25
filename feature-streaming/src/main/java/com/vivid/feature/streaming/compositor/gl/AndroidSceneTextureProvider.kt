@@ -4,7 +4,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.SurfaceTexture
-import android.net.Uri
+import androidx.core.net.toUri
 import android.opengl.EGL14
 import android.opengl.EGLContext
 import android.opengl.GLES11Ext
@@ -309,7 +309,7 @@ class AndroidSceneTextureProvider(
     companion object {
         private const val FRAME_TIMEOUT_MILLIS = 5_000L
         private fun decodeImage(context: Context, locator: String): Bitmap {
-            val uri = Uri.parse(locator)
+            val uri = locator.toUri()
             fun stream(): InputStream {
                 require(uri.scheme in listOf("content", "file") || uri.scheme == null)
                 return if (uri.scheme == null) File(locator).inputStream()
