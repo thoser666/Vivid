@@ -320,11 +320,12 @@ neu geöffnete Session erlaubt einen neuen Versuch. Die Surface und der Kamera-
 Manager werden dafür nicht neu geöffnet. Eine wiederverwendete Idle-Preview
 setzt auch den vorhandenen RootEncoder-Zeichentakt auf 30 FPS zurück.
 
-Die gezielten Rate-/Kamera-/Engine-Vertragstests bestanden. Eine zusätzliche
+Die 13 neuen Rate-Vertragstests bestanden; der finale sequenzielle Lauf bestand
+**121 Szenen-/Privacy-Tests** und kompilierte alle **14 GLES-Fixtures**. Die neue
 GLES-Fixture prüft die Weitergabe von 60 auf 30 FPS bei unverändertem Producer;
 ihre Geräteausführung und die tatsächliche Capture-Rate, Leistungsaufnahme und
-Thermik bleiben offen. Streaming-Lint bestand für diesen
-Checkpoint ohne Fehler/Warnungen (ein bestehender Autoboxing-Hint). Der erste
-breitere Testlauf stoppte an einem inkrementellen Kotlin-Cachefehler vor der
-Testausführung; der sequenzielle Wiederholungslauf läuft noch. Daraus wird hier
-noch kein bestandener Gesamt-Gate abgeleitet.
+Thermik bleiben offen. Streaming-Lint bestand ohne Fehler/Warnungen (ein
+bestehender Autoboxing-Hint). Der erste breitere Testlauf stoppte an einem
+inkrementellen Kotlin-Cachefehler vor der Testausführung; der sequenzielle
+Wiederholungslauf ohne inkrementelle Kompilierung bestand. Der vollständige
+Pre-Push-Gate läuft für diesen Checkpoint noch.
