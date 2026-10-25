@@ -105,3 +105,11 @@ Widget-Inhalt/Bitmap-Ownership und Projection-Grant-/Lease-Lifecycle) sowie
 seine Unit-Test-Quellen kompilierten. Der folgende Lint-/Gesamt-Gate-Lauf wurde
 bei einer Sitzungsunterbrechung beendet und wird separat erneut geprüft;
 diese Testzahlen sind kein Lint- oder Geräte-Nachweis.
+
+Der folgende vollständige Streaming-Modul-Lint meldete zunächst zehn Fehler:
+Java-Time-Nutzung ohne Desugaring bei minSdk 24, einen leeren Super-Aufruf und
+KTX-Vorschläge. Die Produktions-Uhr verwendet jetzt `SimpleDateFormat` mit
+expliziter Zeitzone; die weiteren Befunde sind korrigiert. Anschließend bestanden
+`:feature-streaming:lintDebug` (**0 Fehler, 0 Warnungen**, ein unveränderter Hint
+in ZoneEditor) und **52 betroffene Tests** (überlappend mit den vorherigen 65).
+Das ersetzt weder den vollständigen Repository-Gate noch Geräteprüfungen.
