@@ -14,7 +14,7 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.isSuccess
 import javax.inject.Inject
 import javax.inject.Singleton
-import java.util.concurrent.CancellationException
+import com.vivid.core.coroutines.rethrowCancellation
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -218,9 +218,8 @@ class KickChatReader @Inject constructor(
                     delay(backoffMs)
                     backoffMs = (backoffMs * 2).coerceAtMost(MAX_BACKOFF_MS)
                 }
-            } catch (cancelled: CancellationException) {
-                throw cancelled
             } catch (e: Exception) {
+                e.rethrowCancellation()
                 timber.log.Timber.w(e, "Kick chat connection failed; retrying")
                 // Netz-/Protokollfehler: Status zurücksetzen und mit Backoff
                 // erneut — der Flow versendet nichts, Twitch bleibt unberührt.

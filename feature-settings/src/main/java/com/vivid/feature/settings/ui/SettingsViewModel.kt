@@ -27,7 +27,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-import java.util.concurrent.CancellationException
+import com.vivid.core.coroutines.rethrowCancellation
 
 /** Zustand des Update-Indikators auf dem Settings-Screen (für den Obtainium-Test). */
 data class SettingsUpdateState(
@@ -203,9 +203,8 @@ class SettingsViewModel @Inject constructor(
                 settingsRepository.updateStreamProfiles(profiles, settings.activeStreamId)
                 _streamDraft.value = null
                 onSaved()
-            } catch (cancelled: CancellationException) {
-                throw cancelled
-            } catch (_: Exception) {
+            } catch (error: Exception) {
+                error.rethrowCancellation()
                 _streamSaveFailed.value = true
             } finally {
                 streamMutex.unlock()
@@ -222,9 +221,8 @@ class SettingsViewModel @Inject constructor(
                 if (settings.streamProfiles.none { it.id == id }) return@launch
                 val active = if (enabled) id else settings.activeStreamId.takeUnless { it == id }
                 settingsRepository.updateStreamProfiles(settings.streamProfiles, active)
-            } catch (cancelled: CancellationException) {
-                throw cancelled
-            } catch (_: Exception) {
+            } catch (error: Exception) {
+                error.rethrowCancellation()
                 _streamSaveFailed.value = true
             } finally {
                 streamMutex.unlock()
@@ -241,9 +239,8 @@ class SettingsViewModel @Inject constructor(
                 if (ids.size != profiles.size || ids.toSet() != profiles.keys) return@launch
                 _streamSaveFailed.value = false
                 settingsRepository.updateStreamProfiles(ids.map { profiles.getValue(it) }, settings.activeStreamId)
-            } catch (cancelled: CancellationException) {
-                throw cancelled
-            } catch (_: Exception) {
+            } catch (error: Exception) {
+                error.rethrowCancellation()
                 _streamSaveFailed.value = true
             } finally {
                 streamMutex.unlock()

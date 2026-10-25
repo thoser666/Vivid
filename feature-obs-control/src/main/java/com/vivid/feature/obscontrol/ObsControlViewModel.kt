@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.onEach
 import javax.inject.Inject
-import java.util.concurrent.CancellationException
+import com.vivid.core.coroutines.rethrowCancellation
 
 @HiltViewModel
 class ObsControlViewModel @Inject constructor(
@@ -125,9 +125,8 @@ class ObsControlViewModel @Inject constructor(
                 }
                 streamingRepository.connectToObs(password, ip, portNumber, useTls)
                 _uiState.value = if (streamingRepository.isConnectedToObs.value) ConnectionState.Connected else ConnectionState.Connecting
-            } catch (cancelled: CancellationException) {
-                throw cancelled
             } catch (e: Exception) {
+                e.rethrowCancellation()
                 _uiState.value = ConnectionState.Error(
                     message = e.message ?: "",
                     messageRes = if (e.message.isNullOrBlank()) R.string.obs_connect_failed_message else 0,
