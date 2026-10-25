@@ -67,3 +67,10 @@ Surfaces und Bilddatei-Upload. Der Fixture-Quellcode wurde gegen Android 37 und
 RootEncoder 2.7.5 kompiliert. Kein angeschlossenes ADB-Gerät war verfügbar;
 Kompilieren ist kein Nachweis der Shader-Ausgabe. Die Geräte-Tests müssen noch
 laufen, bevor der Renderer als verifiziert gilt.
+
+Der anschließende vollständige `scripts/pre-push.sh`-Lauf wurde ausgeführt. Die
+frühen Repository-Guards liefen durch; der Gradle-Gesamtlauf stoppte in bestehenden
+`ObsControlScreenRobolectricTest`-Fällen beim Laden von Conscrypt
+(`libpthread.so.0` auf Android/Termux nicht vorhanden). Der vollständige Gate-Lauf
+ist deshalb **nicht grün**, und nachfolgende Lint-/Release-Nachweise sind offen.
+Die OBS-Tests wurden für diesen Kompositor-PR nicht geändert.
