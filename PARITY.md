@@ -275,6 +275,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 
 | Datum | Commit | Änderung |
 |-------|--------|----------|
+| 2026-10-24 | `4d96959` | **Scene-Compositor #306: Live-Editor und Capture-Consent** — Compose-Layer-Editor mit Gesten/Guides, Undo/Redo, atomarem Save/Cancel, Quellenwahl und vier Sprachen; Text-/Uhr-Feed und MediaProjection-FGS-Handoff mit Grant-/Lease-Lifecycle. Geräte-/GPU-/Performance-Nachweise und weitere Runtime-Integration bleiben offen. |
 | 2026-10-24 | `e63867b` | **Scene-Compositor GPU-/Capture-Integration (#306, WIP):** GLES2-Layer/FBO-Pass mit Alpha, Transforms, Crop, Offline-Platzhaltern und Whole-Scene-Fade; encoderfreie Camera2-/MediaProjection-/Video-Adapter, Bild-Upload und Widget-Bitmap-Bridge; Legacy-Input als GPU-Textur, SceneController-/PrivacyComposer-Anbindung, zusätzliche Live-Quellen unter Privacy vorsorglich mosaikiert. Gezielter Gradle-Lauf **52 Domain + 14 Repository + 85 Streaming grün**, anschließend **15 Capture-Reuse-/Rename-Regressionsprüfungen grün**; Android-Testquellen kompiliert, sieben GLES-Gerätetests noch nicht ausgeführt. Editor, USB ohne Camera-HAL, vollständiger Hauptquellen-Lifecycle und Gerätemessungen weiterhin offen — siehe [Umsetzungsstand](docs/architecture/scene-compositor-implementation.md). |
 | 2026-10-24 | `a28d4af` | **Scene-Compositor-Grundlagen (#306, Umsetzung läuft):** versioniertes Source-/Layer-Modell mit Transforms/Crop/Presets/Duplikaten, atomare Szenenpersistenz mit Migrationsbackup, referenzbasierter Producer-Lifecycle mit Retry/Permission/Generationen und gemeinsame Render-/Editor-Geometrie. **30 JVM-Tests grün** (Kotlin/JUnit direkt, echte DataStore-/Coroutines-Bibliotheken); Android-Gradle-/Geräte-Verifikation offen. Renderer, Capture-Adapter und Editor noch nicht integriert; kein vollständiger Feature-Abschluss. |
 | 2026-10-24 | `0bd56e4` | **Scene-Compositor-RFC (#306):** Architektur, Overlay-Priorität, RootEncoder-/EGL-Optionen, Source-/Layer-Zielmodell und Geräte-/Baseline-Gates dokumentiert in [scene-compositor.md](docs/architecture/scene-compositor.md). Phase 1 zur Review; Phasen 2–4 zurückgestellt (Parität nicht belegt, mobile Bedienung/Wartbarkeit bedingt). Keine Runtime-Änderung oder Gerätemessung. |
@@ -565,6 +566,7 @@ Commit die Log-Zeile hinzufügte:
 
 | Datum | Commit | Eintrag | Kandidaten (Phrase in PARITY.md) | Vermerk |
 |-------|--------|---------|----------------------------------|---------|
+| 2026-10-24 | `4d96959` | Live-Editor und Capture-Consent (#306) | Szenen; Bild-in-Bild (PiP) | WIP: Editor und Capture-Handoff implementiert; Geräte-/GPU-/Performance-Verifikation offen. |
 | 2026-10-24 | `e63867b` | Scene-Compositor GPU-/Capture-Integration (#306) | `e63867b` | Implementierungs-Commit, Gesamtumfang und Hardware-Nachweise offen. |
 | 2026-10-24 | `a28d4af` | Scene-Compositor-Grundlagen (#306) | `a28d4af` | Implementierungs-Commit; vollständiger Umfang bleibt offen, siehe Umsetzungsstand. |
 | 2026-10-24 | `0bd56e4` | Scene-Compositor-RFC (#306) | `0bd56e4` | RFC-Commit; Log folgt separat, kein implementiertes Feature. |
