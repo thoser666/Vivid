@@ -143,19 +143,20 @@ jobs:
     # Läuft bei workflow_dispatch UND bei v*-Tag-Pushen — ein Release-Tag
     # wird VOR der Veröffentlichung auf dem Emulator getestet (Gefordert
     # 24.09.2026: „vor einem Release auf dem Emulator testen“). Bei Tag-Pushen
-    # bleibt die macos-arm64-Leg experimental (continue-on-error), die
-    # ubuntu-x86_64-Leg ist PFLICHT (fälschlich roter Tag-Run = kein Release).
-    # Matrix (Vorfall 06.09.2026,
-    # Run 34009482168: Job lief allein auf macos-latest/arm64 und crashte beim
-    # Emulator-Boot mit `qemu-system-aarch64: failed to initialize HVF:
-    # HV_UNSUPPORTED`):
+    # sind die ubuntu-x86_64-Pflicht-Legs PFLICHT (fälschlich roter Tag-Run =
+    # kein Release); die API-36-Leg ist Beobachter (continue-on-error).
+    # Matrix-Verlauf (Vorfall 06.09.2026, Run 34009482168: der Job lief allein
+    # auf macos-latest/arm64 und crashte beim Emulator-Boot mit
+    # `qemu-system-aarch64: failed to initialize HVF: HV_UNSUPPORTED`).
+    # Die macos-Arm64-Leg wurde am 25.10.2026 entfernt: Re-Run 40178387145
+    # (v0.5.23-beta, Versuch 1 + 2) crashte beide Male mit exakt demselben
+    # HVF-Fehler — kein einziger grüner Lauf seit 06.09.2026, die Leg lieferte
+    # nur Runner-Minuten ohne Testaussage (reine Kotlin/Compose-App ohne
+    # eigene Native-Komponenten → kein ARM64-Abdeckungsverlust).
     #   - ubuntu-x86_64: authority-fähig — GitHub-hosted Linux-Runner bieten
     #     KVM für Android-Workloads (Changelog 02.04.2024); der udev-perms-Step
     #     ist Pflicht, sonst fällt der Emulator auf -accel off zurück
     #     (Boot-Timeout — die früheren Linux-Fehlschläge ohne einen Testfehler).
-    #   - macos-arm64: experimentell (continue-on-error) — HVF auf den Arm64-
-    #     Images derzeit HV_UNSUPPORTED; sobald das Image wieder bootet,
-    #     meldet sich die Leg von selbst grün.
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))
     needs: test
     permissions:
@@ -198,11 +199,6 @@ jobs:
             os: ubuntu-latest
             arch: x86_64
             api-level: 36
-            experimental: true
-          - name: macos-arm64
-            os: macos-latest
-            arch: arm64-v8a
-            api-level: 34
             experimental: true
     runs-on: ${{ matrix.os }}
     continue-on-error: ${{ matrix.experimental }}
@@ -1189,11 +1185,13 @@ jobs:
       - name: Run verify-reproducibility self-test
         run: bash scripts/test_verify_reproducibility.sh
 
-  # ✅ Regressionstest: der Emulator-Test-Job (emulator-tests) muss beide
-  # Runner-Architekturen abdecken — x86_64 authority-fähig mit KVM-Enablement
-  # (udev-perms + /dev/kvm-Verifikation), arm64 experimentell (Vorfall
-  # 06.09.2026: `HVF: HV_UNSUPPORTED` auf macos-latest/arm64; Linux scheiterte
-  # ohne udev-perms am Boot-Timeout via -accel off). Grep-basiert, offline.
+  # ✅ Regressionstest: der Emulator-Test-Job (emulator-tests) deckt die
+  # x86_64-Matrix ab — authority-fähig mit KVM-Enablement (udev-perms +
+  # /dev/kvm-Verifikation); Linux scheiterte ohne udev-perms am Boot-Timeout
+  # via -accel off. Die macos-Leg wurde am 25.10.2026 entfernt (Vorfall
+  # 06.09.2026 + Re-Run 40178387145: `HVF: HV_UNSUPPORTED` auf macos-latest/
+  # arm64, kein grüner Lauf) und darf nicht zurückkehren (T12.1 exakter
+  # Leg-Satz + T1.8 check_absent). Grep-basiert, offline.
   # (scripts/test_emulator_matrix.sh)
   test-emulator-matrix:
     name: Self-Test Emulator-Matrix (Arch-Abdeckung)
