@@ -1367,6 +1367,34 @@ class SettingsViewModelTest {
         assertEquals("My stream", vm.streamDraft.value?.name)
         assertFalse(vm.streamSaving.value)
     }
+    @Test fun `cancelled profile save keeps draft without reporting failure and permits retry`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repo = repository()
+        coEvery { repo.updateStreamProfiles(any(), any()) } throws java.util.concurrent.CancellationException()
+        val vm = createViewModel(repo)
+        advanceUntilIdle()
+        vm.createStream(StreamPlatform.Twitch)
+        vm.updateStreamDraft { it.copy(name = "Cancellation retry") }
+        val draft = vm.streamDraft.value
+        var saves = 0
+        vm.saveStreamDraft { saves++ }
+        advanceUntilIdle()
+        assertEquals(0, saves)
+        assertFalse(vm.streamSaveFailed.value)
+        assertFalse(vm.streamSaving.value)
+        assertEquals(draft, vm.streamDraft.value)
+        coVerify(exactly = 1) { repo.updateStreamProfiles(any(), any()) }
+
+        coEvery { repo.updateStreamProfiles(any(), any()) } just runs
+        vm.saveStreamDraft { saves++ }
+        advanceUntilIdle()
+        assertEquals(1, saves)
+        assertEquals(null, vm.streamDraft.value)
+        assertFalse(vm.streamSaveFailed.value)
+        assertFalse(vm.streamSaving.value)
+        coVerify(exactly = 2) { repo.updateStreamProfiles(any(), any()) }
+    }
+
     @Test fun `reordering persists order and preserves active stream and all settings`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val a = com.vivid.core.data.StreamProfile("a", "A", streamKey = "a-key", videoBitrateKbps = 10_000)

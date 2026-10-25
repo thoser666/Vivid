@@ -70,7 +70,9 @@ fun SettingsOverlaysScreen(
     val placedWidget = widgets.find { it.id == placementId }
     var draftLayout by remember(sceneId, placementId) { mutableStateOf<SceneWidget?>(null) }
     val deletingWidget = widgets.find { it.id == deletingWidgetId }
-    DeleteLibraryWidgetDialog(deletingWidget, { deletingWidgetId = null }, scenesViewModel::deleteWidget)
+    deletingWidget?.let {
+        DeleteLibraryWidgetDialog(it, { deletingWidgetId = null }, scenesViewModel::deleteWidget)
+    }
     when {
         zonesEditing -> {
             val zones by scenesViewModel.privacyZones.collectAsStateWithLifecycle(emptyList())
@@ -123,25 +125,23 @@ private fun StreamScene.withPlacement(updated: SceneWidget) = copy(widgets = wid
 })
 
 @Composable
-private fun DeleteLibraryWidgetDialog(widget: StreamWidget?, onDismiss: () -> Unit, onDelete: (String) -> Unit) {
-    if (widget != null) {
-        AlertDialog(
-            modifier = Modifier.testTag("library_widget_delete_dialog"),
-            onDismissRequest = { onDismiss() },
-            title = { Text(stringResource(R.string.scene_widget_delete_title)) },
-            text = { Text(stringResource(R.string.scene_widget_delete_message, widget.name)) },
-            confirmButton = {
-                TextButton(modifier = Modifier.testTag("library_widget_delete_confirm"), onClick = {
-                    onDelete(widget.id)
-                    onDismiss()
-                }) { Text(stringResource(R.string.scene_widget_delete)) }
-            },
-            dismissButton = {
-                TextButton(modifier = Modifier.testTag("library_widget_delete_cancel"),
-                    onClick = { onDismiss() }) { Text(stringResource(android.R.string.cancel)) }
-            },
-        )
-    }
+private fun DeleteLibraryWidgetDialog(widget: StreamWidget, onDismiss: () -> Unit, onDelete: (String) -> Unit) {
+    AlertDialog(
+        modifier = Modifier.testTag("library_widget_delete_dialog"),
+        onDismissRequest = { onDismiss() },
+        title = { Text(stringResource(R.string.scene_widget_delete_title)) },
+        text = { Text(stringResource(R.string.scene_widget_delete_message, widget.name)) },
+        confirmButton = {
+            TextButton(modifier = Modifier.testTag("library_widget_delete_confirm"), onClick = {
+                onDelete(widget.id)
+                onDismiss()
+            }) { Text(stringResource(R.string.scene_widget_delete)) }
+        },
+        dismissButton = {
+            TextButton(modifier = Modifier.testTag("library_widget_delete_cancel"),
+                onClick = { onDismiss() }) { Text(stringResource(android.R.string.cancel)) }
+        },
+    )
 }
 
 @Composable
