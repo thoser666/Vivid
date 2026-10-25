@@ -155,4 +155,47 @@ class SceneRepositoryTest {
 
         assertNull(repository.activeSceneIdFlow.first())
     }
+
+    @Test
+    fun `editing a scene preserves order and other layered scenes`() = runTest {
+        val repository = repository()
+        val graph = SceneLayoutPreset.PICTURE_IN_PICTURE.arrange(
+            SceneSource("camera", SceneSourceType.CAMERA),
+            SceneSource("logo", SceneSourceType.IMAGE, "content://logo"),
+        )
+        repository.saveScene(scene("a"))
+        repository.saveScene(scene("b").copy(composition = graph))
+        repository.saveScene(scene("a", "Renamed"))
+        val scenes = repository.scenesFlow.first()
+        assertEquals(listOf("a", "b"), scenes.map { it.id })
+        assertEquals(graph, scenes.last().composition)
+        assertEquals("Renamed", scenes.first().name)
+    }
+
+    @Test
+    fun `first composition save keeps original JSON as a recovery backup`() = runTest {
+        val repository = repository()
+        repository.saveScene(scene("a"))
+        assertNull(repository.legacyScenesBackupFlow.first())
+        repository.saveScene(scene("a").copy(composition = scene("a").effectiveComposition()))
+        val backup = repository.legacyScenesBackupFlow.first()
+        assertTrue(backup?.contains("key-a") == true)
+        repository.saveScene(scene("b").copy(composition = scene("b").effectiveComposition()))
+        assertEquals(backup, repository.legacyScenesBackupFlow.first())
+    }
+
+    @Test
+    fun `future composition schema is displayed safely but cannot be overwritten`() = runTest {
+        val store = FakeDataStore()
+        store.updateData { androidx.datastore.preferences.core.preferencesOf(
+            androidx.datastore.preferences.core.stringPreferencesKey("scenes_json") to
+                """[{"id":"future","name":"Keep","composition":{"version":999}}]"""
+        ) }
+        val repository = SceneRepository(store)
+        assertTrue(repository.scenesFlow.first().isEmpty())
+        var rejected = false
+        try { repository.saveScene(scene("new")) } catch (_: Exception) { rejected = true }
+        assertTrue(rejected)
+        assertTrue(store.data.first().asMap().values.any { it.toString().contains("future") })
+    }
 }

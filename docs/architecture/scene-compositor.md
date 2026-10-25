@@ -5,6 +5,8 @@
 > **Entscheidungsvorschlag:** Phase 1 dokumentieren; Phasen 2–4 zurückstellen.
 > Der Maintainer entscheidet über Annahme und spätere Milestones.
 
+Der vollständige Implementierungsauftrag wird im [Umsetzungsstand](scene-compositor-implementation.md) nachverfolgt. Die folgenden Phasen-Gates bleiben Design- und Verifikationskriterien.
+
 ## 1. Ziel und Abgrenzung
 
 **Priorität 1 sind bewusst eingebrannte Overlays im kodierten Video**, zuerst ein
