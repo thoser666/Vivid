@@ -146,3 +146,10 @@ registrierten Workflows. Es wurde kein Emulatorlauf ausgelöst und kein
 GPU-Erfolg behauptet. Die Upstream-PR meldet außerdem einen roten externen
 DeepSource-Kotlin-Status; dessen Bericht war über die verfügbaren Schnittstellen
 nicht abrufbar. Dieser Befund bleibt offen.
+
+Der nächste vollständige Pre-Push-Lauf nach der Screen-Heartbeat-Korrektur
+stoppte bereits im Chat-Modul: **471 Tests, sechs Fehler** in unveränderten
+`ChatAlertRowRenderRobolectricTest`-Fällen. Der XML-Report belegt denselben
+Conscrypt-Loaderfehler (`libpthread.so.0` fehlt), nicht eine Shader- oder
+Capture-Assertion. Das Gesamt-Gate bleibt rot; die OBS-Fehler des vorherigen
+Laufs sind dadurch nicht als behoben nachgewiesen.
