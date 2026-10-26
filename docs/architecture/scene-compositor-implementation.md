@@ -488,3 +488,10 @@ Callback, um eine unter der Delivery-Sperre blockierende Freigabe zu erkennen.
 Auch Standard-Debug-App und instrumentierte Quellen kompilierten danach. Der
 Streaming-Lint bestand ohne Fehler/Warnungen mit dem bestehenden
 `AutoboxingStateCreation`-Hint. I18n- und Markdown-Anker-Guards bestanden.
+
+Der vollständige Pre-Push-Gate nach diesem Audio-Checkpoint bestand die
+Repository-Selbsttests (PyPI-Closure-Drift nur advisory) und scheiterte anschließend
+an **sechs von 471 unveränderten Chat-Tests**. Alle sechs XML-Fehler zeigen den
+Conscrypt-Native-Loader mit fehlender `libpthread.so.0` auf Termux. Der Gate hat
+folglich keinen vollständigen App-/Release-Erfolg bewiesen. Die oben genannten
+211 Szenentests und der separate Streaming-Lint bleiben separat nachgewiesen.
