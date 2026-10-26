@@ -720,3 +720,11 @@ Streaming-Lint bestand erneut mit null Fehlern und Warnungen (ein bestehender
 Hinweis). I18n und Markdown-Anker bestanden ebenfalls. Protokolle:
 `vivid-330-bot-followup-tests.log` und
 `vivid-330-bot-followup-build-lint.log` außerhalb des Repositorys.
+
+
+Auch der vollständige Gate für `0a7b42f` bestand die Repository-Selbsttests und
+stoppte bei denselben sechs von 471 unveränderten Chat-Tests. Alle sechs frischen
+XML-Fehler enthalten Conscrypt und das auf Termux fehlende `libpthread.so.0`.
+Protokoll: `vivid-330-bot-followup-pre-push.log`. Der vollständige Gate bleibt
+rot; der Folgepatch ist separat durch Tests, App-/Instrumentierungs-Kompilation
+und Streaming-Lint geprüft. Keine Regel wurde umgangen oder abgeschwächt.
