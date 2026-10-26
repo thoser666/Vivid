@@ -809,3 +809,16 @@ pre-push bestand die Repository-Selbsttests und stoppte erneut bei sechs von
 475 Chat-Tests; alle frischen Fehler zeigen Conscrypts auf Termux fehlendes
 `libpthread.so.0` (`vivid-330-last-sonar-pre-push.log`). Der vollständige Gate
 bleibt rot; keine Tests oder Analyse-Regeln wurden abgeschwächt.
+
+
+## CI-Screen-Fixtures (2026-10-26)
+
+Run `40333111851`, Job `121611016077`, meldete 40 Fehler bei 860
+Streaming-Tests. Die heruntergeladenen XML-Artefakte zeigen in beiden
+Screen-Testklassen denselben ClassCast von `Object` zu `SceneEditorState`.
+Die relaxed ViewModel-Mocks lieferten für den neu gesammelten generischen
+StateFlow keinen typisierten Zustand. Beide Fixtures liefern nun echte
+MutableStateFlows für den geschlossenen Editor und die leere Producer-Map;
+die Permission-Fixture liefert außerdem den expliziten Full-Frame-Privacy-
+Zustand. Produktionscode und bestehende Render-/Permission-Assertions bleiben
+unverändert.

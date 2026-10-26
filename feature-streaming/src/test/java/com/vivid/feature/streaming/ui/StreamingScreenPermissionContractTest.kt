@@ -97,6 +97,7 @@ class StreamingScreenPermissionContractTest {
         every { engine.sceneNeedsCameraPermission() } returns true
         every { engine.canRecordReplay() } returns true
         every { engine.sceneComposition } returns MutableStateFlow(null)
+        every { engine.sceneProducerStates } returns MutableStateFlow(emptyMap())
         every { engine.activeFilter } returns MutableStateFlow(VideoFilter.NONE)
         every { engine.lowLightBoostEnabled } returns MutableStateFlow(false)
         every { engine.activeLutPreset } returns MutableStateFlow(LutPreset.NONE)
@@ -110,6 +111,7 @@ class StreamingScreenPermissionContractTest {
 
         viewModel = mockk(relaxed = true)
         every { viewModel.streamingEngine } returns engine
+        every { viewModel.sceneEditor } returns MutableStateFlow(null)
         every { viewModel.configIssues } returns MutableStateFlow(emptyList())
         every { viewModel.scenes } returns MutableStateFlow(emptyList())
         every { viewModel.activeSceneId } returns MutableStateFlow<String?>(null)
@@ -117,6 +119,7 @@ class StreamingScreenPermissionContractTest {
         every { viewModel.autoSwitchIntervalSeconds } returns MutableStateFlow(30L)
         every { viewModel.privacyEnabled } returns MutableStateFlow(false)
         every { viewModel.privacyZones } returns MutableStateFlow(emptyList())
+        every { viewModel.fullFrameBlurEnabled } returns MutableStateFlow(false)
 
         twitchViewModel = mockk(relaxed = true)
         every { twitchViewModel.uiState } returns MutableStateFlow(TwitchChannelUiState())
