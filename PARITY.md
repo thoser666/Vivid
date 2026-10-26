@@ -275,6 +275,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 
 | Datum | Commit | Änderung |
 |-------|--------|----------|
+| 2026-10-26 | `5351d97` | **#330: develop bis 8064da7a konfliktfrei integriert** — experimenteller Kamera-Pfad, Live-Status und Orientierungs-Fix bleiben neben dem Szenen-Encoder erhalten; stabile Filterkette bewahrt externe Overlays. Beide Sprachsatz- und R8-Erweiterungen bleiben erhalten. Recording-Helper und monotone Test-Uhr nach automatischem Merge korrigiert; 493 gezielte Tests ohne Fehler/Skips, Standard-App und Instrumentierungsquellen kompiliert. I18n, Anker und Emulator-Matrix-Selbsttest grün; Lint und vollständiger Gate folgen. |
 | 2026-10-26 | `6a663d3` | #330: Optionale GL-Owner-Auflösung von der Verarbeitung mit vorhandenem Owner trennen; nullable Replay-Rückkehr explizit erhalten und Null-Owner-Test auf leere GL-Kommandoliste verstärken. 479 Streaming-/Privacy-Tests, App-/Instrumentierungs-Kompilation und Streaming-Lint bestanden; externe Restbefunde werden neu geprüft. |
 | 2026-10-26 | `0a7b42f` | #330: Verbleibende Bot-Befunde zu USB-Resultat-Parametern, Exception-Klassifizierung und nullable Getter-/GL-Verträgen bearbeiten; kein Capture-/Grant-Verhalten geändert. 479 Streaming-/Privacy-Tests, App-/Instrumentierungs-Kompilation und Streaming-Lint bestanden; neue externe Analyse offen. |
 | 2026-10-26 | `73569c5` | #306/#330: Bot-Befunde durch Aufteilung von Capture-/Frame-Lifecycle, USB-Rollback, Datei-Playback, Engine-Routing und Editor-Permissions bearbeiten; benannte Fixture-Konstanten, explizite Datenhalter und Cleanup-Fehlerbehandlung. 531 ausgewählte Tests, App-/Instrumentierungs-Kompilation und Streaming-Lint bestanden; externe Neuanalyse offen. |
@@ -601,6 +602,7 @@ Commit die Log-Zeile hinzufügte:
 
 | Datum | Commit | Eintrag | Kandidaten (Phrase in PARITY.md) | Vermerk |
 |-------|--------|---------|----------------------------------|---------|
+| 2026-10-26 | `5351d97` | #330: develop bis 8064da7a konfliktfrei integriert | `5351d97` | Merge-Commit erhält beide Capture-Pfade; 493 Tests, App-/Instrumentierungs-Kompilation und strukturelle Guards grün. |
 | 2026-10-26 | `6a663d3` | #330: Optionale GL-Owner-Auflösung von der Verarbeitung | `6a663d3` | Folgeprüfung nach je einem Sonar-/DeepSource-Befund; keine Non-null-Annahme für fehlende Quellen. |
 | 2026-10-26 | `0a7b42f` | #330: Verbleibende Bot-Befunde zu USB-Resultat-Parametern | `0a7b42f` | Folgepatch nach zwei Sonar- und elf DeepSource-Befunden; nullable Semantik bleibt erhalten. |
 | 2026-10-26 | `73569c5` | #306/#330: Bot-Befunde durch Aufteilung von Capture-/Frame-Lifecycle | `73569c5` | 23 Sonar- und 59 DeepSource-Befunde am Ausgangsstand; neue Analyse prüft die tatsächliche Bereinigung. |
