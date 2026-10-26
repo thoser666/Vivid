@@ -727,4 +727,20 @@ stoppte bei denselben sechs von 471 unveränderten Chat-Tests. Alle sechs frisch
 XML-Fehler enthalten Conscrypt und das auf Termux fehlende `libpthread.so.0`.
 Protokoll: `vivid-330-bot-followup-pre-push.log`. Der vollständige Gate bleibt
 rot; der Folgepatch ist separat durch Tests, App-/Instrumentierungs-Kompilation
-und Streaming-Lint geprüft. Keine Regel wurde umgangen oder abgeschwächt.
+und Streaming-Lint geprüft. Keine Test- oder Analyse-Regel wurde abgeschwächt.
+
+
+Am veröffentlichten `2bc54bee` blieben je ein Sonar- und DeepSource-Befund.
+Die letzte Bereinigung trennt die Auflösung eines optional vorhandenen GL-Owners
+von der synchronisierten Verarbeitung mit vorhandenem Owner. Engine-Aufrufe
+verwenden ihren bisherigen Owner-Snapshot; fehlende Owner erzeugen keine GL-
+Kommandos. Der Null-Owner-Test prüft dies ausdrücklich über die leere Kommandoliste.
+Der Replay-Getter nennt seinen nullable Typ und die Rückkehr bei fehlender Quelle
+explizit; die existierenden Null-/Rollback-Tests bleiben erhalten. Der komplette
+gezielte Lauf bestand erneut 479 Tests ohne Fehler oder Skips, instrumentierte
+Quellen kompilierten (`vivid-330-bot-null-contract-tests.log`).
+
+
+Auch diese Revision bestand die Standard-Debug-Kompilation und Streaming-Lint
+mit null Fehlern und Warnungen (ein bestehender Hinweis), dazu I18n und
+Markdown-Anker. Protokoll: `vivid-330-bot-null-contract-build-lint.log`.

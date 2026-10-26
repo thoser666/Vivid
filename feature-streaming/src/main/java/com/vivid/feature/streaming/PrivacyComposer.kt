@@ -126,10 +126,15 @@ class PrivacyComposer(
         if (sceneChain === container) invalidate(gl)
     }
 
-    /** Queue a canonical chain when a GL owner is available; an absent owner is a valid no-op. */
+    /** Resolve an optional owner without allocating a chain when no GL output exists. */
+    fun requestRebuild(owner: () -> GlStreamInterface? = { null }) {
+        val gl = owner() ?: return
+        requestRebuild(gl)
+    }
+
+    /** Queue a canonical chain for an available owner; retain capture and privacy across updates. */
     @Synchronized
-    fun requestRebuild(gl: GlStreamInterface? = null) {
-        if (gl == null) return
+    fun requestRebuild(gl: GlStreamInterface) {
         val desired = mutableListOf<BaseFilterRender>()
         // Privacy precedes creative effects; a camera-free scene is their input.
         if (_privacyEnabled.value) {
@@ -179,7 +184,7 @@ class PrivacyComposer(
     fun setPrivacyEnabled(enabled: Boolean, gl: GlStreamInterface?): Boolean {
         if (_privacyEnabled.value == enabled) return false
         _privacyEnabled.value = enabled
-        requestRebuild(gl)
+        requestRebuild { gl }
         return true
     }
 

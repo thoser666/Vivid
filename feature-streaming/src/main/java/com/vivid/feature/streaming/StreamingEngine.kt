@@ -372,7 +372,7 @@ class StreamingEngine @Inject constructor(
             render.setScene(next, animate)
         } else {
             render?.setScene(null, animate = false)
-            privacyComposer.requestRebuild(gl)
+            privacyComposer.requestRebuild { gl }
         }
     }
 
@@ -490,7 +490,7 @@ class StreamingEngine @Inject constructor(
     fun setVideoFilter(filter: VideoFilter): Boolean {
         val gl = activeGlInterface() ?: return false
         return filterController.setFilter(filter) { _ ->
-            privacyComposer.requestRebuild(gl)
+            privacyComposer.requestRebuild { gl }
         }
     }
 
@@ -498,14 +498,14 @@ class StreamingEngine @Inject constructor(
     fun nextVideoFilter(): VideoFilter {
         val gl = activeGlInterface() ?: return filterController.activeFilter.value
         return filterController.nextFilter { _ ->
-            privacyComposer.requestRebuild(gl)
+            privacyComposer.requestRebuild { gl }
         }
     }
 
     /** Setzt den Filter-Zustand zurück (z.B. beim Stoppen des Streams). */
     fun resetVideoFilter() {
         filterController.resetFilterState()
-        privacyComposer.requestRebuild(activeGlInterface())
+        privacyComposer.requestRebuild(::activeGlInterface)
     }
 
     /**
@@ -517,14 +517,14 @@ class StreamingEngine @Inject constructor(
     fun toggleLowLightBoost(): Boolean {
         val gl = activeGlInterface() ?: return false
         return lowLightBoostController.toggle { _ ->
-            privacyComposer.requestRebuild(gl)
+            privacyComposer.requestRebuild { gl }
         }
     }
 
     /** Setzt den Low-Light-Boost-Zustand zurück (z.B. beim Stoppen des Streams). */
     fun resetLowLightBoost() {
         lowLightBoostController.resetState()
-        privacyComposer.requestRebuild(activeGlInterface())
+        privacyComposer.requestRebuild(::activeGlInterface)
     }
 
     /**
@@ -536,7 +536,7 @@ class StreamingEngine @Inject constructor(
     fun setLutPreset(preset: LutPreset): Boolean {
         val gl = activeGlInterface() ?: return false
         return lutController.setPreset(preset, LUT_SIZE) { _ ->
-            privacyComposer.requestRebuild(gl)
+            privacyComposer.requestRebuild { gl }
         }
     }
 
@@ -548,14 +548,14 @@ class StreamingEngine @Inject constructor(
     fun setColorSpace(colorSpace: ColorSpace): Boolean {
         val gl = activeGlInterface() ?: return false
         return lutController.setColorSpace(colorSpace, LUT_SIZE) { _ ->
-            privacyComposer.requestRebuild(gl)
+            privacyComposer.requestRebuild { gl }
         }
     }
 
     /** Setzt den LUT-Zustand zurück (z.B. beim Stoppen des Streams). */
     fun resetLut() {
         lutController.resetState()
-        privacyComposer.requestRebuild(activeGlInterface())
+        privacyComposer.requestRebuild(::activeGlInterface)
     }
 
     // --- Datenschutz-Anonymisierung (P0, Skizze §5) ---
@@ -624,7 +624,7 @@ class StreamingEngine @Inject constructor(
         publishPrivacyEllipses()
         // Der Toggle-Zustand liegt im Composer; ein Rebuild stellt sicher,
         // dass die Kette den Soll-Zustand (inkl. neuer Zonen) trägt.
-        privacyComposer.requestRebuild(gl)
+        privacyComposer.requestRebuild { gl }
     }
 
     // --- P2: Automatische Gesichter (Skizze §5, Route A: Hardware) ----------
@@ -1174,7 +1174,13 @@ class StreamingEngine @Inject constructor(
     }
 
     /** Die Replay-Datei der aktiven Replay-Quelle (null, wenn keine aktiv/geladen). */
-    val activeReplayFile get() = sceneReplayFile ?: replaySource?.replayFile
+    val activeReplayFile: File?
+        get() {
+            val selected = sceneReplayFile
+            if (selected != null) return selected
+            val source = replaySource ?: return null
+            return source.replayFile
+        }
 
     /**
      * S2: liefert den MediaProjection-Consent-Intent der Screen-Capture-Quelle
@@ -1621,7 +1627,7 @@ class StreamingEngine @Inject constructor(
             // Kamera wird gerade geöffnet: der Producer versucht das Einschalten
             // der Erkennung nach, bis das Input-Surface steht (Risiko #1).
             attachFaceDetection(idleFaceDetectableFactory(preview))
-            privacyComposer.requestRebuild(gl)
+            privacyComposer.requestRebuild { gl }
             restoreCameraControls()
         } catch (error: Exception) {
             stopIdlePreview()

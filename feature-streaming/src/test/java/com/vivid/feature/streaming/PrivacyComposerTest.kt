@@ -174,11 +174,13 @@ class PrivacyComposerTest {
 
     @Test
     fun `null gl skips the rebuild but keeps the state`() {
-        val composer = composer(RecordingGl())
+        val recorder = RecordingGl()
+        val composer = composer(recorder)
         assertTrue(composer.setPrivacyEnabled(true, null))
         assertTrue(composer.privacyEnabled.value)
-        composer.requestRebuild(null)
+        composer.requestRebuild { null }
         composer.requestRebuild()
+        assertTrue(recorder.ops.isEmpty())
     }
 
     @Test
