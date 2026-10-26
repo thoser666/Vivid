@@ -791,3 +791,13 @@ sechs frischen XML-Fehler enthalten Conscrypt und das auf Termux fehlende
 rot; keine Tests oder Regeln wurden abgeschwächt. Der dokumentierte
 einmalige Hook-Bypass wird erst nach diesem vollständig beendeten Lauf
 verwendet.
+
+
+## Letzter Sonar-Befund vor Review (2026-10-26)
+
+Sonar meldete in `attachPreviewIfRunning` eine kognitive Komplexität von
+22 statt höchstens 15 (`kotlin:S3776`, `AaF4RzojzN5-6qs1vs4s`). Die Legacy-
+Orientierung liegt nun in `configureLegacyPreviewOrientation`; Aufrufreihenfolge,
+Halbdrehung vor Filtern, externe Capture-Orientierung und Preview-Crop bleiben
+gleich. Szenen verwenden weiterhin ihre Canvas-Geometrie. Keine Analyse-Regel
+wird unterdrückt.

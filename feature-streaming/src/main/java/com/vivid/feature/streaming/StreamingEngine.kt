@@ -2207,19 +2207,23 @@ class StreamingEngine @Inject constructor(
                 gl.setPreviewRotation(0)
                 gl.setAspectRatioMode(AspectRatioMode.Adjust)
             } else {
-                // Fixed encoder dimensions still need a half-turn for the opposite device orientation.
-                // Apply it to the source before filters; rotating the final output would invert overlays.
-                val inputHalfTurn = if (request.rotationDegrees >= 180) 180 else 0
-                val external = externalCapture
-                if (external != null) external.setInputOrientation(inputHalfTurn) else {
-                    val inputRotation = if (encoderRotationDegrees == 0) 270 else encoderRotationDegrees - 90
-                    gl.setCameraOrientation((inputRotation + inputHalfTurn) % 360)
-                }
-                gl.setPreviewIsPortrait(request.rotationDegrees % 180 == 0)
-                gl.setPreviewRotation((90 - request.rotationDegrees - encoderRotationDegrees - inputHalfTurn + 720) % 360)
-                gl.setAspectRatioMode(AspectRatioMode.Fill)
+                configureLegacyPreviewOrientation(gl, request)
             }
         }
+    }
+
+    private fun configureLegacyPreviewOrientation(gl: GlStreamInterface, request: PreviewRequest) {
+        // Fixed encoder dimensions still need a half-turn for the opposite device orientation.
+        // Apply it to the source before filters; rotating the final output would invert overlays.
+        val inputHalfTurn = if (request.rotationDegrees >= 180) 180 else 0
+        val external = externalCapture
+        if (external != null) external.setInputOrientation(inputHalfTurn) else {
+            val inputRotation = if (encoderRotationDegrees == 0) 270 else encoderRotationDegrees - 90
+            gl.setCameraOrientation((inputRotation + inputHalfTurn) % 360)
+        }
+        gl.setPreviewIsPortrait(request.rotationDegrees % 180 == 0)
+        gl.setPreviewRotation((90 - request.rotationDegrees - encoderRotationDegrees - inputHalfTurn + 720) % 360)
+        gl.setAspectRatioMode(AspectRatioMode.Fill)
     }
 
     /** Stoppt alle laufenden/startenden Ziele und setzt den Zustand auf Idle. */
