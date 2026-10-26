@@ -5,7 +5,6 @@ import android.view.Surface
 import com.pedro.common.ConnectChecker
 import com.pedro.common.VideoCodec
 import com.pedro.encoder.input.sources.audio.MicrophoneSource
-import com.pedro.encoder.input.sources.audio.NoAudioSource
 import com.pedro.encoder.input.sources.video.NoVideoSource
 import com.pedro.encoder.utils.CodecUtil
 import com.vivid.feature.streaming.KeyframeIntervalController
@@ -17,6 +16,9 @@ import com.vivid.core.data.ResolvedEncoderConfig
 import com.vivid.core.data.VideoCodecPreference
 import java.io.Closeable
 import java.io.File
+import com.vivid.feature.streaming.compositor.audio.SceneAudioInput
+import com.vivid.feature.streaming.compositor.audio.SceneAudioInputKind
+import com.vivid.feature.streaming.compositor.audio.SceneAudioRouterSource
 
 /**
  * One compositor output encoder shared by all RTMP targets and the MP4 muxer.
@@ -26,12 +28,14 @@ import java.io.File
 class SceneEncoderSession internal constructor(
     private val stream: MultiStream,
     private val targetCount: Int,
+    private val audio: SceneAudioRouterSource = SceneAudioRouterSource(),
 ) : Closeable {
     init { require(targetCount > 0) }
     val gl: GlStreamInterface get() = stream.getGlInterface()
     private val targets = mutableSetOf<Int>()
     private var recordingAudio: Boolean? = null
-    private var microphone = false
+    private var requestedAudio = SceneAudioInput(SceneAudioInputKind.MICROPHONE, ::MicrophoneSource)
+    internal val audioInputKey: Any get() = audio.requestedKey
     private var prepared = false
     private var closed = false
     val isStreaming: Boolean get() = targets.isNotEmpty()
@@ -40,7 +44,7 @@ class SceneEncoderSession internal constructor(
     /** No second video encoder or recording resolution is requested. */
     fun prepare(config: ResolvedEncoderConfig): Boolean {
         check(!closed && !isStreaming && !isRecording && !gl.isRunning)
-        if (microphone) setMicrophone(false)
+        audio.select(SceneAudioRouterSource.disabled())
         prepared = false
         val codec = when (config.codec) {
             VideoCodecPreference.H265 -> VideoCodec.H265
@@ -63,13 +67,13 @@ class SceneEncoderSession internal constructor(
         check(index !in targets)
         targets.add(index)
         try {
-            syncMicrophone()
+            syncAudio()
             stream.startStream(MultiType.RTMP, index, url)
         } catch (failure: Exception) {
             targets.remove(index)
             runCatching { stream.stopStream(MultiType.RTMP, index) }
             if (!isStreaming) runCatching { prepared = stream.stopStream() }
-            runCatching { syncMicrophone() }
+            runCatching { syncAudio() }
             throw failure
         }
     }
@@ -77,7 +81,7 @@ class SceneEncoderSession internal constructor(
     fun stopTarget(index: Int) {
         if (!targets.remove(index)) return
         // Release the microphone before RootEncoder re-prepares stopped encoders.
-        try { syncMicrophone() }
+        try { syncAudio() }
         finally {
             try { stream.stopStream(MultiType.RTMP, index) }
             finally {
@@ -95,7 +99,7 @@ class SceneEncoderSession internal constructor(
         file.parentFile?.mkdirs()
         recordingAudio = includeAudio
         return try {
-            syncMicrophone()
+            syncAudio()
             // StreamBase defaults NoVideoSource to AUDIO. Composited video must
             // always be explicitly selected, including for video-only recording.
             val tracks = if (includeAudio) RecordController.RecordTracks.ALL
@@ -105,7 +109,7 @@ class SceneEncoderSession internal constructor(
         } catch (_: Exception) {
             recordingAudio = null
             runCatching { stream.stopRecord() }
-            runCatching { syncMicrophone() }
+            runCatching { syncAudio() }
             false
         }
     }
@@ -113,7 +117,7 @@ class SceneEncoderSession internal constructor(
     fun stopRecording() {
         if (!isRecording) return
         recordingAudio = null
-        try { syncMicrophone() }
+        try { syncAudio() }
         finally { prepared = stream.stopRecord() }
     }
 
@@ -139,18 +143,16 @@ class SceneEncoderSession internal constructor(
     }
 
     private fun checkReady() { check(prepared && !closed) { "Scene encoder is not prepared" } }
-    private fun syncMicrophone() = setMicrophone(isStreaming || recordingAudio == true)
-    private fun setMicrophone(enabled: Boolean) {
-        if (microphone == enabled) return
-        val source = if (enabled) MicrophoneSource() else NoAudioSource()
-        try {
-            stream.changeAudioSource(source)
-            microphone = enabled
-        } catch (failure: Exception) {
-            runCatching { source.stop() }
-            runCatching { source.release() }
-            throw failure
-        }
+    /** Changes only the input of the existing audio encoder, including during recording. */
+    internal fun setAudioInput(input: SceneAudioInput?, force: Boolean = false) {
+        check(!closed)
+        val next = input ?: SceneAudioInput(SceneAudioInputKind.MICROPHONE, ::MicrophoneSource)
+        if (isStreaming || recordingAudio == true) audio.select(next, force)
+        requestedAudio = next
+    }
+
+    private fun syncAudio() {
+        audio.select(if (isStreaming || recordingAudio == true) requestedAudio else SceneAudioRouterSource.disabled())
     }
 
     override fun close() {
@@ -163,8 +165,11 @@ class SceneEncoderSession internal constructor(
             prepared = false
             try { stream.release() }
             finally {
-                try { gl.deAttachPreview() }
-                finally { if (gl.isRunning) gl.stop() }
+                try { audio.release() }
+                finally {
+                    try { gl.deAttachPreview() }
+                    finally { if (gl.isRunning) gl.stop() }
+                }
             }
         }
     }
@@ -173,8 +178,9 @@ class SceneEncoderSession internal constructor(
         /** The silent source avoids opening a microphone for video-only recording. */
         fun create(context: Context, checkers: List<ConnectChecker>): SceneEncoderSession {
             require(checkers.isNotEmpty())
+            val audio = SceneAudioRouterSource()
             return SceneEncoderSession(MultiStream(context, checkers.toTypedArray(),
-                emptyArray(), emptyArray(), emptyArray(), NoVideoSource(), NoAudioSource()), checkers.size)
+                emptyArray(), emptyArray(), emptyArray(), NoVideoSource(), audio), checkers.size, audio)
         }
     }
 }

@@ -450,3 +450,41 @@ Commit ausgeführt. Die Repository-Selbsttests bestanden; anschließend scheiter
 auf Termux). Alle 21 XML-Fehler belegen diesen Loader-Pfad. Der Gesamt-Gate bleibt
 rot; die separaten 182 Szenen-/drei Manifest-Tests und Streaming-Lint sind kein
 vollständiger App-/Release- oder Geräte-Nachweis.
+
+
+### Stabiler Audioeingang und Datei-Audioadapter (Zwischenstand)
+
+Die native Szene installiert jetzt einen dauerhaften `SceneAudioRouterSource`
+als Eingang des vorhandenen RootEncoder-Audioencoders. Mikrofon und deaktivierter
+Eingang wechseln innerhalb dieses Routers. Zusätzliche Audioeingänge lassen sich
+vorbereiten und austauschen, ohne Video-/Audioformat, RTMP-Ziele oder MP4-Muxer neu
+anzulegen. Vorbereitung schlägt vor dem Stop des alten Eingangs fehl; ein
+fehlgeschlagener Start versucht einen frischen alten Eingang und anschließend
+Stille. Generationen sperren verspätete PCM-Callbacks. Stop/Release warten außerhalb
+der PCM-Sperre auf Producer-Threads. Aufnahme ohne Audio und reine Vorschau öffnen
+weiterhin kein Mikrofon.
+
+Der getestete Datei-Adapter nutzt RootEncoders AudioDecoder mit gültigen
+MediaCodec-Bufferbereichen statt dessen wiederverwendetem vollständigem PCM-Array.
+Media3 Sonic konvertiert PCM16-Mono/Stereo auf das feste Encoderprofil und erzeugt
+eigene, frame-ausgerichtete Pakete von höchstens `AudioEncoder.inputSize` Bytes.
+Das ist notwendig, weil RootEncoders Encoder größere Frames abschneidet. Zeitstempel
+folgen der ausgegebenen Samplezahl; Seek verwirft alte Resampler-Daten unter der
+Decoder-Sperre. EOF/Decoderfehler liefern Stille, niemals Mikrofon. Seek nach EOF
+öffnet einen frischen Decoder. Absolute Replay-Pfade werden als Datei-URI geöffnet.
+
+**Noch keine vollständige Datei-/Replay-Integration:** StreamingEngine wählt diesen
+Adapter bisher nicht aus. Die bestehende Sperre für primäre Dateiwechsel während
+nativen Encodings bleibt bestehen. Zuerst müssen Video-Start, laufende Preview-
+Position und Schleifen mit dem Audio-Seek gemeinsam koordiniert werden. Die
+Adapter-/Router-Tests beweisen weder MediaCodec-Gerätebetrieb noch A/V-Synchronität.
+
+Der abschließende lokale Szenenlauf bestand **211 Tests** ohne Fehler oder Skips,
+darunter sieben PCM-, elf Datei-Adapter-, neun Router- und neun Encoder-Session-
+Tests. Der große 8-kHz-Mono-zu-32-kHz-Stereo-Fall prüft verlustfreie Paketierung
+und fortlaufende Zeitstempel; der Cleanup-Fall wartet auf einen echten parallelen
+Callback, um eine unter der Delivery-Sperre blockierende Freigabe zu erkennen.
+
+Auch Standard-Debug-App und instrumentierte Quellen kompilierten danach. Der
+Streaming-Lint bestand ohne Fehler/Warnungen mit dem bestehenden
+`AutoboxingStateCreation`-Hint. I18n- und Markdown-Anker-Guards bestanden.
