@@ -360,6 +360,37 @@ Triage: #267 ist in Punkt 7 beschrieben.
    Token ohne `project:read`, siehe §1), der Filter ist deshalb bewusst
    konservativ kalibriert und der Befund unten nennt diese Lücke ausdrücklich.
 
+8. **Closure-Praxis für Single-Event-Validierungs-OOMs (seit 26.10.2026, #334/#337).** Die
+   Einzelereignis-Fatals dieser Familie werden **ohne Fix** geschlossen — zulässig nur auf Basis
+   einer unabhängigen Entkräftung der Release-Ebene (§5.1). Vier Bedingungen müssen **alle**
+   zutreffen und im Closure-Kommentar einzeln benannt werden:
+   - **(a) Genau ein Event am ganzen Build:** `firstEvent` == `lastEvent` == Crash-Zeitstempel
+     (auf die Sekunde) — ablesbar aus der Releases-API, die auch ohne Event-Leserecht
+     funktioniert. Die eine betroffene Nutzerin ist damit die einzige Session dieses Builds.
+   - **(b) Schnitt→Event-Latenz von Minuten** am dokumentierten Validierungstag (z.B. sieben
+     Releases in acht Stunden): Minuten nach dem Schnitt kann der Build keinen Feld-User
+     erreicht haben (Play-Rollout braucht Stunden bis Tage).
+   - **(c) Keine Wiederholung in allen folgenden Releases** — Fenster explizit nennen (z.B.
+     elf Releases 0.5.33-beta→0.5.43-beta; Watchdog-Zähler stabil, neueste Releases event-frei).
+   - **(d) Kein Fix vorhanden:** `git log --grep memory|oom|heap|leak` seit dem Fenster ist leer;
+     der Kommentar sagt das ausdrücklich (Closure claimt nie „behoben“) und begründet, warum die
+     Registry nach §5.3 nicht füllbar ist (keine Ursache, Top-Frame nur Allokationsort).
+   Der Closure-Kommentar (englisch, Beleg-Format) nennt zusätzlich die **nicht** getanen Schritte:
+   die Sentry-Gruppe bleibt `unresolved` (System der Record; `fix-release`-Tagging nach §5.6 erst
+   mit einem echten Fix), und falls Event-Tags nicht lesbar waren (403 lokal), steht das im
+   Kommentar — die Schließung ruht auf der Release-Ebene, nicht auf Event-Tags.
+   **Nachweis-Kette:** dieselbe Signatur aktualisiert nur die Sentry-Gruppe und wird in GitHub
+   **nicht** neu angelegt (Dedup gegen `state=all`); eine **neue** Signatur legt der Watchdog
+   automatisch als neues Issue an. Die Geräte-Ebene (Event-Tags via `--print-event-tags`, §2/§4)
+   bestätigt die Lesart nachträglich, ist aber **keine** Voraussetzung — Beispiel: beide OOMs
+   (#334/#337, versionCodes 5294/5324, Latenzen 3½ bzw. 6 Minuten) feuerten auf V2454A, dem per
+   `com.vivid.debug`-Event nachgewiesenen Entwicklungsgerät.
+   **Grenze (Gegenbeispiel #324/#325):** treffen die vier Punkte nicht zu — Quell-Release spannte
+   13 Tage mit 6 Gruppen über die Feldwelt, Build-Identität also offen —, bleibt das Issue offen.
+   Dieselbe Event-Tag-Abfrage liefert dann den Nachweis, der die Schließung entweder trägt
+   (Test-Artfakt) oder verhindert (Feld-Build, wie bei #324/#325 belegt). Nicht anwendbar bei
+   identifizierter Ursache (§5.3) und bei Probe-Issues mit 0 betroffenen Nutzern (§5.4).
+
 ## 6. Sicherheit
 
 - Token getrennt vom CI-Mapping-Token (`auth.token`) — getrennte Scopes,
