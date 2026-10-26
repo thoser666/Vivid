@@ -275,6 +275,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 
 | Datum | Commit | Änderung |
 |-------|--------|----------|
+| 2026-10-26 | `cbfc673` | #306: Primäre Ebenen an wiederverwendbare Capture-Konfigurationen binden; unabhängige Kameraansichten und SourceIds erhalten, einmalige/wiederholende Dateien trennen, Consent-Ziele und Kameraauswahl nach Activity-Neuerstellung sichern. 408 Engine-/Szenentests, 55 Domain-Tests, 14 Repository-Tests, App-/Instrumentierungs-Kompilation und Streaming-Lint bestanden; Geräte-Nachweise offen. |
 | 2026-10-25 | `88fb798` | #306: Native Datei-/Replay-Audioanbindung mit Playhead-/Seek-Synchronisierung, EOF-/Loop-Erhalt und Legacy-Encoder-Handoff; transaktionale Quellenwechsel, explizite Manifest-Sicherheitsregeln. 390 Engine-/Szenentests und Streaming-Lint bestanden; Geräte-/Performance-Nachweis offen. |
 | 2026-10-25 | `15d5cef` | #306: Stabiler Szenen-Audiorouter ohne Encoder-Neustart, PCM16-Dateiadapter mit begrenzten Paketen, EOF-Stille und Seek; 211 Szenentests und Streaming-Lint bestanden. Datei-/Replay-Clock-Integration bleibt offen. |
 | 2026-10-25 | `b8347cb` | **Scene-Compositor #306: USB-Kameras ohne Camera-HAL** — Gepinnter UVC-Capture-Adapter mit geliehener Surface, eigenem I/O-Worker, Device-Lease, Detach-/Reconnect-Zuständen und begrenzter Modusneuverhandlung; kein SDK-Encoder oder Bitmap-Framecallback. Editor-Picker und Android-Consent prüfen Seriennummer/Pfad nach dem Grant und erhalten SourceIds. App-Manifest entfernt unbenutzte SDK-Storage-Rechte; USB-Host bleibt optional. 182 Szenen-Tests (59 USB), drei App-Manifest-Tests und Streaming-Lint grün; App/GLES-Fixtures kompiliert, echte USB-/GPU-/Performance-Nachweise und weitere Feeds offen. |
@@ -579,6 +580,7 @@ Commit die Log-Zeile hinzufügte:
 
 | Datum | Commit | Eintrag | Kandidaten (Phrase in PARITY.md) | Vermerk |
 |-------|--------|---------|----------------------------------|---------|
+| 2026-10-26 | `cbfc673` | #306: Primäre Ebenen an wiederverwendbare Capture-Konfigurationen binden | `cbfc673` | Implementierung und Regressionstests; Hardware-/Performance-Nachweis offen. |
 | 2026-10-25 | `88fb798` | Szenen-Dateiwiedergabe und Legacy-Handoff | Szenen-Kompositor | 233 Szenenfälle im breiteren 390-Test-Lauf, vier Manifestfälle, App-/Instrumentierungs-Kompilierung; reale A/V-/EGL-/Performance- und vollständige Gate-Verifikation offen. |
 | 2026-10-25 | `15d5cef` | Szenen-Audiorouting und Datei-Adapter | Szenen-Kompositor | Mikrofonbedarf, Rollback, PCM-Paketierung und Cleanup getestet; vollständiger Datei-/Replay-Live-Wechsel und Geräte-Nachweis offen. |
 | 2026-10-25 | `b8347cb` | USB-Kameras ohne Camera-HAL (#306) | `b8347cb` | 182 Szenen-Tests, drei Manifest-Tests und Streaming-Lint grün; FPS-/Storage-Merge-Regressionen zuvor rot reproduziert. Native-Capture und Gerätemessungen offen. |
