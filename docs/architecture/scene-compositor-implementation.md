@@ -782,3 +782,12 @@ Standard-App und Android-Instrumentierungsquellen kompilierten
 Während der Validierung rückte develop bis `54e38d12` vor. Der zusätzliche
 Merge übernimmt nur Sentry-/CI-Skripte und Dokumentation; die geprüften
 Android-Quellen bleiben gleich. Beide Parity-Protokolle bleiben erhalten.
+
+Streaming-Lint bestand mit null Fehlern/Warnungen und einem bestehenden
+Hinweis (`vivid-330-merge-lint.log`). Der vollständige pre-push bestand
+die Repository-Selbsttests und stoppte bei sechs von 475 Chat-Tests. Alle
+sechs frischen XML-Fehler enthalten Conscrypt und das auf Termux fehlende
+`libpthread.so.0` (`vivid-330-merge-pre-push.log`). Der Gesamt-Gate bleibt
+rot; keine Tests oder Regeln wurden abgeschwächt. Der dokumentierte
+einmalige Hook-Bypass wird erst nach diesem vollständig beendeten Lauf
+verwendet.
