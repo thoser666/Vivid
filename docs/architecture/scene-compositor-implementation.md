@@ -588,3 +588,9 @@ Streaming-Lint bestand ohne Fehler/Warnungen mit dem bestehenden Autoboxing-Hint
 I18n- und Markdown-Anker-Guards bestanden ebenfalls. Vier bereits ausgeführte
 Tests prüfen die unveränderten finalen Manifest-Eigenschaften. Geräte-/A/V-/
 Performance-Messungen und vollständiger App-/Release-Gate bleiben offen.
+
+Der vollständige Pre-Push-Gate nach Code-/Parity-Commit bestand die Repository-
+Selbsttests und scheiterte an **sechs von 471 unveränderten Chat-Tests**. Alle
+sechs XML-Fehler belegen Conscrypts fehlende `libpthread.so.0` auf Termux. Kein
+Test wurde abgeschwächt. Der breitere 390-Test-Lauf und der separat bestandene
+Streaming-Lint sind weiterhin kein vollständiger App-/Release-/Geräte-Nachweis.
