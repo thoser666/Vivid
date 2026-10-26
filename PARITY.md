@@ -275,6 +275,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 
 | Datum | Commit | Änderung |
 |-------|--------|----------|
+| 2026-10-26 | `73569c5` | #306/#330: Bot-Befunde durch Aufteilung von Capture-/Frame-Lifecycle, USB-Rollback, Datei-Playback, Engine-Routing und Editor-Permissions bearbeiten; benannte Fixture-Konstanten, explizite Datenhalter und Cleanup-Fehlerbehandlung. 531 ausgewählte Tests, App-/Instrumentierungs-Kompilation und Streaming-Lint bestanden; externe Neuanalyse offen. |
 | 2026-10-26 | `cbfc673` | #306: Primäre Ebenen an wiederverwendbare Capture-Konfigurationen binden; unabhängige Kameraansichten und SourceIds erhalten, einmalige/wiederholende Dateien trennen, Consent-Ziele und Kameraauswahl nach Activity-Neuerstellung sichern. 408 Engine-/Szenentests, 55 Domain-Tests, 14 Repository-Tests, App-/Instrumentierungs-Kompilation und Streaming-Lint bestanden; Geräte-Nachweise offen. |
 | 2026-10-25 | `88fb798` | #306: Native Datei-/Replay-Audioanbindung mit Playhead-/Seek-Synchronisierung, EOF-/Loop-Erhalt und Legacy-Encoder-Handoff; transaktionale Quellenwechsel, explizite Manifest-Sicherheitsregeln. 390 Engine-/Szenentests und Streaming-Lint bestanden; Geräte-/Performance-Nachweis offen. |
 | 2026-10-25 | `15d5cef` | #306: Stabiler Szenen-Audiorouter ohne Encoder-Neustart, PCM16-Dateiadapter mit begrenzten Paketen, EOF-Stille und Seek; 211 Szenentests und Streaming-Lint bestanden. Datei-/Replay-Clock-Integration bleibt offen. |
@@ -580,6 +581,7 @@ Commit die Log-Zeile hinzufügte:
 
 | Datum | Commit | Eintrag | Kandidaten (Phrase in PARITY.md) | Vermerk |
 |-------|--------|---------|----------------------------------|---------|
+| 2026-10-26 | `73569c5` | #306/#330: Bot-Befunde durch Aufteilung von Capture-/Frame-Lifecycle | `73569c5` | 23 Sonar- und 59 DeepSource-Befunde am Ausgangsstand; neue Analyse prüft die tatsächliche Bereinigung. |
 | 2026-10-26 | `cbfc673` | #306: Primäre Ebenen an wiederverwendbare Capture-Konfigurationen binden | `cbfc673` | Implementierung und Regressionstests; Hardware-/Performance-Nachweis offen. |
 | 2026-10-25 | `88fb798` | Szenen-Dateiwiedergabe und Legacy-Handoff | Szenen-Kompositor | 233 Szenenfälle im breiteren 390-Test-Lauf, vier Manifestfälle, App-/Instrumentierungs-Kompilierung; reale A/V-/EGL-/Performance- und vollständige Gate-Verifikation offen. |
 | 2026-10-25 | `15d5cef` | Szenen-Audiorouting und Datei-Adapter | Szenen-Kompositor | Mikrofonbedarf, Rollback, PCM-Paketierung und Cleanup getestet; vollständiger Datei-/Replay-Live-Wechsel und Geräte-Nachweis offen. |
