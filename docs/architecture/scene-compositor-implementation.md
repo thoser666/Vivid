@@ -829,3 +829,10 @@ die Repository-Selbsttests und stoppte bei sechs von 475 Chat-Tests; alle
 frischen XML-Fehler zeigen Conscrypts fehlendes `libpthread.so.0` auf Termux
 (`vivid-330-ci-fixture-pre-push.log`). Die UI-Ausführung wird deshalb im
 anschließenden Linux-CI-Lauf verifiziert; kein lokaler UI-Erfolg wird behauptet.
+
+Der PR war nach der ersten Veröffentlichung durch den inzwischen vorgerückten
+Dokumentationsstand von develop blockiert. Der Merge bis `182cedad` erhält
+beide Parity-Verläufe und regeneriert das Dashboard; Android-Quellen ändern
+sich dabei nicht. Auch der erneute vollständige Gate bestand die Selbsttests
+und endete ausschließlich an den sechs Conscrypt-/libpthread-Fehlern
+(`vivid-330-ci-fixture-merge-pre-push.log`).
