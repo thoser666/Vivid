@@ -2,7 +2,7 @@
     xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.usb.host" android:required="false" tools:replace="android:required" />
-    <application>
+    <application android:allowBackup="false" android:usesCleartextTraffic="false">
         <activity
             android:name="com.vivid.feature.streaming.compositor.capture.SceneUsbPermissionActivity"
             android:exported="false"

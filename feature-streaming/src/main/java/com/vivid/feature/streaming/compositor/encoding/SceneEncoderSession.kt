@@ -151,6 +151,8 @@ class SceneEncoderSession internal constructor(
         requestedAudio = next
     }
 
+    internal fun seekFileAudio(positionSeconds: Double) = audio.seekFileAudio(positionSeconds)
+
     private fun syncAudio() {
         audio.select(if (isStreaming || recordingAudio == true) requestedAudio else SceneAudioRouterSource.disabled())
     }

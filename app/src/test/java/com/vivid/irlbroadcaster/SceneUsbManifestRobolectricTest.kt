@@ -42,4 +42,10 @@ class SceneUsbManifestRobolectricTest {
             SceneUsbPermissionActivity::class.java), 0)
         assertFalse(info.exported)
     }
+    @Test fun `capture dependency preserves the app backup and cleartext restrictions`() {
+        val flags = context.applicationInfo.flags
+        assertEquals(0, flags and android.content.pm.ApplicationInfo.FLAG_ALLOW_BACKUP)
+        assertEquals(0, flags and android.content.pm.ApplicationInfo.FLAG_USES_CLEARTEXT_TRAFFIC)
+    }
+
 }

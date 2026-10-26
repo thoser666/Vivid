@@ -145,6 +145,10 @@ internal class SceneAudioRouterSource(
         error?.let { throw it }
     }
 
+    fun seekFileAudio(positionSeconds: Double) {
+        synchronized(control) { (delegate as? SceneFileAudioSource)?.seekTo(positionSeconds) }
+    }
+
     override fun isRunning(): Boolean = synchronized(delivery) { running }
 
     override fun stop() {

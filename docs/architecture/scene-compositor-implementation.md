@@ -175,8 +175,8 @@ Eigentum des TextureProviders. Drei portable Robolectric-Vertragstests bestanden
 
 **Engine-Umschaltung für Scene-Graphen:** Idle-Preview, Stream-Fanout und
 Replay-Aufnahme verwenden die kameraunabhängige Session, sofern kein bestehender
-Legacy-Stream oder primärer Datei-/Replay-Audiopfad aktiv ist. Ein Bild-/Widget-
-Graph benötigt keine unbenutzte Kamera und keine Camera-Permission. Die Preview
+Legacy-Stream aktiv ist. Primäre Dateien und Replays verwenden inzwischen den
+weiter unten beschriebenen gemeinsamen Audioeingang. Ein Bild-/Widget-Graph benötigt keine unbenutzte Kamera und keine Camera-Permission. Die Preview
 startet GL ohne Encoder-Vorbereitung; Recording und Streaming teilen dieselbe
 Vorbereitung, solange ein Consumer aktiv bleibt. Beim Entfernen des Graphen
 während einer Aufnahme bleibt ein äquivalenter Basis-Graph erhalten, damit der
@@ -191,11 +191,10 @@ vorsorglich vollständig mosaikiert; selektive Face-/Zonen-Abbildung auf beliebi
 transformierte Kamera-Layer ist noch offen. Kamera-Sensororientierung und
 Capture-Auflösung/FPS müssen zusätzlich auf Geräteprofile abgestimmt werden.
 
-Primäre Video-/Replay-Dateien behalten vorerst den bestehenden Audiopfad. Ein
-Wechsel dorthin während einer Scene-Aufnahme oder eines Scene-Streams wird
-zurückgewiesen, bevor der Legacy-Dateipfad vorbereitet wird. Die gemeinsame
-Datei-Audioanbindung und diese Live-Wechsel fehlen weiterhin. Ein bereits
-laufender Legacy-Stream migriert beim Öffnen des Editors nicht den Encoder;
+Primäre Video-/Replay-Dateien sind im späteren Playhead-/Handoff-Abschnitt an
+den vorhandenen Szenen-Audioencoder angeschlossen. Live-Wechsel innerhalb der
+nativen Route bereiten keinen zusätzlichen Legacy-Datei-Encoder vor. Ein bereits
+laufender Legacy-Stream migriert beim Öffnen des Editors weiterhin nicht den Encoder;
 sein Scene-Takt läuft jetzt auch unabhängig vom Legacy-Eingang. Die physische
 Wiederverbindung dieser Hauptquelle bleibt gesondert offen.
 Diese Einschränkungen sind kein Nachweis vollständiger Feature-Parität.
@@ -473,11 +472,10 @@ folgen der ausgegebenen Samplezahl; Seek verwirft alte Resampler-Daten unter der
 Decoder-Sperre. EOF/Decoderfehler liefern Stille, niemals Mikrofon. Seek nach EOF
 öffnet einen frischen Decoder. Absolute Replay-Pfade werden als Datei-URI geöffnet.
 
-**Noch keine vollständige Datei-/Replay-Integration:** StreamingEngine wählt diesen
-Adapter bisher nicht aus. Die bestehende Sperre für primäre Dateiwechsel während
-nativen Encodings bleibt bestehen. Zuerst müssen Video-Start, laufende Preview-
-Position und Schleifen mit dem Audio-Seek gemeinsam koordiniert werden. Die
-Adapter-/Router-Tests beweisen weder MediaCodec-Gerätebetrieb noch A/V-Synchronität.
+Beim ersten Audio-Checkpoint war der Adapter noch nicht in StreamingEngine
+verdrahtet; diese frühere Einschränkung wird durch den folgenden Integrationsstand
+ersetzt. Adapter-/Router-Tests allein beweisen weder MediaCodec-Gerätebetrieb
+noch A/V-Synchronität.
 
 Der abschließende lokale Szenenlauf bestand **211 Tests** ohne Fehler oder Skips,
 darunter sieben PCM-, elf Datei-Adapter-, neun Router- und neun Encoder-Session-
@@ -495,3 +493,98 @@ an **sechs von 471 unveränderten Chat-Tests**. Alle sechs XML-Fehler zeigen den
 Conscrypt-Native-Loader mit fehlender `libpthread.so.0` auf Termux. Der Gate hat
 folglich keinen vollständigen App-/Release-Erfolg bewiesen. Die oben genannten
 211 Szenentests und der separate Streaming-Lint bleiben separat nachgewiesen.
+
+
+### Datei-/Replay-Playhead und Live-Routing
+
+StreamingEngine wählt jetzt auch für primäre Datei-/Replay-Quellen die native
+Szenenroute. Ein globaler Dateiwechsel während Stream/Aufnahme bereitet keinen
+neuen Legacy-Datei-Encoder vor. Ein MediaExtractor-Probe prüft vor der Auswahl
+einen lesbaren Video-Track; Fehler lassen die aktive Quelle unverändert.
+
+Video-Layer besitzen einen eigenen HandlerThread für sämtliche MediaPlayer-
+Aufrufe und Callbacks. Die Hardware-Encoder der Ausgabe gehören weiterhin allein
+der SceneEncoderSession. Der Player wird vor der Freigabe seiner geliehenen
+Surface beendet. GL meldet den ersten nutzbaren Frame; spätere Frames erzeugen
+keine synchronen Worker-Aufrufe. Der lesbare Playhead enthält eine nur für diese
+Capture-Lebensdauer gültige Identität und eine Schleifennummer.
+
+Ein sichtbares primäres Video liefert zunächst Stille. Nach dem ersten nutzbaren
+Frame startet sein Datei-Audio am aktuellen Video-Playhead. Der Video-Player
+steuert Schleifen explizit und meldet die neue Schleife erst nach Abschluss des
+asynchronen MediaPlayer-Seeks. Währenddessen ist kein neuer Playhead verfügbar.
+Die Audioquelle spult nach einer passenden aktuellen Schleifenmeldung mit. Veraltete Capture-Identitäten und bereits verarbeitete
+Schleifen werden verworfen. Ein ausgeblendetes primäres Video kann unabhängig
+Audio liefern; beim Wiedereinblenden wechselt es auf den neuen sichtbaren
+Playhead. Video-/Audioformat und Stream-/Recording-Consumer bleiben dabei erhalten.
+
+Ein globaler Quellenwechsel ersetzt nur die bekannte primäre Quelle oder eine
+passende Quelle des bisherigen Typs. Fehlt sie, kommt eine neue untere Ebene
+hinzu; Bilder/Widgets werden nicht mehr als beliebiger Fallback überschrieben.
+Volle Graphen weisen diese Ergänzung zurück. Stable IDs und bestehende Layer-
+Transformationen bleiben bei weiteren Wechseln erhalten.
+
+Gemessene A/V-Synchronität und Schleifenlücken auf realen MediaCodec-Geräten
+bleiben offen. Der Übergang vorbereiteter Legacy-Datei-Sessions wird im folgenden
+Handoff-Abschnitt ergänzt. Der neue Pfad ist kein Geräte-/Performance-Nachweis.
+
+
+Die App und instrumentierten Quellen kompilierten mit dem neuen Playback-Pfad.
+Vier Tests gegen das zusammengeführte App-Manifest bestanden. Die Streaming-
+Library deklariert Backup-/Cleartext-Sperren explizit; sie entsprechen den bereits
+vorhandenen App-Regeln (`allowBackup=false`, Network-Security-Config mit gesperrtem
+Cleartext-HTTP). Keine Security-Regel wurde unterdrückt oder gelockert. Der externe
+Sonar-/DeepSource-Gate muss am veröffentlichten neuen Stand erneut geprüft werden.
+
+Der abschließende Szenenlauf bestand **226 Tests** ohne Fehler, Errors oder Skips.
+Darunter liegen sechs Playhead-/Video-Producer-Fälle, zwei echte Background-Looper-
+Fälle, vier Primary-Source-Fälle und 15 Engine-Szenenfälle. Der asynchrone Seek-Test
+hält den Abschluss zurück und prüft, dass vorher weder eine neue Schleife noch
+ein alter EOF-Playhead an Audio gemeldet wird. Die Tests verwenden keine realen
+MediaPlayer-/MediaCodec-Decodes. Der gesonderte Streaming-Lint läuft anschließend;
+sein Ergebnis und der vollständige Gate werden separat erfasst.
+
+
+### Handoff vorbereiteter Legacy-Dateiquellen
+
+Vor einer neuen nativen Session stoppt StreamingEngine vorhandene, nicht aktive
+Legacy-Datei-/Replay-Quellen. RootEncoders gepinnter `FromFileBase.stopStream()`
+gibt auch die vorbereiteten Decoder und Encoder frei. Dateiauswahl bleibt erhalten;
+Registry-Factories verweisen anschließend auf die native Route. Eine volatile
+Generation entwertet alte Datei-ConnectChecker vor dem Stop, damit verspätete
+Disconnect-/Auth-/Bitrate-Ereignisse keine neue Szene verändern.
+
+Nach Entfernen einer inaktiven nativen Szene werden keine Legacy-Encoder sofort
+neu angelegt. Erst der nächste Datei-/Replay-Stream erzeugt eine frische Quelle,
+bereitet die gespeicherte Auswahl vor und stellt ihre Registry-Zuordnung wieder
+her. Eine aktive Legacy-Übertragung wird auf diesem Weg nicht ersetzt.
+
+Native Dateiänderungen sind transaktional: Bei fehlendem Platz für eine primäre
+Ebene bleiben die alte Dokument-URI beziehungsweise Replay-Datei und der Graph
+erhalten. Die lokalen URI-/Track-Prüfungen gelten für den neuen nativen Pfad;
+der bestehende Legacy-Datei-Eingang behält seinen bisherigen RootEncoder-Vertrag.
+Die vorangegangenen drei Lint-Fehler (`UseKtx`) wurden korrigiert; die breitere
+Engine-/Szenen-Verifikation und der erneute Lint werden gesondert erfasst.
+
+
+Normale primäre Filme enden wie im bisherigen Video-Player nach einem Durchlauf;
+Replays und unabhängige Video-Layer wiederholen sich. Auch der reine Audio-Pfad
+eines ausgeblendeten primären Films wird nicht automatisch wiederholt. Ein
+normal beendeter beziehungsweise variabler Video-Track hält seinen letzten
+nutzbaren Frame. Explizite MediaPlayer-Fehler entwerten ihn und lösen Recovery
+aus. Der Initial-Frame-Timeout bleibt aktiv, damit ein defekter Start nicht als
+gesunde Dauerquelle behandelt wird.
+
+Der erste breitere Handoff-Lauf bestand 387 Engine-/Szenentests. Nach Ergänzung
+der Zielstatus-Regression bestanden 388 Tests. Die abschließende Verifikation
+einschließlich des Movie-EOF-Vertrags wird nachfolgend gesondert dokumentiert.
+
+Der abschließende breite Lauf bestand **390 Engine-/Szenentests**, darunter
+**233 Szenentests**, ohne Fehler oder Skips. Die Datei-Handoff-Fälle prüfen
+Stop vor nativer Vorbereitung, abgewehrte alte Transport-Callbacks und frische
+Legacy-Vorbereitung erst beim späteren Start. Movie-EOF und Replay-/Layer-Loops
+sind getrennt geprüft. Danach kompilierten App und instrumentierte Quellen;
+Streaming-Lint bestand ohne Fehler/Warnungen mit dem bestehenden Autoboxing-Hint.
+I18n- und Markdown-Anker-Guards bestanden ebenfalls. Vier bereits ausgeführte
+Tests prüfen die unveränderten finalen Manifest-Eigenschaften. Geräte-/A/V-/
+Performance-Messungen und vollständiger App-/Release-Gate bleiben offen.

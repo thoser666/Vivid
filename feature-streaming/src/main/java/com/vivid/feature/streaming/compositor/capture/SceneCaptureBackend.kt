@@ -21,6 +21,10 @@ interface SceneCaptureBackend {
     fun setTargetFrameRate(frameRate: Int) = Unit
     /** A usable texture proves that this camera's capture session is configured. */
     fun frameReady(sourceId: String) = Unit
+    /** Available after the video has supplied its first usable GL frame. */
+    fun videoPlayback(sourceId: String): SceneVideoPlayback? = null
+    /** Event-driven files can hold one valid frame until an explicit playback error. */
+    fun retainsLastFrame(sourceId: String): Boolean = false
     /** Remaining clockwise sampling correction; null waits for matching Camera2 metadata. */
     fun samplingRotationDegrees(sourceId: String, timestamp: Long): Int? = 0
     /** Borrowed controls for the currently open source; never a second capture session. */

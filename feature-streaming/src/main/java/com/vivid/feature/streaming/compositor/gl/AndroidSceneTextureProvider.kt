@@ -46,7 +46,9 @@ class AndroidSceneTextureProvider(
     private val publishStates: (Map<String, SceneProducerState>) -> Unit = {},
     private val sourceReady: (String) -> Unit = {},
     private val captureFrameRate: () -> Int = { 30 },
-    private val backendFactory: (Context) -> SceneCaptureBackend = { AndroidSceneCaptureBackend(it, projections) },
+    private val videoLooped: (String, com.vivid.feature.streaming.compositor.capture.SceneVideoPlayback) -> Unit = { _, _ -> },
+    private val videoLooping: (SceneSource) -> Boolean = { true },
+    private val backendFactory: (Context) -> SceneCaptureBackend = { AndroidSceneCaptureBackend(it, projections, videoLooped = videoLooped, videoLooping = videoLooping) },
 ) : SceneTextureProvider {
     private class Slot(val source: SceneSource, val id: Int, val external: Boolean,
         val texture: SurfaceTexture?, val surface: Surface?, val createdAt: Long) {
@@ -162,7 +164,7 @@ class AndroidSceneTextureProvider(
                     if (rotation != null) {
                         if (newFrame || !wasReady) {
                             slot.lastUsableAt = nowMillis
-                            if (slot.source.type in listOf(SceneSourceType.CAMERA, SceneSourceType.UVC)) backend?.frameReady(slot.source.id)
+                            backend?.frameReady(slot.source.id)
                         }
                         if (newFrame || !wasReady || rotation != slot.rotationDegrees) {
                             Matrix.multiplyMM(slot.frame.transform, 0, slot.surfaceMatrix, 0,
@@ -172,13 +174,15 @@ class AndroidSceneTextureProvider(
                         if (!slot.announced) {
                             lifecycle.states[slot.source.id]?.let { lifecycle.markHealthy(slot.source.id, it.generation) }
                             slot.announced = true
-                            if (slot.source.type in listOf(SceneSourceType.CAMERA, SceneSourceType.UVC)) sourceReady(slot.source.id)
+                            sourceReady(slot.source.id)
                         }
                     }
-                    // MediaProjection is event-driven: a still screen can legitimately keep
-                    // the same buffer indefinitely. Its grant callback reports revocation.
-                    // Keep the initial-frame deadline so a broken start still reconnects.
-                    val expectsFrame = !slot.ready || slot.source.type != SceneSourceType.SCREEN_CAPTURE
+                    // Screens and variable-rate/finished files may hold a valid frame.
+                    // Their explicit revoke/error callbacks still trigger recovery.
+                    // Keep the initial-frame deadline so a broken start reconnects.
+                    val retainsFrame = slot.source.type == SceneSourceType.SCREEN_CAPTURE ||
+                        backend?.retainsLastFrame(slot.source.id) == true
+                    val expectsFrame = !slot.ready || !retainsFrame
                     val healthAt = if (slot.announced) minOf(slot.lastArrival.get(), slot.lastUsableAt) else slot.createdAt
                     if (expectsFrame && nowMillis - healthAt > FRAME_TIMEOUT_MILLIS) {
                         val generation = lifecycle.states[slot.source.id]?.generation ?: continue
@@ -209,6 +213,8 @@ class AndroidSceneTextureProvider(
 
     /** Shares the capture's manager with existing focus/exposure/face adapters. */
     @Synchronized
+    fun videoPlayback(sourceId: String) = backend?.videoPlayback(sourceId)
+
     fun camera(sourceId: String): com.pedro.encoder.input.video.Camera2ApiManager? = backend?.camera(sourceId)
 
     fun retry(sourceId: String) { retries.add(Retry(sourceId, false)) }

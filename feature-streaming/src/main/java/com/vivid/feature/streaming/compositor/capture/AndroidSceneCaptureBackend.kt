@@ -9,8 +9,6 @@ import android.hardware.camera2.CameraManager
 import android.hardware.camera2.CaptureRequest
 import android.hardware.camera2.CaptureResult
 import androidx.annotation.RequiresApi
-import android.media.MediaPlayer
-import androidx.core.net.toUri
 import android.os.Build
 import android.os.Handler
 import com.vivid.feature.streaming.AndroidCameraCaptureCapabilities
@@ -36,10 +34,13 @@ class AndroidSceneCaptureBackend(
     private val projections: SceneProjectionRegistry,
     private val deviceRotationDegrees: (() -> Int)? = null,
     private val dispatchCameraTask: ((() -> Unit) -> Unit)? = null,
+    private val videoLooped: (String, SceneVideoPlayback) -> Unit = { _, _ -> },
+    private val videoLooping: (SceneSource) -> Boolean = { true },
     private val cameraFactory: () -> Camera2ApiManager = { Camera2ApiManager(context) },
 ) : SceneCaptureBackend {
     private val cameraManager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
     private val cameras = ConcurrentHashMap<String, CameraProducer>()
+    private val videos = ConcurrentHashMap<String, SceneVideoProducer>()
     private var displayRotation: SceneDisplayRotation? = null
     private var usb: AndroidSceneUsbCaptureBackend? = null
     private fun usbBackend(): AndroidSceneUsbCaptureBackend = usb ?: AndroidSceneUsbCaptureBackend(context).also {
@@ -78,7 +79,12 @@ class AndroidSceneCaptureBackend(
         usb?.setTargetFrameRate(frameRate)
     }
 
-    override fun frameReady(sourceId: String) { cameras[sourceId]?.frameReady() }
+    override fun frameReady(sourceId: String) {
+        cameras[sourceId]?.frameReady()
+        videos[sourceId]?.frameReady()
+    }
+    override fun videoPlayback(sourceId: String): SceneVideoPlayback? = videos[sourceId]?.playback()
+    override fun retainsLastFrame(sourceId: String): Boolean = videos[sourceId]?.retainsLastFrame() == true
 
     private fun dispatch(action: () -> Unit) {
         val custom = dispatchCameraTask
@@ -137,7 +143,21 @@ class AndroidSceneCaptureBackend(
             override fun stop() { lease?.close(); lease = null }
             override fun release() = stop()
         }
-        SceneSourceType.VIDEO -> VideoProducer(context, source.locator, target, failed)
+        SceneSourceType.VIDEO -> {
+            lateinit var capture: SceneVideoProducer
+            capture = SceneVideoProducer({ androidSceneVideoPlayer(context, source.locator, target) },
+                { if (videos[source.id] === capture) failed(false) },
+                { playback -> if (videos[source.id] === capture) videoLooped(source.id, playback) }, loop = videoLooping(source))
+            if (videos.putIfAbsent(source.id, capture) != null) {
+                capture.release()
+                error("Duplicate video capture")
+            }
+            object : SceneProducer {
+                override fun start() = capture.start()
+                override fun stop() { try { capture.stop() } finally { videos.remove(source.id, capture) } }
+                override fun release() = stop()
+            }
+        }
         else -> error("Source does not capture a Surface")
     }
 
@@ -165,6 +185,8 @@ class AndroidSceneCaptureBackend(
         usb = null
         cameras.values.toList().forEach { runCatching { it.stop() } }
         cameras.clear()
+        videos.values.toList().forEach { runCatching { it.stop() } }
+        videos.clear()
         displayRotation?.close()
         displayRotation = null
     }
@@ -330,46 +352,6 @@ class AndroidSceneCaptureBackend(
                     }
                 }
             }
-        }
-        override fun release() = stop()
-    }
-
-    private class VideoProducer(
-        private val context: Context,
-        private val locator: String,
-        private val target: SceneCaptureTarget,
-        private val failed: (Boolean) -> Unit,
-    ) : SceneProducer {
-        private val lock = Any()
-        private var player: MediaPlayer? = null
-        override fun start() {
-            val uri = locator.toUri()
-            require(uri.scheme in listOf("content", "file") || uri.scheme == null) {
-                "Video sources require a local document"
-            }
-            synchronized(lock) {
-                val candidate = MediaPlayer()
-                player = candidate
-                candidate.setSurface(target.surface)
-                candidate.isLooping = true
-                candidate.setVolume(0f, 0f) // Existing audio pipeline remains the only audio source.
-                candidate.setOnPreparedListener {
-                    synchronized(lock) { if (player === it) it.start() }
-                }
-                candidate.setOnVideoSizeChangedListener { current, width, height ->
-                    synchronized(lock) {
-                        if (player === current && width > 0 && height > 0) {
-                            target.texture.setDefaultBufferSize(width, height)
-                        }
-                    }
-                }
-                candidate.setOnErrorListener { _, _, _ -> failed(false); true }
-                candidate.setDataSource(context, uri)
-                candidate.prepareAsync()
-            }
-        }
-        override fun stop() {
-            synchronized(lock) { player?.release(); player = null }
         }
         override fun release() = stop()
     }
