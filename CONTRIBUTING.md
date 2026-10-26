@@ -85,7 +85,13 @@ External contributors (people outside the core maintainer team) are credited in
 
 A maintainer adds the row when accepting the contribution (author may add it in
 their own PR — the pull request template has a checkbox for it). `offen` flips to
-`umgesetzt` once the work is merged. Structure is
+`umgesetzt` once the work is merged.
+
+**Pre-merge announcement (practice since #330).** The row may also land **before**
+the merge: when a substantial third-party PR is open and the author has not done
+the self-entry themselves, a maintainer announces it as `offen` right away —
+`offen` already means "announced, not merged yet", and the fork-PR reminder flips
+the row after the merge. Structure is
 enforced by `scripts/check_contributors.sh` (pre-push gate + CI) — malformed
 edits break the build.
 
@@ -443,6 +449,13 @@ Dritte (Personen außerhalb des Kern-Teams) werden in
 
 Beim Annehmen eines Beitrags ergänzt ein Maintainer die Zeile (der Autor darf es
 im eigenen PR selbst tun); `offen` → `umgesetzt`, sobald die Arbeit gemergt ist.
+
+**Ankündigung vor dem Merge (Praxis seit #330).** Die Zeile darf auch **vor** dem
+Merge landen: Kommt ein gewichtiger Dritt-PR auf, ohne dass der Autor die
+Selbstpflicht aus der PR-Vorlage erfüllt hat, kündigt ein Maintainer den Beitrag
+sofort als `offen` an — `offen` heißt genau „angekündigt / noch nicht gemergt“,
+und der Fork-PR-Reminder flippt die Zeile nach dem Merge.
+
 Die Struktur erzwingt `scripts/check_contributors.sh` (Pre-Push-Gate + CI) —
 Formatfehler brechen den Build ab.
 
