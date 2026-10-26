@@ -178,6 +178,7 @@ class PrivacyComposerTest {
         assertTrue(composer.setPrivacyEnabled(true, null))
         assertTrue(composer.privacyEnabled.value)
         composer.requestRebuild(null)
+        composer.requestRebuild()
     }
 
     @Test

@@ -458,7 +458,7 @@ class AndroidSceneTextureProvider(
                                 if (slot.closed.get()) bitmap.recycle() else images.add(Image(slot, bitmap))
                             }
                         } catch (error: Exception) {
-                            failures.add(Failure(slot, generation, error is SecurityException))
+                            imageFailed(slot, generation, error)
                         }
                     }
             }
@@ -470,6 +470,10 @@ class AndroidSceneTextureProvider(
 
             override fun release() = stop()
         }
+
+    private fun imageFailed(slot: Slot, generation: Long, error: Exception) {
+        failures.add(Failure(slot, generation, error is SecurityException))
+    }
 
     private fun upload(
         slot: Slot,

@@ -126,9 +126,9 @@ class PrivacyComposer(
         if (sceneChain === container) invalidate(gl)
     }
 
-    /** Queue a canonical chain; retain scene capture and privacy during creative updates. */
+    /** Queue a canonical chain when a GL owner is available; an absent owner is a valid no-op. */
     @Synchronized
-    fun requestRebuild(gl: GlStreamInterface?) {
+    fun requestRebuild(gl: GlStreamInterface? = null) {
         if (gl == null) return
         val desired = mutableListOf<BaseFilterRender>()
         // Privacy precedes creative effects; a camera-free scene is their input.

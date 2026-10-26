@@ -226,27 +226,25 @@ internal class AndroidSceneUsbCaptureBackend(
                 applied.set(requested)
                 attempts.set(0)
             } catch (error: Exception) {
-                restoreConfiguration(capture, previous, requested, error)
+                if (!stopped.get() && previous != null) restoreConfiguration(capture, previous, requested, error)
             }
         }
 
         private fun restoreConfiguration(
             capture: SceneUsbDriver,
-            previous: SceneUsbConfiguration?,
+            previous: SceneUsbConfiguration,
             requested: Demand,
             error: Exception,
         ) {
-            if (!stopped.get() && previous != null) {
-                try {
-                    target.texture.setDefaultBufferSize(previous.mode.width, previous.mode.height)
-                    capture.start(target.surface, previous)
-                    if (attempts.incrementAndGet() >= 3) {
-                        applied.set(requested)
-                        Timber.w(error, "Could not change USB capture rate; retaining %d fps", previous.frameRate)
-                    }
-                } catch (restore: Exception) {
-                    failOpen(restore)
+            try {
+                target.texture.setDefaultBufferSize(previous.mode.width, previous.mode.height)
+                capture.start(target.surface, previous)
+                if (attempts.incrementAndGet() >= 3) {
+                    applied.set(requested)
+                    Timber.w(error, "Could not change USB capture rate; retaining %d fps", previous.frameRate)
                 }
+            } catch (restore: Exception) {
+                failOpen(restore)
             }
         }
 

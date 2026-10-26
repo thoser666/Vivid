@@ -699,3 +699,24 @@ Termux; die Chat-Implementierung ist unverändert. Protokoll:
 `vivid-330-bot-pre-push.log`. Der vollständige Gate bleibt rot, unabhängig von
 den separat bestandenen 531 Tests, der App-/Instrumentierungs-Kompilation und
 Streaming-Lint. Es wurde keine Test- oder Analyse-Regel gelockert.
+
+
+Die erste Neuanalyse am veröffentlichten `b7288468` meldete noch zwei Sonar-
+und elf DeepSource-Befunde; alle ursprünglichen Komplexitätsbefunde waren
+beseitigt. Der Folgepatch bündelt USB-Resultat und ausstehende Identität in einem
+Wertobjekt, entfernt den unbenutzten Picker-Parameter und die Namensverschattung.
+Exception-Klassifizierung ist von den Catch-Blöcken getrennt. USB-Rollback erhält
+eine nachweislich vorhandene frühere Konfiguration erst nach dem Stop-/Null-Guard.
+Die nullable Rückgabetypen von aktiver Replay-Datei und selektierter Ebene werden
+unverändert durch Kotlin inferiert. Ein fehlender GL-Owner ist beim Rebuild ein
+explizit unterstützter Standardfall; der vorhandene Null-Owner-Test prüft auch den
+parameterlosen Aufruf. Diese Bereinigung ändert keine Grant- oder Capture-Regel.
+
+
+Der Folgepatch bestand 479 Engine-/Szenen-/ViewModel-/Privacy-Tests ohne Fehler
+oder Skips; die unveränderten Domain-/Repository-Fälle waren mit 55/14 Tests
+bereits bestanden. Instrumentierte Quellen und Standard-Debug-App kompilierten.
+Streaming-Lint bestand erneut mit null Fehlern und Warnungen (ein bestehender
+Hinweis). I18n und Markdown-Anker bestanden ebenfalls. Protokolle:
+`vivid-330-bot-followup-tests.log` und
+`vivid-330-bot-followup-build-lint.log` außerhalb des Repositorys.

@@ -17,8 +17,7 @@ data class SceneEditorState(
     val saveFailed: Boolean = false,
 ) {
     val composition: SceneComposition get() = requireNotNull(scene.composition)
-    val selectedLayer: SceneLayer?
-        get() { return composition.layers.find { it.id == selectedLayerId } }
+    val selectedLayer get() = composition.layers.find { it.id == selectedLayerId }
 }
 
 class SceneEditorSession(

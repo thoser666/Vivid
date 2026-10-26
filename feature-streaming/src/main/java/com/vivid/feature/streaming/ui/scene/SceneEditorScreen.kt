@@ -70,7 +70,7 @@ internal fun SceneEditorScreen(
     with(dialogs) {
         val actions = rememberSceneEditorActions(state, engine, catalog, onEdit, onProjectionResult)
         SceneEditorBody(state, engine, sourceKind, sourceStates, privacyEnabled, onEdit, onSave, onCancel, actions)
-        SceneEditorPicker(state, catalog, onEdit, actions)
+        SceneEditorPicker(catalog, onEdit, actions)
         SceneEditorTextDialog(state, onEdit)
     }
 }
@@ -220,7 +220,7 @@ private fun SceneEditorDialogs.rememberEditorUsbActions(
             val retryId = retryUsbId
             pendingUsbName = null
             retryUsbId = null
-            completeUsbResult(result, name, retryId, usbDevices, usbSources, state, engine, catalog, onEdit)
+            completeUsbResult(EditorUsbResult(result, name, retryId), usbDevices, usbSources, state, engine, catalog, onEdit)
         }
 
     fun authorizeUsb(
@@ -252,10 +252,14 @@ private fun SceneEditorDialogs.rememberEditorUsbActions(
     return EditorUsbActions(usbNames, usbSources, ::authorizeUsb)
 }
 
+private data class EditorUsbResult(
+    val result: androidx.activity.result.ActivityResult,
+    val deviceName: String?,
+    val retrySourceId: String?,
+)
+
 private fun SceneEditorDialogs.completeUsbResult(
-    result: androidx.activity.result.ActivityResult,
-    name: String?,
-    retryId: String?,
+    completion: EditorUsbResult,
     usbDevices: SceneUsbDevices,
     usbSources: SceneUsbSources,
     state: SceneEditorState,
@@ -263,6 +267,7 @@ private fun SceneEditorDialogs.completeUsbResult(
     catalog: List<SceneSource>,
     onEdit: (SceneEditorSession.() -> Unit) -> Unit,
 ) {
+    val (result, name, retryId) = completion
     val device = name?.let(usbDevices::deviceNamed)
     if (name == null || result.resultCode != Activity.RESULT_OK ||
         result.data?.getStringExtra(SceneUsbPermissionActivity.EXTRA_DEVICE_NAME) != name ||
@@ -626,10 +631,10 @@ private fun SelectedLayerControls(
         Text(stringResource(R.string.scene_editor_visible))
         Switch(layer.visible, { onEdit { setVisible(it) } }, enabled = !state.saving)
     }
-    status?.let { status ->
+    status?.let { currentStatus ->
         Text(
             stringResource(
-                when (status.status) {
+                when (currentStatus.status) {
                     SceneProducerStatus.ACTIVE -> R.string.scene_editor_active
                     SceneProducerStatus.OFFLINE -> R.string.scene_editor_offline
                     SceneProducerStatus.PERMISSION_REQUIRED -> R.string.scene_editor_permission
@@ -637,7 +642,7 @@ private fun SelectedLayerControls(
                 },
             ),
         )
-        if (status.status != SceneProducerStatus.ACTIVE) {
+        if (currentStatus.status != SceneProducerStatus.ACTIVE) {
             TextButton(onClick = {
                 actions.retry(source)
             }) { Text(stringResource(R.string.scene_editor_retry)) }
@@ -686,7 +691,6 @@ private fun androidx.compose.foundation.lazy.LazyListScope.editorTransition(
 
 @Composable
 private fun SceneEditorDialogs.SceneEditorPicker(
-    state: SceneEditorState,
     catalog: List<SceneSource>,
     onEdit: (SceneEditorSession.() -> Unit) -> Unit,
     actions: SceneEditorActions,

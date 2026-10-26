@@ -138,10 +138,12 @@ class SceneProducerManager(private val factory: SceneProducerFactory) {
             entry.retryAtMillis = 0
         } catch (error: Exception) {
             candidate?.let(::disposeProducer)
-            failed(entry, nowMillis, permissionRequired =
-                error is SceneProducerPermissionException || error is SecurityException)
+            failed(entry, nowMillis, permissionRequired = requiresPermission(error))
         }
     }
+
+    private fun requiresPermission(error: Exception) =
+        error is SceneProducerPermissionException || error is SecurityException
 
     private fun failed(entry: Entry, nowMillis: Long, permissionRequired: Boolean) {
         entry.permissionRequired = permissionRequired

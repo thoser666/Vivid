@@ -1174,8 +1174,7 @@ class StreamingEngine @Inject constructor(
     }
 
     /** Die Replay-Datei der aktiven Replay-Quelle (null, wenn keine aktiv/geladen). */
-    val activeReplayFile: File?
-        get() { return sceneReplayFile ?: replaySource?.replayFile }
+    val activeReplayFile get() = sceneReplayFile ?: replaySource?.replayFile
 
     /**
      * S2: liefert den MediaProjection-Consent-Intent der Screen-Capture-Quelle
