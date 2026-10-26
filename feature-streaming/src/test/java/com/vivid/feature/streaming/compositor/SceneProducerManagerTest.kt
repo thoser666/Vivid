@@ -164,4 +164,21 @@ class SceneProducerManagerTest {
         assertEquals("Renamed camera", manager.states.getValue(source.id).source.name)
         assertEquals(4, manager.states.getValue(source.id).references)
     }
+    @Test fun `file mode changes replace only the producer while label changes and shared views reuse it`() {
+        val file = SceneSource("file", SceneSourceType.VIDEO, "content://clip", videoLoop = false)
+        val input = SceneComposition(sources = listOf(file),
+            layers = listOf(SceneLayer("one", file.id), SceneLayer("two", file.id)))
+        val created = mutableListOf<Producer>()
+        val manager = SceneProducerManager { Producer().also(created::add) }
+        manager.reconcile(listOf(input), 0)
+        manager.reconcile(listOf(input.copy(sources = listOf(file.copy(name = "Renamed")))), 1)
+        assertEquals(1, created.size)
+        manager.reconcile(listOf(input.copy(sources = listOf(file.copy(videoLoop = true)))), 2)
+        assertEquals(2, created.size)
+        assertEquals(1, created.first().stops)
+        assertEquals(1, created.first().releases)
+        assertEquals(2, manager.states.getValue(file.id).references)
+        manager.release()
+    }
+
 }

@@ -13,6 +13,8 @@ data class SceneSource(
     /** Camera ID, persisted document URI, USB device identity or widget identity. */
     val locator: String = "",
     val name: String = "",
+    /** Null preserves old graph defaults; explicit file playback modes are part of producer identity. */
+    val videoLoop: Boolean? = null,
 ) {
     init {
         require(id.isNotBlank()) { "Source ID must not be blank" }
@@ -61,6 +63,8 @@ data class SceneLayer(
     val transform: SceneTransform = SceneTransform(),
     val visible: Boolean = true,
     val opacity: Float = 1f,
+    /** This view follows the main-input selector; independent views keep their source. */
+    val followsPrimaryInput: Boolean = false,
 ) {
     init {
         require(id.isNotBlank() && sourceId.isNotBlank())
@@ -90,6 +94,8 @@ data class SceneComposition(
     val sources: List<SceneSource> = emptyList(),
     val layers: List<SceneLayer> = emptyList(),
     val transition: SceneTransition = SceneTransition(),
+    /** Distinguishes old graphs from a graph whose main-input views were deliberately removed. */
+    val primaryInputConfigured: Boolean = false,
 ) {
     init {
         require(version == CURRENT_VERSION) { "Unsupported composition version: $version" }
@@ -99,6 +105,9 @@ data class SceneComposition(
         require(layers.map { it.id }.distinct().size == layers.size) { "Duplicate layer IDs" }
         val sourceIds = sources.map { it.id }.toSet()
         require(layers.all { it.sourceId in sourceIds }) { "Layer references missing source" }
+        require(layers.filter { it.followsPrimaryInput }.map { it.sourceId }.distinct().size <= 1) {
+            "Main-input views must share one source"
+        }
     }
 
     /** Duplication copies a view, never opens another camera or decoder. */
@@ -135,8 +144,10 @@ fun StreamScene.effectiveComposition(): SceneComposition {
         SceneVideoSource.REPLAY -> SceneSourceType.VIDEO
     }
     return SceneComposition(
-        sources = listOf(SceneSource(sourceId, type, replayPath.orEmpty(), name)),
-        layers = listOf(SceneLayer("legacy-layer:$id", sourceId)),
+        sources = listOf(SceneSource(sourceId, type, replayPath.orEmpty(), name,
+            videoLoop = if (type == SceneSourceType.VIDEO) true else null)),
+        layers = listOf(SceneLayer("legacy-layer:$id", sourceId, followsPrimaryInput = true)),
+        primaryInputConfigured = true,
     )
 }
 
@@ -147,10 +158,11 @@ enum class SceneLayoutPreset {
     fun arrange(primary: SceneSource, secondary: SceneSource? = null): SceneComposition {
         require(this == FULLSCREEN || secondary != null) { "Layout needs a second source" }
         require(secondary == null || secondary.id != primary.id) { "Use layer duplication to reuse a source" }
-        val first = SceneLayer("primary:${primary.id}", primary.id)
+        val first = SceneLayer("primary:${primary.id}", primary.id, followsPrimaryInput = true)
         return when (this) {
-            FULLSCREEN -> SceneComposition(sources = listOf(primary), layers = listOf(first))
+            FULLSCREEN -> SceneComposition(sources = listOf(primary), layers = listOf(first), primaryInputConfigured = true)
             PICTURE_IN_PICTURE -> SceneComposition(
+                primaryInputConfigured = true,
                 sources = listOf(primary, requireNotNull(secondary)),
                 layers = listOf(first, SceneLayer(
                     "secondary:${secondary.id}", secondary.id,
@@ -158,6 +170,7 @@ enum class SceneLayoutPreset {
                 )),
             )
             SIDE_BY_SIDE -> SceneComposition(
+                primaryInputConfigured = true,
                 sources = listOf(primary, requireNotNull(secondary)),
                 layers = listOf(
                     first.copy(transform = SceneTransform(width = 0.5f)),

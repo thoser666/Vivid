@@ -518,11 +518,13 @@ Schleifen werden verworfen. Ein ausgeblendetes primäres Video kann unabhängig
 Audio liefern; beim Wiedereinblenden wechselt es auf den neuen sichtbaren
 Playhead. Video-/Audioformat und Stream-/Recording-Consumer bleiben dabei erhalten.
 
-Ein globaler Quellenwechsel ersetzt nur die bekannte primäre Quelle oder eine
-passende Quelle des bisherigen Typs. Fehlt sie, kommt eine neue untere Ebene
-hinzu; Bilder/Widgets werden nicht mehr als beliebiger Fallback überschrieben.
-Volle Graphen weisen diese Ergänzung zurück. Stable IDs und bestehende Layer-
-Transformationen bleiben bei weiteren Wechseln erhalten.
+Ein globaler Quellenwechsel bindet die primären Ebenen an eine passende
+Capture-Konfiguration. Die explizite Zuordnung und Migration alter Graphen sind
+im Abschnitt „Primäre Ebenen und wiederverwendbare Capture-Konfigurationen“
+beschrieben. Fehlt die primäre Ansicht, kommt eine neue untere Ebene hinzu;
+Bilder/Widgets werden nicht als beliebiger Fallback überschrieben. Volle Graphen
+weisen diese Ergänzung zurück. Bestehende Ebenen-IDs und Transformationen bleiben
+bei weiteren Wechseln erhalten.
 
 Gemessene A/V-Synchronität und Schleifenlücken auf realen MediaCodec-Geräten
 bleiben offen. Der Übergang vorbereiteter Legacy-Datei-Sessions wird im folgenden
@@ -594,3 +596,54 @@ Selbsttests und scheiterte an **sechs von 471 unveränderten Chat-Tests**. Alle
 sechs XML-Fehler belegen Conscrypts fehlende `libpthread.so.0` auf Termux. Kein
 Test wurde abgeschwächt. Der breitere 390-Test-Lauf und der separat bestandene
 Streaming-Lint sind weiterhin kein vollständiger App-/Release-/Geräte-Nachweis.
+
+
+### Primäre Ebenen und wiederverwendbare Capture-Konfigurationen
+
+Globale Eingangswechsel binden jetzt ausdrücklich markierte Ebenen um, statt
+Typ oder Locator einer bestehenden SourceId zu verändern. Duplikate behalten
+`followsPrimaryInput`; unabhängige Ansichten derselben Kamera behalten ihre
+Quelle und Transformation. `primaryInputConfigured` unterscheidet alte, noch
+unmarkierte Kompositionen von bewusst gelöschten primären Ansichten. Nur alte
+Kompositionen übernehmen die bisherige Eingangsquelle automatisch. Nach einer
+bewussten Löschung erzeugt der nächste globale Wechsel eine neue untere Ebene.
+
+Kamerawechsel suchen zuerst eine vorhandene physische Capture-Konfiguration.
+Camera2- und externe HAL-Aliase können dieselbe Kamera wiederverwenden; rohe
+USB-Locators bleiben getrennt. Die Standardkamera wird über ihre konkrete ID
+aufgelöst. Nach einem Berechtigungsdialog wird diese Auflösung wiederholt, weil
+die Kamera-ID vorher fehlen kann. Der ausstehende Quelldeskriptor überlebt eine
+Activity-Neuerstellung; Sitzungen und Grants werden dabei nicht gespeichert.
+Ein explizites Hinzufügen versucht auch eine zuvor durch fehlende Berechtigung
+blockierte Quelle erneut. Bereits laufende Kameras aktualisieren beim Wechsel
+der primären Ansicht die Steuerungs- und Gesichtserkennungsanbindung ohne
+erneutes Öffnen des Geräts. Screen-Consent bevorzugt ebenfalls die gebundene
+primäre Ansicht gegenüber unbenutzten Quellen im Pool.
+
+Unbenutzte Eingangsquellen bleiben für spätere Wechsel im Pool. Bei acht Quellen
+kann nur die ersetzte, anschließend unreferenzierte Eingangsquelle Platz machen;
+unabhängig verwendete und andere gespeicherte Quellen werden nicht verdrängt.
+Die Ebenengrenze bleibt bestehen. Beim Zurückwechseln von einem Film zu einer
+bereits eingeblendeten Kamera entsteht dadurch kein zweiter Producer für
+dasselbe physische Gerät.
+
+`SceneSource.videoLoop` trennt einmalige Filme und wiederholende Videos auch
+bei identischer URI. Producer-Vergleich, Transition-Prüfung und Audioauswahl
+berücksichtigen diesen Modus. Ein globaler Filmwechsel verändert damit keine
+unabhängige wiederholende Ansicht derselben Datei. Die neuen Felder sind
+optionale, voreingestellte Ergänzungen von Schema 2; alte JSON-Dokumente bleiben
+lesbar. Legacy-Replays erhalten ausdrücklich den Wiederholungsmodus. Die
+bestehende Schreibsperre für unbekannte zukünftige Schemas bleibt erhalten.
+
+Der Regressionstest für Film → vorhandene Kamera → Film wurde zunächst gegen
+die alte Implementierung ausgeführt und scheiterte an zwei statt einem
+Kamera-Producer (`vivid-306-source-reuse-red.log`). Die Negativkontrollen blieben
+grün. Die neuen Tests prüfen zusätzlich unabhängige Ansichten, Duplikate,
+bewusste Löschung, Poolgrenzen, Kamera-Aliase, Playback-Modi, Consent-Ziel und
+die Wiederherstellung ausstehender Kameraauswahl. Der abschließende Lauf bestand 408 Engine-/Szenentests, 55 Domain-Tests und
+14 SceneRepository-Tests ohne Fehler oder Skips. Standard-Debug-App und
+instrumentierte Testquellen kompilierten; Streaming-Lint bestand separat.
+I18n- und Markdown-Anker-Prüfungen bestanden ebenfalls. Die Ergebnisse stehen
+in `vivid-306-source-binding-latest-tests-retry.log` und
+`vivid-306-source-binding-build-lint.log` außerhalb des Repositorys. Dies ist
+weiterhin kein Nachweis tatsächlicher Geräte-Captures oder GLES-Ausführung.

@@ -32,6 +32,7 @@ import java.io.InputStream
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Future
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
@@ -47,7 +48,7 @@ class AndroidSceneTextureProvider(
     private val sourceReady: (String) -> Unit = {},
     private val captureFrameRate: () -> Int = { 30 },
     private val videoLooped: (String, com.vivid.feature.streaming.compositor.capture.SceneVideoPlayback) -> Unit = { _, _ -> },
-    private val videoLooping: (SceneSource) -> Boolean = { true },
+    private val videoLooping: (SceneSource) -> Boolean = { it.videoLoop ?: true },
     private val backendFactory: (Context) -> SceneCaptureBackend = { AndroidSceneCaptureBackend(it, projections, videoLooped = videoLooped, videoLooping = videoLooping) },
 ) : SceneTextureProvider {
     private class Slot(val source: SceneSource, val id: Int, val external: Boolean,
@@ -75,6 +76,7 @@ class AndroidSceneTextureProvider(
     private var context: Context? = null
     private var attachedContext: EGLContext? = null
     private var backend: SceneCaptureBackend? = null
+    private val readyCaptures = ConcurrentHashMap.newKeySet<String>()
     private var manager: SceneProducerManager? = null
     private var workers: ExecutorService? = null
     private var frameThread: HandlerThread? = null
@@ -121,7 +123,9 @@ class AndroidSceneTextureProvider(
         backend?.configure(requested)
         backend?.setTargetFrameRate(captureFrameRate())
         val captureScenes = states.map { state -> state.composition.copy(
-            sources = state.composition.sources.filter { it.id != state.inputSourceId },
+            sources = state.composition.sources.filter { it.id != state.inputSourceId }.map { source ->
+                if (source.type == SceneSourceType.VIDEO && source.videoLoop == null) source.copy(videoLoop = videoLooping(source)) else source
+            },
             layers = state.composition.layers.filter { it.sourceId != state.inputSourceId },
         ) }
         while (true) {
@@ -174,6 +178,7 @@ class AndroidSceneTextureProvider(
                         if (!slot.announced) {
                             lifecycle.states[slot.source.id]?.let { lifecycle.markHealthy(slot.source.id, it.generation) }
                             slot.announced = true
+                            readyCaptures.add(slot.source.id)
                             sourceReady(slot.source.id)
                         }
                     }
@@ -213,6 +218,8 @@ class AndroidSceneTextureProvider(
 
     /** Shares the capture's manager with existing focus/exposure/face adapters. */
     @Synchronized
+    fun captureReady(sourceId: String): Boolean = readyCaptures.contains(sourceId)
+
     fun videoPlayback(sourceId: String) = backend?.videoPlayback(sourceId)
 
     fun camera(sourceId: String): com.pedro.encoder.input.video.Camera2ApiManager? = backend?.camera(sourceId)
@@ -319,7 +326,10 @@ class AndroidSceneTextureProvider(
 
     private fun releaseSlot(slot: Slot) {
         if (!slot.closed.compareAndSet(false, true)) return
-        if (slots[slot.source.id] === slot) slots.remove(slot.source.id)
+        if (slots[slot.source.id] === slot) {
+            slots.remove(slot.source.id)
+            readyCaptures.remove(slot.source.id)
+        }
         slot.texture?.setOnFrameAvailableListener(null)
         slot.surface?.release()
         slot.texture?.release()

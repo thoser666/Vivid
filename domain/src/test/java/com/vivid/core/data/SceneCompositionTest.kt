@@ -72,4 +72,30 @@ class SceneCompositionTest {
     private fun invalid(block: () -> Unit) {
         try { block(); fail("Invalid state accepted") } catch (_: IllegalArgumentException) { }
     }
+    @Test fun `main input bindings survive persistence duplication and deletion`() {
+        val input = SceneLayoutPreset.PICTURE_IN_PICTURE.arrange(camera, image)
+            .duplicateLayer("primary:${camera.id}", "duplicate")
+        val restored = Json.decodeFromString<SceneComposition>(Json.encodeToString(input))
+        assertTrue(restored.primaryInputConfigured)
+        assertEquals(2, restored.layers.count { it.followsPrimaryInput })
+        val withoutMain = restored.copy(layers = restored.layers.filterNot { it.followsPrimaryInput })
+        assertTrue(Json.decodeFromString<SceneComposition>(Json.encodeToString(withoutMain)).primaryInputConfigured)
+        invalid { input.copy(layers = input.layers.map { it.copy(followsPrimaryInput = true) }) }
+    }
+    @Test fun `older schema two graphs load with unconfigured input roles`() {
+        val old = """{"version":2,"sources":[{"id":"camera","type":"CAMERA"}],"layers":[{"id":"view","sourceId":"camera"}]}"""
+        val restored = Json.decodeFromString<SceneComposition>(old)
+        assertFalse(restored.primaryInputConfigured)
+        assertFalse(restored.layers.single().followsPrimaryInput)
+    }
+
+    @Test fun `file playback modes survive persistence without merging independent producers`() {
+        val once = SceneSource("once", SceneSourceType.VIDEO, "content://clip", videoLoop = false)
+        val loop = once.copy(id = "loop", videoLoop = true)
+        val input = SceneLayoutPreset.PICTURE_IN_PICTURE.arrange(once, loop)
+        val restored = Json.decodeFromString<SceneComposition>(Json.encodeToString(input))
+        assertEquals(input, restored)
+        assertEquals(listOf(false, true), restored.sources.map { it.videoLoop })
+    }
+
 }

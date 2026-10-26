@@ -1,6 +1,7 @@
 package com.vivid.feature.streaming.compositor
 
 import com.vivid.core.data.SceneComposition
+import com.vivid.core.data.SceneSourceType
 import com.vivid.core.data.SceneSource
 
 /** A producer owns capture/decoding only. The compositor owns textures and the encoder. */
@@ -171,7 +172,8 @@ class SceneProducerManager(private val factory: SceneProducerFactory) {
     }
 
     private fun sameCapture(first: SceneSource, second: SceneSource): Boolean =
-        first.id == second.id && first.type == second.type && first.locator == second.locator
+        first.id == second.id && first.type == second.type && first.locator == second.locator &&
+            (first.type != SceneSourceType.VIDEO || (first.videoLoop ?: true) == (second.videoLoop ?: true))
 
     companion object {
         const val FIRST_RETRY_MILLIS = 500L

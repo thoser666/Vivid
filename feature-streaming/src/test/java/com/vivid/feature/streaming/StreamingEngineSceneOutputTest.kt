@@ -433,10 +433,122 @@ class StreamingEngineSceneOutputTest {
         val looping = StreamingEngine::class.java.getDeclaredMethod("sceneVideoLooping", SceneSource::class.java)
             .apply { isAccessible = true }
         assertEquals(false, looping.invoke(engine, primary))
-        assertEquals(true, looping.invoke(engine, primary.copy(id = "independent-video")))
+        assertEquals(true, looping.invoke(engine, primary.copy(id = "independent-video", videoLoop = true)))
         val replay = File(files, "replay.mp4").apply { writeBytes(byteArrayOf(1)) }
         assertTrue(engine.useReplayAsSource(replay))
-        assertEquals(true, looping.invoke(engine, engine.sceneComposition.value!!.sources.single { it.type == SceneSourceType.VIDEO }))
+        val current = engine.sceneComposition.value!!
+        val primaryId = current.layers.first { it.followsPrimaryInput }.sourceId
+        assertEquals(true, looping.invoke(engine, current.sources.single { it.id == primaryId }))
+    }
+
+    @Test fun `main input switches reuse an independent camera without changing its view or source definition`() {
+        val engine = engine()
+        val movie = SceneSource("movie", SceneSourceType.VIDEO, "content://movie", videoLoop = false)
+        val camera = SceneSource("rear", SceneSourceType.CAMERA, "rear-device")
+        val independent = SceneLayer("rear-view", camera.id, SceneTransform(width = .3f, height = .3f))
+        val input = SceneComposition(sources = listOf(movie, camera), primaryInputConfigured = true,
+            layers = listOf(SceneLayer("main", movie.id, followsPrimaryInput = true), independent))
+        engine.setSceneComposition(input)
+        assertTrue(engine.setVideoPlayerUri(movieUri("movie")))
+        assertTrue(engine.switchSource(VideoSourceKind.VIDEO_PLAYER))
+        engine.startStream(listOf("rtmp://one/live"))
+        assertTrue(engine.switchSource(VideoSourceKind.CAMERA))
+        val switched = engine.sceneComposition.value!!
+        assertEquals(input.sources, switched.sources)
+        assertEquals(camera.id, switched.layers.first().sourceId)
+        assertEquals(independent, switched.layers.last())
+        assertTrue(engine.switchSource(VideoSourceKind.VIDEO_PLAYER))
+        assertEquals(input, engine.sceneComposition.value)
+        verify(exactly = 1) { session.prepare(any()) }
+    }
+
+    @Test fun `clearing a scene during recording retains the current clip instead of an inactive saved clip`() {
+        val engine = engine()
+        engine.setSceneComposition(graph())
+        assertTrue(engine.setVideoPlayerUri(movieUri("first")))
+        assertTrue(engine.switchSource(VideoSourceKind.VIDEO_PLAYER))
+        assertTrue(engine.startReplay(100L, false))
+        assertTrue(engine.setVideoPlayerUri(movieUri("second")))
+        val selected = engine.sceneComposition.value!!.layers.first { it.followsPrimaryInput }.sourceId
+        engine.setSceneComposition(null)
+        assertEquals(selected, engine.sceneComposition.value!!.sources.single().id)
+        assertEquals("content://second", engine.sceneComposition.value!!.sources.single().locator)
+        verify(exactly = 1) { session.prepare(any()) }
+        verify(exactly = 0) { session.close() }
+    }
+
+    @Test fun `lens changes reuse an existing camera producer while the main movie stays selected`() {
+        val engine = engine()
+        val manager = mockk<android.hardware.camera2.CameraManager>()
+        every { context.getSystemService(Context.CAMERA_SERVICE) } returns manager
+        every { manager.cameraIdList } returns arrayOf("rear", "front")
+        for ((id, facing) in listOf("rear" to android.hardware.camera2.CameraCharacteristics.LENS_FACING_BACK,
+            "front" to android.hardware.camera2.CameraCharacteristics.LENS_FACING_FRONT)) {
+            val metadata = mockk<android.hardware.camera2.CameraCharacteristics>()
+            every { metadata.get(android.hardware.camera2.CameraCharacteristics.LENS_FACING) } returns facing
+            every { manager.getCameraCharacteristics(id) } returns metadata
+        }
+        val movie = SceneSource("movie", SceneSourceType.VIDEO, "content://movie", videoLoop = false)
+        val rear = SceneSource("rear", SceneSourceType.CAMERA, "rear")
+        val front = SceneSource("front", SceneSourceType.CAMERA, "front")
+        val main = SceneLayer("main", movie.id, followsPrimaryInput = true)
+        val frontView = SceneLayer("front-view", front.id)
+        val input = SceneComposition(sources = listOf(movie, rear, front), primaryInputConfigured = true,
+            layers = listOf(main, SceneLayer("rear-view", rear.id), frontView))
+        engine.setSceneComposition(input)
+        assertTrue(engine.setVideoPlayerUri(movieUri("movie")))
+        assertTrue(engine.switchSource(VideoSourceKind.VIDEO_PLAYER))
+        engine.startStream(listOf("rtmp://one/live"))
+        val frontManager = mockk<com.pedro.encoder.input.video.Camera2ApiManager>(relaxed = true)
+        every { frontManager.getCurrentCameraId() } returns "front"
+        val textures = mockk<com.vivid.feature.streaming.compositor.gl.AndroidSceneTextureProvider>(relaxed = true)
+        every { textures.camera(front.id) } returns frontManager
+        every { textures.captureReady(front.id) } returns true
+        StreamingEngine::class.java.getDeclaredField("sceneTextures").apply { isAccessible = true }.set(engine, textures)
+        val attached = mutableListOf<com.pedro.encoder.input.video.Camera2ApiManager>()
+        engine.idleFaceDetectableFactory = { attached.add(it); mockk(relaxed = true) }
+        assertTrue(engine.selectLens("front"))
+        assertEquals(listOf(frontManager), attached)
+        val changed = engine.sceneComposition.value!!
+        assertEquals(input.sources, changed.sources)
+        assertEquals(main, changed.layers.first())
+        assertEquals(frontView, changed.layers.last())
+        assertEquals(front.id, changed.layers[1].sourceId)
+        assertEquals(VideoSourceKind.VIDEO_PLAYER, engine.activeSourceKind.value)
+        verify(exactly = 1) { session.prepare(any()) }
+    }
+
+    @Test fun `selecting a movie does not turn an independent looping view of the same file into a once only clip`() {
+        val engine = engine()
+        val loop = SceneSource("loop", SceneSourceType.VIDEO, "content://shared", videoLoop = true)
+        val view = SceneLayer("loop-view", loop.id)
+        engine.setSceneComposition(graph().copy(sources = graph().sources + loop, layers = graph().layers + view))
+        assertTrue(engine.setVideoPlayerUri(movieUri("shared")))
+        assertTrue(engine.switchSource(VideoSourceKind.VIDEO_PLAYER))
+        val selected = engine.sceneComposition.value!!
+        val mainId = selected.layers.first { it.followsPrimaryInput }.sourceId
+        assertNotEquals(loop.id, mainId)
+        assertEquals(false, selected.sources.single { it.id == mainId }.videoLoop)
+        assertEquals(loop, selected.sources.single { it.id == loop.id })
+        assertEquals(view, selected.layers.single { it.id == view.id })
+        val roleCleared = selected.copy(layers = selected.layers.filterNot { it.followsPrimaryInput })
+        engine.setSceneComposition(roleCleared)
+        assertEquals(false, engine.sceneComposition.value!!.sources.single { it.id == mainId }.videoLoop)
+    }
+
+    @Test fun `screen consent targets the bound source rather than an inactive saved screen`() {
+        val engine = engine()
+        val old = SceneSource("old-screen", SceneSourceType.SCREEN_CAPTURE)
+        val selected = old.copy(id = "selected-screen")
+        engine.setSceneComposition(SceneComposition(sources = listOf(old, selected), primaryInputConfigured = true,
+            layers = listOf(SceneLayer("main", selected.id, followsPrimaryInput = true))))
+        val manager = mockk<android.media.projection.MediaProjectionManager>()
+        val intent = mockk<android.content.Intent>()
+        every { context.getSystemService(Context.MEDIA_PROJECTION_SERVICE) } returns manager
+        every { manager.createScreenCaptureIntent() } returns intent
+        assertSame(intent, engine.createScreenCaptureConsentIntent())
+        val requested = StreamingEngine::class.java.getDeclaredField("requestedSceneProjectionId").apply { isAccessible = true }.get(engine)
+        assertEquals(selected.id, requested)
     }
 
 }

@@ -66,7 +66,7 @@ class SceneTransitionClock {
         val sources = (first.composition.sources + second.composition.sources)
             .groupBy { it.id }
         return sources.size <= SceneComposition.MAX_SOURCES && sources.values.all { sameId ->
-            sameId.distinctBy { it.type to it.locator }.size == 1
+            sameId.distinctBy { Triple(it.type, it.locator, if (it.type == com.vivid.core.data.SceneSourceType.VIDEO) it.videoLoop ?: true else null) }.size == 1
         }
     }
 }

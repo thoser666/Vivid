@@ -1,5 +1,7 @@
 package com.vivid.feature.streaming.ui.scene
 
+import com.vivid.feature.streaming.compositor.matchesSceneIdentity
+
 import android.Manifest
 import android.app.Activity
 import android.content.Intent
@@ -71,7 +73,7 @@ internal fun SceneEditorScreen(
     var input by rememberSaveable { mutableStateOf("") }
     var error by rememberSaveable { mutableStateOf(false) }
     var retryCameraId by rememberSaveable { mutableStateOf<String?>(null) }
-    var pendingCamera by remember { mutableStateOf<SceneSource?>(null) }
+    var pendingCamera by rememberSaveable(stateSaver = sceneCameraSourceSaver) { mutableStateOf<SceneSource?>(null) }
     var pendingProjection by rememberSaveable { mutableStateOf<String?>(null) }
     var cameras by remember { mutableStateOf<List<Pair<String, Int>>>(emptyList()) }
     val usbDevices = remember(context) { SceneUsbDevices(context) }
@@ -85,21 +87,26 @@ internal fun SceneEditorScreen(
     val clockName = stringResource(R.string.scene_editor_clock)
     val screenName = stringResource(R.string.scene_editor_screen)
     val hint = stringResource(R.string.scene_editor_gesture_hint)
+    fun cameraSource(candidate: SceneSource) = reusableSceneCameraSource(state.composition.sources,
+        candidate, engine::sceneCameraIdentity)
+    fun addCameraView(source: SceneSource) {
+        onEdit {
+            if (!addSource(source)) error = true else engine.retrySceneSource(source.id)
+        }
+    }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) {
-            pendingCamera?.let { source -> onEdit { if (!addSource(source)) error = true } }
+            pendingCamera?.let { addCameraView(cameraSource(it)) }
             retryCameraId?.let { engine.retrySceneSource(it) }
         } else error = true
         pendingCamera = null
         retryCameraId = null
     }
     fun addCamera(candidate: SceneSource) {
-        val source = state.composition.sources.firstOrNull {
-            it.type == candidate.type && it.locator == candidate.locator
-        } ?: candidate
+        val source = cameraSource(candidate)
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
-            onEdit { if (!addSource(source)) error = true }
-        } else { pendingCamera = source; permission.launch(Manifest.permission.CAMERA) }
+            addCameraView(source)
+        } else { pendingCamera = candidate; permission.launch(Manifest.permission.CAMERA) }
     }
     val usbPermission = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val name = pendingUsbName
@@ -131,7 +138,8 @@ internal fun SceneEditorScreen(
         if (uri == null) return
         try {
             context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            val existing = state.composition.sources.find { it.type == type && it.locator == uri.toString() }
+            val existing = state.composition.sources.find { it.matchesSceneIdentity(type, uri.toString(), engine::sceneCameraIdentity,
+                videoLoop = if (type == SceneSourceType.VIDEO) true else null) }
             val source = existing ?: SceneSource(UUID.randomUUID().toString(), type, uri.toString(),
                 uri.lastPathSegment?.substringAfterLast('/')?.take(80).orEmpty().ifBlank { defaultName })
             onEdit { if (!addSource(source)) error = true }

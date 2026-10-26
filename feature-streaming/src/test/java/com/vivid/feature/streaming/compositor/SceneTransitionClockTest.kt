@@ -73,4 +73,13 @@ class SceneTransitionClockTest {
             first.composition.sources.single().copy(name = "New label")))), 10)
         assertNotNull(clock.frame(10)!!.outgoing)
     }
+    @Test fun `conflicting file playback modes cut instead of sharing one decoder across a fade`() {
+        val file = SceneSource("file", SceneSourceType.VIDEO, "content://clip", videoLoop = false)
+        val input = state("file").copy(composition = state("file").composition.copy(sources = listOf(file)))
+        val clock = SceneTransitionClock()
+        clock.replace(input, 0)
+        clock.replace(input.copy(composition = input.composition.copy(sources = listOf(file.copy(videoLoop = true)))), 1)
+        assertNull(clock.frame(1)!!.outgoing)
+    }
+
 }

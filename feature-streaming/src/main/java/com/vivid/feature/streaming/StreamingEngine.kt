@@ -13,6 +13,7 @@ import com.vivid.feature.streaming.compositor.gl.SceneCompositorFilterRender
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Rect
+import com.vivid.feature.streaming.compositor.matchesSceneIdentity
 import android.net.Uri
 import androidx.core.net.toUri
 import android.view.MotionEvent
@@ -289,10 +290,12 @@ class StreamingEngine @Inject constructor(
 
     /** Scene edits update desired GPU state; no source encoder is created here. */
     fun setSceneComposition(requested: SceneComposition?, animate: Boolean = true) {
-        val composition = if (requested == null && sceneEncoding()) fallbackSceneGraph() else requested
+        val previousCameraId = primarySceneCamera()?.id
+        val composition = (if (requested == null && sceneEncoding()) fallbackSceneGraph() else requested)
+            ?.let(::resolveSceneVideoPlayback)
         if (composition == null && sceneSession != null) closeSceneSession()
         if (sceneSession == null && activeSourceKind.value == VideoSourceKind.CAMERA) {
-            composition?.sources?.firstOrNull { it.type == SceneSourceType.CAMERA }
+            sceneCameraSource(composition)?.takeIf { it.type == SceneSourceType.CAMERA }
                 ?.locator?.takeIf { it.isNotBlank() }?.let {
                     val current = idlePreviewCamera?.getCurrentCameraId() ?: camera?.currentCameraId
                     if (it != current) {
@@ -317,7 +320,13 @@ class StreamingEngine @Inject constructor(
         val next = composition?.let { SceneRenderState(it, if (sceneSession != null) null else inputId) }
         desiredSceneRender = next
         _sceneComposition.value = composition
+        scenePrimarySourceId = composition?.layers?.firstOrNull { it.followsPrimaryInput }?.sourceId
         syncSceneFileAudio()
+        val selectedCameraId = primarySceneCamera()?.id
+        if (previousCameraId != selectedCameraId && sceneSession != null) {
+            if (selectedCameraId == null) faceProducer.detach()
+            else if (sceneTextures?.captureReady(selectedCameraId) == true) sceneSourceReady(selectedCameraId)
+        }
         sceneWidgets.update(composition?.sources.orEmpty())
         sceneBitmaps.retainSources(composition?.sources?.filter { it.type == SceneSourceType.WIDGET }
             ?.map { it.id }?.toSet().orEmpty())
@@ -1335,12 +1344,13 @@ class StreamingEngine @Inject constructor(
         if (sceneSession != null) {
             val primary = primarySceneCamera() ?: return false
             val facing = sceneCameraOptions().firstOrNull { it.first == lensId }?.second ?: return false
-            sceneSelectedCameraId = lensId
             val graph = requireNotNull(_sceneComposition.value)
-            setSceneComposition(graph.copy(sources = graph.sources.map {
-                if (it.id == primary.id) it.copy(locator = lensId, type = if (facing ==
-                    android.hardware.camera2.CameraCharacteristics.LENS_FACING_EXTERNAL) SceneSourceType.UVC else SceneSourceType.CAMERA) else it
-            }), animate = false)
+            val type = if (facing == android.hardware.camera2.CameraCharacteristics.LENS_FACING_EXTERNAL)
+                SceneSourceType.UVC else SceneSourceType.CAMERA
+            val replacement = com.vivid.feature.streaming.compositor.rebindSceneSourceLayers(
+                graph, primary.id, type, lensId, ::sceneCameraIdentity) ?: return false
+            sceneSelectedCameraId = lensId
+            setSceneComposition(replacement.graph, animate = false)
             return true
         }
         return manualCameraController?.selectLens(lensId) ?: false
@@ -1978,20 +1988,34 @@ class StreamingEngine @Inject constructor(
         graph.sources.any { it.id in visible && it.type in listOf(SceneSourceType.CAMERA, SceneSourceType.UVC) }
     } ?: (activeSourceKind.value in listOf(VideoSourceKind.CAMERA, VideoSourceKind.UVC))
 
-    private fun primarySceneCamera(): com.vivid.core.data.SceneSource? {
-        val graph = _sceneComposition.value ?: return null
+    private fun primarySceneCamera(): com.vivid.core.data.SceneSource? = sceneCameraSource(_sceneComposition.value)
+
+    private fun sceneCameraSource(graph: SceneComposition?): com.vivid.core.data.SceneSource? {
+        graph ?: return null
         val visible = graph.layers.filter { it.visible && it.opacity > 0f }.map { it.sourceId }.toSet()
-        return graph.sources.firstOrNull { it.id in visible && it.type in listOf(SceneSourceType.CAMERA, SceneSourceType.UVC) }
+        val cameras = graph.sources.filter { it.id in visible && it.type in listOf(SceneSourceType.CAMERA, SceneSourceType.UVC) }
+        val primaryId = graph.layers.firstOrNull { it.followsPrimaryInput }?.sourceId
+        return cameras.firstOrNull { it.id == primaryId } ?: cameras.firstOrNull()
     }
 
     private fun activeSceneCamera(): Camera2ApiManager? = if (sceneSession == null) null else
         primarySceneCamera()?.let { sceneTextures?.camera(it.id) }
 
-    private data class SceneFileAudioKey(val sourceId: String?, val locator: String, val capture: Any?)
+    private data class SceneFileAudioKey(val sourceId: String?, val locator: String, val capture: Any?, val loop: Boolean)
     private var sceneFileAudioKey: SceneFileAudioKey? = null
     private var sceneFileAudioCycle = 0L
 
+    private fun resolveSceneVideoPlayback(graph: SceneComposition): SceneComposition {
+        val primaryId = graph.layers.firstOrNull { it.followsPrimaryInput }?.sourceId
+        val movieId = primaryId ?: if (activeSourceKind.value == VideoSourceKind.VIDEO_PLAYER)
+            graph.sources.firstOrNull { it.type == SceneSourceType.VIDEO && it.locator == sceneVideoUri?.toString() }?.id else null
+        return graph.copy(sources = graph.sources.map {
+            if (it.type == SceneSourceType.VIDEO && it.videoLoop == null) it.copy(videoLoop = it.id != movieId) else it
+        })
+    }
+
     private fun sceneVideoLooping(source: com.vivid.core.data.SceneSource): Boolean {
+        source.videoLoop?.let { return it }
         if (activeSourceKind.value != VideoSourceKind.VIDEO_PLAYER) return true
         val locator = sceneVideoUri?.toString() ?: return true
         val primary = _sceneComposition.value?.sources?.firstOrNull { it.id == scenePrimarySourceId }
@@ -2023,16 +2047,18 @@ class StreamingEngine @Inject constructor(
             return
         }
         val graph = _sceneComposition.value
-        val source = graph?.sources?.firstOrNull { it.type == SceneSourceType.VIDEO && it.locator == locator }
-        val visible = source != null && graph.layers.any { it.sourceId == source.id && it.visible && it.opacity > 0f }
+        val source = graph?.sources?.firstOrNull { it.id == scenePrimarySourceId && it.type == SceneSourceType.VIDEO && it.locator == locator }
+            ?: graph?.sources?.firstOrNull { it.matchesSceneIdentity(SceneSourceType.VIDEO, locator, ::sceneCameraIdentity, kind == VideoSourceKind.REPLAY) }
+        val loops = source?.videoLoop ?: (kind == VideoSourceKind.REPLAY)
+        val visible = source != null && graph?.layers?.any { it.sourceId == source.id && it.visible && it.opacity > 0f } == true
         val playback = if (visible) sceneTextures?.videoPlayback(requireNotNull(source).id) else null
-        val key = SceneFileAudioKey(source?.id, locator, if (visible) playback?.identity ?: "pending" else "audio-only")
+        val key = SceneFileAudioKey(source?.id, locator, if (visible) playback?.identity ?: "pending" else "audio-only", loops)
         val input = if (visible && playback == null) {
             com.vivid.feature.streaming.compositor.audio.SceneAudioInput(key) { com.pedro.encoder.input.sources.audio.SilenceAudioSource() }
         } else {
             com.vivid.feature.streaming.compositor.audio.SceneAudioInput(key) {
                 com.vivid.feature.streaming.compositor.audio.SceneFileAudioSource({ listener ->
-                    com.vivid.feature.streaming.compositor.audio.AndroidSceneFileAudioDriver(context, locator.toUri(), !visible && kind == VideoSourceKind.REPLAY, listener)
+                    com.vivid.feature.streaming.compositor.audio.AndroidSceneFileAudioDriver(context, locator.toUri(), !visible && loops, listener)
                 }, positionSeconds = {
                     if (visible) {
                         val current = sceneTextures?.videoPlayback(requireNotNull(source).id)
@@ -2225,10 +2251,15 @@ class StreamingEngine @Inject constructor(
     private fun fallbackSceneGraph(): SceneComposition {
         val old = _sceneComposition.value
         val type = sceneSourceType(activeSourceKind.value)
-        val source = old?.sources?.firstOrNull { it.type == type } ?: com.vivid.core.data.SceneSource(
-            "scene-default:${activeSourceKind.value}", type, sceneSourceLocator(activeSourceKind.value))
+        val locator = sceneSourceLocator(activeSourceKind.value)
+        val inputId = scenePrimarySourceId ?: sceneFileAudioKey?.sourceId
+        val source = old?.sources?.firstOrNull { it.id == inputId && it.matchesSceneIdentity(type, locator, ::sceneCameraIdentity) }
+            ?: old?.sources?.firstOrNull { it.matchesSceneIdentity(type, locator, ::sceneCameraIdentity,
+                videoLoop = if (type == SceneSourceType.VIDEO) activeSourceKind.value == VideoSourceKind.REPLAY else null) }
+            ?: com.vivid.core.data.SceneSource("scene-default:${activeSourceKind.value}", type, locator)
         return SceneComposition(canvasWidth = old?.canvasWidth ?: 1280, canvasHeight = old?.canvasHeight ?: 720,
-            sources = listOf(source), layers = listOf(com.vivid.core.data.SceneLayer("scene-default-layer", source.id)))
+            sources = listOf(source), layers = listOf(com.vivid.core.data.SceneLayer("scene-default-layer", source.id, followsPrimaryInput = true)),
+            primaryInputConfigured = true)
     }
 
     private fun sceneSourceType(kind: VideoSourceKind): SceneSourceType = when (kind) {
@@ -2239,10 +2270,35 @@ class StreamingEngine @Inject constructor(
     }
 
     private fun sceneSourceLocator(kind: VideoSourceKind): String = when (kind) {
-        VideoSourceKind.CAMERA -> sceneSelectedCameraId ?: camera?.currentCameraId.orEmpty()
+        VideoSourceKind.CAMERA -> sceneSelectedCameraId?.takeIf { it.isNotBlank() }
+            ?: camera?.currentCameraId?.takeIf { it.isNotBlank() }
+            ?: sceneCameraSource(_sceneComposition.value)?.takeIf { it.type == SceneSourceType.CAMERA }?.let(::sceneCameraIdentity)
+            ?: _sceneComposition.value?.sources?.firstOrNull { it.type == SceneSourceType.CAMERA }?.let(::sceneCameraIdentity).orEmpty()
+        VideoSourceKind.UVC -> sceneUvcLocator()
         VideoSourceKind.VIDEO_PLAYER -> sceneVideoUri?.toString().orEmpty()
         VideoSourceKind.REPLAY -> sceneReplayFile?.absolutePath.orEmpty()
         else -> ""
+    }
+
+    private fun sceneUvcLocator(): String {
+        val graph = _sceneComposition.value
+        val primaryId = graph?.layers?.firstOrNull { it.followsPrimaryInput }?.sourceId
+        val visible = graph?.layers?.filter { it.visible && it.opacity > 0f }?.map { it.sourceId }.orEmpty().toSet()
+        val sources = graph?.sources?.filter { it.type == SceneSourceType.UVC }.orEmpty()
+        val source = sources.firstOrNull { it.id == primaryId } ?: sources.firstOrNull { it.id in visible } ?: sources.firstOrNull()
+        return source?.let(::sceneCameraIdentity)?.takeIf { it.isNotBlank() }
+            ?: sceneCameraOptions().firstOrNull { it.second == android.hardware.camera2.CameraCharacteristics.LENS_FACING_EXTERNAL }?.first.orEmpty()
+    }
+
+    internal fun sceneCameraIdentity(source: com.vivid.core.data.SceneSource): String {
+        if (source.locator.isNotBlank()) return source.locator
+        sceneTextures?.camera(source.id)?.getCurrentCameraId()?.takeIf { it.isNotBlank() }?.let { return it }
+        val options = sceneCameraOptions()
+        val facing = if (source.type == SceneSourceType.UVC)
+            android.hardware.camera2.CameraCharacteristics.LENS_FACING_EXTERNAL else
+            android.hardware.camera2.CameraCharacteristics.LENS_FACING_BACK
+        return options.firstOrNull { it.second == facing }?.first
+            ?: if (source.type == SceneSourceType.CAMERA) options.firstOrNull()?.first.orEmpty() else ""
     }
 
     private var scenePrimarySourceId: String? = null
@@ -2262,8 +2318,9 @@ class StreamingEngine @Inject constructor(
         val oldKind = activeSourceKind.value
         if (kind in listOf(VideoSourceKind.VIDEO_PLAYER, VideoSourceKind.REPLAY) && sceneSourceLocator(kind).isBlank()) return false
         val graph = _sceneComposition.value ?: return false
-        val replacement = com.vivid.feature.streaming.compositor.replaceScenePrimarySource(graph, scenePrimarySourceId,
-            sceneSourceType(oldKind), sceneSourceType(kind), sceneSourceLocator(kind)) ?: return false
+        val replacement = com.vivid.feature.streaming.compositor.replaceScenePrimarySource(graph, scenePrimarySourceId ?: desiredSceneRender?.inputSourceId,
+            sceneSourceType(oldKind), sceneSourceType(kind), sceneSourceLocator(kind), ::sceneCameraIdentity,
+            videoLoop = when (kind) { VideoSourceKind.VIDEO_PLAYER -> false; VideoSourceKind.REPLAY -> true; else -> null }) ?: return false
         if (kind == VideoSourceKind.CAMERA) { if (!videoSourceRegistry.switchTo(kind)) return false }
         else {
             registerSceneSource(kind)
@@ -2276,15 +2333,22 @@ class StreamingEngine @Inject constructor(
 
     private fun updateSceneBaseSource(kind: VideoSourceKind, oldKind: VideoSourceKind = kind): Boolean {
         val graph = _sceneComposition.value ?: return false
-        val replacement = com.vivid.feature.streaming.compositor.replaceScenePrimarySource(graph, scenePrimarySourceId,
-            sceneSourceType(oldKind), sceneSourceType(kind), sceneSourceLocator(kind)) ?: return false
+        val replacement = com.vivid.feature.streaming.compositor.replaceScenePrimarySource(graph, scenePrimarySourceId ?: desiredSceneRender?.inputSourceId,
+            sceneSourceType(oldKind), sceneSourceType(kind), sceneSourceLocator(kind), ::sceneCameraIdentity,
+            videoLoop = when (kind) { VideoSourceKind.VIDEO_PLAYER -> false; VideoSourceKind.REPLAY -> true; else -> null }) ?: return false
         scenePrimarySourceId = replacement.sourceId
         setSceneComposition(replacement.graph, animate = false)
         return true
     }
 
-    private fun primarySceneScreenId(): String? = _sceneComposition.value?.sources
-        ?.firstOrNull { it.type == SceneSourceType.SCREEN_CAPTURE }?.id
+    private fun primarySceneScreenId(): String? {
+        val graph = _sceneComposition.value ?: return null
+        val primaryId = graph.layers.firstOrNull { it.followsPrimaryInput }?.sourceId
+        val visible = graph.layers.filter { it.visible && it.opacity > 0f }.map { it.sourceId }.toSet()
+        val screens = graph.sources.filter { it.type == SceneSourceType.SCREEN_CAPTURE }
+        return screens.firstOrNull { it.id == primaryId }?.id
+            ?: screens.firstOrNull { it.id in visible }?.id ?: screens.firstOrNull()?.id
+    }
 
     fun sceneProjectionForegroundRequired(): Boolean = pendingSceneProjection != null ||
         sceneProjectionActive.value || (activeSourceKind.value == VideoSourceKind.SCREEN_CAPTURE && screenCaptureSource?.isActive == true)

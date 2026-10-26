@@ -35,7 +35,7 @@ class AndroidSceneCaptureBackend(
     private val deviceRotationDegrees: (() -> Int)? = null,
     private val dispatchCameraTask: ((() -> Unit) -> Unit)? = null,
     private val videoLooped: (String, SceneVideoPlayback) -> Unit = { _, _ -> },
-    private val videoLooping: (SceneSource) -> Boolean = { true },
+    private val videoLooping: (SceneSource) -> Boolean = { it.videoLoop ?: true },
     private val cameraFactory: () -> Camera2ApiManager = { Camera2ApiManager(context) },
 ) : SceneCaptureBackend {
     private val cameraManager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
