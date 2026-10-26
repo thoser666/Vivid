@@ -33,7 +33,7 @@ mockitoCore = "5.24.0"
 mockitoKotlin = "6.4.0"
 mockk = "1.14.11"
 navigationCompose = "2.10.2"
-okhttpVersion = "5.5.0"
+okhttpVersion = "5.5.1"
 rootencoder = "2.7.5"
 # [WHIP P0-Spike] libwebrtc-Prebuild (M150) — docs/whip-spike.md §4. Nur für den
 # P0-Spike auf dem Feature-Branch; kein develop-Bestandteil.
