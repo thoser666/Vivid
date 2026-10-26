@@ -685,8 +685,17 @@ Die lokale Regression bestand 462 Engine-/Szenen-/ViewModel-Tests, 55 Domain-
 Tests und 14 SceneRepository-Tests ohne Fehler oder Skips. Auch der abschließende
 Lauf nach der letzten Render-Routing-Extraktion bestand; instrumentierte Quellen
 kompilierten. Protokolle: `vivid-330-bot-tests.log` und
-`vivid-330-bot-final-tests.log` außerhalb des Repositorys. Die tatsächlichen
+`vivid-330-bot-final-tests.log` außerhalb des Repositorys. Die
 Standard-Debug-App kompilierte ebenfalls; Streaming-Lint bestand mit null Fehlern
 und Warnungen sowie dem bestehenden Autoboxing-Hinweis
 (`vivid-330-bot-build-lint.log`). I18n- und Markdown-Anker-Prüfungen bestanden.
 Vollständiger Gate und neue Bot-Analyse werden am veröffentlichten Commit ergänzt.
+
+
+Der vollständige Gate für `73569c5` bestand die Repository-Selbsttests und
+endete in `:feature-chat:testDebugUnitTest`: sechs Fehler unter 471 Tests.
+Alle sechs XML-Fehler zeigen erneut Conscrypts fehlendes `libpthread.so.0` auf
+Termux; die Chat-Implementierung ist unverändert. Protokoll:
+`vivid-330-bot-pre-push.log`. Der vollständige Gate bleibt rot, unabhängig von
+den separat bestandenen 531 Tests, der App-/Instrumentierungs-Kompilation und
+Streaming-Lint. Es wurde keine Test- oder Analyse-Regel gelockert.
