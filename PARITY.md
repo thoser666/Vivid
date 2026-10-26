@@ -275,6 +275,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 
 | Datum | Commit | Änderung |
 |-------|--------|----------|
+| 2026-10-26 | `91269be` | **#330: typisierte Scene-Flows in Screen-Test-Fixtures** — CI-Artefakt aus Run 40333111851 belegt 40 ClassCast-Fehler beim Sammeln des relaxed gemockten Editor-StateFlows. Beide Fixtures liefern nun echte Editor-/Producer-Flows; Permission-Fixture ergänzt Full-Frame-State. Produktionscode und bestehende Assertions bleiben erhalten. |
 | 2026-10-26 | `f9b9f47` | **#330: letzten Sonar-Komplexitätsbefund im Preview-Anschluss aufteilen** — Legacy-Orientierung in eigenen Helper extrahiert; Canvas-Geometrie und Reihenfolge der GL-Aufrufe bleiben gleich. Keine Suppression. Regressionstests und erneute Analyse folgen. |
 | 2026-10-26 | `a3d23af` | **#330: develop während des Konfliktlaufs bis 54e38d12 nachgezogen** — neuere Sentry-/CI-Skripte und Changelog übernommen, beide Parity-Verläufe erhalten und Dashboard regeneriert; geprüfte Android-Quellen gegenüber 5351d97 unverändert. |
 | 2026-10-26 | `5351d97` | **#330: develop bis 8064da7a konfliktfrei integriert** — experimenteller Kamera-Pfad, Live-Status und Orientierungs-Fix bleiben neben dem Szenen-Encoder erhalten; stabile Filterkette bewahrt externe Overlays. Beide Sprachsatz- und R8-Erweiterungen bleiben erhalten. Recording-Helper und monotone Test-Uhr nach automatischem Merge korrigiert; 493 gezielte Tests ohne Fehler/Skips, Standard-App und Instrumentierungsquellen kompiliert. I18n, Anker und Emulator-Matrix-Selbsttest grün; Lint und vollständiger Gate folgen. |
@@ -605,6 +606,7 @@ Commit die Log-Zeile hinzufügte:
 
 | Datum | Commit | Eintrag | Kandidaten (Phrase in PARITY.md) | Vermerk |
 |-------|--------|---------|----------------------------------|---------|
+| 2026-10-26 | `91269be` | #330: typisierte Scene-Flows in Screen-Test-Fixtures | `91269be` | CI-XML: Object → SceneEditorState in 35 Render- und fünf Permission-Fällen; Validierung folgt. |
 | 2026-10-26 | `f9b9f47` | #330: letzten Sonar-Komplexitätsbefund im Preview-Anschluss aufteilen | `f9b9f47` | S3776: ursprüngliche Komplexität 22 bei Grenze 15; Legacy-Orientierung separat. |
 | 2026-10-26 | `a3d23af` | #330: develop während des Konfliktlaufs bis 54e38d12 nachgezogen | `a3d23af` | Zweiter Merge für während der Validierung vorgerückte Basis; Android-Quellen unverändert. |
 | 2026-10-26 | `5351d97` | #330: develop bis 8064da7a konfliktfrei integriert | `5351d97` | Merge-Commit erhält beide Capture-Pfade; 493 Tests, App-/Instrumentierungs-Kompilation und strukturelle Guards grün. |
