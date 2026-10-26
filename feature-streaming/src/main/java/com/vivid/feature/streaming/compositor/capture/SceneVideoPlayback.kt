@@ -39,9 +39,13 @@ internal class AndroidSceneVideoWorker : SceneVideoWorker {
         var interrupted = false
         try {
             while (true) {
-                try { return task.get() }
-                catch (_: InterruptedException) { interrupted = true }
-                catch (failure: java.util.concurrent.ExecutionException) { throw requireNotNull(failure.cause) }
+                val result = runCatching { task.get() }
+                if (result.isSuccess) return result.getOrThrow()
+                when (val failure = result.exceptionOrNull()) {
+                    is InterruptedException -> interrupted = true // Restored after completing the posted operation.
+                    is java.util.concurrent.ExecutionException -> throw requireNotNull(failure.cause)
+                    else -> throw requireNotNull(failure)
+                }
             }
         } finally { if (interrupted) Thread.currentThread().interrupt() }
     }
@@ -74,30 +78,34 @@ internal class SceneVideoProducer(
             check(player == null)
             val candidate = playerFactory().also { player = it }
             try {
-                candidate.prepare({
-                    if (current(candidate)) {
-                        try { prepared = true; candidate.start() } catch (_: Exception) { reportFailure() }
-                    }
-                }, {
-                    if (current(candidate) && prepared && !rewinding && loop) {
-                        try {
-                            rewinding = true
-                            candidate.rewind {
-                                if (current(candidate) && rewinding) {
-                                    rewinding = false
-                                    cycle++
-                                    looped(SceneVideoPlayback(identity, 0.0, cycle))
-                                }
-                            }
-                        } catch (_: Exception) { reportFailure() }
-                    }
-                }, { if (current(candidate)) reportFailure() })
+                candidate.prepare({ onPrepared(candidate) }, { onCompleted(candidate) },
+                    { if (current(candidate)) reportFailure() })
             } catch (error: Exception) {
                 player = null
                 try { candidate.release() } catch (cleanup: Exception) { error.addSuppressed(cleanup) }
                 throw error
             }
         }
+    }
+
+    private fun onPrepared(candidate: SceneVideoPlayer) {
+        if (!current(candidate)) return
+        try { prepared = true; candidate.start() } catch (_: Exception) { reportFailure() }
+    }
+
+    private fun onCompleted(candidate: SceneVideoPlayer) {
+        if (!current(candidate) || !prepared || rewinding || !loop) return
+        try {
+            rewinding = true
+            candidate.rewind { onRewound(candidate) }
+        } catch (_: Exception) { reportFailure() }
+    }
+
+    private fun onRewound(candidate: SceneVideoPlayer) {
+        if (!current(candidate) || !rewinding) return
+        rewinding = false
+        cycle++
+        looped(SceneVideoPlayback(identity, 0.0, cycle))
     }
 
     private fun current(candidate: SceneVideoPlayer) = !closed.get() && !failedOnce && player === candidate

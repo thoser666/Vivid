@@ -21,7 +21,7 @@ internal class ActiveCameraControls(private val current: () -> CameraControls?) 
     override fun getFocusDistance(): Float = current()?.getFocusDistance() ?: 0f
     override fun setFocusDistance(distance: Float) = current()?.setFocusDistance(distance) ?: Unit
     override fun getAvailableCameraIds(): List<String> = current()?.getAvailableCameraIds() ?: emptyList()
-    override fun getCurrentCameraId(): String = current()?.getCurrentCameraId() ?: ""
+    override fun getCurrentCameraId(): String = current()?.getCurrentCameraId().orEmpty()
     override fun selectCamera(cameraId: String): Boolean = current()?.selectCamera(cameraId) ?: false
     override fun hasExposureControl(): Boolean = current()?.hasExposureControl() ?: false
     override fun getExposure(): Int = current()?.getExposure() ?: 0

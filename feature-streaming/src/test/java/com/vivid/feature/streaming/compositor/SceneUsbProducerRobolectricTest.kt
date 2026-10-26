@@ -30,7 +30,10 @@ class SceneUsbProducerRobolectricTest {
     private class Worker : AbstractExecutorService() {
         val tasks = ArrayDeque<Runnable>()
         var retired = false
-        override fun execute(command: Runnable) { if (retired) throw RejectedExecutionException(); tasks.addLast(command) }
+        override fun execute(command: Runnable) {
+            if (retired) throw RejectedExecutionException()
+            tasks.addLast(command)
+        }
         fun drain() { while (tasks.isNotEmpty()) tasks.removeFirst().run() }
         override fun shutdown() { retired = true }
         override fun shutdownNow(): MutableList<Runnable> { retired = true; return tasks.toMutableList().also { tasks.clear() } }
@@ -115,7 +118,7 @@ class SceneUsbProducerRobolectricTest {
         every { driver.start(any(), any()) } answers {
             val config = secondArg<SceneUsbConfiguration>()
             current = null // Native reconfiguration stops the previous preview before negotiation.
-            if (config.frameRate == 60) throw IllegalArgumentException("mode negotiation failed")
+            require(config.frameRate != 60) { "mode negotiation failed" }
             current = config
         }
         backend.setTargetFrameRate(60); drain()
@@ -128,7 +131,7 @@ class SceneUsbProducerRobolectricTest {
         var calls = 0
         every { driver.start(any(), any()) } answers {
             calls++
-            if (calls % 3 != 0) throw IllegalArgumentException("mode rejected")
+            require(calls % 3 == 0) { "mode rejected" }
             current = secondArg()
         }
         repeat(10) { backend.setTargetFrameRate(60); drain() }

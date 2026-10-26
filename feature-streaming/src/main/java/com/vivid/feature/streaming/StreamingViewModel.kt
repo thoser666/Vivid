@@ -95,13 +95,12 @@ class StreamingViewModel @Inject constructor(
         session.setSaving(true)
         _sceneEditor.value = session.state
         viewModelScope.launch {
-            try {
+            runCatching {
                 sceneRepository.saveScene(session.state.scene)
                 sceneRepository.setActiveScene(session.state.scene.id)
                 finishEditor(restore = false)
-            } catch (cancelled: kotlinx.coroutines.CancellationException) {
-                throw cancelled
-            } catch (_: Exception) {
+            }.onFailure { error ->
+                if (error is kotlinx.coroutines.CancellationException || error !is Exception) throw error
                 session.setSaving(false, failed = true)
                 _sceneEditor.value = session.state
             }

@@ -25,38 +25,41 @@ class SceneWidgetFeed(private val publish: (String, Bitmap) -> Boolean) {
     @Synchronized
     fun update(next: List<SceneSource>) {
         val automatic = next.filter { it.type == SceneSourceType.WIDGET &&
-            (it.locator == "clock" || it.locator.startsWith("text:")) }
+            (it.locator == SCENE_CLOCK || it.locator.startsWith(SCENE_TEXT)) }
             .map { it.copy(name = "") }
         if (sources == automatic) return
         sources = automatic
         val current = ++generation
         job?.cancel()
-        job = if (automatic.isEmpty()) null else scope.launch {
-            val previous = mutableMapOf<String, String>()
-            do {
-                automatic.forEach { source ->
-                    val text = content(source, System.currentTimeMillis(), TimeZone.getDefault()) ?: return@forEach
-                    if (previous[source.id] != text) {
-                        val bitmap = render(text)
-                        try {
-                            ensureActive()
-                            synchronized(this@SceneWidgetFeed) {
-                                if (generation == current && publish(source.id, bitmap)) previous[source.id] = text
-                            }
-                        } finally { bitmap.recycle() }
-                    }
-                }
-                if (automatic.none { it.locator == "clock" }) break
-                delay(1_000L - System.currentTimeMillis().mod(1_000L))
-            } while (isActive)
-        }
+        job = if (automatic.isEmpty()) null else scope.launch { updateContent(automatic, current) }
+    }
+
+    private suspend fun updateContent(automatic: List<SceneSource>, current: Long) {
+        val previous = mutableMapOf<String, String>()
+        do {
+            automatic.forEach { updateSource(it, previous, current) }
+            if (automatic.none { it.locator == SCENE_CLOCK }) break
+            delay(1_000L - System.currentTimeMillis().mod(1_000L))
+        } while (currentCoroutineContext().isActive)
+    }
+
+    private suspend fun updateSource(source: SceneSource, previous: MutableMap<String, String>, current: Long) {
+        val text = content(source, System.currentTimeMillis(), TimeZone.getDefault()) ?: return
+        if (previous[source.id] == text) return
+        val bitmap = render(text)
+        try {
+            currentCoroutineContext().ensureActive()
+            synchronized(this) {
+                if (generation == current && publish(source.id, bitmap)) previous[source.id] = text
+            }
+        } finally { bitmap.recycle() }
     }
 
     companion object {
         fun content(source: SceneSource, timeMillis: Long, zone: TimeZone): String? = when {
             source.type != SceneSourceType.WIDGET -> null
-            source.locator == "clock" -> SimpleDateFormat("HH:mm:ss", Locale.ROOT).apply { timeZone = zone }.format(Date(timeMillis))
-            source.locator.startsWith("text:") -> source.locator.removePrefix("text:").take(2048)
+            source.locator == SCENE_CLOCK -> SimpleDateFormat("HH:mm:ss", Locale.ROOT).apply { timeZone = zone }.format(Date(timeMillis))
+            source.locator.startsWith(SCENE_TEXT) -> source.locator.removePrefix(SCENE_TEXT).take(2048)
             else -> null
         }
 
@@ -79,3 +82,6 @@ class SceneWidgetFeed(private val publish: (String, Bitmap) -> Boolean) {
         }
     }
 }
+
+private const val SCENE_CLOCK = "clock"
+private const val SCENE_TEXT = "text:"

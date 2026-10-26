@@ -294,9 +294,30 @@ class StreamingEngine @Inject constructor(
         val composition = (if (requested == null && sceneEncoding()) fallbackSceneGraph() else requested)
             ?.let(::resolveSceneVideoPlayback)
         if (composition == null && sceneSession != null) closeSceneSession()
+        alignLegacySceneCamera(composition)
+        val inputId = legacySceneInputId(composition)
+        val previous = desiredSceneRender
+        val next = composition?.let { SceneRenderState(it, if (sceneSession != null) null else inputId) }
+        desiredSceneRender = next
+        _sceneComposition.value = composition
+        scenePrimarySourceId = composition?.layers?.firstOrNull { it.followsPrimaryInput }?.sourceId
+        syncSceneFileAudio()
+        refreshSceneCameraBinding(previousCameraId)
+        sceneWidgets.update(composition?.sources.orEmpty())
+        sceneBitmaps.retainSources(composition?.sources?.filter { it.type == SceneSourceType.WIDGET }
+            ?.map { it.id }?.toSet().orEmpty())
+        sceneProjections.retainSources(composition?.sources?.filter { it.type == SceneSourceType.SCREEN_CAPTURE }
+            ?.map { it.id }?.toSet().orEmpty())
+        applySceneCompositionRender(previous, next, animate)
+    }
+
+    private fun alignLegacySceneCamera(composition: SceneComposition?) {
         if (sceneSession == null && activeSourceKind.value == VideoSourceKind.CAMERA) {
-            sceneCameraSource(composition)?.takeIf { it.type == SceneSourceType.CAMERA }
-                ?.locator?.takeIf { it.isNotBlank() }?.let {
+            sceneCameraSource(composition)
+                ?.takeIf { it.type == SceneSourceType.CAMERA }
+                ?.locator
+                ?.takeIf { it.isNotBlank() }
+                ?.let {
                     val current = idlePreviewCamera?.getCurrentCameraId() ?: camera?.currentCameraId
                     if (it != current) {
                         val previousAvailable = sceneCameraAvailable.getAndSet(false)
@@ -304,50 +325,48 @@ class StreamingEngine @Inject constructor(
                     }
                 }
         }
-        val inputType = when (activeSourceKind.value) {
-            VideoSourceKind.CAMERA -> SceneSourceType.CAMERA
-            VideoSourceKind.SCREEN_CAPTURE -> SceneSourceType.SCREEN_CAPTURE
-            VideoSourceKind.VIDEO_PLAYER, VideoSourceKind.REPLAY -> SceneSourceType.VIDEO
-            // The old UVC adapter is MediaProjection, not an external-camera producer.
-            VideoSourceKind.UVC -> null
-        }
+    }
+
+    private fun legacySceneInputId(composition: SceneComposition?): String? {
+        val inputType =
+            when (activeSourceKind.value) {
+                VideoSourceKind.CAMERA -> SceneSourceType.CAMERA
+                VideoSourceKind.SCREEN_CAPTURE -> SceneSourceType.SCREEN_CAPTURE
+                VideoSourceKind.VIDEO_PLAYER, VideoSourceKind.REPLAY -> SceneSourceType.VIDEO
+                // The old UVC adapter is MediaProjection, not an external-camera producer.
+                VideoSourceKind.UVC -> null
+            }
         val cameraId = idlePreviewCamera?.getCurrentCameraId() ?: camera?.currentCameraId
-        val inputId = composition?.sources?.firstOrNull {
-            it.type == inputType && (it.type != SceneSourceType.CAMERA ||
-                it.locator.isBlank() || it.locator == cameraId)
-        }?.id
-        val previous = desiredSceneRender
-        val next = composition?.let { SceneRenderState(it, if (sceneSession != null) null else inputId) }
-        desiredSceneRender = next
-        _sceneComposition.value = composition
-        scenePrimarySourceId = composition?.layers?.firstOrNull { it.followsPrimaryInput }?.sourceId
-        syncSceneFileAudio()
+        return composition
+            ?.sources
+            ?.firstOrNull {
+                it.type == inputType && (
+                    it.type != SceneSourceType.CAMERA ||
+                        it.locator.isBlank() || it.locator == cameraId
+                )
+            }?.id
+    }
+
+    private fun refreshSceneCameraBinding(previousCameraId: String?) {
         val selectedCameraId = primarySceneCamera()?.id
         if (previousCameraId != selectedCameraId && sceneSession != null) {
-            if (selectedCameraId == null) faceProducer.detach()
-            else if (sceneTextures?.captureReady(selectedCameraId) == true) sceneSourceReady(selectedCameraId)
-        }
-        sceneWidgets.update(composition?.sources.orEmpty())
-        sceneBitmaps.retainSources(composition?.sources?.filter { it.type == SceneSourceType.WIDGET }
-            ?.map { it.id }?.toSet().orEmpty())
-        sceneProjections.retainSources(composition?.sources?.filter { it.type == SceneSourceType.SCREEN_CAPTURE }
-            ?.map { it.id }?.toSet().orEmpty())
-        val gl = activeGlInterface()
-        updateSceneRenderClock()
-        if (sceneRouteRequested() && previewRequest != null && !sceneEncoding()) {
-            startIdlePreviewIfReady()
-            if (sceneSession != null) {
-                desiredSceneRender = _sceneComposition.value?.let { SceneRenderState(it) }
-                sceneRender?.setScene(desiredSceneRender, animate)
-                return
+            if (selectedCameraId == null) {
+                faceProducer.detach()
+            } else if (sceneTextures?.captureReady(selectedCameraId) == true) {
+                sceneSourceReady(selectedCameraId)
             }
         }
-        if (previous == null && next != null && idlePreviewCamera != null &&
-            camera?.isStreaming != true && camera?.isRecording != true) {
-            stopIdlePreview()
-            startIdlePreviewIfReady()
-            return
-        }
+    }
+
+    private fun applySceneCompositionRender(
+        previous: SceneRenderState?,
+        next: SceneRenderState?,
+        animate: Boolean,
+    ) {
+        val gl = activeGlInterface()
+        updateSceneRenderClock()
+        if (startRequestedScenePreview(animate)) return
+        if (restartLegacyScenePreview(previous, next)) return
         val render = sceneRender
         if (render != null && previous != null && next != null && sceneRenderGl === gl) {
             render.setScene(next, animate)
@@ -355,6 +374,23 @@ class StreamingEngine @Inject constructor(
             render?.setScene(null, animate = false)
             privacyComposer.requestRebuild(gl)
         }
+    }
+
+    private fun startRequestedScenePreview(animate: Boolean): Boolean {
+        if (!sceneRouteRequested() || previewRequest == null || sceneEncoding()) return false
+        startIdlePreviewIfReady()
+        if (sceneSession == null) return false
+        desiredSceneRender = _sceneComposition.value?.let { SceneRenderState(it) }
+        sceneRender?.setScene(desiredSceneRender, animate)
+        return true
+    }
+
+    private fun restartLegacyScenePreview(previous: SceneRenderState?, next: SceneRenderState?): Boolean {
+        if (previous != null || next == null || idlePreviewCamera == null ||
+            camera?.isStreaming == true || camera?.isRecording == true) return false
+        stopIdlePreview()
+        startIdlePreviewIfReady()
+        return true
     }
 
     val currentSceneCameraId: String?
@@ -1022,44 +1058,7 @@ class StreamingEngine @Inject constructor(
         if (sceneSession != null || (_sceneComposition.value != null && !legacyEncoding())) {
             return switchSceneBaseSource(kind)
         }
-        val switched = when (kind) {
-            VideoSourceKind.CAMERA -> videoSourceRegistry.switchTo(VideoSourceKind.CAMERA)
-
-            VideoSourceKind.SCREEN_CAPTURE -> {
-                val source = ensureScreenCaptureSource() ?: return false
-                // Die Quelle ist bereits erzeugt (Engine besitzt Display + Checker) —
-                // die Fabrik liefert genau diese Instanz für SCREEN_CAPTURE.
-                videoSourceRegistry.registerFactory(VideoSourceKind.SCREEN_CAPTURE) { requested ->
-                    if (requested == VideoSourceKind.SCREEN_CAPTURE) source else null
-                }
-                videoSourceRegistry.switchTo(VideoSourceKind.SCREEN_CAPTURE)
-            }
-
-            VideoSourceKind.VIDEO_PLAYER -> {
-                val source = ensureVideoPlayerSource() ?: return false
-                videoSourceRegistry.registerFactory(VideoSourceKind.VIDEO_PLAYER) { requested ->
-                    if (requested == VideoSourceKind.VIDEO_PLAYER) source else null
-                }
-                videoSourceRegistry.switchTo(VideoSourceKind.VIDEO_PLAYER)
-            }
-
-            VideoSourceKind.REPLAY -> {
-                val source = ensureReplaySource() ?: return false
-                videoSourceRegistry.registerFactory(VideoSourceKind.REPLAY) { requested ->
-                    if (requested == VideoSourceKind.REPLAY) source else null
-                }
-                videoSourceRegistry.switchTo(VideoSourceKind.REPLAY)
-            }
-            VideoSourceKind.UVC -> {
-                val source = videoSourceRegistry.activeSource.value
-                    ?.let { if (it.kind == VideoSourceKind.UVC) it else null }
-                    ?: return false
-                videoSourceRegistry.registerFactory(VideoSourceKind.UVC) { requested ->
-                    if (requested == VideoSourceKind.UVC) source else null
-                }
-                videoSourceRegistry.switchTo(VideoSourceKind.UVC)
-            }
-        }
+        val switched = switchLegacySource(kind)
         if (switched && kind != VideoSourceKind.CAMERA) {
             if (_replayState.value is ReplayState.Recording) stopReplay()
             stopIdlePreview()
@@ -1073,6 +1072,20 @@ class StreamingEngine @Inject constructor(
         }
         applyPrivacyZones()
         return switched
+    }
+
+    private fun switchLegacySource(kind: VideoSourceKind): Boolean {
+        if (kind == VideoSourceKind.CAMERA) return videoSourceRegistry.switchTo(kind)
+        val source =
+            when (kind) {
+                VideoSourceKind.SCREEN_CAPTURE -> ensureScreenCaptureSource()
+                VideoSourceKind.VIDEO_PLAYER -> ensureVideoPlayerSource()
+                VideoSourceKind.REPLAY -> ensureReplaySource()
+                VideoSourceKind.UVC -> videoSourceRegistry.activeSource.value?.takeIf { it.kind == kind }
+                VideoSourceKind.CAMERA -> null
+            } ?: return false
+        videoSourceRegistry.registerFactory(kind) { requested -> source.takeIf { requested == kind } }
+        return videoSourceRegistry.switchTo(kind)
     }
 
     /**
@@ -1162,7 +1175,7 @@ class StreamingEngine @Inject constructor(
 
     /** Die Replay-Datei der aktiven Replay-Quelle (null, wenn keine aktiv/geladen). */
     val activeReplayFile: File?
-        get() = sceneReplayFile ?: replaySource?.replayFile
+        get() { return sceneReplayFile ?: replaySource?.replayFile }
 
     /**
      * S2: liefert den MediaProjection-Consent-Intent der Screen-Capture-Quelle
@@ -1221,6 +1234,55 @@ class StreamingEngine @Inject constructor(
      * Singleton ist, wird die bestehende Instanz bei einem Activity-Recreate
      * (Rotation, Recents) nicht ersetzt — der laufende Stream bleibt erhalten.
      */
+    private fun autofocusOperation(
+        operation: (Camera2ApiManager) -> Boolean,
+        fallback: () -> Boolean,
+    ): Boolean {
+        val sceneCamera = activeSceneCamera()
+        if (sceneCamera != null) return operation(sceneCamera)
+        if (sceneSession != null) return false
+        return idlePreviewCamera?.let(operation) ?: fallback()
+    }
+
+    private fun initializeCameraControls() {
+        val encoderControls = RootEncoderCameraControls(camera!!)
+        cameraControls =
+            ActiveCameraControls {
+                if (sceneSession != null) {
+                    activeSceneCamera()?.let(::Camera2PreviewControls)
+                } else {
+                    idlePreviewCamera?.let(::Camera2PreviewControls) ?: encoderControls
+                }
+            }
+        focusController =
+            CameraFocusController(
+                object : FocusableCamera {
+                    override fun enableAutoFocus() = autofocusOperation({ it.enableAutoFocus() }) { camera!!.enableAutoFocus() }
+
+                    override fun disableAutoFocus() = autofocusOperation({ it.disableAutoFocus() }) { camera!!.disableAutoFocus() }
+
+                    override fun isAutoFocusEnabled() = autofocusOperation({ it.isAutoFocusEnabled }) { camera!!.isAutoFocusEnabled }
+
+                    override fun setFocusDistance(distance: Float) {
+                        cameraControls!!.setFocusDistance(distance)
+                    }
+                },
+            )
+        stabilizationController =
+            CameraStabilizationController(cameraControls!!).also {
+                _stabilizationEnabled.value = it.isEnabled
+            }
+        _torchEnabled.value = cameraControls!!.isTorchEnabled()
+
+        // Manuelle Kamera-Steuerung initialisieren
+        val lensController = CameraLensController(cameraControls!!)
+        manualCameraController =
+            ManualCameraController(cameraControls!!, lensController).also {
+                it.syncState()
+            }
+        refreshCameraControls(opened = false)
+    }
+
     fun initializeCamera() {
         if (camera == null) {
             camera = cameraFactory.create(List(MAX_STREAM_TARGETS) { createTargetChecker(it) })
@@ -1234,28 +1296,8 @@ class StreamingEngine @Inject constructor(
             camera!!.setFpsListener { fps ->
                 if (_activeEncoder.value != null) _measuredEncoderFps.value = fps
             }
-            val encoderControls = RootEncoderCameraControls(camera!!)
-            cameraControls = ActiveCameraControls {
-                if (sceneSession != null) activeSceneCamera()?.let(::Camera2PreviewControls)
-                else idlePreviewCamera?.let(::Camera2PreviewControls) ?: encoderControls
-            }
-            focusController = CameraFocusController(object : FocusableCamera {
-                override fun enableAutoFocus() = activeSceneCamera()?.enableAutoFocus() ?: if (sceneSession != null) false else idlePreviewCamera?.enableAutoFocus() ?: camera!!.enableAutoFocus()
-                override fun disableAutoFocus() = activeSceneCamera()?.disableAutoFocus() ?: if (sceneSession != null) false else idlePreviewCamera?.disableAutoFocus() ?: camera!!.disableAutoFocus()
-                override fun isAutoFocusEnabled() = activeSceneCamera()?.isAutoFocusEnabled ?: if (sceneSession != null) false else idlePreviewCamera?.isAutoFocusEnabled ?: camera!!.isAutoFocusEnabled
-                override fun setFocusDistance(distance: Float) { cameraControls!!.setFocusDistance(distance) }
-            })
-            stabilizationController = CameraStabilizationController(cameraControls!!).also {
-                _stabilizationEnabled.value = it.isEnabled
-            }
-            _torchEnabled.value = cameraControls!!.isTorchEnabled()
+            initializeCameraControls()
 
-            // Manuelle Kamera-Steuerung initialisieren
-            val lensController = CameraLensController(cameraControls!!)
-            manualCameraController = ManualCameraController(cameraControls!!, lensController).also {
-                it.syncState()
-            }
-            refreshCameraControls(opened = false)
         }
     }
 
@@ -1517,15 +1559,37 @@ class StreamingEngine @Inject constructor(
     }
 
     /** Open Camera2 into the same GL pipeline used by recording, without starting encoders. */
+    private fun legacyIdlePreviewAllowed() = activeSourceKind.value == VideoSourceKind.CAMERA &&
+        camera?.isStreaming != true && camera?.isRecording != true &&
+        context.checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+
+    private fun idlePreviewCallbacks(preview: Camera2ApiManager): com.pedro.encoder.input.video.CameraCallbacks =
+        object : com.pedro.encoder.input.video.CameraCallbacks {
+            override fun onCameraOpened() {
+                if (idlePreviewCamera === preview) {
+                    sceneCameraAvailable.set(true)
+                    restoreCameraControls()
+                }
+            }
+
+            override fun onCameraChanged(facing: CameraHelper.Facing) = Unit
+
+            override fun onCameraError(error: String) {
+                sceneCameraAvailable.set(false)
+                Timber.e("Idle camera: %s", error)
+            }
+
+            override fun onCameraDisconnected() {
+                sceneCameraAvailable.set(false)
+            }
+        }
+
     fun startIdlePreviewIfReady() {
         updateSceneRenderClock()
         val request = previewRequest ?: return
         if (request.width <= 0 || request.height <= 0) return
         if (sceneRouteRequested()) { startScenePreview(request); return }
-        if (activeSourceKind.value != VideoSourceKind.CAMERA || camera?.isStreaming == true || camera?.isRecording == true ||
-            request.width <= 0 || request.height <= 0 ||
-            context.checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED
-        ) return
+        if (!legacyIdlePreviewAllowed()) return
         // Layout-Maße dienen der Reattach-Erkennung; der Camera2-Buffer kann
         // eine andere, unterstützte Größe haben (z. B. 1088×1088 im Portrait).
         val size = request.width to request.height
@@ -1548,20 +1612,7 @@ class StreamingEngine @Inject constructor(
             gl.start()
             val preview = idlePreviewFactory(context)
             idlePreviewCamera = preview
-            preview.setCameraCallbacks(object : com.pedro.encoder.input.video.CameraCallbacks {
-                override fun onCameraOpened() {
-                    if (idlePreviewCamera === preview) {
-                        sceneCameraAvailable.set(true)
-                        restoreCameraControls()
-                    }
-                }
-                override fun onCameraChanged(facing: CameraHelper.Facing) = Unit
-                override fun onCameraError(error: String) {
-                    sceneCameraAvailable.set(false)
-                    Timber.e("Idle camera: %s", error)
-                }
-                override fun onCameraDisconnected() { sceneCameraAvailable.set(false) }
-            })
+            preview.setCameraCallbacks(idlePreviewCallbacks(preview))
             preview.prepareCamera(gl.surfaceTexture, 1280, 720, 30)
             val cameraId = camera?.currentCameraId
             if (cameraId.isNullOrBlank()) preview.openCameraBack() else preview.openCameraId(cameraId)
@@ -2037,6 +2088,64 @@ class StreamingEngine @Inject constructor(
     }
 
     /** A visible file waits for video; a hidden primary file can continue as audio only. */
+    private fun sceneFileAudioSource(
+        locator: String,
+        kind: VideoSourceKind,
+    ): com.vivid.core.data.SceneSource? {
+        val graph = _sceneComposition.value
+        return graph?.sources?.firstOrNull { it.id == scenePrimarySourceId && it.type == SceneSourceType.VIDEO && it.locator == locator }
+            ?: graph?.sources?.firstOrNull {
+                it.matchesSceneIdentity(
+                    SceneSourceType.VIDEO,
+                    locator,
+                    ::sceneCameraIdentity,
+                    kind == VideoSourceKind.REPLAY,
+                )
+            }
+    }
+
+    private fun sceneAudioPosition(
+        source: com.vivid.core.data.SceneSource?,
+        visible: Boolean,
+        playback: com.vivid.feature.streaming.compositor.capture.SceneVideoPlayback?,
+    ): Double =
+        if (visible) {
+            val current = sceneTextures?.videoPlayback(requireNotNull(source).id)
+            check(
+                current != null && current.identity === playback?.identity,
+            ) { "Scene video capture changed before audio start" }
+            current.positionSeconds
+        } else {
+            0.0
+        }
+
+    private fun createSceneFileAudioInput(
+        source: com.vivid.core.data.SceneSource?,
+        locator: String,
+        loops: Boolean,
+        visible: Boolean,
+        playback: com.vivid.feature.streaming.compositor.capture.SceneVideoPlayback?,
+        key: SceneFileAudioKey,
+    ): com.vivid.feature.streaming.compositor.audio.SceneAudioInput =
+        if (visible && playback == null) {
+            com.vivid.feature.streaming.compositor.audio
+                .SceneAudioInput(key) {
+                    com.pedro.encoder.input.sources.audio
+                        .SilenceAudioSource()
+                }
+        } else {
+            com.vivid.feature.streaming.compositor.audio.SceneAudioInput(key) {
+                com.vivid.feature.streaming.compositor.audio.SceneFileAudioSource({ listener ->
+                    com.vivid.feature.streaming.compositor.audio.AndroidSceneFileAudioDriver(
+                        context,
+                        locator.toUri(),
+                        !visible && loops,
+                        listener,
+                    )
+                }, positionSeconds = { sceneAudioPosition(source, visible, playback) })
+            }
+        }
+
     private fun syncSceneFileAudio() {
         val session = sceneSession ?: return
         val kind = activeSourceKind.value
@@ -2046,28 +2155,13 @@ class StreamingEngine @Inject constructor(
             sceneFileAudioKey = null
             return
         }
+        val source = sceneFileAudioSource(locator, kind)
         val graph = _sceneComposition.value
-        val source = graph?.sources?.firstOrNull { it.id == scenePrimarySourceId && it.type == SceneSourceType.VIDEO && it.locator == locator }
-            ?: graph?.sources?.firstOrNull { it.matchesSceneIdentity(SceneSourceType.VIDEO, locator, ::sceneCameraIdentity, kind == VideoSourceKind.REPLAY) }
         val loops = source?.videoLoop ?: (kind == VideoSourceKind.REPLAY)
         val visible = source != null && graph?.layers?.any { it.sourceId == source.id && it.visible && it.opacity > 0f } == true
         val playback = if (visible) sceneTextures?.videoPlayback(requireNotNull(source).id) else null
         val key = SceneFileAudioKey(source?.id, locator, if (visible) playback?.identity ?: "pending" else "audio-only", loops)
-        val input = if (visible && playback == null) {
-            com.vivid.feature.streaming.compositor.audio.SceneAudioInput(key) { com.pedro.encoder.input.sources.audio.SilenceAudioSource() }
-        } else {
-            com.vivid.feature.streaming.compositor.audio.SceneAudioInput(key) {
-                com.vivid.feature.streaming.compositor.audio.SceneFileAudioSource({ listener ->
-                    com.vivid.feature.streaming.compositor.audio.AndroidSceneFileAudioDriver(context, locator.toUri(), !visible && loops, listener)
-                }, positionSeconds = {
-                    if (visible) {
-                        val current = sceneTextures?.videoPlayback(requireNotNull(source).id)
-                        check(current != null && current.identity === playback?.identity) { "Scene video capture changed before audio start" }
-                        current.positionSeconds
-                    } else 0.0
-                })
-            }
-        }
+        val input = createSceneFileAudioInput(source, locator, loops, visible, playback, key)
         try {
             session.setAudioInput(input)
             if (sceneFileAudioKey != key) sceneFileAudioCycle = playback?.cycle ?: 0L

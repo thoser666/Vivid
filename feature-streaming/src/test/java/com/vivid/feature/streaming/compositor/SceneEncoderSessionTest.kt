@@ -34,7 +34,7 @@ class SceneEncoderSessionTest {
 
     @Test fun `targets and recording share one preparation and last disconnect preserves recording`() {
         val session = session()
-        session.startTarget(0, "rtmp://one/live")
+        session.startTarget(0, SCENE_RTMP_ONE_LIVE)
         session.startTarget(1, "rtmp://two/live")
         assertTrue(session.startRecording(File(directory, "both.mp4"), true))
         session.stopTarget(0)
@@ -55,7 +55,7 @@ class SceneEncoderSessionTest {
         assertTrue(session.startRecording(File(directory, "silent.mp4"), false))
         verify { stream.startRecord(any(), RecordController.RecordTracks.VIDEO, any()) }
         assertEquals(SceneAudioInputKind.DISABLED, session.audioInputKey)
-        session.startTarget(0, "rtmp://one/live")
+        session.startTarget(0, SCENE_RTMP_ONE_LIVE)
         assertEquals(SceneAudioInputKind.MICROPHONE, session.audioInputKey)
         session.stopTarget(0)
         assertTrue(session.isRecording)
@@ -69,7 +69,7 @@ class SceneEncoderSessionTest {
         val session = session()
         session.startRecording(File(directory, "silent.mp4"), false)
         every { stream.startStream(MultiType.RTMP, 0, any()) } throws IllegalStateException("Transport unavailable")
-        assertThrows(IllegalStateException::class.java) { session.startTarget(0, "rtmp://one/live") }
+        assertThrows(IllegalStateException::class.java) { session.startTarget(0, SCENE_RTMP_ONE_LIVE) }
         assertFalse(session.isStreaming)
         assertTrue(session.isRecording)
         assertEquals(SceneAudioInputKind.DISABLED, session.audioInputKey)
@@ -79,7 +79,7 @@ class SceneEncoderSessionTest {
         val audio = mockk<SceneAudioRouterSource>(relaxed = true)
         val session = SceneEncoderSession(stream, 2, audio)
         session.prepare(ResolvedEncoderConfig(VideoCodecPreference.H264, EncoderPreset.HD30, false))
-        session.startTarget(0, "rtmp://one/live")
+        session.startTarget(0, SCENE_RTMP_ONE_LIVE)
         every { audio.select(match { it.key == SceneAudioInputKind.DISABLED }, any()) } throws IllegalStateException("Audio shutdown failed")
         assertThrows(IllegalStateException::class.java) { session.stopTarget(0) }
         verify { stream.stopStream(MultiType.RTMP, 0); stream.stopStream() }
@@ -91,7 +91,7 @@ class SceneEncoderSessionTest {
         val session = SceneEncoderSession(stream, 2)
         every { stream.prepareVideo(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } returns false
         assertFalse(session.prepare(ResolvedEncoderConfig(VideoCodecPreference.H264, EncoderPreset.HD30, false)))
-        assertThrows(IllegalStateException::class.java) { session.startTarget(0, "rtmp://one/live") }
+        assertThrows(IllegalStateException::class.java) { session.startTarget(0, SCENE_RTMP_ONE_LIVE) }
         verify { stream.forceCodecType(com.pedro.encoder.utils.CodecUtil.CodecType.HARDWARE,
             com.pedro.encoder.utils.CodecUtil.CodecType.FIRST_COMPATIBLE_FOUND) }
         verify(exactly = 0) { stream.startStream(any(), any(), any()) }
@@ -99,14 +99,14 @@ class SceneEncoderSessionTest {
 
     @Test fun `live configuration cannot replace encoders and bitrate remains in kilobits`() {
         val session = session()
-        session.startTarget(0, "rtmp://one/live")
+        session.startTarget(0, SCENE_RTMP_ONE_LIVE)
         assertThrows(IllegalStateException::class.java) {
             session.prepare(ResolvedEncoderConfig(VideoCodecPreference.H264, EncoderPreset.entries.first(), false))
         }
         session.setBitrateKbps(1_234)
         verify { stream.setVideoBitrateOnFly(1_234_000) }
         session.close()
-        assertThrows(IllegalStateException::class.java) { session.startTarget(0, "rtmp://one/live") }
+        assertThrows(IllegalStateException::class.java) { session.startTarget(0, SCENE_RTMP_ONE_LIVE) }
     }
     @Test fun `idle preview needs no encoder preparation and close releases its GL surface`() {
         val session = SceneEncoderSession(stream, 2)
@@ -139,7 +139,7 @@ class SceneEncoderSessionTest {
         every { stream.startStream(any(), any(), any()) } answers { audio.start(receiver) }
         val first = FileInput(); val second = FileInput()
         session.setAudioInput(SceneAudioInput("first-file") { first })
-        session.startTarget(0, "rtmp://one/live")
+        session.startTarget(0, SCENE_RTMP_ONE_LIVE)
         session.startTarget(1, "rtmp://two/live")
         assertTrue(session.startRecording(File(directory, "files.mp4"), true))
         assertEquals(1, first.starts)
@@ -166,3 +166,5 @@ class SceneEncoderSessionTest {
     }
 
 }
+
+private const val SCENE_RTMP_ONE_LIVE = "rtmp://one/live"

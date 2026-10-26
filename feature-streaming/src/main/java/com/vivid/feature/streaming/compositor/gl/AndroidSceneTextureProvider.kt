@@ -4,7 +4,6 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.SurfaceTexture
-import androidx.core.net.toUri
 import android.opengl.EGL14
 import android.opengl.EGLContext
 import android.opengl.GLES11Ext
@@ -15,6 +14,7 @@ import android.os.Handler
 import android.os.HandlerThread
 import android.os.SystemClock
 import android.view.Surface
+import androidx.core.net.toUri
 import com.vivid.core.data.SceneSource
 import com.vivid.core.data.SceneSourceType
 import com.vivid.feature.streaming.compositor.SceneFramePlan
@@ -23,16 +23,16 @@ import com.vivid.feature.streaming.compositor.SceneProducerManager
 import com.vivid.feature.streaming.compositor.SceneProducerState
 import com.vivid.feature.streaming.compositor.capture.AndroidSceneCaptureBackend
 import com.vivid.feature.streaming.compositor.capture.SceneBitmapRegistry
+import com.vivid.feature.streaming.compositor.capture.SceneCameraGeometry
 import com.vivid.feature.streaming.compositor.capture.SceneCaptureBackend
 import com.vivid.feature.streaming.compositor.capture.SceneCaptureTarget
-import com.vivid.feature.streaming.compositor.capture.SceneCameraGeometry
 import com.vivid.feature.streaming.compositor.capture.SceneProjectionRegistry
 import java.io.File
 import java.io.InputStream
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
-import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Future
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
@@ -49,10 +49,18 @@ class AndroidSceneTextureProvider(
     private val captureFrameRate: () -> Int = { 30 },
     private val videoLooped: (String, com.vivid.feature.streaming.compositor.capture.SceneVideoPlayback) -> Unit = { _, _ -> },
     private val videoLooping: (SceneSource) -> Boolean = { it.videoLoop ?: true },
-    private val backendFactory: (Context) -> SceneCaptureBackend = { AndroidSceneCaptureBackend(it, projections, videoLooped = videoLooped, videoLooping = videoLooping) },
+    private val backendFactory: (
+        Context,
+    ) -> SceneCaptureBackend = { AndroidSceneCaptureBackend(it, projections, videoLooped = videoLooped, videoLooping = videoLooping) },
 ) : SceneTextureProvider {
-    private class Slot(val source: SceneSource, val id: Int, val external: Boolean,
-        val texture: SurfaceTexture?, val surface: Surface?, val createdAt: Long) {
+    private data class Slot(
+        val source: SceneSource,
+        val id: Int,
+        val external: Boolean,
+        val texture: SurfaceTexture?,
+        val surface: Surface?,
+        val createdAt: Long,
+    ) {
         val pendingFrame = AtomicBoolean(false)
         val lastArrival = AtomicLong(createdAt)
         val closed = AtomicBoolean(false)
@@ -66,9 +74,23 @@ class AndroidSceneTextureProvider(
         val surfaceMatrix = identityTextureMatrix()
         var bitmapRevision = 0L
     }
-    private data class Failure(val slot: Slot, val generation: Long, val permission: Boolean)
-    private data class Image(val slot: Slot, val bitmap: Bitmap)
-    private data class Retry(val sourceId: String, val restart: Boolean)
+
+    private data class Failure(
+        val slot: Slot,
+        val generation: Long,
+        val permission: Boolean,
+    )
+
+    private data class Image(
+        val slot: Slot,
+        val bitmap: Bitmap,
+    )
+
+    private data class Retry(
+        val sourceId: String,
+        val restart: Boolean,
+    )
+
     private val slots = linkedMapOf<String, Slot>()
     private val failures = ConcurrentLinkedQueue<Failure>()
     private val images = ConcurrentLinkedQueue<Image>()
@@ -87,7 +109,11 @@ class AndroidSceneTextureProvider(
     private val samplingMatrices = Array(4) { SceneCameraGeometry.samplingMatrix(it * 90) }
 
     @Synchronized
-    override fun attach(context: Context, width: Int, height: Int) {
+    override fun attach(
+        context: Context,
+        width: Int,
+        height: Int,
+    ) {
         detach()
         this.context = context
         this.width = width
@@ -101,111 +127,209 @@ class AndroidSceneTextureProvider(
     }
 
     @Synchronized
-    override fun update(plan: SceneFramePlan, nowMillis: Long) {
+    override fun update(
+        plan: SceneFramePlan,
+        nowMillis: Long,
+    ) {
         val lifecycle = manager ?: return
         val states = listOfNotNull(plan.outgoing, plan.current)
+        configureCaptures(states)
+        processFailures(lifecycle, nowMillis)
+        processRetries(lifecycle, nowMillis)
+        lifecycle.reconcile(states.map(::captureScene), nowMillis)
+        uploadImages()
+        slots.values.toList().forEach { updateSlot(it, lifecycle, nowMillis) }
+        val snapshot = lifecycle.states
+        if (snapshot != lastPublished) {
+            lastPublished = snapshot
+            publishStates(snapshot)
+        }
+    }
+
+    private fun configureCaptures(states: List<com.vivid.feature.streaming.compositor.SceneRenderState>) {
         val inputIds = states.mapNotNull { it.inputSourceId }.toSet()
         val legacyCamera = legacyCameraId()
-        val requested = states.flatMap { state ->
-            val ids = state.composition.layers.filter { it.visible && it.opacity > 0f }.map { it.sourceId }.toSet() +
-                listOfNotNull(state.inputSourceId)
-            state.composition.sources.filter { it.id in ids }
-        }.distinctBy { it.id }.map { source ->
-            if (source.id in inputIds && source.type == SceneSourceType.CAMERA && legacyCamera != null) {
-                source.copy(locator = legacyCamera)
-            } else source
-        }.toMutableList()
+        val requested =
+            states
+                .flatMap { state ->
+                    val ids =
+                        state.composition.layers
+                            .filter { it.visible && it.opacity > 0f }
+                            .map { it.sourceId }
+                            .toSet() +
+                            listOfNotNull(state.inputSourceId)
+                    state.composition.sources.filter { it.id in ids }
+                }.distinctBy { it.id }
+                .map { source ->
+                    if (source.id in inputIds && source.type == SceneSourceType.CAMERA && legacyCamera != null) {
+                        source.copy(locator = legacyCamera)
+                    } else {
+                        source
+                    }
+                }.toMutableList()
         // Even an invisible legacy input still owns its camera until the pipeline is stopped.
         // Include it in capability checks so an extra source cannot displace that session.
-        if (legacyCamera != null && requested.none {
-            it.type == SceneSourceType.CAMERA && it.locator == legacyCamera
-        }) requested.add(SceneSource("pipeline-camera:$legacyCamera", SceneSourceType.CAMERA, legacyCamera))
+        if (legacyCamera != null &&
+            requested.none {
+                it.type == SceneSourceType.CAMERA && it.locator == legacyCamera
+            }
+        ) {
+            requested.add(SceneSource("pipeline-camera:$legacyCamera", SceneSourceType.CAMERA, legacyCamera))
+        }
         backend?.configure(requested)
         backend?.setTargetFrameRate(captureFrameRate())
-        val captureScenes = states.map { state -> state.composition.copy(
-            sources = state.composition.sources.filter { it.id != state.inputSourceId }.map { source ->
-                if (source.type == SceneSourceType.VIDEO && source.videoLoop == null) source.copy(videoLoop = videoLooping(source)) else source
-            },
+    }
+
+    private fun captureScene(state: com.vivid.feature.streaming.compositor.SceneRenderState) =
+        state.composition.copy(
+            sources =
+                state.composition.sources
+                    .filter { it.id != state.inputSourceId }
+                    .map(::resolvedSource),
             layers = state.composition.layers.filter { it.sourceId != state.inputSourceId },
-        ) }
+        )
+
+    private fun resolvedSource(source: SceneSource): SceneSource =
+        if (source.type == SceneSourceType.VIDEO && source.videoLoop == null) {
+            source.copy(videoLoop = videoLooping(source))
+        } else {
+            source
+        }
+
+    private fun processFailures(
+        lifecycle: SceneProducerManager,
+        nowMillis: Long,
+    ) {
         while (true) {
             val failure = failures.poll() ?: break
             if (slots[failure.slot.source.id] === failure.slot && !failure.slot.closed.get()) {
                 lifecycle.disconnected(failure.slot.source.id, nowMillis, failure.generation, failure.permission)
             }
         }
+    }
+
+    private fun processRetries(
+        lifecycle: SceneProducerManager,
+        nowMillis: Long,
+    ) {
         while (true) {
             val retry = retries.poll() ?: break
-            if (retry.restart) lifecycle.states[retry.sourceId]?.let {
-                lifecycle.disconnected(retry.sourceId, nowMillis, it.generation)
+            if (retry.restart) {
+                lifecycle.states[retry.sourceId]?.let {
+                    lifecycle.disconnected(retry.sourceId, nowMillis, it.generation)
+                }
             }
             lifecycle.retry(retry.sourceId)
         }
-        lifecycle.reconcile(captureScenes, nowMillis)
+    }
+
+    private fun uploadImages() {
         while (true) {
             val pending = images.poll() ?: break
             try {
                 if (!pending.slot.closed.get() && slots[pending.slot.source.id] === pending.slot) {
                     upload(pending.slot, pending.bitmap)
                 }
-            } finally { pending.bitmap.recycle() }
-        }
-        for (slot in slots.values.toList()) {
-            if (slot.external) {
-                try {
-                    val newFrame = slot.pendingFrame.getAndSet(false)
-                    if (newFrame) {
-                        requireNotNull(slot.texture).updateTexImage()
-                        slot.texture.getTransformMatrix(slot.surfaceMatrix)
-                        slot.timestamp = slot.texture.timestamp
-                        slot.hasFrame = true
-                    }
-                    // Capture metadata can arrive after the texture callback. Retry the same
-                    // sampled frame without consuming a newer buffer or restarting capture.
-                    val rotation = if (slot.hasFrame) backend?.samplingRotationDegrees(slot.source.id, slot.timestamp) else null
-                    val wasReady = slot.ready
-                    slot.ready = rotation != null
-                    if (rotation != null) {
-                        if (newFrame || !wasReady) {
-                            slot.lastUsableAt = nowMillis
-                            backend?.frameReady(slot.source.id)
-                        }
-                        if (newFrame || !wasReady || rotation != slot.rotationDegrees) {
-                            Matrix.multiplyMM(slot.frame.transform, 0, slot.surfaceMatrix, 0,
-                                samplingMatrices[rotation / 90], 0)
-                            slot.rotationDegrees = rotation
-                        }
-                        if (!slot.announced) {
-                            lifecycle.states[slot.source.id]?.let { lifecycle.markHealthy(slot.source.id, it.generation) }
-                            slot.announced = true
-                            readyCaptures.add(slot.source.id)
-                            sourceReady(slot.source.id)
-                        }
-                    }
-                    // Screens and variable-rate/finished files may hold a valid frame.
-                    // Their explicit revoke/error callbacks still trigger recovery.
-                    // Keep the initial-frame deadline so a broken start reconnects.
-                    val retainsFrame = slot.source.type == SceneSourceType.SCREEN_CAPTURE ||
-                        backend?.retainsLastFrame(slot.source.id) == true
-                    val expectsFrame = !slot.ready || !retainsFrame
-                    val healthAt = if (slot.announced) minOf(slot.lastArrival.get(), slot.lastUsableAt) else slot.createdAt
-                    if (expectsFrame && nowMillis - healthAt > FRAME_TIMEOUT_MILLIS) {
-                        val generation = lifecycle.states[slot.source.id]?.generation ?: continue
-                        lifecycle.disconnected(slot.source.id, nowMillis, generation)
-                    }
-                } catch (_: RuntimeException) {
-                    val generation = lifecycle.states[slot.source.id]?.generation ?: continue
-                    lifecycle.disconnected(slot.source.id, nowMillis, generation)
-                }
-            } else if (slot.source.type == SceneSourceType.WIDGET) {
-                bitmaps.consumeChanged(slot.source.id, slot.bitmapRevision) { revision, bitmap ->
-                    upload(slot, bitmap)
-                    slot.bitmapRevision = revision
-                }
+            } finally {
+                pending.bitmap.recycle()
             }
         }
-        val snapshot = lifecycle.states
-        if (snapshot != lastPublished) { lastPublished = snapshot; publishStates(snapshot) }
+    }
+
+    private fun updateSlot(
+        slot: Slot,
+        lifecycle: SceneProducerManager,
+        nowMillis: Long,
+    ) {
+        if (slot.external) {
+            updateExternalSlot(slot, lifecycle, nowMillis)
+        } else if (slot.source.type == SceneSourceType.WIDGET) {
+            bitmaps.consumeChanged(slot.source.id, slot.bitmapRevision) { revision, bitmap ->
+                upload(slot, bitmap)
+                slot.bitmapRevision = revision
+            }
+        }
+    }
+
+    private fun updateExternalSlot(
+        slot: Slot,
+        lifecycle: SceneProducerManager,
+        nowMillis: Long,
+    ) {
+        try {
+            val newFrame = slot.pendingFrame.getAndSet(false)
+            if (newFrame) {
+                requireNotNull(slot.texture).updateTexImage()
+                slot.texture.getTransformMatrix(slot.surfaceMatrix)
+                slot.timestamp = slot.texture.timestamp
+                slot.hasFrame = true
+            }
+            // Capture metadata can arrive after the texture callback. Retry the same
+            // sampled frame without consuming a newer buffer or restarting capture.
+            updateSampling(slot, lifecycle, nowMillis, newFrame)
+            checkFrameDeadline(slot, lifecycle, nowMillis)
+        } catch (_: RuntimeException) {
+            val generation = lifecycle.states[slot.source.id]?.generation ?: return
+            lifecycle.disconnected(slot.source.id, nowMillis, generation)
+        }
+    }
+
+    private fun updateSampling(
+        slot: Slot,
+        lifecycle: SceneProducerManager,
+        nowMillis: Long,
+        newFrame: Boolean,
+    ) {
+        val rotation = if (slot.hasFrame) backend?.samplingRotationDegrees(slot.source.id, slot.timestamp) else null
+        val wasReady = slot.ready
+        slot.ready = rotation != null
+        if (rotation == null) return
+        if (newFrame || !wasReady) {
+            slot.lastUsableAt = nowMillis
+            backend?.frameReady(slot.source.id)
+        }
+        if (newFrame || !wasReady || rotation != slot.rotationDegrees) {
+            Matrix.multiplyMM(
+                slot.frame.transform,
+                0,
+                slot.surfaceMatrix,
+                0,
+                samplingMatrices[rotation / 90],
+                0,
+            )
+            slot.rotationDegrees = rotation
+        }
+        announceCapture(slot, lifecycle)
+    }
+
+    private fun announceCapture(
+        slot: Slot,
+        lifecycle: SceneProducerManager,
+    ) {
+        if (slot.announced) return
+        lifecycle.states[slot.source.id]?.let { lifecycle.markHealthy(slot.source.id, it.generation) }
+        slot.announced = true
+        readyCaptures.add(slot.source.id)
+        sourceReady(slot.source.id)
+    }
+
+    private fun checkFrameDeadline(
+        slot: Slot,
+        lifecycle: SceneProducerManager,
+        nowMillis: Long,
+    ) {
+        // Screens and variable-rate/finished files may hold a valid frame.
+        // Their explicit revoke/error callbacks still trigger recovery.
+        // Keep the initial-frame deadline so a broken start reconnects.
+        val retainsFrame =
+            slot.source.type == SceneSourceType.SCREEN_CAPTURE ||
+                backend?.retainsLastFrame(slot.source.id) == true
+        val expectsFrame = !slot.ready || !retainsFrame
+        val healthAt = if (slot.announced) minOf(slot.lastArrival.get(), slot.lastUsableAt) else slot.createdAt
+        if (expectsFrame && nowMillis - healthAt > FRAME_TIMEOUT_MILLIS) {
+            val generation = lifecycle.states[slot.source.id]?.generation ?: return
+            lifecycle.disconnected(slot.source.id, nowMillis, generation)
+        }
     }
 
     @Synchronized
@@ -224,10 +348,14 @@ class AndroidSceneTextureProvider(
 
     fun camera(sourceId: String): com.pedro.encoder.input.video.Camera2ApiManager? = backend?.camera(sourceId)
 
-    fun retry(sourceId: String) { retries.add(Retry(sourceId, false)) }
+    fun retry(sourceId: String) {
+        retries.add(Retry(sourceId, false))
+    }
 
     /** A newly granted projection replaces any old session on the render thread. */
-    fun restart(sourceId: String) { retries.add(Retry(sourceId, true)) }
+    fun restart(sourceId: String) {
+        retries.add(Retry(sourceId, true))
+    }
 
     private fun createProducer(source: SceneSource): SceneProducer {
         val external = source.type !in listOf(SceneSourceType.IMAGE, SceneSourceType.WIDGET)
@@ -235,23 +363,42 @@ class AndroidSceneTextureProvider(
         slots[source.id] = slot
         try {
             val generation = requireNotNull(manager).states.getValue(source.id).generation
-            val delegate = when (source.type) {
-                SceneSourceType.IMAGE -> imageProducer(slot)
-                SceneSourceType.WIDGET -> object : SceneProducer {
-                    override fun start() = Unit
-                    override fun stop() = Unit
-                    override fun release() = Unit
+            val delegate =
+                when (source.type) {
+                    SceneSourceType.IMAGE -> imageProducer(slot)
+                    SceneSourceType.WIDGET ->
+                        object : SceneProducer {
+                            override fun start() = Unit
+
+                            override fun stop() = Unit
+
+                            override fun release() = Unit
+                        }
+                    else ->
+                        requireNotNull(backend).create(
+                            source,
+                            SceneCaptureTarget(
+                                requireNotNull(slot.texture),
+                                requireNotNull(slot.surface),
+                                width,
+                                height,
+                                captureFrameRate(),
+                            ),
+                        ) { permission ->
+                            failures.add(Failure(slot, generation, permission))
+                        }
                 }
-                else -> requireNotNull(backend).create(source,
-                    SceneCaptureTarget(requireNotNull(slot.texture), requireNotNull(slot.surface), width, height, captureFrameRate())) {
-                    permission -> failures.add(Failure(slot, generation, permission))
-                }
-            }
             return object : SceneProducer {
                 override fun start() = delegate.start()
+
                 override fun stop() = delegate.stop()
+
                 override fun release() {
-                    try { delegate.release() } finally { releaseSlot(slot) }
+                    try {
+                        delegate.release()
+                    } finally {
+                        releaseSlot(slot)
+                    }
                 }
             }
         } catch (failure: Exception) {
@@ -260,7 +407,10 @@ class AndroidSceneTextureProvider(
         }
     }
 
-    private fun createSlot(source: SceneSource, external: Boolean): Slot {
+    private fun createSlot(
+        source: SceneSource,
+        external: Boolean,
+    ): Slot {
         val ids = IntArray(1)
         GLES20.glGenTextures(1, ids, 0)
         check(ids[0] > 0) { "Unable to allocate source texture" }
@@ -294,32 +444,43 @@ class AndroidSceneTextureProvider(
         }
     }
 
-    private fun imageProducer(slot: Slot): SceneProducer = object : SceneProducer {
-        private var task: Future<*>? = null
-        override fun start() {
-            val generation = requireNotNull(manager).states.getValue(slot.source.id).generation
-            task = requireNotNull(workers).submit {
-                try {
-                    val bitmap = decodeImage(requireNotNull(context), slot.source.locator)
-                    synchronized(this@AndroidSceneTextureProvider) {
-                        if (slot.closed.get()) bitmap.recycle() else images.add(Image(slot, bitmap))
-                    }
-                } catch (_: SecurityException) {
-                    failures.add(Failure(slot, generation, true))
-                } catch (_: Exception) {
-                    failures.add(Failure(slot, generation, false))
-                }
-            }
-        }
-        override fun stop() { task?.cancel(true); task = null }
-        override fun release() = stop()
-    }
+    private fun imageProducer(slot: Slot): SceneProducer =
+        object : SceneProducer {
+            private var task: Future<*>? = null
 
-    private fun upload(slot: Slot, bitmap: Bitmap) {
+            override fun start() {
+                val generation = requireNotNull(manager).states.getValue(slot.source.id).generation
+                task =
+                    requireNotNull(workers).submit {
+                        try {
+                            val bitmap = decodeImage(requireNotNull(context), slot.source.locator)
+                            synchronized(this@AndroidSceneTextureProvider) {
+                                if (slot.closed.get()) bitmap.recycle() else images.add(Image(slot, bitmap))
+                            }
+                        } catch (error: Exception) {
+                            failures.add(Failure(slot, generation, error is SecurityException))
+                        }
+                    }
+            }
+
+            override fun stop() {
+                task?.cancel(true)
+                task = null
+            }
+
+            override fun release() = stop()
+        }
+
+    private fun upload(
+        slot: Slot,
+        bitmap: Bitmap,
+    ) {
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, slot.id)
         GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, bitmap, 0)
-        if (!slot.ready) manager?.states?.get(slot.source.id)?.let {
-            manager?.markHealthy(slot.source.id, it.generation)
+        if (!slot.ready) {
+            manager?.states?.get(slot.source.id)?.let {
+                manager?.markHealthy(slot.source.id, it.generation)
+            }
         }
         slot.ready = true
     }
@@ -350,7 +511,10 @@ class AndroidSceneTextureProvider(
         frameThread?.quitSafely()
         frameThread = null
         frameHandler = null
-        while (true) { val image = images.poll() ?: break; image.bitmap.recycle() }
+        while (true) {
+            val image = images.poll() ?: break
+            image.bitmap.recycle()
+        }
         failures.clear()
         retries.clear()
         context = null
@@ -361,19 +525,28 @@ class AndroidSceneTextureProvider(
 
     companion object {
         private const val FRAME_TIMEOUT_MILLIS = 5_000L
-        private fun decodeImage(context: Context, locator: String): Bitmap {
+
+        private fun decodeImage(
+            context: Context,
+            locator: String,
+        ): Bitmap {
             val uri = locator.toUri()
+
             fun stream(): InputStream {
                 require(uri.scheme in listOf("content", "file") || uri.scheme == null)
-                return if (uri.scheme == null) File(locator).inputStream()
-                    else requireNotNull(context.contentResolver.openInputStream(uri))
+                return if (uri.scheme == null) {
+                    File(locator).inputStream()
+                } else {
+                    requireNotNull(context.contentResolver.openInputStream(uri))
+                }
             }
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
             stream().use { BitmapFactory.decodeStream(it, null, bounds) }
             require(bounds.outWidth > 0 && bounds.outHeight > 0) { "Invalid image source" }
             val options = BitmapFactory.Options().apply { inSampleSize = 1 }
             while (bounds.outWidth / options.inSampleSize > SceneBitmapRegistry.MAX_BITMAP_SIZE ||
-                bounds.outHeight / options.inSampleSize > SceneBitmapRegistry.MAX_BITMAP_SIZE) {
+                bounds.outHeight / options.inSampleSize > SceneBitmapRegistry.MAX_BITMAP_SIZE
+            ) {
                 options.inSampleSize *= 2
             }
             return stream().use { requireNotNull(BitmapFactory.decodeStream(it, null, options)) }

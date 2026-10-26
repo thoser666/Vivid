@@ -14,7 +14,7 @@ import java.util.concurrent.atomic.AtomicReference
  * The last child draws directly into our stable output FBO: no additional blit or pixel copy.
  */
 class SceneFilterChainRender(private val retired: () -> Unit = {}) : BaseFilterRender() {
-    private class Slot(val render: BaseFilterRender, var hasFramebuffer: Boolean = false)
+    private data class Slot(val render: BaseFilterRender, var hasFramebuffer: Boolean = false)
     private val desired = AtomicReference<List<BaseFilterRender>>(emptyList())
     private val slots = IdentityHashMap<BaseFilterRender, Slot>()
     private var context: Context? = null

@@ -53,10 +53,8 @@ internal class SceneAudioRouterSource(
                 desired = input
                 recoveryNeeded = false
             } catch (error: Throwable) {
-                val failed = detach()
-                cleanup(failed ?: candidate, error)
-                if (error is Exception) recover(previous, error)
-                else synchronized(delivery) { running = false; getMicrophoneData = null }
+                cleanup(detach() ?: candidate, error)
+                recoverSwitch(previous, error)
                 throw error
             }
         }
@@ -77,7 +75,7 @@ internal class SceneAudioRouterSource(
                 recoveryNeeded = false
             } catch (error: Throwable) {
                 val failed = detach()
-                cleanup(failed ?: candidate, error)
+                (failed ?: candidate)?.let { cleanup(it, error) }
                 synchronized(delivery) { running = false; this.getMicrophoneData = null }
                 throw error
             }
@@ -110,6 +108,11 @@ internal class SceneAudioRouterSource(
         delegate.also { delegate = null }
     }
 
+    private fun recoverSwitch(previous: SceneAudioInput, error: Throwable) {
+        if (error is Exception) recover(previous, error)
+        else synchronized(delivery) { running = false; getMicrophoneData = null }
+    }
+
     private fun recover(previous: SceneAudioInput, error: Exception) {
         var candidate: AudioSource? = null
         try {
@@ -118,7 +121,7 @@ internal class SceneAudioRouterSource(
             recoveryNeeded = false
         } catch (restore: Exception) {
             error.addSuppressed(restore)
-            cleanup(detach() ?: candidate, error)
+            (detach() ?: candidate)?.let { cleanup(it, error) }
             candidate = null
             recoveryNeeded = true
             try {
@@ -126,14 +129,14 @@ internal class SceneAudioRouterSource(
                 activate(candidate)
             } catch (silent: Exception) {
                 error.addSuppressed(silent)
-                cleanup(detach() ?: candidate, error)
+                (detach() ?: candidate)?.let { cleanup(it, error) }
                 synchronized(delivery) { running = false; getMicrophoneData = null }
             }
         }
     }
 
-    private fun cleanup(source: AudioSource?, error: Throwable) {
-        try { source?.let(::dispose) } catch (close: Throwable) { error.addSuppressed(close) }
+    private fun cleanup(source: AudioSource, error: Throwable) {
+        try { dispose(source) } catch (close: Throwable) { error.addSuppressed(close) }
     }
 
     private fun dispose(source: AudioSource) {

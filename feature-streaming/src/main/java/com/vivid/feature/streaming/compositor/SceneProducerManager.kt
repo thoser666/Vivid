@@ -80,13 +80,10 @@ class SceneProducerManager(private val factory: SceneProducerFactory) {
             val entry = entries.getOrPut(id) { Entry(request.first, request.second) }
             entry.source = request.first
             entry.references = request.second
-            if (suspended) {
-                entry.status = SceneProducerStatus.SUSPENDED
-            } else if (entry.permissionRequired) {
-                entry.status = SceneProducerStatus.PERMISSION_REQUIRED
-            } else if (entry.producer == null &&
-                nowMillis >= entry.retryAtMillis) {
-                open(entry, nowMillis)
+            when {
+                suspended -> entry.status = SceneProducerStatus.SUSPENDED
+                entry.permissionRequired -> entry.status = SceneProducerStatus.PERMISSION_REQUIRED
+                entry.producer == null && nowMillis >= entry.retryAtMillis -> open(entry, nowMillis)
             }
         }
     }
@@ -139,15 +136,10 @@ class SceneProducerManager(private val factory: SceneProducerFactory) {
             entry.producer = candidate
             entry.status = SceneProducerStatus.ACTIVE
             entry.retryAtMillis = 0
-        } catch (_: SceneProducerPermissionException) {
+        } catch (error: Exception) {
             candidate?.let(::disposeProducer)
-            failed(entry, nowMillis, permissionRequired = true)
-        } catch (_: SecurityException) {
-            candidate?.let(::disposeProducer)
-            failed(entry, nowMillis, permissionRequired = true)
-        } catch (_: Exception) {
-            candidate?.let(::disposeProducer)
-            failed(entry, nowMillis, permissionRequired = false)
+            failed(entry, nowMillis, permissionRequired =
+                error is SceneProducerPermissionException || error is SecurityException)
         }
     }
 
@@ -167,8 +159,8 @@ class SceneProducerManager(private val factory: SceneProducerFactory) {
 
     private fun disposeProducer(producer: SceneProducer) {
         // A failing stop must not prevent release or cleanup of other sources.
-        try { producer.stop() } catch (_: Exception) { }
-        try { producer.release() } catch (_: Exception) { }
+        try { producer.stop() } catch (error: Exception) { timber.log.Timber.w(error, "Scene producer cleanup failed") }
+        try { producer.release() } catch (error: Exception) { timber.log.Timber.w(error, "Scene producer cleanup failed") }
     }
 
     private fun sameCapture(first: SceneSource, second: SceneSource): Boolean =

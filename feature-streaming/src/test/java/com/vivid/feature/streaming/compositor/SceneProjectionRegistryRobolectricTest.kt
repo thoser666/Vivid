@@ -28,11 +28,11 @@ class SceneProjectionRegistryRobolectricTest {
         val callback = slot<MediaProjection.Callback>()
         every { first.registerCallback(capture(callback), any()) } just Runs
         assertFalse(registry.active.value)
-        registry.grant("screen", first)
+        registry.grant(SCENE_SCREEN, first)
         assertTrue(registry.active.value)
-        registry.grant("screen", second)
+        registry.grant(SCENE_SCREEN, second)
         callback.captured.onStop()
-        assertTrue(registry.hasGrant("screen"))
+        assertTrue(registry.hasGrant(SCENE_SCREEN))
         assertTrue(registry.active.value)
         verify { first.stop() }
         registry.close()
@@ -49,10 +49,10 @@ class SceneProjectionRegistryRobolectricTest {
         val surface = mockk<Surface>(relaxed = true)
         every { first.createVirtualDisplay(any(), any(), any(), any(), any(), any(), any(), any()) } returns oldDisplay
         every { second.createVirtualDisplay(any(), any(), any(), any(), any(), any(), any(), any()) } returns display
-        registry.grant("screen", first)
-        val oldLease = registry.acquire("screen", surface, 640, 360, 160) { }
-        registry.grant("screen", second)
-        val newLease = registry.acquire("screen", surface, 640, 360, 160) { }
+        registry.grant(SCENE_SCREEN, first)
+        val oldLease = registry.acquire(SCENE_SCREEN, surface, 640, 360, 160) { }
+        registry.grant(SCENE_SCREEN, second)
+        val newLease = registry.acquire(SCENE_SCREEN, surface, 640, 360, 160) { }
         oldLease.close()
         shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(3))
         assertTrue(registry.active.value)
@@ -67,10 +67,10 @@ class SceneProjectionRegistryRobolectricTest {
         val display = mockk<VirtualDisplay>(relaxed = true)
         val surface = mockk<Surface>(relaxed = true)
         every { projection.createVirtualDisplay(any(), any(), any(), any(), any(), any(), any(), any()) } returns display
-        registry.grant("screen", projection)
-        val first = registry.acquire("screen", surface, 640, 360, 160) { }
+        registry.grant(SCENE_SCREEN, projection)
+        val first = registry.acquire(SCENE_SCREEN, surface, 640, 360, 160) { }
         first.close()
-        val second = registry.acquire("screen", surface, 1280, 720, 160) { }
+        val second = registry.acquire(SCENE_SCREEN, surface, 1280, 720, 160) { }
         shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(3))
         assertTrue(registry.active.value)
         verify(exactly = 1) { projection.createVirtualDisplay(any(), any(), any(), any(), any(), any(), any(), any()) }
@@ -81,3 +81,5 @@ class SceneProjectionRegistryRobolectricTest {
         verify { display.release(); projection.stop() }
     }
 }
+
+private const val SCENE_SCREEN = "screen"

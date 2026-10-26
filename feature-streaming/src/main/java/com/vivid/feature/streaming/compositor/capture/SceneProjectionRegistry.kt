@@ -19,7 +19,7 @@ class SceneProjectionRegistry(
     handlerFactory: () -> Handler = { Handler(Looper.getMainLooper()) },
 ) : Closeable {
     private val handler by lazy(handlerFactory)
-    private class Grant(val projection: MediaProjection, val callback: MediaProjection.Callback) {
+    private data class Grant(val projection: MediaProjection, val callback: MediaProjection.Callback) {
         var display: VirtualDisplay? = null
         var generation = 0L
         var leased = false

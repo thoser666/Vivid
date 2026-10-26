@@ -158,19 +158,27 @@ internal class SceneFileAudioSource(
                 if (failure == null) failure = cause else failure.addSuppressed(cause)
             }
         }
-        // stop may join a callback waiting for lock, so cleanup belongs outside it.
-        failedSilence?.let { source ->
-            runCatching { source.stop() }.exceptionOrNull()?.let { failure?.addSuppressed(it) }
-            runCatching { source.release() }.exceptionOrNull()?.let { failure?.addSuppressed(it) }
-        }
-        // A callback may finish on the decoder thread; closing its codec happens elsewhere.
-        retired?.let { resource ->
-            try { retire(resource) } catch (cause: Exception) {
-                runCatching { resource.close() }.exceptionOrNull()?.let(cause::addSuppressed)
-                if (failure == null) failure = cause else failure.addSuppressed(cause)
-            }
-        }
+        failure = releaseFailedSilence(failedSilence, failure)
+        failure = retireDriver(retired, failure)
         failure?.let(onFailure)
+    }
+
+    private fun releaseFailedSilence(source: AudioSource?, failure: Exception?): Exception? {
+        source?.let {
+            runCatching { it.stop() }.exceptionOrNull()?.let { error -> failure?.addSuppressed(error) }
+            runCatching { it.release() }.exceptionOrNull()?.let { error -> failure?.addSuppressed(error) }
+        }
+        return failure
+    }
+
+    private fun retireDriver(resource: SceneFileAudioDriver?, failure: Exception?): Exception? {
+        if (resource == null) return failure
+        try { retire(resource) } catch (cause: Exception) {
+            runCatching { resource.close() }.exceptionOrNull()?.let(cause::addSuppressed)
+            if (failure == null) return cause
+            failure.addSuppressed(cause)
+        }
+        return failure
     }
 
     private fun newSilence(): AudioSource {
@@ -215,7 +223,11 @@ internal class SceneFileAudioSource(
     }
 
     override fun release() {
-        synchronized(lock) { if (released) return; released = true; created = false }
+        synchronized(lock) {
+            if (released) return
+            released = true
+            created = false
+        }
         stop()
     }
 

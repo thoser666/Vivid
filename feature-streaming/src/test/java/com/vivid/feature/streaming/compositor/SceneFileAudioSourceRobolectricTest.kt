@@ -159,19 +159,19 @@ class SceneFileAudioSourceRobolectricTest {
         source.release()
     }
     @Test fun `failed silence startup still closes decoder and stops delivery`() {
-        configureSilence = { it.startFailure = IllegalStateException("silence failed") }
+        configureSilence = { it.startFailure = IllegalStateException(SCENE_SILENCE_FAILED) }
         start(); val driver = drivers.single()
         driver.events.ended()
         assertFalse(source.isRunning())
         assertEquals(1, driver.closes)
         assertEquals(1, silences.single().releases)
-        assertEquals("silence failed", errors.single().message)
+        assertEquals(SCENE_SILENCE_FAILED, errors.single().message)
         emit(driver, 999); assertTrue(frames.isEmpty())
         source.release()
     }
     @Test fun `failed silence cleanup can join a late callback without holding the delivery lock`() {
         configureSilence = { silence ->
-            silence.startFailure = IllegalStateException("silence failed")
+            silence.startFailure = IllegalStateException(SCENE_SILENCE_FAILED)
             silence.onStop = {
                 val callback = Thread {
                     silence.receiver!!.inputPCMData(Frame(pcm(123, 123), 0, 4, 1000))
@@ -205,3 +205,5 @@ class SceneFileAudioSourceRobolectricTest {
         assertThrows(IllegalArgumentException::class.java) { sceneDecodedAudioBytes(buffer, 5, 3) }
     }
 }
+
+private const val SCENE_SILENCE_FAILED = "silence failed"

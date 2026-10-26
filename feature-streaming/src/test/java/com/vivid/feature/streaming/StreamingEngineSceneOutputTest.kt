@@ -28,8 +28,8 @@ class StreamingEngineSceneOutputTest {
     private var running = false
     private var checkers = emptyList<ConnectChecker>()
     private var created = 0
-    private fun graph() = SceneComposition(sources = listOf(SceneSource("image", SceneSourceType.IMAGE, "content://image")),
-        layers = listOf(SceneLayer("image-layer", "image")))
+    private fun graph() = SceneComposition(sources = listOf(SceneSource(SCENE_IMAGE, SceneSourceType.IMAGE, "content://image")),
+        layers = listOf(SceneLayer("image-layer", SCENE_IMAGE)))
 
     private fun engine(playerFactory: PlayerFactory = mockk(relaxed = true)): StreamingEngine {
         every { camera.glInterface } returns legacyGl
@@ -64,7 +64,7 @@ class StreamingEngineSceneOutputTest {
         engine.sceneRenderClock = com.vivid.feature.streaming.compositor.SceneRenderClock(fallbackDriver)
         engine.setSceneComposition(graph())
         assertFalse(engine.sceneNeedsCameraPermission())
-        engine.startStream(listOf("rtmp://one/live", "rtmp://two/live"))
+        engine.startStream(listOf(SCENE_RTMP_ONE_LIVE, SCENE_RTMP_TWO_LIVE))
         assertEquals(1, created)
         verify(exactly = 0) { camera.prepareVideo(); camera.prepareAudio(); camera.startStream(any(), any(), any()) }
         verify(exactly = 1) { session.prepare(any()) }
@@ -83,7 +83,7 @@ class StreamingEngineSceneOutputTest {
         engine.setSceneComposition(graph())
         assertTrue(engine.startReplay(100L, includeAudio = false))
         assertTrue(engine.replayState.value is ReplayState.Recording)
-        engine.startStream(listOf("rtmp://one/live", "rtmp://two/live"))
+        engine.startStream(listOf(SCENE_RTMP_ONE_LIVE, SCENE_RTMP_TWO_LIVE))
         verify(exactly = 1) { session.prepare(any()) }
         engine.stopStream()
         assertTrue(recording)
@@ -98,7 +98,7 @@ class StreamingEngineSceneOutputTest {
         val surface = mockk<Surface>(relaxed = true)
         engine.setSceneComposition(graph())
         engine.attachPreview(surface, 640, 360)
-        engine.setSceneComposition(graph().copy(layers = listOf(SceneLayer("image-layer", "image", SceneTransform(width = .5f)))))
+        engine.setSceneComposition(graph().copy(layers = listOf(SceneLayer("image-layer", SCENE_IMAGE, SceneTransform(width = .5f)))))
         assertEquals(1, created)
         verify(exactly = 0) { session.prepare(any()) }
         verify(atLeast = 1) { session.startPreview(surface, 640, 360) }
@@ -112,7 +112,7 @@ class StreamingEngineSceneOutputTest {
     @Test fun `one failed target preserves the remaining connection and retired callbacks are ignored`() {
         val engine = engine()
         engine.setSceneComposition(graph())
-        engine.startStream(listOf("rtmp://one/live", "rtmp://two/live"))
+        engine.startStream(listOf(SCENE_RTMP_ONE_LIVE, SCENE_RTMP_TWO_LIVE))
         checkers[1].onConnectionSuccess()
         checkers[0].onConnectionFailed("offline")
         assertEquals(setOf(1), targets)
@@ -140,7 +140,7 @@ class StreamingEngineSceneOutputTest {
         engine.attachPreview(surface, 640, 360)
         clearMocks(session, answers = false, recordedCalls = true, childMocks = false)
         every { session.prepare(any()) } returns false
-        engine.startStream(listOf("rtmp://one/live"))
+        engine.startStream(listOf(SCENE_RTMP_ONE_LIVE))
         verify(exactly = 0) { session.startTarget(any(), any()) }
         verify(atLeast = 1) { session.startPreview(surface, 640, 360) }
         assertTrue(running)
@@ -253,17 +253,17 @@ class StreamingEngineSceneOutputTest {
     @Test fun `live movie switch uses scene audio without preparing a legacy file encoder`() {
         val engine = engine()
         engine.setSceneComposition(graph())
-        engine.startStream(listOf("rtmp://one/live"))
+        engine.startStream(listOf(SCENE_RTMP_ONE_LIVE))
         assertTrue(engine.startReplay(100L, true))
         val uri = mockk<android.net.Uri>()
         every { uri.scheme } returns "content"
-        every { uri.toString() } returns "content://movie"
+        every { uri.toString() } returns SCENE_CONTENT_MOVIE
         assertTrue(engine.setVideoPlayerUri(uri))
         assertTrue(engine.switchSource(VideoSourceKind.VIDEO_PLAYER))
         val next = engine.sceneComposition.value!!
-        assertEquals(graph().sources.first(), next.sources.first { it.id == "image" })
+        assertEquals(graph().sources.first(), next.sources.first { it.id == SCENE_IMAGE })
         val video = next.sources.single { it.type == SceneSourceType.VIDEO }
-        assertEquals("content://movie", video.locator)
+        assertEquals(SCENE_CONTENT_MOVIE, video.locator)
         verify(exactly = 1) { session.prepare(any()) }
         verify(exactly = 0) { session.close() }
         for (field in listOf("videoPlayerSource", "replaySource")) {
@@ -275,8 +275,8 @@ class StreamingEngineSceneOutputTest {
     @Test fun `replay routes audio after the first video frame and follows only its current loop identity`() {
         val engine = engine()
         engine.setSceneComposition(graph())
-        engine.startStream(listOf("rtmp://one/live"))
-        val replay = File(files, "replay.mp4").apply { writeBytes(byteArrayOf(1)) }
+        engine.startStream(listOf(SCENE_RTMP_ONE_LIVE))
+        val replay = File(files, SCENE_REPLAY_MP4).apply { writeBytes(byteArrayOf(1)) }
         val inputs = mutableListOf<com.vivid.feature.streaming.compositor.audio.SceneAudioInput?>()
         every { session.setAudioInput(any(), any()) } answers { inputs.add(firstArg()); Unit }
         assertTrue(engine.useReplayAsSource(replay))
@@ -303,7 +303,7 @@ class StreamingEngineSceneOutputTest {
     @Test fun `an unreadable replay leaves the live scene and selected source untouched`() {
         val engine = engine()
         engine.setSceneComposition(graph())
-        engine.startStream(listOf("rtmp://one/live"))
+        engine.startStream(listOf(SCENE_RTMP_ONE_LIVE))
         val previous = engine.activeSourceKind.value
         val file = File(files, "broken.mp4").apply { writeBytes(byteArrayOf(1)) }
         engine.sceneFileReadable = { false }
@@ -327,7 +327,7 @@ class StreamingEngineSceneOutputTest {
     @Test fun `a rejected live movie change restores its previous document and graph`() {
         val engine = engine()
         engine.setSceneComposition(graph())
-        engine.startStream(listOf("rtmp://one/live"))
+        engine.startStream(listOf(SCENE_RTMP_ONE_LIVE))
         val first = movieUri("first")
         assertTrue(engine.setVideoPlayerUri(first))
         assertTrue(engine.switchSource(VideoSourceKind.VIDEO_PLAYER))
@@ -343,7 +343,7 @@ class StreamingEngineSceneOutputTest {
     @Test fun `a rejected replay switch restores the previous file selection`() {
         val engine = engine()
         engine.setSceneComposition(graph())
-        engine.startStream(listOf("rtmp://one/live"))
+        engine.startStream(listOf(SCENE_RTMP_ONE_LIVE))
         val first = File(files, "first.mp4").apply { writeBytes(byteArrayOf(1)) }
         val second = File(files, "second.mp4").apply { writeBytes(byteArrayOf(2)) }
         assertTrue(engine.useReplayAsSource(first))
@@ -375,14 +375,14 @@ class StreamingEngineSceneOutputTest {
             }
         }
         val engine = engine(factory)
-        val uri = movieUri("movie")
-        val replay = File(files, "replay.mp4").apply { writeBytes(byteArrayOf(1)) }
+        val uri = movieUri(SCENE_MOVIE)
+        val replay = File(files, SCENE_REPLAY_MP4).apply { writeBytes(byteArrayOf(1)) }
         if (kind == VideoSourceKind.VIDEO_PLAYER) {
             assertTrue(engine.setVideoPlayerUri(uri))
             assertTrue(engine.switchSource(kind))
         } else assertTrue(engine.useReplayAsSource(replay))
         engine.setSceneComposition(graph())
-        engine.startStream(listOf("rtmp://one/live"))
+        engine.startStream(listOf(SCENE_RTMP_ONE_LIVE))
         verifyOrder { old.stopStream(); session.prepare(any()) }
         assertEquals(1, allocated)
         checkers[0].onConnectionSuccess()
@@ -416,7 +416,7 @@ class StreamingEngineSceneOutputTest {
     @Test fun `a missing legacy movie fails every requested target without allocating a scene output`() {
         val engine = engine()
         assertTrue(engine.switchSource(VideoSourceKind.VIDEO_PLAYER))
-        val urls = listOf("rtmp://one/live", "rtmp://two/live")
+        val urls = listOf(SCENE_RTMP_ONE_LIVE, SCENE_RTMP_TWO_LIVE)
         engine.startStream(urls)
         assertTrue(engine.streamingState.value is StreamingState.Failed)
         assertEquals(urls, engine.targetStates.value.map { it.url })
@@ -427,14 +427,14 @@ class StreamingEngineSceneOutputTest {
     @Test fun `the selected movie ends once while independent video layers and replay sources loop`() {
         val engine = engine()
         engine.setSceneComposition(graph())
-        assertTrue(engine.setVideoPlayerUri(movieUri("movie")))
+        assertTrue(engine.setVideoPlayerUri(movieUri(SCENE_MOVIE)))
         assertTrue(engine.switchSource(VideoSourceKind.VIDEO_PLAYER))
         val primary = engine.sceneComposition.value!!.sources.single { it.type == SceneSourceType.VIDEO }
         val looping = StreamingEngine::class.java.getDeclaredMethod("sceneVideoLooping", SceneSource::class.java)
             .apply { isAccessible = true }
         assertEquals(false, looping.invoke(engine, primary))
         assertEquals(true, looping.invoke(engine, primary.copy(id = "independent-video", videoLoop = true)))
-        val replay = File(files, "replay.mp4").apply { writeBytes(byteArrayOf(1)) }
+        val replay = File(files, SCENE_REPLAY_MP4).apply { writeBytes(byteArrayOf(1)) }
         assertTrue(engine.useReplayAsSource(replay))
         val current = engine.sceneComposition.value!!
         val primaryId = current.layers.first { it.followsPrimaryInput }.sourceId
@@ -443,15 +443,15 @@ class StreamingEngineSceneOutputTest {
 
     @Test fun `main input switches reuse an independent camera without changing its view or source definition`() {
         val engine = engine()
-        val movie = SceneSource("movie", SceneSourceType.VIDEO, "content://movie", videoLoop = false)
+        val movie = SceneSource(SCENE_MOVIE, SceneSourceType.VIDEO, SCENE_CONTENT_MOVIE, videoLoop = false)
         val camera = SceneSource("rear", SceneSourceType.CAMERA, "rear-device")
         val independent = SceneLayer("rear-view", camera.id, SceneTransform(width = .3f, height = .3f))
         val input = SceneComposition(sources = listOf(movie, camera), primaryInputConfigured = true,
             layers = listOf(SceneLayer("main", movie.id, followsPrimaryInput = true), independent))
         engine.setSceneComposition(input)
-        assertTrue(engine.setVideoPlayerUri(movieUri("movie")))
+        assertTrue(engine.setVideoPlayerUri(movieUri(SCENE_MOVIE)))
         assertTrue(engine.switchSource(VideoSourceKind.VIDEO_PLAYER))
-        engine.startStream(listOf("rtmp://one/live"))
+        engine.startStream(listOf(SCENE_RTMP_ONE_LIVE))
         assertTrue(engine.switchSource(VideoSourceKind.CAMERA))
         val switched = engine.sceneComposition.value!!
         assertEquals(input.sources, switched.sources)
@@ -481,33 +481,33 @@ class StreamingEngineSceneOutputTest {
         val engine = engine()
         val manager = mockk<android.hardware.camera2.CameraManager>()
         every { context.getSystemService(Context.CAMERA_SERVICE) } returns manager
-        every { manager.cameraIdList } returns arrayOf("rear", "front")
+        every { manager.cameraIdList } returns arrayOf("rear", SCENE_FRONT)
         for ((id, facing) in listOf("rear" to android.hardware.camera2.CameraCharacteristics.LENS_FACING_BACK,
-            "front" to android.hardware.camera2.CameraCharacteristics.LENS_FACING_FRONT)) {
+            SCENE_FRONT to android.hardware.camera2.CameraCharacteristics.LENS_FACING_FRONT)) {
             val metadata = mockk<android.hardware.camera2.CameraCharacteristics>()
             every { metadata.get(android.hardware.camera2.CameraCharacteristics.LENS_FACING) } returns facing
             every { manager.getCameraCharacteristics(id) } returns metadata
         }
-        val movie = SceneSource("movie", SceneSourceType.VIDEO, "content://movie", videoLoop = false)
+        val movie = SceneSource(SCENE_MOVIE, SceneSourceType.VIDEO, SCENE_CONTENT_MOVIE, videoLoop = false)
         val rear = SceneSource("rear", SceneSourceType.CAMERA, "rear")
-        val front = SceneSource("front", SceneSourceType.CAMERA, "front")
+        val front = SceneSource(SCENE_FRONT, SceneSourceType.CAMERA, SCENE_FRONT)
         val main = SceneLayer("main", movie.id, followsPrimaryInput = true)
         val frontView = SceneLayer("front-view", front.id)
         val input = SceneComposition(sources = listOf(movie, rear, front), primaryInputConfigured = true,
             layers = listOf(main, SceneLayer("rear-view", rear.id), frontView))
         engine.setSceneComposition(input)
-        assertTrue(engine.setVideoPlayerUri(movieUri("movie")))
+        assertTrue(engine.setVideoPlayerUri(movieUri(SCENE_MOVIE)))
         assertTrue(engine.switchSource(VideoSourceKind.VIDEO_PLAYER))
-        engine.startStream(listOf("rtmp://one/live"))
+        engine.startStream(listOf(SCENE_RTMP_ONE_LIVE))
         val frontManager = mockk<com.pedro.encoder.input.video.Camera2ApiManager>(relaxed = true)
-        every { frontManager.getCurrentCameraId() } returns "front"
+        every { frontManager.getCurrentCameraId() } returns SCENE_FRONT
         val textures = mockk<com.vivid.feature.streaming.compositor.gl.AndroidSceneTextureProvider>(relaxed = true)
         every { textures.camera(front.id) } returns frontManager
         every { textures.captureReady(front.id) } returns true
         StreamingEngine::class.java.getDeclaredField("sceneTextures").apply { isAccessible = true }.set(engine, textures)
         val attached = mutableListOf<com.pedro.encoder.input.video.Camera2ApiManager>()
         engine.idleFaceDetectableFactory = { attached.add(it); mockk(relaxed = true) }
-        assertTrue(engine.selectLens("front"))
+        assertTrue(engine.selectLens(SCENE_FRONT))
         assertEquals(listOf(frontManager), attached)
         val changed = engine.sceneComposition.value!!
         assertEquals(input.sources, changed.sources)
@@ -552,3 +552,11 @@ class StreamingEngineSceneOutputTest {
     }
 
 }
+
+private const val SCENE_CONTENT_MOVIE = "content://movie"
+private const val SCENE_FRONT = "front"
+private const val SCENE_IMAGE = "image"
+private const val SCENE_MOVIE = "movie"
+private const val SCENE_REPLAY_MP4 = "replay.mp4"
+private const val SCENE_RTMP_ONE_LIVE = "rtmp://one/live"
+private const val SCENE_RTMP_TWO_LIVE = "rtmp://two/live"

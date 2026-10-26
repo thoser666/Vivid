@@ -658,3 +658,35 @@ Checkpoint unverändert. Das Protokoll ist
 die separat bestandenen Tests und Streaming-Lint ersetzen weder den vollständigen
 Gate noch Geräte-/Performance-Prüfungen. Kein Test und keine Sicherheitsregel
 wurden dafür abgeschwächt.
+
+
+### Bot-Befunde für PR #330
+
+Der Review-Stand `8dcf88b1` enthielt 23 offene Sonar-Befunde und 59 eingeführte
+DeepSource-Befunde. Beide vollständigen Berichte wurden vor der Überarbeitung
+abgerufen; DeepSources erste HTML-Seite allein zeigte nur 15 von 59 Einträgen.
+Die Überarbeitung trennt Texture-Reconciliation, Frame-Sampling und Health-
+Überwachung, USB-Neukonfiguration und Rollback sowie Datei-Playback-Callbacks.
+Die Engine trennt Szenenzuordnung, Legacy-Quellenwechsel, Kamera-Steuerung und
+Dateiaudio-Auswahl. Im Editor liegen Permission-Aktionen, Picker, Ebenen-
+Eigenschaften, Zeichenoperationen und Gestenverarbeitung in eigenen Funktionen.
+
+Wiederholte Fixture-IDs und URIs sind benannte Konstanten. Private Datenhalter
+sind explizite Datenklassen; unnötige Boolean-Zweige und leere Catch-Blöcke sind
+entfernt. Cleanup-Fehler werden protokolliert. PCM-Buffer-Helfer verwenden bewusst
+den `java.nio.Buffer`-Methodenvertrag, damit die API-21-kompatiblen Deskriptoren
+beim Entfernen expliziter Casts erhalten bleiben. Der Video-Worker wartet trotz
+Unterbrechung auf die bereits gepostete Operation und stellt den Interrupt-Status
+anschließend wieder her; Fehler des Workers werden weiterhin mit ihrer Ursache
+weitergereicht. Save-Cancellation und nicht wiederherstellbare Errors werden
+weitergeworfen. Keine Analyse-Regel wird dafür unterdrückt.
+
+Die lokale Regression bestand 462 Engine-/Szenen-/ViewModel-Tests, 55 Domain-
+Tests und 14 SceneRepository-Tests ohne Fehler oder Skips. Auch der abschließende
+Lauf nach der letzten Render-Routing-Extraktion bestand; instrumentierte Quellen
+kompilierten. Protokolle: `vivid-330-bot-tests.log` und
+`vivid-330-bot-final-tests.log` außerhalb des Repositorys. Die tatsächlichen
+Standard-Debug-App kompilierte ebenfalls; Streaming-Lint bestand mit null Fehlern
+und Warnungen sowie dem bestehenden Autoboxing-Hinweis
+(`vivid-330-bot-build-lint.log`). I18n- und Markdown-Anker-Prüfungen bestanden.
+Vollständiger Gate und neue Bot-Analyse werden am veröffentlichten Commit ergänzt.

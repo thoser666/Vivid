@@ -61,10 +61,10 @@ class SceneCompositorGpuTest {
 
     @Test fun orderedLayersBlendPremultipliedAlphaAndOpacity() {
         frames["red"] = texture(1, 1, intArrayOf(255, 0, 0, 255))
-        frames["green"] = texture(1, 1, intArrayOf(0, 128, 0, 128))
-        val scene = composition("red", "green").copy(layers = listOf(
+        frames[SCENE_GREEN] = texture(1, 1, intArrayOf(0, 128, 0, 128))
+        val scene = composition("red", SCENE_GREEN).copy(layers = listOf(
             SceneLayer("background", "red"),
-            SceneLayer("pip", "green", SceneTransform(0.5f, 0.5f, 0.5f, 0.5f), opacity = 0.5f),
+            SceneLayer("pip", SCENE_GREEN, SceneTransform(0.5f, 0.5f, 0.5f, 0.5f), opacity = 0.5f),
         ))
         val render = start(scene)
         render.draw()
@@ -76,14 +76,14 @@ class SceneCompositorGpuTest {
     }
 
     @Test fun cropAndRotationUseTheSameCoordinatesAsTheEditor() {
-        frames["split"] = texture(2, 1, intArrayOf(255, 0, 0, 255, 0, 255, 0, 255))
-        val cropped = composition("split").copy(layers = listOf(SceneLayer("crop", "split",
+        frames[SCENE_SPLIT] = texture(2, 1, intArrayOf(255, 0, 0, 255, 0, 255, 0, 255))
+        val cropped = composition(SCENE_SPLIT).copy(layers = listOf(SceneLayer("crop", SCENE_SPLIT,
             SceneTransform(crop = SceneCrop(left = 0.5f)))))
         val render = start(cropped)
         render.draw()
         assertColor(pixel(2, 2), 0, 255, 0)
         assertColor(pixel(29, 29), 0, 255, 0)
-        val rotated = cropped.copy(layers = listOf(SceneLayer("rotate", "split",
+        val rotated = cropped.copy(layers = listOf(SceneLayer("rotate", SCENE_SPLIT,
             SceneTransform(0.25f, 0.375f, 0.5f, 0.25f, 90f, SceneCrop(left = 0.5f)))))
         render.setScene(SceneRenderState(rotated), animate = false)
         render.draw()
@@ -111,9 +111,9 @@ class SceneCompositorGpuTest {
     }
 
     @Test fun missingSourceNeverReusesItsLastVisibleFrame() {
-        frames["green"] = texture(1, 1, intArrayOf(0, 255, 0, 255))
+        frames[SCENE_GREEN] = texture(1, 1, intArrayOf(0, 255, 0, 255))
         var rendered = 0
-        val render = start(composition("green"), frameRendered = { rendered++ })
+        val render = start(composition(SCENE_GREEN), frameRendered = { rendered++ })
         render.draw()
         assertEquals(1, rendered)
         assertColor(pixel(16, 16), 0, 255, 0)
@@ -138,8 +138,8 @@ class SceneCompositorGpuTest {
         val transform = FloatArray(16)
         android.opengl.Matrix.multiplyMM(transform, 0, surfaceTransform, 0,
             SceneCameraGeometry.samplingMatrix(0), 0)
-        frames["camera"] = raw.copy(transform = transform)
-        val render = start(composition("camera"))
+        frames[SCENE_CAMERA] = raw.copy(transform = transform)
+        val render = start(composition(SCENE_CAMERA))
         render.draw()
         assertColor(pixel(2, 2), 0, 255, 0)
         assertColor(pixel(29, 2), 255, 0, 0)
@@ -156,8 +156,8 @@ class SceneCompositorGpuTest {
 
     @Test fun legacyInputRetainsFramebufferOrientationAndCanReturnToPassthrough() {
         val input = texture(1, 2, intArrayOf(255, 0, 0, 255, 0, 0, 255, 255))
-        val scene = composition("camera")
-        val render = start(scene, input.textureId, "camera")
+        val scene = composition(SCENE_CAMERA)
+        val render = start(scene, input.textureId, SCENE_CAMERA)
         render.draw()
         assertColor(pixel(16, 2), 0, 0, 255)
         assertColor(pixel(16, 29), 255, 0, 0)
@@ -201,23 +201,23 @@ class SceneCompositorGpuTest {
         render.initFBOLink()
         render.setPreviousTexId(texture(1, 1, intArrayOf(0, 0, 0, 255)).textureId)
         val scene = SceneComposition(canvasWidth = SIZE, canvasHeight = SIZE,
-            sources = listOf(SceneSource("capture", SceneSourceType.CAMERA)),
-            layers = listOf(SceneLayer("first", "capture"), SceneLayer("copy", "capture")))
+            sources = listOf(SceneSource(SCENE_CAPTURE, SceneSourceType.CAMERA)),
+            layers = listOf(SceneLayer("first", SCENE_CAPTURE), SceneLayer("copy", SCENE_CAPTURE)))
         render.setScene(SceneRenderState(scene), animate = false)
         val deadline = android.os.SystemClock.elapsedRealtime() + 3_000
         do {
             render.draw()
-            if (provider.texture("capture") != null) break
+            if (provider.texture(SCENE_CAPTURE) != null) break
             Thread.sleep(10)
         } while (android.os.SystemClock.elapsedRealtime() < deadline)
-        assertNotNull("Surface frame did not arrive", provider.texture("capture"))
+        assertNotNull("Surface frame did not arrive", provider.texture(SCENE_CAPTURE))
         assertColor(pixel(16, 16), 0, 255, 0)
         assertEquals(1, opened)
-        assertEquals(2, states.getValue("capture").references)
+        assertEquals(2, states.getValue(SCENE_CAPTURE).references)
         requireNotNull(disconnect).invoke(false)
         render.draw()
-        assertNull(provider.texture("capture"))
-        assertEquals(SceneProducerStatus.OFFLINE, states.getValue("capture").status)
+        assertNull(provider.texture(SCENE_CAPTURE))
+        assertEquals(SceneProducerStatus.OFFLINE, states.getValue(SCENE_CAPTURE).status)
         assertEquals(1, stopped)
         assertEquals(1, released)
     }
@@ -227,14 +227,14 @@ class SceneCompositorGpuTest {
         awaitCapture(capture.provider)
         now = 60_000
         requireNotNull(renderer).draw()
-        assertNotNull(capture.provider.texture("capture"))
+        assertNotNull(capture.provider.texture(SCENE_CAPTURE))
         assertColor(pixel(16, 16), 0, 255, 0)
         assertEquals(1, capture.opened)
-        assertEquals(SceneProducerStatus.ACTIVE, capture.states.getValue("capture").status)
+        assertEquals(SceneProducerStatus.ACTIVE, capture.states.getValue(SCENE_CAPTURE).status)
         requireNotNull(capture.disconnect).invoke(true)
         requireNotNull(renderer).draw()
-        assertNull(capture.provider.texture("capture"))
-        assertEquals(SceneProducerStatus.PERMISSION_REQUIRED, capture.states.getValue("capture").status)
+        assertNull(capture.provider.texture(SCENE_CAPTURE))
+        assertEquals(SceneProducerStatus.PERMISSION_REQUIRED, capture.states.getValue(SCENE_CAPTURE).status)
         assertEquals(1, capture.stopped)
     }
 
@@ -243,8 +243,8 @@ class SceneCompositorGpuTest {
         awaitCapture(capture.provider)
         now = 6_000
         requireNotNull(renderer).draw()
-        assertNull(capture.provider.texture("capture"))
-        assertEquals(SceneProducerStatus.OFFLINE, capture.states.getValue("capture").status)
+        assertNull(capture.provider.texture(SCENE_CAPTURE))
+        assertEquals(SceneProducerStatus.OFFLINE, capture.states.getValue(SCENE_CAPTURE).status)
         val offline = pixel(16, 16)
         assertEquals(offline[0], offline[1])
         assertEquals(offline[1], offline[2])
@@ -256,8 +256,8 @@ class SceneCompositorGpuTest {
         requireNotNull(renderer).draw()
         now = 6_000
         requireNotNull(renderer).draw()
-        assertNull(capture.provider.texture("capture"))
-        assertEquals(SceneProducerStatus.OFFLINE, capture.states.getValue("capture").status)
+        assertNull(capture.provider.texture(SCENE_CAPTURE))
+        assertEquals(SceneProducerStatus.OFFLINE, capture.states.getValue(SCENE_CAPTURE).status)
         assertEquals(1, capture.stopped)
     }
 
@@ -265,10 +265,10 @@ class SceneCompositorGpuTest {
         val capture = captureFixture(SceneSourceType.CAMERA)
         capture.rotation = null
         awaitSampling(capture, previousTimestamp = null)
-        assertNull(capture.provider.texture("capture"))
+        assertNull(capture.provider.texture(SCENE_CAPTURE))
         capture.rotation = 90
         requireNotNull(renderer).draw()
-        assertNotNull(capture.provider.texture("capture"))
+        assertNotNull(capture.provider.texture(SCENE_CAPTURE))
         assertColor(pixel(16, 16), 0, 255, 0)
         assertEquals(1, capture.opened)
         assertEquals(1, capture.ready)
@@ -292,8 +292,8 @@ class SceneCompositorGpuTest {
             surface.unlockCanvasAndPost(canvas)
             awaitSampling(capture, previous)
         }
-        assertNull(capture.provider.texture("capture"))
-        assertEquals(SceneProducerStatus.OFFLINE, capture.states.getValue("capture").status)
+        assertNull(capture.provider.texture(SCENE_CAPTURE))
+        assertEquals(SceneProducerStatus.OFFLINE, capture.states.getValue(SCENE_CAPTURE).status)
         assertEquals(1, capture.stopped)
     }
 
@@ -317,7 +317,7 @@ class SceneCompositorGpuTest {
         assertEquals(30, capture.rateRequests.last())
         assertEquals(1, capture.opened)
         assertEquals(0, capture.stopped)
-        assertNotNull(capture.provider.texture("capture"))
+        assertNotNull(capture.provider.texture(SCENE_CAPTURE))
     }
 
     private class CaptureFixture {
@@ -374,8 +374,8 @@ class SceneCompositorGpuTest {
             it.initFBOLink()
             it.setPreviousTexId(texture(1, 1, intArrayOf(0, 0, 0, 255)).textureId)
             it.setScene(SceneRenderState(SceneComposition(canvasWidth = SIZE, canvasHeight = SIZE,
-                sources = listOf(SceneSource("capture", type)),
-                layers = listOf(SceneLayer("capture-layer", "capture")))), animate = false)
+                sources = listOf(SceneSource(SCENE_CAPTURE, type)),
+                layers = listOf(SceneLayer("capture-layer", SCENE_CAPTURE)))), animate = false)
         }
         return fixture
     }
@@ -384,7 +384,7 @@ class SceneCompositorGpuTest {
         val deadline = android.os.SystemClock.elapsedRealtime() + 3_000
         do {
             requireNotNull(renderer).draw()
-            if (provider.texture("capture") != null) return
+            if (provider.texture(SCENE_CAPTURE) != null) return
             Thread.sleep(10)
         } while (android.os.SystemClock.elapsedRealtime() < deadline)
         fail("Surface frame did not arrive")
@@ -413,15 +413,15 @@ class SceneCompositorGpuTest {
             render.initFBOLink()
             render.setPreviousTexId(texture(1, 1, intArrayOf(0, 0, 0, 255)).textureId)
             render.setScene(SceneRenderState(SceneComposition(canvasWidth = SIZE, canvasHeight = SIZE,
-                sources = listOf(SceneSource("image", SceneSourceType.IMAGE, image.absolutePath)),
-                layers = listOf(SceneLayer("image-layer", "image")))), animate = false)
+                sources = listOf(SceneSource(SCENE_IMAGE, SceneSourceType.IMAGE, image.absolutePath)),
+                layers = listOf(SceneLayer("image-layer", SCENE_IMAGE)))), animate = false)
             val deadline = android.os.SystemClock.elapsedRealtime() + 3_000
             do {
                 render.draw()
-                if (provider.texture("image") != null) break
+                if (provider.texture(SCENE_IMAGE) != null) break
                 Thread.sleep(10)
             } while (android.os.SystemClock.elapsedRealtime() < deadline)
-            assertNotNull("Image did not upload", provider.texture("image"))
+            assertNotNull("Image did not upload", provider.texture(SCENE_IMAGE))
             assertColor(pixel(16, 16), 0, 0, 255)
         } finally { image.delete() }
     }
@@ -542,3 +542,9 @@ class SceneCompositorGpuTest {
 
     companion object { private const val SIZE = 32 }
 }
+
+private const val SCENE_CAMERA = "camera"
+private const val SCENE_CAPTURE = "capture"
+private const val SCENE_GREEN = "green"
+private const val SCENE_IMAGE = "image"
+private const val SCENE_SPLIT = "split"

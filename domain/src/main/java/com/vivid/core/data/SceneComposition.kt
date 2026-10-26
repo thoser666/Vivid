@@ -145,7 +145,7 @@ fun StreamScene.effectiveComposition(): SceneComposition {
     }
     return SceneComposition(
         sources = listOf(SceneSource(sourceId, type, replayPath.orEmpty(), name,
-            videoLoop = if (type == SceneSourceType.VIDEO) true else null)),
+            videoLoop = (type == SceneSourceType.VIDEO).takeIf { it })),
         layers = listOf(SceneLayer("legacy-layer:$id", sourceId, followsPrimaryInput = true)),
         primaryInputConfigured = true,
     )

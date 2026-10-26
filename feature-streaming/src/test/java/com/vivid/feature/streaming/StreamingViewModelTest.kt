@@ -100,8 +100,8 @@ class StreamingViewModelTest {
         prepareEditor()
         every { autoSceneSwitcher.enabled } returns MutableStateFlow(true)
         val vm = viewModel()
-        vm.openSceneEditor(StreamScene("draft", "Draft"))
-        vm.editScene { rename("Changed"); duplicateSelected() }
+        vm.openSceneEditor(StreamScene(SCENE_DRAFT_ID, SCENE_DRAFT_NAME))
+        vm.editScene { rename(SCENE_CHANGED_NAME); duplicateSelected() }
         assertEquals(2, vm.sceneEditor.value!!.composition.layers.size)
         assertEquals(720, vm.sceneEditor.value!!.composition.canvasWidth)
         coVerify(exactly = 0) { sceneRepository.saveScene(any()) }
@@ -120,7 +120,7 @@ class StreamingViewModelTest {
             layers = listOf(com.vivid.core.data.SceneLayer("screen-layer", "consented-screen")))
         every { engine.sceneComposition } returns MutableStateFlow(graph)
         val vm = viewModel()
-        vm.openSceneEditor(StreamScene("draft", "Draft"))
+        vm.openSceneEditor(StreamScene(SCENE_DRAFT_ID, SCENE_DRAFT_NAME))
         assertEquals(graph, vm.sceneEditor.value!!.composition)
         vm.cancelSceneEditor()
         verify { engine.setSceneComposition(graph, animate = false) }
@@ -131,8 +131,8 @@ class StreamingViewModelTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         prepareEditor()
         val vm = viewModel()
-        vm.openSceneEditor(StreamScene("draft", "Draft", streamKey = "keep"))
-        vm.editScene { rename("Changed"); duplicateSelected() }
+        vm.openSceneEditor(StreamScene(SCENE_DRAFT_ID, SCENE_DRAFT_NAME, streamKey = "keep"))
+        vm.editScene { rename(SCENE_CHANGED_NAME); duplicateSelected() }
         val draft = vm.sceneEditor.value!!.scene
         vm.saveSceneEditor()
         vm.editScene { rename("Ignored") }
@@ -140,7 +140,7 @@ class StreamingViewModelTest {
         assertTrue(vm.sceneEditor.value!!.saving)
         advanceUntilIdle()
         coVerify(exactly = 1) { sceneRepository.saveScene(draft) }
-        coVerify { sceneRepository.setActiveScene("draft") }
+        coVerify { sceneRepository.setActiveScene(SCENE_DRAFT_ID) }
         assertNull(vm.sceneEditor.value)
         assertEquals("keep", draft.streamKey)
     }
@@ -151,12 +151,12 @@ class StreamingViewModelTest {
         prepareEditor()
         coEvery { sceneRepository.saveScene(any()) } throws java.io.IOException("Disk unavailable")
         val vm = viewModel()
-        vm.openSceneEditor(StreamScene("draft", "Draft"))
-        vm.editScene { rename("Changed") }
+        vm.openSceneEditor(StreamScene(SCENE_DRAFT_ID, SCENE_DRAFT_NAME))
+        vm.editScene { rename(SCENE_CHANGED_NAME) }
         vm.saveSceneEditor()
         advanceUntilIdle()
         assertTrue(vm.sceneEditor.value!!.saveFailed)
-        assertEquals("Changed", vm.sceneEditor.value!!.scene.name)
+        assertEquals(SCENE_CHANGED_NAME, vm.sceneEditor.value!!.scene.name)
         vm.editScene { rename("Retry") }
         assertEquals("Retry", vm.sceneEditor.value!!.scene.name)
         vm.cancelSceneEditor()
@@ -795,3 +795,7 @@ class StreamingViewModelTest {
         verify(exactly = 1) { engine.setFullFramePrivacy(true) }
     }
 }
+
+private const val SCENE_DRAFT_ID = "draft"
+private const val SCENE_DRAFT_NAME = "Draft"
+private const val SCENE_CHANGED_NAME = "Changed"

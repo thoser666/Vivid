@@ -1,5 +1,6 @@
 package com.vivid.feature.streaming.ui
 
+import android.content.Context
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.pm.PackageManager
@@ -202,14 +203,7 @@ fun StreamingScreen(
 
     val requestPermissionsAndRecord = rememberRecordingAction(streamingEngine, snackbarHostState, dismissLabel)
 
-    // Start idle preview only when camera permission is already granted.
-    LaunchedEffect(Unit) {
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
-            PackageManager.PERMISSION_GRANTED
-        ) {
-            streamingEngine.startIdlePreviewIfReady()
-        }
-    }
+    StartGrantedIdlePreview(streamingEngine, context)
 
     val requestScreenCapture = rememberScreenCaptureAction(streamingEngine)
 
@@ -402,6 +396,19 @@ fun StreamingScreen(
 }
 
 /** The scenes sheet owns a separate window, so it needs the same fullscreen policy. */
+@Composable
+private fun StartGrantedIdlePreview(streamingEngine: StreamingEngine, context: Context) {
+    // Start idle preview only when camera permission is already granted.
+    LaunchedEffect(Unit) {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            streamingEngine.startIdlePreviewIfReady()
+        }
+    }
+
+}
+
 @Composable
 private fun HideDialogSystemBars() {
     val view = LocalView.current

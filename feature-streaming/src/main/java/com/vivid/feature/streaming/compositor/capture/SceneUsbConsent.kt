@@ -38,8 +38,8 @@ internal class SceneUsbConsent(context: Context) : Closeable {
         override fun onReceive(context: Context, intent: Intent) {
             when (intent.action) {
                 action -> completeFromCurrentPermission()
-                UsbManager.ACTION_USB_DEVICE_DETACHED -> detached(
-                    IntentCompat.getParcelableExtra(intent, UsbManager.EXTRA_DEVICE, UsbDevice::class.java))
+                UsbManager.ACTION_USB_DEVICE_DETACHED -> IntentCompat.getParcelableExtra(
+                    intent, UsbManager.EXTRA_DEVICE, UsbDevice::class.java)?.let(::detached)
             }
         }
     }
@@ -77,8 +77,8 @@ internal class SceneUsbConsent(context: Context) : Closeable {
     }
 
     @Synchronized
-    private fun detached(device: UsbDevice?) {
-        if (!closed && _result.value == null && device != null && device.deviceName == target?.deviceName) finish(false)
+    private fun detached(device: UsbDevice) {
+        if (!closed && _result.value == null && device.deviceName == target?.deviceName) finish(false)
     }
 
     private fun hasCameraPermission() = ContextCompat.checkSelfPermission(app, Manifest.permission.CAMERA) ==
@@ -101,7 +101,7 @@ internal class SceneUsbConsent(context: Context) : Closeable {
     private fun cleanup() {
         if (registered) {
             registered = false
-            try { app.unregisterReceiver(receiver) } catch (_: IllegalArgumentException) { }
+            try { app.unregisterReceiver(receiver) } catch (error: IllegalArgumentException) { timber.log.Timber.d(error, "Scene USB consent receiver was already unregistered") }
         }
         pending?.cancel()
         pending = null

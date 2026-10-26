@@ -35,11 +35,12 @@ class SceneUsbPermissionActivity : ComponentActivity() {
                 finish()
             }
         }
-        if (savedInstanceState != null && savedInstanceState.getString(STATE_MODEL) != model.identity) {
-            model.consent.restore(requireNotNull(deviceName))
-        } else if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
-            requestUsb()
-        } else if (savedInstanceState == null) cameraPermission.launch(Manifest.permission.CAMERA)
+        when {
+            savedInstanceState != null && savedInstanceState.getString(STATE_MODEL) != model.identity ->
+                model.consent.restore(requireNotNull(deviceName))
+            ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED -> requestUsb()
+            savedInstanceState == null -> cameraPermission.launch(Manifest.permission.CAMERA)
+        }
     }
 
     private fun requestUsb() {

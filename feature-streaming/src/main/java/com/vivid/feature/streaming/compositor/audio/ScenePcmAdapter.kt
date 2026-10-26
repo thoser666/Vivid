@@ -49,13 +49,13 @@ internal class ScenePcmAdapter(
         if (originUs == null) originUs = timeUs
         val input = if (carry.isEmpty()) ByteBuffer.wrap(bytes, offset, length).slice()
             else ByteBuffer.allocate(carry.size + length).apply {
-                put(carry); put(bytes, offset, length); (this as Buffer).flip()
+                put(carry); put(bytes, offset, length); flipBuffer(this)
             }
         input.order(ByteOrder.nativeOrder())
         val completeBytes = input.remaining() / inputFrameBytes * inputFrameBytes
         carry = ByteArray(input.remaining() - completeBytes)
-        input.duplicate().apply { (this as Buffer).position(completeBytes) }.get(carry)
-        (input as Buffer).limit(completeBytes)
+        input.duplicate().also { positionBuffer(it, completeBytes) }.get(carry)
+        limitBuffer(input, completeBytes)
         if (!input.hasRemaining()) return
         val converted = if (inputChannels == outputChannels) input else mixChannels(input)
         if (processor.isActive) {
@@ -76,7 +76,7 @@ internal class ScenePcmAdapter(
                 result.putShort(((first.toInt() + second.toInt()) / 2).toShort())
             }
         }
-        (result as Buffer).flip()
+        flipBuffer(result)
         return result
     }
 
@@ -129,6 +129,10 @@ internal class ScenePcmAdapter(
         carry = ByteArray(0)
         processor.reset()
     }
+
+    private fun flipBuffer(buffer: Buffer) { buffer.flip() }
+    private fun positionBuffer(buffer: Buffer, position: Int) { buffer.position(position) }
+    private fun limitBuffer(buffer: Buffer, limit: Int) { buffer.limit(limit) }
 
     companion object { private const val MAX_PACKET_BYTES = 1_048_576 }
 }

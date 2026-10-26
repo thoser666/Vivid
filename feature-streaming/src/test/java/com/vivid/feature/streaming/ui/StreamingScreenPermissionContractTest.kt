@@ -151,7 +151,7 @@ class StreamingScreenPermissionContractTest {
         // Semantik-Baum bleibt vollständig (das instrumentierte Pendant dieses
         // Vertrags ist der StartupSmokeTest auf dem Emulator ohne Grants).
         composeRule.onNodeWithText("Controls").assertIsDisplayed()
-        composeRule.onNodeWithText("Start Streaming").assertIsDisplayed()
+        composeRule.onNodeWithText(SCENE_START_STREAMING).assertIsDisplayed()
         org.junit.Assert.assertNull(
             "Screen-Eintritt darf keinen Permission-Request auslösen (#249)",
             lastRequestedPermission(),
@@ -165,7 +165,7 @@ class StreamingScreenPermissionContractTest {
 
         setContent()
 
-        composeRule.onNodeWithText("Start Streaming").assertIsDisplayed()
+        composeRule.onNodeWithText(SCENE_START_STREAMING).assertIsDisplayed()
         // Entweder der Entry-Effekt oder der ON_RESUME-Beobachter (beide Pfade
         // sind erlaubt, exakt gezählt wird nur der verbotene Auto-Request).
         verify(atLeast = 1) { engine.startIdlePreviewIfReady() }
@@ -183,7 +183,7 @@ class StreamingScreenPermissionContractTest {
         )
 
         setContent()
-        composeRule.onNodeWithText("Start Streaming").performClick()
+        composeRule.onNodeWithText(SCENE_START_STREAMING).performClick()
         composeRule.waitForIdle()
 
         val request = lastRequestedPermission()
@@ -217,7 +217,7 @@ class StreamingScreenPermissionContractTest {
         )
 
         setContent()
-        composeRule.onNodeWithText("Start Streaming").performClick()
+        composeRule.onNodeWithText(SCENE_START_STREAMING).performClick()
         composeRule.waitForIdle()
 
         verify(exactly = 1) { viewModel.startStream() }
@@ -238,3 +238,5 @@ class StreamingScreenPermissionContractTest {
         composeRule.onNodeWithText("rtmp://a.example/live · live", substring = true).assertIsDisplayed()
     }
 }
+
+private const val SCENE_START_STREAMING = "Start Streaming"

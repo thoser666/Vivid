@@ -54,18 +54,18 @@ class SceneUsbDevicesRobolectricTest {
         verify(exactly = 0) { simple.serialNumber; composite.serialNumber }
     }
     @Test fun `persisted serial follows the same camera after bus renumbering`() {
-        val camera = device("new-path", "wanted")
-        granted.add("new-path")
-        assertEquals(SceneUsbLocator(1, 2, "wanted", "new-path"), catalog.identity(camera))
-        assertEquals(SceneUsbSelection.Selected(camera, true), catalog.resolve(SceneUsbLocator(1, 2, "wanted", "old-path")))
+        val camera = device(SCENE_NEW_PATH, SCENE_WANTED)
+        granted.add(SCENE_NEW_PATH)
+        assertEquals(SceneUsbLocator(1, 2, SCENE_WANTED, SCENE_NEW_PATH), catalog.identity(camera))
+        assertEquals(SceneUsbSelection.Selected(camera, true), catalog.resolve(SceneUsbLocator(1, 2, SCENE_WANTED, SCENE_OLD_PATH)))
     }
     @Test fun `a different serial at the old address is not substituted`() {
-        device("old-path", "different"); granted.add("old-path")
-        assertEquals(SceneUsbSelection.Missing, catalog.resolve(SceneUsbLocator(1, 2, "wanted", "old-path")))
+        device(SCENE_OLD_PATH, "different"); granted.add(SCENE_OLD_PATH)
+        assertEquals(SceneUsbSelection.Missing, catalog.resolve(SceneUsbLocator(1, 2, SCENE_WANTED, SCENE_OLD_PATH)))
     }
     @Test fun `unknown serial candidate requires consent before it can be matched`() {
         val camera = device("path", "different")
-        val wanted = SceneUsbLocator(1, 2, "wanted")
+        val wanted = SceneUsbLocator(1, 2, SCENE_WANTED)
         assertEquals(SceneUsbSelection.Selected(camera, false), catalog.resolve(wanted))
         verify(exactly = 0) { camera.serialNumber }
         granted.add("path")
@@ -86,32 +86,32 @@ class SceneUsbDevicesRobolectricTest {
         assertEquals(SceneUsbSelection.Ambiguous, catalog.resolve(locator))
     }
     @Test fun `a verified serial wins over another candidate still awaiting permission`() {
-        val one = device("one", "wanted"); device("two", "other"); granted.add("one")
-        assertEquals(SceneUsbSelection.Selected(one, true), catalog.resolve(SceneUsbLocator(1, 2, "wanted")))
+        val one = device("one", SCENE_WANTED); device("two", SCENE_OTHER); granted.add("one")
+        assertEquals(SceneUsbSelection.Selected(one, true), catalog.resolve(SceneUsbLocator(1, 2, SCENE_WANTED)))
     }
     @Test fun `disconnected and unrelated USB devices cannot satisfy the source`() {
-        device("other", vendor = 3)
+        device(SCENE_OTHER, vendor = 3)
         assertEquals(SceneUsbSelection.Missing, catalog.resolve(SceneUsbLocator(1, 2)))
         assertNull(catalog.deviceNamed("missing"))
     }
     @Test fun `duplicate firmware serials use the selected port and stay ambiguous after both ports change`() {
-        val one = device("one", "duplicate"); val two = device("two", "duplicate")
+        val one = device("one", SCENE_DUPLICATE); val two = device("two", SCENE_DUPLICATE)
         granted.addAll(listOf("one", "two"))
         assertEquals(SceneUsbSelection.Selected(one, true), catalog.resolve(catalog.identity(one)))
         assertEquals(SceneUsbSelection.Selected(two, true), catalog.resolve(catalog.identity(two)))
-        assertEquals(SceneUsbSelection.Ambiguous, catalog.resolve(SceneUsbLocator(1, 2, "duplicate", "old-port")))
+        assertEquals(SceneUsbSelection.Ambiguous, catalog.resolve(SceneUsbLocator(1, 2, SCENE_DUPLICATE, "old-port")))
     }
 
     private fun source(locator: SceneUsbLocator, id: String = "saved") =
         SceneSource(id, SceneSourceType.UVC, locator.encode(), "My camera")
 
     @Test fun `editor does not create a source from an ungranted or disconnected selection`() {
-        device("path", "serial")
+        device("path", SCENE_SERIAL)
         assertNull(sources.sourceForGrantedDevice("path", emptyList()))
         assertNull(sources.sourceForGrantedDevice("missing", emptyList()))
     }
     @Test fun `editor creates a serial identity only after real permission`() {
-        val camera = device("path", "serial"); granted.add("path")
+        val camera = device("path", SCENE_SERIAL); granted.add("path")
         val result = requireNotNull(sources.sourceForGrantedDevice("path", emptyList()))
         assertEquals(SceneSourceType.UVC, result.type)
         assertEquals(catalog.identity(camera), SceneUsbLocator.parse(result.locator))
@@ -119,14 +119,14 @@ class SceneUsbDevicesRobolectricTest {
         assertTrue(result.id.isNotBlank())
     }
     @Test fun `editor reuses stable source id and user label after bus renumbering`() {
-        device("new-path", "serial"); granted.add("new-path")
-        val saved = source(SceneUsbLocator(1, 2, "serial", "old-path"))
-        assertSame(saved, sources.sourceForGrantedDevice("new-path", listOf(saved)))
-        assertTrue(sources.matchesGrantedDevice(saved, "new-path"))
+        device(SCENE_NEW_PATH, SCENE_SERIAL); granted.add(SCENE_NEW_PATH)
+        val saved = source(SceneUsbLocator(1, 2, SCENE_SERIAL, SCENE_OLD_PATH))
+        assertSame(saved, sources.sourceForGrantedDevice(SCENE_NEW_PATH, listOf(saved)))
+        assertTrue(sources.matchesGrantedDevice(saved, SCENE_NEW_PATH))
     }
     @Test fun `consent for a different serial cannot retry or replace the saved source`() {
-        device("path", "other")
-        val saved = source(SceneUsbLocator(1, 2, "wanted", "path"))
+        device("path", SCENE_OTHER)
+        val saved = source(SceneUsbLocator(1, 2, SCENE_WANTED, "path"))
         assertEquals("path", sources.permissionDevice(saved))
         assertFalse(sources.matchesGrantedDevice(saved, "path"))
         granted.add("path")
@@ -135,16 +135,16 @@ class SceneUsbDevicesRobolectricTest {
         assertNotEquals(saved.id, sources.sourceForGrantedDevice("path", listOf(saved))?.id)
     }
     @Test fun `duplicate serials reuse only the selected device's source`() {
-        device("one", "duplicate"); device("two", "duplicate")
+        device("one", SCENE_DUPLICATE); device("two", SCENE_DUPLICATE)
         granted.addAll(listOf("one", "two"))
-        val one = source(SceneUsbLocator(1, 2, "duplicate", "one"), "one-id")
-        val two = source(SceneUsbLocator(1, 2, "duplicate", "two"), "two-id")
+        val one = source(SceneUsbLocator(1, 2, SCENE_DUPLICATE, "one"), "one-id")
+        val two = source(SceneUsbLocator(1, 2, SCENE_DUPLICATE, "two"), "two-id")
         assertSame(two, sources.sourceForGrantedDevice("two", listOf(one, two)))
         assertFalse(sources.matchesGrantedDevice(one, "two"))
     }
     @Test fun `Camera2 and unrelated source types cannot match a raw USB permission result`() {
-        device("path", "serial"); granted.add("path")
-        val saved = source(SceneUsbLocator(1, 2, "serial", "path"))
+        device("path", SCENE_SERIAL); granted.add("path")
+        val saved = source(SceneUsbLocator(1, 2, SCENE_SERIAL, "path"))
         val wrongType = saved.copy(type = SceneSourceType.CAMERA)
         val hal = saved.copy(locator = "usb:video0")
         assertFalse(sources.matchesGrantedDevice(wrongType, "path"))
@@ -155,3 +155,10 @@ class SceneUsbDevicesRobolectricTest {
     }
 
 }
+
+private const val SCENE_DUPLICATE = "duplicate"
+private const val SCENE_NEW_PATH = "new-path"
+private const val SCENE_OLD_PATH = "old-path"
+private const val SCENE_OTHER = "other"
+private const val SCENE_SERIAL = "serial"
+private const val SCENE_WANTED = "wanted"

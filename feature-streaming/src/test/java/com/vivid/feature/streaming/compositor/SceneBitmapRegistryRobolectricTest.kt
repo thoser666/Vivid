@@ -30,18 +30,18 @@ class SceneBitmapRegistryRobolectricTest {
     @Test fun `widget updates own a copy and are consumed only once per revision`() {
         val registry = SceneBitmapRegistry()
         val original = Bitmap.createBitmap(2, 2, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.GREEN) }
-        registry.publish("widget", original)
+        registry.publish(SCENE_WIDGET, original)
         original.recycle()
         var revision = 0L
         var owned: Bitmap? = null
-        registry.consumeChanged("widget", revision) { next, bitmap ->
+        registry.consumeChanged(SCENE_WIDGET, revision) { next, bitmap ->
             revision = next
             owned = bitmap
             assertFalse(bitmap.isRecycled)
             assertEquals(Color.GREEN, bitmap.getPixel(0, 0))
         }
         assertTrue(revision > 0)
-        registry.consumeChanged("widget", revision) { _, _ -> fail("Unchanged widget uploaded again") }
+        registry.consumeChanged(SCENE_WIDGET, revision) { _, _ -> fail("Unchanged widget uploaded again") }
         registry.close()
         assertTrue(owned!!.isRecycled)
     }
@@ -67,13 +67,15 @@ class SceneBitmapRegistryRobolectricTest {
     @Test fun `oversized updates are rejected without replacing the last good content`() {
         val registry = SceneBitmapRegistry()
         val good = Bitmap.createBitmap(2, 2, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.BLUE) }
-        registry.publish("widget", good)
+        registry.publish(SCENE_WIDGET, good)
         val excessive = Bitmap.createBitmap(SceneBitmapRegistry.MAX_BITMAP_SIZE + 1, 1, Bitmap.Config.ARGB_8888)
-        try { registry.publish("widget", excessive); fail("Oversized bitmap accepted") }
+        try { registry.publish(SCENE_WIDGET, excessive); fail("Oversized bitmap accepted") }
         catch (_: IllegalArgumentException) { }
-        registry.consumeChanged("widget", 0) { _, bitmap -> assertEquals(Color.BLUE, bitmap.getPixel(0, 0)) }
+        registry.consumeChanged(SCENE_WIDGET, 0) { _, bitmap -> assertEquals(Color.BLUE, bitmap.getPixel(0, 0)) }
         good.recycle()
         excessive.recycle()
         registry.close()
     }
 }
+
+private const val SCENE_WIDGET = "widget"
