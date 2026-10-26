@@ -275,6 +275,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 
 | Datum | Commit | Änderung |
 |-------|--------|----------|
+| 2026-10-26 | `6a663d3` | #330: Optionale GL-Owner-Auflösung von der Verarbeitung mit vorhandenem Owner trennen; nullable Replay-Rückkehr explizit erhalten und Null-Owner-Test auf leere GL-Kommandoliste verstärken. 479 Streaming-/Privacy-Tests, App-/Instrumentierungs-Kompilation und Streaming-Lint bestanden; externe Restbefunde werden neu geprüft. |
 | 2026-10-26 | `0a7b42f` | #330: Verbleibende Bot-Befunde zu USB-Resultat-Parametern, Exception-Klassifizierung und nullable Getter-/GL-Verträgen bearbeiten; kein Capture-/Grant-Verhalten geändert. 479 Streaming-/Privacy-Tests, App-/Instrumentierungs-Kompilation und Streaming-Lint bestanden; neue externe Analyse offen. |
 | 2026-10-26 | `73569c5` | #306/#330: Bot-Befunde durch Aufteilung von Capture-/Frame-Lifecycle, USB-Rollback, Datei-Playback, Engine-Routing und Editor-Permissions bearbeiten; benannte Fixture-Konstanten, explizite Datenhalter und Cleanup-Fehlerbehandlung. 531 ausgewählte Tests, App-/Instrumentierungs-Kompilation und Streaming-Lint bestanden; externe Neuanalyse offen. |
 | 2026-10-26 | `cbfc673` | #306: Primäre Ebenen an wiederverwendbare Capture-Konfigurationen binden; unabhängige Kameraansichten und SourceIds erhalten, einmalige/wiederholende Dateien trennen, Consent-Ziele und Kameraauswahl nach Activity-Neuerstellung sichern. 408 Engine-/Szenentests, 55 Domain-Tests, 14 Repository-Tests, App-/Instrumentierungs-Kompilation und Streaming-Lint bestanden; Geräte-Nachweise offen. |
@@ -582,6 +583,7 @@ Commit die Log-Zeile hinzufügte:
 
 | Datum | Commit | Eintrag | Kandidaten (Phrase in PARITY.md) | Vermerk |
 |-------|--------|---------|----------------------------------|---------|
+| 2026-10-26 | `6a663d3` | #330: Optionale GL-Owner-Auflösung von der Verarbeitung | `6a663d3` | Folgeprüfung nach je einem Sonar-/DeepSource-Befund; keine Non-null-Annahme für fehlende Quellen. |
 | 2026-10-26 | `0a7b42f` | #330: Verbleibende Bot-Befunde zu USB-Resultat-Parametern | `0a7b42f` | Folgepatch nach zwei Sonar- und elf DeepSource-Befunden; nullable Semantik bleibt erhalten. |
 | 2026-10-26 | `73569c5` | #306/#330: Bot-Befunde durch Aufteilung von Capture-/Frame-Lifecycle | `73569c5` | 23 Sonar- und 59 DeepSource-Befunde am Ausgangsstand; neue Analyse prüft die tatsächliche Bereinigung. |
 | 2026-10-26 | `cbfc673` | #306: Primäre Ebenen an wiederverwendbare Capture-Konfigurationen binden | `cbfc673` | Implementierung und Regressionstests; Hardware-/Performance-Nachweis offen. |
