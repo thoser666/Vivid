@@ -647,3 +647,14 @@ I18n- und Markdown-Anker-Prüfungen bestanden ebenfalls. Die Ergebnisse stehen
 in `vivid-306-source-binding-latest-tests-retry.log` und
 `vivid-306-source-binding-build-lint.log` außerhalb des Repositorys. Dies ist
 weiterhin kein Nachweis tatsächlicher Geräte-Captures oder GLES-Ausführung.
+
+
+Der vollständige Pre-Push-Lauf für `cbfc673` bestand die Repository-Selbsttests,
+endete aber in `:feature-obs-control:testDebugUnitTest` mit 21 Fehlern unter
+48 Tests. Alle 21 XML-Fehler enthalten Conscrypts `UnsatisfiedLinkError` wegen
+des auf Termux fehlenden `libpthread.so.0`. Die OBS-Dateien sind in diesem
+Checkpoint unverändert. Das Protokoll ist
+`vivid-306-source-binding-pre-push.log`. Der Gate ist damit ausdrücklich rot;
+die separat bestandenen Tests und Streaming-Lint ersetzen weder den vollständigen
+Gate noch Geräte-/Performance-Prüfungen. Kein Test und keine Sicherheitsregel
+wurden dafür abgeschwächt.
