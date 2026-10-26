@@ -298,6 +298,8 @@ dependencies {
     // Nebeneffekte wie Sentry-Init und Ktor-Remote-Control-Server).
     testImplementation(libs.hilt.android.testing)
     kspTest(libs.hilt.compiler.ksp)
+    androidTestImplementation(libs.rootencoder.library)
+    androidTestImplementation(libs.rootencoder.encoder)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.espresso.intents)

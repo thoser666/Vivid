@@ -69,6 +69,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
+import com.vivid.feature.streaming.CameraModeStatus
+import com.vivid.feature.streaming.CameraModeNotice
+import com.vivid.core.data.CameraMode
 import com.vivid.feature.streaming.StreamingEngine
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.viewinterop.AndroidView
@@ -83,7 +86,6 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
-import com.vivid.core.data.ResolvedEncoderConfig
 import com.vivid.core.data.StreamScene
 import com.vivid.core.ui.LocalWindowWidthClass
 import com.vivid.core.ui.adaptiveControlsMaxWidth
@@ -146,9 +148,8 @@ fun StreamingScreen(
     val streamingEngine = viewModel.streamingEngine
     val streamingState by streamingEngine.streamingState.collectAsStateWithLifecycle()
     val targetStates by streamingEngine.targetStates.collectAsStateWithLifecycle()
-    val activeEncoder by streamingEngine.activeEncoder.collectAsStateWithLifecycle()
-    val bitrateDiagnostics by streamingEngine.bitrateDiagnostics.collectAsStateWithLifecycle()
-    val measuredEncoderFps by streamingEngine.measuredEncoderFps.collectAsStateWithLifecycle()
+    val streamStartedAtMs by streamingEngine.streamStartedAtMs.collectAsStateWithLifecycle()
+    val cameraModeStatus by streamingEngine.cameraModeStatus.collectAsStateWithLifecycle()
     val activeSourceKind by streamingEngine.activeSourceKind.collectAsStateWithLifecycle()
     val configIssues by viewModel.configIssues.collectAsStateWithLifecycle()
     // Missing configuration should not obscure the preview before a Go-Live attempt.
@@ -159,6 +160,7 @@ fun StreamingScreen(
     StreamConfigurationFeedback(startAttempted, configIssues, streamingState, snackbarHostState) {
         startAttempted = false
     }
+    StreamSessionFeedback(cameraModeStatus, targetStates, streamingState, snackbarHostState)
     val twitchState by twitchViewModel.uiState.collectAsStateWithLifecycle()
 
     RefreshTwitchStatus(streamingState, twitchViewModel)
@@ -195,7 +197,7 @@ fun StreamingScreen(
         startAttempted = startAttempted && granted
     }
 
-    val requestPermissionsAndRecord = rememberRecordingAction(streamingEngine, snackbarHostState, dismissLabel)
+    val requestPermissionsAndRecord = rememberRecordingAction(viewModel, snackbarHostState, dismissLabel)
 
     // Start idle preview only when camera permission is already granted.
     LaunchedEffect(Unit) {
@@ -320,38 +322,6 @@ fun StreamingScreen(
                     }
                 }
 
-                // Per-Ziel-Status (Multi-Streaming): zeigt jedes Ziel mit aktuellem Zustand.
-                if (targetStates.isNotEmpty() && streamingState !is StreamingState.Idle) {
-                    Surface(
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .padding(start = 16.dp, end = 16.dp, bottom = 72.dp),
-                        shape = MaterialTheme.shapes.medium,
-                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        contentColor = MaterialTheme.colorScheme.onSurface,
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(4.dp),
-                        ) {
-                            if (activeSourceKind == VideoSourceKind.CAMERA) {
-                                activeEncoder?.let { AppliedCameraProfile(it, measuredEncoderFps) }
-                                bitrateDiagnostics?.let {
-                                    Text(
-                                        stringResource(R.string.streaming_encoder_bitrate_mode, it.mode.name, it.targetKbps.toString(), it.encoderName),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        modifier = Modifier.testTag("encoder_bitrate_mode"),
-                                    )
-                                }
-                            }
-                            targetStates.forEach { state ->
-                                TargetStatusRow(state)
-                            }
-                        }
-                    }
-                }
-
                 StreamingControlsMenu(
                     streamingEngine, navController, topButtonMaxWidth,
                     onRecord = requestPermissionsAndRecord,
@@ -370,6 +340,18 @@ fun StreamingScreen(
 
             // Chat-Overlay + Widgets: als Slot ausgelagert (siehe Parameter-Doku).
             overlayContent()
+
+            if (streamingState is StreamingState.Streaming) {
+                StreamStatusOverlay(
+                    modeFps = if (activeSourceKind == VideoSourceKind.CAMERA &&
+                        cameraModeStatus.applied == CameraMode.EXPERIMENTAL_60_FPS) 60 else 30,
+                    bitrateKbps = currentStreamBitrateKbps(targetStates),
+                    startedAtMs = streamStartedAtMs,
+                    modifier = Modifier.align(Alignment.TopStart)
+                        .windowInsetsPadding(WindowInsets.displayCutout)
+                        .padding(start = 16.dp, top = 64.dp),
+                )
+            }
 
             // P1: Zonen-Editor (Anonymisierung, Skizze §5) über der Vorschau —
             // nur im Idle-Modus geöffnet (Szenen-Sperre-Muster: während des
@@ -409,22 +391,6 @@ private fun HideDialogSystemBars() {
         onDispose {
             view.viewTreeObserver.removeOnWindowFocusChangeListener(listener)
         }
-    }
-}
-
-@Composable
-internal fun AppliedCameraProfile(config: ResolvedEncoderConfig, measuredFps: Int?) {
-    val preset = config.preset
-    Text(
-        stringResource(R.string.streaming_camera_profile, preset.width, preset.height, preset.fps),
-        style = MaterialTheme.typography.bodySmall,
-        modifier = Modifier.testTag("applied_camera_profile"),
-    )
-    if (config.fallbackApplied) {
-        Text(stringResource(R.string.streaming_camera_profile_fallback), style = MaterialTheme.typography.bodySmall)
-    }
-    measuredFps?.let {
-        Text(stringResource(R.string.streaming_camera_measured_fps, it), style = MaterialTheme.typography.bodySmall)
     }
 }
 
@@ -871,10 +837,32 @@ private fun StreamingSourcePreview(streamingEngine: StreamingEngine, activeSourc
 
 @Composable
 private fun BoxScope.StreamStartButton(streamingState: StreamingState, onStop: () -> Unit, onStart: () -> Unit) {
+    var confirmStop by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(streamingState) {
+        if (streamingState !is StreamingState.Streaming) confirmStop = false
+    }
+    if (confirmStop && streamingState is StreamingState.Streaming) {
+        AlertDialog(
+            onDismissRequest = { confirmStop = false },
+            title = { Text(stringResource(R.string.streaming_stop_confirm_title)) },
+            text = { Text(stringResource(R.string.streaming_stop_confirm_message)) },
+            confirmButton = {
+                TextButton(
+                    onClick = { confirmStop = false; onStop() },
+                    modifier = Modifier.testTag("confirm_stop_stream"),
+                ) { Text(stringResource(R.string.streaming_stop_confirm)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmStop = false }) {
+                    Text(stringResource(R.string.streaming_keep_live))
+                }
+            },
+        )
+    }
     Button(
         onClick = {
             if (streamingState is StreamingState.Streaming) {
-                onStop()
+                confirmStop = true
             } else {
                 onStart()
             }
@@ -971,7 +959,7 @@ private fun rememberDisplayRotation(): Int {
 }
 
 @Composable
-private fun rememberRecordingAction(streamingEngine: StreamingEngine, snackbarHostState: SnackbarHostState, dismissLabel: String): () -> Unit {
+private fun rememberRecordingAction(viewModel: StreamingViewModel, snackbarHostState: SnackbarHostState, dismissLabel: String): () -> Unit {
     val context = LocalContext.current
     var recordingError by remember { mutableStateOf(false) }
     val recordingErrorMessage = stringResource(R.string.streaming_replay_start_error)
@@ -985,7 +973,7 @@ private fun rememberRecordingAction(streamingEngine: StreamingEngine, snackbarHo
         }
     }
     fun startRecording() {
-        recordingError = !streamingEngine.startReplay()
+        viewModel.toggleReplay { recordingError = !it }
     }
     val recordingPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),
@@ -1094,6 +1082,33 @@ private fun StreamConfigurationFeedback(
         } else if (streamingState !is StreamingState.Idle) {
             onAttemptConsumed()
         }
+    }
+}
+
+@Composable
+private fun StreamSessionFeedback(
+    cameraStatus: CameraModeStatus,
+    targets: List<StreamTargetState>,
+    state: StreamingState,
+    host: SnackbarHostState,
+) {
+    val cameraMessage = cameraStatus.notice?.let { notice ->
+        stringResource(when (notice) {
+            CameraModeNotice.UNSUPPORTED -> R.string.camera_mode_fallback_unsupported
+            CameraModeNotice.PREPARATION_FAILED -> R.string.camera_mode_fallback_preparation
+            CameraModeNotice.CAPTURE_FAILED -> R.string.camera_mode_capture_failed
+            CameraModeNotice.RECORDING_FAILED -> R.string.camera_mode_recording_failed
+        })
+    }
+    LaunchedEffect(cameraMessage) {
+        cameraMessage?.let { host.showSnackbar(it) }
+    }
+    val failedTarget = targets.firstOrNull { it.status == StreamTargetStatus.FAILED }
+    val targetMessage = if (state is StreamingState.Streaming && failedTarget != null) {
+        stringResource(R.string.streaming_error_prefix, failedTarget.failureReason.orEmpty())
+    } else null
+    LaunchedEffect(targetMessage) {
+        targetMessage?.let { host.showSnackbar(it) }
     }
 }
 
@@ -1276,44 +1291,6 @@ private fun PreviewMessageBanner(
             text = text,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
             style = MaterialTheme.typography.bodyMedium,
-        )
-    }
-}
-
-/** Zeigt ein einzelnes Stream-Ziel (Multi-Streaming) mit URL, Status und Upload-Bitrate an. */
-@Composable
-private fun TargetStatusRow(state: StreamTargetState) {
-    val label = stringResource(
-        when (state.status) {
-            StreamTargetStatus.IDLE -> R.string.streaming_target_idle
-            StreamTargetStatus.PREPARING -> R.string.streaming_target_preparing
-            StreamTargetStatus.STREAMING -> R.string.streaming_target_streaming
-            StreamTargetStatus.FAILED -> R.string.streaming_target_failed
-        },
-    )
-    val color = when (state.status) {
-        StreamTargetStatus.STREAMING -> LocalExtendedColors.current.success
-        StreamTargetStatus.FAILED -> MaterialTheme.colorScheme.error
-        else -> MaterialTheme.colorScheme.onSurfaceVariant
-    }
-    val bitrateLabel = state.bitrateKbps?.takeIf { it > 0 }?.let { kbps ->
-        if (kbps >= 1_000) {
-            stringResource(R.string.streaming_target_bitrate_mbps, kbps / 1_000.0)
-        } else {
-            stringResource(R.string.streaming_target_bitrate_kbps, kbps.toString())
-        }
-    }
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(
-            modifier = Modifier
-                .size(8.dp)
-                .background(color, CircleShape),
-        )
-        Spacer(Modifier.width(8.dp))
-        Text(
-            text = if (bitrateLabel != null) "${state.url} · $label · $bitrateLabel" else "${state.url} · $label",
-            style = MaterialTheme.typography.bodySmall,
-            color = color,
         )
     }
 }
