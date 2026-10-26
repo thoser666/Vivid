@@ -39,6 +39,11 @@
 #   I18 Event-Fallback: eventstatus_<sid> 403 → Fallback-Zeile mit
 #       Statuscode + §5.1-Hinweis im Body, Erstellung läuft weiter (kein
 #       Blocker), Summary meldet die Lesbarkeits-Lücke
+#   I19 Read-only Diagnosemodus --print-event-tags: EVENT_TAGS-Zeile mit
+#       Versions-/Umfeld-Tags aus event_<sid>.json (ohne GitHub-Token,
+#       ohne Token-Leak), 403-Fixture → "not readable", ungültige SID →
+#       SKIP-Zeile; Workflow verdrahtet den Input als EVENT_TAGS_INPUT
+#       (Env-Technik, kein ${{ }} im run:)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 fail() { echo "❌ [sentry-issues-test] $1"; exit 1; }
@@ -285,4 +290,38 @@ p18=$(python -X utf8 -c "import json,sys;print(json.load(open(sys.argv[1],encodi
 grep -qF -- "- **Release-Spur (Latest-Event):** nicht lesbar (HTTP 403) — Versions-Spur manuell ziehen (docs/sentry-issues.md §5.1)" <<<"$p18" || \
   fail "I18: Fallback-Zeile mit Statuscode + §5.1-Hinweis fehlt"
 
-echo "✅ [sentry-issues-test] Sentry-Issues-Guard vertragstreu (I1–I18)."
+# I19 Read-only Diagnosemodus --print-event-tags
+mk_new2 "$tmp/i19"
+cat > "$tmp/i19/event_100.json" <<'JSON'
+{"id": "e1", "release": {"version": "com.vivid@0.5.21-beta+5212", "dist": "5212"},
+ "tags": [["app.version_code", "5212"], ["environment", "production"], ["device", "Pixel 8"], ["os", "Android 15"]]}
+JSON
+echo 403 > "$tmp/i19/eventstatus_200"
+# Ohne GITHUB_ISSUES_TOKEN und ohne ghissues.json — der Lesepfad darf keinen
+# GitHub-Zugriff verlangen.
+out_r19=$(SENTRY_ISSUES_FIXTURE="$tmp/i19" SENTRY_ISSUES_TOKEN=sntrys_FAKE_LEAK \
+  GITHUB_ISSUES_TOKEN= bash "$guard" --print-event-tags "100,200,999") || \
+  fail "I19: Diagnosemodus darf nicht scheitern (exit 0 Vertrag)"
+grep -qF "EVENT_TAGS 100: app.version_code=5212, release=com.vivid@0.5.21-beta+5212, dist=5212, os=Android 15, device=Pixel 8, environment=production" <<<"$out_r19" || \
+  fail "I19: EVENT_TAGS-Zeile mit Versions-Spur + environment fehlt"
+grep -qF "EVENT_TAGS 200: not readable (HTTP 403)" <<<"$out_r19" || \
+  fail "I19: 403-Fallback-Zeile erwartet"
+grep -qF "EVENT_TAGS 999: SKIP (kein Event-Fixture für diese SID)" <<<"$out_r19" || \
+  fail "I19: fehlende Fixture → SKIP-Zeile erwartet"
+grep -q "sntrys_FAKE_LEAK" <<<"$out_r19" && fail "I19: Token-Leak im Diagnosemodus"
+out_r19b=$(SENTRY_ISSUES_FIXTURE="$tmp/i19" SENTRY_ISSUES_TOKEN=x \
+  bash "$guard" --print-event-tags "100x") || fail "I19b: ungültige SID darf nicht scheitern"
+grep -qF "EVENT_TAGS 100x: SKIP (ungültige SID" <<<"$out_r19b" || \
+  fail "I19b: ungültige SID → SKIP-Zeile erwartet"
+if SENTRY_ISSUES_FIXTURE="$tmp/i19" SENTRY_ISSUES_TOKEN=x \
+  bash "$guard" --print-event-tags >/dev/null 2>&1; then
+  fail "I19c: --print-event-tags ohne SID muss FEHLER (exit 1) sein"
+fi
+# Workflow-Verdrahtung des Inputs (Env-Technik, kein ${{ }} im run:)
+grep -q "event_tags" "$WF" || fail "I19: workflow_dispatch-Input event_tags fehlt"
+grep -q 'EVENT_TAGS_INPUT: \${{ inputs.event_tags }}' "$WF" || \
+  fail "I19: Input muss über Env (EVENT_TAGS_INPUT) laufen"
+grep -qF 'bash scripts/check_sentry_issues.sh --print-event-tags "$EVENT_TAGS_INPUT"' "$WF" || \
+  fail "I19: Guard-Aufruf mit --print-event-tags im Workflow fehlt"
+
+echo "✅ [sentry-issues-test] Sentry-Issues-Guard vertragstreu (I1–I19)."

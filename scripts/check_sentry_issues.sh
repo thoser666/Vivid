@@ -40,6 +40,14 @@
 #   ghstatus       — simulierter GitHub-Erstell-HTTP-Code (Default 201)
 #   event_<sid>.json  — Latest-Event-Antwort (200 → Release-Spur im Body)
 #   eventstatus_<sid> — simulierter HTTP-Code für den Event-Call (z.B. 403)
+#
+# --print-event-tags SID[,SID…] — read-only Diagnosemodus: zieht pro SID das
+# Latest-Event und druckt eine `EVENT_TAGS <sid>: k=v, …`-Zeile (Release-Spur
+# für Befundkommentare, z.B. zum Auflösen der Build-Identität). Ohne
+# GitHub-Aufrufe, ohne Token-Ausgabe; nutzt dieselben Endpunkte/Fixtures wie
+# die Anreicherung oben. Neutraler SKIP (exit 0) bei fehlendem Token oder
+# unlesbarer Antwort — FEHLER (exit 1) nur bei fehlender/ungültiger SID-Liste.
+# Quelle des Tokens wie immer: SENTRY_ISSUES_TOKEN → issues.token → …
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -54,12 +62,20 @@ GH_API="https://api.github.com"
 
 dryrun=0
 print_src=0
+print_tags=0
+tags_sids=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --dry-run) dryrun=1; shift ;;
     --print-token-source) print_src=1; shift ;;
+    --print-event-tags)
+      print_tags=1
+      shift
+      tags_sids="${1:-}"
+      if [ $# -gt 0 ]; then shift; fi
+      ;;
     *)
-      echo "FEHLER: unbekanntes Argument: $1 (Aufruf: scripts/check_sentry_issues.sh [--dry-run] [--print-token-source])"
+      echo "FEHLER: unbekanntes Argument: $1 (Aufruf: scripts/check_sentry_issues.sh [--dry-run] [--print-token-source] [--print-event-tags SID[,SID…]])"
       exit 1 ;;
   esac
 done
@@ -101,6 +117,91 @@ elif [ -z "$FIXTURE" ] && [ -f "$PROPS" ]; then
 fi
 if [ "$print_src" = "1" ]; then
   echo "TOKEN_SOURCE=$source"
+  exit 0
+fi
+
+# ── Read-only Diagnosemodus: Event-Tags pro SID (kein GitHub-Zugriff) ──────
+if [ "$print_tags" = "1" ]; then
+  if [ -z "$token" ]; then
+    echo "SKIP: kein Sentry-Lese-Token — SENTRY_ISSUES_TOKEN setzen oder issues.token in sentry.properties ablegen (Token-Erstellung: $DOCS_HINT)"
+    exit 0
+  fi
+  if [ -z "$tags_sids" ]; then
+    echo "FEHLER: --print-event-tags benötigt eine kommagetrennte SID-Liste (Aufruf: scripts/check_sentry_issues.sh --print-event-tags 7806859006,7806863798)"
+    exit 1
+  fi
+  for sid in $(printf '%s' "$tags_sids" | tr ',' ' '); do
+    case "$sid" in
+      ''|*[!0-9]*)
+        echo "EVENT_TAGS $sid: SKIP (ungültige SID — nur Ziffern erlaubt)"
+        continue ;;
+    esac
+    evstatus=""
+    evfile="$tmp/event_print.json"
+    if [ -n "$FIXTURE" ]; then
+      if [ -f "$FIXTURE/event_${sid}.json" ]; then
+        evstatus=200
+        cp "$FIXTURE/event_${sid}.json" "$evfile"
+      elif [ -f "$FIXTURE/eventstatus_${sid}" ]; then
+        evstatus=$(tr -d '[:space:]' < "$FIXTURE/eventstatus_${sid}")
+      else
+        echo "EVENT_TAGS $sid: SKIP (kein Event-Fixture für diese SID)"
+        continue
+      fi
+    else
+      evstatus=$(curl -sS -o "$evfile" -w '%{http_code}' \
+        -H "Authorization: Bearer $token" \
+        "$API/issues/$sid/events/latest/" 2>/dev/null || true)
+      [ -n "$evstatus" ] || evstatus=000
+    fi
+    SID="$sid" EVSTATUS="$evstatus" EVENTFILE="$evfile" python -X utf8 - 2>/dev/null <<'PYTAGS' || true
+import json, os, sys
+
+# Gleiches Tag-Set wie die Anreicherung (§3): Versions-Spur + Umfeld-Tags;
+# das release-Objekt füllt release/dist, falls die Tags fehlen.
+ALLOWED = ["app.version_code", "app.version", "release", "dist", "os", "device", "environment"]
+
+def tag_pairs(t):
+    out = {}
+    if isinstance(t, dict):
+        out = {str(k): str(v) for k, v in t.items()}
+    elif isinstance(t, list):
+        for e in t:
+            if isinstance(e, dict) and "key" in e:
+                out[str(e.get("key"))] = str(e.get("value") or "")
+            elif isinstance(e, (list, tuple)) and len(e) == 2:
+                out[str(e[0])] = str(e[1])
+    return out
+
+sid = os.environ["SID"]
+status = os.environ["EVSTATUS"]
+if status != "200":
+    print("EVENT_TAGS %s: not readable (HTTP %s)" % (sid, status))
+    sys.exit(0)
+try:
+    ev = json.load(open(os.environ["EVENTFILE"], encoding="utf-8"))
+except Exception:
+    print("EVENT_TAGS %s: not readable (HTTP 200, invalid JSON)" % sid)
+    sys.exit(0)
+if not isinstance(ev, dict):
+    print("EVENT_TAGS %s: not readable (HTTP 200, non-object payload)" % sid)
+    sys.exit(0)
+tags = tag_pairs(ev.get("tags"))
+rel = ev.get("release")
+if isinstance(rel, dict):
+    tags.setdefault("release", str(rel.get("version") or ""))
+    tags.setdefault("dist", str(rel.get("dist") or ""))
+vals = []
+for k in ALLOWED:
+    v = (tags.get(k) or "").strip()
+    if v and v.lower() != "unknown":
+        vals.append("%s=%s" % (k, v))
+if vals:
+    print("EVENT_TAGS %s: %s" % (sid, ", ".join(vals[:12])[:500]))
+else:
+    print("EVENT_TAGS %s: HTTP 200 without claimed tags" % sid)
+PYTAGS
+  done
   exit 0
 fi
 

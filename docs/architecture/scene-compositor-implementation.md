@@ -778,3 +778,7 @@ Start und Reset. Vorher wurden vier Fälle durch den ungemockten SystemClock-
 Aufruf rot. Danach bestanden 493 gezielte Tests ohne Fehler oder Skips,
 Standard-App und Android-Instrumentierungsquellen kompilierten
 (`vivid-330-merge-verified-tests.log`).
+
+Während der Validierung rückte develop bis `54e38d12` vor. Der zusätzliche
+Merge übernimmt nur Sentry-/CI-Skripte und Dokumentation; die geprüften
+Android-Quellen bleiben gleich. Beide Parity-Protokolle bleiben erhalten.

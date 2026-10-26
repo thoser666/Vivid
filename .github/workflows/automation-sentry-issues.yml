@@ -35,6 +35,11 @@ on:
     # Stündlich (Minuten-Offset '17' meidet den 06:30-Uhr-Ops-Review-Lauf).
     - cron: '17 * * * *'
   workflow_dispatch:
+    inputs:
+      event_tags:
+        description: 'Read-only: latest-event tags for given Sentry SIDs (comma-separated), e.g. 7806859006,7806863798 — skips the watchdog run'
+        required: false
+        type: string
 
 permissions: {}
 
@@ -61,4 +66,12 @@ jobs:
           GITHUB_ISSUES_TOKEN: ${{ secrets.AUTOMATION_TOKEN }}
           SENTRY_ORG: privat-jb
           SENTRY_PROJECT: vivid
-        run: bash scripts/check_sentry_issues.sh
+          # Read-only Diagnosepfad (nur bei dispatch-Input gesetzt): gleiche
+          # Env-Technik wie oben — kein ${{ }} im run:, Input nur über Env.
+          EVENT_TAGS_INPUT: ${{ inputs.event_tags }}
+        run: |
+          if [ -n "$EVENT_TAGS_INPUT" ]; then
+            bash scripts/check_sentry_issues.sh --print-event-tags "$EVENT_TAGS_INPUT"
+          else
+            bash scripts/check_sentry_issues.sh
+          fi

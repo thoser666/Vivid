@@ -67,6 +67,10 @@ bash scripts/test_sentry_issues.sh            # I1–I16, offline, kein Netz
 bash scripts/check_sentry_issues.sh --dry-run # zeigt, welche Issues erstellt würden
 bash scripts/check_sentry_issues.sh           # echte Erstellung (GitHub-Token nötig)
 bash scripts/check_sentry_issues.sh --print-token-source
+bash scripts/check_sentry_issues.sh --print-event-tags 7806859006,7806863798
+                                            # read-only: Versions-Spur/Umfeld-Tags
+                                            # einer bestehenden SID (kein GitHub-
+                                            # Zugriff, keine Token-Ausgabe)
 ```
 
 Verdicts:
@@ -129,6 +133,14 @@ android-ci.yml).
   Alarm. Erstellt wird mit dem **AUTOMATION_TOKEN** (PAT), damit die
   Triage-Automation auf das `issues.opened`-Ereignis reagieren kann
   (GITHUB_TOKEN-Events würden keine Workflow-Runs auslösen).
+- **Read-only Event-Tag-Abfrage (`workflow_dispatch`-Input `event_tags`):**
+  mit `-f event_tags=<sid>,<sid>` zieht derselbe Lauf (und dasselbe
+  CI-Secret) die Latest-Event-Tags der genannten bestehenden SIDs und
+  druckt pro SID eine `EVENT_TAGS <sid>: …`-Zeile ins Run-Log — der Leg-,
+  der bestehende Befund-Issues vor ihrer Anreicherung entstanden sind (z.B.
+  Build-Identität bei PR- vs. Store-Build, §5.1). Input läuft über Env
+  (`EVENT_TAGS_INPUT`), kein `${{ }}`-Interpolieren im `run:`-Block.
+  Ohne Input laufen Cron-Verhalten und Erstellung unverändert.
 
 ## 5. Triage-Verfahren für Watchdog-Crash-Issues
 
