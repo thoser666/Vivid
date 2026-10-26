@@ -822,3 +822,10 @@ MutableStateFlows für den geschlossenen Editor und die leere Producer-Map;
 die Permission-Fixture liefert außerdem den expliziten Full-Frame-Privacy-
 Zustand. Produktionscode und bestehende Render-/Permission-Assertions bleiben
 unverändert.
+
+Die korrigierten Unit-Test-Quellen kompilierten
+(`vivid-330-ci-fixture-compile.log`). Der lokale pre-push bestand wieder
+die Repository-Selbsttests und stoppte bei sechs von 475 Chat-Tests; alle
+frischen XML-Fehler zeigen Conscrypts fehlendes `libpthread.so.0` auf Termux
+(`vivid-330-ci-fixture-pre-push.log`). Die UI-Ausführung wird deshalb im
+anschließenden Linux-CI-Lauf verifiziert; kein lokaler UI-Erfolg wird behauptet.
