@@ -744,3 +744,11 @@ Quellen kompilierten (`vivid-330-bot-null-contract-tests.log`).
 Auch diese Revision bestand die Standard-Debug-Kompilation und Streaming-Lint
 mit null Fehlern und Warnungen (ein bestehender Hinweis), dazu I18n und
 Markdown-Anker. Protokoll: `vivid-330-bot-null-contract-build-lint.log`.
+
+
+Der vollständige Gate für `6a663d3` bestand die Repository-Selbsttests und
+stoppte wieder bei sechs von 471 unveränderten Chat-Tests. Alle sechs frischen
+XML-Fehler zeigen Conscrypts auf Termux fehlendes `libpthread.so.0`.
+Protokoll: `vivid-330-bot-null-contract-pre-push.log`. Der vollständige Gate
+bleibt rot; die getrennten Tests und Streaming-Lint sind kein Ersatz für einen
+vollständigen Lauf auf einem unterstützten Runner.
