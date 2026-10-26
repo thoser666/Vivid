@@ -82,6 +82,9 @@ class PrivacyComposer(
     },
 ) {
 
+    /** External GL overlays must survive effect rebuilds in the experimental capture path. */
+    @Volatile var preserveExternalFilters: Boolean = false
+
     private val _privacyEnabled = MutableStateFlow(false)
 
     /** Ob die Anonymisierung aktiv ist (Position 0 in der Kette). */
@@ -167,10 +170,10 @@ class PrivacyComposer(
             container.setChain(desired)
             // Start with one stable Root slot, including before a scene is active.
             // Adding a scene never needs to adopt or temporarily duplicate legacy passes.
-            gl.setFilter(container)
+            if (preserveExternalFilters) gl.addFilter(0, container) else gl.setFilter(container)
             sceneChain = container
         } else {
-            gl.clearFilters()
+            if (!preserveExternalFilters) gl.clearFilters()
             sceneChain = null
         }
         chainOwner = gl

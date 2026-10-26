@@ -36,7 +36,7 @@ class StreamRestartInstrumentedTest {
             awaitStatus("STREAMING")
             Log.i("VividRestartTest", "button cycle=${cycle + 1} streaming")
             Thread.sleep(1_500) // Let real encoded video reach the USB receiver before stopping.
-            click(StreamingR.string.streaming_stop)
+            stopWithConfirmation()
             awaitStatus("IDLE")
             Log.i("VividRestartTest", "button cycle=${cycle + 1} stopped")
         }
@@ -57,7 +57,7 @@ class StreamRestartInstrumentedTest {
         awaitStatus("STREAMING")
         Thread.sleep(1_500)
         Log.i("VividRestartTest", "button recovery streaming after failure")
-        click(StreamingR.string.streaming_stop)
+        stopWithConfirmation()
         awaitStatus("IDLE")
     }
 
@@ -66,6 +66,11 @@ class StreamRestartInstrumentedTest {
         socket.connect(InetSocketAddress("127.0.0.1", port), 500)
         socket.getOutputStream().write("GET $path HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n".toByteArray())
         socket.getInputStream().bufferedReader().readText()
+    }
+
+    private fun stopWithConfirmation() {
+        click(StreamingR.string.streaming_stop)
+        click(StreamingR.string.streaming_stop_confirm)
     }
 
     private fun click(resId: Int) {

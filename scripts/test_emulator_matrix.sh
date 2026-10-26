@@ -9,10 +9,16 @@
 # bereitgestellt wird (Changelog 02.04.2024), ohne udev-perms-Step der Emulator
 # aber auf Software-Acceleration (-accel off) zurückfällt.
 #
+# Die macos-arm64-Leg wurde am 25.10.2026 entfernt: Re-Run 40178387145
+# (v0.5.23-beta, Versuch 1 + 2) crashte beide Male mit exakt demselben
+# HVF-Fehler — seit dem Vorfall 06.09.2026 kein einziger grüner Lauf.
+# T1 (check_absent) und T12.1 (exakter Leg-Satz) verbieten ihre Rückkehr.
+#
 # Geprüfte Szenarien:
-#   T1  Matrix enthält beide Architekturen (ubuntu-x86_64, macos-arm64)
-#   T2  x86_64-Leg: authority-fähig (kein continue-on-error)
-#   T3  arm64-Leg: experimentell (continue-on-error: true)
+#   T1  Matrix ist ausschließlich ubuntu-x86_64 (macos-arm64 entfernt
+#       am 25.10.2026 — HVF HV_UNSUPPORTED, kein grüner Lauf seit 06.09.2026)
+#   T2  Pflicht-Legs (api34/api35): authority-fähig (kein continue-on-error)
+#   T3  Beobachter-Leg (api36): experimentell (continue-on-error: true)
 #   T4  KVM-udev-Step vorhanden und Linux-gepunktet
 #   T5  KVM-Verifikations-Step vorhanden (harter Fail bei fehlendem /dev/kvm)
 #   T6  arch ist parametrisiert (kein hartkodierter arch-Wert im Step)
@@ -21,7 +27,7 @@
 #   T9  Artefakt-Uploads matrix-spezifisch (keine Namenskollision)
 #   T10 Emulator-Action bleibt SHA-gepinnt
 #   T11 Job läuft bei workflow_dispatch ODER v*-Tag-Push (Release-Gate, 24.09.2026)
-#   T12 release-pipeline.yml bleibt valides YAML + 4-Legs-API-Staffelung
+#   T12 release-pipeline.yml bleibt valides YAML + 3-Legs-API-Staffelung
 #       (34/35 Pflicht, 36 experimentell — SDK-Abdeckungs-Analyse 25.09.2026,
 #        Beobachter-Leg 01.10.2026 von 37 auf 36 gezogen, #249: `platforms;
 #        android-37` existiert im Stable-SDK-Kanal des Runners nicht)
@@ -65,18 +71,21 @@ JOB_START=$(grep -n '^  emulator-tests:' "$WORKFLOW" | cut -d: -f1)
 JOB_END=$(awk -v s="$JOB_START" 'NR>s && /^  [a-z-]+:/{print NR; exit}' "$WORKFLOW")
 JOB=$(sed -n "${JOB_START},${JOB_END}p" "$WORKFLOW")
 
-echo "== T1: Matrix beide Architekturen =="
+echo "== T1: Matrix ausschließlich ubuntu-x86_64 (macos entfernt) =="
 check "T1.1 ubuntu-x86_64-Leg" grep -q 'name: ubuntu-x86_64' <<<"$JOB"
-check "T1.2 macos-arm64-Leg" grep -q 'name: macos-arm64' <<<"$JOB"
+check_absent "T1.2 keine macos-arm64-Leg (HVF HV_UNSUPPORTED, entfernt 25.10.2026)" \
+  grep -q 'name: macos-arm64' <<<"$JOB"
 check "T1.3 x86_64-arch" grep -q 'arch: x86_64' <<<"$JOB"
-check "T1.4 arm64-v8a-arch" grep -q 'arch: arm64-v8a' <<<"$JOB"
+check_absent "T1.4 keine arm64-v8a-arch mehr in der Matrix" \
+  grep -q 'arch: arm64-v8a' <<<"$JOB"
 check "T1.5 os-Zuordnung ubuntu" grep -q 'os: ubuntu-latest' <<<"$JOB"
-check "T1.6 os-Zuordnung macos" grep -q 'os: macos-latest' <<<"$JOB"
+check_absent "T1.6 keine os-Zuordnung macos mehr" \
+  grep -q 'os: macos-latest' <<<"$JOB"
 check "T1.7 runs-on parametrisiert" grep -q 'runs-on: ${{ matrix.os }}' <<<"$JOB"
 
 echo "== T2/T3: experimental-Flag =="
 check "T2.1 x86_64 nicht experimentell" grep -q 'experimental: false' <<<"$JOB"
-check "T3.1 arm64 experimentell" grep -q 'experimental: true' <<<"$JOB"
+check "T3.1 api36-Beobachter experimentell" grep -q 'experimental: true' <<<"$JOB"
 check "T3.2 continue-on-error aus Matrix" grep -q 'continue-on-error: ${{ matrix.experimental }}' <<<"$JOB"
 
 echo "== T4: KVM-udev-Step =="
@@ -94,8 +103,8 @@ check "T6.1 arch aus Matrix" grep -q 'arch: ${{ matrix.arch }}' <<<"$JOB"
 ARM_COUNT=$(grep -c 'arch: arm64-v8a' <<<"$JOB" || true)
 X86_COUNT=$(grep -c 'arch: x86_64' <<<"$JOB" || true)
 PARAM_COUNT=$(grep -cF 'arch: ${{ matrix.arch }}' <<<"$JOB" || true)
-check "T6.2 arch nur in der Matrix hartkodiert (1× arm64)" test "$ARM_COUNT" -eq 1
-# 3× x86_64: drei ubuntu-Legs (API 34/35/37) — API-Staffelung 25.09.2026
+check "T6.2 keine arm64-arch hartkodiert (0× — macos-Leg entfernt)" test "$ARM_COUNT" -eq 0
+# 3× x86_64: drei ubuntu-Legs (API 34/35/36) — API-Staffelung 25.09.2026
 check "T6.3 arch nur in der Matrix hartkodiert (3× x86_64, API-Staffelung)" test "$X86_COUNT" -eq 3
 check "T6.4 Step nutzt Matrix-arch (genau 1×)" test "$PARAM_COUNT" -eq 1
 
@@ -387,17 +396,19 @@ with io.open('.github/workflows/release-pipeline.yml', encoding='utf-8') as f:
     d = yaml.safe_load(f)
 j = d['jobs']['emulator-tests']
 inc = j['strategy']['matrix']['include']
-assert len(inc) == 4, inc
+assert len(inc) == 3, inc
 names = {i['name'] for i in inc}
-assert names == {'ubuntu-x86_64-api34', 'ubuntu-x86_64-api35', 'ubuntu-x86_64-api36', 'macos-arm64'}, names
+# Exakter Leg-Satz: macos-arm64 darf nicht zurueckkehren (HVF HV_UNSUPPORTED,
+# entfernt 25.10.2026 — Re-Run 40178387145 Versuch 1 + 2 ohne jeden gruenen
+# Lauf seit dem Vorfall 06.09.2026).
+assert names == {'ubuntu-x86_64-api34', 'ubuntu-x86_64-api35', 'ubuntu-x86_64-api36'}, names
 by = {i['name']: i for i in inc}
 # Pflicht-Legs: API 34 (FGS-Regression) + API 35 (Edge-to-Edge) — roter Tag-Run = kein Release
 assert by['ubuntu-x86_64-api34']['experimental'] is False, by['ubuntu-x86_64-api34']
 assert by['ubuntu-x86_64-api35']['experimental'] is False, by['ubuntu-x86_64-api35']
 assert by['ubuntu-x86_64-api34']['api-level'] == 34 and by['ubuntu-x86_64-api35']['api-level'] == 35
-# Beobachter-Legs (continue-on-error): API 36 (neueste stabile Plattform) + macos-arm64
+# Beobachter-Leg (continue-on-error): API 36 (neueste stabile Plattform)
 assert by['ubuntu-x86_64-api36']['experimental'] is True and by['ubuntu-x86_64-api36']['api-level'] == 36
-assert by['macos-arm64']['experimental'] is True
 "
 check "T12.2 api-level kommt aus der Matrix (nicht hartkodiert)" \
   grep -q 'api-level: \${{ matrix.api-level }}' .github/workflows/release-pipeline.yml

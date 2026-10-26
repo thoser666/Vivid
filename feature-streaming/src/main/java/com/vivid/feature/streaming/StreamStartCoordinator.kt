@@ -1,5 +1,6 @@
 package com.vivid.feature.streaming
 
+import com.vivid.core.data.CameraMode
 import com.vivid.core.data.AppSettings
 import com.vivid.core.data.EncoderCapabilities
 import com.vivid.core.data.ResolvedEncoderConfig
@@ -46,11 +47,12 @@ class StreamStartCoordinator @Inject constructor(
             _configIssues.value = issues + StreamConfigIssue(ConfigIssueSeverity.ERROR, R.string.stream_error_no_url)
             return@withLock
         }
-        val resolved = if (settings.encoderAutoFallback) {
+        val resolved = if (settings.encoderAutoFallback && settings.cameraMode == CameraMode.STANDARD) {
             resolveEncoderConfig(settings.videoCodecPreference, settings.encoderPreset, encoderCapabilities)
         } else {
             ResolvedEncoderConfig(settings.videoCodecPreference, settings.encoderPreset, fallbackApplied = false)
         }
+        engine.configureCameraMode(settings.cameraMode)
         engine.configureEncoder(resolved, settings.encoderAutoFallback)
         engine.configureAdaptiveBitrate(settings.adaptiveBitrateEnabled)
         onPrepared()

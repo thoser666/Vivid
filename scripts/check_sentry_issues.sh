@@ -38,6 +38,8 @@
 #   getstatus      — simulierter Sentry-HTTP-Code (Default 200)
 #   gh_getstatus   — simulierter GitHub-Listen-HTTP-Code (Default 200)
 #   ghstatus       — simulierter GitHub-Erstell-HTTP-Code (Default 201)
+#   event_<sid>.json  — Latest-Event-Antwort (200 → Release-Spur im Body)
+#   eventstatus_<sid> — simulierter HTTP-Code für den Event-Call (z.B. 403)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -325,6 +327,9 @@ out = os.environ["SENTRY_ISSUES_TMP"]
 for i, (sid, title, _last, payload) in enumerate(candidates, 1):
     with open(os.path.join(out, "issue_%d.json" % i), "w", encoding="utf-8") as fh:
         json.dump(payload, fh, ensure_ascii=False)
+    # sid-Übergabe an Phase B (Event-Tags-Anreicherung pro neuem Issue).
+    with open(os.path.join(out, "sid_%d.txt" % i), "w", encoding="utf-8") as fh:
+        fh.write(sid + "\n")
     print("CANDIDATE: %s → %s" % (sid, title))
 
 print("Sentry: %d unresolved geprüft | bereits erfasst: %d | neu: %d" % (
@@ -362,8 +367,108 @@ fi
 
 # ── Phase B: GitHub-Issues erstellen (live) bzw. Status simulieren (Fixture) ──
 created=0
+enriched=0
+degraded=0
 for i in $(seq 1 "$count"); do
   payload="$tmp/issue_$i.json"
+  sid=$(cat "$tmp/sid_$i.txt" 2>/dev/null || true)
+
+  # ── Event-Tags (Release-Spur) nachziehen — CI-Workaround (docs/sentry-issues.md
+  # §3): derselbe SENTRY_ISSUES_TOKEN wie die Issues-Liste, ein Event-Call pro
+  # NEUEM Issue. Ein Token ohne Org-Mitgliedschaft/Event-Leserecht fällt weich
+  # aus (Fallback-Zeile im Body, kein Blocker — Watchdog-Verdicts bleiben
+  # OK/SKIP). Offline deterministisch: in Fixture-Modus nur bei
+  # event_<sid>.json (200) bzw. eventstatus_<sid> (simulierter Code).
+  evstatus=""
+  if [ -n "$FIXTURE" ]; then
+    if [ -f "$FIXTURE/event_${sid}.json" ]; then
+      evstatus=200
+      cp "$FIXTURE/event_${sid}.json" "$tmp/event_$i.json"
+    elif [ -f "$FIXTURE/eventstatus_${sid}" ]; then
+      evstatus=$(tr -d '[:space:]' < "$FIXTURE/eventstatus_${sid}")
+    fi
+  elif [ -n "$sid" ]; then
+    evstatus=$(curl -sS -o "$tmp/event_$i.json" -w '%{http_code}' \
+      -H "Authorization: Bearer $token" \
+      "$API/issues/$sid/events/latest/" 2>/dev/null || true)
+    [ -n "$evstatus" ] || evstatus=000
+  fi
+  if [ -n "$evstatus" ]; then
+    if EVSTATUS="$evstatus" EVENTFILE="$tmp/event_$i.json" \
+       PAYLOADFILE="$payload" python -X utf8 - 2>/dev/null <<'PYEVENT'
+import json, os, sys
+
+# Release-Spur aus dem Latest-Event: dieselbe Allowlist wie die Issue-Tags
+# (os/device/dist/environment/release) plus die Versions-Tags, die das SDK
+# seit 27.09.2026 (ea16fadc) setzt — app.version_code trägt den versionCode
+# der Crash-Sitzung, release/dist die versionName-Spur. Beide Event-Formen
+# werden gelesen: [[k, v], …] (Event-API) und [{key, value}, …] (Issue-API);
+# das release-Objekt füllt release/dist, falls die Tags fehlen.
+ALLOWED = ["app.version_code", "app.version", "release", "dist", "os", "device", "environment"]
+
+def tag_pairs(t):
+    out = {}
+    if isinstance(t, dict):
+        out = {str(k): str(v) for k, v in t.items()}
+    elif isinstance(t, list):
+        for e in t:
+            if isinstance(e, dict) and "key" in e:
+                out[str(e.get("key"))] = str(e.get("value") or "")
+            elif isinstance(e, (list, tuple)) and len(e) == 2:
+                out[str(e[0])] = str(e[1])
+    return out
+
+status = os.environ["EVSTATUS"]
+line = None
+if status == "200":
+    try:
+        ev = json.load(open(os.environ["EVENTFILE"], encoding="utf-8"))
+    except Exception:
+        ev = None
+    if isinstance(ev, dict):
+        tags = tag_pairs(ev.get("tags"))
+        rel = ev.get("release")
+        if isinstance(rel, dict):
+            tags.setdefault("release", str(rel.get("version") or ""))
+            tags.setdefault("dist", str(rel.get("dist") or ""))
+        vals = []
+        for k in ALLOWED:
+            v = (tags.get(k) or "").strip()
+            if v and v.lower() != "unknown":
+                vals.append("%s=%s" % (k, v))
+        if vals:
+            line = "- **Release-Spur (Latest-Event):** %s" % (", ".join(vals[:8])[:300])
+        else:
+            line = "- **Release-Spur (Latest-Event):** HTTP 200 ohne belegte Tags"
+            status = "200-ohne-tags"
+    else:
+        line = "- **Release-Spur (Latest-Event):** nicht lesbar (HTTP 200, ungültiges JSON)"
+        status = "200-ungueltig"
+else:
+    line = ("- **Release-Spur (Latest-Event):** nicht lesbar (HTTP %s) — "
+            "Versions-Spur manuell ziehen (docs/sentry-issues.md §5.1)" % status)
+
+with open(os.environ["PAYLOADFILE"], encoding="utf-8") as fh:
+    payload = json.load(fh)
+lines = str(payload.get("body") or "").split("\n")
+for idx, existing in enumerate(lines):
+    if existing.startswith("- **Zuletzt:**"):
+        lines.insert(idx + 1, line)
+        break
+else:
+    lines.append(line)
+payload["body"] = "\n".join(lines)
+with open(os.environ["PAYLOADFILE"], "w", encoding="utf-8") as fh:
+    json.dump(payload, fh, ensure_ascii=False)
+sys.exit(0 if status == "200" else 3)
+PYEVENT
+    then
+      enriched=$((enriched + 1))
+    else
+      degraded=$((degraded + 1))
+    fi
+  fi
+
   if [ -n "$FIXTURE" ]; then
     ghstatus=$(cat "$FIXTURE/ghstatus" 2>/dev/null || echo 201)
   else
@@ -386,5 +491,6 @@ for i in $(seq 1 "$count"); do
   esac
 done
 
+echo "Event-Tags: $enriched Issue(s) mit Release-Spur angereichert, $degraded ohne Lesbarkeit (Fallback-Zeile im Body)."
 echo "OK: $created Issue(s) neu als GitHub-Issue erstellt (Watchdog) — Sentry-Triage labelt automatisch nach (severity/crash)."
 exit 0

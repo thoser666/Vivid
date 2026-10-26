@@ -83,7 +83,9 @@ class StreamingScreenRobolectricTest {
     @Before
     fun setUp() {
         engine = mockk(relaxed = true)
+        every { engine.cameraModeStatus } returns MutableStateFlow(com.vivid.feature.streaming.CameraModeStatus())
         every { engine.streamingState } returns streamingState
+        every { engine.streamStartedAtMs } returns MutableStateFlow<Long?>(null)
         every { engine.targetStates } returns targetStates
         every { engine.activeEncoder } returns MutableStateFlow(null)
         every { engine.bitrateDiagnostics } returns MutableStateFlow(null)
@@ -108,6 +110,7 @@ class StreamingScreenRobolectricTest {
 
         viewModel = mockk(relaxed = true)
         every { viewModel.streamingEngine } returns engine
+        every { viewModel.toggleReplay(any()) } answers { firstArg<(Boolean) -> Unit>()(engine.startReplay()) }
         every { viewModel.configIssues } returns configIssues
         every { viewModel.scenes } returns MutableStateFlow(emptyList())
         every { viewModel.activeSceneId } returns MutableStateFlow<String?>(null)
@@ -150,28 +153,69 @@ class StreamingScreenRobolectricTest {
     }
 
     @Test
-    fun `stream statistics show applied fallback profile and measured fps`() {
-        every { engine.activeEncoder } returns MutableStateFlow(
-            com.vivid.core.data.ResolvedEncoderConfig(
-                com.vivid.core.data.VideoCodecPreference.H264,
-                com.vivid.core.data.EncoderPreset.FHD30,
-                true,
-            ),
+    fun `live preview replaces diagnostics with three compact stats`() {
+        every { engine.cameraModeStatus } returns MutableStateFlow(
+            com.vivid.feature.streaming.CameraModeStatus(applied = com.vivid.core.data.CameraMode.EXPERIMENTAL_60_FPS),
         )
-        every { engine.measuredEncoderFps } returns MutableStateFlow(14)
-        every { engine.bitrateDiagnostics } returns MutableStateFlow(
-            com.vivid.feature.streaming.EncoderBitrateDiagnostics(
-                "c2.mtk.avc.encoder", com.vivid.feature.streaming.EncoderBitrateMode.VBR, false, 4_200,
+        streamingState.value = StreamingState.Streaming
+        targetStates.value = listOf(StreamTargetState(STREAM_URL, StreamTargetStatus.STREAMING, bitrateKbps = 3_100))
+        setContent()
+
+        composeRule.onNodeWithText("60 FPS").assertIsDisplayed()
+        composeRule.onNodeWithTag("stream_current_bitrate").assertIsDisplayed()
+        composeRule.onNodeWithText("3.1 Mbit/s").assertIsDisplayed()
+        composeRule.onNodeWithText("00:00:00").assertIsDisplayed()
+        composeRule.onNodeWithTag("applied_camera_profile").assertDoesNotExist()
+        composeRule.onNodeWithTag("encoder_bitrate_mode").assertDoesNotExist()
+        composeRule.onNodeWithTag("applied_camera_mode").assertDoesNotExist()
+        composeRule.onNodeWithText(STREAM_URL, substring = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun `idle preview has no live stats`() {
+        setContent()
+        composeRule.onNodeWithTag("stream_status_overlay").assertDoesNotExist()
+    }
+
+    @Test
+    fun `stop requires confirmation and cancel keeps the stream live`() {
+        streamingState.value = StreamingState.Streaming
+        setContent()
+        composeRule.onNodeWithText("Stop Streaming").performClick()
+        verify(exactly = 0) { viewModel.stopStream() }
+        composeRule.onNodeWithText("Stop streaming?").assertIsDisplayed()
+        composeRule.onNodeWithText("Keep streaming").performClick()
+        verify(exactly = 0) { viewModel.stopStream() }
+        composeRule.onNodeWithText("Stop streaming?").assertDoesNotExist()
+        composeRule.onNodeWithText("Stop Streaming").performClick()
+        composeRule.onNodeWithTag("confirm_stop_stream").performClick()
+        verify(exactly = 1) { viewModel.stopStream() }
+    }
+
+    @Test
+    fun `external stop closes confirmation and a new stream has no stale dialog`() {
+        streamingState.value = StreamingState.Streaming
+        setContent()
+        composeRule.onNodeWithText("Stop Streaming").performClick()
+        composeRule.runOnIdle { streamingState.value = StreamingState.Idle }
+        composeRule.onNodeWithText("Stop streaming?").assertDoesNotExist()
+        composeRule.runOnIdle { streamingState.value = StreamingState.Streaming }
+        composeRule.onNodeWithText("Stop streaming?").assertDoesNotExist()
+        verify(exactly = 0) { viewModel.stopStream() }
+    }
+
+    @Test
+    fun `fallback remains visible without the debug panel`() {
+        every { engine.cameraModeStatus } returns MutableStateFlow(
+            com.vivid.feature.streaming.CameraModeStatus(
+                applied = com.vivid.core.data.CameraMode.STANDARD,
+                notice = com.vivid.feature.streaming.CameraModeNotice.PREPARATION_FAILED,
             ),
         )
         streamingState.value = StreamingState.Streaming
-        targetStates.value = listOf(StreamTargetState(url = STREAM_URL, status = StreamTargetStatus.STREAMING))
         setContent()
-
-        composeRule.onNodeWithText("Camera profile: 1920×1080 · 30 fps").assertIsDisplayed()
-        composeRule.onNodeWithText("Compatible profile applied").assertIsDisplayed()
-        composeRule.onNodeWithText("Measured: 14 fps").assertIsDisplayed()
-        composeRule.onNodeWithText("Encoder: VBR · target 4200 kbps · c2.mtk.avc.encoder").assertIsDisplayed()
+        composeRule.onNodeWithText("30 FPS").assertIsDisplayed()
+        composeRule.onNodeWithText("60 FPS preparation failed. Using standard mode.").assertIsDisplayed()
     }
 
     private fun openControls() {
@@ -311,14 +355,14 @@ class StreamingScreenRobolectricTest {
     }
 
     @Test
-    fun `target status rows show url and live label while streaming`() {
+    fun `live preview shows stats without exposing the target url`() {
         streamingState.value = StreamingState.Streaming
         targetStates.value = listOf(
             StreamTargetState(url = STREAM_URL, status = StreamTargetStatus.STREAMING),
         )
         setContent()
 
-        composeRule.onNodeWithText("rtmp://a.example/live · live", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithTag("stream_status_overlay").assertIsDisplayed()
     }
 
     @Test
@@ -333,7 +377,7 @@ class StreamingScreenRobolectricTest {
         )
         setContent()
 
-        composeRule.onNodeWithText("rtmp://a.example/live · live · 3.1 Mbit/s", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("3.1 Mbit/s").assertIsDisplayed()
     }
 
     @Test
@@ -348,7 +392,7 @@ class StreamingScreenRobolectricTest {
         )
         setContent()
 
-        composeRule.onNodeWithText("rtmp://a.example/live · live · 850 kbps", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("850 kbps").assertIsDisplayed()
     }
 
     @Test

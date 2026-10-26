@@ -200,4 +200,27 @@
     <string name="scene_editor_open">Modifier les calques</string>
     <string name="scene_editor_usb">Caméra USB</string>
     <string name="scene_editor_usb_device">%1$s (%2$s)</string>
+
+    <!-- Applied capture path and measured output, separate from the requested preset. -->
+    <string name="camera_mode_title">Mode caméra</string>
+    <string name="camera_mode_standard">Standard</string>
+    <string name="camera_mode_experimental">60 FPS — expérimental</string>
+    <string name="camera_mode_description">Capture alternative avec filtres GL et superpositions. Charge accrue ; commandes caméra limitées pendant le mode expérimental.</string>
+    <string name="camera_mode_locked">Modifiable uniquement avant un enregistrement ou une diffusion.</string>
+    <string name="camera_mode_unsupported">Indisponible pour la caméra, la résolution ou les codecs sélectionnés.</string>
+    <string name="camera_mode_applied">Mode appliqué : %1$s</string>
+    <string name="camera_mode_fps_pending">FPS mesurés : en attente des images</string>
+    <string name="camera_mode_measured_fps">FPS mesurés : %1$d</string>
+    <string name="camera_mode_fallback_unsupported">Capture à 60 FPS non prise en charge. Mode standard utilisé.</string>
+    <string name="camera_mode_fallback_preparation">Échec de préparation à 60 FPS. Mode standard utilisé.</string>
+    <string name="camera_mode_capture_failed">Caméra expérimentale en panne. Enregistrement et diffusion arrêtés.</string>
+    <string name="camera_mode_recording_failed">Impossible de démarrer l’enregistrement.</string>
+    <string name="camera_mode_preparing">Préparation de la caméra à 60 FPS…</string>
+    <string name="streaming_mode_fps">%1$d FPS</string>
+    <string name="streaming_bitrate_pending">— kbit/s</string>
+    <string name="streaming_uptime">%1$02d:%2$02d:%3$02d</string>
+    <string name="streaming_stop_confirm_title">Arrêter la diffusion ?</string>
+    <string name="streaming_stop_confirm_message">La diffusion en direct sera arrêtée pour toutes les destinations.</string>
+    <string name="streaming_stop_confirm">Arrêter</string>
+    <string name="streaming_keep_live">Continuer la diffusion</string>
 </resources>

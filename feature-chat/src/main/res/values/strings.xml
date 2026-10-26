@@ -38,4 +38,19 @@
         <item quantity="one">🔗 Gemeinsamer Chat — %1$d Kanal</item>
         <item quantity="other">🔗 Gemeinsamer Chat — %1$d Kanäle</item>
     </plurals>
+    <!-- Twitch-Kanalintegration: lokalisierte Fehler (TwitchChannelViewModel/TwitchChannelClient),
+         sichtbar in den Settings- und Streaming-Oberflächen -->
+    <string name="twitch_channel_error_not_configured">Twitch-Kanal ist nicht vollständig konfiguriert.</string>
+    <string name="twitch_channel_error_load_failed">Twitch-Kanalinformationen konnten nicht geladen werden.</string>
+    <string name="twitch_channel_error_save_failed">Twitch-Kanalinformationen konnten nicht gesetzt werden.</string>
+    <string name="twitch_channel_error_client_not_configured">Twitch-Kanal ist nicht konfiguriert. Benötigt werden Kanal, OAuth-Token und Client-ID.</string>
+    <string name="twitch_channel_error_viewer_count_failed">Twitch-Viewerzahl konnte nicht geladen werden.</string>
+    <string name="twitch_channel_error_channel_resolve_failed">Twitch-Kanal %1$s konnte nicht aufgelöst werden.</string>
+    <string name="twitch_channel_error_empty_fields">Titel und Kategorie dürfen nicht beide leer sein.</string>
+    <string name="twitch_channel_error_category_not_found">Twitch-Kategorie "%1$s" wurde nicht gefunden.</string>
+    <string name="twitch_channel_error_category_search_failed">Twitch-Kategorie konnte nicht gesucht werden.</string>
+    <string name="twitch_channel_error_http_401">Twitch-Authentifizierung fehlgeschlagen (401). OAuth-Token oder Client-ID prüfen.</string>
+    <string name="twitch_channel_error_http_403">Twitch verweigert die Anfrage (403). Für Änderungen wird der Scope channel:manage:broadcast benötigt.</string>
+    <string name="twitch_channel_error_http_429">Twitch-Rate-Limit erreicht (429).</string>
+    <string name="twitch_channel_error_http">Twitch-Anfrage fehlgeschlagen (HTTP %1$s).</string>
 </resources>

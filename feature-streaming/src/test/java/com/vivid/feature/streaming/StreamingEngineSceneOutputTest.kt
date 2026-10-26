@@ -51,6 +51,7 @@ class StreamingEngineSceneOutputTest {
         }, mockk(relaxed = true), playerFactory, VideoSourceRegistry()).also { engine ->
             engine.sceneSessionFactory = { checkers = it; created++; session }
             engine.dispatchSceneTask = { it() }
+            engine.timeSource = { 1_000L }
             engine.sceneFileReadable = { true }
             engine.encoderCapabilities = object : EncoderCapabilities {
                 override fun supports(mime: String, width: Int, height: Int, fps: Int) = true
@@ -71,11 +72,13 @@ class StreamingEngineSceneOutputTest {
         checkers[0].onConnectionSuccess()
         checkers[1].onConnectionSuccess()
         assertEquals(StreamingState.Streaming, engine.streamingState.value)
+        assertEquals(1_000L, engine.streamStartedAtMs.value)
         assertEquals(2, targets.size)
         verify(exactly = 0) { fallbackDriver.start(any()) }
         engine.stopStream()
         assertTrue(targets.isEmpty())
         assertEquals(StreamingState.Idle, engine.streamingState.value)
+        assertNull(engine.streamStartedAtMs.value)
     }
 
     @Test fun `scene recording and two streams retain one prepared output until both consumers stop`() {

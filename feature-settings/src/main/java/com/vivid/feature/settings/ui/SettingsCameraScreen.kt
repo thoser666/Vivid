@@ -1,5 +1,8 @@
 package com.vivid.feature.settings.ui
 
+import com.vivid.core.data.CameraMode
+import com.vivid.feature.streaming.CameraModeNotice
+import androidx.compose.ui.platform.testTag
 import com.vivid.feature.settings.R
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -50,6 +53,8 @@ fun SettingsCameraScreen(
     onBack: () -> Unit = {},
     onSave: () -> Unit = {},
     viewModel: SettingsCameraViewModel = hiltViewModel(),
+    cameraModeUi: CameraModeUiState = CameraModeUiState(),
+    onCameraModeChange: (CameraMode) -> Unit = {},
 ) {
     val focusDistance by viewModel.focusDistance.collectAsState()
     val hasManualFocus by viewModel.hasManualFocus.collectAsState()
@@ -159,6 +164,50 @@ fun SettingsCameraScreen(
                         }
                     }
                 }
+            }
+            CameraModeSection(cameraModeUi, onCameraModeChange)
+        }
+    }
+}
+
+@Composable
+fun SettingsCameraRoute(onBack: () -> Unit) {
+    val modeViewModel: SettingsCameraModeViewModel = hiltViewModel()
+    val state by modeViewModel.uiState.collectAsState()
+    SettingsCameraScreen(onBack = onBack, onSave = onBack, cameraModeUi = state, onCameraModeChange = modeViewModel::selectMode)
+}
+
+@Composable
+internal fun CameraModeSection(state: CameraModeUiState, onChange: (CameraMode) -> Unit) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(stringResource(R.string.camera_mode_title), style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.camera_mode_description), style = MaterialTheme.typography.bodySmall)
+            CameraMode.entries.forEach { mode ->
+                FilterChip(
+                    selected = state.selected == mode,
+                    enabled = !state.locked && (mode == CameraMode.STANDARD || state.experimentalSupported),
+                    onClick = { onChange(mode) },
+                    label = { Text(stringResource(if (mode == CameraMode.STANDARD) R.string.camera_mode_standard else R.string.camera_mode_experimental)) },
+                    modifier = Modifier.testTag("camera_mode_" + mode.name),
+                )
+            }
+            if (state.locked) Text(stringResource(R.string.camera_mode_locked), style = MaterialTheme.typography.bodySmall)
+            if (!state.experimentalSupported) Text(stringResource(R.string.camera_mode_unsupported), style = MaterialTheme.typography.bodySmall)
+            state.status.applied?.let { mode ->
+                Text(stringResource(R.string.camera_mode_applied, stringResource(
+                    if (mode == CameraMode.STANDARD) R.string.camera_mode_standard else R.string.camera_mode_experimental)),
+                    style = MaterialTheme.typography.bodySmall)
+            }
+            Text(if (state.measuredFps == null) stringResource(R.string.camera_mode_fps_pending)
+                else stringResource(R.string.camera_mode_measured_fps, state.measuredFps), style = MaterialTheme.typography.bodySmall)
+            state.status.notice?.let {
+                Text(stringResource(when (it) {
+                    CameraModeNotice.UNSUPPORTED -> R.string.camera_mode_fallback_unsupported
+                    CameraModeNotice.PREPARATION_FAILED -> R.string.camera_mode_fallback_preparation
+                    CameraModeNotice.CAPTURE_FAILED -> R.string.camera_mode_capture_failed
+                    CameraModeNotice.RECORDING_FAILED -> R.string.camera_mode_recording_failed
+                }), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
             }
         }
     }

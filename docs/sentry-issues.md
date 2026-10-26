@@ -35,6 +35,14 @@ In CI hinterlegen:
 gh secret set SENTRY_ISSUES_TOKEN --body sntrys_…
 ```
 
+**CI-Workaround für Event-Tags (seit 26.10.2026):** dieses CI-Secret ist die
+operative Quelle für die Event-Anreicherung (§3). Derselbe Token zieht pro
+neuem Issue zusätzlich das Latest-Event — erst im CI-Lauf werden die Event-
+Tags (`app.version_code`, `release`, `dist`) lesbar. Ein lokaler Token ohne
+Mitgliedschaft in der Autoritäts-Org (`privat-jb`) scheitert bereits an der
+Issues-Liste selbst (403 → SKIP); ohne Event-Leserecht fällt nur die
+Anreicherung weich (Fallback-Zeile im Body, §5.1).
+
 Lokal (gitignorede `sentry.properties`, Projektstamm — **nicht** `auth.token`
 überschreiben):
 
@@ -84,6 +92,20 @@ android-ci.yml).
 - Sentry: `GET /api/0/projects/{org}/{project}/issues/?query=is:unresolved&sort=new&limit=100`
   mit `rel="next"`-Pagination. Nur Status `unresolved` wird betrachtet
   (resolved zählt nie).
+- **Event-Anreicherung (Release-Spur, seit 26.10.2026):** pro **neuem**
+  Kandidaten zusätzlich `GET /api/0/issues/{sid}/events/latest/` mit demselben
+  Token. Die Tags `app.version_code`, `app.version`, `release`, `dist`, `os`,
+  `device`, `environment` (plus `release`-Objekt als Fallback für
+  release/dist) landen als `- **Release-Spur (Latest-Event):** …`-Zeile im
+  Issue-Body — der versionCode der Crash-Sitzung ist damit direkt sichtbar;
+  die manuelle Release-Fenster-Methode (§5.1) bleibt Fallback für versionlose
+  ältere Events. Antwortet der Event-Call mit 401/403/000 oder ungültigem
+  JSON, steht stattdessen eine Fallback-Zeile mit dem Statuscode im Body —
+  die Issue-Erstellung selbst bleibt davon **nicht berührt** (Watchdog-
+  Verdicts sind weiterhin keine Gate-Blocker). Der Lauf meldet am Ende
+  `Event-Tags: N angereichert, M ohne Lesbarkeit`. In Fixture-Modus nur bei
+  `event_<sid>.json` (200) bzw. `eventstatus_<sid>` (simulierter Code) —
+  ohne beide Dateien wird der Event-Call offline gar nicht simuliert.
 - GitHub-Bestand: `GET /repos/{owner}/{repo}/issues?state=all&per_page=100`
   (auch geschlossene Issues — dedupliziert gegen erneutes Anlegen nach
   manuellem Schließen). **Pull Requests zählen nicht** (Marker in PR-Bodies
@@ -132,7 +154,10 @@ nicht gezogen wurde):
    Der `app.version_code`-Tag läuft erst seit dem 27.09.2026 (ea16fadc) —
    ältere Events sind **versionlos**; Attribution dann über Build-
    Archäologie (Tag-Enthaltensein per `git merge-base --is-ancestor`)
-   statt über Sentry-Tags.
+   statt über Sentry-Tags. Seit der Event-Anreicherung (§3) steht der
+   `app.version_code`-Tag neuer Watchdog-Issues direkt im Body
+   (`Release-Spur (Latest-Event)`); die Fenster-Methode bleibt Fallback für
+   versionlose Events und für Anreicherungs-Lücken.
 2. **Doppel-Meldungen desselben Sentry-Issue verbinden:** Vor der Schließung
    `gh issue list --label sentry` nach gleichem Top-Frame/Befund durchsuchen
    (Body-Marker `vivid-sentry-issue: <id>` identifiziert das Sentry-Issue

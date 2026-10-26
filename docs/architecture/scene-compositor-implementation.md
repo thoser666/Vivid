@@ -752,3 +752,29 @@ XML-Fehler zeigen Conscrypts auf Termux fehlendes `libpthread.so.0`.
 Protokoll: `vivid-330-bot-null-contract-pre-push.log`. Der vollständige Gate
 bleibt rot; die getrennten Tests und Streaming-Lint sind kein Ersatz für einen
 vollständigen Lauf auf einem unterstützten Runner.
+
+
+## Integration mit develop (2026-10-26)
+
+Der Konfliktlauf integriert develop bis `8064da7a`, einschließlich des
+experimentellen Kamera-Pfads aus #322, der neuen Statusanzeige und der
+Abhängigkeitsupdates. Szenen behalten ihren eigenen Encoder-/Capture-Pfad;
+Legacy-Kamera-Ausgaben behalten asynchrone Vorbereitung, Abbruch und
+High-Speed-Fallback. Der Preview-Halbdrehungs-Fix gilt im Legacy-Zweig,
+während Szenen ihre Canvas-Geometrie behalten. Beide Sprachsatz-Erweiterungen
+und die reflektierten USB-/RootEncoder-Verträge bleiben erhalten.
+
+Im experimentellen Pfad wird der stabile SceneFilterChainRender an Position
+null eingefügt. Effektwechsel aktualisieren nur dessen Kinder, ohne externe
+Overlays oder die aktive Capture-Kette zu entfernen. Der übernommene Test
+prüft Overlay-Identität, Kinder-Reihenfolge und genau eine Root-Einfügung.
+I18n, Markdown-Anker und der kombinierte Emulator-Matrix-Selbsttest sind grün.
+
+Der Integrationslauf deckte zusätzlich den automatisch gemergten
+Recording-Helper auf: Er greift jetzt über das ViewModel auf die Engine zu,
+um die Szenen-Kameraberechtigung zu prüfen. Die Plain-JVM-Szenenfixture
+injeziert die monotone Uhr für den übernommenen Live-Timer und prüft dessen
+Start und Reset. Vorher wurden vier Fälle durch den ungemockten SystemClock-
+Aufruf rot. Danach bestanden 493 gezielte Tests ohne Fehler oder Skips,
+Standard-App und Android-Instrumentierungsquellen kompilierten
+(`vivid-330-merge-verified-tests.log`).

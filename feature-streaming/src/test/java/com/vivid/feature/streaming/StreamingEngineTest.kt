@@ -17,6 +17,7 @@ import com.pedro.library.multiple.MultiFromFile
 import com.pedro.library.multiple.MultiType
 import com.pedro.library.util.FpsListener
 import com.pedro.library.view.GlStreamInterface
+import com.vivid.core.data.CameraMode
 import com.vivid.core.data.EncoderCapabilities
 import com.vivid.core.data.EncoderPreset
 import com.vivid.core.data.ResolvedEncoderConfig
@@ -85,6 +86,7 @@ class StreamingEngineTest {
             playerFactory,
             VideoSourceRegistry(),
         )
+        streamingEngine.timeSource = { 1_000L }
         streamingEngine.readBitrateDiagnostics = {
             EncoderBitrateDiagnostics("test.encoder", EncoderBitrateMode.CBR, true, 6_000)
         }
@@ -92,6 +94,131 @@ class StreamingEngineTest {
         streamingEngine.encoderCapabilities = object : EncoderCapabilities {
             override fun supports(mime: String, width: Int, height: Int, fps: Int) = true
         }
+    }
+
+    @Test
+    fun `live session clock starts on first connection and survives target and bitrate updates`() {
+        var now = 10_000L
+        streamingEngine.timeSource = { now }
+        streamingEngine.initializeCamera()
+        streamingCameraReady()
+        streamingEngine.startStream(listOf(PRIMARY_URL, SECONDARY_URL))
+        assertNull(streamingEngine.streamStartedAtMs.value)
+        capturedCheckers[0].onConnectionSuccess()
+        assertEquals(10_000L, streamingEngine.streamStartedAtMs.value)
+        now = 17_000L
+        capturedCheckers[0].onNewBitrate(3_100_000)
+        capturedCheckers[1].onConnectionSuccess()
+        capturedCheckers[0].onConnectionFailed(CAMERA_ERROR)
+        assertEquals(10_000L, streamingEngine.streamStartedAtMs.value)
+        capturedCheckers[1].onConnectionFailed(CAMERA_ERROR)
+        assertNull(streamingEngine.streamStartedAtMs.value)
+        streamingEngine.startStream(PRIMARY_URL)
+        capturedCheckers[0].onConnectionSuccess()
+        assertEquals(17_000L, streamingEngine.streamStartedAtMs.value)
+    }
+
+    @Test
+    fun `stopping a live stream clears its session clock`() {
+        streamingEngine.timeSource = { 12_000L }
+        streamingEngine.initializeCamera()
+        streamingCameraReady()
+        streamingEngine.startStream(LIVE_URL)
+        capturedCheckers[0].onConnectionSuccess()
+        streamingEngine.stopStream()
+        assertNull(streamingEngine.streamStartedAtMs.value)
+        assertEquals(StreamingState.Idle, streamingEngine.streamingState.value)
+    }
+
+    @Test
+    fun `experimental capture uses existing GL and verified preparation before transport`() {
+        streamingCameraReady()
+        streamingEngine.initializeCamera()
+        val adapter = mockk<RootEncoderExternalCapture>(relaxed = true)
+        every { adapter.prepare(any(), any()) } returns glStreamInterface
+        val capture = mockk<ExperimentalCapture>(relaxed = true)
+        every { capture.prepare() } returns true
+        streamingEngine.launchCameraPreparation = { it() }
+        streamingEngine.externalCaptureFactory = { adapter }
+        streamingEngine.experimentalProfile = { _, _ -> ExperimentalCameraProfile(
+            ResolvedEncoderConfig(VideoCodecPreference.H264, EncoderPreset.FHD60, false), 120, "encoder", "decoder") }
+        streamingEngine.experimentalCaptureFactory = { _, _, _, _ -> capture }
+        assertTrue(streamingEngine.configureCameraMode(CameraMode.EXPERIMENTAL_60_FPS))
+        streamingEngine.startStream(LIVE_URL)
+        io.mockk.verifyOrder {
+            adapter.prepare(1920, 1080)
+            capture.prepare()
+            adapter.claimCamera()
+            camera.startStream(MultiType.RTMP, 0, LIVE_URL)
+            adapter.restoreInputOrientation()
+        }
+        assertEquals(CameraMode.EXPERIMENTAL_60_FPS, streamingEngine.cameraModeStatus.value.applied)
+        assertFalse(streamingEngine.configureCameraMode(CameraMode.STANDARD))
+        every { camera.isStreaming } returns true
+        every { glStreamInterface.isRunning } returns true
+        streamingEngine.attachPreview(mockk(relaxed = true), 1920, 1080, 270)
+        verify { adapter.setInputOrientation(180) }
+        verify { glStreamInterface.setPreviewRotation(0) }
+        streamingEngine.stopStream()
+        verify { capture.close(); adapter.close() }
+    }
+
+    @Test
+    fun `failed bridge releases resources and starts standard with an explicit notice`() {
+        streamingCameraReady()
+        streamingEngine.initializeCamera()
+        val adapter = mockk<RootEncoderExternalCapture>(relaxed = true)
+        every { adapter.prepare(any(), any()) } returns glStreamInterface
+        val capture = mockk<ExperimentalCapture>(relaxed = true)
+        every { capture.prepare() } returns false
+        streamingEngine.launchCameraPreparation = { it() }
+        streamingEngine.externalCaptureFactory = { adapter }
+        streamingEngine.experimentalProfile = { _, _ -> ExperimentalCameraProfile(
+            ResolvedEncoderConfig(VideoCodecPreference.H264, EncoderPreset.FHD60, false), 120, "encoder", "decoder") }
+        streamingEngine.experimentalCaptureFactory = { _, _, _, _ -> capture }
+        streamingEngine.configureCameraMode(CameraMode.EXPERIMENTAL_60_FPS)
+        io.mockk.clearMocks(glStreamInterface, answers = false, recordedCalls = true)
+        streamingEngine.startStream(LIVE_URL)
+        io.mockk.verifyOrder {
+            capture.prepare()
+            capture.close()
+            adapter.close()
+            camera.prepareVideo()
+            camera.startStream(MultiType.RTMP, 0, LIVE_URL)
+        }
+        assertEquals(CameraMode.STANDARD, streamingEngine.cameraModeStatus.value.applied)
+        assertEquals(CameraModeNotice.PREPARATION_FAILED, streamingEngine.cameraModeStatus.value.notice)
+        assertEquals(null, streamingEngine.measuredEncoderFps.value)
+        verify(exactly = 0) { glStreamInterface.clearFilters() }
+    }
+
+    @Test
+    fun `unsupported camera uses standard without constructing a bridge`() {
+        streamingCameraReady()
+        streamingEngine.initializeCamera()
+        streamingEngine.launchCameraPreparation = { it() }
+        streamingEngine.experimentalProfile = { _, _ -> null }
+        streamingEngine.experimentalCaptureFactory = { _, _, _, _ -> error("must not create unsupported capture") }
+        streamingEngine.configureCameraMode(CameraMode.EXPERIMENTAL_60_FPS)
+        streamingEngine.startStream(LIVE_URL)
+        verify { camera.prepareVideo() }
+        assertEquals(CameraModeNotice.UNSUPPORTED, streamingEngine.cameraModeStatus.value.notice)
+    }
+
+    @Test
+    fun `stop while queued preparation prevents a late stream and mode changes remain locked`() {
+        streamingCameraReady()
+        streamingEngine.initializeCamera()
+        var work: (() -> Unit)? = null
+        streamingEngine.launchCameraPreparation = { work = it }
+        streamingEngine.configureCameraMode(CameraMode.EXPERIMENTAL_60_FPS)
+        streamingEngine.startStream(LIVE_URL)
+        assertFalse(streamingEngine.configureCameraMode(CameraMode.STANDARD))
+        streamingEngine.stopStream()
+        work!!()
+        verify(exactly = 0) { camera.startStream(any(), any(), any()) }
+        assertEquals(StreamingState.Idle, streamingEngine.streamingState.value)
+        assertTrue(streamingEngine.canChangeCameraMode())
     }
 
     private fun streamingCameraReady() {
@@ -950,15 +1077,21 @@ class StreamingEngineTest {
     }
 
     @Test
-    fun `reportStreamStartFailure publishes the service start error`() {
-        // #327: Der Service fängt den Startfehler ab und meldet ihn hier, damit
-        // die UI Failed statt eines stillen Idle-Zustands sieht.
+    fun `reportStreamStartFailure publishes localized error and clears live session clock`() {
+        streamingEngine.initializeCamera()
+        streamingCameraReady()
+        streamingEngine.startStream(PRIMARY_URL)
+        capturedCheckers[0].onConnectionSuccess()
+        assertEquals(1_000L, streamingEngine.streamStartedAtMs.value)
+
         streamingEngine.reportStreamStartFailure()
 
         assertEquals(
             StreamingState.Failed(reasonRes = R.string.streaming_error_service_start),
             streamingEngine.streamingState.value,
         )
+        assertNull(streamingEngine.streamStartedAtMs.value)
+        assertTrue(streamingEngine.targetStates.value.all { it.status == StreamTargetStatus.FAILED })
     }
 
     @Test
@@ -1044,7 +1177,8 @@ class StreamingEngineTest {
         verify { glStreamInterface.setPreviewRotation(270) }
         verify { glStreamInterface.setPreviewIsPortrait(false) }
         streamingEngine.attachPreview(surface, 1920, 1080, rotationDegrees = 270)
-        verify { glStreamInterface.setPreviewRotation(90) }
+        verify { glStreamInterface.setPreviewRotation(270) }
+        verify { glStreamInterface.setCameraOrientation(180) }
         verify(exactly = 0) { camera.stopRecord() }
     }
 
@@ -1219,7 +1353,8 @@ class StreamingEngineTest {
         val surface = mockk<Surface>(relaxed = true)
         streamingEngine.attachPreview(surface, 1080, 1920, 0)
         streamingEngine.attachPreview(surface, 1080, 1920, 180)
-        verify { glStreamInterface.setPreviewRotation(180) }
+        verify { glStreamInterface.setCameraOrientation(180) }
+        verify { glStreamInterface.setPreviewRotation(0) }
         verify(exactly = 1) { idle.prepareCamera(any<android.graphics.SurfaceTexture>(), 1280, 720, 30) }
         verify(exactly = 0) { idle.closeCamera() }
     }

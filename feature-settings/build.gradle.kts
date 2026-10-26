@@ -16,11 +16,11 @@ android {
     configurations.configureEach {
         if (name.contains("UnitTestRuntimeClasspath")) {
             resolutionStrategy {
-                force("org.ow2.asm:asm:9.11")
-                force("org.ow2.asm:asm-tree:9.11")
-                force("org.ow2.asm:asm-commons:9.11")
-                force("org.ow2.asm:asm-util:9.11")
-                force("org.ow2.asm:asm-analysis:9.11")
+                force("org.ow2.asm:asm:9.11.1")
+                force("org.ow2.asm:asm-tree:9.11.1")
+                force("org.ow2.asm:asm-commons:9.11.1")
+                force("org.ow2.asm:asm-util:9.11.1")
+                force("org.ow2.asm:asm-analysis:9.11.1")
             }
         }
     }
@@ -56,6 +56,7 @@ dependencies {
     // Modules
     implementation(project(":core"))
     implementation(project(":domain"))
+    implementation(project(":feature-streaming"))
     // Live-Zählerstand des Chat-Bots (Settings-Screen: Kosten-Budget beobachten).
     implementation(project(":feature-chat"))
     implementation(project(":feature-widgets"))

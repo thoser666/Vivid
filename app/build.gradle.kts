@@ -29,11 +29,11 @@ sentry {
 configurations.configureEach {
     if (name.contains("UnitTestRuntimeClasspath")) {
         resolutionStrategy {
-            force("org.ow2.asm:asm:9.11")
-            force("org.ow2.asm:asm-tree:9.11")
-            force("org.ow2.asm:asm-commons:9.11")
-            force("org.ow2.asm:asm-util:9.11")
-            force("org.ow2.asm:asm-analysis:9.11")
+            force("org.ow2.asm:asm:9.11.1")
+            force("org.ow2.asm:asm-tree:9.11.1")
+            force("org.ow2.asm:asm-commons:9.11.1")
+            force("org.ow2.asm:asm-util:9.11.1")
+            force("org.ow2.asm:asm-analysis:9.11.1")
         }
     }
 }
@@ -298,6 +298,8 @@ dependencies {
     // Nebeneffekte wie Sentry-Init und Ktor-Remote-Control-Server).
     testImplementation(libs.hilt.android.testing)
     kspTest(libs.hilt.compiler.ksp)
+    androidTestImplementation(libs.rootencoder.library)
+    androidTestImplementation(libs.rootencoder.encoder)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.espresso.intents)
