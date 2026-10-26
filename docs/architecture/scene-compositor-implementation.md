@@ -801,3 +801,11 @@ Orientierung liegt nun in `configureLegacyPreviewOrientation`; Aufrufreihenfolge
 Halbdrehung vor Filtern, externe Capture-Orientierung und Preview-Crop bleiben
 gleich. Szenen verwenden weiterhin ihre Canvas-Geometrie. Keine Analyse-Regel
 wird unterdrückt.
+
+Die abschließende Helper-Revision bestand erneut 493 Tests ohne Fehler/Skips
+(`vivid-330-last-sonar-tests.log`) und Streaming-Lint mit null Fehlern/Warnungen
+und einem bestehenden Hinweis (`vivid-330-last-sonar-lint.log`). Der vollständige
+pre-push bestand die Repository-Selbsttests und stoppte erneut bei sechs von
+475 Chat-Tests; alle frischen Fehler zeigen Conscrypts auf Termux fehlendes
+`libpthread.so.0` (`vivid-330-last-sonar-pre-push.log`). Der vollständige Gate
+bleibt rot; keine Tests oder Analyse-Regeln wurden abgeschwächt.
