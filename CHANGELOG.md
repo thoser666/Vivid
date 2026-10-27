@@ -9,6 +9,22 @@ Alle Änderungen an Vivid — **automatisch aus den GitHub-Releases gespiegelt**
 - 🎯 Feature-Tracking: [PARITY.md](PARITY.md)
 
 <!-- CHANGELOG-START -->
+## 🌙 **Nightly** 0.5.23-nightly.640 — 2026-10-27
+
+[GitHub-Release](https://github.com/thoser666/Vivid/releases/tag/nightly-20261027-114020)
+
+Nightly feature build — installable via Obtainium (enable pre-releases).
+
+**Artefakte:** `app-standard-release.apk` · `SHA256SUMS.txt` · `mapping.txt` · `output-metadata.json`
+
+## 🌙 **Nightly** 0.5.23-nightly.631 — 2026-10-26
+
+[GitHub-Release](https://github.com/thoser666/Vivid/releases/tag/nightly-20261026-121648)
+
+Nightly feature build — installable via Obtainium (enable pre-releases).
+
+**Artefakte:** `app-standard-release.apk` · `SHA256SUMS.txt` · `mapping.txt` · `output-metadata.json`
+
 ## 🌙 **Nightly** 0.5.23-nightly.625 — 2026-10-25
 
 [GitHub-Release](https://github.com/thoser666/Vivid/releases/tag/nightly-20261025-104452)
@@ -126,6 +142,19 @@ Nightly feature build — installable via Obtainium (enable pre-releases).
 [GitHub-Release](https://github.com/thoser666/Vivid/releases/tag/v0.5.21-beta)
 
 **Full Changelog**: https://github.com/thoser666/Vivid/compare/nightly-20261009-124044...v0.5.21-beta
+
+## 🟡 **Beta** v0.5.23-beta — 2026-10-25
+
+- Anonymisierung P2/P2b: Vollbild-Verpixelung (uFullFrame/uPixelGrid) + Persistenz + UI
+- UVC-Videoquelle (#305): Verbesserte Kamerabereitstellung und Error-Handling
+- Streaming-Start-Fixes (#326/#327): Fresh MediaProjection consent per start, contained start failures
+- R8-Keep-Rules (#320/ VIVID-3V): ProGuard-Keep-Rules für Security-Klassen und Request-Interface
+- i18n-Aufräumarbeiten
+- Bekannt offene Fehler: #325 (CameraOpenException: Camera no detected), #324 (IllegalStateException: Session has been closed)
+
+[GitHub-Release](https://github.com/thoser666/Vivid/releases/tag/v0.5.23-beta)
+
+**Full Changelog**: https://github.com/thoser666/Vivid/compare/v0.5.21-beta...v0.5.23-beta
 
 ## 🌙 **Nightly** 0.5.21-nightly.569 — 2026-10-11
 

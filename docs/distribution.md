@@ -77,7 +77,9 @@ deshalb gibt es pro Kadenz einen eigenen Workflow. Alles zusätzlich manuell per
    Emulator-Test fehl, wird **nicht** veröffentlicht. Derselbe Gate gilt im
 `release-pipeline.yml`: `emulator-tests` (API-Staffelung seit
     25.09.2026: ubuntu-x86_64 **API 34 + API 35 Pflicht**, API-36-Beobachter
-    + macos-arm64 experimentell — die Beobachter-Leg stand ursprünglich auf 37
+    — die macos-arm64-Leg wurde am 25.10.2026 entfernt (HVF-Boot-Crash
+    `HV_UNSUPPORTED` in beiden Versuchen des Re-Runs 40178387145, kein grüner
+    Lauf seit 06.09.2026); die Beobachter-Leg stand ursprünglich auf 37
     und wurde am 02.10.2026 auf 36 gezogen, weil der Emulator-Runner
     `platforms;android-37` im Stable-SDK-Kanal des Runners nicht provisionieren
     kann: die Leg wäre dauerhaft rot **ohne Testaussage** gewesen) läuft jetzt

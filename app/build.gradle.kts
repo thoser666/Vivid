@@ -29,11 +29,11 @@ sentry {
 configurations.configureEach {
     if (name.contains("UnitTestRuntimeClasspath")) {
         resolutionStrategy {
-            force("org.ow2.asm:asm:9.11")
-            force("org.ow2.asm:asm-tree:9.11")
-            force("org.ow2.asm:asm-commons:9.11")
-            force("org.ow2.asm:asm-util:9.11")
-            force("org.ow2.asm:asm-analysis:9.11")
+            force("org.ow2.asm:asm:9.11.1")
+            force("org.ow2.asm:asm-tree:9.11.1")
+            force("org.ow2.asm:asm-commons:9.11.1")
+            force("org.ow2.asm:asm-util:9.11.1")
+            force("org.ow2.asm:asm-analysis:9.11.1")
         }
     }
 }
@@ -165,6 +165,13 @@ android {
         debug {
             applicationIdSuffix = ".debug"
             isDebuggable = true
+            // Sentry environment je Build-Typ (#324): Debug-Builds sind Dev- und
+            // CI-Bauten (PR-Validierung läuft auf Debug-APKs). Ohne diesen Tag
+            // defaultet Sentry ueberall auf "production" und der environment-Tag
+            // unterscheidet Store- von Test-Builds nicht (Beleg in #324).
+            // Fehlt ein kuenftiger Build-Type ohne Mapping, bricht die
+            // Manifest-Komposition am unersetzten ${SENTRY_ENVIRONMENT} ab.
+            manifestPlaceholders["SENTRY_ENVIRONMENT"] = "development"
         }
 
         release {
@@ -174,6 +181,10 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+            // Store-Bauten (GitHub/Obtainium/Play) — die ehrliche Build-Identitaet
+            // hinter dem bisherigen Sentry-Default. playRelease erbt den Wert via
+            // initWith unten; Absicht: beide Store-Kanaele tragen dasselbe Environment.
+            manifestPlaceholders["SENTRY_ENVIRONMENT"] = "production"
 
             val releaseConfig = signingConfigs.getByName("release")
             signingConfig = if (releaseConfig.storeFile != null) {

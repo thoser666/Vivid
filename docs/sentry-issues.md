@@ -35,6 +35,14 @@ In CI hinterlegen:
 gh secret set SENTRY_ISSUES_TOKEN --body sntrys_…
 ```
 
+**CI-Workaround für Event-Tags (seit 26.10.2026):** dieses CI-Secret ist die
+operative Quelle für die Event-Anreicherung (§3). Derselbe Token zieht pro
+neuem Issue zusätzlich das Latest-Event — erst im CI-Lauf werden die Event-
+Tags (`app.version_code`, `release`, `dist`) lesbar. Ein lokaler Token ohne
+Mitgliedschaft in der Autoritäts-Org (`privat-jb`) scheitert bereits an der
+Issues-Liste selbst (403 → SKIP); ohne Event-Leserecht fällt nur die
+Anreicherung weich (Fallback-Zeile im Body, §5.1).
+
 Lokal (gitignorede `sentry.properties`, Projektstamm — **nicht** `auth.token`
 überschreiben):
 
@@ -59,6 +67,10 @@ bash scripts/test_sentry_issues.sh            # I1–I16, offline, kein Netz
 bash scripts/check_sentry_issues.sh --dry-run # zeigt, welche Issues erstellt würden
 bash scripts/check_sentry_issues.sh           # echte Erstellung (GitHub-Token nötig)
 bash scripts/check_sentry_issues.sh --print-token-source
+bash scripts/check_sentry_issues.sh --print-event-tags 7806859006,7806863798
+                                            # read-only: Versions-Spur/Umfeld-Tags
+                                            # einer bestehenden SID (kein GitHub-
+                                            # Zugriff, keine Token-Ausgabe)
 ```
 
 Verdicts:
@@ -84,6 +96,20 @@ android-ci.yml).
 - Sentry: `GET /api/0/projects/{org}/{project}/issues/?query=is:unresolved&sort=new&limit=100`
   mit `rel="next"`-Pagination. Nur Status `unresolved` wird betrachtet
   (resolved zählt nie).
+- **Event-Anreicherung (Release-Spur, seit 26.10.2026):** pro **neuem**
+  Kandidaten zusätzlich `GET /api/0/issues/{sid}/events/latest/` mit demselben
+  Token. Die Tags `app.version_code`, `app.version`, `release`, `dist`, `os`,
+  `device`, `environment` (plus `release`-Objekt als Fallback für
+  release/dist) landen als `- **Release-Spur (Latest-Event):** …`-Zeile im
+  Issue-Body — der versionCode der Crash-Sitzung ist damit direkt sichtbar;
+  die manuelle Release-Fenster-Methode (§5.1) bleibt Fallback für versionlose
+  ältere Events. Antwortet der Event-Call mit 401/403/000 oder ungültigem
+  JSON, steht stattdessen eine Fallback-Zeile mit dem Statuscode im Body —
+  die Issue-Erstellung selbst bleibt davon **nicht berührt** (Watchdog-
+  Verdicts sind weiterhin keine Gate-Blocker). Der Lauf meldet am Ende
+  `Event-Tags: N angereichert, M ohne Lesbarkeit`. In Fixture-Modus nur bei
+  `event_<sid>.json` (200) bzw. `eventstatus_<sid>` (simulierter Code) —
+  ohne beide Dateien wird der Event-Call offline gar nicht simuliert.
 - GitHub-Bestand: `GET /repos/{owner}/{repo}/issues?state=all&per_page=100`
   (auch geschlossene Issues — dedupliziert gegen erneutes Anlegen nach
   manuellem Schließen). **Pull Requests zählen nicht** (Marker in PR-Bodies
@@ -107,6 +133,14 @@ android-ci.yml).
   Alarm. Erstellt wird mit dem **AUTOMATION_TOKEN** (PAT), damit die
   Triage-Automation auf das `issues.opened`-Ereignis reagieren kann
   (GITHUB_TOKEN-Events würden keine Workflow-Runs auslösen).
+- **Read-only Event-Tag-Abfrage (`workflow_dispatch`-Input `event_tags`):**
+  mit `-f event_tags=<sid>,<sid>` zieht derselbe Lauf (und dasselbe
+  CI-Secret) die Latest-Event-Tags der genannten bestehenden SIDs und
+  druckt pro SID eine `EVENT_TAGS <sid>: …`-Zeile ins Run-Log — der Leg-,
+  der bestehende Befund-Issues vor ihrer Anreicherung entstanden sind (z.B.
+  Build-Identität bei PR- vs. Store-Build, §5.1). Input läuft über Env
+  (`EVENT_TAGS_INPUT`), kein `${{ }}`-Interpolieren im `run:`-Block.
+  Ohne Input laufen Cron-Verhalten und Erstellung unverändert.
 
 ## 5. Triage-Verfahren für Watchdog-Crash-Issues
 
@@ -132,7 +166,10 @@ nicht gezogen wurde):
    Der `app.version_code`-Tag läuft erst seit dem 27.09.2026 (ea16fadc) —
    ältere Events sind **versionlos**; Attribution dann über Build-
    Archäologie (Tag-Enthaltensein per `git merge-base --is-ancestor`)
-   statt über Sentry-Tags.
+   statt über Sentry-Tags. Seit der Event-Anreicherung (§3) steht der
+   `app.version_code`-Tag neuer Watchdog-Issues direkt im Body
+   (`Release-Spur (Latest-Event)`); die Fenster-Methode bleibt Fallback für
+   versionlose Events und für Anreicherungs-Lücken.
 2. **Doppel-Meldungen desselben Sentry-Issue verbinden:** Vor der Schließung
    `gh issue list --label sentry` nach gleichem Top-Frame/Befund durchsuchen
    (Body-Marker `vivid-sentry-issue: <id>` identifiziert das Sentry-Issue
@@ -322,6 +359,37 @@ Triage: #267 ist in Punkt 7 beschrieben.
    vertretbar. Für #267 war die tatsächliche Kette am Event nicht lesbar (lokaler
    Token ohne `project:read`, siehe §1), der Filter ist deshalb bewusst
    konservativ kalibriert und der Befund unten nennt diese Lücke ausdrücklich.
+
+8. **Closure-Praxis für Single-Event-Validierungs-OOMs (seit 26.10.2026, #334/#337).** Die
+   Einzelereignis-Fatals dieser Familie werden **ohne Fix** geschlossen — zulässig nur auf Basis
+   einer unabhängigen Entkräftung der Release-Ebene (§5.1). Vier Bedingungen müssen **alle**
+   zutreffen und im Closure-Kommentar einzeln benannt werden:
+   - **(a) Genau ein Event am ganzen Build:** `firstEvent` == `lastEvent` == Crash-Zeitstempel
+     (auf die Sekunde) — ablesbar aus der Releases-API, die auch ohne Event-Leserecht
+     funktioniert. Die eine betroffene Nutzerin ist damit die einzige Session dieses Builds.
+   - **(b) Schnitt→Event-Latenz von Minuten** am dokumentierten Validierungstag (z.B. sieben
+     Releases in acht Stunden): Minuten nach dem Schnitt kann der Build keinen Feld-User
+     erreicht haben (Play-Rollout braucht Stunden bis Tage).
+   - **(c) Keine Wiederholung in allen folgenden Releases** — Fenster explizit nennen (z.B.
+     elf Releases 0.5.33-beta→0.5.43-beta; Watchdog-Zähler stabil, neueste Releases event-frei).
+   - **(d) Kein Fix vorhanden:** `git log --grep memory|oom|heap|leak` seit dem Fenster ist leer;
+     der Kommentar sagt das ausdrücklich (Closure claimt nie „behoben“) und begründet, warum die
+     Registry nach §5.3 nicht füllbar ist (keine Ursache, Top-Frame nur Allokationsort).
+   Der Closure-Kommentar (englisch, Beleg-Format) nennt zusätzlich die **nicht** getanen Schritte:
+   die Sentry-Gruppe bleibt `unresolved` (System der Record; `fix-release`-Tagging nach §5.6 erst
+   mit einem echten Fix), und falls Event-Tags nicht lesbar waren (403 lokal), steht das im
+   Kommentar — die Schließung ruht auf der Release-Ebene, nicht auf Event-Tags.
+   **Nachweis-Kette:** dieselbe Signatur aktualisiert nur die Sentry-Gruppe und wird in GitHub
+   **nicht** neu angelegt (Dedup gegen `state=all`); eine **neue** Signatur legt der Watchdog
+   automatisch als neues Issue an. Die Geräte-Ebene (Event-Tags via `--print-event-tags`, §2/§4)
+   bestätigt die Lesart nachträglich, ist aber **keine** Voraussetzung — Beispiel: beide OOMs
+   (#334/#337, versionCodes 5294/5324, Latenzen 3½ bzw. 6 Minuten) feuerten auf V2454A, dem per
+   `com.vivid.debug`-Event nachgewiesenen Entwicklungsgerät.
+   **Grenze (Gegenbeispiel #324/#325):** treffen die vier Punkte nicht zu — Quell-Release spannte
+   13 Tage mit 6 Gruppen über die Feldwelt, Build-Identität also offen —, bleibt das Issue offen.
+   Dieselbe Event-Tag-Abfrage liefert dann den Nachweis, der die Schließung entweder trägt
+   (Test-Artfakt) oder verhindert (Feld-Build, wie bei #324/#325 belegt). Nicht anwendbar bei
+   identifizierter Ursache (§5.3) und bei Probe-Issues mit 0 betroffenen Nutzern (§5.4).
 
 ## 6. Sicherheit
 
