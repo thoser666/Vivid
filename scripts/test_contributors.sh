@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
-# Selbsttest für scripts/check_contributors.sh (Offline-Fixtures, 13 Fälle).
+# Selbsttest für scripts/check_contributors.sh (Offline-Fixtures, 17 Fälle).
 # Der Guard liest CONTRIBUTORS_FILE (Env) — fertige Fixtures beweisen, dass
 # gültige Tabellen grün und jede Vertragsverletzung rot gemeldet wird.
+# C14–C17 legen zusätzlich den Vertrag der Pre-Merge-Ankündigung fest (#330):
+# angekündigte Zeile in der realen CONTRIBUTORS.md, EN/DE-Absätze in
+# CONTRIBUTING.md und der belegte Umstand, dass das Flippen Handarbeit ist.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 guard="$PWD/scripts/check_contributors.sh"
@@ -114,9 +117,36 @@ cat > "$tmp/badperson.md" <<'MD'
 MD
 if CONTRIBUTORS_FILE="$tmp/badperson.md" bash "$guard" >/dev/null 2>&1; then fail "C13: unbalancierte Klammer in Person muss rot sein"; else ok; fi
 
+# C14: Pre-Merge-Ankündigung (#330) — die reale CONTRIBUTORS.md trägt die
+# angekündigte Zeile des offenen Fork-PRs mit gültigem Status. Der Status selbst
+# ist in C4/C10 gegen die Allowlist geprüft; hier sitzt die Zeile am richtigen Ort.
+if grep -Eq '\| #330 \| (offen|umgesetzt) \|' "$PWD/CONTRIBUTORS.md"; then ok
+else fail "C14: angekündigte Zeile für #330 fehlt in der realen CONTRIBUTORS.md"; fi
+
+# C15/C16: CONTRIBUTING.md trägt den Ankündigungs-Absatz in BEIDEN Sprachen —
+# ein Sprachstand ohne den Absatz bricht die EN/DE-Parität des Vertrags.
+if grep -Fq '**Pre-merge announcement (practice since #330).**' "$PWD/CONTRIBUTING.md"; then ok
+else fail "C15: englischer Pre-merge-announcement-Absatz fehlt in CONTRIBUTING.md"; fi
+if grep -Fq '**Ankündigung vor dem Merge (Praxis seit #330).**' "$PWD/CONTRIBUTING.md"; then ok
+else fail "C16: deutscher Ankündigung-vor-dem-Merge-Absatz fehlt in CONTRIBUTING.md"; fi
+
+# C17: Das Flippen `offen` → `umgesetzt` ist Maintainer-Handarbeit. Die Doku
+# behauptete zuerst, der Reminder flippe die Zeile selbst — der Workflow hat
+# aber kein `contents: write` und das Skript schreibt CONTRIBUTORS.md nie.
+# Beide Seiten des Widerspruchs bleiben bewacht: Landet der alte Satz zurück,
+# oder rückt dem Workflow schreibender Inhalt ein, muss Doku und Test gemeinsam
+# aktualisiert werden.
+if grep -Fq 'reminder flips the row' "$PWD/CONTRIBUTING.md" \
+  || grep -Fq 'Reminder flippt die Zeile' "$PWD/CONTRIBUTING.md"; then
+  fail "C17a: CONTRIBUTING.md behauptet wieder einen automatischen Flip durch den Reminder"
+else ok; fi
+if grep -Eq 'contents:[[:space:]]*write' .github/workflows/automation-contributors-reminder.yml; then
+  fail "C17b: Reminder-Workflow hat contents: write — der Flip ist dann automatisiert, Doku/Test müssen mit"
+else ok; fi
+
 echo "▶ [contributors-guard-test] $PASS Pass, $FAIL Fail"
 if [[ "$FAIL" -gt 0 ]]; then
-  echo "❌ [contributors-guard-test] Contributors-Guard vertragstreu (C1–C13): $FAIL Fall/Fälle rot."
+  echo "❌ [contributors-guard-test] Contributors-Guard vertragstreu (C1–C17): $FAIL Fall/Fälle rot."
   exit 1
 fi
-echo "✅ [contributors-guard-test] Contributors-Guard vertragstreu (C1–C13)."
+echo "✅ [contributors-guard-test] Contributors-Guard vertragstreu (C1–C17)."
