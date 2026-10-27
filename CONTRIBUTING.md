@@ -90,10 +90,13 @@ their own PR — the pull request template has a checkbox for it). `offen` flips
 **Pre-merge announcement (practice since #330).** The row may also land **before**
 the merge: when a substantial third-party PR is open and the author has not done
 the self-entry themselves, a maintainer announces it as `offen` right away —
-`offen` already means "announced, not merged yet", and the fork-PR reminder flips
-the row after the merge. Structure is
-enforced by `scripts/check_contributors.sh` (pre-push gate + CI) — malformed
-edits break the build.
+`offen` already means "announced, not merged yet". After the merge the fork-PR
+reminder **flags** the row while it still reads `offen` and asks for the flip;
+writing `umgesetzt` stays maintainer hand-work — the reminder workflow has no
+`contents: write` and never edits CONTRIBUTORS.md itself (locked by test case
+C17 in `scripts/test_contributors.sh`). Structure is enforced by
+`scripts/check_contributors.sh` (pre-push gate + CI) — malformed edits break
+the build.
 
 **Fork-PR reminder + public credit (automatic).** Merging a pull request from
 a fork does not update CONTRIBUTORS.md by itself. On every push to develop,
@@ -453,8 +456,12 @@ im eigenen PR selbst tun); `offen` → `umgesetzt`, sobald die Arbeit gemergt is
 **Ankündigung vor dem Merge (Praxis seit #330).** Die Zeile darf auch **vor** dem
 Merge landen: Kommt ein gewichtiger Dritt-PR auf, ohne dass der Autor die
 Selbstpflicht aus der PR-Vorlage erfüllt hat, kündigt ein Maintainer den Beitrag
-sofort als `offen` an — `offen` heißt genau „angekündigt / noch nicht gemergt“,
-und der Fork-PR-Reminder flippt die Zeile nach dem Merge.
+sofort als `offen` an — `offen` heißt genau „angekündigt / noch nicht gemergt“.
+Nach dem Merge meldet der Fork-PR-Reminder die Zeile, solange sie noch `offen`
+steht, und fordert zum Flippen auf — das Schreiben von `umgesetzt` bleibt
+Maintainer-Handarbeit: der Workflow hat kein `contents: write` und editiert
+CONTRIBUTORS.md nie selbst (gesichert durch Testfall C17 in
+`scripts/test_contributors.sh`).
 
 Die Struktur erzwingt `scripts/check_contributors.sh` (Pre-Push-Gate + CI) —
 Formatfehler brechen den Build ab.
