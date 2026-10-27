@@ -38,6 +38,7 @@ internal class ActiveCameraControls(
     override fun getExposure(): Int = guard.dispatch(0) { current().getExposure() }
     override fun getExposureRange(): IntRange? = guard.dispatch<IntRange?>(null) { current().getExposureRange() }
     override fun setExposure(value: Int): Boolean = guard.dispatch(false) { current().setExposure(value) }
+
     // Reads neutral during close: both adapters default to `true` (Camera2PreviewControls).
     override fun isAutoExposureEnabled(): Boolean = guard.dispatch(true) { current().isAutoExposureEnabled() }
     override fun enableAutoExposure(): Boolean = guard.dispatch(false) { current().enableAutoExposure() }
@@ -52,4 +53,4 @@ internal class ActiveCameraControls(
         const val ZOOM_UNZOOMED = 1f
         const val CAMERA_ID_UNKNOWN = "unknown"
     }
-}
+}

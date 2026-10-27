@@ -75,7 +75,10 @@ class CameraSessionRaceTest {
         assertTrue(entered.await(5, TimeUnit.SECONDS), "Dispatch muss die Kamera erreichen")
 
         val closeFinished = CountDownLatch(1)
-        val closeThread = Thread({ guard.beginClose(); closeFinished.countDown() }, "test-close").apply { start() }
+        val closeThread = Thread({
+            guard.beginClose()
+            closeFinished.countDown()
+        }, "test-close").apply { start() }
         try {
             // Ohne Sperre würde beginClose die Flagge sofort setzen — der Zeitraum
             // ist der Beweis: solange der Dispatch in der Kamera hängt, bleibt er draußen.
