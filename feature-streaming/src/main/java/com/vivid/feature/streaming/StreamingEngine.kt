@@ -1,65 +1,61 @@
 package com.vivid.feature.streaming
 
-import android.os.Build
-import android.hardware.camera2.CameraManager
-import com.vivid.core.data.CameraMode
-import com.vivid.core.data.EncoderPreset
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
-import java.util.concurrent.atomic.AtomicInteger
 import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Rect
+import android.hardware.camera2.CameraManager
+import android.media.MediaCodec
 import android.net.Uri
+import android.os.Build
+import android.os.SystemClock
 import android.view.MotionEvent
 import android.view.Surface
 import android.view.View
 import android.view.WindowManager
-import java.io.File
+import androidx.annotation.StringRes
 import com.pedro.common.ConnectChecker
-import com.pedro.library.base.Camera2Base
+import com.pedro.common.VideoCodec
 import com.pedro.encoder.input.video.Camera2ApiManager
 import com.pedro.encoder.input.video.CameraHelper
 import com.pedro.encoder.input.video.facedetector.Face
 import com.pedro.encoder.input.video.facedetector.FaceDetectorCallback
 import com.pedro.encoder.utils.gl.AspectRatioMode
+import com.pedro.library.base.Camera2Base
+import com.pedro.library.base.recording.RecordController
 import com.pedro.library.multiple.MultiCamera2
 import com.pedro.library.multiple.MultiType
-import com.pedro.common.VideoCodec
-import com.pedro.library.view.GlStreamInterface
-import android.media.MediaCodecInfo
-import android.media.MediaCodec
-import com.pedro.library.base.recording.RecordController
 import com.pedro.library.util.AndroidMuxerRecordController
-import android.media.MediaCodecList
-import android.media.MediaFormat
-import android.os.SystemClock
-import androidx.annotation.StringRes
+import com.pedro.library.view.GlStreamInterface
 import com.vivid.core.data.AdaptiveBitrateConfig
 import com.vivid.core.data.AdaptiveBitrateController
+import com.vivid.core.data.AndroidEncoderCapabilities
+import com.vivid.core.data.CameraMode
+import com.vivid.core.data.EncoderCapabilities
+import com.vivid.core.data.EncoderPreset
 import com.vivid.core.data.PrivacyZone
 import com.vivid.core.data.ResolvedEncoderConfig
-import com.vivid.core.data.AndroidEncoderCapabilities
-import com.vivid.core.data.EncoderCapabilities
 import com.vivid.core.data.VideoCodecPreference
 import com.vivid.feature.streaming.source.DisplayFactory
 import com.vivid.feature.streaming.source.PlayerFactory
 import com.vivid.feature.streaming.source.ReplayVideoSource
 import com.vivid.feature.streaming.source.ScreenCaptureVideoSource
+import com.vivid.feature.streaming.source.UvcVideoSource
 import com.vivid.feature.streaming.source.VideoPlayerVideoSource
 import com.vivid.feature.streaming.source.VideoSourceKind
 import com.vivid.feature.streaming.source.VideoSourceRegistry
-import com.vivid.feature.streaming.source.UvcVideoSource
-
-import timber.log.Timber
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import timber.log.Timber
+import java.io.File
+import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -148,9 +144,17 @@ class StreamingEngine @Inject constructor(
         { id, profile, surface, failure ->
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 val texture = requireNotNull(camera?.glInterface?.surfaceTexture)
-                HighSpeedGlBridge(context.getSystemService(CameraManager::class.java), id, profile, surface, failure,
-                    consumedTimestampNs = { texture.timestamp })
-            } else error("Experimental capture requires Android 10")
+                HighSpeedGlBridge(
+                    context.getSystemService(CameraManager::class.java),
+                    id,
+                    profile,
+                    surface,
+                    failure,
+                    consumedTimestampNs = { texture.timestamp },
+                )
+            } else {
+                error("Experimental capture requires Android 10")
+            }
         }
 
     fun canChangeCameraMode(): Boolean = !_cameraModeStatus.value.preparing &&
@@ -313,6 +317,10 @@ class StreamingEngine @Inject constructor(
     val activeSourceKind: StateFlow<VideoSourceKind> = videoSourceRegistry.activeKind
 
     private var cameraControls: CameraControls? = null
+
+    // #324 (VIVID-3W): Session-Closed-Race im Kamerapfad — alle Control-Dispatches
+    // und das Idle-Preview-Close laufen über denselben Guard (Reihenfolge + Fangnetz).
+    private val cameraSessionGuard = CameraSessionGuard()
     private var stabilizationController: CameraStabilizationController? = null
     private var replayController: ReplayController? = null
 
@@ -739,7 +747,6 @@ class StreamingEngine @Inject constructor(
     private var glPreviewSurface: Surface? = null
     private var encoderRotationDegrees = 90
 
-
     /**
      * Erstellt einen ConnectChecker für ein Stream-Ziel. Jeder Checker kennt
      * seinen Ziel-Index und aktualisiert nur den eigenen Eintrag in
@@ -1043,11 +1050,21 @@ class StreamingEngine @Inject constructor(
                 if (_activeEncoder.value != null) _measuredEncoderFps.value = fps
             }
             val encoderControls = RootEncoderCameraControls(camera!!)
-            cameraControls = ActiveCameraControls { idlePreviewCamera?.let(::Camera2PreviewControls) ?: encoderControls }
+            cameraControls = ActiveCameraControls(cameraSessionGuard) {
+                idlePreviewCamera?.let(::Camera2PreviewControls) ?: encoderControls
+            }
             focusController = CameraFocusController(object : FocusableCamera {
-                override fun enableAutoFocus() = idlePreviewCamera?.enableAutoFocus() ?: camera!!.enableAutoFocus()
-                override fun disableAutoFocus() = idlePreviewCamera?.disableAutoFocus() ?: camera!!.disableAutoFocus()
-                override fun isAutoFocusEnabled() = idlePreviewCamera?.isAutoFocusEnabled ?: camera!!.isAutoFocusEnabled
+                // #324: Fokus-Requests denselben Guard wie die Control-Fassade —
+                // sie laufen sonst ungeschützt auf eine schließende Session.
+                override fun enableAutoFocus() = cameraSessionGuard.dispatch(false) {
+                    idlePreviewCamera?.enableAutoFocus() ?: camera!!.enableAutoFocus()
+                }
+                override fun disableAutoFocus() = cameraSessionGuard.dispatch(false) {
+                    idlePreviewCamera?.disableAutoFocus() ?: camera!!.disableAutoFocus()
+                }
+                override fun isAutoFocusEnabled() = cameraSessionGuard.dispatch(false) {
+                    idlePreviewCamera?.isAutoFocusEnabled ?: camera!!.isAutoFocusEnabled
+                }
                 override fun setFocusDistance(distance: Float) { cameraControls!!.setFocusDistance(distance) }
             })
             stabilizationController = CameraStabilizationController(cameraControls!!).also {
@@ -1346,7 +1363,9 @@ class StreamingEngine @Inject constructor(
         if (activeSourceKind.value != VideoSourceKind.CAMERA || camera?.isStreaming == true || camera?.isRecording == true ||
             request.width <= 0 || request.height <= 0 ||
             context.checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED
-        ) return
+        ) {
+            return
+        }
         // Layout-Maße dienen der Reattach-Erkennung; der Camera2-Buffer kann
         // eine andere, unterstützte Größe haben (z. B. 1088×1088 im Portrait).
         val size = request.width to request.height
@@ -1397,16 +1416,25 @@ class StreamingEngine @Inject constructor(
     }
 
     private fun stopIdlePreview() {
-        idlePreviewSurface = null
-        idlePreviewSize = null
-        if (idlePreviewCamera != null) {
-            // Erkennung zuerst abschalten, solange die Kamera noch offen ist
-            // (Callbacks hängen am Gerät) — laufende Nachversuche fallen weg.
-            faceProducer.detach()
-            runCatching { idlePreviewCamera?.closeCamera() }
-            idlePreviewCamera = null
-            detachGlPreview()
-            (camera?.glInterface as? GlStreamInterface)?.stop()
+        // #324: Schließfenster markieren — ein laufender Dispatch ist zu Ende,
+        // bevor closeCamera die Session schließt; danach dispatchiert nichts mehr
+        // auf die schließende Kamera. Der Guard hält den Monitor bewusst nicht
+        // über closeCamera (Deadlock-Risiko mit dem Camera-Handler-Thread).
+        cameraSessionGuard.beginClose()
+        try {
+            idlePreviewSurface = null
+            idlePreviewSize = null
+            if (idlePreviewCamera != null) {
+                // Erkennung zuerst abschalten, solange die Kamera noch offen ist
+                // (Callbacks hängen am Gerät) — laufende Nachversuche fallen weg.
+                faceProducer.detach()
+                runCatching { idlePreviewCamera?.closeCamera() }
+                idlePreviewCamera = null
+                detachGlPreview()
+                (camera?.glInterface as? GlStreamInterface)?.stop()
+            }
+        } finally {
+            cameraSessionGuard.endClose()
         }
     }
 
@@ -1470,7 +1498,9 @@ class StreamingEngine @Inject constructor(
                     if (camera == null) return
                     _streamingState.value = StreamingState.Preparing
                     beginCameraPreparation { startCameraStream(activeUrls) }
-                } else startCameraStream(activeUrls)
+                } else {
+                    startCameraStream(activeUrls)
+                }
             }
         }
     }
@@ -1550,7 +1580,6 @@ class StreamingEngine @Inject constructor(
         } else {
             adaptiveController = null
         }
-
     }
 
     private fun prepareCameraVideo(cam: MultiCamera2): Boolean {
@@ -1661,7 +1690,9 @@ class StreamingEngine @Inject constructor(
         return prepareResolvedVideo(cam, resolved, codec)
     }
 
-    private fun prepareResolvedVideo(cam: Camera2Base, resolved: ResolvedEncoderConfig,
+    private fun prepareResolvedVideo(
+        cam: Camera2Base,
+        resolved: ResolvedEncoderConfig,
         codec: VideoCodec = when (resolved.codec) {
             VideoCodecPreference.H265 -> VideoCodec.H265
             VideoCodecPreference.AV1 -> VideoCodec.AV1
@@ -1692,8 +1723,13 @@ class StreamingEngine @Inject constructor(
         return runCatching {
             val diagnostics = readBitrateDiagnostics(cam)
             _bitrateDiagnostics.value = diagnostics
-            Timber.i("Video encoder=%s mode=%s CBR supported=%s target=%d kbps",
-                diagnostics.encoderName, diagnostics.mode, diagnostics.cbrSupported, diagnostics.targetKbps)
+            Timber.i(
+                "Video encoder=%s mode=%s CBR supported=%s target=%d kbps",
+                diagnostics.encoderName,
+                diagnostics.mode,
+                diagnostics.cbrSupported,
+                diagnostics.targetKbps,
+            )
             if (diagnostics.mode != EncoderBitrateMode.CBR) {
                 Timber.w("CBR unavailable: encoder=%s uses %s", diagnostics.encoderName, diagnostics.mode)
             }
@@ -1715,7 +1751,9 @@ class StreamingEngine @Inject constructor(
             val cam = camera
             if (cam != null && (cam.isStreaming || cam.isRecording)) {
                 val overdue = keyframeController.onFrame(
-                    info.presentationTimeUs, info.flags and MediaCodec.BUFFER_FLAG_KEY_FRAME != 0, timeSource(),
+                    info.presentationTimeUs,
+                    info.flags and MediaCodec.BUFFER_FLAG_KEY_FRAME != 0,
+                    timeSource(),
                 )
                 _measuredKeyframeIntervalMs.value = keyframeController.measuredIntervalMs
                 if (overdue) {
@@ -1791,7 +1829,9 @@ class StreamingEngine @Inject constructor(
             // Apply it to the source before filters; rotating the final output would invert overlays.
             val inputHalfTurn = if (request.rotationDegrees >= 180) 180 else 0
             val external = externalCapture
-            if (external != null) external.setInputOrientation(inputHalfTurn) else {
+            if (external != null) {
+                external.setInputOrientation(inputHalfTurn)
+            } else {
                 val inputRotation = if (encoderRotationDegrees == 0) 270 else encoderRotationDegrees - 90
                 gl.setCameraOrientation((inputRotation + inputHalfTurn) % 360)
             }
@@ -1841,7 +1881,11 @@ class StreamingEngine @Inject constructor(
         val nextKbps = controller.onSample(measuredKbps) ?: return
         cam.setVideoBitrateOnFly(nextKbps * 1_000) // RootEncoder expects bits/s.
         _bitrateDiagnostics.value = _bitrateDiagnostics.value?.copy(targetKbps = nextKbps)
-        Timber.i("Adaptive bitrate: measured=%d kbps target=%d kbps mode=%s",
-            measuredKbps, nextKbps, _bitrateDiagnostics.value?.mode)
+        Timber.i(
+            "Adaptive bitrate: measured=%d kbps target=%d kbps mode=%s",
+            measuredKbps,
+            nextKbps,
+            _bitrateDiagnostics.value?.mode,
+        )
     }
 }

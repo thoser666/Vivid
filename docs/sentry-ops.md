@@ -49,6 +49,13 @@ Details stehen in den am Ende verlinkten Repo-Dokus.
   separater Callback).
 - Der Toggle entscheidet nur, **was die App sendet** — nicht, was die
   Ops-Seite abfragt. Beide Welten teilen sich lediglich das Dashboard.
+- **Der `environment`-Tag trägt die Build-Identität**: `io.sentry.environment`
+  steht als Manifest-Meta-Data über ein `manifestPlaceholders`-Mapping in
+  `app/build.gradle.kts` — `debug` → `development`, `release`/`playRelease` →
+  `production`. Ohne den Eintrag defaultet Sentry überall auf `production` und
+  der Tag unterscheidet Store- nicht mehr von Test-Build (#324). Ein fehlendes
+  Mapping fällt beim Manifest-Merge hart auf (kein stummer Default); die drei
+  Varianten tragen den gesetzten Wert nachweislich.
 
 ### 🗺️ Mapping-Upload
 
