@@ -55,8 +55,9 @@ internal fun PreviewSelectionControls(
     showZoom: Boolean = true,
     showScenes: Boolean = true,
 ) {
-    val cameraVisible = showZoom && source == VideoSourceKind.CAMERA &&
-        scenes.find { it.id == activeSceneId }?.videoSource != SceneVideoSource.EMPTY
+    val composition by engine.sceneComposition.collectAsState()
+    val cameraVisible = showZoom && (composition != null || (source == VideoSourceKind.CAMERA &&
+        scenes.find { it.id == activeSceneId }?.videoSource != SceneVideoSource.EMPTY))
     val owner = LocalLifecycleOwner.current
     val camera by produceState(ZoomPickerCameraState(), engine, owner, cameraVisible) {
         if (cameraVisible) owner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {

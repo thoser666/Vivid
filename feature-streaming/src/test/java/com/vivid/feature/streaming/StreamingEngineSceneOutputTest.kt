@@ -515,6 +515,7 @@ class StreamingEngineSceneOutputTest {
         engine.startStream(listOf(SCENE_RTMP_ONE_LIVE))
         val frontManager = mockk<com.pedro.encoder.input.video.Camera2ApiManager>(relaxed = true)
         every { frontManager.getCurrentCameraId() } returns SCENE_FRONT
+        every { frontManager.cameraFacing } returns com.pedro.encoder.input.video.CameraHelper.Facing.FRONT
         val textures = mockk<com.vivid.feature.streaming.compositor.gl.AndroidSceneTextureProvider>(relaxed = true)
         every { textures.camera(front.id) } returns frontManager
         every { textures.captureReady(front.id) } returns true
@@ -523,6 +524,7 @@ class StreamingEngineSceneOutputTest {
         engine.idleFaceDetectableFactory = { attached.add(it); mockk(relaxed = true) }
         assertTrue(engine.selectLens(SCENE_FRONT))
         assertEquals(listOf(frontManager), attached)
+        assertTrue(engine.isFrontCamera())
         val changed = engine.sceneComposition.value!!
         assertEquals(input.sources, changed.sources)
         assertEquals(main, changed.layers.first())

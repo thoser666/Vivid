@@ -1485,14 +1485,14 @@ class StreamingEngine @Inject constructor(
         cameraControlSettingsLoaded = true
         // DataStore may finish loading after the preview has already opened.
         if (savedZoom[isFrontCamera()] == null &&
-            (idlePreviewCamera?.isRunning == true || camera?.isStreaming == true || camera?.isRecording == true)) {
+            (activeSceneCamera()?.isRunning == true || idlePreviewCamera?.isRunning == true || camera?.isStreaming == true || camera?.isRecording == true)) {
             restoreCameraZoom()
         }
         applyFrontCameraMirror()
         if (stabilizationChanged) applySavedStabilization()
     }
 
-    fun isFrontCamera(): Boolean = (idlePreviewCamera?.cameraFacing ?: camera?.cameraFacing) == CameraHelper.Facing.FRONT
+    fun isFrontCamera(): Boolean = (activeSceneCamera()?.cameraFacing ?: idlePreviewCamera?.cameraFacing ?: camera?.cameraFacing) == CameraHelper.Facing.FRONT
 
     fun currentCameraZoom(): Float? = cameraControls?.getZoom()
 
@@ -1503,15 +1503,18 @@ class StreamingEngine @Inject constructor(
         if (experimentalCapture != null || _cameraModeStatus.value.preparing) setOf(com.vivid.core.data.StabilizationMode.OFF)
         else cameraControls?.supportedStabilizationModes().orEmpty()
 
+    private fun hasCameraInput(): Boolean = if (sceneSession != null) activeSceneCamera() != null
+        else activeSourceKind.value == VideoSourceKind.CAMERA
+
     /** Presets retain their exact value: an unsupported 0.5x must never silently become 1x. */
     fun applyZoomPreset(front: Boolean, value: Float): Boolean {
-        if (activeSourceKind.value != VideoSourceKind.CAMERA || front != isFrontCamera() ||
+        if (!hasCameraInput() || front != isFrontCamera() ||
             experimentalCapture != null || _cameraModeStatus.value.preparing) return false
         val controls = cameraControls ?: return false
         val id = controls.getCurrentCameraId()
         val moved = zoomController.move(controls, value, cameraControlSettings.zoomSpeed) {
             experimentalCapture == null && !_cameraModeStatus.value.preparing &&
-                controls.getCurrentCameraId() == id && activeSourceKind.value == VideoSourceKind.CAMERA
+                controls.getCurrentCameraId() == id && hasCameraInput()
         }
         if (moved) savedZoom[front] = value
         return moved
