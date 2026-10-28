@@ -103,6 +103,12 @@
          sendDefaultPii=false und beforeSend (Opt-out-Toggle aus den Settings). -->
     <meta-data android:name="io.sentry.auto-init" android:value="false" />
 
+    <!-- Sentry environment je Build-Typ (manifestPlaceholders in build.gradle.kts):
+         debug=development (Dev/CI), release+playRelease=production (Store).
+         Ohne diesen Eintrag defaultet Sentry ueberall auf "production" und der
+         Tag traegt keine Build-Identitaet (#324: Store- vs. Test-Build). -->
+    <meta-data android:name="io.sentry.environment" android:value="${SENTRY_ENVIRONMENT}" />
+
     <!-- enable automatic breadcrumbs for user interactions (clicks, swipes, scrolls) -->
     <meta-data android:name="io.sentry.traces.user-interaction.enable" android:value="true" />
     <!-- Keine Crash-Screenshots: der Bildschirm kann Stream-Vorschau, Chat oder

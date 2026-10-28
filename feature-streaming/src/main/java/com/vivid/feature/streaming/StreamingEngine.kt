@@ -548,6 +548,10 @@ class StreamingEngine @Inject constructor(
     val activeSourceKind: StateFlow<VideoSourceKind> = videoSourceRegistry.activeKind
 
     private var cameraControls: CameraControls? = null
+
+    // #324 (VIVID-3W): Session-Closed-Race im Kamerapfad — alle Control-Dispatches
+    // und das Idle-Preview-Close laufen über denselben Guard (Reihenfolge + Fangnetz).
+    private val cameraSessionGuard = CameraSessionGuard()
     private var stabilizationController: CameraStabilizationController? = null
     private var replayController: ReplayController? = null
 
@@ -1346,7 +1350,7 @@ class StreamingEngine @Inject constructor(
     private fun initializeCameraControls() {
         val encoderControls = RootEncoderCameraControls(camera!!)
         cameraControls =
-            ActiveCameraControls {
+            ActiveCameraControls(cameraSessionGuard) {
                 if (sceneSession != null) {
                     activeSceneCamera()?.let(::Camera2PreviewControls)
                 } else {
@@ -1356,11 +1360,17 @@ class StreamingEngine @Inject constructor(
         focusController =
             CameraFocusController(
                 object : FocusableCamera {
-                    override fun enableAutoFocus() = autofocusOperation({ it.enableAutoFocus() }) { camera!!.enableAutoFocus() }
+                    override fun enableAutoFocus() = cameraSessionGuard.dispatch(false) {
+                        autofocusOperation({ it.enableAutoFocus() }) { camera!!.enableAutoFocus() }
+                    }
 
-                    override fun disableAutoFocus() = autofocusOperation({ it.disableAutoFocus() }) { camera!!.disableAutoFocus() }
+                    override fun disableAutoFocus() = cameraSessionGuard.dispatch(false) {
+                        autofocusOperation({ it.disableAutoFocus() }) { camera!!.disableAutoFocus() }
+                    }
 
-                    override fun isAutoFocusEnabled() = autofocusOperation({ it.isAutoFocusEnabled }) { camera!!.isAutoFocusEnabled }
+                    override fun isAutoFocusEnabled() = cameraSessionGuard.dispatch(false) {
+                        autofocusOperation({ it.isAutoFocusEnabled }) { camera!!.isAutoFocusEnabled }
+                    }
 
                     override fun setFocusDistance(distance: Float) {
                         cameraControls!!.setFocusDistance(distance)
@@ -1773,17 +1783,26 @@ class StreamingEngine @Inject constructor(
     }
 
     private fun stopIdlePreview() {
-        if (sceneSession != null && !sceneEncoding()) sceneSession?.stopPreview()
-        idlePreviewSurface = null
-        idlePreviewSize = null
-        if (idlePreviewCamera != null) {
-            // Erkennung zuerst abschalten, solange die Kamera noch offen ist
-            // (Callbacks hängen am Gerät) — laufende Nachversuche fallen weg.
-            faceProducer.detach()
-            runCatching { idlePreviewCamera?.closeCamera() }
-            idlePreviewCamera = null
-            detachGlPreview()
-            (camera?.glInterface as? GlStreamInterface)?.stop()
+        // #324: Schließfenster markieren — ein laufender Dispatch ist zu Ende,
+        // bevor closeCamera die Session schließt; danach dispatchiert nichts mehr
+        // auf die schließende Kamera. Der Guard hält den Monitor bewusst nicht
+        // über closeCamera (Deadlock-Risiko mit dem Camera-Handler-Thread).
+        cameraSessionGuard.beginClose()
+        try {
+            if (sceneSession != null && !sceneEncoding()) sceneSession?.stopPreview()
+            idlePreviewSurface = null
+            idlePreviewSize = null
+            if (idlePreviewCamera != null) {
+                // Erkennung zuerst abschalten, solange die Kamera noch offen ist
+                // (Callbacks hängen am Gerät) — laufende Nachversuche fallen weg.
+                faceProducer.detach()
+                runCatching { idlePreviewCamera?.closeCamera() }
+                idlePreviewCamera = null
+                detachGlPreview()
+                (camera?.glInterface as? GlStreamInterface)?.stop()
+            }
+        } finally {
+            cameraSessionGuard.endClose()
         }
     }
 
