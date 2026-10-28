@@ -94,6 +94,10 @@ class StreamingScreenPermissionContractTest {
         every { engine.stabilizationEnabled } returns MutableStateFlow(false)
         every { engine.torchEnabled } returns MutableStateFlow(false)
         every { engine.activeSourceKind } returns MutableStateFlow(VideoSourceKind.CAMERA)
+        every { engine.sceneNeedsCameraPermission() } returns true
+        every { engine.canRecordReplay() } returns true
+        every { engine.sceneComposition } returns MutableStateFlow(null)
+        every { engine.sceneProducerStates } returns MutableStateFlow(emptyMap())
         every { engine.activeFilter } returns MutableStateFlow(VideoFilter.NONE)
         every { engine.lowLightBoostEnabled } returns MutableStateFlow(false)
         every { engine.activeLutPreset } returns MutableStateFlow(LutPreset.NONE)
@@ -107,6 +111,7 @@ class StreamingScreenPermissionContractTest {
 
         viewModel = mockk(relaxed = true)
         every { viewModel.streamingEngine } returns engine
+        every { viewModel.sceneEditor } returns MutableStateFlow(null)
         every { viewModel.configIssues } returns MutableStateFlow(emptyList())
         every { viewModel.scenes } returns MutableStateFlow(emptyList())
         every { viewModel.activeSceneId } returns MutableStateFlow<String?>(null)
@@ -114,6 +119,7 @@ class StreamingScreenPermissionContractTest {
         every { viewModel.autoSwitchIntervalSeconds } returns MutableStateFlow(30L)
         every { viewModel.privacyEnabled } returns MutableStateFlow(false)
         every { viewModel.privacyZones } returns MutableStateFlow(emptyList())
+        every { viewModel.fullFrameBlurEnabled } returns MutableStateFlow(false)
 
         twitchViewModel = mockk(relaxed = true)
         every { twitchViewModel.uiState } returns MutableStateFlow(TwitchChannelUiState())
@@ -151,7 +157,7 @@ class StreamingScreenPermissionContractTest {
         // Semantik-Baum bleibt vollständig (das instrumentierte Pendant dieses
         // Vertrags ist der StartupSmokeTest auf dem Emulator ohne Grants).
         composeRule.onNodeWithText("Controls").assertIsDisplayed()
-        composeRule.onNodeWithText("Start Streaming").assertIsDisplayed()
+        composeRule.onNodeWithText(SCENE_START_STREAMING).assertIsDisplayed()
         org.junit.Assert.assertNull(
             "Screen-Eintritt darf keinen Permission-Request auslösen (#249)",
             lastRequestedPermission(),
@@ -165,7 +171,7 @@ class StreamingScreenPermissionContractTest {
 
         setContent()
 
-        composeRule.onNodeWithText("Start Streaming").assertIsDisplayed()
+        composeRule.onNodeWithText(SCENE_START_STREAMING).assertIsDisplayed()
         // Entweder der Entry-Effekt oder der ON_RESUME-Beobachter (beide Pfade
         // sind erlaubt, exakt gezählt wird nur der verbotene Auto-Request).
         verify(atLeast = 1) { engine.startIdlePreviewIfReady() }
@@ -183,7 +189,7 @@ class StreamingScreenPermissionContractTest {
         )
 
         setContent()
-        composeRule.onNodeWithText("Start Streaming").performClick()
+        composeRule.onNodeWithText(SCENE_START_STREAMING).performClick()
         composeRule.waitForIdle()
 
         val request = lastRequestedPermission()
@@ -217,7 +223,7 @@ class StreamingScreenPermissionContractTest {
         )
 
         setContent()
-        composeRule.onNodeWithText("Start Streaming").performClick()
+        composeRule.onNodeWithText(SCENE_START_STREAMING).performClick()
         composeRule.waitForIdle()
 
         verify(exactly = 1) { viewModel.startStream() }
@@ -238,3 +244,5 @@ class StreamingScreenPermissionContractTest {
         composeRule.onNodeWithTag("stream_status_overlay").assertIsDisplayed()
     }
 }
+
+private const val SCENE_START_STREAMING = "Start Streaming"

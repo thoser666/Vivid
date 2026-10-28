@@ -11,43 +11,49 @@ import android.view.View
  * Session treffen können (#324). Während des Idle-Preview-Closes liefert sie
  * neutrale Werte, statt in `CameraCaptureSessionImpl.checkNotClosed` zu krachen;
  * ein `IllegalStateException` anderer Ursache wird bewusst weitergereicht.
+ *
+ * [current] darf `null` liefern: eine aktive Szenen-Session kann ohne eigene
+ * Kamera laufen (#330). Dann greifen dieselben neutralen Werte wie im
+ * Schließfenster — die Fassade bleibt damit für beide Fälle eine Antwort
+ * schuldig, ohne die Session zu berühren.
  */
 internal class ActiveCameraControls(
     private val guard: CameraSessionGuard,
-    private val current: () -> CameraControls,
+    private val current: () -> CameraControls?,
 ) : CameraControls {
-    override fun getZoom(): Float = guard.dispatch(ZOOM_UNZOOMED) { current().getZoom() }
-    override fun getZoomRange(): ZoomRange? = guard.dispatch<ZoomRange?>(null) { current().getZoomRange() }
-    override fun setZoom(value: Float) = guard.dispatch(Unit) { current().setZoom(value) }
-    override fun tapToFocus(view: View, event: MotionEvent) = guard.dispatch(Unit) { current().tapToFocus(view, event) }
-    override fun hasOpticalStabilization(): Boolean = guard.dispatch(false) { current().hasOpticalStabilization() }
-    override fun isStabilizationEnabled(): Boolean = guard.dispatch(false) { current().isStabilizationEnabled() }
-    override fun enableStabilization(): Boolean = guard.dispatch(false) { current().enableStabilization() }
-    override fun disableStabilization(): Boolean = guard.dispatch(false) { current().disableStabilization() }
-    override fun hasTorch(): Boolean = guard.dispatch(false) { current().hasTorch() }
-    override fun isTorchEnabled(): Boolean = guard.dispatch(false) { current().isTorchEnabled() }
-    override fun enableTorch(): Boolean = guard.dispatch(false) { current().enableTorch() }
-    override fun disableTorch(): Boolean = guard.dispatch(false) { current().disableTorch() }
-    override fun hasManualFocus(): Boolean = guard.dispatch(false) { current().hasManualFocus() }
-    override fun getFocusDistance(): Float = guard.dispatch(0f) { current().getFocusDistance() }
-    override fun setFocusDistance(distance: Float) = guard.dispatch(Unit) { current().setFocusDistance(distance) }
-    override fun getAvailableCameraIds(): List<String> = guard.dispatch(emptyList()) { current().getAvailableCameraIds() }
-    override fun getCurrentCameraId(): String = guard.dispatch(CAMERA_ID_UNKNOWN) { current().getCurrentCameraId() }
-    override fun selectCamera(cameraId: String): Boolean = guard.dispatch(false) { current().selectCamera(cameraId) }
-    override fun hasExposureControl(): Boolean = guard.dispatch(false) { current().hasExposureControl() }
-    override fun getExposure(): Int = guard.dispatch(0) { current().getExposure() }
-    override fun getExposureRange(): IntRange? = guard.dispatch<IntRange?>(null) { current().getExposureRange() }
-    override fun setExposure(value: Int): Boolean = guard.dispatch(false) { current().setExposure(value) }
+    override fun getZoom(): Float = guard.dispatch(ZOOM_UNZOOMED) { current()?.getZoom() ?: ZOOM_UNZOOMED }
+    override fun getZoomRange(): ZoomRange? = guard.dispatch<ZoomRange?>(null) { current()?.getZoomRange() }
+    override fun setZoom(value: Float) = guard.dispatch(Unit) { current()?.setZoom(value) ?: Unit }
+    override fun tapToFocus(view: View, event: MotionEvent) = guard.dispatch(Unit) { current()?.tapToFocus(view, event) ?: Unit }
+    override fun hasOpticalStabilization(): Boolean = guard.dispatch(false) { current()?.hasOpticalStabilization() ?: false }
+    override fun isStabilizationEnabled(): Boolean = guard.dispatch(false) { current()?.isStabilizationEnabled() ?: false }
+    override fun enableStabilization(): Boolean = guard.dispatch(false) { current()?.enableStabilization() ?: false }
+    override fun disableStabilization(): Boolean = guard.dispatch(false) { current()?.disableStabilization() ?: false }
+    override fun hasTorch(): Boolean = guard.dispatch(false) { current()?.hasTorch() ?: false }
+    override fun isTorchEnabled(): Boolean = guard.dispatch(false) { current()?.isTorchEnabled() ?: false }
+    override fun enableTorch(): Boolean = guard.dispatch(false) { current()?.enableTorch() ?: false }
+    override fun disableTorch(): Boolean = guard.dispatch(false) { current()?.disableTorch() ?: false }
+    override fun hasManualFocus(): Boolean = guard.dispatch(false) { current()?.hasManualFocus() ?: false }
+    override fun getFocusDistance(): Float = guard.dispatch(0f) { current()?.getFocusDistance() ?: 0f }
+    override fun setFocusDistance(distance: Float) = guard.dispatch(Unit) { current()?.setFocusDistance(distance) ?: Unit }
+    override fun getAvailableCameraIds(): List<String> = guard.dispatch(emptyList()) { current()?.getAvailableCameraIds() ?: emptyList() }
+    override fun getCurrentCameraId(): String = guard.dispatch(CAMERA_ID_UNKNOWN) { current()?.getCurrentCameraId() ?: CAMERA_ID_UNKNOWN }
+    override fun selectCamera(cameraId: String): Boolean = guard.dispatch(false) { current()?.selectCamera(cameraId) ?: false }
+    override fun hasExposureControl(): Boolean = guard.dispatch(false) { current()?.hasExposureControl() ?: false }
+    override fun getExposure(): Int = guard.dispatch(0) { current()?.getExposure() ?: 0 }
+    override fun getExposureRange(): IntRange? = guard.dispatch<IntRange?>(null) { current()?.getExposureRange() }
+    override fun setExposure(value: Int): Boolean = guard.dispatch(false) { current()?.setExposure(value) ?: false }
 
-    // Reads neutral during close: both adapters default to `true` (Camera2PreviewControls).
-    override fun isAutoExposureEnabled(): Boolean = guard.dispatch(true) { current().isAutoExposureEnabled() }
-    override fun enableAutoExposure(): Boolean = guard.dispatch(false) { current().enableAutoExposure() }
-    override fun disableAutoExposure(): Boolean = guard.dispatch(false) { current().disableAutoExposure() }
-    override fun hasWhiteBalanceControl(): Boolean = guard.dispatch(false) { current().hasWhiteBalanceControl() }
-    override fun isAutoWhiteBalanceEnabled(): Boolean = guard.dispatch(true) { current().isAutoWhiteBalanceEnabled() }
-    override fun enableAutoWhiteBalance(): Boolean = guard.dispatch(false) { current().enableAutoWhiteBalance() }
-    override fun disableAutoWhiteBalance(): Boolean = guard.dispatch(false) { current().disableAutoWhiteBalance() }
-    override fun getWhiteBalanceModesAvailable(): List<Int> = guard.dispatch(emptyList()) { current().getWhiteBalanceModesAvailable() }
+    // Reads neutral during close and while a scene runs without a camera: both
+    // adapters default to `true` (Camera2PreviewControls).
+    override fun isAutoExposureEnabled(): Boolean = guard.dispatch(true) { current()?.isAutoExposureEnabled() ?: true }
+    override fun enableAutoExposure(): Boolean = guard.dispatch(false) { current()?.enableAutoExposure() ?: false }
+    override fun disableAutoExposure(): Boolean = guard.dispatch(false) { current()?.disableAutoExposure() ?: false }
+    override fun hasWhiteBalanceControl(): Boolean = guard.dispatch(false) { current()?.hasWhiteBalanceControl() ?: false }
+    override fun isAutoWhiteBalanceEnabled(): Boolean = guard.dispatch(true) { current()?.isAutoWhiteBalanceEnabled() ?: true }
+    override fun enableAutoWhiteBalance(): Boolean = guard.dispatch(false) { current()?.enableAutoWhiteBalance() ?: false }
+    override fun disableAutoWhiteBalance(): Boolean = guard.dispatch(false) { current()?.disableAutoWhiteBalance() ?: false }
+    override fun getWhiteBalanceModesAvailable(): List<Int> = guard.dispatch(emptyList()) { current()?.getWhiteBalanceModesAvailable() ?: emptyList() }
 
     private companion object {
         const val ZOOM_UNZOOMED = 1f

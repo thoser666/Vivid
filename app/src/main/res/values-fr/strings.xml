@@ -103,4 +103,6 @@
     <string name="pomodoro_reset">Reinitialiser</string>
     <string name="pomodoro_disabled_hint">Le minuteur Pomodoro est desactive dans les parametres.</string>
     <string name="pomodoro_open_settings">Ouvrir les parametres</string>
+    <string name="notif_scene_capture_title">Capture de scène active</string>
+    <string name="notif_scene_capture_text">Capture d’écran pour la prévisualisation de scène</string>
 </resources>

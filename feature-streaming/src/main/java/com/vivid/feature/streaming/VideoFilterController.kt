@@ -43,12 +43,15 @@ class VideoFilterController {
      * @return true, wenn der Filter erfolgreich gesetzt wurde.
      */
     fun setFilter(filter: VideoFilter, applyFilter: FilterApplier): Boolean {
+        val previous = _activeFilter.value
         return try {
             val render = if (filter == VideoFilter.NONE) null else createFilterRender(filter)
-            applyFilter(render)
+            // The compositor reconstructs its pass from this state in the callback.
             _activeFilter.value = filter
+            applyFilter(render)
             true
         } catch (_: Exception) {
+            _activeFilter.value = previous
             false
         }
     }

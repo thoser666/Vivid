@@ -43,4 +43,6 @@ data class StreamScene(
     val streamUseTls: Boolean = false,
     /** Absoluter Pfad der Replay-Datei (nur für [SceneVideoSource.REPLAY] relevant). */
     val replayPath: String? = null,
+    /** Optional versioned layer graph; absent in existing single-source presets. */
+    val composition: SceneComposition? = null,
 )

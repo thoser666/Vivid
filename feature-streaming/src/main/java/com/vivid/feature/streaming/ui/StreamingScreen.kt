@@ -1,5 +1,6 @@
 package com.vivid.feature.streaming.ui
 
+import android.content.Context
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.pm.PackageManager
@@ -18,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Podcasts
 import androidx.compose.material3.*
@@ -87,6 +89,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.vivid.core.data.StreamScene
+import com.vivid.feature.streaming.ui.scene.SceneEditorScreen
 import com.vivid.core.ui.LocalWindowWidthClass
 import com.vivid.core.ui.adaptiveControlsMaxWidth
 import com.vivid.core.ui.theme.LocalExtendedColors
@@ -169,6 +172,9 @@ fun StreamingScreen(
     // Auto-Wechsel-Zustand — aus SceneRepository/AutoSceneSwitcher.
     val scenes by viewModel.scenes.collectAsStateWithLifecycle(initialValue = emptyList())
     val activeSceneId by viewModel.activeSceneId.collectAsStateWithLifecycle(initialValue = null)
+    val sceneEditor by viewModel.sceneEditor.collectAsStateWithLifecycle()
+    val sceneComposition by streamingEngine.sceneComposition.collectAsStateWithLifecycle()
+    val sceneSourceStates by streamingEngine.sceneProducerStates.collectAsStateWithLifecycle()
     val autoSwitchEnabled by viewModel.autoSwitchEnabled.collectAsStateWithLifecycle()
     val autoSwitchIntervalSeconds by viewModel.autoSwitchIntervalSeconds.collectAsStateWithLifecycle()
 
@@ -199,14 +205,7 @@ fun StreamingScreen(
 
     val requestPermissionsAndRecord = rememberRecordingAction(viewModel, snackbarHostState, dismissLabel)
 
-    // Start idle preview only when camera permission is already granted.
-    LaunchedEffect(Unit) {
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
-            PackageManager.PERMISSION_GRANTED
-        ) {
-            streamingEngine.startIdlePreviewIfReady()
-        }
-    }
+    StartGrantedIdlePreview(streamingEngine, context)
 
     val requestScreenCapture = rememberScreenCaptureAction(streamingEngine)
 
@@ -215,6 +214,14 @@ fun StreamingScreen(
     RefreshStreamingScreenOnResume(viewModel, streamingEngine)
 
     var scenesExpanded by rememberSaveable { mutableStateOf(false) }
+
+    sceneEditor?.let { editor ->
+        SceneEditorScreen(editor, streamingEngine, activeSourceKind, sceneSourceStates,
+            scenes.flatMap { it.composition?.sources.orEmpty() }, privacyEnabled,
+            viewModel::editScene, viewModel::saveSceneEditor, viewModel::cancelSceneEditor,
+            viewModel::grantSceneProjection)
+        return
+    }
 
     if (scenesExpanded) {
         ModalBottomSheet(
@@ -244,6 +251,7 @@ fun StreamingScreen(
                     onApplyScene = viewModel::applyScene,
                     onSaveScene = viewModel::saveScene,
                     onDeleteScene = viewModel::deleteScene,
+                    onEditScene = { scene -> scenesExpanded = false; viewModel.openSceneEditor(scene) },
                     onAutoSwitchEnabledChange = viewModel::setAutoSwitchEnabled,
                     onAutoSwitchIntervalChange = viewModel::setAutoSwitchIntervalSeconds,
                     privacyEnabled = privacyEnabled,
@@ -277,7 +285,7 @@ fun StreamingScreen(
         ) {
             val density = LocalDensity.current
             val previewSize = with(density) { IntSize(maxWidth.roundToPx(), maxHeight.roundToPx()) }
-            StreamingSourcePreview(streamingEngine, activeSourceKind, previewSize, displayRotationDegrees) {
+            StreamingSourcePreview(streamingEngine, activeSourceKind, previewSize, displayRotationDegrees, showComposition = sceneComposition != null) {
                 requestVideoPicker()
             }
 
@@ -370,6 +378,19 @@ fun StreamingScreen(
 }
 
 /** The scenes sheet owns a separate window, so it needs the same fullscreen policy. */
+@Composable
+private fun StartGrantedIdlePreview(streamingEngine: StreamingEngine, context: Context) {
+    // Start idle preview only when camera permission is already granted.
+    LaunchedEffect(Unit) {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            streamingEngine.startIdlePreviewIfReady()
+        }
+    }
+
+}
+
 @Composable
 private fun HideDialogSystemBars() {
     val view = LocalView.current
@@ -470,9 +491,14 @@ private fun SourceSelectionItems(streamingEngine: StreamingEngine, onDismiss: ()
 private fun RecordingMenuItem(streamingEngine: StreamingEngine, onRecord: () -> Unit) {
     val activeSourceKind by streamingEngine.activeSourceKind.collectAsStateWithLifecycle()
     val replayState by streamingEngine.replayState.collectAsStateWithLifecycle()
+    val composition by streamingEngine.sceneComposition.collectAsStateWithLifecycle()
+    val streamingState by streamingEngine.streamingState.collectAsStateWithLifecycle()
+    val canRecord = remember(activeSourceKind, composition, streamingState, replayState) {
+        streamingEngine.canRecordReplay()
+    }
     DropdownMenuItem(
         modifier = Modifier.testTag("replay_record"),
-        enabled = activeSourceKind == VideoSourceKind.CAMERA,
+        enabled = replayState is ReplayState.Recording || canRecord,
         onClick = {
             if (replayState is ReplayState.Recording) streamingEngine.stopReplay()
             else onRecord()
@@ -733,18 +759,18 @@ private fun ControlsNavigationItems(navController: NavController, onDismiss: () 
 }
 
 @Composable
-private fun StreamingSourcePreview(streamingEngine: StreamingEngine, activeSourceKind: VideoSourceKind, previewSize: IntSize, displayRotationDegrees: Int, onVideoPicker: () -> Unit) {
+internal fun StreamingSourcePreview(streamingEngine: StreamingEngine, activeSourceKind: VideoSourceKind, previewSize: IntSize, displayRotationDegrees: Int, showComposition: Boolean = false, onVideoPicker: () -> Unit) {
     // Camera2 and encoding both render through GL, so idle preview shows effects too.
     // Der Encoder hängt nicht an der Activity-Surface und läuft bei
     // deren Zerstörung (Recents-Wischen, Rotation) weiter.
     // S2: Bei aktiver Screen-Capture-Quelle wird keine Kamera-Vorschau
     // angehängt — stattdessen erscheint ein Platzhalter mit Hinweis.
-    if (activeSourceKind == VideoSourceKind.CAMERA) {
+    if (activeSourceKind == VideoSourceKind.CAMERA || showComposition) {
         AndroidView(
             factory = { context ->
                 @SuppressLint("ClickableViewAccessibility")
                 SurfaceView(context).also { view ->
-                    streamingEngine.initializeCamera()
+                    if (activeSourceKind == VideoSourceKind.CAMERA) streamingEngine.initializeCamera()
                     view.holder.addCallback(
                         object : SurfaceHolder.Callback {
                             override fun surfaceCreated(holder: SurfaceHolder) {
@@ -981,7 +1007,10 @@ private fun rememberRecordingAction(viewModel: StreamingViewModel, snackbarHostS
         if (grants.values.all { it }) startRecording() else recordingError = true
     }
     fun requestPermissionsAndRecord() {
-        val missing = listOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO).filter {
+        val missing = buildList {
+            if (viewModel.streamingEngine.sceneNeedsCameraPermission()) add(Manifest.permission.CAMERA)
+            add(Manifest.permission.RECORD_AUDIO)
+        }.filter {
             ContextCompat.checkSelfPermission(context, it) != PackageManager.PERMISSION_GRANTED
         }
         if (missing.isEmpty()) startRecording() else recordingPermissionLauncher.launch(missing.toTypedArray())
@@ -1040,7 +1069,7 @@ private fun rememberStreamStartAction(
 
     fun requestPermissionsAndStart() {
         val needed = buildList {
-            add(Manifest.permission.CAMERA)
+            if (streamingEngine.sceneNeedsCameraPermission()) add(Manifest.permission.CAMERA)
             add(Manifest.permission.RECORD_AUDIO)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 add(Manifest.permission.POST_NOTIFICATIONS)
@@ -1314,6 +1343,7 @@ private fun SceneSwitcherBar(
     onApplyScene: (StreamScene) -> Unit,
     onSaveScene: (String) -> Unit,
     onDeleteScene: (String) -> Unit,
+    onEditScene: (StreamScene) -> Unit,
     onAutoSwitchEnabledChange: (Boolean) -> Unit,
     onAutoSwitchIntervalChange: (Long) -> Unit,
     privacyEnabled: Boolean,
@@ -1415,6 +1445,11 @@ private fun SceneSwitcherBar(
                             imageVector = Icons.Filled.Add,
                             contentDescription = stringResource(R.string.scene_add),
                         )
+                    }
+                    scenes.firstOrNull { it.id == activeSceneId }?.let { active ->
+                        FilledTonalIconButton(onClick = { onEditScene(active) }) {
+                            Icon(Icons.Filled.Edit, contentDescription = stringResource(R.string.scene_editor_open))
+                        }
                     }
                     if (activeSceneId != null) {
                         FilledTonalIconButton(onClick = { onDeleteScene(activeSceneId) }) {

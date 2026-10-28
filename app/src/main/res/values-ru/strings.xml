@@ -103,4 +103,6 @@
     <string name="pomodoro_reset">Сбросить</string>
     <string name="pomodoro_disabled_hint">Таймер Помодоро отключен в настройках.</string>
     <string name="pomodoro_open_settings">Открыть настройки</string>
+    <string name="notif_scene_capture_title">Захват сцены активен</string>
+    <string name="notif_scene_capture_text">Захват экрана для предпросмотра сцены</string>
 </resources>

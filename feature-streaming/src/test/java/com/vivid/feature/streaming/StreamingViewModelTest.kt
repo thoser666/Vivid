@@ -41,6 +41,7 @@ class StreamingViewModelTest {
 
     private val engine = mockk<StreamingEngine>(relaxed = true) {
         every { streamingState } returns MutableStateFlow(StreamingState.Idle)
+        every { sceneComposition } returns MutableStateFlow(null)
     }
     private val launcher = mockk<StreamingServiceLauncher>(relaxed = true)
 
@@ -62,6 +63,7 @@ class StreamingViewModelTest {
         every { activeSceneIdFlow } returns activeSceneState
         coEvery { saveScene(any()) } just Runs
         coEvery { deleteScene(any()) } just Runs
+        coEvery { setActiveScene(any()) } just Runs
     }
     private val sceneController = mockk<SceneController> {
         coEvery { applyScene(any()) } just Runs
@@ -85,6 +87,81 @@ class StreamingViewModelTest {
     private fun viewModel(
         repository: SettingsRepository = repositoryWith(AppSettings()),
     ) = StreamingViewModel(engine, repository, launcher, sceneRepository, sceneController, autoSceneSwitcher, zoneRepository, StreamStartCoordinator(repository, engine, launcher, com.vivid.core.data.AndroidEncoderCapabilities()))
+
+    private fun prepareEditor() {
+        every { engine.sceneComposition } returns MutableStateFlow(null)
+        every { engine.scenePreviewSize() } returns (720 to 1280)
+        every { engine.currentSceneCameraId } returns "rear"
+    }
+
+    @Test
+    fun `editor previews without saving and cancel restores composition lens and automatic switching`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        prepareEditor()
+        every { autoSceneSwitcher.enabled } returns MutableStateFlow(true)
+        val vm = viewModel()
+        vm.openSceneEditor(StreamScene(SCENE_DRAFT_ID, SCENE_DRAFT_NAME))
+        vm.editScene { rename(SCENE_CHANGED_NAME); duplicateSelected() }
+        assertEquals(2, vm.sceneEditor.value!!.composition.layers.size)
+        assertEquals(720, vm.sceneEditor.value!!.composition.canvasWidth)
+        coVerify(exactly = 0) { sceneRepository.saveScene(any()) }
+        vm.cancelSceneEditor()
+        assertNull(vm.sceneEditor.value)
+        verify { engine.setSceneComposition(null, animate = false); engine.selectLens("rear") }
+        verify { autoSceneSwitcher.setEnabled(false); autoSceneSwitcher.setEnabled(true) }
+    }
+
+    @Test
+    fun `editor reuses live source identities and canvas rather than migrating the saved legacy scene again`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        prepareEditor()
+        val graph = com.vivid.core.data.SceneComposition(canvasWidth = 1920, canvasHeight = 1080,
+            sources = listOf(com.vivid.core.data.SceneSource("consented-screen", com.vivid.core.data.SceneSourceType.SCREEN_CAPTURE)),
+            layers = listOf(com.vivid.core.data.SceneLayer("screen-layer", "consented-screen")))
+        every { engine.sceneComposition } returns MutableStateFlow(graph)
+        val vm = viewModel()
+        vm.openSceneEditor(StreamScene(SCENE_DRAFT_ID, SCENE_DRAFT_NAME))
+        assertEquals(graph, vm.sceneEditor.value!!.composition)
+        vm.cancelSceneEditor()
+        verify { engine.setSceneComposition(graph, animate = false) }
+    }
+
+    @Test
+    fun `editor saves complete draft once and ignores further mutations while saving`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        prepareEditor()
+        val vm = viewModel()
+        vm.openSceneEditor(StreamScene(SCENE_DRAFT_ID, SCENE_DRAFT_NAME, streamKey = "keep"))
+        vm.editScene { rename(SCENE_CHANGED_NAME); duplicateSelected() }
+        val draft = vm.sceneEditor.value!!.scene
+        vm.saveSceneEditor()
+        vm.editScene { rename("Ignored") }
+        vm.cancelSceneEditor()
+        assertTrue(vm.sceneEditor.value!!.saving)
+        advanceUntilIdle()
+        coVerify(exactly = 1) { sceneRepository.saveScene(draft) }
+        coVerify { sceneRepository.setActiveScene(SCENE_DRAFT_ID) }
+        assertNull(vm.sceneEditor.value)
+        assertEquals("keep", draft.streamKey)
+    }
+
+    @Test
+    fun `failed editor save retains editable draft for retry`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        prepareEditor()
+        coEvery { sceneRepository.saveScene(any()) } throws java.io.IOException("Disk unavailable")
+        val vm = viewModel()
+        vm.openSceneEditor(StreamScene(SCENE_DRAFT_ID, SCENE_DRAFT_NAME))
+        vm.editScene { rename(SCENE_CHANGED_NAME) }
+        vm.saveSceneEditor()
+        advanceUntilIdle()
+        assertTrue(vm.sceneEditor.value!!.saveFailed)
+        assertEquals(SCENE_CHANGED_NAME, vm.sceneEditor.value!!.scene.name)
+        vm.editScene { rename("Retry") }
+        assertEquals("Retry", vm.sceneEditor.value!!.scene.name)
+        vm.cancelSceneEditor()
+        assertNull(vm.sceneEditor.value)
+    }
 
     @Test
     fun `startStream uses saved url with appended stream key`() = runTest {
@@ -718,3 +795,7 @@ class StreamingViewModelTest {
         verify(exactly = 1) { engine.setFullFramePrivacy(true) }
     }
 }
+
+private const val SCENE_DRAFT_ID = "draft"
+private const val SCENE_DRAFT_NAME = "Draft"
+private const val SCENE_CHANGED_NAME = "Changed"

@@ -21,6 +21,10 @@ object StreamingServiceSupport {
     const val NOTIFICATION_ID = 1001
 
     const val ACTION_START_STREAM = "com.vivid.action.START_STREAM"
+    const val ACTION_GRANT_SCENE_PROJECTION = "com.vivid.action.GRANT_SCENE_PROJECTION"
+    const val EXTRA_SCENE_SOURCE_ID = "com.vivid.extra.SCENE_SOURCE_ID"
+    const val EXTRA_PROJECTION_RESULT = "com.vivid.extra.PROJECTION_RESULT"
+    const val EXTRA_PROJECTION_DATA = "com.vivid.extra.PROJECTION_DATA"
     const val ACTION_STOP_STREAM = "com.vivid.action.STOP_STREAM"
 
     /** Stream-Ziele (RTMP-URLs) als ArrayList<String> — Multi-Streaming. */
@@ -65,10 +69,10 @@ object StreamingServiceSupport {
      * Android 14+ verlangt für jeden `MediaProjection.createVirtualDisplay()`-
      * Aufruf einen bereits laufenden Foreground-Service vom Typ `mediaProjection`
      * — fehlt er, wirft der Aufruf eine SecurityException und der Service stirbt
-     * beim Start als `Unable to start service` (Sentry VIVID-39, Issue #221). Nur
-     * die Screen-Capture-Quelle (S2) streamt über genau diesen Pfad; Kamera,
-     * Video-Player und Replay brauchen den Typ nicht.
+     * beim Start als `Unable to start service` (Sentry VIVID-39, Issue #221). Die
+     * Legacy-Screen-Quelle und zusätzliche Scene-Projection-Grants benötigen
+     * diesen Typ; andere Quellen allein benötigen ihn nicht.
      */
-    fun requiresMediaProjectionFgs(sourceKind: VideoSourceKind): Boolean =
-        sourceKind == VideoSourceKind.SCREEN_CAPTURE
+    fun requiresMediaProjectionFgs(sourceKind: VideoSourceKind, sceneProjectionActive: Boolean = false): Boolean =
+        sourceKind == VideoSourceKind.SCREEN_CAPTURE || sceneProjectionActive
 }

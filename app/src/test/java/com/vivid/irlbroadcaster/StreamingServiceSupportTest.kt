@@ -11,6 +11,13 @@ import org.junit.Test
 class StreamingServiceSupportTest {
 
     @Test
+    fun `layered screen capture requires projection service regardless of primary source`() {
+        VideoSourceKind.entries.forEach { kind ->
+            assertTrue(StreamingServiceSupport.requiresMediaProjectionFgs(kind, sceneProjectionActive = true))
+        }
+    }
+
+    @Test
     fun `notificationTitle shows live state while streaming`() {
         assertEquals(R.string.notif_title_live, StreamingServiceSupport.notificationTitleRes(StreamingState.Streaming))
     }

@@ -55,6 +55,7 @@ class SceneControllerTest {
         }
         val streamingEngine = mockk<StreamingEngine> {
             every { switchSource(any()) } returns true
+            every { setSceneComposition(any(), any()) } just Runs
         }
         val controller = controller(
             sceneRepository = sceneRepository,
@@ -96,6 +97,7 @@ class SceneControllerTest {
         }
         val streamingEngine = mockk<StreamingEngine> {
             every { switchSource(any()) } returns true
+            every { setSceneComposition(any(), any()) } just Runs
         }
         val controller = controller(
             sceneRepository = sceneRepository,
@@ -112,6 +114,7 @@ class SceneControllerTest {
     fun `applyScene prepares the replay file for a replay scene`() = runTest {
         val streamingEngine = mockk<StreamingEngine> {
             every { useReplayAsSource(any()) } returns true
+            every { setSceneComposition(any(), any()) } just Runs
         }
         val controller = controller(
             sceneRepository = mockk(relaxed = true),
@@ -131,6 +134,7 @@ class SceneControllerTest {
     fun `applyScene without a replay path falls back to switching the replay source`() = runTest {
         val streamingEngine = mockk<StreamingEngine> {
             every { switchSource(any()) } returns true
+            every { setSceneComposition(any(), any()) } just Runs
         }
         val controller = controller(
             sceneRepository = mockk(relaxed = true),
@@ -142,5 +146,20 @@ class SceneControllerTest {
 
         coVerify(exactly = 1) { streamingEngine.switchSource(VideoSourceKind.REPLAY) }
         coVerify(exactly = 0) { streamingEngine.useReplayAsSource(any()) }
+    }
+
+    @Test
+    fun `layered scenes reach the compositor and basic scenes clear the graph`() = runTest {
+        val engine = mockk<StreamingEngine>(relaxed = true)
+        val scenes = mockk<SceneRepository>(relaxed = true)
+        val controller = controller(scenes, mockk(relaxed = true), engine)
+        val graph = com.vivid.core.data.SceneLayoutPreset.PICTURE_IN_PICTURE.arrange(
+            com.vivid.core.data.SceneSource("camera", com.vivid.core.data.SceneSourceType.CAMERA),
+            com.vivid.core.data.SceneSource("logo", com.vivid.core.data.SceneSourceType.IMAGE, "content://logo"),
+        )
+        controller.applyScene(scene("layered").copy(composition = graph))
+        coVerify(exactly = 1) { engine.setSceneComposition(graph, true) }
+        controller.applyScene(scene("basic"))
+        coVerify(exactly = 1) { engine.setSceneComposition(null, true) }
     }
 }

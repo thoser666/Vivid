@@ -299,9 +299,10 @@ jobs:
             # entfernt — siehe StreamingScreen.kt; ohne Grants hängt der Startup-
             # Smoke am Permission-Vertrag des Screen-Eintritts).
             bash scripts/emulator_test_setup.sh ${{ matrix.api-level }}
+            # Include the library GPU pixel/lifecycle suite; app tests alone do not run it.
             # Flavor-explicit (connectedDebugAndroidTest ist in diesem Projekt
             # wegen der Varianten foss/standard mehrdeutig — Ambiguous matches).
-            ./gradlew :app:connectedStandardDebugAndroidTest :app:connectedFossDebugAndroidTest
+            ./gradlew :app:connectedStandardDebugAndroidTest :app:connectedFossDebugAndroidTest :feature-streaming:connectedDebugAndroidTest
 
       - name: Upload instrumented test reports
         if: always()

@@ -87,6 +87,7 @@ dependencies {
     // HIER SIND DIE KORREKTEN, AUFGETEILTEN ABHÄNGIGKEITEN
     // WIE IM GITHUB-ISSUE BESCHRIEBEN.
     // 'ConnectCheckerRtmp' ist im ':rtmp'-Modul.
+    implementation(libs.uvc.android)
     implementation(libs.rootencoder.encoder)
     implementation(libs.rootencoder.library)
     implementation(libs.rootencoder.rtmp)
