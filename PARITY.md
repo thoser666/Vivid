@@ -598,7 +598,7 @@ gebracht (`f2dcf96`) — der Fork-Branch war `CONFLICTING` und für Maintainer
 nicht pushbar. Die 25 Log-Zeilen aus der PR-Entwicklung (2026-10-24 bis
 2026-10-26, Hashes `0bd56e4` … `91269be`) sind nach dem Squash keine
 Vorfahren von `develop` mehr, was `check_parity_log.sh --check-exists` rot
-meldete. Alle 25 Zeilen verweisen jetzt auf `f2dcf96`, den einzigen
+meldete. Alle 25 Zeilen — Log und Zuordnungstabelle — verweisen jetzt auf `f2dcf96`, den einzigen
 `develop`-Commit, der sie einbrachte — dasselbe Vorgehen wie beim
 Squash-Hinweis zu #322.
 
@@ -625,31 +625,31 @@ Commit die Log-Zeile hinzufügte:
 | 2026-10-27 | `3297758` | feat(sentry): carry build identity in the environment tag | `3297758` | Squash-Merge-PR #352 (verfasst in Branch-Commit `d822955`); Belege: gemergte Manifeste aller drei Varianten, Mutationsprobe (fehlendes Mapping → roter Build) mit byte-identischer Restauration, Ops-Doku ergänzt |
 | 2026-10-27 | `ff758d5c` | test(contributors): lock the #330 pre-merge announcement contract | `ff758d5c` | Squash-Merge-PR #351 bringt die Zeile nach develop (verfasst in Branch-Commit `31191b3`, nach dem Squash neu verankert); Belege: Mutationsprobe C17a rot → byte-identische Restauration grün, test_contributors 18/18 (C1–C17), pre-Push-Gate grün, CI „Build & Test“ + „Secret Guard“ pass |
 | 2026-10-26 | `8947868` | docs(contributors): credit nglmercer for open compositor PR #330, document pre-merge announcement | `8947868` | Direkter develop-Commit (kein PR); Beleg: contributors-guard 7 Einträge, test_contributors 13/13, markdown-anchors 101 Dateien |
-| 2026-10-26 | `91269be` | #330: typisierte Scene-Flows in Screen-Test-Fixtures | `91269be` | CI-XML: Object → SceneEditorState in 35 Render- und fünf Permission-Fällen; Validierung folgt. |
-| 2026-10-26 | `f9b9f47` | #330: letzten Sonar-Komplexitätsbefund im Preview-Anschluss aufteilen | `f9b9f47` | S3776: ursprüngliche Komplexität 22 bei Grenze 15; Legacy-Orientierung separat. |
-| 2026-10-26 | `a3d23af` | #330: develop während des Konfliktlaufs bis 54e38d12 nachgezogen | `a3d23af` | Zweiter Merge für während der Validierung vorgerückte Basis; Android-Quellen unverändert. |
-| 2026-10-26 | `5351d97` | #330: develop bis 8064da7a konfliktfrei integriert | `5351d97` | Merge-Commit erhält beide Capture-Pfade; 493 Tests, App-/Instrumentierungs-Kompilation und strukturelle Guards grün. |
-| 2026-10-26 | `6a663d3` | #330: Optionale GL-Owner-Auflösung von der Verarbeitung | `6a663d3` | Folgeprüfung nach je einem Sonar-/DeepSource-Befund; keine Non-null-Annahme für fehlende Quellen. |
-| 2026-10-26 | `0a7b42f` | #330: Verbleibende Bot-Befunde zu USB-Resultat-Parametern | `0a7b42f` | Folgepatch nach zwei Sonar- und elf DeepSource-Befunden; nullable Semantik bleibt erhalten. |
-| 2026-10-26 | `73569c5` | #306/#330: Bot-Befunde durch Aufteilung von Capture-/Frame-Lifecycle | `73569c5` | 23 Sonar- und 59 DeepSource-Befunde am Ausgangsstand; neue Analyse prüft die tatsächliche Bereinigung. |
-| 2026-10-26 | `cbfc673` | #306: Primäre Ebenen an wiederverwendbare Capture-Konfigurationen binden | `cbfc673` | Implementierung und Regressionstests; Hardware-/Performance-Nachweis offen. |
-| 2026-10-25 | `88fb798` | Szenen-Dateiwiedergabe und Legacy-Handoff | Szenen-Kompositor | 233 Szenenfälle im breiteren 390-Test-Lauf, vier Manifestfälle, App-/Instrumentierungs-Kompilierung; reale A/V-/EGL-/Performance- und vollständige Gate-Verifikation offen. |
-| 2026-10-25 | `15d5cef` | Szenen-Audiorouting und Datei-Adapter | Szenen-Kompositor | Mikrofonbedarf, Rollback, PCM-Paketierung und Cleanup getestet; vollständiger Datei-/Replay-Live-Wechsel und Geräte-Nachweis offen. |
-| 2026-10-25 | `b8347cb` | USB-Kameras ohne Camera-HAL (#306) | `b8347cb` | 182 Szenen-Tests, drei Manifest-Tests und Streaming-Lint grün; FPS-/Storage-Merge-Regressionen zuvor rot reproduziert. Native-Capture und Gerätemessungen offen. |
-| 2026-10-25 | `1e7cb1a` | Capture-Lifetime bei Effektwechseln (#306) | `1e7cb1a` | 179 Tests grün, 15 GLES-Fixtures kompiliert; Retirement-/Cleanup- und Filter-State-Regressionen zuvor rot reproduziert. Streaming-Lint grün; Hardware-Nachweise offen. |
-| 2026-10-25 | `6b78dc7` | Capture-FPS nach Ausgabebedarf (#306) | `6b78dc7` | 13 neue gezielte Tests und Streaming-Lint grün; breiter Wiederholungslauf und neue GLES-Fixture noch offen, keine gemessene Capture-Rate. |
-| 2026-10-25 | `1b131bd` | Kameratexturen und Capture-Größen (#306) | `1b131bd` | 108 Szenen-Tests und Streaming-Lint grün; SDK-28/34-Shadows, 13 GPU-Fixtures kompiliert; kein Hardware-/GPU-Nachweis. |
-| 2026-10-25 | `b8944ae` | Unabhängiger Takt bei Live-Aktivierung (#306) | `b8944ae` | 151 gezielte Tests und Streaming-Lint grün, Instrumented-Quellen kompiliert; kein GPU-/Geräte-Nachweis. |
-| 2026-10-25 | `2be82d4` | Gemeinsamer Scene-Encoderpfad (#306) | `2be82d4` | 207 gezielte Tests und Streaming-Lint grün, Standard-App kompiliert; Gesamt-Gate am Conscrypt-Hostfehler rot, kein GPU-/Geräte-Nachweis. |
-| 2026-10-24 | `c59a608` | Scene-Output- und Capture-Ownership (#306) | `c59a608` | Session vorbereitet, App-Routing noch nicht migriert; kein GPU-/Geräte-Nachweis. |
-| 2026-10-24 | `224c128` | GPU-Workflow-Guard UTF-8 (#306) | `224c128` | Guard-Nachweis, kein GPU-Ausführungsnachweis. |
-| 2026-10-24 | `5253f4a` | Statische Screen-Frames und GPU-Emulator-Task (#306) | `5253f4a` | Tests kompiliert, kein GPU-Lauf; Fork-Actions deaktiviert. |
-| 2026-10-24 | `6c91614` | Chat-Lifecycle bei Scene-Capture (#306) | `6c91614` | Stream- und Capture-Lifetime getrennt; Geräte-Smoke offen. |
-| 2026-10-24 | `9b65986` | Scene-Widget API-24-Kompatibilität (#306) | `9b65986` | Kompatibilitätskorrektur aus Lint; kein Feature-Abschluss. |
-| 2026-10-24 | `4d96959` | Live-Editor und Capture-Consent (#306) | Szenen; Bild-in-Bild (PiP) | WIP: Editor und Capture-Handoff implementiert; Geräte-/GPU-/Performance-Verifikation offen. |
-| 2026-10-24 | `e63867b` | Scene-Compositor GPU-/Capture-Integration (#306) | `e63867b` | Implementierungs-Commit, Gesamtumfang und Hardware-Nachweise offen. |
-| 2026-10-24 | `a28d4af` | Scene-Compositor-Grundlagen (#306) | `a28d4af` | Implementierungs-Commit; vollständiger Umfang bleibt offen, siehe Umsetzungsstand. |
-| 2026-10-24 | `0bd56e4` | Scene-Compositor-RFC (#306) | `0bd56e4` | RFC-Commit; Log folgt separat, kein implementiertes Feature. |
+| 2026-10-26 | `f2dcf96` | #330: typisierte Scene-Flows in Screen-Test-Fixtures | `f2dcf96` | CI-XML: Object → SceneEditorState in 35 Render- und fünf Permission-Fällen; Validierung folgt. |
+| 2026-10-26 | `f2dcf96` | #330: letzten Sonar-Komplexitätsbefund im Preview-Anschluss aufteilen | `f2dcf96` | S3776: ursprüngliche Komplexität 22 bei Grenze 15; Legacy-Orientierung separat. |
+| 2026-10-26 | `f2dcf96` | #330: develop während des Konfliktlaufs bis 54e38d12 nachgezogen | `f2dcf96` | Zweiter Merge für während der Validierung vorgerückte Basis; Android-Quellen unverändert. |
+| 2026-10-26 | `f2dcf96` | #330: develop bis 8064da7a konfliktfrei integriert | `f2dcf96` | Merge-Commit erhält beide Capture-Pfade; 493 Tests, App-/Instrumentierungs-Kompilation und strukturelle Guards grün. |
+| 2026-10-26 | `f2dcf96` | #330: Optionale GL-Owner-Auflösung von der Verarbeitung | `f2dcf96` | Folgeprüfung nach je einem Sonar-/DeepSource-Befund; keine Non-null-Annahme für fehlende Quellen. |
+| 2026-10-26 | `f2dcf96` | #330: Verbleibende Bot-Befunde zu USB-Resultat-Parametern | `f2dcf96` | Folgepatch nach zwei Sonar- und elf DeepSource-Befunden; nullable Semantik bleibt erhalten. |
+| 2026-10-26 | `f2dcf96` | #306/#330: Bot-Befunde durch Aufteilung von Capture-/Frame-Lifecycle | `f2dcf96` | 23 Sonar- und 59 DeepSource-Befunde am Ausgangsstand; neue Analyse prüft die tatsächliche Bereinigung. |
+| 2026-10-26 | `f2dcf96` | #306: Primäre Ebenen an wiederverwendbare Capture-Konfigurationen binden | `f2dcf96` | Implementierung und Regressionstests; Hardware-/Performance-Nachweis offen. |
+| 2026-10-25 | `f2dcf96` | Szenen-Dateiwiedergabe und Legacy-Handoff | Szenen-Kompositor | 233 Szenenfälle im breiteren 390-Test-Lauf, vier Manifestfälle, App-/Instrumentierungs-Kompilierung; reale A/V-/EGL-/Performance- und vollständige Gate-Verifikation offen. |
+| 2026-10-25 | `f2dcf96` | Szenen-Audiorouting und Datei-Adapter | Szenen-Kompositor | Mikrofonbedarf, Rollback, PCM-Paketierung und Cleanup getestet; vollständiger Datei-/Replay-Live-Wechsel und Geräte-Nachweis offen. |
+| 2026-10-25 | `f2dcf96` | USB-Kameras ohne Camera-HAL (#306) | `f2dcf96` | 182 Szenen-Tests, drei Manifest-Tests und Streaming-Lint grün; FPS-/Storage-Merge-Regressionen zuvor rot reproduziert. Native-Capture und Gerätemessungen offen. |
+| 2026-10-25 | `f2dcf96` | Capture-Lifetime bei Effektwechseln (#306) | `f2dcf96` | 179 Tests grün, 15 GLES-Fixtures kompiliert; Retirement-/Cleanup- und Filter-State-Regressionen zuvor rot reproduziert. Streaming-Lint grün; Hardware-Nachweise offen. |
+| 2026-10-25 | `f2dcf96` | Capture-FPS nach Ausgabebedarf (#306) | `f2dcf96` | 13 neue gezielte Tests und Streaming-Lint grün; breiter Wiederholungslauf und neue GLES-Fixture noch offen, keine gemessene Capture-Rate. |
+| 2026-10-25 | `f2dcf96` | Kameratexturen und Capture-Größen (#306) | `f2dcf96` | 108 Szenen-Tests und Streaming-Lint grün; SDK-28/34-Shadows, 13 GPU-Fixtures kompiliert; kein Hardware-/GPU-Nachweis. |
+| 2026-10-25 | `f2dcf96` | Unabhängiger Takt bei Live-Aktivierung (#306) | `f2dcf96` | 151 gezielte Tests und Streaming-Lint grün, Instrumented-Quellen kompiliert; kein GPU-/Geräte-Nachweis. |
+| 2026-10-25 | `f2dcf96` | Gemeinsamer Scene-Encoderpfad (#306) | `f2dcf96` | 207 gezielte Tests und Streaming-Lint grün, Standard-App kompiliert; Gesamt-Gate am Conscrypt-Hostfehler rot, kein GPU-/Geräte-Nachweis. |
+| 2026-10-24 | `f2dcf96` | Scene-Output- und Capture-Ownership (#306) | `f2dcf96` | Session vorbereitet, App-Routing noch nicht migriert; kein GPU-/Geräte-Nachweis. |
+| 2026-10-24 | `f2dcf96` | GPU-Workflow-Guard UTF-8 (#306) | `f2dcf96` | Guard-Nachweis, kein GPU-Ausführungsnachweis. |
+| 2026-10-24 | `f2dcf96` | Statische Screen-Frames und GPU-Emulator-Task (#306) | `f2dcf96` | Tests kompiliert, kein GPU-Lauf; Fork-Actions deaktiviert. |
+| 2026-10-24 | `f2dcf96` | Chat-Lifecycle bei Scene-Capture (#306) | `f2dcf96` | Stream- und Capture-Lifetime getrennt; Geräte-Smoke offen. |
+| 2026-10-24 | `f2dcf96` | Scene-Widget API-24-Kompatibilität (#306) | `f2dcf96` | Kompatibilitätskorrektur aus Lint; kein Feature-Abschluss. |
+| 2026-10-24 | `f2dcf96` | Live-Editor und Capture-Consent (#306) | Szenen; Bild-in-Bild (PiP) | WIP: Editor und Capture-Handoff implementiert; Geräte-/GPU-/Performance-Verifikation offen. |
+| 2026-10-24 | `f2dcf96` | Scene-Compositor GPU-/Capture-Integration (#306) | `f2dcf96` | Implementierungs-Commit, Gesamtumfang und Hardware-Nachweise offen. |
+| 2026-10-24 | `f2dcf96` | Scene-Compositor-Grundlagen (#306) | `f2dcf96` | Implementierungs-Commit; vollständiger Umfang bleibt offen, siehe Umsetzungsstand. |
+| 2026-10-24 | `f2dcf96` | Scene-Compositor-RFC (#306) | `f2dcf96` | RFC-Commit; Log folgt separat, kein implementiertes Feature. |
 | 2026-10-26 | `0424c3e` | docs(sentry-issues): closure practice for single-event validation OOMs (§5.8) | `0424c3e` | Log-Zeile folgt in diesem docs(parity)-Commit — der eigene Hash ist erst nach dem Code-Commit bekannt; Beleg: markdown-anchors grün (101 Dateien) |
 | 2026-10-26 | `8606818` | sentry-issues: read-only --print-event-tags CI path for existing findings | `8606818` | Log-Zeile folgt in diesem docs(parity)-Commit — der eigene Hash ist erst nach dem Code-Commit bekannt; Belege: Mutationsprobe (ohne environment in der Diagnose → I19 rot), Selbsttest I1–I19, workflow-security + no-line-windows grün |
 | 2026-10-26 | `89e6390` | sentry-issues: enrich watchdog issues with latest-event release tags | `89e6390` | Log-Zeile folgt in diesem docs(parity)-Commit — der eigene Hash ist erst nach dem Code-Commit bekannt; Belege: Mutationsproben (Anreicherung deaktiviert → I17 rot, gefälschter Fallback-Status → I18 rot), Negativkontrolle grün, Selbsttest I1–I18 |
