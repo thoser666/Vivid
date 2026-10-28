@@ -56,7 +56,7 @@ class SceneEncoderSession internal constructor(
         stream.forceCodecType(CodecUtil.CodecType.HARDWARE, CodecUtil.CodecType.FIRST_COMPATIBLE_FOUND)
         stream.setVideoCodec(codec)
         val preset = config.preset
-        gl.setForceRender(true, preset.fps)
+        gl.setForceRender(true, config.fps)
         prepared = stream.prepareVideo(if (portrait) preset.height else preset.width, if (portrait) preset.width else preset.height,
             (bitrateKbps ?: preset.videoBitrateKbps) * 1_000, config.fps, keyframeIntervalSeconds, 0) &&
             stream.prepareAudio(32_000, true, 64_000)

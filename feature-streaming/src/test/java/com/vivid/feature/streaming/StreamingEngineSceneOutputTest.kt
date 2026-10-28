@@ -63,9 +63,11 @@ class StreamingEngineSceneOutputTest {
         val engine = engine()
         engine.configureStreamVideo(AppSettings(appOrientation = AppOrientation.PORTRAIT,
             videoBitrateKbps = 4_500, keyframeIntervalSeconds = 3))
+        engine.configureEncoder(ResolvedEncoderConfig(VideoCodecPreference.H264, EncoderPreset.FHD60,
+            false, fps = 30), autoFallback = true)
         engine.setSceneComposition(graph())
         engine.startStream(listOf(SCENE_RTMP_ONE_LIVE))
-        verify(exactly = 1) { session.prepare(any(), true, 4_500, 3) }
+        verify(exactly = 1) { session.prepare(match { it.fps == 30 }, true, 4_500, 3) }
         engine.configureStreamVideo(AppSettings(appOrientation = AppOrientation.LANDSCAPE))
         verify(exactly = 1) { session.prepare(any(), any(), any(), any()) }
     }

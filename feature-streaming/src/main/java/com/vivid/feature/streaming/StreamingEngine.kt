@@ -363,7 +363,7 @@ class StreamingEngine @Inject constructor(
             captureFrameRate = {
                 val streaming = _streamingState.value
                 if (streaming is StreamingState.Preparing || streaming is StreamingState.Streaming ||
-                    _replayState.value is ReplayState.Recording) _activeEncoder.value?.preset?.fps ?: 30 else 30
+                    _replayState.value is ReplayState.Recording) _activeEncoder.value?.fps ?: 30 else 30
             },
         )
         sceneTextures = textures
@@ -741,7 +741,7 @@ class StreamingEngine @Inject constructor(
      */
     private fun applyPrivacyZones() {
         val gl = activeGlInterface() ?: return
-        gl.setForceRender(desiredSceneRender != null && sceneSession != null, _activeEncoder.value?.preset?.fps ?: 30)
+        gl.setForceRender(desiredSceneRender != null && sceneSession != null, _activeEncoder.value?.fps ?: 30)
         publishPrivacyEllipses()
         // Der Toggle-Zustand liegt im Composer; ein Rebuild stellt sicher,
         // dass die Kette den Soll-Zustand (inkl. neuer Zonen) trägt.
@@ -2512,7 +2512,7 @@ class StreamingEngine @Inject constructor(
     private fun updateSceneRenderClock() {
         val gl = activeGlInterface()
         val legacyOutput = sceneSession == null && desiredSceneRender != null && gl?.isRunning == true
-        sceneRenderClock.update(if (legacyOutput) gl else null, _activeEncoder.value?.preset?.fps ?: 30)
+        sceneRenderClock.update(if (legacyOutput) gl else null, _activeEncoder.value?.fps ?: 30)
     }
 
     private fun sceneEncoding(): Boolean = sceneSession?.let { it.isStreaming || it.isRecording } == true
@@ -2778,7 +2778,7 @@ class StreamingEngine @Inject constructor(
         val requested = _encoderConfig.value ?: ResolvedEncoderConfig(VideoCodecPreference.H264,
             com.vivid.core.data.EncoderPreset.HD30, false)
         val profile = if (_encoderAutoFallback.value) com.vivid.core.data.resolveEncoderConfig(
-            requested.codec, requested.preset, encoderCapabilities) else requested
+            requested.codec, requested.preset, encoderCapabilities, requested.fps) else requested
         _activeEncoder.value = null
         val portrait = requestedOutputOrientation?.let { it == com.vivid.core.data.AppOrientation.PORTRAIT }
             ?: (_sceneComposition.value?.let { it.canvasHeight > it.canvasWidth } ?: false)

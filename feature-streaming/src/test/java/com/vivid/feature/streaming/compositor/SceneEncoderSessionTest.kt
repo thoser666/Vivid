@@ -53,6 +53,14 @@ class SceneEncoderSessionTest {
         assertEquals(listOf("gl-stopped"), events)
     }
 
+    @Test fun `explicit frame rate controls native pacing independently of the preset name`() {
+        val session = SceneEncoderSession(stream, 2)
+        val config = ResolvedEncoderConfig(VideoCodecPreference.H264, EncoderPreset.FHD60, false, fps = 30)
+        assertTrue(session.prepare(config))
+        verify { gl.setForceRender(true, 30) }
+        verify { stream.prepareVideo(1920, 1080, any(), 30, any(), any(), any(), any(), any(), any(), any()) }
+    }
+
     @Test fun `targets and recording share one preparation and last disconnect preserves recording`() {
         val session = session()
         session.startTarget(0, SCENE_RTMP_ONE_LIVE)
