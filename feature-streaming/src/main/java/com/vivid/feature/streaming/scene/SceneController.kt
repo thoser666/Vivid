@@ -48,8 +48,9 @@ class SceneController @Inject constructor(
                 template = scene.widgetTemplate,
             )
         }
+        streamingEngine.setSceneComposition(scene.composition)
         sceneRepository.setActiveScene(scene.id)
-        streamingEngine.setSceneEmpty(scene.videoSource == SceneVideoSource.EMPTY)
+        streamingEngine.setSceneEmpty(scene.composition == null && scene.videoSource == SceneVideoSource.EMPTY)
     }
 
     /**

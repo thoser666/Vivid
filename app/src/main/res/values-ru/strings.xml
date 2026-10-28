@@ -92,4 +92,6 @@
     <string name="crash_diag_retry">Попробовать запустить приложение</string>
 
     <!-- Таймер Помодоро (ui/pomodoro/PomodoroScreen.kt) -->
+    <string name="notif_scene_capture_title">Захват сцены активен</string>
+    <string name="notif_scene_capture_text">Захват экрана для предпросмотра сцены</string>
 </resources>

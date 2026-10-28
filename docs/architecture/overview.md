@@ -97,3 +97,7 @@ User Input → SettingsViewModel → SettingsRepository → DataStore
 - [PARITY.md](https://github.com/thoser666/Vivid/blob/develop/PARITY.md) - Feature-Parität mit Moblin
 - [RELEASE.md](https://github.com/thoser666/Vivid/blob/develop/RELEASE.md) - Release-Strategie
 - [ai-chat-bot.md](../ai-chat-bot.md) - Bot-Architektur
+
+## Architektur-RFCs
+
+- [GPU-Szenenkompositor](scene-compositor.md): RFC zu #306; Overlay-Textur-Proof als späteres Gate, Multi-Source und Editor zurückgestellt.

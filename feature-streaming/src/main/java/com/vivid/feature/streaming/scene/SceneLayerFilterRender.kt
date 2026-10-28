@@ -18,6 +18,7 @@ class SceneLayerFilterRender(
     private val mirrorOutput: () -> Boolean,
     private val onReady: (SceneLayerFilterRender, Surface, Int, Int) -> Unit,
     private val onReleased: (SceneLayerFilterRender) -> Unit,
+    private val useLayoutBlackout: () -> Boolean = { true },
 ) : BaseFilterRender() {
     @Volatile var released = false
         private set
@@ -92,7 +93,7 @@ class SceneLayerFilterRender(
         GLES20.glActiveTexture(GLES20.GL_TEXTURE1)
         GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, textureId[0])
         GLES20.glUniform1f(mirrored, if (mirrorOutput()) 1f else 0f)
-        GLES20.glUniform1f(hidden, if (hideSource() || sceneEmptyFromLayout) 1f else 0f)
+        GLES20.glUniform1f(hidden, if (hideSource() || (useLayoutBlackout() && sceneEmptyFromLayout)) 1f else 0f)
         GLES20.glUniform1f(ready, if (hasFrame) 1f else 0f)
     }
 

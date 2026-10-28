@@ -143,4 +143,5 @@ class VideoFilterControllerTest {
         })
         assertEquals(VideoFilter.SEPIA, controller.activeFilter.value)
     }
+
 }

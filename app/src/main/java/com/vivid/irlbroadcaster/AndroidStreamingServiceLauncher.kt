@@ -25,6 +25,16 @@ class AndroidStreamingServiceLauncher @Inject constructor(
         StreamingService.start(context, urls)
     }
 
+    override fun startSceneProjection(sourceId: String, resultCode: Int, data: android.content.Intent): Boolean {
+        return try {
+            StreamingService.grantSceneProjection(context, sourceId, resultCode, data)
+            true
+        } catch (failure: RuntimeException) {
+            timber.log.Timber.w(failure, "Unable to start scene capture service")
+            false
+        }
+    }
+
     override fun stopStreaming() {
         StreamingService.stop(context)
     }

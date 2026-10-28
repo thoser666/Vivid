@@ -24,15 +24,21 @@ class SceneRepository @Inject constructor(private val dataStore: DataStore<Prefe
     val activeSceneIdFlow: Flow<String?> = dataStore.data.map { it[ACTIVE_SCENE_ID]?.takeIf(String::isNotBlank) }
     val libraryInitializedFlow: Flow<Boolean> = dataStore.data.map { it[WIDGETS_JSON] != null }
 
+    /** Original JSON before the first layered-scene write, available for recovery/export. */
+    val legacyScenesBackupFlow: Flow<String?> = dataStore.data.map { it[LEGACY_SCENES_BACKUP] }
+
     suspend fun saveScene(scene: StreamScene) = dataStore.edit { prefs ->
-        val scenes = decodeScenes(prefs)
+        val scenes = decodeScenesForWrite(prefs)
+        if (scene.composition != null && prefs[LEGACY_SCENES_BACKUP] == null) {
+            prefs[LEGACY_SCENES_BACKUP] = prefs[SCENES_JSON].orEmpty()
+        }
         prefs[SCENES_JSON] = json.encodeToString(if (scenes.any { it.id == scene.id }) {
             scenes.map { if (it.id == scene.id) scene else it }
         } else scenes + scene)
     }.let { }
 
     suspend fun deleteScene(id: String) = dataStore.edit { prefs ->
-        prefs[SCENES_JSON] = json.encodeToString(decodeScenes(prefs).filterNot { it.id == id })
+        prefs[SCENES_JSON] = json.encodeToString(decodeScenesForWrite(prefs).filterNot { it.id == id })
         if (prefs[ACTIVE_SCENE_ID] == id) prefs.remove(ACTIVE_SCENE_ID)
     }.let { }
 
@@ -41,7 +47,7 @@ class SceneRepository @Inject constructor(private val dataStore: DataStore<Prefe
     }.let { }
 
     suspend fun reorderScenes(ids: List<String>) = dataStore.edit { prefs ->
-        prefs[SCENES_JSON] = json.encodeToString(order(decodeScenes(prefs), ids) { it.id })
+        prefs[SCENES_JSON] = json.encodeToString(order(decodeScenesForWrite(prefs), ids) { it.id })
     }.let { }
 
     suspend fun saveWidget(widget: StreamWidget) = saveWidgetWithSceneVisibility(widget, emptyMap())
@@ -56,7 +62,7 @@ class SceneRepository @Inject constructor(private val dataStore: DataStore<Prefe
                 widgets.map { if (it.id == widget.id) widget else it }
             } else widgets + widget)
             if (globalVisibility != null || visibility.isNotEmpty()) {
-                prefs[SCENES_JSON] = json.encodeToString(decodeScenes(prefs).map { scene ->
+                prefs[SCENES_JSON] = json.encodeToString(decodeScenesForWrite(prefs).map { scene ->
                     val enabled = globalVisibility ?: visibility[scene.id] ?: return@map scene
                     val placements = scene.widgets.orEmpty()
                     if (placements.any { it.widgetId == widget.id }) {
@@ -76,7 +82,7 @@ class SceneRepository @Inject constructor(private val dataStore: DataStore<Prefe
 
     suspend fun deleteWidget(id: String) = dataStore.edit { prefs ->
         prefs[WIDGETS_JSON] = json.encodeToString(decodeWidgets(prefs).filterNot { it.id == id })
-        prefs[SCENES_JSON] = json.encodeToString(decodeScenes(prefs).map { scene ->
+        prefs[SCENES_JSON] = json.encodeToString(decodeScenesForWrite(prefs).map { scene ->
             scene.copy(widgets = scene.widgets?.filterNot { it.widgetId == id })
         })
     }.let { }
@@ -104,7 +110,7 @@ class SceneRepository @Inject constructor(private val dataStore: DataStore<Prefe
             fun placements() = widgets.take(types.size).filter { visible[it.type] == true }.mapIndexed { index, widget ->
                 SceneWidget(widget.id, x = if (index % 2 == 0) 0f else 70f, y = (index / 2 * 20f).coerceAtMost(80f))
             }
-            val old = decodeScenes(prefs)
+            val old = decodeScenesForWrite(prefs)
             val scenes = if (old.isEmpty()) listOf(StreamScene("default", defaultName, widgets = placements())) else old.map { scene ->
                 // Explicit placements belong to managed scenes, including deliberately empty new scenes.
                 if (scene.widgets != null) return@map scene
@@ -133,7 +139,7 @@ class SceneRepository @Inject constructor(private val dataStore: DataStore<Prefe
                 enabled = settings.pomodoroEnabled, configuration = WidgetConfiguration.from(settings))
             prefs[WIDGETS_JSON] = json.encodeToString(widgets + widget)
             if (widget.enabled) {
-                val scenes = decodeScenes(prefs)
+                val scenes = decodeScenesForWrite(prefs)
                 val target = scenes.find { it.id == prefs[ACTIVE_SCENE_ID] } ?: scenes.firstOrNull()
                 prefs[SCENES_JSON] = json.encodeToString(scenes.map { scene ->
                     if (scene.id == target?.id && scene.widgets.orEmpty().none { it.widgetId == widget.id }) {
@@ -147,11 +153,15 @@ class SceneRepository @Inject constructor(private val dataStore: DataStore<Prefe
 
     companion object {
         private val POMODORO_MIGRATED = booleanPreferencesKey("pomodoro_widget_migrated")
+        private val LEGACY_SCENES_BACKUP = stringPreferencesKey("scenes_before_composition_json")
         private val SAVED_LAYOUT = stringPreferencesKey("scene_widget_saved_layout")
         internal val SCENES_JSON = stringPreferencesKey("scenes_json")
         internal val WIDGETS_JSON = stringPreferencesKey("scene_widgets_json")
         internal val ACTIVE_SCENE_ID = stringPreferencesKey("active_scene_id")
         private val json = Json { encodeDefaults = true; ignoreUnknownKeys = true }
+        /** Mutations must reject corrupt or future scene documents before committing a transaction. */
+        private fun decodeScenesForWrite(prefs: Preferences): List<StreamScene> =
+            prefs[SCENES_JSON]?.takeIf { it.isNotBlank() }?.let { json.decodeFromString<List<StreamScene>>(it) }.orEmpty()
         internal fun decodeScenes(prefs: Preferences): List<StreamScene> = decode(prefs[SCENES_JSON])
         internal fun decodeWidgets(prefs: Preferences): List<StreamWidget> = decode(prefs[WIDGETS_JSON])
         private inline fun <reified T> decode(raw: String?): List<T> =

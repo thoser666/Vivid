@@ -48,7 +48,7 @@ class SceneLayerHost @Inject constructor(
     private val main = Handler(Looper.getMainLooper())
     private val sessions = mutableMapOf<SceneLayerFilterRender, Session>()
 
-    fun createFilter(hidden: () -> Boolean, mirrored: () -> Boolean): SceneLayerFilterRender = SceneLayerFilterRender(hidden, mirrored,
+    fun createFilter(hidden: () -> Boolean, mirrored: () -> Boolean, useLayoutBlackout: () -> Boolean = { true }): SceneLayerFilterRender = SceneLayerFilterRender(hidden, mirrored,
         onReady = { filter, surface, width, height -> main.post {
             if (!filter.released) {
                 runCatching { Session(filter, surface, width, height).also { sessions[filter] = it }.start() }
@@ -56,6 +56,7 @@ class SceneLayerHost @Inject constructor(
             }
         } },
         onReleased = { filter -> main.post { sessions.remove(filter)?.close() } },
+        useLayoutBlackout = useLayoutBlackout,
     )
 
     /** Hardware Canvas owns an HWUI EGL context. Retire it before RootEncoder terminates EGL. */

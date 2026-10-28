@@ -212,4 +212,19 @@ class SceneControllerTest {
         io.mockk.verify(exactly = 0) { engine.setSceneEmpty(false) }
         coVerify(exactly = 0) { repo.setActiveScene(any()) }
     }
+
+    @Test
+    fun `layered scenes reach the compositor and basic scenes clear the graph`() = runTest {
+        val engine = mockk<StreamingEngine>(relaxed = true) { every { switchSource(any()) } returns true }
+        val scenes = mockk<SceneRepository>(relaxed = true)
+        val controller = controller(scenes, mockk(relaxed = true), engine)
+        val graph = com.vivid.core.data.SceneLayoutPreset.PICTURE_IN_PICTURE.arrange(
+            com.vivid.core.data.SceneSource("camera", com.vivid.core.data.SceneSourceType.CAMERA),
+            com.vivid.core.data.SceneSource("logo", com.vivid.core.data.SceneSourceType.IMAGE, "content://logo"),
+        )
+        controller.applyScene(scene("layered").copy(composition = graph))
+        coVerify(exactly = 1) { engine.setSceneComposition(graph, true) }
+        controller.applyScene(scene("basic"))
+        coVerify(exactly = 1) { engine.setSceneComposition(null, true) }
+    }
 }

@@ -92,4 +92,6 @@
     <string name="crash_diag_retry">Vollständigen Start versuchen</string>
 
     <!-- Pomodoro-Timer (ui/pomodoro/PomodoroScreen.kt) -->
+    <string name="notif_scene_capture_title">Szenenaufnahme aktiv</string>
+    <string name="notif_scene_capture_text">Bildschirmaufnahme für die Szenenvorschau</string>
 </resources>

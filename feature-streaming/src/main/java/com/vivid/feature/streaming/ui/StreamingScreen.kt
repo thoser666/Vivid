@@ -1,5 +1,6 @@
 package com.vivid.feature.streaming.ui
 
+import android.content.Context
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.pm.PackageManager
@@ -65,6 +66,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
+import com.vivid.feature.streaming.ui.scene.SceneEditorScreen
 import com.vivid.feature.streaming.CameraModeStatus
 import com.vivid.feature.streaming.CameraModeNotice
 import com.vivid.core.data.CameraMode
@@ -157,6 +159,17 @@ fun StreamingScreen(
     }
     val twitchState by twitchViewModel.uiState.collectAsStateWithLifecycle()
 
+    val sceneEditor by viewModel.sceneEditor.collectAsStateWithLifecycle()
+    val sceneSourceStates by streamingEngine.sceneProducerStates.collectAsStateWithLifecycle()
+    val privacyEnabled by viewModel.privacyEnabled.collectAsStateWithLifecycle(false)
+    sceneEditor?.let { editor ->
+        SceneEditorScreen(editor, streamingEngine, activeSourceKind, sceneSourceStates,
+            scenes.flatMap { it.composition?.sources.orEmpty() }, privacyEnabled,
+            viewModel::editScene, viewModel::saveSceneEditor, viewModel::cancelSceneEditor,
+            viewModel::grantSceneProjection)
+        return
+    }
+
     RefreshTwitchStatus(streamingState, twitchViewModel)
 
     // MainActivity requests capture permissions once on the first app launch.
@@ -179,14 +192,7 @@ fun StreamingScreen(
         showNotice(message, true, "recording")
     }
 
-    // Start idle preview only when camera permission is already granted.
-    LaunchedEffect(Unit) {
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
-            PackageManager.PERMISSION_GRANTED
-        ) {
-            streamingEngine.startIdlePreviewIfReady()
-        }
-    }
+    StartGrantedIdlePreview(streamingEngine, context)
 
     val requestScreenCapture = rememberScreenCaptureAction(streamingEngine)
 
@@ -278,6 +284,7 @@ fun StreamingScreen(
                     onRecord = requestPermissionsAndRecord,
                     onScreenCapture = requestScreenCapture,
                     onVideoPicker = { requestVideoPicker() },
+                    onEditScene = { scenes.firstOrNull { it.id == activeSceneId }?.let(viewModel::openSceneEditor) },
                 )
                 FilledIconButton(
                     onClick = { navController.navigate("settings_route") },
@@ -306,6 +313,15 @@ fun StreamingScreen(
             }
 
 
+        }
+    }
+}
+
+@Composable
+private fun StartGrantedIdlePreview(streamingEngine: StreamingEngine, context: Context) {
+    LaunchedEffect(Unit) {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+            streamingEngine.startIdlePreviewIfReady()
         }
     }
 }
@@ -342,6 +358,7 @@ private fun BoxScope.StreamingControlsMenu(
     onRecord: () -> Unit,
     onScreenCapture: () -> Unit,
     onVideoPicker: () -> Unit,
+    onEditScene: () -> Unit,
 ) {
     fun dismissControls() { onControlsExpandedChange(false) }
     Box(
@@ -366,6 +383,10 @@ private fun BoxScope.StreamingControlsMenu(
             ShowMenuSystemBars()
             SourceSelectionItems(streamingEngine, ::dismissControls, onScreenCapture, onVideoPicker)
             HorizontalDivider()
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.scene_editor_open)) },
+                onClick = { dismissControls(); onEditScene() },
+            )
             RecordingMenuItem(streamingEngine, onRecord)
             CameraToggleItems(streamingEngine, navController, ::dismissControls)
             VideoEffectItems(streamingEngine)
@@ -414,9 +435,14 @@ private fun SourceSelectionItems(streamingEngine: StreamingEngine, onDismiss: ()
 private fun RecordingMenuItem(streamingEngine: StreamingEngine, onRecord: () -> Unit) {
     val activeSourceKind by streamingEngine.activeSourceKind.collectAsStateWithLifecycle()
     val replayState by streamingEngine.replayState.collectAsStateWithLifecycle()
+    val composition by streamingEngine.sceneComposition.collectAsStateWithLifecycle()
+    val streamingState by streamingEngine.streamingState.collectAsStateWithLifecycle()
+    val canRecord = remember(activeSourceKind, composition, streamingState, replayState) {
+        streamingEngine.canRecordReplay()
+    }
     DropdownMenuItem(
         modifier = Modifier.testTag("replay_record"),
-        enabled = activeSourceKind == VideoSourceKind.CAMERA,
+        enabled = replayState is ReplayState.Recording || canRecord,
         onClick = {
             if (replayState is ReplayState.Recording) streamingEngine.stopReplay()
             else onRecord()
@@ -677,7 +703,7 @@ private fun ControlsNavigationItems(navController: NavController, onDismiss: () 
 }
 
 @Composable
-private fun StreamingSourcePreview(streamingEngine: StreamingEngine, activeSourceKind: VideoSourceKind, previewSize: IntSize, displayRotationDegrees: Int) {
+internal fun StreamingSourcePreview(streamingEngine: StreamingEngine, activeSourceKind: VideoSourceKind, previewSize: IntSize, displayRotationDegrees: Int) {
     // Every source previews the same composed GL output that reaches the encoder.
     AndroidView(
         factory = { context ->
@@ -851,7 +877,10 @@ private fun rememberRecordingAction(viewModel: StreamingViewModel, onError: (Str
         if (grants.values.all { it }) startRecording() else latestOnError(recordingErrorMessage)
     }
     fun requestPermissionsAndRecord() {
-        val missing = listOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO).filter {
+        val missing = buildList {
+            if (viewModel.streamingEngine.sceneNeedsCameraPermission()) add(Manifest.permission.CAMERA)
+            add(Manifest.permission.RECORD_AUDIO)
+        }.filter {
             ContextCompat.checkSelfPermission(context, it) != PackageManager.PERMISSION_GRANTED
         }
         if (missing.isEmpty()) startRecording() else recordingPermissionLauncher.launch(missing.toTypedArray())
@@ -910,7 +939,7 @@ private fun rememberStreamStartAction(
 
     fun requestPermissionsAndStart() {
         val needed = buildList {
-            add(Manifest.permission.CAMERA)
+            if (streamingEngine.sceneNeedsCameraPermission()) add(Manifest.permission.CAMERA)
             add(Manifest.permission.RECORD_AUDIO)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 add(Manifest.permission.POST_NOTIFICATIONS)

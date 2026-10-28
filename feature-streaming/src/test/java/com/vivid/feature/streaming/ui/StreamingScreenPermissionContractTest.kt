@@ -84,6 +84,10 @@ class StreamingScreenPermissionContractTest {
         every { engine.stabilizationEnabled } returns MutableStateFlow(false)
         every { engine.torchEnabled } returns MutableStateFlow(false)
         every { engine.activeSourceKind } returns MutableStateFlow(VideoSourceKind.CAMERA)
+        every { engine.sceneNeedsCameraPermission() } returns true
+        every { engine.canRecordReplay() } returns true
+        every { engine.sceneComposition } returns MutableStateFlow(null)
+        every { engine.sceneProducerStates } returns MutableStateFlow(emptyMap())
         every { engine.activeFilter } returns MutableStateFlow(VideoFilter.NONE)
         every { engine.lowLightBoostEnabled } returns MutableStateFlow(false)
         every { engine.activeLutPreset } returns MutableStateFlow(LutPreset.NONE)
@@ -97,6 +101,7 @@ class StreamingScreenPermissionContractTest {
 
         viewModel = mockk(relaxed = true)
         every { viewModel.streamingEngine } returns engine
+        every { viewModel.sceneEditor } returns MutableStateFlow(null)
         every { viewModel.configIssues } returns MutableStateFlow(emptyList())
         every { viewModel.scenes } returns MutableStateFlow(emptyList())
         every { viewModel.appSettings } returns MutableStateFlow(com.vivid.core.data.AppSettings())
@@ -105,6 +110,7 @@ class StreamingScreenPermissionContractTest {
         every { viewModel.autoSwitchIntervalSeconds } returns MutableStateFlow(30L)
         every { viewModel.privacyEnabled } returns MutableStateFlow(false)
         every { viewModel.privacyZones } returns MutableStateFlow(emptyList())
+        every { viewModel.fullFrameBlurEnabled } returns MutableStateFlow(false)
 
         twitchViewModel = mockk(relaxed = true)
         every { twitchViewModel.uiState } returns MutableStateFlow(TwitchChannelUiState())
@@ -229,3 +235,5 @@ class StreamingScreenPermissionContractTest {
         composeRule.onNodeWithTag("stream_status_overlay").assertIsDisplayed()
     }
 }
+
+private const val SCENE_START_STREAMING = "Start Streaming"

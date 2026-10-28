@@ -29,6 +29,9 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.combine
+import com.vivid.feature.streaming.ReplayState
+import com.vivid.core.data.SceneSourceType
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
@@ -65,6 +68,8 @@ class StreamingService : Service() {
     private var wakeLock: PowerManager.WakeLock? = null
     private var stopped = false
     private var stateJob: Job? = null
+    private var projectionJob: Job? = null
+    private var pendingProjection = false
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -113,17 +118,60 @@ class StreamingService : Service() {
                 scheduleStartupWatchdog()
             }
 
+            StreamingServiceSupport.ACTION_GRANT_SCENE_PROJECTION -> acceptSceneProjection(intent)
+
             StreamingServiceSupport.ACTION_STOP_STREAM -> stopStreaming()
 
             // Prozess-Neustart ohne Intent: nur weiterlaufen, wenn wirklich gestreamt wird.
             else -> {
-                if (streamingEngine.streamingState.value !is StreamingState.Streaming) {
+                if (streamingEngine.streamingState.value !is StreamingState.Streaming && !streamingEngine.sceneProjectionActive.value) {
                     chatBotController.onStreamStopped()
                     stopSelf()
                 }
             }
         }
         return START_NOT_STICKY
+    }
+
+    /** Consent is consumed only after the mediaProjection foreground type is active. */
+    private fun acceptSceneProjection(intent: Intent) {
+        val sourceId = intent.getStringExtra(StreamingServiceSupport.EXTRA_SCENE_SOURCE_ID)
+        val result = intent.getIntExtra(StreamingServiceSupport.EXTRA_PROJECTION_RESULT, android.app.Activity.RESULT_CANCELED)
+        val data = androidx.core.content.IntentCompat.getParcelableExtra(intent,
+            StreamingServiceSupport.EXTRA_PROJECTION_DATA, Intent::class.java)
+        if (sourceId == null || data == null || result != android.app.Activity.RESULT_OK ||
+            streamingEngine.sceneComposition.value?.sources?.none {
+                it.id == sourceId && it.type == SceneSourceType.SCREEN_CAPTURE
+            } != false) {
+            if (!streamingEngine.sceneProjectionActive.value && streamingEngine.streamingState.value is StreamingState.Idle) stopService()
+            return
+        }
+        pendingProjection = true
+        try {
+            if (!startAsForeground(stopOnFailure = wakeLock?.isHeld != true)) return
+            val manager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as android.media.projection.MediaProjectionManager
+            val projection = manager.getMediaProjection(result, data)
+                ?: error("MediaProjection consent produced no grant")
+            streamingEngine.grantSceneProjection(sourceId, projection)
+        } catch (failure: RuntimeException) {
+            Timber.w(failure, "StreamingService: scene capture authorization failed")
+        } finally {
+            pendingProjection = false
+            observeSceneProjection()
+        }
+    }
+
+    private fun observeSceneProjection() {
+        projectionJob?.cancel()
+        projectionJob = serviceScope.launch {
+            combine(streamingEngine.sceneProjectionActive, streamingEngine.streamingState,
+                streamingEngine.replayState) { projection, stream, replay -> Triple(projection, stream, replay) }
+                .collect { (projection, stream, replay) ->
+                    if (!projection && stream is StreamingState.Idle && replay !is ReplayState.Recording) {
+                        stopService()
+                    } else updateNotification(stream)
+                }
+        }
     }
 
     /**
@@ -140,7 +188,7 @@ class StreamingService : Service() {
      *   starten (das Flag/der Typ ist nicht durchsetzbar, jede Projektion würde
      *   ohnehin scheitern) — der Aufrufer meldet den Fehler und beendet sich.
      */
-    private fun startAsForeground(): Boolean {
+    private fun startAsForeground(stopOnFailure: Boolean = true): Boolean {
         createNotificationChannel()
         val type = foregroundServiceType()
         // API 34+: Ist der Manifest-Typ-FGS deklariert, darf startForeground() nicht
@@ -148,7 +196,7 @@ class StreamingService : Service() {
         // Ohne jede erteilte FGS-Berechtigung gar nicht erst starten.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE && type == 0) {
             Timber.w("StreamingService: FGS type permissions missing - stream not started")
-            teardown()
+            if (stopOnFailure) teardown()
             return false
         }
         val notification = buildNotification(streamingEngine.streamingState.value)
@@ -158,12 +206,13 @@ class StreamingService : Service() {
             } else {
                 startForeground(StreamingServiceSupport.NOTIFICATION_ID, notification)
             }
+            stopped = false
             acquireWakeLock()
             true
         } catch (e: SecurityException) {
             // z. B. RECORD_AUDIO/CAMERA zwischen Go-Live und Start entzogen.
             Timber.e(e, "StreamingService: startForeground denied (FGS type permission?)")
-            teardown()
+            if (stopOnFailure) teardown()
             false
         }
     }
@@ -171,7 +220,7 @@ class StreamingService : Service() {
     /**
      * FGS-Typ für Kamera + Mikrofon, abhängig von der erteilten Runtime-Permission:
      * - microphone: Android 14+ verlangt RECORD_AUDIO (vorher bedingungslos)
-     * - camera: Android 15+ verlangt CAMERA (vorher bedingungslos)
+     * - camera: Android 14+ verlangt CAMERA (vorher bedingungslos)
      * - mediaProjection: nur bei aktiver Screen-Capture-Quelle (VIVID-39, #221);
      *   die Permission ist normal (Installzeit), die Entscheidung hängt an der
      *   aktiven Videoquelle (siehe [StreamingServiceSupport.requiresMediaProjectionFgs]).
@@ -187,7 +236,7 @@ class StreamingService : Service() {
             // Android 11–13: Typ unkritisch (keine Runtime-Permission-Pflicht).
             type = type or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             if (hasPermission(Manifest.permission.CAMERA)) {
                 type = type or ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA
             }
@@ -201,7 +250,9 @@ class StreamingService : Service() {
         // FOREGROUND_SERVICE_MEDIA_PROJECTION ist eine normale Permission
         // (Installzeit erteilt) — kein Runtime-Check wie bei camera/microphone.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
-            StreamingServiceSupport.requiresMediaProjectionFgs(streamingEngine.activeSourceKind.value)
+            StreamingServiceSupport.requiresMediaProjectionFgs(
+                if (streamingEngine.sceneComposition.value == null) streamingEngine.activeSourceKind.value else VideoSourceKind.CAMERA,
+                pendingProjection || streamingEngine.sceneProjectionForegroundRequired())
         ) {
             type = type or ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
         }
@@ -219,7 +270,11 @@ class StreamingService : Service() {
             streamingEngine.streamingState.collect { state ->
                 // Remote-Controlled-Stopp (z. B. Web-Remote-Control / OBS) beendet den Service.
                 if (state is StreamingState.Idle && previous !is StreamingState.Idle && !stopped) {
-                    stopService()
+                    // Preview capture may keep the service alive after a remote stream stop.
+                    // The chat bot still follows the stream, rather than the capture grant.
+                    chatBotController.onStreamStopped()
+                    if (streamingEngine.sceneProjectionActive.value) updateNotification(state)
+                    else stopService()
                 } else {
                     updateNotification(state)
                 }
@@ -252,7 +307,7 @@ class StreamingService : Service() {
     private fun scheduleStartupWatchdog() {
         serviceScope.launch {
             delay(15_000)
-            if (streamingEngine.streamingState.value is StreamingState.Idle && !stopped) {
+            if (streamingEngine.streamingState.value is StreamingState.Idle && !stopped && !streamingEngine.sceneProjectionActive.value) {
                 Timber.w("StreamingService: no stream start after 15s - stopping")
                 stopService()
             }
@@ -272,6 +327,9 @@ class StreamingService : Service() {
     }
 
     private fun teardown() {
+        projectionJob?.cancel()
+        projectionJob = null
+        streamingEngine.stopSceneProjections()
         stateJob?.cancel()
         stateJob = null
         chatBotController.onStreamStopped()
@@ -281,6 +339,7 @@ class StreamingService : Service() {
     }
 
     override fun onDestroy() {
+        streamingEngine.stopSceneProjections()
         serviceScope.cancel()
         chatBotController.onStreamStopped()
         releaseWakeLock()
@@ -346,16 +405,17 @@ class StreamingService : Service() {
         // Fehlerursache; bei anderen Stati werden die überzähligen Argumente
         // von String.format ignoriert.
         val failureReason = StreamingServiceSupport.failureText(state, ::getString)
+        val previewCapture = state is StreamingState.Idle && (pendingProjection || streamingEngine.sceneProjectionActive.value)
         return NotificationCompat.Builder(this, StreamingServiceSupport.CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentTitle(getString(StreamingServiceSupport.notificationTitleRes(state)))
-            .setContentText(getString(StreamingServiceSupport.notificationTextRes(state), failureReason))
+            .setContentTitle(getString(if (previewCapture) R.string.notif_scene_capture_title else StreamingServiceSupport.notificationTitleRes(state)))
+            .setContentText(getString(if (previewCapture) R.string.notif_scene_capture_text else StreamingServiceSupport.notificationTextRes(state), failureReason))
             .setContentIntent(contentIntent)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .apply {
-                if (StreamingServiceSupport.showStopAction(state)) {
+                if (StreamingServiceSupport.showStopAction(state) || pendingProjection || streamingEngine.sceneProjectionActive.value) {
                     addAction(
                         NotificationCompat.Action.Builder(
                             android.R.drawable.ic_media_pause,
@@ -369,6 +429,15 @@ class StreamingService : Service() {
     }
 
     companion object {
+        fun grantSceneProjection(context: Context, sourceId: String, resultCode: Int, data: Intent) {
+            val intent = Intent(context, StreamingService::class.java)
+                .setAction(StreamingServiceSupport.ACTION_GRANT_SCENE_PROJECTION)
+                .putExtra(StreamingServiceSupport.EXTRA_SCENE_SOURCE_ID, sourceId)
+                .putExtra(StreamingServiceSupport.EXTRA_PROJECTION_RESULT, resultCode)
+                .putExtra(StreamingServiceSupport.EXTRA_PROJECTION_DATA, data)
+            ContextCompat.startForegroundService(context, intent)
+        }
+
         /** Startet den Service und streamt die [urls] (aus dem Vordergrund aufrufen). */
         fun start(context: Context, urls: List<String>) {
             val intent = Intent(context, StreamingService::class.java)

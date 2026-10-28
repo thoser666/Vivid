@@ -41,7 +41,7 @@ class SceneWidgetsOverlayViewModel @Inject constructor(repository: SceneReposito
         val scene = scenes.find { it.id == activeId && it.enabled }
         SceneOverlayState(initialized, scene?.widgets.orEmpty().mapNotNull { placement ->
             widgets.find { it.id == placement.widgetId && it.enabled && placement.enabled }?.let { placement to it }
-        }, sourceEmpty = scene?.videoSource == SceneVideoSource.EMPTY)
+        }, sourceEmpty = scene?.composition == null && scene?.videoSource == SceneVideoSource.EMPTY)
     }
 }
 

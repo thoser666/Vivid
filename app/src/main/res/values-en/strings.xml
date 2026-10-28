@@ -92,4 +92,6 @@
     <string name="crash_diag_retry">Try full startup</string>
 
     <!-- Pomodoro timer (ui/pomodoro/PomodoroScreen.kt) -->
+    <string name="notif_scene_capture_title">Scene capture active</string>
+    <string name="notif_scene_capture_text">Screen capture for the scene preview</string>
 </resources>

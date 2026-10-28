@@ -96,6 +96,30 @@ Owned add/remove effect slots also free their framebuffer resources on removal.
 The scene filter is retained during effect rebuilds; owned effects are replaced
 before it without `clearFilters()`. GL restarts create a fresh scene surface.
 
+## Layered compositions
+
+The GPU compositor integrated from #330 through #355 adds an optional versioned
+`SceneComposition` to each scene. Camera, USB/UVC, screen capture, image, video,
+text and clock sources can be arranged as independently transformed layers.
+The existing widget library remains the final transparent pass after the stable
+capture/privacy/effects container, so its browser and other dynamic widgets keep
+their existing lifetime, visibility and placement rules. Empty legacy scenes
+migrate to an empty canvas without creating a camera. A stored EMPTY source does
+not black out an explicitly configured composition or its editor draft.
+
+Controls → Edit scene opens the layered editor for the active scene. It supports
+fullscreen, picture-in-picture and side-by-side layouts, gestures, crop, rotation,
+opacity, order, shared-source duplication and undo/redo. Save persists the whole
+draft; Cancel restores the prior composition, camera and source-blackout state.
+The settings scene/widget editors and local scene selector remain available.
+
+Native scene output honors operating-mode orientation, requested FPS, bitrate
+and keyframe interval. Its single encoder is shared by recording and RTMP targets.
+Canvas producers retire before native scene GL shutdown as well as legacy GL
+shutdown. Scene mutations reject malformed or unsupported future documents,
+including global widget operations and initialization, while the first layered
+save retains the original scene JSON as a recovery backup.
+
 ## Local preview controls
 
 The preview has a scene selector containing only enabled scenes in their saved
