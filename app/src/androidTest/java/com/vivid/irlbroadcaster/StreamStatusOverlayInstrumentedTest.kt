@@ -24,13 +24,20 @@ import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Rule
+import org.junit.rules.RuleChain
 import org.junit.Test
 import org.junit.runner.RunWith
 
 /** Opt-in real preview and stop-confirmation test; never uses saved stream destinations. */
 @RunWith(AndroidJUnit4::class)
 class StreamStatusOverlayInstrumentedTest {
-    @get:Rule val composeRule = createAndroidComposeRule<MainActivity>()
+    // Grants first: the compose rule launches MainActivity when applied (#249).
+    private val composeRule = createAndroidComposeRule<MainActivity>()
+
+    @get:Rule
+    val rules: RuleChain = RuleChain
+        .outerRule(EmulatorTestPermissions.rule())
+        .around(composeRule)
 
     @Test
     fun liveStatsAndStopConfirmationKeepTheStreamRunningUntilConfirmed() {

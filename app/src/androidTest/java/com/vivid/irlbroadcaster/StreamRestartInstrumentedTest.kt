@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assume.assumeTrue
 import org.junit.Rule
+import org.junit.rules.RuleChain
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.net.InetSocketAddress
@@ -23,8 +24,13 @@ import java.net.Socket
  */
 @RunWith(AndroidJUnit4::class)
 class StreamRestartInstrumentedTest {
+    // Grants first: the compose rule launches MainActivity when applied (#249).
+    private val composeRule = createAndroidComposeRule<MainActivity>()
+
     @get:Rule
-    val composeRule = createAndroidComposeRule<MainActivity>()
+    val rules: RuleChain = RuleChain
+        .outerRule(EmulatorTestPermissions.rule())
+        .around(composeRule)
 
     @Test
     fun buttonStartStopStartKeepsUiAndRemoteStatusInSync() {

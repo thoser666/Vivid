@@ -147,7 +147,6 @@ jobs:
       # VERSION, Manifest) des Ziel-Tags.
       # ⚠️ Dieser Kommentar nennt bewusst KEINEN Skriptpfad: grep-Anker der
       # Positions-Checks in test_emulator_matrix.sh suchen die Skriptnamen.
-      # Ein Pfad im Kommentar verschiebt deren Anker und kippt T15.15.
       # Fail-loud: fehlt ein Skript im develop-Baum, ist die Pipeline defekt und
       # das muss hier stoppen, nicht drei Schritte später mit exit 127.
       - name: Stage CI gate scripts (from develop, not target tag)
@@ -156,7 +155,7 @@ jobs:
           CI_SCRIPTS="$RUNNER_TEMP/vivid-ci-scripts"
           rm -rf "$CI_SCRIPTS"
           mkdir -p "$CI_SCRIPTS"
-          for s in emulator_test_setup.sh emulator_gate_retry.sh check_sentry_resolve.sh; do
+          for s in emulator_gate_retry.sh check_sentry_resolve.sh; do
             if [ ! -f "scripts/$s" ]; then
               echo "::error::scripts/$s fehlt im develop-Baum — Pipeline defekt (nicht im Ziel-Tag nachschlagen)"
               exit 1
@@ -205,15 +204,12 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      # ✅ #249: Debug-APKs beider Flavors (App + androidTest) VOR dem Gate
-      # bauen — das Setup-Skript im Runner-Script installiert sie vorconnected
-      # und grantet die Runtime-Permissions (`adb shell pm grant` scheitert an
-      # nicht installierten Packages, deshalb kann das nicht IN den
-      # connected*-Task wandern).
-      - name: Build debug APKs for emulator gate
-        if: env.TAG != ''
-        run: |
-          ./gradlew :app:assembleStandardDebug :app:assembleStandardDebugAndroidTest :app:assembleFossDebug :app:assembleFossDebugAndroidTest --stacktrace
+      # ⛔ Hier stand ein Pre-Install-Step (`assemble*Debug` + `adb install` im
+      # Setup-Skript, danach Grants per `pm grant`). Er ist entfernt: erzeugte
+      # er einen zweiten Installationspfad auf denselben applicationId, den adb
+      # bei abweichendem Signer mit INSTALL_FAILED_UPDATE_INCOMPATIBLE abweist
+      # (v0.5.49-beta, alle drei Legs). Die Grants leisten jetzt die Tests
+      # selbst über GrantPermissionRule — AGP ist der einzige Installer.
 
       - name: Run instrumented tests on emulator (release gate)
         if: env.TAG != ''
@@ -230,10 +226,9 @@ jobs:
           script: |
             # ⚠️ `set -eu` ist Pflicht: der android-emulator-runner führt
             # das script-Snippet OHNE -e aus. Ohne diese Zeile würde ein
-            # fehlschlagendes Setup-Skript stillschweigend übersprungen und das
-            # Gate gründete auf ungegranted-Permissions — der Publish-Pfad
-            # scheiterte dann mit "No compose hierarchies found" statt mit der
-            # Ursache. fail-loud gehört in den ersten Block (T15.16).
+            # fehlschlagender Gradle-Aufruf stillschweigend übersprungen und das
+            # Gate meldete Grün ohne Testaussage. fail-loud gehört in den ersten
+            # Block (T15.16).
             #
             # ⚠️ POSIX-only, KEIN `pipefail`: das Snippet läuft über
             # `/usr/bin/sh -c`, und auf ubuntu ist /usr/bin/sh dash —
@@ -241,13 +236,13 @@ jobs:
             # das Setup-Skript überhaupt startet (Vorfall 02.10.2026).
             # Keine Pipes im Block → `set -eu` genügt für fail-loud.
             set -eu
-            # ✅ #249: Runtime-Permissions für die UI-Tests granten + Test-APKs
-            # vorconnected installieren (der CAMERA-Auto-Request wurde app-seitig
-            # entfernt — siehe StreamingScreen.kt; ohne Grants hängt der Startup-
-            # Smoke am Permission-Vertrag des Screen-Eintritts). Läuft bewusst
-            # VOR dem Retry-Wrapper: Setup-Fehler sind deterministisch und
-            # dürfen die Retry-Klassifikation nicht konsumieren.
-            bash "$CI_SCRIPTS_DIR/emulator_test_setup.sh" 34
+            # ✅ #249: die Runtime-Permissions grantet der Test selbst
+            # (`EmulatorTestPermissions`/GrantPermissionRule, gechained VOR dem
+            # Activity-Start) — das Gate installiert nichts mehr vorab. Grund:
+            # zwei Installationspfade auf denselben applicationId kollidieren,
+            # sobald ihre Signer abweichen (v0.5.49-beta). Der Grant läuft VOR
+            # dem Retry-Wrapper: ein fehlender Grant ist deterministisch und
+            # darf die Retry-Klassifikation nicht konsumieren.
             # Flavor-explicit (connectedDebugAndroidTest ist in diesem Projekt
             # wegen der Varianten foss/standard mehrdeutig). Beide Client-
             # Packages (com.vivid.debug / com.vivid.foss.debug) sind disjunkt —

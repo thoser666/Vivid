@@ -28,6 +28,7 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import org.junit.Assert.*
 import org.junit.Assume.assumeTrue
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -35,6 +36,10 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 @SdkSuppress(minSdkVersion = 26)
 class CameraOrientationInstrumentedTest {
+
+    // The opt-in capture path needs the same runtime grants the gate used (#249).
+    @get:Rule
+    val permissions = EmulatorTestPermissions.rule()
     @Test fun idleToStreamPreservesCameraGeometry() {
         val args = InstrumentationRegistry.getArguments()
         assumeTrue(args.getString("runCameraOrientation") == "true")

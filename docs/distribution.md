@@ -85,29 +85,36 @@ deshalb gibt es pro Kadenz einen eigenen Workflow. Alles zusätzlich manuell per
     kann: die Leg wäre dauerhaft rot **ohne Testaussage** gewesen) läuft jetzt
     auch bei `v*`-Tag-Pushen, nicht mehr nur manuell. Selbsttest:
    `scripts/test_emulator_matrix.sh` (T11/T12/T13/T14/T16).
-   **Grant-Setup im Gate (seit 01.10.2026, #249):** Beide Gate-Wege
-   (`release-pipeline.yml` Tag-Push und `distribution-stable.yml` Stable-Publish)
-   granten die Runtime-Permissions vor den `connected*`-Tasks über
-   `scripts/emulator_test_setup.sh` (installiert die Debug-APKs **beider**
-   Flavors zuerst — `adb shell pm grant` scheitert an nicht installierten
-   Packages, deshalb kann der Grant nicht in den connected-Task wandern).
+   **Grants im Testprozess, Single-Install (seit 29.10.2026):** Beide
+   Gate-Wege (`release-pipeline.yml` Tag-Push und `distribution-stable.yml`
+   Stable-Publish) setzen wie bisher `set -eu`, installieren aber **nichts**
+   mehr vorab. Die Runtime-Permissions vergibt `GrantPermissionRule` aus
+   `EmulatorTestPermissions` im Testprozess, per `RuleChain` **vor** dem
+   Activity-Start (sonst hinge der Startup-Smoke wieder am Systemdialog —
+   genau der #249-Zustand). Grund für den Umbau: Das frühere Pre-Install
+   (`assemble*Debug` + `adb install` im Setup-Skript, danach `pm grant`)
+   erzeugte einen zweiten Installationspfad auf dieselben `applicationId`s.
+   Seit #330 die `:feature-streaming`-Suite in derselben Gradle-Invocation
+   lief, wies adb die App-APKs mit `INSTALL_FAILED_UPDATE_INCOMPATIBLE …
+   signatures do not match` ab (Tag-Run `40849184669`, alle drei Legs).
+   Vertrag: **AGP ist der einzige Installer.**
+   **Retry-Klassifikation:** Ein fehlender Grant ist deterministisch und läuft
+   deshalb **vor** dem Retry-Wrapper.
    **fail-loud:** Der `android-emulator-runner` führt sein `script:`-Snippet
    **ohne** `set -e` aus — beide Workflows setzen deshalb explizit
-   `set -eu` als erste Zeile. Ohne das würde ein fehlgeschlagenes
-   Setup stillschweigend übersprungen und das Gate fiele mit der
-   irreführenden Fehlermeldung `No compose hierarchies found` durch, statt die
-   Ursache zu nennen (Vorfall 01.10.2026 — genau diese Verschleierung hat den
-   #249-Befund in der ersten Runde schwer diagnostizierbar gemacht).
+   `set -eu` als erste Zeile, sonst würde ein fehlschlagender Gradle-Aufruf
+   stillschweigend übersprungen und das Gate meldete Grün ohne Testaussage.
    **⚠️ POSIX-only, bewusst kein `pipefail`:** Der Runner ruft das Snippet über
    `/usr/bin/sh -c` auf, und auf ubuntu ist `/usr/bin/sh` **dash**. `set -o
    pipefail` bricht dort mit `Illegal option -o pipefail` und Exit-Code 2 ab —
-   der Job stirbt in Zeile 1 des Script-Blocks, `emulator_test_setup.sh` läuft
+   der Job stirbt in Zeile 1 des Script-Blocks, der Gradle-Aufruf läuft
    nie (Vorfall 02.10.2026, Dispatch-Run `36963108418`: alle drei ubuntu-Legs
    rot **nach** erfolgreichem Emulator-Boot in 38 s). Die Blöcke enthalten
    keine Pipes, `set -eu` genügt für fail-loud. Contract: T15.13/T15.14
    (exakter Wortlaut), T15.17 (kein `pipefail` in ausführbaren Zeilen),
    T15.18 (erste ausführbare Zeile real durch `/bin/sh` ausgeführt).
-   Selbsttest: `scripts/test_emulator_matrix.sh` (T15).
+   Selbsttest: `scripts/test_emulator_matrix.sh` (T15), Gegenstück für den
+   Stable-Weg: `scripts/test_distribution_stable.sh` (D15).
    **Retry-Härtung (seit 25.09.2026):** Der Gate-Step läuft über
    `scripts/emulator_gate_retry.sh` (BuildRetry-Hausmuster): transiente
    Fehlerklassen (Suite-Fehlschlag, Geräteverlust, Boot-Fehler,

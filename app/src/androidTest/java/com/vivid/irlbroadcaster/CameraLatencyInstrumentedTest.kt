@@ -27,12 +27,18 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.TimeUnit
 import org.junit.Assert.*
 import org.junit.Assume.assumeTrue
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
 /** Opt-in capture-to-GL frame age, not display or network latency. Uses only loopback RTMP. */
 @RunWith(AndroidJUnit4::class)
 class CameraLatencyInstrumentedTest {
+
+    // The opt-in capture path needs the same runtime grants the gate used (#249).
+    @get:Rule
+    val permissions = EmulatorTestPermissions.rule()
+
     @Test fun measureCaptureToGlAge() {
         val args = InstrumentationRegistry.getArguments()
         assumeTrue(args.getString("runCameraLatency") == "true")

@@ -50,10 +50,10 @@ import org.robolectric.shadows.ShadowActivity
  * angefordert; die Idle-Preview startet nur bei bereits erteilter Permission
  * (die Engine guardt startIdlePreviewIfReady zusätzlich selbst per
  * checkSelfPermission). Der Repair-Pfad auf der Emulator-Gate-Seite
- * (scripts/emulator_test_setup.sh, `adb shell pm grant`-Pendant) bleibt
+ * (EmulatorTestPermissions, `GrantPermissionRule` im Testprozess) bleibt
  * testbar: Diese Tests reparieren den Permission-Zustand VOR dem ersten
  * setContent über grantPermissions/denyPermissions am Shadow-Kontext — der
- * Robolectric-Spiegel der adb-Grants aus der CI-Emulator-Matrix.
+ * Robolectric-Spiegel der Grants aus der CI-Emulator-Matrix.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], qualifiers = "en")
