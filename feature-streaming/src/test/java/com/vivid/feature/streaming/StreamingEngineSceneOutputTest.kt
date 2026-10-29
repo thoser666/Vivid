@@ -5,10 +5,12 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.view.Surface
 import com.pedro.common.ConnectChecker
+import com.pedro.encoder.input.video.Camera2ApiManager
 import com.pedro.library.multiple.MultiCamera2
 import com.pedro.library.view.GlStreamInterface
 import com.vivid.core.data.*
 import com.vivid.feature.streaming.compositor.encoding.SceneEncoderSession
+import com.vivid.feature.streaming.compositor.gl.AndroidSceneTextureProvider
 import com.vivid.feature.streaming.source.*
 import io.mockk.*
 import java.io.File
@@ -30,6 +32,10 @@ class StreamingEngineSceneOutputTest {
     private var created = 0
     private fun graph() = SceneComposition(sources = listOf(SceneSource(SCENE_IMAGE, SceneSourceType.IMAGE, "content://image")),
         layers = listOf(SceneLayer("image-layer", SCENE_IMAGE)))
+
+    private fun cameraGraph() = SceneComposition(
+        sources = listOf(SceneSource(SCENE_CAMERA, SceneSourceType.CAMERA, "0")),
+        layers = listOf(SceneLayer("camera-layer", SCENE_CAMERA)))
 
     private fun engine(playerFactory: PlayerFactory = mockk(relaxed = true)): StreamingEngine {
         every { camera.glInterface } returns legacyGl
@@ -180,6 +186,49 @@ class StreamingEngineSceneOutputTest {
         }
     }
 
+    /**
+     * #330: der umgekehrte Übergang — eine Szenen-Session läuft ohne Kamera
+     * und bekommt später eine Kamera-Quelle. Die Fassade muss ihre Befehle
+     * dann auf deren `Camera2ApiManager` umhängen (nicht auf die Encoder-Kamera,
+     * die die Szene nicht zeigt), und beim Entfernen der Quelle wieder auf
+     * neutrale Werte zurückfallen.
+     *
+     * Der Provider liefert `camera(id)` erst nach einem echten GL-Attach, den
+     * ein JVM-Test nie fährt; deshalb ersetzt eine Attrappe `sceneTextures`
+     * (dasselbe Reflection-Muster wie [sceneRender] für den Renderer).
+     *
+     * Mutationsnachweis: den Szenen-Zweig in `initializeCameraControls` auf
+     * `encoderControls` festlegen ⇒ `toggleTorch` bleibt false, der Befehl
+     * landet auf der Encoder-Kamera und der Fall wird rot.
+     */
+    @Test fun `scene camera takes over controls when a camera source appears`() {
+        val engine = engine()
+        val encoderCamera = camera
+        val sceneCamera = mockk<Camera2ApiManager>(relaxed = true)
+        engine.initializeCamera()
+        engine.setSceneComposition(graph())
+        engine.startStream(listOf(SCENE_RTMP_ONE_LIVE))
+        assertEquals(1, created)
+
+        // Die Kamera-Quelle kommt in die laufende Szenen-Session dazu.
+        engine.setSceneComposition(cameraGraph())
+        installSceneTextures(engine, SCENE_CAMERA, sceneCamera)
+        clearMocks(encoderCamera, answers = true)
+        every { sceneCamera.isLanternEnabled } returnsMany listOf(false, true)
+
+        assertTrue(engine.toggleTorch())
+        assertTrue(engine.torchEnabled.value)
+        verify(exactly = 1) { sceneCamera.enableLantern() }
+        verify(exactly = 0) { encoderCamera.enableLantern(); encoderCamera.disableLantern() }
+
+        // Quelle wieder entfernt: neutrale Fassade, keine Kamera wird gesteuert.
+        engine.setSceneComposition(graph())
+        clearMocks(sceneCamera, answers = true)
+        assertFalse(engine.toggleTorch())
+        verify(exactly = 0) { sceneCamera.enableLantern(); sceneCamera.disableLantern() }
+        verify(exactly = 0) { encoderCamera.enableLantern(); encoderCamera.disableLantern() }
+    }
+
     @Test fun `one failed target preserves the remaining connection and retired callbacks are ignored`() {
         val engine = engine()
         engine.setSceneComposition(graph())
@@ -266,6 +315,19 @@ class StreamingEngineSceneOutputTest {
         live = true // Even if this old GL is restarted, its retired callback must stay inert.
         tick.captured()
         verify(exactly = 0) { legacyGl.onFrameAvailable(any()) }
+    }
+
+    private fun installSceneTextures(
+        engine: StreamingEngine,
+        sourceId: String,
+        camera: Camera2ApiManager,
+    ) {
+        val textures = mockk<AndroidSceneTextureProvider>(relaxed = true)
+        every { textures.camera(sourceId) } returns camera
+        StreamingEngine::class.java.getDeclaredField("sceneTextures").apply {
+            isAccessible = true
+            set(engine, textures)
+        }
     }
 
     private fun sceneRender(engine: StreamingEngine): com.vivid.feature.streaming.compositor.gl.SceneCompositorFilterRender =
@@ -624,6 +686,7 @@ class StreamingEngineSceneOutputTest {
 
 }
 
+private const val SCENE_CAMERA = "camera"
 private const val SCENE_CONTENT_MOVIE = "content://movie"
 private const val SCENE_FRONT = "front"
 private const val SCENE_IMAGE = "image"
