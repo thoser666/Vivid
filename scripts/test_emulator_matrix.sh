@@ -37,10 +37,10 @@
 #       Leg ist dauerhaft tot (blinder Rot-Status ohne Testaussage).
 #   T13 Stable-Distribution: Emulator-Gate vor dem Publish-Step verdrahtet
 #   T14 Emulator-Tests decken BEIDE Flavors ab (standard + foss)
-#   T15 #249 Emulator-Grant-Setup: Runtime-Permissions werden VOR den
-#       connected*-Tasks gegranted (Setup-Skript installiert die Debug-Test-
-#       APKs beider Flavors vorconnected) — Gegenstück zur app-seitigen
-#       Entfernung des CAMERA-Auto-Requests (StreamingScreen.kt)
+#   T15 Single-Install-Gate: die Runtime-Permissions grantet der
+#       Testprozess (GrantPermissionRule), das Gate installiert nichts mehr
+#       vorab — es darf pro Lauf nur EINEN Installer auf eine applicationId
+#       geben (v0.5.49-beta: INSTALL_FAILED_UPDATE_INCOMPATIBLE auf allen Legs)
 
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -199,30 +199,113 @@ check "T14.2 release-pipeline emulator-tests deckt foss ab" \
 check "T14.3 distribution-stable Gate deckt foss ab" \
   grep -q "connectedFossDebugAndroidTest" <<<"$GATE_SCRIPT"
 
-echo "== T15: #249 Emulator-Grant-Setup (Runtime-Permissions für UI-Tests) =="
-# Vorfall Tag-Run 36849526447: Der CAMERA-Auto-Request des Streaming-Screens
-# öffnete beim Betreten des Start-Screens den Systemdialog ÜBER der MainActivity
-# → "No compose hierarchies found" in 11 UI-Tests. Die Emulator-Legs granten
-# die Permissions deshalb VOR den connected*-Tasks (Setup-Skript, installiert
-# die Debug-Test-APKs vorconnected), die App fordert camera-seitig nur noch im
-# Go-Live-Flow an. `pm grant` scheitert an nicht installierten Packages —
-# deshalb baut jeder Workflow die APKs in einem eigenen Step VOR dem Gate.
-check "T15.1 Setup-Skript vorhanden" test -f scripts/emulator_test_setup.sh
-check "T15.2 Setup installiert standard-debug-APK" grep -q 'apk/standard/debug/app-standard-debug' scripts/emulator_test_setup.sh
-check "T15.3 Setup installiert foss-debug-APK" grep -q 'apk/foss/debug/app-foss-debug' scripts/emulator_test_setup.sh
-check "T15.4 Setup grantet an das standard-Package" grep -q 'com\.vivid\.debug' scripts/emulator_test_setup.sh
-check "T15.5 Setup grantet an das foss-Package" grep -q 'com\.vivid\.foss\.debug' scripts/emulator_test_setup.sh
-check "T15.6 Setup grantet Location (TextInfoWidget)" grep -q 'ACCESS_FINE_LOCATION' scripts/emulator_test_setup.sh
-check "T15.7 POST_NOTIFICATIONS-API-Guard (>= 33)" grep -q 'ge 33' scripts/emulator_test_setup.sh
-check "T15.8 Setup fail-loud bei fehlendem APK" grep -q 'erwartetes APK fehlt' scripts/emulator_test_setup.sh
-check "T15.9 release-pipeline: Grant-Setup vor den connected-Tests" \
-  bash -c 'grep -n "emulator_test_setup.sh" .github/workflows/release-pipeline.yml | cut -d: -f1 | head -1 | xargs -I{} test {} -lt $(grep -n "connectedStandardDebugAndroidTest" .github/workflows/release-pipeline.yml | cut -d: -f1 | head -1)'
-check "T15.10 release-pipeline: Debug-APKs werden vor dem Emulator gebaut" \
-  bash -c 'grep -n "Build debug APKs for emulator tests" .github/workflows/release-pipeline.yml | cut -d: -f1 | head -1 | xargs -I{} test {} -lt $(grep -n "Run instrumented tests on emulator" .github/workflows/release-pipeline.yml | cut -d: -f1 | head -1)'
-check "T15.11 distribution-stable: Grant-Setup vor dem Retry-Wrapper" \
-  bash -c 'grep -n "CI_SCRIPTS_DIR/emulator_test_setup.sh 34" .github/workflows/distribution-stable.yml | cut -d: -f1 | head -1 | xargs -I{} test {} -lt $(grep -n "CI_SCRIPTS_DIR/emulator_gate_retry.sh" .github/workflows/distribution-stable.yml | cut -d: -f1 | head -1)'
-check "T15.12 distribution-stable: Assemble-Step vor dem Gate-Step" \
-  bash -c 'grep -n "Build debug APKs for emulator gate" .github/workflows/distribution-stable.yml | cut -d: -f1 | head -1 | xargs -I{} test {} -lt $(grep -n "Run instrumented tests on emulator (release gate)" .github/workflows/distribution-stable.yml | cut -d: -f1 | head -1)'
+echo "== T15: Single-Install-Gate — Grants im Testprozess statt Pre-Install =="
+# Ausgangslage: bis v0.5.48 installierte das Gate die Debug-APKs selbst
+# (`adb install -r -t` im Setup-Skript) und grantete die Runtime-Permissions per
+# `pm grant`, weil `pm grant` ein installiertes Package braucht. Damit gab es
+# zwei Installationspfade auf denselben applicationId. Mit #330 kam
+# `:feature-streaming:connectedDebugAndroidTest` in dieselbe Gradle-Invocation;
+# im Tag-Run 40849184669 wies adb die App-APKs danach auf allen drei Legs mit
+# `INSTALL_FAILED_UPDATE_INCOMPATIBLE … signatures do not match` ab.
+# Vertrag jetzt: AGP installiert genau einmal, die Grants macht der
+# Testprozess (GrantPermissionRule, gechained VOR dem Activity-Start) — der
+# #249-Schutz (kein Systemdialog über der MainActivity) bleibt unverändert.
+#
+# Alle Prüfungen sind Struktur-Fakten (YAML/Python), keine Zeilenfenster: ein
+# zusätzlicher Kommentarblock darf keinen dieser Checks kippen.
+# Absence-Check bewusst über den YAML-Baum (python) statt über wf_step_index:
+# der Helper liefert für "nicht gefunden" dieselbe Konvention `-` wie für einen
+# Tippfehler im Job-Namen — eine `test "-`-Prüfung wäre damit auch bei
+# falschem Anker grün. Die Liste der Step-Namen ist eindeutig.
+check "T15.1 kein Pre-Install-Step mehr im Emulator-Job" python -c "
+import io, yaml
+with io.open('.github/workflows/release-pipeline.yml', encoding='utf-8') as f:
+    d = yaml.safe_load(f)
+steps = d['jobs']['emulator-tests']['steps']
+names = [str(s.get('name', '')) for s in steps]
+assert names, 'emulator-tests hat keine Steps'
+assert not [n for n in names if 'Build debug APKs' in n], names
+assert not [s for s in steps if 'emulator_test_setup' in str(s.get('run') or '')], 'Pre-Install-Aufruf im Job'
+"
+check "T15.2 Pre-Install-Skript ist entfernt (kein toter Helfer)" \
+  test ! -e scripts/emulator_test_setup.sh
+check "T15.3 kein adb install/pm grant mehr in den Gate-Snippets" python -c "
+import io, re, yaml
+bad = []
+for path, job in (('.github/workflows/release-pipeline.yml', 'emulator-tests'),
+                  ('.github/workflows/distribution-stable.yml', 'publish-stable')):
+    with io.open(path, encoding='utf-8') as f:
+        d = yaml.safe_load(f)
+    for s in d['jobs'][job].get('steps', []):
+        for text in (s.get('with', {}).get('script') or '', s.get('run') or ''):
+            bad += [(path, s.get('name'), m.group(0)) for m in re.finditer(r'adb install|pm grant', text)]
+assert not bad, bad
+"
+check "T15.4 release-pipeline: genau EINE Gradle-Invocation, alle drei Suiten" python -c "
+import io, yaml
+with io.open('.github/workflows/release-pipeline.yml', encoding='utf-8') as f:
+    d = yaml.safe_load(f)
+emu = [s for s in d['jobs']['emulator-tests']['steps']
+       if str(s.get('uses', '')).startswith('ReactiveCircus/android-emulator-runner')]
+assert len(emu) == 1, emu
+code = [l.strip() for l in emu[0]['with']['script'].splitlines()
+        if l.strip() and not l.strip().startswith('#')]
+calls = [l for l in code if l.startswith('./gradlew')]
+assert len(calls) == 1, calls
+assert 'assemble' not in calls[0], calls[0]
+for task in (':app:connectedStandardDebugAndroidTest',
+             ':app:connectedFossDebugAndroidTest',
+             ':feature-streaming:connectedDebugAndroidTest'):
+    assert task in calls[0], (task, calls[0])
+"
+check "T15.5 distribution-stable: kein Assemble-Step, Gate deckt beide Flavors" python -c "
+import io, yaml
+with io.open('.github/workflows/distribution-stable.yml', encoding='utf-8') as f:
+    d = yaml.safe_load(f)
+steps = d['jobs']['publish-stable']['steps']
+assert not [s for s in steps if 'Build debug APKs' in str(s.get('name', ''))], [s.get('name') for s in steps]
+gate = [s for s in steps if str(s.get('uses', '')).startswith('ReactiveCircus/android-emulator-runner')]
+assert len(gate) == 1, gate
+code = [l.strip() for l in gate[0]['with']['script'].splitlines()
+        if l.strip() and not l.strip().startswith('#')]
+calls = [l for l in code if 'connectedStandardDebugAndroidTest' in l]
+assert len(calls) == 1, calls
+assert 'connectedFossDebugAndroidTest' in calls[0], calls[0]
+"
+check "T15.6 Grants-Helfer nutzt GrantPermissionRule mit dem #249-Permission-Satz" python -c "
+import io
+src = io.open('app/src/androidTest/java/com/vivid/irlbroadcaster/EmulatorTestPermissions.kt', encoding='utf-8').read()
+assert 'GrantPermissionRule.grant(' in src, 'kein GrantPermissionRule-Einsatz'
+for perm in ('CAMERA', 'RECORD_AUDIO', 'ACCESS_FINE_LOCATION',
+             'ACCESS_COARSE_LOCATION', 'POST_NOTIFICATIONS'):
+    assert 'Manifest.permission.' + perm in src, perm
+assert 'VERSION_CODES.TIRAMISU' in src, 'POST_NOTIFICATIONS-API-Guard fehlt'
+"
+check "T15.7 jede App-androidTest-Klasse hängt die Grant-Regel ein" python -c "
+import glob, io
+tests = sorted(p for p in glob.glob('app/src/androidTest/java/com/vivid/irlbroadcaster/*.kt')
+               if p.endswith('Test.kt'))
+missing = [p for p in tests
+           if 'EmulatorTestPermissions.rule()' not in io.open(p, encoding='utf-8').read()]
+assert tests and not missing, (len(tests), missing)
+"
+check "T15.8 Compose-Klassen chainen den Grant VOR den Activity-Start" python -c "
+import glob, io
+compose = 0
+for path in glob.glob('app/src/androidTest/java/com/vivid/irlbroadcaster/*.kt'):
+    src = io.open(path, encoding='utf-8').read().replace(chr(13) + chr(10), chr(10))
+    if 'createAndroidComposeRule' not in src:
+        continue
+    compose += 1
+    assert 'RuleChain' in src, path
+    assert '.outerRule(EmulatorTestPermissions.rule())' in src, path
+    assert '.around(composeRule)' in src, path
+    assert '@get:Rule' + chr(10) + '    val composeRule' not in src, path
+assert compose >= 6, compose
+"
+check "T15.9 androidx.test:rules ist verdrahtet (Katalog + app)" bash -c "
+grep -q 'androidx-test-rules' gradle/libs.versions.toml && grep -q 'libs.androidx.test.rules' app/build.gradle.kts
+"
 # fail-loud im Emulator-Script-Block: der android-emulator-runner führt das
 # script-Snippet OHNE `set -e` aus. Ohne die Zeile wird ein fehlgeschlagenes
 # Setup-Skript stillschweigend übersprungen — das Gate testet dann ohne Grants
@@ -233,7 +316,7 @@ check "T15.12 distribution-stable: Assemble-Step vor dem Gate-Step" \
 # ⚠️ `set -eu`, NICHT `set -euo pipefail`: das Snippet läuft über
 # `/usr/bin/sh -c`, und auf ubuntu ist /usr/bin/sh dash. `set -o pipefail`
 # bricht dort mit "Illegal option -o pipefail" ab — der Job starb dann in
-# Zeile 1 des Script-Blocks und `emulator_test_setup.sh` lief nie
+# Zeile 1 des Script-Blocks, der Gradle-Aufruf lief nie
 # (Vorfall 02.10.2026, Release-Dispatch 36963108418: alle drei
 # ubuntu-Legs rot nach 38 s erfolgreichem Boot).
 check "T15.13 release-pipeline Gate-Script: set -eu im Script-Block" python -c "
@@ -259,8 +342,21 @@ assert lines[0].strip() == 'set -eu', lines[0]
 # Anker auf den AUFRUF (`$CI_SCRIPTS_DIR/...`), nicht auf den Skriptnamen:
 # seit #250 kommt der Name im Stage-Step vor dem Gate-Snippet vor, ein
 # Namens-Substring-Match würde also die falsche Zeile treffen.
-check "T15.15 Setup-Skript läuft VOR dem Retry-Wrapper (Setupfehler nicht als Retry)" \
-  bash -c 'grep -n "CI_SCRIPTS_DIR/emulator_test_setup.sh" .github/workflows/distribution-stable.yml | cut -d: -f1 | head -1 | xargs -I{} test {} -lt $(grep -n "CI_SCRIPTS_DIR/emulator_gate_retry.sh" .github/workflows/distribution-stable.yml | cut -d: -f1 | head -1)'
+# Beide Gates nennen denselben Vertrag: die Grants macht der Testprozess.
+# Ohne den Hinweis im Snippet wandert beim nächsten Umbau wieder ein
+# `pm grant` in den Workflow — genau der Zustand, der die Signale kollidieren
+# liess (v0.5.49-beta).
+check "T15.15 beide Gates dokumentieren den Grant-Ort (GrantPermissionRule)" python -c "
+import io, yaml
+for path, job in (('.github/workflows/release-pipeline.yml', 'emulator-tests'),
+                  ('.github/workflows/distribution-stable.yml', 'publish-stable')):
+    with io.open(path, encoding='utf-8') as f:
+        d = yaml.safe_load(f)
+    gate = [s for s in d['jobs'][job]['steps']
+            if str(s.get('uses', '')).startswith('ReactiveCircus/android-emulator-runner')]
+    assert len(gate) == 1, (path, gate)
+    assert 'GrantPermissionRule' in gate[0]['with']['script'], path
+"
 check "T15.16 Begruendung fuer set -e im Script-Block dokumentiert" \
   grep -q "fail-loud" <<<"$GATE_SCRIPT"
 # Regression (Vorfall 02.10.2026, Dispatch-Run 36963108418): das Snippet laeuft
@@ -471,9 +567,11 @@ echo "== T17: Gate-Skripte stammen aus develop, nicht aus dem Ziel-Tag (#250) ==
 # `git checkout -B changelog-update origin/develop` zurueck, dort ist der
 # Arbeitsbaum wieder develop und `bash scripts/update_changelog.sh` ist korrekt.
 DIST=.github/workflows/distribution-stable.yml
-# Die drei Skripte, die im Job NACH dem Ziel-Tag-Checkout laufen. Der
-# CHANGELOG-Schritt fehlt bewusst (siehe Kommentar oben).
-GATE_SCRIPTS='emulator_test_setup.sh emulator_gate_retry.sh check_sentry_resolve.sh'
+# Die Skripte, die im Job NACH dem Ziel-Tag-Checkout laufen. Der
+# CHANGELOG-Schritt fehlt bewusst (siehe Kommentar oben); das frühere
+# Pre-Install-Skript ist mit dem Single-Install-Vertrag entfallen und
+# darf hier nicht wieder auftauchen (T17.9).
+GATE_SCRIPTS='emulator_gate_retry.sh check_sentry_resolve.sh'
 
 check "T17.1 Stage-Step existiert" \
   bash -c 'source scripts/lib_workflow_yaml.sh; [[ "$(wf_step_index .github/workflows/distribution-stable.yml publish-stable "Stage CI gate scripts")" != "-" ]]'

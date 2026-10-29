@@ -21,6 +21,7 @@ import com.vivid.feature.streaming.VideoFilter
 import java.io.File
 import org.junit.Assert.*
 import org.junit.Assume.assumeTrue
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -29,6 +30,11 @@ private const val CAMERA_MODE_LOG_TAG = "VividCameraModeTest"
 /** Opt-in physical-device evidence. Uses an explicit loopback endpoint, never saved destinations. */
 @RunWith(AndroidJUnit4::class)
 class ExperimentalCameraInstrumentedTest {
+
+    // The opt-in capture path needs the same runtime grants the gate used (#249).
+    @get:Rule
+    val permissions = EmulatorTestPermissions.rule()
+
     @Test
     fun recordingAndLocalRtmpKeepGlEffectsAndShareCapture() {
         val args = InstrumentationRegistry.getArguments()

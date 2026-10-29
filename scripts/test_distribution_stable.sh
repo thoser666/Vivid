@@ -215,26 +215,52 @@ else
   FAILED=1
 fi
 
-# D15: Emulator-Gate Permission-Setup (#249, Vorfall Tag-Run 36849526447):
-# Der CAMERA-Auto-Request des Streaming-Screens (94c4e7db) öffnete beim Betreten
-# des Start-Screens den Systemdialog ÜBER der MainActivity → "No compose
-# hierarchies found" in 11 UI-Tests. Gegenmaßnahme zweiteilig: App-Seite
-# (StreamingScreen.kt fordert camera-seitig nur noch im Go-Live-Flow an) und
-# Gate-Seite: die Grants laufen VOR den connected*-Tasks — `pm grant` scheitert
-# an nicht installierten Packages, deshalb baut ein eigener Step die Debug-
-# Test-APKs beider Flavors und das Setup-Skript installiert+grantet vorconnected.
-# ⚠️ Anker ab #250 auf den AUFRUF (`$CI_SCRIPTS_DIR/…`) statt auf den Skriptnamen:
-# der Name steht seit dem Stage-Step zuerst im Workflow, nicht mehr im Gate-Snippet.
-check "D15.1 Setup-Skript vor dem Gate aufgerufen (API 34)" "$DIST" 'CI_SCRIPTS_DIR/emulator_test_setup\.sh" 34'
-check "D15.2 Debug-APK-Assemble-Step vorhanden" "$DIST" 'Build debug APKs for emulator gate'
-check "D15.3 standard-androidTest-APK gebaut" "$DIST" 'assembleStandardDebugAndroidTest'
-check "D15.4 foss-androidTest-APK gebaut" "$DIST" 'assembleFossDebugAndroidTest'
-# D15.5: Reihenfolge-Vertrag — der Setup-Aufruf muss VOR dem ersten connected*-Aufruf
-# liegen (sonst hängt der Startup-Smoke am Systemdialog — genau der #249-Zustand).
-if awk '/CI_SCRIPTS_DIR\/emulator_test_setup\.sh" 34/{s=NR} /connectedStandardDebugAndroidTest/{c=NR} END{exit !(s && c && s<c)}' "$DIST"; then
-  echo "  ✅ D15.5 Setup-Aufruf liegt vor den connected*-Tests (Reihenfolge)"
+# D15: Single-Install-Gate (Auslöser Tag-Run 40849184669):
+# Das Gate installierte die Debug-APKs bis v0.5.48 selbst (`adb install` im
+# Setup-Skript) und grantete die Permissions per `pm grant`, danach installierte
+# der connected-Task dieselben applicationIds noch einmal. Seit #330 die
+# Library-Suite in derselben Gradle-Invocation läuft, kollidierten die Signer:
+# `INSTALL_FAILED_UPDATE_INCOMPATIBLE … signatures do not match` auf allen drei
+# Legs. Vertrag jetzt: EIN Installer (AGP), Grants im Testprozess
+# (GrantPermissionRule, gechained VOR dem Activity-Start) — der #249-Schutz
+# (kein Systemdialog über der MainActivity) bleibt unverändert.
+# D15.1/D15.3 bewusst STRUKTURELL (nur run/script-Blöcke, keine Kommentare):
+# die Begründung dieses Umbaus nennt die alten Befehle absichtlich, ein
+# Datei-weites grep würde also die eigene Dokumentation als Verstoß melden.
+if python -c "
+import io, yaml
+with io.open('$DIST', encoding='utf-8') as f:
+    d = yaml.safe_load(f)
+steps = d['jobs']['publish-stable']['steps']
+code = [(s.get('run') or '') + str(s.get('with', {}).get('script') or '') for s in steps]
+blob = chr(10).join(code)
+assert 'emulator_test_setup' not in blob, 'Pre-Install-Skript wird noch aufgerufen'
+assert 'adb install' not in blob and 'pm grant' not in blob, 'Shell-Grants noch im Gate'
+"; then
+  echo "  ✅ D15.1 kein Pre-Install/Shell-Grant mehr im Gate (run/script-Blöcke)"
 else
-  echo "  ❌ D15.5 Setup-Aufruf NACH den connected*-Tests (oder fehlt) — Reihenfolge-Vertrag verletzt"
+  echo "  ❌ D15.1 Gate ruft noch das Pre-Install-Skript oder Shell-Grants auf"
+  FAILED=1
+fi
+notcheck "D15.2 kein Debug-APK-Assemble-Step mehr" "$DIST" 'Build debug APKs for emulator gate'
+check "D15.3 Gate-Retry-Wrapper fährt beide Flavors" "$DIST" 'emulator_gate_retry\.sh" ./gradlew :app:connectedStandardDebugAndroidTest :app:connectedFossDebugAndroidTest'
+# D15.4: Grants laufen im Testprozess — Helfer + Dependency sind der Ersatz für
+# die Shell-Grants. Fehlt eines, testet das Gate ohne Permissions und fällt mit
+# "No compose hierarchies found" durch (der #249-Zustand, nur anders getarnt).
+if python -c "
+import glob, io
+helper = 'app/src/androidTest/java/com/vivid/irlbroadcaster/EmulatorTestPermissions.kt'
+src = io.open(helper, encoding='utf-8').read()
+assert 'GrantPermissionRule.grant(' in src, 'kein GrantPermissionRule'
+assert 'libs.androidx.test.rules' in io.open('app/build.gradle.kts', encoding='utf-8').read()
+tests = sorted(p for p in glob.glob('app/src/androidTest/java/com/vivid/irlbroadcaster/*.kt')
+               if p.endswith('Test.kt'))
+missing = [p for p in tests if 'EmulatorTestPermissions.rule()' not in io.open(p, encoding='utf-8').read()]
+assert tests and not missing, missing
+"; then
+  echo "  ✅ D15.4 Grants laufen im Testprozess (Helfer + Dependency + alle Klassen)"
+else
+  echo "  ❌ D15.4 Grants fehlen im Testprozess — Gate würde ohne Permissions testen"
   FAILED=1
 fi
 

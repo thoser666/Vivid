@@ -21,6 +21,7 @@ import com.vivid.feature.streaming.R as StreamingR
 import org.junit.After
 import org.junit.Before
 import org.junit.Rule
+import org.junit.rules.RuleChain
 import org.junit.Test
 
 /**
@@ -49,8 +50,13 @@ import org.junit.Test
  */
 class HelpNavigationTest {
 
+    // Grants first: the compose rule launches MainActivity when applied (#249).
+    private val composeRule = createAndroidComposeRule<MainActivity>()
+
     @get:Rule
-    val composeRule = createAndroidComposeRule<MainActivity>()
+    val rules: RuleChain = RuleChain
+        .outerRule(EmulatorTestPermissions.rule())
+        .around(composeRule)
 
     @Before
     fun setUp() {

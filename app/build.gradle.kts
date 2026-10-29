@@ -312,6 +312,9 @@ dependencies {
     androidTestImplementation(libs.rootencoder.library)
     androidTestImplementation(libs.rootencoder.encoder)
     androidTestImplementation(libs.androidx.junit)
+    // GrantPermissionRule: die Runtime-Grants der UI-Tests laufen im Testprozess
+    // statt per `adb shell pm grant` vor den connected-Tasks (Tag-Run 40849184669).
+    androidTestImplementation(libs.androidx.test.rules)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.espresso.intents)
     // fastlane screengrab: erzeugt die Play-Store-Screenshots per UI-Test

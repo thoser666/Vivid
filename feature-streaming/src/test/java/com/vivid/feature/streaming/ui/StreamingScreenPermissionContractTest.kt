@@ -44,6 +44,8 @@ private const val START_STREAM_LABEL = "Start Streaming"
  * separate, one-time first-launch request (covered by MainActivityE2ERobolectricTest).
  * These isolated screen tests cover idle-preview guards and explicit Start retries
  * after denial, without opening the Activity's onboarding request.
+ * Permissions are granted/denied before setContent, mirroring the test-process
+ * GrantPermissionRule in EmulatorTestPermissions. AGP remains the only installer.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], qualifiers = "en")

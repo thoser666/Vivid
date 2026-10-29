@@ -244,15 +244,12 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      # ✅ #249: Debug-APKs beider Flavors (App + androidTest) VOR dem Emulator
-      # bauen — das Setup-Skript im Runner-Script installiert sie vorconnected
-      # und grantet die Runtime-Permissions; `adb shell pm grant` scheitert an
-      # nicht installierten Packages, deshalb kann das nicht IN den
-      # connected*-Task wandern. Die connected*-Tasks installieren die bereits
-      # installierten (identischen) APKs danach nicht neu.
-      - name: Build debug APKs for emulator tests
-        run: |
-          ./gradlew :app:assembleStandardDebug :app:assembleStandardDebugAndroidTest :app:assembleFossDebug :app:assembleFossDebugAndroidTest --stacktrace
+      # ⛔ Hier stand ein Pre-Install-Step (`assemble*Debug` + `adb install` im
+      # Setup-Skript, danach Grants per `pm grant`). Er ist entfernt: er
+      # erzeugte einen zweiten Installationspfad auf denselben applicationId,
+      # den adb bei abweichendem Signer mit INSTALL_FAILED_UPDATE_INCOMPATIBLE
+      # abweist (v0.5.49-beta: alle drei Legs rot, Run 40849184669). Die Grants
+      # leisten jetzt die Tests selbst über GrantPermissionRule (Chained VOR dem            # Activity-Start); AGP ist der einzige Installer.
 
       # ✅ Emulator hochfahren + alle instrumentierten Tests ausführen
       # (Debug-Build, wird von connectedDebugAndroidTest gebaut).
@@ -281,24 +278,22 @@ jobs:
           script: |
             # ⚠️ `set -eu` ist hier Pflicht, nicht Kosmetik: der Runner führt das
             # script-Block-Snippet OHNE -e aus. Ohne diese Zeile würde ein
-            # fehlschlagendes Setup-Skript (exit != 0) stillschweigend
-            # übersprungen, das Gate gründet danach auf ungegranted-Permissions
-            # und fällt mit der IRREFÜHRENDEN Fehlermeldung "No compose
-            # hierarchies found" durch — also als Testfehler getarnt statt als
-            # Setupfehler. fail-loud gehört in den ersten Block (T15.16).
+            # fehlschlagender Gradle-Aufruf (exit != 0) stillschweigend
+            # übersprungen und das Gate meldete Grün ohne Testaussage.
+            # fail-loud gehört in den ersten Block (T15.16).
             #
             # ⚠️ POSIX-only, KEIN `pipefail`: android-emulator-runner ruft das
             # Snippet über `/usr/bin/sh -c` auf, und auf ubuntu ist /usr/bin/sh
             # dash. `set -o pipefail` bricht dort mit "Illegal option" ab
             # (Vorfall 02.10.2026: der Emulator bootete, der Job starb in
-            # Zeile 1 des Script-Blocks — das Setup-Skript lief nie). Der Block
+            # Zeile 1 des Script-Blocks — der Gradle-Aufruf lief nie). Der Block
             # enthält keine Pipes, `set -eu` genügt für fail-loud.
             set -eu
-            # ✅ #249: Runtime-Permissions für die UI-Tests granten + Test-APKs
-            # vorconnected installieren (der CAMERA-Auto-Request wurde app-seitig
-            # entfernt — siehe StreamingScreen.kt; ohne Grants hängt der Startup-
-            # Smoke am Permission-Vertrag des Screen-Eintritts).
-            bash scripts/emulator_test_setup.sh ${{ matrix.api-level }}
+            # ✅ #249: die Runtime-Permissions grantet der Test selbst
+            # (`EmulatorTestPermissions`/GrantPermissionRule, gechained VOR dem
+            # Activity-Start) — das Gate installiert nichts mehr vorab. Grund:
+            # zwei Installationspfade auf denselben applicationId kollidieren,
+            # sobald ihre Signer abweichen (v0.5.49-beta, Run 40849184669).
             # Include the library GPU pixel/lifecycle suite; app tests alone do not run it.
             # Flavor-explicit (connectedDebugAndroidTest ist in diesem Projekt
             # wegen der Varianten foss/standard mehrdeutig — Ambiguous matches).
