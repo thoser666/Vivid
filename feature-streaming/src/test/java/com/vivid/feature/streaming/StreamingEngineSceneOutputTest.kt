@@ -112,6 +112,74 @@ class StreamingEngineSceneOutputTest {
         assertNull(engine.sceneComposition.value)
     }
 
+    /**
+     * #330: Eine Szenen-Session ohne eigene Kamera läuft, ohne dass die
+     * Encoder-Kamera im Bild ist. Die Verdrahtung in `initializeCameraControls`
+     * muss für diesen Fall `null` liefern — nicht `encoderControls`. Sonst
+     * landet der erste Gestenzug (Zoom, Torch, Stabilisierung, EV, AWB) auf
+     * einer Kamera, die die Szene gar nicht zeigt, und ihre Session wird von
+     * außen mitgesteuert.
+     *
+     * Die Fassade selbst deckt [ActiveCameraControlsTest] ab; hier steht nur
+     * die Engine-seitige Entscheidung, welcher Controller aufgelöst wird.
+     *
+     * Mutationsnachweis (Hausregel): `?: encoderControls` zurück in den
+     * Szenen-Zweig von `initializeCameraControls` ⇒ dieser Fall wird rot
+     * (Null-Interaktionen unten), die übrigen Szenen-Ausgabetests bleiben grün.
+     */
+    @Test fun `camera-free scene never routes controls to the encoder camera`() {
+        val engine = engine()
+        engine.initializeCamera()
+        engine.setSceneComposition(graph())
+        engine.attachPreview(mockk(relaxed = true), 640, 360)
+        assertEquals(1, created)
+
+        // Ab hier nur Steuerbefehle — was die Fassade anfasst, steht unten.
+        clearMocks(camera, answers = true)
+
+        // Szenen-Session aktiv, aber ohne Kamera-Quelle: neutrale Antworten,
+        // kein Erfolg behauptet.
+        assertFalse(engine.toggleStabilization())
+        assertFalse(engine.toggleTorch())
+        assertFalse(engine.setExposure(1))
+        assertFalse(engine.setAutoExposure(false))
+        assertFalse(engine.setAutoWhiteBalance(true))
+        assertFalse(engine.hasWhiteBalanceControl())
+        assertTrue(engine.getAvailableLenses().isEmpty())
+        engine.zoomBy(2f)
+        engine.resetZoom()
+        engine.setManualFocusDistance(0.5f)
+
+        // Kein einziger Steuerbefehl darf die Encoder-Kamera erreichen.
+        verify(exactly = 0) {
+            camera.zoom
+            camera.zoomRange
+            camera.setZoom(any<Float>())
+            camera.enableVideoStabilization()
+            camera.disableVideoStabilization()
+            camera.enableOpticalVideoStabilization()
+            camera.disableOpticalVideoStabilization()
+            camera.isVideoStabilizationEnabled
+            camera.isOpticalVideoStabilizationEnabled
+            camera.enableLantern()
+            camera.disableLantern()
+            camera.isLanternEnabled
+            camera.isLanternSupported
+            camera.getExposure()
+            camera.setExposure(any<Int>())
+            camera.getMinExposure()
+            camera.getMaxExposure()
+            camera.enableAutoExposure()
+            camera.disableAutoExposure()
+            camera.isAutoExposureEnabled
+            camera.enableAutoWhiteBalance(any<Int>())
+            camera.disableAutoWhiteBalance()
+            camera.isAutoWhiteBalanceEnabled
+            camera.getAutoWhiteBalanceModesAvailable()
+            camera.setFocusDistance(any<Float>())
+        }
+    }
+
     @Test fun `one failed target preserves the remaining connection and retired callbacks are ignored`() {
         val engine = engine()
         engine.setSceneComposition(graph())
