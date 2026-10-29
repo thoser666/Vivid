@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Assume.assumeTrue
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
@@ -25,6 +26,9 @@ private const val ORIENTATION_FIXTURE_PREFIX = "orientation-"
 /** Opt-in local MP4 proof of the shared stream encoder's pixel axes. Never connects to an ingest. */
 @RunWith(AndroidJUnit4::class)
 class CameraOutputOrientationInstrumentedTest {
+    @get:Rule
+    val permissions = EmulatorTestPermissions.rule()
+
     @Test fun previewAndEncodedCameraUseTheSelectedOrientation() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val arguments = InstrumentationRegistry.getArguments()

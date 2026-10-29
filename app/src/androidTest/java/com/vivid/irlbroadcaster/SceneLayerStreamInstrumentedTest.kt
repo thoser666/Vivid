@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Assume.assumeTrue
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
@@ -25,6 +26,9 @@ import java.util.concurrent.TimeUnit
 /** Opt-in, loopback RTMP acceptance. Dedicated FOSS installation; restores settings and fixtures. */
 @RunWith(AndroidJUnit4::class)
 class SceneLayerStreamInstrumentedTest {
+    @get:Rule
+    val permissions = EmulatorTestPermissions.rule()
+
     @Test fun sceneLayerSurvivesNavigationBackgroundAndEffects() {
         val args = InstrumentationRegistry.getArguments()
         assumeTrue(args.getString("runSceneLayerStream") == "true")
