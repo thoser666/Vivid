@@ -113,27 +113,27 @@ class SceneLayerHost @Inject constructor(
         private var view: ComposeView? = null
         private var dirty = true
         private var closed = false
-        private val draw = object : Runnable {
-            override fun run() {
-                if (closed || filter.released) return
-                val root = view
-                if (dirty && root != null && root.width > 0 && root.height > 0) {
-                    dirty = false
-                    synchronized(filter) {
-                        if (!filter.released && target.isValid) {
-                            runCatching {
-                                val canvas = target.lockHardwareCanvas()
-                                try {
-                                    canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
-                                    root.draw(canvas)
-                                } finally { target.unlockCanvasAndPost(canvas) }
-                            }.onFailure { Timber.w(it, "Scene surface frame skipped") }
-                        }
+        private val draw = Runnable { drawFrame() }
+
+        private fun drawFrame() {
+            if (closed || filter.released) return
+            val root = view
+            if (dirty && root != null && root.width > 0 && root.height > 0) {
+                dirty = false
+                synchronized(filter) {
+                    if (!filter.released && target.isValid) {
+                        runCatching {
+                            val canvas = target.lockHardwareCanvas()
+                            try {
+                                canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
+                                root.draw(canvas)
+                            } finally { target.unlockCanvasAndPost(canvas) }
+                        }.onFailure { Timber.w(it, "Scene surface frame skipped") }
                     }
                 }
-                // Scene updates are capped at 30 Hz; the encoder independently retains 30/60 FPS.
-                main.postDelayed(this, 33)
             }
+            // Scene updates are capped at 30 Hz; the encoder independently retains 30/60 FPS.
+            main.postDelayed(draw, 33)
         }
 
         fun start() {

@@ -22,6 +22,7 @@ import com.vivid.feature.streaming.R
 import com.vivid.feature.streaming.StreamTargetState
 import com.vivid.feature.streaming.StreamTargetStatus
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 
 /** Targets share an encoder; use one live measurement instead of summing duplicate streams. */
 internal fun currentStreamBitrateKbps(targets: List<StreamTargetState>): Int? = targets
@@ -45,7 +46,8 @@ internal fun StreamStatusOverlay(
 ) {
     if (!showFps && !showDuration && !showBitrate) return
     val elapsedSeconds by produceState(elapsedStreamSeconds(startedAtMs, nowMs()), startedAtMs, showDuration) {
-        while (showDuration) {
+        if (!showDuration) return@produceState
+        while (isActive) {
             value = elapsedStreamSeconds(startedAtMs, nowMs())
             delay(1_000)
         }

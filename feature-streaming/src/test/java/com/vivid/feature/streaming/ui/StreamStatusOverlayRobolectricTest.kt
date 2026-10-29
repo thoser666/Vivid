@@ -48,6 +48,23 @@ class StreamStatusOverlayRobolectricTest {
         composeRule.onNodeWithText("900 kbps").assertIsDisplayed()
     }
 
+    @Test fun `hiding duration cancels its ticker and showing it uses current session time`() {
+        val visible = mutableStateOf(true)
+        var reads = 0
+        var now = 10_000L
+        composeRule.setContent { MaterialTheme {
+            StreamStatusOverlay(30, null, 1_000, nowMs = { reads++; now }, showDuration = visible.value)
+        } }
+        composeRule.onNodeWithText("00:00:09").assertIsDisplayed()
+        composeRule.runOnIdle { visible.value = false }
+        composeRule.onNodeWithTag("stream_uptime").assertDoesNotExist()
+        val readsWhenHidden = reads
+        composeRule.mainClock.advanceTimeBy(2_100)
+        composeRule.runOnIdle { org.junit.Assert.assertEquals(readsWhenHidden, reads) }
+        composeRule.runOnIdle { now = 60_000; visible.value = true }
+        composeRule.onNodeWithText("00:00:59").assertIsDisplayed()
+    }
+
     @Test
     fun `returning to an existing session shows elapsed hours and keeps ticking`() {
         var now = 3_662_000L

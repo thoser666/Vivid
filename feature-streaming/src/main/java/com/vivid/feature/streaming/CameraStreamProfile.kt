@@ -41,23 +41,22 @@ internal fun resolveCameraStreamProfile(
     val presets = if (autoFallback) EncoderPreset.entries.dropWhile { it != requested.preset } else listOf(requested.preset)
     for (codec in codecs) {
         for (preset in presets) {
-            val preferredFps = if (preset == requested.preset) requested.fps else minOf(preset.fps, requested.fps)
-            val rates = if (autoFallback && preset.fps < preferredFps) {
-                listOf(preferredFps, preset.fps)
-            } else listOf(preferredFps)
-            for (fps in rates) {
-                if (camera.supports(preset.width, preset.height, fps) &&
-                    encoder.supports(codec.toMimeType(), preset.width, preset.height, fps)
-                ) {
-                    return ResolvedEncoderConfig(
-                        codec, preset,
-                        requested.fallbackApplied || codec != preferredCodec || preset != requested.preset || fps != requested.fps,
-                        fps,
-                    )
-                }
-            }
+            val fps = cameraProfileFrameRates(requested, preset, autoFallback).firstOrNull { rate ->
+                camera.supports(preset.width, preset.height, rate) &&
+                    encoder.supports(codec.toMimeType(), preset.width, preset.height, rate)
+            } ?: continue
+            return ResolvedEncoderConfig(
+                codec, preset,
+                requested.fallbackApplied || codec != preferredCodec || preset != requested.preset || fps != requested.fps,
+                fps,
+            )
         }
     }
 
     return null
+}
+
+private fun cameraProfileFrameRates(requested: ResolvedEncoderConfig, preset: EncoderPreset, autoFallback: Boolean): List<Int> {
+    val preferred = if (preset == requested.preset) requested.fps else minOf(preset.fps, requested.fps)
+    return if (autoFallback && preset.fps < preferred) listOf(preferred, preset.fps) else listOf(preferred)
 }

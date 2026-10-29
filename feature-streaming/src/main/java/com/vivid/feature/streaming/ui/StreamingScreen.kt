@@ -52,6 +52,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.zIndex
+import androidx.activity.compose.LocalActivity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
@@ -74,7 +75,7 @@ import com.vivid.feature.streaming.StreamingEngine
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
-import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -330,9 +331,14 @@ private fun StartGrantedIdlePreview(streamingEngine: StreamingEngine, context: C
 @Composable
 private fun ShowMenuSystemBars() {
     val view = LocalView.current
-    DisposableEffect(view) {
+    val window = (view.parent as? androidx.compose.ui.window.DialogWindowProvider)?.window
+        ?: LocalActivity.current?.window
+    DisposableEffect(view, window) {
         fun showBars() {
-            ViewCompat.getWindowInsetsController(view)?.apply {
+            val controller = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                view.windowInsetsController?.let(WindowInsetsControllerCompat::toWindowInsetsControllerCompat)
+            } else window?.let { WindowCompat.getInsetsController(it, view) }
+            controller?.apply {
                 systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_DEFAULT
                 show(WindowInsetsCompat.Type.systemBars())
             }

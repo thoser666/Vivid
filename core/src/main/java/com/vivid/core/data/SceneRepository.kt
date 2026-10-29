@@ -63,16 +63,24 @@ class SceneRepository @Inject constructor(private val dataStore: DataStore<Prefe
             } else widgets + widget)
             if (globalVisibility != null || visibility.isNotEmpty()) {
                 prefs[SCENES_JSON] = json.encodeToString(decodeScenesForWrite(prefs).map { scene ->
-                    val enabled = globalVisibility ?: visibility[scene.id] ?: return@map scene
-                    val placements = scene.widgets.orEmpty()
-                    if (placements.any { it.widgetId == widget.id }) {
-                        scene.copy(widgets = placements.map { if (it.widgetId == widget.id) it.copy(enabled = enabled) else it })
-                    } else if (visibility[scene.id] == true) {
-                        // A global toggle changes existing placements without adding the widget to new scenes.
-                        scene.copy(widgets = placements + SceneWidget(widget.id, enabled = enabled))
-                    } else scene
+                    updateWidgetVisibility(scene, widget.id, globalVisibility, visibility[scene.id])
                 })
             }
+        }
+    }
+
+    private fun updateWidgetVisibility(
+        scene: StreamScene, widgetId: String, global: Boolean?, selected: Boolean?,
+    ): StreamScene {
+        val enabled = global ?: selected ?: return scene
+        val placements = scene.widgets.orEmpty()
+        return when {
+            placements.any { it.widgetId == widgetId } -> scene.copy(widgets = placements.map {
+                if (it.widgetId == widgetId) it.copy(enabled = enabled) else it
+            })
+            // Global toggles affect existing placements; only explicit selection adds one.
+            selected == true -> scene.copy(widgets = placements + SceneWidget(widgetId, enabled = enabled))
+            else -> scene
         }
     }
 
@@ -112,22 +120,33 @@ class SceneRepository @Inject constructor(private val dataStore: DataStore<Prefe
             }
             val old = decodeScenesForWrite(prefs)
             val scenes = if (old.isEmpty()) listOf(StreamScene("default", defaultName, widgets = placements())) else old.map { scene ->
-                // Explicit placements belong to managed scenes, including deliberately empty new scenes.
-                if (scene.widgets != null) return@map scene
-                val text = StreamWidget("legacy-text-${scene.id}", "${names.getValue(WidgetType.TEXT)} · ${scene.name}", WidgetType.TEXT,
-                    enabled = scene.widgetEnabled,
-                    configuration = config.copy(widgetShowTime = scene.widgetShowTime,
-                        widgetShowLocation = scene.widgetShowLocation, widgetShowSpeed = scene.widgetShowSpeed,
-                        widgetShowAltitude = scene.widgetShowAltitude, widgetTemplate = scene.widgetTemplate))
-                widgets.add(text)
-                scene.copy(widgets = placements().filterNot { it.widgetId == "legacy-TEXT" } +
-                    if (scene.widgetEnabled) listOf(SceneWidget(text.id, x = 70f, y = 70f)) else emptyList())
+                migrateSceneWidgets(scene, widgets, names.getValue(WidgetType.TEXT), config, placements())
             }
             prefs[WIDGETS_JSON] = json.encodeToString(widgets)
             prefs[SCENES_JSON] = json.encodeToString(scenes)
             if (prefs[ACTIVE_SCENE_ID] == null) prefs[ACTIVE_SCENE_ID] = scenes.first().id
             prefs[POMODORO_MIGRATED] = true
         }
+    }
+
+    private fun migrateSceneWidgets(
+        scene: StreamScene, widgets: MutableList<StreamWidget>, textName: String,
+        config: WidgetConfiguration, placements: List<SceneWidget>,
+    ): StreamScene {
+        // Explicit placements belong to managed scenes, including deliberately empty new scenes.
+        if (scene.widgets != null) return scene
+        val text = legacySceneText(scene, textName, config)
+        widgets.add(text)
+        return scene.copy(widgets = placements.filterNot { it.widgetId == "legacy-TEXT" } +
+            if (scene.widgetEnabled) listOf(SceneWidget(text.id, x = 70f, y = 70f)) else emptyList())
+    }
+
+    private fun legacySceneText(scene: StreamScene, name: String, config: WidgetConfiguration): StreamWidget {
+        return StreamWidget("legacy-text-${scene.id}", "$name · ${scene.name}", WidgetType.TEXT,
+            enabled = scene.widgetEnabled,
+            configuration = config.copy(widgetShowTime = scene.widgetShowTime,
+                widgetShowLocation = scene.widgetShowLocation, widgetShowSpeed = scene.widgetShowSpeed,
+                widgetShowAltitude = scene.widgetShowAltitude, widgetTemplate = scene.widgetTemplate))
     }
 
     private fun migrateLegacyPomodoro(prefs: MutablePreferences, settings: AppSettings, name: String) {

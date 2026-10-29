@@ -99,7 +99,7 @@ internal fun <T> ReorderAutoScroll(state: ReorderDragState<T>, scroll: ScrollSta
     val edge = with(density) { 80.dp.toPx() }
     val top = with(density) { 104.dp.toPx() }
     val step = with(density) { 12.dp.toPx() }
-    LaunchedEffect(state.dragging, if (requireMove) state.moved else false) {
+    LaunchedEffect(state.dragging, requireMove && state.moved) {
         while (isActive && state.dragging != null && (!requireMove || state.moved)) {
             withFrameNanos { }
             val delta = reorderScrollDelta(state.pointerY, top, bottom - edge, step)

@@ -61,8 +61,15 @@ fun SettingsOverlaysScreen(
     val names = WidgetType.entries.associateWith { stringResource(it.titleRes) }
     val defaultSceneName = stringResource(StreamingR.string.scene_default_name, 1)
     LaunchedEffect(Unit) { scenesViewModel.initializeWidgets(defaultSceneName, names) }
-    val back = overlayBackAction(zonesEditing, widgetId, placementId, sceneId,
-        { zonesEditing = false }, { widgetId = null }, { placementId = null }, { sceneId = null }, onBack)
+    val back: () -> Unit = {
+        when {
+            zonesEditing -> zonesEditing = false
+            widgetId != null -> widgetId = null
+            placementId != null -> placementId = null
+            sceneId != null -> sceneId = null
+            else -> onBack()
+        }
+    }
     BackHandler(sceneId != null || widgetId != null || zonesEditing) { back() }
     val scene = scenes.find { it.id == sceneId }
     val widget = widgets.find { it.id == widgetId }
@@ -102,18 +109,6 @@ fun SettingsOverlaysScreen(
             scenesViewModel, onBack, { sceneId = it }, { widgetId = it },
             { deletingWidgetId = it }, { zonesEditing = true })
     }
-}
-
-private fun overlayBackAction(
-    zonesEditing: Boolean, widgetId: String?, placementId: String?, sceneId: String?,
-    closeZones: () -> Unit, closeWidget: () -> Unit, closePlacement: () -> Unit,
-    closeScene: () -> Unit, onBack: () -> Unit,
-): () -> Unit = when {
-    zonesEditing -> closeZones
-    widgetId != null -> closeWidget
-    placementId != null -> closePlacement
-    sceneId != null -> closeScene
-    else -> onBack
 }
 
 private fun StreamingViewModel.saveWidgetChanges(widget: StreamWidget, visibility: Map<String, Boolean>) {

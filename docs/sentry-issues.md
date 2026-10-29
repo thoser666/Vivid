@@ -171,9 +171,37 @@ nicht gezogen wurde):
    (`Release-Spur (Latest-Event)`); die Fenster-Methode bleibt Fallback für
    versionlose Events und für Anreicherungs-Lücken.
 2. **Doppel-Meldungen desselben Sentry-Issue verbinden:** Vor der Schließung
-   `gh issue list --label sentry` nach gleichem Top-Frame/Befund durchsuchen
-   (Body-Marker `vivid-sentry-issue: <id>` identifiziert das Sentry-Issue
-   eindeutig) — ein Befund = ein Attributions-Thread.
+   `gh issue list --label sentry` nach gleichem Befund durchsuchen — identisch
+   ist er nur bei gleicher SID (Body-Marker `vivid-sentry-issue: <id>`
+   identifiziert das Sentry-Issue eindeutig); gleicher Top-Frame ist nur ein
+   Suchschlüssel — ein Befund = ein Attributions-Thread.
+   **Timber-Log-Signaturen sind eigene Sentry-Gruppen und werden nie als
+   Duplikat geschlossen (verbindlich seit 2026-10-29, #335/#350):**
+   `Timber.e(…)` erzeugt ein *error*-Event ohne Crash (§5.1); Sentry gruppiert
+   es nach Fingerprint, nicht nach dem Meldungstext. Der „Top-Frame“ des
+   Watchdogs ist nur die Log-Stelle — gleicher Top-Frame und sogar identischer
+   Satz belegen deshalb **keinen** doppelten Befund. Belegter Fall: #335
+   (VIVID-44, Marker `7811694380`, 18 Events, 2026-10-25,
+   `0.5.30-beta+5304`) und #350 (VIVID-46, Marker `7812865315`, erstellt
+   2026-10-26 mit 10 Events, letztes Event `0.5.48-beta+5484`) heißen beide
+   `Idle camera: Configuration failed` und stammen aus derselben Log-Zeile
+   (`idlePreviewCallbacks.onCameraError`) — zwei SIDs, zwei Gruppen. Welches
+   Frame den Fingerprint trennt, ist aus dem Issue-Body nicht ablesbar (die
+   Event-API antwortete 403); die Gruppierung entscheidet Sentry, nicht der
+   Titel.
+   **Regel:** gleicher Marker = ein Befund, wird in einen Thread konsolidiert.
+   Verschiedene SIDs werden **nie** ineinander geschlossen — gleicher Titel,
+   gleiche Log-Zeile und gleiches Gerät reichen nicht. Sie laufen als
+   **Geschwister** (verlinkt, z. B. #350 ↔ #336/#325) mit je eigener
+   Versions-Spur (§5.1) und je eigener Event-Zahl im Body.
+   **Warum strikt:** der Watchdog dedupliziert gegen `state=all` (§3). Ein
+   geschlossenes Issue unterdrückt jede weitere Meldung *derselben* SID, ohne
+   dass ein neues entsteht — die Gruppe wird still, der nächste Rücklauf ist
+   im Backlog unsichtbar. Dieses Risiko ist bei #335 eingetreten: am
+   2026-10-26 als „duplicate of #336“ geschlossen, obwohl #335 eine eigene SID
+   (VIVID-44) und eine andere Signatur als VIVID-43 trug — VIVID-44 ist damit
+   für Rückläufe blind. Falsch als Duplikat geschlossene Gruppen werden
+   deshalb wieder geöffnet statt über einen Nachbarn mitgeführt.
 3. **Real identifizierte, versionsgebundene Crashes** landen in der
    [CrashAdvisoryRegistry](../core/src/main/java/com/vivid/core/startup/CrashAdvisory.kt)
    (Range + Workaround; siehe RELEASE.md → 🛰️ Sentry-Ops). Bei stiller

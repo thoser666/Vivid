@@ -1484,6 +1484,67 @@ class StreamingEngineTest {
         verify(exactly = 0) { secondCamera.closeCamera() }
     }
 
+    /**
+     * #350 / VIVID-46: `Idle camera: Configuration failed` ist der Text, den
+     * RootEncoder bei `onConfigureFailed` an [com.pedro.encoder.input.video.CameraCallbacks]
+     * gibt. Auf 0.5.48 hing dieser Callback ohne Identitätsprüfung — der
+     * abgeschnittene Configure-Vorgang einer bereits ersetzten Preview meldete
+     * sich also weiter. Mit dem Szenen-Compositor (#330) setzt er zusätzlich
+     * `sceneCameraAvailable` auf false und friert damit die Kamera-Ebene ein.
+     */
+    @Test
+    fun `error from a retired idle preview cannot freeze the camera input`() = runTest {
+        streamingEngine.initializeCamera()
+        every { context.checkSelfPermission(android.Manifest.permission.CAMERA) } returns PackageManager.PERMISSION_GRANTED
+        every { camera.currentCameraId } returns ""
+        val firstPreview = mockk<Camera2ApiManager>(relaxed = true)
+        val secondPreview = mockk<Camera2ApiManager>(relaxed = true)
+        var nextPreview = firstPreview
+        streamingEngine.idlePreviewFactory = { nextPreview }
+        val firstCallbacks = slot<com.pedro.encoder.input.video.CameraCallbacks>()
+        every { firstPreview.setCameraCallbacks(capture(firstCallbacks)) } returns Unit
+
+        streamingEngine.attachPreview(mockk(relaxed = true), 640, 480)
+        nextPreview = secondPreview
+        streamingEngine.attachPreview(mockk(relaxed = true), 1088, 1088)
+        assertTrue(sceneCameraAvailable(streamingEngine))
+
+        // Genau der 0.5.48-Report: der Configure der ersetzten Preview wurde von
+        // stopIdlePreview() abgeschnitten, sein Callback feuert trotzdem.
+        firstCallbacks.captured.onCameraError("Configuration failed")
+
+        assertTrue(sceneCameraAvailable(streamingEngine))
+        verify(exactly = 0) { firstPreview.reOpenCamera(any()) }
+        verify(exactly = 0) { secondPreview.reOpenCamera(any()) }
+    }
+
+    @Test
+    fun `a configuration failure of the current idle preview is retried exactly once`() = runTest {
+        streamingEngine.initializeCamera()
+        every { context.checkSelfPermission(android.Manifest.permission.CAMERA) } returns PackageManager.PERMISSION_GRANTED
+        every { camera.currentCameraId } returns "0"
+        val idleCamera = mockk<Camera2ApiManager>(relaxed = true)
+        every { idleCamera.getCurrentCameraId() } returns "0"
+        streamingEngine.idlePreviewFactory = { idleCamera }
+        streamingEngine.dispatchSceneTask = { it() }
+        val callbacks = slot<com.pedro.encoder.input.video.CameraCallbacks>()
+        every { idleCamera.setCameraCallbacks(capture(callbacks)) } returns Unit
+
+        streamingEngine.attachPreview(mockk(relaxed = true), 640, 480)
+
+        // RootEncoder schließt bei onConfigureFailed nur die Session und versucht
+        // keinen Neuaufbau — genau ein Wiederaufbau pro erzeugter Preview.
+        callbacks.captured.onCameraError("Configuration failed")
+        verify(exactly = 1) { idleCamera.reOpenCamera("0") }
+
+        callbacks.captured.onCameraError("Configuration failed")
+        verify(exactly = 1) { idleCamera.reOpenCamera(any()) }
+    }
+
+    private fun sceneCameraAvailable(engine: StreamingEngine): Boolean =
+        (StreamingEngine::class.java.getDeclaredField("sceneCameraAvailable").apply { isAccessible = true }
+            .get(engine) as java.util.concurrent.atomic.AtomicBoolean).get()
+
     @Test
     fun `current surface teardown closes the idle camera preview`() = runTest {
         streamingEngine.initializeCamera()

@@ -1,8 +1,13 @@
 package com.vivid.feature.streaming.ui
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.graphics.Color as AndroidColor
+import android.webkit.PermissionRequest
+import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
+import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.foundation.layout.*
@@ -122,29 +127,66 @@ private fun WidgetContent(widget: StreamWidget, subtitles: SubtitleWidgetViewMod
 }
 
 /** Browser sources use a page viewport in physical pixels, independent of scene scale. */
-@SuppressLint("SetJavaScriptEnabled")
 @Composable
 private fun BrowserWidget(configuration: WidgetConfiguration) {
     val url = configuration.browserUrl
     if (!isBrowserWidgetUrl(url)) return
     val density = LocalDensity.current
     AndroidView(
-        factory = { context -> WebView(context).apply {
-            setBackgroundColor(AndroidColor.TRANSPARENT)
-            settings.javaScriptEnabled = true
-            settings.allowFileAccess = false
-            settings.allowContentAccess = false
-            settings.domStorageEnabled = true
-            webViewClient = object : WebViewClient() {
-                override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
-                    !isBrowserWidgetUrl(request.url.toString())
-            }
-        } },
+        factory = ::createBrowserWidgetWebView,
         modifier = Modifier.requiredSize(with(density) { configuration.browserWidth.coerceIn(1, 4096).toDp() },
             with(density) { configuration.browserHeight.coerceIn(1, 4096).toDp() }),
-        update = { if (it.tag != url) { it.tag = url; it.loadUrl(url) } },
+        update = { view ->
+            if (view.tag != url) {
+                view.webViewClient = BrowserWidgetWebViewClient(url)
+                view.tag = url
+                view.loadUrl(url)
+            }
+        },
         onRelease = { it.stopLoading(); it.destroy() },
     )
+}
+
+/** Browser widgets run scripts from a user-selected HTTPS provider, without native bridges. */
+@SuppressLint("SetJavaScriptEnabled")
+internal fun createBrowserWidgetWebView(context: Context): WebView {
+    val view = WebView(context)
+    val settings = view.settings
+    // Explicit receiver keeps the local-content denial visible to security data-flow analysis.
+    settings.allowContentAccess = false
+    settings.allowFileAccess = false
+    settings.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
+    settings.javaScriptCanOpenWindowsAutomatically = false
+    settings.setSupportMultipleWindows(false)
+    settings.domStorageEnabled = true
+    // Required for live overlays/WSS. Boundaries and review: security-suppressions.md, #540.
+    settings.javaScriptEnabled = true
+    view.setBackgroundColor(AndroidColor.TRANSPARENT)
+    view.webChromeClient = object : WebChromeClient() {
+        override fun onPermissionRequest(request: PermissionRequest) { request.deny() }
+    }
+    return view
+}
+
+/** Top-level navigation stays on the configured origin; HTTPS CDN subresources remain usable. */
+internal class BrowserWidgetWebViewClient(private val pageUrl: String) : WebViewClient() {
+    override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
+        val url = request.url.toString()
+        return !isBrowserWidgetUrl(url) || (request.isForMainFrame && !allowsNavigation(url))
+    }
+
+    override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? =
+        if (isBrowserWidgetUrl(request.url.toString())) null else WebResourceResponse(
+            "text/plain", "UTF-8", 403, "Forbidden", emptyMap(), java.io.ByteArrayInputStream(byteArrayOf()),
+        )
+
+    private fun allowsNavigation(url: String): Boolean {
+        if (!isBrowserWidgetUrl(url)) return false
+        val source = java.net.URI(pageUrl)
+        val destination = java.net.URI(url)
+        fun java.net.URI.httpsPort() = if (port == -1) 443 else port
+        return source.host.equals(destination.host, ignoreCase = true) && source.httpsPort() == destination.httpsPort()
+    }
 }
 
 @Composable

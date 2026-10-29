@@ -37,6 +37,7 @@ class PomodoroNotifier @Inject constructor(@ApplicationContext private val conte
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 vibrator?.vibrate(VibrationEffect.createOneShot(400L, VibrationEffect.DEFAULT_AMPLITUDE))
             } else {
+                // API 24–25 have no VibrationEffect API. Review: docs/security-suppressions.md, #544.
                 @Suppress("DEPRECATION")
                 vibrator?.vibrate(400L)
             }

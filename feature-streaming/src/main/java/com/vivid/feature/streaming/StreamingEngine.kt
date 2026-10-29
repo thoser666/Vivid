@@ -331,6 +331,10 @@ class StreamingEngine @Inject constructor(
         com.vivid.feature.streaming.compositor.capture.SceneWidgetFeed(::publishSceneWidget)
     }
     private val sceneCameraAvailable = java.util.concurrent.atomic.AtomicBoolean(true)
+
+    // #350 / VIVID-46: RootEncoder schließt bei `onConfigureFailed` nur die Session
+    // und baut sie nicht neu auf. Genau ein Wiederaufbau pro erzeugter Vorschau.
+    private val idlePreviewRetryUsed = java.util.concurrent.atomic.AtomicBoolean(false)
     private var desiredSceneRender: SceneRenderState? = null
     private var sceneRender: SceneCompositorFilterRender? = null
     private var sceneTextures: AndroidSceneTextureProvider? = null
@@ -1191,7 +1195,7 @@ class StreamingEngine @Inject constructor(
      * initialisiert (MultiFromFile, Datei wird über [setVideoPlayerUri] gesetzt).
      */
     fun dispatchSceneTouch(width: Int, height: Int, event: android.view.MotionEvent): Boolean =
-        if (::sceneLayerHost.isInitialized) sceneLayerHost.dispatchTouch(width, height, event) else false
+        ::sceneLayerHost.isInitialized && sceneLayerHost.dispatchTouch(width, height, event)
 
     fun isSceneEmpty(): Boolean = privacyComposer.sceneEmpty
 
@@ -1906,11 +1910,20 @@ class StreamingEngine @Inject constructor(
             override fun onCameraChanged(facing: CameraHelper.Facing) = Unit
 
             override fun onCameraError(error: String) {
+                // Eine ersetzte Vorschau meldet ihren von stopIdlePreview()
+                // abgeschnittenen Configure weiter — genau der Report aus #350
+                // (VIVID-46). Nur der aktuelle Fehler darf Zustand und Log treffen.
+                if (idlePreviewCamera !== preview) {
+                    Timber.d("Ignoring idle camera error from a retired preview: %s", error)
+                    return
+                }
                 sceneCameraAvailable.set(false)
                 Timber.e("Idle camera: %s", error)
+                if (error.startsWith(CONFIGURE_FAILED)) retryIdlePreviewOnce(preview)
             }
 
             override fun onCameraDisconnected() {
+                if (idlePreviewCamera !== preview) return
                 sceneCameraAvailable.set(false)
             }
         }
@@ -1949,6 +1962,7 @@ class StreamingEngine @Inject constructor(
             gl.start()
             privacyComposer.requestRebuild(gl)
             val preview = idlePreviewFactory(context)
+            idlePreviewRetryUsed.set(false)
             idlePreviewCamera = preview
             preview.setCameraCallbacks(idlePreviewCallbacks(preview))
             preview.prepareCamera(gl.surfaceTexture, 1280, 720, 30)
@@ -1964,6 +1978,25 @@ class StreamingEngine @Inject constructor(
         } catch (error: Exception) {
             stopIdlePreview()
             Timber.e(error, "Could not open idle camera preview")
+        }
+    }
+
+    /**
+     * Baut eine an `onConfigureFailed` gescheiterte Vorschau genau einmal neu auf.
+     *
+     * RootEncoder schließt in dem Zweig nur die Capture-Session; das Gerät bleibt
+     * offen und [Camera2ApiManager.reOpenCamera] ist der vorgesehene Weg zurück.
+     * Ein zweiter Fehlversuch bleibt sichtbar (kein Loop), und ein neuer Aufbau
+     * von außen setzt das Budget in [startIdlePreviewIfReady] zurück.
+     */
+    private fun retryIdlePreviewOnce(preview: Camera2ApiManager) {
+        if (!idlePreviewRetryUsed.compareAndSet(false, true)) return
+        // Nicht im Camera-Callback-Thread: reOpenCamera schließt das Gerät.
+        dispatchSceneTask {
+            if (idlePreviewCamera === preview) {
+                runCatching { preview.reOpenCamera(preview.getCurrentCameraId()) }
+                    .onFailure { Timber.w(it, "Idle camera reopen failed") }
+            }
         }
     }
 
@@ -2159,10 +2192,15 @@ class StreamingEngine @Inject constructor(
         }
     }
 
+    private fun adaptiveBitrateStartKbps(): Int {
+        savedBitrateKbps?.let { return it }
+        val encoder = _activeEncoder.value ?: return DEFAULT_VIDEO_BITRATE_KBPS
+        return encoder.preset.videoBitrateKbps
+    }
+
     private fun resetAdaptiveBitrate() {
         if (_adaptiveBitrateEnabled.value) {
-            val presetKbps = savedBitrateKbps ?: _activeEncoder.value?.preset?.videoBitrateKbps
-                ?: DEFAULT_VIDEO_BITRATE_KBPS
+            val presetKbps = adaptiveBitrateStartKbps()
             adaptiveController = AdaptiveBitrateController(
                 AdaptiveBitrateConfig(
                     minBitrateKbps = ADAPTIVE_MIN_BITRATE_KBPS,
@@ -2952,3 +2990,6 @@ class StreamingEngine @Inject constructor(
     }
 
 }
+
+/** Fehlertext von `Camera2ApiManager.onConfiguredFailed` (RootEncoder 2.7.5, #350). */
+private const val CONFIGURE_FAILED = "Configuration failed"
