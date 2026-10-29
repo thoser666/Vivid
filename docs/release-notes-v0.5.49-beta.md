@@ -6,7 +6,7 @@
 
 > **Hinweis zur Versionsnummer:** `VERSION` stand seit dem 12.10.2026 auf `0.5.23-beta`, während die Beta-Spur im Feld bereits `0.5.48-beta+5484` trug (Sentry-Events vom 26.10., `com.vivid@0.5.48-beta+5484`). Der Release-Workflow nimmt `version`/`version_code` als manuelle Inputs — die Datei wurde deshalb nicht mitgezogen und lief der ausgelieferten Linie hinterher. Dieser Schnitt zieht sie nach: **0.5.49-beta = versionCode 5494 > 5484**, also ein gültiges Update über die zuletzt beobachtete Beta. `0.6.0` bleibt weiterhin dem offenen **Streaming-Erweiterungs-Bucket** (RIST, WHIP, RTMP-Pull, SRTLA, 4K/HEVC, Game-Controller, Streamer-Browser) reserviert — dieser Cut ist ein Patch-Beta der laufenden `0.5.x`-Linie gemäß [RELEASE.md](../RELEASE.md) → Nummerierung.
 >
-> **Warum dieser Cut:** 43 Commits seit `v0.5.23-beta` (Tag 25.10.), darunter ein **neuer Szenen-Kompositor** (#330), der **experimentelle 60-FPS-Modus** (#322) und **zwei Fixes an Sentry-Pfaden** — ein Fatal (#324) und ein High-Severity-Error (#350). Alle vier waren bis jetzt ausschließlich auf `develop` bzw. in Nightlies erreichbar.
+> **Warum dieser Cut:** 43 Commits an Funktions-, Test- und Doku-Arbeit seit `v0.5.23-beta` (Tag 25.10.; plus die zwei Release-Commits selbst), darunter ein **neuer Szenen-Kompositor** (#330), der **experimentelle 60-FPS-Modus** (#322) und **zwei Fixes an Sentry-Pfaden** — ein Fatal (#324) und ein High-Severity-Error (#350). Alle vier waren bis jetzt ausschließlich auf `develop` bzw. in Nightlies erreichbar.
 
 ## 🎉 Highlights
 
