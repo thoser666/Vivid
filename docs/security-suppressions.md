@@ -4,7 +4,7 @@
 
 > **English:** This register is the single source of truth for every security suppression in Vivid — each entry documents why a finding is accepted instead of fixed, who owns it, and when it must be re-reviewed. Expired entries fail the pre-push gate (`scripts/check_suppressions_register.sh`).
 
-**Stand der Registerdaten:** 2026-10-29 · **Letzte Vollprüfung:** 2026-09-11 (Guard `check_suppressions_register.sh` gegen Live-APIs verifiziert)
+**Stand der Registerdaten:** 2026-10-30 · **Letzte Vollprüfung:** 2026-09-11 (Guard `check_suppressions_register.sh` gegen Live-APIs verifiziert)
 
 <!-- review-dates
 Maschinenlesbare Prüffristen — geparst von scripts/check_suppressions_register.sh.
@@ -12,7 +12,7 @@ Format pro Zeile: JJJJ-MM-TT Beschreibung. Abgelaufene Daten schlagen beim Gate 
 -->
 
 <!-- review-dates-data
-2027-04-29 PR #338: JavaScript-Browser-Widgets (#540) und Android-7-Vibrations-Fallback (#544), Maintainer-Review ausstehend
+2027-04-29 PR #338: JavaScript-Browser-Widgets (#545, vormals #540) und Android-7-Vibrations-Fallback (#544), Maintainer-Review ausstehend
 2026-12-10 Snyk-Ignore rubyzip (SNYK-RUBY-RUBYZIP-19666145): Re-Assessment, falls fastlane 3.x zulässt oder CVE/GHSA publiziert wird
 2027-03-11 Halbjährlicher Review: Code-Scanning-Dismissals, Dependabot-Dismissals, NOSONAR-Stellen, Scorecard-Annotationen
 -->
@@ -79,15 +79,23 @@ Dismissed am 2026-08-26, 2026-09-03 bzw. 2026-09-25 durch **thoser666**, Review 
 
 ### PR #338 — beantragte Ausnahmen, noch nicht dismissed
 
-**Status 2026-10-29:** Beide Alerts sind offen; dies dokumentiert den begründeten
+**Status 2026-10-30:** Die aktuellen Instanzen #545 und #544 sind offen; dies dokumentiert den begründeten
 Antrag auf Maintainer-Review, keine bereits erteilte Freigabe. Die Zahl aktiver
 Dismissals oben bleibt unverändert. Verantwortlich für den Antrag: **smka**;
 Review bis **2027-04-29**. Entscheidung/Dismissal durch einen berechtigten Maintainer.
 
 | Alert # | Regel / Datei | Beantragte Entscheidung | Begründung und Nachweis |
 |---|---|---|---|
-| #540 | `java/android/websettings-javascript-enabled`, `feature-streaming/.../ui/SceneWidgetsOverlay.kt` | won't fix (benötigte Funktion) | Live-Browser-Widgets benötigen JavaScript, DOM-Speicher und WSS für Aktualisierungen. Der Nutzer wählt den HTTPS-Anbieter bewusst; TLS-Prüfung bleibt aktiv, Hauptnavigation bleibt auf diesem Origin. Datei-/Content-Zugriff, Mixed Content, automatische Fenster und Kamera-/Mikrofon-Anfragen sind gesperrt; keine native JavaScript-Bridge. HTTPS-CDNs und eingebettete HTTPS-Widgets bleiben möglich. `BrowserWidgetSecurityTest` prüft die produktive WebView-Konfiguration auf API 28/34 sowie Origin-/Ressourcen-Grenzen. Dies schützt lokale App-Daten; ein kompromittierter Widget-Anbieter bleibt innerhalb seiner Web-Inhalte vertrauensrelevant. |
+| #545 (vormals #540) | `java/android/websettings-javascript-enabled`, `feature-streaming/.../ui/SceneWidgetsOverlay.kt` | won't fix (benötigte Funktion) | Live-Browser-Widgets benötigen JavaScript, DOM-Speicher und WSS für Aktualisierungen. Der Nutzer wählt den HTTPS-Anbieter bewusst; TLS-Prüfung bleibt aktiv, Hauptnavigation bleibt auf diesem Origin. Datei-/Content-Zugriff, Mixed Content, automatische Fenster und Kamera-/Mikrofon-Anfragen sind gesperrt; keine native JavaScript-Bridge. HTTPS-CDNs und eingebettete HTTPS-Widgets bleiben möglich. `BrowserWidgetSecurityTest` prüft die produktive WebView-Konfiguration auf API 28/34 sowie Origin-/Ressourcen-Grenzen. Dies schützt lokale App-Daten; ein kompromittierter Widget-Anbieter bleibt innerhalb seiner Web-Inhalte vertrauensrelevant. |
 | #544 | `java/deprecated-call`, `feature-widgets/.../PomodoroWidgetManager.kt` | won't fix (minSdk-Fallback) | `Vibrator.vibrate(long)` wird ausschließlich auf API 24–25 aufgerufen. `VibrationEffect` und der Ersatzaufruf existieren erst ab API 26; dort und auf neueren Geräten wird bereits die moderne API genutzt. Der lokale 400-ms-Hinweis benötigt keine externen Eingaben. `PomodoroNotifierTest` prüft beide API-Zweige auf API 24/25/26/34. Entfernen würde die Benachrichtigung auf weiterhin unterstützten Android-7-Geräten abschalten. |
+
+Die erste JavaScript-Instanz **#540** wurde nach dem Factory-Refactoring als
+behoben markiert; der Scan auf `63705234` erzeugte für denselben notwendigen
+JavaScript-Aufruf die neue Instanz **#545**. Der Antrag bezieht sich auf diese
+aktuelle Instanz. Die weiteren Befunde **#546** (Content-Zugriff am Factory-Aufruf)
+und **#547** (deprecated Insets-Wrapper) werden per Code bearbeitet und sind
+keine beantragten Suppressions; ihre Schließung benötigt den nächsten genehmigten
+CodeQL-Lauf.
 
 Grundlagen: [CodeQL-Empfehlung für notwendiges JavaScript](https://codeql.github.com/codeql-query-help/java/java-android-websettings-javascript-enabled/)
 und [Android-Vibrator-API](https://developer.android.com/reference/android/os/Vibrator).
