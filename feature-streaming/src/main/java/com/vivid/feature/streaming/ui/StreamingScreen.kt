@@ -335,7 +335,8 @@ private fun ShowMenuSystemBars() {
         ?: LocalActivity.current?.window
     DisposableEffect(view, window) {
         fun showBars() {
-            showMenuSystemBars(view, window)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) showMenuSystemBars(view)
+            else window?.let { showLegacyMenuSystemBars(view, it) }
         }
         val listener = ViewTreeObserver.OnWindowFocusChangeListener { focused ->
             if (focused) showBars()
@@ -349,22 +350,23 @@ private fun ShowMenuSystemBars() {
 }
 
 /** A popup's platform controller belongs to its own window, rather than the Activity. */
-internal fun showMenuSystemBars(view: android.view.View, window: android.view.Window?) {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-        view.windowInsetsController?.apply {
-            systemBarsBehavior = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                android.view.WindowInsetsController.BEHAVIOR_DEFAULT
-            } else {
-                // API 30 uses value 1 for swipe behavior, renamed DEFAULT in API 31.
-                1
-            }
-            show(android.view.WindowInsets.Type.systemBars())
+@androidx.annotation.RequiresApi(Build.VERSION_CODES.R)
+internal fun showMenuSystemBars(view: android.view.View) {
+    view.windowInsetsController?.apply {
+        systemBarsBehavior = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            android.view.WindowInsetsController.BEHAVIOR_DEFAULT
+        } else {
+            // API 30 uses value 1 for swipe behavior, renamed DEFAULT in API 31.
+            1
         }
-    } else {
-        window?.let { WindowCompat.getInsetsController(it, view) }?.apply {
-            systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_DEFAULT
-            show(WindowInsetsCompat.Type.systemBars())
-        }
+        show(android.view.WindowInsets.Type.systemBars())
+    }
+}
+
+internal fun showLegacyMenuSystemBars(view: android.view.View, window: android.view.Window) {
+    WindowCompat.getInsetsController(window, view).apply {
+        systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_DEFAULT
+        show(WindowInsetsCompat.Type.systemBars())
     }
 }
 

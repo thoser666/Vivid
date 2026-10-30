@@ -44,13 +44,13 @@ class SceneEncoderSessionTest {
         val events = mutableListOf<String>()
         session.beforeGlStop = { events.add("canvas-retired") }
         every { stream.isOnPreview } returns true
-        every { stream.stopPreview() } answers { events.add("gl-stopped") }
+        every { stream.stopPreview() } answers { events.add(SCENE_GL_STOPPED) }
         session.stopPreview()
-        assertEquals(listOf("canvas-retired", "gl-stopped"), events)
+        assertEquals(listOf("canvas-retired", SCENE_GL_STOPPED), events)
         assertTrue(session.startRecording(File(directory, "retained.mp4"), false))
         events.clear()
         session.stopPreview()
-        assertEquals(listOf("gl-stopped"), events)
+        assertEquals(listOf(SCENE_GL_STOPPED), events)
     }
 
     @Test fun `explicit frame rate controls native pacing independently of the preset name`() {
@@ -197,3 +197,5 @@ class SceneEncoderSessionTest {
 }
 
 private const val SCENE_RTMP_ONE_LIVE = "rtmp://one/live"
+
+private const val SCENE_GL_STOPPED = "gl-stopped"

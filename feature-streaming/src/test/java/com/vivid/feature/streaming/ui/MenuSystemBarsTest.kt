@@ -26,7 +26,7 @@ class MenuSystemBarsTest {
             val view = mockk<View>()
             val controller = mockk<WindowInsetsController>(relaxed = true)
             every { view.windowInsetsController } returns controller
-            showMenuSystemBars(view, null)
+            showMenuSystemBars(view)
             verify(exactly = 1) { controller.systemBarsBehavior = 1 }
             verify(exactly = 1) { controller.show(WindowInsets.Type.systemBars()) }
         } else {
@@ -37,7 +37,7 @@ class MenuSystemBarsTest {
                 view.systemUiVisibility = View.SYSTEM_UI_FLAG_FULLSCREEN or
                     View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
                 window.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
-                showMenuSystemBars(view, window)
+                showLegacyMenuSystemBars(view, window)
                 val hidden = View.SYSTEM_UI_FLAG_FULLSCREEN or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
                     View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
                 assertEquals(0, view.systemUiVisibility and hidden)

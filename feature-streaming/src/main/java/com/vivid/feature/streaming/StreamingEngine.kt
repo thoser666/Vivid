@@ -1953,32 +1953,39 @@ class StreamingEngine @Inject constructor(
         // Disconnect that producer before Camera2 reconnects to the same SurfaceView.
         detachGlPreview()
         try {
-            val gl = camera?.glInterface as? GlStreamInterface ?: return
-            encoderRotationDegrees = if (portrait) 90 else 0
-            gl.setEncoderSize(canvas.first, canvas.second)
-            gl.setIsPortrait(portrait)
-            gl.setRotation(0)
-            gl.setForceRender(false, 30)
-            gl.start()
-            privacyComposer.requestRebuild(gl)
-            val preview = idlePreviewFactory(context)
-            idlePreviewRetryUsed.set(false)
-            idlePreviewCamera = preview
-            preview.setCameraCallbacks(idlePreviewCallbacks(preview))
-            preview.prepareCamera(gl.surfaceTexture, 1280, 720, 30)
-            idlePreviewSurface = request.surface
-            idlePreviewSize = size
-            idlePreviewCanvasSize = canvas
-            if (selectedCameraId.isNullOrBlank()) preview.openCameraBack() else preview.openCameraId(selectedCameraId)
-            attachPreviewIfRunning()
-            // Kamera wird gerade geöffnet: der Producer versucht das Einschalten
-            // der Erkennung nach, bis das Input-Surface steht (Risiko #1).
-            attachFaceDetection(idleFaceDetectableFactory(preview))
-            restoreCameraControls()
+            openIdleCameraPreview(request, portrait, canvas, size, selectedCameraId)
         } catch (error: Exception) {
             stopIdlePreview()
             Timber.e(error, "Could not open idle camera preview")
         }
+    }
+
+    private fun openIdleCameraPreview(
+        request: PreviewRequest, portrait: Boolean, canvas: Pair<Int, Int>,
+        size: Pair<Int, Int>, selectedCameraId: String?,
+    ) {
+        val gl = camera?.glInterface as? GlStreamInterface ?: return
+        encoderRotationDegrees = if (portrait) 90 else 0
+        gl.setEncoderSize(canvas.first, canvas.second)
+        gl.setIsPortrait(portrait)
+        gl.setRotation(0)
+        gl.setForceRender(false, 30)
+        gl.start()
+        privacyComposer.requestRebuild(gl)
+        val preview = idlePreviewFactory(context)
+        idlePreviewRetryUsed.set(false)
+        idlePreviewCamera = preview
+        preview.setCameraCallbacks(idlePreviewCallbacks(preview))
+        preview.prepareCamera(gl.surfaceTexture, 1280, 720, 30)
+        idlePreviewSurface = request.surface
+        idlePreviewSize = size
+        idlePreviewCanvasSize = canvas
+        if (selectedCameraId.isNullOrBlank()) preview.openCameraBack() else preview.openCameraId(selectedCameraId)
+        attachPreviewIfRunning()
+        // Kamera wird gerade geöffnet: der Producer versucht das Einschalten
+        // der Erkennung nach, bis das Input-Surface steht (Risiko #1).
+        attachFaceDetection(idleFaceDetectableFactory(preview))
+        restoreCameraControls()
     }
 
     /**

@@ -224,7 +224,7 @@ class SceneRepositoryTest {
             }) }, SceneRepository(store).scenesFlow.first())
         }
         val beforeEdit = repo.scenesFlow.first()
-        repo.saveWidget(widget.copy(name = "Renamed"))
+        repo.saveWidget(widget.copy(name = RENAMED_NAME))
         assertEquals(beforeEdit, repo.scenesFlow.first())
     }
 
@@ -409,11 +409,11 @@ class SceneRepositoryTest {
         )
         repository.saveScene(scene("a"))
         repository.saveScene(scene("b").copy(composition = graph))
-        repository.saveScene(scene("a", "Renamed"))
+        repository.saveScene(scene("a", RENAMED_NAME))
         val scenes = repository.scenesFlow.first()
         assertEquals(listOf("a", "b"), scenes.map { it.id })
         assertEquals(graph, scenes.last().composition)
-        assertEquals("Renamed", scenes.first().name)
+        assertEquals(RENAMED_NAME, scenes.first().name)
     }
 
 
@@ -442,7 +442,7 @@ class SceneRepositoryTest {
         var rejected = false
         try { repository.saveScene(scene("new")) } catch (_: Exception) { rejected = true }
         assertTrue(rejected)
-        assertTrue(store.data.first().asMap().values.any { it.toString().contains("future") })
+        assertTrue(store.data.first().asMap().values.any { it.toString().contains(FUTURE_SCENE_ID) })
     }
 
     @Test
@@ -457,8 +457,8 @@ class SceneRepositoryTest {
             val before = store.data.first()
             val mutations: List<suspend () -> Unit> = listOf(
                 { repo.saveScene(scene("new")) },
-                { repo.deleteScene("future") },
-                { repo.reorderScenes(listOf("future")) },
+                { repo.deleteScene(FUTURE_SCENE_ID) },
+                { repo.reorderScenes(listOf(FUTURE_SCENE_ID)) },
                 { repo.saveWidget(widget.copy(enabled = false)) },
                 { repo.deleteWidget(widget.id) },
                 { repo.initializeLibrary(AppSettings(pomodoroEnabled = true), DEFAULT_SCENE_NAME, WidgetType.entries.associateWith { it.name }) },
@@ -472,3 +472,6 @@ class SceneRepositoryTest {
         }
     }
 }
+
+private const val RENAMED_NAME = "Renamed"
+private const val FUTURE_SCENE_ID = "future"
