@@ -275,6 +275,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 
 | Datum | Commit | Änderung |
 |-------|--------|----------|
+| 2026-10-30 | `e924620` | **DeepSource-Nachprüfung der Szenen-Integration** — Back-Navigation über priorisierte verfügbare Aktionen statt zusätzlicher Verzweigungen im Composable; GL-/Kamera-Aufbau aus dem Idle-Preview-Einstieg extrahiert, bestehende Fehlerbehandlung und Kamera-Recovery erhalten. Native und Legacy-Systemleisten besitzen getrennte API-Verträge, ohne unbenutztes nullable Window. Doppelte Test-Fixtures als Konstanten gebündelt. Streaming-, Settings- und Core-Tests sowie beide betroffenen Lint-Läufe grün. |
 | 2026-10-30 | `3716b1f` | **Speicher für vier Robolectric-SDKs dimensioniert** — Der vollständige Streaming-Testlauf belegte mit SDK 24/28/30/34 den gesamten 512-MiB-Standardheap und verbrachte die Zeit im Wiederaufbau von Kotlin-Reflection-Caches. Nur der Unit-Test-Prozess des Streaming-Moduls erhält jetzt 1 GiB; der komplette Modullauf ist danach in einer Minute grün. |
 | 2026-10-30 | `eba46e7` | **PR #338: verbliebene WebView-/Insets-Befunde nachgearbeitet** — Lokaler Content-Zugriff wird am AndroidView-Übergabepunkt sowie bei jedem Seiten-Update explizit gesperrt; auch gleiche URLs erhalten die Datei-/Content-Grenzen erneut. Das Menü nutzt ab API 30 direkt den Controller seines Views, darunter WindowCompat; kein deprecated Wrapper mehr. Tests für Systemleisten auf API 24/28/30/34 und WebView auf API 28/34 sowie Lint grün. Content-Access-Mutation im Update-Pfad erzeugt zwei rote Regressionen, alle vier Insets-Kontrollen bleiben grün; Quelle bytegetreu restauriert. JavaScript und API-24/25-Vibration bleiben die begründeten, noch nicht freigegebenen Ausnahmen im Security-Register; neuer CodeQL-Lauf zur Bestätigung erforderlich. |
 | 2026-10-29 | `bac0dc1` | **Szenen-Akzeptanztests an Single-Install-Gate angepasst** — `CameraOutputOrientationInstrumentedTest` und `SceneLayerStreamInstrumentedTest` übernehmen `EmulatorTestPermissions.rule()` vor ihrem expliziten Activity-Start. Die nach dem develop-Merge fehlenden Grants werden von D15.4/T15.7 erkannt; beide Guard-Suiten sind nach der Korrektur grün. |
@@ -645,6 +646,7 @@ Commit die Log-Zeile hinzufügte:
 
 | Datum | Commit | Eintrag | Kandidaten (Phrase in PARITY.md) | Vermerk |
 |-------|--------|---------|----------------------------------|---------|
+| 2026-10-30 | `e924620` | DeepSource-Nachprüfung der Szenen-Integration | Komplexität, Insets-Verträge und Test-Fixtures | Bestehende Regressionen erhalten und erfolgreich geprüft |
 | 2026-10-30 | `3716b1f` | Speicher für vier Robolectric-SDKs dimensioniert | Streaming-Testprozess: 1 GiB Heap | Messbarer Engpass im vollständigen Vier-SDK-Lauf behoben |
 | 2026-10-30 | `eba46e7` | PR #338: verbliebene WebView-/Insets-Befunde nachgearbeitet | AndroidView-Übergabe, Update-Sandbox und direkte Insets-API | Regressionen inkl. API 30 und Mutationsnachweis |
 | 2026-10-29 | `bac0dc1` | Szenen-Akzeptanztests an Single-Install-Gate angepasst | Grant-Regeln in beiden branch-eigenen Geräteproben | Folgefix der develop-Integration |
