@@ -41,6 +41,21 @@ class BrowserWidgetSecurityTest {
         } finally { view.destroy() }
     }
 
+    @Test fun `page updates restore local data restrictions even when URL is unchanged`() {
+        val view = createBrowserWidgetWebView(context)
+        try {
+            for (url in listOf(OVERLAY_URL, OVERLAY_URL, "https://overlay.example/updated")) {
+                view.settings.allowContentAccess = true
+                view.settings.allowFileAccess = true
+                updateBrowserWidgetPage(view, url)
+                assertFalse(view.settings.allowContentAccess)
+                assertFalse(view.settings.allowFileAccess)
+                assertEquals(url, org.robolectric.Shadows.shadowOf(view).lastLoadedUrl)
+                assertTrue(view.settings.javaScriptEnabled)
+            }
+        } finally { view.destroy() }
+    }
+
     @Test fun `top level navigation stays on configured HTTPS origin`() {
         val client = BrowserWidgetWebViewClient(OVERLAY_URL)
         val view = mockk<WebView>()

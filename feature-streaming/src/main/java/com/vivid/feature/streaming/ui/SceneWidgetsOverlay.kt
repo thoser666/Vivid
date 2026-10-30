@@ -133,18 +133,28 @@ private fun BrowserWidget(configuration: WidgetConfiguration) {
     if (!isBrowserWidgetUrl(url)) return
     val density = LocalDensity.current
     AndroidView(
-        factory = ::createBrowserWidgetWebView,
+        factory = { context ->
+            val view = createBrowserWidgetWebView(context)
+            // Enforce the boundary where AndroidView takes ownership as well as on updates.
+            view.settings.allowContentAccess = false
+            view
+        },
         modifier = Modifier.requiredSize(with(density) { configuration.browserWidth.coerceIn(1, 4096).toDp() },
             with(density) { configuration.browserHeight.coerceIn(1, 4096).toDp() }),
-        update = { view ->
-            if (view.tag != url) {
-                view.webViewClient = BrowserWidgetWebViewClient(url)
-                view.tag = url
-                view.loadUrl(url)
-            }
-        },
+        update = { view -> updateBrowserWidgetPage(view, url) },
         onRelease = { it.stopLoading(); it.destroy() },
     )
+}
+
+/** Reassert local-data boundaries on every Compose update, including a reused view. */
+internal fun updateBrowserWidgetPage(view: WebView, url: String) {
+    view.settings.allowContentAccess = false
+    view.settings.allowFileAccess = false
+    if (view.tag != url) {
+        view.webViewClient = BrowserWidgetWebViewClient(url)
+        view.tag = url
+        view.loadUrl(url)
+    }
 }
 
 /** Browser widgets run scripts from a user-selected HTTPS provider, without native bridges. */
@@ -152,7 +162,7 @@ private fun BrowserWidget(configuration: WidgetConfiguration) {
 internal fun createBrowserWidgetWebView(context: Context): WebView {
     val view = WebView(context)
     val settings = view.settings
-    // Explicit receiver keeps the local-content denial visible to security data-flow analysis.
+    // Local providers are never part of a browser widget, even when scripts are enabled.
     settings.allowContentAccess = false
     settings.allowFileAccess = false
     settings.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW

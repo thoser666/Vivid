@@ -335,13 +335,7 @@ private fun ShowMenuSystemBars() {
         ?: LocalActivity.current?.window
     DisposableEffect(view, window) {
         fun showBars() {
-            val controller = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                view.windowInsetsController?.let(WindowInsetsControllerCompat::toWindowInsetsControllerCompat)
-            } else window?.let { WindowCompat.getInsetsController(it, view) }
-            controller?.apply {
-                systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_DEFAULT
-                show(WindowInsetsCompat.Type.systemBars())
-            }
+            showMenuSystemBars(view, window)
         }
         val listener = ViewTreeObserver.OnWindowFocusChangeListener { focused ->
             if (focused) showBars()
@@ -350,6 +344,26 @@ private fun ShowMenuSystemBars() {
         showBars()
         onDispose {
             if (view.viewTreeObserver.isAlive) view.viewTreeObserver.removeOnWindowFocusChangeListener(listener)
+        }
+    }
+}
+
+/** A popup's platform controller belongs to its own window, rather than the Activity. */
+internal fun showMenuSystemBars(view: android.view.View, window: android.view.Window?) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        view.windowInsetsController?.apply {
+            systemBarsBehavior = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                android.view.WindowInsetsController.BEHAVIOR_DEFAULT
+            } else {
+                // API 30 uses value 1 for swipe behavior, renamed DEFAULT in API 31.
+                1
+            }
+            show(android.view.WindowInsets.Type.systemBars())
+        }
+    } else {
+        window?.let { WindowCompat.getInsetsController(it, view) }?.apply {
+            systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_DEFAULT
+            show(WindowInsetsCompat.Type.systemBars())
         }
     }
 }
