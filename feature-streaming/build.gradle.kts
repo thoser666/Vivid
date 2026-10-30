@@ -49,6 +49,8 @@ android {
     testOptions {
         unitTests.all {
             it.useJUnitPlatform()
+            // Four Robolectric SDKs plus Compose/MockK exceed the default 512 MiB heap.
+            it.maxHeapSize = "1g"
         }
         // Robolectric: gemergtes Manifest + Ressourcen in die JVM-Tests laden
         // (nötig für FileProvider-Metadaten im shareIntent-Test)
