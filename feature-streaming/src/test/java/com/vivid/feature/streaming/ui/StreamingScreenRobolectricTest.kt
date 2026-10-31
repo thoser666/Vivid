@@ -121,6 +121,7 @@ class StreamingScreenRobolectricTest {
         every { viewModel.privacyEnabled } returns MutableStateFlow(false)
         every { viewModel.privacyZones } returns MutableStateFlow(emptyList())
         every { viewModel.fullFrameBlurEnabled } returns MutableStateFlow(false)
+        every { viewModel.faceBlurEnabled } returns MutableStateFlow(false)
 
         twitchViewModel = mockk(relaxed = true)
         every { twitchViewModel.uiState } returns MutableStateFlow(TwitchChannelUiState())
@@ -605,6 +606,27 @@ class StreamingScreenRobolectricTest {
         composeRule.onNodeWithTag(FULL_FRAME_TOGGLE_TAG).assertDoesNotExist()
     }
 
+    // --- P2 Schritt 3: automatische Gesichtserkennung ------------------------
+
+    @Test
+    fun `face blur toggle appears with privacy on and forwards the new state`() {
+        every { viewModel.privacyEnabled } returns MutableStateFlow(true)
+        setContent()
+        openScenes()
+
+        composeRule.onNodeWithText(FACE_BLUR_LABEL).assertIsDisplayed()
+        composeRule.onNodeWithTag(FACE_BLUR_TOGGLE_TAG).performClick()
+        verify(exactly = 1) { viewModel.setFaceBlurEnabled(true) }
+    }
+
+    @Test
+    fun `no face blur toggle while privacy is disabled`() {
+        setContent()
+        openScenes()
+
+        composeRule.onNodeWithTag(FACE_BLUR_TOGGLE_TAG).assertDoesNotExist()
+    }
+
     private companion object {
         private const val START_STREAMING_LABEL = "Start Streaming"
         private const val CONTROLS_BUTTON_TAG = "open_controls"
@@ -617,6 +639,8 @@ class StreamingScreenRobolectricTest {
         private const val ZONE_EDITOR_TAG = "zone_editor"
         private const val FULL_FRAME_LABEL = "Full-frame pixelation"
         private const val FULL_FRAME_TOGGLE_TAG = "full_frame_toggle"
+        private const val FACE_BLUR_LABEL = "Automatically pixelate faces"
+        private const val FACE_BLUR_TOGGLE_TAG = "face_blur_toggle"
     }
 
 }

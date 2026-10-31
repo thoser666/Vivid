@@ -182,6 +182,9 @@ fun StreamingScreen(
     // (Zonen persistiert im ZoneRepository, framesynchron an die Engine).
     val privacyEnabled by viewModel.privacyEnabled.collectAsStateWithLifecycle(initialValue = false)
     val privacyZones by viewModel.privacyZones.collectAsStateWithLifecycle(initialValue = emptyList())
+    // P2 Schritt 3: automatische Gesichtserkennung als Toggle (Engine +
+    // Persistenz stehen seit P2, hier bekommt der Nutzer die Bedienung).
+    val faceBlurEnabled by viewModel.faceBlurEnabled.collectAsStateWithLifecycle(initialValue = false)
     // P2b: „Ganzbild verpixeln“ — grobe Voll-Frame-Mosaikstufe des Privacy-
     // Filters (Standort-Schutz), nur zusammen mit dem Master-Toggle sichtbar.
     val fullFrameBlurEnabled by viewModel.fullFrameBlurEnabled.collectAsStateWithLifecycle(initialValue = false)
@@ -261,6 +264,8 @@ fun StreamingScreen(
                         if (!enabled) privacyEditing = false
                         viewModel.setPrivacyEnabled(enabled)
                     },
+                    faceBlurEnabled = faceBlurEnabled,
+                    onFaceBlurChange = viewModel::setFaceBlurEnabled,
                     fullFrameBlurEnabled = fullFrameBlurEnabled,
                     onFullFrameBlurChange = viewModel::setFullFrameBlurEnabled,
                     onOpenZoneEditor = {
@@ -1348,6 +1353,8 @@ private fun SceneSwitcherBar(
     onAutoSwitchIntervalChange: (Long) -> Unit,
     privacyEnabled: Boolean,
     onPrivacyEnabledChange: (Boolean) -> Unit,
+    faceBlurEnabled: Boolean,
+    onFaceBlurChange: (Boolean) -> Unit,
     fullFrameBlurEnabled: Boolean,
     onFullFrameBlurChange: (Boolean) -> Unit,
     onOpenZoneEditor: () -> Unit,
@@ -1520,6 +1527,34 @@ private fun SceneSwitcherBar(
                             stateDescription = if (privacyEnabled) privacyOn else privacyOff
                         },
                 )
+            }
+            // P2 Schritt 3: automatische Gesichtserkennung (Route A) — wirkt
+            // nur mit aktivem Master-Toggle und Kamera als Quelle; auf
+            // Geräten ohne Face-Capability bleibt sie wirkungslos (§8).
+            if (privacyEnabled) {
+                val faceBlurOn = stringResource(R.string.streaming_a11y_state_on)
+                val faceBlurOff = stringResource(R.string.streaming_a11y_state_off)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = stringResource(R.string.privacy_face_blur_toggle_label),
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Switch(
+                        checked = faceBlurEnabled,
+                        onCheckedChange = onFaceBlurChange,
+                        modifier = Modifier
+                            .padding(start = 8.dp)
+                            .testTag("face_blur_toggle")
+                            .semantics {
+                                role = Role.Switch
+                                stateDescription = if (faceBlurEnabled) faceBlurOn else faceBlurOff
+                            },
+                    )
+                }
             }
             // P2b: „Ganzbild verpixeln“ — grobe Voll-Frame-Mosaikstufe unter
             // dem Master-Toggle (Standort-Schutz); sichtbar nur, wenn die
