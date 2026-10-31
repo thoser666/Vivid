@@ -1,7 +1,10 @@
 # Scenes and reusable widgets
 
 The settings category **Scenes & widgets** owns scene management, the widget
-library, automatic switching and privacy controls. The preview no longer opens a
+library, automatic switching and privacy controls. With Privacy enabled, its
+scene-management section offers automatic face pixelation alongside manual zones
+and full-frame pixelation. Hiding these controls with the master switch preserves
+the saved face-pixelation selection. The preview no longer opens a
 separate scene sheet. Opening a scene shows its source, activation action and
 ordered widget placements. Rows support long-press dragging, enable switches and
 swipe-to-delete. A note above each scene’s widget list explains that opening a

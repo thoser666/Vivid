@@ -26,6 +26,8 @@ private const val DELETE_DIALOG_TAG = "library_widget_delete_dialog"
 private const val SAVE_LABEL = "Save"
 private const val ADD_WIDGET_LABEL = "Add widget"
 private const val FIRST_SCENE_TOGGLE_TAG = "widget_scene_toggle_a"
+private const val FACE_BLUR_LABEL = "Automatically pixelate faces"
+private const val FACE_BLUR_TOGGLE_TAG = "face_blur_toggle"
 private const val SHARED_SETTINGS_LABEL = "Shared widget settings"
 
 @RunWith(RobolectricTestRunner::class)
@@ -38,6 +40,7 @@ class ScenesWidgetsScreenTest {
     private val widgets = MutableStateFlow(listOf(StreamWidget(TEXT_WIDGET_ID, TEXT_WIDGET_NAME, WidgetType.TEXT),
         StreamWidget("image", IMAGE_WIDGET_NAME, WidgetType.IMAGE)))
     private val privacy = MutableStateFlow(false)
+    private val faceBlur = MutableStateFlow(false)
     private val vm = mockk<StreamingViewModel>(relaxed = true) {
         every { this@mockk.scenes } returns this@ScenesWidgetsScreenTest.scenes
         every { this@mockk.widgets } returns this@ScenesWidgetsScreenTest.widgets
@@ -47,6 +50,8 @@ class ScenesWidgetsScreenTest {
         every { autoSwitchEnabled } returns MutableStateFlow(false)
         every { autoSwitchIntervalSeconds } returns MutableStateFlow(60L)
         every { privacyEnabled } returns privacy
+        every { faceBlurEnabled } returns faceBlur
+        every { setFaceBlurEnabled(any()) } answers { faceBlur.value = firstArg() }
         every { fullFrameBlurEnabled } returns MutableStateFlow(false)
         every { privacyZones } returns MutableStateFlow(emptyList())
         every { streamingEngine } returns mockk<StreamingEngine>(relaxed = true) {
@@ -267,6 +272,33 @@ class ScenesWidgetsScreenTest {
         composeRule.onNodeWithText("Save and start").performClick()
         verify { timer.saveAndStart(match { it.type == WidgetType.POMODORO && it.configuration.pomodoroWorkDurationMinutes == 1 }, emptyMap()) }
         composeRule.onNodeWithTag("widget_scene_selection").assertExists()
+    }
+
+    @Test fun `face blur toggle appears with privacy on and forwards both states`() {
+        privacy.value = true
+        open()
+        scrollTo(FACE_BLUR_LABEL)
+        composeRule.onNodeWithText(FACE_BLUR_LABEL).assertIsDisplayed()
+        composeRule.onNodeWithTag(FACE_BLUR_TOGGLE_TAG).assertIsOff().performClick()
+        verify(exactly = 1) { vm.setFaceBlurEnabled(true) }
+        composeRule.onNodeWithTag(FACE_BLUR_TOGGLE_TAG).assertIsOn().performClick()
+        verify(exactly = 1) { vm.setFaceBlurEnabled(false) }
+        composeRule.onNodeWithTag(FACE_BLUR_TOGGLE_TAG).assertIsOff()
+    }
+
+    @Test fun `master privacy toggle hides face blur without losing its saved selection`() {
+        faceBlur.value = true
+        open()
+        composeRule.onNodeWithTag(FACE_BLUR_TOGGLE_TAG).assertDoesNotExist()
+        composeRule.runOnIdle { privacy.value = true }
+        scrollTo(FACE_BLUR_LABEL)
+        composeRule.onNodeWithTag(FACE_BLUR_TOGGLE_TAG).assertIsOn()
+        composeRule.runOnIdle { privacy.value = false }
+        composeRule.onNodeWithTag(FACE_BLUR_TOGGLE_TAG).assertDoesNotExist()
+        composeRule.runOnIdle { privacy.value = true }
+        scrollTo(FACE_BLUR_LABEL)
+        composeRule.onNodeWithTag(FACE_BLUR_TOGGLE_TAG).assertIsOn()
+        verify(exactly = 0) { vm.setFaceBlurEnabled(any()) }
     }
 
     @Test fun `privacy and full frame controls are available in this section`() {

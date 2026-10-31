@@ -137,6 +137,7 @@
     <string name="privacy_zone_delete">Delete selected zone</string>
     <string name="privacy_zone_editor_close">Close zone editor</string>
     <!-- P2b: full-frame pixelation (location protection) -->
+    <string name="privacy_face_blur_toggle_label">Automatically pixelate faces</string>
     <string name="privacy_full_frame_toggle_label">Full-frame pixelation</string>
     <string name="streaming_controls">Controls</string>
     <string name="streaming_replay_start_error">Could not start recording. Check camera and microphone permissions and try again.</string>

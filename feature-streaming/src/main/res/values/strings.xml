@@ -137,6 +137,7 @@
     <string name="privacy_zone_delete">Ausgewählte Zone löschen</string>
     <string name="privacy_zone_editor_close">Zonen-Editor schließen</string>
     <!-- P2b: Voll-Frame-Verpixelung (Standort-Schutz) -->
+    <string name="privacy_face_blur_toggle_label">Gesichter automatisch verpixeln</string>
     <string name="privacy_full_frame_toggle_label">Ganzbild verpixeln</string>
     <string name="streaming_controls">Steuerung</string>
     <string name="streaming_replay_start_error">Aufnahme konnte nicht gestartet werden. Prüfe die Kamera- und Mikrofonberechtigungen und versuche es erneut.</string>

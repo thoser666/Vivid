@@ -22,6 +22,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.IntOffset
@@ -496,9 +499,24 @@ private fun SceneAutomationAndPrivacy(viewModel: StreamingViewModel, idle: Boole
     }
     if (privacy) {
         OutlinedButton(onClick = onZones, enabled = idle) { Text(stringResource(StreamingR.string.streaming_privacy_zones)) }
+        FaceBlurPrivacyControl(viewModel)
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(StreamingR.string.privacy_full_frame_toggle_label), Modifier.weight(1f))
             Switch(fullFrame, viewModel::setFullFrameBlurEnabled, modifier = Modifier.testTag("full_frame_toggle"))
         }
+    }
+}
+
+@Composable
+private fun FaceBlurPrivacyControl(viewModel: StreamingViewModel) {
+    val enabled by viewModel.faceBlurEnabled.collectAsStateWithLifecycle(false)
+    val state = stringResource(if (enabled) StreamingR.string.streaming_a11y_state_on else StreamingR.string.streaming_a11y_state_off)
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(stringResource(StreamingR.string.privacy_face_blur_toggle_label), Modifier.weight(1f))
+        Switch(enabled, viewModel::setFaceBlurEnabled,
+            modifier = Modifier.testTag("face_blur_toggle").semantics {
+                role = Role.Switch
+                stateDescription = state
+            })
     }
 }
