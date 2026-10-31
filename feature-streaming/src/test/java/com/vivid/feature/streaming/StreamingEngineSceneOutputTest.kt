@@ -45,7 +45,7 @@ class StreamingEngineSceneOutputTest {
         every { session.isStreaming } answers { targets.isNotEmpty() }
         every { session.isRecording } answers { recording }
         every { sceneGl.isRunning } answers { running }
-        every { session.prepare(any()) } returns true
+        every { session.prepare(any(), any(), any(), any()) } returns true
         every { session.startTarget(any(), any()) } answers { targets.add(firstArg()); running = true; Unit }
         every { session.stopTarget(any()) } answers { targets.remove(firstArg<Int>()); Unit }
         every { session.startRecording(any(), any(), any()) } answers { recording = true; running = true; true }
@@ -65,6 +65,19 @@ class StreamingEngineSceneOutputTest {
         }
     }
 
+    @Test fun `native scene keeps portrait and saved stream profile settings`() {
+        val engine = engine()
+        engine.configureStreamVideo(AppSettings(appOrientation = AppOrientation.PORTRAIT,
+            videoBitrateKbps = 4_500, keyframeIntervalSeconds = 3))
+        engine.configureEncoder(ResolvedEncoderConfig(VideoCodecPreference.H264, EncoderPreset.FHD60,
+            false, fps = 30), autoFallback = true)
+        engine.setSceneComposition(graph())
+        engine.startStream(listOf(SCENE_RTMP_ONE_LIVE))
+        verify(exactly = 1) { session.prepare(match { it.fps == 30 }, true, 4_500, 3) }
+        engine.configureStreamVideo(AppSettings(appOrientation = AppOrientation.LANDSCAPE))
+        verify(exactly = 1) { session.prepare(any(), any(), any(), any()) }
+    }
+
     @Test fun `image scene starts without camera permission and uses only the scene transport`() {
         val engine = engine()
         val fallbackDriver = mockk<com.pedro.library.view.ForceRenderer>(relaxed = true)
@@ -74,7 +87,7 @@ class StreamingEngineSceneOutputTest {
         engine.startStream(listOf(SCENE_RTMP_ONE_LIVE, SCENE_RTMP_TWO_LIVE))
         assertEquals(1, created)
         verify(exactly = 0) { camera.prepareVideo(); camera.prepareAudio(); camera.startStream(any(), any(), any()) }
-        verify(exactly = 1) { session.prepare(any()) }
+        verify(exactly = 1) { session.prepare(any(), any(), any(), any()) }
         checkers[0].onConnectionSuccess()
         checkers[1].onConnectionSuccess()
         assertEquals(StreamingState.Streaming, engine.streamingState.value)
@@ -93,7 +106,7 @@ class StreamingEngineSceneOutputTest {
         assertTrue(engine.startReplay(100L, includeAudio = false))
         assertTrue(engine.replayState.value is ReplayState.Recording)
         engine.startStream(listOf(SCENE_RTMP_ONE_LIVE, SCENE_RTMP_TWO_LIVE))
-        verify(exactly = 1) { session.prepare(any()) }
+        verify(exactly = 1) { session.prepare(any(), any(), any(), any()) }
         engine.stopStream()
         assertTrue(recording)
         engine.stopReplay()
@@ -109,7 +122,7 @@ class StreamingEngineSceneOutputTest {
         engine.attachPreview(surface, 640, 360)
         engine.setSceneComposition(graph().copy(layers = listOf(SceneLayer("image-layer", SCENE_IMAGE, SceneTransform(width = .5f)))))
         assertEquals(1, created)
-        verify(exactly = 0) { session.prepare(any()) }
+        verify(exactly = 0) { session.prepare(any(), any(), any(), any()) }
         verify(atLeast = 1) { session.startPreview(surface, 640, 360) }
         engine.detachPreview(surface)
         assertFalse(running)
@@ -259,7 +272,7 @@ class StreamingEngineSceneOutputTest {
         engine.setSceneComposition(graph())
         engine.attachPreview(surface, 640, 360)
         clearMocks(session, answers = false, recordedCalls = true, childMocks = false)
-        every { session.prepare(any()) } returns false
+        every { session.prepare(any(), any(), any(), any()) } returns false
         engine.startStream(listOf(SCENE_RTMP_ONE_LIVE))
         verify(exactly = 0) { session.startTarget(any(), any()) }
         verify(atLeast = 1) { session.startPreview(surface, 640, 360) }
@@ -397,7 +410,7 @@ class StreamingEngineSceneOutputTest {
         assertEquals(graph().sources.first(), next.sources.first { it.id == SCENE_IMAGE })
         val video = next.sources.single { it.type == SceneSourceType.VIDEO }
         assertEquals(SCENE_CONTENT_MOVIE, video.locator)
-        verify(exactly = 1) { session.prepare(any()) }
+        verify(exactly = 1) { session.prepare(any(), any(), any(), any()) }
         verify(exactly = 0) { session.close() }
         for (field in listOf("videoPlayerSource", "replaySource")) {
             assertNull(StreamingEngine::class.java.getDeclaredField(field).apply { isAccessible = true }.get(engine))
@@ -430,7 +443,7 @@ class StreamingEngineSceneOutputTest {
         verify(exactly = 1) { session.seekFileAudio(0.0) }
         loop.invoke(engine, source.id, playback.copy(identity = Any(), positionSeconds = 0.0, cycle = 2))
         verify(exactly = 1) { session.seekFileAudio(any()) }
-        verify(exactly = 1) { session.prepare(any()) }
+        verify(exactly = 1) { session.prepare(any(), any(), any(), any()) }
     }
 
     @Test fun `an unreadable replay leaves the live scene and selected source untouched`() {
@@ -470,7 +483,7 @@ class StreamingEngineSceneOutputTest {
         val selected = StreamingEngine::class.java.getDeclaredField("sceneVideoUri").apply { isAccessible = true }.get(engine)
         assertSame(first, selected)
         assertEquals(full, engine.sceneComposition.value)
-        verify(exactly = 1) { session.prepare(any()) }
+        verify(exactly = 1) { session.prepare(any(), any(), any(), any()) }
     }
 
     @Test fun `a rejected replay switch restores the previous file selection`() {
@@ -516,7 +529,7 @@ class StreamingEngineSceneOutputTest {
         } else assertTrue(engine.useReplayAsSource(replay))
         engine.setSceneComposition(graph())
         engine.startStream(listOf(SCENE_RTMP_ONE_LIVE))
-        verifyOrder { old.stopStream(); session.prepare(any()) }
+        verifyOrder { old.stopStream(); session.prepare(any(), any(), any(), any()) }
         assertEquals(1, allocated)
         checkers[0].onConnectionSuccess()
         retiredCallbacks.first()[0].apply {
@@ -592,7 +605,7 @@ class StreamingEngineSceneOutputTest {
         assertEquals(independent, switched.layers.last())
         assertTrue(engine.switchSource(VideoSourceKind.VIDEO_PLAYER))
         assertEquals(input, engine.sceneComposition.value)
-        verify(exactly = 1) { session.prepare(any()) }
+        verify(exactly = 1) { session.prepare(any(), any(), any(), any()) }
     }
 
     @Test fun `clearing a scene during recording retains the current clip instead of an inactive saved clip`() {
@@ -606,7 +619,7 @@ class StreamingEngineSceneOutputTest {
         engine.setSceneComposition(null)
         assertEquals(selected, engine.sceneComposition.value!!.sources.single().id)
         assertEquals("content://second", engine.sceneComposition.value!!.sources.single().locator)
-        verify(exactly = 1) { session.prepare(any()) }
+        verify(exactly = 1) { session.prepare(any(), any(), any(), any()) }
         verify(exactly = 0) { session.close() }
     }
 
@@ -634,6 +647,7 @@ class StreamingEngineSceneOutputTest {
         engine.startStream(listOf(SCENE_RTMP_ONE_LIVE))
         val frontManager = mockk<com.pedro.encoder.input.video.Camera2ApiManager>(relaxed = true)
         every { frontManager.getCurrentCameraId() } returns SCENE_FRONT
+        every { frontManager.cameraFacing } returns com.pedro.encoder.input.video.CameraHelper.Facing.FRONT
         val textures = mockk<com.vivid.feature.streaming.compositor.gl.AndroidSceneTextureProvider>(relaxed = true)
         every { textures.camera(front.id) } returns frontManager
         every { textures.captureReady(front.id) } returns true
@@ -642,13 +656,14 @@ class StreamingEngineSceneOutputTest {
         engine.idleFaceDetectableFactory = { attached.add(it); mockk(relaxed = true) }
         assertTrue(engine.selectLens(SCENE_FRONT))
         assertEquals(listOf(frontManager), attached)
+        assertTrue(engine.isFrontCamera())
         val changed = engine.sceneComposition.value!!
         assertEquals(input.sources, changed.sources)
         assertEquals(main, changed.layers.first())
         assertEquals(frontView, changed.layers.last())
         assertEquals(front.id, changed.layers[1].sourceId)
         assertEquals(VideoSourceKind.VIDEO_PLAYER, engine.activeSourceKind.value)
-        verify(exactly = 1) { session.prepare(any()) }
+        verify(exactly = 1) { session.prepare(any(), any(), any(), any()) }
     }
 
     @Test fun `selecting a movie does not turn an independent looping view of the same file into a once only clip`() {

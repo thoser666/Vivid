@@ -19,11 +19,16 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import com.vivid.core.data.CameraControlSettings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 
@@ -55,7 +60,14 @@ fun SettingsCameraScreen(
     viewModel: SettingsCameraViewModel = hiltViewModel(),
     cameraModeUi: CameraModeUiState = CameraModeUiState(),
     onCameraModeChange: (CameraMode) -> Unit = {},
+    controlsUi: CameraControlsUiState = CameraControlsUiState(),
+    onControlsChange: ((CameraControlSettings) -> CameraControlSettings) -> Unit = {},
 ) {
+    var zoomOpen by rememberSaveable { mutableStateOf(false) }
+    if (zoomOpen) {
+        CameraZoomScreen(controlsUi, { zoomOpen = false }, onControlsChange)
+        return
+    }
     val focusDistance by viewModel.focusDistance.collectAsState()
     val hasManualFocus by viewModel.hasManualFocus.collectAsState()
     val availableLenses by viewModel.availableLenses.collectAsState()
@@ -86,6 +98,7 @@ fun SettingsCameraScreen(
                     Text(
                         text = stringResource(R.string.camera_focus_title),
                         style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Normal,
                     )
                     Text(
                         text = stringResource(R.string.camera_focus_desc),
@@ -141,6 +154,7 @@ fun SettingsCameraScreen(
                         Text(
                             text = stringResource(R.string.camera_lens_title),
                             style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Normal,
                         )
                         Text(
                             text = stringResource(R.string.camera_lens_desc),
@@ -158,13 +172,14 @@ fun SettingsCameraScreen(
                                 FilterChip(
                                     selected = lens.id == currentLensId,
                                     onClick = { viewModel.selectLens(lens.id) },
-                                    label = { Text(text = lens.displayName) },
+                                    label = { Text(text = lens.displayName, fontWeight = FontWeight.Normal) },
                                 )
                             }
                         }
                     }
                 }
             }
+            CameraAdditionalControls(controlsUi, { zoomOpen = true }, onControlsChange)
             CameraModeSection(cameraModeUi, onCameraModeChange)
         }
     }
@@ -174,21 +189,25 @@ fun SettingsCameraScreen(
 fun SettingsCameraRoute(onBack: () -> Unit) {
     val modeViewModel: SettingsCameraModeViewModel = hiltViewModel()
     val state by modeViewModel.uiState.collectAsState()
-    SettingsCameraScreen(onBack = onBack, onSave = onBack, cameraModeUi = state, onCameraModeChange = modeViewModel::selectMode)
+    val controlsViewModel: SettingsCameraControlsViewModel = hiltViewModel()
+    val controls by controlsViewModel.uiState.collectAsState()
+    SettingsCameraScreen(onBack = onBack, onSave = onBack, cameraModeUi = state,
+        onCameraModeChange = modeViewModel::selectMode, controlsUi = controls,
+        onControlsChange = controlsViewModel::update)
 }
 
 @Composable
 internal fun CameraModeSection(state: CameraModeUiState, onChange: (CameraMode) -> Unit) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(stringResource(R.string.camera_mode_title), style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.camera_mode_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Normal)
             Text(stringResource(R.string.camera_mode_description), style = MaterialTheme.typography.bodySmall)
             CameraMode.entries.forEach { mode ->
                 FilterChip(
                     selected = state.selected == mode,
                     enabled = !state.locked && (mode == CameraMode.STANDARD || state.experimentalSupported),
                     onClick = { onChange(mode) },
-                    label = { Text(stringResource(if (mode == CameraMode.STANDARD) R.string.camera_mode_standard else R.string.camera_mode_experimental)) },
+                    label = { Text(stringResource(if (mode == CameraMode.STANDARD) R.string.camera_mode_standard else R.string.camera_mode_experimental), fontWeight = FontWeight.Normal) },
                     modifier = Modifier.testTag("camera_mode_" + mode.name),
                 )
             }

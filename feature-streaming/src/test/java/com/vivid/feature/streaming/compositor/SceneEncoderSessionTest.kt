@@ -32,6 +32,35 @@ class SceneEncoderSessionTest {
         assertTrue(it.prepare(ResolvedEncoderConfig(VideoCodecPreference.H264, EncoderPreset.entries.first(), false)))
     }
 
+    @Test fun `portrait output uses vertical pixel axes with saved bitrate and keyframe interval`() {
+        val session = SceneEncoderSession(stream, 2)
+        val config = ResolvedEncoderConfig(VideoCodecPreference.H264, EncoderPreset.HD30, false)
+        assertTrue(session.prepare(config, portrait = true, bitrateKbps = 4_500, keyframeIntervalSeconds = 3))
+        verify { stream.prepareVideo(720, 1280, 4_500_000, 30, 3, 0, any(), any(), any(), any(), any()) }
+    }
+
+    @Test fun `scene canvas retires before idle GL stops but remains alive while recording`() {
+        val session = session()
+        val events = mutableListOf<String>()
+        session.beforeGlStop = { events.add("canvas-retired") }
+        every { stream.isOnPreview } returns true
+        every { stream.stopPreview() } answers { events.add(SCENE_GL_STOPPED) }
+        session.stopPreview()
+        assertEquals(listOf("canvas-retired", SCENE_GL_STOPPED), events)
+        assertTrue(session.startRecording(File(directory, "retained.mp4"), false))
+        events.clear()
+        session.stopPreview()
+        assertEquals(listOf(SCENE_GL_STOPPED), events)
+    }
+
+    @Test fun `explicit frame rate controls native pacing independently of the preset name`() {
+        val session = SceneEncoderSession(stream, 2)
+        val config = ResolvedEncoderConfig(VideoCodecPreference.H264, EncoderPreset.FHD60, false, fps = 30)
+        assertTrue(session.prepare(config))
+        verify { gl.setForceRender(true, 30) }
+        verify { stream.prepareVideo(1920, 1080, any(), 30, any(), any(), any(), any(), any(), any(), any()) }
+    }
+
     @Test fun `targets and recording share one preparation and last disconnect preserves recording`() {
         val session = session()
         session.startTarget(0, SCENE_RTMP_ONE_LIVE)
@@ -168,3 +197,5 @@ class SceneEncoderSessionTest {
 }
 
 private const val SCENE_RTMP_ONE_LIVE = "rtmp://one/live"
+
+private const val SCENE_GL_STOPPED = "gl-stopped"

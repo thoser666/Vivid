@@ -223,4 +223,7 @@
     <string name="streaming_stop_confirm_message">This will end the live stream for all destinations.</string>
     <string name="streaming_stop_confirm">Stop</string>
     <string name="streaming_keep_live">Keep streaming</string>
+    <string name="preview_zoom_picker">Zoom controls</string>
+    <string name="preview_zoom_ratio">%1$s×</string>
+    <string name="streaming_fps_pending">— FPS</string>
 </resources>

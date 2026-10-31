@@ -57,4 +57,14 @@ class KeyframeIntervalControllerTest {
         assertFalse(controller.onFrame(2_000_000, true, 7_000))
         assertEquals(2_000L, controller.measuredIntervalMs)
     }
+    @Test
+    fun `saved four second interval controls watchdog instead of old two second deadline`() {
+        val controller = KeyframeIntervalController().apply { intervalSeconds = 4 }
+        controller.onFrame(0, true, 0)
+        assertFalse(controller.onFrame(2_100_000, false, 2_100))
+        assertFalse(controller.onFrame(4_000_000, false, 4_000))
+        assertTrue(controller.onFrame(4_100_000, false, 4_100))
+        assertFalse(controller.onFrame(6_100_000, false, 6_100))
+        assertTrue(controller.onFrame(8_100_000, false, 8_100))
+    }
 }

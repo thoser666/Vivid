@@ -142,6 +142,7 @@ fun StreamScene.effectiveComposition(): SceneComposition {
         SceneVideoSource.CAMERA -> SceneSourceType.CAMERA
         SceneVideoSource.SCREEN_CAPTURE -> SceneSourceType.SCREEN_CAPTURE
         SceneVideoSource.REPLAY -> SceneSourceType.VIDEO
+        SceneVideoSource.EMPTY -> return SceneComposition(primaryInputConfigured = true)
     }
     return SceneComposition(
         sources = listOf(SceneSource(sourceId, type, replayPath.orEmpty(), name,

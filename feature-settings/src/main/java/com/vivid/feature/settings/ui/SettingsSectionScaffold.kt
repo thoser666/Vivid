@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -58,7 +59,9 @@ import com.vivid.core.data.ThemeMode
 fun SettingsSectionScaffold(
     title: String,
     onBack: () -> Unit,
-    onSave: () -> Unit,
+    onSave: (() -> Unit)?,
+    saveEnabled: Boolean = true,
+    scrollState: ScrollState = rememberScrollState(),
     content: @Composable () -> Unit,
 ) {
     Scaffold(
@@ -90,7 +93,7 @@ fun SettingsSectionScaffold(
                 // gekappten Constraints (sonst dominiert fillMax*).
                 .widthIn(max = adaptiveContentMaxWidth(LocalWindowWidthClass.current))
                 .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(scrollState)
                 .padding(paddingValues)
                 .padding(16.dp)
                 .testTag("settings_section_content"),
@@ -98,7 +101,8 @@ fun SettingsSectionScaffold(
         ) {
             content()
 
-            Button(
+            if (onSave != null) Button(
+                enabled = saveEnabled,
                 onClick = onSave,
                 modifier = Modifier.fillMaxWidth(),
             ) {

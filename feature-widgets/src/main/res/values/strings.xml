@@ -19,4 +19,12 @@
     <string name="subtitles_error_busy">Spracherkennung belegt — neuer Versuch…</string>
     <string name="subtitles_error_speech_timeout">Nichts gehört — es wird weiter gelauscht…</string>
     <string name="subtitles_error_generic">Spracherkennungsfehler</string>
+    <string name="pomodoro_phase_work">Arbeitsphase</string>
+    <string name="pomodoro_phase_break">Pause</string>
+    <string name="pomodoro_completed_sessions">Abgeschlossene Arbeitsphasen: %1$d</string>
+    <string name="pomodoro_start">Start</string>
+    <string name="pomodoro_pause">Pause</string>
+    <string name="pomodoro_skip">Phase überspringen</string>
+    <string name="pomodoro_reset">Zurücksetzen</string>
+    <string name="pomodoro_save_start">Speichern und starten</string>
 </resources>

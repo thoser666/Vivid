@@ -1,11 +1,11 @@
 package com.vivid.feature.widget
 
+import androidx.compose.runtime.getValue
 import androidx.core.net.toUri
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.res.stringResource
 import com.vivid.feature.widgets.R
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -28,6 +28,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 
 /** UI-Zustand des Bild-Widgets. */
 data class ImageWidgetUiState(
@@ -42,13 +44,18 @@ class ImageWidgetViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val settingsRepository: SettingsRepository,
 ) : ViewModel() {
+    private val selectedWidget = MutableStateFlow<String?>(null)
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val widgetSettings = selectedWidget.flatMapLatest { if (it == null) settingsRepository.appSettingsFlow else settingsRepository.widgetSettingsFlow(it) }
+    fun useWidget(id: String?) { selectedWidget.value = id }
+
 
     private val _uiState = MutableStateFlow(ImageWidgetUiState())
     val uiState: StateFlow<ImageWidgetUiState> = _uiState.asStateFlow()
 
     init {
         viewModelScope.launch {
-            settingsRepository.appSettingsFlow.collect { settings ->
+            widgetSettings.collect { settings ->
                 _uiState.update {
                     it.copy(
                         enabled = settings.imageWidgetEnabled,

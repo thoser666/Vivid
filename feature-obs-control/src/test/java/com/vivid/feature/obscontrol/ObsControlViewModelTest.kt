@@ -202,6 +202,7 @@ class ObsControlViewModelTest {
 
         val viewModel = ObsControlViewModel(repository, settingsRepository())
         viewModel.connect("secret", "127.0.0.1", "4455")
+        advanceUntilIdle()
 
         assertEquals(ConnectionState.Connecting, viewModel.uiState.value)
         assertEquals(
@@ -217,6 +218,7 @@ class ObsControlViewModelTest {
 
         val viewModel = ObsControlViewModel(repository, settingsRepository())
         viewModel.connect("secret", "127.0.0.1", "4455", useTls = true)
+        advanceUntilIdle()
 
         assertEquals(ConnectionState.Connecting, viewModel.uiState.value)
         assertEquals(
@@ -232,6 +234,7 @@ class ObsControlViewModelTest {
 
         val viewModel = ObsControlViewModel(repository, settingsRepository())
         viewModel.connect("secret", "127.0.0.1", "not-a-port")
+        advanceUntilIdle()
 
         assertEquals(
             ConnectionState.Error(messageRes = R.string.obs_invalid_port_message),
@@ -248,6 +251,7 @@ class ObsControlViewModelTest {
 
         val viewModel = ObsControlViewModel(repository, settingsRepository())
         viewModel.connect("secret", "127.0.0.1", "4455")
+        advanceUntilIdle()
 
         assertEquals(ConnectionState.Error("connection refused"), viewModel.uiState.value)
     }
@@ -468,5 +472,27 @@ class ObsControlViewModelTest {
 
         // CreateScene still only called once.
         assertEquals(1, repository.count("obsCreateScene"))
+    }
+    @Test
+    fun `profile OBS switch blocks connections when off`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val settings = settingsRepository()
+        settings.updateStreamProfiles(listOf(com.vivid.core.data.StreamProfile("off", "Off", obsRemoteEnabled = false)), "off")
+        val repo = obsRepository()
+        val vm = ObsControlViewModel(repo, settings)
+        vm.connect("password", "localhost", "4455")
+        advanceUntilIdle()
+        assertEquals(ConnectionState.Error(messageRes = R.string.obs_remote_disabled), vm.uiState.value)
+    }
+    @Test
+    fun `disconnect cancels a pending connection before it reaches OBS`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repo = obsRepository()
+        val vm = ObsControlViewModel(repo, settingsRepository())
+        vm.connect("password", "localhost", "4455")
+        vm.disconnect()
+        advanceUntilIdle()
+        assertEquals(0, repo.count("connectToObs"))
+        assertEquals(ConnectionState.Disconnected, vm.uiState.value)
     }
 }

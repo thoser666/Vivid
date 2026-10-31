@@ -2,6 +2,13 @@ package com.vivid.core.data
 
 // Diese Datenklasse MUSS alle Felder enthalten, die die UI braucht.
 data class AppSettings(
+    val streamProfiles: List<StreamProfile> = emptyList(),
+    val activeStreamId: String? = null,
+    val obsRemoteEnabled: Boolean = true,
+    val videoFps: Int? = null,
+    val videoBitrateKbps: Int? = null,
+    val keyframeIntervalSeconds: Int = 2,
+    val lowLightBoostEnabled: Boolean = false,
     val streamUrl: String = "",
     val streamKey: String = "",
     // false = rtmp:// (Klartext), true = rtmps:// (RTMP über TLS)
@@ -139,6 +146,8 @@ data class AppSettings(
     // benötigen. Ein laufender Server bleibt unberührt.
     val remoteControlEnabled: Boolean = true,
     // --- Darstellung (Theme) ---
+    val appOrientation: AppOrientation = AppOrientation.PORTRAIT,
+    val localOverlays: LocalOverlaySettings = LocalOverlaySettings(),
     // Design-Modus: SYSTEM (System folgen) | LIGHT | DARK | AMOLED (schwarze Flächen).
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     // Kuratierte Akzentfarbe (Standard: Vivid-Grün — unverändert gegenüber Stufe 1).
@@ -200,8 +209,8 @@ data class AppSettings(
     val slideshowWidgetIntervalSeconds: Int = 30,
     val slideshowWidgetSizeDp: Int = 240,
     val slideshowWidgetOpacity: Float = 1f,
-    // --- Pomodoro-Timer (In-App, PARITY-Zeile 143) ---
-    // Schaltet den In-App-Pomodoro-Timer frei (Timer-Screen nutzbar).
+    // --- Legacy Pomodoro preferences, imported once into the widget library ---
+    // Retained for migration from the standalone timer.
     val pomodoroEnabled: Boolean = false,
     // Länge der Arbeitsphase in Minuten (1–120, Standard 25).
     val pomodoroWorkDurationMinutes: Int = 25,
@@ -214,6 +223,7 @@ data class AppSettings(
     // --- Encoder-Presets (4K/60fps + HEVC, v0.6.0-Bucket) ---
     // Aufloesung/FPS des Video-Encoders (RootEncoder prepareVideo). Default
     // FHD30 = 1080p @ 30 fps.
+    val cameraControls: CameraControlSettings = CameraControlSettings(),
     val cameraMode: CameraMode = CameraMode.STANDARD,
     val encoderPreset: EncoderPreset = EncoderPreset.FHD30,
     // Bevorzugter Video-Codec (AUTO = HEVC wenn verfuegbar, sonst H.264).

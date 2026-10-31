@@ -22,6 +22,7 @@ import com.vivid.feature.streaming.R
 import com.vivid.feature.streaming.StreamTargetState
 import com.vivid.feature.streaming.StreamTargetStatus
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 
 /** Targets share an encoder; use one live measurement instead of summing duplicate streams. */
 internal fun currentStreamBitrateKbps(targets: List<StreamTargetState>): Int? = targets
@@ -34,14 +35,19 @@ internal fun elapsedStreamSeconds(startedAtMs: Long?, nowMs: Long): Long =
 /** Local preview HUD; its timer follows the engine session, not the composition lifetime. */
 @Composable
 internal fun StreamStatusOverlay(
-    modeFps: Int,
+    fps: Int?,
     bitrateKbps: Int?,
     startedAtMs: Long?,
     modifier: Modifier = Modifier,
     nowMs: () -> Long = SystemClock::elapsedRealtime,
+    showFps: Boolean = true,
+    showDuration: Boolean = true,
+    showBitrate: Boolean = true,
 ) {
-    val elapsedSeconds by produceState(elapsedStreamSeconds(startedAtMs, nowMs()), startedAtMs) {
-        while (true) {
+    if (!showFps && !showDuration && !showBitrate) return
+    val elapsedSeconds by produceState(elapsedStreamSeconds(startedAtMs, nowMs()), startedAtMs, showDuration) {
+        if (!showDuration) return@produceState
+        while (isActive) {
             value = elapsedStreamSeconds(startedAtMs, nowMs())
             delay(1_000)
         }
@@ -52,9 +58,10 @@ internal fun StreamStatusOverlay(
         else -> stringResource(R.string.streaming_target_bitrate_kbps, bitrateKbps.toString())
     }
     Row(modifier.testTag("stream_status_overlay"), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        StatusText(stringResource(R.string.streaming_mode_fps, modeFps), "stream_mode_fps")
-        StatusText(bitrate, "stream_current_bitrate")
-        StatusText(stringResource(R.string.streaming_uptime,
+        if (showFps) StatusText(if (fps != null) stringResource(R.string.streaming_mode_fps, fps)
+            else stringResource(R.string.streaming_fps_pending), "stream_mode_fps")
+        if (showBitrate) StatusText(bitrate, "stream_current_bitrate")
+        if (showDuration) StatusText(stringResource(R.string.streaming_uptime,
             elapsedSeconds / 3_600, (elapsedSeconds / 60) % 60, elapsedSeconds % 60), "stream_uptime")
     }
 }

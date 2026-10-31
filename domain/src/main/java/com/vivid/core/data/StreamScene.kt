@@ -11,26 +11,22 @@ import kotlinx.serialization.Serializable
  */
 enum class SceneVideoSource {
     CAMERA,
+    EMPTY,
     SCREEN_CAPTURE,
     /** Eine gespeicherte Replay-Aufnahme (MP4) als Quelle — wird in Dauerschleife gestreamt. */
     REPLAY,
 }
 
-/**
- * Eine umschaltbare „Szene“ (Moblin: Basic Scenes).
- *
- * Speichert die komplette Stream-Konfiguration, die beim Anwenden der Szene
- * hergestellt wird: Videoquelle, Text-/Info-Widget-Zustand und das primäre
- * Stream-Ziel (URL/Key/TLS). Das sekundäre Ziel wird bewusst nicht pro Szene
- * gespeichert — Multi-Streaming bleibt eine globale Einstellung.
- *
- * Serialisierbar (kotlinx.serialization), damit [com.vivid.core.data.SceneRepository]
- * die Szenen als JSON in der Preferences-DataStore ablegen kann.
- */
+/** A source and an ordered composition of shared widgets. Legacy snapshot fields
+ * remain readable until SceneRepository migrates them to widget definitions. */
 @Serializable
 data class StreamScene(
     val id: String,
     val name: String,
+    val enabled: Boolean = true,
+    val cameraId: String? = null,
+    /** null preserves legacy overlays until migrated; empty means no widgets. */
+    val widgets: List<SceneWidget>? = null,
     val videoSource: SceneVideoSource = SceneVideoSource.CAMERA,
     val widgetEnabled: Boolean = false,
     val widgetShowTime: Boolean = true,

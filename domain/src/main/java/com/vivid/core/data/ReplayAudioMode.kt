@@ -8,6 +8,7 @@ package com.vivid.core.data
  *   schreibt keine Audiospur (nützlich, wenn der Stream-Ton nicht im
  *   Replay landen soll, z. B. bei lizenzierter Musik).
  */
+@kotlinx.serialization.Serializable
 enum class ReplayAudioMode {
     ALL,
     VIDEO_ONLY,

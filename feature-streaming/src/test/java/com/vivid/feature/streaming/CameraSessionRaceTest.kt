@@ -1,5 +1,7 @@
 package com.vivid.feature.streaming
 
+import com.vivid.core.data.StabilizationMode
+import org.junit.jupiter.api.Assertions.assertEquals
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -56,6 +58,28 @@ class CameraSessionRaceTest {
         guard.endClose()
         assertTrue(controls.enableTorch())
         verify(exactly = 1) { camera.enableTorch() }
+    }
+
+    @Test
+    fun `saved stabilization controls stay neutral during close and resume afterwards`() {
+        val guard = CameraSessionGuard()
+        val camera = mockk<CameraControls>()
+        val modes = setOf(StabilizationMode.OFF, StabilizationMode.STANDARD, StabilizationMode.CINEMATIC)
+        every { camera.supportedStabilizationModes() } returns modes
+        every { camera.setStabilizationMode(StabilizationMode.CINEMATIC) } returns true
+        val controls = ActiveCameraControls(guard) { camera }
+
+        guard.beginClose()
+        assertEquals(setOf(StabilizationMode.OFF), controls.supportedStabilizationModes())
+        assertFalse(controls.setStabilizationMode(StabilizationMode.CINEMATIC))
+        verify(exactly = 0) { camera.supportedStabilizationModes() }
+        verify(exactly = 0) { camera.setStabilizationMode(any()) }
+
+        guard.endClose()
+        assertEquals(modes, controls.supportedStabilizationModes())
+        assertTrue(controls.setStabilizationMode(StabilizationMode.CINEMATIC))
+        verify(exactly = 1) { camera.supportedStabilizationModes() }
+        verify(exactly = 1) { camera.setStabilizationMode(StabilizationMode.CINEMATIC) }
     }
 
     @Test

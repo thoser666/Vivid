@@ -31,6 +31,7 @@ class SceneEncoderSession internal constructor(
     private val audio: SceneAudioRouterSource = SceneAudioRouterSource(),
 ) : Closeable {
     init { require(targetCount > 0) }
+    internal var beforeGlStop: () -> Unit = {}
     val gl: GlStreamInterface get() = stream.getGlInterface()
     private val targets = mutableSetOf<Int>()
     private var recordingAudio: Boolean? = null
@@ -42,7 +43,8 @@ class SceneEncoderSession internal constructor(
     val isRecording: Boolean get() = recordingAudio != null
 
     /** No second video encoder or recording resolution is requested. */
-    fun prepare(config: ResolvedEncoderConfig): Boolean {
+    fun prepare(config: ResolvedEncoderConfig, portrait: Boolean = false,
+        bitrateKbps: Int? = null, keyframeIntervalSeconds: Int = KeyframeIntervalController.INTERVAL_SECONDS): Boolean {
         check(!closed && !isStreaming && !isRecording && !gl.isRunning)
         audio.select(SceneAudioRouterSource.disabled())
         prepared = false
@@ -54,9 +56,9 @@ class SceneEncoderSession internal constructor(
         stream.forceCodecType(CodecUtil.CodecType.HARDWARE, CodecUtil.CodecType.FIRST_COMPATIBLE_FOUND)
         stream.setVideoCodec(codec)
         val preset = config.preset
-        gl.setForceRender(true, preset.fps)
-        prepared = stream.prepareVideo(preset.width, preset.height,
-            preset.videoBitrateKbps * 1_000, preset.fps, KeyframeIntervalController.INTERVAL_SECONDS, 0) &&
+        gl.setForceRender(true, config.fps)
+        prepared = stream.prepareVideo(if (portrait) preset.height else preset.width, if (portrait) preset.width else preset.height,
+            (bitrateKbps ?: preset.videoBitrateKbps) * 1_000, config.fps, keyframeIntervalSeconds, 0) &&
             stream.prepareAudio(32_000, true, 64_000)
         return prepared
     }
@@ -72,7 +74,10 @@ class SceneEncoderSession internal constructor(
         } catch (failure: Exception) {
             targets.remove(index)
             runCatching { stream.stopStream(MultiType.RTMP, index) }
-            if (!isStreaming) runCatching { prepared = stream.stopStream() }
+            if (!isStreaming) runCatching {
+                if (!isRecording && !stream.isOnPreview) beforeGlStop()
+                prepared = stream.stopStream()
+            }
             runCatching { syncAudio() }
             throw failure
         }
@@ -87,7 +92,10 @@ class SceneEncoderSession internal constructor(
             finally {
                 // The indexed overload checks clients before disconnecting them.
                 // Finish the shared encoder explicitly after the last disconnect.
-                if (!isStreaming) prepared = stream.stopStream()
+                if (!isStreaming) {
+                    if (!isRecording && !stream.isOnPreview) beforeGlStop()
+                    prepared = stream.stopStream()
+                }
             }
         }
     }
@@ -118,18 +126,24 @@ class SceneEncoderSession internal constructor(
         if (!isRecording) return
         recordingAudio = null
         try { syncAudio() }
-        finally { prepared = stream.stopRecord() }
+        finally {
+            if (!isStreaming && !stream.isOnPreview) beforeGlStop()
+            prepared = stream.stopRecord()
+        }
     }
 
     /** Idle preview starts GL/NoVideoSource without allocating hardware encoders. */
     fun startPreview(surface: Surface, width: Int, height: Int) {
         check(!closed)
-        if (stream.isOnPreview) stream.stopPreview()
+        stopPreview()
         stream.startPreview(surface, width, height)
     }
 
     fun stopPreview() {
-        if (stream.isOnPreview) stream.stopPreview()
+        if (stream.isOnPreview) {
+            if (!isStreaming && !isRecording) beforeGlStop()
+            stream.stopPreview()
+        }
     }
 
     fun setFpsListener(listener: (Int) -> Unit) { stream.setFpsListener { listener(it) } }
@@ -165,6 +179,7 @@ class SceneEncoderSession internal constructor(
         } finally {
             closed = true
             prepared = false
+            beforeGlStop()
             try { stream.release() }
             finally {
                 try { audio.release() }

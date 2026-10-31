@@ -55,6 +55,7 @@ class PrivacyComposerTest {
         privacyRender: PrivacyBlurFilterRender? = null,
         videoRender: BaseFilterRender? = null,
         lowLightRender: BaseFilterRender? = null,
+        emptySource: BaseFilterRender = mockk(relaxed = true),
         sceneRender: BaseFilterRender? = null,
         sceneIsInput: Boolean = false,
     ): PrivacyComposer {
@@ -75,7 +76,23 @@ class PrivacyComposerTest {
             videoFilterRenderFactory = { videoRender },
             lutRenderFactory = { lutRender },
             lowLightRenderFactory = { lowLightRender },
+            emptySourceRenderFactory = { emptySource },
         )
+    }
+
+    @Test
+    fun `empty scene replaces processed camera image with black and restores the source when disabled`() {
+        val recorder = RecordingGl()
+        val video = mockk<BaseFilterRender>(relaxed = true)
+        val black = mockk<BaseFilterRender>(relaxed = true)
+        val composer = composer(recorder, filter = VideoFilter.SEPIA, videoRender = video, emptySource = black)
+        composer.sceneEmpty = true
+        composer.requestRebuild(recorder.gl)
+        assertEquals(listOf(video, black), recorder.chain)
+        recorder.added.clear()
+        composer.sceneEmpty = false
+        composer.requestRebuild(recorder.gl)
+        assertEquals(listOf(video), recorder.chain)
     }
 
     @Test
@@ -268,6 +285,35 @@ class PrivacyComposerTest {
         val composer = composer(RecordingGl(), privacyRender = null)
         // Darf nicht werfen (Uniform-Update landet beim nächsten Rebuild).
         composer.setEllipses(listOf(PrivacyEllipse(0.5f, 0.5f, 0.1f, 0.1f)))
+    }
+
+    @Test
+    fun `scene safety gate survives every effect rebuild and reads blackout live`() {
+        val chain = mutableListOf<BaseFilterRender>()
+        val layer = mockk<com.vivid.feature.streaming.scene.SceneLayerFilterRender>(relaxed = true) {
+            every { released } returns false
+        }
+        val video = mockk<BaseFilterRender>(relaxed = true)
+        var hidden: (() -> Boolean)? = null
+        val gl = mockk<GlStreamInterface>(relaxed = true) {
+            every { addFilter(any()) } answers { chain.add(firstArg()); Unit }
+            every { addFilter(any<Int>(), any()) } answers { chain.add(firstArg(), secondArg()) }
+            every { removeFilter(any<BaseFilterRender>()) } answers { chain.remove(firstArg()); Unit }
+        }
+        val composer = composer(RecordingGl(), filter = VideoFilter.SEPIA, videoRender = video)
+        composer.sceneLayerFactory = { _, hide -> hidden = hide; layer }
+        composer.sceneEmpty = true
+        repeat(5) {
+            composer.requestRebuild(gl)
+            assertEquals(2, chain.size)
+            assertEquals(listOf(video), (chain.first() as SceneFilterChainRender).requestedChain())
+            assertSame(layer, chain.last())
+            assertTrue(hidden!!.invoke())
+        }
+        composer.sceneEmpty = false
+        assertFalse(hidden!!.invoke())
+        io.mockk.verify(exactly = 0) { gl.clearFilters(); gl.removeFilter(layer) }
+        io.mockk.verify(exactly = 1) { gl.addFilter(layer) }
     }
 
     // --- P2b: Voll-Frame-Modus -----------------------------------------------

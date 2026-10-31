@@ -11,6 +11,7 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.hasStateDescription
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.assertIsOn
@@ -19,13 +20,10 @@ import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import com.vivid.core.data.AppSettings
-import com.vivid.core.data.EncoderPreset
 import com.vivid.core.log.LogBuffer
 import com.vivid.core.log.LogEntry
 import com.vivid.core.log.LogLevel
 import com.vivid.core.log.LogStore
-import com.vivid.feature.chat.twitch.TwitchChannelUiState
-import com.vivid.feature.chat.twitch.TwitchChannelViewModel
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
@@ -38,6 +36,9 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+
+private const val TELE_LENS_LABEL = "Tele"
+private const val FAILURE_SENTINEL = "boom sentinel"
 
 /**
  * Robolectric-Compose-Tests für die restlichen Settings-Screens (Camera,
@@ -113,7 +114,7 @@ class SettingsSubScreensRobolectricTest {
             every { availableLenses } returns MutableStateFlow(
                 listOf(
                     SettingsCameraViewModel.LensUiState(id = "0", displayName = "Wide", isActive = true),
-                    SettingsCameraViewModel.LensUiState(id = "1", displayName = "Tele", isActive = false),
+                    SettingsCameraViewModel.LensUiState(id = "1", displayName = TELE_LENS_LABEL, isActive = false),
                 ),
             )
             every { currentLensId } returns MutableStateFlow("0")
@@ -122,7 +123,7 @@ class SettingsSubScreensRobolectricTest {
         composeRule.onNodeWithText("Focus").assertIsDisplayed()
         composeRule.onNodeWithText("Infinity").assertIsDisplayed()
         composeRule.onNodeWithText("Macro").assertIsDisplayed()
-        composeRule.onNodeWithText("Tele").performClick()
+        composeRule.onNodeWithText(TELE_LENS_LABEL).performClick()
         verify { viewModel.selectLens("1") }
     }
 
@@ -152,8 +153,8 @@ class SettingsSubScreensRobolectricTest {
         // Messung des doppelten Scrolls mit der Infinite-Height-Exception).
         composeRule.setContent { SettingsCameraScreen(viewModel = cameraViewModel()) }
 
-        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Tele"))
-        composeRule.onNodeWithText("Tele").assertIsDisplayed()
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText(TELE_LENS_LABEL))
+        composeRule.onNodeWithText(TELE_LENS_LABEL).assertIsDisplayed()
     }
 
     private fun cameraViewModel(): SettingsCameraViewModel =
@@ -163,11 +164,45 @@ class SettingsSubScreensRobolectricTest {
             every { availableLenses } returns MutableStateFlow(
                 listOf(
                     SettingsCameraViewModel.LensUiState(id = "0", displayName = "Wide", isActive = true),
-                    SettingsCameraViewModel.LensUiState(id = "1", displayName = "Tele", isActive = false),
+                    SettingsCameraViewModel.LensUiState(id = "1", displayName = TELE_LENS_LABEL, isActive = false),
                 ),
             )
             every { currentLensId } returns MutableStateFlow("0")
         }
+
+    @Test
+    fun `zoom creates and deletes independent front presets without camera actions`() {
+        val controls = androidx.compose.runtime.mutableStateOf(CameraControlsUiState(loaded = true))
+        composeRule.setContent {
+            CameraZoomScreen(controls.value, {}, { update -> controls.value = controls.value.copy(settings = update(controls.value.settings)) })
+        }
+        composeRule.onNodeWithContentDescription("Apply zoom").assertDoesNotExist()
+        composeRule.onNode(hasScrollAction()).performScrollToNode(androidx.compose.ui.test.hasTestTag("front_zoom_create"))
+        composeRule.onNodeWithTag("front_zoom_create").performClick()
+        composeRule.onNodeWithTag("camera_zoom_value").performTextInput("2,5")
+        composeRule.onNodeWithText("Save").performClick()
+        composeRule.runOnIdle {
+            org.junit.Assert.assertEquals(listOf(0.5f, 1f, 2.5f), controls.value.settings.frontZoomPresets)
+            org.junit.Assert.assertEquals(listOf(1f, 1.5f, 2f), controls.value.settings.rearZoomPresets)
+        }
+        composeRule.onNode(hasScrollAction()).performScrollToNode(androidx.compose.ui.test.hasTestTag("front_zoom_delete_2"))
+        composeRule.onNodeWithTag("front_zoom_delete_2").performClick()
+        composeRule.runOnIdle { org.junit.Assert.assertEquals(listOf(0.5f, 1f), controls.value.settings.frontZoomPresets) }
+    }
+
+    @Test
+    fun `camera mirror switch and stabilization dropdown forward changes and disable unsupported modes`() {
+        val state = androidx.compose.runtime.mutableStateOf(CameraControlsUiState(loaded = true,
+            stabilizationModes = setOf(com.vivid.core.data.StabilizationMode.OFF, com.vivid.core.data.StabilizationMode.STANDARD)))
+        composeRule.setContent {
+            CameraAdditionalControls(state.value, {}, { update -> state.value = state.value.copy(settings = update(state.value.settings)) })
+        }
+        composeRule.onNodeWithTag("camera_mirror_front").performClick().assertIsOn()
+        composeRule.onNodeWithTag("camera_stabilization").performClick()
+        composeRule.onNodeWithTag("camera_stabilization_CINEMATIC").assertIsNotEnabled()
+        composeRule.onNodeWithTag("camera_stabilization_STANDARD").performClick()
+        composeRule.runOnIdle { org.junit.Assert.assertEquals(com.vivid.core.data.StabilizationMode.STANDARD, state.value.settings.stabilization) }
+    }
 
     // --- Logs & Diagnostics ---------------------------------------------------
 
@@ -183,7 +218,7 @@ class SettingsSubScreensRobolectricTest {
                             timestampMillis = System.currentTimeMillis(),
                             level = LogLevel.INFO,
                             tag = "Test",
-                            message = "boom sentinel",
+                            message = FAILURE_SENTINEL,
                         ),
                     ),
                 ),
@@ -194,9 +229,9 @@ class SettingsSubScreensRobolectricTest {
         composeRule.onNodeWithText("Logs & Diagnostics").assertIsDisplayed()
         // Log-Liste liegt teils below the fold — gezielt zum Eintrag scrollen.
         composeRule.onNodeWithTag("logs_list").performScrollToNode(
-            androidx.compose.ui.test.hasText("boom sentinel", substring = true),
+            androidx.compose.ui.test.hasText(FAILURE_SENTINEL, substring = true),
         )
-        composeRule.onAllNodesWithText("boom sentinel", substring = true)[0].assertExists()
+        composeRule.onAllNodesWithText(FAILURE_SENTINEL, substring = true)[0].assertExists()
         composeRule.onAllNodesWithText("Copy")[0].assertExists()
         composeRule.onAllNodesWithText("Share")[0].assertExists()
         composeRule.onAllNodesWithText("Retention (days)")[0].assertExists()
@@ -214,105 +249,7 @@ class SettingsSubScreensRobolectricTest {
         org.junit.Assert.assertTrue(viewModel.uiState.value.errorsOnly)
     }
 
-    // --- Streaming / OBS ------------------------------------------------------
-
-    @Test
-    fun `streaming-obs renders stream fields and twitch section`() {
-        composeRule.setContent {
-            SettingsStreamingObsScreen(
-                uiState = AppSettings(),
-                viewModel = settingsViewModel(),
-                twitchViewModel = mockk<TwitchChannelViewModel>(relaxed = true) {
-                    every { uiState } returns MutableStateFlow(TwitchChannelUiState())
-                },
-                twitchState = TwitchChannelUiState(),
-                onBack = {},
-            )
-        }
-        composeRule.onAllNodesWithText("Stream URL")[0].assertExists()
-        composeRule.onAllNodesWithText("Twitch channel control")[0].assertExists()
-        composeRule.onAllNodesWithText("Stream title")[0].assertExists()
-    }
-
-    @Test
-    fun `streaming-obs forwards stream url edits`() {
-        val viewModel = settingsViewModel()
-        composeRule.setContent {
-            SettingsStreamingObsScreen(
-                uiState = AppSettings(),
-                viewModel = viewModel,
-                twitchViewModel = mockk<TwitchChannelViewModel>(relaxed = true) {
-                    every { uiState } returns MutableStateFlow(TwitchChannelUiState())
-                },
-                twitchState = TwitchChannelUiState(),
-                onBack = {},
-            )
-        }
-        composeRule.onAllNodesWithText("Stream URL")[0].performTextInput("rtmp://a.live/b")
-        verify { viewModel.onStreamUrlChange("rtmp://a.live/b") }
-    }
-
-    // --- Encoder-Presets (4K/60fps + HEVC) --------------------------------------
-
-    @Test
-    fun `streaming-obs shows encoder preset chips and codec preference`() {
-        composeRule.setContent {
-            SettingsStreamingObsScreen(
-                uiState = AppSettings(encoderPreset = EncoderPreset.S_4K60),
-                viewModel = settingsViewModel(),
-                twitchViewModel = mockk<TwitchChannelViewModel>(relaxed = true) {
-                    every { uiState } returns MutableStateFlow(TwitchChannelUiState())
-                },
-                twitchState = TwitchChannelUiState(),
-                onBack = {},
-            )
-        }
-        composeRule.onAllNodesWithText("Encoder (resolution & codec)")[0].assertExists()
-        composeRule.onAllNodesWithText("2160p60")[0].assertExists()
-        composeRule.onAllNodesWithText("1080p30")[0].assertExists()
-        composeRule.onAllNodesWithText("H.265 (HEVC)")[0].assertExists()
-    }
-
-    @Test
-    fun `streaming-obs encoder preset click forwards to viewmodel`() {
-        val viewModel = settingsViewModel()
-        composeRule.setContent {
-            SettingsStreamingObsScreen(
-                uiState = AppSettings(),
-                viewModel = viewModel,
-                twitchViewModel = mockk<TwitchChannelViewModel>(relaxed = true) {
-                    every { uiState } returns MutableStateFlow(TwitchChannelUiState())
-                },
-                twitchState = TwitchChannelUiState(),
-                onBack = {},
-            )
-        }
-        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("2160p60"))
-        composeRule.onAllNodesWithText("2160p60")[0].performClick()
-        composeRule.onAllNodesWithText("2160p60")[0].performClick()
-        verify { viewModel.onEncoderPresetChange(EncoderPreset.S_4K60) }
-    }
-
-    @Test
-    fun `streaming-obs shows adaptive bitrate toggle reflecting the state`() {
-        composeRule.setContent {
-            SettingsStreamingObsScreen(
-                uiState = AppSettings(adaptiveBitrateEnabled = true),
-                viewModel = settingsViewModel(),
-                twitchViewModel = mockk<TwitchChannelViewModel>(relaxed = true) {
-                    every { uiState } returns MutableStateFlow(TwitchChannelUiState())
-                },
-                twitchState = TwitchChannelUiState(),
-                onBack = {},
-            )
-        }
-        composeRule.onNode(hasScrollAction()).performScrollToNode(
-            hasText("Automatically adapt bitrate to the connection"),
-        )
-        composeRule.onAllNodesWithText("Automatically adapt bitrate to the connection")[0].assertExists()
-        // Der zweite Toggle im Encoder-Block ist der Adaptive-Switch.
-        composeRule.onAllNodes(isToggleable())[1].assertIsOn()
-    }
+    // Streaming profile navigation is covered by StreamProfilesScreenTest.
 
     // --- Remote & Privacy -------------------------------------------------------
 
@@ -354,62 +291,4 @@ class SettingsSubScreensRobolectricTest {
         composeRule.onAllNodes(isToggleable())[0].assertIsOff()
     }
 
-    // --- Accessibility: Semantics der Encoder-Steuerungen -----------------------
-
-    @Test
-    fun `encoder preset chips expose localized selected state`() {
-        composeRule.setContent {
-            SettingsStreamingObsScreen(
-                uiState = AppSettings(encoderPreset = EncoderPreset.S_4K60),
-                viewModel = settingsViewModel(),
-                twitchViewModel = mockk<TwitchChannelViewModel>(relaxed = true) {
-                    every { uiState } returns MutableStateFlow(TwitchChannelUiState())
-                },
-                twitchState = TwitchChannelUiState(),
-                onBack = {},
-            )
-        }
-        composeRule.onNode(
-            hasText("2160p60").and(hasStateDescription("Selected")),
-        ).assertExists()
-        composeRule.onNode(
-            hasText("1080p30").and(hasStateDescription("Not selected")),
-        ).assertExists()
-    }
-
-    @Test
-    fun `codec chips expose localized selected state`() {
-        composeRule.setContent {
-            SettingsStreamingObsScreen(
-                uiState = AppSettings(),
-                viewModel = settingsViewModel(),
-                twitchViewModel = mockk<TwitchChannelViewModel>(relaxed = true) {
-                    every { uiState } returns MutableStateFlow(TwitchChannelUiState())
-                },
-                twitchState = TwitchChannelUiState(),
-                onBack = {},
-            )
-        }
-        composeRule.onNode(
-            hasText("H.265 (HEVC)").and(hasStateDescription("Not selected")),
-        ).assertExists()
-    }
-
-    @Test
-    fun `encoder auto fallback switch exposes its state for talkback`() {
-        composeRule.setContent {
-            SettingsStreamingObsScreen(
-                uiState = AppSettings(encoderAutoFallback = true),
-                viewModel = settingsViewModel(),
-                twitchViewModel = mockk<TwitchChannelViewModel>(relaxed = true) {
-                    every { uiState } returns MutableStateFlow(TwitchChannelUiState())
-                },
-                twitchState = TwitchChannelUiState(),
-                onBack = {},
-            )
-        }
-        // Nur der Auto-Fallback-Switch trägt eine explizite StateDescription —
-        // der Adaptive-Switch (ohne Semantics-Ergänzung) matcht nicht.
-        composeRule.onNode(hasStateDescription("On")).assertExists()
-    }
 }

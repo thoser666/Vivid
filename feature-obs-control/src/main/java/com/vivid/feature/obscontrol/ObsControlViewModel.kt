@@ -9,9 +9,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.onEach
 import javax.inject.Inject
+import com.vivid.core.coroutines.rethrowCancellation
 
 @HiltViewModel
 class ObsControlViewModel @Inject constructor(
@@ -40,6 +42,13 @@ class ObsControlViewModel @Inject constructor(
 
     // Gespeichertes Scheme aus den Einstellungen, damit das Quick-Connect-Panel
     // nicht still auf ws:// zurücksetzt, wenn wss:// konfiguriert wurde.
+    private data class SavedConnection(
+        val profileId: String?, val enabled: Boolean, val host: String,
+        val port: String, val password: String, val tls: Boolean,
+    )
+    private var previousConnection: SavedConnection? = null
+    private var connectJob: kotlinx.coroutines.Job? = null
+
     private val _savedUseTls = MutableStateFlow(false)
     val savedUseTls: StateFlow<Boolean> = _savedUseTls.asStateFlow()
 
@@ -54,7 +63,9 @@ class ObsControlViewModel @Inject constructor(
     init {
         streamingRepository.isConnectedToObs
             .onEach { isConnected ->
-                _uiState.value = if (isConnected) ConnectionState.Connected else ConnectionState.Disconnected
+                if (isConnected || _uiState.value !is ConnectionState.Error) {
+                    _uiState.value = if (isConnected) ConnectionState.Connected else ConnectionState.Disconnected
+                }
                 if (isConnected) {
                     refreshAfterConnect()
                 }
@@ -62,8 +73,14 @@ class ObsControlViewModel @Inject constructor(
             .launchIn(viewModelScope)
 
         settingsRepository.appSettingsFlow
-            .map { it.obsUseTls }
-            .onEach { _savedUseTls.value = it }
+            .onEach { settings ->
+                _savedUseTls.value = settings.obsUseTls
+                val connection = SavedConnection(settings.activeStreamId, settings.obsRemoteEnabled,
+                    settings.obsHost, settings.obsPort, settings.obsPassword, settings.obsUseTls)
+                val changed = previousConnection?.let { it != connection } == true
+                previousConnection = connection
+                if ((!connection.enabled || changed) && streamingRepository.isConnectedToObs.value) disconnect()
+            }
             .launchIn(viewModelScope)
 
         // Blackout-Warteschleife: sobald die Blackout-Szene in der Szenenliste
@@ -97,18 +114,31 @@ class ObsControlViewModel @Inject constructor(
             return
         }
 
+        connectJob?.cancel()
         _uiState.value = ConnectionState.Connecting
-        try {
-            streamingRepository.connectToObs(password, ip, portNumber, useTls)
-        } catch (e: Exception) {
-            _uiState.value = ConnectionState.Error(
-                message = e.message ?: "",
-                messageRes = if (e.message.isNullOrBlank()) R.string.obs_connect_failed_message else 0,
-            )
+        connectJob = viewModelScope.launch {
+            try {
+                // Read before connecting even if the initial settings collector has not run yet.
+                if (!settingsRepository.appSettingsFlow.first().obsRemoteEnabled) {
+                    _uiState.value = ConnectionState.Error(messageRes = R.string.obs_remote_disabled)
+                    return@launch
+                }
+                streamingRepository.connectToObs(password, ip, portNumber, useTls)
+                _uiState.value = if (streamingRepository.isConnectedToObs.value) ConnectionState.Connected else ConnectionState.Connecting
+            } catch (e: Exception) {
+                e.rethrowCancellation()
+                _uiState.value = ConnectionState.Error(
+                    message = e.message ?: "",
+                    messageRes = if (e.message.isNullOrBlank()) R.string.obs_connect_failed_message else 0,
+                )
+            }
         }
     }
 
     fun disconnect() {
+        connectJob?.cancel()
+        connectJob = null
+        _uiState.value = ConnectionState.Disconnected
         streamingRepository.disconnectFromObs()
     }
 
