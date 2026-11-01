@@ -474,7 +474,7 @@ Triage: #267 ist in Punkt 7 beschrieben.
    Selbsttest `scripts/test_sentry_mapping_upload.sh` (T0–T7; u. a. vertippter Step-Name und
    abgeschalteter Schalter werden rot); beide laufen im Pre-Push-Gate und im CI-Job.
 
-   **Gegencheck nach dem naechsten Play-Upload (messbar, nicht „sieht gut aus"):** Der
+   **Gegencheck nach dem naechsten Nightly-/Stable-Build (messbar, nicht „sieht gut aus"):** Der
    Stack-Modus gibt je Event eine Zeile `EVENT_DEOBFUSCATION <SID>: mapped|obfuscated|no-app-frames`
    mit den Zaehlern `r8-map-id`-Frames / `com.vivid`-Frames aus — `mapped` beweist, dass Sentry das
    Mapping des Builds hat, `obfuscated` das Gegenteil, `no-app-frames` heisst „der Stack enthaelt
@@ -482,12 +482,18 @@ Triage: #267 ist in Punkt 7 beschrieben.
    SIDs vom 31.10./01.11. (`7821630074`, `7821627754`, `7821592525`, `7822036893`, `7812865315`)
    ist `obfuscated` — **gemessen am 01.11.2026** (CI-Lauf 41281476277): `7821630074` 32 r8-Frames/132 gesamt,
    `7821627754` 5/13, `7821592525` 5/15, `7822036893` 7/15, `7812865315` 6/17, jeweils 0 `com.vivid`-Frames.
-   Erwartet wird `mapped` fuer den ersten Play-Build, der mit `SENTRY_AUTH_TOKEN`
-   gebaut wurde. Events aus aelteren Builds bleiben dauerhaft obfuscated — das ist kein Fehler,
-   sondern die Grenze der nachtraeglichen Zuordnung. Der Fingerabdruck des stillen Skips ist im
-   Build-Log die Zeile `skipping upload.` direkt nach
-   `Task :app:uploadSentryProguardMappings<Variante>`; sie darf in einem Play-Build mit Token nicht
-   mehr auftauchen.
+   Erwartet wird `mapped` fuer den ersten Nightly-/Stable-Build, der mit `SENTRY_AUTH_TOKEN` gebaut wurde —
+   dieser Pfad braucht **keine** Play-Registrierung: ausgeliefert wird `assembleStandardRelease` als
+   `app-standard-release.apk` im GitHub-Release (`nightly-*` bzw. Version-Tag), mit `mapping.txt` als Asset. Events aus aelteren Builds bleiben dauerhaft obfuscated — das ist kein Fehler,
+   sondern die Grenze der nachtraeglichen Zuordnung. Der stille Skip hat im Build-Log den Fingerabdruck `skipping upload.` direkt nach
+   `Task :app:uploadSentryProguardMappings<Variante>`.
+   **Korrektur (01.11.2026):** Dieser Nachweis stammte aus dem **Play-Selbsttest (`dry_run`)** und sagt
+   nichts ueber den ausgelieferten Build — dort lief die Variante `standardPlayRelease`, die fuer die
+   Auslieferung gar nicht gebaut wird. Der Befund „Upload wird uebersprungen" ist damit fuer den
+   Auslieferungspfad **nicht** belegt, nur fuer den Play-Selbsttest.
+   Ein lokaler Gegenabgleich `sha256(mapping.txt)` gegen die r8-Id der Frames funktioniert nicht (Probe mit
+   zwei veroeffentlichten Nightly-Mappings: kein Treffer) — die r8-Id ist keine einfache Datei-Pruefsumme.
+   Verlaesslich ist allein die Klassifikation am Event (`EVENT_DEOBFUSCATION`).
 
    **Filter-Entscheidung (§5.7) — kein neuer Allowlist-Eintrag.** `CameraOpenException: Camera no
    detected` ist (a) **FATAL** (unbehandelter Wurf aus dem Looper) und damit nach Sicherheitsnetz 1
