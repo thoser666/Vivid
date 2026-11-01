@@ -44,6 +44,11 @@ on:
         description: 'Read-only: latest-event exception stack for given Sentry SIDs (comma-separated), e.g. 7821630074 — skips the watchdog run'
         required: false
         type: string
+      dry_run:
+        description: 'Read-only preview: list the Sentry groups that would get a GitHub issue (CANDIDATE lines) — creates nothing'
+        required: false
+        type: boolean
+        default: false
 
 permissions: {}
 
@@ -74,11 +79,17 @@ jobs:
           # Env-Technik wie oben — kein ${{ }} im run:, Input nur über Env.
           EVENT_TAGS_INPUT: ${{ inputs.event_tags }}
           EVENT_STACK_INPUT: ${{ inputs.event_stack }}
+          DRY_RUN_INPUT: ${{ inputs.dry_run }}
         run: |
           if [ -n "$EVENT_STACK_INPUT" ]; then
             bash scripts/check_sentry_issues.sh --print-event-stack "$EVENT_STACK_INPUT"
           elif [ -n "$EVENT_TAGS_INPUT" ]; then
             bash scripts/check_sentry_issues.sh --print-event-tags "$EVENT_TAGS_INPUT"
+          elif [ "$DRY_RUN_INPUT" = "true" ]; then
+            # Read-only Vorschau (dispatch-Input dry_run): listet die
+            # Kandidaten als CANDIDATE-Zeilen und legt kein Issue an —
+            # gedacht fuer die Triage vor einem bewussten Watchdog-Lauf.
+            bash scripts/check_sentry_issues.sh --dry-run
           else
             bash scripts/check_sentry_issues.sh
           fi

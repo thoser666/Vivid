@@ -95,21 +95,23 @@ class StreamingService : Service() {
                     streamingEngine.reportStreamStartFailure()
                     return START_NOT_STICKY
                 }
-                try {
-                    if (streamingEngine.activeSourceKind.value == VideoSourceKind.CAMERA) {
-                        streamingEngine.initializeCamera()
-                    }
-                    streamingEngine.startStream(urls)
-                } catch (e: Exception) {
-                    // VIVID-39 (#221) + #327: Hier landen sowohl die
-                    // SecurityException (MediaProjection ohne FGS-Typ/ohne
-                    // gültiges Token) als auch RuntimeException aus der
-                    // RootEncoder-Vorbereitung. Ungetragen killt sie den Prozess
-                    // und AMS meldet "Unable to start service"; deshalb wird der
-                    // Fehler in den Engine-Zustand geschrieben (UI sieht Failed)
-                    // und der Service räumt sauber auf.
-                    Timber.e(e, "StreamingService: failed to start stream")
-                    streamingEngine.reportStreamStartFailure()
+                // VIVID-39 (#221) + #327: Hier landen sowohl die
+                // SecurityException (MediaProjection ohne FGS-Typ/ohne gültiges
+                // Token) als auch RuntimeException aus der RootEncoder-Vorbereitung.
+                // Ungetragen killt sie den Prozess und AMS meldet "Unable to start
+                // service"; der Guard schreibt den Fehler stattdessen in den
+                // Engine-Zustand (UI sieht Failed) und der Service räumt auf.
+                val started = StreamingServiceSupport.guardStreamStart(
+                    log = { Timber.e(it, "StreamingService: failed to start stream") },
+                    start = {
+                        if (streamingEngine.activeSourceKind.value == VideoSourceKind.CAMERA) {
+                            streamingEngine.initializeCamera()
+                        }
+                        streamingEngine.startStream(urls)
+                    },
+                    onFailure = { streamingEngine.reportStreamStartFailure() },
+                )
+                if (!started) {
                     teardown()
                     return START_NOT_STICKY
                 }
