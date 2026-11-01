@@ -386,9 +386,23 @@ cat > "$tmp/i21/event_512.json" <<'JSON'
     "stacktrace": {"frames": [
       {"module": "java.lang.Thread", "function": "run"}]}}]}}]}
 JSON
-out_r21=$(SENTRY_ISSUES_FIXTURE="$tmp/i21" SENTRY_ISSUES_TOKEN=x   bash "$guard" --print-event-stack "510,511,512") || fail "I21: Deobfuskations-Klassifikation darf nicht scheitern"
+cat > "$tmp/i21/event_513.json" <<'JSON'
+{"id": "e13", "entries": [{"type": "exception", "data": {"values": [
+   {"type": "CameraOpenException", "value": "r8 id in filename",
+    "stacktrace": {"frames": [
+      {"filename": "r8-map-id-424869046b93a7bd056b11e7b2bff3b14a2013983", "function": "G"}]}}]}}]}
+JSON
+cat > "$tmp/i21/event_514.json" <<'JSON'
+{"id": "e14", "entries": [{"type": "exception", "data": {"values": [
+   {"type": "CameraOpenException", "value": "package field",
+    "stacktrace": {"frames": [
+      {"package": "com.vivid.feature.streaming", "function": "startIdlePreviewIfReady"}]}}]}}]}
+JSON
+out_r21=$(SENTRY_ISSUES_FIXTURE="$tmp/i21" SENTRY_ISSUES_TOKEN=x   bash "$guard" --print-event-stack "510,511,512,513,514") || fail "I21: Deobfuskations-Klassifikation darf nicht scheitern"
 grep -qF "EVENT_DEOBFUSCATION 510: obfuscated (2 r8-map-id frame(s), 0 com.vivid frame(s), 2 frame(s) total)" <<<"$out_r21" ||   fail "I21: obfuskierter Build (nur r8-map-id-Frames) muss als obfuscated gelten"
 grep -qF "EVENT_DEOBFUSCATION 511: mapped (1 r8-map-id frame(s), 1 com.vivid frame(s), 2 frame(s) total)" <<<"$out_r21" ||   fail "I21: ein com.vivid-Frame muss mapped ergeben (Upload vorhanden)"
+grep -qF "EVENT_DEOBFUSCATION 513: obfuscated (1 r8-map-id frame(s), 0 com.vivid frame(s), 1 frame(s) total)" <<<"$out_r21" ||   fail "I21: r8-Id im filename-Feld muss ebenfalls als obfuscated gelten (Key-Unabhaengigkeit)"
+grep -qF "EVENT_DEOBFUSCATION 514: mapped (0 r8-map-id frame(s), 1 com.vivid frame(s), 1 frame(s) total)" <<<"$out_r21" ||   fail "I21: com.vivid im package-Feld muss mapped ergeben"
 grep -qF "EVENT_DEOBFUSCATION 512: no-app-frames (0 r8-map-id frame(s), 0 com.vivid frame(s), 1 frame(s) total)" <<<"$out_r21" ||   fail "I21: reine Framework-Stacks duerfen nicht als obfuscated gelten"
 
 echo "✅ [sentry-issues-test] Sentry-Issues-Guard vertragstreu (I1–I21)."

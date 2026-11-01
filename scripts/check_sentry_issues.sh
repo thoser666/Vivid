@@ -325,10 +325,15 @@ def _classify_deobfuscation(values):
             if not isinstance(f, dict):
                 continue
             total += 1
-            mod = str(f.get("module") or f.get("filename") or "")
-            if mod.startswith("r8-map-id-"):
+            # Alle String-Felder des Frames absuchen statt einen Key zu raten:
+            # die r8-Id steht je nach SDK-Version in module, filename oder
+            # abs_path. Der erste Anlauf las nur module/filename und meldete
+            # fuer alle fuenf Feld-SIDs "no-app-frames", obwohl deren Frames
+            # nachweislich r8-map-id-Traeger sind — ein still falsches Gruen.
+            blob = " ".join(v for v in f.values() if isinstance(v, str))
+            if "r8-map-id-" in blob:
                 r8 += 1
-            if "com.vivid" in mod:
+            if "com.vivid" in blob:
                 vivid += 1
     if vivid:
         return "mapped", r8, vivid, total
