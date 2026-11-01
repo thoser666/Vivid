@@ -103,6 +103,15 @@ wf_step_index() { _wf_query "$1" "[i for i,s in enumerate(d['jobs']['$2'].get('s
 # test_workflow_security.sh (alle in Tests benutzten wf_* existieren).
 wf_step_if() { _wf_query "$1" "next((s.get('if') for s in d['jobs']['$2'].get('steps', []) if '$3' in str(s.get('name','')) or '$3' in str(s.get('uses',''))), None)"; }
 
+# wf_step_env <datei> <job> <step-name-teilstück> <key> -> env[key] des ersten
+# passenden Steps oder "-".
+# Fuer Zusagen wie "dieser Job gibt dem Gradle-Plugin den Sentry-Token mit":
+# das ist eine Eigenschaft des YAML-Baums (env-Map des Steps), keine des
+# Zeilenabstands — als grep-Fenster waere die Aussage nach der naechsten
+# Kommentarzeile kaputt. Rueckgabe "-" bei unbekanntem Pfad/Job/Step/Key,
+# damit ein Tippfehler nicht wie ein bestandener Check aussieht.
+wf_step_env() { _wf_query "$1" "next((s.get('env',{}).get('$4') for s in d['jobs']['$2'].get('steps', []) if '$3' in str(s.get('name','')) or '$3' in str(s.get('uses',''))), None)"; }
+
 # wf_step_run <datei> <job> <step-name-teilstück> -> run-Snippet oder "-".
 # Für Verhaltenstests: nur so kommt der echte Shell-Code aus dem Workflow in
 # eine Sandbox (Stub für git/gh) und die Auswahl-Logik wird ausgeführt statt

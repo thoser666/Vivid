@@ -17,9 +17,13 @@ plugins {
 // Sentry configuration - only active for standard builds
 // FOSS builds will have Sentry disabled at runtime
 sentry {
-    // Skip ProGuard mapping upload when token is missing (e.g. nightly CI builds).
-    // Token is provided by android_fastlane.yml and android.yml workflows.
-    autoUploadProguardMapping.set(System.getenv("SENTRY_AUTH_TOKEN") != null)
+    // Skip ProGuard mapping upload when the token is missing — but only when it is
+    // really missing: an env var that is SET BUT EMPTY (`SENTRY_AUTH_TOKEN: ""`, what
+    // a missing CI secret produces) must not switch the upload on. Previously only
+    // `!= null` was tested, so an empty secret enabled an upload without credentials.
+    // Every job that builds a shipped artifact provides the token; the wiring is
+    // enforced by scripts/check_sentry_mapping_upload.sh (M1–M5, pre-push + CI).
+    autoUploadProguardMapping.set(!System.getenv("SENTRY_AUTH_TOKEN").isNullOrBlank())
 }
 
 // Robolectric 4.14.1 bündelt ein älteres ASM, das JDK-25-Klassendateien

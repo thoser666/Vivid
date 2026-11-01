@@ -460,6 +460,20 @@ Triage: #267 ist in Punkt 7 beschrieben.
    `l` stehen, obwohl die Events `r8-map-id-…`-Modul-Ids tragen. Auch der neue Stack-Modus kann das
    nicht aufloesen: **vor** jeder Methoden-Attribution muss das Mapping fuer den ausgelieferten
    Build vorhanden sein.
+   **Behoben (01.11.2026), Ursache war die Verdrahtung, nicht das Plugin:** der Job
+   `publish-play` in `release-pipeline.yml` baut das AAB fuer den Play-Kanal — also genau die
+   Builds, die die Feld-Events tragen — und setzte `SENTRY_AUTH_TOKEN` nie. Im Release-Run
+   41174214302 erschien `uploadSentryProguardMappingsStandardPlayRelease` ausschliesslich im
+   Dry-Run-Selbsttest, nicht im Auslieferungspfad; der Kommentar im Fastfile behauptete das
+   Gegenteil und nannte eine Workflow-Datei, die es nicht mehr gibt. Jetzt gilt: Token/Org/Project
+   im Play-Step **und** im `build-release`-Step, ein Fail-closed-Block vor dem Upload (`::error::`
+   + `exit 1`; ein leeres Secret zaehlt wie ein fehlendes) und der Gradle-Schalter prueft
+   `!System.getenv("SENTRY_AUTH_TOKEN").isNullOrBlank()` statt nur `!= null` — ein gesetztes, aber
+   leeres Env-Feld haette den Upload sonst ohne Credentials eingeschaltet. **Guard:**
+   `scripts/check_sentry_mapping_upload.sh` (M1–M5 ueber `wf_step_env`/`wf_step_run`) mit
+   Selbsttest `scripts/test_sentry_mapping_upload.sh` (T0–T7; u. a. vertippter Step-Name und
+   abgeschalteter Schalter werden rot); beide laufen im Pre-Push-Gate und im CI-Job.
+
    **Filter-Entscheidung (§5.7) — kein neuer Allowlist-Eintrag.** `CameraOpenException: Camera no
    detected` ist (a) **FATAL** (unbehandelter Wurf aus dem Looper) und damit nach Sicherheitsnetz 1
    des Transport-Filters tabu, und (b) kein erwarteter Netzwerk-Betriebszustand, sondern eine

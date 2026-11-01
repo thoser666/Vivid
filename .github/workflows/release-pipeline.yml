@@ -390,6 +390,10 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          # Mapping-Upload fuer das Release-APK (sonst obfuskierte Stacks).
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: privat-jb
+          SENTRY_PROJECT: vivid
         run: bundle exec fastlane build_release
 
       - name: Upload Release APK
@@ -1278,11 +1282,23 @@ jobs:
           UPLOAD_KEY_PASSWORD: ${{ secrets.UPLOAD_KEY_PASSWORD }}
           PLAY_JSON_KEY_FILE: ${{ secrets.PLAY_JSON_KEY_FILE }}
           PLAY_JSON_KEY_DATA: ${{ secrets.PLAY_JSON_KEY_DATA }}
+          # ProGuard-Mapping-Upload (Deobfuskation der Feld-Events). Fehlt der
+          # Token hier, liefert der Play-Kanal obfuskierte Stacks aus — genau
+          # der Zustand, den #374/#381/#382/#390/#350 zeigten (Frames `G`, `q0`).
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: privat-jb
+          SENTRY_PROJECT: vivid
           VERSION: ${{ github.event.inputs.version }}
           VERSION_CODE: ${{ github.event.inputs.version_code }}
           TRACK: ${{ github.event.inputs.track }}
           DRY_RUN: ${{ github.event.inputs.dry_run }}
         run: |
+          # Fail-closed: ein Play-Upload ohne Mapping ist nicht attribuierbar.
+          # Ein leerer Wert (fehlendes Secret) zaehlt wie ein fehlender Token.
+          if [ -z "${SENTRY_AUTH_TOKEN:-}" ]; then
+            echo "::error::SENTRY_AUTH_TOKEN fehlt — der Play-Upload würde ohne ProGuard-Mapping ausgeliefert (Sentry-Frames bleiben obfuskiert). Abbruch."
+            exit 1
+          fi
           args=()
           [ -n "$VERSION" ] && args+=(version:"$VERSION")
           [ -n "$VERSION_CODE" ] && args+=(version_code:"$VERSION_CODE")
