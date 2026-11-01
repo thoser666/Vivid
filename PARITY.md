@@ -279,6 +279,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 
 | Datum | Commit | Änderung |
 |-------|--------|----------|
+| 2026-11-01 | `aec9691` | **`dry_run`-Input fuer den Issues-Watchdog** — nach dem Schliessen der 35 Kamera-Gruppen blieben 24 unresolved Sentry-Gruppen uebrig, von denen nur VIVID-4T (#374) gespiegelt ist. Der Guard konnte `--dry-run` (`CANDIDATE:`-Zeilen) schon, der Workflow reichte den Schalter aber nicht durch; jetzt als dispatch-Input (Input nur via Env, gleiche Technik wie `automation-sentry-resolve.yml`). I1–I21, `test_workflow_security.sh`, `test_no_line_windows.sh` gruen. |
 | 2026-11-01 | `909c051` | **Ursache der 415 gefunden: Zeilenumbruch im CI-Token** — Lauf 41304202788 zeigte nach dem urllib-Umbau `client-error: Invalid header value`; der `SENTRY_RESOLVE_TOKEN` endet auf CR/LF, wodurch der Authorization-Header ungueltig wird und nginx/Sentry die Content-Type als leer sieht (`{"detail":"Unsupported media type \"\" in request."}`). Der Guard entfernt CR/LF jetzt vor jeder Verwendung (`tr -d '
 '`), unabhaengig von Quelle (Env oder sentry.properties). R18 haelt das fest (Sanitisierungszeile + Musterprobe mit Umbruch). Verifikation: `bash -n`, R1–R18 gruen, Probe mit Umbruch-Token → sauberes 401-SKIP statt Client-Fehler. |
 | 2026-11-01 | `fa4a322` | **Syntaxfehler des urllib-Umbaus behoben** — die Heredoc-Form von `$( ... <<'PY' ... )` hatte die schliessende Klammer verloren; der Dispatch-Lauf 41304096408 brach deshalb ab, nachdem Phase A noch `WOULD_RESOLVE=35` gemeldet hatte. `bash -n` + R1–R17 gruen, Live-Probe lokal weiterhin `SKIP` (Resolve-Token ohne `project:read`). |
@@ -647,6 +648,7 @@ Commit die Log-Zeile hinzufügte:
 
 | Datum | Commit | Eintrag | Kandidaten (Phrase in PARITY.md) | Vermerk |
 |-------|--------|---------|----------------------------------|---------|
+| 2026-11-01 | `aec9691` | feat(sentry): add a dry-run preview to the issue watchdog | `aec9691` | Direkter develop-Commit (kein PR); Belege: I1–I21 + workflow-security + no-line-windows gruen |
 | 2026-11-01 | `909c051` | fix(sentry): strip control characters from the resolve token | `909c051` | Direkter develop-Commit (kein PR); Belege: Lauf 41304202788 (Invalid header value), Probe mit Umbruch-Token, R1–R18 gruen |
 | 2026-11-01 | `fa4a322` | fix(sentry): close the command substitution around the heredoc PUT | `fa4a322` | Direkter develop-Commit (kein PR); Belege: Lauf 41304096408 (Abbruch nach WOULD_RESOLVE=35), bash -n + R1–R17 gruen |
 | 2026-11-01 | `3af2473` | fix(sentry): send the resolve PUT via urllib instead of curl | `3af2473` | Direkter develop-Commit (kein PR); Belege: 415-Body aus Lauf 41303884737, Echo-Server-Probe mit korrekten Headern, R1–R17 gruen |
