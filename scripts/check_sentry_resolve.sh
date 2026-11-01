@@ -348,6 +348,7 @@ except Exception as exc:  # Netz/DNS/Timeout -> wie curl 000
     open(os.environ["SENTRY_PUT_OUT"], "wb").write(
         ("client-error: %s" % exc).encode("utf-8", "replace"))
 PY
+)
 fi
 
 case "$putstatus" in
