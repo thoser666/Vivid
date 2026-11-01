@@ -331,5 +331,14 @@ case "$putstatus" in
       echo "OK: $count Issue(s) als resolved (inNextRelease) markiert — erledigt mit Version $norm_version (IDs: $ids)"
     fi
     exit 0 ;;
-  *) skip_putstatus "$putstatus" ;;
+  *)
+    # Fehlerantwort sichtbar machen (ohne Token): ein nacktes "unerwarteter
+    # HTTP-Status" ist nicht diagnostizierbar — der Dispatch-Lauf 41303762451
+    # endete mit 415 ohne jede Begruendung. Body gekuerzt/einzeilig, damit er
+    # im CI-Log lesbar bleibt; Fixture-Laeufe haben keine Antwortdatei.
+    if [ -z "$FIXTURE" ] && [ -s "/tmp/sentry_resolve_put.$$.json" ]; then
+      echo "API-ANTWORT: $(tr '
+' ' ' < "/tmp/sentry_resolve_put.$$.json" | cut -c1-300)"
+    fi
+    skip_putstatus "$putstatus" ;;
 esac
