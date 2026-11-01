@@ -4,6 +4,7 @@ import com.vivid.R
 import com.vivid.feature.streaming.StreamingState
 import com.vivid.feature.streaming.source.VideoSourceKind
 import org.junit.Assert.assertEquals
+import org.junit.Assert.fail
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -99,6 +100,59 @@ class StreamingServiceSupportTest {
         assertEquals("", StreamingServiceSupport.failureText(StreamingState.Failed()) { "x" })
     }
 
+    @Test
+    fun `guardStreamStart reports a start failure without letting it escape`() {
+        // #327/VIVID-3Z: frueher entkam die Exception aus onStartCommand und AMS
+        // beendete den Prozess als "Unable to start service".
+        val logged = mutableListOf<Exception>()
+        var failures = 0
+        val boom = IllegalStateException("Unable to start service")
+
+        val started = StreamingServiceSupport.guardStreamStart(
+            log = { logged += it },
+            start = { throw boom },
+            onFailure = { failures++ },
+        )
+
+        assertFalse(started)
+        assertEquals(listOf(boom), logged)
+        assertEquals(1, failures)
+    }
+
+    @Test
+    fun `guardStreamStart stays silent when the start succeeds`() {
+        var failures = 0
+        var logged = 0
+
+        val started = StreamingServiceSupport.guardStreamStart(
+            log = { logged++ },
+            start = {},
+            onFailure = { failures++ },
+        )
+
+        assertTrue(started)
+        assertEquals(0, logged)
+        assertEquals(0, failures)
+    }
+
+    @Test
+    fun `guardStreamStart does not swallow fatal errors`() {
+        // Error ist kein Startfehler des Service: die Behandlung bleibt beim
+        // Prozess (Crash-Reporting), damit kein OOM als "Streamstart-Fehler" endet.
+        var reported = 0
+
+        try {
+            StreamingServiceSupport.guardStreamStart(
+                log = { reported++ },
+                start = { throw OutOfMemoryError("heap exhausted") },
+                onFailure = { reported++ },
+            )
+            fail("Error muss propagieren")
+        } catch (expected: OutOfMemoryError) {
+            assertEquals("heap exhausted", expected.message)
+        }
+        assertEquals(0, reported)
+    }
     @Test
     fun `requiresMediaProjectionFgs is true only for screen capture`() {
         assertTrue(StreamingServiceSupport.requiresMediaProjectionFgs(VideoSourceKind.SCREEN_CAPTURE))

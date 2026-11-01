@@ -532,6 +532,42 @@ Ursache (Top-Frame `park`, also ein Thread-Wartezustand, kein App-Frame). Ein
 ANR ohne belegte Ursache wird **nicht** geschlossen — er braucht entweder einen
 zweiten Beleg oder eine Reproduktion; ein „erledigt" wäre hier eine Behauptung.
 
+### 5.11 `Unable to start service` (#327, VIVID-3Z): Fix war schon da, Test fehlte
+
+**Befund (01.11.2026).** Die Gruppe VIVID-3Z (`RuntimeException: Unable to start
+service com.vivid.irlbroadcaster.StreamingService ...`, fatal, 2 Ereignisse / 2
+Nutzer, 22.10.) stand noch offen, obwohl der Fix am 23.10. mit `5fd40ac` landete —
+`StreamingService.startAsForeground()` meldet seitdem per Boolean, ob der
+Foreground-Zustand steht, und der Startpfad ist von einem `catch (Exception)`
+umschlossen, das über `reportStreamStartFailure()` einen sichtbaren
+`Failed`-Zustand schreibt. Der letzte Stack (`--print-event-stack 7806985927`)
+bestaetigt den Pfad: `StreamingService.onStartCommand` → `StreamingEngine.startStream`
+→ `startSourceStream` → `ScreenCaptureVideoSource.startStream`.
+
+Die Behauptung des Tickets war also **nicht** mehr der Ist-Zustand — und der in
+`PARITY.md` vermerkte Rest („kein Unit-Test fuer die Service-Klasse, dieser Pfad ist
+nur per Kompilat belegt") haette den Fix bei der naechsten Umstellung wieder
+unbemerkt zurueckdrehen lassen.
+
+**Was jetzt gilt.** Die Start-/Fehler-Klammer liegt als reine Funktion in
+`StreamingServiceSupport.guardStreamStart(log, start, onFailure)`: eine Exception
+aus dem Start verlaesst den Service nicht mehr, sondern landet im Log und im
+Engine-Zustand; der Aufrufer raeumt auf (`teardown()`, `START_NOT_STICKY`).
+Gefangen wird bewusst nur `Exception` — ein `Error` (z. B. `OutOfMemoryError`)
+bleibt beim Crash-Reporting und wird nicht als „Streamstart fehlgeschlagen"
+verkleidet.
+
+**Beleg.** `StreamingServiceSupportTest` prueft drei Faelle: Exception → `false`,
+Log + `onFailure` je genau einmal, kein Entweichen; Erfolg → `true`, keine
+Meldung; `OutOfMemoryError` → propagiert unveraendert, `onFailure` bleibt stumm.
+Mutationsprobe (01.11.2026): `onFailure()` im Guard entfernt → genau dieser Test
+rot (`guardStreamStart reports a start failure without letting it escape`,
+`BUILD FAILED in 27s`); zurueckgebaut → `BUILD SUCCESSFUL in 25s`.
+
+**Status der Gruppe.** VIVID-3Z (`7806985927`) wird nach dem Beleg resolved
+(`--ids`, ohne `inNextRelease`): die Codebasis enthaelt den Fix, aber der
+gemeldete Build liegt davor — ein erneutes Auftreten soll die Gruppe wieder
+oeffnen, statt sie als „in der naechsten Version behoben" stillzustellen.
 ## 6. Sicherheit
 
 - Token getrennt vom CI-Mapping-Token (`auth.token`) — getrennte Scopes,

@@ -64,6 +64,34 @@ object StreamingServiceSupport {
     }
 
     /**
+     * Führt den Streamstart aus und hält dabei den #327-Vertrag ein: eine
+     * Exception aus dem Start darf den Service **nicht** verlassen.
+     *
+     * Ungetragen beendet AMS den Prozess als `Unable to start service ...
+     * StreamingService` (Sentry VIVID-3Z, Issue #327) — der Nutzer sieht
+     * keinen Grund, weil der Prozess vor dem UI-Update stirbt. Hier landet die
+     * Ursache stattdessen in [onFailure] (Engine schreibt einen Failed-Zustand)
+     * und der Aufrufer räumt auf.
+     *
+     * Gefangen wird bewusst nur [Exception]: ein [Error] (z. B. OutOfMemoryError)
+     * ist kein Startfehler des Service und bleibt beim Prozess/Crash-Reporting.
+     *
+     * @return true, wenn der Start durchlief; false, wenn [onFailure] gefeuert hat.
+     */
+    fun guardStreamStart(
+        log: (Exception) -> Unit,
+        start: () -> Unit,
+        onFailure: () -> Unit,
+    ): Boolean =
+        try {
+            start()
+            true
+        } catch (failure: Exception) {
+            log(failure)
+            onFailure()
+            false
+        }
+    /**
      * True, wenn der Streaming-Service den FGS-Typ `mediaProjection` anmelden muss.
      *
      * Android 14+ verlangt für jeden `MediaProjection.createVirtualDisplay()`-
