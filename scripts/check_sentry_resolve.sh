@@ -318,9 +318,36 @@ fi
 if [ -n "$FIXTURE" ]; then
   putstatus=$(cat "$FIXTURE/status" 2>/dev/null || echo 200)
 else
-  putstatus=$(curl -sS -o /tmp/sentry_resolve_put.$$.json -w '%{http_code}' \
-    -X PUT -H "Authorization: Bearer $token" -H "Content-Type: application/json" \
-    -d @"$tmp/put_body" "$(cat "$tmp/put_url")" 2>/dev/null || echo 000)
+  # PUT bewusst ueber Python statt curl: der Dispatch-Lauf 41303884737 bekam
+  # fuer denselben Aufruf ein `415 Unsupported media type ""` von Sentry,
+  # obwohl curl die Header korrekt setzt (lokal gegen einen Echo-Server
+  # verifiziert). urllib setzt Header und Body deterministisch und legt im
+  # Fehlerfall genau das ab, was gesendet wurde.
+  putstatus=$(SENTRY_PUT_URL="$(cat "$tmp/put_url")" \
+    SENTRY_PUT_BODY_FILE="$tmp/put_body" \
+    SENTRY_PUT_TOKEN="$token" \
+    SENTRY_PUT_OUT="/tmp/sentry_resolve_put.$$.json" \
+    python -X utf8 - 2>/dev/null <<'PY' || echo 000
+import os, urllib.error, urllib.request
+
+url = os.environ["SENTRY_PUT_URL"]
+body = open(os.environ["SENTRY_PUT_BODY_FILE"], "rb").read()
+req = urllib.request.Request(url, data=body, method="PUT")
+req.add_header("Authorization", "Bearer " + os.environ["SENTRY_PUT_TOKEN"])
+req.add_header("Content-Type", "application/json")
+req.add_header("Accept", "application/json")
+try:
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        print(resp.status)
+        open(os.environ["SENTRY_PUT_OUT"], "wb").write(resp.read())
+except urllib.error.HTTPError as err:
+    print(err.code)
+    open(os.environ["SENTRY_PUT_OUT"], "wb").write(err.read())
+except Exception as exc:  # Netz/DNS/Timeout -> wie curl 000
+    print("000")
+    open(os.environ["SENTRY_PUT_OUT"], "wb").write(
+        ("client-error: %s" % exc).encode("utf-8", "replace"))
+PY
 fi
 
 case "$putstatus" in

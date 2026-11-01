@@ -19,7 +19,7 @@
 #   R10 Token-Quellen-Vertrag (--print-token-source, nur QUELLE, nie Token):
 #       env > resolve.token > stats.token > auth.token > none
 #   R11 --dry-run: meldet "OK (dry-run): N" ohne PUT-Ausführung
-#   R12 Windows-Coding-Sicherheitsnetz: beide Python-Heredocs des Guards
+#   R12 Windows-Coding-Sicherheitsnetz: alle Python-Heredocs des Guards
 #       laufen mit `python -X utf8` — sonst crashen cp1252-Locales (Windows)
 #       mit verschleiertem UnicodeEncodeError an —/→/ü in der Ausgabe
 #       (stderr gefiltert; Regression vom 25.09.2026, entdeckt am
@@ -166,7 +166,7 @@ grep -q "project:write" <<<"$out_r11" && fail "R11: dry-run darf den Fixture-sta
 # R12 Windows-Coding-Sicherheitsnetz (strukturtreu, hostunabhängig): beide
 # Python-Heredocs müssen mit `python -X utf8` laufen.
 utf8_calls=$(grep -c "python -X utf8 - " "$guard" || true)
-[ "$utf8_calls" -eq 2 ] || fail "R12: beide Python-Heredocs müssen 'python -X utf8' nutzen (gefunden: $utf8_calls)"
+[ "$utf8_calls" -eq 3 ] || fail "R12: alle drei Python-Heredocs müssen 'python -X utf8' nutzen (gefunden: $utf8_calls)"
 if grep -E "python - (2>/dev/null )?<<'PY'" "$guard" >/dev/null; then
   fail "R12: es existiert noch ein Heredoc ohne -X utf8 (cp1252-Crash-Risiko)"
 fi
