@@ -158,6 +158,14 @@ elif [ -z "$FIXTURE" ] && [ -f "$PROPS" ]; then
   fi
 fi
 
+# Header-Werte duerfen keine Steuerzeichen enthalten: ein Token mit
+# angehaengtem Zeilenumbruch (Secret per Copy&Paste angelegt) macht den
+# Authorization-Header ungueltig — nginx/Sentry sah dann eine LEERE
+# Content-Type ("Unsupported media type \"\"", HTTP 415), Python bricht mit
+# "Invalid header value" ab (Befunde 41303884737 / 41304202788). Der Umbruch
+# wird deshalb vor jeder Verwendung entfernt, unabhaengig von der Quelle.
+token=$(printf '%s' "$token" | tr -d '\r\n')
+
 if [ "$print_src" = "1" ]; then
   echo "TOKEN_SOURCE=$source"
   exit 0

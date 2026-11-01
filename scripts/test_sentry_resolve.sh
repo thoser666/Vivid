@@ -32,6 +32,7 @@
 #       fehlender Auswahl-Modus sind FEHLER (exit 1), nicht SKIP
 #   R17 --ids + --dry-run: meldet die IDs, ohne PUT (Fixture-status bleibt
 #       unbenutzt) und ohne inNextRelease-Wortlaut
+#   R18 Header-Haertung: Token ohne CR/LF vor der Header-Nutzung (415-Befund)
 #   R13 VIVID_REPO_ROOT (#250): der Guard darf aus $RUNNER_TEMP aufgerufen
 #      werden (Stable-Publish staget die Gate-Skripte dorthin, damit der
 #      Arbeitsbaum nicht vom Ziel-Tag stammt). Ohne gesetzten Repo-Root muss
@@ -237,4 +238,15 @@ grep -q "^OK (dry-run): 1 Issue(s) würden als resolved markiert (ohne inNextRel
   fail "R17: dry-run-Verdict fuer --ids erwartet"
 grep -q "project:write" <<<"$out_r17" && fail "R17: dry-run darf den Fixture-status 403 nicht auswerten"
 
-echo "✅ [sentry-resolve-test] Sentry-Resolve-Guard vertragstreu (R1–R17)."
+# R18 Header-Haertung: der Token wird vor jeder Header-Nutzung von CR/LF
+# befreit. Ohne das sieht nginx/Sentry eine leere Content-Type (HTTP 415,
+# "Unsupported media type \"\"") bzw. Python meldet "Invalid header value"
+# (Dispatch-Laeufe 41303884737 und 41304202788 — Secret mit Zeilenumbruch).
+grep -qF '"$token" | tr -d' "$guard" || \
+  fail "R18: Token-Sanitisierung (tr -d CR/LF) fehlt vor der Header-Nutzung"
+dirty=$(printf 'sntrys_TEST\n')
+if [ "$(printf '%s' "$dirty" | tr -d '\r\n')" != "sntrys_TEST" ]; then
+  fail "R18: Sanitisierungsmuster entfernt den Zeilenumbruch nicht"
+fi
+
+echo "✅ [sentry-resolve-test] Sentry-Resolve-Guard vertragstreu (R1–R18)."
