@@ -130,6 +130,15 @@ jobs:
       - name: Test sentry issues watchdog guard
         run: bash scripts/test_sentry_issues.sh
 
+      # Sentry-Mapping-Upload-Guard — beweist, dass jeder Job, der ein
+      # ausgeliefertes Artefakt baut, den Token mitbekommt (M1–M5). Ohne ihn
+      # liefert der Play-Kanal obfuskierte Stacks (Feld-Events 0.5.68/0.5.74).
+      - name: Test sentry mapping upload guard
+        run: bash scripts/test_sentry_mapping_upload.sh
+
+      - name: Check sentry mapping upload wiring
+        run: bash scripts/check_sentry_mapping_upload.sh
+
       # Play-Metadaten-Check (bash) — Selbsttest mit Fixture-PNGs: 1 Positiv-
       # + 5 Negativfälle. Der harte Gate-Check läuft im publish-play-Job
       # (release-pipeline.yml) direkt vor dem Upload.

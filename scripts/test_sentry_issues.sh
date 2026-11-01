@@ -44,6 +44,10 @@
 #       ohne Token-Leak), 403-Fixture → "not readable", ungültige SID →
 #       SKIP-Zeile; Workflow verdrahtet den Input als EVENT_TAGS_INPUT
 #       (Env-Technik, kein ${{ }} im run:)
+#   I20 Read-only Diagnosemodus --print-event-stack: Exception-/Thread-Kette
+#       des Latest-Events (Typ/Wert + Frames, neueste zuerst, in_app-Marker),
+#       403-/Fixture-Fallback, ungueltige SID, Threads-Form (ANR/nativ);
+#       Workflow verdrahtet den Input als EVENT_STACK_INPUT (Env-Technik)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 fail() { echo "❌ [sentry-issues-test] $1"; exit 1; }
@@ -324,4 +328,81 @@ grep -q 'EVENT_TAGS_INPUT: \${{ inputs.event_tags }}' "$WF" || \
 grep -qF 'bash scripts/check_sentry_issues.sh --print-event-tags "$EVENT_TAGS_INPUT"' "$WF" || \
   fail "I19: Guard-Aufruf mit --print-event-tags im Workflow fehlt"
 
-echo "✅ [sentry-issues-test] Sentry-Issues-Guard vertragstreu (I1–I19)."
+# I20 Read-only Diagnosemodus --print-event-stack (Attribution ohne Dashboard)
+mk_new2 "$tmp/i20"
+cat > "$tmp/i20/event_500.json" <<'JSON'
+{"id": "e5", "entries": [{"type": "exception", "data": {"values": [
+   {"type": "ApplicationNotResponding", "value": "ANR in com.vivid",
+    "stacktrace": {"frames": [
+      {"filename": "BaseMessageQueue.java", "function": "dispatchMessage", "lineno": 106, "in_app": false},
+      {"filename": "StreamingEngine.kt", "function": "startIdlePreviewIfReady", "lineno": 1758, "in_app": true}]}},
+   {"type": "java.lang.RuntimeException", "value": "caused by"}]}}]}
+JSON
+echo 403 > "$tmp/i20/eventstatus_501"
+out_r20=$(SENTRY_ISSUES_FIXTURE="$tmp/i20" SENTRY_ISSUES_TOKEN=sntrys_FAKE_LEAK   GITHUB_ISSUES_TOKEN= bash "$guard" --print-event-stack "500,501,999") ||   fail "I20: Stack-Modus darf nicht scheitern (exit 0 Vertrag)"
+grep -qF "EVENT_STACK 500: 2 exception(s)/thread(s)" <<<"$out_r20" ||   fail "I20: Kopfzeile mit Exception-Zahl fehlt"
+grep -qF "StreamingEngine.kt:1758 in startIdlePreviewIfReady [in_app]" <<<"$out_r20" ||   fail "I20: In-App-Frame fehlt"
+grep -qF "BaseMessageQueue.java:106 in dispatchMessage" <<<"$out_r20" ||   fail "I20: Framework-Frame fehlt"
+grep -qF "EVENT_STACK 501: not readable (HTTP 403)" <<<"$out_r20" ||   fail "I20: 403-Fallback-Zeile erwartet"
+grep -qF "EVENT_STACK 999: SKIP (kein Event-Fixture" <<<"$out_r20" ||   fail "I20: fehlende Fixture -> SKIP-Zeile erwartet"
+grep -q "sntrys_FAKE_LEAK" <<<"$out_r20" && fail "I20: Token-Leak im Stack-Modus"
+out_r20b=$(SENTRY_ISSUES_FIXTURE="$tmp/i20" SENTRY_ISSUES_TOKEN=x   bash "$guard" --print-event-stack "500x") || fail "I20b: ungueltige SID darf nicht scheitern"
+grep -qF "ungültige SID" <<<"$out_r20b" || fail "I20b: ungueltige SID -> SKIP-Zeile erwartet"
+if SENTRY_ISSUES_FIXTURE="$tmp/i20" SENTRY_ISSUES_TOKEN=x   bash "$guard" --print-event-stack >/dev/null 2>&1; then
+  fail "I20c: --print-event-stack ohne SID muss FEHLER (exit 1) sein"
+fi
+cat > "$tmp/i20/event_502.json" <<'JSON'
+{"id": "e6", "entries": [{"type": "threads", "data": {"values": [
+  {"id": 1, "name": "main", "crashed": true, "current": true,
+   "stacktrace": {"frames": [{"filename": "StreamingEngine.kt", "function": "poll", "lineno": 900, "in_app": true}]}}]}}]}
+JSON
+out_r20c=$(SENTRY_ISSUES_FIXTURE="$tmp/i20" SENTRY_ISSUES_TOKEN=x   bash "$guard" --print-event-stack "502") || fail "I20d: Threads-Form darf nicht scheitern"
+grep -qF "Thread: main" <<<"$out_r20c" || fail "I20d: gecrashter Thread fehlt"
+grep -qF "StreamingEngine.kt:900 in poll [in_app]" <<<"$out_r20c" ||   fail "I20d: Thread-Frame fehlt"
+grep -qF 'EVENT_STACK_INPUT: ${{ inputs.event_stack }}' "$WF" ||   fail "I20: Input muss ueber Env (EVENT_STACK_INPUT) laufen"
+grep -qF 'bash scripts/check_sentry_issues.sh --print-event-stack "$EVENT_STACK_INPUT"' "$WF" ||   fail "I20: Guard-Aufruf mit --print-event-stack im Workflow fehlt"
+
+# I21 Gegencheck "kann Sentry diese Frames aufloesen?" — die Klassifikation
+# laeuft ueber die Frames selbst (r8-map-id-Module vs. com.vivid-Klassen), damit
+# der Mapping-Upload (§5.9) nachpruefbar ist, ohne die Sentry-Weboberflaeche.
+mk_new2 "$tmp/i21"
+cat > "$tmp/i21/event_510.json" <<'JSON'
+{"id": "e10", "entries": [{"type": "exception", "data": {"values": [
+   {"type": "CameraOpenException", "value": "Camera no detected",
+    "stacktrace": {"frames": [
+      {"module": "r8-map-id-424869046b93a7bd056b11e7b2bff3b14a2013983", "function": "G"},
+      {"module": "r8-map-id-424869046b93a7bd056b11e7b2bff3b14a2013983", "function": "q0"}]}}]}}]}
+JSON
+cat > "$tmp/i21/event_511.json" <<'JSON'
+{"id": "e11", "entries": [{"type": "exception", "data": {"values": [
+   {"type": "CameraOpenException", "value": "Camera no detected",
+    "stacktrace": {"frames": [
+      {"module": "com.vivid.feature.streaming.StreamingEngine", "function": "startIdlePreviewIfReady"},
+      {"module": "r8-map-id-424869046b93a7bd056b11e7b2bff3b14a2013983", "function": "G"}]}}]}}]}
+JSON
+cat > "$tmp/i21/event_512.json" <<'JSON'
+{"id": "e12", "entries": [{"type": "exception", "data": {"values": [
+   {"type": "java.lang.RuntimeException", "value": "framework only",
+    "stacktrace": {"frames": [
+      {"module": "java.lang.Thread", "function": "run"}]}}]}}]}
+JSON
+cat > "$tmp/i21/event_513.json" <<'JSON'
+{"id": "e13", "entries": [{"type": "exception", "data": {"values": [
+   {"type": "CameraOpenException", "value": "r8 id in filename",
+    "stacktrace": {"frames": [
+      {"filename": "r8-map-id-424869046b93a7bd056b11e7b2bff3b14a2013983", "function": "G"}]}}]}}]}
+JSON
+cat > "$tmp/i21/event_514.json" <<'JSON'
+{"id": "e14", "entries": [{"type": "exception", "data": {"values": [
+   {"type": "CameraOpenException", "value": "package field",
+    "stacktrace": {"frames": [
+      {"package": "com.vivid.feature.streaming", "function": "startIdlePreviewIfReady"}]}}]}}]}
+JSON
+out_r21=$(SENTRY_ISSUES_FIXTURE="$tmp/i21" SENTRY_ISSUES_TOKEN=x   bash "$guard" --print-event-stack "510,511,512,513,514") || fail "I21: Deobfuskations-Klassifikation darf nicht scheitern"
+grep -qF "EVENT_DEOBFUSCATION 510: obfuscated (2 r8-map-id frame(s), 0 com.vivid frame(s), 2 frame(s) total)" <<<"$out_r21" ||   fail "I21: obfuskierter Build (nur r8-map-id-Frames) muss als obfuscated gelten"
+grep -qF "EVENT_DEOBFUSCATION 511: mapped (1 r8-map-id frame(s), 1 com.vivid frame(s), 2 frame(s) total)" <<<"$out_r21" ||   fail "I21: ein com.vivid-Frame muss mapped ergeben (Upload vorhanden)"
+grep -qF "EVENT_DEOBFUSCATION 513: obfuscated (1 r8-map-id frame(s), 0 com.vivid frame(s), 1 frame(s) total)" <<<"$out_r21" ||   fail "I21: r8-Id im filename-Feld muss ebenfalls als obfuscated gelten (Key-Unabhaengigkeit)"
+grep -qF "EVENT_DEOBFUSCATION 514: mapped (0 r8-map-id frame(s), 1 com.vivid frame(s), 1 frame(s) total)" <<<"$out_r21" ||   fail "I21: com.vivid im package-Feld muss mapped ergeben"
+grep -qF "EVENT_DEOBFUSCATION 512: no-app-frames (0 r8-map-id frame(s), 0 com.vivid frame(s), 1 frame(s) total)" <<<"$out_r21" ||   fail "I21: reine Framework-Stacks duerfen nicht als obfuscated gelten"
+
+echo "✅ [sentry-issues-test] Sentry-Issues-Guard vertragstreu (I1–I21)."

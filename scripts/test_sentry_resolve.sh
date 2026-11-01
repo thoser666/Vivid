@@ -19,12 +19,20 @@
 #   R10 Token-Quellen-Vertrag (--print-token-source, nur QUELLE, nie Token):
 #       env > resolve.token > stats.token > auth.token > none
 #   R11 --dry-run: meldet "OK (dry-run): N" ohne PUT-Ausführung
-#   R12 Windows-Coding-Sicherheitsnetz: beide Python-Heredocs des Guards
+#   R12 Windows-Coding-Sicherheitsnetz: alle Python-Heredocs des Guards
 #       laufen mit `python -X utf8` — sonst crashen cp1252-Locales (Windows)
 #       mit verschleiertem UnicodeEncodeError an —/→/ü in der Ausgabe
 #       (stderr gefiltert; Regression vom 25.09.2026, entdeckt am
 #       Pre-Push-Gate R3). Struktur-Check statt Fixture-Fall, damit er auf
 #       jedem Host deterministisch greift.
+#   R14 --ids: nur die genannten, noch offenen IDs werden resolvt; eine
+#       bereits resolved ID wird nicht mitgeschickt, aber als HINWEIS genannt
+#   R15 --ids ohne offenen Treffer -> "OK: 0 Issues aus --ids", exit 0
+#   R16 Aufruf-Vertrag: --ids + --version (exklusiv), nicht-numerische ID und
+#       fehlender Auswahl-Modus sind FEHLER (exit 1), nicht SKIP
+#   R17 --ids + --dry-run: meldet die IDs, ohne PUT (Fixture-status bleibt
+#       unbenutzt) und ohne inNextRelease-Wortlaut
+#   R18 Header-Haertung: Token ohne CR/LF vor der Header-Nutzung (415-Befund)
 #   R13 VIVID_REPO_ROOT (#250): der Guard darf aus $RUNNER_TEMP aufgerufen
 #      werden (Stable-Publish staget die Gate-Skripte dorthin, damit der
 #      Arbeitsbaum nicht vom Ziel-Tag stammt). Ohne gesetzten Repo-Root muss
@@ -159,7 +167,7 @@ grep -q "project:write" <<<"$out_r11" && fail "R11: dry-run darf den Fixture-sta
 # R12 Windows-Coding-Sicherheitsnetz (strukturtreu, hostunabhängig): beide
 # Python-Heredocs müssen mit `python -X utf8` laufen.
 utf8_calls=$(grep -c "python -X utf8 - " "$guard" || true)
-[ "$utf8_calls" -eq 2 ] || fail "R12: beide Python-Heredocs müssen 'python -X utf8' nutzen (gefunden: $utf8_calls)"
+[ "$utf8_calls" -eq 3 ] || fail "R12: alle drei Python-Heredocs müssen 'python -X utf8' nutzen (gefunden: $utf8_calls)"
 if grep -E "python - (2>/dev/null )?<<'PY'" "$guard" >/dev/null; then
   fail "R12: es existiert noch ein Heredoc ohne -X utf8 (cp1252-Crash-Risiko)"
 fi
@@ -198,4 +206,47 @@ grep -q "^TOKEN_SOURCE=auth.token$" <<<"$with" \
 grep -q 'cd "${VIVID_REPO_ROOT:-$(dirname "$0")/..}"' "$guard" \
   || fail "R13: \$0-Fallback muss erhalten bleiben (Rueckwaertskompatibilitaet)"
 
-echo "✅ [sentry-resolve-test] Sentry-Resolve-Guard vertragstreu (R1–R13)."
+# R14 --ids resolvt genau die genannten offenen IDs (500 ist resolved)
+out_r14=$(SENTRY_RESOLVE_FIXTURE="$tmp/match" bash "$guard" --ids 100,500) || \
+  fail "R14: --ids darf nicht scheitern"
+grep -q "^OK: 1 Issue(s) als resolved markiert (ohne inNextRelease) — IDs: 100" <<<"$out_r14" || \
+  fail "R14: genau ID 100 erwartet (500 ist already resolved)"
+grep -q "HINWEIS: 1 ID(s) nicht unter den unresolved Issues" <<<"$out_r14" || \
+  fail "R14: HINWEIS auf die nicht-offene ID 500 erwartet"
+grep -q "inNextRelease) markiert" <<<"$out_r14" && fail "R14: --ids darf nicht inNextRelease melden"
+
+# R15 --ids ohne offenen Treffer
+out_r15=$(SENTRY_RESOLVE_FIXTURE="$tmp/match" bash "$guard" --ids 999) || \
+  fail "R15: --ids ohne Treffer darf nicht scheitern"
+grep -q "^OK: 0 Issues aus --ids" <<<"$out_r15" || fail "R15: OK 0 aus --ids erwartet"
+
+# R16 Aufruf-Vertrag (fail-closed)
+if SENTRY_RESOLVE_FIXTURE="$tmp/match" bash "$guard" --ids 100 --version v0.6.0-beta >/dev/null 2>&1; then
+  fail "R16: --ids und --version zusammen muessen exit 1 sein"
+fi
+if SENTRY_RESOLVE_FIXTURE="$tmp/match" bash "$guard" --ids 100,abc >/dev/null 2>&1; then
+  fail "R16: nicht-numerische ID muss exit 1 sein"
+fi
+if bash "$guard" >/dev/null 2>&1; then
+  fail "R16: ohne Auswahl-Modus muss exit 1 sein"
+fi
+
+# R17 --ids + --dry-run (Fixture-status 403 wird nicht ausgewertet)
+out_r17=$(SENTRY_RESOLVE_FIXTURE="$tmp/dryrun" bash "$guard" --ids 100 --dry-run) || \
+  fail "R17: dry-run mit --ids darf nicht scheitern"
+grep -q "^OK (dry-run): 1 Issue(s) würden als resolved markiert (ohne inNextRelease) — IDs: 100" <<<"$out_r17" || \
+  fail "R17: dry-run-Verdict fuer --ids erwartet"
+grep -q "project:write" <<<"$out_r17" && fail "R17: dry-run darf den Fixture-status 403 nicht auswerten"
+
+# R18 Header-Haertung: der Token wird vor jeder Header-Nutzung von CR/LF
+# befreit. Ohne das sieht nginx/Sentry eine leere Content-Type (HTTP 415,
+# "Unsupported media type \"\"") bzw. Python meldet "Invalid header value"
+# (Dispatch-Laeufe 41303884737 und 41304202788 — Secret mit Zeilenumbruch).
+grep -qF '"$token" | tr -d' "$guard" || \
+  fail "R18: Token-Sanitisierung (tr -d CR/LF) fehlt vor der Header-Nutzung"
+dirty=$(printf 'sntrys_TEST\n')
+if [ "$(printf '%s' "$dirty" | tr -d '\r\n')" != "sntrys_TEST" ]; then
+  fail "R18: Sanitisierungsmuster entfernt den Zeilenumbruch nicht"
+fi
+
+echo "✅ [sentry-resolve-test] Sentry-Resolve-Guard vertragstreu (R1–R18)."

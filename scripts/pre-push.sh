@@ -82,6 +82,10 @@ echo "▶ [pre-push] Sentry-Resolve-Guard-Selbsttest (scripts/test_sentry_resolv
 bash scripts/test_sentry_resolve.sh
 echo "▶ [pre-push] Sentry-Issues-Guard-Selbsttest (scripts/test_sentry_issues.sh)"
 bash scripts/test_sentry_issues.sh
+echo "▶ [pre-push] Sentry-Mapping-Upload-Selbsttest (scripts/test_sentry_mapping_upload.sh)"
+bash scripts/test_sentry_mapping_upload.sh
+echo "▶ [pre-push] Sentry-Mapping-Upload-Guard (scripts/check_sentry_mapping_upload.sh)"
+bash scripts/check_sentry_mapping_upload.sh
 
 echo "▶ [pre-push] Stable-Distribution-Kadenz-Selbsttest (scripts/test_distribution_stable.sh)"
 bash scripts/test_distribution_stable.sh

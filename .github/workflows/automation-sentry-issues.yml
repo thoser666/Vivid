@@ -40,6 +40,10 @@ on:
         description: 'Read-only: latest-event tags for given Sentry SIDs (comma-separated), e.g. 7806859006,7806863798 — skips the watchdog run'
         required: false
         type: string
+      event_stack:
+        description: 'Read-only: latest-event exception stack for given Sentry SIDs (comma-separated), e.g. 7821630074 — skips the watchdog run'
+        required: false
+        type: string
 
 permissions: {}
 
@@ -69,8 +73,11 @@ jobs:
           # Read-only Diagnosepfad (nur bei dispatch-Input gesetzt): gleiche
           # Env-Technik wie oben — kein ${{ }} im run:, Input nur über Env.
           EVENT_TAGS_INPUT: ${{ inputs.event_tags }}
+          EVENT_STACK_INPUT: ${{ inputs.event_stack }}
         run: |
-          if [ -n "$EVENT_TAGS_INPUT" ]; then
+          if [ -n "$EVENT_STACK_INPUT" ]; then
+            bash scripts/check_sentry_issues.sh --print-event-stack "$EVENT_STACK_INPUT"
+          elif [ -n "$EVENT_TAGS_INPUT" ]; then
             bash scripts/check_sentry_issues.sh --print-event-tags "$EVENT_TAGS_INPUT"
           else
             bash scripts/check_sentry_issues.sh

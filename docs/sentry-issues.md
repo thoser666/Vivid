@@ -71,6 +71,12 @@ bash scripts/check_sentry_issues.sh --print-event-tags 7806859006,7806863798
                                             # read-only: Versions-Spur/Umfeld-Tags
                                             # einer bestehenden SID (kein GitHub-
                                             # Zugriff, keine Token-Ausgabe)
+bash scripts/check_sentry_issues.sh --print-event-stack 7821630074,7821627754
+                                            # read-only: Exception-/Thread-Kette
+                                            # des Latest-Events (Typ/Wert, Frames
+                                            # neueste zuerst, in_app markiert) —
+                                            # der Pfad für §5.1, wenn der lokale
+                                            # Token keine Event-Lesescope hat
 ```
 
 Verdicts:
@@ -141,6 +147,11 @@ android-ci.yml).
   Build-Identität bei PR- vs. Store-Build, §5.1). Input läuft über Env
   (`EVENT_TAGS_INPUT`), kein `${{ }}`-Interpolieren im `run:`-Block.
   Ohne Input laufen Cron-Verhalten und Erstellung unverändert.
+- **Read-only Stack-Abfrage (`workflow_dispatch`-Input `event_stack`):** der
+  gleiche Lauf druckt pro SID die Exception-/Thread-Kette des Latest-Events
+  (`EVENT_STACK <sid>` + Frames, neueste zuerst, `in_app` markiert). Das ist
+  der Weg, die Attributionspflicht aus §5.1 zu erfüllen, wenn der lokale Token
+  keine Event-Lesescope hat (403) — das CI-Secret hat sie.
 
 ## 5. Triage-Verfahren für Watchdog-Crash-Issues
 
@@ -240,17 +251,18 @@ Das führt zu `JsonIOException: Abstract classes can't be instantiated!`
 
 **Docs-Update:** Die ProGuard-Regeln sind in der Issue-Description und im PARITY.md dokumentiert (siehe Abschnitt „Moblin-Features & Android-Plattform“).
 
-6. **Schließung: GitHub-Issue manuell, Sentry-Issue per Automation.** Der
-   fix-release-Tag (siehe `docs/sentry-stats.md` §6) arbeitet **nur
-   Sentry-seitig** — beim Stable-Publish resolvt der Resolve-Guard die
-   getaggten Sentry-Issues (`resolved/inNextRelease`), die GitHub-Issues
-   des Befunds schließt er **nicht** (der Watchdog legt nur an, er schließt
-   nie; Historie: #215/#228 wurden manuell geschlossen). Verfahren:
-   Beim Release-Schnitt die Sentry-Issues im Dashboard mit
-   `fix-release: <version>` taggen (vor dem Stable-Publish), nach dem
-   Stable-Publish das GitHub-Issue manuell schließen. Ein „resolved“-Vermerk
-   in einem Attributionskommentar bezieht sich immer auf die Sentry-Ebene,
-   nie auf den GitHub-Issue-Status.
+6. **Schließung: GitHub-Issue manuell, Sentry-Issue per Bulk-PUT.** Beide
+   Ebenen sind getrennt (siehe `docs/sentry-stats.md` §6): Sentry-Issues werden
+   auf `resolved/inNextRelease` gesetzt, die GitHub-Issues des Befunds schließt
+   niemand automatisch (der Watchdog legt nur an, er schließt nie; Historie:
+   #215/#228 wurden manuell geschlossen). Verfahren: beim Release-Schnitt die
+   erledigten Sentry-Issues per Bulk-PUT mit ihren IDs resolven (Rezept in
+   `docs/sentry-stats.md` §6 Punkt 4; im Dashboard entspricht das „Resolve → in
+   next release“), nach dem Stable-Publish das GitHub-Issue manuell schließen.
+   **Ein `fix-release`-Tag ist dafür kein Weg:** Tags sind Event-Daten, Sentry
+   erlaubt kein nachträgliches Setzen an einem bestehenden Issue (Befund
+   01.11.2026, §6). Ein „resolved“-Vermerk in einem Attributionskommentar
+   bezieht sich immer auf die Sentry-Ebene, nie auf den GitHub-Issue-Status.
 
 Beispiel einer vollständigen Nach-Attribution: #215 (VIVID-36) →
 `CAM-FOCUS-INFINITE-SCROLL` (Doppel-Scroll in `SettingsCameraScreen`,
@@ -404,7 +416,7 @@ Triage: #267 ist in Punkt 7 beschrieben.
      der Kommentar sagt das ausdrücklich (Closure claimt nie „behoben“) und begründet, warum die
      Registry nach §5.3 nicht füllbar ist (keine Ursache, Top-Frame nur Allokationsort).
    Der Closure-Kommentar (englisch, Beleg-Format) nennt zusätzlich die **nicht** getanen Schritte:
-   die Sentry-Gruppe bleibt `unresolved` (System der Record; `fix-release`-Tagging nach §5.6 erst
+   die Sentry-Gruppe bleibt `unresolved` (System der Record; das Sentry-Resolve nach §5.6 erst
    mit einem echten Fix), und falls Event-Tags nicht lesbar waren (403 lokal), steht das im
    Kommentar — die Schließung ruht auf der Release-Ebene, nicht auf Event-Tags.
    **Nachweis-Kette:** dieselbe Signatur aktualisiert nur die Sentry-Gruppe und wird in GitHub
@@ -418,6 +430,107 @@ Triage: #267 ist in Punkt 7 beschrieben.
    Dieselbe Event-Tag-Abfrage liefert dann den Nachweis, der die Schließung entweder trägt
    (Test-Artfakt) oder verhindert (Feld-Build, wie bei #324/#325 belegt). Nicht anwendbar bei
    identifizierter Ursache (§5.3) und bei Probe-Issues mit 0 betroffenen Nutzern (§5.4).
+
+9. **Kamera-Cluster `Camera no detected` attribuiert (01.11.2026, #325/#381/#382/#390).** Die
+   Stack-Ebene, die §5.1 bisher fehlte, ist mit `--print-event-stack` (§2/§4) lesbar geworden.
+   **Wurzel ist RootEncoder 2.7.5, nicht App-Code:** am Event `7822036893` bleibt die Kette lesbar
+   — `CameraOpenException: Camera no detected` ← `getCameraIdForFacing` ←
+   `getCameraIdForFacing$default` ← `getCameraResolutions` ← `prepareCamera`
+   (`com.pedro.encoder.input.video`). `getCameraIdForFacing` wirft, wenn `CameraManager` fuer die
+   angeforderte Blickrichtung keine Kamera-Id kennt — Geraete-/Umgebungsebene, alle Events
+   `0.5.68-beta+5684` bzw. `0.5.74-beta+5746` auf V2454A, Android 16, `environment=production`.
+   **App-seitig folgt daraus eine Falle:** der Wurf passiert in einem Task, den die Library auf
+   ihren eigenen Handler postet (`run` → `Handler.handleCallback`), und damit **vor**
+   `onConfigureFailed`. Das `try/catch` um `preview.prepareCamera(gl.surfaceTexture, 1280, 720, 30)`
+   in `StreamingEngine.startIdlePreviewIfReady()` sieht ihn nicht, `onCameraError` ebenfalls nicht
+   (der Callback laeuft erst nach einem Configure-Versuch) — der Wurf verlaesst den Looper und
+   wird fatal. Deshalb ist dieser Cluster **nicht** ueber die #350-Mechanik abfangbar.
+   `#382` ist die Log-Seite derselben Lage: ein Event **ohne** Exception, nur ein Thread-Eintrag
+   von `main` mit `Thread.getStackTrace`-Frames in genau diesem geposteten Task — kein eigener
+   Defekt, aber wegen eigener SID auch kein Duplikat (§5.2).
+   **Nebenbefund #350 (`7812865315`, `0.5.65-beta+5654`):** der Stack zeigt `onConfigureFailed`
+   einer `CameraConstrainedHighSpeedCaptureSession`. Der Report entsteht **nach** der
+   Identitaetspruefung aus `27bcef79` — ein zurueckgezogenes Preview haette gar kein Event
+   erzeugt. Der Fix wirkt also, die restlichen Events sind ein echter `CONFIGURE_FAILED`;
+   auffaellig ist der High-Speed-Pfad, waehrend der Idle-Preview 30 fps anfordert (Diskrepanz
+   offen, Next Step im Issue).
+   **Attributionsgrenze, strukturell statt zufaellig:** `app/build.gradle.kts` laedt das
+   ProGuard-Mapping nur mit gesetztem `SENTRY_AUTH_TOKEN` hoch
+   (`autoUploadProguardMapping.set(System.getenv("SENTRY_AUTH_TOKEN") != null)`). Die Nightly-Builds,
+   die die Feld-Events tragen, tun das nicht — deshalb bleiben App-Frames als `G`, `q0`, `d`, `u`,
+   `l` stehen, obwohl die Events `r8-map-id-…`-Modul-Ids tragen. Auch der neue Stack-Modus kann das
+   nicht aufloesen: **vor** jeder Methoden-Attribution muss das Mapping fuer den ausgelieferten
+   Build vorhanden sein.
+   **Behoben (01.11.2026), Ursache war die Verdrahtung, nicht das Plugin:** der Job
+   `publish-play` in `release-pipeline.yml` baut das AAB fuer den Play-Kanal — also genau die
+   Builds, die die Feld-Events tragen — und setzte `SENTRY_AUTH_TOKEN` nie. Im Release-Run
+   41174214302 erschien `uploadSentryProguardMappingsStandardPlayRelease` ausschliesslich im
+   Dry-Run-Selbsttest, nicht im Auslieferungspfad; der Kommentar im Fastfile behauptete das
+   Gegenteil und nannte eine Workflow-Datei, die es nicht mehr gibt. Jetzt gilt: Token/Org/Project
+   im Play-Step **und** im `build-release`-Step, ein Fail-closed-Block vor dem Upload (`::error::`
+   + `exit 1`; ein leeres Secret zaehlt wie ein fehlendes) und der Gradle-Schalter prueft
+   `!System.getenv("SENTRY_AUTH_TOKEN").isNullOrBlank()` statt nur `!= null` — ein gesetztes, aber
+   leeres Env-Feld haette den Upload sonst ohne Credentials eingeschaltet. **Guard:**
+   `scripts/check_sentry_mapping_upload.sh` (M1–M5 ueber `wf_step_env`/`wf_step_run`) mit
+   Selbsttest `scripts/test_sentry_mapping_upload.sh` (T0–T7; u. a. vertippter Step-Name und
+   abgeschalteter Schalter werden rot); beide laufen im Pre-Push-Gate und im CI-Job.
+
+   **Gegencheck nach dem naechsten Nightly-/Stable-Build (messbar, nicht „sieht gut aus"):** Der
+   Stack-Modus gibt je Event eine Zeile `EVENT_DEOBFUSCATION <SID>: mapped|obfuscated|no-app-frames`
+   mit den Zaehlern `r8-map-id`-Frames / `com.vivid`-Frames aus — `mapped` beweist, dass Sentry das
+   Mapping des Builds hat, `obfuscated` das Gegenteil, `no-app-frames` heisst „der Stack enthaelt
+   ohnehin keinen App-Code" (dann sagt der Befund nichts ueber den Upload). Baseline der fuenf
+   SIDs vom 31.10./01.11. (`7821630074`, `7821627754`, `7821592525`, `7822036893`, `7812865315`)
+   ist `obfuscated` — **gemessen am 01.11.2026** (CI-Lauf 41281476277): `7821630074` 32 r8-Frames/132 gesamt,
+   `7821627754` 5/13, `7821592525` 5/15, `7822036893` 7/15, `7812865315` 6/17, jeweils 0 `com.vivid`-Frames.
+   Erwartet wird `mapped` fuer den ersten Nightly-/Stable-Build, der mit `SENTRY_AUTH_TOKEN` gebaut wurde —
+   dieser Pfad braucht **keine** Play-Registrierung: ausgeliefert wird `assembleStandardRelease` als
+   `app-standard-release.apk` im GitHub-Release (`nightly-*` bzw. Version-Tag), mit `mapping.txt` als Asset. Events aus aelteren Builds bleiben dauerhaft obfuscated — das ist kein Fehler,
+   sondern die Grenze der nachtraeglichen Zuordnung. Der stille Skip hat im Build-Log den Fingerabdruck `skipping upload.` direkt nach
+   `Task :app:uploadSentryProguardMappings<Variante>`.
+   **Korrektur (01.11.2026):** Dieser Nachweis stammte aus dem **Play-Selbsttest (`dry_run`)** und sagt
+   nichts ueber den ausgelieferten Build — dort lief die Variante `standardPlayRelease`, die fuer die
+   Auslieferung gar nicht gebaut wird. Der Befund „Upload wird uebersprungen" ist damit fuer den
+   Auslieferungspfad **nicht** belegt, nur fuer den Play-Selbsttest.
+   Ein lokaler Gegenabgleich `sha256(mapping.txt)` gegen die r8-Id der Frames funktioniert nicht (Probe mit
+   zwei veroeffentlichten Nightly-Mappings: kein Treffer) — die r8-Id ist keine einfache Datei-Pruefsumme.
+   Verlaesslich ist allein die Klassifikation am Event (`EVENT_DEOBFUSCATION`).
+
+   **Filter-Entscheidung (§5.7) — kein neuer Allowlist-Eintrag.** `CameraOpenException: Camera no
+   detected` ist (a) **FATAL** (unbehandelter Wurf aus dem Looper) und damit nach Sicherheitsnetz 1
+   des Transport-Filters tabu, und (b) kein erwarteter Netzwerk-Betriebszustand, sondern eine
+   Geraetefrage, die als Crash sichtbar bleiben muss. Die Allowlist waechst weiterhin nur mit einem
+   attribuierten Issue **und** einem Ereignis, das die drei Netze ueberhaupt passieren koennte —
+   beides liegt hier nicht vor. Die Entscheidung ist damit dokumentiert, ohne Code zu aendern; der
+   Beleg steht in diesem Abschnitt und in den englischen Kommentaren an #374/#381/#382/#390/#350.
+
+### 5.10 Kamera-Klasse im Feld (31.10.–01.11.2026): eine Gerätequelle, kein Defekt
+
+**Befund (01.11.2026, Abgleich der offenen Watchdog-Issues #362–#395):** 34 der
+37 offenen Gruppen sind dieselbe Klasse — `Camera error (idlePreview=…): Open
+camera … failed`, `pa0/ja0: Camera no detected`, `Idle camera: Configuration
+failed`, `Camera recover exhausted (available:0)`. Alle tragen **eine** Nutzerin
+und **ein** Gerät (`V2454A`, das dokumentierte Entwicklungsgerät), Level
+`error` (kein Crash), Builds `0.5.46`–`0.5.74-beta`. Die Ausnahmen: VIVID-4T
+(#374, `ApplicationNotResponding`, fatal, 1 Event), VIVID-43 (#336, 20 Events,
+`CAMERA_DISCONNECTED`) und VIVID-46 (#350, 10 Events, Idle-Kamera-Config).
+
+**Verdikt:** erwarteter Gerätezustand auf einem Gerät, dessen Kamera während der
+Entwicklung von anderen Prozessen belegt/getrennt wird — kein App-Defekt, keine
+Feldwirkung. Die Filter-Entscheidung aus §5.9 (kein Allowlist-Eintrag, die
+Klasse bleibt sichtbar) wird **nicht** aufgeweicht: gefiltert würde nur die
+Sichtbarkeit eines echten Kamera-Ausfalls verloren gehen.
+
+**Schließung:** über `check_sentry_resolve.sh --ids …` (bzw. den Dispatch
+`automation-sentry-resolve.yml`) mit Status `resolved` **ohne** `inNextRelease` —
+die Gruppe bleibt damit offen für ein Wiederauftreten. GitHub-Issues werden
+dabei **nicht** geschlossen (Automation schreibt nur die Sentry-API); sie
+bleiben als Beleg stehen, bis sie manuell geschlossen werden.
+
+**Offen bleibt VIVID-4T (#374, ANR fatal):** ein Einzel-Event ohne attribuierte
+Ursache (Top-Frame `park`, also ein Thread-Wartezustand, kein App-Frame). Ein
+ANR ohne belegte Ursache wird **nicht** geschlossen — er braucht entweder einen
+zweiten Beleg oder eine Reproduktion; ein „erledigt" wäre hier eine Behauptung.
 
 ## 6. Sicherheit
 
