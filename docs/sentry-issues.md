@@ -430,6 +430,44 @@ Triage: #267 ist in Punkt 7 beschrieben.
    (Test-Artfakt) oder verhindert (Feld-Build, wie bei #324/#325 belegt). Nicht anwendbar bei
    identifizierter Ursache (§5.3) und bei Probe-Issues mit 0 betroffenen Nutzern (§5.4).
 
+9. **Kamera-Cluster `Camera no detected` attribuiert (01.11.2026, #325/#381/#382/#390).** Die
+   Stack-Ebene, die §5.1 bisher fehlte, ist mit `--print-event-stack` (§2/§4) lesbar geworden.
+   **Wurzel ist RootEncoder 2.7.5, nicht App-Code:** am Event `7822036893` bleibt die Kette lesbar
+   — `CameraOpenException: Camera no detected` ← `getCameraIdForFacing` ←
+   `getCameraIdForFacing$default` ← `getCameraResolutions` ← `prepareCamera`
+   (`com.pedro.encoder.input.video`). `getCameraIdForFacing` wirft, wenn `CameraManager` fuer die
+   angeforderte Blickrichtung keine Kamera-Id kennt — Geraete-/Umgebungsebene, alle Events
+   `0.5.68-beta+5684` bzw. `0.5.74-beta+5746` auf V2454A, Android 16, `environment=production`.
+   **App-seitig folgt daraus eine Falle:** der Wurf passiert in einem Task, den die Library auf
+   ihren eigenen Handler postet (`run` → `Handler.handleCallback`), und damit **vor**
+   `onConfigureFailed`. Das `try/catch` um `preview.prepareCamera(gl.surfaceTexture, 1280, 720, 30)`
+   in `StreamingEngine.startIdlePreviewIfReady()` sieht ihn nicht, `onCameraError` ebenfalls nicht
+   (der Callback laeuft erst nach einem Configure-Versuch) — der Wurf verlaesst den Looper und
+   wird fatal. Deshalb ist dieser Cluster **nicht** ueber die #350-Mechanik abfangbar.
+   `#382` ist die Log-Seite derselben Lage: ein Event **ohne** Exception, nur ein Thread-Eintrag
+   von `main` mit `Thread.getStackTrace`-Frames in genau diesem geposteten Task — kein eigener
+   Defekt, aber wegen eigener SID auch kein Duplikat (§5.2).
+   **Nebenbefund #350 (`7812865315`, `0.5.65-beta+5654`):** der Stack zeigt `onConfigureFailed`
+   einer `CameraConstrainedHighSpeedCaptureSession`. Der Report entsteht **nach** der
+   Identitaetspruefung aus `27bcef79` — ein zurueckgezogenes Preview haette gar kein Event
+   erzeugt. Der Fix wirkt also, die restlichen Events sind ein echter `CONFIGURE_FAILED`;
+   auffaellig ist der High-Speed-Pfad, waehrend der Idle-Preview 30 fps anfordert (Diskrepanz
+   offen, Next Step im Issue).
+   **Attributionsgrenze, strukturell statt zufaellig:** `app/build.gradle.kts` laedt das
+   ProGuard-Mapping nur mit gesetztem `SENTRY_AUTH_TOKEN` hoch
+   (`autoUploadProguardMapping.set(System.getenv("SENTRY_AUTH_TOKEN") != null)`). Die Nightly-Builds,
+   die die Feld-Events tragen, tun das nicht — deshalb bleiben App-Frames als `G`, `q0`, `d`, `u`,
+   `l` stehen, obwohl die Events `r8-map-id-…`-Modul-Ids tragen. Auch der neue Stack-Modus kann das
+   nicht aufloesen: **vor** jeder Methoden-Attribution muss das Mapping fuer den ausgelieferten
+   Build vorhanden sein.
+   **Filter-Entscheidung (§5.7) — kein neuer Allowlist-Eintrag.** `CameraOpenException: Camera no
+   detected` ist (a) **FATAL** (unbehandelter Wurf aus dem Looper) und damit nach Sicherheitsnetz 1
+   des Transport-Filters tabu, und (b) kein erwarteter Netzwerk-Betriebszustand, sondern eine
+   Geraetefrage, die als Crash sichtbar bleiben muss. Die Allowlist waechst weiterhin nur mit einem
+   attribuierten Issue **und** einem Ereignis, das die drei Netze ueberhaupt passieren koennte —
+   beides liegt hier nicht vor. Die Entscheidung ist damit dokumentiert, ohne Code zu aendern; der
+   Beleg steht in diesem Abschnitt und in den englischen Kommentaren an #374/#381/#382/#390/#350.
+
 ## 6. Sicherheit
 
 - Token getrennt vom CI-Mapping-Token (`auth.token`) — getrennte Scopes,
