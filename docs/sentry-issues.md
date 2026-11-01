@@ -504,6 +504,34 @@ Triage: #267 ist in Punkt 7 beschrieben.
    beides liegt hier nicht vor. Die Entscheidung ist damit dokumentiert, ohne Code zu aendern; der
    Beleg steht in diesem Abschnitt und in den englischen Kommentaren an #374/#381/#382/#390/#350.
 
+### 5.10 Kamera-Klasse im Feld (31.10.–01.11.2026): eine Gerätequelle, kein Defekt
+
+**Befund (01.11.2026, Abgleich der offenen Watchdog-Issues #362–#395):** 34 der
+37 offenen Gruppen sind dieselbe Klasse — `Camera error (idlePreview=…): Open
+camera … failed`, `pa0/ja0: Camera no detected`, `Idle camera: Configuration
+failed`, `Camera recover exhausted (available:0)`. Alle tragen **eine** Nutzerin
+und **ein** Gerät (`V2454A`, das dokumentierte Entwicklungsgerät), Level
+`error` (kein Crash), Builds `0.5.46`–`0.5.74-beta`. Die Ausnahmen: VIVID-4T
+(#374, `ApplicationNotResponding`, fatal, 1 Event), VIVID-43 (#336, 20 Events,
+`CAMERA_DISCONNECTED`) und VIVID-46 (#350, 10 Events, Idle-Kamera-Config).
+
+**Verdikt:** erwarteter Gerätezustand auf einem Gerät, dessen Kamera während der
+Entwicklung von anderen Prozessen belegt/getrennt wird — kein App-Defekt, keine
+Feldwirkung. Die Filter-Entscheidung aus §5.9 (kein Allowlist-Eintrag, die
+Klasse bleibt sichtbar) wird **nicht** aufgeweicht: gefiltert würde nur die
+Sichtbarkeit eines echten Kamera-Ausfalls verloren gehen.
+
+**Schließung:** über `check_sentry_resolve.sh --ids …` (bzw. den Dispatch
+`automation-sentry-resolve.yml`) mit Status `resolved` **ohne** `inNextRelease` —
+die Gruppe bleibt damit offen für ein Wiederauftreten. GitHub-Issues werden
+dabei **nicht** geschlossen (Automation schreibt nur die Sentry-API); sie
+bleiben als Beleg stehen, bis sie manuell geschlossen werden.
+
+**Offen bleibt VIVID-4T (#374, ANR fatal):** ein Einzel-Event ohne attribuierte
+Ursache (Top-Frame `park`, also ein Thread-Wartezustand, kein App-Frame). Ein
+ANR ohne belegte Ursache wird **nicht** geschlossen — er braucht entweder einen
+zweiten Beleg oder eine Reproduktion; ein „erledigt" wäre hier eine Behauptung.
+
 ## 6. Sicherheit
 
 - Token getrennt vom CI-Mapping-Token (`auth.token`) — getrennte Scopes,

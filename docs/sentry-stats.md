@@ -209,6 +209,14 @@ Mechanik:
    Release eintreffen — semantisch „Resolved in next release". Events aus
    älteren Builds öffnen sie wieder.
 
+   **In der CI (der Weg mit Schreib-Token):**
+   `gh workflow run automation-sentry-resolve.yml -f ids=7822620409,7822620394`
+   — der Workflow ruft denselben Guard mit `--ids` auf (optional
+   `-f dry_run=true`). Genau dieser Modus ist für Befunde gedacht, die **nicht**
+   „in der nächsten Version behoben", sondern als erwarteter Betriebszustand
+   geschlossen werden: er setzt `{"status":"resolved"}` **ohne**
+   `inNextRelease`, damit ein erneutes Auftreten die Gruppe wieder öffnet.
+
 5. **Begrenzung: die Automation arbeitet nur auf Sentry-Ebene.** GitHub-Issues
    des Befunds schließt sie **nicht** — der Resolve-Guard liest und schreibt
    ausschließlich die Sentry-API (kein `gh issue close`), und auch der

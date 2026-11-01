@@ -21,8 +21,12 @@
 # findet dieser Modus folglich nichts (OK: 0 Issues) — das ist der Vertrag,
 # kein Defekt. Der Weg am Release-Schnitt ist der direkte Bulk-PUT mit den
 # Issue-IDs; das Aufruf-Rezept steht in docs/sentry-stats.md Abschnitt 6
-# (Punkt 4). Bewusst KEIN eigener --ids-Modus hier: zwei Zeilen curl sind der
-# billigere Vertrag, und dieser Guard bleibt auf seinen Tag-Vertrag beschränkt.
+# (Punkt 4). Dafuer kennt der Guard den Modus --ids <id[,id…]>: er resolvt die
+# genannten IDs direkt (Status "resolved", OHNE inNextRelease) — fuer Befunde,
+# die nicht "in der naechsten Version behoben", sondern als erwarteter
+# Betriebszustand bzw. "kein Defekt" geschlossen werden (docs/sentry-issues.md
+# §5.10). Der Workflow automation-sentry-resolve.yml dispatcht genau diesen
+# Modus; der Tag-Vertrag (--version) bleibt unveraendert daneben bestehen.
 #
 # Verdicts (bewusst KEIN Gate-Blocker — der Workflow-Step läuft continue-on-error):
 #   OK    — N Issues als resolved (inNextRelease) markiert, oder 0 passend
@@ -62,22 +66,46 @@ PROPS="${SENTRY_PROPERTIES_FILE:-sentry.properties}"
 API="https://sentry.io/api/0"
 
 version=""
+ids=""
 dryrun=0
 print_src=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --version) version="${2:-}"; shift 2 ;;
+    --ids) ids="${2:-}"; shift 2 ;;
     --dry-run) dryrun=1; shift ;;
     --print-token-source) print_src=1; shift ;;
     *)
-      echo "FEHLER: unbekanntes Argument: $1 (Aufruf: scripts/check_sentry_resolve.sh --version <vX.Y.Z[..]> [--dry-run])"
+      echo "FEHLER: unbekanntes Argument: $1 (Aufruf: scripts/check_sentry_resolve.sh (--version <vX.Y.Z[..]> | --ids <id[,id…]>) [--dry-run])"
       exit 1 ;;
   esac
 done
 
-if [ -z "$version" ]; then
-  echo "FEHLER: --version <vX.Y.Z> fehlt (Release-Tag, z. B. v0.6.0-beta)"
+# Genau ein Auswahl-Modus: --version (Event-Tag-Vertrag) oder --ids (Triage-
+# Entscheid beim Release-Schnitt), nie beide.
+if [ -n "$version" ] && [ -n "$ids" ]; then
+  echo "FEHLER: --version und --ids schliessen sich aus (genau ein Auswahl-Modus)"
   exit 1
+fi
+if [ -z "$version" ] && [ -z "$ids" ] && [ "$print_src" != "1" ]; then
+  echo "FEHLER: --version <vX.Y.Z> oder --ids <id[,id…]> fehlt (Release-Tag bzw. Sentry-Issue-IDs)"
+  exit 1
+fi
+
+# ID-Liste normalisieren: Whitespace weg, leere Glieder weg, rein numerisch
+# (Sentry-IDs sind Zahlen; alles andere ist ein Aufruffehler, kein API-Fall).
+ids_norm=""
+if [ -n "$ids" ]; then
+  ids_norm=$(printf '%s' "$ids" | tr -d ' \t' | tr ',' '\n' | sed '/^$/d' | paste -sd, -)
+  if [ -z "$ids_norm" ]; then
+    echo "FEHLER: --ids braucht mindestens eine Sentry-Issue-ID (z. B. --ids 7821630074,7821627754)"
+    exit 1
+  fi
+  case "$ids_norm" in
+    *[!0-9,]*)
+      echo "FEHLER: --ids enthaelt ein Nicht-Zahlen-Glied: $ids_norm (erwartet z. B. 7821630074,7821627754)"
+      exit 1 ;;
+  esac
 fi
 
 # Normalisierte Vergleichsversion (ohne führendes v, lowercase) — identische
@@ -174,6 +202,7 @@ rc=0
 out_a=$(SENTRY_RESOLVE_FRAG_FILES="$frag_files" \
   SENTRY_RESOLVE_VERSION="$norm_version" \
   SENTRY_RESOLVE_VERSION_RAW="$version" \
+  SENTRY_RESOLVE_IDS="$ids_norm" \
   SENTRY_RESOLVE_API="$API" \
   SENTRY_RESOLVE_ORG="$ORG" \
   SENTRY_RESOLVE_PROJECT="$PROJECT_SLUG" \
@@ -182,6 +211,7 @@ import json, os, sys
 
 version = os.environ["SENTRY_RESOLVE_VERSION"]
 version_raw = os.environ["SENTRY_RESOLVE_VERSION_RAW"]
+wanted_ids = [i for i in os.environ.get("SENTRY_RESOLVE_IDS", "").split(",") if i]
 files = [f for f in os.environ["SENTRY_RESOLVE_FRAG_FILES"].split() if f]
 
 def norm(v):
@@ -205,6 +235,11 @@ for it in issues:
         continue
     if it.get("status") == "resolved":
         continue
+    if wanted_ids:
+        issue_id = str(it.get("id", ""))
+        if issue_id in wanted_ids:
+            matches.append((issue_id, str(it.get("title", "?"))))
+        continue
     tags = it.get("tags") or []
     for t in tags:
         if isinstance(t, dict):
@@ -217,18 +252,35 @@ for it in issues:
             matches.append((str(it.get("id", "?")), str(it.get("title", "?"))))
             break
 
-print("Projekt: %s (Org %s) | Version: %s (normalisiert: %s)" % (
-    os.environ["SENTRY_RESOLVE_PROJECT"], os.environ["SENTRY_RESOLVE_ORG"], version_raw, version))
+if wanted_ids:
+    print("Projekt: %s (Org %s) | Auswahl: --ids %s (%d ID(s))" % (
+        os.environ["SENTRY_RESOLVE_PROJECT"], os.environ["SENTRY_RESOLVE_ORG"],
+        ",".join(wanted_ids), len(wanted_ids)))
+else:
+    print("Projekt: %s (Org %s) | Version: %s (normalisiert: %s)" % (
+        os.environ["SENTRY_RESOLVE_PROJECT"], os.environ["SENTRY_RESOLVE_ORG"], version_raw, version))
 print("Geprüft: %d unresolved Issues (query=is:unresolved)" % len(issues))
+if wanted_ids and matches:
+    hit = set(i for i, _ in matches)
+    missing = [i for i in wanted_ids if i not in hit]
+    if missing:
+        print("HINWEIS: %d ID(s) nicht unter den unresolved Issues (schon resolved/ignored oder falsche ID): %s"
+              % (len(missing), ",".join(missing)))
 if not matches:
-    print("OK: 0 Issues mit Tag fix-release:%s — nichts zu resolven (%d unresolved geprüft)" % (version, len(issues)))
+    if wanted_ids:
+        print("OK: 0 Issues aus --ids — nichts zu resolven (%d unresolved geprüft)" % len(issues))
+    else:
+        print("OK: 0 Issues mit Tag fix-release:%s — nichts zu resolven (%d unresolved geprüft)" % (version, len(issues)))
     sys.exit(0)
 
 ids = [i for (i, _) in matches]
 url = "%s/projects/%s/%s/issues/?id=%s" % (
     os.environ["SENTRY_RESOLVE_API"], os.environ["SENTRY_RESOLVE_ORG"],
     os.environ["SENTRY_RESOLVE_PROJECT"], "&id=".join(ids))
-body = json.dumps({"status": "resolved", "statusDetails": {"inNextRelease": True}})
+if wanted_ids:
+    body = json.dumps({"status": "resolved"})
+else:
+    body = json.dumps({"status": "resolved", "statusDetails": {"inNextRelease": True}})
 tmp = os.environ["SENTRY_RESOLVE_TMP"]
 open(os.path.join(tmp, "put_url"), "w", encoding="utf-8").write(url)
 open(os.path.join(tmp, "put_body"), "w", encoding="utf-8").write(body)
@@ -254,7 +306,11 @@ fi
 ids=$(cat "$tmp/put_ids")
 
 if [ "$dryrun" = "1" ]; then
-  echo "OK (dry-run): $count Issue(s) würden als resolved (inNextRelease) markiert — Version $norm_version (IDs: $ids)"
+  if [ -n "$ids_norm" ]; then
+    echo "OK (dry-run): $count Issue(s) würden als resolved markiert (ohne inNextRelease) — IDs: $ids"
+  else
+    echo "OK (dry-run): $count Issue(s) würden als resolved (inNextRelease) markiert — Version $norm_version (IDs: $ids)"
+  fi
   exit 0
 fi
 
@@ -269,7 +325,11 @@ fi
 
 case "$putstatus" in
   200|204)
-    echo "OK: $count Issue(s) als resolved (inNextRelease) markiert — erledigt mit Version $norm_version (IDs: $ids)"
+    if [ -n "$ids_norm" ]; then
+      echo "OK: $count Issue(s) als resolved markiert (ohne inNextRelease) — IDs: $ids"
+    else
+      echo "OK: $count Issue(s) als resolved (inNextRelease) markiert — erledigt mit Version $norm_version (IDs: $ids)"
+    fi
     exit 0 ;;
   *) skip_putstatus "$putstatus" ;;
 esac
