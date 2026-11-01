@@ -480,7 +480,9 @@ Triage: #267 ist in Punkt 7 beschrieben.
    Mapping des Builds hat, `obfuscated` das Gegenteil, `no-app-frames` heisst „der Stack enthaelt
    ohnehin keinen App-Code" (dann sagt der Befund nichts ueber den Upload). Baseline der fuenf
    SIDs vom 31.10./01.11. (`7821630074`, `7821627754`, `7821592525`, `7822036893`, `7812865315`)
-   ist `obfuscated`; erwartet wird `mapped` fuer den ersten Play-Build, der mit `SENTRY_AUTH_TOKEN`
+   ist `obfuscated` — **gemessen am 01.11.2026** (CI-Lauf 41281476277): `7821630074` 32 r8-Frames/132 gesamt,
+   `7821627754` 5/13, `7821592525` 5/15, `7822036893` 7/15, `7812865315` 6/17, jeweils 0 `com.vivid`-Frames.
+   Erwartet wird `mapped` fuer den ersten Play-Build, der mit `SENTRY_AUTH_TOKEN`
    gebaut wurde. Events aus aelteren Builds bleiben dauerhaft obfuscated — das ist kein Fehler,
    sondern die Grenze der nachtraeglichen Zuordnung. Der Fingerabdruck des stillen Skips ist im
    Build-Log die Zeile `skipping upload.` direkt nach
