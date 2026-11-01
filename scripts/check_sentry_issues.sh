@@ -318,6 +318,33 @@ for v in values[:3]:
     print("  %s: %s" % (typ, val[:200]))
     for i, line in enumerate(reversed(frames_of(v.get("stacktrace"))[-15:]), 1):
         print("    #%-2d %s" % (i, line[:220]))
+def _classify_deobfuscation(values):
+    r8 = vivid = total = 0
+    for v in values:
+        for f in (v.get("stacktrace") or {}).get("frames") or []:
+            if not isinstance(f, dict):
+                continue
+            total += 1
+            mod = str(f.get("module") or f.get("filename") or "")
+            if mod.startswith("r8-map-id-"):
+                r8 += 1
+            if "com.vivid" in mod:
+                vivid += 1
+    if vivid:
+        return "mapped", r8, vivid, total
+    if r8:
+        return "obfuscated", r8, vivid, total
+    if total:
+        return "no-app-frames", r8, vivid, total
+    return "no-frames", r8, vivid, total
+
+# Gegencheck zum Mapping-Upload (§5.9): ob Sentry die Frames dieses Events
+# aufloesen kann, ist an den Frames selbst ablesbar — ein Build ohne
+# hochgeladenes Mapping traegt `r8-map-id-…`-Module und Ein-Buchstaben-Namen,
+# ein Build mit Mapping `com.vivid.…`-Klassen.
+_state, _r8, _vivid, _total = _classify_deobfuscation(values)
+print("EVENT_DEOBFUSCATION %s: %s (%d r8-map-id frame(s), %d com.vivid frame(s), %d frame(s) total)"
+      % (sid, _state, _r8, _vivid, _total))
 PYSTACK
   done
   exit 0

@@ -474,6 +474,19 @@ Triage: #267 ist in Punkt 7 beschrieben.
    Selbsttest `scripts/test_sentry_mapping_upload.sh` (T0–T7; u. a. vertippter Step-Name und
    abgeschalteter Schalter werden rot); beide laufen im Pre-Push-Gate und im CI-Job.
 
+   **Gegencheck nach dem naechsten Play-Upload (messbar, nicht „sieht gut aus"):** Der
+   Stack-Modus gibt je Event eine Zeile `EVENT_DEOBFUSCATION <SID>: mapped|obfuscated|no-app-frames`
+   mit den Zaehlern `r8-map-id`-Frames / `com.vivid`-Frames aus — `mapped` beweist, dass Sentry das
+   Mapping des Builds hat, `obfuscated` das Gegenteil, `no-app-frames` heisst „der Stack enthaelt
+   ohnehin keinen App-Code" (dann sagt der Befund nichts ueber den Upload). Baseline der fuenf
+   SIDs vom 31.10./01.11. (`7821630074`, `7821627754`, `7821592525`, `7822036893`, `7812865315`)
+   ist `obfuscated`; erwartet wird `mapped` fuer den ersten Play-Build, der mit `SENTRY_AUTH_TOKEN`
+   gebaut wurde. Events aus aelteren Builds bleiben dauerhaft obfuscated — das ist kein Fehler,
+   sondern die Grenze der nachtraeglichen Zuordnung. Der Fingerabdruck des stillen Skips ist im
+   Build-Log die Zeile `skipping upload.` direkt nach
+   `Task :app:uploadSentryProguardMappings<Variante>`; sie darf in einem Play-Build mit Token nicht
+   mehr auftauchen.
+
    **Filter-Entscheidung (§5.7) — kein neuer Allowlist-Eintrag.** `CameraOpenException: Camera no
    detected` ist (a) **FATAL** (unbehandelter Wurf aus dem Looper) und damit nach Sicherheitsnetz 1
    des Transport-Filters tabu, und (b) kein erwarteter Netzwerk-Betriebszustand, sondern eine

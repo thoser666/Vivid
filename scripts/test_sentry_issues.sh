@@ -362,4 +362,33 @@ grep -qF "StreamingEngine.kt:900 in poll [in_app]" <<<"$out_r20c" ||   fail "I20
 grep -qF 'EVENT_STACK_INPUT: ${{ inputs.event_stack }}' "$WF" ||   fail "I20: Input muss ueber Env (EVENT_STACK_INPUT) laufen"
 grep -qF 'bash scripts/check_sentry_issues.sh --print-event-stack "$EVENT_STACK_INPUT"' "$WF" ||   fail "I20: Guard-Aufruf mit --print-event-stack im Workflow fehlt"
 
-echo "✅ [sentry-issues-test] Sentry-Issues-Guard vertragstreu (I1–I20)."
+# I21 Gegencheck "kann Sentry diese Frames aufloesen?" — die Klassifikation
+# laeuft ueber die Frames selbst (r8-map-id-Module vs. com.vivid-Klassen), damit
+# der Mapping-Upload (§5.9) nachpruefbar ist, ohne die Sentry-Weboberflaeche.
+mk_new2 "$tmp/i21"
+cat > "$tmp/i21/event_510.json" <<'JSON'
+{"id": "e10", "entries": [{"type": "exception", "data": {"values": [
+   {"type": "CameraOpenException", "value": "Camera no detected",
+    "stacktrace": {"frames": [
+      {"module": "r8-map-id-424869046b93a7bd056b11e7b2bff3b14a2013983", "function": "G"},
+      {"module": "r8-map-id-424869046b93a7bd056b11e7b2bff3b14a2013983", "function": "q0"}]}}]}}]}
+JSON
+cat > "$tmp/i21/event_511.json" <<'JSON'
+{"id": "e11", "entries": [{"type": "exception", "data": {"values": [
+   {"type": "CameraOpenException", "value": "Camera no detected",
+    "stacktrace": {"frames": [
+      {"module": "com.vivid.feature.streaming.StreamingEngine", "function": "startIdlePreviewIfReady"},
+      {"module": "r8-map-id-424869046b93a7bd056b11e7b2bff3b14a2013983", "function": "G"}]}}]}}]}
+JSON
+cat > "$tmp/i21/event_512.json" <<'JSON'
+{"id": "e12", "entries": [{"type": "exception", "data": {"values": [
+   {"type": "java.lang.RuntimeException", "value": "framework only",
+    "stacktrace": {"frames": [
+      {"module": "java.lang.Thread", "function": "run"}]}}]}}]}
+JSON
+out_r21=$(SENTRY_ISSUES_FIXTURE="$tmp/i21" SENTRY_ISSUES_TOKEN=x   bash "$guard" --print-event-stack "510,511,512") || fail "I21: Deobfuskations-Klassifikation darf nicht scheitern"
+grep -qF "EVENT_DEOBFUSCATION 510: obfuscated (2 r8-map-id frame(s), 0 com.vivid frame(s), 2 frame(s) total)" <<<"$out_r21" ||   fail "I21: obfuskierter Build (nur r8-map-id-Frames) muss als obfuscated gelten"
+grep -qF "EVENT_DEOBFUSCATION 511: mapped (1 r8-map-id frame(s), 1 com.vivid frame(s), 2 frame(s) total)" <<<"$out_r21" ||   fail "I21: ein com.vivid-Frame muss mapped ergeben (Upload vorhanden)"
+grep -qF "EVENT_DEOBFUSCATION 512: no-app-frames (0 r8-map-id frame(s), 0 com.vivid frame(s), 1 frame(s) total)" <<<"$out_r21" ||   fail "I21: reine Framework-Stacks duerfen nicht als obfuscated gelten"
+
+echo "✅ [sentry-issues-test] Sentry-Issues-Guard vertragstreu (I1–I21)."
