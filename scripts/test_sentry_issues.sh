@@ -44,6 +44,10 @@
 #       ohne Token-Leak), 403-Fixture → "not readable", ungültige SID →
 #       SKIP-Zeile; Workflow verdrahtet den Input als EVENT_TAGS_INPUT
 #       (Env-Technik, kein ${{ }} im run:)
+#   I20 Read-only Diagnosemodus --print-event-stack: Exception-/Thread-Kette
+#       des Latest-Events (Typ/Wert + Frames, neueste zuerst, in_app-Marker),
+#       403-/Fixture-Fallback, ungueltige SID, Threads-Form (ANR/nativ);
+#       Workflow verdrahtet den Input als EVENT_STACK_INPUT (Env-Technik)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 fail() { echo "❌ [sentry-issues-test] $1"; exit 1; }
@@ -324,4 +328,38 @@ grep -q 'EVENT_TAGS_INPUT: \${{ inputs.event_tags }}' "$WF" || \
 grep -qF 'bash scripts/check_sentry_issues.sh --print-event-tags "$EVENT_TAGS_INPUT"' "$WF" || \
   fail "I19: Guard-Aufruf mit --print-event-tags im Workflow fehlt"
 
-echo "✅ [sentry-issues-test] Sentry-Issues-Guard vertragstreu (I1–I19)."
+# I20 Read-only Diagnosemodus --print-event-stack (Attribution ohne Dashboard)
+mk_new2 "$tmp/i20"
+cat > "$tmp/i20/event_500.json" <<'JSON'
+{"id": "e5", "entries": [{"type": "exception", "data": {"values": [
+   {"type": "ApplicationNotResponding", "value": "ANR in com.vivid",
+    "stacktrace": {"frames": [
+      {"filename": "BaseMessageQueue.java", "function": "dispatchMessage", "lineno": 106, "in_app": false},
+      {"filename": "StreamingEngine.kt", "function": "startIdlePreviewIfReady", "lineno": 1758, "in_app": true}]}},
+   {"type": "java.lang.RuntimeException", "value": "caused by"}]}}]}
+JSON
+echo 403 > "$tmp/i20/eventstatus_501"
+out_r20=$(SENTRY_ISSUES_FIXTURE="$tmp/i20" SENTRY_ISSUES_TOKEN=sntrys_FAKE_LEAK   GITHUB_ISSUES_TOKEN= bash "$guard" --print-event-stack "500,501,999") ||   fail "I20: Stack-Modus darf nicht scheitern (exit 0 Vertrag)"
+grep -qF "EVENT_STACK 500: 2 exception(s)/thread(s)" <<<"$out_r20" ||   fail "I20: Kopfzeile mit Exception-Zahl fehlt"
+grep -qF "StreamingEngine.kt:1758 in startIdlePreviewIfReady [in_app]" <<<"$out_r20" ||   fail "I20: In-App-Frame fehlt"
+grep -qF "BaseMessageQueue.java:106 in dispatchMessage" <<<"$out_r20" ||   fail "I20: Framework-Frame fehlt"
+grep -qF "EVENT_STACK 501: not readable (HTTP 403)" <<<"$out_r20" ||   fail "I20: 403-Fallback-Zeile erwartet"
+grep -qF "EVENT_STACK 999: SKIP (kein Event-Fixture" <<<"$out_r20" ||   fail "I20: fehlende Fixture -> SKIP-Zeile erwartet"
+grep -q "sntrys_FAKE_LEAK" <<<"$out_r20" && fail "I20: Token-Leak im Stack-Modus"
+out_r20b=$(SENTRY_ISSUES_FIXTURE="$tmp/i20" SENTRY_ISSUES_TOKEN=x   bash "$guard" --print-event-stack "500x") || fail "I20b: ungueltige SID darf nicht scheitern"
+grep -qF "ungültige SID" <<<"$out_r20b" || fail "I20b: ungueltige SID -> SKIP-Zeile erwartet"
+if SENTRY_ISSUES_FIXTURE="$tmp/i20" SENTRY_ISSUES_TOKEN=x   bash "$guard" --print-event-stack >/dev/null 2>&1; then
+  fail "I20c: --print-event-stack ohne SID muss FEHLER (exit 1) sein"
+fi
+cat > "$tmp/i20/event_502.json" <<'JSON'
+{"id": "e6", "entries": [{"type": "threads", "data": {"values": [
+  {"id": 1, "name": "main", "crashed": true, "current": true,
+   "stacktrace": {"frames": [{"filename": "StreamingEngine.kt", "function": "poll", "lineno": 900, "in_app": true}]}}]}}]}
+JSON
+out_r20c=$(SENTRY_ISSUES_FIXTURE="$tmp/i20" SENTRY_ISSUES_TOKEN=x   bash "$guard" --print-event-stack "502") || fail "I20d: Threads-Form darf nicht scheitern"
+grep -qF "Thread: main" <<<"$out_r20c" || fail "I20d: gecrashter Thread fehlt"
+grep -qF "StreamingEngine.kt:900 in poll [in_app]" <<<"$out_r20c" ||   fail "I20d: Thread-Frame fehlt"
+grep -qF 'EVENT_STACK_INPUT: ${{ inputs.event_stack }}' "$WF" ||   fail "I20: Input muss ueber Env (EVENT_STACK_INPUT) laufen"
+grep -qF 'bash scripts/check_sentry_issues.sh --print-event-stack "$EVENT_STACK_INPUT"' "$WF" ||   fail "I20: Guard-Aufruf mit --print-event-stack im Workflow fehlt"
+
+echo "✅ [sentry-issues-test] Sentry-Issues-Guard vertragstreu (I1–I20)."

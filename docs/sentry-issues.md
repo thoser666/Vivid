@@ -71,6 +71,12 @@ bash scripts/check_sentry_issues.sh --print-event-tags 7806859006,7806863798
                                             # read-only: Versions-Spur/Umfeld-Tags
                                             # einer bestehenden SID (kein GitHub-
                                             # Zugriff, keine Token-Ausgabe)
+bash scripts/check_sentry_issues.sh --print-event-stack 7821630074,7821627754
+                                            # read-only: Exception-/Thread-Kette
+                                            # des Latest-Events (Typ/Wert, Frames
+                                            # neueste zuerst, in_app markiert) —
+                                            # der Pfad für §5.1, wenn der lokale
+                                            # Token keine Event-Lesescope hat
 ```
 
 Verdicts:
@@ -141,6 +147,11 @@ android-ci.yml).
   Build-Identität bei PR- vs. Store-Build, §5.1). Input läuft über Env
   (`EVENT_TAGS_INPUT`), kein `${{ }}`-Interpolieren im `run:`-Block.
   Ohne Input laufen Cron-Verhalten und Erstellung unverändert.
+- **Read-only Stack-Abfrage (`workflow_dispatch`-Input `event_stack`):** der
+  gleiche Lauf druckt pro SID die Exception-/Thread-Kette des Latest-Events
+  (`EVENT_STACK <sid>` + Frames, neueste zuerst, `in_app` markiert). Das ist
+  der Weg, die Attributionspflicht aus §5.1 zu erfüllen, wenn der lokale Token
+  keine Event-Lesescope hat (403) — das CI-Secret hat sie.
 
 ## 5. Triage-Verfahren für Watchdog-Crash-Issues
 

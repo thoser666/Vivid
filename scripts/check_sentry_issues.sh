@@ -64,6 +64,8 @@ dryrun=0
 print_src=0
 print_tags=0
 tags_sids=""
+print_stack=0
+stack_sids=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --dry-run) dryrun=1; shift ;;
@@ -74,8 +76,14 @@ while [ $# -gt 0 ]; do
       tags_sids="${1:-}"
       if [ $# -gt 0 ]; then shift; fi
       ;;
+    --print-event-stack)
+      print_stack=1
+      shift
+      stack_sids="${1:-}"
+      if [ $# -gt 0 ]; then shift; fi
+      ;;
     *)
-      echo "FEHLER: unbekanntes Argument: $1 (Aufruf: scripts/check_sentry_issues.sh [--dry-run] [--print-token-source] [--print-event-tags SID[,SID…]])"
+      echo "FEHLER: unbekanntes Argument: $1 (Aufruf: scripts/check_sentry_issues.sh [--dry-run] [--print-token-source] [--print-event-tags SID[,SID…]] [--print-event-stack SID[,SID…]])"
       exit 1 ;;
   esac
 done
@@ -201,6 +209,116 @@ if vals:
 else:
     print("EVENT_TAGS %s: HTTP 200 without claimed tags" % sid)
 PYTAGS
+  done
+  exit 0
+fi
+
+# ── Read-only Diagnosemodus: Exception-/Thread-Stack pro SID (kein GitHub) ──
+# Attribution nach §5.1 braucht den Stack, nicht nur die Versions-Spur. Der
+# lokale Token hat oft keine Event-Lesescope (403), das CI-Secret schon —
+# deshalb derselbe Weg wie --print-event-tags: gleiche Endpunkte, gleiche
+# Fixtures, Ausgabe ohne Token. Gedruckt wird die Kette des LATEST-Events
+# (neueste Frames zuerst), in_app-Frames markiert; bei ANR/nativen Events
+# ohne Exception-Entry stattdessen der gecrashte bzw. aktuelle Thread.
+if [ "$print_stack" = "1" ]; then
+  if [ -z "$token" ]; then
+    echo "SKIP: kein Sentry-Lese-Token — SENTRY_ISSUES_TOKEN setzen oder issues.token in sentry.properties ablegen (Token-Erstellung: $DOCS_HINT)"
+    exit 0
+  fi
+  if [ -z "$stack_sids" ]; then
+    echo "FEHLER: --print-event-stack benötigt eine kommagetrennte SID-Liste (Aufruf: scripts/check_sentry_issues.sh --print-event-stack 7821630074,7821627754)"
+    exit 1
+  fi
+  for sid in $(printf '%s' "$stack_sids" | tr ',' ' '); do
+    case "$sid" in
+      ''|*[!0-9]*)
+        echo "EVENT_STACK $sid: SKIP (ungültige SID — nur Ziffern erlaubt)"
+        continue ;;
+    esac
+    evstatus=""
+    evfile="$tmp/event_stack_print.json"
+    if [ -n "$FIXTURE" ]; then
+      if [ -f "$FIXTURE/event_${sid}.json" ]; then
+        evstatus=200
+        cp "$FIXTURE/event_${sid}.json" "$evfile"
+      elif [ -f "$FIXTURE/eventstatus_${sid}" ]; then
+        evstatus=$(tr -d '[:space:]' < "$FIXTURE/eventstatus_${sid}")
+      else
+        echo "EVENT_STACK $sid: SKIP (kein Event-Fixture für diese SID)"
+        continue
+      fi
+    else
+      evstatus=$(curl -sS -o "$evfile" -w '%{http_code}'         -H "Authorization: Bearer $token"         "$API/issues/$sid/events/latest/" 2>/dev/null || true)
+      [ -n "$evstatus" ] || evstatus=000
+    fi
+    SID="$sid" EVSTATUS="$evstatus" EVENTFILE="$evfile" python -X utf8 - 2>/dev/null <<'PYSTACK' || true
+import json, os, sys
+
+# Stack-Spur für die Attributionspflicht (§5.1). Beide Event-Formen werden
+# gelesen: entries[type=exception] (Java/Kotlin-Crash, ANR-Report) und
+# entries[type=threads] (native Aborts, Thread-Dumps). Frames stehen in
+# Sentry-Reihenfolge (ältester zuerst) — gedruckt wird umgekehrt, damit der
+# Auslöser oben steht.
+sid = os.environ["SID"]
+status = os.environ["EVSTATUS"]
+if status != "200":
+    print("EVENT_STACK %s: not readable (HTTP %s)" % (sid, status))
+    sys.exit(0)
+try:
+    ev = json.load(open(os.environ["EVENTFILE"], encoding="utf-8"))
+except Exception:
+    print("EVENT_STACK %s: not readable (HTTP 200, invalid JSON)" % sid)
+    sys.exit(0)
+if not isinstance(ev, dict):
+    print("EVENT_STACK %s: not readable (HTTP 200, non-object payload)" % sid)
+    sys.exit(0)
+
+def frames_of(stacktrace):
+    out = []
+    for f in (stacktrace or {}).get("frames") or []:
+        if not isinstance(f, dict):
+            continue
+        loc = f.get("filename") or f.get("module") or "?"
+        fn = f.get("function") or "?"
+        ln = f.get("lineno")
+        mark = " [in_app]" if f.get("in_app") else ""
+        out.append("%s:%s in %s%s" % (loc, "?" if ln is None else ln, fn, mark))
+    return out
+
+values = []
+for entry in ev.get("entries") or []:
+    if not isinstance(entry, dict):
+        continue
+    if entry.get("type") == "exception":
+        data = entry.get("data") or {}
+        for v in data.get("values") or []:
+            if isinstance(v, dict):
+                values.append(v)
+    elif entry.get("type") == "threads":
+        data = entry.get("data") or {}
+        threads = [t for t in (data.get("values") or []) if isinstance(t, dict)]
+        picked = [t for t in threads if t.get("crashed")]
+        if not picked:
+            picked = [t for t in threads if t.get("current")]
+        if not picked:
+            picked = threads[:1]
+        for t in picked:
+            values.append({"type": "Thread",
+                           "value": t.get("name") or t.get("id") or "?",
+                           "stacktrace": t.get("stacktrace")})
+
+if not values:
+    print("EVENT_STACK %s: HTTP 200 without exception/thread stack" % sid)
+    sys.exit(0)
+
+print("EVENT_STACK %s: %d exception(s)/thread(s)" % (sid, len(values)))
+for v in values[:3]:
+    typ = str(v.get("type") or "Throwable")
+    val = str(v.get("value") or "")
+    print("  %s: %s" % (typ, val[:200]))
+    for i, line in enumerate(reversed(frames_of(v.get("stacktrace"))[-15:]), 1):
+        print("    #%-2d %s" % (i, line[:220]))
+PYSTACK
   done
   exit 0
 fi
