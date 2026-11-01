@@ -287,14 +287,14 @@ jobs:
         run: bundle exec fastlane release_github tag:"$TAG"
 
       # ✅ Erledigte Sentry-Issues mit dieser Version schließen (fix-release-Tag,
-      # Weg-3-Automation, Auftrag 25.09.2026): Issues mit dem Issue-Tag
-      # `fix-release: <version>` (z. B. 'fix-release: 0.6.0-beta' für Release v0.6.0-beta)
+      # Weg-3-Automation, Auftrag 25.09.2026): Issues, deren EVENTS den Tag
+      # `fix-release: <version>` tragen (z. B. 'fix-release: 0.6.0-beta' für Release v0.6.0-beta)
       # werden per Sentry-Bulk-Update als resolved/inNextRelease markiert —
       # Sentry schließt sie automatisch, sobald Events aus dieser Release
       # eintreffen. Bewusst continue-on-error: Sentry-Probleme (Token fehlt/
       # abgelaufen/ohne project:write, HTTP-Störung) sind neutrale SKIPs und
       # dürfen die Distribution NIE blockieren — das Script selbst ist im
-      # Pre-Push-Gate offline getestet (test_sentry_resolve.sh, R1–R11).
+      # Pre-Push-Gate offline getestet (test_sentry_resolve.sh, R1–R13). Manuelles Tagging ist bei Sentry nicht möglich (Tags sind Event-Daten, kein Issue-Attribut) — der Release-Schnitt resolvt deshalb direkt per Bulk-PUT mit IDs, Rezept: docs/sentry-stats.md §6.
       - name: 'Sentry: erledigte Issues resolven (fix-release → inNextRelease)'
         if: env.TAG != ''
         continue-on-error: true

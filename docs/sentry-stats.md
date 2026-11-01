@@ -159,34 +159,65 @@ nötig — der Workflow meldet Drossel-Signale von selbst als WARN-Issue.
 
 ## 6. Erledigte Issues automatisch resolven (fix-release-Tag, Weg 3)
 
-Erledigte („fix in nächster Version") Sentry-Issues werden beim **Stable-Publish
-einer Version automatisch geschlossen** — ohne manuelles Durchklicken im
-Dashboard. Mechanik:
+Erledigte („fix in nächster Version") Sentry-Issues werden beim **Stable-Schnitt**
+Sentry-seitig geschlossen — per Bulk-PUT mit den Issue-IDs (Regelfall, Punkt 4)
+oder automatisch beim Stable-Publish über den Tag-Vertrag (Punkt 1–3).
 
-1. Im Sentry-Dashboard an das Issue ein **Tag** hängen:
-   `fix-release: <version>` — der Wert ist die Version **ohne führendes `v`**,
-   case-insensitiv (z. B. `fix-release: 0.6.0-beta` für den Release-Tag
-   `v0.6.0-beta`, `fix-release: 0.6.0-beta` und `0.6.0-BETA` zählen gleich).
+> **Befund 01.11.2026 (Korrektur eines falschen Schritts):** Der früher hier
+> dokumentierte Schritt „im Sentry-Dashboard an das Issue ein Tag hängen" ist
+> **nicht ausführbar**. Sentry kennt keine selbst setzbaren Issue-Tags: Tags
+> entstehen per SDK beim Ingest und werden am Issue nur aggregiert angezeigt
+> (das Issue-Detail hat keine Bearbeiten-Funktion), und die API nimmt kein
+> `tags`-Feld — `PUT /projects/{org}/{project}/issues/` akzeptiert nur
+> `status`, `statusDetails`, `ignoreDuration`, `isPublic`, `merge`,
+> `assignedTo`, `hasSeen`, `isBookmarked`
+> (<https://docs.sentry.io/api/events/bulk-mutate-a-list-of-issues/>); der
+> Wunsch nach manuellen Issue-Tags ist seit 2017 offen
+> (<https://github.com/getsentry/sentry/issues/5572>). Ein Issue trägt
+> `fix-release` deshalb nur, wenn die **App** den Tag beim Melden mitschickt —
+> der Tag-Vertrag ist ein App-Vertrag, kein Dashboard-Schritt.
+
+Mechanik:
+
+1. Ein Issue trägt den **Event-Tag** `fix-release: <version>` — Wert = Version
+   **ohne führendes `v`**, case-insensitiv (`0.6.0-beta`, `v0.6.0-BETA` und
+   `0.6.0-beta` zählen gleich). Gesetzt wird er von der **App** beim Melden
+   (`Sentry.setTag`), nicht im Dashboard — siehe Befund oben. Für „fix in
+   dieser Version" ohne App-Tag gilt Punkt 4.
 2. Der wöchentliche Stable-Workflow (`.github/workflows/distribution-stable.yml`)
    ruft nach dem Publish des Versions-Tags den Resolve-Guard auf:
    `bash scripts/check_sentry_resolve.sh --version "$TAG"` (Step „Sentry:
    erledigte Issues resolven (fix-release → inNextRelease)").
 3. Der Guard listet alle unresolved Issues des Projekts, filtert die mit
-   passendem `fix-release`-Tag und markiert sie per Sentry-Bulk-Update
-   (`PUT /api/0/projects/{org}/{project}/issues/?id=…` mit
-   `{"status":"resolved","statusDetails":{"inNextRelease":true}}`).
-   **Sentry schließt sie automatisch**, sobald Events aus genau dieser Release
-   eintreffen — semantisch „Resolved in next release".
+   passendem Event-Tag und markiert sie per Sentry-Bulk-Update. Ohne
+   App-seitigen Tag endet er mit `OK: 0 Issues mit Tag fix-release:…` — das
+   ist der Vertrag, kein Fehler.
 
-4. **Begrenzung: die Automation arbeitet nur auf Sentry-Ebene.** GitHub-Issues
+4. **Stable-Schnitt ohne App-Tag (der Regelfall):** die beim Schnitt erledigten
+   Sentry-Issues direkt resolven — im Issue-Detail über „Resolve → in next
+   release" oder in einem Aufruf für alle IDs:
+
+   ```bash
+   curl -sS -X PUT -H "Authorization: Bearer $SENTRY_RESOLVE_TOKEN" \
+     -H "Content-Type: application/json" \
+     -d '{"status":"resolved","statusDetails":{"inNextRelease":true}}' \
+     "https://sentry.io/api/0/projects/privat-jb/vivid/issues/?id=7821630074&id=7821627754"
+   ```
+
+   Beide Wege setzen `{"status":"resolved","statusDetails":{"inNextRelease":true}}`;
+   **Sentry schließt die Gruppe automatisch**, sobald Events aus genau dieser
+   Release eintreffen — semantisch „Resolved in next release". Events aus
+   älteren Builds öffnen sie wieder.
+
+5. **Begrenzung: die Automation arbeitet nur auf Sentry-Ebene.** GitHub-Issues
    des Befunds schließt sie **nicht** — der Resolve-Guard liest und schreibt
    ausschließlich die Sentry-API (kein `gh issue close`), und auch der
    Sentry-Watchdog legt nur an, er schließt nie. Geschlossene GitHub-Issues
    wie #215/#228 bestätigen das Muster: Schließung **manuell** durch den
    Maintainer nach der Attribution. Ablauf beim Release-Schnitt daher:
-   Sentry-Issue(s) mit `fix-release: <version>` taggen (vor dem
-   Stable-Publish) → Automation resolvt sie Sentry-seitig → GitHub-Issue
-   nach dem Release in demselben Zug manuell schließen. Die Zusage
+   Sentry-Issue(s) per Bulk-PUT (Punkt 4) auf `resolved/inNextRelease`
+   setzen → GitHub-Issue nach dem Release in demselben Zug manuell
+   schließen. Die Zusage
    „schließt sich automatisch“ gilt immer nur für die Sentry-Issue-Seite,
    nie für GitHub.
 

@@ -251,17 +251,18 @@ Das führt zu `JsonIOException: Abstract classes can't be instantiated!`
 
 **Docs-Update:** Die ProGuard-Regeln sind in der Issue-Description und im PARITY.md dokumentiert (siehe Abschnitt „Moblin-Features & Android-Plattform“).
 
-6. **Schließung: GitHub-Issue manuell, Sentry-Issue per Automation.** Der
-   fix-release-Tag (siehe `docs/sentry-stats.md` §6) arbeitet **nur
-   Sentry-seitig** — beim Stable-Publish resolvt der Resolve-Guard die
-   getaggten Sentry-Issues (`resolved/inNextRelease`), die GitHub-Issues
-   des Befunds schließt er **nicht** (der Watchdog legt nur an, er schließt
-   nie; Historie: #215/#228 wurden manuell geschlossen). Verfahren:
-   Beim Release-Schnitt die Sentry-Issues im Dashboard mit
-   `fix-release: <version>` taggen (vor dem Stable-Publish), nach dem
-   Stable-Publish das GitHub-Issue manuell schließen. Ein „resolved“-Vermerk
-   in einem Attributionskommentar bezieht sich immer auf die Sentry-Ebene,
-   nie auf den GitHub-Issue-Status.
+6. **Schließung: GitHub-Issue manuell, Sentry-Issue per Bulk-PUT.** Beide
+   Ebenen sind getrennt (siehe `docs/sentry-stats.md` §6): Sentry-Issues werden
+   auf `resolved/inNextRelease` gesetzt, die GitHub-Issues des Befunds schließt
+   niemand automatisch (der Watchdog legt nur an, er schließt nie; Historie:
+   #215/#228 wurden manuell geschlossen). Verfahren: beim Release-Schnitt die
+   erledigten Sentry-Issues per Bulk-PUT mit ihren IDs resolven (Rezept in
+   `docs/sentry-stats.md` §6 Punkt 4; im Dashboard entspricht das „Resolve → in
+   next release“), nach dem Stable-Publish das GitHub-Issue manuell schließen.
+   **Ein `fix-release`-Tag ist dafür kein Weg:** Tags sind Event-Daten, Sentry
+   erlaubt kein nachträgliches Setzen an einem bestehenden Issue (Befund
+   01.11.2026, §6). Ein „resolved“-Vermerk in einem Attributionskommentar
+   bezieht sich immer auf die Sentry-Ebene, nie auf den GitHub-Issue-Status.
 
 Beispiel einer vollständigen Nach-Attribution: #215 (VIVID-36) →
 `CAM-FOCUS-INFINITE-SCROLL` (Doppel-Scroll in `SettingsCameraScreen`,
@@ -415,7 +416,7 @@ Triage: #267 ist in Punkt 7 beschrieben.
      der Kommentar sagt das ausdrücklich (Closure claimt nie „behoben“) und begründet, warum die
      Registry nach §5.3 nicht füllbar ist (keine Ursache, Top-Frame nur Allokationsort).
    Der Closure-Kommentar (englisch, Beleg-Format) nennt zusätzlich die **nicht** getanen Schritte:
-   die Sentry-Gruppe bleibt `unresolved` (System der Record; `fix-release`-Tagging nach §5.6 erst
+   die Sentry-Gruppe bleibt `unresolved` (System der Record; das Sentry-Resolve nach §5.6 erst
    mit einem echten Fix), und falls Event-Tags nicht lesbar waren (403 lokal), steht das im
    Kommentar — die Schließung ruht auf der Release-Ebene, nicht auf Event-Tags.
    **Nachweis-Kette:** dieselbe Signatur aktualisiert nur die Sentry-Gruppe und wird in GitHub

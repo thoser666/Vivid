@@ -2,16 +2,27 @@
 # Sentry-Resolve-Guard (Vivid): schließt erledigte Sentry-Issues automatisch mit
 # der nächsten Version (Weg-3-Automation, Auftrag 25.09.2026).
 #
-# Vertrag: Ein Issue gilt als erledigt, wenn es das Issue-Tag
+# Vertrag (--version): Ein Issue gilt als erledigt, wenn seine EVENTS den Tag
 #   fix-release: <version>
-# trägt (Key fix-release, Wert = Version ohne führendes 'v', case-insensitiv —
+# tragen (Key fix-release, Wert = Version ohne führendes 'v', case-insensitiv —
 # z. B. "0.6.0-beta" für den Release-Tag v0.6.0-beta). Beim Stable-Publish einer
 # Version ruft der Workflow distribution-stable.yml dieses Script mit
-# --version "$TAG" auf; alle Issues mit passendem fix-release-Tag werden per
+# --version "$TAG" auf; alle Issues mit passendem Tag werden per
 # Sentry-Bulk-Update als resolved/inNextRelease markiert. Sentry schließt sie
 # automatisch, sobald Events aus dieser Release eintreffen (Status-Detail
 # "inNextRelease", siehe Sentry-API "Bulk update issues": PUT /projects/{org}/
 # {project}/issues/?id=…&id=…).
+#
+# WICHTIG (Befund 01.11.2026): Der Tag ist Event-Daten, kein Issue-Attribut —
+# Sentry bietet weder im Dashboard noch per API eine Möglichkeit, ihn an ein
+# BESTEHENDES Issue zu hängen (der Bulk-PUT akzeptiert nur status/statusDetails/
+# ignoreDuration/isPublic/merge/assignedTo/hasSeen/isBookmarked; offener
+# Feature-Request: getsentry/sentry#5572). Ohne ein App-seitiges Sentry.setTag
+# findet dieser Modus folglich nichts (OK: 0 Issues) — das ist der Vertrag,
+# kein Defekt. Der Weg am Release-Schnitt ist der direkte Bulk-PUT mit den
+# Issue-IDs; das Aufruf-Rezept steht in docs/sentry-stats.md Abschnitt 6
+# (Punkt 4). Bewusst KEIN eigener --ids-Modus hier: zwei Zeilen curl sind der
+# billigere Vertrag, und dieser Guard bleibt auf seinen Tag-Vertrag beschränkt.
 #
 # Verdicts (bewusst KEIN Gate-Blocker — der Workflow-Step läuft continue-on-error):
 #   OK    — N Issues als resolved (inNextRelease) markiert, oder 0 passend
