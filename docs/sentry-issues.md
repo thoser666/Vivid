@@ -568,6 +568,37 @@ rot (`guardStreamStart reports a start failure without letting it escape`,
 (`--ids`, ohne `inNextRelease`): die Codebasis enthaelt den Fix, aber der
 gemeldete Build liegt davor — ein erneutes Auftreten soll die Gruppe wieder
 oeffnen, statt sie als „in der naechsten Version behoben" stillzustellen.
+
+**Kamera-Cluster `Camera no detected`: Pre-Flight-Pruefung (02.11.2026, #325/#381/#385/#390/#392).**
+Aus §5.1 Punkt 9 folgt, dass der fatale Wurf **app-seitig nicht abfangbar** ist, solange
+`prepareCamera` ueberhaupt aufgerufen wird — der einzige saubere Hebel ist, den Aufruf zu
+vermeiden. `StreamingEngine` prueft deshalb jetzt vor beiden Kamera-Pfaden, ob es die
+angeforderte Kamera gibt (`cameraAvailability`, injizierbar wie `idlePreviewFactory`):
+
+- **Idle-Preview:** `startIdlePreviewIfReady()` prueft `camera?.currentCameraId` (leer =
+  Rueckkamera) **vor** dem GL-Aufbau; fehlt die Kamera, wird die Vorschau gar nicht erst
+  aufgebaut (`Timber.w`, kein Crash).
+- **Stream/Recording:** `startCameraStream()` prueft dieselbe Id vor
+  `prepareStreamEncoders()` und endet bei fehlender Kamera in
+  `StreamingState.Failed(streaming_error_camera_unavailable)` — ein lokalisierter Fehler
+  (de/en/fr/ru) statt eines Fatals.
+
+`defaultCameraAvailable` liest `CameraManager.cameraIdList` (+ `LENS_FACING` fuer die
+Rueckkamera); ist die Liste selbst nicht lesbar, bleibt das **Bestandsverhalten** (fail-open) —
+die Pruefung darf funktionierende Geraete nicht blockieren.
+
+**Beleg.** Neu `StreamingEngineCameraGuardTest` (3 Tests): Idle-Preview baut ohne Kamera nichts
+auf (Factory-Zaehler 0), Streamstart endet in `streaming_error_camera_unavailable` ohne
+`prepareVideo()`/`startStream()`, und eine vorhandene Kamera nimmt den normalen Pfad
+(Negativkontrolle). **Mutationsprobe (02.11.2026):** beide Guards per `false &&` deaktiviert →
+`3 tests completed, 2 failed` (die Negativkontrolle blieb gruen), zurueckgebaut → gruen.
+
+**Grenze der Behebung.** Adressiert ist die Familie, in der die Kamera **nicht existiert**
+(`Camera no detected`, 16+ Events, fatal). Nicht adressiert: `Open camera N failed`
+(Kamera existiert, Oeffnen scheitert — eigener Cluster, Retry-Politik aus `27bcef79`) und die
+offene #350-Diskrepanz (High-Speed-Session vs. 30-fps-Idle-Preview). Die Issues bleiben bis
+zum Nachweis im naechsten Nightly offen; ein Kommentar mit diesem Befund haengt an der Familie.
+
 ## 6. Sicherheit
 
 - Token getrennt vom CI-Mapping-Token (`auth.token`) — getrennte Scopes,

@@ -18,6 +18,7 @@
     <string name="streaming_error_prefix">Ошибка: %1$s</string>
     <!-- Причины сбоя движка (StreamingState.Failed.reasonRes) -->
     <string name="streaming_error_encoder_preparation">Не удалось подготовить аудио/видео</string>
+    <string name="streaming_error_camera_unavailable">Нет камеры для выбранного направления</string>
     <string name="streaming_error_screen_capture_consent">Захват экрана не разрешён — запустите трансляцию заново и подтвердите в системном диалоге</string>
     <string name="streaming_error_service_start">Не удалось запустить службу трансляции</string>
     <string name="streaming_error_unknown">Неизвестная ошибка</string>

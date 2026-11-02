@@ -18,6 +18,7 @@
     <string name="streaming_error_prefix">Erreur : %1$s</string>
     <!-- Causes d'échec du moteur (StreamingState.Failed.reasonRes) -->
     <string name="streaming_error_encoder_preparation">Préparation audio/vidéo impossible</string>
+    <string name="streaming_error_camera_unavailable">Aucune caméra disponible pour la direction choisie</string>
     <string name="streaming_error_screen_capture_consent">Capture d\'écran non autorisée — relancez le stream et confirmez dans la boîte de dialogue système</string>
     <string name="streaming_error_service_start">Le service de streaming n\'a pas pu démarrer</string>
     <string name="streaming_error_unknown">Erreur inconnue</string>
