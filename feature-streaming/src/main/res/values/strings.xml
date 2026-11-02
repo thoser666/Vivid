@@ -18,6 +18,7 @@
     <string name="streaming_error_prefix">Fehler: %1$s</string>
     <!-- Fehlerursachen der Engine (StreamingState.Failed.reasonRes) -->
     <string name="streaming_error_encoder_preparation">Audio/Video konnte nicht vorbereitet werden</string>
+    <string name="streaming_error_camera_unavailable">Keine Kamera für die gewählte Blickrichtung verfügbar</string>
     <string name="streaming_error_screen_capture_consent">Bildschirmübertragung nicht freigegeben — bitte erneut starten und im Systemdialog zustimmen</string>
     <string name="streaming_error_service_start">Der Stream-Dienst konnte nicht gestartet werden</string>
     <string name="streaming_error_unknown">Unbekannter Fehler</string>

@@ -2,6 +2,7 @@ package com.vivid.feature.streaming
 
 import android.os.Build
 import android.hardware.camera2.CameraManager
+import android.hardware.camera2.CameraCharacteristics
 import com.vivid.core.data.CameraMode
 import com.vivid.core.data.EncoderPreset
 import kotlinx.coroutines.CoroutineScope
@@ -239,6 +240,26 @@ class StreamingEngine @Inject constructor(
     private var idlePreviewCanvasSize: Pair<Int, Int>? = null
     private var previewVideoConfiguration: PreviewVideoConfiguration? = null
     internal var idlePreviewFactory: (Context) -> Camera2ApiManager = ::Camera2ApiManager
+
+    /**
+     * Prüft, ob für die angeforderte Kamera-Id (null/leer = Rückkamera) ein
+     * Gerät existiert — **vor** jedem Aufruf, der in RootEncoder landet.
+     *
+     * Hintergrund (Sentry-Cluster Nov 2026, `docs/sentry-issues.md` §9):
+     * `CameraOpenException: Camera no detected` wird von RootEncoder 2.7.5 in
+     * `getCameraIdForFacing` geworfen, aus einem von der Library selbst
+     * geposteten Task und damit **vor** `onConfigureFailed`. Weder das
+     * `try/catch` um `prepareCamera` noch `onCameraError` sehen den Wurf — er
+     * tötet den Looper. Die Prüfung hier verhindert den Aufruf: Geräte ohne
+     * Kamera für die Blickrichtung bekommen einen regulären Fehlerzustand
+     * statt eines Fatals.
+     *
+     * Fail-open: Ist die Kamera-Liste selbst nicht lesbar (Dienst weg,
+     * exotisches Gerät), bleibt das Bestandsverhalten erhalten — die Prüfung
+     * darf funktionierende Geräte nicht blockieren. Injektierbar für
+     * JVM-Tests (Muster `idlePreviewFactory`).
+     */
+    internal var cameraAvailability: (String?) -> Boolean = ::defaultCameraAvailable
 
     /** Gemerkte Encoder-Konfiguration (null = Legacy-Pfad, RootEncoder-Default). */
     private val _encoderConfig = MutableStateFlow<ResolvedEncoderConfig?>(null)
@@ -972,6 +993,13 @@ class StreamingEngine @Inject constructor(
          */
         @StringRes
         private val ENCODER_PREPARATION_ERROR = R.string.streaming_error_encoder_preparation
+
+        /**
+         * Keine Kamera für die gewählte Blickrichtung — verhindert den fatalen
+         * RootEncoder-Wurf (Sentry-Cluster, `docs/sentry-issues.md` §9).
+         */
+        @StringRes
+        private val CAMERA_UNAVAILABLE_ERROR = R.string.streaming_error_camera_unavailable
 
         /** Startfehler außerhalb der Engine (Foreground-Service, #327). */
         @StringRes
@@ -1928,6 +1956,28 @@ class StreamingEngine @Inject constructor(
             }
         }
 
+    /**
+     * Standard-Prüfung der Kamera-Verfügbarkeit (siehe [cameraAvailability]).
+     *
+     * Leere Id = Rückkamera (der Legacy-Pfad ruft `openCameraBack()`).
+     */
+    private fun defaultCameraAvailable(cameraId: String?): Boolean = runCatching {
+        val manager = context.getSystemService(Context.CAMERA_SERVICE) as? CameraManager
+            ?: return@runCatching true
+        val ids = manager.cameraIdList
+        if (cameraId.isNullOrBlank()) {
+            ids.any { id ->
+                manager.getCameraCharacteristics(id)
+                    .get(CameraCharacteristics.LENS_FACING) == CameraCharacteristics.LENS_FACING_BACK
+            }
+        } else {
+            ids.contains(cameraId)
+        }
+    }.getOrElse { error ->
+        Timber.w(error, "Camera availability check failed; keeping the previous behaviour")
+        true
+    }
+
     /** Open ordinary capture into the stream-sized GL canvas, without starting encoders. */
     fun startIdlePreviewIfReady() {
         installSceneLayer()
@@ -1948,6 +1998,18 @@ class StreamingEngine @Inject constructor(
         }
 
         val selectedCameraId = idlePreviewCamera?.getCurrentCameraId() ?: camera?.currentCameraId
+        // Kamera-Cluster (#385): RootEncoder wirft in einem geposteten Task,
+        // wenn die Blickrichtung keine Kamera hat — der Wurf tötet den Looper.
+        // Lieber gar nicht erst aufbauen (die Vorschau bleibt dann schwarz und
+        // die Aktion läuft ins normale Fehlerbild statt in einen Crash).
+        if (!cameraAvailability(selectedCameraId)) {
+            Timber.w(
+                "Idle preview skipped: no camera for %s",
+                selectedCameraId ?: "back facing",
+            )
+            return
+        }
+
         stopIdlePreview()
         // GlStreamInterface.stop() does not release its preview EGL surface.
         // Disconnect that producer before Camera2 reconnects to the same SurfaceView.
@@ -2157,6 +2219,17 @@ class StreamingEngine @Inject constructor(
         // Recording and RTMP share the already prepared camera/GL/encoder path.
         val cam = camera ?: return
         if (cam.isStreaming) return
+        // Kamera-Cluster (#385): derselbe Wurf wie in [startIdlePreviewIfReady],
+        // hier über `prepareVideo()`/`applyEncoderPreset()`. Vorher prüfen und
+        // einen lokaliserten Fehler melden statt den Looper zu verlieren.
+        if (!cameraAvailability(cam.currentCameraId)) {
+            Timber.w(
+                "Stream start refused: no camera for %s",
+                cam.currentCameraId ?: "back facing",
+            )
+            failStream(CAMERA_UNAVAILABLE_ERROR)
+            return
+        }
         if (!cam.isRecording) resetKeyframeMonitoring()
         syncSelectedCamera(cam)
         stopIdlePreview()

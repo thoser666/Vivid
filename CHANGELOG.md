@@ -9,6 +9,43 @@ Alle Änderungen an Vivid — **automatisch aus den GitHub-Releases gespiegelt**
 - 🎯 Feature-Tracking: [PARITY.md](PARITY.md)
 
 <!-- CHANGELOG-START -->
+## 🌙 **Nightly** 0.5.49-nightly.685 — 2026-11-02
+
+[GitHub-Release](https://github.com/thoser666/Vivid/releases/tag/nightly-20261102-144443)
+
+Nightly feature build — installable via Obtainium (enable pre-releases).
+
+**Artefakte:** `app-standard-release.apk` · `SHA256SUMS.txt` · `mapping.txt` · `output-metadata.json`
+
+## 🟡 **Beta** v0.5.49-beta — 2026-11-02
+
+[GitHub-Release](https://github.com/thoser666/Vivid/releases/tag/v0.5.49-beta)
+
+## What's Changed
+* docs: Update CHANGELOG from GitHub releases by @thoser666 in https://github.com/thoser666/Vivid/pull/331
+* feat(streaming): add experimental 60 FPS capture and safer live controls by @smka in https://github.com/thoser666/Vivid/pull/322
+* chore: update F-Droid repository by @thoser666 in https://github.com/thoser666/Vivid/pull/348
+* ci(deps): bump actions/setup-python from 7.0.0 to 7.1.0 by @dependabot[bot] in https://github.com/thoser666/Vivid/pull/346
+* ci(deps): bump the codeql-action group with 3 updates by @dependabot[bot] in https://github.com/thoser666/Vivid/pull/344
+* deps(deps): bump io.sentry.android.gradle from 6.23.0 to 6.24.0 by @dependabot[bot] in https://github.com/thoser666/Vivid/pull/343
+* deps(deps): bump org.ow2.asm:asm-util from 9.11 to 9.11.1 by @dependabot[bot] in https://github.com/thoser666/Vivid/pull/341
+* deps(deps): bump the networking group with 2 updates by @dependabot[bot] in https://github.com/thoser666/Vivid/pull/340
+* deps(deps): bump the androidx group with 2 updates by @dependabot[bot] in https://github.com/thoser666/Vivid/pull/339
+* docs: Update CHANGELOG from GitHub releases by @thoser666 in https://github.com/thoser666/Vivid/pull/349
+* test(contributors): lock the #330 pre-merge announcement contract (C14-C17) by @thoser666 in https://github.com/thoser666/Vivid/pull/351
+* fix(streaming): close the session-closed race (#324) + carry build identity in Sentry environment by @thoser666 in https://github.com/thoser666/Vivid/pull/352
+* docs: Update CHANGELOG from GitHub releases by @thoser666 in https://github.com/thoser666/Vivid/pull/353
+* chore(deps): fdroidserver-Closure regenerieren (PyPI-Drift 2026-10-27) by @thoser666 in https://github.com/thoser666/Vivid/pull/354
+* deps(deps): bump roborazzi from 1.76.0 to 1.77.0 by @dependabot[bot] in https://github.com/thoser666/Vivid/pull/342
+* merge(streaming): scene compositor onto develop with the four conflicts resolved (#330) by @thoser666 in https://github.com/thoser666/Vivid/pull/355
+* docs: mark #330 as landed and repoint its parity rows by @thoser666 in https://github.com/thoser666/Vivid/pull/356
+* docs(parity): repoint the #330 mapping rows to the squash commit too by @thoser666 in https://github.com/thoser666/Vivid/pull/357
+* docs: Update CHANGELOG from GitHub releases by @thoser666 in https://github.com/thoser666/Vivid/pull/358
+* ci(deps): bump ruby/setup-ruby from 1.329.0 to 1.334.0 by @dependabot[bot] in https://github.com/thoser666/Vivid/pull/345
+
+
+**Full Changelog**: https://github.com/thoser666/Vivid/compare/v0.5.23-beta...v0.5.49-beta
+
 ## 🌙 **Nightly** 0.5.49-nightly.678 — 2026-11-01
 
 [GitHub-Release](https://github.com/thoser666/Vivid/releases/tag/nightly-20261101-124036)

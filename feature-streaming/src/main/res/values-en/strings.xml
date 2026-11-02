@@ -18,6 +18,7 @@
     <string name="streaming_error_prefix">Error: %1$s</string>
     <!-- Engine failure causes (StreamingState.Failed.reasonRes) -->
     <string name="streaming_error_encoder_preparation">Failed to prepare audio/video</string>
+    <string name="streaming_error_camera_unavailable">No camera available for the selected facing direction</string>
     <string name="streaming_error_screen_capture_consent">Screen capture not approved — start again and confirm in the system dialog</string>
     <string name="streaming_error_service_start">The streaming service could not be started</string>
     <string name="streaming_error_unknown">Unknown error</string>
