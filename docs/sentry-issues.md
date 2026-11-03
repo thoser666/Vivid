@@ -531,9 +531,10 @@ bleiben als Beleg stehen, bis sie manuell geschlossen werden.
 eine begründete Zuschreibung hat — `main` wartet in
 `Semaphore.acquireUninterruptibly()`, und die einzige bekannte Semaphore-Warte
 dieser App liegt in RootEncoders `Camera2ApiManager.openCameraId` (§5.12 nennt
-Belege und Grenze der Zuschreibung). Die Behebung (Kamera-Open außerhalb des
-Main-Threads) steht noch aus; ein „erledigt" wäre vor dieser Änderung eine
-Behauptung.
+Belege und Grenze der Zuschreibung). Die Behebung ist seit 03.11.2026 im Code
+(§5.13: Kamera-Open im Hintergrund-Scope), aber **nicht** auf einem Gerät
+gegengeprüft — deshalb bleibt die Sentry-Gruppe offen, bis ein Nightly-Lauf
+ohne ANR vorliegt.
 
 ### 5.11 `Unable to start service` (#327, VIVID-3Z): Fix war schon da, Test fehlte
 
@@ -688,13 +689,65 @@ Recovery-Tests rot, die Kontext-Tests grün; Kontext-Zeile aus
 Vorschau-Test (der seine Zeile separat setzt) grün; jeweils zurückgebaut →
 `TESTS_RC=0`.
 
-**Grenze der Behebung.** Der `openCamera`-Aufruf selbst läuft weiter auf dem
+**Grenze der Behebung.** Der `openCamera`-Aufruf läuft weiter auf dem
 aufrufenden Thread — im Service-Start ist das der `main`-Thread. Die Semaphore
 kann dort also weiterhin blockieren, wenn `openCamera` zwar zurückkehrt, aber
-weder `onOpened` noch `onError` kommt. Das ist die verbleibende ANR-Fläche
-(#374) und wird als eigene Änderung vom Main-Thread entkoppelt
-(serieller Hintergrund-Executor, Identitätsprüfung der Vorschau-Kamera gegen
-Doppel-Open). Bis dahin bleibt VIVID-4T offen.
+weder `onOpened` noch `onError` kommt. Diese Grenze ist mit §5.13 aufgehoben:
+der Open läuft seit 03.11.2026 im seriellen Hintergrund-Scope.
+
+### 5.13 Kamera-Open verlässt den Main-Thread (A1, 03.11.2026)
+
+**Was geändert ist.** Zwei Stellen riefen RootEncoder so auf, dass der
+Semaphor-Wartepunkt aus §5.12 auf dem Aufrufer-Thread lag:
+
+- **Idle-Vorschau:** `startIdlePreviewIfReady()` rief `prepareCamera(...)` und
+  `openCameraId(...)` direkt im Aufruf (Main, sobald die SurfaceView angehängt
+  wird).
+- **Stream/Recording:** `startCameraStream()` rief `prepareStreamEncoders(cam)`
+  direkt im Aufruf, und der kommt beim Start aus dem Service
+  (`StreamingService.onStartCommand`, Main) oder aus dem UI-Button.
+
+Beides läuft jetzt über `launchCameraOpen` in den vorhandenen seriellen
+`captureScope` (`Dispatchers.IO.limitedParallelism(1)`); nur der Abschluss
+(Vorschau anhängen, Controls, `cam.startStream`) kommt per `runOnMain` zurück
+auf den Main-Thread. Seriell deshalb, weil zwei gleichzeitige Öffnungsversuche
+denselben Fehler erzeugen würden, den §5.12 beschreibt.
+
+**Neue Guards, die der asynchrone Open erst nötig macht.** Vorher blockierte
+der Open den Main-Thread und schloss diese Lücken von selbst:
+
+- `legacyIdlePreviewAllowed()` verlangt zusätzlich
+  `_streamingState !is Preparing/Streaming`. Sonst würde die Vorschau während
+  eines laufenden Starts dieselbe Kamera anfordern (Doppel-Open).
+- `completeCameraStart()` bricht ab, wenn der Zustand nicht mehr `Preparing`
+  ist. Während des Hintergrund-Opens kann der Nutzer gestoppt haben; ohne den
+  Guard hätte der Abschluss den Stream trotzdem gestartet.
+- `openIdleCamera()` prüft `idlePreviewCamera === preview` vor dem Öffnen: ein
+  inzwischen ersetzter Aufbau darf nicht doch noch öffnen.
+
+**Beleg.** Neu `StreamingEngineCameraThreadTest` (5 Tests): der Open läuft
+nachweislich auf einem anderen Thread als der Aufrufer (Produktions-Default,
+gemessen an `Thread.currentThread()` in `prepareVideo`), der Zustand steht
+sofort auf `Preparing` (die UI wartet nicht), zwei Starts erzeugen genau einen
+Öffnungsversuch, ein Abschluss nach `stopStream()` startet keinen Stream, und
+die Vorschau bleibt während `Preparing` geschlossen. Die bestehenden
+Engine-Tests setzen `launchCameraOpen`/`runOnMain` auf Inline-Ausführung, damit
+sie dieselbe Zustandsfolge sehen wie vorher; `scheduleRecoveryPreview` wird
+dort ebenfalls gestubbt (Produktions-Default ist `Handler.postDelayed`, in der
+JVM ein werfender Stub). **Mutationsproben (03.11.2026):**
+`launchCameraOpen` inline → Thread-Test rot (1/5); `Preparing`-Guard in
+`legacyIdlePreviewAllowed` entfernt → Vorschau-Test rot (1/5);
+Abbruch-Guard in `completeCameraStart` entfernt → Stop-Test rot (1/5); jeweils
+zurückgebaut, Modul-Tests grün.
+
+**Grenze.** Der Open ist damit vom Main-Thread weg, aber nicht bewiesen ist,
+dass der ANR *dieser* Semaphor war (§5.12). Auf einem Gerät ist die Änderung
+nicht gegengeprüft: die Verlagerung von `prepareCamera`/`prepareVideo` in einen
+Hintergrund-Thread ist für RootEncoder 2.7.5 nicht dokumentiert, die
+GL-Anhänge- und Control-Aufrufe bleiben aber weiterhin auf Main. Wenn der
+Gerätetest eine Abweichung zeigt (z. B. schwarze Vorschau beim ersten
+Anhängen), ist die Rücknahme klein: `launchCameraOpen` auf
+`{ work -> work() }` stellen.
 
 ## 6. Sicherheit
 
