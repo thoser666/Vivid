@@ -99,6 +99,16 @@ class StreamingEngineTest {
         streamingEngine.encoderCapabilities = object : EncoderCapabilities {
             override fun supports(mime: String, width: Int, height: Int, fps: Int) = true
         }
+        // Der Produktions-Default plant die Vorschau-Wiederherstellung per
+        // `Handler.postDelayed` (RootEncoder-Fehlerpfad, §5.12). In der JVM ist
+        // `android.os.Handler` ein Stub, der wirft — die Tests, die einen
+        // fehlgeschlagenen Start pruefen, ersetzen den Scheduler.
+        streamingEngine.scheduleRecoveryPreview = { _, _ -> }
+        // A1: Kamera-Open und Main-Rueckkehr laufen im Produktionspfad ueber
+        // Executor/Handler; die Tests fuehren beide inline aus, damit sie
+        // dieselbe Zustandsfolge sehen wie vor der Entkopplung.
+        streamingEngine.launchCameraOpen = { it() }
+        streamingEngine.runOnMain = { it() }
     }
 
     @Test

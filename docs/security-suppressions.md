@@ -79,7 +79,7 @@ Dismissed am 2026-08-26, 2026-09-03 bzw. 2026-09-25 durch **thoser666**, Review 
 
 ### PR #338 — beantragte Ausnahmen, noch nicht dismissed
 
-**Status 2026-10-30:** Die aktuellen Instanzen #545 und #544 sind offen; dies dokumentiert den begründeten
+**Status 2026-11-03:** Die aktuellen Instanzen #545 und #544 sind offen; dies dokumentiert den begründeten
 Antrag auf Maintainer-Review, keine bereits erteilte Freigabe. Die Zahl aktiver
 Dismissals oben bleibt unverändert. Verantwortlich für den Antrag: **smka**;
 Review bis **2027-04-29**. Entscheidung/Dismissal durch einen berechtigten Maintainer.
@@ -92,10 +92,14 @@ Review bis **2027-04-29**. Entscheidung/Dismissal durch einen berechtigten Maint
 Die erste JavaScript-Instanz **#540** wurde nach dem Factory-Refactoring als
 behoben markiert; der Scan auf `63705234` erzeugte für denselben notwendigen
 JavaScript-Aufruf die neue Instanz **#545**. Der Antrag bezieht sich auf diese
-aktuelle Instanz. Die weiteren Befunde **#546** (Content-Zugriff am Factory-Aufruf)
-und **#547** (deprecated Insets-Wrapper) werden per Code bearbeitet und sind
-keine beantragten Suppressions; ihre Schließung benötigt den nächsten genehmigten
-CodeQL-Lauf.
+aktuelle Instanz. Im genehmigten CodeQL-Lauf auf `3ff9d613` (Check
+`125756443802`, Actions-Run `41509390058`) erscheinen noch JavaScript, der
+Android-7-Vibrationsaufruf und die Namenskollision `ShowMenuSystemBars` /
+`showMenuSystemBars`. Die Namenskollision wird durch `MenuSystemBarsEffect`
+behoben. Content-Zugriff (#546) und deprecated Insets-Wrapper (#547) werden in
+diesem Check nicht mehr gemeldet; ein direkter Alert-Statusabgleich ist ohne
+Code-Scanning-Rechte nicht moeglich. JavaScript und Vibration bleiben beantragte,
+noch nicht freigegebene Ausnahmen.
 
 Grundlagen: [CodeQL-Empfehlung für notwendiges JavaScript](https://codeql.github.com/codeql-query-help/java/java-android-websettings-javascript-enabled/)
 und [Android-Vibrator-API](https://developer.android.com/reference/android/os/Vibrator).

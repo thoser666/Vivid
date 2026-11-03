@@ -527,10 +527,14 @@ die Gruppe bleibt damit offen für ein Wiederauftreten. GitHub-Issues werden
 dabei **nicht** geschlossen (Automation schreibt nur die Sentry-API); sie
 bleiben als Beleg stehen, bis sie manuell geschlossen werden.
 
-**Offen bleibt VIVID-4T (#374, ANR fatal):** ein Einzel-Event ohne attribuierte
-Ursache (Top-Frame `park`, also ein Thread-Wartezustand, kein App-Frame). Ein
-ANR ohne belegte Ursache wird **nicht** geschlossen — er braucht entweder einen
-zweiten Beleg oder eine Reproduktion; ein „erledigt" wäre hier eine Behauptung.
+**Offen bleibt VIVID-4T (#374, ANR fatal):** ein Einzel-Event, das inzwischen
+eine begründete Zuschreibung hat — `main` wartet in
+`Semaphore.acquireUninterruptibly()`, und die einzige bekannte Semaphore-Warte
+dieser App liegt in RootEncoders `Camera2ApiManager.openCameraId` (§5.12 nennt
+Belege und Grenze der Zuschreibung). Die Behebung ist seit 03.11.2026 im Code
+(§5.13: Kamera-Open im Hintergrund-Scope), aber **nicht** auf einem Gerät
+gegengeprüft — deshalb bleibt die Sentry-Gruppe offen, bis ein Nightly-Lauf
+ohne ANR vorliegt.
 
 ### 5.11 `Unable to start service` (#327, VIVID-3Z): Fix war schon da, Test fehlte
 
@@ -601,6 +605,158 @@ ersetzt noch die bestehende Kamera schliesst. **Upstream-Mutationsprobe (02.11.2
 (Kamera existiert, Oeffnen scheitert — eigener Cluster, Retry-Politik aus `27bcef79`) und die
 offene #350-Diskrepanz (High-Speed-Session vs. 30-fps-Idle-Preview). Die Issues bleiben bis
 zum Nachweis im naechsten Nightly offen; ein Kommentar mit diesem Befund haengt an der Familie.
+
+### 5.12 `Open camera … failed` (#371–#399): zwei Wurfstellen, ein ANR-Beleg, zwei Änderungen
+
+**Befund (02.11.2026, RootEncoder 2.7.5 dekompiliert).** Die Familie hat
+**zwei** Meldungen, die wie eine aussehen, aber aus verschiedenen Stellen
+kommen:
+
+- `Open camera <id> failed` — der **synchrone** Wurf in
+  `Camera2ApiManager.openCameraId()`. Nach `cameraManager.openCamera(id, this,
+  cameraHandler)` blockiert dieselbe Methode auf dem **aufrufenden Thread** in
+  `semaphore.acquireUninterruptibly()`; der `catch` verpackt jede Exception
+  (typisch `CameraAccessException: CAMERA_IN_USE`/`MAX_CAMERAS_IN_USE`) in
+  diese Meldung.
+- `Open camera failed: <n>` — der **asynchrone** Pfad über
+  `Camera2ApiManager.onError(device, error)`. Er schließt das Gerät, gibt das
+  Semaphor frei und meldet `error` als Zahl; `4` ist
+  `ERROR_CAMERA_DEVICE`, d. h. der Kamera-HAL des Geräts, nicht die App.
+
+**ANR-Beleg (VIVID-4T, #374) — Zuschreibung, kein Beweis.** Der gespeicherte
+Event-Stack ist eindeutig auf der Wartestelle: `main` → `park` →
+`LockSupport.park` → `AbstractQueuedSynchronizer.acquireShared` →
+`Semaphore.acquireUninterruptibly` → obfuskierte App-Frames, ohne
+`InputEventReceiver`/`ViewRootImpl`/`Choreographer` (also kein Input- und kein
+Render-Problem). Dieses Repository konstruiert selbst **kein** `Semaphore`
+(`git grep` leer), der Wartepunkt gehört also einer Abhängigkeit. RootEncoder
+2.7.5 ist in dieser App die einzige bekannte Stelle, die ein Semaphor
+`acquireUninterruptibly` nimmt — in `Camera2ApiManager.openCameraId()`
+unmittelbar nach `cameraManager.openCamera(...)`. Damit ist die Kette
+(`StreamingService.onStartCommand` → `startStream` → Kamera-Open auf dem
+Main-Thread) die plausibelste Erklärung, aber der Stack bleibt wegen der
+fehlenden ProGuard-Mapping-Uploads (`autoUploadProguardMapping` nur mit
+`SENTRY_AUTH_TOKEN`) bis auf Methodenebene unlesbar. Die Doku führt die
+Zuschreibung deshalb als begründete Hypothese; bewiesen wird sie erst mit
+einem gemappten Event oder einer Reproduktion.
+
+**Zweiter Kamera-Open im Fehlerzweig.** Der alte Fehlerzweig rief nach
+`failStream()` sofort `startIdlePreviewIfReady()` — ein zweiter
+`openCamera`-Versuch im selben Aufrufzug, ohne dass dem Kamera-Server Zeit
+bleibt, das Gerät nach dem Encoder-Teardown freizugeben. Ob er gelingt, ist ein
+Wettlauf; scheitert er, entsteht ein zusätzlicher Fehlerpfad (im
+Vorschau-Callback als eigenes `Idle camera: …`-Event). Der zweite Öffnungsversuch
+war damit selbst eine Fehlerquelle, die vom eigentlichen Startfehler nicht zu
+unterscheiden ist.
+
+**Was jetzt gilt.**
+
+1. **Verzögerte Vorschau-Wiederherstellung mit Budget** (`schedulePreviewRecovery()`,
+   `RECOVERY_PREVIEW_DELAY_MS = 400`): kein Kamera-Open mehr im Fehlerzweig,
+   genau ein Wiederaufbau pro Fehlerfall, und der Aufbau unterbleibt, wenn
+   inzwischen ein neuer Start läuft (`Preparing`/`Streaming`) oder die Quelle
+   nicht mehr `CAMERA` ist. 400 ms sind lang genug, damit der Kamera-Server
+   das Gerät freigibt, und kurz genug, dass die Vorschau ohne sichtbare Pause
+   zurückkommt.
+2. **Pfad-Angabe und Umgebungs-Kontext am Fehler** (#371/#375/#376/#382
+   unterschieden `idlePreview=true|false`, im Code war der Live-Pfad aber
+   stumm — nur der Vorschau-Callback loggte `Idle camera: %s`). Neu:
+   `CameraErrorPath.STREAM`/`IDLE_PREVIEW` in der Fehlerzeile
+   (`Camera error (stream): …`) und eine Kontextzeile mit Pfad, Kamera-Id,
+   verfügbaren Ids, gleichzeitigen Kamera-Gruppen
+   (`CameraManager.concurrentCameraIds`) sowie Streaming-/Recording-Zustand.
+
+   Die Kontextzeile geht bewusst über `Timber.w`, nicht über `Timber.e`:
+   `sentry-android-timber` 8.58 setzt `minEventLevel = ERROR` und
+   `minBreadcrumbLevel = INFO` (bytecode-verifiziert an
+   `SentryTimberIntegration`). Damit landet der variable Teil als Breadcrumb am
+   nächsten Fehler-Event und im In-App-Log, ohne pro Kamera-Id eine neue
+   Sentry-Gruppe anzulegen. Die Fehlerzeile selbst bleibt stabil; die Id steht
+   ohnehin in RootEncoders eigener Meldung.
+
+   **Nebenbefund für die Triage:** die Zeichenkette
+   `Camera error (idlePreview=…)` existiert in Code und Git-Historie **nicht**
+   (`git log -S` über alle Branches leer) und wird auch vom Watchdog nicht
+   erzeugt. Die Gruppentitel stammen also aus Sentry (Umbenennung oder eigener
+   Fingerprint); verbindlich für die Zuordnung ist `metadata.value`
+   (`Open camera … failed`).
+
+**Beleg.** 10 neue Tests: `CameraErrorDiagnosticsTest` (4, Format und
+Leerfälle), `StreamingEngineCameraRecoveryTest` (4, kein Open im Fehlerzug,
+genau eine geplante Aktion, Budget, Inertheit bei laufendem Stream),
+`StreamingEngineCameraContextTest` (2, Kontext + Fehlerzeile je Pfad über einen
+`Timber`-Recording-Tree). Mutationsproben (02.11.2026):
+`schedulePreviewRecovery()` → `startIdlePreviewIfReady()` ⇒ alle vier
+Recovery-Tests rot, die Kontext-Tests grün; Kontext-Zeile aus
+`reportCameraError()` entfernt ⇒ genau der Live-Pfad-Test rot, der
+Vorschau-Test (der seine Zeile separat setzt) grün; jeweils zurückgebaut →
+`TESTS_RC=0`.
+
+**Grenze der Behebung.** Der `openCamera`-Aufruf läuft weiter auf dem
+aufrufenden Thread — im Service-Start ist das der `main`-Thread. Die Semaphore
+kann dort also weiterhin blockieren, wenn `openCamera` zwar zurückkehrt, aber
+weder `onOpened` noch `onError` kommt. Diese Grenze ist mit §5.13 aufgehoben:
+der Open läuft seit 03.11.2026 im seriellen Hintergrund-Scope.
+
+### 5.13 Kamera-Open verlässt den Main-Thread (A1, 03.11.2026)
+
+**Was geändert ist.** Zwei Stellen riefen RootEncoder so auf, dass der
+Semaphor-Wartepunkt aus §5.12 auf dem Aufrufer-Thread lag:
+
+- **Idle-Vorschau:** `startIdlePreviewIfReady()` rief `prepareCamera(...)` und
+  `openCameraId(...)` direkt im Aufruf (Main, sobald die SurfaceView angehängt
+  wird).
+- **Stream/Recording:** `startCameraStream()` rief `prepareStreamEncoders(cam)`
+  direkt im Aufruf, und der kommt beim Start aus dem Service
+  (`StreamingService.onStartCommand`, Main) oder aus dem UI-Button.
+- **Vorschau-Wiederholung:** `retryIdlePreviewOnce()` schickte den
+  `reOpenCamera(...)`-Aufruf nach einem `onConfigureFailed` per
+  `dispatchSceneTask` auf den Main-Thread — derselbe Wartepunkt, nur später
+  (der Pfad aus #350/VIVID-46).
+
+Beides läuft jetzt über `launchCameraOpen` in den vorhandenen seriellen
+`captureScope` (`Dispatchers.IO.limitedParallelism(1)`); nur der Abschluss
+(Vorschau anhängen, Controls, `cam.startStream`) kommt per `runOnMain` zurück
+auf den Main-Thread. Seriell deshalb, weil zwei gleichzeitige Öffnungsversuche
+denselben Fehler erzeugen würden, den §5.12 beschreibt.
+
+**Neue Guards, die der asynchrone Open erst nötig macht.** Vorher blockierte
+der Open den Main-Thread und schloss diese Lücken von selbst:
+
+- `legacyIdlePreviewAllowed()` verlangt zusätzlich
+  `_streamingState !is Preparing/Streaming`. Sonst würde die Vorschau während
+  eines laufenden Starts dieselbe Kamera anfordern (Doppel-Open).
+- `completeCameraStart()` bricht ab, wenn der Zustand nicht mehr `Preparing`
+  ist. Während des Hintergrund-Opens kann der Nutzer gestoppt haben; ohne den
+  Guard hätte der Abschluss den Stream trotzdem gestartet.
+- `openIdleCamera()` prüft `idlePreviewCamera === preview` vor dem Öffnen: ein
+  inzwischen ersetzter Aufbau darf nicht doch noch öffnen.
+
+**Beleg.** Neu `StreamingEngineCameraThreadTest` (6 Tests): der Open läuft
+nachweislich auf einem anderen Thread als der Aufrufer (Produktions-Default,
+gemessen an `Thread.currentThread()` in `prepareVideo`), der Zustand steht
+sofort auf `Preparing` (die UI wartet nicht), zwei Starts erzeugen genau einen
+Öffnungsversuch, ein Abschluss nach `stopStream()` startet keinen Stream, die
+Vorschau bleibt während `Preparing` geschlossen, und die Wiederholung nach
+`onConfigureFailed` öffnet auf einem anderen Thread als der Aufrufer. Die
+bestehenden Engine-Tests setzen `launchCameraOpen`/`runOnMain` auf
+Inline-Ausführung, damit sie dieselbe Zustandsfolge sehen wie vorher;
+`scheduleRecoveryPreview` wird dort ebenfalls gestubbt (Produktions-Default ist
+`Handler.postDelayed`, in der JVM ein werfender Stub). **Mutationsproben
+(03.11.2026):** `launchCameraOpen` inline → Thread-Test rot (1/5);
+`Preparing`-Guard in `legacyIdlePreviewAllowed` entfernt → Vorschau-Test rot
+(1/5); Abbruch-Guard in `completeCameraStart` entfernt → Stop-Test rot (1/5);
+`retryIdlePreviewOnce` zurück auf `dispatchSceneTask` → Wiederholungs-Test rot
+(1/6); jeweils zurückgebaut, Modul-Tests grün.
+
+**Grenze.** Der Open ist damit vom Main-Thread weg, aber nicht bewiesen ist,
+dass der ANR *dieser* Semaphor war (§5.12). Auf einem Gerät ist die Änderung
+nicht gegengeprüft: die Verlagerung von `prepareCamera`/`prepareVideo` in einen
+Hintergrund-Thread ist für RootEncoder 2.7.5 nicht dokumentiert, die
+GL-Anhänge- und Control-Aufrufe bleiben aber weiterhin auf Main. Wenn der
+Gerätetest eine Abweichung zeigt (z. B. schwarze Vorschau beim ersten
+Anhängen), ist die Rücknahme klein: `launchCameraOpen` auf
+`{ work -> work() }` stellen.
 
 ## 6. Sicherheit
 

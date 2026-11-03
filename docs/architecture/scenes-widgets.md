@@ -91,7 +91,11 @@ to the preview without rotating scene text a second time.
 Saving/selecting a profile updates an idle canvas without changing browser viewport
 pixels or widget placements. Changes made while streaming or recording are retained
 for the next idle preview and do not resize the running encoder. Resizing preserves
-the selected camera lens. High-speed capture and the experimental codec bridge
+the selected camera lens. Blocking legacy camera opens and the single configure-failure
+retry run on the serial capture worker. A queued idle open retains the selected
+lens ID and skips a preview instance that has already been replaced. Failed
+stream preparation schedules one delayed preview recovery instead of opening
+again immediately. High-speed capture and the experimental codec bridge
 start only with streaming/recording: composition size matches in advance, but
 exposure and camera detail can still differ, particularly with 60-FPS output.
 

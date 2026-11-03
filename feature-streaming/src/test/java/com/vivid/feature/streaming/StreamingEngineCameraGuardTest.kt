@@ -83,6 +83,10 @@ class StreamingEngineCameraGuardTest {
             previewFactories += 1
             mockk<Camera2ApiManager>(relaxed = true)
         }
+        // A1: der Kamera-Open laeuft im Produktionspfad im Hintergrund; hier
+        // inline, damit die Zaehler im selben Aufruf stimmen.
+        streamingEngine.launchCameraOpen = { it() }
+        streamingEngine.runOnMain = { it() }
     }
 
     @Test
@@ -119,6 +123,28 @@ class StreamingEngineCameraGuardTest {
         assertEquals(listOf("selected-lens"), checkedIds)
         verify(exactly = 1) { idle.prepareCamera(any(), any(), any(), any()) }
         verify(exactly = 0) { idle.closeCamera() }
+    }
+
+    @Test
+    fun `deferred preview open retains the lens selected before rebuilding`() {
+        val initial = mockk<Camera2ApiManager>(relaxed = true)
+        every { initial.getCurrentCameraId() } returns "selected-lens"
+        streamingEngine.initializeCamera()
+        streamingEngine.cameraAvailability = { true }
+        streamingEngine.idlePreviewFactory = { initial }
+        val surface = mockk<Surface>(relaxed = true)
+        streamingEngine.attachPreview(surface, 1280, 720)
+
+        val replacement = mockk<Camera2ApiManager>(relaxed = true)
+        streamingEngine.idlePreviewFactory = { replacement }
+        val pending = mutableListOf<() -> Unit>()
+        streamingEngine.launchCameraOpen = { pending += it }
+        streamingEngine.attachPreview(surface, 720, 1280)
+        every { camera.currentCameraId } returns "different-lens"
+
+        verify(exactly = 0) { replacement.openCameraId(any()) }
+        pending.single()()
+        verify(exactly = 1) { replacement.openCameraId("selected-lens") }
     }
 
     @Test

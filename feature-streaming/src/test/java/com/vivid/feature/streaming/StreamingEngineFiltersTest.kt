@@ -87,6 +87,12 @@ class StreamingEngineFiltersTest {
         streamingEngine.readBitrateDiagnostics = {
             EncoderBitrateDiagnostics("test.encoder", EncoderBitrateMode.CBR, true, 6_000)
         }
+        // Fehlerpfad-Tests stossen die Vorschau-Wiederherstellung an; deren
+        // Produktions-Default ist `Handler.postDelayed` (JVM-Stub wirft).
+        streamingEngine.scheduleRecoveryPreview = { _, _ -> }
+        // A1: Kamera-Open laeuft im Produktionspfad im Hintergrund — hier inline.
+        streamingEngine.launchCameraOpen = { it() }
+        streamingEngine.runOnMain = { it() }
     }
 
     // ------------------------------------------------------------------

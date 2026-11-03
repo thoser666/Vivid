@@ -329,7 +329,7 @@ private fun StartGrantedIdlePreview(streamingEngine: StreamingEngine, context: C
 
 /** Popups and sheets own a window; their navigation buttons must stay available too. */
 @Composable
-private fun ShowMenuSystemBars() {
+private fun MenuSystemBarsEffect() {
     val view = LocalView.current
     val window = (view.parent as? androidx.compose.ui.window.DialogWindowProvider)?.window
         ?: LocalActivity.current?.window
@@ -402,7 +402,7 @@ private fun BoxScope.StreamingControlsMenu(
             onDismissRequest = { onControlsExpandedChange(false) },
             modifier = Modifier.width(adaptiveControlsMaxWidth(LocalWindowWidthClass.current)).testTag("controls_menu"),
         ) {
-            ShowMenuSystemBars()
+            MenuSystemBarsEffect()
             SourceSelectionItems(streamingEngine, ::dismissControls, onScreenCapture, onVideoPicker)
             HorizontalDivider()
             DropdownMenuItem(
