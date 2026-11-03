@@ -90,6 +90,10 @@ class StreamingEngineCameraThreadTest {
         // Der Abschluss soll inline laufen, der Open selbst bleibt beim
         // Produktions-Default (Hintergrund-Scope) — das ist die Messung.
         streamingEngine.runOnMain = { it() }
+        // Für den Wiederholungs-Test: fiele der Rückweg auf den Main-Post
+        // zurück, liefe er hier inline auf dem Test-Thread und der Test würde
+        // rot — die Mutation ist damit nachweisbar.
+        streamingEngine.dispatchSceneTask = { it() }
         streamingEngine.initializeCamera()
     }
 
@@ -107,18 +111,18 @@ class StreamingEngineCameraThreadTest {
     @Test
     fun `the camera start opens the device off the calling thread`() {
         val caller = Thread.currentThread()
-        var openedOn: Thread? = null
+        val openedOn = java.util.concurrent.atomic.AtomicReference<Thread?>(null)
         every { camera.prepareVideo() } answers {
-            openedOn = Thread.currentThread()
+            openedOn.set(Thread.currentThread())
             true
         }
 
         streamingEngine.startStream(listOf("rtmp://example.com/live"))
         // `Streaming` folgt erst dem Verbindungs-Callback; hier zählt, dass der
         // Open überhaupt auf einem anderen Thread gelaufen ist.
-        awaitState { openedOn != null }
+        awaitState { openedOn.get() != null }
 
-        val observed = openedOn
+        val observed = openedOn.get()
         assertNotNull(observed, "prepareVideo wurde nie aufgerufen")
         assertNotSame(
             caller,
@@ -170,6 +174,34 @@ class StreamingEngineCameraThreadTest {
             0,
             previews,
             "während Preparing darf die Vorschau keine zweite Kamera anfordern",
+        )
+    }
+
+    @Test
+    fun `the idle preview retry reopens the camera off the calling thread`() {
+        val reopenOn = java.util.concurrent.atomic.AtomicReference<Thread?>(null)
+        var callbacks: com.pedro.encoder.input.video.CameraCallbacks? = null
+        val preview = mockk<Camera2ApiManager>(relaxed = true)
+        every { preview.setCameraCallbacks(any()) } answers { callbacks = firstArg() }
+        every { preview.getCurrentCameraId() } returns "0"
+        every { preview.reOpenCamera(any()) } answers {
+            reopenOn.set(Thread.currentThread())
+            Unit
+        }
+        streamingEngine.idlePreviewFactory = { preview }
+        streamingEngine.attachPreview(mockk<Surface>(relaxed = true), 1280, 720)
+
+        // Der Fehler-Callback kommt vom Camera-Thread; die Wiederholung darf
+        // nicht auf den Main-Thread zurück (gleiche Semaphor-Warte).
+        callbacks!!.onCameraError("Configuration failed")
+        awaitState { reopenOn.get() != null }
+
+        val observed = reopenOn.get()
+        assertNotNull(observed, "reOpenCamera wurde nie aufgerufen")
+        assertNotSame(
+            Thread.currentThread(),
+            observed,
+            "der Wiederaufbau hat denselben Wartepunkt wie der erste Open",
         )
     }
 

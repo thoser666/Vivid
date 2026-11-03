@@ -2040,7 +2040,9 @@ class StreamingEngine @Inject constructor(
     private fun retryIdlePreviewOnce(preview: Camera2ApiManager) {
         if (!idlePreviewRetryUsed.compareAndSet(false, true)) return
         // Nicht im Camera-Callback-Thread: reOpenCamera schließt das Gerät.
-        dispatchSceneTask {
+        // Und nicht auf Main: der Aufruf endet wieder in RootEncoders
+        // Semaphor-Warte (§5.12/§5.13).
+        launchCameraOpen {
             if (idlePreviewCamera === preview) {
                 runCatching { preview.reOpenCamera(preview.getCurrentCameraId()) }
                     .onFailure { Timber.w(it, "Idle camera reopen failed") }
