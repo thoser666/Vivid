@@ -87,6 +87,9 @@ class StreamingEngineFiltersTest {
         streamingEngine.readBitrateDiagnostics = {
             EncoderBitrateDiagnostics("test.encoder", EncoderBitrateMode.CBR, true, 6_000)
         }
+        // Fehlerpfad-Tests stossen die Vorschau-Wiederherstellung an; deren
+        // Produktions-Default ist `Handler.postDelayed` (JVM-Stub wirft).
+        streamingEngine.scheduleRecoveryPreview = { _, _ -> }
     }
 
     // ------------------------------------------------------------------

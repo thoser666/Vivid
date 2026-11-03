@@ -240,6 +240,23 @@ class StreamingEngine @Inject constructor(
     internal var idlePreviewFactory: (Context) -> Camera2ApiManager = ::Camera2ApiManager
 
     /**
+     * Kamera-Umgebung für die Fehlerdiagnose (siehe [describeCameraError]).
+     * Injektierbar, damit die JVM-Tests ohne `CameraManager` auskommen.
+     */
+    internal var cameraEnvironment: () -> CameraEnvironment = ::readCameraEnvironment
+
+    /**
+     * Verzögerung, bevor nach einem fehlgeschlagenen Stream-Start die Vorschau
+     * wieder aufgebaut wird ([schedulePreviewRecovery]).
+     */
+    internal var recoveryPreviewDelayMs: Long = RECOVERY_PREVIEW_DELAY_MS
+
+    /** Plant die verzögerte Vorschau-Wiederherstellung; in Tests ersetzbar. */
+    internal var scheduleRecoveryPreview: (Long, () -> Unit) -> Unit = { delayMs, action ->
+        android.os.Handler(context.mainLooper).postDelayed(action, delayMs)
+    }
+
+    /**
      * Prüft, ob für die angeforderte Kamera-Id (null/leer = Rückkamera) ein
      * Gerät existiert — **vor** jedem Aufruf, der in RootEncoder landet.
      *
@@ -354,6 +371,13 @@ class StreamingEngine @Inject constructor(
     // #350 / VIVID-46: RootEncoder schließt bei `onConfigureFailed` nur die Session
     // und baut sie nicht neu auf. Genau ein Wiederaufbau pro erzeugter Vorschau.
     private val idlePreviewRetryUsed = java.util.concurrent.atomic.AtomicBoolean(false)
+
+    /**
+     * Ein Vorschau-Wiederaufbau pro fehlgeschlagenem Start (§5.12): der frühere
+     * Sofort-Aufruf öffnete die Kamera im selben Aufrufzug erneut, ohne dass dem
+     * Kamera-Server Zeit zum Freigeben blieb.
+     */
+    private val recoveryPreviewScheduled = java.util.concurrent.atomic.AtomicBoolean(false)
     private var desiredSceneRender: SceneRenderState? = null
     private var sceneRender: SceneCompositorFilterRender? = null
     private var sceneTextures: AndroidSceneTextureProvider? = null
@@ -976,6 +1000,14 @@ class StreamingEngine @Inject constructor(
         @StringRes
         private val SERVICE_START_ERROR = R.string.streaming_error_service_start
 
+        /**
+         * Wartezeit vor dem Vorschau-Wiederaufbau nach einem fehlgeschlagenen
+         * Start. Lang genug, damit der Kamera-Server das Gerät freigibt (der
+         * Encoder schließt im Fehlerpfad gerade), kurz genug, dass die Vorschau
+         * ohne sichtbare Pause zurückkommt.
+         */
+        private const val RECOVERY_PREVIEW_DELAY_MS = 400L
+
         /** Screen-Capture ohne gültigen MediaProjection-Consent (#326). */
         @StringRes
         private val SCREEN_CAPTURE_CONSENT_REQUIRED = R.string.streaming_error_screen_capture_consent
@@ -1430,8 +1462,14 @@ class StreamingEngine @Inject constructor(
             camera!!.setCameraCallbacks(object : com.pedro.encoder.input.video.CameraCallbacks {
                 override fun onCameraOpened() { sceneCameraAvailable.set(true) }
                 override fun onCameraChanged(facing: CameraHelper.Facing) = Unit
-                override fun onCameraError(error: String) { sceneCameraAvailable.set(false) }
-                override fun onCameraDisconnected() { sceneCameraAvailable.set(false) }
+                override fun onCameraError(error: String) {
+                    sceneCameraAvailable.set(false)
+                    reportCameraError(CameraErrorPath.STREAM, error, camera?.currentCameraId)
+                }
+                override fun onCameraDisconnected() {
+                    sceneCameraAvailable.set(false)
+                    reportCameraError(CameraErrorPath.STREAM, "disconnected", camera?.currentCameraId)
+                }
             })
             camera!!.setRecordController(monitorKeyframes(AndroidMuxerRecordController()))
             camera!!.setFpsListener { fps ->
@@ -1766,6 +1804,16 @@ class StreamingEngine @Inject constructor(
                     return
                 }
                 sceneCameraAvailable.set(false)
+                Timber.w(
+                    "Camera error context: %s",
+                    describeCameraError(
+                        path = CameraErrorPath.IDLE_PREVIEW,
+                        cameraId = preview.getCurrentCameraId(),
+                        isStreaming = camera?.isStreaming == true,
+                        isRecording = camera?.isRecording == true,
+                        environment = cameraEnvironment(),
+                    ),
+                )
                 Timber.e("Idle camera: %s", error)
                 if (error.startsWith(CONFIGURE_FAILED)) retryIdlePreviewOnce(preview)
             }
@@ -1796,6 +1844,76 @@ class StreamingEngine @Inject constructor(
     }.getOrElse { error ->
         Timber.w(error, "Camera availability check failed; keeping the previous behaviour")
         true
+    }
+
+    /**
+     * Liest die Kamera-Umgebung für die Fehlerdiagnose. Jeder Schritt ist
+     * fehlertolerant: eine nicht lesbare Liste darf die Fehlermeldung nicht
+     * verhindern, sie ist nur Beiwerk.
+     */
+    private fun readCameraEnvironment(): CameraEnvironment = runCatching {
+        val manager = context.getSystemService(Context.CAMERA_SERVICE) as? CameraManager
+            ?: return@runCatching CameraEnvironment()
+        val ids = manager.cameraIdList.toList()
+        val concurrent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            manager.concurrentCameraIds.map { it.toList() }
+        } else {
+            emptyList()
+        }
+        CameraEnvironment(ids, concurrent)
+    }.getOrElse { error ->
+        Timber.w(error, "Camera environment could not be read")
+        CameraEnvironment()
+    }
+
+    /**
+     * Loggt einen Kamera-Fehler mit Pfad-Angabe und Umgebungs-Kontext.
+     *
+     * Der Kontext geht bewusst über `Timber.w` (Breadcrumb am nächsten Event,
+     * siehe [describeCameraError]); die Fehlerzeile selbst bleibt stabil, damit
+     * Sentry nicht pro Kamera-Id eine neue Gruppe anlegt. Der Fehler-Text kommt
+     * unverändert von RootEncoder und enthält bereits die betroffene Id
+     * (`Open camera 5 failed`).
+     */
+    private fun reportCameraError(path: CameraErrorPath, error: String, cameraId: String?) {
+        Timber.w(
+            "Camera error context: %s",
+            describeCameraError(
+                path = path,
+                cameraId = cameraId,
+                isStreaming = camera?.isStreaming == true,
+                isRecording = camera?.isRecording == true,
+                environment = cameraEnvironment(),
+            ),
+        )
+        Timber.e("Camera error (%s): %s", path.label, error)
+    }
+
+    /**
+     * Baut die Vorschau nach einem fehlgeschlagenen Start **verzögert** wieder auf.
+     *
+     * Der frühere Sofort-Aufruf war selbst eine Fehlerquelle: scheitert der
+     * Start, weil die Kamera noch belegt ist (Encoder schließt gerade, anderer
+     * Client hält sie), traf der zweite `openCamera`-Versuch im selben
+     * Aufrufzug auf dieselbe Belegung — ohne dass dem Kamera-Server Zeit zum
+     * Freigeben bleibt. Beleg: `docs/sentry-issues.md` §5.12.
+     *
+     * Ein Budget pro Fehlerfall verhindert die Schleife. Der Merker wird erst
+     * beim Ausführen zurückgesetzt, damit eine weitere Anforderung die geplante
+     * Aktion nicht verdoppelt.
+     */
+    private fun schedulePreviewRecovery() {
+        if (!recoveryPreviewScheduled.compareAndSet(false, true)) return
+        scheduleRecoveryPreview(recoveryPreviewDelayMs) {
+            recoveryPreviewScheduled.set(false)
+            if (_streamingState.value is StreamingState.Preparing ||
+                _streamingState.value is StreamingState.Streaming
+            ) {
+                return@scheduleRecoveryPreview
+            }
+            if (activeSourceKind.value != VideoSourceKind.CAMERA) return@scheduleRecoveryPreview
+            startIdlePreviewIfReady()
+        }
     }
 
     fun startIdlePreviewIfReady() {
@@ -2065,9 +2183,10 @@ class StreamingEngine @Inject constructor(
                 return
             }
             failStream(ENCODER_PREPARATION_ERROR)
-            // Best-effort Rückkehr zur Vorschau; bei Kamera-Konkurrenz kann auch
-            // dieser Versuch scheitern und wird in startIdlePreviewIfReady geloggt.
-            startIdlePreviewIfReady()
+            // Kein Sofort-Aufruf: der zweite `openCamera`-Versuch im selben
+            // Aufrufzug war selbst eine Fehlerquelle (§5.12). Verzögert und mit
+            // Budget, damit der Kamera-Server das Gerät freigeben kann.
+            schedulePreviewRecovery()
         }
     }
 
