@@ -83,6 +83,10 @@ class StreamingEngineCameraGuardTest {
             previewFactories += 1
             mockk<Camera2ApiManager>(relaxed = true)
         }
+        // A1: der Kamera-Open laeuft im Produktionspfad im Hintergrund; hier
+        // inline, damit die Zaehler im selben Aufruf stimmen.
+        streamingEngine.launchCameraOpen = { it() }
+        streamingEngine.runOnMain = { it() }
     }
 
     @Test

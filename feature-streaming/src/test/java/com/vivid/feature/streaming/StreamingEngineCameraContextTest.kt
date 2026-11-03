@@ -82,6 +82,9 @@ class StreamingEngineCameraContextTest {
         )
         streamingEngine.displayRotationDegrees = { 0 }
         streamingEngine.cameraAvailability = { true }
+        // A1: Kamera-Open laeuft im Produktionspfad im Hintergrund — hier inline.
+        streamingEngine.launchCameraOpen = { it() }
+        streamingEngine.runOnMain = { it() }
         streamingEngine.cameraEnvironment = {
             CameraEnvironment(
                 availableIds = listOf("0", "1", "5"),

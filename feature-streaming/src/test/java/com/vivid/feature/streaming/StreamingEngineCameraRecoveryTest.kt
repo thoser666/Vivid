@@ -90,6 +90,9 @@ class StreamingEngineCameraRecoveryTest {
         streamingEngine.scheduleRecoveryPreview = { delayMs, action ->
             scheduled += delayMs to action
         }
+        // A1: Open und Main-Rueckkehr inline, damit die Zaehler synchron bleiben.
+        streamingEngine.launchCameraOpen = { it() }
+        streamingEngine.runOnMain = { it() }
         streamingEngine.initializeCamera()
     }
 

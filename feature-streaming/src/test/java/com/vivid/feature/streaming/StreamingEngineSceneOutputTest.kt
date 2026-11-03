@@ -57,6 +57,8 @@ class StreamingEngineSceneOutputTest {
         }, mockk(relaxed = true), playerFactory, VideoSourceRegistry()).also { engine ->
             engine.sceneSessionFactory = { checkers = it; created++; session }
             engine.dispatchSceneTask = { it() }
+            engine.launchCameraOpen = { it() }
+            engine.runOnMain = { it() }
             engine.timeSource = { 1_000L }
             engine.sceneFileReadable = { true }
             engine.encoderCapabilities = object : EncoderCapabilities {

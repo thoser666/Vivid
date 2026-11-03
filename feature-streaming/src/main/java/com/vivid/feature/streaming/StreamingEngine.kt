@@ -257,6 +257,29 @@ class StreamingEngine @Inject constructor(
     }
 
     /**
+     * Führt den **blockierenden** Kamera-Open aus.
+     *
+     * RootEncoder wartet in `Camera2ApiManager.openCameraId()` nach
+     * `cameraManager.openCamera(...)` auf einem Semaphor — auf dem Aufrufer-
+     * Thread. Aus dem Service-Start und aus dem UI-Start ist das der
+     * Main-Thread, und genau diese Wartestelle ist die begründete Zuschreibung
+     * für VIVID-4T (#374, `docs/sentry-issues.md` §5.12). Seriell über
+     * [captureScope], damit zwei Öffnungsversuche nie parallel laufen.
+     */
+    internal var launchCameraOpen: ((() -> Unit) -> Unit) = { work ->
+        captureScope.launch { work() }
+    }
+
+    /**
+     * Bringt den Abschluss eines Kamera-Opens zurück auf den Main-Thread.
+     * GL-Anhängen, Controls und Vorschau-Zustand bleiben dort, wo sie vorher
+     * liefen; nur der Wartepunkt wurde verschoben.
+     */
+    internal var runOnMain: ((() -> Unit) -> Unit) = { action ->
+        android.os.Handler(context.mainLooper).post(action)
+    }
+
+    /**
      * Prüft, ob für die angeforderte Kamera-Id (null/leer = Rückkamera) ein
      * Gerät existiert — **vor** jedem Aufruf, der in RootEncoder landet.
      *
@@ -1781,6 +1804,12 @@ class StreamingEngine @Inject constructor(
     /** Open Camera2 into the same GL pipeline used by recording, without starting encoders. */
     private fun legacyIdlePreviewAllowed() = activeSourceKind.value == VideoSourceKind.CAMERA &&
         camera?.isStreaming != true && camera?.isRecording != true &&
+        // Seit A1 läuft der Kamera-Open im Hintergrund: `_streamingState` ist
+        // die einzige Größe, die einen laufenden Start noch synchron markiert.
+        // Ohne diese beiden Zeilen würde die Vorschau parallel zum Stream-Open
+        // dieselbe Kamera anfordern (Doppel-Open).
+        _streamingState.value !is StreamingState.Preparing &&
+        _streamingState.value !is StreamingState.Streaming &&
         context.checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
 
     private fun idlePreviewCallbacks(preview: Camera2ApiManager): com.pedro.encoder.input.video.CameraCallbacks =
@@ -1960,11 +1989,12 @@ class StreamingEngine @Inject constructor(
             idlePreviewRetryUsed.set(false)
             idlePreviewCamera = preview
             preview.setCameraCallbacks(idlePreviewCallbacks(preview))
-            preview.prepareCamera(gl.surfaceTexture, 1280, 720, 30)
-            val cameraId = camera?.currentCameraId
-            if (cameraId.isNullOrBlank()) preview.openCameraBack() else preview.openCameraId(cameraId)
             idlePreviewSurface = request.surface
             idlePreviewSize = size
+            // `prepareCamera`/`openCameraId` blockieren in RootEncoder auf einem
+            // Semaphor; auf dem Main-Thread ist das die ANR-Fläche aus VIVID-4T
+            // (#374, §5.12). Der Aufbau selbst bleibt hier.
+            openIdleCamera(preview, gl)
             attachPreviewIfRunning()
             // Kamera wird gerade geöffnet: der Producer versucht das Einschalten
             // der Erkennung nach, bis das Input-Surface steht (Risiko #1).
@@ -1974,6 +2004,28 @@ class StreamingEngine @Inject constructor(
         } catch (error: Exception) {
             stopIdlePreview()
             Timber.e(error, "Could not open idle camera preview")
+        }
+    }
+
+    /**
+     * Öffnet die Idle-Vorschau-Kamera außerhalb des Aufrufer-Threads.
+     *
+     * Die Identitätsprüfung ist der Grund, warum eine ersetzte Vorschau nicht
+     * doch noch öffnet: zwischen Planung und Ausführung kann ein neuer
+     * `attachPreview` eine andere Instanz gesetzt haben.
+     */
+    private fun openIdleCamera(preview: Camera2ApiManager, gl: GlStreamInterface) {
+        val texture = gl.surfaceTexture
+        launchCameraOpen {
+            try {
+                if (idlePreviewCamera !== preview) return@launchCameraOpen
+                preview.prepareCamera(texture, 1280, 720, 30)
+                val cameraId = camera?.currentCameraId
+                if (cameraId.isNullOrBlank()) preview.openCameraBack() else preview.openCameraId(cameraId)
+            } catch (error: Exception) {
+                Timber.e(error, "Could not open idle camera preview")
+                runOnMain { if (idlePreviewCamera === preview) stopIdlePreview() }
+            }
         }
     }
 
@@ -2155,7 +2207,36 @@ class StreamingEngine @Inject constructor(
         _targetStates.value = activeUrls.map { StreamTargetState(it, status = StreamTargetStatus.PREPARING) }
         _streamingState.value = StreamingState.Preparing
 
-        if (prepareStreamEncoders(cam)) {
+        // Der Encoder-Aufbau enthält `prepareVideo()` → `openCameraId()` und
+        // damit den Semaphor-Wartepunkt aus VIVID-4T (#374, §5.12). Er läuft
+        // deshalb nicht auf dem Aufrufer-Thread (Service-Start/UI = Main),
+        // sondern seriell im Hintergrund; der Abschluss kommt zurück auf Main.
+        launchCameraOpen {
+            val prepared = runCatching { prepareStreamEncoders(cam) }.getOrElse { error ->
+                Timber.e(error, "Camera preparation failed")
+                false
+            }
+            runOnMain { completeCameraStart(cam, activeUrls, prepared) }
+        }
+    }
+
+    /**
+     * Abschluss eines Kamera-Starts nach dem Hintergrund-Open: Vorschau
+     * anhängen, Encoder starten, Fehlerzustand schreiben.
+     */
+    private fun completeCameraStart(
+        cam: MultiCamera2,
+        activeUrls: List<String>,
+        prepared: Boolean,
+    ) {
+        // Während des Hintergrund-Opens kann der Nutzer gestoppt haben; dann
+        // darf der Abschluss keinen Stream mehr starten (vorher blockierte der
+        // Open den Main-Thread und schloss diese Lücke von selbst).
+        if (_streamingState.value !is StreamingState.Preparing) {
+            runCatching { cam.stopStream() }
+            return
+        }
+        if (prepared) {
             if (_cameraModeStatus.value.preparing && preparationGeneration != captureGeneration.get()) {
                 closeExperimentalCapture()
                 cam.stopStream()

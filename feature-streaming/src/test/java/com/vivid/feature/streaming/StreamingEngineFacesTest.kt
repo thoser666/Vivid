@@ -115,6 +115,9 @@ class StreamingEngineFacesTest {
         streamingEngine.cameraFaceDetectableFactory = { cameraTarget }
         streamingEngine.idleFaceDetectableFactory = { idleTarget }
         streamingEngine.displayRotationDegrees = { 0 }
+        // A1: Kamera-Open (bis 03.11. hier synchron) laeuft inline.
+        streamingEngine.launchCameraOpen = { it() }
+        streamingEngine.runOnMain = { it() }
     }
 
     private fun goldenFace() = DetectedFace(1000, 500, 2000, 1500, 80)

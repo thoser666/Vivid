@@ -99,6 +99,11 @@ class StreamingEngineTest {
         // `android.os.Handler` ein Stub, der wirft — die Tests, die einen
         // fehlgeschlagenen Start pruefen, ersetzen den Scheduler.
         streamingEngine.scheduleRecoveryPreview = { _, _ -> }
+        // A1: Kamera-Open und Main-Rueckkehr laufen im Produktionspfad ueber
+        // Executor/Handler; die Tests fuehren beide inline aus, damit sie
+        // dieselbe Zustandsfolge sehen wie vor der Entkopplung.
+        streamingEngine.launchCameraOpen = { it() }
+        streamingEngine.runOnMain = { it() }
     }
 
     @Test
