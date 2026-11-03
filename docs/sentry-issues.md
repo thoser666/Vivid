@@ -706,6 +706,10 @@ Semaphor-Wartepunkt aus §5.12 auf dem Aufrufer-Thread lag:
 - **Stream/Recording:** `startCameraStream()` rief `prepareStreamEncoders(cam)`
   direkt im Aufruf, und der kommt beim Start aus dem Service
   (`StreamingService.onStartCommand`, Main) oder aus dem UI-Button.
+- **Vorschau-Wiederholung:** `retryIdlePreviewOnce()` schickte den
+  `reOpenCamera(...)`-Aufruf nach einem `onConfigureFailed` per
+  `dispatchSceneTask` auf den Main-Thread — derselbe Wartepunkt, nur später
+  (der Pfad aus #350/VIVID-46).
 
 Beides läuft jetzt über `launchCameraOpen` in den vorhandenen seriellen
 `captureScope` (`Dispatchers.IO.limitedParallelism(1)`); nur der Abschluss
@@ -725,20 +729,22 @@ der Open den Main-Thread und schloss diese Lücken von selbst:
 - `openIdleCamera()` prüft `idlePreviewCamera === preview` vor dem Öffnen: ein
   inzwischen ersetzter Aufbau darf nicht doch noch öffnen.
 
-**Beleg.** Neu `StreamingEngineCameraThreadTest` (5 Tests): der Open läuft
+**Beleg.** Neu `StreamingEngineCameraThreadTest` (6 Tests): der Open läuft
 nachweislich auf einem anderen Thread als der Aufrufer (Produktions-Default,
 gemessen an `Thread.currentThread()` in `prepareVideo`), der Zustand steht
 sofort auf `Preparing` (die UI wartet nicht), zwei Starts erzeugen genau einen
-Öffnungsversuch, ein Abschluss nach `stopStream()` startet keinen Stream, und
-die Vorschau bleibt während `Preparing` geschlossen. Die bestehenden
-Engine-Tests setzen `launchCameraOpen`/`runOnMain` auf Inline-Ausführung, damit
-sie dieselbe Zustandsfolge sehen wie vorher; `scheduleRecoveryPreview` wird
-dort ebenfalls gestubbt (Produktions-Default ist `Handler.postDelayed`, in der
-JVM ein werfender Stub). **Mutationsproben (03.11.2026):**
-`launchCameraOpen` inline → Thread-Test rot (1/5); `Preparing`-Guard in
-`legacyIdlePreviewAllowed` entfernt → Vorschau-Test rot (1/5);
-Abbruch-Guard in `completeCameraStart` entfernt → Stop-Test rot (1/5); jeweils
-zurückgebaut, Modul-Tests grün.
+Öffnungsversuch, ein Abschluss nach `stopStream()` startet keinen Stream, die
+Vorschau bleibt während `Preparing` geschlossen, und die Wiederholung nach
+`onConfigureFailed` öffnet auf einem anderen Thread als der Aufrufer. Die
+bestehenden Engine-Tests setzen `launchCameraOpen`/`runOnMain` auf
+Inline-Ausführung, damit sie dieselbe Zustandsfolge sehen wie vorher;
+`scheduleRecoveryPreview` wird dort ebenfalls gestubbt (Produktions-Default ist
+`Handler.postDelayed`, in der JVM ein werfender Stub). **Mutationsproben
+(03.11.2026):** `launchCameraOpen` inline → Thread-Test rot (1/5);
+`Preparing`-Guard in `legacyIdlePreviewAllowed` entfernt → Vorschau-Test rot
+(1/5); Abbruch-Guard in `completeCameraStart` entfernt → Stop-Test rot (1/5);
+`retryIdlePreviewOnce` zurück auf `dispatchSceneTask` → Wiederholungs-Test rot
+(1/6); jeweils zurückgebaut, Modul-Tests grün.
 
 **Grenze.** Der Open ist damit vom Main-Thread weg, aber nicht bewiesen ist,
 dass der ANR *dieser* Semaphor war (§5.12). Auf einem Gerät ist die Änderung
