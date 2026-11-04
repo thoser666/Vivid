@@ -757,20 +757,35 @@ Gerätetest eine Abweichung zeigt (z. B. schwarze Vorschau beim ersten
 Anhängen), ist die Rücknahme klein: `launchCameraOpen` auf
 `{ work -> work() }` stellen.
 
-**Gerätetest (offen, 04.11.2026).** Am 04.11.2026 war kein Gerät erreichbar
-(`adb devices` leer, auch nach `adb kill-server`/`start-server` und `adb mdns
-services`); die Änderung ist damit weiterhin nur per JVM-Test belegt, nicht auf
-Hardware. Ablauf, sobald V2454A wieder hängt:
+**Gerätetest (04.11.2026, SM-S918B).** Am 04.11.2026 hing statt der V2454A
+ein Galaxy S23 Ultra (SM-S918B, Android 16) am Rechner — ein Gerät ohne Bezug
+zur ANR-Quelle. Die Änderung ist damit erstmals auf Hardware gelaufen, mit
+klarer Grenze: der ANR aus #374 trat auf der V2454A auf und ist hier nicht
+reproduzierbar.
 
-1. Nightly mit A1 installieren, App kalt starten, Idle-Vorschau anhängen —
-   erwartet: die Vorschau erscheint (kein schwarzes Bild beim ersten Anhängen).
-2. Stream aus dem Service starten (`onStartCommand`-Pfad) — erwartet: Stream
-   läuft, `Preparing` steht sofort, der Abschluss kommt über `runOnMain`.
-3. Während `Preparing` stoppen — erwartet: kein Streamstart nach dem Stop
-   (`completeCameraStart`-Guard), keine zweite Kamera-Anfrage.
+- **Schritt 1 (Idle-Vorschau):** soweit messbar erfüllt. Die Kamera öffnet
+  (`dumpsys media.camera`: Camera ID 0, Client `com.vivid.debug`, Zustand
+  aktiv), die UI bleibt bedienbar (UI-Dumps kehren im Sekundentakt zurück).
+  Ein Unterschied zur Vorfassung ist nicht messbar: derselbe Bildschirm aus
+  `0.5.23-beta` (ohne A1) und aus `develop` (mit A1) liefert im gleichen
+  Ausschnitt praktisch dieselbe Helligkeit (Mittelwert 0,26 vs. 0,29). Die
+  Vorschaufläche selbst bleibt dunkel; ob das die leere Szenen-Komposition
+  (`showComposition`) oder ein echtes Problem ist, ist damit **nicht**
+  entschieden.
+- **Schritt 2 (Streamstart):** der Start lief bis in die Encoder-Vorbereitung
+  (`timber`: `Video encoder=c2.qti.hevc.encoder mode=CBR target=6000 kbps`).
+  Abgebrochen ist er erst am Testziel (`Endpoint malformed`), nicht an Kamera
+  oder Thread-Lage.
+- **Schritt 3 (Stop während `Preparing`):** nicht ausgeführt. Das Ziel muss in
+  der App eingetragen werden, und die Eingabe per `adb input` scheitert an der
+  Autokapitalisierung des Textfelds (`Rtmp://…` lehnt RootEncoder als
+  malformed ab); zusätzlich verlangt die URL `ip:port/appname/streamname`.
 
-Beleg für #374 ist ein Nightly-Lauf **ohne** ANR; bis dahin bleibt die
-Sentry-Gruppe `7821630074` offen. Zeigt der Gerätetest eine Abweichung, ist die
+**Kein ANR** im geprüften `logcat`-Fenster beider Läufe. Für Schritt 3 genügt
+ein Ziel der Form `rtmp://<host>:1935/<app>/<stream>` unter Einstellungen →
+Streaming & OBS; der Rest des Ablaufs ist dann in einem Durchgang fahrbar.
+Beleg für #374 bleibt ein Nightly-Lauf auf der V2454A; bis dahin bleibt die
+Sentry-Gruppe `7821630074` offen. Zeigt ein Gerätetest eine Abweichung, ist die
 Rücknahme die eine Zeile aus dem Absatz oben.
 ### 5.14 Kamera-Klasse: ein Sammel-Issue statt eines Issues pro Variante (04.11.2026)
 
