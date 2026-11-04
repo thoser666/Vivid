@@ -525,7 +525,9 @@ Sichtbarkeit eines echten Kamera-Ausfalls verloren gehen.
 `automation-sentry-resolve.yml`) mit Status `resolved` **ohne** `inNextRelease` —
 die Gruppe bleibt damit offen für ein Wiederauftreten. GitHub-Issues werden
 dabei **nicht** geschlossen (Automation schreibt nur die Sentry-API); sie
-bleiben als Beleg stehen, bis sie manuell geschlossen werden.
+bleiben als Beleg stehen, bis sie manuell geschlossen werden. Seit 04.11.2026
+legt der Watchdog für die Klasse ohnehin kein Einzel-Issue mehr an, sondern
+führt ein Sammel-Issue (#412, §5.14).
 
 **Offen bleibt VIVID-4T (#374, ANR fatal):** ein Einzel-Event, das inzwischen
 eine begründete Zuschreibung hat — `main` wartet in
@@ -754,6 +756,66 @@ GL-Anhänge- und Control-Aufrufe bleiben aber weiterhin auf Main. Wenn der
 Gerätetest eine Abweichung zeigt (z. B. schwarze Vorschau beim ersten
 Anhängen), ist die Rücknahme klein: `launchCameraOpen` auf
 `{ work -> work() }` stellen.
+
+**Gerätetest (offen, 04.11.2026).** Am 04.11.2026 war kein Gerät erreichbar
+(`adb devices` leer, auch nach `adb kill-server`/`start-server` und `adb mdns
+services`); die Änderung ist damit weiterhin nur per JVM-Test belegt, nicht auf
+Hardware. Ablauf, sobald V2454A wieder hängt:
+
+1. Nightly mit A1 installieren, App kalt starten, Idle-Vorschau anhängen —
+   erwartet: die Vorschau erscheint (kein schwarzes Bild beim ersten Anhängen).
+2. Stream aus dem Service starten (`onStartCommand`-Pfad) — erwartet: Stream
+   läuft, `Preparing` steht sofort, der Abschluss kommt über `runOnMain`.
+3. Während `Preparing` stoppen — erwartet: kein Streamstart nach dem Stop
+   (`completeCameraStart`-Guard), keine zweite Kamera-Anfrage.
+
+Beleg für #374 ist ein Nightly-Lauf **ohne** ANR; bis dahin bleibt die
+Sentry-Gruppe `7821630074` offen. Zeigt der Gerätetest eine Abweichung, ist die
+Rücknahme die eine Zeile aus dem Absatz oben.
+### 5.14 Kamera-Klasse: ein Sammel-Issue statt eines Issues pro Variante (04.11.2026)
+
+**Befund.** Von 40 offenen Issues waren am 04.11.2026 **36** Kamera-Klasse —
+und zwar als Varianten derselben Sache: 15× `Camera error (idlePreview=…): Open
+camera N failed`, 14× ein obfuskierter Präfix (`ja0:`/`pa0:`) mit `Camera no
+detected`, 3× `Open camera failed: 4`, 2× `CameraOpenException: Camera no
+detected`, 2× `Camera recover exhausted`. Jede Variante ist eine eigene
+Sentry-Gruppe (Fingerprint über Nachricht + Kamera-Id + Flag), also legte der
+Watchdog je Variante ein GitHub-Issue an. Das Verdikt aus §5.10 bleibt: eine
+Gerätequelle (V2454A), erwarteter Zustand, kein App-Defekt.
+
+**Regel.** Die Klasse bekommt **ein** Sammel-Issue (Label `sentry`, Titel
+`[Sentry] Kamera-Klasse: Sammel-Issue (docs/sentry-issues.md §5.10)`):
+
+- `check_sentry_issues.sh` klassifiziert über `CAMERA_RE` (Nachricht + Wert) und
+  lässt diese Gruppen **nicht** als Einzel-Issue kandidieren.
+- Der Body des Sammel-Issues trägt neben `<!-- vivid-sentry-camera-rollup -->`
+  die normalen Dedup-Marker `<!-- vivid-sentry-issue: <sid> -->` aller
+  enthaltenen Gruppen — die bestehende Dedup-Logik liest sie damit als
+  „bereits erfasst“, ohne Sonderfall.
+- Neue Varianten werden als Kommentar an das Sammel-Issue gehängt (inkl.
+  Marker), nicht als neues Issue. Existiert es noch nicht, wird es angelegt.
+- **Ausnahmen** (`CAMERA_EXCEPTION_RE`): `CAMERA_DISCONNECTED` und
+  fehlgeschlagene Konfiguration (#336/VIVID-43, #350/VIVID-46) sind laut §5.10
+  echte Defekte, keine Gerätezustands-Varianten — sie bekommen weiterhin ein
+  Einzel-Issue, damit sie nicht im Sammel-Issue verschwinden.
+
+**Was ausdrücklich gleich bleibt.** Kein Filter, keine Ignore-Regel, keine
+Resolve-Automatik für die Klasse: die Sentry-Gruppe bleibt sichtbar (§5.9), und
+ein echter Kamera-Ausfall erscheint weiterhin — er erscheint nur gebündelt.
+
+**Beleg.** Guard-Selbsttest I22–I26: Kamera-Gruppen kandidieren nicht (I22),
+Sammel-Issue-Anlage mit Rollup- und Dedup-Markern (I22), Kommentar statt
+Neuanlage bei bestehendem Issue (I23), Marker im Sammel-Issue deduplizieren
+(I24), `--dry-run` bleibt folgenlos (I25), die Ausnahmen bleiben Einzel-Issues (I26).
+**Mutationsproben (04.11.2026):** `CAMERA_RE`-Zweig deaktiviert → I22 rot, I3
+(Nicht-Kamera-Pfad) grün; `_markers()` geleert → I22/I23 rot; Ausnahme-Prüfung
+entfernt → I26 rot; jeweils zurückgebaut und wieder grün.
+
+**Aufräumen der Altlasten.** Die 36 offenen Einzel-Issues (#325–#399) wurden am
+04.11.2026 mit englischem Beleg-Kommentar geschlossen; ihre Marker stehen im
+Sammel-Issue **#412**, eine Neuanlage durch den Watchdog ist damit
+ausgeschlossen (Dedup liest `state=all`). Offen blieben bewusst nur die
+Ausnahmen #336/#350 und der ANR #374. §5.10 bleibt sonst unverändert gültig.
 
 ## 6. Sicherheit
 

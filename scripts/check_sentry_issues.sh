@@ -40,6 +40,18 @@
 #   ghstatus       — simulierter GitHub-Erstell-HTTP-Code (Default 201)
 #   event_<sid>.json  — Latest-Event-Antwort (200 → Release-Spur im Body)
 #   eventstatus_<sid> — simulierter HTTP-Code für den Event-Call (z.B. 403)
+#   gh_commentstatus  — simulierter HTTP-Code für den Rollup-Kommentar (Default 201)
+#
+# Kamera-Klasse (docs/sentry-issues.md §5.10): die Varianten dieser Klasse
+# (idlePreview-Flag, Kamera-Id, obfuskierter Namens-Prefix, „recover exhausted“)
+# sind je eine eigene Sentry-Gruppe — als Einzel-Issues entsteht daraus
+# Beleg-Rauschen (36 offene Issues aus einer Gerätequelle). Diese Klasse bekommt
+# EIN Sammel-Issue: neue Varianten werden dort als Kommentar ergänzt, die
+# Dedup-Marker der enthaltenen Gruppen stehen im Body des Sammel-Issues. Die
+# Sentry-Gruppe bleibt unangetastet — die Sichtbarkeit aus §5.9/§5.10 gilt
+# weiter, nur eben gebündelt. Ausgenommen bleiben die in §5.10 benannten echten
+# Defekte (CAMERA_DISCONNECTED, fehlgeschlagene Konfiguration): sie werden
+# weiterhin als Einzel-Issue eröffnet.
 #
 # --print-event-tags SID[,SID…] — read-only Diagnosemodus: zieht pro SID das
 # Latest-Event und druckt eine `EVENT_TAGS <sid>: k=v, …`-Zeile (Release-Spur
@@ -452,6 +464,18 @@ out_a=$(SENTRY_ISSUES_FRAG_FILES="$frag_files" \
   SENTRY_ISSUES_TMP="$tmp" python -X utf8 - 2>/dev/null <<'PY' || rc=$?
 import json, os, re, sys
 
+# Kamera-Klasse (§5.10): gebündelt statt ein Issue pro Variante. Die
+# Dedup-Marker der Mitglieder stehen im Body des Sammel-Issues, damit die
+# bestehende Dedup-Logik sie ohne Sonderfall als "bereits erfasst" liest.
+ROLLUP_MARKER = "<!-- vivid-sentry-camera-rollup -->"
+CAMERA_RE = re.compile(
+    r"(Camera no detected|Open camera [^\n]*failed|Camera error \(|"
+    r"Camera recover exhausted|Idle camera:|CAMERA_DISCONNECTED)")
+# Ausnahmen (§5.10): ein getrenntes Kameragerät und eine fehlgeschlagene
+# Konfiguration sind echte Defekte, keine Gerätezustands-Variante — sie bleiben
+# Einzel-Issues, damit der Fehler nicht im Sammel-Issue verschwindet.
+CAMERA_EXCEPTION_RE = re.compile(r"(CAMERA_DISCONNECTED|Configuration failed)")
+
 frag_files = [f for f in os.environ["SENTRY_ISSUES_FRAG_FILES"].split() if f]
 gh_files = [f for f in os.environ["SENTRY_ISSUES_GH_FILES"].split() if f]
 
@@ -471,6 +495,7 @@ for f in frag_files:
     issues.extend(load_json(f, "Sentry-Issues"))
 
 existing_markers = set()
+rollup_number = ""
 for f in gh_files:
     for it in load_json(f, "GitHub-Issues"):
         if not isinstance(it, dict):
@@ -480,13 +505,15 @@ for f in gh_files:
         body = str(it.get("body") or "")
         for m in re.finditer(r"vivid-sentry-issue:\s*(\d+)", body):
             existing_markers.add(m.group(1))
+        if ROLLUP_MARKER in body and it.get("number"):
+            rollup_number = it.get("number")
 
 MARKER_TEMPLATE = "<!-- vivid-sentry-issue: %s -->"
-
 def norm_head(s):
     return " ".join((s or "").split())
 
 candidates = []
+rollup_rows = []
 already_reported = 0
 for it in issues:
     if not isinstance(it, dict):
@@ -515,6 +542,14 @@ for it in issues:
     users = str(it.get("userCount") or "0")
     first = str(it.get("firstSeen") or "-")
     last = str(it.get("lastSeen") or "-")
+
+    # Kamera-Klasse: nicht als Einzel-Issue kandidieren lassen.
+    if ((CAMERA_RE.search(title) or CAMERA_RE.search(mvalue))
+            and not CAMERA_EXCEPTION_RE.search(title + " " + mvalue)):
+        rollup_rows.append({"sid": sid, "short": short, "title": norm_head(title),
+                            "level": level, "count": count, "users": users,
+                            "last": last, "permalink": permalink})
+        continue
 
     tag_line = ""
     allowed = {"os", "device", "dist", "environment", "release"}
@@ -583,6 +618,52 @@ for i, (sid, title, _last, payload) in enumerate(candidates, 1):
         fh.write(sid + "\n")
     print("CANDIDATE: %s → %s" % (sid, title))
 
+def _md_row(r):
+    return "| %s | %s | %s | %s | %s |" % (
+        r["short"], r["level"], r["count"], r["last"][:19],
+        r["title"].replace("|", "\\|")[:150])
+
+def _markers(rows):
+    return ["<!-- vivid-sentry-issue: %s -->" % r["sid"] for r in rows]
+
+if rollup_rows:
+    rollup_rows.sort(key=lambda r: r["last"])
+    table = ["| Sentry | Level | Events | Zuletzt | Titel |", "|---|---|---|---|---|"]
+    table += [_md_row(r) for r in rollup_rows]
+    head = [
+        ROLLUP_MARKER,
+        "",
+        "## Kamera-Klasse: ein Sammel-Issue (docs/sentry-issues.md §5.10)",
+        "",
+        "Alle offenen Sentry-Gruppen der Kamera-Klasse landen hier — statt in einem",
+        "eigenen Issue pro Variante (idlePreview-Flag, Kamera-Id, obfuskierter",
+        "Namens-Prefix). Die Klasse ist laut §5.10 erwarteter Gerätezustand auf dem",
+        "Entwicklungsgerät (V2454A) und kein App-Defekt; die Sichtbarkeit bleibt, weil",
+        "jede neue Variante hier als Kommentar auftaucht und die Sentry-Gruppe selbst",
+        "unangetastet bleibt (keine Ignore-Regel, kein Filtern — §5.9).",
+        "",
+        "Der stündliche Watchdog hängt neue Varianten an dieses Issue an, statt ein",
+        "Einzel-Issue zu eröffnen.",
+        "",
+    ]
+    tail = ["", "## Erfasste Gruppen (Dedup-Marker)", "",
+            "<details><summary>Marker</summary>", ""] + _markers(rollup_rows) + ["", "</details>"]
+    with open(os.path.join(os.environ["SENTRY_ISSUES_TMP"], "rollup_body.json"),
+              "w", encoding="utf-8") as fh:
+        json.dump({"title": "[Sentry] Kamera-Klasse: Sammel-Issue (docs/sentry-issues.md §5.10)",
+                   "body": "\n".join(head + table + tail), "labels": ["sentry"]}, fh,
+                  ensure_ascii=False)
+    comment = (["Neue Kamera-Gruppen aus diesem Watchdog-Lauf:", ""] + table +
+               ["", "<details><summary>Dedup-Marker</summary>", ""] +
+               _markers(rollup_rows) + ["", "</details>"])
+    with open(os.path.join(os.environ["SENTRY_ISSUES_TMP"], "rollup_comment.json"),
+              "w", encoding="utf-8") as fh:
+        json.dump({"body": "\n".join(comment)}, fh, ensure_ascii=False)
+    for r in rollup_rows:
+        print("ROLLUP_ROW: %s → %s" % (r["sid"], r["title"]))
+
+print("CAMERA_ROLLUP=%d" % len(rollup_rows))
+print("ROLLUP_ISSUE=%s" % rollup_number)
 print("Sentry: %d unresolved geprüft | bereits erfasst: %d | neu: %d" % (
     len(issues), already_reported, len(candidates)))
 print("WOULD_ISSUE=%d" % len(candidates))
@@ -606,13 +687,25 @@ if [ -z "$count" ]; then
   exit 1
 fi
 
-if [ "$count" = "0" ]; then
+# Kamera-Klasse (§5.10): Anzahl der Gruppen für das Sammel-Issue + dessen Nummer,
+# falls es bereits existiert (dann Kommentar statt Neuanlage).
+rollup_count=$(printf '%s\n' "$out_a" | grep -o 'CAMERA_ROLLUP=[0-9]*' | cut -d= -f2)
+if [ -z "$rollup_count" ]; then
+  echo "FEHLER: Phase-A-Output ohne CAMERA_ROLLUP-Marker — Script-Formatbruch?"
+  exit 1
+fi
+rollup_issue=$(printf '%s\n' "$out_a" | grep -o 'ROLLUP_ISSUE=[0-9]*' | cut -d= -f2 || true)
+
+if [ "$count" = "0" ] && [ "$rollup_count" = "0" ]; then
   echo "OK: 0 neue Sentry-Issues — alle unresolved Reports sind bereits als GitHub-Issue erfasst (Watchdog: nichts zu tun)"
   exit 0
 fi
 
 if [ "$dryrun" = "1" ]; then
   echo "OK (dry-run): $count Issue(s) würden neu als GitHub-Issue erstellt — keine Erstellung ausgeführt"
+  if [ "$rollup_count" != "0" ]; then
+    echo "OK (dry-run): $rollup_count Kamera-Gruppe(n) würden im Sammel-Issue erfasst — nichts angelegt/kommentiert"
+  fi
   exit 0
 fi
 
@@ -741,6 +834,42 @@ PYEVENT
     *) skip_gh_status "$ghstatus" ;;
   esac
 done
+
+# ── Kamera-Klasse: Sammel-Issue anlegen bzw. neue Varianten kommentieren ──
+if [ "$rollup_count" != "0" ]; then
+  if [ -n "$rollup_issue" ]; then
+    rp="$tmp/rollup_comment.json"
+    rurl="$GH_API/repos/$GH_REPO/issues/$rollup_issue/comments"
+    rfix="gh_commentstatus"
+    rkind="ergänzt"
+  else
+    rp="$tmp/rollup_body.json"
+    rurl="$GH_API/repos/$GH_REPO/issues"
+    rfix="ghstatus"
+    rkind="angelegt"
+  fi
+  if [ -n "$FIXTURE" ]; then
+    rstatus=$(cat "$FIXTURE/$rfix" 2>/dev/null || echo 201)
+    : > "$tmp/gh_rollup.json"
+  else
+    rstatus=$(curl -sS -o "$tmp/gh_rollup.json" -w '%{http_code}' \
+      -X POST -H "Authorization: Bearer ${GITHUB_ISSUES_TOKEN:-}" \
+      -H "Accept: application/vnd.github+json" -H "Content-Type: application/json" \
+      -d @"$rp" "$rurl" 2>/dev/null || echo 000)
+  fi
+  case "$rstatus" in
+    200|201)
+      rnum=$(grep -o '"number": *[0-9]*' "$tmp/gh_rollup.json" 2>/dev/null | head -1 | grep -o '[0-9]*' || true)
+      [ -n "$rnum" ] || rnum="${rollup_issue:-?}"
+      echo "ROLLUP: $rollup_count neue Kamera-Gruppe(n) → Sammel-Issue #$rnum $rkind"
+      ;;
+    401|403) skip_gh_status "$rstatus" ;;
+    422)
+      echo "FEHLER: GitHub lehnt Rollup-Payload ab (HTTP 422) — Sammel-Issue-Vertrag prüfen"
+      exit 1 ;;
+    *) skip_gh_status "$rstatus" ;;
+  esac
+fi
 
 echo "Event-Tags: $enriched Issue(s) mit Release-Spur angereichert, $degraded ohne Lesbarkeit (Fallback-Zeile im Body)."
 echo "OK: $created Issue(s) neu als GitHub-Issue erstellt (Watchdog) — Sentry-Triage labelt automatisch nach (severity/crash)."
