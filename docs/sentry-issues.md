@@ -776,14 +776,24 @@ reproduzierbar.
   (`timber`: `Video encoder=c2.qti.hevc.encoder mode=CBR target=6000 kbps`).
   Abgebrochen ist er erst am Testziel (`Endpoint malformed`), nicht an Kamera
   oder Thread-Lage.
-- **Schritt 3 (Stop während `Preparing`):** nicht ausgeführt. Das Ziel muss in
-  der App eingetragen werden, und die Eingabe per `adb input` scheitert an der
-  Autokapitalisierung des Textfelds (`Rtmp://…` lehnt RootEncoder als
-  malformed ab); zusätzlich verlangt die URL `ip:port/appname/streamname`.
+- **Schritt 3 (Stop während `Preparing`):** ausgeführt, über den dokumentierten
+Remote-Weg. Der Button im Screen ist in diesem Zustand bewusst deaktiviert
+(`enabled = streamingState !is Preparing`), ein Stopp kommt also nur von außen
+(Web-Remote, Chat-Bot, Notification). `POST /stop` mit
+`Authorization: Bearer <token>` — erreichbar über `adb forward`, weil der
+Server beim Streamstart auf Port 8081 auswich — antwortete mit `200`, der
+Zustand ging innerhalb von 1,5 s auf `Idle` („Stream starten") zurück und blieb
+dort über neun Sekunden; `timber` protokollierte `Stopping shared camera
+encoder after last RTMP target`. Ein Streamstart nach dem Stopp trat nicht auf
+— genau der Fall, den `completeCameraStart` abfängt. Die Kamera bleibt danach
+offen (ein Client), weil die Idle-Vorschau sie weiterhält.
 
-**Kein ANR** im geprüften `logcat`-Fenster beider Läufe. Für Schritt 3 genügt
-ein Ziel der Form `rtmp://<host>:1935/<app>/<stream>` unter Einstellungen →
-Streaming & OBS; der Rest des Ablaufs ist dann in einem Durchgang fahrbar.
+**Ziel-URL setzen.** Für den Lauf kam die Twitch-Vorlage zum Einsatz
+(`rtmp://live.twitch.tv/app`): freie Eingabe per `adb input` scheitert an der
+Autokapitalisierung des Textfelds (`Rtmp://…` lehnt RootEncoder als
+`Endpoint malformed` ab), und die URL muss zusätzlich
+`ip:port/appname/streamname` entsprechen. Anschließend ist der Ablauf in einem
+Durchgang fahrbar.
 Beleg für #374 bleibt ein Nightly-Lauf auf der V2454A; bis dahin bleibt die
 Sentry-Gruppe `7821630074` offen. Zeigt ein Gerätetest eine Abweichung, ist die
 Rücknahme die eine Zeile aus dem Absatz oben.
