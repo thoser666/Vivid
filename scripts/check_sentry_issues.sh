@@ -713,7 +713,7 @@ fi
 created=0
 enriched=0
 degraded=0
-for i in $(seq 1 "$count"); do
+for ((i = 1; i <= count; i++)); do
   payload="$tmp/issue_$i.json"
   sid=$(cat "$tmp/sid_$i.txt" 2>/dev/null || true)
 
