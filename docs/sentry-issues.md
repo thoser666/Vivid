@@ -453,7 +453,7 @@ Triage: #267 ist in Punkt 7 beschrieben.
    Identitaetspruefung aus `27bcef79` — ein zurueckgezogenes Preview haette gar kein Event
    erzeugt. Der Fix wirkt also, die restlichen Events sind ein echter `CONFIGURE_FAILED`;
    auffaellig ist der High-Speed-Pfad, waehrend der Idle-Preview 30 fps anfordert (Diskrepanz
-   offen, Next Step im Issue).
+   offen, Next Step im Issue; **widerlegt am 05.11.2026**, siehe §5.15).
    **Attributionsgrenze, strukturell statt zufaellig:** `app/build.gradle.kts` laedt das
    ProGuard-Mapping nur mit gesetztem `SENTRY_AUTH_TOKEN` hoch
    (`autoUploadProguardMapping.set(System.getenv("SENTRY_AUTH_TOKEN") != null)`). Die Nightly-Builds,
@@ -525,7 +525,9 @@ Sichtbarkeit eines echten Kamera-Ausfalls verloren gehen.
 `automation-sentry-resolve.yml`) mit Status `resolved` **ohne** `inNextRelease` —
 die Gruppe bleibt damit offen für ein Wiederauftreten. GitHub-Issues werden
 dabei **nicht** geschlossen (Automation schreibt nur die Sentry-API); sie
-bleiben als Beleg stehen, bis sie manuell geschlossen werden.
+bleiben als Beleg stehen, bis sie manuell geschlossen werden. Seit 04.11.2026
+legt der Watchdog für die Klasse ohnehin kein Einzel-Issue mehr an, sondern
+führt ein Sammel-Issue (#412, §5.14).
 
 **Offen bleibt VIVID-4T (#374, ANR fatal):** ein Einzel-Event, das inzwischen
 eine begründete Zuschreibung hat — `main` wartet in
@@ -757,6 +759,143 @@ GL-Anhänge- und Control-Aufrufe bleiben aber weiterhin auf Main. Wenn der
 Gerätetest eine Abweichung zeigt (z. B. schwarze Vorschau beim ersten
 Anhängen), ist die Rücknahme klein: `launchCameraOpen` auf
 `{ work -> work() }` stellen.
+
+**Gerätetest (04.11.2026, SM-S918B).** Am 04.11.2026 hing statt der V2454A
+ein Galaxy S23 Ultra (SM-S918B, Android 16) am Rechner — ein Gerät ohne Bezug
+zur ANR-Quelle. Die Änderung ist damit erstmals auf Hardware gelaufen, mit
+klarer Grenze: der ANR aus #374 trat auf der V2454A auf und ist hier nicht
+reproduzierbar.
+
+- **Schritt 1 (Idle-Vorschau):** soweit messbar erfüllt. Die Kamera öffnet
+  (`dumpsys media.camera`: Camera ID 0, Client `com.vivid.debug`, Zustand
+  aktiv), die UI bleibt bedienbar (UI-Dumps kehren im Sekundentakt zurück).
+  Ein Unterschied zur Vorfassung ist nicht messbar: derselbe Bildschirm aus
+  `0.5.23-beta` (ohne A1) und aus `develop` (mit A1) liefert im gleichen
+  Ausschnitt praktisch dieselbe Helligkeit (Mittelwert 0,26 vs. 0,29). Die
+  Vorschaufläche selbst bleibt dunkel; ob das die leere Szenen-Komposition
+  (`showComposition`) oder ein echtes Problem ist, ist damit **nicht**
+  entschieden.
+- **Schritt 2 (Streamstart):** der Start lief bis in die Encoder-Vorbereitung
+  (`timber`: `Video encoder=c2.qti.hevc.encoder mode=CBR target=6000 kbps`).
+  Abgebrochen ist er erst am Testziel (`Endpoint malformed`), nicht an Kamera
+  oder Thread-Lage.
+- **Schritt 3 (Stop während `Preparing`):** ausgeführt, über den dokumentierten
+Remote-Weg. Der Button im Screen ist in diesem Zustand bewusst deaktiviert
+(`enabled = streamingState !is Preparing`), ein Stopp kommt also nur von außen
+(Web-Remote, Chat-Bot, Notification). `POST /stop` mit
+`Authorization: Bearer <token>` — erreichbar über `adb forward`, weil der
+Server beim Streamstart auf Port 8081 auswich — antwortete mit `200`, der
+Zustand ging innerhalb von 1,5 s auf `Idle` („Stream starten") zurück und blieb
+dort über neun Sekunden; `timber` protokollierte `Stopping shared camera
+encoder after last RTMP target`. Ein Streamstart nach dem Stopp trat nicht auf
+— genau der Fall, den `completeCameraStart` abfängt. Die Kamera bleibt danach
+offen (ein Client), weil die Idle-Vorschau sie weiterhält.
+
+**Ziel-URL setzen.** Für den Lauf kam die Twitch-Vorlage zum Einsatz
+(`rtmp://live.twitch.tv/app`): freie Eingabe per `adb input` scheitert an der
+Autokapitalisierung des Textfelds (`Rtmp://…` lehnt RootEncoder als
+`Endpoint malformed` ab), und die URL muss zusätzlich
+`ip:port/appname/streamname` entsprechen. Anschließend ist der Ablauf in einem
+Durchgang fahrbar.
+Beleg für #374 bleibt ein Nightly-Lauf auf der V2454A; bis dahin bleibt die
+Sentry-Gruppe `7821630074` offen. Zeigt ein Gerätetest eine Abweichung, ist die
+Rücknahme die eine Zeile aus dem Absatz oben.
+### 5.14 Kamera-Klasse: ein Sammel-Issue statt eines Issues pro Variante (04.11.2026)
+
+**Befund.** Von 40 offenen Issues waren am 04.11.2026 **36** Kamera-Klasse —
+und zwar als Varianten derselben Sache: 15× `Camera error (idlePreview=…): Open
+camera N failed`, 14× ein obfuskierter Präfix (`ja0:`/`pa0:`) mit `Camera no
+detected`, 3× `Open camera failed: 4`, 2× `CameraOpenException: Camera no
+detected`, 2× `Camera recover exhausted`. Jede Variante ist eine eigene
+Sentry-Gruppe (Fingerprint über Nachricht + Kamera-Id + Flag), also legte der
+Watchdog je Variante ein GitHub-Issue an. Das Verdikt aus §5.10 bleibt: eine
+Gerätequelle (V2454A), erwarteter Zustand, kein App-Defekt.
+
+**Regel.** Die Klasse bekommt **ein** Sammel-Issue (Label `sentry`, Titel
+`[Sentry] Kamera-Klasse: Sammel-Issue (docs/sentry-issues.md §5.10)`):
+
+- `check_sentry_issues.sh` klassifiziert über `CAMERA_RE` (Nachricht + Wert) und
+  lässt diese Gruppen **nicht** als Einzel-Issue kandidieren.
+- Der Body des Sammel-Issues trägt neben `<!-- vivid-sentry-camera-rollup -->`
+  die normalen Dedup-Marker `<!-- vivid-sentry-issue: <sid> -->` aller
+  enthaltenen Gruppen — die bestehende Dedup-Logik liest sie damit als
+  „bereits erfasst“, ohne Sonderfall.
+- Neue Varianten werden als Kommentar an das Sammel-Issue gehängt (inkl.
+  Marker), nicht als neues Issue. Existiert es noch nicht, wird es angelegt.
+- **Ausnahmen** (`CAMERA_EXCEPTION_RE`): `CAMERA_DISCONNECTED` und
+  fehlgeschlagene Konfiguration (#336/VIVID-43, #350/VIVID-46) sind laut §5.10
+  echte Defekte, keine Gerätezustands-Varianten — sie bekommen weiterhin ein
+  Einzel-Issue, damit sie nicht im Sammel-Issue verschwinden.
+
+**Was ausdrücklich gleich bleibt.** Kein Filter, keine Ignore-Regel, keine
+Resolve-Automatik für die Klasse: die Sentry-Gruppe bleibt sichtbar (§5.9), und
+ein echter Kamera-Ausfall erscheint weiterhin — er erscheint nur gebündelt.
+
+**Beleg.** Guard-Selbsttest I22–I26: Kamera-Gruppen kandidieren nicht (I22),
+Sammel-Issue-Anlage mit Rollup- und Dedup-Markern (I22), Kommentar statt
+Neuanlage bei bestehendem Issue (I23), Marker im Sammel-Issue deduplizieren
+(I24), `--dry-run` bleibt folgenlos (I25), die Ausnahmen bleiben Einzel-Issues (I26).
+**Mutationsproben (04.11.2026):** `CAMERA_RE`-Zweig deaktiviert → I22 rot, I3
+(Nicht-Kamera-Pfad) grün; `_markers()` geleert → I22/I23 rot; Ausnahme-Prüfung
+entfernt → I26 rot; jeweils zurückgebaut und wieder grün.
+
+**Aufräumen der Altlasten.** Die 36 offenen Einzel-Issues (#325–#399) wurden am
+04.11.2026 mit englischem Beleg-Kommentar geschlossen; ihre Marker stehen im
+Sammel-Issue **#412**, eine Neuanlage durch den Watchdog ist damit
+ausgeschlossen (Dedup liest `state=all`). Offen blieben bewusst nur die
+Ausnahmen #336/#350 und der ANR #374. §5.10 bleibt sonst unverändert gültig.
+
+### 5.15 `#350` (VIVID-46): die High-Speed-Attribution war ein Fehlschluss (05.11.2026)
+
+**Frage aus dem Issue.** Der letzte Beleg-Kommentar an #350 endet mit einem
+Widerspruch: die Idle-Vorschau fordert 30 fps an (`prepareCamera(…, 1280, 720,
+30)`), der gelesene Stack zeigt aber `onConfigureFailed` einer
+`CameraConstrainedHighSpeedCaptureSession`, die es erst ab 60 fps gibt.
+
+**Befund (Quellenlesung, kein Gerät nötig).** Der Widerspruch löst sich auf,
+weil die Vorschau diese Session gar nicht erzeugen kann:
+
+- RootEncoder 2.7.5, `encoder/src/main/java/com/pedro/encoder/input/video/Camera2ApiManager.kt`
+  (Tag `2.7.5`): die einzige Session-Erzeugung ist `createCaptureSession(…)`,
+  und sie übergibt `SessionConfiguration.SESSION_REGULAR` (API ≥ 28) bzw. den
+  regulären Legacy-Aufruf. Die Datei enthält **kein** `Constrained`/`HighSpeed`.
+  `MultiCamera2` erzeugt gar keine Session, `Camera2Base` hält genau einen
+  `Camera2ApiManager` — der High-Speed-Pfad existiert in der Library nicht.
+- Vivids einzige `createConstrainedHighSpeedCaptureSession` steht in
+  `HighSpeedGlBridge.createSession` (experimentelle 60-fps-Aufnahme, eigener
+  Thread `VividHighSpeedCapture`). Fehler dort laufen über `onFailure` →
+  `"Experimental camera capture failed"`, **nie** über `idlePreviewCallbacks`.
+- AOSP: `CameraConstrainedHighSpeedCaptureSessionImpl` existiert nur für
+  `SESSION_HIGH_SPEED` und umhüllt intern eine reguläre
+  `CameraCaptureSessionImpl`; sie kann also nicht als Rahmen einer regulären
+  Session auftreten.
+
+⇒ **Eine 30-fps-Idle-Vorschau landet nicht in einer High-Speed-Session.** Der
+Framework-Rahmen in Event `7812865315` kann damit nicht zu derselben Session
+gehören wie die Zeile, die ihn meldet: der Log-Text ist unser Code
+(`Timber.e("Idle camera: %s")`) und belastbar, der Rahmen stammt aus einem
+Stack, dessen App-Frames ohne ProGuard-Mapping obfuskiert sind (§9, Baseline
+`obfuscated`). Ein Fix gegen eine nicht existierende Fehlfunktion wird deshalb
+**nicht** gebaut (Präzedenz #259). #350 bleibt als Gruppe offen — es ist ein
+echter `CONFIGURE_FAILED` auf einer **regulären** Session, zehn Events, ein
+Gerät, letztes Event `0.5.65-beta+5654`.
+
+**Was stattdessen festgehalten ist.** Die Anforderung der Vorschau steht jetzt
+an einer Stelle (`IDLE_PREVIEW_WIDTH/HEIGHT/FPS` in `StreamingEngine.kt`) und
+erscheint im Breadcrumb der Fehlerzeile als `request=1280x720@30fps`
+(`describeCameraError(…, request = …)`). Der nächste Rücklauf nennt damit die
+Parameter, auf denen der Configure scheiterte. Der einzige noch fehlende
+Messwert ist die von RootEncoder tatsächlich gewählte Auflösung — sie steht auf
+dem Gerät in dessen eigener Zeile `optimal resolution set to: WxH` (Log.i), die
+`prepareCamera` vor dem Öffnen schreibt.
+
+**Beleg.** `IdlePreviewRequestTest` hält drei Dinge fest: die Vorschau fordert
+genau `1280×720@30`, sie fordert **nie** mehr als 30 fps (weder an
+`prepareCamera` noch an `setForceRender`), und der Fehler-Breadcrumb trägt
+`request=1280x720@30fps` neben `path=idlePreview`. **Mutationsproben
+(05.11.2026):** `IDLE_PREVIEW_FPS` auf 60 gesetzt → beide
+Anforderungs-Prüfungen rot; `request = IDLE_PREVIEW_REQUEST` entfernt →
+Breadcrumb-Prüfung rot; jeweils zurückgebaut → grün.
 
 ## 6. Sicherheit
 

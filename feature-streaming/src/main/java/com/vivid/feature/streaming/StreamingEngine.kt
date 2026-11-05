@@ -2021,6 +2021,7 @@ class StreamingEngine @Inject constructor(
                         isStreaming = camera?.isStreaming == true,
                         isRecording = camera?.isRecording == true,
                         environment = cameraEnvironment(),
+                        request = IDLE_PREVIEW_REQUEST,
                     ),
                 )
                 Timber.e("Idle camera: %s", error)
@@ -2178,7 +2179,7 @@ class StreamingEngine @Inject constructor(
         gl.setEncoderSize(canvas.first, canvas.second)
         gl.setIsPortrait(portrait)
         gl.setRotation(0)
-        gl.setForceRender(false, 30)
+        gl.setForceRender(false, IDLE_PREVIEW_FPS)
         gl.start()
         privacyComposer.requestRebuild(gl)
         val preview = idlePreviewFactory(context)
@@ -2208,7 +2209,7 @@ class StreamingEngine @Inject constructor(
         launchCameraOpen {
             try {
                 if (idlePreviewCamera !== preview) return@launchCameraOpen
-                preview.prepareCamera(texture, 1280, 720, 30)
+                preview.prepareCamera(texture, IDLE_PREVIEW_WIDTH, IDLE_PREVIEW_HEIGHT, IDLE_PREVIEW_FPS)
                 if (cameraId.isNullOrBlank()) preview.openCameraBack() else preview.openCameraId(cameraId)
             } catch (error: Exception) {
                 Timber.e(error, "Could not open idle camera preview")
@@ -3272,3 +3273,22 @@ class StreamingEngine @Inject constructor(
 
 /** Fehlertext von `Camera2ApiManager.onConfiguredFailed` (RootEncoder 2.7.5, #350). */
 private const val CONFIGURE_FAILED = "Configuration failed"
+
+/**
+ * Angeforderte Parameter der Idle-Vorschau. Eine einzige Quelle für Aufbau,
+ * Vorschau-Anforderung und Fehler-Breadcrumb.
+ *
+ * Die Werte sind eine Aussage über den Pfad, nicht über ein Gerät: eine
+ * reguläre Camera2-Session mit 30 fps kann keine
+ * `CameraConstrainedHighSpeedCaptureSession` erzeugen — RootEncoder 2.7.5
+ * übergibt ausschließlich `SessionConfiguration.SESSION_REGULAR`. Der
+ * High-Speed-Verdacht aus #350 war ein Fehlschluss (docs/sentry-issues.md
+ * §5.15); `IdlePreviewRequestTest` hält deshalb fest, dass hier nie mehr als
+ * 30 fps angefordert werden.
+ */
+private const val IDLE_PREVIEW_WIDTH = 1280
+private const val IDLE_PREVIEW_HEIGHT = 720
+private const val IDLE_PREVIEW_FPS = 30
+
+/** Die Anforderung als Breadcrumb-Feld, z. B. `1280x720@30fps`. */
+private const val IDLE_PREVIEW_REQUEST = "${IDLE_PREVIEW_WIDTH}x${IDLE_PREVIEW_HEIGHT}@${IDLE_PREVIEW_FPS}fps"

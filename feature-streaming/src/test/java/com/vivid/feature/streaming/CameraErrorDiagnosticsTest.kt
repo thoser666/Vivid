@@ -72,4 +72,22 @@ class CameraErrorDiagnosticsTest {
         assertEquals("stream", CameraErrorPath.STREAM.label)
         assertEquals("idlePreview", CameraErrorPath.IDLE_PREVIEW.label)
     }
+
+    @Test
+    fun `the requested parameters are appended when the path knows them`() {
+        val text = describeCameraError(
+            path = CameraErrorPath.IDLE_PREVIEW,
+            cameraId = "0",
+            isStreaming = false,
+            isRecording = false,
+            environment = CameraEnvironment(),
+            request = "1280x720@30fps",
+        )
+
+        assertEquals(
+            "path=idlePreview cameraId=0 available=[] concurrent=[] streaming=false recording=false" +
+                " request=1280x720@30fps",
+            text,
+        )
+    }
 }

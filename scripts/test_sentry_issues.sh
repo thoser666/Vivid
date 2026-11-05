@@ -44,6 +44,18 @@
 #       ohne Token-Leak), 403-Fixture → "not readable", ungültige SID →
 #       SKIP-Zeile; Workflow verdrahtet den Input als EVENT_TAGS_INPUT
 #       (Env-Technik, kein ${{ }} im run:)
+#   I22 Kamera-Klasse (§5.10) bekommt EIN Sammel-Issue: Gruppen der Klasse
+#       kandidieren nicht als Einzel-Issue, landen im rollup_body.json (mit
+#       Rollup-Marker + Dedup-Markern) und melden "ROLLUP: … angelegt";
+#       normale Fehler laufen unverändert als Einzel-Issue
+#   I23 Existiert das Sammel-Issue (Rollup-Marker im Body), werden neue
+#       Varianten als Kommentar (rollup_comment.json) ergänzt — kein Issue
+#   I24 Gruppen, deren Marker im Sammel-Issue stehen, gelten als erfasst
+#       (kein erneuter Kommentar, kein Einzel-Issue)
+#   I25 --dry-run bleibt auch für die Kamera-Klasse folgenlos (Verdict-Zeile,
+#       kein ghstatus-Verbrauch)
+#   I26 Ausnahmen (§5.10) bleiben Einzel-Issues: CAMERA_DISCONNECTED und
+#       fehlgeschlagene Konfiguration dürfen nicht im Sammel-Issue verschwinden
 #   I20 Read-only Diagnosemodus --print-event-stack: Exception-/Thread-Kette
 #       des Latest-Events (Typ/Wert + Frames, neueste zuerst, in_app-Marker),
 #       403-/Fixture-Fallback, ungueltige SID, Threads-Form (ANR/nativ);
@@ -405,4 +417,104 @@ grep -qF "EVENT_DEOBFUSCATION 513: obfuscated (1 r8-map-id frame(s), 0 com.vivid
 grep -qF "EVENT_DEOBFUSCATION 514: mapped (0 r8-map-id frame(s), 1 com.vivid frame(s), 1 frame(s) total)" <<<"$out_r21" ||   fail "I21: com.vivid im package-Feld muss mapped ergeben"
 grep -qF "EVENT_DEOBFUSCATION 512: no-app-frames (0 r8-map-id frame(s), 0 com.vivid frame(s), 1 frame(s) total)" <<<"$out_r21" ||   fail "I21: reine Framework-Stacks duerfen nicht als obfuscated gelten"
 
-echo "✅ [sentry-issues-test] Sentry-Issues-Guard vertragstreu (I1–I21)."
+# I22 Kamera-Klasse gebuendelt (Sammel-Issue statt Einzel-Issue)
+mkdir -p "$tmp/i22"
+cat > "$tmp/i22/issues.json" <<'JSON'
+[
+ {"id": "900", "shortId": "VIVID-48", "title": "Camera error (idlePreview=false): Open camera 1 failed",
+  "status": "unresolved", "level": "error", "count": 3, "userCount": 1,
+  "firstSeen": "2026-10-31T06:00:00Z", "lastSeen": "2026-10-31T07:00:00Z",
+  "permalink": "https://sentry.io/organizations/privat-jb/issues/900/",
+  "metadata": {"type": "CameraOpenException", "value": "Open camera 1 failed"}, "tags": []},
+ {"id": "901", "shortId": "VIVID-48", "title": "pa0: Camera no detected",
+  "status": "unresolved", "level": "error", "count": 1, "userCount": 1,
+  "firstSeen": "2026-10-31T08:00:00Z", "lastSeen": "2026-10-31T09:00:00Z",
+  "permalink": "https://sentry.io/organizations/privat-jb/issues/901/",
+  "metadata": {"type": "CameraOpenException", "value": "pa0: Camera no detected"}, "tags": []},
+ {"id": "100", "shortId": "VIVID-21", "title": "NullPointerException in StreamLayout",
+  "status": "unresolved", "level": "error", "count": 3, "userCount": 2,
+  "firstSeen": "2026-10-31T10:00:00Z", "lastSeen": "2026-10-31T10:00:00Z",
+  "metadata": {"type": "NullPointerException", "value": "boom"}, "tags": []}
+]
+JSON
+echo '[]' > "$tmp/i22/ghissues.json"
+echo 201 > "$tmp/i22/ghstatus"
+d22="$tmp/payloads22"; mkdir -p "$d22"
+out_r22=$(SENTRY_ISSUES_FIXTURE="$tmp/i22" SENTRY_ISSUES_WORKDIR="$d22" \
+  SENTRY_ISSUES_KEEP=1 bash "$guard") || fail "I22: Rollup-Lauf darf nicht scheitern"
+grep -q "^OK: 1 Issue(s) neu als GitHub-Issue erstellt" <<<"$out_r22" || \
+  fail "I22: nur der Nicht-Kamera-Fehler darf ein Einzel-Issue werden"
+grep -q "^CANDIDATE: 900" <<<"$out_r22" && fail "I22: Kamera-Gruppe 900 darf nicht als Einzel-Issue kandidieren"
+grep -q "^CANDIDATE: 901" <<<"$out_r22" && fail "I22: Kamera-Gruppe 901 darf nicht als Einzel-Issue kandidieren"
+grep -qE "^ROLLUP: 2 neue Kamera-Gruppe\(n\) → Sammel-Issue #[0-9?]+ angelegt" <<<"$out_r22" || \
+  fail "I22: Sammel-Issue-Anlage mit 2 Gruppen erwartet"
+grep -q "sntrys" <<<"$out_r22" && fail "I22: Token-Leak im Rollup-Lauf"
+[[ -s "$d22/rollup_body.json" ]] || fail "I22: rollup_body.json wurde nicht geschrieben"
+rb=$(python -X utf8 -c "import json,sys;print(json.load(open(sys.argv[1],encoding='utf-8'))['body'])" "$d22/rollup_body.json")
+grep -qF "<!-- vivid-sentry-camera-rollup -->" <<<"$rb" || fail "I22: Rollup-Marker fehlt im Body"
+grep -qF "<!-- vivid-sentry-issue: 900 -->" <<<"$rb" || fail "I22: Dedup-Marker fuer 900 fehlt (Dedup wuerde erneut anlegen)"
+grep -qF "<!-- vivid-sentry-issue: 901 -->" <<<"$rb" || fail "I22: Dedup-Marker fuer 901 fehlt"
+grep -qF "§5.10" <<<"$rb" || fail "I22: Sammel-Issue muss auf §5.10 verweisen"
+
+# I23 Sammel-Issue existiert -> Kommentar statt Neuanlage
+mkdir -p "$tmp/i23"
+cat > "$tmp/i23/issues.json" <<'JSON'
+[{"id": "902", "shortId": "VIVID-4C", "title": "Camera error (idlePreview=true): Open camera 0 failed",
+  "status": "unresolved", "level": "error", "count": 10, "userCount": 1,
+  "firstSeen": "2026-10-26T12:00:00Z", "lastSeen": "2026-10-26T12:41:00Z",
+  "metadata": {"type": "CameraOpenException", "value": "Open camera 0 failed"}, "tags": []}]
+JSON
+cat > "$tmp/i23/ghissues.json" <<'JSON'
+[{"number": 77, "pull_request": false, "title": "[Sentry] Kamera-Klasse: Sammel-Issue",
+  "body": "<!-- vivid-sentry-camera-rollup -->\n<!-- vivid-sentry-issue: 900 -->\n"}]
+JSON
+echo 201 > "$tmp/i23/ghstatus"
+echo 201 > "$tmp/i23/gh_commentstatus"
+d23="$tmp/payloads23"; mkdir -p "$d23"
+out_r23=$(SENTRY_ISSUES_FIXTURE="$tmp/i23" SENTRY_ISSUES_WORKDIR="$d23" \
+  SENTRY_ISSUES_KEEP=1 bash "$guard") || fail "I23: Kommentar-Lauf darf nicht scheitern"
+grep -q "^OK: 0 Issue(s) neu" <<<"$out_r23" || fail "I23: darf kein Einzel-Issue anlegen"
+grep -qE "^ROLLUP: 1 neue Kamera-Gruppe\(n\) → Sammel-Issue #77 ergänzt" <<<"$out_r23" || \
+  fail "I23: Kommentar am Sammel-Issue #77 erwartet"
+[[ -s "$d23/rollup_comment.json" ]] || fail "I23: rollup_comment.json wurde nicht geschrieben"
+rc23=$(python -X utf8 -c "import json,sys;print(json.load(open(sys.argv[1],encoding='utf-8'))['body'])" "$d23/rollup_comment.json")
+grep -qF "<!-- vivid-sentry-issue: 902 -->" <<<"$rc23" || fail "I23: Dedup-Marker der neuen Gruppe fehlt im Kommentar"
+
+# I24 bereits im Sammel-Issue erfasste Gruppe -> nichts zu tun
+mkdir -p "$tmp/i24"
+cat > "$tmp/i24/issues.json" <<'JSON'
+[{"id": "902", "title": "Camera error (idlePreview=true): Open camera 0 failed", "status": "unresolved",
+  "level": "error", "metadata": {}, "tags": []}]
+JSON
+cat > "$tmp/i24/ghissues.json" <<'JSON'
+[{"number": 77, "pull_request": false, "body": "<!-- vivid-sentry-camera-rollup -->\n<!-- vivid-sentry-issue: 902 -->\n"}]
+JSON
+echo 422 > "$tmp/i24/ghstatus"
+out_r24=$(SENTRY_ISSUES_FIXTURE="$tmp/i24" bash "$guard") || fail "I24: Nullfall darf nicht scheitern"
+grep -q "^OK: 0 neue Sentry-Issues" <<<"$out_r24" || fail "I24: OK 0 neue erwartet"
+grep -q "^ROLLUP:" <<<"$out_r24" && fail "I24: kein Rollup-Aufruf fuer bereits erfasste Gruppe"
+grep -q "422" <<<"$out_r24" && fail "I24: ghstatus darf im Nullfall nicht verbraucht werden"
+
+# I25 dry-run deckt auch die Kamera-Klasse ab (nichts anlegen, nichts kommentieren)
+mkdir -p "$tmp/i25"
+cp "$tmp/i23/issues.json" "$tmp/i25/issues.json"
+echo '[]' > "$tmp/i25/ghissues.json"
+echo 422 > "$tmp/i25/ghstatus"
+out_r25=$(SENTRY_ISSUES_FIXTURE="$tmp/i25" bash "$guard" --dry-run) || fail "I25: dry-run darf nicht scheitern"
+grep -q "^OK (dry-run): 1 Kamera-Gruppe(n) würden im Sammel-Issue erfasst" <<<"$out_r25" || \
+  fail "I25: Rollup-Vorschau im dry-run erwartet"
+grep -q "422" <<<"$out_r25" && fail "I25: dry-run darf ghstatus nicht auswerten"
+# I26 Ausnahmen der Kamera-Klasse bleiben Einzel-Issues (sonst verschwindet ein
+# echter Defekt im Sammel-Issue)
+mkdir -p "$tmp/i26"
+printf '%s' '[{"id":"903","shortId":"VIVID-43","title":"Idle camera: Create capture session failed: CAMERA_DISCONNECTED (2)","status":"unresolved","level":"error","count":20,"userCount":1,"lastSeen":"2026-10-25T16:12:00Z","metadata":{},"tags":[]},{"id":"904","shortId":"VIVID-46","title":"Idle camera: Configuration failed","status":"unresolved","level":"error","count":10,"userCount":1,"lastSeen":"2026-10-26T12:41:00Z","metadata":{},"tags":[]},{"id":"905","shortId":"VIVID-4D","title":"pa0: Camera no detected","status":"unresolved","level":"error","count":1,"userCount":1,"lastSeen":"2026-11-01T09:00:00Z","metadata":{},"tags":[]}]' > "$tmp/i26/issues.json"
+echo '[]' > "$tmp/i26/ghissues.json"
+echo 201 > "$tmp/i26/ghstatus"
+out_r26=$(SENTRY_ISSUES_FIXTURE="$tmp/i26" bash "$guard") || fail "I26: Lauf darf nicht scheitern"
+grep -q "^OK: 2 Issue(s) neu als GitHub-Issue erstellt" <<<"$out_r26" || \
+  fail "I26: CAMERA_DISCONNECTED + Configuration failed muessen Einzel-Issues bleiben"
+grep -q "^CANDIDATE: 903" <<<"$out_r26" || fail "I26: VIVID-43 (CAMERA_DISCONNECTED) muss kandidieren"
+grep -q "^CANDIDATE: 904" <<<"$out_r26" || fail "I26: VIVID-46 (Configuration failed) muss kandidieren"
+grep -q "^CANDIDATE: 905" <<<"$out_r26" && fail "I26: Geraetezustands-Variante darf nicht kandidieren"
+grep -qE "^ROLLUP: 1 neue Kamera-Gruppe\(n\)" <<<"$out_r26" || fail "I26: nur die Geraetezustands-Variante gehoert ins Sammel-Issue"
+echo "✅ [sentry-issues-test] Sentry-Issues-Guard vertragstreu (I1–I26)."
