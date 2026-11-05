@@ -41,6 +41,12 @@ internal data class CameraEnvironment(
  * Werte wie Kamera-Ids würden pro Kombination eine neue Gruppe erzeugen. Auf
  * `Timber.w` landet der Kontext als Breadcrumb am nächsten Fehler-Event und im
  * In-App-Log, ohne die Gruppenzahl zu erhöhen.
+ *
+ * [request] ist optional und nennt die angeforderte Größe/Bildrate des
+ * Pfads (Idle-Vorschau: `1280x720@30fps`). Es beantwortet bei einem
+ * `Configuration failed` die Frage, worauf der Configure scheiterte;
+ * die von RootEncoder tatsächlich gewählte Auflösung steht nur in dessen
+ * eigener Log-Zeile (`optimal resolution set to:`).
  */
 internal fun describeCameraError(
     path: CameraErrorPath,
@@ -48,6 +54,7 @@ internal fun describeCameraError(
     isStreaming: Boolean,
     isRecording: Boolean,
     environment: CameraEnvironment,
+    request: String? = null,
 ): String = buildString {
     append("path=").append(path.label)
     append(" cameraId=").append(cameraId?.takeIf { it.isNotBlank() } ?: "default")
@@ -57,4 +64,5 @@ internal fun describeCameraError(
     )
     append(" streaming=").append(isStreaming)
     append(" recording=").append(isRecording)
+    request?.let { append(" request=").append(it) }
 }

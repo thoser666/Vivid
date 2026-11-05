@@ -453,7 +453,7 @@ Triage: #267 ist in Punkt 7 beschrieben.
    Identitaetspruefung aus `27bcef79` — ein zurueckgezogenes Preview haette gar kein Event
    erzeugt. Der Fix wirkt also, die restlichen Events sind ein echter `CONFIGURE_FAILED`;
    auffaellig ist der High-Speed-Pfad, waehrend der Idle-Preview 30 fps anfordert (Diskrepanz
-   offen, Next Step im Issue).
+   offen, Next Step im Issue; **widerlegt am 05.11.2026**, siehe §5.15).
    **Attributionsgrenze, strukturell statt zufaellig:** `app/build.gradle.kts` laedt das
    ProGuard-Mapping nur mit gesetztem `SENTRY_AUTH_TOKEN` hoch
    (`autoUploadProguardMapping.set(System.getenv("SENTRY_AUTH_TOKEN") != null)`). Die Nightly-Builds,
@@ -841,6 +841,58 @@ entfernt → I26 rot; jeweils zurückgebaut und wieder grün.
 Sammel-Issue **#412**, eine Neuanlage durch den Watchdog ist damit
 ausgeschlossen (Dedup liest `state=all`). Offen blieben bewusst nur die
 Ausnahmen #336/#350 und der ANR #374. §5.10 bleibt sonst unverändert gültig.
+
+### 5.15 `#350` (VIVID-46): die High-Speed-Attribution war ein Fehlschluss (05.11.2026)
+
+**Frage aus dem Issue.** Der letzte Beleg-Kommentar an #350 endet mit einem
+Widerspruch: die Idle-Vorschau fordert 30 fps an (`prepareCamera(…, 1280, 720,
+30)`), der gelesene Stack zeigt aber `onConfigureFailed` einer
+`CameraConstrainedHighSpeedCaptureSession`, die es erst ab 60 fps gibt.
+
+**Befund (Quellenlesung, kein Gerät nötig).** Der Widerspruch löst sich auf,
+weil die Vorschau diese Session gar nicht erzeugen kann:
+
+- RootEncoder 2.7.5, `encoder/src/main/java/com/pedro/encoder/input/video/Camera2ApiManager.kt`
+  (Tag `2.7.5`): die einzige Session-Erzeugung ist `createCaptureSession(…)`,
+  und sie übergibt `SessionConfiguration.SESSION_REGULAR` (API ≥ 28) bzw. den
+  regulären Legacy-Aufruf. Die Datei enthält **kein** `Constrained`/`HighSpeed`.
+  `MultiCamera2` erzeugt gar keine Session, `Camera2Base` hält genau einen
+  `Camera2ApiManager` — der High-Speed-Pfad existiert in der Library nicht.
+- Vivids einzige `createConstrainedHighSpeedCaptureSession` steht in
+  `HighSpeedGlBridge.createSession` (experimentelle 60-fps-Aufnahme, eigener
+  Thread `VividHighSpeedCapture`). Fehler dort laufen über `onFailure` →
+  `"Experimental camera capture failed"`, **nie** über `idlePreviewCallbacks`.
+- AOSP: `CameraConstrainedHighSpeedCaptureSessionImpl` existiert nur für
+  `SESSION_HIGH_SPEED` und umhüllt intern eine reguläre
+  `CameraCaptureSessionImpl`; sie kann also nicht als Rahmen einer regulären
+  Session auftreten.
+
+⇒ **Eine 30-fps-Idle-Vorschau landet nicht in einer High-Speed-Session.** Der
+Framework-Rahmen in Event `7812865315` kann damit nicht zu derselben Session
+gehören wie die Zeile, die ihn meldet: der Log-Text ist unser Code
+(`Timber.e("Idle camera: %s")`) und belastbar, der Rahmen stammt aus einem
+Stack, dessen App-Frames ohne ProGuard-Mapping obfuskiert sind (§9, Baseline
+`obfuscated`). Ein Fix gegen eine nicht existierende Fehlfunktion wird deshalb
+**nicht** gebaut (Präzedenz #259). #350 bleibt als Gruppe offen — es ist ein
+echter `CONFIGURE_FAILED` auf einer **regulären** Session, zehn Events, ein
+Gerät, letztes Event `0.5.65-beta+5654`.
+
+**Was stattdessen festgehalten ist.** Die Anforderung der Vorschau steht jetzt
+an einer Stelle (`IDLE_PREVIEW_WIDTH/HEIGHT/FPS` in `StreamingEngine.kt`) und
+erscheint im Breadcrumb der Fehlerzeile als `request=1280x720@30fps`
+(`describeCameraError(…, request = …)`). Der nächste Rücklauf nennt damit die
+Parameter, auf denen der Configure scheiterte. Der einzige noch fehlende
+Messwert ist die von RootEncoder tatsächlich gewählte Auflösung — sie steht auf
+dem Gerät in dessen eigener Zeile `optimal resolution set to: WxH` (Log.i), die
+`prepareCamera` vor dem Öffnen schreibt.
+
+**Beleg.** `IdlePreviewRequestTest` hält drei Dinge fest: die Vorschau fordert
+genau `1280×720@30`, sie fordert **nie** mehr als 30 fps (weder an
+`prepareCamera` noch an `setForceRender`), und der Fehler-Breadcrumb trägt
+`request=1280x720@30fps` neben `path=idlePreview`. **Mutationsproben
+(05.11.2026):** `IDLE_PREVIEW_FPS` auf 60 gesetzt → beide
+Anforderungs-Prüfungen rot; `request = IDLE_PREVIEW_REQUEST` entfernt →
+Breadcrumb-Prüfung rot; jeweils zurückgebaut → grün.
 
 ## 6. Sicherheit
 
