@@ -1812,6 +1812,42 @@ class StreamingEngine @Inject constructor(
         _streamingState.value !is StreamingState.Streaming &&
         context.checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
 
+    /**
+     * Ist der Fehler ein gescheiterter Session-Aufbau?
+     *
+     * Beide Texte kommen aus `Camera2ApiManager.startPreview` (RootEncoder 2.7.5):
+     * `Configuration failed` aus `onConfigureFailed`, `Create capture session
+     * failed: …` aus dem `catch` um `setRepeatingRequest`/`drawSurface`. Der
+     * zweite Text ist die Signatur aus #336 (VIVID-43, 20 Events,
+     * `CAMERA_DISCONNECTED (2)`) und bekam bis 06.11.2026 **keine**
+     * Wiederholung, obwohl das Einmal-Budget längst existierte — es hing am
+     * falschen Text (`docs/sentry-issues.md` §5.16).
+     */
+    private fun isIdleSessionFailure(error: String): Boolean =
+        error.startsWith(CONFIGURE_FAILED) || error.startsWith(CREATE_SESSION_FAILED)
+
+    /**
+     * Loggt einen Fehler der Idle-Vorschau mit Pfad-Angabe und Kontext.
+     *
+     * Fehlerzeile und Breadcrumb sind für [idlePreviewCallbacks.onCameraError]
+     * und [idlePreviewCallbacks.onCameraDisconnected] dieselben: eine Trennung
+     * ist derselbe Befund wie eine gescheiterte Session, nur früher im Ablauf.
+     */
+    private fun logIdleCameraError(preview: Camera2ApiManager, error: String) {
+        Timber.w(
+            "Camera error context: %s",
+            describeCameraError(
+                path = CameraErrorPath.IDLE_PREVIEW,
+                cameraId = preview.getCurrentCameraId(),
+                isStreaming = camera?.isStreaming == true,
+                isRecording = camera?.isRecording == true,
+                environment = cameraEnvironment(),
+                request = IDLE_PREVIEW_REQUEST,
+            ),
+        )
+        Timber.e("Idle camera: %s", error)
+    }
+
     private fun idlePreviewCallbacks(preview: Camera2ApiManager): com.pedro.encoder.input.video.CameraCallbacks =
         object : com.pedro.encoder.input.video.CameraCallbacks {
             override fun onCameraOpened() {
@@ -1833,24 +1869,22 @@ class StreamingEngine @Inject constructor(
                     return
                 }
                 sceneCameraAvailable.set(false)
-                Timber.w(
-                    "Camera error context: %s",
-                    describeCameraError(
-                        path = CameraErrorPath.IDLE_PREVIEW,
-                        cameraId = preview.getCurrentCameraId(),
-                        isStreaming = camera?.isStreaming == true,
-                        isRecording = camera?.isRecording == true,
-                        environment = cameraEnvironment(),
-                        request = IDLE_PREVIEW_REQUEST,
-                    ),
-                )
-                Timber.e("Idle camera: %s", error)
-                if (error.startsWith(CONFIGURE_FAILED)) retryIdlePreviewOnce(preview)
+                logIdleCameraError(preview, error)
+                if (isIdleSessionFailure(error)) retryIdlePreviewOnce(preview)
             }
 
             override fun onCameraDisconnected() {
+                // Bis 06.11.2026 war dieser Zweig stumm: nur der Zustand wurde
+                // gesetzt, kein Log. Der Stream-Pfad meldet `disconnected` seit
+                // A4 — deshalb existiert zu #336 (VIVID-43) keine
+                // `Idle camera: disconnected`-Gruppe, obwohl die Meldung des
+                // Tickets eine Trennung beschreibt. Bewusst ohne Wiederholung:
+                // eine Trennung heißt, ein anderer Client hält die Kamera; ein
+                // sofortiger Reopen verbraucht das Einmal-Budget und erzeugt
+                // nur einen weiteren Fehler (§5.16).
                 if (idlePreviewCamera !== preview) return
                 sceneCameraAvailable.set(false)
+                logIdleCameraError(preview, IDLE_DISCONNECTED)
             }
         }
 
@@ -3040,6 +3074,19 @@ class StreamingEngine @Inject constructor(
 
 /** Fehlertext von `Camera2ApiManager.onConfiguredFailed` (RootEncoder 2.7.5, #350). */
 private const val CONFIGURE_FAILED = "Configuration failed"
+
+/**
+ * Fehlertext von `Camera2ApiManager.startPreview`, wenn `setRepeatingRequest`
+ * oder `drawSurface`/`createCaptureSession` werfen (RootEncoder 2.7.5, #336).
+ *
+ * Der Text trägt die Ursache als Suffix, typisch
+ * `CAMERA_DISCONNECTED (2): checkPidStatus:2802: …`. Verglichen wird deshalb
+ * nur der stabile Präfix.
+ */
+private const val CREATE_SESSION_FAILED = "Create capture session failed"
+
+/** Meldung für `CameraCallbacks.onCameraDisconnected()` im Vorschau-Pfad. */
+private const val IDLE_DISCONNECTED = "disconnected"
 
 /**
  * Angeforderte Parameter der Idle-Vorschau. Eine einzige Quelle für Aufbau,
