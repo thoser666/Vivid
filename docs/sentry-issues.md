@@ -513,7 +513,8 @@ failed`, `Camera recover exhausted (available:0)`. Alle tragen **eine** Nutzerin
 und **ein** Gerät (`V2454A`, das dokumentierte Entwicklungsgerät), Level
 `error` (kein Crash), Builds `0.5.46`–`0.5.74-beta`. Die Ausnahmen: VIVID-4T
 (#374, `ApplicationNotResponding`, fatal, 1 Event), VIVID-43 (#336, 20 Events,
-`CAMERA_DISCONNECTED`) und VIVID-46 (#350, 10 Events, Idle-Kamera-Config).
+`CAMERA_DISCONNECTED` — eigener Befund in §5.16) und VIVID-46 (#350, 10 Events,
+Idle-Kamera-Config).
 
 **Verdikt:** erwarteter Gerätezustand auf einem Gerät, dessen Kamera während der
 Entwicklung von anderen Prozessen belegt/getrennt wird — kein App-Defekt, keine
@@ -893,6 +894,84 @@ genau `1280×720@30`, sie fordert **nie** mehr als 30 fps (weder an
 (05.11.2026):** `IDLE_PREVIEW_FPS` auf 60 gesetzt → beide
 Anforderungs-Prüfungen rot; `request = IDLE_PREVIEW_REQUEST` entfernt →
 Breadcrumb-Prüfung rot; jeweils zurückgebaut → grün.
+
+### 5.16 `#336` (VIVID-43, `CAMERA_DISCONNECTED`): der Fehlerzweig ohne Wiederholung (06.11.2026)
+
+**Behauptung des Tickets geprüft.** #336 ist die einzige Fundstelle, die §5.10
+als echten Defekt führt (Ausnahme von der Rollum-Regel), hatte aber noch keinen
+eigenen Befund — nur Querverweise auf #350. Geprüft wurde deshalb nicht die
+Meldung, sondern der Code, der sie erzeugt.
+
+**Befund (Quellenlesung RootEncoder 2.7.5, Tag `2.7.5`,
+`encoder/src/main/java/com/pedro/encoder/input/video/Camera2ApiManager.kt`).**
+`startPreview()` meldet einen gescheiterten Session-Aufbau mit **zwei**
+verschiedenen Texten:
+
+- `Configuration failed` aus `onConfigureFailed` (Session-Callback),
+- `Create capture session failed: <message>` aus dem `catch` um
+  `setRepeatingRequest` (innerhalb `onConfigured`) bzw. um
+  `drawSurface`/`createCaptureSession` (äußerer `catch`).
+
+`Open camera <id> failed` / `Open camera failed: <n>` kommen dagegen aus
+`openCameraId()`/`onError()` — ein anderer Vorgang, kein Session-Aufbau.
+
+**Der Defekt.** `idlePreviewCallbacks.onCameraError` wiederholte über
+`retryIdlePreviewOnce()` nur bei `error.startsWith(CONFIGURE_FAILED)`. Die
+Signatur aus #336 — `Create capture session failed: CAMERA_DISCONNECTED (2):
+checkPidStatus:2802: …`, 20 Events — fällt nicht darunter: derselbe Callback,
+dieselbe Bedeutung („die Session kam nicht zustande"), aber **keine**
+Wiederholung. Das Einmal-Budget existierte seit #350; es hing am falschen Text.
+
+**Zweite Lücke, gleiche Stelle.** `onCameraDisconnected()` setzte im
+Vorschau-Pfad nur `sceneCameraAvailable = false` — kein Log, kein Breadcrumb.
+Der Stream-Pfad meldet `disconnected` seit A4
+(`reportCameraError(STREAM, "disconnected", …)`), der Vorschau-Pfad nicht.
+Deshalb gibt es zu #336 keine `Idle camera: disconnected`-Gruppe, obwohl die
+Meldung des Tickets eine Trennung beschreibt: die Events kamen ausschließlich
+über den Session-Text.
+
+**Was jetzt gilt.**
+
+1. `isIdleSessionFailure(error)` deckt beide Texte ab; `retryIdlePreviewOnce()`
+   läuft für `Configuration failed` **und** `Create capture session failed: …`.
+   Budget unverändert: ein Wiederaufbau pro Vorschau-Aufbau, Ausführung im
+   seriellen Hintergrund-Scope (§5.13), Identitätsprüfung auf die aktuelle
+   Vorschau bleibt.
+2. `logIdleCameraError()` ist die gemeinsame Meldung für Fehler **und**
+   Trennung: `Timber.w`-Breadcrumb (`path=idlePreview`, Kamera-Id, verfügbare
+   Ids, `request=1280x720@30fps`) plus stabile Fehlerzeile `Idle camera: …`,
+   bei einer Trennung `Idle camera: disconnected`. Die bestehende Gruppierung
+   (`Idle camera: <RootEncoder-Text>`) bleibt unverändert (§5.12).
+3. **Bewusst keine Wiederholung bei einer Trennung.** Eine Trennung heißt, ein
+   anderer Client hält die Kamera; ein sofortiger Reopen verbraucht das
+   Einmal-Budget und erzeugt nur ein weiteres Fehler-Event in genau der Klasse,
+   die das Sammel-Issue bündelt. Wiederherstellung nach einer Trennung braucht
+   weiterhin ein neues Surface oder eine neue Größe — `attachPreview` baut die
+   Vorschau neu auf, sobald `idlePreviewSurface`/`idlePreviewSize` abweichen.
+
+**Beleg.** Neu `StreamingEngineIdleCameraErrorTest` (7 Tests): der #336-Text
+löst genau eine Wiederholung aus, `Configuration failed` weiterhin genau eine
+(Negativkontrolle Bestand), `Open camera 0 failed` löst **keine** aus
+(Negativkontrolle gegen Überdehnung), zwei Fehler verbrauchen nur ein Budget,
+eine Trennung erzeugt Kontext-Breadcrumb und `Idle camera: disconnected`, eine
+abgelöste Vorschau meldet nichts und wiederholt nichts, und nach einem
+Neuaufbau wiederholt die aktuelle Vorschau weiter.
+
+**Mutationsproben (06.11.2026):** `isIdleSessionFailure` auf
+`startsWith(CONFIGURE_FAILED)` zurückgebaut → 3 rot (Session-Fehler, Budget,
+Neuaufbau), die beiden Negativkontrollen grün;
+`logIdleCameraError(…, IDLE_DISCONNECTED)` entfernt → genau der
+Trennungstest rot; Prädikat auf `true` → genau die Negativkontrolle
+„Open failure" rot; jeweils zurückgebaut → `TESTS_RC=0`.
+
+**Grenze.** Dass die Wiederholung unter der gemeldeten Belegung **gelingt**,
+ist nicht gezeigt: #336 nennt vorausgehend `Open camera failed: 4`
+(`ERROR_MAX_CAMERAS_IN_USE`), also hielt ein anderer Prozess die Kamera. Der
+Wiederholungsversuch ist deshalb eine Chance, kein Versprechen; scheitert er,
+bleibt es bei einem Fehler-Event (Budget) statt einer Schleife. Ein
+Gerätenachweis fehlt (die Quelle ist die V2454A, nicht das Testgerät), und
+`CameraManager.AvailabilityCallback` ist weiterhin nicht verdrahtet — die
+Vorschau wartet nicht auf die Rückkehr der Kamera.
 
 ## 6. Sicherheit
 
