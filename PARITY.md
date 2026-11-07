@@ -280,6 +280,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 
 | Datum | Commit | Änderung |
 |-------|--------|----------|
+| 2026-11-07 | `cfcaace` | **Release-Alter je erfasster Gruppe im Watchdog (§5.21)** — neue `RELEASE_AGE:`-Zeile (Release, Abstand in versionCodes, `newest|behind|stale`, Schwelle `SENTRY_RELEASE_AGE_STALE`) über dieselbe read-only Event-Route wie `--print-event-tags`; unlesbar bleibt `unknown`. I28 belegt Vertrag, Sortierung und Schwelle; ein CRLF-Fehler in der SID-Liste fiel dabei vor dem Push auf. |
 | 2026-11-07 | `4144ca7` | **VIVID-57 auf den Kamerawechsel zurückgeführt (§5.20)** — der Stack ist `switchCamera` → `openCameraId` über den STREAM-Pfad; beide Aufrufstellen schalten die Stream-Kamera auf die Linse der Idle-Vorschau, **bevor** `stopIdlePreview()` sie freigibt. Probe-Test zeigt `[switch, close]` statt `[close, switch]`, danach entfernt; Doku hält Befund und Behebungsrichtung fest. |
 | 2026-11-07 | `445a77b` | **Release-Spur der Kamera-Klasse belegt (39 Gruppen)** — lokal antworten beide Token mit 403, also lief der Nachweis ueber den read-only Dispatch des Watchdogs (`event_tags` → `--print-event-tags`): alle Gruppen lesbar, jüngstes Event je Gruppe zwischen `0.5.21-beta+5212` und `0.5.89-beta+5789`; acht Gruppen feuerten noch zwischen 31.10. und 06.11. (§5.19). |
 | 2026-11-07 | `821c27d` | **Der Watchdog nennt das Letztgesehen bereits erfasster Gruppen** — vor der Summary steht je erfasster Sentry-Gruppe eine `RECORDED_GROUP:`-Zeile (shortId, lastSeen, Events, Titel, neueste zuerst) aus derselben Issues-Abfrage; bisher zaehlte nur die Zahl, ein weiter feuernder Report sah wie Ruhe aus. Selbsttest I27, Mutationsprobe (Ausgabe entfernt → I27 rot), §5.17 fortgeschrieben. |
@@ -699,6 +700,7 @@ Commit die Log-Zeile hinzufügte:
 | 2026-11-07 | `821c27d` | feat(sentry): print lastSeen for already recorded groups | `821c27d` | Direkter develop-Commit (kein PR) |
 | 2026-11-07 | `445a77b` | docs(sentry): document the camera class release track | `445a77b` | Direkter develop-Commit (kein PR) |
 | 2026-11-07 | `4144ca7` | docs(sentry): trace VIVID-57 to the lens switch before idle close | `4144ca7` | Direkter develop-Commit (kein PR) |
+| 2026-11-07 | `cfcaace` | feat(sentry): print the release age per recorded group | `cfcaace` | Direkter develop-Commit (kein PR) |
 | 2026-11-07 | `dc48af1` | feat(streaming): let a preparing start be aborted (#416) | `dc48af1` | Direkter develop-Commit (kein PR) |
 | 2026-11-07 | `45041540` | docs(sentry): record the camera class recency evidence | `45041540` | Direkter develop-Commit (kein PR) |
 | 2026-11-05 | `a6f1503` | fix(streaming): pin the idle preview request and name it in the error breadcrumb | `a6f1503` | Direkter develop-Commit (kein PR) |
