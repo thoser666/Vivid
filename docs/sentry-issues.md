@@ -1154,6 +1154,79 @@ Aussage über den A1-Umbau ist damit nicht verbunden. Lokal bleibt es beim 403 a
 Token — wer die Diagnose lokal fahren will, legt den Token in der Sentry-Oberfläche an
 und trägt ihn als `issues.token` in `sentry.properties` ein (gitignored, nie im Chat).
 
+### 5.20 VIVID-57: der Kamerawechsel startet vor dem Schließen der Idle-Sitzung (07.11.2026)
+
+**Die Gruppe.** `VIVID-57` (SID `7822620409`), 14 Events, jüngster Event
+**2026-11-06T07:43:11**, Release `com.vivid@0.5.89-beta+5789`, V2454A/Android 16,
+Titel „Camera error (idlePreview=false): Open camera 0 failed“ — die einzige
+Kamera-Gruppe, deren jüngster Event auf dem **neuesten Build des ganzen Satzes**
+liegt (§5.19: alle anderen zwischen `0.5.68-beta+5684` und `0.5.88-beta+5788`).
+
+**Der Stack ist der Befund.** Ein `event_stack`-Dispatch auf die SID (Run
+**42363575751**) liefert keinen Ausnahmetyp, sondern einen Thread-Dump des
+Main-Threads mit der Bibliotheks-Kette:
+
+```
+onCameraError  ←  openCameraId  ←  reOpenCamera  ←  switchCamera  ←  run  ←  Handler.handleCallback
+```
+
+Die App-Frames sind in diesem Build verschleiert (`r8-map-id-…`), die
+RootEncoder-Namen nicht. Der Fehler kommt also **nicht** aus einem Streamstart
+und nicht aus der Vorschau, sondern aus einem `switchCamera`-Aufruf, dessen
+`openCameraId` scheitert — gemeldet über den STREAM-Pfad, daher
+`idlePreview=false`.
+
+**Der Pfad im Code.** `syncSelectedCamera(cam)` holt die gewählte Linse aus der
+Idle-Vorschau und schaltet die **Stream**-Kamera darauf:
+
+```kotlin
+private fun syncSelectedCamera(cam: MultiCamera2) {
+    val selectedId = idlePreviewCamera?.getCurrentCameraId() ?: return
+    if (selectedId != cam.currentCameraId) cam.switchCamera(selectedId)
+}
+```
+
+Beide Aufrufstellen — `startCameraStream()` und
+`prepareStandaloneRecording()` — rufen das **vor** `stopIdlePreview()` auf, und
+das ist kein Zufall: die Ziellinse steht nur solange zur Verfügung, wie die
+Idle-Kamera offen ist. Damit zielt der Wechsel genau auf die Kamera, die die
+**eigene** Idle-Sitzung in diesem Moment noch hält. RootEncoder stellt den
+Open in seinen Camera-Handler ein (`switchCamera` → `reOpenCamera` →
+`openCameraId`, im Stack als `run`/`handleCallback` sichtbar); gewinnt dieser
+Task das Rennen gegen das direkt folgende `closeCamera()` aus
+`stopIdlePreview()`, antwortet Camera2 mit `Open camera <id> failed` und
+`onCameraError` meldet das als STREAM-Fehler. Der Stack zeigt genau diesen
+Zweig.
+
+**Beleg am Code, nicht am Gefühl.** Ein temporärer Test im
+`StreamingEngineTest` (Vorbild: `idle selected lens is transferred before
+checking capture capabilities`) protokolliert die Reihenfolge von
+`idle.closeCamera()` und `camera.switchCamera(...)` beim Streamstart und
+erwartet `[close, switch]`:
+
+```
+expected: <[close, switch]> but was: <[switch, close]>
+```
+
+Rot wie erwartet — der Wechsel wird vor dem Schließen ausgelöst. Der Test wurde
+danach wieder entfernt; dieser Commit ändert **kein** Verhalten, er hält nur
+den Befund fest. Die Reihenfolge stammt aus `c2aafec8` (2026-10-03, „match
+streaming profile to selected camera capabilities“) und liegt damit in jedem
+Build seit Anfang Oktober — inklusive des neuesten, weshalb die Gruppe als
+einzige weiter feuert: die anderen sieben Gruppen stehen auf Builds, die 1 bis
+105 Codes älter sind.
+
+**Richtung einer Behebung (nicht umgesetzt).** Die Ziellinse vor dem Schließen
+lesen, dann `stopIdlePreview()`, **dann** `switchCamera` — an beiden
+Aufrufstellen. Solange das offen ist, bleibt die Gruppe zu Recht offen.
+
+**Offen.** Der Build `0.5.89-beta+5789` steht in keiner Release-Liste des Repos
+(dort endet es bei `v0.5.49-beta`/Code 5494 und `0.5.49-nightly.701`); die
+Leiter `0.5.68`–`0.5.89-beta` (Codes 5684–5789) ist also nicht über die
+dokumentierte Pipeline entstanden. Woher diese Feld-Builds kommen, ist nicht
+geklärt — für den Befund unerheblich, für die Zuordnung Build ↔ Commit aber
+relevant.
+
 ## 6. Sicherheit
 
 - Token getrennt vom CI-Mapping-Token (`auth.token`) — getrennte Scopes,
