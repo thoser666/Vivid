@@ -1022,10 +1022,21 @@ Marker in #412 lassen sie als „bereits erfasst" durchlaufen; `lastSeen` druckt
 das Script nur für neue Kandidaten. Eine regressierte, markierte Gruppe bleibt
 in der Zählung unsichtbar — 22 statt 25 heißt also nicht „ereignisfrei".
 
-**Offener Schritt.** Für die Ereignisebene braucht es einen Lese-Token
-(`project:read` + `event:read`, `docs/sentry-stats.md`); dann liefert
-`--print-event-tags <SID>[,<SID>…]` die Release-Spur des jüngsten Events pro
-Gruppe. Die Leselücke selbst ist der Befund dieses Abschnitts.
+**Behoben (07.11.2026): die Ereignisebene ist nicht mehr blind.** Der
+Watchdog druckt vor der Summary je bereits erfasster Gruppe eine Zeile
+`RECORDED_GROUP: <shortId> | <lastSeen> | <Events> | <Titel>` (neueste
+zuerst) — aus derselben Issues-Abfrage, ohne zusätzliche Request. Damit steht
+in jedem Lauf-Log, wann eine erfasste Gruppe zuletzt gefeuert hat, und die
+Zahl „22" ist nicht mehr die einzige Auskunft. Beleg: Selbsttest I27
+(zwei erfasste Gruppen mit Letztgesehen, Reihenfolge neueste zuerst, ein neuer
+Kandidat taucht dort nicht auf). Die Mutationsprobe (Ausgabe-Zeile entfernt →
+I27 rot, zurückgebaut → grün) belegt, dass der Test an der Ausgabe hängt.
+
+**Offen bleibt die Detail-Ebene.** Für Release-Spur und Stack pro Gruppe
+braucht es weiterhin einen Lese-Token (`project:read` + `event:read`,
+`docs/sentry-stats.md`); dann liefert `--print-event-tags <SID>[,<SID>…]` die
+Version des jüngsten Events. Die lokale Leselücke (403 auf beiden Token in
+`sentry.properties`) bleibt der zweite Befund dieses Abschnitts.
 
 **Grenze.** Alles oben ist Group-Ebene aus CI-Logs, keine Gerätemessung; die
 Quelle der Klassen-Events ist die V2454A, #336 (`CAMERA_DISCONNECTED`) und

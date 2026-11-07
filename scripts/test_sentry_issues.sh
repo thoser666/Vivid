@@ -56,6 +56,9 @@
 #       kein ghstatus-Verbrauch)
 #   I26 Ausnahmen (§5.10) bleiben Einzel-Issues: CAMERA_DISCONNECTED und
 #       fehlgeschlagene Konfiguration dürfen nicht im Sammel-Issue verschwinden
+#   I27 Ereignisebene der bereits erfassten Gruppen: jede bekommt eine
+#       `RECORDED_GROUP:`-Zeile mit Letztgesehen/Events (neueste zuerst);
+#       neue Kandidaten erscheinen dort nicht (nur als CANDIDATE)
 #   I20 Read-only Diagnosemodus --print-event-stack: Exception-/Thread-Kette
 #       des Latest-Events (Typ/Wert + Frames, neueste zuerst, in_app-Marker),
 #       403-/Fixture-Fallback, ungueltige SID, Threads-Form (ANR/nativ);
@@ -517,4 +520,35 @@ grep -q "^CANDIDATE: 903" <<<"$out_r26" || fail "I26: VIVID-43 (CAMERA_DISCONNEC
 grep -q "^CANDIDATE: 904" <<<"$out_r26" || fail "I26: VIVID-46 (Configuration failed) muss kandidieren"
 grep -q "^CANDIDATE: 905" <<<"$out_r26" && fail "I26: Geraetezustands-Variante darf nicht kandidieren"
 grep -qE "^ROLLUP: 1 neue Kamera-Gruppe\(n\)" <<<"$out_r26" || fail "I26: nur die Geraetezustands-Variante gehoert ins Sammel-Issue"
-echo "✅ [sentry-issues-test] Sentry-Issues-Guard vertragstreu (I1–I26)."
+# I27 bereits erfasste Gruppen tragen ihr Letztgesehen ins Lauf-Log
+mkdir -p "$tmp/i27"
+cat > "$tmp/i27/issues.json" <<'JSON'
+[
+  {"id": "300", "shortId": "VIVID-23", "title": "Schon erfasst, feuert weiter", "status": "unresolved",
+   "level": "warning", "count": 9, "userCount": 5, "firstSeen": "2026-09-20T00:00:00Z",
+   "lastSeen": "2026-09-26T09:00:00Z", "metadata": {}, "tags": []},
+  {"id": "301", "shortId": "VIVID-25", "title": "Schon erfasst, laenger ruhig", "status": "unresolved",
+   "level": "error", "count": 2, "userCount": 1, "firstSeen": "2026-08-01T00:00:00Z",
+   "lastSeen": "2026-08-02T05:00:00Z", "metadata": {}, "tags": []},
+  {"id": "100", "shortId": "VIVID-21", "title": "Neu und noch nicht erfasst", "status": "unresolved",
+   "level": "error", "count": 1, "userCount": 1, "lastSeen": "2026-09-27T11:00:00Z",
+   "metadata": {}, "tags": []}
+]
+JSON
+cat > "$tmp/i27/ghissues.json" <<'JSON'
+[{"number": 42, "pull_request": false, "body": "<!-- vivid-sentry-issue: 300 -->"},
+ {"number": 43, "pull_request": false, "body": "<!-- vivid-sentry-issue: 301 -->"}]
+JSON
+echo 201 > "$tmp/i27/ghstatus"
+out_r27=$(SENTRY_ISSUES_FIXTURE="$tmp/i27" bash "$guard") || fail "I27: Lauf darf nicht scheitern"
+grep -qF "RECORDED_GROUP: VIVID-23 | 2026-09-26T09:00:00 | 9 | Schon erfasst, feuert weiter" <<<"$out_r27" || \
+  fail "I27: Letztgesehen der bereits erfassten Gruppe fehlt"
+grep -qF "RECORDED_GROUP: VIVID-25 | 2026-08-02T05:00:00 | 2 |" <<<"$out_r27" || \
+  fail "I27: zweite erfasste Gruppe fehlt"
+grep -q "RECORDED_GROUP: VIVID-21" <<<"$out_r27" && \
+  fail "I27: ein neuer Kandidat gehoert nicht in die Letztgesehen-Liste"
+line_newer=$(grep -n "RECORDED_GROUP: VIVID-23" <<<"$out_r27" | cut -d: -f1)
+line_older=$(grep -n "RECORDED_GROUP: VIVID-25" <<<"$out_r27" | cut -d: -f1)
+[ "$line_newer" -lt "$line_older" ] || fail "I27: neuestes Letztgesehen muss zuerst stehen"
+grep -q "^CANDIDATE: 100" <<<"$out_r27" || fail "I27: der neue Report muss weiter kandidieren"
+echo "✅ [sentry-issues-test] Sentry-Issues-Guard vertragstreu (I1–I27)."

@@ -20,6 +20,10 @@
 #
 # Verdicts (bewusst KEIN Gate-Blocker — fehlender Token/Netz ist neutral):
 #   OK     — N Issue(s) neu als GitHub-Issue erstellt / alle bereits erfasst
+#            Vor der Summary steht je bereits erfasster Gruppe eine Zeile
+#            `RECORDED_GROUP: <shortId> | <lastSeen> | <Events> | <Titel>`
+#            (neueste zuerst) — sonst bliebe die Ereignisebene unsichtbar: ein
+#            Report, der weiter feuert, zaehlt in derselben Zahl wie ein ruhiger.
 #   SKIP   — kein Sentry-Token, kein GitHub-Token, HTTP 401/403/Netz
 #   FEHLER — unverständliche API-Antwort oder Aufruf-Fehler (exit 1)
 #
@@ -515,6 +519,7 @@ def norm_head(s):
 candidates = []
 rollup_rows = []
 already_reported = 0
+recorded_rows = []
 for it in issues:
     if not isinstance(it, dict):
         continue
@@ -523,6 +528,16 @@ for it in issues:
     sid = str(it.get("id", "?"))
     if sid in existing_markers:
         already_reported += 1
+        # Ereignisebene (§5.17): fuer bereits erfasste Gruppen blieb lastSeen
+        # bisher unsichtbar — eine Gruppe, die weiter feuert, sah im Lauf wie
+        # Ruhe aus. Die Felder werden hier direkt gelesen, weil die ausfuehrliche
+        # Auswertung erst nach dem Dedup-Zweig folgt.
+        recorded_rows.append({
+            "short": str(it.get("shortId") or ("SID-" + sid)),
+            "last": str(it.get("lastSeen") or "-"),
+            "count": str(it.get("count") or "0"),
+            "title": norm_head(str(it.get("title") or "Unbekannter Fehler"))[:150],
+        })
         continue
     title = str(it.get("title") or "Unbekannter Fehler")
     if len(title) > 120:
@@ -664,6 +679,11 @@ if rollup_rows:
 
 print("CAMERA_ROLLUP=%d" % len(rollup_rows))
 print("ROLLUP_ISSUE=%s" % rollup_number)
+if recorded_rows:
+    recorded_rows.sort(key=lambda r: r["last"], reverse=True)
+    for r in recorded_rows:
+        print("RECORDED_GROUP: %s | %s | %s | %s" % (
+            r["short"], r["last"][:19], r["count"], r["title"]))
 print("Sentry: %d unresolved geprüft | bereits erfasst: %d | neu: %d" % (
     len(issues), already_reported, len(candidates)))
 print("WOULD_ISSUE=%d" % len(candidates))
