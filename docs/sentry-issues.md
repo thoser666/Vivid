@@ -976,6 +976,60 @@ Gerätenachweis fehlt (die Quelle ist die V2454A, nicht das Testgerät), und
 `CameraManager.AvailabilityCallback` ist weiterhin nicht verdrahtet — die
 Vorschau wartet nicht auf die Rückkehr der Kamera.
 
+### 5.17 Recency-Beleg der Kamera-Klasse: kein neuer Zweig, Ereignisebene offen (07.11.2026)
+
+**Frage.** Hat die Kamera-Klasse seit dem Bündeln (04.11.2026, §5.14) noch
+Ereignisse erzeugt? Der Beleg sollte aus dem Watchdog selbst kommen, also aus
+einem Dry-Run.
+
+**Der Dry-Run läuft lokal nicht.** `bash scripts/check_sentry_issues.sh
+--dry-run` endet mit `SKIP: Sentry-Token ohne Lesescopes — project:read nötig`
+(HTTP 403); `--print-event-tags 7812865315,7821630074` liefert
+`EVENT_TAGS …: not readable (HTTP 403)`; `check_sentry_stats.sh` ebenfalls
+`SKIP … project:read + event:read nötig`. Die beiden Token in
+`sentry.properties` (`issues.token`, `auth.token`) haben keine Lesescopes —
+ein SKIP ist kein Befund, deshalb steht hier der Ersatzweg.
+
+**Ersatzbeleg: der stündliche CI-Lauf mit lesendem Secret.** Zwölf Läufe des
+Workflows `Automation / Sentry Issues Watchdog` zwischen 04.11. 01:27 und
+07.11. 02:55, alle `success`, alle mit `neu: 0`:
+
+| Lauf | Zeit (UTC) | unresolved | bereits erfasst | neu | CAMERA_ROLLUP |
+|---|---|---|---|---|---|
+| 41754132877 | 04.11. 01:27 | 25 | 25 | 0 | — (vor `404f020`) |
+| 41807339568 | 04.11. 09:25 | 25 | 25 | 0 | 0 |
+| 41882915254 | 04.11. 18:01 | 24 | 24 | 0 | 0 |
+| 41936140898 | 04.11. 23:44 | 24 | 24 | 0 | 0 |
+| 41983810582 | 05.11. 06:56 | 23 | 23 | 0 | 0 |
+| 42056221701 | 05.11. 15:33 | 23 | 23 | 0 | 0 |
+| 42118289655 | 05.11. 22:04 | 23 | 23 | 0 | 0 |
+| 42150841417 | 06.11. 02:31 | 23 | 23 | 0 | 0 |
+| 42207266995 | 06.11. 11:02 | 22 | 22 | 0 | 0 |
+| 42267184478 | 06.11. 18:03 | 22 | 22 | 0 | 0 |
+| 42310509244 | 06.11. 23:14 | 22 | 22 | 0 | 0 |
+| 42331500711 | 07.11. 02:55 | 22 | 22 | 0 | 0 |
+
+**Was das belegt.** Seit dem Bündeln ist **keine neue Kamera-Gruppe** der
+Klasse entstanden: `CAMERA_ROLLUP=0` in jedem Lauf mit Rollup-Marker (11 von
+12; der erste Lauf predatet `404f020`), und #412 hat keinen
+Varianten-Kommentar bekommen. Die Zahl offener Gruppen fällt von 25 auf 22,
+während `neu: 0` bleibt — Gruppen verlassen `unresolved`, ohne dass neue
+nachrücken.
+
+**Was es nicht belegt.** Ereignisse in den bereits erfassten Gruppen. Die 36
+Marker in #412 lassen sie als „bereits erfasst" durchlaufen; `lastSeen` druckt
+das Script nur für neue Kandidaten. Eine regressierte, markierte Gruppe bleibt
+in der Zählung unsichtbar — 22 statt 25 heißt also nicht „ereignisfrei".
+
+**Offener Schritt.** Für die Ereignisebene braucht es einen Lese-Token
+(`project:read` + `event:read`, `docs/sentry-stats.md`); dann liefert
+`--print-event-tags <SID>[,<SID>…]` die Release-Spur des jüngsten Events pro
+Gruppe. Die Leselücke selbst ist der Befund dieses Abschnitts.
+
+**Grenze.** Alles oben ist Group-Ebene aus CI-Logs, keine Gerätemessung; die
+Quelle der Klassen-Events ist die V2454A, #336 (`CAMERA_DISCONNECTED`) und
+#350 bleiben inhaltlich offen.
+
 ## 6. Sicherheit
 
 - Token getrennt vom CI-Mapping-Token (`auth.token`) — getrennte Scopes,
