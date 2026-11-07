@@ -2,6 +2,7 @@ package com.vivid.feature.streaming
 
 import android.view.MotionEvent
 import android.view.View
+import com.vivid.core.data.StabilizationMode
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -35,6 +36,13 @@ import org.junit.jupiter.api.Test
 class ActiveCameraControlsTest {
 
     private val guard = CameraSessionGuard()
+
+    @Test
+    fun `camera free scene keeps saved stabilization controls neutral`() {
+        val controls = ActiveCameraControls(guard) { null }
+        assertEquals(setOf(StabilizationMode.OFF), controls.supportedStabilizationModes())
+        assertFalse(controls.setStabilizationMode(StabilizationMode.CINEMATIC))
+    }
 
     @Test
     fun `scene without a camera answers the documented neutral values`() {

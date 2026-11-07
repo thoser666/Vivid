@@ -21,6 +21,7 @@ import android.util.Range
  * - [HD30]: 720p @ 30 fps (schwache Geräte / Uploads)
  * - [SD30]: 480p @ 30 fps (Notfall-Fallback)
  */
+@kotlinx.serialization.Serializable
 enum class EncoderPreset(
     val width: Int,
     val height: Int,
@@ -48,6 +49,7 @@ enum class EncoderPreset(
  * Die feature-streaming-Schicht mappt die Werte auf `com.pedro.common.VideoCodec`.
  * [AUTO] heißt: HEVC, wenn die Hardware es kann, sonst H.264 (Fallback-Kette).
  */
+@kotlinx.serialization.Serializable
 enum class VideoCodecPreference {
     AUTO,
     H264,
@@ -131,6 +133,7 @@ fun resolveEncoderConfig(
     preference: VideoCodecPreference,
     preset: EncoderPreset,
     capabilities: EncoderCapabilities,
+    fps: Int = preset.fps,
 ): ResolvedEncoderConfig {
     val codecChain: List<VideoCodecPreference> = when (preference) {
         VideoCodecPreference.AUTO -> listOf(VideoCodecPreference.H265, VideoCodecPreference.H264)
@@ -152,15 +155,16 @@ fun resolveEncoderConfig(
     for (codec in codecChain) {
         val mime = codec.toMimeType()
         if (mime.isEmpty()) continue
-        if (capabilities.supports(mime, preset.width, preset.height, preset.fps)) {
+        if (capabilities.supports(mime, preset.width, preset.height, fps)) {
             return ResolvedEncoderConfig(
                 codec,
                 preset,
                 fallbackApplied = codec != wishedCodec,
+                fps = fps,
             )
         }
         val smaller = presetChain.firstOrNull {
-            capabilities.supports(mime, it.width, it.height, it.fps)
+            capabilities.supports(mime, it.width, it.height, minOf(it.fps, fps))
         }
         if (smaller != null) {
             // Fallback, wenn das Preset abgestuft wurde ODER der Codec vom
@@ -168,7 +172,8 @@ fun resolveEncoderConfig(
             return ResolvedEncoderConfig(
                 codec,
                 smaller,
-                fallbackApplied = smaller != preset || codec != wishedCodec,
+                fallbackApplied = smaller != preset || codec != wishedCodec || minOf(smaller.fps, fps) != fps,
+                fps = minOf(smaller.fps, fps),
             )
         }
     }
@@ -179,6 +184,7 @@ fun resolveEncoderConfig(
         codec = VideoCodecPreference.H264,
         preset = preset,
         fallbackApplied = preference != VideoCodecPreference.H264,
+        fps = fps,
     )
 }
 
@@ -188,4 +194,5 @@ data class ResolvedEncoderConfig(
     val preset: EncoderPreset,
     /** true = Geräte-Fähigkeiten haben Codec/Preset abweichend vom Wunsch gesetzt. */
     val fallbackApplied: Boolean,
+    val fps: Int = preset.fps,
 )

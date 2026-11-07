@@ -80,7 +80,12 @@ class PrivacyComposer(
             null
         }
     },
+    private val emptySourceRenderFactory: () -> BaseFilterRender = { com.pedro.encoder.input.gl.render.filters.BlackFilterRender() },
 ) {
+
+    @Volatile var sceneEmpty: Boolean = false
+    var sceneLayerFactory: ((GlStreamInterface, () -> Boolean) -> com.vivid.feature.streaming.scene.SceneLayerFilterRender)? = null
+    private val sceneLayers = java.util.WeakHashMap<GlStreamInterface, com.vivid.feature.streaming.scene.SceneLayerFilterRender>()
 
     /** External GL overlays must survive effect rebuilds in the experimental capture path. */
     @Volatile var preserveExternalFilters: Boolean = false
@@ -138,6 +143,35 @@ class PrivacyComposer(
     /** Queue a canonical chain for an available owner; retain capture and privacy across updates. */
     @Synchronized
     fun requestRebuild(gl: GlStreamInterface) {
+        val sceneLayer = ensureSceneLayer(gl)
+        val preserve = preserveExternalFilters || sceneLayer != null
+        val desired = desiredEffects(sceneLayer != null)
+
+        val retained = sceneChain?.takeIf { chainOwner === gl && !it.isReleased }
+        if (retained != null) {
+            retained.setChain(desired)
+            if (desired.isEmpty()) {
+                // Return to RootEncoder's unfiltered path rather than keeping an
+                // unnecessary steady-state passthrough pass after scene removal.
+                sceneChain = null
+                gl.removeFilter(retained)
+            }
+        } else if (desired.isNotEmpty()) {
+            lateinit var container: SceneFilterChainRender
+            container = SceneFilterChainRender { retire(gl, container) }
+            container.setChain(desired)
+            // Start with one stable Root slot, including before a scene is active.
+            // Adding a scene never needs to adopt or temporarily duplicate legacy passes.
+            if (preserve) gl.addFilter(0, container) else gl.setFilter(container)
+            sceneChain = container
+        } else {
+            if (!preserve) gl.clearFilters()
+            sceneChain = null
+        }
+        chainOwner = gl
+    }
+
+    private fun desiredEffects(hasSceneLayer: Boolean): List<BaseFilterRender> {
         val desired = mutableListOf<BaseFilterRender>()
         // Privacy precedes creative effects; a camera-free scene is their input.
         if (_privacyEnabled.value) {
@@ -155,28 +189,21 @@ class PrivacyComposer(
         val scene = sceneRenderFactory()
         scene?.let { if (sceneIsInput()) desired.add(0, it) else desired.add(it) }
 
-        val retained = sceneChain?.takeIf { chainOwner === gl && !it.isReleased }
-        if (retained != null) {
-            retained.setChain(desired)
-            if (desired.isEmpty()) {
-                // Return to RootEncoder's unfiltered path rather than keeping an
-                // unnecessary steady-state passthrough pass after scene removal.
-                sceneChain = null
-                gl.removeFilter(retained)
-            }
-        } else if (desired.isNotEmpty()) {
-            lateinit var container: SceneFilterChainRender
-            container = SceneFilterChainRender { retire(gl, container) }
-            container.setChain(desired)
-            // Start with one stable Root slot, including before a scene is active.
-            // Adding a scene never needs to adopt or temporarily duplicate legacy passes.
-            if (preserveExternalFilters) gl.addFilter(0, container) else gl.setFilter(container)
-            sceneChain = container
-        } else {
-            if (!preserveExternalFilters) gl.clearFilters()
-            sceneChain = null
+        if (sceneEmpty && !hasSceneLayer) desired.add(emptySourceRenderFactory())
+
+        return desired
+    }
+
+    /** The final widget/safety pass stays outside the capture/effects container. */
+    private fun ensureSceneLayer(gl: GlStreamInterface): com.vivid.feature.streaming.scene.SceneLayerFilterRender? {
+        val retained = sceneLayers[gl]?.takeUnless { it.released }
+        if (retained != null) return retained
+        sceneLayers.remove(gl)
+        return sceneLayerFactory?.invoke(gl) { sceneEmpty }?.also {
+            sceneLayers[gl] = it
+            // Install the source gate before exposing a new capture/effects chain.
+            gl.addFilter(it)
         }
-        chainOwner = gl
     }
 
     /**

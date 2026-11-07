@@ -582,7 +582,8 @@ Aus §5.1 Punkt 9 folgt, dass der fatale Wurf **app-seitig nicht abfangbar** ist
 vermeiden. `StreamingEngine` prueft deshalb jetzt vor beiden Kamera-Pfaden, ob es die
 angeforderte Kamera gibt (`cameraAvailability`, injizierbar wie `idlePreviewFactory`):
 
-- **Idle-Preview:** `startIdlePreviewIfReady()` prueft `camera?.currentCameraId` (leer =
+- **Idle-Preview:** `startIdlePreviewIfReady()` prueft die aktuell gewaehlte Idle-Kamera
+  (`idlePreviewCamera?.getCurrentCameraId()`, sonst `camera?.currentCameraId`; leer =
   Rueckkamera) **vor** dem GL-Aufbau; fehlt die Kamera, wird die Vorschau gar nicht erst
   aufgebaut (`Timber.w`, kein Crash).
 - **Stream/Recording:** `startCameraStream()` prueft dieselbe Id vor
@@ -594,10 +595,12 @@ angeforderte Kamera gibt (`cameraAvailability`, injizierbar wie `idlePreviewFact
 Rueckkamera); ist die Liste selbst nicht lesbar, bleibt das **Bestandsverhalten** (fail-open) —
 die Pruefung darf funktionierende Geraete nicht blockieren.
 
-**Beleg.** Neu `StreamingEngineCameraGuardTest` (3 Tests): Idle-Preview baut ohne Kamera nichts
+**Beleg.** `StreamingEngineCameraGuardTest` (4 Tests): Idle-Preview baut ohne Kamera nichts
 auf (Factory-Zaehler 0), Streamstart endet in `streaming_error_camera_unavailable` ohne
 `prepareVideo()`/`startStream()`, und eine vorhandene Kamera nimmt den normalen Pfad
-(Negativkontrolle). **Mutationsprobe (02.11.2026):** beide Guards per `false &&` deaktiviert →
+(Negativkontrolle). Die PR-Integration prueft zusaetzlich, dass ein Preview-Rebuild
+die gewaehlte Idle-Linse prueft und bei fehlender Verfuegbarkeit weder Capture
+ersetzt noch die bestehende Kamera schliesst. **Upstream-Mutationsprobe (02.11.2026):** beide Guards per `false &&` deaktiviert →
 `3 tests completed, 2 failed` (die Negativkontrolle blieb gruen), zurueckgebaut → gruen.
 
 **Grenze der Behebung.** Adressiert ist die Familie, in der die Kamera **nicht existiert**

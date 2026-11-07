@@ -1,4 +1,4 @@
-package com.vivid.irlbroadcaster.ui.pomodoro
+package com.vivid.core.data
 
 /** Phase des Pomodoro-Zyklus. */
 enum class PomodoroPhase { WORK, BREAK }
@@ -28,7 +28,7 @@ fun formatMmSs(totalSeconds: Int): String {
 }
 
 /**
- * Reine Zustandsmaschine des In-App-Pomodoro-Timers (PARITY-Zeile 143).
+ * Reine Zustandsmaschine des Pomodoro-Widgets (PARITY-Zeile 143).
  *
  * Kein Alarm/keine Coroutine im Controller: Der Aufrufer treibt ihn per
  * [tick] (eine Sekunde pro Aufruf) und hängt sich über [onPhaseComplete]
@@ -60,6 +60,11 @@ class PomodoroController(
         workDurationMinutes = workDurationMinutes,
         breakDurationMinutes = breakDurationMinutes,
     )
+
+    fun setEnabled(value: Boolean) {
+        enabled = value
+        if (!value) pause()
+    }
 
     /** Startet den Countdown (nur wenn freigeschaltet). */
     fun start() {

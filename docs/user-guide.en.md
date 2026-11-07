@@ -68,6 +68,15 @@ On first open, Vivid shows the **streaming screen** (live preview). Before you g
 
 Open **Settings** (⚙️ top-right in the streaming screen) → **"Streaming & OBS"**.
 
+This opens your saved streams. Tap **Create stream**, choose Twitch, YouTube,
+Kick or Custom, enter a name, URL, key and secure-connection setting, then **Save**.
+Enable a stream using its switch; enabling another turns the previous one off.
+All streams may be off. **Start streaming** starts the selected stream.
+Touch and hold a stream’s drag handle to reorder the list; the order is saved on release. Tap a stream row to edit it. Separate pages contain Multi-streaming, Video
+(resolution/codec, FPS, LLB, 1–15 Mbps bitrate and keyframe interval), Replay
+recording, Twitch channel control (Twitch only), and OBS remote control with
+its own switch. Save on the stream details page to keep changes.
+
 ### 3.1 Pick a Platform Template
 
 Vivid offers templates for the most common platforms:
@@ -84,7 +93,7 @@ Vivid offers templates for the most common platforms:
 1. Tap a **platform template** → the URL is pre-filled
 2. Adjust the **Stream URL** if needed (e.g. `rtmps://` for TLS — the **"TLS"** toggle enables encryption)
 3. Enter your **Stream Key**
-4. **Done** — settings are saved
+4. Enter a **stream name**, tap **Save**, then enable this stream in the list
 
 ### 3.3 Multi-Streaming (Two Targets in Parallel)
 
@@ -111,7 +120,7 @@ Before starting, Vivid validates the configuration and shows clear messages:
 3. Vivid connects — status changes to **"Preparing…"** → **"live"**
 4. The status display shows each target individually (for multi-streaming)
 
-The **Controls** menu groups Camera, Screen and Video sources, then **Record**, camera controls, filters, Boost, LUT and color processing. The settings gear remains at the top-right. **Scenes** opens a bottom sheet that is hidden by default; swipe it down to close it. **Record** saves the current camera video to a local MP4 and works without a stream URL or an active stream. An empty stream URL is reported only after tapping Start Streaming. Camera controls and image effects also work in idle preview when camera permission is already granted.
+The **Controls** menu groups Camera, Screen and Video sources, then **Record**, camera controls, filters, Boost, LUT and color processing. The settings gear remains at the top-right. Manage scenes in **Settings → Scenes & widgets**: reorder, enable or swipe to delete scenes and reusable widgets. Each scene selects a camera, screen capture or an empty source, and has its own widget positions. Automatic switching and privacy are below the two lists. **Record** saves the current camera video to a local MP4 and works without a stream URL or an active stream. An empty stream URL is reported only after tapping Start Streaming. Camera controls and image effects also work in idle preview when camera permission is already granted.
 
 ### Stop the Stream
 
@@ -169,7 +178,26 @@ If your device has multiple cameras (e.g., ultra-wide/wide/tele):
 
 > Availability depends on the device — not all cameras offer all lenses.
 
-### 6.3 Tips
+### 6.3 Zoom, stabilization and mirroring
+
+**Camera Controls → Zoom** stores separate rear/front presets (rear defaults:
+0.5×, 1×, 1.5×, 2×; front: 0.5×, 1×). Tap a value to edit it, Create preset
+to add one, or the delete icon to remove it. Hold the handle on the left to
+drag presets within either camera list. The new order saves on release;
+cancelling the drag restores the previous order. Other changes save immediately.
+The saved speed (default 5.0; range 0.1–10 zoom-ratio units per second) controls
+transitions between presets. This page edits presets; the preview zoom widget
+will use these settings in a later update. Available zoom ratios depend on the camera.
+
+The stabilization dropdown offers Off, Standard (OIS, otherwise EIS) and
+Cinematic (EIS). Availability depends on the active camera; this does not
+request a manufacturer-specific cinematic mode. Mirror front camera affects
+both the camera preview and outgoing/recorded video, and never the rear camera.
+
+For football from a stable panning tripod, start with stabilization Off;
+try Standard only if small vibrations remain.
+
+### 6.4 Tips
 
 - **Tap-to-Focus** on the preview temporarily overrides the manual setting
 - **Focus Lock** (button top-right) holds the current focus
@@ -185,12 +213,13 @@ phase P1) — both chats are merged into the same overlay.
 
 ### 7.1 Enable
 
-1. **Settings** → **"Overlays & Widgets"**
-2. Toggle **Chat Overlay** on
+1. **Settings** → **"Scenes & widgets"**
+2. Add a **Chat overlay** widget (or open the migrated chat widget) and enable its library switch.
 3. Enter your **Chat Channel** (your Twitch channel name, e.g. `thoser666`)
 4. Optional: toggle **YouTube chat** on and enter the **YouTube channel ID** (`UC…`)
    — the live chat is read anonymously (no OAuth) and merged into the same overlay;
    YouTube messages carry a red ▶ platform badge.
+5. Save the widget, open a scene and use **Add from widgets** to attach it. Enable the scene placement and activate the scene.
 
 ### 7.2 What You Need
 
@@ -283,7 +312,7 @@ Vivid can control OBS Studio via **WebSocket** (switch scenes, start/stop record
 1. **In OBS:** Tools → **WebSocket Server Settings** → enable *"WebSocket Server"* (port `4455`)
 2. Optionally set a **password**
 3. Find the **IP of the OBS machine** (Windows: `ipconfig`, Mac/Linux: `ip addr`) — phone and PC on the **same Wi-Fi**
-4. **In Vivid:** Settings → **Streaming & OBS** → OBS section:
+4. **In Vivid:** Settings → **Streaming & OBS** → select a stream → **OBS remote control**:
    - Host = PC's IP
    - Port = `4455`
    - Password (if set)
@@ -328,9 +357,9 @@ The settings screen is organized into six categories (like Moblin):
 
 | Category | Contents |
 |---|---|
-| 🎬 **Streaming & OBS** | Stream URL/key, platform templates (Twitch/YouTube/Kick/Custom), multi-streaming, OBS connection (host/port/password/TLS/QR import) |
-| 🎨 **Appearance** | Theme mode (System/Light/Dark/AMOLED) + accent color (6 curated colors, Vivid Green as default) |
-| 🧩 **Overlays & Widgets** | Twitch chat overlay (channel + toggle; optional merged YouTube chat, read anonymously), text/info widget (time/GPS/speed/altitude — each with toggle + runtime permission; custom template text with variables like `{time}`, `{speed}`, `{road}`, `{city}`, `{country}` — placenames are resolved automatically via reverse geocoding and cached) |
+| 🎬 **Streaming & OBS** | Saved streams (Twitch/YouTube/Kick/Custom), one active stream, per-stream video/replay/multi-streaming/OBS settings |
+| 🎨 **Appearance** | Operating mode first: Portrait (default) / Landscape, saved immediately; device rotation does not switch modes. Theme mode (System/Light/Dark/AMOLED) + accent color (6 curated colors, Vivid Green as default) |
+| 🧩 **Scenes & widgets** | Twitch chat overlay (channel + toggle; optional merged YouTube chat, read anonymously), text/info widget (time/GPS/speed/altitude — each with toggle + runtime permission; custom template text with variables like `{time}`, `{speed}`, `{road}`, `{city}`, `{country}` — placenames are resolved automatically via reverse geocoding and cached) |
 | 💬 **Chat Bot & AI** | Mode, bot account (login/token/client ID), LLM endpoint/key/model/prompt, cooldown, mentions-only, rate limit, limits + presets, owner access (allow-list + Owner AI), media commands, notification access |
 | 🔒 **Remote & Privacy** | Web remote control (token + LAN access, autostart toggle), Sentry error reports + error replay (opt-out toggle) |
 | ℹ️ **About & Updates** | Version, update badge, manual update check (GitHub Releases), release notes |

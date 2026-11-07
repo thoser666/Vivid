@@ -96,6 +96,27 @@ class StreamingViewModelEncoderTest {
 
     @ParameterizedTest
     @ValueSource(booleans = [false, true])
+    fun `preview follows saved output settings without starting a stream`(experimental: Boolean) = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val initial = AppSettings(encoderPreset = EncoderPreset.HD30)
+        val stored = MutableStateFlow(initial)
+        val repository = mockk<SettingsRepository> { every { appSettingsFlow } returns stored }
+        viewModel(repository)
+        advanceUntilIdle()
+        verify(exactly = 1) { engine.configurePreviewVideo(PreviewVideoConfiguration(initial)) }
+        stored.value = initial.copy(videoBitrateKbps = 11_000)
+        advanceUntilIdle()
+        verify(exactly = 1) { engine.configurePreviewVideo(any()) }
+        val next = stored.value.copy(encoderPreset = EncoderPreset.FHD60, videoFps = 60,
+            cameraMode = if (experimental) com.vivid.core.data.CameraMode.EXPERIMENTAL_60_FPS else com.vivid.core.data.CameraMode.STANDARD)
+        stored.value = next
+        advanceUntilIdle()
+        verify { engine.configurePreviewVideo(PreviewVideoConfiguration(next)) }
+        verify(exactly = 0) { launcher.startStreaming(any()) }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = [false, true])
     fun `local and remote configure fallback profile and adaptive control before service launch`(remote: Boolean) = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val saved = settings(adaptiveBitrate = true).copy(
@@ -155,6 +176,7 @@ class StreamingViewModelEncoderTest {
         autoFallback: Boolean = true,
         adaptiveBitrate: Boolean = false,
     ) = AppSettings(
+        appOrientation = com.vivid.core.data.AppOrientation.LANDSCAPE,
         streamUrl = "rtmp://live.example/app",
         streamKey = "key-1",
         encoderPreset = preset,

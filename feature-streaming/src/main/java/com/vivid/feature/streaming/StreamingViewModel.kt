@@ -26,6 +26,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.util.UUID
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.distinctUntilChanged
 import javax.inject.Inject
 
 @HiltViewModel
@@ -54,10 +56,12 @@ class StreamingViewModel @Inject constructor(
     private var editorOriginalComposition: SceneComposition? = null
     private var editorOriginalCamera: String? = null
     private var editorOriginalAutoSwitch = false
+    private var editorOriginalEmpty = false
 
     fun openSceneEditor(scene: StreamScene) {
         if (editorSession != null || streamingEngine.streamingState.value is StreamingState.Preparing) return
         editorOriginalComposition = streamingEngine.sceneComposition.value
+        editorOriginalEmpty = streamingEngine.isSceneEmpty()
         editorOriginalCamera = streamingEngine.currentSceneCameraId
         editorOriginalAutoSwitch = autoSceneSwitcher.enabled.value
         autoSceneSwitcher.setEnabled(false)
@@ -86,6 +90,7 @@ class StreamingViewModel @Inject constructor(
         val state = editorSession?.state ?: return
         _sceneEditor.value = state
         streamingEngine.setSceneComposition(state.composition, animate = false)
+        streamingEngine.setSceneEmpty(false)
     }
 
     fun saveSceneEditor() {
@@ -120,6 +125,7 @@ class StreamingViewModel @Inject constructor(
         if (restore) {
             editorOriginalCamera?.let { streamingEngine.selectLens(it) }
             streamingEngine.setSceneComposition(editorOriginalComposition, animate = false)
+            streamingEngine.setSceneEmpty(editorOriginalEmpty)
         }
         editorSession = null
         _sceneEditor.value = null
@@ -134,6 +140,25 @@ class StreamingViewModel @Inject constructor(
 
     /** Alle gespeicherten Szenen (Anlage-Reihenfolge). */
     val scenes: Flow<List<StreamScene>> = sceneRepository.scenesFlow
+    val appSettings get() = settingsRepository.appSettingsFlow
+
+    val savedWidgetLayout get() = sceneRepository.savedLayoutFlow
+    fun saveWidgetLayout(layout: com.vivid.core.data.SceneWidget) { viewModelScope.launch { sceneRepository.saveLayout(layout) } }
+    val widgets get() = sceneRepository.widgetsFlow
+    val libraryInitialized get() = sceneRepository.libraryInitializedFlow
+
+    fun initializeWidgets(defaultName: String, names: Map<com.vivid.core.data.WidgetType, String>) {
+        viewModelScope.launch { sceneRepository.initializeLibrary(settingsRepository.appSettingsFlow.first(), defaultName, names) }
+    }
+
+    fun updateScene(scene: StreamScene) { viewModelScope.launch { sceneRepository.saveScene(scene) } }
+    fun reorderScenes(ids: List<String>) { viewModelScope.launch { sceneRepository.reorderScenes(ids) } }
+    fun updateWidget(widget: com.vivid.core.data.StreamWidget) { viewModelScope.launch { sceneRepository.saveWidget(widget) } }
+    fun updateWidgetScenes(widget: com.vivid.core.data.StreamWidget, visibility: Map<String, Boolean>) {
+        viewModelScope.launch { sceneRepository.saveWidgetWithSceneVisibility(widget, visibility) }
+    }
+    fun deleteWidget(id: String) { viewModelScope.launch { sceneRepository.deleteWidget(id) } }
+    fun reorderWidgets(ids: List<String>) { viewModelScope.launch { sceneRepository.reorderWidgets(ids) } }
 
     /** ID der zuletzt angewendeten Szene (null = keine aktiv). */
     val activeSceneId: Flow<String?> = sceneRepository.activeSceneIdFlow
@@ -151,6 +176,16 @@ class StreamingViewModel @Inject constructor(
 
     init {
         runConfigCheck()
+        viewModelScope.launch {
+            settingsRepository.appSettingsFlow.map { it.cameraControls }.distinctUntilChanged().collect {
+                streamingEngine.configureCameraControls(it)
+            }
+        }
+        viewModelScope.launch {
+            settingsRepository.appSettingsFlow.map { PreviewVideoConfiguration(it) }.distinctUntilChanged().collect {
+                streamingEngine.configurePreviewVideo(it)
+            }
+        }
         // P1: Anonymisierung — persistierten Soll-Zustand (Zonen + Master-Toggle)
         // in die Engine übernehmen. Ohne Kamera/GL bleiben die Engine-Aufrufe
         // No-Ops; beim Stream-Start wendet die Engine den Soll-Zustand selbst an.
@@ -216,9 +251,10 @@ class StreamingViewModel @Inject constructor(
                 streamingEngine.stopReplay()
             } else {
                 val settings = settingsRepository.appSettingsFlow.first()
-                streamingEngine.configureCameraMode(settings.cameraMode)
+                streamingEngine.configureCameraMode(if (settings.videoFps == 30) com.vivid.core.data.CameraMode.STANDARD else settings.cameraMode)
+                streamingEngine.configureStreamVideo(settings)
                 streamingEngine.configureEncoder(com.vivid.core.data.ResolvedEncoderConfig(
-                    settings.videoCodecPreference, settings.encoderPreset, false), settings.encoderAutoFallback)
+                    settings.videoCodecPreference, settings.encoderPreset, false, settings.videoFps ?: settings.encoderPreset.fps), settings.encoderAutoFallback)
                 onStartResult(streamingEngine.startReplay(includeAudio = settings.replayAudioMode == ReplayAudioMode.ALL))
             }
         }
@@ -239,6 +275,7 @@ class StreamingViewModel @Inject constructor(
             val scene = StreamScene(
                 id = UUID.randomUUID().toString(),
                 name = trimmed,
+                widgets = emptyList(),
                 videoSource = streamingEngine.activeSourceKind.value.toSceneVideoSource(),
                 replayPath = streamingEngine.activeReplayFile?.absolutePath,
                 widgetEnabled = settings.widgetEnabled,

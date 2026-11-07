@@ -2,6 +2,7 @@ package com.vivid.feature.widget
 
 import android.Manifest
 import android.content.pm.PackageManager
+import androidx.activity.compose.LocalActivityResultRegistryOwner
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -38,15 +39,22 @@ import com.vivid.feature.widgets.R
 fun TextInfoWidget(
     modifier: Modifier = Modifier,
     viewModel: TextInfoWidgetViewModel = hiltViewModel(),
+    requestLocationPermission: Boolean = true,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     if (!uiState.enabled) return
 
+    RequestTextInfoLocation(uiState, requestLocationPermission)
+    TextInfoContent(uiState, modifier)
+}
+
+@Composable
+private fun RequestTextInfoLocation(uiState: TextInfoWidgetUiState, requestLocationPermission: Boolean) {
     // GPS-Permission anfragen, sobald das Widget Standortfelder anzeigen soll.
     val context = LocalContext.current
-    val locationLauncher = rememberLauncherForActivityResult(
+    val locationLauncher = if (requestLocationPermission && LocalActivityResultRegistryOwner.current != null) rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
-    ) { }
+    ) { } else null
     LaunchedEffect(uiState.enabled, uiState.showLocation, uiState.showSpeed, uiState.showAltitude, uiState.template) {
         val hasTemplate = uiState.template.isNotBlank()
         val needsLocation = uiState.enabled && (uiState.showLocation || uiState.showSpeed || uiState.showAltitude || hasTemplate)
@@ -54,10 +62,13 @@ fun TextInfoWidget(
             ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) !=
             PackageManager.PERMISSION_GRANTED
         ) {
-            locationLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+            locationLauncher?.launch(Manifest.permission.ACCESS_FINE_LOCATION)
         }
     }
+}
 
+@Composable
+private fun TextInfoContent(uiState: TextInfoWidgetUiState, modifier: Modifier) {
     Column(
         modifier = modifier
             .widthIn(max = 220.dp)
@@ -73,42 +84,47 @@ fun TextInfoWidget(
                 color = Color.White,
             )
         } else {
-            if (uiState.showTime) {
-                Text(
-                    text = uiState.time,
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                )
-                if (uiState.date.isNotBlank()) {
-                    Text(
-                        text = uiState.date,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = Color.White.copy(alpha = 0.7f),
-                    )
-                }
-            }
-            if (uiState.showLocation && uiState.location.isNotBlank()) {
-                Text(
-                    text = stringResource(R.string.widget_location_label, uiState.location),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.White,
-                )
-            }
-            if (uiState.showSpeed && uiState.speed.isNotBlank()) {
-                Text(
-                    text = stringResource(R.string.widget_speed_label, uiState.speed),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.White,
-                )
-            }
-            if (uiState.showAltitude && uiState.altitude.isNotBlank()) {
-                Text(
-                    text = stringResource(R.string.widget_altitude_label, uiState.altitude),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.White,
-                )
-            }
+            TextInfoFields(uiState)
         }
+    }
+}
+
+@Composable
+private fun TextInfoFields(uiState: TextInfoWidgetUiState) {
+    if (uiState.showTime) {
+        Text(
+            text = uiState.time,
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+            color = Color.White,
+        )
+        if (uiState.date.isNotBlank()) {
+            Text(
+                text = uiState.date,
+                style = MaterialTheme.typography.labelMedium,
+                color = Color.White.copy(alpha = 0.7f),
+            )
+        }
+    }
+    if (uiState.showLocation && uiState.location.isNotBlank()) {
+        Text(
+            text = stringResource(R.string.widget_location_label, uiState.location),
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White,
+        )
+    }
+    if (uiState.showSpeed && uiState.speed.isNotBlank()) {
+        Text(
+            text = stringResource(R.string.widget_speed_label, uiState.speed),
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White,
+        )
+    }
+    if (uiState.showAltitude && uiState.altitude.isNotBlank()) {
+        Text(
+            text = stringResource(R.string.widget_altitude_label, uiState.altitude),
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White,
+        )
     }
 }

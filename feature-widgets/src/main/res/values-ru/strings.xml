@@ -19,4 +19,12 @@
     <string name="subtitles_error_busy">Распознаватель речи занят — повторная попытка…</string>
     <string name="subtitles_error_speech_timeout">Ничего не услышал — все еще слушаю…</string>
     <string name="subtitles_error_generic">Ошибка распознавания речи</string>
+    <string name="pomodoro_phase_work">Рабочий интервал</string>
+    <string name="pomodoro_phase_break">Перерыв</string>
+    <string name="pomodoro_completed_sessions">Завершенные рабочие интервалы: %1$d</string>
+    <string name="pomodoro_start">Старт</string>
+    <string name="pomodoro_pause">Пауза</string>
+    <string name="pomodoro_skip">Пропустить фазу</string>
+    <string name="pomodoro_reset">Сбросить</string>
+    <string name="pomodoro_save_start">Сохранить и запустить</string>
 </resources>

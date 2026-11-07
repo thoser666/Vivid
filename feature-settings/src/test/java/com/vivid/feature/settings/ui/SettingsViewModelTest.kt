@@ -1073,6 +1073,20 @@ class SettingsViewModelTest {
     }
 
     @Test
+    fun `orientation selection persists immediately without saving other settings`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repository = mockk<SettingsRepository>(relaxed = true) {
+            every { appSettingsFlow } returns MutableStateFlow(AppSettings())
+        }
+        val viewModel = createViewModel(repository)
+        advanceUntilIdle()
+        viewModel.onAppOrientationChange(com.vivid.core.data.AppOrientation.LANDSCAPE)
+        advanceUntilIdle()
+        coVerify(exactly = 1) { repository.updateAppOrientation(com.vivid.core.data.AppOrientation.LANDSCAPE) }
+        coVerify(exactly = 0) { repository.updateThemeSettings(any(), any()) }
+    }
+
+    @Test
     fun `loads theme settings from repository`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val repository = mockk<SettingsRepository> {
@@ -1248,5 +1262,154 @@ class SettingsViewModelTest {
         advanceUntilIdle()
 
         coVerify(exactly = 1) { repository.updateChatOverlayHypeTrainEnabled(false) }
+    }
+
+    @Test fun `profile editor saves inactive stream independently and trims name`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val a = com.vivid.core.data.StreamProfile("a", "Live", streamUrl = "rtmp://live.example/app")
+        val b = com.vivid.core.data.StreamProfile("b", "Other", streamUrl = "rtmp://other.example/app")
+        val repo = repository()
+        every { repo.appSettingsFlow } returns MutableStateFlow(AppSettings(streamProfiles = listOf(a, b), activeStreamId = "a"))
+        val vm = createViewModel(repo)
+        advanceUntilIdle()
+        vm.editStream("b")
+        vm.updateStreamDraft { it.copy(name = "  Edited  ", videoBitrateKbps = 11_000) }
+        var saved = false
+        vm.saveStreamDraft { saved = true }
+        advanceUntilIdle()
+        coVerify { repo.updateStreamProfiles(listOf(a, b.copy(name = "Edited", videoBitrateKbps = 11_000)), "a") }
+        assertTrue(saved)
+        assertEquals(null, vm.streamDraft.value)
+        assertEquals(a, vm.uiState.value.streamProfiles.first())
+    }
+
+    @Test fun `saving malformed primary or secondary URL never writes settings`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repo = repository()
+        val vm = createViewModel(repo)
+        advanceUntilIdle()
+        vm.createStream(StreamPlatform.Custom)
+        vm.updateStreamDraft { it.copy(name = "Custom") }
+        listOf("djfj", "http://example.com/app", "rtmp:///app", "rtmp://srt/app").forEach { url ->
+            vm.updateStreamDraft { it.copy(streamUrl = url) }
+            vm.saveStreamDraft { error("Invalid URL must not be saved") }
+            advanceUntilIdle()
+            assertEquals(url, vm.streamDraft.value!!.streamUrl)
+            assertFalse(vm.streamSaving.value)
+        }
+        vm.updateStreamDraft { it.copy(streamUrl = "rtmp://valid.example/live", secondaryStreamUrl = "djfj") }
+        vm.saveStreamDraft { error("Invalid second URL must not be saved") }
+        advanceUntilIdle()
+        coVerify(exactly = 0) { repo.updateStreamProfiles(any(), any()) }
+        vm.updateStreamDraft { it.copy(secondaryStreamUrl = "") }
+        var saved = false
+        vm.saveStreamDraft { saved = true }
+        advanceUntilIdle()
+        assertTrue(saved)
+        coVerify(exactly = 1) { repo.updateStreamProfiles(any(), any()) }
+    }
+
+    @Test fun `profile switches select one or none and ignore unknown ids`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val a = com.vivid.core.data.StreamProfile("a", "A")
+        val b = com.vivid.core.data.StreamProfile("b", "B")
+        val state = MutableStateFlow(AppSettings(streamProfiles = listOf(a,b), activeStreamId = "a"))
+        val repo = repository()
+        every { repo.appSettingsFlow } returns state
+        coEvery { repo.updateStreamProfiles(any(), any()) } answers {
+            state.value = state.value.copy(streamProfiles = firstArg(), activeStreamId = secondArg())
+        }
+        val vm = createViewModel(repo)
+        advanceUntilIdle()
+        vm.setStreamEnabled("b", true)
+        advanceUntilIdle()
+        assertEquals("b", vm.uiState.value.activeStreamId)
+        vm.setStreamEnabled("a", false)
+        advanceUntilIdle()
+        assertEquals("b", vm.uiState.value.activeStreamId)
+        vm.setStreamEnabled("b", false)
+        advanceUntilIdle()
+        assertEquals(null, vm.uiState.value.activeStreamId)
+        vm.setStreamEnabled("missing", true)
+        advanceUntilIdle()
+        assertEquals(null, vm.uiState.value.activeStreamId)
+    }
+
+    @Test fun `new stream remains a draft until saved and cancel discards it`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repo = repository()
+        val vm = createViewModel(repo)
+        advanceUntilIdle()
+        vm.createStream(StreamPlatform.YouTube)
+        assertEquals(StreamPlatform.YouTube.ingestUrl, vm.streamDraft.value?.streamUrl)
+        assertTrue(vm.streamDraft.value!!.streamUseTls)
+        vm.saveStreamDraft {}
+        advanceUntilIdle()
+        coVerify(exactly = 0) { repo.updateStreamProfiles(any(), any()) }
+        vm.discardStreamDraft()
+        assertEquals(null, vm.streamDraft.value)
+        assertTrue(vm.uiState.value.streamProfiles.isEmpty())
+    }
+
+    @Test fun `failed profile save keeps draft for retry`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repo = repository()
+        coEvery { repo.updateStreamProfiles(any(), any()) } throws java.io.IOException("disk")
+        val vm = createViewModel(repo)
+        advanceUntilIdle()
+        vm.createStream(StreamPlatform.Twitch)
+        vm.updateStreamDraft { it.copy(name = "My stream") }
+        var saved = false
+        vm.saveStreamDraft { saved = true }
+        advanceUntilIdle()
+        assertFalse(saved)
+        assertTrue(vm.streamSaveFailed.value)
+        assertEquals("My stream", vm.streamDraft.value?.name)
+        assertFalse(vm.streamSaving.value)
+    }
+    @Test fun `cancelled profile save keeps draft without reporting failure and permits retry`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repo = repository()
+        coEvery { repo.updateStreamProfiles(any(), any()) } throws java.util.concurrent.CancellationException()
+        val vm = createViewModel(repo)
+        advanceUntilIdle()
+        vm.createStream(StreamPlatform.Twitch)
+        vm.updateStreamDraft { it.copy(name = "Cancellation retry") }
+        val draft = vm.streamDraft.value
+        var saves = 0
+        vm.saveStreamDraft { saves++ }
+        advanceUntilIdle()
+        assertEquals(0, saves)
+        assertFalse(vm.streamSaveFailed.value)
+        assertFalse(vm.streamSaving.value)
+        assertEquals(draft, vm.streamDraft.value)
+        coVerify(exactly = 1) { repo.updateStreamProfiles(any(), any()) }
+
+        coEvery { repo.updateStreamProfiles(any(), any()) } just runs
+        vm.saveStreamDraft { saves++ }
+        advanceUntilIdle()
+        assertEquals(1, saves)
+        assertEquals(null, vm.streamDraft.value)
+        assertFalse(vm.streamSaveFailed.value)
+        assertFalse(vm.streamSaving.value)
+        coVerify(exactly = 2) { repo.updateStreamProfiles(any(), any()) }
+    }
+
+    @Test fun `reordering persists order and preserves active stream and all settings`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val a = com.vivid.core.data.StreamProfile("a", "A", streamKey = "a-key", videoBitrateKbps = 10_000)
+        val b = com.vivid.core.data.StreamProfile("b", "B", streamKey = "b-key", obsRemoteEnabled = true)
+        val repo = repository()
+        every { repo.appSettingsFlow } returns MutableStateFlow(AppSettings(streamProfiles = listOf(a,b), activeStreamId = "b"))
+        val vm = createViewModel(repo)
+        advanceUntilIdle()
+        vm.reorderStreams(listOf("b", "a"))
+        advanceUntilIdle()
+        coVerify(exactly = 1) { repo.updateStreamProfiles(listOf(b,a), "b") }
+        vm.reorderStreams(listOf("a", "a"))
+        vm.reorderStreams(listOf("a"))
+        vm.reorderStreams(listOf("a", "missing"))
+        advanceUntilIdle()
+        coVerify(exactly = 1) { repo.updateStreamProfiles(any(), any()) }
     }
 }

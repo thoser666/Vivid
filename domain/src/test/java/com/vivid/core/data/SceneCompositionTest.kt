@@ -69,6 +69,14 @@ class SceneCompositionTest {
         invalid { SceneLayoutPreset.SIDE_BY_SIDE.arrange(camera, camera) }
     }
 
+    @Test fun `empty preset migrates to an empty canvas without allocating a camera`() {
+        val scene = StreamScene("empty", "Empty", videoSource = SceneVideoSource.EMPTY)
+        val graph = scene.effectiveComposition()
+        assertTrue(graph.sources.isEmpty())
+        assertTrue(graph.layers.isEmpty())
+        assertTrue(graph.primaryInputConfigured)
+    }
+
     private fun invalid(block: () -> Unit) {
         try { block(); fail("Invalid state accepted") } catch (_: IllegalArgumentException) { }
     }

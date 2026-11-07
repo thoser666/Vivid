@@ -3,12 +3,10 @@
     <!-- ===== Category overview (SettingsCategories.kt) ===== -->
     <string name="cat_streaming_title">Streaming &amp; OBS</string>
     <string name="cat_streaming_subtitle">Stream URL/key, platform presets, multi-streaming, OBS connection</string>
-    <string name="cat_appearance_title">Appearance</string>
-    <string name="cat_appearance_subtitle">Language, theme mode, accent color</string>
-    <string name="cat_overlays_title">Overlays &amp; Widgets</string>
+    <string name="cat_appearance_title">Interface</string>
+    <string name="cat_appearance_subtitle">Stream screen orientation, language, appearance and local overlays.</string>
+    <string name="cat_overlays_title">Scenes &amp; widgets</string>
     <string name="cat_overlays_subtitle">Twitch chat, text/info, image, QR code, battery and grid widgets</string>
-    <string name="cat_pomodoro_title">Pomodoro</string>
-    <string name="cat_pomodoro_subtitle">In-app timer: work/break cycle, auto loop, vibration</string>
     <string name="cat_chatbot_title">Chat Bot &amp; AI</string>
     <string name="cat_chatbot_subtitle">Mode, bot account/LLM, limits, owner access, media commands</string>
     <string name="cat_remote_title">Remote &amp; Privacy</string>
@@ -52,6 +50,7 @@
     <string name="appearance_language_english">English</string>
     <string name="appearance_language_french">Français</string>
     <string name="appearance_language_russian">Русский</string>
+    <string name="appearance_theme_title">Theme</string>
     <string name="appearance_mode_title">Theme mode</string>
     <string name="appearance_mode_desc">Choose whether Vivid appears light, dark or in AMOLED mode — or follows the system. AMOLED uses pure-black surfaces (saves battery on OLED displays).</string>
     <string name="appearance_mode_system_desc">Follows your device\'s system setting (default).</string>
@@ -189,11 +188,9 @@
 
     <!-- ===== Pomodoro timer (SettingsPomodoroScreen.kt) ===== -->
     <string name="pomodoro_title">Pomodoro timer</string>
-    <string name="pomodoro_desc">Focus timer based on the Pomodoro Technique: work sessions with short breaks. The countdown runs as an in-app timer straight from the streaming screen — no overlay widget.</string>
-    <string name="pomodoro_enabled">Enable timer</string>
+    <string name="pomodoro_desc">Scene widget with work/break phases, automatic cycling and a session counter. A widget shares its timer across its assigned scenes.</string>
     <string name="pomodoro_work_minutes">Work session: %1$d min</string>
     <string name="pomodoro_break_minutes">Break: %1$d min</string>
-    <string name="pomodoro_open_timer">Open timer</string>
 
     <!-- ===== Remote & Privacy (SettingsRemotePrivacyScreen.kt) ===== -->
     <string name="remote_section_title">Web remote control</string>
@@ -300,7 +297,7 @@
 
     <!-- ===== Camera Controls (SettingsCameraScreen.kt) ===== -->
     <string name="camera_section_title">Camera Controls</string>
-    <string name="camera_section_desc">Manual focus and lens selection (Ultra-wide/Wide/Tele)</string>
+    <string name="camera_section_desc">Focus, lenses, zoom, stabilization and front camera mirroring</string>
     <string name="camera_focus_title">Focus</string>
     <string name="camera_focus_desc">Set the focus distance manually — 0 = infinity (landscape), 10 = macro (close-up).</string>
     <string name="camera_focus_far">Infinity</string>
@@ -365,4 +362,95 @@
     <string name="camera_mode_capture_failed">Experimental camera failed. Recording and stream stopped.</string>
     <string name="camera_mode_recording_failed">Recording could not start.</string>
     <string name="camera_mode_preparing">Preparing 60 FPS camera…</string>
+    <string name="stream_create">Create stream</string>
+    <string name="stream_choose_type">Choose stream type</string>
+    <string name="stream_name">Stream name</string>
+    <string name="stream_video">Video</string>
+    <string name="stream_fps">Frame rate</string>
+    <string name="stream_llb">Low-light boost (LLB)</string>
+    <string name="stream_bitrate">Bitrate</string>
+    <string name="stream_keyframe">Keyframe interval</string>
+    <string name="stream_obs_remote">OBS remote control</string>
+    <string name="stream_fps_value">%1$d FPS</string>
+    <string name="stream_bitrate_value">%1$d Mbps</string>
+    <string name="stream_keyframe_value">%1$d s</string>
+    <string name="stream_save_failed">Could not save. Please try again.</string>
+    <string name="stream_reorder">Reorder %1$s (touch and hold)</string>
+    <string name="stream_move_up">Move up</string>
+    <string name="stream_move_down">Move down</string>
+    <string name="camera_zoom_title">Zoom</string>
+    <string name="camera_zoom_speed">Speed</string>
+    <string name="camera_zoom_rear_presets">Rear camera presets</string>
+    <string name="camera_zoom_front_presets">Front camera presets</string>
+    <string name="camera_zoom_create">Create preset</string>
+    <string name="camera_zoom_edit">Edit preset</string>
+    <string name="camera_zoom_value">Zoom ratio</string>
+    <string name="camera_zoom_ratio">%1$sx</string>
+    <string name="camera_zoom_value_hint">Unique value between 0.1 and 100.</string>
+    <string name="camera_zoom_delete">Delete preset</string>
+    <string name="camera_zoom_settings_hint">Higher speed gives a faster transition between zoom presets. Changes are saved immediately.</string>
+    <string name="camera_stabilization_title">Stabilization</string>
+    <string name="camera_stabilization_off">Off</string>
+    <string name="camera_stabilization_standard">Standard</string>
+    <string name="camera_stabilization_cinematic">Cinematic</string>
+    <string name="camera_stabilization_hint">Standard: optical, otherwise electronic. Cinematic: electronic with cropping. Availability depends on the active camera.</string>
+    <string name="camera_mirror_front">Mirror front camera</string>
+    <string name="camera_zoom_reorder">Reorder zoom preset %1$s</string>
+    <string name="camera_zoom_reorder_hint">Touch and hold a preset’s handle to drag it. The order is saved on release.</string>
+    <string name="cat_overlays_desc">Scenes, sources and shared widgets</string>
+    <string name="scene_widget_scene_management">Scene controls</string>
+    <string name="scene_widget_library">Widgets</string>
+    <string name="scene_widget_library_hint">Enabling, disabling or deleting a widget here affects every scene where it is used.</string>
+    <string name="scene_widget_add_scene">Add scene</string>
+    <string name="scene_widget_add">Add widget</string>
+    <string name="scene_widget_add_existing">Add from widgets</string>
+    <string name="scene_widget_scene_widgets">Scene widgets</string>
+    <string name="scene_widget_scene_widgets_hint">Tap a widget to adjust its position in this scene.</string>
+    <string name="scene_widget_create_first">Create a widget in the library first.</string>
+    <string name="scene_widget_browser">Browser</string>
+    <string name="scene_widget_name">Widget name</string>
+    <string name="scene_widget_url">Page URL (HTTPS)</string>
+    <string name="scene_widget_page_width">Page width (px)</string>
+    <string name="scene_widget_page_height">Page height (px)</string>
+    <string name="scene_widget_activate">Activate scene</string>
+    <string name="scene_widget_active">Active scene</string>
+    <string name="scene_widget_source">Source: %1$s</string>
+    <string name="scene_widget_camera_front">Front camera (%1$s)</string>
+    <string name="scene_widget_camera_back">Back camera (%1$s)</string>
+    <string name="scene_widget_camera_other">Camera (%1$s)</string>
+    <string name="scene_widget_camera_default">Camera</string>
+    <string name="scene_widget_screen">Screen capture</string>
+    <string name="scene_widget_empty">Empty source</string>
+    <string name="scene_widget_replay">Replay</string>
+    <string name="scene_widget_layout">Layout</string>
+    <string name="scene_widget_layout_hint">Drag the widget or set its position in percent.</string>
+    <string name="scene_widget_save_layout">Save layout</string>
+    <string name="scene_widget_load_layout">Load layout</string>
+    <string name="scene_widget_numeric">Numeric values</string>
+    <string name="scene_widget_x">Horizontal: %1$d%%</string>
+    <string name="scene_widget_y">Vertical: %1$d%%</string>
+    <string name="scene_widget_scale">Scale: %1$d%%</string>
+    <string name="scene_widget_reorder">Reorder %1$s</string>
+    <string name="scene_widget_delete">Delete</string>
+    <string name="scene_widget_delete_title">Delete widget?</string>
+    <string name="scene_widget_delete_message">Remove “%1$s” from the widget library and every scene where it is used?</string>
+    <string name="scene_widget_shared_settings">Shared widget settings</string>
+    <string name="scene_widget_shared_hint">Content changes apply to every scene; this layout applies only to this scene.</string>
+    <string name="scene_widget_anchor">Anchor row %1$d, column %2$d</string>
+    <string name="scene_widget_show_in_scenes">Show in scenes</string>
+    <string name="scene_widget_show_in_scenes_hint">The selection applies when you save. Turning a scene off here keeps its position and scale. The scene and widget must also be enabled.</string>
+    <string name="scene_widget_no_scenes">No scenes yet. Add a scene in the previous menu.</string>
+    <string name="pomodoro_controls_hint">Save and start applies the current values. Changing durations resets the timer. Switching scenes does not pause it.</string>
+    <string name="appearance_orientation_title">Operating mode</string>
+    <string name="appearance_orientation_portrait">Portrait</string>
+    <string name="appearance_orientation_landscape">Landscape</string>
+    <string name="appearance_orientation_desc">Main screen and streamed camera orientation: 9:16 or 16:9. Menus follow device rotation.</string>
+    <string name="local_overlays_title">Local overlays</string>
+    <string name="local_overlays_manage">Configure overlays</string>
+    <string name="local_overlays_description">System overlays shown only on your screen. They are not included in the broadcast. Changes are saved immediately.</string>
+    <string name="local_overlays_zoom">Zoom controls</string>
+    <string name="local_overlays_fps">FPS counter</string>
+    <string name="local_overlays_bitrate">Bitrate</string>
+    <string name="local_overlays_duration">Stream duration</string>
+    <string name="local_overlays_scenes">Scene selector</string>
 </resources>

@@ -19,4 +19,12 @@
     <string name="subtitles_error_busy">Reconnaissance vocale occupée — nouvel essai…</string>
     <string name="subtitles_error_speech_timeout">Rien entendu — écoute en cours…</string>
     <string name="subtitles_error_generic">Erreur de reconnaissance vocale</string>
+    <string name="pomodoro_phase_work">Session de travail</string>
+    <string name="pomodoro_phase_break">Pause</string>
+    <string name="pomodoro_completed_sessions">Sessions de travail terminees : %1$d</string>
+    <string name="pomodoro_start">Demarrer</string>
+    <string name="pomodoro_pause">Pause</string>
+    <string name="pomodoro_skip">Passer la phase</string>
+    <string name="pomodoro_reset">Reinitialiser</string>
+    <string name="pomodoro_save_start">Enregistrer et démarrer</string>
 </resources>

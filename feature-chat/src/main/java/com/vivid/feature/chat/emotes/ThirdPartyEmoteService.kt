@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.cancel
 import kotlinx.serialization.json.Json
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -23,6 +24,8 @@ import javax.inject.Singleton
  */
 @Singleton
 class ThirdPartyEmoteService @Inject constructor() {
+
+    fun close() { scope.cancel(); httpClient.close() }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 

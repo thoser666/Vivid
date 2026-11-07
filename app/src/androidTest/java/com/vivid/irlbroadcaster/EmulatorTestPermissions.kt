@@ -17,8 +17,8 @@ import androidx.test.rule.GrantPermissionRule
  * The grants now happen inside the test process, before any activity is
  * launched, so AGP (the connected task) is the only installer. GrantPermissionRule
  * grants through UiAutomation and therefore produces the same app state the
- * shell grants produced; the app itself still requests CAMERA only in the
- * go-live flow and never on screen entry (#249).
+ * shell grants produced. MainActivity's one-time onboarding request and explicit
+ * go-live retries remain separate from screen navigation (#249).
  */
 internal object EmulatorTestPermissions {
 

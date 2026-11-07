@@ -1,5 +1,7 @@
 package com.vivid.core.data
 
+import kotlinx.coroutines.flow.distinctUntilChanged
+
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
 import kotlinx.coroutines.flow.Flow
@@ -14,6 +16,11 @@ class SettingsRepository @Inject constructor(
     private val dataStore: DataStore<Preferences>,
 ) {
     private object PrefKeys {
+        val LOCAL_ZOOM = booleanPreferencesKey("local_overlay_zoom")
+        val LOCAL_FPS = booleanPreferencesKey("local_overlay_fps")
+        val LOCAL_DURATION = booleanPreferencesKey("local_overlay_duration")
+        val LOCAL_SCENES = booleanPreferencesKey("local_overlay_scenes")
+        val LOCAL_BITRATE = booleanPreferencesKey("local_overlay_bitrate")
         val STREAM_URL = stringPreferencesKey("stream_url")
         val STREAM_KEY = stringPreferencesKey("stream_key")
         val STREAM_USE_TLS = booleanPreferencesKey("stream_use_tls")
@@ -92,6 +99,11 @@ class SettingsRepository @Inject constructor(
         val SENTRY_ENABLED = booleanPreferencesKey("sentry_enabled")
         val REMOTE_CONTROL_ENABLED = booleanPreferencesKey("remote_control_enabled")
         val REPLAY_AUDIO_MODE = stringPreferencesKey("replay_audio_mode")
+        val ZOOM_SPEED = floatPreferencesKey("camera_zoom_speed")
+        val REAR_ZOOM_PRESETS = stringPreferencesKey("camera_rear_zoom_presets")
+        val FRONT_ZOOM_PRESETS = stringPreferencesKey("camera_front_zoom_presets")
+        val STABILIZATION = stringPreferencesKey("camera_stabilization")
+        val MIRROR_FRONT = booleanPreferencesKey("camera_mirror_front")
         val CAMERA_MODE = stringPreferencesKey("camera_mode")
         val ENCODER_PRESET = stringPreferencesKey("encoder_preset")
         val ENCODER_CODEC_PREFERENCE = stringPreferencesKey("encoder_codec_preference")
@@ -99,6 +111,7 @@ class SettingsRepository @Inject constructor(
         val ADAPTIVE_BITRATE_ENABLED = booleanPreferencesKey("adaptive_bitrate_enabled")
         val SUBTITLES_ENABLED = booleanPreferencesKey("subtitles_enabled")
         val THEME_MODE = stringPreferencesKey("theme_mode")
+        val APP_ORIENTATION = stringPreferencesKey("app_orientation")
         val THEME_ACCENT = stringPreferencesKey("theme_accent")
         val LOGS_RETENTION_DAYS = intPreferencesKey("logs_retention_days")
         val EMOTES_BTTV_ENABLED = booleanPreferencesKey("emotes_bttv_enabled")
@@ -122,7 +135,7 @@ class SettingsRepository @Inject constructor(
     // Er kombiniert die Daten für Stream (primär + sekundär), OBS, Chat,
     // Chat-Bot, Widget (innerer 5-Flow-Combine — combine hat nur typisierte
     // Overloads bis 5) sowie Darstellung + Sentry-Opt-out (äußerer Combine).
-    val appSettingsFlow: Flow<AppSettings> = combine(
+    private val legacySettingsFlow: Flow<AppSettings> = combine(
         combine(
         // Flow für Stream-Daten
         dataStore.data.map { prefs ->
@@ -322,6 +335,7 @@ class SettingsRepository @Inject constructor(
         // 6. Flow: Darstellung (Theme-Modus + Akzentfarbe)
         dataStore.data.map { prefs ->
             ThemePrefs(
+                orientation = AppOrientation.fromName(prefs[PrefKeys.APP_ORIENTATION]),
                 mode = ThemeMode.fromName(prefs[PrefKeys.THEME_MODE]),
                 accent = AccentColor.fromName(prefs[PrefKeys.THEME_ACCENT]),
             )
@@ -360,6 +374,7 @@ class SettingsRepository @Inject constructor(
             sentryEnabled = privacy.sentryEnabled,
             remoteControlEnabled = privacy.remoteControlEnabled,
             themeMode = themeData.mode,
+            appOrientation = themeData.orientation,
             themeAccent = themeData.accent,
             logsRetentionDays = logsRetentionDays,
             emotesBttvEnabled = emotePrefs.bttvEnabled,
@@ -380,10 +395,118 @@ class SettingsRepository @Inject constructor(
         )
     }
 
+    private val profilesKey = stringPreferencesKey("stream_profiles_v1")
+    private val activeProfileKey = stringPreferencesKey("active_stream_profile")
+    private val profilesJson = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+
+    val appSettingsFlow: Flow<AppSettings> = combine(legacySettingsFlow, dataStore.data) { stored, prefs ->
+        val legacy = stored.copy(cameraControls = prefs.cameraControls(), localOverlays = prefs.localOverlays())
+        if (prefs[profilesKey] == null) {
+            // Existing installations retain their destination and settings as a named profile.
+            if (legacy.streamUrl.isBlank()) legacy else {
+                val host = runCatching { java.net.URI(legacy.streamUrl).host.orEmpty() }.getOrDefault("")
+                val platform = when {
+                    host.endsWith(".twitch.tv") -> StreamPlatformType.Twitch
+                    host.endsWith(".youtube.com") -> StreamPlatformType.YouTube
+                    host.endsWith(".kick.com") -> StreamPlatformType.Kick
+                    else -> StreamPlatformType.Custom
+                }
+                legacy.copy(streamProfiles = listOf(legacy.toStreamProfile("legacy", platform.name, platform)),
+                    activeStreamId = "legacy")
+            }
+        } else {
+            val profiles = profilesJson.decodeFromString<List<StreamProfile>>(prefs[profilesKey]!!)
+            val active = profiles.firstOrNull { it.id == prefs[activeProfileKey] }
+            val base = legacy.copy(streamProfiles = profiles, activeStreamId = active?.id)
+            active?.applyTo(base) ?: base.copy(streamUrl = "", streamKey = "",
+                secondaryStreamUrl = "", secondaryStreamKey = "", obsRemoteEnabled = false)
+        }
+    }
+
+    /** Per-instance widget settings; credentials and unrelated app settings stay global. */
+    fun widgetSettingsFlow(widgetId: String?): Flow<AppSettings> {
+        if (widgetId == null) return appSettingsFlow
+        return combine(appSettingsFlow, dataStore.data) { base, prefs ->
+            val widget = SceneRepository.decodeWidgets(prefs).find { it.id == widgetId }
+            val scene = SceneRepository.decodeScenes(prefs).find { it.id == prefs[SceneRepository.ACTIVE_SCENE_ID] }
+            val visible = scene?.enabled == true && scene.widgets.orEmpty().any { it.widgetId == widgetId && it.enabled }
+            (widget ?: StreamWidget(widgetId, "", WidgetType.TEXT, enabled = false)).settings(base, visible && widget?.enabled == true)
+        }.distinctUntilChanged()
+    }
+
+    private fun Preferences.localOverlays() = LocalOverlaySettings(
+        showZoom = this[PrefKeys.LOCAL_ZOOM] ?: true,
+        showFps = this[PrefKeys.LOCAL_FPS] ?: true,
+        showDuration = this[PrefKeys.LOCAL_DURATION] ?: true,
+        showScenes = this[PrefKeys.LOCAL_SCENES] ?: true,
+        showBitrate = this[PrefKeys.LOCAL_BITRATE] ?: true,
+    )
+
+    /** Atomic per-toggle edits preserve concurrent changes to the other local overlays. */
+    suspend fun updateLocalOverlays(update: (LocalOverlaySettings) -> LocalOverlaySettings) {
+        dataStore.edit { prefs ->
+            val settings = update(prefs.localOverlays())
+            prefs[PrefKeys.LOCAL_ZOOM] = settings.showZoom
+            prefs[PrefKeys.LOCAL_FPS] = settings.showFps
+            prefs[PrefKeys.LOCAL_DURATION] = settings.showDuration
+            prefs[PrefKeys.LOCAL_SCENES] = settings.showScenes
+            prefs[PrefKeys.LOCAL_BITRATE] = settings.showBitrate
+        }
+    }
+
+    private fun Preferences.cameraControls(): CameraControlSettings {
+        val defaults = CameraControlSettings()
+        fun presets(key: Preferences.Key<String>, fallback: List<Float>): List<Float> =
+            this[key]?.split(",")?.mapNotNull { it.toFloatOrNull() } ?: fallback
+        return CameraControlSettings(
+            zoomSpeed = this[PrefKeys.ZOOM_SPEED] ?: defaults.zoomSpeed,
+            rearZoomPresets = presets(PrefKeys.REAR_ZOOM_PRESETS, defaults.rearZoomPresets),
+            frontZoomPresets = presets(PrefKeys.FRONT_ZOOM_PRESETS, defaults.frontZoomPresets),
+            stabilization = StabilizationMode.fromName(this[PrefKeys.STABILIZATION]),
+            mirrorFrontCamera = this[PrefKeys.MIRROR_FRONT] ?: false,
+        ).normalized()
+    }
+
+    /** Atomic edit so a fast slider change cannot overwrite a simultaneous preset edit. */
+    suspend fun updateCameraControls(update: (CameraControlSettings) -> CameraControlSettings) {
+        dataStore.edit { prefs ->
+            val value = update(prefs.cameraControls()).normalized()
+            prefs[PrefKeys.ZOOM_SPEED] = value.zoomSpeed
+            prefs[PrefKeys.REAR_ZOOM_PRESETS] = value.rearZoomPresets.joinToString(",")
+            prefs[PrefKeys.FRONT_ZOOM_PRESETS] = value.frontZoomPresets.joinToString(",")
+            prefs[PrefKeys.STABILIZATION] = value.stabilization.name
+            prefs[PrefKeys.MIRROR_FRONT] = value.mirrorFrontCamera
+        }
+    }
+
+    /** Save all profile fields and selection in one DataStore transaction. */
+    suspend fun updateStreamProfiles(profiles: List<StreamProfile>, activeId: String?) {
+        require(profiles.map { it.id }.distinct().size == profiles.size)
+        require(activeId == null || profiles.any { it.id == activeId })
+        dataStore.edit { prefs ->
+            prefs[profilesKey] = profilesJson.encodeToString(kotlinx.serialization.builtins.ListSerializer(StreamProfile.serializer()), profiles)
+            if (activeId == null) prefs.remove(activeProfileKey) else prefs[activeProfileKey] = activeId
+        }
+    }
+
+    /** Keep existing scene/OBS/channel editors targeting the selected profile. */
+    private fun androidx.datastore.preferences.core.MutablePreferences.updateActiveProfile(
+        transform: (StreamProfile) -> StreamProfile,
+    ) {
+        val raw = this[profilesKey] ?: return
+        val activeId = this[activeProfileKey] ?: return
+        val profiles = profilesJson.decodeFromString<List<StreamProfile>>(raw)
+        this[profilesKey] = profilesJson.encodeToString(
+            kotlinx.serialization.builtins.ListSerializer(StreamProfile.serializer()),
+            profiles.map { if (it.id == activeId) transform(it) else it },
+        )
+    }
+
     // Update-Funktionen bleiben getrennt, das ist in Ordnung.
     // useTls: false = rtmp:// (Klartext), true = rtmps:// (RTMP über TLS).
     suspend fun updateStreamSettings(url: String, key: String, useTls: Boolean = false) {
         dataStore.edit { prefs ->
+            prefs.updateActiveProfile { it.copy(streamUrl = url, streamKey = key, streamUseTls = useTls) }
             prefs[PrefKeys.STREAM_URL] = url
             prefs[PrefKeys.STREAM_KEY] = key
             prefs[PrefKeys.STREAM_USE_TLS] = useTls
@@ -393,6 +516,7 @@ class SettingsRepository @Inject constructor(
     // Zweites (optionales) Stream-Ziel für Multi-Streaming.
     suspend fun updateSecondaryStreamSettings(url: String, key: String, useTls: Boolean = false) {
         dataStore.edit { prefs ->
+            prefs.updateActiveProfile { it.copy(secondaryStreamUrl = url, secondaryStreamKey = key, secondaryStreamUseTls = useTls) }
             prefs[PrefKeys.SECONDARY_STREAM_URL] = url
             prefs[PrefKeys.SECONDARY_STREAM_KEY] = key
             prefs[PrefKeys.SECONDARY_STREAM_USE_TLS] = useTls
@@ -404,6 +528,7 @@ class SettingsRepository @Inject constructor(
     // still auf ws:// zurückgesetzt.
     suspend fun updateObsSettings(host: String, port: String, password: String, useTls: Boolean = false) {
         dataStore.edit { prefs ->
+            prefs.updateActiveProfile { it.copy(obsHost = host, obsPort = port, obsPassword = password, obsUseTls = useTls) }
             prefs[PrefKeys.OBS_HOST] = host
             prefs[PrefKeys.OBS_PORT] = port
             prefs[PrefKeys.OBS_PASSWORD] = password
@@ -437,6 +562,7 @@ class SettingsRepository @Inject constructor(
         category: String,
     ) {
         dataStore.edit { prefs ->
+            prefs.updateActiveProfile { it.copy(twitchChannelOauthToken = oauthToken, twitchStreamTitle = title, twitchStreamCategory = category) }
             prefs[PrefKeys.CHAT_CHANNEL] = channel.trim()
             prefs[PrefKeys.TWITCH_CHANNEL_OAUTH_TOKEN] = oauthToken
             prefs[PrefKeys.TWITCH_STREAM_TITLE] = title
@@ -596,6 +722,7 @@ class SettingsRepository @Inject constructor(
     )
 
     private data class ThemePrefs(
+        val orientation: AppOrientation,
         val mode: ThemeMode,
         val accent: AccentColor,
     )
@@ -641,6 +768,7 @@ class SettingsRepository @Inject constructor(
     /** Audio-Konfiguration der Replay-Aufnahme speichern. */
     suspend fun updateReplayAudioMode(mode: ReplayAudioMode) {
         dataStore.edit { prefs ->
+            prefs.updateActiveProfile { it.copy(replayAudioMode = mode) }
             prefs[PrefKeys.REPLAY_AUDIO_MODE] = mode.name
         }
     }
@@ -652,6 +780,7 @@ class SettingsRepository @Inject constructor(
     /** Encoder-Preset (Aufloesung/FPS) speichern. */
     suspend fun updateEncoderPreset(preset: EncoderPreset) {
         dataStore.edit { prefs ->
+            prefs.updateActiveProfile { it.copy(encoderPreset = preset) }
             prefs[PrefKeys.ENCODER_PRESET] = preset.name
         }
     }
@@ -659,6 +788,7 @@ class SettingsRepository @Inject constructor(
     /** Bevorzugten Video-Codec speichern. */
     suspend fun updateEncoderCodecPreference(preference: VideoCodecPreference) {
         dataStore.edit { prefs ->
+            prefs.updateActiveProfile { it.copy(videoCodecPreference = preference) }
             prefs[PrefKeys.ENCODER_CODEC_PREFERENCE] = preference.name
         }
     }
@@ -666,6 +796,7 @@ class SettingsRepository @Inject constructor(
     /** HEVC-Fallback-Kette ein-/ausschalten. */
     suspend fun updateEncoderAutoFallback(enabled: Boolean) {
         dataStore.edit { prefs ->
+            prefs.updateActiveProfile { it.copy(encoderAutoFallback = enabled) }
             prefs[PrefKeys.ENCODER_AUTO_FALLBACK] = enabled
         }
     }
@@ -673,6 +804,7 @@ class SettingsRepository @Inject constructor(
     /** Adaptive Bitrate (dynamische Zielbitrate) ein-/ausschalten. */
     suspend fun updateAdaptiveBitrateEnabled(enabled: Boolean) {
         dataStore.edit { prefs ->
+            prefs.updateActiveProfile { it.copy(adaptiveBitrateEnabled = enabled) }
             prefs[PrefKeys.ADAPTIVE_BITRATE_ENABLED] = enabled
         }
     }
@@ -682,6 +814,11 @@ class SettingsRepository @Inject constructor(
         dataStore.edit { prefs ->
             prefs[PrefKeys.SUBTITLES_ENABLED] = enabled
         }
+    }
+
+    /** Only an explicit Appearance selection changes the fixed streaming-screen orientation. */
+    suspend fun updateAppOrientation(orientation: AppOrientation) {
+        dataStore.edit { prefs -> prefs[PrefKeys.APP_ORIENTATION] = orientation.name }
     }
 
     /** Darstellung speichern: Design-Modus + Akzentfarbe. */

@@ -69,6 +69,15 @@ Beim ersten Öffnen zeigt Vivid den **Streaming-Screen** (Live-Vorschau). Bevor 
 
 Öffne die **Einstellungen** (⚙️ oben rechts im Streaming-Screen) → **„Streaming & OBS"**.
 
+Hier stehen gespeicherte Streams. „Stream erstellen“ führt über Twitch, YouTube,
+Kick oder Benutzerdefiniert zu Name, URL, Schlüssel, TLS und „Speichern“.
+Der Switch aktiviert einen Stream; ein anderer Switch deaktiviert den vorherigen.
+Alle dürfen aus sein. „Start streaming“ startet den ausgewählten Stream.
+Gedrückt halten und Ziehen am Griff sortiert die Streams; Loslassen speichert die Reihenfolge. Antippen der Zeile öffnet eigene Seiten für Multi-Streaming, Video
+(Auflösung/Codec, FPS, LLB, 1–15 Mbit/s und Schlüsselbildintervall), Replay,
+Twitch-Kanalsteuerung (nur Twitch) und OBS-Fernsteuerung mit eigenem Switch.
+Änderungen mit „Speichern“ auf der Stream-Detailseite übernehmen.
+
 ### 3.1 Plattform-Vorlage wählen
 
 Vivid bietet Vorlagen für die gängigsten Plattformen:
@@ -85,7 +94,7 @@ Vivid bietet Vorlagen für die gängigsten Plattformen:
 1. **Plattform-Vorlage** antippen → die URL wird vorausgefüllt
 2. **Stream-URL** ggf. anpassen (z. B. `rtmps://` für TLS — das **„TLS"**-Toggle aktiviert Verschlüsselung)
 3. **Stream-Key** eintragen
-4. **Fertig** — die Einstellungen werden gespeichert
+4. **Stream-Namen** eingeben, **Speichern** antippen und den Stream in der Liste aktivieren
 
 ### 3.3 Multi-Streaming (zwei Ziele parallel)
 
@@ -112,7 +121,7 @@ Vor dem Start prüft Vivid die Konfiguration und zeigt klare Meldungen:
 3. Vivid verbindet sich — Status wechselt zu **„Bereite vor…"** → **„sendet live"**
 4. Die Status-Anzeige zeigt jeden Zielort einzeln (bei Multi-Streaming)
 
-Das Menü **Steuerung** bündelt Kamera, Bildschirm und Video als Quellen, danach **Aufnahme**, Kamera-Steuerung, Filter, Helligkeitsanhebung, LUT und Farbverarbeitung. Das Zahnrad oben rechts öffnet die Einstellungen. **Szenen** öffnet eine standardmäßig ausgeblendete untere Schublade; nach unten wischen schließt sie. **Aufnahme** speichert das aktuelle Kameravideo als lokale MP4, auch ohne Stream-URL oder aktiven Stream. Eine leere Stream-URL wird erst nach dem Tippen auf Start angezeigt. Kamera-Steuerung und Bildeffekte funktionieren auch in der Idle-Vorschau, wenn die Kamera-Permission bereits erteilt ist.
+Das Menü **Steuerung** bündelt Kamera, Bildschirm und Video als Quellen, danach **Aufnahme**, Kamera-Steuerung, Filter, Helligkeitsanhebung, LUT und Farbverarbeitung. Das Zahnrad oben rechts öffnet die Einstellungen. Szenen werden unter **Einstellungen → Szenen & Widgets** verwaltet: Szenen und gemeinsame Widgets lassen sich sortieren, einschalten und per Wischen löschen. Jede Szene hat eine Kamera, Bildschirmübertragung oder leere Quelle und eigene Widget-Positionen. Automatischer Wechsel und Datenschutz stehen unter den beiden Listen. **Aufnahme** speichert das aktuelle Kameravideo als lokale MP4, auch ohne Stream-URL oder aktiven Stream. Eine leere Stream-URL wird erst nach dem Tippen auf Start angezeigt. Kamera-Steuerung und Bildeffekte funktionieren auch in der Idle-Vorschau, wenn die Kamera-Permission bereits erteilt ist.
 
 ### Stream beenden
 
@@ -172,7 +181,26 @@ Wenn dein Gerät mehrere Kameras hat (z. B. Ultraweit/Weit/Tele):
 
 > Die Verfügbarkeit hängt vom Gerät ab — nicht alle Kameras bieten alle Linsen.
 
-### 6.3 Tipps
+### 6.3 Zoom, Stabilisierung und Spiegelung
+
+**Kamera-Steuerung → Zoom** speichert getrennte Vorgaben für Rück- und
+Frontkamera. Standard hinten: 0,5×, 1×, 1,5×, 2×; vorne: 0,5×, 1×.
+Werte antippen zum Bearbeiten, erstellen oder per Löschsymbol entfernen.
+Vorgaben am linken Griff lange drücken und innerhalb der jeweiligen
+Kameraliste ziehen. Die Reihenfolge wird beim Loslassen gespeichert; Abbrechen
+stellt die alte Reihenfolge wieder her. Andere Änderungen werden sofort
+gespeichert. Die Geschwindigkeit (Standard 5,0; Bereich 0,1–10 Zoom-Einheiten
+pro Sekunde) steuert Übergänge zwischen Vorgaben. Diese Seite bearbeitet die
+Vorgaben; das spätere Zoom-Widget verwendet dieselben Einstellungen. Die
+verfügbaren Zoom-Werte hängen von der Kamera ab.
+
+Stabilisierung: Aus, Standard (OIS, sonst EIS), Kinematisch (EIS). Die verfügbaren
+Optionen hängen von der aktiven Kamera ab; kein herstellerspezifischer
+Kinomodus. Frontkamera spiegeln wirkt auf Vorschau und gesendetes/aufgezeichnetes
+Video, niemals auf die Rückkamera. Bei Fußball vom stabilen Schwenkstativ mit
+Aus beginnen, Standard nur bei verbleibenden Vibrationen ausprobieren.
+
+### 6.4 Tipps
 
 - **Tap-to-Focus** auf der Vorschau überschreibt die manuelle Einstellung temporär
 - **Fokus-Lock** (Button oben rechts) hält den aktuellen Fokus fest
@@ -188,8 +216,8 @@ Plattform-Chat, Phase P1) — beide Chats laufen gemergt in dasselbe Overlay.
 
 ### 7.1 Aktivieren
 
-1. **Einstellungen** → **„Overlays & Widgets"**
-2. **Chat-Overlay** einschalten
+1. **Einstellungen** → **„Szenen & Widgets"**
+2. Ein **Chat-Overlay**-Widget hinzufügen (oder das migrierte Widget öffnen) und den Schalter in der Widget-Liste einschalten.
 3. **Chat-Kanal** eintragen (dein Twitch-Kanalname, z. B. `thoser666`)
 4. Optional: **YouTube-Chat** einschalten und die **YouTube-Kanal-ID** (`UC…`)
    eintragen — der Live-Chat wird anonym gelesen (kein OAuth) und im selben
@@ -197,6 +225,7 @@ Plattform-Chat, Phase P1) — beide Chats laufen gemergt in dasselbe Overlay.
 5. Optional: **Kick-Chat** einschalten und den **Kick-Kanal-Slug** eintragen —
    auch dieser Chat wird anonym gelesen (Pusher-Protokoll, kein OAuth) und im
    selben Overlay gemergt; Kick-Nachrichten tragen ein grünes K-Plattform-Badge.
+6. Widget speichern, eine Szene öffnen und über **Aus Widgets hinzufügen** zuordnen. Das Widget in der Szene einschalten und die Szene aktivieren.
 
 ### 7.2 Was du brauchst
 
@@ -292,7 +321,7 @@ Vivid kann OBS Studio über **WebSocket** steuern (Szenen wechseln, Recording/St
 1. **In OBS:** Extras → **WebSocket-Server-Einstellungen** → *„WebSocket-Server aktivieren"* anhaken (Port `4455`)
 2. Optional **Passwort** setzen
 3. **IP des OBS-Rechners** ermitteln (Windows: `ipconfig`, Mac/Linux: `ip addr`) — Handy und PC im **selben WLAN**
-4. **In Vivid:** Einstellungen → **Streaming & OBS** → OBS-Bereich:
+4. **In Vivid:** Einstellungen → **Streaming & OBS** → Stream öffnen → **OBS-Fernsteuerung**:
    - Host = IP des PCs
    - Port = `4455`
    - Passwort (falls gesetzt)
@@ -337,9 +366,9 @@ Der Einstellungen-Screen ist in sechs Kategorien gegliedert (wie Moblin):
 
 | Kategorie | Inhalt |
 |---|---|
-| 🎬 **Streaming & OBS** | Stream-URL/-Key, Plattform-Vorlagen (Twitch/YouTube/Kick/Custom), Multi-Streaming, OBS-Verbindung (Host/Port/Passwort/TLS/QR-Import) |
-| 🎨 **Darstellung** | Design-Modus (System/Hell/Dunkel/AMOLED) + Akzentfarbe (6 kuratierte Farben, Vivid-Grün als Standard) |
-| 🧩 **Overlays & Widgets** | Twitch-Chat-Overlay (Kanal + Toggle; optional YouTube- und Kick-Chat gemergt, anonym gelesen), Text-/Info-Widget (Zeit/GPS/Geschwindigkeit/Höhenmeter — je mit Toggle + Runtime-Permission; eigener Template-Text mit Variablen wie `{time}`, `{speed}`, `{road}`, `{city}`, `{country}` — Ortsnamen werden automatisch per Reverse-Geocoding ermittelt und zwischengespeichert) |
+| 🎬 **Streaming & OBS** | Gespeicherte Streams (Twitch/YouTube/Kick/Custom), ein aktiver Stream, eigene Video-/Replay-/Multi-Streaming-/OBS-Einstellungen |
+| 🎨 **Darstellung** | Zuerst Betriebsmodus: Hochformat (Standard) / Querformat, sofort gespeichert; Gerätedrehung wechselt den Modus nicht. Design-Modus (System/Hell/Dunkel/AMOLED) + Akzentfarbe (6 kuratierte Farben, Vivid-Grün als Standard) |
+| 🧩 **Szenen & Widgets** | Twitch-Chat-Overlay (Kanal + Toggle; optional YouTube- und Kick-Chat gemergt, anonym gelesen), Text-/Info-Widget (Zeit/GPS/Geschwindigkeit/Höhenmeter — je mit Toggle + Runtime-Permission; eigener Template-Text mit Variablen wie `{time}`, `{speed}`, `{road}`, `{city}`, `{country}` — Ortsnamen werden automatisch per Reverse-Geocoding ermittelt und zwischengespeichert) |
 | 💬 **Chat-Bot & KI** | Betriebsmodus, Bot-Konto (Login/Token/Client-ID), LLM-Endpunkt/Key/Modell/Prompt, Cooldown, Mentions-only, Rate-Limit, Limits + Presets, Owner-Zugriff (Allow-List + Owner-KI), Media-Befehle, Benachrichtigungszugriff |
 | 🔒 **Remote & Datenschutz** | Web-Remote-Control (Token + LAN-Zugriff, Autostart-Toggle), Sentry-Fehlerberichte + Error-Replay (Opt-out-Toggle) |
 | ℹ️ **Über & Updates** | Version, Update-Badge, manuelle Update-Suche (GitHub Releases), Release-Notes |

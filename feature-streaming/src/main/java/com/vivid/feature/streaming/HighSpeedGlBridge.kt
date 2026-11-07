@@ -192,9 +192,8 @@ internal class HighSpeedGlBridge(
         }
         // SurfaceTexture's timestamp advances when GL calls updateTexImage. Do not enqueue
         // another frame event until then; under GL load keep the newest decoded image instead.
-        if (latestDecoded.renderIfConsumed(consumedTimestampNs()) { target.releaseOutputBuffer(it, true) }) {
-            if (++decodedFrames >= 3) ready.countDown()
-        }
+        if (latestDecoded.renderIfConsumed(consumedTimestampNs()) { target.releaseOutputBuffer(it, true) } &&
+            ++decodedFrames >= 3) ready.countDown()
     }
 
     private fun fail(error: Throwable) {

@@ -104,6 +104,50 @@ class StreamingEngineCameraGuardTest {
     }
 
     @Test
+    fun `preview rebuild checks the selected idle lens before replacing capture`() {
+        val idle = mockk<Camera2ApiManager>(relaxed = true)
+        every { idle.getCurrentCameraId() } returns "selected-lens"
+        streamingEngine.initializeCamera()
+        streamingEngine.cameraAvailability = { true }
+        streamingEngine.idlePreviewFactory = { idle }
+        val surface = mockk<Surface>(relaxed = true)
+        streamingEngine.attachPreview(surface, 1280, 720)
+
+        val checkedIds = mutableListOf<String?>()
+        streamingEngine.cameraAvailability = { id ->
+            checkedIds += id
+            false
+        }
+        streamingEngine.attachPreview(surface, 720, 1280)
+
+        assertEquals(listOf("selected-lens"), checkedIds)
+        verify(exactly = 1) { idle.prepareCamera(any(), any(), any(), any()) }
+        verify(exactly = 0) { idle.closeCamera() }
+    }
+
+    @Test
+    fun `deferred preview open retains the lens selected before rebuilding`() {
+        val initial = mockk<Camera2ApiManager>(relaxed = true)
+        every { initial.getCurrentCameraId() } returns "selected-lens"
+        streamingEngine.initializeCamera()
+        streamingEngine.cameraAvailability = { true }
+        streamingEngine.idlePreviewFactory = { initial }
+        val surface = mockk<Surface>(relaxed = true)
+        streamingEngine.attachPreview(surface, 1280, 720)
+
+        val replacement = mockk<Camera2ApiManager>(relaxed = true)
+        streamingEngine.idlePreviewFactory = { replacement }
+        val pending = mutableListOf<() -> Unit>()
+        streamingEngine.launchCameraOpen = { pending += it }
+        streamingEngine.attachPreview(surface, 720, 1280)
+        every { camera.currentCameraId } returns "different-lens"
+
+        verify(exactly = 0) { replacement.openCameraId(any()) }
+        pending.single()()
+        verify(exactly = 1) { replacement.openCameraId("selected-lens") }
+    }
+
+    @Test
     fun `stream start reports a localized camera error instead of throwing inside the library`() {
         streamingEngine.initializeCamera()
         streamingEngine.cameraAvailability = { false }

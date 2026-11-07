@@ -17,9 +17,9 @@ Camera2 High-Speed → AVC Surface-Encoder (max. 60 FPS)
 GL-Effekte und Overlays werden nicht für einen direkten Encoder-Pfad umgangen.
 Im experimentellen Modus ersetzt der PrivacyComposer nur seine eigenen Effekte;
 extern hinzugefügte GL-Overlays bleiben bei einem Ketten-Rebuild erhalten.
-Die vorhandenen Compose-Overlays bleiben ebenfalls im bestehenden UI-Pfad.
-Die Einstellung fügt keine neue Übertragung von bisher ausschließlich in der
-Vorschau dargestellten Compose-Widgets in das codierte Video hinzu.
+Der gemeinsame [Szenenlayer](scenes-widgets.md) komponiert aktivierte Widgets
+auch im experimentellen Modus in Vorschau, Aufnahme und Übertragung. Lokale
+Bedienelemente und Statusanzeigen bleiben außerhalb des codierten Videos.
 
 ## Zulassung und Lebenszyklus
 
@@ -48,12 +48,12 @@ Vorschau dargestellten Compose-Widgets in das codierte Video hinzu.
 
 Gespeicherter Modus, angewendeter Capture-Modus, tatsächlich vorbereitetes
 Encoder-Profil und gemessene finale Encoder-FPS sind getrennte Zustände. Die
-kompakte Statusanzeige liegt als drei halbtransparente Texte auf der lokalen
-Vorschau: angewendeter 30-/60-FPS-Modus, gemessene Sendebitrate eines aktiven
-Ziels und Zeit seit der ersten erfolgreichen Verbindung. Der Modus ist kein
-FPS-Messwert; RootEncoders tatsächliche Encoder-FPS bleiben als Diagnosewert
-in der Engine verfügbar. Die Anzeige wird nicht ins gesendete Video eingebrannt.
-Ein Capture-Fallback bleibt per Snackbar sichtbar und zeigt den Standardmodus.
+lokale Statusanzeige zeigt gemessene finale Encoder-FPS, Sendebitrate eines
+aktiven Ziels und Zeit seit der ersten erfolgreichen Verbindung. Die drei
+Indikatoren lassen sich unter Interface → Local overlays unabhängig ausblenden.
+Ein ausstehender FPS-Messwert bleibt als ausstehend gekennzeichnet. Die Anzeige
+wird nicht ins gesendete Video eingebrannt. Capture-Fallbacks und Fehler erscheinen
+als zentrale, per Tap oder nach drei Sekunden schließende Mitteilungen.
 Der monotone Session-Start bleibt beim Neuaufbau der UI erhalten, solange ein
 Ziel live ist; nach Stopp/Verbindungsende startet der Timer bei der nächsten
 Verbindung neu. Ein manueller Stopp über den Preview-Button braucht eine
@@ -69,11 +69,13 @@ Hook. `RootEncoderExternalCapture` kapselt daher drei private Verträge:
 Der Adapter konfiguriert denselben GL-Renderer und unterdrückt anschließend
 `openLastCamera`, solange der alternative Capture-Pfad die Kamera besitzt.
 Der Decoder liefert bereits native Landscape-Pixelachsen. Der Adapter setzt
-`setCameraOrientation(0/180)` nach seiner Vorbereitung und die Engine erneut nach
+`setCameraOrientation(0/90/180/270)` nach seiner Vorbereitung und die Engine erneut nach
 `startRecord`/`startStream`: RootEncoder ruft bei diesen Starts intern nochmals
 `prepareGlView` auf und setzt sonst die Camera2-Texturrotation von 270 Grad.
 Diese Rotation auf Decoder-Frames verdrehte und verzerrte die GL-Eingabe.
-Display-Rotation und Center-Crop bleiben im separaten Preview-Schritt.
+Portrait und Landscape verwenden die ausgewählten codierten Pixelachsen.
+Die Preview passt den vollständigen komponierten Frame ohne zusätzliche
+Textrotation in ihre verfügbare Fläche ein.
 Consumer-R8-Regeln sichern die reflektierten Namen. Bei einem Versionswechsel
 müssen diese Verträge und die Geräteprüfung erneut verifiziert werden; ein
 inkompatibler Vertrag fällt während Vorbereitung auf den Standardpfad zurück.
@@ -93,138 +95,44 @@ und startet anschließend eine Standardaufnahme. Gespeicherte externe
 Streamziele werden nie verwendet und App-Daten nicht gelöscht.
 
 `StreamStatusOverlayInstrumentedTest` prüft mit `runStreamHud=true` und einer
-expliziten Loopback-RTMP-Adresse die drei Preview-Texte, den laufenden Timer,
+expliziten Loopback-RTMP-Adresse die lokalen Statusindikatoren, den laufenden Timer,
 das Weiterlaufen nach Abbrechen und den bestätigten Stopp. Er verwendet keine
 gespeicherten Streamziele und ändert keine gespeicherten Einstellungen.
 
-## Gerätebeleg vom 2026-10-06
+## Latenz und Ausrichtung
 
-POCO X7 Pro (2412DPC0AG, Android 16), Hauptkamera, 1080p/H.264,
-High-Speed-Capture 120 → Decoder → Vivid-GL → finaler Encoder mit Audio:
-
-| Lauf | MP4-FPS | RTMP-FPS | Vollständig dekodierte Frames MP4 / RTMP | Benachbarte Duplikate |
-|------|---------|----------|----------------------------------------|----------------------|
-| 30 Sekunden | 57,33 | 57,33 | 1774 / 1715 | 0 / 0 |
-| 120 Sekunden | 52,58 | 52,59 | 6372 / 6311 | 0 / 0 |
-
-FPS wurden nach fünf Sekunden Anlauf anhand der Video-PTS berechnet;
-Metadaten wie `60/1` wurden nicht als Messwert übernommen. Die letzten
-30 Sekunden des langen Laufs lagen bei 52,51 FPS. Beide Tracks enthielten
-AAC mit 32 kHz; Graustufen und ein roter GL-Text-Overlay waren aktiv.
-Der anschließende Wechsel auf Standard und eine reine Videoaufnahme waren
-erfolgreich. **Konstante 60 FPS auf POCO sind damit nicht bestätigt.**
-Samsung und 4K wurden mit dieser Vivid-Integration noch nicht auf einem
-Gerät geprüft. Es gibt noch keinen Langzeit-/Thermal-Nachweis.
-
-Alle Modul-Unit-Tests, Standard-App-Tests, Lint und FOSS-Debug-/R8-Release-
-Build bestanden. Das vollständige `scripts/pre-push.sh` stoppt zuvor bei
-`test_contributors_reminder.sh` C18 (`Mutation konnte nicht angewendet werden`);
-derselbe Fehler wurde auf dem unveränderten Ausgangsbranch reproduziert.
-Die betroffenen Workflow-/Contributor-Dateien wurden nicht verändert.
-
-Rohvideos, vollständige Decode-Hashes und Testprotokolle liegen lokal unter
-`build/reports/experimental-camera-mode-2026-10-06/` (nicht eingecheckt).
-
-## Orientierungsregression
-
-`CameraOrientationInstrumentedTest` ist ein separater Opt-in-Test mit
-`runCameraOrientation=true` und einem expliziten Loopback-RTMP-Ziel. Er prüft
-Standard und Experimentell in Portrait, Landscape und Reverse-Landscape,
-wartet auf echte Encoder-FPS und kopiert die Preview-Surface über PixelCopy
-vor Start, im Stream und nach Stop. Die experimentelle Input-Rotationsmatrix
-muss nach Start identisch bleiben. Auf dem vorherigen APK schlug dieser
-Regressionstest fehl; nach der Korrektur bestehen alle sechs Übergänge auf
-POCO. Die Preview-Bildpaare wurden zusätzlich visuell geprüft.
-
-## Latenz und umgekehrtes Landscape (2026-10-06)
-
-Auf POCO lagen die bereits am Capture-Encoder ausgegebenen Frames zuvor rund
-830 ms zurück; die GL-Queue war dabei fast leer. `KEY_FRAME_RATE=60` allein
-beschreibt nicht die 120-FPS-Eingabe. Der Bridge-Encoder erhält jetzt zusätzlich
-`KEY_OPERATING_RATE=captureFps`, Realtime-Priorität und einen optionalen
-Null-Latenz-Hinweis. Die [Android-Referenz](https://developer.android.com/reference/android/media/MediaFormat#KEY_OPERATING_RATE)
-beschreibt Operating Rate ausdrücklich für High-Speed-Eingaben mit abweichender
-Wiedergaberate. Der POCO-Encoder meldet weiterhin `latency=2`: der optionale
-Null-Latenz-Hinweis wird nicht als bestätigte Eigenschaft ausgegeben.
+Der Bridge-Encoder erhält `KEY_OPERATING_RATE=captureFps`, Realtime-Priorität
+und einen optionalen Null-Latenz-Hinweis. `KEY_FRAME_RATE=60` allein beschreibt
+die High-Speed-Eingabe nicht. Der optionale Hinweis wird nicht als bestätigte
+Hardware-Eigenschaft ausgegeben.
 
 Die Bridge leert beide Codecs in begrenzten, nicht blockierenden Batches. Vor
 GL hält sie höchstens einen neuen dekodierten Frame und einen bereits an die
 Surface übergebenen Frame. Die ursprüngliche PTS muss in `SurfaceTexture`
 angekommen sein, bevor ein weiterer Frame übergeben wird. Bei GL-Rückstau wird
-nur der wartende **dekodierte** Frame durch den neuesten ersetzt; komprimierte
+nur der wartende dekodierte Frame durch den neuesten ersetzt; komprimierte
 P-Frames werden vollständig dekodiert, damit ihre Referenzen erhalten bleiben.
 Filter und Overlays bleiben aktiv. Keine PTS wird auf die aktuelle Zeit umgeschrieben.
 
-Der zweite Orientierungsfehler betraf die Ausgabe bei Reverse-Landscape:
-Preview drehte um 180 Grad, der Stream nicht. Der halbe Umlauf wird jetzt auf
-die Kameraquelle **vor** den Filtern angewendet, bei Standard und Experimentell.
-Die Preview kompensiert denselben Umlauf; Overlay-Text wird nicht auf den Kopf
-gedreht. Der externe Adapter merkt sich 0/180 Grad und stellt diesen Wert auch
-nach einem späteren Encoder-Start wieder her. Native Landscape-Ausgabe wird bei
-Experimentell auch ohne gespeichertes Encoder-Preset korrekt berücksichtigt.
+Die Engine wendet Portrait und den halben Umlauf für Reverse-Landscape auf
+die Kameraquelle vor den Filtern an. Der externe Adapter merkt sich die Rotation
+und stellt sie nach einem Encoder-Start wieder her. Widget-Text bleibt aufrecht.
+`CameraOrientationInstrumentedTest` prüft die Eingabematrix und Preview-Übergänge;
+`CameraOutputOrientationInstrumentedTest` prüft mit `runCameraOutputOrientation=true`
+und `fps=30` oder `fps=60` die lokalen MP4-Pixelachsen und einen dekodierten
+Szenenmarker in Portrait und Landscape, ohne eine externe Übertragung zu starten.
 
 `CameraLatencyInstrumentedTest` ist opt-in (`runCameraLatency=true`, ausschließlich
-Loopback-RTMP). Er misst den Frame-Alter am GL-Eingang nach fünf Sekunden Anlauf,
+Loopback-RTMP). Er misst das Frame-Alter am GL-Eingang nach fünf Sekunden Anlauf,
 vergleicht Standard und Experimentell und verlangt standardmäßig P95 <250 ms.
-Camera2-SurfaceTexture verwendet bei REALTIME-Sensoren die Boot-Zeit, ein direkt
-an Camera2 gegebener Encoder-Surface die monotone Zeit. Der Test prüft den
-Sensor-Zeitquellentyp und verwendet für jede Route die passende Uhr; siehe
-[Android CameraX Timebase](https://android.googlesource.com/platform/frameworks/support/+/d62cb99c5e97384ccd6d0a97707f656ffb4f35cf/camera/camera-video/src/main/java/androidx/camera/video/VideoCapture.java).
-Dies ist kein Motion-to-Photon- oder Ende-zu-Ende-Streaming-Latenztest.
+Er prüft den Sensor-Zeitquellentyp und verwendet die passende Uhr. Dies ist kein
+Motion-to-Photon- oder Ende-zu-Ende-Streaming-Latenztest.
 
-POCO, 1080p/H.264, jeweils 60 Sekunden mit Graustufen, rotem GL-Text und einer
-expliziten GL-Pause von 250 ms:
+## Bekannte Grenzen
 
-| Route | Median Frame-Alter | P95 | Tatsächlich dekodierte RTMP-FPS |
-|-------|--------------------|-----|-------------------------------|
-| Standard | 112 ms | 132 ms | 29,90 |
-| Experimentell | 102 ms | 117 ms | 59,29 |
-
-Nach der erzwungenen Pause fiel der experimentelle Frame-Alter innerhalb von
-31 ms nach der ersten verzögerten Messung wieder unter 150 ms. Der gleiche
-Regressions-Test auf der alten Bridge schlägt mit P95 **950 ms** fehl.
-Eine zusätzliche 30-Sekunden-Aufnahme mit Audio und gleichzeitigem RTMP hielt
-58,01 FPS in MP4 und 57,93 FPS im RTMP-Segment; beide H.264/1080p plus AAC/32 kHz.
-Vollständige Decodes: 1792 MP4-, 1728 RTMP-Audio- und 3449 RTMP-Latenztest-Frames,
-keine benachbarten Hash-Duplikate. **Konstante 60 FPS unter beliebiger Last sind
-weiterhin nicht bestätigt.** Die Verbesserung betrifft gemessene Frame-Frische.
-
-Der Reverse-Landscape-Gerätetest ist auf dem alten Orientierungsverhalten rot
-und nach dem Fix grün. Sechs Idle → Stream → Idle-Übergänge, PixelCopy-Vorschauen
-und tatsächlich empfangene RTMP-Bilder wurden geprüft. Das alte Reverse-Bild
-passt erst nach 180 Grad zur Preview, die korrigierten Landscape-Bilder beider
-Modi passen ohne weitere Drehung. Lokale Rohdaten und Messbericht:
-`build/reports/camera-latency-2026-10-06/` (nicht eingecheckt).
-
-
-## PR-Validierung (2026-10-22)
-
-Die Feature-Branch enthält `upstream/develop` bis `3ceaff61`. Der vollständige
-`PRE_PUSH_RELEASE=1 bash scripts/pre-push.sh` ist grün, einschließlich
-Release-APKs/AAB und beider strengen Sentry-R8-Mapping-Nachweise. Die privaten
-RootEncoder-Felder und die GL-Methodensignatur sind zusätzlich direkt in den
-DEX-Dateien aller drei Release-Artefakte geprüft.
-
-2.027 JVM-Tests (Module + Standard/FOSS-App) haben keine Fehler und fünf
-bestehende Skips; Kover XML/HTML und alle Shell-Selbsttests sind grün. Der
-signierte Play-Dry-Run hat keinen Upload ausgeführt. Auf API 31 bestehen
-je Flavor elf UI-Tests; sechs lokale RTMP-/Kamera-Opt-in-Szenarien werden
-per Assumption ausgelassen. Die AGP-JUnit-XML-Dateien schreiben diese
-Assumptions als `failure`, während beide Connected-Test-Tasks korrekt grün
-enden; es gibt keine zusätzlichen Assertion-Fehler.
-
-Es war kein Telefon verbunden. Die Hardware-Encoder-/Keyframe-Tests und die
-oben datierten POCO-Latenz-, Orientierungs- und RTMP-Messungen wurden bei
-dieser PR-Vorbereitung nicht wiederholt. Der HUD-/Stopp-Gerätebeleg vom
-22.10. ist separat in `build/reports/stream-hud-2026-10-22/` abgelegt.
-
-
-## Integration mit develop (2026-10-25)
-
-Der Merge bis `83a40ba1` erhält die lokalisierten Startfehler und den frischen
-MediaProjection-Consent aus develop. `failStream` veröffentlicht die Ressource
-und setzt zugleich den Live-Timer zurück; der Regressionstest wird ohne diesen
-Reset gezielt rot. 1.715 Modul- und 166 Standard-App-Tests haben keine Fehler
-(fünf bestehende Modul-Skips), Lint und der vollständige pre-push mit Ruby 3.2
-sind grün. Release-Builds/R8-Mappings und Geräteprüfungen wurden in diesem
-Konfliktlauf nicht wiederholt.
+Die High-Speed-Bridge benötigt zusätzliche Hardware-Codecs. 4K und langfristige
+Thermalstabilität sind nicht bestätigt. Geräteprüfungen auf POCO X7 Pro und
+Samsung Galaxy S21 belegen beide Kamerawege mit GL-Komposition, aber keine
+konstanten 60 FPS unter beliebiger Last. Der Szenenlayer aktualisiert unabhängig
+von der Video-Framerate mit höchstens 30 Hz. Capability-Angaben ersetzen weder
+den gemessenen Durchsatz noch die Prüfung dekodierter Empfangsframes.

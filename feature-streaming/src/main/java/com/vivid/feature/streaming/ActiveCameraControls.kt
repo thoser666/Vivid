@@ -2,6 +2,7 @@ package com.vivid.feature.streaming
 
 import android.view.MotionEvent
 import android.view.View
+import com.vivid.core.data.StabilizationMode
 
 /**
  * Resolve the open camera for each operation across preview/encoder handoffs.
@@ -28,6 +29,10 @@ internal class ActiveCameraControls(
     override fun hasOpticalStabilization(): Boolean = guard.dispatch(false) { current()?.hasOpticalStabilization() ?: false }
     override fun isStabilizationEnabled(): Boolean = guard.dispatch(false) { current()?.isStabilizationEnabled() ?: false }
     override fun enableStabilization(): Boolean = guard.dispatch(false) { current()?.enableStabilization() ?: false }
+    override fun supportedStabilizationModes(): Set<StabilizationMode> =
+        guard.dispatch(setOf(StabilizationMode.OFF)) { current()?.supportedStabilizationModes() ?: setOf(StabilizationMode.OFF) }
+    override fun setStabilizationMode(mode: StabilizationMode): Boolean =
+        guard.dispatch(false) { current()?.setStabilizationMode(mode) ?: false }
     override fun disableStabilization(): Boolean = guard.dispatch(false) { current()?.disableStabilization() ?: false }
     override fun hasTorch(): Boolean = guard.dispatch(false) { current()?.hasTorch() ?: false }
     override fun isTorchEnabled(): Boolean = guard.dispatch(false) { current()?.isTorchEnabled() ?: false }

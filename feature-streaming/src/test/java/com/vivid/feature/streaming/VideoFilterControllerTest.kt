@@ -130,25 +130,18 @@ class VideoFilterControllerTest {
         assertEquals(VideoFilter.SEPIA, controller.activeFilter.value)
         assertEquals(2, applyCount)
     }
-    @Test fun `compositor callback observes the newly requested filter including clearing it`() {
-        val observed = mutableListOf<VideoFilter>()
-        val requested = listOf(VideoFilter.GRAYSCALE, VideoFilter.SEPIA, VideoFilter.NONE)
-        requested.forEach { filter ->
-            assertTrue(controller.setFilter(filter) { observed.add(controller.activeFilter.value) })
-        }
-        assertEquals(requested, observed)
-    }
 
-    @Test fun `failed application restores the previous state after exposing the requested state to the callback`() {
-        controller.setFilter(VideoFilter.GRAYSCALE) { }
-        var observed = VideoFilter.NONE
-        val success = controller.setFilter(VideoFilter.SEPIA) {
-            observed = controller.activeFilter.value
-            throw IllegalStateException("GL application failed")
-        }
-        assertFalse(success)
-        assertEquals(VideoFilter.SEPIA, observed)
-        assertEquals(VideoFilter.GRAYSCALE, controller.activeFilter.value)
+    @Test
+    fun `composer callback sees the new filter immediately and failure restores state`() {
+        val controller = VideoFilterController()
+        assertTrue(controller.setFilter(VideoFilter.SEPIA) {
+            assertEquals(VideoFilter.SEPIA, controller.activeFilter.value)
+        })
+        assertFalse(controller.setFilter(VideoFilter.NONE) {
+            assertEquals(VideoFilter.NONE, controller.activeFilter.value)
+            error("failed to enqueue")
+        })
+        assertEquals(VideoFilter.SEPIA, controller.activeFilter.value)
     }
 
 }

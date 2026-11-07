@@ -36,4 +36,5 @@
     <string name="obs_blackout_button">Screen Black</string>
     <string name="obs_blackout_restore">Szene wiederherstellen</string>
     <string name="obs_blackout_preparing">Blackout vorbereiten…</string>
+    <string name="obs_remote_disabled">OBS-Fernsteuerung ist für diesen Stream deaktiviert.</string>
 </resources>

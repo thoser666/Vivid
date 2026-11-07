@@ -36,4 +36,5 @@
     <string name="obs_blackout_button">Screen Black</string>
     <string name="obs_blackout_restore">Restore scene</string>
     <string name="obs_blackout_preparing">Preparing blackout…</string>
+    <string name="obs_remote_disabled">OBS remote control is disabled for this stream.</string>
 </resources>

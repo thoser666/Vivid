@@ -8,6 +8,7 @@ import com.vivid.core.location.WidgetLocation
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,6 +20,8 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 
 /** Anzeige-Zustand des Text-/Info-Widgets (alle Felder bereits formatiert). */
 data class TextInfoWidgetUiState(
@@ -68,6 +71,11 @@ class TextInfoWidgetViewModel @Inject constructor(
     private val locationProvider: LocationProvider,
     private val geocoderResolver: GeocoderResolver,
 ) : ViewModel() {
+    private val selectedWidget = MutableStateFlow<String?>(null)
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val widgetSettings = selectedWidget.flatMapLatest { if (it == null) settingsRepository.appSettingsFlow else settingsRepository.widgetSettingsFlow(it) }
+    fun useWidget(id: String?) { selectedWidget.value = id }
+
 
     /** Test-Hook für eine feste Uhr (Standard: Systemzeit). */
     internal var now: () -> Long = { System.currentTimeMillis() }
@@ -88,6 +96,8 @@ class TextInfoWidgetViewModel @Inject constructor(
         }
     }
 
+    private val settingsReady = CompletableDeferred<Unit>()
+
     private val _uiState = MutableStateFlow(TextInfoWidgetUiState())
     val uiState: StateFlow<TextInfoWidgetUiState> = _uiState.asStateFlow()
 
@@ -104,7 +114,7 @@ class TextInfoWidgetViewModel @Inject constructor(
         // Settings übernehmen (Toggle + sichtbare Felder + Template).
         viewModelScope.launch {
             var previouslyEnabled = false
-            settingsRepository.appSettingsFlow.collect { settings ->
+            widgetSettings.collect { settings ->
                 val enabled = settings.widgetEnabled
                 if (enabled && !previouslyEnabled) {
                     // Widget (wieder) aktiviert → Trip-Uhren neu starten (Timer verankert
@@ -133,6 +143,7 @@ class TextInfoWidgetViewModel @Inject constructor(
                     )
                 }
                 resolveTemplate()
+                settingsReady.complete(Unit)
             }
         }
 
@@ -140,6 +151,8 @@ class TextInfoWidgetViewModel @Inject constructor(
         // selbst blendet sich bei `enabled = false` aus). Der Timer startet am ersten
         // Tick nach Aktivierung (deterministisch, gleiche Takt-Quelle wie die Uhr).
         viewModelScope.launch {
+            // The settings flow may switch asynchronously to a scene instance.
+            settingsReady.await()
             ticker().collect { t ->
                 val timer = if (timerStartedAt != null) {
                     WidgetFormatters.formatTimer(t - timerStartedAt!!)
@@ -163,7 +176,7 @@ class TextInfoWidgetViewModel @Inject constructor(
         // Standort: nur sammeln, wenn das Widget aktiv ist und GPS/Geschwindigkeit/Template zeigt.
         viewModelScope.launch {
             combine(
-                settingsRepository.appSettingsFlow.map { settings ->
+                widgetSettings.map { settings ->
                     settings.widgetEnabled && (
                         settings.widgetShowLocation || settings.widgetShowSpeed ||
                             settings.widgetShowAltitude || settings.widgetTemplate.isNotBlank()
@@ -217,7 +230,7 @@ class TextInfoWidgetViewModel @Inject constructor(
         // abgebrochen — ein GPS-Sturm (Updates alle 2 s) stapelt keine Anfragen.
         viewModelScope.launch {
             combine(
-                settingsRepository.appSettingsFlow.map { settings ->
+                widgetSettings.map { settings ->
                     settings.widgetEnabled && settings.widgetTemplate.contains(GEO_VARIABLE_PATTERN)
                 }.distinctUntilChanged(),
                 locationProvider.locationUpdates(),

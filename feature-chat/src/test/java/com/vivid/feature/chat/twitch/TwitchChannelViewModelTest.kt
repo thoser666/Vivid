@@ -226,4 +226,16 @@ class TwitchChannelViewModelTest {
         assertEquals(null, viewModel.uiState.value.error)
         coVerify(exactly = 0) { repository.updateTwitchChannelSettings(any(), any(), any(), any()) }
     }
+    @Test
+    fun `editing inactive profile uses its token and does not overwrite active channel settings`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repo = repository()
+        val client = mockk<TwitchChannelClient>(relaxed = true)
+        val vm = TwitchChannelViewModel(repo, client, tokenStore())
+        val edited = settings.copy(twitchChannelOauthToken = "profile-token")
+        vm.updateChannelInfoForStream(edited, "Other title", "Other category")
+        advanceUntilIdle()
+        coVerify { client.updateChannelInfo(TwitchChannelConfig("streamer", "profile-token", "client-id"), "Other title", "Other category") }
+        coVerify(exactly = 0) { repo.updateTwitchChannelSettings(any(), any(), any(), any()) }
+    }
 }

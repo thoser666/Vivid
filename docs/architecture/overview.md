@@ -93,6 +93,7 @@ User Input → SettingsViewModel → SettingsRepository → DataStore
 
 ## Weiterführende Dokumentation
 
+- [Gespeicherte Streams](stream-profiles.md) - Profil-Speicherung und Streaming-Menü
 - [PARITY.md](https://github.com/thoser666/Vivid/blob/develop/PARITY.md) - Feature-Parität mit Moblin
 - [RELEASE.md](https://github.com/thoser666/Vivid/blob/develop/RELEASE.md) - Release-Strategie
 - [ai-chat-bot.md](../ai-chat-bot.md) - Bot-Architektur

@@ -9,7 +9,6 @@ import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Security
-import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -58,12 +57,6 @@ object SettingsCategories {
             subtitleRes = R.string.cat_overlays_subtitle,
             icon = Icons.Filled.Widgets,
             route = "settings_overlays",
-        ),
-        SettingsCategory(
-            titleRes = R.string.cat_pomodoro_title,
-            subtitleRes = R.string.cat_pomodoro_subtitle,
-            icon = Icons.Filled.Timer,
-            route = "settings_pomodoro",
         ),
         SettingsCategory(
             titleRes = R.string.cat_chatbot_title,

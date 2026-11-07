@@ -61,6 +61,7 @@ class StreamingViewModelTest {
     private val sceneRepository = mockk<SceneRepository> {
         every { scenesFlow } returns scenesState
         every { activeSceneIdFlow } returns activeSceneState
+        every { libraryInitializedFlow } returns MutableStateFlow(false)
         coEvery { saveScene(any()) } just Runs
         coEvery { deleteScene(any()) } just Runs
         coEvery { setActiveScene(any()) } just Runs
@@ -100,6 +101,7 @@ class StreamingViewModelTest {
         prepareEditor()
         every { autoSceneSwitcher.enabled } returns MutableStateFlow(true)
         val vm = viewModel()
+        every { engine.isSceneEmpty() } returns true
         vm.openSceneEditor(StreamScene(SCENE_DRAFT_ID, SCENE_DRAFT_NAME))
         vm.editScene { rename(SCENE_CHANGED_NAME); duplicateSelected() }
         assertEquals(2, vm.sceneEditor.value!!.composition.layers.size)
@@ -108,6 +110,7 @@ class StreamingViewModelTest {
         vm.cancelSceneEditor()
         assertNull(vm.sceneEditor.value)
         verify { engine.setSceneComposition(null, animate = false); engine.selectLens("rear") }
+        io.mockk.verifyOrder { engine.setSceneEmpty(false); engine.setSceneEmpty(true) }
         verify { autoSceneSwitcher.setEnabled(false); autoSceneSwitcher.setEnabled(true) }
     }
 
@@ -598,6 +601,31 @@ class StreamingViewModelTest {
                 },
             )
         }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = [false, true])
+    fun `new scene starts without widgets before or after library initialization`(initialized: Boolean) = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        every { sceneRepository.libraryInitializedFlow } returns MutableStateFlow(initialized)
+        every { engine.activeSourceKind } returns MutableStateFlow(VideoSourceKind.CAMERA)
+        every { engine.activeReplayFile } returns null
+        val active = StreamScene("active", "Active", widgets = listOf(
+            com.vivid.core.data.SceneWidget("score", x = 30f, y = 40f),
+            com.vivid.core.data.SceneWidget("hidden", enabled = false),
+        ))
+        scenesState.value = listOf(active)
+        activeSceneState.value = active.id
+        val viewModel = viewModel(repositoryWith(AppSettings(widgetEnabled = true, widgetTemplate = "1:0")))
+
+        viewModel.saveScene("  New scene  ")
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { sceneRepository.saveScene(match {
+            it.id != active.id && it.name == "New scene" && it.widgets == emptyList<com.vivid.core.data.SceneWidget>()
+        }) }
+        assertEquals(listOf(active), scenesState.value)
+        assertEquals(active.id, activeSceneState.value)
     }
 
     @Test

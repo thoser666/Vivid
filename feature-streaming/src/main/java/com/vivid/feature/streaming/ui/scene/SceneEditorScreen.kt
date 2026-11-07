@@ -422,7 +422,7 @@ private fun SceneEditorDialogs.SceneEditorBody(
                 BoxWithConstraints(Modifier.heightIn(max = 320.dp).aspectRatio(output.first.toFloat() / output.second)) {
                     val density = androidx.compose.ui.platform.LocalDensity.current
                     val previewSize = with(density) { IntSize(maxWidth.roundToPx(), maxHeight.roundToPx()) }
-                    StreamingSourcePreview(engine, sourceKind, previewSize, 0, showComposition = true) { }
+                    StreamingSourcePreview(engine, sourceKind, previewSize, 0)
                     SceneEditorCanvas(state, hint, MaterialTheme.colorScheme.primary, onEdit, Modifier.fillMaxSize())
                     LaunchedEffect(previewSize, state.composition) { output = engine.scenePreviewSize() }
                 }

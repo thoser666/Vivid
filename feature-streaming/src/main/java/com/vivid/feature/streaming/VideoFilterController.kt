@@ -46,7 +46,7 @@ class VideoFilterController {
         val previous = _activeFilter.value
         return try {
             val render = if (filter == VideoFilter.NONE) null else createFilterRender(filter)
-            // The compositor reconstructs its pass from this state in the callback.
+            // The canonical composer reads this state inside the callback.
             _activeFilter.value = filter
             applyFilter(render)
             true

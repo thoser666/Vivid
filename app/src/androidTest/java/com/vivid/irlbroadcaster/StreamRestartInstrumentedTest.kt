@@ -18,6 +18,8 @@ import org.junit.runner.RunWith
 import java.net.InetSocketAddress
 import java.net.Socket
 
+private const val RESTART_LOG_TAG = "VividRestartTest"
+
 /** Opt-in device regression: requires an explicitly configured loopback RTMP receiver.
  * Never starts a stream to a saved external endpoint. Semantics invoke the real
  * button handler even on HyperOS devices that block shell input injection.
@@ -37,14 +39,14 @@ class StreamRestartInstrumentedTest {
         val settings = runBlocking { composeRule.activity.settingsRepository.appSettingsFlow.first() }
         assumeTrue("Requires the local USB test receiver", settings.streamUrl == "rtmp://127.0.0.1:1936/live" && settings.streamKey == "probe")
         repeat(2) { cycle ->
-            Log.i("VividRestartTest", "button cycle=${cycle + 1} starting")
+            Log.i(RESTART_LOG_TAG, "button cycle=${cycle + 1} starting")
             click(StreamingR.string.streaming_start)
             awaitStatus("STREAMING")
-            Log.i("VividRestartTest", "button cycle=${cycle + 1} streaming")
+            Log.i(RESTART_LOG_TAG, "button cycle=${cycle + 1} streaming")
             Thread.sleep(1_500) // Let real encoded video reach the USB receiver before stopping.
             stopWithConfirmation()
             awaitStatus("IDLE")
-            Log.i("VividRestartTest", "button cycle=${cycle + 1} stopped")
+            Log.i(RESTART_LOG_TAG, "button cycle=${cycle + 1} stopped")
         }
     }
 
@@ -55,14 +57,14 @@ class StreamRestartInstrumentedTest {
         assumeTrue(settings.streamUrl == "rtmp://127.0.0.1:1936/live" && settings.streamKey == "probe")
         click(StreamingR.string.streaming_start)
         awaitStatus("FAILED")
-        Log.i("VividRestartTest", "button failed; waiting for local receiver restoration")
+        Log.i(RESTART_LOG_TAG, "button failed; waiting for local receiver restoration")
         composeRule.waitUntil(timeoutMillis = 30_000) {
             runCatching { localHttp(19987, "/v3/paths/list").contains("\"items\"") }.getOrDefault(false)
         }
         click(StreamingR.string.streaming_retry)
         awaitStatus("STREAMING")
         Thread.sleep(1_500)
-        Log.i("VividRestartTest", "button recovery streaming after failure")
+        Log.i(RESTART_LOG_TAG, "button recovery streaming after failure")
         stopWithConfirmation()
         awaitStatus("IDLE")
     }
