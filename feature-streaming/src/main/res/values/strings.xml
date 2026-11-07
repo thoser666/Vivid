@@ -8,6 +8,7 @@
     <string name="streaming_start">Stream starten</string>
     <string name="streaming_preparing">Bereite vor…</string>
     <string name="streaming_stop">Stream beenden</string>
+    <string name="streaming_cancel_start">Start abbrechen</string>
     <string name="streaming_retry">Erneut versuchen</string>
     <string name="streaming_stabilization_on">Stabilisierung: An</string>
     <string name="streaming_stabilization_off">Stabilisierung: Aus</string>

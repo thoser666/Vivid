@@ -818,18 +818,19 @@ private fun StreamStartButton(streamingState: StreamingState, onStop: () -> Unit
     }
     Button(
         onClick = {
-            if (streamingState is StreamingState.Streaming) {
-                confirmStop = true
-            } else {
-                onStart()
+            when (streamingState) {
+                // Nichts ist live: ein Start in Vorbereitung wird ohne Rueckfrage
+                // abgebrochen (der Dialog spricht von einer laufenden Uebertragung).
+                is StreamingState.Preparing -> onStop()
+                is StreamingState.Streaming -> confirmStop = true
+                else -> onStart()
             }
         },
-        enabled = streamingState !is StreamingState.Preparing,
         modifier = Modifier.testTag("stream_start_stop"),
     ) {
         val buttonText = when (streamingState) {
             is StreamingState.Idle -> stringResource(R.string.streaming_start)
-            is StreamingState.Preparing -> stringResource(R.string.streaming_preparing)
+            is StreamingState.Preparing -> stringResource(R.string.streaming_cancel_start)
             is StreamingState.Streaming -> stringResource(R.string.streaming_stop)
             is StreamingState.Failed -> stringResource(R.string.streaming_retry)
         }

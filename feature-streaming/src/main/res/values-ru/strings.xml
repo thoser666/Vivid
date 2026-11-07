@@ -8,6 +8,7 @@
     <string name="streaming_start">Начать трансляцию</string>
     <string name="streaming_preparing">Подготовка…</string>
     <string name="streaming_stop">Остановить трансляцию</string>
+    <string name="streaming_cancel_start">Отменить запуск</string>
     <string name="streaming_retry">Повторить попытку</string>
     <string name="streaming_stabilization_on">Стабилизация: Вкл.</string>
     <string name="streaming_stabilization_off">Стабилизация: Выкл.</string>

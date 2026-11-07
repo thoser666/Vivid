@@ -46,9 +46,17 @@ object StreamingServiceSupport {
         else -> R.string.notif_text_preparing
     }
 
-    /** True, wenn bei diesem Status die Stop-Aktion angezeigt werden soll. */
+    /**
+     * True, wenn bei diesem Status die Stop-Aktion angezeigt werden soll.
+     *
+     * Auch waehrend [StreamingState.Preparing]: der Start ist abbrechbar,
+     * solange er vorbereitet (der Engine-Pfad `stopStream()` behandelt diesen
+     * Zustand laengst — die Notification bot aber keine Aktion an, und die App
+     * zu schliessen half nicht, weil der Foreground-Service weiterlaeuft).
+     */
     fun showStopAction(state: StreamingState): Boolean =
-        state is StreamingState.Streaming || state is StreamingState.Failed
+        state is StreamingState.Streaming || state is StreamingState.Failed ||
+            state is StreamingState.Preparing
 
     /**
      * Sichtbare Ursache eines Failed-Zustands.

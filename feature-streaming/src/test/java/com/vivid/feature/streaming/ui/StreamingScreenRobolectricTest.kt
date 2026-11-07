@@ -483,6 +483,23 @@ class StreamingScreenRobolectricTest {
     }
 
     @Test
+    fun `preparing can be aborted without a confirmation dialog`() {
+        // Ein Start, der haengt, darf nicht ohne Ausweg bleiben. Der Dialog
+        // beschreibt eine laufende Uebertragung — hier ist noch nichts live.
+        streamingState.value = StreamingState.Preparing
+        setContent()
+
+        composeRule.onNodeWithTag("stream_start_stop").assertIsEnabled()
+        composeRule.onNodeWithText("Cancel start").assertIsDisplayed()
+        composeRule.onNodeWithText("Cancel start").performClick()
+
+        verify(exactly = 1) { viewModel.stopStream() }
+        composeRule.onNodeWithText(STOP_CONFIRM_LABEL).assertDoesNotExist()
+        composeRule.onNodeWithText("Keep streaming").assertDoesNotExist()
+        verify(exactly = 0) { viewModel.startStream() }
+    }
+
+    @Test
     fun `streaming state shows stop button`() {
         streamingState.value = StreamingState.Streaming
         setContent()

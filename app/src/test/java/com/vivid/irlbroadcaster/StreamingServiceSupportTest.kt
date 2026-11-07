@@ -62,9 +62,15 @@ class StreamingServiceSupportTest {
     }
 
     @Test
-    fun `showStopAction is false for idle and preparing states`() {
+    fun `showStopAction is true while preparing so the start can be aborted`() {
+        // Ein Start in Vorbereitung darf nicht ohne Ausweg bleiben: stopStream()
+        // behandelt den Zustand, die Notification zeigte bisher aber keine Aktion.
+        assertTrue(StreamingServiceSupport.showStopAction(StreamingState.Preparing))
+    }
+
+    @Test
+    fun `showStopAction is false for the idle state`() {
         assertFalse(StreamingServiceSupport.showStopAction(StreamingState.Idle))
-        assertFalse(StreamingServiceSupport.showStopAction(StreamingState.Preparing))
     }
 
     @Test

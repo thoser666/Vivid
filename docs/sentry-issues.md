@@ -781,9 +781,10 @@ reproduzierbar.
   Abgebrochen ist er erst am Testziel (`Endpoint malformed`), nicht an Kamera
   oder Thread-Lage.
 - **Schritt 3 (Stop während `Preparing`):** ausgeführt, über den dokumentierten
-Remote-Weg. Der Button im Screen ist in diesem Zustand bewusst deaktiviert
-(`enabled = streamingState !is Preparing`), ein Stopp kommt also nur von außen
-(Web-Remote, Chat-Bot, Notification). `POST /stop` mit
+Remote-Weg. Der Button im Screen war in diesem Zustand deaktiviert
+(`enabled = streamingState !is Preparing`), ein Stopp kam also nur von außen
+(Web-Remote, Chat-Bot, Notification); **seit 07.11.2026 ist der Start
+abbrechbar** (§5.18). `POST /stop` mit
 `Authorization: Bearer <token>` — erreichbar über `adb forward`, weil der
 Server beim Streamstart auf Port 8081 auswich — antwortete mit `200`, der
 Zustand ging innerhalb von 1,5 s auf `Idle` („Stream starten") zurück und blieb
@@ -1029,6 +1030,46 @@ Gruppe. Die Leselücke selbst ist der Befund dieses Abschnitts.
 **Grenze.** Alles oben ist Group-Ebene aus CI-Logs, keine Gerätemessung; die
 Quelle der Klassen-Events ist die V2454A, #336 (`CAMERA_DISCONNECTED`) und
 #350 bleiben inhaltlich offen.
+
+### 5.18 Der Start ist abbrechbar, solange er vorbereitet (07.11.2026)
+
+**Ausgangspunkt** ist §5.13 Schritt 3: der Stopp waehrend `Preparing` gelang,
+aber nur von aussen (Web-Remote). Zwei Stellen hielten den Nutzer aus diesem
+Zustand heraus:
+
+- **Bottom-Button:** `enabled = streamingState !is StreamingState.Preparing` in
+  `ui/StreamingScreen.kt`. Der einzige Knopf der Leiste war genau in der Phase
+  gesperrt, die sekundenlang haengen kann, und sein Label
+  (`streaming_preparing`, „Bereite vor…") las sich nicht als Aktion.
+- **Notification:** `StreamingServiceSupport.showStopAction` lieferte nur fuer
+  `Streaming`/`Failed` true. Die App zu schliessen half nicht, weil der
+  Foreground-Service weiterlaeuft (der 15-s-Startup-Watchdog greift nur, wenn
+  der Zustand `Idle` bleibt).
+
+**Die Engine war nicht die Sperre.** `StreamingEngine.stopStream()` behandelt
+`Preparing` (Ziele stoppen, `Idle`, Idle-Vorschau neu) — derselbe Pfad, den der
+Remote-Stopp am 04.11. auf Hardware mit `200` → `Idle` belegt hat.
+
+**Was jetzt gilt.** Der Button heisst in `Preparing` `streaming_cancel_start`
+(„Start abbrechen"), ist aktiv und ruft `onStop()` **ohne** Rueckfrage: es ist
+nichts live, und der Bestaetigungsdialog („Die Live-Uebertragung wird fuer alle
+Ziele beendet") waere hier falsch. Die Notification zeigt die Stop-Aktion auch
+in `Preparing`. Beide Wege landen bei `stopStream()` — demselben Abbau wie der
+Remote-Weg, nicht in einem zweiten Stop-Pfad.
+
+**Beleg.** `StreamingServiceSupportTest`: Stop-Aktion in `Preparing` true,
+`Idle` false (Negativkontrolle). Neu in `StreamingScreenRobolectricTest` der
+Fall „preparing can be aborted without a confirmation dialog": Button aktiv,
+Text „Cancel start", Klick ruft `stopStream()` genau einmal, kein Dialog und
+kein `startStream()`.
+
+**Mutationsproben (07.11.2026):** die `enabled`-Sperre zurueckgebaut → der neue
+Fall rot (Button nicht klickbar); den `Preparing`-Zweig auf `onStart()` gelegt →
+derselben Pruefung rot (`stopStream` 0×); jeweils zurueckgebaut → gruen.
+
+**Grenze.** Keine Geraetemessung: Button und Notification-Aktion wurden nicht am
+Telefon angetippt. Der Abbau selbst ist belegt (§5.13, Remote-Weg), der
+UI-Anschluss nur im Robolectric-Test.
 
 ## 6. Sicherheit
 
