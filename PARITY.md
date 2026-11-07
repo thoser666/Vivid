@@ -280,6 +280,7 @@ Dieses Dokument ist die Arbeitsliste hinter dem [Parity-Status in der README](RE
 
 | Datum | Commit | Änderung |
 |-------|--------|----------|
+| 2026-11-07 | `445a77b` | **Release-Spur der Kamera-Klasse belegt (39 Gruppen)** — lokal antworten beide Token mit 403, also lief der Nachweis ueber den read-only Dispatch des Watchdogs (`event_tags` → `--print-event-tags`): alle Gruppen lesbar, jüngstes Event je Gruppe zwischen `0.5.21-beta+5212` und `0.5.89-beta+5789`; acht Gruppen feuerten noch zwischen 31.10. und 06.11. (§5.19). |
 | 2026-11-07 | `821c27d` | **Der Watchdog nennt das Letztgesehen bereits erfasster Gruppen** — vor der Summary steht je erfasster Sentry-Gruppe eine `RECORDED_GROUP:`-Zeile (shortId, lastSeen, Events, Titel, neueste zuerst) aus derselben Issues-Abfrage; bisher zaehlte nur die Zahl, ein weiter feuernder Report sah wie Ruhe aus. Selbsttest I27, Mutationsprobe (Ausgabe entfernt → I27 rot), §5.17 fortgeschrieben. |
 | 2026-11-07 | `dc48af1` | **#416: der Start ist waehrend `Preparing` abbrechbar** — der Bottom-Button war genau in dieser Phase gesperrt (`enabled = … !is Preparing`) und die Notification zeigte keine Stop-Aktion, der Stopp kam nur von aussen (Web-Remote, §5.13); jetzt fuehren Button (ohne Rueckfrage) und Notification auf denselben `stopStream()`-Pfad, Beleg: Support-Test + Robolectric-Fall, beide Mutationsproben rot (§5.18). |
 | 2026-11-07 | `45041540` | **Recency-Beleg der Kamera-Klasse: kein neuer Zweig** — der lokale Watchdog-Dry-Run endet mit `SKIP: Sentry-Token ohne Lesescopes` (403, ebenso `--print-event-tags`), also kam der Beleg aus zwoelf CI-Laeufen (04.11. 01:27 bis 07.11. 02:55): je `neu: 0` und `CAMERA_ROLLUP=0`, unresolved 25 → 22; Ereignisse in den 36 bereits erfassten Gruppen bleiben unbelegt (§5.17). |
@@ -695,6 +696,7 @@ Commit die Log-Zeile hinzufügte:
 | 2026-11-06 | `12d4037` | fix(sentry): skip single-issue loop for empty candidates | `12d4037` | I23 auf macOS rot vor Fix; I1–I26 grün danach |
 | 2026-11-06 | `c77e1f1` | PR #338: Idle-Anforderung und Szenen-Vorschau zusammengeführt | `c77e1f1` | develop bis `7455da4`; PARITY-Historien erhalten |
 | 2026-11-07 | `821c27d` | feat(sentry): print lastSeen for already recorded groups | `821c27d` | Direkter develop-Commit (kein PR) |
+| 2026-11-07 | `445a77b` | docs(sentry): document the camera class release track | `445a77b` | Direkter develop-Commit (kein PR) |
 | 2026-11-07 | `dc48af1` | feat(streaming): let a preparing start be aborted (#416) | `dc48af1` | Direkter develop-Commit (kein PR) |
 | 2026-11-07 | `45041540` | docs(sentry): record the camera class recency evidence | `45041540` | Direkter develop-Commit (kein PR) |
 | 2026-11-05 | `a6f1503` | fix(streaming): pin the idle preview request and name it in the error breadcrumb | `a6f1503` | Direkter develop-Commit (kein PR) |
