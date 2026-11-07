@@ -1,25 +1,29 @@
 package com.vivid.core.data
 
-import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.io.TempDir
-import java.io.File
 
+/**
+ * Profil-Abbildung in [SettingsRepository].
+ *
+ * Der flüchtige [InMemoryPreferencesDataStore] statt eines Datei-Stores, weil
+ * mehrere Tests hier zweimal in denselben Store schreiben — DataStore 1.3.0
+ * scheitert dabei unter Windows an `File.renameTo` (Begründung im Klassenkopf
+ * von [InMemoryPreferencesDataStore]).
+ */
 class StreamProfilesRepositoryTest {
-    @TempDir lateinit var dir: File
 
     @Test fun `empty installation has no profiles`() = runTest {
-        val store = PreferenceDataStoreFactory.create(scope = backgroundScope, produceFile = { File(dir, "empty.preferences_pb") })
+        val store = InMemoryPreferencesDataStore()
         val settings = SettingsRepository(store).appSettingsFlow.first()
         assertTrue(settings.streamProfiles.isEmpty())
         assertNull(settings.activeStreamId)
     }
 
     @Test fun `legacy destination migrates with secrets secondary target and encoder settings`() = runTest {
-        val store = PreferenceDataStoreFactory.create(scope = backgroundScope, produceFile = { File(dir, "legacy.preferences_pb") })
+        val store = InMemoryPreferencesDataStore()
         val repo = SettingsRepository(store)
         repo.updateStreamSettings("rtmp://live.twitch.tv/app", "legacy-key", true)
         repo.updateSecondaryStreamSettings("rtmp://backup.example/app", "backup-key", true)
@@ -41,7 +45,7 @@ class StreamProfilesRepositoryTest {
     }
 
     @Test fun `selection applies only that profile and persists independently of repository instance`() = runTest {
-        val store = PreferenceDataStoreFactory.create(scope = backgroundScope, produceFile = { File(dir, "select.preferences_pb") })
+        val store = InMemoryPreferencesDataStore()
         val repo = SettingsRepository(store)
         val a = StreamProfile("a", "First", streamUrl = "rtmp://first.example/app", streamKey = "key-a",
             secondaryStreamUrl = "rtmp://backup.example/app", secondaryStreamKey = "second-key",
@@ -70,7 +74,7 @@ class StreamProfilesRepositoryTest {
     }
 
     @Test fun `disabled profiles never resurrect old global destinations`() = runTest {
-        val store = PreferenceDataStoreFactory.create(scope = backgroundScope, produceFile = { File(dir, "off.preferences_pb") })
+        val store = InMemoryPreferencesDataStore()
         val repo = SettingsRepository(store)
         repo.updateStreamSettings("rtmp://old.example/live", "old-key")
         repo.updateStreamProfiles(listOf(StreamProfile("a", "Off", streamUrl = "rtmp://saved.example/live")), null)
@@ -81,7 +85,7 @@ class StreamProfilesRepositoryTest {
         assertNull(loaded.activeStreamId)
     }
     @Test fun `existing OBS and scene writers update only the selected profile`() = runTest {
-        val store = PreferenceDataStoreFactory.create(scope = backgroundScope, produceFile = { File(dir, "editors.preferences_pb") })
+        val store = InMemoryPreferencesDataStore()
         val repo = SettingsRepository(store)
         val a = StreamProfile("a", "A", streamUrl = "rtmp://a.example/live")
         val b = StreamProfile("b", "B", streamUrl = "rtmp://b.example/live")

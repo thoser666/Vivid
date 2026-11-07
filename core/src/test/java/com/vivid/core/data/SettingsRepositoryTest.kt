@@ -13,6 +13,15 @@ import org.junit.jupiter.api.io.TempDir
 import java.io.File
 import java.nio.file.Path
 
+/**
+ * Persistenz der App-Einstellungen.
+ *
+ * Drei Tests (lokale Overlays, Kamera-Steuerung, Ausrichtung) schreiben
+ * mehrfach in denselben Store und laufen deshalb über den flüchtigen
+ * [InMemoryPreferencesDataStore]: DataStore 1.3.0 kann unter Windows nicht über
+ * eine vorhandene Zieldatei umbenennen (Begründung im Klassenkopf dort). Alle
+ * anderen Tests behalten den Datei-Store, weil sie nur einmal schreiben.
+ */
 class SettingsRepositoryTest {
 
     @TempDir
@@ -20,8 +29,7 @@ class SettingsRepositoryTest {
 
     @Test
     fun `local overlay toggles survive reload and stream profile changes independently`() = runTest {
-        val store = PreferenceDataStoreFactory.create(scope = backgroundScope,
-            produceFile = { File(tempDir.toFile(), "local_overlays.preferences_pb") })
+        val store = InMemoryPreferencesDataStore()
         val repository = SettingsRepository(store)
         assertEquals(LocalOverlaySettings(), repository.appSettingsFlow.first().localOverlays)
         repository.updateLocalOverlays { it.copy(showZoom = false) }
@@ -40,8 +48,7 @@ class SettingsRepositoryTest {
 
     @Test
     fun `camera controls persist independently of profiles including empty lists and preset order`() = runTest {
-        val store = PreferenceDataStoreFactory.create(scope = backgroundScope,
-            produceFile = { File(tempDir.toFile(), "camera_controls.preferences_pb") })
+        val store = InMemoryPreferencesDataStore()
         val repository = SettingsRepository(store)
         assertEquals(CameraControlSettings(), repository.appSettingsFlow.first().cameraControls)
         assertEquals(listOf(1f, 1.5f, 2f), repository.appSettingsFlow.first().cameraControls.rearZoomPresets)
@@ -644,10 +651,7 @@ class SettingsRepositoryTest {
 
     @Test
     fun `app orientation defaults safely and survives repository recreation`() = runTest {
-        val store = PreferenceDataStoreFactory.create(
-            scope = this,
-            produceFile = { File(tempDir.toFile(), "orientation.preferences_pb") },
-        )
+        val store = InMemoryPreferencesDataStore()
         val repository = SettingsRepository(store)
         assertEquals(AppOrientation.PORTRAIT, repository.appSettingsFlow.first().appOrientation)
         repository.updateThemeSettings(ThemeMode.AMOLED, AccentColor.ROSE_PINK)
