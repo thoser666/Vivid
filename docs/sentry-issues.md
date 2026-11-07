@@ -1082,6 +1082,78 @@ derselben Pruefung rot (`stopStream` 0×); jeweils zurueckgebaut → gruen.
 Telefon angetippt. Der Abbau selbst ist belegt (§5.13, Remote-Weg), der
 UI-Anschluss nur im Robolectric-Test.
 
+### 5.19 Release-Spur der Kamera-Klasse: alle Gruppen lesbar, jüngstes Release 0.5.89-beta+5789 (07.11.2026)
+
+**Kein neuer Token nötig — und per API auch nicht erzeugbar.** Sentry legt Auth-Tokens
+ausschließlich in der Web-Oberfläche an (Settings → Auth Tokens); die
+Organisations-Variante `POST /api/0/organizations/<org>/api-tokens/` verlangt
+`org:admin`, das keiner der beiden lokalen Token (`issues.token`, `auth.token` in
+`sentry.properties`) besitzt — sie antworten bereits auf `project:read` mit 403.
+Statt eines neuen Secrets nutzt der Nachweis das vorhandene CI-Secret über den
+read-only Dispatch-Pfad des Workflows (`event_tags` → `--print-event-tags`), den
+§5.9/I19 eingeführt hat.
+
+**Die Läufe.** `gh workflow run automation-sentry-issues.yml -f event_tags="<36
+SIDs aus #412>"` → Run **42361778114**, `success`, 36 von 36 Zeilen lesbar, keine
+`not readable`-Antwort. Drei Gruppen (`VIVID-40`, `VIVID-41`, `VIVID-44`) tragen im
+Sammel-Issue keinen eigenen Marker; ihre SID stammt aus dem geschlossenen
+Einzel-Issue und wurde mit einem zweiten Dispatch nachgeladen. Ergebnis: **39 von 39 Gruppen mit Release-Spur**.
+
+**Release-Spur (jüngstes Event je Gruppe).**
+
+| Release | Gruppen |
+|---|---|
+| `com.vivid@0.5.21-beta+5212` | 1 |
+| `com.vivid@0.5.65-beta+5654` | 6 |
+| `com.vivid@0.5.66-beta+5664` | 1 |
+| `com.vivid@0.5.67-beta+5674` | 1 |
+| `com.vivid@0.5.68-beta+5684` | 12 |
+| `com.vivid@0.5.70-beta+5707` | 1 |
+| `com.vivid@0.5.70-beta+5708` | 1 |
+| `com.vivid@0.5.70-beta+5710` | 1 |
+| `com.vivid@0.5.70-beta+5711` | 1 |
+| `com.vivid@0.5.72-beta+5725` | 5 |
+| `com.vivid@0.5.73-beta+5735` | 3 |
+| `com.vivid@0.5.77-beta+5771` | 1 |
+| `com.vivid@0.5.80-beta+5780` | 1 |
+| `com.vivid@0.5.81-beta+5781` | 1 |
+| `com.vivid@0.5.82-beta+5782` | 1 |
+| `com.vivid@0.5.88-beta+5788` | 1 |
+| `com.vivid@0.5.89-beta+5789` | 1 |
+
+Umfeld: V2454A / Android 16: 38, Pixel 8 Pro / Android 17: 1. Alle Gruppen außer einer stammen von der V2454A unter
+Android 16; die Ausnahme ist `7806863798` (`0.5.21-beta+5212`) auf einem Pixel 8 Pro
+unter Android 17.
+
+**Ereignisebene.** Ein Dispatch mit `dry_run=true` (Run **42361855058**) nutzt die seit
+§5.17 neue `RECORDED_GROUP`-Zeile: 22 offene Gruppen, 22 Zeilen, `CAMERA_ROLLUP=0`.
+Acht davon gehören zur Kamera-Klasse — und die Klasse ist **nicht** ruhig:
+
+| Gruppe | Zuletzt | Events | Release | Titel |
+|---|---|---|---|---|
+| VIVID-57 | 2026-11-06T07:43:11 | 14 | `0.5.89-beta+5789` | Camera error (idlePreview=false): Open camera 0 failed |
+| VIVID-56 | 2026-11-02T00:57:55 | 8 | `0.5.88-beta+5788` | Camera error (idlePreview=true): Open camera failed: 4 |
+| VIVID-58 | 2026-11-01T12:06:58 | 8 | `0.5.82-beta+5782` | Camera recover exhausted (scheduled) — stopping stream cleanly |
+| VIVID-59 | 2026-11-01T11:24:16 | 6 | `0.5.81-beta+5781` | Camera error (idlePreview=false): Open camera 5 failed |
+| VIVID-5A | 2026-11-01T10:48:51 | 1 | `0.5.80-beta+5780` | Camera error (idlePreview=false): Open camera 1 failed |
+| VIVID-41 | 2026-10-31T13:27:54 | 29 | `0.5.70-beta+5711` | Camera error (idlePreview=true): Open camera failed: 4 |
+| VIVID-40 | 2026-10-31T12:24:54 | 2 | `0.5.70-beta+5708` | Camera error (idlePreview=true): Open camera failed: 4 |
+| VIVID-44 | 2026-10-31T07:39:46 | 21 | `0.5.68-beta+5684` | Camera error (idlePreview=true): Create capture session failed: Fps ra |
+
+**Befund.** Der jüngste Kamera-Event stammt vom **06.11.2026** (`VIVID-57`, 14 Events,
+`Open camera 0 failed`), die übrigen liegen zwischen 31.10. und 02.11. Die Klasse feuert
+also weiter, aber auf einem alten Stand: das jüngste beobachtete Release im gesamten
+Satz ist `0.5.89-beta+5789`. Damit ist die Frage aus §5.17 beantwortet — nicht
+„ereignisfrei“, sondern „ereignisarm auf einem Build vor dem Bündelungs-Commit“.
+Die aufgelösten Gruppen erscheinen in der `unresolved`-Abfrage nicht mehr; ihre
+Release-Spur stammt aus dem jüngsten Event, ihr `lastSeen` ist über diesen Weg nicht
+abrufbar.
+
+**Grenze.** Die Feld-Events kommen von der V2454A, nicht vom Testgerät SM-S918B; eine
+Aussage über den A1-Umbau ist damit nicht verbunden. Lokal bleibt es beim 403 auf beiden
+Token — wer die Diagnose lokal fahren will, legt den Token in der Sentry-Oberfläche an
+und trägt ihn als `issues.token` in `sentry.properties` ein (gitignored, nie im Chat).
+
 ## 6. Sicherheit
 
 - Token getrennt vom CI-Mapping-Token (`auth.token`) — getrennte Scopes,
