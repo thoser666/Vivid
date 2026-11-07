@@ -59,6 +59,10 @@
 #   I27 Ereignisebene der bereits erfassten Gruppen: jede bekommt eine
 #       `RECORDED_GROUP:`-Zeile mit Letztgesehen/Events (neueste zuerst);
 #       neue Kandidaten erscheinen dort nicht (nur als CANDIDATE)
+#   I28 Release-Alter je erfasster Gruppe: `RELEASE_AGE: <short> | <release> |
+#       <Abstand> | <newest|behind|stale>` — Abstand gegen den neuesten
+#       versionCode im Satz, `stale` ab SENTRY_RELEASE_AGE_STALE (Default 50),
+#       Kandidaten ohne Zeile, Token bleibt aus der Ausgabe
 #   I20 Read-only Diagnosemodus --print-event-stack: Exception-/Thread-Kette
 #       des Latest-Events (Typ/Wert + Frames, neueste zuerst, in_app-Marker),
 #       403-/Fixture-Fallback, ungueltige SID, Threads-Form (ANR/nativ);
@@ -551,4 +555,35 @@ line_newer=$(grep -n "RECORDED_GROUP: VIVID-23" <<<"$out_r27" | cut -d: -f1)
 line_older=$(grep -n "RECORDED_GROUP: VIVID-25" <<<"$out_r27" | cut -d: -f1)
 [ "$line_newer" -lt "$line_older" ] || fail "I27: neuestes Letztgesehen muss zuerst stehen"
 grep -q "^CANDIDATE: 100" <<<"$out_r27" || fail "I27: der neue Report muss weiter kandidieren"
-echo "✅ [sentry-issues-test] Sentry-Issues-Guard vertragstreu (I1–I27)."
+# I28 Release-Alter: jede erfasste Gruppe traegt den Abstand zum neuesten Build
+mkdir -p "$tmp/i28"
+cp "$tmp/i27/issues.json" "$tmp/i28/issues.json"
+cp "$tmp/i27/ghissues.json" "$tmp/i28/ghissues.json"
+echo 201 > "$tmp/i28/ghstatus"
+cat > "$tmp/i28/event_300.json" <<'JSON'
+{"id": "e300", "release": {"version": "com.vivid@0.5.70-beta+5708", "dist": "5708"},
+ "tags": [["app.version_code", "5708"], ["release", "com.vivid@0.5.70-beta+5708"],
+          ["environment", "production"], ["device", "V2454A"], ["os", "Android 16"]]}
+JSON
+cat > "$tmp/i28/event_301.json" <<'JSON'
+{"id": "e301", "release": {"version": "com.vivid@0.5.89-beta+5789", "dist": "5789"},
+ "tags": [["app.version_code", "5789"], ["release", "com.vivid@0.5.89-beta+5789"],
+          ["environment", "production"], ["device", "V2454A"], ["os", "Android 16"]]}
+JSON
+out_r28=$(SENTRY_ISSUES_FIXTURE="$tmp/i28" SENTRY_ISSUES_TOKEN=sntrys_FAKE_AGE \
+  bash "$guard") || fail "I28: Lauf darf nicht scheitern"
+grep -qF "RELEASE_AGE: VIVID-25 | com.vivid@0.5.89-beta+5789 | 0 | newest" <<<"$out_r28" || \
+  fail "I28: neuester Build muss als newest mit Abstand 0 erscheinen"
+grep -qF "RELEASE_AGE: VIVID-23 | com.vivid@0.5.70-beta+5708 | 81 | stale" <<<"$out_r28" || \
+  fail "I28: veralteter Build muss als stale mit Abstand 81 erscheinen"
+grep -q "RELEASE_AGE: VIVID-21" <<<"$out_r28" && \
+  fail "I28: ein Kandidat gehoert nicht in die Release-Alter-Liste"
+age_new=$(grep -n "RELEASE_AGE: VIVID-25" <<<"$out_r28" | cut -d: -f1)
+age_old=$(grep -n "RELEASE_AGE: VIVID-23" <<<"$out_r28" | cut -d: -f1)
+[ "$age_new" -lt "$age_old" ] || fail "I28: neuester Build muss zuerst stehen"
+grep -q "sntrys_FAKE_AGE" <<<"$out_r28" && fail "I28: Token-Leak in der Release-Alter-Ausgabe"
+out_r28b=$(SENTRY_ISSUES_FIXTURE="$tmp/i28" SENTRY_ISSUES_TOKEN=sntrys_FAKE_AGE \
+  SENTRY_RELEASE_AGE_STALE=90 bash "$guard") || fail "I28b: Lauf darf nicht scheitern"
+grep -qF "RELEASE_AGE: VIVID-23 | com.vivid@0.5.70-beta+5708 | 81 | behind" <<<"$out_r28b" || \
+  fail "I28b: SENTRY_RELEASE_AGE_STALE=90 muss 81 zu behind machen"
+echo "✅ [sentry-issues-test] Sentry-Issues-Guard vertragstreu (I1–I28)."

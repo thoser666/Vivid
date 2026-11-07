@@ -1227,6 +1227,50 @@ dokumentierte Pipeline entstanden. Woher diese Feld-Builds kommen, ist nicht
 geklärt — für den Befund unerheblich, für die Zuordnung Build ↔ Commit aber
 relevant.
 
+### 5.21 Release-Alter je erfasster Gruppe im Watchdog (07.11.2026)
+
+**Das Problem.** `RECORDED_GROUP` (§5.17) sagt seit dem 05.11., *dass* eine
+bereits erfasste Gruppe weiter feuert — nicht, auf welchem Build. Genau diese
+Lücke hat VIVID-57 (§5.20) verdeckt: die Zeile sah aus wie „feuert noch ein
+bisschen“, obwohl der Event auf dem neuesten Build des ganzen Satzes saß und
+der Rest 1 bis 105 Codes älter war. Das fiel nur auf, weil ich die Release-Spur
+von Hand per Dispatch gezogen habe.
+
+**Die Ausgabe.** Der Guard druckt jetzt zusätzlich je erfasster Gruppe:
+
+```
+RELEASE_AGE: VIVID-57 | com.vivid@0.5.89-beta+5789 | 0 | newest
+RELEASE_AGE: VIVID-44 | com.vivid@0.5.68-beta+5684 | 105 | stale
+```
+
+Spalten: Short-Id | Release des Latest-Events | Abstand in versionCodes zum
+**neuesten Code im aktuellen Satz** | `newest` (Abstand 0), `behind` (kleiner
+als die Schwelle), `stale` (ab der Schwelle, Default 50 Codes; über
+`SENTRY_RELEASE_AGE_STALE` einstellbar). Sortiert neueste zuerst, direkt hinter
+der `RECORDED_GROUP`-Liste — auch im Nullfall („alle bereits erfasst“) und im
+`--dry-run`, weil die Phase ausschließlich liest.
+
+**Warum der Abstand und kein Datum.** Ein Release-Datum gibt die API hier nicht
+her, und das Repo kennt die Feld-Builds nicht (§5.20: `0.5.68`–`0.5.89-beta`
+stehen in keiner Release-Liste). Der versionCode ist die einzige Größe, die
+beide Seiten teilen — der Abstand ist damit „wie viele Builds hinter dem
+neuesten beobachteten“, nicht „wie viele Tage alt“.
+
+**Wie gelesen wird.** Dieselbe Route wie `--print-event-tags` (§5.19,
+`/issues/<sid>/events/latest/`), ein Aufruf pro erfasster Gruppe, Fixture-fähig
+über `event_<sid>.json`. Nicht lesbar (403/Netz) ⇒ `RELEASE_AGE: … | - | -
+| unknown`, kein Blocker; fehlt der Lesetoken, entfällt die Phase still. Die
+SID-Zuordnung schreibt Phase A als `recorded_refs.txt` (LF, nicht CRLF — ein
+`` hätte alle SIDs außer der letzten ungültig gemacht; I28 hat genau das
+gefunden, bevor es in Produktion lief).
+
+**Beleg.** `scripts/test_sentry_issues.sh` I28: zwei erfasste Gruppen mit
+`0.5.70-beta+5708` und `0.5.89-beta+5789` ⇒ `0 | newest` bzw. `81 | stale`,
+neueste zuerst, Kandidat ohne Zeile, kein Token in der Ausgabe, und mit
+`SENTRY_RELEASE_AGE_STALE=90` wird aus `stale` ein `behind`. Baseline
+`✅ I1–I28` (RC=0); Mutation (`mark` fest auf `behind`) ⇒ `❌ I28: neuester Build
+muss als newest mit Abstand 0 erscheinen` (RC=1), Rückbau per sha1 geprüft.
+
 ## 6. Sicherheit
 
 - Token getrennt vom CI-Mapping-Token (`auth.token`) — getrennte Scopes,

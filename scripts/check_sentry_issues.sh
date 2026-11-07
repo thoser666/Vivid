@@ -24,6 +24,13 @@
 #            `RECORDED_GROUP: <shortId> | <lastSeen> | <Events> | <Titel>`
 #            (neueste zuerst) — sonst bliebe die Ereignisebene unsichtbar: ein
 #            Report, der weiter feuert, zaehlt in derselben Zahl wie ein ruhiger.
+#            Dazu je erfasster Gruppe eine Zeile
+#            `RELEASE_AGE: <shortId> | <release> | <Abstand> | <newest|behind|stale>`:
+#            der versionCode des Latest-Events gegen den neuesten Code im Satz.
+#            lastSeen sagt nur, DASS ein Report feuert; der Abstand sagt, ob er
+#            auf einem veralteten Build feuert (§5.19/§5.20). Schwelle fuer
+#            `stale` = SENTRY_RELEASE_AGE_STALE (Default 50 Codes); eine
+#            unlesbare Spur bleibt `unknown` und ist kein Blocker.
 #   SKIP   — kein Sentry-Token, kein GitHub-Token, HTTP 401/403/Netz
 #   FEHLER — unverständliche API-Antwort oder Aufruf-Fehler (exit 1)
 #
@@ -533,6 +540,7 @@ for it in issues:
         # Ruhe aus. Die Felder werden hier direkt gelesen, weil die ausfuehrliche
         # Auswertung erst nach dem Dedup-Zweig folgt.
         recorded_rows.append({
+            "sid": sid,
             "short": str(it.get("shortId") or ("SID-" + sid)),
             "last": str(it.get("lastSeen") or "-"),
             "count": str(it.get("count") or "0"),
@@ -684,6 +692,13 @@ if recorded_rows:
     for r in recorded_rows:
         print("RECORDED_GROUP: %s | %s | %s | %s" % (
             r["short"], r["last"][:19], r["count"], r["title"]))
+    # SID-Zuordnung fuer die Release-Alter-Phase (Bash kann nicht zurueckfragen):
+    # eine Zeile `<shortId> <sid>` je erfasster Gruppe.
+    # newline="\n": Windows-Textmodus schriebe CRLF, und die SID-Liste der
+    # Alter-Phase wuerde am \r scheitern (nur die letzte SID bliebe gueltig).
+    with open(os.path.join(out, "recorded_refs.txt"), "w", encoding="utf-8", newline="\n") as fh:
+        for r in recorded_rows:
+            fh.write("%s %s\n" % (r["short"], r["sid"]))
 print("Sentry: %d unresolved geprüft | bereits erfasst: %d | neu: %d" % (
     len(issues), already_reported, len(candidates)))
 print("WOULD_ISSUE=%d" % len(candidates))
@@ -715,6 +730,77 @@ if [ -z "$rollup_count" ]; then
   exit 1
 fi
 rollup_issue=$(printf '%s\n' "$out_a" | grep -o 'ROLLUP_ISSUE=[0-9]*' | cut -d= -f2 || true)
+
+# ── Release-Alter je erfasster Gruppe (read-only, §5.19/§5.20) ────────────
+# lastSeen sagt nur, DASS ein Report feuert. Der versionCode des Latest-Events
+# gegen den neuesten Code im Satz sagt, ob er auf einem veralteten Build feuert —
+# genau der Fall, der bei VIVID-57 (§5.20) nur ueber einen manuellen Dispatch
+# auffiel. Gelesen wird derselbe Endpunkt wie --print-event-tags (Fixture-faehig,
+# kein GitHub-Zugriff); nicht lesbar ⇒ `unknown`, nie ein Blocker.
+if [ -s "$tmp/recorded_refs.txt" ] && [ -n "$token" ]; then
+  age_sids=$(cut -d' ' -f2 "$tmp/recorded_refs.txt" | tr -d '\r' | paste -sd, -)
+  if [ -n "$age_sids" ]; then
+    bash "$0" --print-event-tags "$age_sids" > "$tmp/recorded_tags.txt" 2>/dev/null || true
+    SHORTMAP="$tmp/recorded_refs.txt" AGEFILE="$tmp/recorded_tags.txt" \
+      STALE_CODES="${SENTRY_RELEASE_AGE_STALE:-50}" python -X utf8 - 2>/dev/null <<'PYAGE' || true
+import os, re
+
+def short_map(path):
+    out = {}
+    try:
+        for line in open(path, encoding="utf-8"):
+            parts = line.split()
+            if len(parts) >= 2:
+                out[parts[1]] = parts[0]
+    except OSError:
+        return out
+    return out
+
+short_of = short_map(os.environ["SHORTMAP"])
+rows = []
+try:
+    tag_lines = open(os.environ["AGEFILE"], encoding="utf-8").read().splitlines()
+except OSError:
+    tag_lines = []
+for line in tag_lines:
+    m = re.match(r"EVENT_TAGS (\d+): (.*)", line.strip())
+    if not m:
+        continue
+    sid, body = m.group(1), m.group(2)
+    short = short_of.get(sid, "SID-" + sid)
+    if body.startswith(("SKIP", "not readable", "HTTP 200")):
+        rows.append((short, "", None))
+        continue
+    kv = {}
+    for part in body.split(", "):
+        if "=" in part:
+            k, v = part.split("=", 1)
+            kv[k.strip()] = v.strip()
+    rel = kv.get("release") or ""
+    code = kv.get("app.version_code") or (rel.rsplit("+", 1)[-1] if "+" in rel else "")
+    try:
+        code_i = int(code)
+    except (TypeError, ValueError):
+        code_i = None
+    rows.append((short, rel, code_i))
+
+codes = [r[2] for r in rows if r[2] is not None]
+newest = max(codes) if codes else None
+try:
+    stale = int(os.environ.get("STALE_CODES") or 50)
+except ValueError:
+    stale = 50
+rows.sort(key=lambda r: (r[2] is None, -(r[2] or 0), r[0]))
+for short, rel, code in rows:
+    if code is None or newest is None:
+        print("RELEASE_AGE: %s | %s | - | unknown" % (short, rel or "-"))
+        continue
+    delta = newest - code
+    mark = "newest" if delta == 0 else ("stale" if delta >= stale else "behind")
+    print("RELEASE_AGE: %s | %s | %d | %s" % (short, rel or "-", delta, mark))
+PYAGE
+  fi
+fi
 
 if [ "$count" = "0" ] && [ "$rollup_count" = "0" ]; then
   echo "OK: 0 neue Sentry-Issues — alle unresolved Reports sind bereits als GitHub-Issue erfasst (Watchdog: nichts zu tun)"
