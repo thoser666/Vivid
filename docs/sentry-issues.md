@@ -1154,7 +1154,7 @@ Aussage über den A1-Umbau ist damit nicht verbunden. Lokal bleibt es beim 403 a
 Token — wer die Diagnose lokal fahren will, legt den Token in der Sentry-Oberfläche an
 und trägt ihn als `issues.token` in `sentry.properties` ein (gitignored, nie im Chat).
 
-### 5.20 VIVID-57: der Kamerawechsel startet vor dem Schließen der Idle-Sitzung (07.11.2026)
+### 5.20 VIVID-57: der Kamerawechsel startete vor dem Schließen der Idle-Sitzung (07.11.2026, behoben 08.11.2026)
 
 **Die Gruppe.** `VIVID-57` (SID `7822620409`), 14 Events, jüngster Event
 **2026-11-06T07:43:11**, Release `com.vivid@0.5.89-beta+5789`, V2454A/Android 16,
@@ -1216,9 +1216,31 @@ Build seit Anfang Oktober — inklusive des neuesten, weshalb die Gruppe als
 einzige weiter feuert: die anderen sieben Gruppen stehen auf Builds, die 1 bis
 105 Codes älter sind.
 
-**Richtung einer Behebung (nicht umgesetzt).** Die Ziellinse vor dem Schließen
-lesen, dann `stopIdlePreview()`, **dann** `switchCamera` — an beiden
-Aufrufstellen. Solange das offen ist, bleibt die Gruppe zu Recht offen.
+**Die Behebung (08.11.2026).** `syncSelectedCamera()` ist durch
+`transferSelectedCamera()` ersetzt: die Ziellinse wird **vor** dem Schließen
+gelesen, danach `stopIdlePreview()`, **dann** `cam.switchCamera(selectedId)`.
+Beide Aufrufstellen (`startCameraStream`, `prepareStandaloneRecording`) rufen nur
+noch diese eine Funktion — die Reihenfolge steht an einer Stelle statt zweimal
+im Code. Ohne offene Idle-Vorschau (`idlePreviewCamera == null`) wird weiterhin
+nicht umgeschaltet; die bisherige Zusicherung „die gewählte Linse erreicht den
+Encoder" bleibt damit unverändert (der bestehende Test
+`idle selected lens is transferred before checking capture capabilities`
+prüft sie weiterhin gegen `captureCapabilities`).
+
+**Beleg.** Neu `StreamingEngineLensHandoverTest` (3 Tests): Streamstart und
+Standalone-Aufnahme protokollieren die Reihenfolge und erwarten
+`[idle.close, camera.switch]`; die Gegenprobe „ohne Vorschau kein
+`switchCamera`" hält fest, dass die Änderung nicht überdehnt. **Mutationsprobe:**
+Reihenfolge zurückgedreht (Switch vor `stopIdlePreview()`, der Stand aus
+`c2aafec8`) → genau die beiden Reihenfolge-Tests rot, die Gegenprobe grün;
+zurückgebaut → `TESTS_RC=0`.
+
+**Grenze.** Das ist eine Reihenfolge-Korrektur gegen ein Rennen, kein Beweis,
+dass die Fenster-Gruppe aufhört: sie schließt die Ursache, die der Stack aus
+diesem Build zeigt (Reopen gegen `closeCamera` derselben Sitzung), aber Kamera-Id
+0 kann auf der V2454A auch aus anderen Gründen belegt sein
+(`ERROR_MAX_CAMERAS_IN_USE`, §5.16). Ein Gerätenachweis fehlt weiterhin; die
+Gruppe bleibt offen, bis ein Rücklauf sie nicht mehr füllt.
 
 **Offen.** Der Build `0.5.89-beta+5789` steht in keiner Release-Liste des Repos
 (dort endet es bei `v0.5.49-beta`/Code 5494 und `0.5.49-nightly.701`); die
