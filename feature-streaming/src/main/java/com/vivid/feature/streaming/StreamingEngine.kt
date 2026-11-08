@@ -1800,8 +1800,7 @@ class StreamingEngine @Inject constructor(
     private fun prepareStandaloneRecording(cam: MultiCamera2, includeAudio: Boolean): Boolean {
         _bitrateDiagnostics.value = null
         resetKeyframeMonitoring()
-        syncSelectedCamera(cam)
-        stopIdlePreview()
+        transferSelectedCamera(cam)
         val audioReady = prepareStandaloneRecordingAudio(cam, includeAudio)
         encoderRotationDegrees = outputRotationDegrees()
         val videoReady = prepareCameraVideo(cam)
@@ -2435,8 +2434,7 @@ class StreamingEngine @Inject constructor(
             return
         }
         if (!cam.isRecording) resetKeyframeMonitoring()
-        syncSelectedCamera(cam)
-        stopIdlePreview()
+        transferSelectedCamera(cam)
 
         _targetStates.value = activeUrls.map { StreamTargetState(it, status = StreamTargetStatus.PREPARING) }
         _streamingState.value = StreamingState.Preparing
@@ -2661,10 +2659,27 @@ class StreamingEngine @Inject constructor(
         return prepared == true
     }
 
-    /** Lens selection during idle preview must also reach the streaming camera. */
-    private fun syncSelectedCamera(cam: MultiCamera2) {
-        val selectedId = idlePreviewCamera?.getCurrentCameraId() ?: return
-        if (selectedId != cam.currentCameraId) cam.switchCamera(selectedId)
+    /**
+     * Übernimmt die in der Idle-Vorschau gewählte Linse auf die Kamera, die
+     * streamt oder aufnimmt — **und schließt die Vorschau dabei**.
+     *
+     * Die Reihenfolge ist der Fix zu VIVID-57 (#412, `docs/sentry-issues.md`
+     * §5.20). Die Ziellinse ist nur lesbar, solange die Idle-Kamera offen ist,
+     * deshalb wird die Id **vor** dem Schließen gelesen. Der Wechsel selbst
+     * läuft **danach**: `syncSelectedCamera()` stand vorher vor
+     * `stopIdlePreview()`, und dann konkurriert der von RootEncoder in seinen
+     * Camera-Handler eingestellte Reopen (`switchCamera` → `reOpenCamera` →
+     * `openCameraId`) mit dem unmittelbar folgenden `closeCamera()` der eigenen
+     * Idle-Sitzung. Camera2 antwortet mit `Open camera <id> failed`, der
+     * STREAM-Pfad meldet das als `idlePreview=false` — der Stack der Gruppe.
+     *
+     * Beide Aufrufstellen (Streamstart und Standalone-Aufnahme) benutzen diese
+     * Funktion, damit die Reihenfolge nur an einer Stelle steht.
+     */
+    private fun transferSelectedCamera(cam: MultiCamera2) {
+        val selectedId = idlePreviewCamera?.getCurrentCameraId()
+        stopIdlePreview()
+        if (selectedId != null && selectedId != cam.currentCameraId) cam.switchCamera(selectedId)
     }
 
     private fun updateBitrateDiagnostics(cam: Camera2Base): Boolean {
