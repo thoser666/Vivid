@@ -61,6 +61,7 @@ class StreamingViewModelEncoderTest {
         every { privacyEnabledFlow } returns MutableStateFlow(false)
         every { faceBlurEnabledFlow } returns MutableStateFlow(false)
         every { fullFrameBlurEnabledFlow } returns MutableStateFlow(false)
+        every { environmentBlurEnabledFlow } returns MutableStateFlow(false)
     }
 
     @AfterEach
