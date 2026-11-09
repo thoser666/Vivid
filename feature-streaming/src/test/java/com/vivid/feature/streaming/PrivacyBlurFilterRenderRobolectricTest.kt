@@ -96,4 +96,69 @@ class PrivacyBlurFilterRenderRobolectricTest {
             render.setPixelGrid(-1f)
         }
     }
+
+    // --- P4.1: Umgebungs-Modus + Masken-Textur ------------------------------
+
+    @Test
+    fun `environment mode starts disabled and claims no mask before upload`() {
+        val render = PrivacyBlurFilterRender()
+        // Der Modus darf erst nach einem Upload in den Shader wirken: sonst
+        // wäre die schwarze 1x1-Textur „alles Hintergrund" (§11.6).
+        assertFalse(render.environmentEnabledSnapshot)
+        assertFalse(render.maskUploadedSnapshot)
+
+        render.setEnvironmentMask(
+            EnvironmentMask(4, 4, ByteArray(4 * 4 * EnvironmentMask.RGBA_CHANNELS)),
+        )
+        // Ohne GL-Kontext gibt es keinen Upload — `uMaskEnabled` bleibt 0.
+        assertFalse(render.maskUploadedSnapshot)
+        org.junit.Assert.assertTrue(
+            environmentFullFrameFallback(
+                fullFrame = render.fullFrameSnapshot,
+                environmentEnabled = true,
+                maskUploaded = render.maskUploadedSnapshot,
+            ),
+        )
+    }
+
+    @Test
+    fun `environment toggle is a framesync snapshot`() {
+        val render = PrivacyBlurFilterRender()
+        render.setEnvironmentBlurEnabled(true)
+        assertTrue(render.environmentEnabledSnapshot)
+        render.setEnvironmentBlurEnabled(false)
+        assertFalse(render.environmentEnabledSnapshot)
+    }
+
+    @Test
+    fun `mask upload never flips the flag on a JVM without GL`() {
+        // Der Upload passiert in drawFilter; hier wird nur der Snapshot
+        // eingereicht. Der Fail-Safe muss deshalb weiter greifen.
+        val render = PrivacyBlurFilterRender()
+        render.setEnvironmentMask(PortraitMaskGenerator.create())
+        render.setEnvironmentBlurEnabled(true)
+        assertFalse(render.maskUploadedSnapshot)
+        assertTrue(render.environmentEnabledSnapshot)
+        org.junit.Assert.assertTrue(
+            environmentFullFrameFallback(
+                fullFrame = false,
+                environmentEnabled = render.environmentEnabledSnapshot,
+                maskUploaded = render.maskUploadedSnapshot,
+            ),
+        )
+    }
+
+    @Test
+    fun `full frame still wins over the environment flags`() {
+        val render = PrivacyBlurFilterRender()
+        render.setFullFrame(true)
+        render.setEnvironmentBlurEnabled(true)
+        org.junit.Assert.assertTrue(
+            environmentFullFrameFallback(
+                fullFrame = render.fullFrameSnapshot,
+                environmentEnabled = render.environmentEnabledSnapshot,
+                maskUploaded = true,
+            ),
+        )
+    }
 }

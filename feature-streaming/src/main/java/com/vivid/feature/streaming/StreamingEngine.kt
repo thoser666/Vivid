@@ -927,6 +927,62 @@ class StreamingEngine @Inject constructor(
         return true
     }
 
+    // --- P4.1: Umgebungs-Anonymisierung (Skizze §11.4) ----------------------
+
+    /**
+     * Soll-Zustand „Umgebung verpixeln“ (P4.1): alles außerhalb der
+     * Personen-Maske wird grob verpixelt, die Person bleibt scharf. Wirkt nur
+     * zusammen mit dem Master-Toggle — ohne ihn hängt der Privacy-Render
+     * nicht in der Kette (Garantie-Postulat, §4).
+     */
+    private val _environmentBlurEnabled = MutableStateFlow(false)
+
+    /** P4.1-Toggle (Default aus; reiner Render-Zustand, kein Ketten-Rebuild). */
+    val environmentBlurEnabled: StateFlow<Boolean> = _environmentBlurEnabled.asStateFlow()
+
+    /**
+     * Erzeugt die P4.1-Maske. Produktions-Default ist die statische
+     * Porträt-Ellipse ([PortraitMaskGenerator]); P4.2 ersetzt nur diese
+     * Fabrik durch den Segmenter, der Textur-Pfad bleibt unverändert.
+     * Im Test austauschbar (keine 147-kB-Allokation nötig).
+     */
+    internal var environmentMaskFactory: () -> EnvironmentMask = { PortraitMaskGenerator.create() }
+
+    /** Zuletzt erzeugte Maske — Lesegröße für Verdrahtungs-Tests. */
+    internal val environmentMaskSnapshot: EnvironmentMask?
+        get() = lastEnvironmentMask
+
+    /** Composer-Soll-Zustand nach dem letzten Toggle (Verdrahtungs-Test). */
+    internal val environmentBlurPublished: Boolean
+        get() = privacyComposer.environmentBlur
+
+    /** Beim Composer eingereichte Maske (Verdrahtungs-Test). */
+    internal val environmentMaskPublished: EnvironmentMask?
+        get() = privacyComposer.environmentMaskSnapshot
+
+    @Volatile
+    private var lastEnvironmentMask: EnvironmentMask? = null
+
+    /**
+     * Schaltet P4.1 „Umgebung verpixeln“ um. Beim Einschalten wird die Maske
+     * erzeugt und eingereicht; der Render lädt sie im GL-Thread hoch und
+     * schaltet `uMaskEnabled` erst danach auf 1. Bis dahin erzwingt er
+     * Ganzbild (Fail-Safe, §11.6) — der Modus fällt nie auf „nichts“ zurück.
+     *
+     * @return true, wenn sich der Zustand geändert hat.
+     */
+    fun setEnvironmentBlur(enabled: Boolean): Boolean {
+        if (_environmentBlurEnabled.value == enabled) return false
+        _environmentBlurEnabled.value = enabled
+        if (enabled) {
+            val mask = environmentMaskFactory()
+            lastEnvironmentMask = mask
+            privacyComposer.setEnvironmentMask(mask)
+        }
+        privacyComposer.setEnvironmentBlur(enabled)
+        return true
+    }
+
     /** Hält den Erkennungswunsch mit den beiden Toggles synchron. */
     private fun syncFaceDetectionDesire() {
         faceProducer.setDesired(faceDetectionDesired)

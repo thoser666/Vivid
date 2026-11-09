@@ -208,6 +208,12 @@ class StreamingViewModel @Inject constructor(
             if (zoneRepository.fullFrameBlurEnabledFlow.first()) {
                 streamingEngine.setFullFramePrivacy(true)
             }
+            // P4.1: „Umgebung verpixeln“ — der Render erzeugt die
+            // Porträt-Maske beim Einschalten selbst; ohne Master-Toggle ist
+            // der Privacy-Render nicht in der Kette und der Zustand wartet.
+            if (zoneRepository.environmentBlurEnabledFlow.first()) {
+                streamingEngine.setEnvironmentBlur(true)
+            }
         }
     }
 
@@ -335,6 +341,13 @@ class StreamingViewModel @Inject constructor(
     val fullFrameBlurEnabled: Flow<Boolean> = zoneRepository.fullFrameBlurEnabledFlow
 
     /**
+     * Persistierter P4.1-Toggle „Umgebung verpixeln“ (Default aus). Wirkt nur
+     * zusammen mit [privacyEnabled]: alles außerhalb der Personen-Maske wird
+     * grob verpixelt, die Person bleibt scharf (Skizze §11.4).
+     */
+    val environmentBlurEnabled: Flow<Boolean> = zoneRepository.environmentBlurEnabledFlow
+
+    /**
      * Capability der Hardware-Gesichtserkennung: `null` = noch nie versucht,
      * `false` = Gerät ohne Face-Modus. Das UI zeigt diesen Fall später als
      * Hinweis an; die manuellen Zonen bleiben davon unberührt (Skizze §8).
@@ -376,6 +389,19 @@ class StreamingViewModel @Inject constructor(
         viewModelScope.launch {
             zoneRepository.setFullFrameBlurEnabled(enabled)
             streamingEngine.setFullFramePrivacy(enabled)
+        }
+    }
+
+    /**
+     * Setzt den P4.1-Toggle „Umgebung verpixeln“: persistiert und sofort an
+     * die Engine. Die Engine erzeugt die Maske beim Einschalten und reicht sie
+     * framesynchron an den Render; beim Ausschalten bleibt die letzte Maske
+     * liegen, wirksam ist nur das Flag.
+     */
+    fun setEnvironmentBlurEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            zoneRepository.setEnvironmentBlurEnabled(enabled)
+            streamingEngine.setEnvironmentBlur(enabled)
         }
     }
 

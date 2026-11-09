@@ -22,8 +22,9 @@ import javax.inject.Singleton
  * Die Zonen-Liste liegt als JSON-String unter einem einzigen Key
  * (`privacy_zones_json`), der Master-Toggle „Anonymisierung“ als
  * `privacy_enabled`, der P2-Toggle „Gesichter unkenntlich machen“ als
- * `face_blur_enabled` und der P2b-Toggle „Ganzbild verpixeln“ als
- * `full_frame_blur_enabled`. JSON (kotlinx.serialization) statt Einzel-Keys
+ * `face_blur_enabled`, der P2b-Toggle „Ganzbild verpixeln“ als
+ * `full_frame_blur_enabled` und der P4.1-Toggle „Umgebung verpixeln“ als
+ * `environment_blur_enabled`. JSON (kotlinx.serialization) statt Einzel-Keys
  * hält das Schema erweiterbar: neue Felder in [PrivacyZone] sind
  * abwärtskompatibel (decode mit `ignoreUnknownKeys` analog zum Rest des
  * Projekts).
@@ -41,6 +42,7 @@ class ZoneRepository @Inject constructor(
         val PRIVACY_ENABLED = booleanPreferencesKey("privacy_enabled")
         val FACE_BLUR_ENABLED = booleanPreferencesKey("face_blur_enabled")
         val FULL_FRAME_BLUR_ENABLED = booleanPreferencesKey("full_frame_blur_enabled")
+        val ENVIRONMENT_BLUR_ENABLED = booleanPreferencesKey("environment_blur_enabled")
     }
 
     private val json = Json {
@@ -78,6 +80,15 @@ class ZoneRepository @Inject constructor(
     }
 
     /**
+     * P4.1-Toggle „Umgebung verpixeln“ (Default aus). Wirkt nur zusätzlich
+     * zum Master-Toggle: alles außerhalb der Personen-Maske wird grob
+     * verpixelt, die Person bleibt scharf (Skizze §11.4/§11.9).
+     */
+    val environmentBlurEnabledFlow: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[PrefKeys.ENVIRONMENT_BLUR_ENABLED] ?: false
+    }
+
+    /**
      * Ersetzt die komplette Zonen-Liste (der Zonen-Editor editiert immer die
      * ganze Liste; das ist einfacher und race-freier als Einzel-CRUD).
      * Mehr als [PrivacyZone.MAX_ZONES] Einträge werden auf die ersten
@@ -107,6 +118,13 @@ class ZoneRepository @Inject constructor(
     suspend fun setFullFrameBlurEnabled(enabled: Boolean) {
         dataStore.edit { prefs ->
             prefs[PrefKeys.FULL_FRAME_BLUR_ENABLED] = enabled
+        }
+    }
+
+    /** Setzt den P4.1-Toggle „Umgebung verpixeln“. */
+    suspend fun setEnvironmentBlurEnabled(enabled: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[PrefKeys.ENVIRONMENT_BLUR_ENABLED] = enabled
         }
     }
 

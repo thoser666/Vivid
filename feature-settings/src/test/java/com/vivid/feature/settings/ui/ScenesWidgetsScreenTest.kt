@@ -53,6 +53,7 @@ class ScenesWidgetsScreenTest {
         every { faceBlurEnabled } returns faceBlur
         every { setFaceBlurEnabled(any()) } answers { faceBlur.value = firstArg() }
         every { fullFrameBlurEnabled } returns MutableStateFlow(false)
+        every { environmentBlurEnabled } returns MutableStateFlow(false)
         every { privacyZones } returns MutableStateFlow(emptyList())
         every { streamingEngine } returns mockk<StreamingEngine>(relaxed = true) {
             every { streamingState } returns MutableStateFlow<StreamingState>(StreamingState.Idle)
@@ -310,5 +311,16 @@ class ScenesWidgetsScreenTest {
         scrollTo("Privacy")
         composeRule.onNodeWithTag("privacy_toggle").performClick()
         verify { vm.setPrivacyEnabled(false) }
+    }
+
+    @Test fun `environment blur toggle is offered under the privacy master switch`() {
+        open()
+        // Ohne Master-Toggle gibt es keinen Umgebungs-Schalter.
+        composeRule.onNodeWithTag("environment_blur_toggle").assertDoesNotExist()
+
+        composeRule.runOnIdle { privacy.value = true }
+        scrollTo("Blur the environment (outline protection)")
+        composeRule.onNodeWithTag("environment_blur_toggle").performClick()
+        verify { vm.setEnvironmentBlurEnabled(true) }
     }
 }

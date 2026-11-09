@@ -142,6 +142,9 @@
     <!-- P2b: pixélisation plein cadre (protection du lieu) -->
     <string name="privacy_face_blur_toggle_label">Pixéliser automatiquement les visages</string>
     <string name="privacy_full_frame_toggle_label">Pixélisation plein cadre</string>
+    <!-- P4.1 : anonymisation de l\'environnement (découpe portrait, sans modèle) -->
+    <string name="privacy_environment_toggle_label">Pixéliser l\'environnement (protection par contour)</string>
+    <string name="privacy_environment_hint_outline">Protection par contour uniquement : la personne doit rester dans la découpe au centre de l\'image. Tout ce qui est en dehors est fortement pixélisé.</string>
     <string name="streaming_controls">Commandes</string>
     <string name="streaming_replay_start_error">Impossible de démarrer l’enregistrement. Vérifiez les autorisations de la caméra et du microphone, puis réessayez.</string>
     <string name="streaming_camera_profile">Profil caméra : %1$d×%2$d · %3$d ips</string>

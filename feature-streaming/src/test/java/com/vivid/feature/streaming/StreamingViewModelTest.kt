@@ -80,9 +80,11 @@ class StreamingViewModelTest {
         every { privacyEnabledFlow } returns MutableStateFlow(false)
         every { faceBlurEnabledFlow } returns MutableStateFlow(false)
         every { fullFrameBlurEnabledFlow } returns MutableStateFlow(false)
+        every { environmentBlurEnabledFlow } returns MutableStateFlow(false)
         coEvery { setZones(any()) } just Runs
         coEvery { setPrivacyEnabled(any()) } just Runs
         coEvery { setFullFrameBlurEnabled(any()) } just Runs
+        coEvery { setEnvironmentBlurEnabled(any()) } just Runs
     }
 
     private fun viewModel(
@@ -746,6 +748,7 @@ class StreamingViewModelTest {
             every { privacyEnabledFlow } returns MutableStateFlow(true)
             every { faceBlurEnabledFlow } returns MutableStateFlow(false)
             every { fullFrameBlurEnabledFlow } returns MutableStateFlow(false)
+            every { environmentBlurEnabledFlow } returns MutableStateFlow(false)
             coEvery { setZones(any()) } just Runs
             coEvery { setPrivacyEnabled(any()) } just Runs
         }
@@ -802,6 +805,7 @@ class StreamingViewModelTest {
             every { privacyEnabledFlow } returns MutableStateFlow(false)
             every { faceBlurEnabledFlow } returns MutableStateFlow(false)
             every { fullFrameBlurEnabledFlow } returns MutableStateFlow(true)
+            every { environmentBlurEnabledFlow } returns MutableStateFlow(false)
             coEvery { setZones(any()) } just Runs
             coEvery { setPrivacyEnabled(any()) } just Runs
         }
@@ -821,6 +825,50 @@ class StreamingViewModelTest {
         // Der Toggle ist reiner Render-Zustand: er wird sofort übernommen,
         // auch wenn der Master-Toggle noch aus ist.
         verify(exactly = 1) { engine.setFullFramePrivacy(true) }
+    }
+
+    // --- Datenschutz-Anonymisierung P4.1: Umgebungs-Verpixelung --------------
+
+    @Test
+    fun `setEnvironmentBlurEnabled persists the toggle and forwards it to the engine`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val viewModel = viewModel()
+
+        viewModel.setEnvironmentBlurEnabled(true)
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { zoneRepository.setEnvironmentBlurEnabled(true) }
+        verify(exactly = 1) { engine.setEnvironmentBlur(true) }
+    }
+
+    @Test
+    fun `init restores a persisted environment toggle`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val zoneRepositoryWithEnvironment = mockk<ZoneRepository> {
+            every { zonesFlow } returns MutableStateFlow(emptyList())
+            every { privacyEnabledFlow } returns MutableStateFlow(false)
+            every { faceBlurEnabledFlow } returns MutableStateFlow(false)
+            every { fullFrameBlurEnabledFlow } returns MutableStateFlow(false)
+            every { environmentBlurEnabledFlow } returns MutableStateFlow(true)
+            coEvery { setZones(any()) } just Runs
+            coEvery { setPrivacyEnabled(any()) } just Runs
+        }
+
+        StreamingViewModel(
+            engine,
+            repositoryWith(AppSettings()),
+            launcher,
+            sceneRepository,
+            sceneController,
+            autoSceneSwitcher,
+            zoneRepositoryWithEnvironment,
+            StreamStartCoordinator(repositoryWith(AppSettings()), engine, launcher, com.vivid.core.data.AndroidEncoderCapabilities()),
+        )
+        advanceUntilIdle()
+
+        // Die Engine erzeugt die Maske beim Einschalten selbst; der Aufruf
+        // darf nicht am noch ausgeschalteten Master-Toggle scheitern.
+        verify(exactly = 1) { engine.setEnvironmentBlur(true) }
     }
 }
 

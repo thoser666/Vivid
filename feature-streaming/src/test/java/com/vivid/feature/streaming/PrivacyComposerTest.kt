@@ -375,6 +375,72 @@ class PrivacyComposerTest {
         assertTrue(composer.fullFrame)
     }
 
+    // --- P4.1: Umgebungs-Anonymisierung (Maske) ------------------------------
+
+    @Test
+    fun `setEnvironmentBlur forwards the flag without touching the chain`() {
+        val recorder = RecordingGl()
+        val flags = mutableListOf<Boolean>()
+        val privacy = mockk<PrivacyBlurFilterRender>(relaxed = true) {
+            every { setEnvironmentBlurEnabled(any()) } answers { flags.add(firstArg()) }
+        }
+        val composer = composer(recorder, privacyRender = privacy)
+        composer.setPrivacyEnabled(true, recorder.gl)
+        val callsBefore = recorder.ops.size
+
+        composer.setEnvironmentBlur(true)
+        // Reiner Render-Zustand: kein Ketten-Rebuild, kein Slot-Verbrauch.
+        assertEquals(callsBefore, recorder.ops.size)
+        assertEquals(listOf(true), flags)
+        assertTrue(composer.environmentBlur)
+
+        composer.setEnvironmentBlur(false)
+        assertEquals(listOf(true, false), flags)
+        assertFalse(composer.environmentBlur)
+    }
+
+    @Test
+    fun `setEnvironmentMask forwards the snapshot to the render`() {
+        val forwarded = mutableListOf<EnvironmentMask>()
+        val privacy = mockk<PrivacyBlurFilterRender>(relaxed = true) {
+            every { setEnvironmentMask(any()) } answers { forwarded.add(firstArg()) }
+        }
+        val composer = composer(RecordingGl(), privacyRender = privacy)
+        val mask = EnvironmentMask(2, 2, ByteArray(2 * 2 * EnvironmentMask.RGBA_CHANNELS))
+
+        composer.setEnvironmentMask(mask)
+
+        assertEquals(1, forwarded.size)
+        assertSame(mask, forwarded[0])
+        assertSame(mask, composer.environmentMaskSnapshot)
+    }
+
+    @Test
+    fun `environment state survives a chain rebuild and a missing render`() {
+        val recorder = RecordingGl()
+        val privacy = mockk<PrivacyBlurFilterRender>(relaxed = true)
+        val composer = composer(recorder, privacyRender = privacy)
+        composer.setPrivacyEnabled(true, recorder.gl)
+        composer.setEnvironmentBlur(true)
+
+        composer.requestRebuild(recorder.gl)
+
+        // Der Rebuild fasst den Masken-Zustand nicht an (die wiederverwendete
+        // Render-Instanz trägt ihn weiter).
+        assertTrue(composer.environmentBlur)
+    }
+
+    @Test
+    fun `environment setters are no-ops without a privacy render`() {
+        val composer = composer(RecordingGl(), privacyRender = null)
+        // Darf nicht werfen; der Soll-Zustand bleibt für den nächsten Rebuild.
+        composer.setEnvironmentBlur(true)
+        composer.setEnvironmentMask(
+            EnvironmentMask(2, 2, ByteArray(2 * 2 * EnvironmentMask.RGBA_CHANNELS)),
+        )
+        assertTrue(composer.environmentBlur)
+    }
+
     // --- PrivacyEllipse-Modell-Verträge --------------------------------------
 
     @Test

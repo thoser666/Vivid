@@ -143,6 +143,9 @@
     <!-- P2b: Ganzbild-Verpixelung (Standort-Schutz) -->
     <string name="privacy_face_blur_toggle_label">Автоматически пикселизировать лица</string>
     <string name="privacy_full_frame_toggle_label">Пикселизация всего кадра</string>
+    <!-- P4.1: анонимизация окружения (портретная вырезка, без модели) -->
+    <string name="privacy_environment_toggle_label">Пикселизация окружения (защита по контуру)</string>
+    <string name="privacy_environment_hint_outline">Только защита по контуру: человек должен оставаться внутри вырезки в центре кадра. Всё за её пределами сильно пикселизируется.</string>
     <string name="streaming_controls">Управление</string>
     <string name="streaming_replay_start_error">Не удалось начать запись. Проверьте разрешения камеры и микрофона и попробуйте снова.</string>
     <string name="streaming_camera_profile">Профиль камеры: %1$d×%2$d · %3$d кадр/с</string>

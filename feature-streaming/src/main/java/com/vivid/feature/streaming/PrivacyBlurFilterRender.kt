@@ -43,6 +43,8 @@ class PrivacyBlurFilterRender : BaseFilterRender() {
     private var uRadiiHandle = -1
     private var uFullFrameHandle = -1
     private var uPixelGridHandle = -1
+    private var uMaskTexHandle = -1
+    private var uMaskEnabledHandle = -1
 
     /** Ellipsen-Snapshot (Textur-Koordinaten 0..1); Index >= count = deaktiviert. */
     @Volatile
@@ -56,6 +58,33 @@ class PrivacyBlurFilterRender : BaseFilterRender() {
     @Volatile
     private var pixelGrid = DEFAULT_PIXEL_GRID
 
+    /** P4.1-Soll-Zustand des Umgebungs-Modus (reiner Uniform-Zustand). */
+    @Volatile
+    private var environmentEnabled = false
+
+    /**
+     * Der zuletzt gesetzte Masken-Snapshot. Der Upload passiert erst im
+     * GL-Thread ([drawFilter]) — `glTexImage2D` von einem anderen Thread wäre
+     * ein Rennen gegen RootEncoders Kontext (Skizze §11.3).
+     */
+    @Volatile
+    private var pendingMask: EnvironmentMask? = null
+
+    /**
+     * Generationszähler: jede neue Maske erhöht ihn; der GL-Thread lädt genau
+     * dann hoch, wenn er hinterherhinkt. Verhindert, dass dieselbe Maske in
+     * jedem Frame erneut hochgeladen wird.
+     */
+    @Volatile
+    private var maskGeneration = 0L
+
+    private var uploadedMaskGeneration = 0L
+    private var maskTextureId = 0
+    private var maskUploaded = false
+
+    /** Direkter Puffer für `glTexImage2D` (Android verlangt Direct Buffers). */
+    private var maskBuffer: ByteBuffer? = null
+
     /** Test-Lesegröße des Voll-Frame-Snapshots. */
     internal val fullFrameSnapshot: Boolean
         get() = fullFrame
@@ -63,6 +92,19 @@ class PrivacyBlurFilterRender : BaseFilterRender() {
     /** Test-Lesegröße des Mosaik-Grid-Snapshots. */
     internal val pixelGridSnapshot: Float
         get() = pixelGrid
+
+    /** Test-Lesegröße des Umgebungs-Soll-Zustands. */
+    internal val environmentEnabledSnapshot: Boolean
+        get() = environmentEnabled
+
+    /**
+     * Test-Lesegröße: true, sobald eine gültige Maske im GL-Kontext liegt.
+     * Ohne GL (JVM) bleibt sie false — genau deshalb startet `uMaskEnabled`
+     * mit 0 und der Fail-Safe greift.
+     */
+    internal val maskUploadedSnapshot: Boolean
+        get() = maskUploaded
+
 
     init {
         squareVertex = ByteBuffer
@@ -102,6 +144,26 @@ class PrivacyBlurFilterRender : BaseFilterRender() {
         pixelGrid = grid
     }
 
+    /**
+     * Schaltet den Umgebungs-Modus (P4.1) um: `true` verpixelt alles, was die
+     * Maske **nicht** als Person markiert. Wirksam erst mit einer
+     * hochgeladenen Maske; vorher erzwingt [environmentFullFrameFallback]
+     * Ganzbild (Skizze §11.6).
+     */
+    fun setEnvironmentBlurEnabled(enabled: Boolean) {
+        environmentEnabled = enabled
+    }
+
+    /**
+     * Reicht eine neue Personen-Maske ein. Der Snapshot wird beim nächsten
+     * [drawFilter] hochgeladen (GL-Thread); ein späterer Aufruf ersetzt ihn
+     * vollständig.
+     */
+    fun setEnvironmentMask(mask: EnvironmentMask) {
+        pendingMask = mask
+        maskGeneration += 1
+    }
+
     override fun initGlFilter(context: Context) {
         val vertexShader = GlUtil.getStringFromRaw(context, R.raw.simple_vertex)
         val fragmentShader = GlUtil.getStringFromRaw(context, R.raw.privacy_blur_fragment)
@@ -115,10 +177,64 @@ class PrivacyBlurFilterRender : BaseFilterRender() {
         uRadiiHandle = GLES20.glGetUniformLocation(program, "uEllipseRadii")
         uFullFrameHandle = GLES20.glGetUniformLocation(program, "uFullFrame")
         uPixelGridHandle = GLES20.glGetUniformLocation(program, "uPixelGrid")
+        uMaskTexHandle = GLES20.glGetUniformLocation(program, "uMaskTex")
+        uMaskEnabledHandle = GLES20.glGetUniformLocation(program, "uMaskEnabled")
+        createMaskTexture()
     }
+
+    /**
+     * Legt die Masken-Textur als 1×1-Schwarz an. Schwarz heißt im Shader
+     * „kein Pixel ist Person" — ohne gesetzte Maske wäre das ein Vollbild-
+     * Mosaik. Genau deshalb bleibt `uMaskEnabled` 0, bis
+     * [uploadPendingMask] einen echten Snapshot hochgeladen hat (§11.6).
+     */
+    private fun createMaskTexture() {
+        val ids = IntArray(1)
+        GLES20.glGenTextures(1, ids, 0)
+        maskTextureId = ids[0]
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, maskTextureId)
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR)
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR)
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE)
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE)
+        GLES20.glTexImage2D(
+            GLES20.GL_TEXTURE_2D, 0, GLES20.GL_RGBA, 1, 1, 0,
+            GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE, ByteBuffer.allocateDirect(4).put(0, 0.toByte()),
+        )
+    }
+
+    /**
+     * Lädt einen neuen Masken-Snapshot in die Textur, wenn seit dem letzten
+     * Upload einer eingereicht wurde. Muss im GL-Thread laufen — wird nur aus
+     * [drawFilter] gerufen.
+     */
+    private fun uploadPendingMask() {
+        val generation = maskGeneration
+        if (generation == uploadedMaskGeneration) return
+        val mask = pendingMask ?: return
+        val expected = mask.width * mask.height * EnvironmentMask.RGBA_CHANNELS
+        if (mask.rgba.size != expected) return // Konstruktor verhindert das; doppelt hält.
+        val buffer = maskBuffer
+            ?.takeIf { it.capacity() == expected }
+            ?: ByteBuffer.allocateDirect(expected).also { maskBuffer = it }
+        buffer.clear()
+        buffer.put(mask.rgba)
+        buffer.position(0)
+        GLES20.glActiveTexture(GLES20.GL_TEXTURE1)
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, maskTextureId)
+        GLES20.glTexImage2D(
+            GLES20.GL_TEXTURE_2D, 0, GLES20.GL_RGBA, mask.width, mask.height, 0,
+            GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE, buffer,
+        )
+        GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
+        uploadedMaskGeneration = generation
+        maskUploaded = true
+    }
+
 
     override fun drawFilter() {
         GLES20.glUseProgram(program)
+        uploadPendingMask()
         squareVertex.position(SQUARE_VERTEX_DATA_POS_OFFSET)
         GLES20.glVertexAttribPointer(
             aPositionHandle, 3, GLES20.GL_FLOAT, false,
@@ -137,6 +253,16 @@ class PrivacyBlurFilterRender : BaseFilterRender() {
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, previousTexId)
 
+        // P4.1: Maske auf Einheit 1. `uMaskEnabled` ist erst 1, wenn eine
+        // echte Maske hochgeladen ist — sonst wäre die schwarze 1×1-Textur
+        // „alles Hintergrund" und würde das ganze Bild verpixeln (§11.6).
+        // Der Fail-Safe schaltet in diesem Fenster auf Ganzbild.
+        GLES20.glActiveTexture(GLES20.GL_TEXTURE1)
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, maskTextureId)
+        GLES20.glUniform1i(uMaskTexHandle, 1)
+        GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
+        GLES20.glUniform1f(uMaskEnabledHandle, if (environmentEnabled && maskUploaded) 1f else 0f)
+
         // Ellipsen-Uniforms: kompakter Snapshot (leere Slots = Radius 0,
         // deaktiviert im Shader ohne Branch).
         val snapshot = ellipses
@@ -151,9 +277,14 @@ class PrivacyBlurFilterRender : BaseFilterRender() {
         GLES20.glUniform2fv(uCenterHandle, MAX_ELLIPSES, centers, 0)
         GLES20.glUniform2fv(uRadiiHandle, MAX_ELLIPSES, radii, 0)
         // Voll-Frame-Flag + Mosaik-Kantenlänge ebenfalls framesynchron
-        // (Snapshot, kein Ketten-Rebuild — P2b).
-        GLES20.glUniform1f(uFullFrameHandle, if (fullFrame) 1f else 0f)
-        GLES20.glUniform1f(uPixelGridHandle, pixelGrid)
+        // (Snapshot, kein Ketten-Rebuild — P2b). Der Umgebungs-Modus erzwingt
+        // Ganzbild, solange keine gültige Maske im GL-Kontext liegt (§11.6).
+        val effectiveFullFrame = environmentFullFrameFallback(fullFrame, environmentEnabled, maskUploaded)
+        GLES20.glUniform1f(uFullFrameHandle, if (effectiveFullFrame) 1f else 0f)
+        // Ein erzwungener Ganzbild-Fallback muss die **grobe** Stufe nutzen,
+        // sonst bliebe die Umgebung trotz Vollbild fein genug lesbar.
+        val grid = if (effectiveFullFrame) maxOf(pixelGrid, FULL_FRAME_PIXEL_GRID) else pixelGrid
+        GLES20.glUniform1f(uPixelGridHandle, grid)
     }
 
     override fun disableResources() {
@@ -162,6 +293,11 @@ class PrivacyBlurFilterRender : BaseFilterRender() {
 
     override fun release() {
         GLES20.glDeleteProgram(program)
+        if (maskTextureId != 0) {
+            GLES20.glDeleteTextures(1, intArrayOf(maskTextureId), 0)
+            maskTextureId = 0
+            maskUploaded = false
+        }
     }
 
     companion object {

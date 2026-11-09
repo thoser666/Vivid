@@ -487,6 +487,7 @@ private fun SceneAutomationAndPrivacy(viewModel: StreamingViewModel, idle: Boole
     val interval by viewModel.autoSwitchIntervalSeconds.collectAsStateWithLifecycle()
     val privacy by viewModel.privacyEnabled.collectAsStateWithLifecycle(false)
     val fullFrame by viewModel.fullFrameBlurEnabled.collectAsStateWithLifecycle(false)
+    val environment by viewModel.environmentBlurEnabled.collectAsStateWithLifecycle(false)
     Text(stringResource(R.string.scene_widget_scene_management), style = MaterialTheme.typography.titleLarge)
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(stringResource(StreamingR.string.scene_auto_switch), Modifier.weight(1f))
@@ -503,6 +504,19 @@ private fun SceneAutomationAndPrivacy(viewModel: StreamingViewModel, idle: Boole
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(StreamingR.string.privacy_full_frame_toggle_label), Modifier.weight(1f))
             Switch(fullFrame, viewModel::setFullFrameBlurEnabled, modifier = Modifier.testTag("full_frame_toggle"))
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(StreamingR.string.privacy_environment_toggle_label), Modifier.weight(1f))
+            Switch(environment, viewModel::setEnvironmentBlurEnabled,
+                modifier = Modifier.testTag("environment_blur_toggle"))
+        }
+        if (environment) {
+            // Ehrliche Anzeige (Skizze §11.9): P4.1 schützt per Umriss, nicht
+            // per Modell — die Person muss in der Aussparung bleiben.
+            Text(
+                stringResource(StreamingR.string.privacy_environment_hint_outline),
+                style = MaterialTheme.typography.bodySmall,
+            )
         }
     }
 }

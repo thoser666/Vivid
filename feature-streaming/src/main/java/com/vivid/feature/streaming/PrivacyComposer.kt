@@ -108,6 +108,26 @@ class PrivacyComposer(
         get() = fullFrameEnabled
 
     /**
+     * P4.1-Soll-Zustand „Umgebung verpixeln“: reiner Render-Zustand wie
+     * [fullFrameEnabled]. Die Maske selbst wird über [setEnvironmentMask]
+     * eingereicht; ohne hochgeladene Maske erzwingt der Render Ganzbild
+     * (Fail-Safe, Skizze §11.6).
+     */
+    @Volatile
+    private var environmentBlurEnabled = false
+
+    /** Test-Lesegröße des Umgebungs-Soll-Zustands. */
+    internal val environmentBlur: Boolean
+        get() = environmentBlurEnabled
+
+    /** Zuletzt eingereichte Maske (Lesegröße für Verdrahtungs-Tests). */
+    internal val environmentMaskSnapshot: EnvironmentMask?
+        get() = environmentMask
+
+    @Volatile
+    private var environmentMask: EnvironmentMask? = null
+
+    /**
      * Die wiederverwendete Privacy-Render-Instanz. Bewusst genau einmal
      * erzeugt und über alle Rebuilds behalten (Ellipsen-Uniforms bleiben
      * erhalten, kein Ketten-Flackern). `null`, wenn die Instanziierung
@@ -244,6 +264,25 @@ class PrivacyComposer(
                 PrivacyBlurFilterRender.DEFAULT_PIXEL_GRID
             },
         )
+    }
+
+    /**
+     * Schaltet den Umgebungs-Modus (P4.1, Skizze §11.4) um: alles außerhalb
+     * der Person wird grob verpixelt. Framesynchron wie [setFullFrame] — kein
+     * Ketten-Rebuild; wirksam, sobald der Render eine Maske hat.
+     */
+    fun setEnvironmentBlur(enabled: Boolean) {
+        environmentBlurEnabled = enabled
+        privacyRender?.setEnvironmentBlurEnabled(enabled)
+    }
+
+    /**
+     * Reicht die Personen-Maske (P4.1: Porträt-Ellipse, P4.2: Segmenter) an
+     * den Render. Der Upload passiert im GL-Thread beim nächsten Frame.
+     */
+    fun setEnvironmentMask(mask: EnvironmentMask) {
+        environmentMask = mask
+        privacyRender?.setEnvironmentMask(mask)
     }
 
     companion object {

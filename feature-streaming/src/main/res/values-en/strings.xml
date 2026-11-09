@@ -141,6 +141,9 @@
     <!-- P2b: full-frame pixelation (location protection) -->
     <string name="privacy_face_blur_toggle_label">Automatically pixelate faces</string>
     <string name="privacy_full_frame_toggle_label">Full-frame pixelation</string>
+    <!-- P4.1: environment anonymisation (portrait cut-out, no model) -->
+    <string name="privacy_environment_toggle_label">Blur the environment (outline protection)</string>
+    <string name="privacy_environment_hint_outline">Outline protection only: the person must stay inside the cut-out in the centre of the frame. Everything outside it is heavily pixelated.</string>
     <string name="streaming_controls">Controls</string>
     <string name="streaming_replay_start_error">Could not start recording. Check camera and microphone permissions and try again.</string>
     <string name="streaming_camera_profile">Camera profile: %1$d×%2$d · %3$d fps</string>

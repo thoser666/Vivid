@@ -141,6 +141,9 @@
     <!-- P2b: Voll-Frame-Verpixelung (Standort-Schutz) -->
     <string name="privacy_face_blur_toggle_label">Gesichter automatisch verpixeln</string>
     <string name="privacy_full_frame_toggle_label">Ganzbild verpixeln</string>
+    <!-- P4.1: Umgebungs-Anonymisierung (Porträt-Aussparung ohne Modell) -->
+    <string name="privacy_environment_toggle_label">Umgebung verpixeln (Umriss-Schutz)</string>
+    <string name="privacy_environment_hint_outline">Nur Umriss-Schutz: die Person muss in der Aussparung in der Bildmitte bleiben. Alles außerhalb wird grob verpixelt.</string>
     <string name="streaming_controls">Steuerung</string>
     <string name="streaming_replay_start_error">Aufnahme konnte nicht gestartet werden. Prüfe die Kamera- und Mikrofonberechtigungen und versuche es erneut.</string>
     <string name="streaming_camera_profile">Kameraprofil: %1$d×%2$d · %3$d fps</string>
