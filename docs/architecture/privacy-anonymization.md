@@ -1,6 +1,6 @@
 # 🔒 Architektur: Datenschutz-Anonymisierung im Videopfad (Auto-Gesichter + Zonen)
 
-> **Status:** Skizze festgelegt (2026-09-26) · **P0 implementiert (2026-09-26)** — Filter-Komposition + Privacy-Shader verhaltensneutral · **P1 implementiert (2026-09-27)** — Zonen-Editor + ZoneRepository + Master-Toggle (Manual-Test auf dem Gerät steht aus) · **P2 implementiert (2026-10-16)** — Gesichtserkennung **Route A (RootEncoder-Hardware)** statt TFLite: Producer/Mapper/Smoother + Slot-Merge in der Engine, Persistenz `face_blur_enabled`, Capability-/Lifecycle-/Golden-Tests · **P2b implementiert (2026-10-16)** — Voll-Frame-Verpixelung (Standort-Schutz): Shader-Uniform `uFullFrame` + grobe Mosaik-Stufe `FULL_FRAME_PIXEL_GRID = 1/16`, Persistenz `full_frame_blur_enabled`, Toggle im Streaming-Screen · **P2 Schritt 3 implementiert (2026-10-31)** — Face-Blur-Toggle unter Einstellungen → Szenen & Widgets (Gesichtszeile unter dem Master-Toggle, `face_blur_toggle`, i18n de/en/fr/ru) · **P4 skizziert (2026-10-31)** — Umgebungs-Anonymisierung per Personen-Segmentierung: Switch „Umgebung verpixeln“, P4.1 Porträt-Aussparung ohne Modell, P4.2 MediaPipe-Selfie-Segmenter via LiteRT (Apache-2.0), Fail-Safe auf Ganzbild (§11) · **offen:** Geräte-Verifikation (Mapping-Konvention, Capability, fps, Voll-Frame-Stufe); P1-Manual-Test weiterhin offen · **Datum:** 2026-09-26
+> **Status:** Skizze festgelegt (2026-09-26) · **P0 implementiert (2026-09-26)** — Filter-Komposition + Privacy-Shader verhaltensneutral · **P1 implementiert (2026-09-27)** — Zonen-Editor + ZoneRepository + Master-Toggle (Manual-Test auf dem Gerät steht aus) · **P2 implementiert (2026-10-16)** — Gesichtserkennung **Route A (RootEncoder-Hardware)** statt TFLite: Producer/Mapper/Smoother + Slot-Merge in der Engine, Persistenz `face_blur_enabled`, Capability-/Lifecycle-/Golden-Tests · **P2b implementiert (2026-10-16)** — Voll-Frame-Verpixelung (Standort-Schutz): Shader-Uniform `uFullFrame` + grobe Mosaik-Stufe `FULL_FRAME_PIXEL_GRID = 1/16`, Persistenz `full_frame_blur_enabled`, Toggle im Streaming-Screen · **P2 Schritt 3 implementiert (2026-10-31)** — Face-Blur-Toggle unter Einstellungen → Szenen & Widgets (Gesichtszeile unter dem Master-Toggle, `face_blur_toggle`, i18n de/en/fr/ru) · **P4 skizziert (2026-10-31)** — Umgebungs-Anonymisierung per Personen-Segmentierung: Switch „Umgebung verpixeln“, P4.1 Porträt-Aussparung ohne Modell, P4.2 MediaPipe-Selfie-Segmenter via LiteRT (Apache-2.0), Fail-Safe auf Ganzbild (§11) · **P4.1 implementiert (2026-11-08)** — Masken-Pfad ohne Modell: `uMaskTex`/`uMaskEnabled`, 256×144-RGBA-Maske als Porträt-Ellipse, Fail-Safe auf Ganzbild, Persistenz `environment_blur_enabled`, Toggle mit Umriss-Hinweis (§11.4) · **offen:** Geräte-Verifikation (Mapping-Konvention, Capability, fps, Voll-Frame-Stufe, P4.1-Maske); P1-Manual-Test weiterhin offen · **Datum:** 2026-09-26
 > **Tracked in:** [PARITY.md, Bucket „Datenschutz-Anonymisierung"](../../PARITY.md) · **Vivid-Zusatz** (Moblin hat keine Anonymisierung — analog Owner-Steuerung/Chat-TTS als eigener Nutzwert)
 > **User-Entscheidung:** Stufe 2 (automatische Gesichtsanonymisierung) ist Ziel; Stufe 1 (Zonen) ist Fallback und P0-Baustein. **Umsetzung der Erkennung: Route A** — Hardware-Face-Detect des Kamera-Stacks, kein eigenes ML-Modell (Begründung §2/§6)
 
@@ -31,6 +31,11 @@ nicht nachträglich im aufgenommenen Material. Drei Mechanismen, die sich ergän
    unlesbar und verraten den Standort auch dann nicht, wenn weder Zone noch
    Gesicht greift. **Standort-Mechanismus** — unabhängig von Zonen/Gesichtern,
    wirkt nur zusammen mit dem Master-Toggle.
+4. **Umgebungs-Verpixelung** (Stufe 4, P4.1): die **Umkehrung** des Ganzbildes —
+   alles außerhalb der Person wird grob verpixelt, der Streamer bleibt
+   erkennbar (`uMaskTex`/`uMaskEnabled`, Maske als Porträt-Ellipse ohne Modell,
+   ab P4.2 per Segmenter). **Standort-Mechanismus** — wirkt nur zusammen mit dem
+   Master-Toggle und fällt ohne gültige Maske auf Ganzbild zurück.
 
 **Hartes Postulat:** Anonymisierung ist *kein* kreativer Filter. Sie muss unabhängig
 von LUT/VideoFilter/Low-Light wirken und darf durch deren Deaktivierung nie verloren
@@ -75,7 +80,9 @@ gehen (Garantie-Zonen) — das treibt die Filter-Kompositions-Strategie (§4).
   Hochzählen; Uniform-Array-Größe kompilierzeitfest). P2b hängt zwei weitere
   Uniforms daran: `uFullFrame` (Ganzbild-Maske, unabhängig von den Slots —
   verbraucht **keinen** Ellipsen-Slot) und `uPixelGrid` (Mosaik-Kantenlänge:
-  1/48 für Zonen/Gesichter, 1/16 fürs Ganzbild).
+  1/48 für Zonen/Gesichter, 1/16 fürs Ganzbild). P4.1 ergänzt `uMaskTex`
+  (Personen-Maske als Textur, Einheit 1) und `uMaskEnabled` — ebenfalls
+  slot-frei und framesynchron, mit demselben Fail-Safe-Muster.
 - **L3-Composer** ist der einzige Berührungspunkt mit `GlInterface` — die bestehenden
   Controller werden nicht verändert, sondern in den Rebuild einbezogen (§4).
 - **Preview-Toggle** („nur Senden unkenntlich machen“) bewusst **nicht** vorgesehen:
@@ -283,36 +290,60 @@ Damit kommen drei Dinge dazu, die P0–P2b bewusst nicht hatten:
 Kamera/Screen/Video
         │
         ▼
-  L1 PrivacyBlurFilterRender ──(downscale in FBO, ≤ 256×144)──▶ L2b Masken-Pfad
+  L1 PrivacyBlurFilterRender ──(Masken-Textur 256×144)──────▶ L2b Masken-Pfad
         │                                                        ├─ P4.1 statisch: Porträt-Ellipse
         │                                                        └─ P4.2 Segmenter (LiteRT)
         │                                                            │
-        │◀──────────── Masken-Textur (uMaskTex, alpha) ─────────────┘
+        │◀──────────── Masken-Textur (uMaskTex, r) ──────────────────┘
         ▼
   Mosaik nur dort, wo Maske = Hintergrund
 ```
 
-- **L2b `SegmentationProducer`** (neben `FaceDetectionProducer`): besitzt das Modell bzw. den
+- **L2b `SegmentationProducer`** (P4.2, neben `FaceDetectionProducer`): besitzt das Modell bzw. den
   statischen Masken-Generator, hält `StateFlow<Boolean>` für die Fähigkeit und liefert
-  Masken-Frames. Kein Bezug zu RootEncoder — der Producer kennt nur Bitmaps/ByteBuffer.
-- **Masken-Transport:** `PrivacyBlurFilterRender` hält die GL-Textur (z. B. 256×144, `LUMINANCE`
-  oder `RGBA`), `PrivacyComposer.setEnvironmentMask(...)` schiebt die Bytes hinein. Framesync
-  wie die Ellipsen — **kein Ketten-Rebuild** (die Regel aus §4 bleibt: Rebuild nur bei
+  Masken-Frames. Kein Bezug zu RootEncoder — der Producer kennt nur Bitmaps/ByteBuffer. In P4.1
+  steht an seiner Stelle `PortraitMaskGenerator` (CPU, keine Dependency).
+- **Masken-Transport:** `PrivacyBlurFilterRender` hält die GL-Textur (256×144, `RGBA`,
+  Rot-Kanal = Personen-Konfidenz), reicht sie über `PrivacyComposer.setEnvironmentMask(...)`
+  entgegen und lädt sie im GL-Thread beim nächsten `drawFilter()` hoch. Framesync wie die
+  Ellipsen — **kein Ketten-Rebuild** (die Regel aus §4 bleibt: Rebuild nur bei
   Ketten-Zustand).
-- **Downscale-Ort:** im Render selbst (eigener kleiner FBO, ein Quad-Draw, kein Readback im
-  Normalfall). Für P4.2 nötiger Readback läuft über **PBO** (asynchron, ein Frame Verzögerung)
-  oder über `glReadPixels` mit 256×144 (≈ 147 kB) bei ≤ 10 fps.
+- **FBO-Downscale:** in P4.1 **nicht** gebaut. Die Maske ist hier ein erzeugtes Datum, kein
+  aus dem Frame gewonnenes; ein Downscale-Pass ohne Abnehmer wäre toter Code. Er kommt mit
+  P4.2 zusammen mit dem Segmenter (siehe §11.11).
 
-### 11.4 P4.1: Masken-Pfad ohne Modell (Porträt-Aussparung)
+### 11.4 P4.1: Masken-Pfad ohne Modell (Porträt-Aussparung) — implementiert 2026-11-08
 
 Damit die GL-/Composer-/Engine-Infrastruktur **vor** dem Modell steht und ohne Gerät+Modell
 testbar ist: die Maske ist eine weiche Ellipse (Mitte, verschieb-/größenanpassbar), invertiert
 angewandt — innen scharf, außen grob verpixelt (`FULL_FRAME_PIXEL_GRID`).
 
+**Umgesetzt:**
+- `EnvironmentMask` (unveränderlicher Snapshot, 4 Bytes/Pixel RGBA, Rot = Personen-Konfidenz)
+  mit Konstruktor-Gültigkeit (`width/height > 0`, Puffergröße `w*h*4`) und `personAt(x, y)`.
+- `PortraitMaskGenerator` (CPU, keine Dependency): 256×144, weiche Ellipse nach
+  `PortraitMaskSettings` (Default `center (0.5, 0.45)`, `radius (0.28, 0.45)`, `feather 0.16`)
+  — dieselbe Auflösung, die der P4.2-Segmenter liefert, damit der Textur-Pfad unverändert
+  bleibt. `personCoverage` ist eine reine Funktion (Smoothstep-Kante), damit die Kante ohne GL
+  prüfbar ist.
+- `PrivacyBlurFilterRender`: Masken-Textur (Start: 1×1-Schwarz, `GL_LINEAR`/`CLAMP_TO_EDGE`),
+  Upload des Snapshots im GL-Thread beim nächsten `drawFilter()` über einen direkten
+  `ByteBuffer` (Android verlangt Direct Buffers), Generationszähler gegen Doppel-Uploads,
+  `uMaskTex`=Einheit 1. Die Textur wird in `release()` gelöscht.
+- `PrivacyComposer.setEnvironmentBlur(enabled)` / `setEnvironmentMask(mask)`: framesynchron,
+  **kein** Ketten-Rebuild.
+- Engine: `setEnvironmentBlur(enabled)` erzeugt die Maske über die injizierbare
+  `environmentMaskFactory` (P4.2 ersetzt nur diese Fabrik), reicht sie an den Composer und hält
+  den Soll-Zustand über Master-Zyklen.
+
+**Verworfene Variante:** ein zweiter `ImageReader`/FBO-Pass in P4.1. Beides braucht den Frame,
+den P4.1 gar nicht liest; der Downscale-Pass wandert deshalb zu P4.2 (§11.11).
+
 - Nutzen: deckt den häufigsten Leak („Raum um die Person") ohne eine einzige neue Dependency;
   ist zugleich der Fallback, wenn kein Modell geladen werden kann.
 - Grenze: Person muss in der Aussparung bleiben. Bewegt sie sich heraus, wird **sie** verpixelt
-  — der sichere Fehler.
+  — der sichere Fehler. Die Aussparung ist in P4.1 **nicht** verschiebbar (kein UI dafür); sie
+  sitzt in der Bildmitte mit leichter Hochlage (Kopf/Oberkörper).
 
 ### 11.5 P4.2: Segmenter (Modell + Runtime)
 
@@ -332,33 +363,53 @@ angewandt — innen scharf, außen grob verpixelt (`FULL_FRAME_PIXEL_GRID`).
 - **Delegates:** CPU zuerst. GPU/NNAPI nur, wenn die Messung es verlangt — der GL-Kontext
   gehört RootEncoder, ein zweiter GPU-Kontext im Encoder-Thread ist ein Flacker-Risiko.
 
-### 11.6 Shader-Vertrag (Erweiterung P0/P2b)
+### 11.6 Shader-Vertrag (Erweiterung P0/P2b) — implementiert 2026-11-08
 
 ```glsl
 uniform sampler2D uMaskTex;     // Personen-Konfidenz (r = 1 Person, 0 Hintergrund)
-uniform float uMaskEnabled;     // 0/1 — Vorschau ohne Maske = unverändert
+uniform float uMaskEnabled;     // 0/1 — 0 = Umgebungs-Modus aus
 ...
-float person = texture2D(uMaskTex, vTextureCoord).r;
-float umgebung = clamp(uMaskEnabled, 0.0, 1.0) * (1.0 - person);
-mask = max(mask, umgebung);
+vec4 mosaic(vec2 uv, float grid);   // ein Mosaik-Abgriff, zwei Stufen
+...
+if (mask > 0.0) color = mix(color, mosaic(vTextureCoord, uPixelGrid), mask);        // Zonen/Gesichter/Ganzbild
+if (uMaskEnabled > 0.0) {
+    float person = texture2D(uMaskTex, vTextureCoord).r;
+    float environment = uMaskEnabled * (1.0 - smoothstep(0.35, 0.65, person));
+    if (environment > 0.0) color = mix(color, mosaic(vTextureCoord, FULL_FRAME_PIXEL_GRID), environment);
+}
 ```
 
-- Kein Branch, GLSL-ES-1.0-sicher (gleiche Regel wie `uFullFrame`).
-- Weiche Maskenkante: `smoothstep(0.35, 0.65, person)` — harte Kanten sehen wie ein
-  Greenscreen-Unfall aus und flackern stärker.
-- **Voll-Frame gewinnt immer:** `mask = max(mask, uFullFrame)` bleibt die letzte Zeile —
-  der Panik-Schalter (P2b) überstimmt jede Maskenlogik.
+- **Zwei Mosaik-Stufen, zwei Masken:** Zonen/Gesichter/Ganzbild nutzen `uPixelGrid`
+  (`DEFAULT_PIXEL_GRID` bzw. bei Ganzbild `FULL_FRAME_PIXEL_GRID`), die Umgebung immer die
+  grobe Stufe — sonst bliebe der Raum trotz Verpixelung lesbar (§11.4). Ein gemeinsames
+  `mask = max(mask, umgebung)` hätte nur eine Stufe erlaubt.
+- **Voll-Frame gewinnt immer:** das Uniform wird aus
+  `environmentFullFrameFallback(fullFrame, environmentEnabled, maskUploaded)` gesetzt — bei
+  aktivem Umgebungs-Modus **ohne** gültige Maske ist es 1. Der Panik-Schalter (P2b) überstimmt
+  jede Maskenlogik, und der Fallback pixeliert dann zusätzlich mit der groben Stufe
+  (`max(uPixelGrid, FULL_FRAME_PIXEL_GRID)`).
+- Weiche Maskenkante: `smoothstep(0.35, 0.65, person)` plus die Feather-Kante der erzeugten
+  Maske — harte Kanten sehen wie ein Greenscreen-Unfall aus und flackern stärker.
+- **Kein Branch-Zoo, GLSL-ES-1.0-sicher:** der Umgebungs-Zweig ist uniform und kohärent; aus
+  kostet er keinen zusätzlichen Textur-Zugriff. Die Ellipsen-Schleife bleibt unverändert
+  (step-gewichtet, ohne `continue`).
 - Masken-Textur ohne gesetzten Inhalt = Schwarz = „alles Hintergrund" ⇒ würde das ganze Bild
-  verpixeln. Deshalb startet `uMaskEnabled` mit **0** und wird erst gesetzt, wenn eine gültige
-  Maske hochgeladen ist (Default-Test analog `fullFrameSnapshot`).
+  verpixeln. Deshalb startet `uMaskEnabled` mit **0** und wird erst 1, wenn eine gültige Maske
+  hochgeladen ist (`maskUploadedSnapshot`, Gegenstück zu `fullFrameSnapshot`).
 
 ### 11.7 Glättung und Fail-Safe
 
-- `MaskSmoother` nach dem `FaceSmoother`-Muster: Inferenz läuft mit 5–10 fps, die Maske wird
-  zwischen den Ergebnissen **gehalten** (Hold ≈ 300 ms) und zeitlich geblendet (α ≈ 0.35),
-  damit nichts flackert.
-- **Abbruchkriterium:** keine gültige Maske seit > 500 ms (Modell-Fehler, Thread hängt,
-  Auflösungswechsel) ⇒ `uMaskEnabled = 0`, `uFullFrame = 1` ⇒ Ganzbild. Kein stiller Ausfall.
+- **P4.1 (implementiert):** der Fail-Safe sitzt im Render: `uMaskEnabled` wird nur 1, wenn der
+  Upload im GL-Thread tatsächlich gelaufen ist; bis dahin (und nach einem `release()`)
+  erzwingt `environmentFullFrameFallback` Ganzbild mit grober Stufe. Eine Maske, die nicht
+  ankommt, fällt damit auf **mehr** Anonymisierung zurück, nie auf „nichts".
+- **P4.2 (offen):** `MaskSmoother` nach dem `FaceSmoother`-Muster: Inferenz läuft mit 5–10 fps,
+  die Maske wird zwischen den Ergebnissen **gehalten** (Hold ≈ 300 ms) und zeitlich geblendet
+  (α ≈ 0.35), damit nichts flackert.
+- **Abbruchkriterium (P4.2):** keine gültige Maske seit > 500 ms (Modell-Fehler, Thread hängt,
+  Auflösungswechsel) ⇒ Maske verwerfen ⇒ derselbe Ganzbild-Fallback wie oben. Kein stiller
+  Ausfall. Die P4.1-Maske ist statisch und kann nicht veralten; der Zeitstempel kommt mit dem
+  Segmenter.
 - Owner-Tod (Quellwechsel, Stream-Stopp) ⇒ Producer detachen, Maske freigeben, Voll-Frame-Flag
   aus (die Kette selbst baut der Composer ab).
 
@@ -376,24 +427,39 @@ Fenstern (Modell hält sie für Person); Hochformat/Querformat (Modell ist 16:9 
 statt Verzerrung); Screen-Capture-Quellen (dort ist die „Person" oft gar nicht im Bild —
 Verhalten definieren: Maske = alles Hintergrund ⇒ Voll-Frame-artig, das ist gewollt).
 
-### 11.9 UI und Persistenz
+### 11.9 UI und Persistenz — implementiert 2026-11-08
 
-- Neuer Schalter **„Umgebung verpixeln"** in der Privacy-Gruppe (unter dem Master-Toggle,
-  neben Gesichter/Ganzbild) — `privacy_environment_blur_toggle_label`, Persistenz-Key
+- Schalter **„Umgebung verpixeln (Umriss-Schutz)"** in der Privacy-Gruppe unter
+  Gesichter/Ganzbild (`feature-settings`, `SettingsOverlaysScreen`), `testTag`
+  `environment_blur_toggle`, i18n de/en/fr/ru (`privacy_environment_toggle_label`), Persistenz-Key
   `environment_blur_enabled` in `ZoneRepository`, Init-Restore in der VM (Muster P2b).
-- Zustandslogik: **Master** ⇒ Voraussetzung; **Umgebung** und **Ganzbild** dürfen kombiniert
-  werden, `uFullFrame` gewinnt (max) — so bleibt der Panik-Schalter monoton sicher.
-- Ehrliche Anzeige: bei fehlender Fähigkeit (kein Modell geladen) zeigt die Zeile einen
-  Hinweis „nur Umriss-Schutz" statt sie zu verstecken — der Nutzer soll wissen, welcher
-  Schutz gerade läuft (Capability-`StateFlow` aus dem Producer).
+- Zustandslogik: **Master** ⇒ Voraussetzung (ohne ihn hängt der Render nicht in der Kette);
+  **Umgebung** und **Ganzbild** dürfen kombiniert werden, der Ganzbild-Fallback gewinnt — so
+  bleibt der Panik-Schalter monoton sicher.
+- Ehrliche Anzeige: solange P4.1 ohne Modell läuft, steht unter dem Schalter
+  `privacy_environment_hint_outline` — „nur Umriss-Schutz, die Person muss in der Aussparung
+  bleiben". P4.2 ersetzt den Text durch den Capability-Hinweis aus dem Producer.
 
 ### 11.10 Beweise (Teststrategie)
 
+**P4.1 (implementiert, 2026-11-08):**
+- `EnvironmentMaskTest` (JVM): Mitte = Person, Ecken = Hintergrund, monoton fallende weiche
+  Kante, Gültigkeitsregeln (`EnvironmentMask`, `PortraitMaskSettings`), Wahrheitstafel des
+  Fail-Safes.
+- `PrivacyComposerTest` (+4): Flag/Maske werden ohne Ketten-Rebuild weitergereicht, Zustand
+  überlebt Rebuild und fehlenden Render.
+- `PrivacyBlurFilterRenderRobolectricTest` (+4): `uMaskEnabled` startet aus, `setEnvironmentMask`
+  behauptet ohne GL keinen Upload, Voll-Frame gewinnt.
+- `StreamingEngineEnvironmentBlurTest` (neu, 5): idempotenter Toggle, genau eine Maske pro
+  Einschalten, Composer-Soll-Zustand, Master-Zyklus, **kein** Ellipsen-Slot-Verbrauch, keine
+  Maske bei ausgeschaltetem Toggle.
+- `ZoneRepositoryTest` (+2), `StreamingViewModelTest` (+2), `ScenesWidgetsScreenTest` (+1):
+  Persistenz getrennt von Master/Zonen/Ganzbild, Init-Restore, UI-Sichtbarkeit und Klick.
+
+**P4.2 (offen):**
 - **JVM:** `SegmentationProducerTest` mit Fake-Segmenter (deterministische Masken, Latenz-
-  Simulation), `MaskSmootherTest` (Hold/Blend/Hysterese, Timeout ⇒ Fail-Safe), `StreamingEngine`
-  (Soll-Zustand, Masken-Weitergabe an den Composer via Mockk), `ZoneRepositoryTest` (Key/Restore).
-- **Robolectric:** Shader-Vertrag wie P2b (`uMaskEnabled`-Default 0, `setEnvironmentMask`
-  require-Regeln, Snapshot-Lesegrößen), UI-Toggle.
+  Simulation), `MaskSmootherTest` (Hold/Blend/Hysterese, Timeout ⇒ Fail-Safe),
+  `StreamingEngine` (Masken-Weitergabe an den Composer via Mockk).
 - **Gerät/manuell:** 1 h Stream — bleibt der Streamer scharf, ist der Raum unlesbar? fps/
   Akku-Delta gegen P2b-Baseline; Umschalten während des Streams ohne Ruckler; Fail-Safe-Test
   (Modell-Datei temporär umbenennen ⇒ Bild wird Ganzbild, nicht klar).
@@ -404,20 +470,34 @@ Verhalten definieren: Maske = alles Hintergrund ⇒ Voll-Frame-artig, das ist ge
 
 | Phase | Inhalt | Proof |
 |---|---|---|
-| **P4.1** | Masken-Infrastruktur ohne Modell: `uMaskTex`/`uMaskEnabled`, FBO-Downscale, Porträt-Ellipse als Masken-Quelle, Composer/Engine-Verdrahtung, Persistenz, UI-Schalter, Fail-Safe | JVM + Robolectric grün; Gerät: Umgebung verpixelt, Person scharf (statisch) |
-| **P4.2** | Segmenter: LiteRT + Modell-Asset + NOTICE, `SegmentationProducer`, `MaskSmoother`, Capability/Timeout-Fail-Safe, fps-/Akku-Messung | JVM mit Fake-Segmenter; Gerät: Messwerte + 1 h-Stream |
-| **P4.3** | Feinschliff: Kantenqualität, Letterbox, Screen-Capture-Verhalten, Doku (user-guide, RELEASE), Presets | Geräte-Proof beider Quellen |
+| **P4.1 ✅ (08.11.2026)** | Masken-Infrastruktur ohne Modell: `uMaskTex`/`uMaskEnabled`, 256×144-RGBA-Maske als Porträt-Ellipse, Composer/Engine-Verdrahtung, Persistenz, UI-Schalter, Fail-Safe. **FBO-Downscale bewusst zu P4.2** (kein Abnehmer ohne Frame-Quelle) | JVM + Robolectric grün (14 neue Tests); **offen:** Gerät — Umgebung verpixelt, Person scharf (statisch) |
+| **P4.2** | Segmenter: LiteRT + Modell-Asset + NOTICE, `SegmentationProducer`, `MaskSmoother`, **FBO-Downscale/Readback ≤ 256×144**, Capability/Timeout-Fail-Safe, fps-/Akku-Messung | JVM mit Fake-Segmenter; Gerät: Messwerte + 1 h-Stream |
+| **P4.3** | Feinschliff: Kantenqualität, Letterbox, Screen-Capture-Verhalten, verschiebbare/größenanpassbare Aussparung, Doku (user-guide, RELEASE), Presets | Geräte-Proof beider Quellen |
 
-### 11.12 Offene Fragen (vor P4.1 zu entscheiden)
+### 11.12 Entscheidungen und offene Fragen
 
-1. **Masken-Quelle:** eigener FBO im Privacy-Filter (self-contained, funktioniert für alle
-   Quellen) vs. `ImageReader` am Kamera-Pfad (nur Kamera, dafür ohne GL-Readback) — Empfehlung:
-   FBO, weil Screen-Capture/Video denselben Schutz brauchen.
-2. **Modell-Variante:** binär (193/250 kB, reicht) vs. multiclass (Haar/Haut/Kleidung, größer,
+**Entschieden mit P4.1 (2026-11-08):**
+
+1. **Masken-Quelle:** kein `ImageReader` am Kamera-Pfad. P4.1 erzeugt die Maske auf der CPU
+   (Porträt-Ellipse) und lädt sie als Textur hoch — self-contained, funktioniert für Kamera,
+   Screen-Capture und Video. Der **FBO-Downscale** des Quell-Frames kommt mit P4.2, weil erst
+   der Segmenter Pixel braucht; ohne Abnehmer wäre der Pass toter Code (§11.3/§11.11).
+2. **Masken-Format:** 256×144 RGBA (Rot = Personen-Konfidenz) statt `LUMINANCE` — ein Format mit
+   den übrigen Haus-Texturen (`SceneCompositorFilterRender`, `HaldClutFilterRender`), 147 kB
+   statt 37 kB; die Größe ist im Budget (§11.8) unerheblich.
+3. **Maske als Datum, nicht als Zustand:** `EnvironmentMask` ist unveränderlich und wird
+   vollständig ersetzt; der Render hält nur die Textur und einen Generationszähler. Damit kann
+   P4.2 beliebige Quellen (Modell, FBO-Readback) anschließen, ohne den GL-Pfad zu ändern.
+
+**Offen für P4.2:**
+
+4. **Modell-Variante:** binär (193/250 kB, reicht) vs. multiclass (Haar/Haut/Kleidung, größer,
    ermöglicht später „nur Kleidung scharf") — Empfehlung: binär starten.
-3. **Inferenzrate:** fix 5 fps vs. adaptiv (Bewegungserkennung) — Empfehlung: fix 5 fps,
+5. **Inferenzrate:** fix 5 fps vs. adaptiv (Bewegungserkennung) — Empfehlung: fix 5 fps,
    Messung entscheidet.
-4. **Gleichzeitigkeit mit Gesichtern:** P2-Erkennung und Segmentierung teilen sich CPU — Budget
+6. **Gleichzeitigkeit mit Gesichtern:** P2-Erkennung und Segmentierung teilen sich CPU — Budget
    gemeinsam messen; notfalls Gesichts-Erkennung auf 3 fps drosseln.
-5. **FOSS-Grenze:** LiteRT ist quelloffen (Apache-2.0) und kein Play-Services-Binary — die
+7. **FOSS-Grenze:** LiteRT ist quelloffen (Apache-2.0) und kein Play-Services-Binary — die
    Abgrenzung zu ML Kit ist im NOTICE und im FOSS-Flavor-README zu belegen.
+8. **Aussparung verschiebbar/größenanpassbar:** P4.1 nutzt eine feste Ellipse; ein Editor
+   (Muster Zonen-Editor) ist P4.3, sofern die Messung ihn rechtfertigt.
