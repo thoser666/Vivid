@@ -1304,6 +1304,54 @@ neueste zuerst, Kandidat ohne Zeile, kein Token in der Ausgabe, und mit
 `✅ I1–I28` (RC=0); Mutation (`mark` fest auf `behind`) ⇒ `❌ I28: neuester Build
 muss als newest mit Abstand 0 erscheinen` (RC=1), Rückbau per sha1 geprüft.
 
+### 5.22 `settings.preferences_pb`: DataStore warf, niemand fing es (#432, behoben 16.11.2026)
+
+**Befund.** `#431` (VIVID-5G), `#432` (VIVID-5F, fatal) und `#438` (VIVID-5K)
+melden dieselbe `CorruptionException` mit dem Top-Frame
+`FileStorage.kt:runFileDiagnosticsIfNotCorruption`. Dieser Frame ist
+**Bibliothekscode**, nicht Vivid: `git log --all -S` findet den Namen in keinem
+der 2164 Commits, `git grep` weder Datei noch Funktion. Es ist
+`androidx.datastore.core.FileStorage` (`FileReadScope.readData()`),
+`datastorePreferences = 1.3.0` (`gradle/libs.versions.toml`), und der Text
+„Corruption in file <pfad>“ stammt aus derselben Schicht.
+
+**Code-Prüfung.** `DataStoreModule` erzeugte den Store mit
+`preferencesDataStore(name = "settings")` — ohne `corruptionHandler`, also mit
+dem Default-ReThrow. Alle Leser sammeln `dataStore.data` ohne `.catch`
+(`SettingsRepository`, `SceneRepository`); die `runCatching`-Stellen dort
+treffen nur die JSON-Dekodierung *innerhalb* von `map`. Damit reißt die
+Ausnahme den Prozess mit — genau das `fatal`-Muster von VIVID-5F.
+
+**Fix.** `settingsCorruptionHandler` (`ReplaceFileCorruptionHandler`, liefert
+`emptyPreferences()`, ein Timber-Warnhinweis) ist am
+`preferencesDataStore`-Delegate registriert. Die Datei wird einmal durch
+Defaults ersetzt, der Start läuft weiter. Der Handler ist `internal`, damit der
+Test dieselbe Instanz fährt, die das Modul verdrahtet.
+
+**Belege.** `DataStoreCorruptionTest` (JVM, 2 Fälle): der Handler beantwortet
+einen Korruptionsbericht mit leeren Defaults, und **ohne** Handler ist dieselbe
+kaputte Datei eine echte `CorruptionException` (Negativkontrolle). Grenze: der
+*Datei*-Ersatz läuft unter Windows nicht (DataStore 1.3.0 kann nicht über eine
+vorhandene Zieldatei umbenennen — dieselbe Einschränkung wie
+`InMemoryPreferencesDataStore`), deshalb steht der Erfolgsfall auf dem Gerät:
+
+- **Gerät** (`emulator-5554`, `Medium_Phone_API_36`, `com.vivid.debug`,
+  standardDebug). Korruption per `head -c 64 /dev/zero >
+  files/datastore/settings.preferences_pb` (md5 `3b5d3c7d…`).
+- **Ohne Handler** (Mutationsbau, gleiche Datei): `FATAL EXCEPTION:
+  DefaultDispatcher-worker-4`, `CorruptionException: Corruption in file
+  /data/data/com.vivid.debug/files/datastore/settings.preferences_pb`,
+  `at androidx.datastore.core.FileStorageKt.runFileDiagnosticsIfNotCorruption(FileStorage.kt:226)`
+  — Prozess tot, Datei unverändert. Das ist die Signatur der Sentry-Gruppen.
+- **Mit Handler**: Start ohne `FATAL EXCEPTION`, Prozess lebt (PID), Datei
+  ersetzt — md5 `bf8a0018…`, Inhalt beginnt `0a 3e 0a 14` (gültiger
+  Preferences-Proto-Satz).
+
+**Grenze.** Belegt ist der Fehlerpfad und seine Behebung, nicht die Ursache der
+Beschädigung: alle drei Gruppen kommen aus `com.vivid.debug@0.5.49-beta+5494`,
+`environment=development`, Gerät SM-S918B, Android 17 — ein alter Debug-Build.
+Der Handler macht eine kaputte Datei folgenlos; er verhindert sie nicht.
+
 ## 6. Sicherheit
 
 - Token getrennt vom CI-Mapping-Token (`auth.token`) — getrennte Scopes,
