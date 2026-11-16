@@ -29,7 +29,7 @@ import javax.inject.Singleton
  * Delegate unten registriert (Verdrahtung, nicht nur Verhalten).
  */
 internal val settingsCorruptionHandler = ReplaceFileCorruptionHandler<Preferences> {
-    Timber.w(it, "settings.preferences_pb war beschädigt — Datei auf Defaults zurückgesetzt")
+    Timber.w(it, "settings.preferences_pb was corrupt — file replaced with defaults")
     emptyPreferences()
 }
 
