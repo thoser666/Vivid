@@ -70,6 +70,14 @@
 # GitHub-Aufrufe, ohne Token-Ausgabe; nutzt dieselben Endpunkte/Fixtures wie
 # die Anreicherung oben. Neutraler SKIP (exit 0) bei fehlendem Token oder
 # unlesbarer Antwort — FEHLER (exit 1) nur bei fehlender/ungültiger SID-Liste.
+# Body-Anreicherung: pro neuem Issue zusätzlich die Stack-Spur aus demselben
+# Latest-Event — Culprit plus die drei neuesten Frames (in_app markiert), als
+# `- **Stack (Latest-Event):** …`-Zeile direkt unter der Release-Spur. Der
+# bisherige Body trug nur den Top-Frame aus den Issue-Metadaten; die
+# Zuordnung brauchte damit immer den Sentry-Zugriff, der beim lokalen Token
+# mit HTTP 403 endet (#445). Beide Event-Formen werden gelesen (Exception-
+# Kette und Thread-Dump), nicht lesbar ⇒ Fallback-Zeile ohne Blocker.
+#
 # Quelle des Tokens wie immer: SENTRY_ISSUES_TOKEN → issues.token → …
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -869,7 +877,9 @@ def tag_pairs(t):
     return out
 
 status = os.environ["EVSTATUS"]
+http = status  # unverfälscht: `status` wird unten für die Tag-Auswertung verfeinert
 line = None
+ev = None
 if status == "200":
     try:
         ev = json.load(open(os.environ["EVENTFILE"], encoding="utf-8"))
@@ -898,15 +908,76 @@ else:
     line = ("- **Release-Spur (Latest-Event):** nicht lesbar (HTTP %s) — "
             "Versions-Spur manuell ziehen (docs/sentry-issues.md §5.1)" % status)
 
+# Stack-Spur für den Body: dieselbe Kette wie --print-event-stack, gekürzt auf
+# Culprit + drei neueste Frames (Sentry liefert ältester zuerst). Ohne diese
+# Zeile bleibt der Body beim Top-Frame der Issue-Metadaten — für die
+# Attribution (§5.1) zu wenig, siehe #445.
+def stack_frames(stacktrace):
+    out = []
+    for f in (stacktrace or {}).get("frames") or []:
+        if not isinstance(f, dict):
+            continue
+        loc = f.get("filename") or f.get("module") or "?"
+        fn = f.get("function") or "?"
+        ln = f.get("lineno")
+        mark = " [in_app]" if f.get("in_app") else ""
+        out.append("%s:%s in %s%s" % (loc, "?" if ln is None else ln, fn, mark))
+    return out
+
+
+def headline_stack(event):
+    values = []
+    for entry in event.get("entries") or []:
+        if not isinstance(entry, dict):
+            continue
+        if entry.get("type") == "exception":
+            for v in (entry.get("data") or {}).get("values") or []:
+                if isinstance(v, dict):
+                    values.append(v)
+        elif entry.get("type") == "threads":
+            threads = [t for t in (entry.get("data") or {}).get("values") or []
+                       if isinstance(t, dict)]
+            picked = ([t for t in threads if t.get("crashed")]
+                      or [t for t in threads if t.get("current")] or threads[:1])
+            for t in picked:
+                values.append({"type": "Thread",
+                               "value": t.get("name") or t.get("id") or "?",
+                               "stacktrace": t.get("stacktrace")})
+    for v in values:
+        frames = stack_frames(v.get("stacktrace"))
+        if frames:
+            return v, frames
+    return (values[0] if values else {}), []
+
+
+stack_line = None
+if http == "200" and isinstance(ev, dict):
+    head, frames = headline_stack(ev)
+    if frames:
+        culprit = str(ev.get("culprit") or "").strip() or str(head.get("function") or "")
+        if not culprit:
+            culprit = "%s: %s" % (head.get("type") or "Throwable", head.get("value") or "")
+        stack_line = ("- **Stack (Latest-Event):** culprit `%s` — %s" % (
+            culprit.strip()[:160], " ← ".join(list(reversed(frames))[:3])))[:700]
+    else:
+        stack_line = ("- **Stack (Latest-Event):** HTTP 200 ohne Exception-/Thread-Frames "
+                      "(Zuordnung nur über den Permalink)")
+elif http == "200":
+    stack_line = "- **Stack (Latest-Event):** nicht lesbar (HTTP 200, ungültiges JSON)"
+else:
+    stack_line = ("- **Stack (Latest-Event):** nicht lesbar (HTTP %s) — Stack per CI-Input "
+                  "`event_stack` ziehen (docs/sentry-issues.md §4)" % http)
+
 with open(os.environ["PAYLOADFILE"], encoding="utf-8") as fh:
     payload = json.load(fh)
 lines = str(payload.get("body") or "").split("\n")
+inserts = [x for x in (line, stack_line) if x]
 for idx, existing in enumerate(lines):
     if existing.startswith("- **Zuletzt:**"):
-        lines.insert(idx + 1, line)
+        lines[idx + 1:idx + 1] = inserts
         break
 else:
-    lines.append(line)
+    lines.extend(inserts)
 payload["body"] = "\n".join(lines)
 with open(os.environ["PAYLOADFILE"], "w", encoding="utf-8") as fh:
     json.dump(payload, fh, ensure_ascii=False)

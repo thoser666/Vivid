@@ -116,6 +116,17 @@ android-ci.yml).
   `Event-Tags: N angereichert, M ohne Lesbarkeit`. In Fixture-Modus nur bei
   `event_<sid>.json` (200) bzw. `eventstatus_<sid>` (simulierter Code) —
   ohne beide Dateien wird der Event-Call offline gar nicht simuliert.
+- **Event-Anreicherung (Stack-Spur, dieselbe Antwort):** direkt unter der
+  Release-Spur steht `- **Stack (Latest-Event):** culprit <…> — <f1> ← <f2> ←
+  <f3>`. Gedruckt werden der Culprit und die **drei neuesten** Frames
+  (Sentry liefert ältester zuerst, hier umgekehrt), je Frame
+  `datei:zeile in funktion` mit `[in_app]`-Marker; Quellen sind
+  `entries[type=exception]` und bei ANR/nativen Events der gecrashte Thread.
+  Damit ist ein Report entscheidbar, ohne den Permalink zu öffnen — genau der
+  Fall, an dem der lokale Token mit HTTP 403 scheitert (§1, Beispiel #445:
+  `db2@d9398f3` war ohne Frames nicht auflösbar). Nicht lesbar ⇒ Fallback-Zeile
+  mit Statuscode und Verweis auf den CI-Input `event_stack` (§4); HTTP 200 ohne
+  Frames ⇒ eigene Zeile. Kein Einfluss auf die Issue-Erstellung.
 - GitHub-Bestand: `GET /repos/{owner}/{repo}/issues?state=all&per_page=100`
   (auch geschlossene Issues — dedupliziert gegen erneutes Anlegen nach
   manuellem Schließen). **Pull Requests zählen nicht** (Marker in PR-Bodies

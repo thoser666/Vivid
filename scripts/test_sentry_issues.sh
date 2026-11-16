@@ -67,6 +67,12 @@
 #       des Latest-Events (Typ/Wert + Frames, neueste zuerst, in_app-Marker),
 #       403-/Fixture-Fallback, ungueltige SID, Threads-Form (ANR/nativ);
 #       Workflow verdrahtet den Input als EVENT_STACK_INPUT (Env-Technik)
+#   I29 Body-Stack (§3): pro neuem Issue trägt der Body Culprit + die drei
+#       neuesten Frames aus demselben Latest-Event (`- **Stack (Latest-Event):**
+#       culprit …`), neueste zuerst, in_app markiert, ältere Frames fallen weg;
+#       Threads-Form (ANR) nutzt den gecrashten Thread. 403 → Fallback-Zeile mit
+#       Statuscode + `event_stack`-Hinweis, 200 ohne Frames → eigene Zeile; ohne
+#       Event-Fixture entsteht keine Stack-Zeile (Erstellung unberührt)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 fail() { echo "❌ [sentry-issues-test] $1"; exit 1; }
@@ -586,4 +592,81 @@ out_r28b=$(SENTRY_ISSUES_FIXTURE="$tmp/i28" SENTRY_ISSUES_TOKEN=sntrys_FAKE_AGE 
   SENTRY_RELEASE_AGE_STALE=90 bash "$guard") || fail "I28b: Lauf darf nicht scheitern"
 grep -qF "RELEASE_AGE: VIVID-23 | com.vivid@0.5.70-beta+5708 | 81 | behind" <<<"$out_r28b" || \
   fail "I28b: SENTRY_RELEASE_AGE_STALE=90 muss 81 zu behind machen"
-echo "✅ [sentry-issues-test] Sentry-Issues-Guard vertragstreu (I1–I28)."
+# I29 Body-Stack: Culprit + drei neueste Frames (#445: der Body trug bisher nur
+# den Top-Frame der Issue-Metadaten — die Zuordnung brauchte den Sentry-Zugriff,
+# der lokal mit HTTP 403 endet)
+mk_new2 "$tmp/i29"
+cat > "$tmp/i29/event_100.json" <<'JSON'
+{"id": "e100", "culprit": "com.vivid.feature.streaming.ScenesKt.release",
+ "entries": [{"type": "exception", "data": {"values": [
+   {"type": "java.util.concurrent.RejectedExecutionException", "value": "Task rejected",
+    "stacktrace": {"frames": [
+      {"filename": "BaseMessageQueue.java", "function": "dispatchMessage", "lineno": 106, "in_app": false},
+      {"filename": "AndroidSceneTextureProvider.kt", "function": "detach", "lineno": 513, "in_app": true},
+      {"filename": "AndroidSceneTextureProvider.kt", "function": "update", "lineno": 454, "in_app": true},
+      {"filename": "ThreadPoolExecutor.java", "function": "rejectedExecution", "lineno": 661, "in_app": false}]}}]}}]}
+JSON
+echo 201 > "$tmp/i29/ghstatus"
+d29="$tmp/payloads29"; mkdir -p "$d29"
+out_r29=$(SENTRY_ISSUES_FIXTURE="$tmp/i29" SENTRY_ISSUES_WORKDIR="$d29" \
+  SENTRY_ISSUES_KEEP=1 bash "$guard") || fail "I29: Stack-Anreicherung darf nicht scheitern"
+grep -q "^OK: 2 Issue(s) neu als GitHub-Issue erstellt" <<<"$out_r29" || \
+  fail "I29: Erstellung trotz Stack-Zeile erwartet (kein Blocker)"
+p29=$(python -X utf8 -c "import json,sys;print(json.load(open(sys.argv[1],encoding='utf-8'))['body'])" "$d29/issue_1.json")
+grep -qF -- '- **Stack (Latest-Event):** culprit `com.vivid.feature.streaming.ScenesKt.release` — ThreadPoolExecutor.java:661 in rejectedExecution ← AndroidSceneTextureProvider.kt:454 in update [in_app] ← AndroidSceneTextureProvider.kt:513 in detach [in_app]' <<<"$p29" || \
+  fail "I29: Culprit + drei neueste Frames (neueste zuerst, in_app) fehlen"
+grep -qF "dispatchMessage" <<<"$p29" && \
+  fail "I29: der Body darf hoechstens drei Frames tragen"
+[ "$(grep -cF 'Stack (Latest-Event)' <<<"$p29")" = "1" ] || \
+  fail "I29: genau eine Stack-Zeile je Issue erwartet"
+p29b2=$(python -X utf8 -c "import json,sys;print(json.load(open(sys.argv[1],encoding='utf-8'))['body'])" "$d29/issue_2.json")
+grep -q "Stack (Latest-Event)" <<<"$p29b2" && \
+  fail "I29: ohne Event-Fixture darf keine Stack-Zeile entstehen (issue_2)"
+
+# I29b 403 → Fallback-Zeile, Erstellung laeuft weiter
+mk_new2 "$tmp/i29b"
+echo 403 > "$tmp/i29b/eventstatus_100"
+echo 201 > "$tmp/i29b/ghstatus"
+d29b="$tmp/payloads29b"; mkdir -p "$d29b"
+out_r29b=$(SENTRY_ISSUES_FIXTURE="$tmp/i29b" SENTRY_ISSUES_WORKDIR="$d29b" \
+  SENTRY_ISSUES_KEEP=1 bash "$guard") || fail "I29b: Fallback-Lauf darf nicht scheitern"
+grep -q "^OK: 2 Issue(s) neu als GitHub-Issue erstellt" <<<"$out_r29b" || \
+  fail "I29b: Erstellung trotz Stack-403 erwartet (kein Blocker)"
+p29b=$(python -X utf8 -c "import json,sys;print(json.load(open(sys.argv[1],encoding='utf-8'))['body'])" "$d29b/issue_1.json")
+grep -qF -- '- **Stack (Latest-Event):** nicht lesbar (HTTP 403) — Stack per CI-Input `event_stack` ziehen (docs/sentry-issues.md §4)' <<<"$p29b" || \
+  fail "I29b: Fallback-Zeile mit Statuscode + event_stack-Hinweis fehlt"
+
+# I29c Threads-Form (ANR/nativ): gecrashter Thread statt Exception-Kette
+mkdir -p "$tmp/i29c"
+printf '%s' '[{"id":"600","shortId":"VIVID-60","title":"ANR im Render-Thread","status":"unresolved","level":"fatal","count":1,"userCount":1,"lastSeen":"2026-11-16T01:13:04Z","metadata":{},"tags":[]}]' > "$tmp/i29c/issues.json"
+echo '[]' > "$tmp/i29c/ghissues.json"
+echo 201 > "$tmp/i29c/ghstatus"
+cat > "$tmp/i29c/event_600.json" <<'JSON'
+{"id": "e600", "culprit": "com.vivid.feature.streaming.StreamingEngine.poll",
+ "entries": [{"type": "threads", "data": {"values": [
+   {"id": 1, "name": "main", "crashed": false, "current": true, "stacktrace": {"frames": []}},
+   {"id": 2, "name": "VividRender", "crashed": true,
+    "stacktrace": {"frames": [
+      {"filename": "StreamingEngine.kt", "function": "poll", "lineno": 900, "in_app": true},
+      {"filename": "NativeQueue.cpp", "function": "drain", "lineno": 42, "in_app": false}]}}]}}]}
+JSON
+d29c="$tmp/payloads29c"; mkdir -p "$d29c"
+out_r29c=$(SENTRY_ISSUES_FIXTURE="$tmp/i29c" SENTRY_ISSUES_WORKDIR="$d29c" \
+  SENTRY_ISSUES_KEEP=1 bash "$guard") || fail "I29c: Threads-Form darf nicht scheitern"
+p29c=$(python -X utf8 -c "import json,sys;print(json.load(open(sys.argv[1],encoding='utf-8'))['body'])" "$d29c/issue_1.json")
+grep -qF -- '- **Stack (Latest-Event):** culprit `com.vivid.feature.streaming.StreamingEngine.poll` — NativeQueue.cpp:42 in drain ← StreamingEngine.kt:900 in poll [in_app]' <<<"$p29c" || \
+  fail "I29c: gecrashter Thread muss die Stack-Zeile fuellen"
+
+# I29d 200 ohne Frames → eigene Zeile statt stummer Luecke
+mkdir -p "$tmp/i29d"
+cp "$tmp/i29c/issues.json" "$tmp/i29d/issues.json"
+cp "$tmp/i29c/ghissues.json" "$tmp/i29d/ghissues.json"
+echo 201 > "$tmp/i29d/ghstatus"
+printf '%s' '{"id": "e600", "entries": []}' > "$tmp/i29d/event_600.json"
+d29d="$tmp/payloads29d"; mkdir -p "$d29d"
+out_r29d=$(SENTRY_ISSUES_FIXTURE="$tmp/i29d" SENTRY_ISSUES_WORKDIR="$d29d" \
+  SENTRY_ISSUES_KEEP=1 bash "$guard") || fail "I29d: Lauf ohne Frames darf nicht scheitern"
+p29d=$(python -X utf8 -c "import json,sys;print(json.load(open(sys.argv[1],encoding='utf-8'))['body'])" "$d29d/issue_1.json")
+grep -qF -- '- **Stack (Latest-Event):** HTTP 200 ohne Exception-/Thread-Frames' <<<"$p29d" || \
+  fail "I29d: Zeile fuer Events ohne Frames fehlt"
+echo "✅ [sentry-issues-test] Sentry-Issues-Guard vertragstreu (I1–I29)."
