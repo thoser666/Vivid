@@ -66,6 +66,23 @@ Details stehen in den am Ende verlinkten Repo-Dokus.
   `sentry.properties`, Scope `org:ci`) — bewusst **ohne Lesescopes** und
   strikt getrennt vom Stats-Lese-Token: getrennte Tokens, getrennte Scopes,
   getrennte Lebensdauern.
+- **Lokal ohne CI-Env — nur per Opt-in:** der Schalter in
+  `app/build.gradle.kts` akzeptiert den Token auch aus `sentry.properties` im
+  Repo-Root (`auth.token`) — dieselbe Datei, aus der das Plugin
+  `defaults.org`/`defaults.project` liest —, aber ausschließlich mit
+  `-PsentryUpload=true`. Ohne den Schalter lädt ein debug-signierter lokaler
+  Release-Build **nicht** hoch, auch wenn die Datei da ist:
+  `./gradlew :app:assembleStandardRelease -PsentryUpload=true`.
+- Alle drei Teile (CI-Env, Opt-in, Token-Datei) prüft
+  `scripts/check_sentry_mapping_upload.sh` (M1) einzeln;
+  `scripts/test_sentry_mapping_upload.sh` hält je eine Mutation bereit
+  (T3 Env-Hälfte, T8 Datei-Hälfte, T9 Opt-in), damit ein Ausfall eines Teils
+  nicht als grüner Check durchgeht.
+- **Ohne Token** bleibt das Flag aus und `assembleStandardRelease` läuft
+  durch — der Build ist dann obfuskiert und Sentry kann `r8-map-id-…`-Frames
+  nicht auflösen (genau das Bild aus #443). **Mit Token** hängt
+  `uploadSentryProguardMappings<Variante>` am Release-Build; die Datei liegt
+  als `app/build/outputs/mapping/<variante>/mapping.txt` bereit.
 
 ### 🔁 Watchdog (Crash → GitHub-Issue)
 

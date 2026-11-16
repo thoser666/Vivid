@@ -15,7 +15,9 @@
 #   T0  echter Baum -> gruen (M1–M5)
 #   T1  Token-Zeile im Play-Step entfernt            -> rot (M2)
 #   T2  Token auf ein fremdes Secret umgebogen       -> rot (M2)
-#   T3  autoUploadProguardMapping abgeschaltet       -> rot (M1)
+#   T3  CI-Haelfte des Schalters abgeschaltet        -> rot (M1)
+#   T8  lokaler sentry.properties-Fallback entfernt  -> rot (M1)
+#   T9  lokaler Opt-in (-PsentryUpload) entfernt     -> rot (M1)
 #   T4  Fail-closed-Block entfernt                   -> rot (M2)
 #   T5  SENTRY_ORG im Play-Step entfernt             -> rot (M2)
 #   T6  Step-Name im Play-Job vertippt               -> rot (M2, kein stiller Skip)
@@ -99,7 +101,7 @@ io.open(dst, 'w', encoding='utf-8', newline='').write(text.replace(old, new).rep
 PY
 }
 
-echo "[sentry-mapping-test] Proben T0-T7 gegen $GUARD"
+echo "[sentry-mapping-test] Proben T0-T9 gegen $GUARD"
 
 expect_green "T0 echter Baum" "$REL" "$DIST" "$GRADLE"
 
@@ -112,13 +114,13 @@ expect_red "T2 fremde Secret-Referenz" "SENTRY_AUTH_TOKEN fehlt oder ist keine S
 python -X utf8 - "$GRADLE" "$TMP/gradle_t3.kts" <<'PY'
 import io, os, sys
 text = io.open(sys.argv[1], encoding='utf-8').read()
-old = 'autoUploadProguardMapping.set(!System.getenv("SENTRY_AUTH_TOKEN").isNullOrBlank())'
+old = '!System.getenv("SENTRY_AUTH_TOKEN").isNullOrBlank()'
 if text.count(old) != 1:
-    sys.exit("Anker autoUploadProguardMapping nicht eindeutig")
-out = text.replace(old, 'autoUploadProguardMapping.set(false)')
+    sys.exit("Anker CI-Haelfte des Schalters nicht eindeutig")
+out = text.replace(old, 'false')
 io.open(sys.argv[2], 'w', encoding='utf-8', newline='').write(out.replace('\n', os.linesep))
 PY
-expect_red "T3 Upload-Bedingung abgeschaltet" "M1:" "$REL" "$DIST" "$TMP/gradle_t3.kts"
+expect_red "T3 CI-Haelfte abgeschaltet" "M1:" "$REL" "$DIST" "$TMP/gradle_t3.kts"
 
 mutate "$REL" "$TMP/rel_t4.yml" "$FAIL_LOUD_OK" "$FAIL_LOUD_T4"
 expect_red "T4 kein lauter Abbruch" "prueft SENTRY_AUTH_TOKEN nicht selbst" "$TMP/rel_t4.yml" "$DIST" "$GRADLE"
@@ -129,6 +131,28 @@ expect_red "T5 SENTRY_ORG fehlt" "SENTRY_ORG fehlt" "$TMP/rel_t5.yml" "$DIST" "$
 mutate "$REL" "$TMP/rel_t6.yml" "      - name: Build AAB and upload to Google Play" "      - name: Build AAB and upload to Play"
 expect_red "T6 Step-Name vertippt" "M2" "$TMP/rel_t6.yml" "$DIST" "$GRADLE"
 
+python -X utf8 - "$GRADLE" "$TMP/gradle_t8.kts" <<'PY'
+import io, os, sys
+text = io.open(sys.argv[1], encoding='utf-8').read()
+old = '"auth.token"'
+if text.count(old) != 1:
+    sys.exit("Anker auth.token-Fallback nicht eindeutig")
+out = text.replace(old, '"auth.none"')
+io.open(sys.argv[2], 'w', encoding='utf-8', newline='').write(out.replace('\n', os.linesep))
+PY
+expect_red "T8 lokaler sentry.properties-Fallback entfernt" "M1:" "$REL" "$DIST" "$TMP/gradle_t8.kts"
+
+python -X utf8 - "$GRADLE" "$TMP/gradle_t9.kts" <<'PY'
+import io, os, sys
+text = io.open(sys.argv[1], encoding='utf-8').read()
+old = 'findProperty("sentryUpload")'
+if text.count(old) != 1:
+    sys.exit("Anker Opt-in nicht eindeutig")
+out = text.replace(old, 'findProperty("sentryUploadOff")')
+io.open(sys.argv[2], 'w', encoding='utf-8', newline='').write(out.replace('\n', os.linesep))
+PY
+expect_red "T9 lokaler Opt-in entfernt" "M1:" "$REL" "$DIST" "$TMP/gradle_t9.kts"
+
 cp "$REL" "$TMP/rel_t7.yml"
 expect_green "T7 Negativkontrolle (unveraenderte Kopie)" "$TMP/rel_t7.yml" "$DIST" "$GRADLE"
 
@@ -137,4 +161,4 @@ if [[ $FAIL -gt 0 ]]; then
   echo "FAIL [sentry-mapping-test] $FAIL von $((PASS + FAIL)) Proben fehlgeschlagen."
   exit 1
 fi
-echo "OK [sentry-mapping-test] alle $PASS Proben gruen (T0-T7)."
+echo "OK [sentry-mapping-test] alle $PASS Proben gruen (T0-T9)."

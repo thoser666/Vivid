@@ -16,8 +16,10 @@
 #
 # Geprüft wird strukturiert ueber scripts/lib_workflow_yaml.sh (wf_step_env,
 # wf_step_run) — kein Zeilenfenster, kein `grep -A N`:
-#   M1  app/build.gradle.kts koppelt den Upload weiter an SENTRY_AUTH_TOKEN
-#       (die Zeile ist der einzige Schalter; ein stilles `set(false)` faellt auf)
+#   M1  app/build.gradle.kts koppelt den Upload weiter an SENTRY_AUTH_TOKEN und
+#       bietet zusaetzlich den lokalen Opt-in-Pfad (-PsentryUpload=true +
+#       sentry.properties); alle drei Teile werden einzeln geprueft (ein stilles
+#       `set(false)` faellt auf, ein entfernter Teil ebenfalls)
 #   M2  release-pipeline.yml / publish-play / "Build AAB and upload to Google Play"
 #       setzt SENTRY_AUTH_TOKEN (Secret-Referenz), SENTRY_ORG, SENTRY_PROJECT
 #       UND bricht ohne Token laut ab (::error:: statt stillem Skip)
@@ -75,11 +77,26 @@ expect_sentry_env() {
 }
 
 # --- M1: der Schalter selbst ------------------------------------------------
+# Zwei Haelften, zwei Nachweise: die CI-Haelfte (Env-Token, leer zaehlt wie fehlend)
+# und der lokale Fallback auf die gitignorierte sentry.properties. Faellt eine
+# Haelfte weg, bleibt die andere gruen und der Ausfall waere unsichtbar — deshalb
+# wird jede einzeln geprueft.
 CHECKS=$((CHECKS + 1))
 if [[ ! -f "$GRADLE" ]]; then
   fail "M1: $GRADLE fehlt — die Upload-Bedingung ist nicht pruefbar."
-elif ! grep -qF 'autoUploadProguardMapping.set(!System.getenv("SENTRY_AUTH_TOKEN").isNullOrBlank())' "$GRADLE"; then
-  fail "M1: $GRADLE koppelt autoUploadProguardMapping nicht mehr an SENTRY_AUTH_TOKEN (erwartet: autoUploadProguardMapping.set(!System.getenv(\"SENTRY_AUTH_TOKEN\").isNullOrBlank()))."
+else
+  if ! grep -qF 'autoUploadProguardMapping.set(' "$GRADLE"; then
+    fail "M1: $GRADLE schaltet den Upload nicht mehr ueber autoUploadProguardMapping.set(...)."
+  fi
+  if ! grep -qF '!System.getenv("SENTRY_AUTH_TOKEN").isNullOrBlank()' "$GRADLE"; then
+    fail "M1: die CI-Haelfte des Schalters fehlt (erwartet: !System.getenv(\"SENTRY_AUTH_TOKEN\").isNullOrBlank()) — ohne sie laedt kein Release-Job sein Mapping hoch."
+  fi
+  if ! grep -qF 'findProperty("sentryUpload")' "$GRADLE"; then
+    fail "M1: der lokale Opt-in fehlt (erwartet: project.findProperty(\"sentryUpload\")) — jeder Release-Build mit Token-Datei wuerde ohne Nachfrage hochladen."
+  fi
+  if ! grep -qF 'localSentryAuthToken()' "$GRADLE" || ! grep -qF '"auth.token"' "$GRADLE"; then
+    fail "M1: der lokale Token-Pfad fehlt (erwartet: localSentryAuthToken() liest die \"auth.token\"-Zeile aus sentry.properties)."
+  fi
 fi
 
 # --- M2: Play-Kanal (die Builds, die die Feld-Events tragen) -----------------
