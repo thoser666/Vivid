@@ -17,48 +17,29 @@ plugins {
 // Sentry configuration - only active for standard builds
 // FOSS builds will have Sentry disabled at runtime
 sentry {
-    // Skip ProGuard mapping upload when the token is missing — but only when it is
-    // really missing: an env var that is SET BUT EMPTY (`SENTRY_AUTH_TOKEN: ""`, what
-    // a missing CI secret produces) must not switch the upload on. Previously only
-    // `!= null` was tested, so an empty secret enabled an upload without credentials.
-    // Every job that builds a shipped artifact provides the token; the wiring is
-    // enforced by scripts/check_sentry_mapping_upload.sh (M1–M5, pre-push + CI).
-    //
-    // A local release build has no CI environment, so the token may come from the
-    // gitignored `sentry.properties` in the repo root — the same file the plugin
-    // reads for org/project. That path is OPT-IN (`-PsentryUpload=true`): a
-    // debug-signed local build must not push mappings into Sentry just because the
-    // file exists. Without the file, or without the opt-in, the switch stays off and
-    // `assembleStandardRelease` produces an obfuscated build whose frames Sentry
-    // cannot resolve.
+    // Skip the ProGuard mapping upload only when no token is available. An env var that
+    // is SET BUT EMPTY (`SENTRY_AUTH_TOKEN: ""`, what a missing CI secret produces)
+    // must not switch it on. The jobs that build a shipped artifact provide the token;
+    // scripts/check_sentry_mapping_upload.sh (M1–M5) enforces that wiring.
     autoUploadProguardMapping.set(
-        !System.getenv("SENTRY_AUTH_TOKEN").isNullOrBlank() ||
-            (localSentryUploadOptIn() && !localSentryAuthToken().isNullOrBlank()),
+        !System.getenv("SENTRY_AUTH_TOKEN").isNullOrBlank() || localSentryUpload(),
     )
 }
 
 /**
- * `-PsentryUpload=true` gates the local token path; anything else keeps local uploads
- * off. CI never sets it — there the token in the environment is the switch.
+ * Local opt-in for the mapping upload: `-PsentryUpload=true` **and** an `auth.token` in
+ * the gitignored `sentry.properties` (the same file the plugin reads for org/project).
+ * A debug-signed local build must not upload just because the file exists; CI never
+ * sets the property — there the env token above is the switch.
  */
-private fun localSentryUploadOptIn(): Boolean =
-    project.findProperty("sentryUpload")?.toString()?.toBoolean() == true
-
-/**
- * `auth.token` from the gitignored `sentry.properties` in the repo root, or `null`.
- *
- * Only decides whether a *local* release build can upload its ProGuard mapping; CI
- * provides the token through `SENTRY_AUTH_TOKEN`, and the wiring of every shipped job
- * is enforced by scripts/check_sentry_mapping_upload.sh (M1–M5).
- */
-private fun localSentryAuthToken(): String? =
-    rootProject.file("sentry.properties")
-        .takeIf { it.isFile }
-        ?.readLines()
-        ?.firstOrNull { line -> line.substringBefore('=').trim() == "auth.token" }
-        ?.substringAfter('=', "")
-        ?.trim()
-        ?.takeIf { token -> token.isNotEmpty() }
+private fun localSentryUpload(): Boolean {
+    if (project.findProperty("sentryUpload")?.toString()?.toBoolean() != true) return false
+    val properties = rootProject.file("sentry.properties").takeIf { it.isFile } ?: return false
+    return properties.readLines().any { line ->
+        line.substringBefore('=').trim() == "auth.token" &&
+            line.substringAfter('=', "").isNotBlank()
+    }
+}
 
 // Robolectric 4.14.1 bündelt ein älteres ASM, das JDK-25-Klassendateien
 // (major version 69) nicht lesen kann — beim Instrumentieren crasht es mit

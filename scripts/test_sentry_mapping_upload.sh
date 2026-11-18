@@ -111,15 +111,21 @@ expect_red "T1 Play-Step ohne Token" "M2 (Play-Beta-Kanal): SENTRY_AUTH_TOKEN fe
 mutate "$REL" "$TMP/rel_t2.yml" "$PLAY_TOKEN_OK" "$PLAY_TOKEN_T2"
 expect_red "T2 fremde Secret-Referenz" "SENTRY_AUTH_TOKEN fehlt oder ist keine Secret-Referenz" "$TMP/rel_t2.yml" "$DIST" "$GRADLE"
 
-python -X utf8 - "$GRADLE" "$TMP/gradle_t3.kts" <<'PY'
+# mutate_gradle <ziel> <alt> <neu> — ersetzt genau ein Vorkommen in der
+# Gradle-Kopie (gleicher Anker-Zwang wie `mutate`, plus os.linesep).
+mutate_gradle() {
+  python -X utf8 - "$GRADLE" "$1" "$2" "$3" <<'PY'
 import io, os, sys
-text = io.open(sys.argv[1], encoding='utf-8').read()
-old = '!System.getenv("SENTRY_AUTH_TOKEN").isNullOrBlank()'
-if text.count(old) != 1:
-    sys.exit("Anker CI-Haelfte des Schalters nicht eindeutig")
-out = text.replace(old, 'false')
-io.open(sys.argv[2], 'w', encoding='utf-8', newline='').write(out.replace('\n', os.linesep))
+src, dst, old, new = sys.argv[1:5]
+text = io.open(src, encoding='utf-8').read()
+count = text.count(old)
+if count != 1:
+    sys.exit("Anker kommt %dx vor (erwartet: 1): %r" % (count, old))
+io.open(dst, 'w', encoding='utf-8', newline='').write(text.replace(old, new).replace('\n', os.linesep))
 PY
+}
+
+mutate_gradle "$TMP/gradle_t3.kts" '!System.getenv("SENTRY_AUTH_TOKEN").isNullOrBlank()' 'false'
 expect_red "T3 CI-Haelfte abgeschaltet" "M1:" "$REL" "$DIST" "$TMP/gradle_t3.kts"
 
 mutate "$REL" "$TMP/rel_t4.yml" "$FAIL_LOUD_OK" "$FAIL_LOUD_T4"
@@ -131,26 +137,10 @@ expect_red "T5 SENTRY_ORG fehlt" "SENTRY_ORG fehlt" "$TMP/rel_t5.yml" "$DIST" "$
 mutate "$REL" "$TMP/rel_t6.yml" "      - name: Build AAB and upload to Google Play" "      - name: Build AAB and upload to Play"
 expect_red "T6 Step-Name vertippt" "M2" "$TMP/rel_t6.yml" "$DIST" "$GRADLE"
 
-python -X utf8 - "$GRADLE" "$TMP/gradle_t8.kts" <<'PY'
-import io, os, sys
-text = io.open(sys.argv[1], encoding='utf-8').read()
-old = '"auth.token"'
-if text.count(old) != 1:
-    sys.exit("Anker auth.token-Fallback nicht eindeutig")
-out = text.replace(old, '"auth.none"')
-io.open(sys.argv[2], 'w', encoding='utf-8', newline='').write(out.replace('\n', os.linesep))
-PY
+mutate_gradle "$TMP/gradle_t8.kts" '"auth.token"' '"auth.none"'
 expect_red "T8 lokaler sentry.properties-Fallback entfernt" "M1:" "$REL" "$DIST" "$TMP/gradle_t8.kts"
 
-python -X utf8 - "$GRADLE" "$TMP/gradle_t9.kts" <<'PY'
-import io, os, sys
-text = io.open(sys.argv[1], encoding='utf-8').read()
-old = 'findProperty("sentryUpload")'
-if text.count(old) != 1:
-    sys.exit("Anker Opt-in nicht eindeutig")
-out = text.replace(old, 'findProperty("sentryUploadOff")')
-io.open(sys.argv[2], 'w', encoding='utf-8', newline='').write(out.replace('\n', os.linesep))
-PY
+mutate_gradle "$TMP/gradle_t9.kts" 'findProperty("sentryUpload")' 'findProperty("sentryUploadOff")'
 expect_red "T9 lokaler Opt-in entfernt" "M1:" "$REL" "$DIST" "$TMP/gradle_t9.kts"
 
 cp "$REL" "$TMP/rel_t7.yml"

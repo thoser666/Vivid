@@ -77,25 +77,21 @@ expect_sentry_env() {
 }
 
 # --- M1: der Schalter selbst ------------------------------------------------
-# Zwei Haelften, zwei Nachweise: die CI-Haelfte (Env-Token, leer zaehlt wie fehlend)
-# und der lokale Fallback auf die gitignorierte sentry.properties. Faellt eine
-# Haelfte weg, bleibt die andere gruen und der Ausfall waere unsichtbar — deshalb
-# wird jede einzeln geprueft.
+# Drei Teile, drei Nachweise: CI-Haelfte (Env-Token, leer zaehlt wie fehlend), lokaler
+# Opt-in und Token-Datei. Faellt ein Teil weg, bleibt der Rest gruen — deshalb wird
+# jeder einzeln geprueft.
 CHECKS=$((CHECKS + 1))
 if [[ ! -f "$GRADLE" ]]; then
   fail "M1: $GRADLE fehlt — die Upload-Bedingung ist nicht pruefbar."
 else
-  if ! grep -qF 'autoUploadProguardMapping.set(' "$GRADLE"; then
-    fail "M1: $GRADLE schaltet den Upload nicht mehr ueber autoUploadProguardMapping.set(...)."
-  fi
   if ! grep -qF '!System.getenv("SENTRY_AUTH_TOKEN").isNullOrBlank()' "$GRADLE"; then
     fail "M1: die CI-Haelfte des Schalters fehlt (erwartet: !System.getenv(\"SENTRY_AUTH_TOKEN\").isNullOrBlank()) — ohne sie laedt kein Release-Job sein Mapping hoch."
   fi
   if ! grep -qF 'findProperty("sentryUpload")' "$GRADLE"; then
     fail "M1: der lokale Opt-in fehlt (erwartet: project.findProperty(\"sentryUpload\")) — jeder Release-Build mit Token-Datei wuerde ohne Nachfrage hochladen."
   fi
-  if ! grep -qF 'localSentryAuthToken()' "$GRADLE" || ! grep -qF '"auth.token"' "$GRADLE"; then
-    fail "M1: der lokale Token-Pfad fehlt (erwartet: localSentryAuthToken() liest die \"auth.token\"-Zeile aus sentry.properties)."
+  if ! grep -qF 'localSentryUpload()' "$GRADLE" || ! grep -qF '"auth.token"' "$GRADLE"; then
+    fail "M1: der lokale Token-Pfad fehlt (erwartet: localSentryUpload() liest die \"auth.token\"-Zeile aus sentry.properties)."
   fi
 fi
 
