@@ -52,7 +52,22 @@ issues.token=sntrys_…
 
 Quellen-Reihenfolge: `SENTRY_ISSUES_TOKEN` → `issues.token` → `resolve.token`
 → `stats.token` → `auth.token`. `--print-token-source` meldet nur die Quelle,
-nie den Token. Für die GitHub-Seite nutzt der Guard `GITHUB_ISSUES_TOKEN` —
+nie den Token.
+
+**Event-Token (eigene Scope, seit 18.11.2026):** Events brauchen zusätzlich
+`event:read`; der Issue-Token hat das oft nicht — lokal endet
+`--print-event-stack` dann mit `EVENT_STACK … not readable (HTTP 403)`, obwohl
+die Issues-Liste funktioniert. Deshalb eine eigene Quelle **nur für Events**,
+mit Vorrang vor der Kette oben:
+
+```properties
+events.token=sntrys_…   # Scopes: event:read (+ project:read für die Liste)
+```
+
+oder via `SENTRY_EVENTS_TOKEN=…`. Die Issues-Liste bleibt bewusst auf dem
+Issue-Token (`project:read`) — ein reiner `event:read`-Token würde sie
+brechen. Wer lokal gar keinen Event-Token hat, nutzt den CI-Pfad (§4): das
+Watchdog-Secret hat die Scope. Für die GitHub-Seite nutzt der Guard `GITHUB_ISSUES_TOKEN` —
 in CI ist das **`AUTOMATION_TOKEN`** (PAT), **nicht** `GITHUB_TOKEN`:
 Von `GITHUB_TOKEN` ausgelöste `issues.opened`-Ereignisse erzeugen laut
 GitHub-Dokumentation **keine neuen Workflow-Runs** — damit bliebe der
@@ -68,6 +83,7 @@ bash scripts/check_sentry_issues.sh --dry-run # zeigt, welche Issues erstellt w�
 bash scripts/check_sentry_issues.sh           # echte Erstellung (GitHub-Token nötig)
 bash scripts/check_sentry_issues.sh --print-token-source
 bash scripts/check_sentry_issues.sh --print-event-tags 7806859006,7806863798
+bash scripts/check_sentry_issues.sh --attach-event-stack 7837272225,7849844885
                                             # read-only: Versions-Spur/Umfeld-Tags
                                             # einer bestehenden SID (kein GitHub-
                                             # Zugriff, keine Token-Ausgabe)
@@ -163,6 +179,17 @@ android-ci.yml).
   (`EVENT_STACK <sid>` + Frames, neueste zuerst, `in_app` markiert). Das ist
   der Weg, die Attributionspflicht aus §5.1 zu erfüllen, wenn der lokale Token
   keine Event-Lesescope hat (403) — das CI-Secret hat sie.
+- **Dauerhafter Stack-Nachtrag (`workflow_dispatch`-Input
+  `event_stack_attach`):** derselbe Stack, aber nicht nur ins Run-Log,
+  sondern als Kommentar an das zugeordnete Issue: `-f
+  event_stack_attach=7837272225,7849844885` sucht das Issue über den
+  Dedup-Marker (`<!-- vivid-sentry-issue: <sid> -->`, `state=all`, PRs
+  ausgenommen) und kommentiert den Stack mit `<!-- vivid-event-stack: <sid>
+  -->`. Der Marker macht den Lauf idempotent — ein zweiter Dispatch ergänzt
+  nichts (`… vorhanden (in #N) — nichts ergänzt`). So überlebt der Befund
+  den Run-Log (90 Tage) und die Attribution braucht keinen lokalen
+  Event-Token. Fehlende Scope, fehlendes Issue oder unlesbarer Stack →
+  SKIP-Zeile, exit 0; nur eine fehlende SID-Liste ist ein FEHLER.
 
 ## 5. Triage-Verfahren für Watchdog-Crash-Issues
 
