@@ -50,6 +50,15 @@ buildscript {
                 // APK. Pin entfällt, sobald Kover freemarker >= 2.3.35
                 // ausliefert.
                 "org.freemarker" to "freemarker" -> useVersion("2.3.35")
+                // Dieselbe Lücke, zwei weitere Alerts: Dependabot hat jdom2
+                // (GHSA-2363-cqg2-863c, XXE, high) und jose4j
+                // (GHSA-3677-xxcr-wjqv, DoS, high) als "dismissed" geführt,
+                // obwohl Gradle weiterhin 2.0.6 bzw. 0.9.5 auflöste — beide
+                // kommen über den AGP-9.5.1-Classpath (jetifier-processor
+                // bzw. analytics-library). Build-time only wie oben, kein
+                // App-Runtime-Pfad (im APK-Runtime-Classpath nicht vorhanden).
+                "org.jdom" to "jdom2" -> useVersion("2.0.6.1")
+                "org.bitbucket.b_c" to "jose4j" -> useVersion("0.9.6")
                 // Guava: CVE-2026-102554 / SNYK-JAVA-COMGOOGLEGUAVA-20825054
                 // (Deserialisierungs-DoS, High; fix in 33.7.2). AGP/Kover-
                 // Tooling zieht guava (33.4.0/33.3.1/32.0.1/18.0-jre) auf den
