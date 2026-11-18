@@ -73,6 +73,12 @@
 #       Threads-Form (ANR) nutzt den gecrashten Thread. 403 → Fallback-Zeile mit
 #       Statuscode + `event_stack`-Hinweis, 200 ohne Frames → eigene Zeile; ohne
 #       Event-Fixture entsteht keine Stack-Zeile (Erstellung unberührt)
+#   I30 Dauerhafter Event-Zugriff (--attach-event-stack): Stack wird an das
+#       Issue mit dem Dedup-Marker gehaengt (Payload: Marker vivid-event-stack,
+#       echte Frames, event:read-Hinweis), zweiter Lauf ergaenzt nichts,
+#       fehlendes Issue/unlesbarer Stack/fehlender Token → SKIP (exit 0),
+#       fehlende SID-Liste → FEHLER, Token erscheint nie; Workflow-Input
+#       event_stack_attach verdrahtet
 set -euo pipefail
 cd "$(dirname "$0")/.."
 fail() { echo "❌ [sentry-issues-test] $1"; exit 1; }
@@ -669,4 +675,63 @@ out_r29d=$(SENTRY_ISSUES_FIXTURE="$tmp/i29d" SENTRY_ISSUES_WORKDIR="$d29d" \
 p29d=$(python -X utf8 -c "import json,sys;print(json.load(open(sys.argv[1],encoding='utf-8'))['body'])" "$d29d/issue_1.json")
 grep -qF -- '- **Stack (Latest-Event):** HTTP 200 ohne Exception-/Thread-Frames' <<<"$p29d" || \
   fail "I29d: Zeile fuer Events ohne Frames fehlt"
-echo "✅ [sentry-issues-test] Sentry-Issues-Guard vertragstreu (I1–I29)."
+# I30 Dauerhafter Event-Zugriff: --attach-event-stack holt den Stack und
+# kommentiert ihn am zugeordneten Issue (Marker vivid-sentry-issue), idempotent
+# ueber vivid-event-stack; ohne Ziel/Scope neutrale SKIP-Zeilen statt Blocker.
+mkdir -p "$tmp/i30" "$tmp/i30w"
+cat > "$tmp/i30/event_700.json" <<'JSON'
+{"id": "e700", "entries": [{"type": "exception", "data": {"values": [
+   {"type": "java.lang.NullPointerException",
+    "value": "Attempt to invoke virtual method 'int java.lang.Enum.compareTo(java.lang.Enum)' on a null object reference",
+    "stacktrace": {"frames": [
+      {"filename": "SettingsLogsViewModel.kt", "function": "invokeSuspend", "in_app": true},
+      {"filename": "DispatchedTask.kt", "function": "run", "lineno": 232, "in_app": false}]}}]}}]}
+JSON
+printf '%s' '[{"number":999,"body":"<!-- vivid-sentry-issue: 700 -->"}]' > "$tmp/i30/ghissues.json"
+echo '[]' > "$tmp/i30/comments_999.json"
+echo 201 > "$tmp/i30/gh_commentstatus"
+out_r30=$(SENTRY_ISSUES_FIXTURE="$tmp/i30" SENTRY_ISSUES_WORKDIR="$tmp/i30w" \
+  SENTRY_ISSUES_KEEP=1 \
+  SENTRY_EVENTS_TOKEN=sntrys_FAKE_EV GITHUB_ISSUES_TOKEN=x \
+  bash "$guard" --attach-event-stack "700,701,abc") || \
+  fail "I30: Attach-Modus darf nicht scheitern (exit 0 Vertrag)"
+grep -qF "EVENT_STACK_ATTACH 700: kommentiert in #999" <<<"$out_r30" || \
+  fail "I30: Kommentar-Zeile fuer das zugeordnete Issue fehlt"
+grep -qF "EVENT_STACK_ATTACH 701: SKIP (Stack nicht lesbar" <<<"$out_r30" || \
+  fail "I30: fehlende Event-Fixture -> SKIP-Zeile erwartet"
+grep -qF "EVENT_STACK_ATTACH abc: SKIP (ungültige SID" <<<"$out_r30" || \
+  fail "I30: ungueltige SID -> SKIP-Zeile erwartet"
+grep -q "sntrys_FAKE_EV" <<<"$out_r30" && fail "I30: Event-Token-Leak im Attach-Modus"
+b30=$(python -X utf8 -c "import json,sys;print(json.load(open(sys.argv[1],encoding='utf-8'))['body'])" "$tmp/i30w/attach_700.json")
+grep -qF "<!-- vivid-event-stack: 700 -->" <<<"$b30" || fail "I30: Idempotenz-Marker im Kommentar fehlt"
+grep -qF "SettingsLogsViewModel.kt:? in invokeSuspend [in_app]" <<<"$b30" || \
+  fail "I30: echte Frames muessen im Kommentar stehen"
+grep -qF "event:read" <<<"$b30" || fail "I30: Scope-Hinweis im Kommentar fehlt"
+# Zweiter Lauf: Marker vorhanden -> nichts ergaenzt (kein Doppel-Kommentar)
+printf '%s' '[{"body":"<!-- vivid-event-stack: 700 -->"}]' > "$tmp/i30/comments_999.json"
+out_r30b=$(SENTRY_ISSUES_FIXTURE="$tmp/i30" SENTRY_EVENTS_TOKEN=x GITHUB_ISSUES_TOKEN=x \
+  bash "$guard" --attach-event-stack "700") || fail "I30b: Wiederholung darf nicht scheitern"
+grep -qF "EVENT_STACK_ATTACH 700: vorhanden (in #999) — nichts ergänzt" <<<"$out_r30b" || \
+  fail "I30b: vorhandener Marker muss den Nachtrag ueberspringen"
+# Kein Issue mit Marker -> SKIP, kein Schreibversuch
+printf '%s' '[]' > "$tmp/i30/ghissues.json"
+out_r30c=$(SENTRY_ISSUES_FIXTURE="$tmp/i30" SENTRY_EVENTS_TOKEN=x GITHUB_ISSUES_TOKEN=x \
+  bash "$guard" --attach-event-stack "700") || fail "I30c: fehlendes Issue ist SKIP, kein Fehler"
+grep -qF "EVENT_STACK_ATTACH 700: SKIP (kein GitHub-Issue mit Marker" <<<"$out_r30c" || \
+  fail "I30c: SKIP-Zeile ohne Ziel-Issue fehlt"
+# Ohne Event-Token und ohne GitHub-Token: SKIP statt 403-Abbruch
+out_r30d=$(SENTRY_ISSUES_FIXTURE="$tmp/i30" SENTRY_ISSUES_TOKEN= \
+  GITHUB_ISSUES_TOKEN= bash "$guard" --attach-event-stack "700") || \
+  fail "I30d: fehlender Token ist SKIP, kein Fehler"
+grep -qF "SKIP: kein Event-Lese-Token" <<<"$out_r30d" || fail "I30d: SKIP-Hinweis auf fehlenden Event-Token fehlt"
+if SENTRY_ISSUES_FIXTURE="$tmp/i30" SENTRY_EVENTS_TOKEN=x bash "$guard" --attach-event-stack >/dev/null 2>&1; then
+  fail "I30e: --attach-event-stack ohne SID muss FEHLER (exit 1) sein"
+fi
+# Verdrahtung: Workflow-Input + Aufruf
+grep -q "event_stack_attach" "$WF" || fail "I30: workflow_dispatch-Input event_stack_attach fehlt"
+grep -qF 'EVENT_STACK_ATTACH_INPUT: ${{ inputs.event_stack_attach }}' "$WF" || \
+  fail "I30: Input muss ueber Env (EVENT_STACK_ATTACH_INPUT) laufen"
+grep -qF 'bash scripts/check_sentry_issues.sh --attach-event-stack "$EVENT_STACK_ATTACH_INPUT"' "$WF" || \
+  fail "I30: Guard-Aufruf mit --attach-event-stack im Workflow fehlt"
+
+echo "✅ [sentry-issues-test] Sentry-Issues-Guard vertragstreu (I1–I30)."

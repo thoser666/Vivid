@@ -78,6 +78,20 @@
 # mit HTTP 403 endet (#445). Beide Event-Formen werden gelesen (Exception-
 # Kette und Thread-Dump), nicht lesbar ⇒ Fallback-Zeile ohne Blocker.
 #
+# --attach-event-stack SID[,SID…] — dauerhafter Event-Zugriff: zieht pro SID
+# denselben Stack wie --print-event-stack und hängt ihn als Kommentar an das
+# GitHub-Issue, das den Dedup-Marker `<!-- vivid-sentry-issue: <sid> -->`
+# trägt. Hintergrund: lokal endet der Event-Call am Issue-Token mit HTTP 403
+# (der Token hat keine event:read-Scope), das CI-Secret des Watchdogs kann es.
+# Damit die Frames nicht im Run-Log versanden, wird der Kommentar idempotent
+# über `<!-- vivid-event-stack: <sid> -->` gesetzt (zweiter Lauf ergänzt
+# nichts). Neutrale SKIP-Zeilen (exit 0) bei fehlendem Event-Token, unlesbarem
+# Stack, fehlendem Issue oder fehlender GitHub-Schreibscope; FEHLER (exit 1)
+# nur bei fehlender/ungültiger SID-Liste.
+#
+# Event-Token: SENTRY_EVENTS_TOKEN → `events.token` in sentry.properties →
+# bisherige Kette. Die Issues-Liste bleibt auf dem Issue-Token (project:read).
+#
 # Quelle des Tokens wie immer: SENTRY_ISSUES_TOKEN → issues.token → …
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -97,6 +111,8 @@ print_tags=0
 tags_sids=""
 print_stack=0
 stack_sids=""
+attach_stack=0
+attach_sids=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --dry-run) dryrun=1; shift ;;
@@ -113,8 +129,14 @@ while [ $# -gt 0 ]; do
       stack_sids="${1:-}"
       if [ $# -gt 0 ]; then shift; fi
       ;;
+    --attach-event-stack)
+      attach_stack=1
+      shift
+      attach_sids="${1:-}"
+      if [ $# -gt 0 ]; then shift; fi
+      ;;
     *)
-      echo "FEHLER: unbekanntes Argument: $1 (Aufruf: scripts/check_sentry_issues.sh [--dry-run] [--print-token-source] [--print-event-tags SID[,SID…]] [--print-event-stack SID[,SID…]])"
+      echo "FEHLER: unbekanntes Argument: $1 (Aufruf: scripts/check_sentry_issues.sh [--dry-run] [--print-token-source] [--print-event-tags SID[,SID…]] [--print-event-stack SID[,SID…]] [--attach-event-stack SID[,SID…]])"
       exit 1 ;;
   esac
 done
@@ -159,8 +181,25 @@ if [ "$print_src" = "1" ]; then
   exit 0
 fi
 
+# ── Event-Token (eigene Scope) ────────────────────────────────────────────
+# Events brauchen `event:read`; der Issue-Token hat das oft nicht (HTTP 403
+# lokal, das CI-Secret schon). Vorrang: SENTRY_EVENTS_TOKEN → events.token in
+# sentry.properties → bisherige Kette. Die Issues-Liste bleibt bewusst auf dem
+# Issue-Token (project:read), ein reiner event:read-Token würde sie brechen.
+events_token="$token"
+if [ "${SENTRY_EVENTS_TOKEN+x}" = "x" ]; then
+  events_token="$SENTRY_EVENTS_TOKEN"
+elif [ -z "$FIXTURE" ] && [ -f "$PROPS" ]; then
+  et=$(grep -E '^events\.token=' "$PROPS" 2>/dev/null | tail -1 | cut -d= -f2- \
+    | tr -d '\r' | sed 's/^"\(.*\)"$/\1/' || true)
+  [ -n "$et" ] && events_token="$et"
+fi
+
 # ── Read-only Diagnosemodus: Event-Tags pro SID (kein GitHub-Zugriff) ──────
 if [ "$print_tags" = "1" ]; then
+  # Der Token unten wird für die Event-Calls auf die Event-Scope-Instanz
+  # umgestellt: dieser Modus liest nur Events, nie die Issues-Liste.
+  token="$events_token"
   if [ -z "$token" ]; then
     echo "SKIP: kein Sentry-Lese-Token — SENTRY_ISSUES_TOKEN setzen oder issues.token in sentry.properties ablegen (Token-Erstellung: $DOCS_HINT)"
     exit 0
@@ -252,6 +291,8 @@ fi
 # (neueste Frames zuerst), in_app-Frames markiert; bei ANR/nativen Events
 # ohne Exception-Entry stattdessen der gecrashte bzw. aktuelle Thread.
 if [ "$print_stack" = "1" ]; then
+  # Wie --print-event-tags: nur Event-Calls, deshalb Token auf Event-Scope.
+  token="$events_token"
   if [ -z "$token" ]; then
     echo "SKIP: kein Sentry-Lese-Token — SENTRY_ISSUES_TOKEN setzen oder issues.token in sentry.properties ablegen (Token-Erstellung: $DOCS_HINT)"
     exit 0
@@ -382,6 +423,132 @@ _state, _r8, _vivid, _total = _classify_deobfuscation(values)
 print("EVENT_DEOBFUSCATION %s: %s (%d r8-map-id frame(s), %d com.vivid frame(s), %d frame(s) total)"
       % (sid, _state, _r8, _vivid, _total))
 PYSTACK
+  done
+  exit 0
+fi
+
+# ── Stack als Nachtrag ans zugeordnete GitHub-Issue ───────────────────────
+# Der lokale `issues.token` scheitert an der Event-API mit HTTP 403, das
+# CI-Secret nicht. Damit die Frames nicht im Run-Log versanden, holt dieser
+# Modus denselben Stack (`--print-event-stack`) und kommentiert ihn am Issue,
+# das den Dedup-Marker `<!-- vivid-sentry-issue: <sid> -->` trägt. Idempotent
+# über `<!-- vivid-event-stack: <sid> -->`: ein zweiter Lauf ergänzt nichts.
+# Vertrag wie die übrigen Modi: fehlender Token / unlesbarer Stack / fehlendes
+# Issue ⇒ SKIP-Zeile (exit 0); FEHLER (exit 1) nur bei fehlender SID-Liste.
+if [ "$attach_stack" = "1" ]; then
+  if [ -z "$events_token" ]; then
+    echo "SKIP: kein Event-Lese-Token — SENTRY_EVENTS_TOKEN (Scope event:read) oder events.token in sentry.properties setzen; das CI-Secret des Watchdogs hat die Scope ($DOCS_HINT)"
+    exit 0
+  fi
+  if [ -z "$attach_sids" ]; then
+    echo "FEHLER: --attach-event-stack benötigt eine kommagetrennte SID-Liste (Aufruf: scripts/check_sentry_issues.sh --attach-event-stack 7837272225,7849844885)"
+    exit 1
+  fi
+  if [ -z "${GITHUB_ISSUES_TOKEN:-}" ] && [ -z "$FIXTURE" ]; then
+    echo "SKIP: kein GitHub-Token (GITHUB_ISSUES_TOKEN) — der Nachtrag braucht issues:write ($DOCS_HINT)"
+    exit 0
+  fi
+  for sid in $(printf '%s' "$attach_sids" | tr ',' ' '); do
+    case "$sid" in
+      ''|*[!0-9]*)
+        echo "EVENT_STACK_ATTACH $sid: SKIP (ungültige SID — nur Ziffern erlaubt)"
+        continue ;;
+    esac
+    # Kind ohne Workdir starten: sonst raeumt dessen EXIT-Trap das Verzeichnis
+    # des aufrufenden Laufs weg (SENTRY_ISSUES_WORKDIR wird vererbt).
+    stack_text=$(SENTRY_ISSUES_WORKDIR= SENTRY_ISSUES_KEEP= \
+      bash "$0" --print-event-stack "$sid" 2>/dev/null || true)
+    case "$stack_text" in
+      ""|*"not readable"*|*"SKIP: kein Event-Lese-Token"*|*"SKIP (kein Event-Fixture"*)
+        echo "EVENT_STACK_ATTACH $sid: SKIP (Stack nicht lesbar — kein Kommentar angelegt)"
+        continue ;;
+    esac
+    # Issue-Nummer über den Dedup-Marker (state=all, Pull Requests ausgenommen).
+    ghfiles=""
+    if [ -n "$FIXTURE" ]; then
+      if [ -f "$FIXTURE/ghissues.json" ]; then ghfiles="$FIXTURE/ghissues.json"; fi
+      if [ -z "$ghfiles" ] && [ -f "$FIXTURE/issues.json" ]; then ghfiles="$FIXTURE/issues.json"; fi
+    else
+      for gp in 1 2 3; do
+        curl -sS -o "$tmp/attach_gh.$gp" -H "Authorization: Bearer ${GITHUB_ISSUES_TOKEN:-}" \
+          -H "Accept: application/vnd.github+json" \
+          "$GH_API/repos/$GH_REPO/issues?state=all&per_page=100&page=$gp" 2>/dev/null || true
+      done
+      ghfiles="$tmp/attach_gh.1 $tmp/attach_gh.2 $tmp/attach_gh.3"
+    fi
+    num=$(SID="$sid" python -X utf8 - $ghfiles 2>/dev/null <<'PYATTR' || true
+import json, os, re, sys
+
+sid = os.environ["SID"]
+pat = re.compile(r"vivid-sentry-issue:\s*%s(?!\d)" % re.escape(sid))
+for path in sys.argv[1:]:
+    try:
+        data = json.load(open(path, encoding="utf-8"))
+    except Exception:
+        continue
+    if not isinstance(data, list):
+        continue
+    for it in data:
+        if not isinstance(it, dict) or it.get("pull_request"):
+            continue
+        if it.get("number") and pat.search(str(it.get("body") or "")):
+            print(it["number"])
+            sys.exit(0)
+PYATTR
+)
+    if [ -z "$num" ]; then
+      echo "EVENT_STACK_ATTACH $sid: SKIP (kein GitHub-Issue mit Marker vivid-sentry-issue)"
+      continue
+    fi
+    # Idempotenz: derselbe Marker im Kommentar-Bestand? (state=all-Nachtrag)
+    if [ -n "$FIXTURE" ] && [ -f "$FIXTURE/comments_$num.json" ]; then
+      cfrag="$FIXTURE/comments_$num.json"
+    elif [ -n "$FIXTURE" ]; then
+      printf '[]' > "$tmp/comments_$num.json"
+      cfrag="$tmp/comments_$num.json"
+    else
+      cstatus=$(curl -sS -o "$tmp/comments_$num.json" -w '%{http_code}' \
+        -H "Authorization: Bearer ${GITHUB_ISSUES_TOKEN:-}" \
+        -H "Accept: application/vnd.github+json" \
+        "$GH_API/repos/$GH_REPO/issues/$num/comments?per_page=100" 2>/dev/null || true)
+      if [ "$cstatus" != "200" ]; then
+        echo "EVENT_STACK_ATTACH $sid: SKIP (Kommentarliste HTTP ${cstatus:-000})"
+        continue
+      fi
+      cfrag="$tmp/comments_$num.json"
+    fi
+    if grep -qF "<!-- vivid-event-stack: $sid -->" "$cfrag" 2>/dev/null; then
+      echo "EVENT_STACK_ATTACH $sid: vorhanden (in #$num) — nichts ergänzt"
+      continue
+    fi
+    SID="$sid" STACK_TEXT="$stack_text" python -X utf8 - > "$tmp/attach_$sid.json" <<'PYATTR2'
+import json, os
+
+sid = os.environ["SID"]
+text = os.environ.get("STACK_TEXT", "").rstrip()
+body = ("<!-- vivid-event-stack: %s -->\n"
+        "## Event stack (latest event, Sentry `%s`)\n\n"
+        "Gezogen mit einem Token mit `event:read` (docs/sentry-issues.md §1/§4): "
+        "der lokale `issues.token` scheitert an der Event-API mit HTTP 403, das "
+        "CI-Secret des Watchdogs nicht.\n\n"
+        "```\n%s\n```\n") % (sid, sid, text)
+print(json.dumps({"body": body}))
+PYATTR2
+    if [ -n "$FIXTURE" ]; then
+      poststatus=$(cat "$FIXTURE/gh_commentstatus" 2>/dev/null || echo 201)
+    else
+      poststatus=$(curl -sS -o "$tmp/attach_post_$sid.json" -w '%{http_code}' \
+        -X POST -H "Authorization: Bearer ${GITHUB_ISSUES_TOKEN:-}" \
+        -H "Accept: application/vnd.github+json" -H "Content-Type: application/json" \
+        -d @"$tmp/attach_$sid.json" \
+        "$GH_API/repos/$GH_REPO/issues/$num/comments" 2>/dev/null || true)
+      [ -n "$poststatus" ] || poststatus=000
+    fi
+    case "$poststatus" in
+      200|201) echo "EVENT_STACK_ATTACH $sid: kommentiert in #$num" ;;
+      401|403) echo "SKIP: GitHub-Token ohne issues:write — Nachtrag übersprungen ($DOCS_HINT)"; exit 0 ;;
+      *) echo "EVENT_STACK_ATTACH $sid: SKIP (Kommentar HTTP $poststatus)" ;;
+    esac
   done
   exit 0
 fi
@@ -846,8 +1013,8 @@ for ((i = 1; i <= count; i++)); do
       evstatus=$(tr -d '[:space:]' < "$FIXTURE/eventstatus_${sid}")
     fi
   elif [ -n "$sid" ]; then
-    evstatus=$(curl -sS -o "$tmp/event_$i.json" -w '%{http_code}' \
-      -H "Authorization: Bearer $token" \
+          evstatus=$(curl -sS -o "$tmp/event_$i.json" -w '%{http_code}' \
+      -H "Authorization: Bearer $events_token" \
       "$API/issues/$sid/events/latest/" 2>/dev/null || true)
     [ -n "$evstatus" ] || evstatus=000
   fi
