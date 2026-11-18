@@ -4,7 +4,7 @@ import android.media.MediaCodec
 import android.media.MediaFormat
 import io.mockk.every
 import io.mockk.mockk
-import org.junit.jupiter.api.Assertions.assertThrows
+import org.junit.jupiter.api.Assertions.assertFalse
 import android.media.MediaCodecInfo
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
@@ -35,10 +35,18 @@ class EncoderBitrateDiagnosticsTest {
     }
 
     @Test
-    fun `supported CBR cannot silently fall back to VBR`() {
-        assertThrows(IllegalStateException::class.java) {
-            RootEncoderBitrateDiagnostics.read(codec(1, true), "video/avc", 6_000)
-        }
+    fun `a CBR-capable encoder that runs VBR is reported, never thrown`() {
+        // Exynos/Tensor encoders do exactly this (#429, VIVID-5Q/#446): throwing here
+        // aborted Go Live on those devices, so the mismatch has to stay a value.
+        val diagnostic = RootEncoderBitrateDiagnostics.read(codec(1, true), "video/avc", 6_000)
+        assertEquals(EncoderBitrateMode.VBR, diagnostic.mode)
+        assertEquals(true, diagnostic.cbrSupported)
+        assertEquals(true, diagnostic.cbrMismatch)
+    }
+
+    @Test
+    fun `an encoder without CBR support is not a mismatch`() {
+        assertFalse(RootEncoderBitrateDiagnostics.read(codec(1, false), "video/avc", 6_000).cbrMismatch)
     }
 
     @Test

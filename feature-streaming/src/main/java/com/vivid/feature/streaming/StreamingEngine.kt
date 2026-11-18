@@ -1860,7 +1860,10 @@ class StreamingEngine @Inject constructor(
         val audioReady = prepareStandaloneRecordingAudio(cam, includeAudio)
         encoderRotationDegrees = outputRotationDegrees()
         val videoReady = prepareCameraVideo(cam)
-        if (audioReady && videoReady && updateBitrateDiagnostics(cam)) return true
+        if (audioReady && videoReady) {
+            updateBitrateDiagnostics(cam)
+            return true
+        }
         closeExperimentalCapture()
         stopComposedGl(cam.glInterface as? GlStreamInterface)
         startIdlePreviewIfReady()
@@ -2659,7 +2662,9 @@ class StreamingEngine @Inject constructor(
         } else {
             prepareCameraVideo(cam)
         }
-        return audioReady && videoReady && (recording || updateBitrateDiagnostics(cam))
+        if (!audioReady || !videoReady) return false
+        if (!recording) updateBitrateDiagnostics(cam)
+        return true
     }
 
     /**
@@ -2738,20 +2743,24 @@ class StreamingEngine @Inject constructor(
         if (selectedId != null && selectedId != cam.currentCameraId) cam.switchCamera(selectedId)
     }
 
-    private fun updateBitrateDiagnostics(cam: Camera2Base): Boolean {
+    /**
+     * Publishes the actual encoder mode. **Never gates the start**: a device whose
+     * encoder advertises CBR while running VBR (Exynos/Tensor `c2.exynos.*`, #429,
+     * VIVID-5Q/#446) must still stream — the earlier fail-loud `check()` aborted
+     * every Go Live there, and even an unreadable mode is only a diagnostic loss.
+     */
+    private fun updateBitrateDiagnostics(cam: Camera2Base) {
         _bitrateDiagnostics.value = null
-        return runCatching {
-            val diagnostics = readBitrateDiagnostics(cam)
-            _bitrateDiagnostics.value = diagnostics
-            Timber.i("Video encoder=%s mode=%s CBR supported=%s target=%d kbps",
-                diagnostics.encoderName, diagnostics.mode, diagnostics.cbrSupported, diagnostics.targetKbps)
-            if (diagnostics.mode != EncoderBitrateMode.CBR) {
-                Timber.w("CBR unavailable: encoder=%s uses %s", diagnostics.encoderName, diagnostics.mode)
-            }
-            true
-        }.getOrElse {
+        val diagnostics = runCatching { readBitrateDiagnostics(cam) }.getOrElse {
             Timber.e(it, "Cannot verify video encoder bitrate mode")
-            false
+            return
+        }
+        _bitrateDiagnostics.value = diagnostics
+        Timber.i("Video encoder=%s mode=%s CBR supported=%s target=%d kbps",
+            diagnostics.encoderName, diagnostics.mode, diagnostics.cbrSupported, diagnostics.targetKbps)
+        if (diagnostics.mode != EncoderBitrateMode.CBR) {
+            Timber.w("CBR unavailable: encoder=%s supportsCbr=%s uses %s — streaming continues",
+                diagnostics.encoderName, diagnostics.cbrSupported, diagnostics.mode)
         }
     }
 

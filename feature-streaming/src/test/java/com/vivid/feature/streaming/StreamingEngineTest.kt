@@ -453,12 +453,14 @@ class StreamingEngineTest {
     }
 
     @Test
-    fun `unverifiable encoder mode fails preparation before network start`() = runTest {
+    fun `an unreadable encoder mode never blocks the network start`() = runTest {
+        // A diagnostic is not a gate: the fail-loud path aborted every Go Live on
+        // CBR-advertising/VBR-running encoders (#429, VIVID-5Q/#446).
         streamingCameraReady()
         streamingEngine.readBitrateDiagnostics = { error("CBR supported but not configured") }
         streamingEngine.initializeCamera()
         streamingEngine.startStream(LIVE_URL)
-        verify(exactly = 0) { camera.startStream(any(), any(), any()) }
+        verify(exactly = 1) { camera.startStream(any(), any(), any()) }
         assertNull(streamingEngine.bitrateDiagnostics.value)
     }
 
