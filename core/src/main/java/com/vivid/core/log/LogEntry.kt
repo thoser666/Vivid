@@ -17,12 +17,19 @@ data class LogEntry(
     val message: String,
     val isCrash: Boolean = false,
 ) {
-    /** Kompakte, menschenlesbare Darstellung für die Anzeige/den Export. */
+    /**
+     * Kompakte, menschenlesbare Darstellung für die Anzeige/den Export.
+     *
+     * Der Level wird über [displayName] gelesen, nicht über `level.name`:
+     * ein per Gson/Unsafe entstandener Eintrag trägt zur Laufzeit `null`, und
+     * `level.name` crashte dort mit einer NPE (VIVID-5H, #433) — im Viewer
+     * *und* im Export/Copy-Pfad, der nur [format] benutzt.
+     */
     fun format(): String {
         val time = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US)
             .format(java.util.Date(timestampMillis))
         val crash = if (isCrash) "💥 " else ""
-        return "$time ${level.name.padEnd(5)} [$tag] $crash$message"
+        return "$time ${level.displayName().padEnd(5)} [$tag] $crash$message"
     }
 }
 

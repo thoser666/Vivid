@@ -33,3 +33,14 @@ enum class LogLevel(val priority: Int) {
  */
 fun LogLevel?.isAtLeast(min: LogLevel): Boolean =
     (this?.priority ?: Int.MIN_VALUE) >= min.priority
+
+/**
+ * Anzeigename der Stufe für Log-Zeilen und Export — null-tolerant.
+ *
+ * `null` (Gson/Unsafe-Artefakt, siehe `LogLineDto`) wird als `?` gezeigt
+ * statt `level.name` zu lesen: an genau dieser Dereferenzierung crashte
+ * `LogEntry.format()` (VIVID-5H, #433, Setting-Viewer + Export).
+ * Der Platzhalter hält die Level-Spalte schmal und macht die kaputte Zeile
+ * sichtbar, statt sie zu verstecken.
+ */
+fun LogLevel?.displayName(): String = this?.name ?: "?"

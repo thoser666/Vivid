@@ -39,6 +39,7 @@ import org.robolectric.annotation.GraphicsMode
 
 private const val TELE_LENS_LABEL = "Tele"
 private const val FAILURE_SENTINEL = "boom sentinel"
+private const val NULL_LEVEL_SENTINEL = "gson entry with null level"
 
 /**
  * Robolectric-Compose-Tests für die restlichen Settings-Screens (Camera,
@@ -235,6 +236,33 @@ class SettingsSubScreensRobolectricTest {
         composeRule.onAllNodesWithText("Copy")[0].assertExists()
         composeRule.onAllNodesWithText("Share")[0].assertExists()
         composeRule.onAllNodesWithText("Retention (days)")[0].assertExists()
+    }
+
+    @Test
+    fun `logs renders an entry with a null level without crashing`() {
+        // Produktionsartefakt VIVID-5H (#433): Gson/Unsafe hinterlaesst null im
+        // statisch non-null typisierten level-Feld. Der Renderpfad liest
+        // format() (level.name) und level.color(); beide muessen das aushalten.
+        // Der typisierte Konstruktor laesst null nicht zu — daher Reflection.
+        val broken = LogEntry(
+            timestampMillis = System.currentTimeMillis(),
+            level = LogLevel.INFO,
+            tag = "Gson",
+            message = NULL_LEVEL_SENTINEL,
+        )
+        LogEntry::class.java.getDeclaredField("level").apply {
+            isAccessible = true
+            set(broken, null)
+        }
+        val viewModel = mockk<SettingsLogsViewModel>(relaxed = true) {
+            every { uiState } returns MutableStateFlow(LogsUiState(entries = listOf(broken)))
+        }
+
+        composeRule.setContent { SettingsLogsScreen(onBack = {}, viewModel = viewModel) }
+        composeRule.onNodeWithTag("logs_list").performScrollToNode(
+            androidx.compose.ui.test.hasText(NULL_LEVEL_SENTINEL, substring = true),
+        )
+        composeRule.onAllNodesWithText(NULL_LEVEL_SENTINEL, substring = true)[0].assertExists()
     }
 
     @Test

@@ -314,9 +314,17 @@ private fun LogRow(entry: LogEntry) {
     }
 }
 
-/** Farbe je Log-Stufe: Fehler rot, Warnung orange, Rest gedämpft. */
+/**
+ * Farbe je Log-Stufe: Fehler rot, Warnung orange, Rest gedämpft.
+ *
+ * Receiver bewusst `LogLevel?`: `LogEntry.level` ist statisch non-null, trägt
+ * bei Gson/Unsafe-Einträgen aber zur Laufzeit `null` — mit einem non-null
+ * Receiver wirft der generierte Intrinsics-Check beim Componieren eine NPE
+ * (VIVID-5H, #433). `null` fällt in den `else`-Zweig (gedämpft), genau wie
+ * jede Stufe unter WARN.
+ */
 @Composable
-private fun LogLevel.color(): Color = when (this) {
+private fun LogLevel?.color(): Color = when (this) {
     LogLevel.ERROR, LogLevel.ASSERT -> MaterialTheme.colorScheme.error
     LogLevel.WARN -> MaterialTheme.colorScheme.tertiary
     else -> MaterialTheme.colorScheme.onSurfaceVariant
