@@ -46,6 +46,9 @@
 
 set -euo pipefail
 cd "$(dirname "$0")/.."
+# Interpreter über die Library: bar `python` trägt auf Windows kein PyYAML
+# (nur der `py -3`-Launcher), sonst wären T14/T15 lokal rot ohne Workflow-Fehler.
+source scripts/lib_workflow_yaml.sh
 SCRIPT_DIR="$(pwd)/scripts"
 # YAML-Zugriffe strukturell statt per Zeilenfenster (lib_workflow_yaml.sh).
 source "$SCRIPT_DIR/lib_workflow_yaml.sh"
@@ -145,12 +148,12 @@ check "T9.6 genau 2 Prüfsummen-Anhänge (stable + nightly)" \
   bash -c '[ "$(grep -cF "options[:checksums] && File.exist?(options[:checksums])" fastlane/Fastfile)" -eq 2 ]'
 
 echo "== T10: Workflow-YAML valide =="
-check "T10.1 release-pipeline.yml parst als YAML" python -c "
+check "T10.1 release-pipeline.yml parst als YAML" wf_python_run -c "
 import yaml, io
 with io.open('.github/workflows/release-pipeline.yml', encoding='utf-8') as f:
     yaml.safe_load(f)
 "
-check "T10.2 android-ci.yml parst als YAML" python -c "
+check "T10.2 android-ci.yml parst als YAML" wf_python_run -c "
 import yaml, io
 with io.open('.github/workflows/android-ci.yml', encoding='utf-8') as f:
     yaml.safe_load(f)
@@ -321,9 +324,16 @@ STUB
   # an — im Repo-Root landeten davon beim ersten Entwurf zwei untracked Dateien,
   # die erst beim `git status` auffielen und beim Commit hätten geblieben.
   # Der Test muss den Arbeitsbaum unberührt lassen.
+  # ⚠️ PATH-Falle (MSYS/Windows): ein Kind-bash stellt beim Start
+  # /c/msys64/mingw64/bin VOR die geerbte Reihenfolge — die Stubs in
+  # $sandbox/bin wären dann unsichtbar, echtes `curl` liefe ins Netz und T14
+  # wäre rot, ohne dass Snippet oder Workflow etwas falsch machen. Deshalb EIN
+  # bash, PATH nach dem Start setzen und das Snippet sourcen (kein weiteres
+  # Kind-bash, das die Reihenfolge erneut umstellen würde).
   GITHUB_OUTPUT="$sandbox/out" VR_LOG="$sandbox/urls" \
   VR_RELEASES="$3" VR_REV="$4" VR_VNAME="$5" VR_VCODE=5150 \
-  PATH="$sandbox/bin:$PATH" bash -c "cd '$sandbox' && bash read.sh" > "$sandbox/log" 2>&1 || VR_RC=$?
+  bash -c 'cd "$1" || exit 1; PATH="$1/bin:$PATH"; . ./read.sh' _ "$sandbox" \
+  > "$sandbox/log" 2>&1 || VR_RC=$?
   VR_OUT="$(cat "$sandbox/out")"
   VR_LOG="$(cat "$sandbox/urls")"
   VR_STDOUT="$(cat "$sandbox/log")"
@@ -416,7 +426,7 @@ fi
 # Gegenprobe auf die Quelle aus T13.6: dieselbe Aussage, dort am Read-STEP
 # geprueft und seit #263 dort nicht mehr vorhanden. Verhindert, dass ein
 # spaeterer Umbau die Meldung wieder in den falschen Step zurueckwandert.
-VERIFY_SHA_USES="$(python -c "
+VERIFY_SHA_USES="$(wf_python_run -c "
 import io, re, sys, yaml
 d = yaml.safe_load(io.open('$WORKFLOW', encoding='utf-8'))
 job = d['jobs']['verify-reproducibility'] or {}
@@ -431,7 +441,7 @@ print(','.join(hits))
 check "T15.1 Ausdruck github.sha kommt im Verify-Job nicht mehr vor" \
   test -z "$VERIFY_SHA_USES"
 check "T15.2 Resolve-Step hat die ID ref" \
-  test "$(python -c "
+  test "$(wf_python_run -c "
 import io, yaml
 d = yaml.safe_load(io.open('$WORKFLOW', encoding='utf-8'))
 step = next((s for s in d['jobs']['verify-reproducibility']['steps']
