@@ -7,6 +7,7 @@ import com.vivid.core.log.LogBuffer
 import com.vivid.core.log.LogEntry
 import com.vivid.core.log.LogLevel
 import com.vivid.core.log.LogStore
+import com.vivid.core.log.isAtLeast
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -61,7 +62,9 @@ class SettingsLogsViewModel @Inject constructor(
     ) { live, ret, hist, onlyErrors, query ->
         val merged = mergeEntries(hist, live)
         var filtered = if (onlyErrors) {
-            merged.filter { it.isCrash || it.level >= LogLevel.ERROR }
+            // Null-tolerant: ein Eintrag ohne Level (Gson-Altzeile) ist kein
+            // Fehler und darf den Filter nie per Enum.compareTo crashen.
+            merged.filter { it.isCrash || it.level.isAtLeast(LogLevel.ERROR) }
         } else {
             merged
         }

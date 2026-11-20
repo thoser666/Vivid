@@ -20,3 +20,16 @@ enum class LogLevel(val priority: Int) {
             entries.firstOrNull { it.priority == priority } ?: DEBUG
     }
 }
+
+/**
+ * Null-toleranter Levelvergleich — `null` ist nie „mindestens [min]“.
+ *
+ * Der Receiver ist absichtlich `LogLevel?` typisiert: Einträge, die den
+ * Kotlin-Konstruktor umgangen haben (Gson/Unsafe, siehe `LogLineDto`), tragen
+ * zur Laufzeit `null`, obwohl das Feld statisch non-null ist. Der Vergleich
+ * läuft über [LogLevel.priority] (Int) statt über `Comparable` —
+ * `it.level >= LogLevel.ERROR` crashte mit `Enum.compareTo` (Sentry VIVID-5H,
+ * #433, `SettingsLogsViewModel`-errorsOnly-Filter).
+ */
+fun LogLevel?.isAtLeast(min: LogLevel): Boolean =
+    (this?.priority ?: Int.MIN_VALUE) >= min.priority

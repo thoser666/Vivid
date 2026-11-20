@@ -179,4 +179,33 @@ class LogStoreTest {
         // Wiederherstellung im Store darf das nie mehr passieren.
         assertDoesNotThrow { loaded.forEach { it.format() } }
     }
+
+    // --- VIVID-5H (#433): Das Parsing läuft über LogLineDto mit echt nullbaren
+    // Feldern. Die Zeile ist damit der Typwahrheit ausgesetzt: fehlt ein
+    // Pflichtwert, wird sie übersprungen, statt einen Eintrag mit 0/Default zu
+    // erfinden.
+
+    @Test
+    fun `zeile ohne timestamp wird uebersprungen statt mit 0 geladen`() {
+        val s = store()
+        val now = System.currentTimeMillis()
+        s.add(entry(now, "ok"))
+        File(tempDir, "logs/${LogDates.dayKey(now)}.log").appendText(
+            "{\"level\":\"INFO\",\"tag\":\"T\",\"message\":\"ohne zeit\",\"isCrash\":false}\n",
+        )
+
+        assertEquals(listOf("ok"), s.load(retentionDays = 7).map { it.message })
+    }
+
+    @Test
+    fun `zeile mit level als json-zahl wird uebersprungen`() {
+        val s = store()
+        val now = System.currentTimeMillis()
+        s.add(entry(now, "ok"))
+        File(tempDir, "logs/${LogDates.dayKey(now)}.log").appendText(
+            "{\"timestampMillis\":$now,\"level\":6,\"tag\":\"T\",\"message\":\"zahl\",\"isCrash\":false}\n",
+        )
+
+        assertEquals(listOf("ok"), s.load(retentionDays = 7).map { it.message })
+    }
 }
