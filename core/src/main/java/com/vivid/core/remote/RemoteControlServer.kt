@@ -1,6 +1,7 @@
 package com.vivid.core.remote
 
 import com.vivid.core.log.LogStore
+import com.vivid.core.log.displayName
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
@@ -304,7 +305,12 @@ fun Application.remoteControlModule(
             val entries = logStore.load(clamped).map { entry ->
                 RemoteLogEntry(
                     timestampMillis = entry.timestampMillis,
-                    level = entry.level.name,
+                    // `displayName()` statt `level.name`: ein Eintrag kann zur
+                    // Laufzeit `null` tragen (Gson/Unsafe, VIVID-5H, #433) —
+                    // `level.name` riss dort die ganze `/logs`-Antwort mit einer
+                    // NPE ab. Der Platzhalter `?` haelt das Payload-Schema
+                    // (`level: String`) unveraendert.
+                    level = entry.level.displayName(),
                     tag = entry.tag,
                     message = entry.message,
                     isCrash = entry.isCrash,
