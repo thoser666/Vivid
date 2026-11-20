@@ -22,6 +22,9 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR/.." || exit 1
+# Interpreter über die Library: bar `python` trägt auf Windows kein PyYAML
+# (nur der `py -3`-Launcher), sonst wären D11/D15/D20 lokal rot ohne Fehler.
+source scripts/lib_workflow_yaml.sh
 
 DIST=.github/workflows/distribution-stable.yml
 FDROID=.github/workflows/deploy-fdroid.yml
@@ -119,9 +122,9 @@ notcheck "D10.2 kein .apk-Wildcard-Download mehr" "$FDROID" '--pattern "\*\.apk"
 
 # D11: YAML-Validität (python + pyyaml; lokal/CI übersprungen, wenn beides
 # fehlt — die Workflows sind durch andere Guards abgedeckt).
-if command -v python >/dev/null 2>&1 && python -c 'import yaml' >/dev/null 2>&1; then
+if wf_python_run -c 'import yaml' >/dev/null 2>&1; then
   for f in "$DIST" "$FDROID" "$RELEASE"; do
-    if python - "$f" <<'PY' 2>/dev/null
+    if wf_python_run - "$f" <<'PY' 2>/dev/null
 import io, sys, yaml
 src = io.open(sys.argv[1], encoding="utf-8").read()
 # YAML 1.1: "on:" parst als boolean True → key 'true'; für den Validity-Check egal
@@ -227,7 +230,7 @@ fi
 # D15.1/D15.3 bewusst STRUKTURELL (nur run/script-Blöcke, keine Kommentare):
 # die Begründung dieses Umbaus nennt die alten Befehle absichtlich, ein
 # Datei-weites grep würde also die eigene Dokumentation als Verstoß melden.
-if python -c "
+if wf_python_run -c "
 import io, yaml
 with io.open('$DIST', encoding='utf-8') as f:
     d = yaml.safe_load(f)
@@ -247,7 +250,7 @@ check "D15.3 Gate-Retry-Wrapper fährt beide Flavors" "$DIST" 'emulator_gate_ret
 # D15.4: Grants laufen im Testprozess — Helfer + Dependency sind der Ersatz für
 # die Shell-Grants. Fehlt eines, testet das Gate ohne Permissions und fällt mit
 # "No compose hierarchies found" durch (der #249-Zustand, nur anders getarnt).
-if python -c "
+if wf_python_run -c "
 import glob, io
 helper = 'app/src/androidTest/java/com/vivid/irlbroadcaster/EmulatorTestPermissions.kt'
 src = io.open(helper, encoding='utf-8').read()
@@ -421,7 +424,7 @@ fi
 # Geprueft wird strukturell ueber ALLE Workflows, nicht nur diesen einen: die
 # Fehlerklasse ist nicht dateigebunden, und der Emulator-Runner steckt in
 # release-pipeline.yml ebenfalls.
-D20_HITS="$(python - <<'PYEOF'
+D20_HITS="$(wf_python_run - <<'PYEOF'
 import glob, io, sys, yaml
 bad = []
 for wf in sorted(glob.glob(".github/workflows/*.yml")):

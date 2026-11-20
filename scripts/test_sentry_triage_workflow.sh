@@ -30,7 +30,7 @@ check() {
 echo "▶ [sentry-triage-test] Prüfungen W1–W9 gegen $WF"
 
 check "W1 Workflow existiert" test -f "$WF"
-check "W1 YAML gültig (Trigger + Label-Job vorhanden)" python -c "
+check "W1 YAML gültig (Trigger + Label-Job vorhanden)" wf_python_run -c "
 import yaml, io
 with io.open('$WF', encoding='utf-8') as f:
     d = yaml.safe_load(f)
@@ -46,7 +46,10 @@ check "W2 Trigger: issues opened+reopened (kein labeled — Loop-Schutz)" bash -
 grep -q 'issues:' '$WF' && grep -q 'opened' '$WF' && grep -q 'reopened' '$WF' && ! grep -qE 'types:.*labeled' '$WF'
 "
 check "W3 permissions: {} top-level" bash -c "
-python - <<'PY'
+# Eigene bash -c-Subshell: Library dort selbst laden (wf_python_run ist eine
+# Shell-Funktion, kein Kommando) — und sie löst auch `py -3` korrekt auf.
+source scripts/lib_workflow_yaml.sh
+wf_python_run - <<'PY'
 import yaml, io
 with io.open('$WF', encoding='utf-8') as f:
     d = yaml.safe_load(f)

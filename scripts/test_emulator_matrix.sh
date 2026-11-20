@@ -145,7 +145,7 @@ check "T13.4 Gate nutzt denselben SHA-gepinnten Emulator-Runner" \
 # verschob connectedStandardDebugAndroidTest aus dem -A35-Fenster und ließ
 # T13.5/T13.6/T14.3 ohne Änderung der Gate-Logik rot werden).
 gate_script() {
-  python -c "
+  wf_python_run -c "
 import yaml, io
 with io.open('$DIST', encoding='utf-8') as f:
     d = yaml.safe_load(f)
@@ -183,7 +183,7 @@ echo "== T14: Beide Flavors im Emulator-Gate =="
 # dem connected-Task heraus — der Check wird rot, obwohl der Workflow korrekt
 # ist (das war die Ursache des lokalen Rot bei T14.1/T14.2 nach der
 # POSIX-Haertung: der Block ist laenger geworden, nicht falsch).
-EMU_JOB=$(PYTHONIOENCODING=utf-8 python -c "
+EMU_JOB=$(PYTHONIOENCODING=utf-8 wf_python_run -c "
 import yaml, io
 with io.open('$WORKFLOW', encoding='utf-8') as f:
     d = yaml.safe_load(f)
@@ -217,7 +217,7 @@ echo "== T15: Single-Install-Gate — Grants im Testprozess statt Pre-Install ==
 # der Helper liefert für "nicht gefunden" dieselbe Konvention `-` wie für einen
 # Tippfehler im Job-Namen — eine `test "-`-Prüfung wäre damit auch bei
 # falschem Anker grün. Die Liste der Step-Namen ist eindeutig.
-check "T15.1 kein Pre-Install-Step mehr im Emulator-Job" python -c "
+check "T15.1 kein Pre-Install-Step mehr im Emulator-Job" wf_python_run -c "
 import io, yaml
 with io.open('.github/workflows/release-pipeline.yml', encoding='utf-8') as f:
     d = yaml.safe_load(f)
@@ -229,7 +229,7 @@ assert not [s for s in steps if 'emulator_test_setup' in str(s.get('run') or '')
 "
 check "T15.2 Pre-Install-Skript ist entfernt (kein toter Helfer)" \
   test ! -e scripts/emulator_test_setup.sh
-check "T15.3 kein adb install/pm grant mehr in den Gate-Snippets" python -c "
+check "T15.3 kein adb install/pm grant mehr in den Gate-Snippets" wf_python_run -c "
 import io, re, yaml
 bad = []
 for path, job in (('.github/workflows/release-pipeline.yml', 'emulator-tests'),
@@ -241,7 +241,7 @@ for path, job in (('.github/workflows/release-pipeline.yml', 'emulator-tests'),
             bad += [(path, s.get('name'), m.group(0)) for m in re.finditer(r'adb install|pm grant', text)]
 assert not bad, bad
 "
-check "T15.4 release-pipeline: genau EINE Gradle-Invocation, alle drei Suiten" python -c "
+check "T15.4 release-pipeline: genau EINE Gradle-Invocation, alle drei Suiten" wf_python_run -c "
 import io, yaml
 with io.open('.github/workflows/release-pipeline.yml', encoding='utf-8') as f:
     d = yaml.safe_load(f)
@@ -258,7 +258,7 @@ for task in (':app:connectedStandardDebugAndroidTest',
              ':feature-streaming:connectedDebugAndroidTest'):
     assert task in calls[0], (task, calls[0])
 "
-check "T15.5 distribution-stable: kein Assemble-Step, Gate deckt beide Flavors" python -c "
+check "T15.5 distribution-stable: kein Assemble-Step, Gate deckt beide Flavors" wf_python_run -c "
 import io, yaml
 with io.open('.github/workflows/distribution-stable.yml', encoding='utf-8') as f:
     d = yaml.safe_load(f)
@@ -272,7 +272,7 @@ calls = [l for l in code if 'connectedStandardDebugAndroidTest' in l]
 assert len(calls) == 1, calls
 assert 'connectedFossDebugAndroidTest' in calls[0], calls[0]
 "
-check "T15.6 Grants-Helfer nutzt GrantPermissionRule mit dem #249-Permission-Satz" python -c "
+check "T15.6 Grants-Helfer nutzt GrantPermissionRule mit dem #249-Permission-Satz" wf_python_run -c "
 import io
 src = io.open('app/src/androidTest/java/com/vivid/irlbroadcaster/EmulatorTestPermissions.kt', encoding='utf-8').read()
 assert 'GrantPermissionRule.grant(' in src, 'kein GrantPermissionRule-Einsatz'
@@ -281,7 +281,7 @@ for perm in ('CAMERA', 'RECORD_AUDIO', 'ACCESS_FINE_LOCATION',
     assert 'Manifest.permission.' + perm in src, perm
 assert 'VERSION_CODES.TIRAMISU' in src, 'POST_NOTIFICATIONS-API-Guard fehlt'
 "
-check "T15.7 jede App-androidTest-Klasse hängt die Grant-Regel ein" python -c "
+check "T15.7 jede App-androidTest-Klasse hängt die Grant-Regel ein" wf_python_run -c "
 import glob, io
 tests = sorted(p for p in glob.glob('app/src/androidTest/java/com/vivid/irlbroadcaster/*.kt')
                if p.endswith('Test.kt'))
@@ -289,7 +289,7 @@ missing = [p for p in tests
            if 'EmulatorTestPermissions.rule()' not in io.open(p, encoding='utf-8').read()]
 assert tests and not missing, (len(tests), missing)
 "
-check "T15.8 Compose-Klassen chainen den Grant VOR den Activity-Start" python -c "
+check "T15.8 Compose-Klassen chainen den Grant VOR den Activity-Start" wf_python_run -c "
 import glob, io
 compose = 0
 for path in glob.glob('app/src/androidTest/java/com/vivid/irlbroadcaster/*.kt'):
@@ -319,7 +319,7 @@ grep -q 'androidx-test-rules' gradle/libs.versions.toml && grep -q 'libs.android
 # Zeile 1 des Script-Blocks, der Gradle-Aufruf lief nie
 # (Vorfall 02.10.2026, Release-Dispatch 36963108418: alle drei
 # ubuntu-Legs rot nach 38 s erfolgreichem Boot).
-check "T15.13 release-pipeline Gate-Script: set -eu im Script-Block" python -c "
+check "T15.13 release-pipeline Gate-Script: set -eu im Script-Block" wf_python_run -c "
 import yaml, io
 with io.open('.github/workflows/release-pipeline.yml', encoding='utf-8') as f:
     d = yaml.safe_load(f)
@@ -329,7 +329,7 @@ assert len(emu) == 1, emu
 lines = [l for l in emu[0]['with']['script'].strip().splitlines() if l.strip() and not l.strip().startswith('#')]
 assert lines[0].strip() == 'set -eu', lines[0]
 "
-check "T15.14 distribution-stable Gate-Script: set -eu im Script-Block" python -c "
+check "T15.14 distribution-stable Gate-Script: set -eu im Script-Block" wf_python_run -c "
 import yaml, io
 with io.open('.github/workflows/distribution-stable.yml', encoding='utf-8') as f:
     d = yaml.safe_load(f)
@@ -346,7 +346,7 @@ assert lines[0].strip() == 'set -eu', lines[0]
 # Ohne den Hinweis im Snippet wandert beim nächsten Umbau wieder ein
 # `pm grant` in den Workflow — genau der Zustand, der die Signale kollidieren
 # liess (v0.5.49-beta).
-check "T15.15 beide Gates dokumentieren den Grant-Ort (GrantPermissionRule)" python -c "
+check "T15.15 beide Gates dokumentieren den Grant-Ort (GrantPermissionRule)" wf_python_run -c "
 import io, yaml
 for path, job in (('.github/workflows/release-pipeline.yml', 'emulator-tests'),
                   ('.github/workflows/distribution-stable.yml', 'publish-stable')):
@@ -362,7 +362,7 @@ check "T15.16 Begruendung fuer set -e im Script-Block dokumentiert" \
 # Regression (Vorfall 02.10.2026, Dispatch-Run 36963108418): das Snippet laeuft
 # ueber `/usr/bin/sh -c`. Auf ubuntu ist /usr/bin/sh dash, und dash kennt
 # `set -o pipefail` nicht -> "Illegal option", exit 2, Gate startet nie.
-check "T15.17 Gate-Script-Block ist POSIX-sh-kompatibel (kein pipefail)" python -c "
+check "T15.17 Gate-Script-Block ist POSIX-sh-kompatibel (kein pipefail)" wf_python_run -c "
 import yaml, io
 for path, job in (('.github/workflows/release-pipeline.yml', 'emulator-tests'),
                   ('.github/workflows/distribution-stable.yml', 'publish-stable')):
@@ -384,6 +384,9 @@ for path, job in (('.github/workflows/release-pipeline.yml', 'emulator-tests'),
 # Exit-Code 0 liefert (bei pipefail: 2).
 check "T15.18 Erste ausfuehrbare Zeile der Gate-Bloecke laeuft unter /bin/sh" bash -c '
 set -euo pipefail
+# Eigene bash-Subshell: Library hier selbst laden (wf_python_run ist eine
+# Shell-Funktion) — sie löst auch den "py -3"-Launcher korrekt auf.
+source scripts/lib_workflow_yaml.sh
 stage=$(mktemp -d)
 trap "rm -rf $stage" EXIT
 cat > "$stage/extract_first_lines.py" <<'PY'
@@ -404,7 +407,7 @@ for path, job in specs:
     out.append(code[0])
 sys.stdout.write("\n".join(out) + "\n")
 PY
-first_lines=$(python "$stage/extract_first_lines.py")
+first_lines=$(wf_python_run "$stage/extract_first_lines.py")
 if [ -z "$first_lines" ]; then
   echo "  T15.18: keine erste Zeile extrahiert" >&2
   exit 1
@@ -429,7 +432,7 @@ echo "== T17: matrix_only — Matrix-Verifikation ohne Publizieren =="
 # Selbsttests haben das nicht nur nicht gefangen, sondern mit
 # `assert "!= 'true'" in cond` aktiv erzwungen — ein Test, der den Bug festschreibt.
 # T17.4 haelt jetzt Typ und Vergleichsliteral zusammen.
-check "T17.1 matrix_only ist ein workflow_dispatch-Input (boolean, default false)" python -c "
+check "T17.1 matrix_only ist ein workflow_dispatch-Input (boolean, default false)" wf_python_run -c "
 import yaml, io
 with io.open('.github/workflows/release-pipeline.yml', encoding='utf-8') as f:
     d = yaml.safe_load(f)
@@ -439,7 +442,7 @@ spec = inp['matrix_only']
 assert spec.get('type') == 'boolean', spec
 assert str(spec['default']).lower() == 'false', spec
 "
-check "T17.2 jeder Publizier-Job respektiert matrix_only" python -c "
+check "T17.2 jeder Publizier-Job respektiert matrix_only" wf_python_run -c "
 import yaml, io
 with io.open('.github/workflows/release-pipeline.yml', encoding='utf-8') as f:
     d = yaml.safe_load(f)
@@ -451,7 +454,7 @@ for name in mutating:
     assert 'matrix_only' in cond, (name, cond)
     assert 'inputs.matrix_only != true' in cond, (name, cond)
 "
-check "T17.3 Matrix laeuft auch ohne matrix_only (Default: normale Nightly-Publikation bleibt)" python -c "
+check "T17.3 Matrix laeuft auch ohne matrix_only (Default: normale Nightly-Publikation bleibt)" wf_python_run -c "
 import yaml, io
 with io.open('.github/workflows/release-pipeline.yml', encoding='utf-8') as f:
     d = yaml.safe_load(f)
@@ -462,7 +465,7 @@ assert 'matrix_only' not in cond, cond
 # Regression auf den konkreten Vorfall: bei `type: boolean` MUSS der Vergleich
 # gegen das Boolean-Literal gehen. Gegen den String verglichen ist der Guard
 # wirkungslos, ohne dass YAML oder GitHub einen Fehler melden.
-check "T17.4 Vergleichsliteral passt zum deklarierten Input-Typ" python -c "
+check "T17.4 Vergleichsliteral passt zum deklarierten Input-Typ" wf_python_run -c "
 import yaml, io
 with io.open('.github/workflows/release-pipeline.yml', encoding='utf-8') as f:
     d = yaml.safe_load(f)
@@ -486,7 +489,7 @@ print('Typ-Literal-Kopplung konsistent')
 "
 
 echo "== T12: Workflow-YAML valide + API-Staffelung =="
-check "T12.1 release-pipeline.yml parst als YAML" python -c "
+check "T12.1 release-pipeline.yml parst als YAML" wf_python_run -c "
 import yaml, io
 with io.open('.github/workflows/release-pipeline.yml', encoding='utf-8') as f:
     d = yaml.safe_load(f)
@@ -523,7 +526,7 @@ echo "== T16: Provisionierbare API-Level (Vorbedingung des Emulator-Runners) =="
 # Der Contract, den T16 festschreibt: API-Level im Emulator-Gate MUSS im
 # Stable-SDK-Kanal verfügbar sein. compileSdk/targetSdk (37) sind davon nicht
 # betroffen — Kompilieren und Emulator-Provisionierung sind verschiedene Dinge.
-check "T16.1 Matrix-Level liegen im provisionierbaren Bereich (<= 36)" python -c "
+check "T16.1 Matrix-Level liegen im provisionierbaren Bereich (<= 36)" wf_python_run -c "
 import yaml, io
 with io.open('.github/workflows/release-pipeline.yml', encoding='utf-8') as f:
     d = yaml.safe_load(f)
@@ -535,7 +538,7 @@ bad = [l for l in levels if l > MAX_PROVISIONABLE]
 assert not bad, ('nicht provisionierbare API-Level(s) in der Matrix: %s — Leg waere '
                  'dauerhaft tot (sdkmanager: Failed to find package)' % bad)
 "
-check "T16.2 distribution-stable-Gate nutzt einen provisionierbaren Level" python -c "
+check "T16.2 distribution-stable-Gate nutzt einen provisionierbaren Level" wf_python_run -c "
 import yaml, io
 with io.open('.github/workflows/distribution-stable.yml', encoding='utf-8') as f:
     d = yaml.safe_load(f)
@@ -602,7 +605,7 @@ check "T17.10 Sentry-Step setzt VIVID_REPO_ROOT" \
 # Konsistenz statt Liste: jeder Aufruf ueber $CI_SCRIPTS_DIR muss im Stage-Step
 # auch gestaged werden. Eine handgepflegte for-Liste driftet sonst still vorbei
 # (Mutation M8: Sentry aus der Liste entfernt -> nur exit 127 zur Laufzeit).
-check "T17.11 jeder \$CI_SCRIPTS_DIR-Aufruf ist auch im Stage-Step gestaged" python -c "
+check "T17.11 jeder \$CI_SCRIPTS_DIR-Aufruf ist auch im Stage-Step gestaged" wf_python_run -c "
 import re, io
 with io.open('.github/workflows/distribution-stable.yml', encoding='utf-8') as f:
     t = f.read()
@@ -623,7 +626,7 @@ scene_gpu_command_contract() {
   [[ -n "$snippet" && "$snippet" != "-" ]] || return 1
   scratch=$(mktemp -d) || return 1
   printf '%s\n' "$snippet" > "$scratch/raw.sh"
-  python - "$scratch/raw.sh" "$scratch/run.sh" <<'PYSCENE'
+  wf_python_run - "$scratch/raw.sh" "$scratch/run.sh" <<'PYSCENE'
 import pathlib, sys
 text = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8")
 text = text.replace('${{ matrix.api-level }}', '34')
@@ -654,7 +657,7 @@ SCENESETUP
 check 'T18.1 compositor instrumentation runs and propagates failure' \
   scene_gpu_command_contract .github/workflows/release-pipeline.yml
 SCENE_FIXTURES=$(mktemp -d)
-python - "$SCENE_FIXTURES" <<'PYSCENE'
+wf_python_run - "$SCENE_FIXTURES" <<'PYSCENE'
 import pathlib, sys
 root = pathlib.Path(sys.argv[1])
 original = pathlib.Path('.github/workflows/release-pipeline.yml').read_text(encoding='utf-8')

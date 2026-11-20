@@ -169,7 +169,10 @@ validation_line=$(grep -n -m1 'gradle/actions/wrapper-validation@' .github/workf
 # use the official reason vocabulary (ossf/scorecard config/README.md).
 [[ -s .github/scorecard.yml ]] \
   || fail ".github/scorecard.yml (maintainer annotations) is missing"
-python - <<'PYEOF' || fail "scorecard.yml annotations are invalid"
+# Interpreter über die Library (nicht bar `python`): auf Windows trägt oft nur
+# der `py -3`-Launcher PyYAML — bar aufgerufen käme hier "No module named yaml"
+# und der Check wäre rot, obwohl scorecard.yml stimmt.
+wf_python_run - <<'PYEOF' || fail "scorecard.yml annotations are invalid"
 import sys
 import yaml
 
@@ -263,5 +266,28 @@ rm -rf "$utf8_probe"
   && fail "lib_workflow_yaml.sh cannot emit non-ASCII (cp1252 console): wf_step_run returned '$probe_out' instead of the run block — stdout must be forced to UTF-8"
 [[ "$probe_out" == *"≠"* ]] \
   || fail "wf_step_run lost the non-ASCII characters (got: '$probe_out')"
+
+# Interpreter mit Argument (Gate-Blocker 20.11.2026): wf_python darf "py -3"
+# liefern — Kommando PLUS Argument. Wird das als gequoteter String aufgerufen
+# ("$py"), bricht JEDER wf_*-Helper mit "py -3: command not found" ab und gibt
+# "-" zurück; ein Struktur-Check wird dann rot, obwohl der Workflow stimmt
+# (so gescheitert: test_snyk_workflow.sh, sobald PyYAML nur im `py -3`-
+# Interpreter lag). Geprüft wird das Verhalten: python3/python sind kaputt
+# gestubbt, nur der Launcher (py -3 bzw. auf Linux python3) trägt PyYAML — der
+# Helper muss trotzdem den echten Wert liefern.
+arg_py_probe=$(bash -c '
+  cd "$1" || exit 3
+  source scripts/lib_workflow_yaml.sh
+  python3() { return 1; }
+  python() { return 1; }
+  py() {
+    [ "${1:-}" = "-3" ] && shift
+    if p="$(type -P py)"; then command "$p" -3 "$@"; else command python3 "$@"; fi
+  }
+  WF_PY=""; WF_PY_CMD=()
+  wf_job_if "$2" snyk-monitor
+' _ "$PWD" .github/workflows/security-snyk.yml) || arg_py_probe=""
+[[ "$arg_py_probe" == "github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'" ]] \
+  || fail "lib_workflow_yaml.sh cannot drive an interpreter that needs an argument (\"py -3\"): wf_job_if returned '$arg_py_probe' — the interpreter must be passed as an argv array (WF_PY_CMD), not as a quoted string"
 
 echo "✅ [workflow-security-test] Permissions, PR input handling, ChatOverlay findings, wrapper validation, scorecard annotations, helper existence, and UTF-8 library output are guarded."
