@@ -47,7 +47,11 @@ grep -q 'issues:' '$WF' && grep -q 'opened' '$WF' && grep -q 'reopened' '$WF' &&
 "
 check "W3 permissions: {} top-level" bash -c "
 # Eigene bash -c-Subshell: Library dort selbst laden (wf_python_run ist eine
-# Shell-Funktion, kein Kommando) — und sie löst auch `py -3` korrekt auf.
+# Shell-Funktion, kein Kommando) — und sie löst auch den Windows-Launcher
+# 'py -3' korrekt auf. ACHTUNG: dieser String ist doppelt gequotet, also sind
+# Backticks hier Kommandosubstitution und keine Doku — ein ausgeschriebener
+# 'py -3'-Aufruf startet einen REPL und lässt den Gate auf stdin warten
+# (beobachtet: 11 min statiches Log in W3). Kommentare hier backtickfrei halten.
 source scripts/lib_workflow_yaml.sh
 wf_python_run - <<'PY'
 import yaml, io
