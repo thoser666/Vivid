@@ -3,8 +3,10 @@ package com.vivid.irlbroadcaster
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
+import com.vivid.feature.streaming.R as StreamingR
 import org.junit.Before
 import org.junit.Rule
+import org.junit.rules.RuleChain
 import org.junit.Test
 import tools.fastlane.screengrab.Screengrab
 import tools.fastlane.screengrab.UiAutomatorScreenshotStrategy
@@ -25,8 +27,14 @@ import tools.fastlane.screengrab.locale.LocaleTestRule
  */
 class PlayScreenshotsTest {
 
+    // Grants first: the compose rule launches MainActivity when applied (#249).
+    // The locale rule stays separate — screengrab re-instruments per locale.
+    private val composeRule = createAndroidComposeRule<MainActivity>()
+
     @get:Rule
-    val composeRule = createAndroidComposeRule<MainActivity>()
+    val rules: RuleChain = RuleChain
+        .outerRule(EmulatorTestPermissions.rule())
+        .around(composeRule)
 
     // LocaleTestRule: screengrab instrumentiert pro Locale neu — die Regel
     // stellt die Gerätesprache auf das Test-Locale (en-US) und zurück.
@@ -48,7 +56,9 @@ class PlayScreenshotsTest {
     @Test
     fun captureSettings() {
         composeRule.waitForIdle()
-        composeRule.onNodeWithContentDescription("Open Settings").performClick()
+        composeRule.onNodeWithContentDescription(
+            composeRule.activity.getString(StreamingR.string.streaming_settings_content_desc),
+        ).performClick()
         composeRule.waitForIdle()
         Screengrab.screenshot("2_settings")
     }

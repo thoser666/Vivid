@@ -1,0 +1,63 @@
+# Sentry-Resolve per Dispatch (Vivid): schliesst Sentry-Issues, die beim
+# Release-Schnitt bzw. in der Triage als erledigt entschieden wurden.
+#
+# Warum ein eigener Workflow: `SENTRY_RESOLVE_TOKEN` (project:read + project:write)
+# liegt nur als CI-Secret vor — lokal ist kein Schreibzugriff moeglich (der
+# Guard meldet dann SKIP). Der woechentliche Stable-Lauf ruft den Guard mit
+# `--version` (Event-Tag-Vertrag) auf; fuer den ID-Entscheid „kein Defekt /
+# erwarteter Betriebszustand" gibt es diesen manuellen Pfad (docs/sentry-issues.md
+# §5.10, docs/sentry-stats.md §6 Punkt 4).
+#
+# Verdicts des Guards sind bewusst keine Gate-Blocker: fehlender/abgelaufener
+# Token ergibt SKIP (exit 0), nur Aufruffehler sind FEHLER (exit 1).
+name: Automation / Sentry Resolve
+
+on:
+  workflow_dispatch:
+    inputs:
+      ids:
+        description: 'Sentry-Issue-IDs, kommagetrennt (z. B. 7822620409,7822620394)'
+        required: true
+        type: string
+      dry_run:
+        description: 'Nur anzeigen, kein PUT'
+        required: false
+        type: boolean
+        default: false
+
+permissions: {}
+
+concurrency:
+  group: sentry-resolve
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    name: Resolve issues by id
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: 'Sentry: Issues per ID resolven (resolved, ohne inNextRelease)'
+        env:
+          SENTRY_RESOLVE_TOKEN: ${{ secrets.SENTRY_RESOLVE_TOKEN }}
+          SENTRY_ORG: privat-jb
+          SENTRY_PROJECT: vivid
+          # Inputs ausschliesslich ueber Env — kein '${{ }}' im run-Block.
+          IDS_INPUT: ${{ inputs.ids }}
+          DRY_RUN_INPUT: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          if [ -z "${IDS_INPUT:-}" ]; then
+            echo "::error::Input 'ids' ist leer — kommagetrennte Sentry-Issue-IDs noetig"
+            exit 1
+          fi
+          if [ "${DRY_RUN_INPUT:-false}" = "true" ]; then
+            bash scripts/check_sentry_resolve.sh --ids "$IDS_INPUT" --dry-run
+          else
+            bash scripts/check_sentry_resolve.sh --ids "$IDS_INPUT"
+          fi

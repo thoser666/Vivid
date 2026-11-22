@@ -32,7 +32,7 @@ Thanks for your interest in contributing! 🎉
 2. **Implement** — follow the existing conventions:
    - **Kotlin + Compose**, module-per-feature (`feature-*`), core logic in `core/`, data in `data/`/`domain/`.
    - **Tests are mandatory** for new functionality (unit tests in `src/test`, same module — see "Test policy" below).
-   - **No hardcoded UI strings** — all user-facing text goes into `values/strings.xml` **plus complete `values-en/` and `values-fr/` translations**. The i18n guard (`scripts/check_i18n.sh`) blocks `Text("…")`-style literals in UI modules. Bot replies are deliberately kept in the streamer's language and are exempt (see `docs/i18n-plan.md` §4).
+   - **No hardcoded UI strings** — all user-facing text goes into `values/strings.xml` **plus complete `values-en/` and `values-fr/` translations**. The i18n guard (`scripts/check_i18n.sh`) blocks `Text("…")`-style literals in UI modules. Bot replies are deliberately kept in the streamer's language and are exempt (see `docs/i18n-plan.md` §4). **Log output is English** — the same guard rejects German `Timber.*` messages in `src/main` (logs are deliberately not localized, §4).
 3. **Run the pre-push gate locally** (see below) — it runs the same checks as CI.
 4. **Open the pull request against `develop`** — the [pull request template](.github/pull_request_template.md) is pre-filled; describe *what* and *why*; link related issues. Bug reports and feature ideas use the templates in [.github/ISSUE_TEMPLATE/](.github/ISSUE_TEMPLATE/).
 5. **Required checks must pass**; a maintainer reviews and merges (squash keeps history linear).
@@ -85,9 +85,18 @@ External contributors (people outside the core maintainer team) are credited in
 
 A maintainer adds the row when accepting the contribution (author may add it in
 their own PR — the pull request template has a checkbox for it). `offen` flips to
-`umgesetzt` once the work is merged. Structure is
-enforced by `scripts/check_contributors.sh` (pre-push gate + CI) — malformed
-edits break the build.
+`umgesetzt` once the work is merged.
+
+**Pre-merge announcement (practice since #330).** The row may also land **before**
+the merge: when a substantial third-party PR is open and the author has not done
+the self-entry themselves, a maintainer announces it as `offen` right away —
+`offen` already means "announced, not merged yet". After the merge the fork-PR
+reminder **flags** the row while it still reads `offen` and asks for the flip;
+writing `umgesetzt` stays maintainer hand-work — the reminder workflow has no
+`contents: write` and never edits CONTRIBUTORS.md itself (locked by test case
+C17 in `scripts/test_contributors.sh`). Structure is enforced by
+`scripts/check_contributors.sh` (pre-push gate + CI) — malformed edits break
+the build.
 
 **Fork-PR reminder + public credit (automatic).** Merging a pull request from
 a fork does not update CONTRIBUTORS.md by itself. On every push to develop,
@@ -160,7 +169,7 @@ zugewiesen, wenn mit der Umsetzung begonnen wird.
 2. **Implementieren** — bestehende Konventionen beachten:
    - **Kotlin + Compose**, Modul je Feature (`feature-*`), Kernlogik in `core/`, Daten in `data/`/`domain/`.
    - **Testpflicht:** neue Funktionalität kommt mit Unit-Tests (gleiches Modul, `src/test`).
-   - **Keine hartkodierten UI-Strings** — alle Texte in `values/strings.xml` **plus vollständige Übersetzungen in `values-en/` und `values-fr/`**. Der I18n-Guard (`scripts/check_i18n.sh`) blockt `Text("…")`-Literale in UI-Modulen. Bot-Antworten bleiben bewusst in der Streamer-Sprache und sind ausgenommen (`docs/i18n-plan.md` §4).
+   - **Keine hartkodierten UI-Strings** — alle Texte in `values/strings.xml` **plus vollständige Übersetzungen in `values-en/` und `values-fr/`**. Der I18n-Guard (`scripts/check_i18n.sh`) blockt `Text("…")`-Literale in UI-Modulen. Bot-Antworten bleiben bewusst in der Streamer-Sprache und sind ausgenommen (`docs/i18n-plan.md` §4). **Log-Ausgaben sind Englisch** — derselbe Guard meldet deutsche `Timber.*`-Meldungen in `src/main` als Fehler (Logs werden bewusst nicht lokalisiert, §4).
 3. **Pre-Push-Gate lokal ausführen** (siehe unten) — dieselben Checks wie die CI.
 4. **Pull Request gegen `develop` öffnen** — die [Pull-Request-Vorlage](.github/pull_request_template.md) ist vorbefüllt; Was und Warum beschreiben; verwandte Issues verlinken. Fehler- und Feature-Wünsche nutzen die Vorlagen in [.github/ISSUE_TEMPLATE/](.github/ISSUE_TEMPLATE/).
 5. **Required Checks müssen grün sein**; ein Maintainer reviewed und merged (Squash hält die History linear).
@@ -443,6 +452,17 @@ Dritte (Personen außerhalb des Kern-Teams) werden in
 
 Beim Annehmen eines Beitrags ergänzt ein Maintainer die Zeile (der Autor darf es
 im eigenen PR selbst tun); `offen` → `umgesetzt`, sobald die Arbeit gemergt ist.
+
+**Ankündigung vor dem Merge (Praxis seit #330).** Die Zeile darf auch **vor** dem
+Merge landen: Kommt ein gewichtiger Dritt-PR auf, ohne dass der Autor die
+Selbstpflicht aus der PR-Vorlage erfüllt hat, kündigt ein Maintainer den Beitrag
+sofort als `offen` an — `offen` heißt genau „angekündigt / noch nicht gemergt“.
+Nach dem Merge meldet der Fork-PR-Reminder die Zeile, solange sie noch `offen`
+steht, und fordert zum Flippen auf — das Schreiben von `umgesetzt` bleibt
+Maintainer-Handarbeit: der Workflow hat kein `contents: write` und editiert
+CONTRIBUTORS.md nie selbst (gesichert durch Testfall C17 in
+`scripts/test_contributors.sh`).
+
 Die Struktur erzwingt `scripts/check_contributors.sh` (Pre-Push-Gate + CI) —
 Formatfehler brechen den Build ab.
 

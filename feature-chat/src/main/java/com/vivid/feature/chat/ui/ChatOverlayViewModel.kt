@@ -9,10 +9,8 @@ import com.vivid.feature.chat.model.ChatAlertType
 import com.vivid.feature.chat.model.ChatBadge
 import com.vivid.feature.chat.model.ChatConnectionState
 import com.vivid.feature.chat.model.ChatMessage
-import com.vivid.feature.chat.model.ChatPlatform
 import com.vivid.feature.chat.model.ChatSharedChatState
 import com.vivid.feature.chat.emotes.EmoteSource
-import com.vivid.feature.chat.emotes.ThirdPartyEmote
 import com.vivid.feature.chat.emotes.ThirdPartyEmoteService
 import com.vivid.feature.chat.twitch.TwitchBadgeClient
 import com.vivid.feature.chat.twitch.TwitchChatEventSubReader
@@ -20,6 +18,7 @@ import com.vivid.feature.chat.twitch.TwitchEventSubConfig
 import com.vivid.feature.chat.kick.KickChatReader
 import com.vivid.feature.chat.youtube.YoutubeChatReader
 import dagger.hilt.android.lifecycle.HiltViewModel
+import com.vivid.feature.chat.di.WidgetRuntime
 import javax.inject.Inject
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,18 +26,25 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 
 @HiltViewModel
 class ChatOverlayViewModel @Inject constructor(
-    private val chatReader: TwitchChatEventSubReader,
+    @param:WidgetRuntime private val chatReader: TwitchChatEventSubReader,
     /** YouTube-Lese-Adapter (P1, Multi-Plattform-Chat): anonymes innertube-Polling. */
-    private val youtubeReader: YoutubeChatReader,
+    @param:WidgetRuntime private val youtubeReader: YoutubeChatReader,
     /** Kick-Lese-Adapter (P2, Multi-Plattform-Chat): anonymes Pusher-WebSocket. */
-    private val kickReader: KickChatReader,
+    @param:WidgetRuntime private val kickReader: KickChatReader,
     private val settingsRepository: SettingsRepository,
     private val badgeClient: TwitchBadgeClient,
-    private val emoteService: ThirdPartyEmoteService,
+    @param:WidgetRuntime private val emoteService: ThirdPartyEmoteService,
 ) : ViewModel() {
+    private val selectedWidget = MutableStateFlow<String?>(null)
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val widgetSettings = selectedWidget.flatMapLatest { if (it == null) settingsRepository.appSettingsFlow else settingsRepository.widgetSettingsFlow(it) }
+    fun useWidget(id: String?) { selectedWidget.value = id }
+
 
     companion object {
         /** Maximale Anzahl an Nachrichten, die im Overlay vorgehalten werden. */
@@ -142,7 +148,7 @@ class ChatOverlayViewModel @Inject constructor(
         // IRC-Ausstieg liest das Overlay über EventSub `channel.chat.message`
         // und braucht deshalb die Bot-Zugangsdaten (Login + Token + Client-ID).
         viewModelScope.launch {
-            settingsRepository.appSettingsFlow.collect { settings ->
+            widgetSettings.collect { settings ->
                 val enabled = settings.chatOverlayEnabled
                 val channel = settings.chatChannel.trim().lowercase()
                 val configured = settings.chatBotLogin.isNotBlank() &&
@@ -152,12 +158,12 @@ class ChatOverlayViewModel @Inject constructor(
                 // Twitch-Konfiguration, Nachrichten werden im selben Overlay
                 // gemergt (platform je Nachricht).
                 val youtubeId = settings.youtubeChannelId.trim()
-                val youtubeActive = settings.youtubeChatEnabled && youtubeId.isNotBlank()
+                val youtubeActive = enabled && settings.youtubeChatEnabled && youtubeId.isNotBlank()
                 // Kick-Session (P2): eigenes Enable/Slug — unabhängig von der
                 // Twitch-Konfiguration, Nachrichten werden im selben Overlay
                 // gemergt (platform je Nachricht).
                 val kickSlug = settings.kickChannel.trim()
-                val kickActive = settings.kickChatEnabled && kickSlug.isNotBlank()
+                val kickActive = enabled && settings.kickChatEnabled && kickSlug.isNotBlank()
                 val previous = _uiState.value
                 val contextChanged = previous.enabled != enabled || previous.channel != channel
                 val youtubeContextChanged =
@@ -403,5 +409,6 @@ class ChatOverlayViewModel @Inject constructor(
         chatReader.stop()
         youtubeReader.stop()
         kickReader.stop()
+        emoteService.close()
     }
 }

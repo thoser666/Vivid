@@ -1,8 +1,8 @@
 package com.vivid.feature.widget
 
+import androidx.compose.runtime.getValue
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -26,6 +26,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 
 /** Reine Slideshow-Zustandslogik, bewusst ohne Android-/Coil-Abhängigkeit. */
 object SlideshowController {
@@ -54,12 +56,17 @@ data class SlideshowWidgetUiState(
 class SlideshowWidgetViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
 ) : ViewModel() {
+    private val selectedWidget = MutableStateFlow<String?>(null)
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val widgetSettings = selectedWidget.flatMapLatest { if (it == null) settingsRepository.appSettingsFlow else settingsRepository.widgetSettingsFlow(it) }
+    fun useWidget(id: String?) { selectedWidget.value = id }
+
     private val _uiState = MutableStateFlow(SlideshowWidgetUiState())
     val uiState: StateFlow<SlideshowWidgetUiState> = _uiState.asStateFlow()
 
     init {
         viewModelScope.launch {
-            settingsRepository.appSettingsFlow.collect { settings ->
+            widgetSettings.collect { settings ->
                 _uiState.update {
                     it.copy(
                         enabled = settings.slideshowWidgetEnabled,

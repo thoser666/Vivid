@@ -1,5 +1,6 @@
 package com.vivid.feature.streaming.ui
 
+import android.content.Context
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.pm.PackageManager
@@ -15,9 +16,6 @@ import android.view.ViewTreeObserver
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Podcasts
 import androidx.compose.material3.*
@@ -33,7 +31,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.displayCutout
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -41,20 +38,21 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.background
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.filled.Error
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.zIndex
+import androidx.activity.compose.LocalActivity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
@@ -69,10 +67,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
+import com.vivid.feature.streaming.ui.scene.SceneEditorScreen
+import com.vivid.feature.streaming.CameraModeStatus
+import com.vivid.feature.streaming.CameraModeNotice
+import com.vivid.core.data.CameraMode
 import com.vivid.feature.streaming.StreamingEngine
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.compose.ui.window.DialogWindowProvider
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -83,20 +84,9 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
-import com.vivid.core.data.ResolvedEncoderConfig
-import com.vivid.core.data.StreamScene
 import com.vivid.core.ui.LocalWindowWidthClass
 import com.vivid.core.ui.adaptiveControlsMaxWidth
-import com.vivid.core.ui.theme.LocalExtendedColors
-import com.vivid.feature.chat.twitch.TwitchChannelUiState
 import com.vivid.feature.chat.twitch.TwitchChannelViewModel
-import com.vivid.feature.chat.ui.ChatOverlay
-import com.vivid.feature.widget.GridOverlay
-import com.vivid.feature.widget.ImageWidget
-import com.vivid.feature.widget.QrCodeWidget
-import com.vivid.feature.widget.SlideshowWidget
-import com.vivid.feature.widget.SubtitlesOverlay
-import com.vivid.feature.widget.TextInfoWidget
 import com.vivid.feature.streaming.ConfigIssueSeverity
 import com.vivid.feature.streaming.FocusMode
 import com.vivid.feature.streaming.ReplayState
@@ -138,132 +128,85 @@ fun StreamingScreen(
     navController: NavController,
     viewModel: StreamingViewModel = hiltViewModel(),
     twitchViewModel: TwitchChannelViewModel = hiltViewModel(),
-    // Overlays (Chat + Widgets) als Slot: Die Kinder holen ihre ViewModels
-    // selbst per hiltViewModel() — der Slot erlaubt Tests/Embedding, sie durch
-    // eigenen Inhalt zu ersetzen (Default = [DefaultStreamingOverlay]).
-    overlayContent: @Composable BoxScope.() -> Unit = { DefaultStreamingOverlay() },
+    onPreviewFullscreenChange: (Boolean) -> Unit = {},
+    // Optional local UI overlay. Scene widgets are composed in the encoder GL path.
+    // The default slot owns Activity permission prompts; tests may replace it.
+    overlayContent: @Composable BoxScope.() -> Unit = { SceneLocationPermission() },
 ) {
     val streamingEngine = viewModel.streamingEngine
     val streamingState by streamingEngine.streamingState.collectAsStateWithLifecycle()
     val targetStates by streamingEngine.targetStates.collectAsStateWithLifecycle()
-    val activeEncoder by streamingEngine.activeEncoder.collectAsStateWithLifecycle()
-    val bitrateDiagnostics by streamingEngine.bitrateDiagnostics.collectAsStateWithLifecycle()
-    val measuredEncoderFps by streamingEngine.measuredEncoderFps.collectAsStateWithLifecycle()
+    val measuredFps by streamingEngine.measuredEncoderFps.collectAsStateWithLifecycle()
+    val streamStartedAtMs by streamingEngine.streamStartedAtMs.collectAsStateWithLifecycle()
+    val cameraModeStatus by streamingEngine.cameraModeStatus.collectAsStateWithLifecycle()
     val activeSourceKind by streamingEngine.activeSourceKind.collectAsStateWithLifecycle()
+    val appSettings by viewModel.appSettings.collectAsStateWithLifecycle(com.vivid.core.data.AppSettings())
+    val scenes by viewModel.scenes.collectAsStateWithLifecycle(emptyList())
+    val activeSceneId by viewModel.activeSceneId.collectAsStateWithLifecycle(null)
     val configIssues by viewModel.configIssues.collectAsStateWithLifecycle()
-    // Missing configuration should not obscure the preview before a Go-Live attempt.
-    val previewConfigIssues = configIssues.filterNot { it.messageRes == R.string.stream_error_no_url }
+    var startAttempt by remember { mutableIntStateOf(0) }
     var startAttempted by remember { mutableStateOf(false) }
-    val snackbarHostState = remember { SnackbarHostState() }
-    val dismissLabel = stringResource(android.R.string.ok)
-    StreamConfigurationFeedback(startAttempted, configIssues, streamingState, snackbarHostState) {
-        startAttempted = false
+    var notice by remember { mutableStateOf<PreviewNotice?>(null) }
+    var noticeSequence by remember { mutableIntStateOf(0) }
+    fun showNotice(text: String, error: Boolean, source: String) {
+        notice = PreviewNotice(text, error, source, ++noticeSequence)
+    }
+    StreamConfigurationFeedback(startAttempted, startAttempt, configIssues, streamingState,
+        onMessage = { text, error -> showNotice(text, error, "configuration") },
+        onClear = { if (notice?.source == "configuration") notice = null },
+        onAttemptConsumed = { startAttempted = false })
+    StreamSessionFeedback(cameraModeStatus, targetStates, streamingState, startAttempt) { text, error ->
+        showNotice(text, error, "session")
     }
     val twitchState by twitchViewModel.uiState.collectAsStateWithLifecycle()
 
+    val sceneEditor by viewModel.sceneEditor.collectAsStateWithLifecycle()
+    val sceneSourceStates by streamingEngine.sceneProducerStates.collectAsStateWithLifecycle()
+    val privacyEnabled by viewModel.privacyEnabled.collectAsStateWithLifecycle(false)
+    sceneEditor?.let { editor ->
+        SceneEditorScreen(editor, streamingEngine, activeSourceKind, sceneSourceStates,
+            scenes.flatMap { it.composition?.sources.orEmpty() }, privacyEnabled,
+            viewModel::editScene, viewModel::saveSceneEditor, viewModel::cancelSceneEditor,
+            viewModel::grantSceneProjection)
+        return
+    }
+
     RefreshTwitchStatus(streamingState, twitchViewModel)
 
-    // Szenen (Basic Scenes) + Auto-Scene-Switcher: Liste, aktive Szene,
-    // Auto-Wechsel-Zustand — aus SceneRepository/AutoSceneSwitcher.
-    val scenes by viewModel.scenes.collectAsStateWithLifecycle(initialValue = emptyList())
-    val activeSceneId by viewModel.activeSceneId.collectAsStateWithLifecycle(initialValue = null)
-    val autoSwitchEnabled by viewModel.autoSwitchEnabled.collectAsStateWithLifecycle()
-    val autoSwitchIntervalSeconds by viewModel.autoSwitchIntervalSeconds.collectAsStateWithLifecycle()
-
-    // P1: Datenschutz-Anonymisierung — Master-Toggle + Zonen-Editor-Zustand
-    // (Zonen persistiert im ZoneRepository, framesynchron an die Engine).
-    val privacyEnabled by viewModel.privacyEnabled.collectAsStateWithLifecycle(initialValue = false)
-    val privacyZones by viewModel.privacyZones.collectAsStateWithLifecycle(initialValue = emptyList())
-    // P2b: „Ganzbild verpixeln“ — grobe Voll-Frame-Mosaikstufe des Privacy-
-    // Filters (Standort-Schutz), nur zusammen mit dem Master-Toggle sichtbar.
-    val fullFrameBlurEnabled by viewModel.fullFrameBlurEnabled.collectAsStateWithLifecycle(initialValue = false)
-    var privacyEditing by remember { mutableStateOf(false) }
-
-    // #249: Der Screen-Eintritt fordert NIE Permissions an — auch nicht die
-    // Kamera-Permission für die Idle-Vorschau. Ein Auto-Request öffnete den
-    // Systemdialog beim bloßen Betreten des Screens (GrantPermissionsActivity
-    // über der MainActivity, im selben Task) und leerte damit den Semantik-Baum
-    // instrumentierter Compose-Tests im Emulator-Gate (Tag-Run 36849526447).
-    // CAMERA/Mikrofon/Notifications werden ausschließlich im Go-Live-Flow
-    // (User-Geste) angefordert; die Idle-Preview startet nur bei bereits
-    // erteilter Permission (Guard hier + in startIdlePreviewIfReady).
+    // MainActivity requests capture permissions once on the first app launch.
+    // Navigation to this screen never repeats a denied request; Start can retry.
+    // The idle preview still requires an actual camera grant.
     val context = LocalContext.current
     val displayRotationDegrees = rememberDisplayRotation()
     var permissionDenied by remember { mutableStateOf(false) }
-    val requestPermissionsAndStart = rememberStreamStartAction(viewModel) { granted ->
+    val requestPermissionsAndStart = rememberStreamStartAction(viewModel, streamingEngine) { granted ->
         permissionDenied = !granted
         startAttempted = startAttempted && granted
     }
 
-    val requestPermissionsAndRecord = rememberRecordingAction(streamingEngine, snackbarHostState, dismissLabel)
-
-    // Start idle preview only when camera permission is already granted.
-    LaunchedEffect(Unit) {
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
-            PackageManager.PERMISSION_GRANTED
-        ) {
-            streamingEngine.startIdlePreviewIfReady()
-        }
+    val permissionMessage = stringResource(R.string.streaming_permission_required)
+    LaunchedEffect(permissionDenied, startAttempt) {
+        if (permissionDenied) showNotice(permissionMessage, true, "permission")
+        else if (notice?.source == "permission") notice = null
     }
+    val requestPermissionsAndRecord = rememberRecordingAction(viewModel) { message ->
+        showNotice(message, true, "recording")
+    }
+
+    StartGrantedIdlePreview(streamingEngine, context)
 
     val requestScreenCapture = rememberScreenCaptureAction(streamingEngine)
 
     val requestVideoPicker = rememberVideoPickerAction(streamingEngine)
+    val selectScene = rememberSceneSelectionAction(viewModel, scenes)
 
     RefreshStreamingScreenOnResume(viewModel, streamingEngine)
 
-    var scenesExpanded by rememberSaveable { mutableStateOf(false) }
-
-    if (scenesExpanded) {
-        ModalBottomSheet(
-            onDismissRequest = { scenesExpanded = false },
-            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-            dragHandle = {
-                Box(
-                    modifier = Modifier.fillMaxWidth().height(24.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Box(
-                        Modifier.size(width = 32.dp, height = 4.dp)
-                            .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f), CircleShape),
-                    )
-                }
-            },
-        ) {
-            HideDialogSystemBars()
-            Column(Modifier.testTag("scenes_panel")) {
-                SceneSwitcherBar(
-                    scenes = scenes,
-                    activeSceneId = activeSceneId,
-                    autoSwitchEnabled = autoSwitchEnabled,
-                    autoSwitchIntervalSeconds = autoSwitchIntervalSeconds,
-                    isStreaming = streamingState is StreamingState.Streaming,
-                    onApplyScene = viewModel::applyScene,
-                    onSaveScene = viewModel::saveScene,
-                    onDeleteScene = viewModel::deleteScene,
-                    onAutoSwitchEnabledChange = viewModel::setAutoSwitchEnabled,
-                    onAutoSwitchIntervalChange = viewModel::setAutoSwitchIntervalSeconds,
-                    privacyEnabled = privacyEnabled,
-                    onPrivacyEnabledChange = { enabled ->
-                        // Deaktivieren schließt zugleich den Zonen-Editor (die
-                        // Zonen sind ohne Toggle nicht mehr im Bild).
-                        if (!enabled) privacyEditing = false
-                        viewModel.setPrivacyEnabled(enabled)
-                    },
-                    fullFrameBlurEnabled = fullFrameBlurEnabled,
-                    onFullFrameBlurChange = viewModel::setFullFrameBlurEnabled,
-                    onOpenZoneEditor = {
-                        scenesExpanded = false
-                        privacyEditing = true
-                    },
-                )
-            }
-        }
-    }
+    var controlsExpanded by remember { mutableStateOf(false) }
+    val previewFullscreen = !controlsExpanded
+    SideEffect { onPreviewFullscreenChange(previewFullscreen) }
 
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
         // The preview uses the cutout area; only controls avoid the camera hole.
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
     ) { paddingValues ->
@@ -275,24 +218,39 @@ fun StreamingScreen(
         ) {
             val density = LocalDensity.current
             val previewSize = with(density) { IntSize(maxWidth.roundToPx(), maxHeight.roundToPx()) }
-            StreamingSourcePreview(streamingEngine, activeSourceKind, previewSize, displayRotationDegrees) {
-                requestVideoPicker()
-            }
+            StreamingSourcePreview(streamingEngine, activeSourceKind, previewSize, displayRotationDegrees)
 
             BoxWithConstraints(
-                modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.displayCutout),
+                modifier = Modifier.fillMaxSize().zIndex(1f).windowInsetsPadding(WindowInsets.displayCutout),
             ) {
                 val topButtonMaxWidth = maxWidth / 2 - 20.dp
-                StreamStartButton(streamingState, onStop = viewModel::stopStream) {
-                    startAttempted = true
-                    if (configIssues.none { it.messageRes == R.string.stream_error_no_url }) requestPermissionsAndStart()
-                }
-
-                TextButton(
-                    onClick = { scenesExpanded = true },
-                    modifier = Modifier.align(Alignment.BottomCenter).testTag("open_scenes"),
+                var bottomControlsHeight by remember { mutableIntStateOf(0) }
+                Box(
+                    Modifier.fillMaxSize().padding(top = 72.dp,
+                        bottom = with(density) { bottomControlsHeight.toDp() }),
+                    contentAlignment = Alignment.Center,
                 ) {
-                    Text(stringResource(R.string.scene_bar_title))
+                    notice?.let { message ->
+                        TransientPreviewMessage(message, onDismiss = { if (notice == message) notice = null })
+                    }
+                }
+                Column(
+                    Modifier.align(Alignment.BottomCenter).fillMaxWidth()
+                        .onSizeChanged { bottomControlsHeight = it.height }
+                        .padding(start = 16.dp, end = 16.dp, bottom = if (maxWidth > maxHeight) 16.dp else 48.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    PreviewSelectionControls(scenes, activeSceneId, appSettings.cameraControls,
+                        streamingEngine, activeSourceKind, selectScene,
+                        showZoom = appSettings.localOverlays.showZoom,
+                        showScenes = appSettings.localOverlays.showScenes,
+                        modifier = Modifier.align(Alignment.End).widthIn(max = 720.dp))
+                    StreamStartButton(streamingState, onStop = viewModel::stopStream) {
+                        startAttempted = true
+                        startAttempt++
+                        if (configIssues.none { it.messageRes == R.string.stream_error_no_url }) requestPermissionsAndStart()
+                    }
                 }
 
                 // Twitch-Status: Viewerzahl und Stream-Metadaten als kompakte Anzeige.
@@ -320,43 +278,14 @@ fun StreamingScreen(
                     }
                 }
 
-                // Per-Ziel-Status (Multi-Streaming): zeigt jedes Ziel mit aktuellem Zustand.
-                if (targetStates.isNotEmpty() && streamingState !is StreamingState.Idle) {
-                    Surface(
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .padding(start = 16.dp, end = 16.dp, bottom = 72.dp),
-                        shape = MaterialTheme.shapes.medium,
-                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        contentColor = MaterialTheme.colorScheme.onSurface,
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(4.dp),
-                        ) {
-                            if (activeSourceKind == VideoSourceKind.CAMERA) {
-                                activeEncoder?.let { AppliedCameraProfile(it, measuredEncoderFps) }
-                                bitrateDiagnostics?.let {
-                                    Text(
-                                        stringResource(R.string.streaming_encoder_bitrate_mode, it.mode.name, it.targetKbps.toString(), it.encoderName),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        modifier = Modifier.testTag("encoder_bitrate_mode"),
-                                    )
-                                }
-                            }
-                            targetStates.forEach { state ->
-                                TargetStatusRow(state)
-                            }
-                        }
-                    }
-                }
-
                 StreamingControlsMenu(
                     streamingEngine, navController, topButtonMaxWidth,
+                    controlsExpanded = controlsExpanded,
+                    onControlsExpandedChange = { controlsExpanded = it },
                     onRecord = requestPermissionsAndRecord,
                     onScreenCapture = requestScreenCapture,
                     onVideoPicker = { requestVideoPicker() },
+                    onEditScene = { scenes.firstOrNull { it.id == activeSceneId }?.let(viewModel::openSceneEditor) },
                 )
                 FilledIconButton(
                     onClick = { navController.navigate("settings_route") },
@@ -365,66 +294,79 @@ fun StreamingScreen(
                     Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.streaming_settings_content_desc))
                 }
 
-                StreamingIssueBanners(previewConfigIssues, streamingState, permissionDenied)
             }
 
             // Chat-Overlay + Widgets: als Slot ausgelagert (siehe Parameter-Doku).
             overlayContent()
 
-            // P1: Zonen-Editor (Anonymisierung, Skizze §5) über der Vorschau —
-            // nur im Idle-Modus geöffnet (Szenen-Sperre-Muster: während des
-            // Streams wird nicht editiert), Zonen via ViewModel persistiert und
-            // framesynchron an die Engine.
-            if (privacyEditing) {
-                ZoneEditorOverlay(
-                    zones = privacyZones,
-                    onZonesChange = viewModel::savePrivacyZones,
-                    onClose = { privacyEditing = false },
+            if (streamingState is StreamingState.Streaming) {
+                StreamStatusOverlay(
+                    fps = measuredFps,
+                    bitrateKbps = currentStreamBitrateKbps(targetStates),
+                    startedAtMs = streamStartedAtMs,
+                    showFps = appSettings.localOverlays.showFps,
+                    showDuration = appSettings.localOverlays.showDuration,
+                    showBitrate = appSettings.localOverlays.showBitrate,
+                    modifier = Modifier.align(Alignment.TopStart)
+                        .windowInsetsPadding(WindowInsets.displayCutout)
+                        .padding(start = 16.dp, top = 64.dp),
                 )
             }
 
+
         }
     }
 }
 
-/** The scenes sheet owns a separate window, so it needs the same fullscreen policy. */
 @Composable
-private fun HideDialogSystemBars() {
+private fun StartGrantedIdlePreview(streamingEngine: StreamingEngine, context: Context) {
+    LaunchedEffect(Unit) {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+            streamingEngine.startIdlePreviewIfReady()
+        }
+    }
+}
+
+/** Popups and sheets own a window; their navigation buttons must stay available too. */
+@Composable
+private fun MenuSystemBarsEffect() {
     val view = LocalView.current
-    DisposableEffect(view) {
-        val window = (view.parent as? DialogWindowProvider)?.window
-        fun hideBars() {
-            window?.let {
-                WindowCompat.getInsetsController(it, it.decorView).apply {
-                    systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-                    hide(WindowInsetsCompat.Type.systemBars())
-                }
-            }
+    val window = (view.parent as? androidx.compose.ui.window.DialogWindowProvider)?.window
+        ?: LocalActivity.current?.window
+    DisposableEffect(view, window) {
+        fun showBars() {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) showMenuSystemBars(view)
+            else window?.let { showLegacyMenuSystemBars(view, it) }
         }
         val listener = ViewTreeObserver.OnWindowFocusChangeListener { focused ->
-            if (focused) hideBars()
+            if (focused) showBars()
         }
         view.viewTreeObserver.addOnWindowFocusChangeListener(listener)
-        hideBars()
+        showBars()
         onDispose {
-            view.viewTreeObserver.removeOnWindowFocusChangeListener(listener)
+            if (view.viewTreeObserver.isAlive) view.viewTreeObserver.removeOnWindowFocusChangeListener(listener)
         }
     }
 }
 
-@Composable
-internal fun AppliedCameraProfile(config: ResolvedEncoderConfig, measuredFps: Int?) {
-    val preset = config.preset
-    Text(
-        stringResource(R.string.streaming_camera_profile, preset.width, preset.height, preset.fps),
-        style = MaterialTheme.typography.bodySmall,
-        modifier = Modifier.testTag("applied_camera_profile"),
-    )
-    if (config.fallbackApplied) {
-        Text(stringResource(R.string.streaming_camera_profile_fallback), style = MaterialTheme.typography.bodySmall)
+/** A popup's platform controller belongs to its own window, rather than the Activity. */
+@androidx.annotation.RequiresApi(Build.VERSION_CODES.R)
+internal fun showMenuSystemBars(view: android.view.View) {
+    view.windowInsetsController?.apply {
+        systemBarsBehavior = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            android.view.WindowInsetsController.BEHAVIOR_DEFAULT
+        } else {
+            // API 30 uses value 1 for swipe behavior, renamed DEFAULT in API 31.
+            1
+        }
+        show(android.view.WindowInsets.Type.systemBars())
     }
-    measuredFps?.let {
-        Text(stringResource(R.string.streaming_camera_measured_fps, it), style = MaterialTheme.typography.bodySmall)
+}
+
+internal fun showLegacyMenuSystemBars(view: android.view.View, window: android.view.Window) {
+    WindowCompat.getInsetsController(window, view).apply {
+        systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_DEFAULT
+        show(WindowInsetsCompat.Type.systemBars())
     }
 }
 
@@ -433,17 +375,23 @@ private fun BoxScope.StreamingControlsMenu(
     streamingEngine: StreamingEngine,
     navController: NavController,
     topButtonMaxWidth: Dp,
+    controlsExpanded: Boolean,
+    onControlsExpandedChange: (Boolean) -> Unit,
     onRecord: () -> Unit,
     onScreenCapture: () -> Unit,
     onVideoPicker: () -> Unit,
+    onEditScene: () -> Unit,
 ) {
-    var controlsExpanded by remember { mutableStateOf(false) }
-    fun dismissControls() { controlsExpanded = false }
+    fun dismissControls() { onControlsExpandedChange(false) }
     Box(
         modifier = Modifier.align(Alignment.TopStart).padding(top = 12.dp, start = 16.dp),
     ) {
-        FilledTonalButton(
-            onClick = { controlsExpanded = true },
+        Button(
+            onClick = { onControlsExpandedChange(true) },
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+            ),
             modifier = Modifier.widthIn(max = topButtonMaxWidth).testTag("open_controls"),
             contentPadding = PaddingValues(horizontal = 12.dp),
         ) {
@@ -451,11 +399,16 @@ private fun BoxScope.StreamingControlsMenu(
         }
         DropdownMenu(
             expanded = controlsExpanded,
-            onDismissRequest = { controlsExpanded = false },
+            onDismissRequest = { onControlsExpandedChange(false) },
             modifier = Modifier.width(adaptiveControlsMaxWidth(LocalWindowWidthClass.current)).testTag("controls_menu"),
         ) {
+            MenuSystemBarsEffect()
             SourceSelectionItems(streamingEngine, ::dismissControls, onScreenCapture, onVideoPicker)
             HorizontalDivider()
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.scene_editor_open)) },
+                onClick = { dismissControls(); onEditScene() },
+            )
             RecordingMenuItem(streamingEngine, onRecord)
             CameraToggleItems(streamingEngine, navController, ::dismissControls)
             VideoEffectItems(streamingEngine)
@@ -504,9 +457,14 @@ private fun SourceSelectionItems(streamingEngine: StreamingEngine, onDismiss: ()
 private fun RecordingMenuItem(streamingEngine: StreamingEngine, onRecord: () -> Unit) {
     val activeSourceKind by streamingEngine.activeSourceKind.collectAsStateWithLifecycle()
     val replayState by streamingEngine.replayState.collectAsStateWithLifecycle()
+    val composition by streamingEngine.sceneComposition.collectAsStateWithLifecycle()
+    val streamingState by streamingEngine.streamingState.collectAsStateWithLifecycle()
+    val canRecord = remember(activeSourceKind, composition, streamingState, replayState) {
+        streamingEngine.canRecordReplay()
+    }
     DropdownMenuItem(
         modifier = Modifier.testTag("replay_record"),
-        enabled = activeSourceKind == VideoSourceKind.CAMERA,
+        enabled = replayState is ReplayState.Recording || canRecord,
         onClick = {
             if (replayState is ReplayState.Recording) streamingEngine.stopReplay()
             else onRecord()
@@ -767,124 +725,112 @@ private fun ControlsNavigationItems(navController: NavController, onDismiss: () 
 }
 
 @Composable
-private fun StreamingSourcePreview(streamingEngine: StreamingEngine, activeSourceKind: VideoSourceKind, previewSize: IntSize, displayRotationDegrees: Int, onVideoPicker: () -> Unit) {
-    // Camera2 and encoding both render through GL, so idle preview shows effects too.
-    // Der Encoder hängt nicht an der Activity-Surface und läuft bei
-    // deren Zerstörung (Recents-Wischen, Rotation) weiter.
-    // S2: Bei aktiver Screen-Capture-Quelle wird keine Kamera-Vorschau
-    // angehängt — stattdessen erscheint ein Platzhalter mit Hinweis.
-    if (activeSourceKind == VideoSourceKind.CAMERA) {
-        AndroidView(
-            factory = { context ->
-                @SuppressLint("ClickableViewAccessibility")
-                SurfaceView(context).also { view ->
-                    streamingEngine.initializeCamera()
-                    view.holder.addCallback(
-                        object : SurfaceHolder.Callback {
-                            override fun surfaceCreated(holder: SurfaceHolder) {
-                                streamingEngine.attachPreview(
-                                    holder.surface,
-                                    view.width,
-                                    view.height,
-                                    (view.display?.rotation ?: Surface.ROTATION_0) * 90,
-                                )
-                            }
+internal fun StreamingSourcePreview(streamingEngine: StreamingEngine, activeSourceKind: VideoSourceKind, previewSize: IntSize, displayRotationDegrees: Int) {
+    // Every source previews the same composed GL output that reaches the encoder.
+    AndroidView(
+        factory = { context ->
+            @SuppressLint("ClickableViewAccessibility")
+            SurfaceView(context).also { view ->
+                if (activeSourceKind == VideoSourceKind.CAMERA) streamingEngine.initializeCamera()
+                view.holder.addCallback(
+                    object : SurfaceHolder.Callback {
+                        override fun surfaceCreated(holder: SurfaceHolder) {
+                            streamingEngine.attachPreview(
+                                holder.surface,
+                                view.width,
+                                view.height,
+                                (view.display?.rotation ?: Surface.ROTATION_0) * 90,
+                            )
+                        }
 
-                            override fun surfaceChanged(
-                                holder: SurfaceHolder,
-                                format: Int,
-                                width: Int,
-                                height: Int,
-                            ) {
-                                streamingEngine.attachPreview(
-                                    holder.surface, width, height,
-                                    (view.display?.rotation ?: Surface.ROTATION_0) * 90,
-                                )
-                            }
+                        override fun surfaceChanged(
+                            holder: SurfaceHolder,
+                            format: Int,
+                            width: Int,
+                            height: Int,
+                        ) {
+                            streamingEngine.attachPreview(
+                                holder.surface, width, height,
+                                (view.display?.rotation ?: Surface.ROTATION_0) * 90,
+                            )
+                        }
 
-                            override fun surfaceDestroyed(holder: SurfaceHolder) {
-                                streamingEngine.detachPreview(holder.surface)
-                            }
-                        },
-                    )
-                    // Tap-to-Focus (Tipp), Pinch-Zoom und Zoom-Reset (Doppeltipp)
-                    // auf der Kamera-Vorschau (RootEncoder-Kamera, nicht CameraX).
-                    val gestures = StreamingPreviewGestures(
-                        context = context,
-                        onTapToFocus = { v, e -> streamingEngine.tapToFocus(v, e) },
-                        onZoomScale = { scale -> streamingEngine.zoomBy(scale) },
-                        onDoubleTap = { streamingEngine.resetZoom() },
-                    )
-                    view.setOnTouchListener(gestures.onTouch)
-                }
-            },
-            update = { view ->
-                // GL crops the native camera buffer to this viewport without stretching.
-                view.holder.setFixedSize(previewSize.width, previewSize.height)
-                view.scaleX = 1f
-                view.scaleY = 1f
-                val surface = view.holder.surface
-                if (surface?.isValid == true) {
-                    streamingEngine.attachPreview(
-                        surface, previewSize.width, previewSize.height,
-                        displayRotationDegrees,
-                    )
-                }
-            },
-            modifier = Modifier.fillMaxSize(),
-        )
-    } else {
-        // S2/S3/Replay: Screen-Capture, Video-Player oder Replay aktiv — kein
-        // Kamera-Bild, stattdessen ein dunkler Platzhalter, damit klar ist, dass
-        // der Gerätebildschirm bzw. die Datei (und nicht die Kamera) die
-        // Videoquelle ist.
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.surfaceVariant),
-            contentAlignment = Alignment.Center,
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = stringResource(
-                        when (activeSourceKind) {
-                            VideoSourceKind.VIDEO_PLAYER -> R.string.streaming_source_video_active_hint
-                            VideoSourceKind.REPLAY -> R.string.streaming_source_replay_active_hint
-                            else -> R.string.streaming_source_screen_active_hint
-                        },
-                    ),
-                    style = MaterialTheme.typography.bodyLarge,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(horizontal = 32.dp),
+                        override fun surfaceDestroyed(holder: SurfaceHolder) {
+                            streamingEngine.detachPreview(holder.surface)
+                        }
+                    },
                 )
-                if (activeSourceKind == VideoSourceKind.VIDEO_PLAYER) {
-                    Spacer(Modifier.size(12.dp))
-                    Button(onClick = { onVideoPicker() }) {
-                        Text(stringResource(R.string.streaming_source_video_pick))
-                    }
+                // Tap-to-Focus (Tipp), Pinch-Zoom und Zoom-Reset (Doppeltipp)
+                // auf der Kamera-Vorschau (RootEncoder-Kamera, nicht CameraX).
+                val gestures = StreamingPreviewGestures(
+                    context = context,
+                    onTapToFocus = { v, e -> streamingEngine.tapToFocus(v, e) },
+                    onZoomScale = { scale -> streamingEngine.zoomBy(scale) },
+                    onDoubleTap = { streamingEngine.resetZoom() },
+                )
+                view.setOnTouchListener { target, event ->
+                    streamingEngine.dispatchSceneTouch(target.width, target.height, event) ||
+                        gestures.onTouch.onTouch(target, event)
                 }
             }
-        }
-    }
+        },
+        update = { view ->
+            // GL crops the native camera buffer to this viewport without stretching.
+            view.holder.setFixedSize(previewSize.width, previewSize.height)
+            view.scaleX = 1f
+            view.scaleY = 1f
+            val surface = view.holder.surface
+            if (surface?.isValid == true) {
+                streamingEngine.attachPreview(
+                    surface, previewSize.width, previewSize.height,
+                    displayRotationDegrees,
+                )
+            }
+        },
+        modifier = Modifier.fillMaxSize(),
+    )
 
 }
 
 @Composable
-private fun BoxScope.StreamStartButton(streamingState: StreamingState, onStop: () -> Unit, onStart: () -> Unit) {
+private fun StreamStartButton(streamingState: StreamingState, onStop: () -> Unit, onStart: () -> Unit) {
+    var confirmStop by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(streamingState) {
+        if (streamingState !is StreamingState.Streaming) confirmStop = false
+    }
+    if (confirmStop && streamingState is StreamingState.Streaming) {
+        AlertDialog(
+            onDismissRequest = { confirmStop = false },
+            title = { Text(stringResource(R.string.streaming_stop_confirm_title)) },
+            text = { Text(stringResource(R.string.streaming_stop_confirm_message)) },
+            confirmButton = {
+                TextButton(
+                    onClick = { confirmStop = false; onStop() },
+                    modifier = Modifier.testTag("confirm_stop_stream"),
+                ) { Text(stringResource(R.string.streaming_stop_confirm)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmStop = false }) {
+                    Text(stringResource(R.string.streaming_keep_live))
+                }
+            },
+        )
+    }
     Button(
         onClick = {
-            if (streamingState is StreamingState.Streaming) {
-                onStop()
-            } else {
-                onStart()
+            when (streamingState) {
+                // Nichts ist live: ein Start in Vorbereitung wird ohne Rueckfrage
+                // abgebrochen (der Dialog spricht von einer laufenden Uebertragung).
+                is StreamingState.Preparing -> onStop()
+                is StreamingState.Streaming -> confirmStop = true
+                else -> onStart()
             }
         },
-        enabled = streamingState !is StreamingState.Preparing,
-        modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 48.dp),
+        modifier = Modifier.testTag("stream_start_stop"),
     ) {
         val buttonText = when (streamingState) {
             is StreamingState.Idle -> stringResource(R.string.streaming_start)
-            is StreamingState.Preparing -> stringResource(R.string.streaming_preparing)
+            is StreamingState.Preparing -> stringResource(R.string.streaming_cancel_start)
             is StreamingState.Streaming -> stringResource(R.string.streaming_stop)
             is StreamingState.Failed -> stringResource(R.string.streaming_retry)
         }
@@ -893,55 +839,29 @@ private fun BoxScope.StreamStartButton(streamingState: StreamingState, onStop: (
 
 }
 
-@Composable
-private fun BoxScope.StreamingIssueBanners(previewConfigIssues: List<StreamConfigIssue>, streamingState: StreamingState, permissionDenied: Boolean) {
-    val errorIssues = previewConfigIssues.filter { it.severity == ConfigIssueSeverity.ERROR }
-    if (streamingState is StreamingState.Failed) {
-        val reason = (streamingState as StreamingState.Failed).reason
-        PreviewMessageBanner(
-            text = stringResource(R.string.streaming_error_prefix, reason ?: ""),
-            isError = true,
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-        )
-    } else if (permissionDenied) {
-        PreviewMessageBanner(
-            text = stringResource(R.string.streaming_permission_required),
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-        )
-    } else if (errorIssues.isNotEmpty() && streamingState !is StreamingState.Streaming) {
-        PreviewMessageBanner(
-            text = errorIssues.map { resolveIssueText(it) }.joinToString("\n"),
-            isError = true,
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-        )
-    }
+internal data class PreviewNotice(val text: String, val isError: Boolean, val source: String, val sequence: Int)
 
-    // Selbst-Check: Befunde nur im Idle-Zustand anzeigen (nicht während/nach dem
-    // Streamen). Bei gesetzten Fehler-Befunden (errorIssues) wird die Liste ausgeblendet
-    // — das Banner zeigt dieselben Fehler bereits, eine Doppelanzeige überlappte sonst.
-    if (previewConfigIssues.isNotEmpty() && streamingState !is StreamingState.Streaming && errorIssues.isEmpty()) {
+/** Local, bounded feedback: it cannot cover the top buttons or the bottom selectors. */
+@Composable
+internal fun TransientPreviewMessage(notice: PreviewNotice, onDismiss: () -> Unit) {
+    val dismiss by rememberUpdatedState(onDismiss)
+    LaunchedEffect(notice) {
+        kotlinx.coroutines.delay(3_000)
+        dismiss()
+    }
+    BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
         Surface(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+            onClick = onDismiss,
+            modifier = Modifier.align(Alignment.Center).widthIn(max = 560.dp).heightIn(max = maxHeight)
+                .testTag("stream_preview_message"),
             shape = MaterialTheme.shapes.medium,
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            contentColor = MaterialTheme.colorScheme.onSurface,
+            color = if (notice.isError) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
+            contentColor = if (notice.isError) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurface,
         ) {
-            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                previewConfigIssues.forEach { issue ->
-                    ConfigIssueRow(issue)
-                }
-            }
+            Text(notice.text, style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 10.dp))
         }
     }
-
 }
 
 @Composable
@@ -967,29 +887,23 @@ private fun rememberDisplayRotation(): Int {
 }
 
 @Composable
-private fun rememberRecordingAction(streamingEngine: StreamingEngine, snackbarHostState: SnackbarHostState, dismissLabel: String): () -> Unit {
+private fun rememberRecordingAction(viewModel: StreamingViewModel, onError: (String) -> Unit): () -> Unit {
     val context = LocalContext.current
-    var recordingError by remember { mutableStateOf(false) }
     val recordingErrorMessage = stringResource(R.string.streaming_replay_start_error)
-    LaunchedEffect(recordingError) {
-        if (recordingError) {
-            try {
-                snackbarHostState.showSnackbar(recordingErrorMessage, actionLabel = dismissLabel)
-            } finally {
-                recordingError = false
-            }
-        }
-    }
+    val latestOnError by rememberUpdatedState(onError)
     fun startRecording() {
-        recordingError = !streamingEngine.startReplay()
+        viewModel.toggleReplay { if (!it) latestOnError(recordingErrorMessage) }
     }
     val recordingPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),
     ) { grants ->
-        if (grants.values.all { it }) startRecording() else recordingError = true
+        if (grants.values.all { it }) startRecording() else latestOnError(recordingErrorMessage)
     }
     fun requestPermissionsAndRecord() {
-        val missing = listOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO).filter {
+        val missing = buildList {
+            if (viewModel.streamingEngine.sceneNeedsCameraPermission()) add(Manifest.permission.CAMERA)
+            add(Manifest.permission.RECORD_AUDIO)
+        }.filter {
             ContextCompat.checkSelfPermission(context, it) != PackageManager.PERMISSION_GRANTED
         }
         if (missing.isEmpty()) startRecording() else recordingPermissionLauncher.launch(missing.toTypedArray())
@@ -999,14 +913,48 @@ private fun rememberRecordingAction(streamingEngine: StreamingEngine, snackbarHo
 }
 
 @Composable
-private fun rememberStreamStartAction(viewModel: StreamingViewModel, onPermissionsChanged: (Boolean) -> Unit): () -> Unit {
+private fun rememberStreamStartAction(
+    viewModel: StreamingViewModel,
+    streamingEngine: StreamingEngine,
+    onPermissionsChanged: (Boolean) -> Unit,
+): () -> Unit {
     val context = LocalContext.current
+
+    // #326: Der MediaProjection-Consent ist ab Android 14 ein einmaliges Token.
+    // Für die aktive Screen-Capture-Quelle wird der System-Dialog deshalb vor
+    // jedem Go-Live neu gezeigt — sonst startet der Stream mit toter Projektion
+    // und der Service stirbt als "Unable to start service" (#327).
+    val consentLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) { result ->
+        if (streamingEngine.onScreenCaptureConsentResult(result.resultCode, result.data)) {
+            viewModel.startStream()
+        }
+        // Abgelehnt/abgebrochen: kein Start ohne gültigen Consent. Die Quelle
+        // bleibt aktiv, damit der nächste Versuch den Dialog erneut zeigt.
+    }
+
+    fun startStreamWithFreshConsent() {
+        if (!streamingEngine.needsScreenCaptureConsent()) {
+            viewModel.startStream()
+            return
+        }
+        val consentIntent = streamingEngine.createScreenCaptureConsentIntent()
+        if (consentIntent == null) {
+            // Quelle (noch) nicht erzeugt — der Start scheitert kontrolliert
+            // über den Engine-Zustand statt über eine tote Projektion.
+            viewModel.startStream()
+        } else {
+            consentLauncher.launch(consentIntent)
+        }
+    }
+
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),
     ) { grants ->
         if (grants.values.all { it }) {
             onPermissionsChanged(true)
-            viewModel.startStream()
+            startStreamWithFreshConsent()
         } else {
             onPermissionsChanged(false)
         }
@@ -1014,7 +962,7 @@ private fun rememberStreamStartAction(viewModel: StreamingViewModel, onPermissio
 
     fun requestPermissionsAndStart() {
         val needed = buildList {
-            add(Manifest.permission.CAMERA)
+            if (streamingEngine.sceneNeedsCameraPermission()) add(Manifest.permission.CAMERA)
             add(Manifest.permission.RECORD_AUDIO)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 add(Manifest.permission.POST_NOTIFICATIONS)
@@ -1025,7 +973,7 @@ private fun rememberStreamStartAction(viewModel: StreamingViewModel, onPermissio
         }
         if (missing.isEmpty()) {
             onPermissionsChanged(true)
-            viewModel.startStream()
+            startStreamWithFreshConsent()
         } else {
             onPermissionsChanged(false)
             permissionLauncher.launch(missing.toTypedArray())
@@ -1038,25 +986,54 @@ private fun rememberStreamStartAction(viewModel: StreamingViewModel, onPermissio
 @Composable
 private fun StreamConfigurationFeedback(
     startAttempted: Boolean,
+    startAttempt: Int,
     configIssues: List<StreamConfigIssue>,
     streamingState: StreamingState,
-    snackbarHostState: SnackbarHostState,
+    onMessage: (String, Boolean) -> Unit,
+    onClear: () -> Unit,
     onAttemptConsumed: () -> Unit,
 ) {
-    val missingUrlMessage = stringResource(R.string.stream_error_no_url)
-    val dismissLabel = stringResource(android.R.string.ok)
-    LaunchedEffect(startAttempted, configIssues, streamingState) {
-        if (!startAttempted) return@LaunchedEffect
-        if (configIssues.any { it.messageRes == R.string.stream_error_no_url }) {
-            try {
-                snackbarHostState.showSnackbar(missingUrlMessage, actionLabel = dismissLabel)
-            } finally {
-                onAttemptConsumed()
-            }
-        } else if (streamingState !is StreamingState.Idle) {
+    val issues = configIssues.filter { it.messageRes != R.string.stream_error_no_url || startAttempted }
+    val message = issues.map { resolveIssueText(it) }.joinToString("\n")
+    // Consuming an attempt must not re-open the same message on the next recomposition.
+    LaunchedEffect(configIssues, streamingState, startAttempt) {
+        if (issues.isNotEmpty() && streamingState !is StreamingState.Streaming && streamingState !is StreamingState.Failed) {
+            onMessage(message, issues.any { it.severity == ConfigIssueSeverity.ERROR })
             onAttemptConsumed()
+        } else {
+            onClear()
+            if (streamingState !is StreamingState.Idle) onAttemptConsumed()
         }
     }
+}
+
+@Composable
+private fun StreamSessionFeedback(
+    cameraStatus: CameraModeStatus,
+    targets: List<StreamTargetState>,
+    state: StreamingState,
+    startAttempt: Int,
+    onMessage: (String, Boolean) -> Unit,
+) {
+    val cameraMessage = cameraStatus.notice?.let { notice ->
+        stringResource(when (notice) {
+            CameraModeNotice.UNSUPPORTED -> R.string.camera_mode_fallback_unsupported
+            CameraModeNotice.PREPARATION_FAILED -> R.string.camera_mode_fallback_preparation
+            CameraModeNotice.CAPTURE_FAILED -> R.string.camera_mode_capture_failed
+            CameraModeNotice.RECORDING_FAILED -> R.string.camera_mode_recording_failed
+        })
+    }
+    LaunchedEffect(cameraMessage) { cameraMessage?.let { onMessage(it, false) } }
+    val failedTarget = targets.firstOrNull { it.status == StreamTargetStatus.FAILED }
+    val failure = when {
+        state is StreamingState.Failed -> state.reasonRes
+            ?.let { stringResource(it) }
+            ?: state.reason.orEmpty()
+        state is StreamingState.Streaming && failedTarget != null -> failedTarget.failureReason.orEmpty()
+        else -> null
+    }
+    val failureMessage = failure?.let { stringResource(R.string.streaming_error_prefix, it) }
+    LaunchedEffect(failureMessage, startAttempt) { failureMessage?.let { onMessage(it, true) } }
 }
 
 @Composable
@@ -1071,6 +1048,37 @@ private fun RefreshTwitchStatus(streamingState: StreamingState, twitchViewModel:
         }
     }
 
+}
+
+@Composable
+private fun rememberSceneSelectionAction(
+    viewModel: StreamingViewModel,
+    scenes: List<com.vivid.core.data.StreamScene>,
+): (com.vivid.core.data.StreamScene) -> Unit {
+    val engine = viewModel.streamingEngine
+    val latestScenes by rememberUpdatedState(scenes)
+    var pendingId by rememberSaveable { mutableStateOf<String?>(null) }
+    var previousSource by rememberSaveable { mutableStateOf(VideoSourceKind.CAMERA.name) }
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val scene = latestScenes.find { it.id == pendingId && it.enabled &&
+            it.videoSource == com.vivid.core.data.SceneVideoSource.SCREEN_CAPTURE }
+        pendingId = null
+        val granted = engine.onScreenCaptureConsentResult(result.resultCode, result.data)
+        if (granted && scene != null) viewModel.applyScene(scene)
+        else engine.switchSource(VideoSourceKind.valueOf(previousSource))
+    }
+    return { scene ->
+        if (scene.videoSource == com.vivid.core.data.SceneVideoSource.SCREEN_CAPTURE) {
+            previousSource = engine.activeSourceKind.value.name
+            if (engine.switchSource(VideoSourceKind.SCREEN_CAPTURE)) {
+                val intent = engine.createScreenCaptureConsentIntent()
+                if (intent != null) {
+                    pendingId = scene.id
+                    launcher.launch(intent)
+                } else engine.switchSource(VideoSourceKind.valueOf(previousSource))
+            }
+        } else viewModel.applyScene(scene)
+    }
 }
 
 @Composable
@@ -1134,371 +1142,29 @@ private fun RefreshStreamingScreenOnResume(viewModel: StreamingViewModel, stream
 
 }
 
-/**
- * Standard-Overlay-Inhalt des Streaming-Screens: Chat-Overlay (Twitch) links
- * unten, Text-/Info-Widget rechts unten, Grid/Bild/QR/Slideshow über der
- * Vorschau. Jedes Kind blendet sich bei deaktivierter Einstellung selbst aus.
- */
+/** Permission dialogs are owned by the visible Activity, never by the encoder display. */
 @Composable
-private fun BoxScope.DefaultStreamingOverlay() {
-    ChatOverlay(
-        modifier = Modifier
-            .align(Alignment.BottomStart)
-            .padding(start = 12.dp, bottom = 84.dp),
-    )
-
-    TextInfoWidget(
-        modifier = Modifier
-            .align(Alignment.BottomEnd)
-            .padding(end = 12.dp, bottom = 84.dp),
-    )
-
-    GridOverlay()
-
-    ImageWidget(
-        modifier = Modifier
-            .align(Alignment.TopStart)
-            .padding(start = 12.dp, top = 12.dp),
-    )
-
-    QrCodeWidget(
-        modifier = Modifier
-            .align(Alignment.TopEnd)
-            .padding(end = 12.dp, top = 12.dp),
-    )
-
-    SlideshowWidget(
-        modifier = Modifier
-            .align(Alignment.Center)
-            .padding(12.dp),
-    )
-
-    // Untertitel (Speech-to-Text) ueber der Vorschau, unten mittig.
-    SubtitlesOverlay(
-        modifier = Modifier
-            .align(Alignment.BottomCenter)
-            .padding(bottom = 140.dp),
-    )
+private fun SceneLocationPermission(viewModel: SceneWidgetsOverlayViewModel = hiltViewModel()) {
+    val scene by viewModel.state.collectAsStateWithLifecycle(SceneOverlayState())
+    val needsLocation = scene.widgets.any { (_, widget) ->
+        widget.type == com.vivid.core.data.WidgetType.TEXT && with(widget.configuration) {
+            widgetShowLocation || widgetShowSpeed || widgetShowAltitude ||
+                Regex("\\{(lat|lon|location|speed|altitude|road|city|country|distance|gforce)\\}").containsMatchIn(widgetTemplate)
+        }
+    }
+    val context = LocalContext.current
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+    LaunchedEffect(needsLocation) {
+        if (needsLocation && ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) !=
+            PackageManager.PERMISSION_GRANTED) launcher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+    }
 }
 
 private const val TWITCH_REFRESH_INTERVAL_MS = 30_000L
-
-/** Zeigt einen einzelnen Selbst-Check-Befund mit passendem Icon und Farbe an. */
-@Composable
-private fun ConfigIssueRow(issue: StreamConfigIssue) {
-    val isError = issue.severity == ConfigIssueSeverity.ERROR
-    val tint = if (isError) {
-        MaterialTheme.colorScheme.error
-    } else {
-        LocalExtendedColors.current.warning
-    }
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.padding(vertical = 2.dp),
-    ) {
-        Icon(
-            imageVector = if (isError) Icons.Filled.Error else Icons.Filled.Warning,
-            contentDescription = null,
-            tint = tint,
-        )
-        Spacer(Modifier.width(8.dp))
-        Text(
-            text = resolveIssueText(issue),
-            color = tint,
-        )
-    }
-}
 
 /** Löst einen Selbst-Check-Befund in die lokalisierte Meldung auf. */
 @Composable
 private fun resolveIssueText(issue: StreamConfigIssue): String {
     val prefix = if (issue.prefixRes != 0) stringResource(issue.prefixRes) else ""
     return prefix + stringResource(issue.messageRes, *issue.formatArgs.toTypedArray())
-}
-
-/** Banner über der Kamera-Vorschau: opaker Container garantiert Kontrast auf dem schwarzen Preview. */
-@Composable
-private fun PreviewMessageBanner(
-    text: String,
-    modifier: Modifier = Modifier,
-    isError: Boolean = false,
-) {
-    val container = if (isError) {
-        MaterialTheme.colorScheme.errorContainer to MaterialTheme.colorScheme.onErrorContainer
-    } else {
-        MaterialTheme.colorScheme.surfaceContainerHigh to MaterialTheme.colorScheme.onSurface
-    }
-    Surface(
-        modifier = modifier,
-        shape = MaterialTheme.shapes.medium,
-        color = container.first,
-        contentColor = container.second,
-    ) {
-        Text(
-            text = text,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-            style = MaterialTheme.typography.bodyMedium,
-        )
-    }
-}
-
-/** Zeigt ein einzelnes Stream-Ziel (Multi-Streaming) mit URL, Status und Upload-Bitrate an. */
-@Composable
-private fun TargetStatusRow(state: StreamTargetState) {
-    val label = stringResource(
-        when (state.status) {
-            StreamTargetStatus.IDLE -> R.string.streaming_target_idle
-            StreamTargetStatus.PREPARING -> R.string.streaming_target_preparing
-            StreamTargetStatus.STREAMING -> R.string.streaming_target_streaming
-            StreamTargetStatus.FAILED -> R.string.streaming_target_failed
-        },
-    )
-    val color = when (state.status) {
-        StreamTargetStatus.STREAMING -> LocalExtendedColors.current.success
-        StreamTargetStatus.FAILED -> MaterialTheme.colorScheme.error
-        else -> MaterialTheme.colorScheme.onSurfaceVariant
-    }
-    val bitrateLabel = state.bitrateKbps?.takeIf { it > 0 }?.let { kbps ->
-        if (kbps >= 1_000) {
-            stringResource(R.string.streaming_target_bitrate_mbps, kbps / 1_000.0)
-        } else {
-            stringResource(R.string.streaming_target_bitrate_kbps, kbps.toString())
-        }
-    }
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(
-            modifier = Modifier
-                .size(8.dp)
-                .background(color, CircleShape),
-        )
-        Spacer(Modifier.width(8.dp))
-        Text(
-            text = if (bitrateLabel != null) "${state.url} · $label · $bitrateLabel" else "${state.url} · $label",
-            style = MaterialTheme.typography.bodySmall,
-            color = color,
-        )
-    }
-}
-
-/**
- * Szenen-Leiste (Moblin: Basic Scenes) als Bottom-Bar des Streaming-Screens.
- *
- * - Chips für jede gespeicherte Szene (Tipp = anwenden; während des Streams
- *   gesperrt, weil die Engine-Quelle nur zwischen Starts gewechselt wird)
- * - „+“ öffnet die Eingabe für eine neue Szene (Name vorbefüllt, lokalisiert)
- * - Mülleimer löscht die aktive Szene
- * - Auto-Scene-Switcher: An/Aus-Toggle + Intervall (Sekunden, Minimum 5 s)
- */
-@Composable
-private fun SceneSwitcherBar(
-    scenes: List<StreamScene>,
-    activeSceneId: String?,
-    autoSwitchEnabled: Boolean,
-    autoSwitchIntervalSeconds: Long,
-    isStreaming: Boolean,
-    onApplyScene: (StreamScene) -> Unit,
-    onSaveScene: (String) -> Unit,
-    onDeleteScene: (String) -> Unit,
-    onAutoSwitchEnabledChange: (Boolean) -> Unit,
-    onAutoSwitchIntervalChange: (Long) -> Unit,
-    privacyEnabled: Boolean,
-    onPrivacyEnabledChange: (Boolean) -> Unit,
-    fullFrameBlurEnabled: Boolean,
-    onFullFrameBlurChange: (Boolean) -> Unit,
-    onOpenZoneEditor: () -> Unit,
-) {
-    var adding by remember { mutableStateOf(false) }
-    var sceneName by remember { mutableStateOf("") }
-    // Lokalisierter Standardname (z. B. „Szene 1“) — der Nutzer kann ihn editieren.
-    val defaultSceneName = stringResource(R.string.scene_default_name, scenes.size + 1)
-
-    // Custom bottomBar: Das M3-Scaffold paddet eigene bottomBars NICHT mit den
-    // Navigationsleisten-Insets — ohne dieses Padding läge die Szenen-Leiste
-    // unter der Gesture-Navigation (Edge-to-Edge).
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceContainer,
-        modifier = Modifier.windowInsetsPadding(WindowInsets.navigationBars),
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-        ) {
-            if (adding) {
-                // Eingabe-Modus: Name + Speichern/Abbrechen.
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    OutlinedTextField(
-                        value = sceneName,
-                        onValueChange = { sceneName = it },
-                        label = { Text(stringResource(R.string.scene_name_hint)) },
-                        singleLine = true,
-                        modifier = Modifier.weight(1f),
-                    )
-                    Button(
-                        onClick = {
-                            onSaveScene(sceneName)
-                            sceneName = ""
-                            adding = false
-                        },
-                        enabled = sceneName.isNotBlank(),
-                    ) {
-                        Text(stringResource(R.string.scene_add))
-                    }
-                    IconButton(onClick = {
-                        sceneName = ""
-                        adding = false
-                    }) {
-                        Icon(
-                            imageVector = Icons.Filled.Close,
-                            contentDescription = stringResource(R.string.scene_add_cancel),
-                        )
-                    }
-                }
-            } else {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Text(
-                        text = stringResource(R.string.scene_bar_title),
-                        style = MaterialTheme.typography.labelLarge,
-                    )
-                    if (scenes.isEmpty()) {
-                        Text(
-                            text = stringResource(R.string.scene_empty_hint),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.weight(1f),
-                        )
-                    } else {
-                        Row(
-                            modifier = Modifier
-                                .weight(1f)
-                                .horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            scenes.forEach { scene ->
-                                FilterChip(
-                                    selected = scene.id == activeSceneId,
-                                    onClick = { onApplyScene(scene) },
-                                    enabled = !isStreaming,
-                                    label = { Text(scene.name) },
-                                )
-                            }
-                        }
-                    }
-                    FilledTonalIconButton(onClick = {
-                        sceneName = defaultSceneName
-                        adding = true
-                    }) {
-                        Icon(
-                            imageVector = Icons.Filled.Add,
-                            contentDescription = stringResource(R.string.scene_add),
-                        )
-                    }
-                    if (activeSceneId != null) {
-                        FilledTonalIconButton(onClick = { onDeleteScene(activeSceneId) }) {
-                            Icon(
-                                imageVector = Icons.Filled.Delete,
-                                contentDescription = stringResource(R.string.scene_delete_desc),
-                            )
-                        }
-                    }
-                }
-            }
-            // Auto-Scene-Switcher: An/Aus + Intervall (nur bei An editierbar).
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = stringResource(R.string.scene_auto_switch),
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.weight(1f),
-                )
-                OutlinedTextField(
-                    value = autoSwitchIntervalSeconds.toString(),
-                    onValueChange = { raw ->
-                        raw.toLongOrNull()?.let(onAutoSwitchIntervalChange)
-                    },
-                    label = { Text(stringResource(R.string.scene_interval_seconds)) },
-                    singleLine = true,
-                    enabled = autoSwitchEnabled,
-                    modifier = Modifier.width(120.dp),
-                )
-                Switch(
-                    checked = autoSwitchEnabled,
-                    onCheckedChange = onAutoSwitchEnabledChange,
-                    modifier = Modifier.padding(start = 8.dp),
-                )
-            }
-            // P1: Datenschutz-Anonymisierung (Skizze §5) — Master-Toggle wirkt
-            // auch während des Streams (Composer-Rebuild an Position 0), der
-            // Zonen-Editor folgt der Szenen-Sperre (nur im Idle-Modus).
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                val privacyOn = stringResource(R.string.streaming_a11y_state_on)
-                val privacyOff = stringResource(R.string.streaming_a11y_state_off)
-                Text(
-                    text = stringResource(R.string.privacy_master_toggle_label),
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.weight(1f),
-                )
-                if (privacyEnabled) {
-                    FilledTonalButton(
-                        onClick = onOpenZoneEditor,
-                        enabled = !isStreaming,
-                    ) {
-                        Text(stringResource(R.string.streaming_privacy_zones))
-                    }
-                }
-                Switch(
-                    checked = privacyEnabled,
-                    onCheckedChange = onPrivacyEnabledChange,
-                    modifier = Modifier
-                        .padding(start = 8.dp)
-                        .testTag("privacy_toggle")
-                        .semantics {
-                            role = Role.Switch
-                            stateDescription = if (privacyEnabled) privacyOn else privacyOff
-                        },
-                )
-            }
-            // P2b: „Ganzbild verpixeln“ — grobe Voll-Frame-Mosaikstufe unter
-            // dem Master-Toggle (Standort-Schutz); sichtbar nur, wenn die
-            // Anonymisierung überhaupt wirkt.
-            if (privacyEnabled) {
-                val fullFrameOn = stringResource(R.string.streaming_a11y_state_on)
-                val fullFrameOff = stringResource(R.string.streaming_a11y_state_off)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = stringResource(R.string.privacy_full_frame_toggle_label),
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.weight(1f),
-                    )
-                    Switch(
-                        checked = fullFrameBlurEnabled,
-                        onCheckedChange = onFullFrameBlurChange,
-                        modifier = Modifier
-                            .padding(start = 8.dp)
-                            .testTag("full_frame_toggle")
-                            .semantics {
-                                role = Role.Switch
-                                stateDescription = if (fullFrameBlurEnabled) fullFrameOn else fullFrameOff
-                            },
-                    )
-                }
-            }
-        }
-    }
 }

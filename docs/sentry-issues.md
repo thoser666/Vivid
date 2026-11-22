@@ -35,6 +35,14 @@ In CI hinterlegen:
 gh secret set SENTRY_ISSUES_TOKEN --body sntrys_…
 ```
 
+**CI-Workaround für Event-Tags (seit 26.10.2026):** dieses CI-Secret ist die
+operative Quelle für die Event-Anreicherung (§3). Derselbe Token zieht pro
+neuem Issue zusätzlich das Latest-Event — erst im CI-Lauf werden die Event-
+Tags (`app.version_code`, `release`, `dist`) lesbar. Ein lokaler Token ohne
+Mitgliedschaft in der Autoritäts-Org (`privat-jb`) scheitert bereits an der
+Issues-Liste selbst (403 → SKIP); ohne Event-Leserecht fällt nur die
+Anreicherung weich (Fallback-Zeile im Body, §5.1).
+
 Lokal (gitignorede `sentry.properties`, Projektstamm — **nicht** `auth.token`
 überschreiben):
 
@@ -44,7 +52,22 @@ issues.token=sntrys_…
 
 Quellen-Reihenfolge: `SENTRY_ISSUES_TOKEN` → `issues.token` → `resolve.token`
 → `stats.token` → `auth.token`. `--print-token-source` meldet nur die Quelle,
-nie den Token. Für die GitHub-Seite nutzt der Guard `GITHUB_ISSUES_TOKEN` —
+nie den Token.
+
+**Event-Token (eigene Scope, seit 18.11.2026):** Events brauchen zusätzlich
+`event:read`; der Issue-Token hat das oft nicht — lokal endet
+`--print-event-stack` dann mit `EVENT_STACK … not readable (HTTP 403)`, obwohl
+die Issues-Liste funktioniert. Deshalb eine eigene Quelle **nur für Events**,
+mit Vorrang vor der Kette oben:
+
+```properties
+events.token=sntrys_…   # Scopes: event:read (+ project:read für die Liste)
+```
+
+oder via `SENTRY_EVENTS_TOKEN=…`. Die Issues-Liste bleibt bewusst auf dem
+Issue-Token (`project:read`) — ein reiner `event:read`-Token würde sie
+brechen. Wer lokal gar keinen Event-Token hat, nutzt den CI-Pfad (§4): das
+Watchdog-Secret hat die Scope. Für die GitHub-Seite nutzt der Guard `GITHUB_ISSUES_TOKEN` —
 in CI ist das **`AUTOMATION_TOKEN`** (PAT), **nicht** `GITHUB_TOKEN`:
 Von `GITHUB_TOKEN` ausgelöste `issues.opened`-Ereignisse erzeugen laut
 GitHub-Dokumentation **keine neuen Workflow-Runs** — damit bliebe der
@@ -59,6 +82,17 @@ bash scripts/test_sentry_issues.sh            # I1–I16, offline, kein Netz
 bash scripts/check_sentry_issues.sh --dry-run # zeigt, welche Issues erstellt würden
 bash scripts/check_sentry_issues.sh           # echte Erstellung (GitHub-Token nötig)
 bash scripts/check_sentry_issues.sh --print-token-source
+bash scripts/check_sentry_issues.sh --print-event-tags 7806859006,7806863798
+bash scripts/check_sentry_issues.sh --attach-event-stack 7837272225,7849844885
+                                            # read-only: Versions-Spur/Umfeld-Tags
+                                            # einer bestehenden SID (kein GitHub-
+                                            # Zugriff, keine Token-Ausgabe)
+bash scripts/check_sentry_issues.sh --print-event-stack 7821630074,7821627754
+                                            # read-only: Exception-/Thread-Kette
+                                            # des Latest-Events (Typ/Wert, Frames
+                                            # neueste zuerst, in_app markiert) —
+                                            # der Pfad für §5.1, wenn der lokale
+                                            # Token keine Event-Lesescope hat
 ```
 
 Verdicts:
@@ -84,6 +118,31 @@ android-ci.yml).
 - Sentry: `GET /api/0/projects/{org}/{project}/issues/?query=is:unresolved&sort=new&limit=100`
   mit `rel="next"`-Pagination. Nur Status `unresolved` wird betrachtet
   (resolved zählt nie).
+- **Event-Anreicherung (Release-Spur, seit 26.10.2026):** pro **neuem**
+  Kandidaten zusätzlich `GET /api/0/issues/{sid}/events/latest/` mit demselben
+  Token. Die Tags `app.version_code`, `app.version`, `release`, `dist`, `os`,
+  `device`, `environment` (plus `release`-Objekt als Fallback für
+  release/dist) landen als `- **Release-Spur (Latest-Event):** …`-Zeile im
+  Issue-Body — der versionCode der Crash-Sitzung ist damit direkt sichtbar;
+  die manuelle Release-Fenster-Methode (§5.1) bleibt Fallback für versionlose
+  ältere Events. Antwortet der Event-Call mit 401/403/000 oder ungültigem
+  JSON, steht stattdessen eine Fallback-Zeile mit dem Statuscode im Body —
+  die Issue-Erstellung selbst bleibt davon **nicht berührt** (Watchdog-
+  Verdicts sind weiterhin keine Gate-Blocker). Der Lauf meldet am Ende
+  `Event-Tags: N angereichert, M ohne Lesbarkeit`. In Fixture-Modus nur bei
+  `event_<sid>.json` (200) bzw. `eventstatus_<sid>` (simulierter Code) —
+  ohne beide Dateien wird der Event-Call offline gar nicht simuliert.
+- **Event-Anreicherung (Stack-Spur, dieselbe Antwort):** direkt unter der
+  Release-Spur steht `- **Stack (Latest-Event):** culprit <…> — <f1> ← <f2> ←
+  <f3>`. Gedruckt werden der Culprit und die **drei neuesten** Frames
+  (Sentry liefert ältester zuerst, hier umgekehrt), je Frame
+  `datei:zeile in funktion` mit `[in_app]`-Marker; Quellen sind
+  `entries[type=exception]` und bei ANR/nativen Events der gecrashte Thread.
+  Damit ist ein Report entscheidbar, ohne den Permalink zu öffnen — genau der
+  Fall, an dem der lokale Token mit HTTP 403 scheitert (§1, Beispiel #445:
+  `db2@d9398f3` war ohne Frames nicht auflösbar). Nicht lesbar ⇒ Fallback-Zeile
+  mit Statuscode und Verweis auf den CI-Input `event_stack` (§4); HTTP 200 ohne
+  Frames ⇒ eigene Zeile. Kein Einfluss auf die Issue-Erstellung.
 - GitHub-Bestand: `GET /repos/{owner}/{repo}/issues?state=all&per_page=100`
   (auch geschlossene Issues — dedupliziert gegen erneutes Anlegen nach
   manuellem Schließen). **Pull Requests zählen nicht** (Marker in PR-Bodies
@@ -107,6 +166,30 @@ android-ci.yml).
   Alarm. Erstellt wird mit dem **AUTOMATION_TOKEN** (PAT), damit die
   Triage-Automation auf das `issues.opened`-Ereignis reagieren kann
   (GITHUB_TOKEN-Events würden keine Workflow-Runs auslösen).
+- **Read-only Event-Tag-Abfrage (`workflow_dispatch`-Input `event_tags`):**
+  mit `-f event_tags=<sid>,<sid>` zieht derselbe Lauf (und dasselbe
+  CI-Secret) die Latest-Event-Tags der genannten bestehenden SIDs und
+  druckt pro SID eine `EVENT_TAGS <sid>: …`-Zeile ins Run-Log — der Leg-,
+  der bestehende Befund-Issues vor ihrer Anreicherung entstanden sind (z.B.
+  Build-Identität bei PR- vs. Store-Build, §5.1). Input läuft über Env
+  (`EVENT_TAGS_INPUT`), kein `${{ }}`-Interpolieren im `run:`-Block.
+  Ohne Input laufen Cron-Verhalten und Erstellung unverändert.
+- **Read-only Stack-Abfrage (`workflow_dispatch`-Input `event_stack`):** der
+  gleiche Lauf druckt pro SID die Exception-/Thread-Kette des Latest-Events
+  (`EVENT_STACK <sid>` + Frames, neueste zuerst, `in_app` markiert). Das ist
+  der Weg, die Attributionspflicht aus §5.1 zu erfüllen, wenn der lokale Token
+  keine Event-Lesescope hat (403) — das CI-Secret hat sie.
+- **Dauerhafter Stack-Nachtrag (`workflow_dispatch`-Input
+  `event_stack_attach`):** derselbe Stack, aber nicht nur ins Run-Log,
+  sondern als Kommentar an das zugeordnete Issue: `-f
+  event_stack_attach=7837272225,7849844885` sucht das Issue über den
+  Dedup-Marker (`<!-- vivid-sentry-issue: <sid> -->`, `state=all`, PRs
+  ausgenommen) und kommentiert den Stack mit `<!-- vivid-event-stack: <sid>
+  -->`. Der Marker macht den Lauf idempotent — ein zweiter Dispatch ergänzt
+  nichts (`… vorhanden (in #N) — nichts ergänzt`). So überlebt der Befund
+  den Run-Log (90 Tage) und die Attribution braucht keinen lokalen
+  Event-Token. Fehlende Scope, fehlendes Issue oder unlesbarer Stack →
+  SKIP-Zeile, exit 0; nur eine fehlende SID-Liste ist ein FEHLER.
 
 ## 5. Triage-Verfahren für Watchdog-Crash-Issues
 
@@ -132,11 +215,42 @@ nicht gezogen wurde):
    Der `app.version_code`-Tag läuft erst seit dem 27.09.2026 (ea16fadc) —
    ältere Events sind **versionlos**; Attribution dann über Build-
    Archäologie (Tag-Enthaltensein per `git merge-base --is-ancestor`)
-   statt über Sentry-Tags.
+   statt über Sentry-Tags. Seit der Event-Anreicherung (§3) steht der
+   `app.version_code`-Tag neuer Watchdog-Issues direkt im Body
+   (`Release-Spur (Latest-Event)`); die Fenster-Methode bleibt Fallback für
+   versionlose Events und für Anreicherungs-Lücken.
 2. **Doppel-Meldungen desselben Sentry-Issue verbinden:** Vor der Schließung
-   `gh issue list --label sentry` nach gleichem Top-Frame/Befund durchsuchen
-   (Body-Marker `vivid-sentry-issue: <id>` identifiziert das Sentry-Issue
-   eindeutig) — ein Befund = ein Attributions-Thread.
+   `gh issue list --label sentry` nach gleichem Befund durchsuchen — identisch
+   ist er nur bei gleicher SID (Body-Marker `vivid-sentry-issue: <id>`
+   identifiziert das Sentry-Issue eindeutig); gleicher Top-Frame ist nur ein
+   Suchschlüssel — ein Befund = ein Attributions-Thread.
+   **Timber-Log-Signaturen sind eigene Sentry-Gruppen und werden nie als
+   Duplikat geschlossen (verbindlich seit 2026-10-29, #335/#350):**
+   `Timber.e(…)` erzeugt ein *error*-Event ohne Crash (§5.1); Sentry gruppiert
+   es nach Fingerprint, nicht nach dem Meldungstext. Der „Top-Frame“ des
+   Watchdogs ist nur die Log-Stelle — gleicher Top-Frame und sogar identischer
+   Satz belegen deshalb **keinen** doppelten Befund. Belegter Fall: #335
+   (VIVID-44, Marker `7811694380`, 18 Events, 2026-10-25,
+   `0.5.30-beta+5304`) und #350 (VIVID-46, Marker `7812865315`, erstellt
+   2026-10-26 mit 10 Events, letztes Event `0.5.48-beta+5484`) heißen beide
+   `Idle camera: Configuration failed` und stammen aus derselben Log-Zeile
+   (`idlePreviewCallbacks.onCameraError`) — zwei SIDs, zwei Gruppen. Welches
+   Frame den Fingerprint trennt, ist aus dem Issue-Body nicht ablesbar (die
+   Event-API antwortete 403); die Gruppierung entscheidet Sentry, nicht der
+   Titel.
+   **Regel:** gleicher Marker = ein Befund, wird in einen Thread konsolidiert.
+   Verschiedene SIDs werden **nie** ineinander geschlossen — gleicher Titel,
+   gleiche Log-Zeile und gleiches Gerät reichen nicht. Sie laufen als
+   **Geschwister** (verlinkt, z. B. #350 ↔ #336/#325) mit je eigener
+   Versions-Spur (§5.1) und je eigener Event-Zahl im Body.
+   **Warum strikt:** der Watchdog dedupliziert gegen `state=all` (§3). Ein
+   geschlossenes Issue unterdrückt jede weitere Meldung *derselben* SID, ohne
+   dass ein neues entsteht — die Gruppe wird still, der nächste Rücklauf ist
+   im Backlog unsichtbar. Dieses Risiko ist bei #335 eingetreten: am
+   2026-10-26 als „duplicate of #336“ geschlossen, obwohl #335 eine eigene SID
+   (VIVID-44) und eine andere Signatur als VIVID-43 trug — VIVID-44 ist damit
+   für Rückläufe blind. Falsch als Duplikat geschlossene Gruppen werden
+   deshalb wieder geöffnet statt über einen Nachbarn mitgeführt.
 3. **Real identifizierte, versionsgebundene Crashes** landen in der
    [CrashAdvisoryRegistry](../core/src/main/java/com/vivid/core/startup/CrashAdvisory.kt)
    (Range + Workaround; siehe RELEASE.md → 🛰️ Sentry-Ops). Bei stiller
@@ -158,17 +272,35 @@ nicht gezogen wurde):
    Assignee ist ausdrücklich **kein** Mangel. (Die frühere Regel — Zuweisung
    schon beim Anlegen, Hausmuster aus #215/#225 — war das Gegenteil und hat
    durch die Vorabreservierung jede Selbstbedienung blockiert.)
-6. **Schließung: GitHub-Issue manuell, Sentry-Issue per Automation.** Der
-   fix-release-Tag (siehe `docs/sentry-stats.md` §6) arbeitet **nur
-   Sentry-seitig** — beim Stable-Publish resolvt der Resolve-Guard die
-   getaggten Sentry-Issues (`resolved/inNextRelease`), die GitHub-Issues
-   des Befunds schließt er **nicht** (der Watchdog legt nur an, er schließt
-   nie; Historie: #215/#228 wurden manuell geschlossen). Verfahren:
-   Beim Release-Schnitt die Sentry-Issues im Dashboard mit
-   `fix-release: <version>` taggen (vor dem Stable-Publish), nach dem
-   Stable-Publish das GitHub-Issue manuell schließen. Ein „resolved“-Vermerk
-   in einem Attributionskommentar bezieht sich immer auf die Sentry-Ebene,
-   nie auf den GitHub-Issue-Status.
+
+### 5a. ProGuard / R8 Keep-Rules für Gson und Request-Interface (Issue #320)
+
+**Problem:** R8 kann Gson-Datenklassen und das Request-Interface nicht obfuscen,
+weil Gson zur Laufzeit Klassen instanziiert und das Interface als Typ nutzt.
+Das führt zu `JsonIOException: Abstract classes can't be instantiated!`
+(Issue #320 / VIVID-3V).
+
+**Lösung:** ProGuard-Keep-Rules in `app/proguard-rules.pro`:
+- `-keep class com.vivid.core.network.obs.security.** { *; }` — schützt Security-Datenklassen
+- `-keepclassmembers class com.vivid.core.network.obs.requests.Request { *; }` — schützt das Request-Interface
+- `-keep class com.vivid.core.network.obs.requests.* { *; }` — schützt Request-Implementierungen
+
+**Test:** `scripts/test_issue_320_proguard.sh` validiert die Anwesenheit dieser Keep-Rules im ProGuard-File.
+
+**Docs-Update:** Die ProGuard-Regeln sind in der Issue-Description und im PARITY.md dokumentiert (siehe Abschnitt „Moblin-Features & Android-Plattform“).
+
+6. **Schließung: GitHub-Issue manuell, Sentry-Issue per Bulk-PUT.** Beide
+   Ebenen sind getrennt (siehe `docs/sentry-stats.md` §6): Sentry-Issues werden
+   auf `resolved/inNextRelease` gesetzt, die GitHub-Issues des Befunds schließt
+   niemand automatisch (der Watchdog legt nur an, er schließt nie; Historie:
+   #215/#228 wurden manuell geschlossen). Verfahren: beim Release-Schnitt die
+   erledigten Sentry-Issues per Bulk-PUT mit ihren IDs resolven (Rezept in
+   `docs/sentry-stats.md` §6 Punkt 4; im Dashboard entspricht das „Resolve → in
+   next release“), nach dem Stable-Publish das GitHub-Issue manuell schließen.
+   **Ein `fix-release`-Tag ist dafür kein Weg:** Tags sind Event-Daten, Sentry
+   erlaubt kein nachträgliches Setzen an einem bestehenden Issue (Befund
+   01.11.2026, §6). Ein „resolved“-Vermerk in einem Attributionskommentar
+   bezieht sich immer auf die Sentry-Ebene, nie auf den GitHub-Issue-Status.
 
 Beispiel einer vollständigen Nach-Attribution: #215 (VIVID-36) →
 `CAM-FOCUS-INFINITE-SCROLL` (Doppel-Scroll in `SettingsCameraScreen`,
@@ -305,6 +437,947 @@ Triage: #267 ist in Punkt 7 beschrieben.
    vertretbar. Für #267 war die tatsächliche Kette am Event nicht lesbar (lokaler
    Token ohne `project:read`, siehe §1), der Filter ist deshalb bewusst
    konservativ kalibriert und der Befund unten nennt diese Lücke ausdrücklich.
+
+8. **Closure-Praxis für Single-Event-Validierungs-OOMs (seit 26.10.2026, #334/#337).** Die
+   Einzelereignis-Fatals dieser Familie werden **ohne Fix** geschlossen — zulässig nur auf Basis
+   einer unabhängigen Entkräftung der Release-Ebene (§5.1). Vier Bedingungen müssen **alle**
+   zutreffen und im Closure-Kommentar einzeln benannt werden:
+   - **(a) Genau ein Event am ganzen Build:** `firstEvent` == `lastEvent` == Crash-Zeitstempel
+     (auf die Sekunde) — ablesbar aus der Releases-API, die auch ohne Event-Leserecht
+     funktioniert. Die eine betroffene Nutzerin ist damit die einzige Session dieses Builds.
+   - **(b) Schnitt→Event-Latenz von Minuten** am dokumentierten Validierungstag (z.B. sieben
+     Releases in acht Stunden): Minuten nach dem Schnitt kann der Build keinen Feld-User
+     erreicht haben (Play-Rollout braucht Stunden bis Tage).
+   - **(c) Keine Wiederholung in allen folgenden Releases** — Fenster explizit nennen (z.B.
+     elf Releases 0.5.33-beta→0.5.43-beta; Watchdog-Zähler stabil, neueste Releases event-frei).
+   - **(d) Kein Fix vorhanden:** `git log --grep memory|oom|heap|leak` seit dem Fenster ist leer;
+     der Kommentar sagt das ausdrücklich (Closure claimt nie „behoben“) und begründet, warum die
+     Registry nach §5.3 nicht füllbar ist (keine Ursache, Top-Frame nur Allokationsort).
+   Der Closure-Kommentar (englisch, Beleg-Format) nennt zusätzlich die **nicht** getanen Schritte:
+   die Sentry-Gruppe bleibt `unresolved` (System der Record; das Sentry-Resolve nach §5.6 erst
+   mit einem echten Fix), und falls Event-Tags nicht lesbar waren (403 lokal), steht das im
+   Kommentar — die Schließung ruht auf der Release-Ebene, nicht auf Event-Tags.
+   **Nachweis-Kette:** dieselbe Signatur aktualisiert nur die Sentry-Gruppe und wird in GitHub
+   **nicht** neu angelegt (Dedup gegen `state=all`); eine **neue** Signatur legt der Watchdog
+   automatisch als neues Issue an. Die Geräte-Ebene (Event-Tags via `--print-event-tags`, §2/§4)
+   bestätigt die Lesart nachträglich, ist aber **keine** Voraussetzung — Beispiel: beide OOMs
+   (#334/#337, versionCodes 5294/5324, Latenzen 3½ bzw. 6 Minuten) feuerten auf V2454A, dem per
+   `com.vivid.debug`-Event nachgewiesenen Entwicklungsgerät.
+   **Grenze (Gegenbeispiel #324/#325):** treffen die vier Punkte nicht zu — Quell-Release spannte
+   13 Tage mit 6 Gruppen über die Feldwelt, Build-Identität also offen —, bleibt das Issue offen.
+   Dieselbe Event-Tag-Abfrage liefert dann den Nachweis, der die Schließung entweder trägt
+   (Test-Artfakt) oder verhindert (Feld-Build, wie bei #324/#325 belegt). Nicht anwendbar bei
+   identifizierter Ursache (§5.3) und bei Probe-Issues mit 0 betroffenen Nutzern (§5.4).
+
+9. **Kamera-Cluster `Camera no detected` attribuiert (01.11.2026, #325/#381/#382/#390).** Die
+   Stack-Ebene, die §5.1 bisher fehlte, ist mit `--print-event-stack` (§2/§4) lesbar geworden.
+   **Wurzel ist RootEncoder 2.7.5, nicht App-Code:** am Event `7822036893` bleibt die Kette lesbar
+   — `CameraOpenException: Camera no detected` ← `getCameraIdForFacing` ←
+   `getCameraIdForFacing$default` ← `getCameraResolutions` ← `prepareCamera`
+   (`com.pedro.encoder.input.video`). `getCameraIdForFacing` wirft, wenn `CameraManager` fuer die
+   angeforderte Blickrichtung keine Kamera-Id kennt — Geraete-/Umgebungsebene, alle Events
+   `0.5.68-beta+5684` bzw. `0.5.74-beta+5746` auf V2454A, Android 16, `environment=production`.
+   **App-seitig folgt daraus eine Falle:** der Wurf passiert in einem Task, den die Library auf
+   ihren eigenen Handler postet (`run` → `Handler.handleCallback`), und damit **vor**
+   `onConfigureFailed`. Das `try/catch` um `preview.prepareCamera(gl.surfaceTexture, 1280, 720, 30)`
+   in `StreamingEngine.startIdlePreviewIfReady()` sieht ihn nicht, `onCameraError` ebenfalls nicht
+   (der Callback laeuft erst nach einem Configure-Versuch) — der Wurf verlaesst den Looper und
+   wird fatal. Deshalb ist dieser Cluster **nicht** ueber die #350-Mechanik abfangbar.
+   `#382` ist die Log-Seite derselben Lage: ein Event **ohne** Exception, nur ein Thread-Eintrag
+   von `main` mit `Thread.getStackTrace`-Frames in genau diesem geposteten Task — kein eigener
+   Defekt, aber wegen eigener SID auch kein Duplikat (§5.2).
+   **Nebenbefund #350 (`7812865315`, `0.5.65-beta+5654`):** der Stack zeigt `onConfigureFailed`
+   einer `CameraConstrainedHighSpeedCaptureSession`. Der Report entsteht **nach** der
+   Identitaetspruefung aus `27bcef79` — ein zurueckgezogenes Preview haette gar kein Event
+   erzeugt. Der Fix wirkt also, die restlichen Events sind ein echter `CONFIGURE_FAILED`;
+   auffaellig ist der High-Speed-Pfad, waehrend der Idle-Preview 30 fps anfordert (Diskrepanz
+   offen, Next Step im Issue; **widerlegt am 05.11.2026**, siehe §5.15).
+   **Attributionsgrenze, strukturell statt zufaellig:** `app/build.gradle.kts` laedt das
+   ProGuard-Mapping nur mit gesetztem `SENTRY_AUTH_TOKEN` hoch
+   (`autoUploadProguardMapping.set(System.getenv("SENTRY_AUTH_TOKEN") != null)`). Die Nightly-Builds,
+   die die Feld-Events tragen, tun das nicht — deshalb bleiben App-Frames als `G`, `q0`, `d`, `u`,
+   `l` stehen, obwohl die Events `r8-map-id-…`-Modul-Ids tragen. Auch der neue Stack-Modus kann das
+   nicht aufloesen: **vor** jeder Methoden-Attribution muss das Mapping fuer den ausgelieferten
+   Build vorhanden sein.
+   **Behoben (01.11.2026), Ursache war die Verdrahtung, nicht das Plugin:** der Job
+   `publish-play` in `release-pipeline.yml` baut das AAB fuer den Play-Kanal — also genau die
+   Builds, die die Feld-Events tragen — und setzte `SENTRY_AUTH_TOKEN` nie. Im Release-Run
+   41174214302 erschien `uploadSentryProguardMappingsStandardPlayRelease` ausschliesslich im
+   Dry-Run-Selbsttest, nicht im Auslieferungspfad; der Kommentar im Fastfile behauptete das
+   Gegenteil und nannte eine Workflow-Datei, die es nicht mehr gibt. Jetzt gilt: Token/Org/Project
+   im Play-Step **und** im `build-release`-Step, ein Fail-closed-Block vor dem Upload (`::error::`
+   + `exit 1`; ein leeres Secret zaehlt wie ein fehlendes) und der Gradle-Schalter prueft
+   `!System.getenv("SENTRY_AUTH_TOKEN").isNullOrBlank()` statt nur `!= null` — ein gesetztes, aber
+   leeres Env-Feld haette den Upload sonst ohne Credentials eingeschaltet. **Guard:**
+   `scripts/check_sentry_mapping_upload.sh` (M1–M5 ueber `wf_step_env`/`wf_step_run`) mit
+   Selbsttest `scripts/test_sentry_mapping_upload.sh` (T0–T7; u. a. vertippter Step-Name und
+   abgeschalteter Schalter werden rot); beide laufen im Pre-Push-Gate und im CI-Job.
+
+   **Gegencheck nach dem naechsten Nightly-/Stable-Build (messbar, nicht „sieht gut aus"):** Der
+   Stack-Modus gibt je Event eine Zeile `EVENT_DEOBFUSCATION <SID>: mapped|obfuscated|no-app-frames`
+   mit den Zaehlern `r8-map-id`-Frames / `com.vivid`-Frames aus — `mapped` beweist, dass Sentry das
+   Mapping des Builds hat, `obfuscated` das Gegenteil, `no-app-frames` heisst „der Stack enthaelt
+   ohnehin keinen App-Code" (dann sagt der Befund nichts ueber den Upload). Baseline der fuenf
+   SIDs vom 31.10./01.11. (`7821630074`, `7821627754`, `7821592525`, `7822036893`, `7812865315`)
+   ist `obfuscated` — **gemessen am 01.11.2026** (CI-Lauf 41281476277): `7821630074` 32 r8-Frames/132 gesamt,
+   `7821627754` 5/13, `7821592525` 5/15, `7822036893` 7/15, `7812865315` 6/17, jeweils 0 `com.vivid`-Frames.
+   Erwartet wird `mapped` fuer den ersten Nightly-/Stable-Build, der mit `SENTRY_AUTH_TOKEN` gebaut wurde —
+   dieser Pfad braucht **keine** Play-Registrierung: ausgeliefert wird `assembleStandardRelease` als
+   `app-standard-release.apk` im GitHub-Release (`nightly-*` bzw. Version-Tag), mit `mapping.txt` als Asset. Events aus aelteren Builds bleiben dauerhaft obfuscated — das ist kein Fehler,
+   sondern die Grenze der nachtraeglichen Zuordnung. Der stille Skip hat im Build-Log den Fingerabdruck `skipping upload.` direkt nach
+   `Task :app:uploadSentryProguardMappings<Variante>`.
+   **Korrektur (01.11.2026):** Dieser Nachweis stammte aus dem **Play-Selbsttest (`dry_run`)** und sagt
+   nichts ueber den ausgelieferten Build — dort lief die Variante `standardPlayRelease`, die fuer die
+   Auslieferung gar nicht gebaut wird. Der Befund „Upload wird uebersprungen" ist damit fuer den
+   Auslieferungspfad **nicht** belegt, nur fuer den Play-Selbsttest.
+   Ein lokaler Gegenabgleich `sha256(mapping.txt)` gegen die r8-Id der Frames funktioniert nicht (Probe mit
+   zwei veroeffentlichten Nightly-Mappings: kein Treffer) — die r8-Id ist keine einfache Datei-Pruefsumme.
+   Verlaesslich ist allein die Klassifikation am Event (`EVENT_DEOBFUSCATION`).
+
+   **Filter-Entscheidung (§5.7) — kein neuer Allowlist-Eintrag.** `CameraOpenException: Camera no
+   detected` ist (a) **FATAL** (unbehandelter Wurf aus dem Looper) und damit nach Sicherheitsnetz 1
+   des Transport-Filters tabu, und (b) kein erwarteter Netzwerk-Betriebszustand, sondern eine
+   Geraetefrage, die als Crash sichtbar bleiben muss. Die Allowlist waechst weiterhin nur mit einem
+   attribuierten Issue **und** einem Ereignis, das die drei Netze ueberhaupt passieren koennte —
+   beides liegt hier nicht vor. Die Entscheidung ist damit dokumentiert, ohne Code zu aendern; der
+   Beleg steht in diesem Abschnitt und in den englischen Kommentaren an #374/#381/#382/#390/#350.
+
+### 5.10 Kamera-Klasse im Feld (31.10.–01.11.2026): eine Gerätequelle, kein Defekt
+
+**Befund (01.11.2026, Abgleich der offenen Watchdog-Issues #362–#395):** 34 der
+37 offenen Gruppen sind dieselbe Klasse — `Camera error (idlePreview=…): Open
+camera … failed`, `pa0/ja0: Camera no detected`, `Idle camera: Configuration
+failed`, `Camera recover exhausted (available:0)`. Alle tragen **eine** Nutzerin
+und **ein** Gerät (`V2454A`, das dokumentierte Entwicklungsgerät), Level
+`error` (kein Crash), Builds `0.5.46`–`0.5.74-beta`. Die Ausnahmen: VIVID-4T
+(#374, `ApplicationNotResponding`, fatal, 1 Event), VIVID-43 (#336, 20 Events,
+`CAMERA_DISCONNECTED` — eigener Befund in §5.16) und VIVID-46 (#350, 10 Events,
+Idle-Kamera-Config).
+
+**Verdikt:** erwarteter Gerätezustand auf einem Gerät, dessen Kamera während der
+Entwicklung von anderen Prozessen belegt/getrennt wird — kein App-Defekt, keine
+Feldwirkung. Die Filter-Entscheidung aus §5.9 (kein Allowlist-Eintrag, die
+Klasse bleibt sichtbar) wird **nicht** aufgeweicht: gefiltert würde nur die
+Sichtbarkeit eines echten Kamera-Ausfalls verloren gehen.
+
+**Schließung:** über `check_sentry_resolve.sh --ids …` (bzw. den Dispatch
+`automation-sentry-resolve.yml`) mit Status `resolved` **ohne** `inNextRelease` —
+die Gruppe bleibt damit offen für ein Wiederauftreten. GitHub-Issues werden
+dabei **nicht** geschlossen (Automation schreibt nur die Sentry-API); sie
+bleiben als Beleg stehen, bis sie manuell geschlossen werden. Seit 04.11.2026
+legt der Watchdog für die Klasse ohnehin kein Einzel-Issue mehr an, sondern
+führt ein Sammel-Issue (#412, §5.14).
+
+**Offen bleibt VIVID-4T (#374, ANR fatal):** ein Einzel-Event, das inzwischen
+eine begründete Zuschreibung hat — `main` wartet in
+`Semaphore.acquireUninterruptibly()`, und die einzige bekannte Semaphore-Warte
+dieser App liegt in RootEncoders `Camera2ApiManager.openCameraId` (§5.12 nennt
+Belege und Grenze der Zuschreibung). Die Behebung ist seit 03.11.2026 im Code
+(§5.13: Kamera-Open im Hintergrund-Scope), aber **nicht** auf einem Gerät
+gegengeprüft — deshalb bleibt die Sentry-Gruppe offen, bis ein Nightly-Lauf
+ohne ANR vorliegt.
+
+### 5.11 `Unable to start service` (#327, VIVID-3Z): Fix war schon da, Test fehlte
+
+**Befund (01.11.2026).** Die Gruppe VIVID-3Z (`RuntimeException: Unable to start
+service com.vivid.irlbroadcaster.StreamingService ...`, fatal, 2 Ereignisse / 2
+Nutzer, 22.10.) stand noch offen, obwohl der Fix am 23.10. mit `5fd40ac` landete —
+`StreamingService.startAsForeground()` meldet seitdem per Boolean, ob der
+Foreground-Zustand steht, und der Startpfad ist von einem `catch (Exception)`
+umschlossen, das über `reportStreamStartFailure()` einen sichtbaren
+`Failed`-Zustand schreibt. Der letzte Stack (`--print-event-stack 7806985927`)
+bestaetigt den Pfad: `StreamingService.onStartCommand` → `StreamingEngine.startStream`
+→ `startSourceStream` → `ScreenCaptureVideoSource.startStream`.
+
+Die Behauptung des Tickets war also **nicht** mehr der Ist-Zustand — und der in
+`PARITY.md` vermerkte Rest („kein Unit-Test fuer die Service-Klasse, dieser Pfad ist
+nur per Kompilat belegt") haette den Fix bei der naechsten Umstellung wieder
+unbemerkt zurueckdrehen lassen.
+
+**Was jetzt gilt.** Die Start-/Fehler-Klammer liegt als reine Funktion in
+`StreamingServiceSupport.guardStreamStart(log, start, onFailure)`: eine Exception
+aus dem Start verlaesst den Service nicht mehr, sondern landet im Log und im
+Engine-Zustand; der Aufrufer raeumt auf (`teardown()`, `START_NOT_STICKY`).
+Gefangen wird bewusst nur `Exception` — ein `Error` (z. B. `OutOfMemoryError`)
+bleibt beim Crash-Reporting und wird nicht als „Streamstart fehlgeschlagen"
+verkleidet.
+
+**Beleg.** `StreamingServiceSupportTest` prueft drei Faelle: Exception → `false`,
+Log + `onFailure` je genau einmal, kein Entweichen; Erfolg → `true`, keine
+Meldung; `OutOfMemoryError` → propagiert unveraendert, `onFailure` bleibt stumm.
+Mutationsprobe (01.11.2026): `onFailure()` im Guard entfernt → genau dieser Test
+rot (`guardStreamStart reports a start failure without letting it escape`,
+`BUILD FAILED in 27s`); zurueckgebaut → `BUILD SUCCESSFUL in 25s`.
+
+**Status der Gruppe.** VIVID-3Z (`7806985927`) wird nach dem Beleg resolved
+(`--ids`, ohne `inNextRelease`): die Codebasis enthaelt den Fix, aber der
+gemeldete Build liegt davor — ein erneutes Auftreten soll die Gruppe wieder
+oeffnen, statt sie als „in der naechsten Version behoben" stillzustellen.
+
+**Kamera-Cluster `Camera no detected`: Pre-Flight-Pruefung (02.11.2026, #325/#381/#385/#390/#392).**
+Aus §5.1 Punkt 9 folgt, dass der fatale Wurf **app-seitig nicht abfangbar** ist, solange
+`prepareCamera` ueberhaupt aufgerufen wird — der einzige saubere Hebel ist, den Aufruf zu
+vermeiden. `StreamingEngine` prueft deshalb jetzt vor beiden Kamera-Pfaden, ob es die
+angeforderte Kamera gibt (`cameraAvailability`, injizierbar wie `idlePreviewFactory`):
+
+- **Idle-Preview:** `startIdlePreviewIfReady()` prueft die aktuell gewaehlte Idle-Kamera
+  (`idlePreviewCamera?.getCurrentCameraId()`, sonst `camera?.currentCameraId`; leer =
+  Rueckkamera) **vor** dem GL-Aufbau; fehlt die Kamera, wird die Vorschau gar nicht erst
+  aufgebaut (`Timber.w`, kein Crash).
+- **Stream/Recording:** `startCameraStream()` prueft dieselbe Id vor
+  `prepareStreamEncoders()` und endet bei fehlender Kamera in
+  `StreamingState.Failed(streaming_error_camera_unavailable)` — ein lokalisierter Fehler
+  (de/en/fr/ru) statt eines Fatals.
+
+`defaultCameraAvailable` liest `CameraManager.cameraIdList` (+ `LENS_FACING` fuer die
+Rueckkamera); ist die Liste selbst nicht lesbar, bleibt das **Bestandsverhalten** (fail-open) —
+die Pruefung darf funktionierende Geraete nicht blockieren.
+
+**Beleg.** `StreamingEngineCameraGuardTest` (4 Tests): Idle-Preview baut ohne Kamera nichts
+auf (Factory-Zaehler 0), Streamstart endet in `streaming_error_camera_unavailable` ohne
+`prepareVideo()`/`startStream()`, und eine vorhandene Kamera nimmt den normalen Pfad
+(Negativkontrolle). Die PR-Integration prueft zusaetzlich, dass ein Preview-Rebuild
+die gewaehlte Idle-Linse prueft und bei fehlender Verfuegbarkeit weder Capture
+ersetzt noch die bestehende Kamera schliesst. **Upstream-Mutationsprobe (02.11.2026):** beide Guards per `false &&` deaktiviert →
+`3 tests completed, 2 failed` (die Negativkontrolle blieb gruen), zurueckgebaut → gruen.
+
+**Grenze der Behebung.** Adressiert ist die Familie, in der die Kamera **nicht existiert**
+(`Camera no detected`, 16+ Events, fatal). Nicht adressiert: `Open camera N failed`
+(Kamera existiert, Oeffnen scheitert — eigener Cluster, Retry-Politik aus `27bcef79`) und die
+offene #350-Diskrepanz (High-Speed-Session vs. 30-fps-Idle-Preview). Die Issues bleiben bis
+zum Nachweis im naechsten Nightly offen; ein Kommentar mit diesem Befund haengt an der Familie.
+
+### 5.12 `Open camera … failed` (#371–#399): zwei Wurfstellen, ein ANR-Beleg, zwei Änderungen
+
+**Befund (02.11.2026, RootEncoder 2.7.5 dekompiliert).** Die Familie hat
+**zwei** Meldungen, die wie eine aussehen, aber aus verschiedenen Stellen
+kommen:
+
+- `Open camera <id> failed` — der **synchrone** Wurf in
+  `Camera2ApiManager.openCameraId()`. Nach `cameraManager.openCamera(id, this,
+  cameraHandler)` blockiert dieselbe Methode auf dem **aufrufenden Thread** in
+  `semaphore.acquireUninterruptibly()`; der `catch` verpackt jede Exception
+  (typisch `CameraAccessException: CAMERA_IN_USE`/`MAX_CAMERAS_IN_USE`) in
+  diese Meldung.
+- `Open camera failed: <n>` — der **asynchrone** Pfad über
+  `Camera2ApiManager.onError(device, error)`. Er schließt das Gerät, gibt das
+  Semaphor frei und meldet `error` als Zahl; `4` ist
+  `ERROR_CAMERA_DEVICE`, d. h. der Kamera-HAL des Geräts, nicht die App.
+
+**ANR-Beleg (VIVID-4T, #374) — Zuschreibung, kein Beweis.** Der gespeicherte
+Event-Stack ist eindeutig auf der Wartestelle: `main` → `park` →
+`LockSupport.park` → `AbstractQueuedSynchronizer.acquireShared` →
+`Semaphore.acquireUninterruptibly` → obfuskierte App-Frames, ohne
+`InputEventReceiver`/`ViewRootImpl`/`Choreographer` (also kein Input- und kein
+Render-Problem). Dieses Repository konstruiert selbst **kein** `Semaphore`
+(`git grep` leer), der Wartepunkt gehört also einer Abhängigkeit. RootEncoder
+2.7.5 ist in dieser App die einzige bekannte Stelle, die ein Semaphor
+`acquireUninterruptibly` nimmt — in `Camera2ApiManager.openCameraId()`
+unmittelbar nach `cameraManager.openCamera(...)`. Damit ist die Kette
+(`StreamingService.onStartCommand` → `startStream` → Kamera-Open auf dem
+Main-Thread) die plausibelste Erklärung, aber der Stack bleibt wegen der
+fehlenden ProGuard-Mapping-Uploads (`autoUploadProguardMapping` nur mit
+`SENTRY_AUTH_TOKEN`) bis auf Methodenebene unlesbar. Die Doku führt die
+Zuschreibung deshalb als begründete Hypothese; bewiesen wird sie erst mit
+einem gemappten Event oder einer Reproduktion.
+
+**Zweiter Kamera-Open im Fehlerzweig.** Der alte Fehlerzweig rief nach
+`failStream()` sofort `startIdlePreviewIfReady()` — ein zweiter
+`openCamera`-Versuch im selben Aufrufzug, ohne dass dem Kamera-Server Zeit
+bleibt, das Gerät nach dem Encoder-Teardown freizugeben. Ob er gelingt, ist ein
+Wettlauf; scheitert er, entsteht ein zusätzlicher Fehlerpfad (im
+Vorschau-Callback als eigenes `Idle camera: …`-Event). Der zweite Öffnungsversuch
+war damit selbst eine Fehlerquelle, die vom eigentlichen Startfehler nicht zu
+unterscheiden ist.
+
+**Was jetzt gilt.**
+
+1. **Verzögerte Vorschau-Wiederherstellung mit Budget** (`schedulePreviewRecovery()`,
+   `RECOVERY_PREVIEW_DELAY_MS = 400`): kein Kamera-Open mehr im Fehlerzweig,
+   genau ein Wiederaufbau pro Fehlerfall, und der Aufbau unterbleibt, wenn
+   inzwischen ein neuer Start läuft (`Preparing`/`Streaming`) oder die Quelle
+   nicht mehr `CAMERA` ist. 400 ms sind lang genug, damit der Kamera-Server
+   das Gerät freigibt, und kurz genug, dass die Vorschau ohne sichtbare Pause
+   zurückkommt.
+2. **Pfad-Angabe und Umgebungs-Kontext am Fehler** (#371/#375/#376/#382
+   unterschieden `idlePreview=true|false`, im Code war der Live-Pfad aber
+   stumm — nur der Vorschau-Callback loggte `Idle camera: %s`). Neu:
+   `CameraErrorPath.STREAM`/`IDLE_PREVIEW` in der Fehlerzeile
+   (`Camera error (stream): …`) und eine Kontextzeile mit Pfad, Kamera-Id,
+   verfügbaren Ids, gleichzeitigen Kamera-Gruppen
+   (`CameraManager.concurrentCameraIds`) sowie Streaming-/Recording-Zustand.
+
+   Die Kontextzeile geht bewusst über `Timber.w`, nicht über `Timber.e`:
+   `sentry-android-timber` 8.58 setzt `minEventLevel = ERROR` und
+   `minBreadcrumbLevel = INFO` (bytecode-verifiziert an
+   `SentryTimberIntegration`). Damit landet der variable Teil als Breadcrumb am
+   nächsten Fehler-Event und im In-App-Log, ohne pro Kamera-Id eine neue
+   Sentry-Gruppe anzulegen. Die Fehlerzeile selbst bleibt stabil; die Id steht
+   ohnehin in RootEncoders eigener Meldung.
+
+   **Nebenbefund für die Triage:** die Zeichenkette
+   `Camera error (idlePreview=…)` existiert in Code und Git-Historie **nicht**
+   (`git log -S` über alle Branches leer) und wird auch vom Watchdog nicht
+   erzeugt. Die Gruppentitel stammen also aus Sentry (Umbenennung oder eigener
+   Fingerprint); verbindlich für die Zuordnung ist `metadata.value`
+   (`Open camera … failed`).
+
+**Beleg.** 10 neue Tests: `CameraErrorDiagnosticsTest` (4, Format und
+Leerfälle), `StreamingEngineCameraRecoveryTest` (4, kein Open im Fehlerzug,
+genau eine geplante Aktion, Budget, Inertheit bei laufendem Stream),
+`StreamingEngineCameraContextTest` (2, Kontext + Fehlerzeile je Pfad über einen
+`Timber`-Recording-Tree). Mutationsproben (02.11.2026):
+`schedulePreviewRecovery()` → `startIdlePreviewIfReady()` ⇒ alle vier
+Recovery-Tests rot, die Kontext-Tests grün; Kontext-Zeile aus
+`reportCameraError()` entfernt ⇒ genau der Live-Pfad-Test rot, der
+Vorschau-Test (der seine Zeile separat setzt) grün; jeweils zurückgebaut →
+`TESTS_RC=0`.
+
+**Grenze der Behebung.** Der `openCamera`-Aufruf läuft weiter auf dem
+aufrufenden Thread — im Service-Start ist das der `main`-Thread. Die Semaphore
+kann dort also weiterhin blockieren, wenn `openCamera` zwar zurückkehrt, aber
+weder `onOpened` noch `onError` kommt. Diese Grenze ist mit §5.13 aufgehoben:
+der Open läuft seit 03.11.2026 im seriellen Hintergrund-Scope.
+
+### 5.13 Kamera-Open verlässt den Main-Thread (A1, 03.11.2026)
+
+**Was geändert ist.** Zwei Stellen riefen RootEncoder so auf, dass der
+Semaphor-Wartepunkt aus §5.12 auf dem Aufrufer-Thread lag:
+
+- **Idle-Vorschau:** `startIdlePreviewIfReady()` rief `prepareCamera(...)` und
+  `openCameraId(...)` direkt im Aufruf (Main, sobald die SurfaceView angehängt
+  wird).
+- **Stream/Recording:** `startCameraStream()` rief `prepareStreamEncoders(cam)`
+  direkt im Aufruf, und der kommt beim Start aus dem Service
+  (`StreamingService.onStartCommand`, Main) oder aus dem UI-Button.
+- **Vorschau-Wiederholung:** `retryIdlePreviewOnce()` schickte den
+  `reOpenCamera(...)`-Aufruf nach einem `onConfigureFailed` per
+  `dispatchSceneTask` auf den Main-Thread — derselbe Wartepunkt, nur später
+  (der Pfad aus #350/VIVID-46).
+
+Beides läuft jetzt über `launchCameraOpen` in den vorhandenen seriellen
+`captureScope` (`Dispatchers.IO.limitedParallelism(1)`); nur der Abschluss
+(Vorschau anhängen, Controls, `cam.startStream`) kommt per `runOnMain` zurück
+auf den Main-Thread. Seriell deshalb, weil zwei gleichzeitige Öffnungsversuche
+denselben Fehler erzeugen würden, den §5.12 beschreibt.
+
+**Neue Guards, die der asynchrone Open erst nötig macht.** Vorher blockierte
+der Open den Main-Thread und schloss diese Lücken von selbst:
+
+- `legacyIdlePreviewAllowed()` verlangt zusätzlich
+  `_streamingState !is Preparing/Streaming`. Sonst würde die Vorschau während
+  eines laufenden Starts dieselbe Kamera anfordern (Doppel-Open).
+- `completeCameraStart()` bricht ab, wenn der Zustand nicht mehr `Preparing`
+  ist. Während des Hintergrund-Opens kann der Nutzer gestoppt haben; ohne den
+  Guard hätte der Abschluss den Stream trotzdem gestartet.
+- `openIdleCamera()` prüft `idlePreviewCamera === preview` vor dem Öffnen: ein
+  inzwischen ersetzter Aufbau darf nicht doch noch öffnen.
+
+**Beleg.** Neu `StreamingEngineCameraThreadTest` (6 Tests): der Open läuft
+nachweislich auf einem anderen Thread als der Aufrufer (Produktions-Default,
+gemessen an `Thread.currentThread()` in `prepareVideo`), der Zustand steht
+sofort auf `Preparing` (die UI wartet nicht), zwei Starts erzeugen genau einen
+Öffnungsversuch, ein Abschluss nach `stopStream()` startet keinen Stream, die
+Vorschau bleibt während `Preparing` geschlossen, und die Wiederholung nach
+`onConfigureFailed` öffnet auf einem anderen Thread als der Aufrufer. Die
+bestehenden Engine-Tests setzen `launchCameraOpen`/`runOnMain` auf
+Inline-Ausführung, damit sie dieselbe Zustandsfolge sehen wie vorher;
+`scheduleRecoveryPreview` wird dort ebenfalls gestubbt (Produktions-Default ist
+`Handler.postDelayed`, in der JVM ein werfender Stub). **Mutationsproben
+(03.11.2026):** `launchCameraOpen` inline → Thread-Test rot (1/5);
+`Preparing`-Guard in `legacyIdlePreviewAllowed` entfernt → Vorschau-Test rot
+(1/5); Abbruch-Guard in `completeCameraStart` entfernt → Stop-Test rot (1/5);
+`retryIdlePreviewOnce` zurück auf `dispatchSceneTask` → Wiederholungs-Test rot
+(1/6); jeweils zurückgebaut, Modul-Tests grün.
+
+**Grenze.** Der Open ist damit vom Main-Thread weg, aber nicht bewiesen ist,
+dass der ANR *dieser* Semaphor war (§5.12). Auf einem Gerät ist die Änderung
+nicht gegengeprüft: die Verlagerung von `prepareCamera`/`prepareVideo` in einen
+Hintergrund-Thread ist für RootEncoder 2.7.5 nicht dokumentiert, die
+GL-Anhänge- und Control-Aufrufe bleiben aber weiterhin auf Main. Wenn der
+Gerätetest eine Abweichung zeigt (z. B. schwarze Vorschau beim ersten
+Anhängen), ist die Rücknahme klein: `launchCameraOpen` auf
+`{ work -> work() }` stellen.
+
+**Gerätetest (04.11.2026, SM-S918B).** Am 04.11.2026 hing statt der V2454A
+ein Galaxy S23 Ultra (SM-S918B, Android 16) am Rechner — ein Gerät ohne Bezug
+zur ANR-Quelle. Die Änderung ist damit erstmals auf Hardware gelaufen, mit
+klarer Grenze: der ANR aus #374 trat auf der V2454A auf und ist hier nicht
+reproduzierbar.
+
+- **Schritt 1 (Idle-Vorschau):** soweit messbar erfüllt. Die Kamera öffnet
+  (`dumpsys media.camera`: Camera ID 0, Client `com.vivid.debug`, Zustand
+  aktiv), die UI bleibt bedienbar (UI-Dumps kehren im Sekundentakt zurück).
+  Ein Unterschied zur Vorfassung ist nicht messbar: derselbe Bildschirm aus
+  `0.5.23-beta` (ohne A1) und aus `develop` (mit A1) liefert im gleichen
+  Ausschnitt praktisch dieselbe Helligkeit (Mittelwert 0,26 vs. 0,29). Die
+  Vorschaufläche selbst bleibt dunkel; ob das die leere Szenen-Komposition
+  (`showComposition`) oder ein echtes Problem ist, ist damit **nicht**
+  entschieden.
+- **Schritt 2 (Streamstart):** der Start lief bis in die Encoder-Vorbereitung
+  (`timber`: `Video encoder=c2.qti.hevc.encoder mode=CBR target=6000 kbps`).
+  Abgebrochen ist er erst am Testziel (`Endpoint malformed`), nicht an Kamera
+  oder Thread-Lage.
+- **Schritt 3 (Stop während `Preparing`):** ausgeführt, über den dokumentierten
+Remote-Weg. Der Button im Screen war in diesem Zustand deaktiviert
+(`enabled = streamingState !is Preparing`), ein Stopp kam also nur von außen
+(Web-Remote, Chat-Bot, Notification); **seit 07.11.2026 ist der Start
+abbrechbar** (§5.18). `POST /stop` mit
+`Authorization: Bearer <token>` — erreichbar über `adb forward`, weil der
+Server beim Streamstart auf Port 8081 auswich — antwortete mit `200`, der
+Zustand ging innerhalb von 1,5 s auf `Idle` („Stream starten") zurück und blieb
+dort über neun Sekunden; `timber` protokollierte `Stopping shared camera
+encoder after last RTMP target`. Ein Streamstart nach dem Stopp trat nicht auf
+— genau der Fall, den `completeCameraStart` abfängt. Die Kamera bleibt danach
+offen (ein Client), weil die Idle-Vorschau sie weiterhält.
+
+**Ziel-URL setzen.** Für den Lauf kam die Twitch-Vorlage zum Einsatz
+(`rtmp://live.twitch.tv/app`): freie Eingabe per `adb input` scheitert an der
+Autokapitalisierung des Textfelds (`Rtmp://…` lehnt RootEncoder als
+`Endpoint malformed` ab), und die URL muss zusätzlich
+`ip:port/appname/streamname` entsprechen. Anschließend ist der Ablauf in einem
+Durchgang fahrbar.
+Beleg für #374 bleibt ein Nightly-Lauf auf der V2454A; bis dahin bleibt die
+Sentry-Gruppe `7821630074` offen. Zeigt ein Gerätetest eine Abweichung, ist die
+Rücknahme die eine Zeile aus dem Absatz oben.
+### 5.14 Kamera-Klasse: ein Sammel-Issue statt eines Issues pro Variante (04.11.2026)
+
+**Befund.** Von 40 offenen Issues waren am 04.11.2026 **36** Kamera-Klasse —
+und zwar als Varianten derselben Sache: 15× `Camera error (idlePreview=…): Open
+camera N failed`, 14× ein obfuskierter Präfix (`ja0:`/`pa0:`) mit `Camera no
+detected`, 3× `Open camera failed: 4`, 2× `CameraOpenException: Camera no
+detected`, 2× `Camera recover exhausted`. Jede Variante ist eine eigene
+Sentry-Gruppe (Fingerprint über Nachricht + Kamera-Id + Flag), also legte der
+Watchdog je Variante ein GitHub-Issue an. Das Verdikt aus §5.10 bleibt: eine
+Gerätequelle (V2454A), erwarteter Zustand, kein App-Defekt.
+
+**Regel.** Die Klasse bekommt **ein** Sammel-Issue (Label `sentry`, Titel
+`[Sentry] Kamera-Klasse: Sammel-Issue (docs/sentry-issues.md §5.10)`):
+
+- `check_sentry_issues.sh` klassifiziert über `CAMERA_RE` (Nachricht + Wert) und
+  lässt diese Gruppen **nicht** als Einzel-Issue kandidieren.
+- Der Body des Sammel-Issues trägt neben `<!-- vivid-sentry-camera-rollup -->`
+  die normalen Dedup-Marker `<!-- vivid-sentry-issue: <sid> -->` aller
+  enthaltenen Gruppen — die bestehende Dedup-Logik liest sie damit als
+  „bereits erfasst“, ohne Sonderfall.
+- Neue Varianten werden als Kommentar an das Sammel-Issue gehängt (inkl.
+  Marker), nicht als neues Issue. Existiert es noch nicht, wird es angelegt.
+- **Ausnahmen** (`CAMERA_EXCEPTION_RE`): `CAMERA_DISCONNECTED` und
+  fehlgeschlagene Konfiguration (#336/VIVID-43, #350/VIVID-46) sind laut §5.10
+  echte Defekte, keine Gerätezustands-Varianten — sie bekommen weiterhin ein
+  Einzel-Issue, damit sie nicht im Sammel-Issue verschwinden.
+
+**Was ausdrücklich gleich bleibt.** Kein Filter, keine Ignore-Regel, keine
+Resolve-Automatik für die Klasse: die Sentry-Gruppe bleibt sichtbar (§5.9), und
+ein echter Kamera-Ausfall erscheint weiterhin — er erscheint nur gebündelt.
+
+**Beleg.** Guard-Selbsttest I22–I26: Kamera-Gruppen kandidieren nicht (I22),
+Sammel-Issue-Anlage mit Rollup- und Dedup-Markern (I22), Kommentar statt
+Neuanlage bei bestehendem Issue (I23), Marker im Sammel-Issue deduplizieren
+(I24), `--dry-run` bleibt folgenlos (I25), die Ausnahmen bleiben Einzel-Issues (I26).
+**Mutationsproben (04.11.2026):** `CAMERA_RE`-Zweig deaktiviert → I22 rot, I3
+(Nicht-Kamera-Pfad) grün; `_markers()` geleert → I22/I23 rot; Ausnahme-Prüfung
+entfernt → I26 rot; jeweils zurückgebaut und wieder grün.
+
+**Aufräumen der Altlasten.** Die 36 offenen Einzel-Issues (#325–#399) wurden am
+04.11.2026 mit englischem Beleg-Kommentar geschlossen; ihre Marker stehen im
+Sammel-Issue **#412**, eine Neuanlage durch den Watchdog ist damit
+ausgeschlossen (Dedup liest `state=all`). Offen blieben bewusst nur die
+Ausnahmen #336/#350 und der ANR #374. §5.10 bleibt sonst unverändert gültig.
+
+### 5.15 `#350` (VIVID-46): die High-Speed-Attribution war ein Fehlschluss (05.11.2026)
+
+**Frage aus dem Issue.** Der letzte Beleg-Kommentar an #350 endet mit einem
+Widerspruch: die Idle-Vorschau fordert 30 fps an (`prepareCamera(…, 1280, 720,
+30)`), der gelesene Stack zeigt aber `onConfigureFailed` einer
+`CameraConstrainedHighSpeedCaptureSession`, die es erst ab 60 fps gibt.
+
+**Befund (Quellenlesung, kein Gerät nötig).** Der Widerspruch löst sich auf,
+weil die Vorschau diese Session gar nicht erzeugen kann:
+
+- RootEncoder 2.7.5, `encoder/src/main/java/com/pedro/encoder/input/video/Camera2ApiManager.kt`
+  (Tag `2.7.5`): die einzige Session-Erzeugung ist `createCaptureSession(…)`,
+  und sie übergibt `SessionConfiguration.SESSION_REGULAR` (API ≥ 28) bzw. den
+  regulären Legacy-Aufruf. Die Datei enthält **kein** `Constrained`/`HighSpeed`.
+  `MultiCamera2` erzeugt gar keine Session, `Camera2Base` hält genau einen
+  `Camera2ApiManager` — der High-Speed-Pfad existiert in der Library nicht.
+- Vivids einzige `createConstrainedHighSpeedCaptureSession` steht in
+  `HighSpeedGlBridge.createSession` (experimentelle 60-fps-Aufnahme, eigener
+  Thread `VividHighSpeedCapture`). Fehler dort laufen über `onFailure` →
+  `"Experimental camera capture failed"`, **nie** über `idlePreviewCallbacks`.
+- AOSP: `CameraConstrainedHighSpeedCaptureSessionImpl` existiert nur für
+  `SESSION_HIGH_SPEED` und umhüllt intern eine reguläre
+  `CameraCaptureSessionImpl`; sie kann also nicht als Rahmen einer regulären
+  Session auftreten.
+
+⇒ **Eine 30-fps-Idle-Vorschau landet nicht in einer High-Speed-Session.** Der
+Framework-Rahmen in Event `7812865315` kann damit nicht zu derselben Session
+gehören wie die Zeile, die ihn meldet: der Log-Text ist unser Code
+(`Timber.e("Idle camera: %s")`) und belastbar, der Rahmen stammt aus einem
+Stack, dessen App-Frames ohne ProGuard-Mapping obfuskiert sind (§9, Baseline
+`obfuscated`). Ein Fix gegen eine nicht existierende Fehlfunktion wird deshalb
+**nicht** gebaut (Präzedenz #259). #350 bleibt als Gruppe offen — es ist ein
+echter `CONFIGURE_FAILED` auf einer **regulären** Session, zehn Events, ein
+Gerät, letztes Event `0.5.65-beta+5654`.
+
+**Was stattdessen festgehalten ist.** Die Anforderung der Vorschau steht jetzt
+an einer Stelle (`IDLE_PREVIEW_WIDTH/HEIGHT/FPS` in `StreamingEngine.kt`) und
+erscheint im Breadcrumb der Fehlerzeile als `request=1280x720@30fps`
+(`describeCameraError(…, request = …)`). Der nächste Rücklauf nennt damit die
+Parameter, auf denen der Configure scheiterte. Der einzige noch fehlende
+Messwert ist die von RootEncoder tatsächlich gewählte Auflösung — sie steht auf
+dem Gerät in dessen eigener Zeile `optimal resolution set to: WxH` (Log.i), die
+`prepareCamera` vor dem Öffnen schreibt.
+
+**Beleg.** `IdlePreviewRequestTest` hält drei Dinge fest: die Vorschau fordert
+genau `1280×720@30`, sie fordert **nie** mehr als 30 fps (weder an
+`prepareCamera` noch an `setForceRender`), und der Fehler-Breadcrumb trägt
+`request=1280x720@30fps` neben `path=idlePreview`. **Mutationsproben
+(05.11.2026):** `IDLE_PREVIEW_FPS` auf 60 gesetzt → beide
+Anforderungs-Prüfungen rot; `request = IDLE_PREVIEW_REQUEST` entfernt →
+Breadcrumb-Prüfung rot; jeweils zurückgebaut → grün.
+
+### 5.16 `#336` (VIVID-43, `CAMERA_DISCONNECTED`): der Fehlerzweig ohne Wiederholung (06.11.2026)
+
+**Behauptung des Tickets geprüft.** #336 ist die einzige Fundstelle, die §5.10
+als echten Defekt führt (Ausnahme von der Rollum-Regel), hatte aber noch keinen
+eigenen Befund — nur Querverweise auf #350. Geprüft wurde deshalb nicht die
+Meldung, sondern der Code, der sie erzeugt.
+
+**Befund (Quellenlesung RootEncoder 2.7.5, Tag `2.7.5`,
+`encoder/src/main/java/com/pedro/encoder/input/video/Camera2ApiManager.kt`).**
+`startPreview()` meldet einen gescheiterten Session-Aufbau mit **zwei**
+verschiedenen Texten:
+
+- `Configuration failed` aus `onConfigureFailed` (Session-Callback),
+- `Create capture session failed: <message>` aus dem `catch` um
+  `setRepeatingRequest` (innerhalb `onConfigured`) bzw. um
+  `drawSurface`/`createCaptureSession` (äußerer `catch`).
+
+`Open camera <id> failed` / `Open camera failed: <n>` kommen dagegen aus
+`openCameraId()`/`onError()` — ein anderer Vorgang, kein Session-Aufbau.
+
+**Der Defekt.** `idlePreviewCallbacks.onCameraError` wiederholte über
+`retryIdlePreviewOnce()` nur bei `error.startsWith(CONFIGURE_FAILED)`. Die
+Signatur aus #336 — `Create capture session failed: CAMERA_DISCONNECTED (2):
+checkPidStatus:2802: …`, 20 Events — fällt nicht darunter: derselbe Callback,
+dieselbe Bedeutung („die Session kam nicht zustande"), aber **keine**
+Wiederholung. Das Einmal-Budget existierte seit #350; es hing am falschen Text.
+
+**Zweite Lücke, gleiche Stelle.** `onCameraDisconnected()` setzte im
+Vorschau-Pfad nur `sceneCameraAvailable = false` — kein Log, kein Breadcrumb.
+Der Stream-Pfad meldet `disconnected` seit A4
+(`reportCameraError(STREAM, "disconnected", …)`), der Vorschau-Pfad nicht.
+Deshalb gibt es zu #336 keine `Idle camera: disconnected`-Gruppe, obwohl die
+Meldung des Tickets eine Trennung beschreibt: die Events kamen ausschließlich
+über den Session-Text.
+
+**Was jetzt gilt.**
+
+1. `isIdleSessionFailure(error)` deckt beide Texte ab; `retryIdlePreviewOnce()`
+   läuft für `Configuration failed` **und** `Create capture session failed: …`.
+   Budget unverändert: ein Wiederaufbau pro Vorschau-Aufbau, Ausführung im
+   seriellen Hintergrund-Scope (§5.13), Identitätsprüfung auf die aktuelle
+   Vorschau bleibt.
+2. `logIdleCameraError()` ist die gemeinsame Meldung für Fehler **und**
+   Trennung: `Timber.w`-Breadcrumb (`path=idlePreview`, Kamera-Id, verfügbare
+   Ids, `request=1280x720@30fps`) plus stabile Fehlerzeile `Idle camera: …`,
+   bei einer Trennung `Idle camera: disconnected`. Die bestehende Gruppierung
+   (`Idle camera: <RootEncoder-Text>`) bleibt unverändert (§5.12).
+3. **Bewusst keine Wiederholung bei einer Trennung.** Eine Trennung heißt, ein
+   anderer Client hält die Kamera; ein sofortiger Reopen verbraucht das
+   Einmal-Budget und erzeugt nur ein weiteres Fehler-Event in genau der Klasse,
+   die das Sammel-Issue bündelt. Wiederherstellung nach einer Trennung braucht
+   weiterhin ein neues Surface oder eine neue Größe — `attachPreview` baut die
+   Vorschau neu auf, sobald `idlePreviewSurface`/`idlePreviewSize` abweichen.
+
+**Beleg.** Neu `StreamingEngineIdleCameraErrorTest` (7 Tests): der #336-Text
+löst genau eine Wiederholung aus, `Configuration failed` weiterhin genau eine
+(Negativkontrolle Bestand), `Open camera 0 failed` löst **keine** aus
+(Negativkontrolle gegen Überdehnung), zwei Fehler verbrauchen nur ein Budget,
+eine Trennung erzeugt Kontext-Breadcrumb und `Idle camera: disconnected`, eine
+abgelöste Vorschau meldet nichts und wiederholt nichts, und nach einem
+Neuaufbau wiederholt die aktuelle Vorschau weiter.
+
+**Mutationsproben (06.11.2026):** `isIdleSessionFailure` auf
+`startsWith(CONFIGURE_FAILED)` zurückgebaut → 3 rot (Session-Fehler, Budget,
+Neuaufbau), die beiden Negativkontrollen grün;
+`logIdleCameraError(…, IDLE_DISCONNECTED)` entfernt → genau der
+Trennungstest rot; Prädikat auf `true` → genau die Negativkontrolle
+„Open failure" rot; jeweils zurückgebaut → `TESTS_RC=0`.
+
+**Grenze.** Dass die Wiederholung unter der gemeldeten Belegung **gelingt**,
+ist nicht gezeigt: #336 nennt vorausgehend `Open camera failed: 4`
+(`ERROR_MAX_CAMERAS_IN_USE`), also hielt ein anderer Prozess die Kamera. Der
+Wiederholungsversuch ist deshalb eine Chance, kein Versprechen; scheitert er,
+bleibt es bei einem Fehler-Event (Budget) statt einer Schleife. Ein
+Gerätenachweis fehlt (die Quelle ist die V2454A, nicht das Testgerät), und
+`CameraManager.AvailabilityCallback` ist weiterhin nicht verdrahtet — die
+Vorschau wartet nicht auf die Rückkehr der Kamera.
+
+### 5.17 Recency-Beleg der Kamera-Klasse: kein neuer Zweig, Ereignisebene offen (07.11.2026)
+
+**Frage.** Hat die Kamera-Klasse seit dem Bündeln (04.11.2026, §5.14) noch
+Ereignisse erzeugt? Der Beleg sollte aus dem Watchdog selbst kommen, also aus
+einem Dry-Run.
+
+**Der Dry-Run läuft lokal nicht.** `bash scripts/check_sentry_issues.sh
+--dry-run` endet mit `SKIP: Sentry-Token ohne Lesescopes — project:read nötig`
+(HTTP 403); `--print-event-tags 7812865315,7821630074` liefert
+`EVENT_TAGS …: not readable (HTTP 403)`; `check_sentry_stats.sh` ebenfalls
+`SKIP … project:read + event:read nötig`. Die beiden Token in
+`sentry.properties` (`issues.token`, `auth.token`) haben keine Lesescopes —
+ein SKIP ist kein Befund, deshalb steht hier der Ersatzweg.
+
+**Ersatzbeleg: der stündliche CI-Lauf mit lesendem Secret.** Zwölf Läufe des
+Workflows `Automation / Sentry Issues Watchdog` zwischen 04.11. 01:27 und
+07.11. 02:55, alle `success`, alle mit `neu: 0`:
+
+| Lauf | Zeit (UTC) | unresolved | bereits erfasst | neu | CAMERA_ROLLUP |
+|---|---|---|---|---|---|
+| 41754132877 | 04.11. 01:27 | 25 | 25 | 0 | — (vor `404f020`) |
+| 41807339568 | 04.11. 09:25 | 25 | 25 | 0 | 0 |
+| 41882915254 | 04.11. 18:01 | 24 | 24 | 0 | 0 |
+| 41936140898 | 04.11. 23:44 | 24 | 24 | 0 | 0 |
+| 41983810582 | 05.11. 06:56 | 23 | 23 | 0 | 0 |
+| 42056221701 | 05.11. 15:33 | 23 | 23 | 0 | 0 |
+| 42118289655 | 05.11. 22:04 | 23 | 23 | 0 | 0 |
+| 42150841417 | 06.11. 02:31 | 23 | 23 | 0 | 0 |
+| 42207266995 | 06.11. 11:02 | 22 | 22 | 0 | 0 |
+| 42267184478 | 06.11. 18:03 | 22 | 22 | 0 | 0 |
+| 42310509244 | 06.11. 23:14 | 22 | 22 | 0 | 0 |
+| 42331500711 | 07.11. 02:55 | 22 | 22 | 0 | 0 |
+
+**Was das belegt.** Seit dem Bündeln ist **keine neue Kamera-Gruppe** der
+Klasse entstanden: `CAMERA_ROLLUP=0` in jedem Lauf mit Rollup-Marker (11 von
+12; der erste Lauf predatet `404f020`), und #412 hat keinen
+Varianten-Kommentar bekommen. Die Zahl offener Gruppen fällt von 25 auf 22,
+während `neu: 0` bleibt — Gruppen verlassen `unresolved`, ohne dass neue
+nachrücken.
+
+**Was es nicht belegt.** Ereignisse in den bereits erfassten Gruppen. Die 36
+Marker in #412 lassen sie als „bereits erfasst" durchlaufen; `lastSeen` druckt
+das Script nur für neue Kandidaten. Eine regressierte, markierte Gruppe bleibt
+in der Zählung unsichtbar — 22 statt 25 heißt also nicht „ereignisfrei".
+
+**Behoben (07.11.2026): die Ereignisebene ist nicht mehr blind.** Der
+Watchdog druckt vor der Summary je bereits erfasster Gruppe eine Zeile
+`RECORDED_GROUP: <shortId> | <lastSeen> | <Events> | <Titel>` (neueste
+zuerst) — aus derselben Issues-Abfrage, ohne zusätzliche Request. Damit steht
+in jedem Lauf-Log, wann eine erfasste Gruppe zuletzt gefeuert hat, und die
+Zahl „22" ist nicht mehr die einzige Auskunft. Beleg: Selbsttest I27
+(zwei erfasste Gruppen mit Letztgesehen, Reihenfolge neueste zuerst, ein neuer
+Kandidat taucht dort nicht auf). Die Mutationsprobe (Ausgabe-Zeile entfernt →
+I27 rot, zurückgebaut → grün) belegt, dass der Test an der Ausgabe hängt.
+
+**Offen bleibt die Detail-Ebene.** Für Release-Spur und Stack pro Gruppe
+braucht es weiterhin einen Lese-Token (`project:read` + `event:read`,
+`docs/sentry-stats.md`); dann liefert `--print-event-tags <SID>[,<SID>…]` die
+Version des jüngsten Events. Die lokale Leselücke (403 auf beiden Token in
+`sentry.properties`) bleibt der zweite Befund dieses Abschnitts.
+
+**Grenze.** Alles oben ist Group-Ebene aus CI-Logs, keine Gerätemessung; die
+Quelle der Klassen-Events ist die V2454A, #336 (`CAMERA_DISCONNECTED`) und
+#350 bleiben inhaltlich offen.
+
+### 5.18 Der Start ist abbrechbar, solange er vorbereitet (07.11.2026)
+
+**Ausgangspunkt** ist §5.13 Schritt 3: der Stopp waehrend `Preparing` gelang,
+aber nur von aussen (Web-Remote). Zwei Stellen hielten den Nutzer aus diesem
+Zustand heraus:
+
+- **Bottom-Button:** `enabled = streamingState !is StreamingState.Preparing` in
+  `ui/StreamingScreen.kt`. Der einzige Knopf der Leiste war genau in der Phase
+  gesperrt, die sekundenlang haengen kann, und sein Label
+  (`streaming_preparing`, „Bereite vor…") las sich nicht als Aktion.
+- **Notification:** `StreamingServiceSupport.showStopAction` lieferte nur fuer
+  `Streaming`/`Failed` true. Die App zu schliessen half nicht, weil der
+  Foreground-Service weiterlaeuft (der 15-s-Startup-Watchdog greift nur, wenn
+  der Zustand `Idle` bleibt).
+
+**Die Engine war nicht die Sperre.** `StreamingEngine.stopStream()` behandelt
+`Preparing` (Ziele stoppen, `Idle`, Idle-Vorschau neu) — derselbe Pfad, den der
+Remote-Stopp am 04.11. auf Hardware mit `200` → `Idle` belegt hat.
+
+**Was jetzt gilt.** Der Button heisst in `Preparing` `streaming_cancel_start`
+(„Start abbrechen"), ist aktiv und ruft `onStop()` **ohne** Rueckfrage: es ist
+nichts live, und der Bestaetigungsdialog („Die Live-Uebertragung wird fuer alle
+Ziele beendet") waere hier falsch. Die Notification zeigt die Stop-Aktion auch
+in `Preparing`. Beide Wege landen bei `stopStream()` — demselben Abbau wie der
+Remote-Weg, nicht in einem zweiten Stop-Pfad.
+
+**Beleg.** `StreamingServiceSupportTest`: Stop-Aktion in `Preparing` true,
+`Idle` false (Negativkontrolle). Neu in `StreamingScreenRobolectricTest` der
+Fall „preparing can be aborted without a confirmation dialog": Button aktiv,
+Text „Cancel start", Klick ruft `stopStream()` genau einmal, kein Dialog und
+kein `startStream()`.
+
+**Mutationsproben (07.11.2026):** die `enabled`-Sperre zurueckgebaut → der neue
+Fall rot (Button nicht klickbar); den `Preparing`-Zweig auf `onStart()` gelegt →
+derselben Pruefung rot (`stopStream` 0×); jeweils zurueckgebaut → gruen.
+
+**Grenze.** Keine Geraetemessung: Button und Notification-Aktion wurden nicht am
+Telefon angetippt. Der Abbau selbst ist belegt (§5.13, Remote-Weg), der
+UI-Anschluss nur im Robolectric-Test.
+
+### 5.19 Release-Spur der Kamera-Klasse: alle Gruppen lesbar, jüngstes Release 0.5.89-beta+5789 (07.11.2026)
+
+**Kein neuer Token nötig — und per API auch nicht erzeugbar.** Sentry legt Auth-Tokens
+ausschließlich in der Web-Oberfläche an (Settings → Auth Tokens); die
+Organisations-Variante `POST /api/0/organizations/<org>/api-tokens/` verlangt
+`org:admin`, das keiner der beiden lokalen Token (`issues.token`, `auth.token` in
+`sentry.properties`) besitzt — sie antworten bereits auf `project:read` mit 403.
+Statt eines neuen Secrets nutzt der Nachweis das vorhandene CI-Secret über den
+read-only Dispatch-Pfad des Workflows (`event_tags` → `--print-event-tags`), den
+§5.9/I19 eingeführt hat.
+
+**Die Läufe.** `gh workflow run automation-sentry-issues.yml -f event_tags="<36
+SIDs aus #412>"` → Run **42361778114**, `success`, 36 von 36 Zeilen lesbar, keine
+`not readable`-Antwort. Drei Gruppen (`VIVID-40`, `VIVID-41`, `VIVID-44`) tragen im
+Sammel-Issue keinen eigenen Marker; ihre SID stammt aus dem geschlossenen
+Einzel-Issue und wurde mit einem zweiten Dispatch nachgeladen. Ergebnis: **39 von 39 Gruppen mit Release-Spur**.
+
+**Release-Spur (jüngstes Event je Gruppe).**
+
+| Release | Gruppen |
+|---|---|
+| `com.vivid@0.5.21-beta+5212` | 1 |
+| `com.vivid@0.5.65-beta+5654` | 6 |
+| `com.vivid@0.5.66-beta+5664` | 1 |
+| `com.vivid@0.5.67-beta+5674` | 1 |
+| `com.vivid@0.5.68-beta+5684` | 12 |
+| `com.vivid@0.5.70-beta+5707` | 1 |
+| `com.vivid@0.5.70-beta+5708` | 1 |
+| `com.vivid@0.5.70-beta+5710` | 1 |
+| `com.vivid@0.5.70-beta+5711` | 1 |
+| `com.vivid@0.5.72-beta+5725` | 5 |
+| `com.vivid@0.5.73-beta+5735` | 3 |
+| `com.vivid@0.5.77-beta+5771` | 1 |
+| `com.vivid@0.5.80-beta+5780` | 1 |
+| `com.vivid@0.5.81-beta+5781` | 1 |
+| `com.vivid@0.5.82-beta+5782` | 1 |
+| `com.vivid@0.5.88-beta+5788` | 1 |
+| `com.vivid@0.5.89-beta+5789` | 1 |
+
+Umfeld: V2454A / Android 16: 38, Pixel 8 Pro / Android 17: 1. Alle Gruppen außer einer stammen von der V2454A unter
+Android 16; die Ausnahme ist `7806863798` (`0.5.21-beta+5212`) auf einem Pixel 8 Pro
+unter Android 17.
+
+**Ereignisebene.** Ein Dispatch mit `dry_run=true` (Run **42361855058**) nutzt die seit
+§5.17 neue `RECORDED_GROUP`-Zeile: 22 offene Gruppen, 22 Zeilen, `CAMERA_ROLLUP=0`.
+Acht davon gehören zur Kamera-Klasse — und die Klasse ist **nicht** ruhig:
+
+| Gruppe | Zuletzt | Events | Release | Titel |
+|---|---|---|---|---|
+| VIVID-57 | 2026-11-06T07:43:11 | 14 | `0.5.89-beta+5789` | Camera error (idlePreview=false): Open camera 0 failed |
+| VIVID-56 | 2026-11-02T00:57:55 | 8 | `0.5.88-beta+5788` | Camera error (idlePreview=true): Open camera failed: 4 |
+| VIVID-58 | 2026-11-01T12:06:58 | 8 | `0.5.82-beta+5782` | Camera recover exhausted (scheduled) — stopping stream cleanly |
+| VIVID-59 | 2026-11-01T11:24:16 | 6 | `0.5.81-beta+5781` | Camera error (idlePreview=false): Open camera 5 failed |
+| VIVID-5A | 2026-11-01T10:48:51 | 1 | `0.5.80-beta+5780` | Camera error (idlePreview=false): Open camera 1 failed |
+| VIVID-41 | 2026-10-31T13:27:54 | 29 | `0.5.70-beta+5711` | Camera error (idlePreview=true): Open camera failed: 4 |
+| VIVID-40 | 2026-10-31T12:24:54 | 2 | `0.5.70-beta+5708` | Camera error (idlePreview=true): Open camera failed: 4 |
+| VIVID-44 | 2026-10-31T07:39:46 | 21 | `0.5.68-beta+5684` | Camera error (idlePreview=true): Create capture session failed: Fps ra |
+
+**Befund.** Der jüngste Kamera-Event stammt vom **06.11.2026** (`VIVID-57`, 14 Events,
+`Open camera 0 failed`), die übrigen liegen zwischen 31.10. und 02.11. Die Klasse feuert
+also weiter, aber auf einem alten Stand: das jüngste beobachtete Release im gesamten
+Satz ist `0.5.89-beta+5789`. Damit ist die Frage aus §5.17 beantwortet — nicht
+„ereignisfrei“, sondern „ereignisarm auf einem Build vor dem Bündelungs-Commit“.
+Die aufgelösten Gruppen erscheinen in der `unresolved`-Abfrage nicht mehr; ihre
+Release-Spur stammt aus dem jüngsten Event, ihr `lastSeen` ist über diesen Weg nicht
+abrufbar.
+
+**Grenze.** Die Feld-Events kommen von der V2454A, nicht vom Testgerät SM-S918B; eine
+Aussage über den A1-Umbau ist damit nicht verbunden. Lokal bleibt es beim 403 auf beiden
+Token — wer die Diagnose lokal fahren will, legt den Token in der Sentry-Oberfläche an
+und trägt ihn als `issues.token` in `sentry.properties` ein (gitignored, nie im Chat).
+
+### 5.20 VIVID-57: der Kamerawechsel startete vor dem Schließen der Idle-Sitzung (07.11.2026, behoben 08.11.2026)
+
+**Die Gruppe.** `VIVID-57` (SID `7822620409`), 14 Events, jüngster Event
+**2026-11-06T07:43:11**, Release `com.vivid@0.5.89-beta+5789`, V2454A/Android 16,
+Titel „Camera error (idlePreview=false): Open camera 0 failed“ — die einzige
+Kamera-Gruppe, deren jüngster Event auf dem **neuesten Build des ganzen Satzes**
+liegt (§5.19: alle anderen zwischen `0.5.68-beta+5684` und `0.5.88-beta+5788`).
+
+**Der Stack ist der Befund.** Ein `event_stack`-Dispatch auf die SID (Run
+**42363575751**) liefert keinen Ausnahmetyp, sondern einen Thread-Dump des
+Main-Threads mit der Bibliotheks-Kette:
+
+```
+onCameraError  ←  openCameraId  ←  reOpenCamera  ←  switchCamera  ←  run  ←  Handler.handleCallback
+```
+
+Die App-Frames sind in diesem Build verschleiert (`r8-map-id-…`), die
+RootEncoder-Namen nicht. Der Fehler kommt also **nicht** aus einem Streamstart
+und nicht aus der Vorschau, sondern aus einem `switchCamera`-Aufruf, dessen
+`openCameraId` scheitert — gemeldet über den STREAM-Pfad, daher
+`idlePreview=false`.
+
+**Der Pfad im Code.** `syncSelectedCamera(cam)` holt die gewählte Linse aus der
+Idle-Vorschau und schaltet die **Stream**-Kamera darauf:
+
+```kotlin
+private fun syncSelectedCamera(cam: MultiCamera2) {
+    val selectedId = idlePreviewCamera?.getCurrentCameraId() ?: return
+    if (selectedId != cam.currentCameraId) cam.switchCamera(selectedId)
+}
+```
+
+Beide Aufrufstellen — `startCameraStream()` und
+`prepareStandaloneRecording()` — rufen das **vor** `stopIdlePreview()` auf, und
+das ist kein Zufall: die Ziellinse steht nur solange zur Verfügung, wie die
+Idle-Kamera offen ist. Damit zielt der Wechsel genau auf die Kamera, die die
+**eigene** Idle-Sitzung in diesem Moment noch hält. RootEncoder stellt den
+Open in seinen Camera-Handler ein (`switchCamera` → `reOpenCamera` →
+`openCameraId`, im Stack als `run`/`handleCallback` sichtbar); gewinnt dieser
+Task das Rennen gegen das direkt folgende `closeCamera()` aus
+`stopIdlePreview()`, antwortet Camera2 mit `Open camera <id> failed` und
+`onCameraError` meldet das als STREAM-Fehler. Der Stack zeigt genau diesen
+Zweig.
+
+**Beleg am Code, nicht am Gefühl.** Ein temporärer Test im
+`StreamingEngineTest` (Vorbild: `idle selected lens is transferred before
+checking capture capabilities`) protokolliert die Reihenfolge von
+`idle.closeCamera()` und `camera.switchCamera(...)` beim Streamstart und
+erwartet `[close, switch]`:
+
+```
+expected: <[close, switch]> but was: <[switch, close]>
+```
+
+Rot wie erwartet — der Wechsel wird vor dem Schließen ausgelöst. Der Test wurde
+danach wieder entfernt; dieser Commit ändert **kein** Verhalten, er hält nur
+den Befund fest. Die Reihenfolge stammt aus `c2aafec8` (2026-10-03, „match
+streaming profile to selected camera capabilities“) und liegt damit in jedem
+Build seit Anfang Oktober — inklusive des neuesten, weshalb die Gruppe als
+einzige weiter feuert: die anderen sieben Gruppen stehen auf Builds, die 1 bis
+105 Codes älter sind.
+
+**Die Behebung (08.11.2026).** `syncSelectedCamera()` ist durch
+`transferSelectedCamera()` ersetzt: die Ziellinse wird **vor** dem Schließen
+gelesen, danach `stopIdlePreview()`, **dann** `cam.switchCamera(selectedId)`.
+Beide Aufrufstellen (`startCameraStream`, `prepareStandaloneRecording`) rufen nur
+noch diese eine Funktion — die Reihenfolge steht an einer Stelle statt zweimal
+im Code. Ohne offene Idle-Vorschau (`idlePreviewCamera == null`) wird weiterhin
+nicht umgeschaltet; die bisherige Zusicherung „die gewählte Linse erreicht den
+Encoder" bleibt damit unverändert (der bestehende Test
+`idle selected lens is transferred before checking capture capabilities`
+prüft sie weiterhin gegen `captureCapabilities`).
+
+**Beleg.** Neu `StreamingEngineLensHandoverTest` (3 Tests): Streamstart und
+Standalone-Aufnahme protokollieren die Reihenfolge und erwarten
+`[idle.close, camera.switch]`; die Gegenprobe „ohne Vorschau kein
+`switchCamera`" hält fest, dass die Änderung nicht überdehnt. **Mutationsprobe:**
+Reihenfolge zurückgedreht (Switch vor `stopIdlePreview()`, der Stand aus
+`c2aafec8`) → genau die beiden Reihenfolge-Tests rot, die Gegenprobe grün;
+zurückgebaut → `TESTS_RC=0`.
+
+**Grenze.** Das ist eine Reihenfolge-Korrektur gegen ein Rennen, kein Beweis,
+dass die Fenster-Gruppe aufhört: sie schließt die Ursache, die der Stack aus
+diesem Build zeigt (Reopen gegen `closeCamera` derselben Sitzung), aber Kamera-Id
+0 kann auf der V2454A auch aus anderen Gründen belegt sein
+(`ERROR_MAX_CAMERAS_IN_USE`, §5.16). Ein Gerätenachweis fehlt weiterhin; die
+Gruppe bleibt offen, bis ein Rücklauf sie nicht mehr füllt.
+
+**Offen.** Der Build `0.5.89-beta+5789` steht in keiner Release-Liste des Repos
+(dort endet es bei `v0.5.49-beta`/Code 5494 und `0.5.49-nightly.701`); die
+Leiter `0.5.68`–`0.5.89-beta` (Codes 5684–5789) ist also nicht über die
+dokumentierte Pipeline entstanden. Woher diese Feld-Builds kommen, ist nicht
+geklärt — für den Befund unerheblich, für die Zuordnung Build ↔ Commit aber
+relevant.
+
+### 5.21 Release-Alter je erfasster Gruppe im Watchdog (07.11.2026)
+
+**Das Problem.** `RECORDED_GROUP` (§5.17) sagt seit dem 05.11., *dass* eine
+bereits erfasste Gruppe weiter feuert — nicht, auf welchem Build. Genau diese
+Lücke hat VIVID-57 (§5.20) verdeckt: die Zeile sah aus wie „feuert noch ein
+bisschen“, obwohl der Event auf dem neuesten Build des ganzen Satzes saß und
+der Rest 1 bis 105 Codes älter war. Das fiel nur auf, weil ich die Release-Spur
+von Hand per Dispatch gezogen habe.
+
+**Die Ausgabe.** Der Guard druckt jetzt zusätzlich je erfasster Gruppe:
+
+```
+RELEASE_AGE: VIVID-57 | com.vivid@0.5.89-beta+5789 | 0 | newest
+RELEASE_AGE: VIVID-44 | com.vivid@0.5.68-beta+5684 | 105 | stale
+```
+
+Spalten: Short-Id | Release des Latest-Events | Abstand in versionCodes zum
+**neuesten Code im aktuellen Satz** | `newest` (Abstand 0), `behind` (kleiner
+als die Schwelle), `stale` (ab der Schwelle, Default 50 Codes; über
+`SENTRY_RELEASE_AGE_STALE` einstellbar). Sortiert neueste zuerst, direkt hinter
+der `RECORDED_GROUP`-Liste — auch im Nullfall („alle bereits erfasst“) und im
+`--dry-run`, weil die Phase ausschließlich liest.
+
+**Warum der Abstand und kein Datum.** Ein Release-Datum gibt die API hier nicht
+her, und das Repo kennt die Feld-Builds nicht (§5.20: `0.5.68`–`0.5.89-beta`
+stehen in keiner Release-Liste). Der versionCode ist die einzige Größe, die
+beide Seiten teilen — der Abstand ist damit „wie viele Builds hinter dem
+neuesten beobachteten“, nicht „wie viele Tage alt“.
+
+**Wie gelesen wird.** Dieselbe Route wie `--print-event-tags` (§5.19,
+`/issues/<sid>/events/latest/`), ein Aufruf pro erfasster Gruppe, Fixture-fähig
+über `event_<sid>.json`. Nicht lesbar (403/Netz) ⇒ `RELEASE_AGE: … | - | -
+| unknown`, kein Blocker; fehlt der Lesetoken, entfällt die Phase still. Die
+SID-Zuordnung schreibt Phase A als `recorded_refs.txt` (LF, nicht CRLF — ein
+`` hätte alle SIDs außer der letzten ungültig gemacht; I28 hat genau das
+gefunden, bevor es in Produktion lief).
+
+**Beleg.** `scripts/test_sentry_issues.sh` I28: zwei erfasste Gruppen mit
+`0.5.70-beta+5708` und `0.5.89-beta+5789` ⇒ `0 | newest` bzw. `81 | stale`,
+neueste zuerst, Kandidat ohne Zeile, kein Token in der Ausgabe, und mit
+`SENTRY_RELEASE_AGE_STALE=90` wird aus `stale` ein `behind`. Baseline
+`✅ I1–I28` (RC=0); Mutation (`mark` fest auf `behind`) ⇒ `❌ I28: neuester Build
+muss als newest mit Abstand 0 erscheinen` (RC=1), Rückbau per sha1 geprüft.
+
+### 5.22 `settings.preferences_pb`: DataStore warf, niemand fing es (#432, behoben 16.11.2026)
+
+**Befund.** `#431` (VIVID-5G), `#432` (VIVID-5F, fatal) und `#438` (VIVID-5K)
+melden dieselbe `CorruptionException` mit dem Top-Frame
+`FileStorage.kt:runFileDiagnosticsIfNotCorruption`. Dieser Frame ist
+**Bibliothekscode**, nicht Vivid: `git log --all -S` findet den Namen in keinem
+der 2164 Commits, `git grep` weder Datei noch Funktion. Es ist
+`androidx.datastore.core.FileStorage` (`FileReadScope.readData()`),
+`datastorePreferences = 1.3.0` (`gradle/libs.versions.toml`), und der Text
+„Corruption in file <pfad>“ stammt aus derselben Schicht.
+
+**Code-Prüfung.** `DataStoreModule` erzeugte den Store mit
+`preferencesDataStore(name = "settings")` — ohne `corruptionHandler`, also mit
+dem Default-ReThrow. Alle Leser sammeln `dataStore.data` ohne `.catch`
+(`SettingsRepository`, `SceneRepository`); die `runCatching`-Stellen dort
+treffen nur die JSON-Dekodierung *innerhalb* von `map`. Damit reißt die
+Ausnahme den Prozess mit — genau das `fatal`-Muster von VIVID-5F.
+
+**Fix.** `settingsCorruptionHandler` (`ReplaceFileCorruptionHandler`, liefert
+`emptyPreferences()`, ein Timber-Warnhinweis) ist am
+`preferencesDataStore`-Delegate registriert. Die Datei wird einmal durch
+Defaults ersetzt, der Start läuft weiter. Der Handler ist `internal`, damit der
+Test dieselbe Instanz fährt, die das Modul verdrahtet.
+
+**Belege.** `DataStoreCorruptionTest` (JVM, 2 Fälle): der Handler beantwortet
+einen Korruptionsbericht mit leeren Defaults, und **ohne** Handler ist dieselbe
+kaputte Datei eine echte `CorruptionException` (Negativkontrolle). Grenze: der
+*Datei*-Ersatz läuft unter Windows nicht (DataStore 1.3.0 kann nicht über eine
+vorhandene Zieldatei umbenennen — dieselbe Einschränkung wie
+`InMemoryPreferencesDataStore`), deshalb steht der Erfolgsfall auf dem Gerät:
+
+- **Gerät** (`emulator-5554`, `Medium_Phone_API_36`, `com.vivid.debug`,
+  standardDebug). Korruption per `head -c 64 /dev/zero >
+  files/datastore/settings.preferences_pb` (md5 `3b5d3c7d…`).
+- **Ohne Handler** (Mutationsbau, gleiche Datei): `FATAL EXCEPTION:
+  DefaultDispatcher-worker-4`, `CorruptionException: Corruption in file
+  /data/data/com.vivid.debug/files/datastore/settings.preferences_pb`,
+  `at androidx.datastore.core.FileStorageKt.runFileDiagnosticsIfNotCorruption(FileStorage.kt:226)`
+  — Prozess tot, Datei unverändert. Das ist die Signatur der Sentry-Gruppen.
+- **Mit Handler**: Start ohne `FATAL EXCEPTION`, Prozess lebt (PID), Datei
+  ersetzt — md5 `bf8a0018…`, Inhalt beginnt `0a 3e 0a 14` (gültiger
+  Preferences-Proto-Satz).
+
+**Grenze.** Belegt ist der Fehlerpfad und seine Behebung, nicht die Ursache der
+Beschädigung: alle drei Gruppen kommen aus `com.vivid.debug@0.5.49-beta+5494`,
+`environment=development`, Gerät SM-S918B, Android 17 — ein alter Debug-Build.
+Der Handler macht eine kaputte Datei folgenlos; er verhindert sie nicht.
 
 ## 6. Sicherheit
 

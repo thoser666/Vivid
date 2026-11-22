@@ -18,6 +18,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
@@ -59,7 +60,7 @@ class SettingsScreenRobolectricTest {
         every { onPasswordChanged(any()) } answers { state.update { it.copy(password = firstArg()) } }
         every { onUseTlsChanged(any()) } answers { state.update { it.copy(useTls = firstArg()) } }
         every { onQrInputChanged(any()) } answers { state.update { it.copy(qrInput = firstArg()) } }
-        every { importFromQrCode(any()) } returns QrImportResult.Error("invalid")
+        every { importFromQrCode(any()) } returns QrImportResult.Error(com.vivid.core.R.string.qr_error_invalid)
     }
 
     // --- Rendering -----------------------------------------------------------
@@ -131,10 +132,14 @@ class SettingsScreenRobolectricTest {
 
     @Test
     fun `qr error message is rendered below the field`() {
-        state.value = SettingsUiState(qrMessage = "Invalid QR code: nope")
+        // Der State trägt die Ressourcen-ID; der Screen löst sie je nach
+        // Locale auf (hier `en`) — der erwartete Text kommt aus derselben
+        // Quelle, kein hartkodierter String im Test.
+        state.value = SettingsUiState(qrMessageRes = com.vivid.core.R.string.qr_error_invalid)
         composeRule.setContent { SettingsScreen(viewModel = viewModel) }
 
-        composeRule.onNodeWithText("Invalid QR code: nope").assertIsDisplayed()
+        val expected = RuntimeEnvironment.getApplication().getString(com.vivid.core.R.string.qr_error_invalid)
+        composeRule.onNodeWithText(expected).assertIsDisplayed()
     }
 
     // --- Speichern -----------------------------------------------------------

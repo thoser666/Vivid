@@ -74,7 +74,7 @@ jobs:
           cache: gradle
 
       - name: Setup Ruby
-        uses: ruby/setup-ruby@651ff0d62c5c79bed6d53ec518387aae20e72c1a # v1.329.0
+        uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
         with:
           ruby-version: '3.3'
           bundler-cache: true
@@ -143,19 +143,20 @@ jobs:
     # Läuft bei workflow_dispatch UND bei v*-Tag-Pushen — ein Release-Tag
     # wird VOR der Veröffentlichung auf dem Emulator getestet (Gefordert
     # 24.09.2026: „vor einem Release auf dem Emulator testen“). Bei Tag-Pushen
-    # bleibt die macos-arm64-Leg experimental (continue-on-error), die
-    # ubuntu-x86_64-Leg ist PFLICHT (fälschlich roter Tag-Run = kein Release).
-    # Matrix (Vorfall 06.09.2026,
-    # Run 34009482168: Job lief allein auf macos-latest/arm64 und crashte beim
-    # Emulator-Boot mit `qemu-system-aarch64: failed to initialize HVF:
-    # HV_UNSUPPORTED`):
+    # sind die ubuntu-x86_64-Pflicht-Legs PFLICHT (fälschlich roter Tag-Run =
+    # kein Release); die API-36-Leg ist Beobachter (continue-on-error).
+    # Matrix-Verlauf (Vorfall 06.09.2026, Run 34009482168: der Job lief allein
+    # auf macos-latest/arm64 und crashte beim Emulator-Boot mit
+    # `qemu-system-aarch64: failed to initialize HVF: HV_UNSUPPORTED`).
+    # Die macos-Arm64-Leg wurde am 25.10.2026 entfernt: Re-Run 40178387145
+    # (v0.5.23-beta, Versuch 1 + 2) crashte beide Male mit exakt demselben
+    # HVF-Fehler — kein einziger grüner Lauf seit 06.09.2026, die Leg lieferte
+    # nur Runner-Minuten ohne Testaussage (reine Kotlin/Compose-App ohne
+    # eigene Native-Komponenten → kein ARM64-Abdeckungsverlust).
     #   - ubuntu-x86_64: authority-fähig — GitHub-hosted Linux-Runner bieten
     #     KVM für Android-Workloads (Changelog 02.04.2024); der udev-perms-Step
     #     ist Pflicht, sonst fällt der Emulator auf -accel off zurück
     #     (Boot-Timeout — die früheren Linux-Fehlschläge ohne einen Testfehler).
-    #   - macos-arm64: experimentell (continue-on-error) — HVF auf den Arm64-
-    #     Images derzeit HV_UNSUPPORTED; sobald das Image wieder bootet,
-    #     meldet sich die Leg von selbst grün.
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))
     needs: test
     permissions:
@@ -198,11 +199,6 @@ jobs:
             os: ubuntu-latest
             arch: x86_64
             api-level: 36
-            experimental: true
-          - name: macos-arm64
-            os: macos-latest
-            arch: arm64-v8a
-            api-level: 34
             experimental: true
     runs-on: ${{ matrix.os }}
     continue-on-error: ${{ matrix.experimental }}
@@ -248,15 +244,12 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      # ✅ #249: Debug-APKs beider Flavors (App + androidTest) VOR dem Emulator
-      # bauen — das Setup-Skript im Runner-Script installiert sie vorconnected
-      # und grantet die Runtime-Permissions; `adb shell pm grant` scheitert an
-      # nicht installierten Packages, deshalb kann das nicht IN den
-      # connected*-Task wandern. Die connected*-Tasks installieren die bereits
-      # installierten (identischen) APKs danach nicht neu.
-      - name: Build debug APKs for emulator tests
-        run: |
-          ./gradlew :app:assembleStandardDebug :app:assembleStandardDebugAndroidTest :app:assembleFossDebug :app:assembleFossDebugAndroidTest --stacktrace
+      # ⛔ Hier stand ein Pre-Install-Step (`assemble*Debug` + `adb install` im
+      # Setup-Skript, danach Grants per `pm grant`). Er ist entfernt: er
+      # erzeugte einen zweiten Installationspfad auf denselben applicationId,
+      # den adb bei abweichendem Signer mit INSTALL_FAILED_UPDATE_INCOMPATIBLE
+      # abweist (v0.5.49-beta: alle drei Legs rot, Run 40849184669). Die Grants
+      # leisten jetzt die Tests selbst über GrantPermissionRule (Chained VOR dem            # Activity-Start); AGP ist der einzige Installer.
 
       # ✅ Emulator hochfahren + alle instrumentierten Tests ausführen
       # (Debug-Build, wird von connectedDebugAndroidTest gebaut).
@@ -285,27 +278,26 @@ jobs:
           script: |
             # ⚠️ `set -eu` ist hier Pflicht, nicht Kosmetik: der Runner führt das
             # script-Block-Snippet OHNE -e aus. Ohne diese Zeile würde ein
-            # fehlschlagendes Setup-Skript (exit != 0) stillschweigend
-            # übersprungen, das Gate gründet danach auf ungegranted-Permissions
-            # und fällt mit der IRREFÜHRENDEN Fehlermeldung "No compose
-            # hierarchies found" durch — also als Testfehler getarnt statt als
-            # Setupfehler. fail-loud gehört in den ersten Block (T15.16).
+            # fehlschlagender Gradle-Aufruf (exit != 0) stillschweigend
+            # übersprungen und das Gate meldete Grün ohne Testaussage.
+            # fail-loud gehört in den ersten Block (T15.16).
             #
             # ⚠️ POSIX-only, KEIN `pipefail`: android-emulator-runner ruft das
             # Snippet über `/usr/bin/sh -c` auf, und auf ubuntu ist /usr/bin/sh
             # dash. `set -o pipefail` bricht dort mit "Illegal option" ab
             # (Vorfall 02.10.2026: der Emulator bootete, der Job starb in
-            # Zeile 1 des Script-Blocks — das Setup-Skript lief nie). Der Block
+            # Zeile 1 des Script-Blocks — der Gradle-Aufruf lief nie). Der Block
             # enthält keine Pipes, `set -eu` genügt für fail-loud.
             set -eu
-            # ✅ #249: Runtime-Permissions für die UI-Tests granten + Test-APKs
-            # vorconnected installieren (der CAMERA-Auto-Request wurde app-seitig
-            # entfernt — siehe StreamingScreen.kt; ohne Grants hängt der Startup-
-            # Smoke am Permission-Vertrag des Screen-Eintritts).
-            bash scripts/emulator_test_setup.sh ${{ matrix.api-level }}
+            # ✅ #249: die Runtime-Permissions grantet der Test selbst
+            # (`EmulatorTestPermissions`/GrantPermissionRule, gechained VOR dem
+            # Activity-Start) — das Gate installiert nichts mehr vorab. Grund:
+            # zwei Installationspfade auf denselben applicationId kollidieren,
+            # sobald ihre Signer abweichen (v0.5.49-beta, Run 40849184669).
+            # Include the library GPU pixel/lifecycle suite; app tests alone do not run it.
             # Flavor-explicit (connectedDebugAndroidTest ist in diesem Projekt
             # wegen der Varianten foss/standard mehrdeutig — Ambiguous matches).
-            ./gradlew :app:connectedStandardDebugAndroidTest :app:connectedFossDebugAndroidTest
+            ./gradlew :app:connectedStandardDebugAndroidTest :app:connectedFossDebugAndroidTest :feature-streaming:connectedDebugAndroidTest
 
       - name: Upload instrumented test reports
         if: always()
@@ -331,7 +323,7 @@ jobs:
           cache: gradle
 
       - name: Setup Ruby
-        uses: ruby/setup-ruby@651ff0d62c5c79bed6d53ec518387aae20e72c1a # v1.329.0
+        uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
         with:
           ruby-version: '3.3'
           bundler-cache: true
@@ -368,7 +360,7 @@ jobs:
           cache: gradle
 
       - name: Setup Ruby
-        uses: ruby/setup-ruby@651ff0d62c5c79bed6d53ec518387aae20e72c1a # v1.329.0
+        uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
         with:
           ruby-version: '3.3'
           bundler-cache: true
@@ -398,6 +390,10 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          # Mapping-Upload fuer das Release-APK (sonst obfuskierte Stacks).
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: privat-jb
+          SENTRY_PROJECT: vivid
         run: bundle exec fastlane build_release
 
       - name: Upload Release APK
@@ -462,7 +458,7 @@ jobs:
           cache: gradle
 
       - name: Setup Ruby
-        uses: ruby/setup-ruby@651ff0d62c5c79bed6d53ec518387aae20e72c1a # v1.329.0
+        uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
         with:
           ruby-version: '3.3'
           bundler-cache: true
@@ -1031,7 +1027,7 @@ jobs:
           cache: gradle
 
       - name: Setup Ruby
-        uses: ruby/setup-ruby@651ff0d62c5c79bed6d53ec518387aae20e72c1a # v1.329.0
+        uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
         with:
           ruby-version: '3.3'
           bundler-cache: true
@@ -1065,7 +1061,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Setup Ruby
-        uses: ruby/setup-ruby@651ff0d62c5c79bed6d53ec518387aae20e72c1a # v1.329.0
+        uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
         with:
           ruby-version: '3.3'
       - name: Run publish_release hardening self-test
@@ -1086,7 +1082,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Setup Ruby
-        uses: ruby/setup-ruby@651ff0d62c5c79bed6d53ec518387aae20e72c1a # v1.329.0
+        uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
         with:
           ruby-version: '3.3'
       - name: Run build retry self-test
@@ -1120,7 +1116,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Setup Ruby
-        uses: ruby/setup-ruby@651ff0d62c5c79bed6d53ec518387aae20e72c1a # v1.329.0
+        uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
         with:
           ruby-version: '3.3'
       - name: Run SHA256SUMS self-test
@@ -1167,7 +1163,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Setup Ruby
-        uses: ruby/setup-ruby@651ff0d62c5c79bed6d53ec518387aae20e72c1a # v1.329.0
+        uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
         with:
           ruby-version: '3.3'
       - name: Run F-Droid-Metadata self-test
@@ -1189,11 +1185,13 @@ jobs:
       - name: Run verify-reproducibility self-test
         run: bash scripts/test_verify_reproducibility.sh
 
-  # ✅ Regressionstest: der Emulator-Test-Job (emulator-tests) muss beide
-  # Runner-Architekturen abdecken — x86_64 authority-fähig mit KVM-Enablement
-  # (udev-perms + /dev/kvm-Verifikation), arm64 experimentell (Vorfall
-  # 06.09.2026: `HVF: HV_UNSUPPORTED` auf macos-latest/arm64; Linux scheiterte
-  # ohne udev-perms am Boot-Timeout via -accel off). Grep-basiert, offline.
+  # ✅ Regressionstest: der Emulator-Test-Job (emulator-tests) deckt die
+  # x86_64-Matrix ab — authority-fähig mit KVM-Enablement (udev-perms +
+  # /dev/kvm-Verifikation); Linux scheiterte ohne udev-perms am Boot-Timeout
+  # via -accel off. Die macos-Leg wurde am 25.10.2026 entfernt (Vorfall
+  # 06.09.2026 + Re-Run 40178387145: `HVF: HV_UNSUPPORTED` auf macos-latest/
+  # arm64, kein grüner Lauf) und darf nicht zurückkehren (T12.1 exakter
+  # Leg-Satz + T1.8 check_absent). Grep-basiert, offline.
   # (scripts/test_emulator_matrix.sh)
   test-emulator-matrix:
     name: Self-Test Emulator-Matrix (Arch-Abdeckung)
@@ -1231,7 +1229,7 @@ jobs:
           cache: gradle
 
       - name: Setup Ruby
-        uses: ruby/setup-ruby@651ff0d62c5c79bed6d53ec518387aae20e72c1a # v1.329.0
+        uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
         with:
           ruby-version: '3.3'
           bundler-cache: true
@@ -1284,11 +1282,23 @@ jobs:
           UPLOAD_KEY_PASSWORD: ${{ secrets.UPLOAD_KEY_PASSWORD }}
           PLAY_JSON_KEY_FILE: ${{ secrets.PLAY_JSON_KEY_FILE }}
           PLAY_JSON_KEY_DATA: ${{ secrets.PLAY_JSON_KEY_DATA }}
+          # ProGuard-Mapping-Upload (Deobfuskation der Feld-Events). Fehlt der
+          # Token hier, liefert der Play-Kanal obfuskierte Stacks aus — genau
+          # der Zustand, den #374/#381/#382/#390/#350 zeigten (Frames `G`, `q0`).
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: privat-jb
+          SENTRY_PROJECT: vivid
           VERSION: ${{ github.event.inputs.version }}
           VERSION_CODE: ${{ github.event.inputs.version_code }}
           TRACK: ${{ github.event.inputs.track }}
           DRY_RUN: ${{ github.event.inputs.dry_run }}
         run: |
+          # Fail-closed: ein Play-Upload ohne Mapping ist nicht attribuierbar.
+          # Ein leerer Wert (fehlendes Secret) zaehlt wie ein fehlender Token.
+          if [ -z "${SENTRY_AUTH_TOKEN:-}" ]; then
+            echo "::error::SENTRY_AUTH_TOKEN fehlt — der Play-Upload würde ohne ProGuard-Mapping ausgeliefert (Sentry-Frames bleiben obfuskiert). Abbruch."
+            exit 1
+          fi
           args=()
           [ -n "$VERSION" ] && args+=(version:"$VERSION")
           [ -n "$VERSION_CODE" ] && args+=(version_code:"$VERSION_CODE")
@@ -1315,7 +1325,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Setup Ruby
-        uses: ruby/setup-ruby@651ff0d62c5c79bed6d53ec518387aae20e72c1a # v1.329.0
+        uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
         with:
           ruby-version: '3.3'
           bundler-cache: true

@@ -17,6 +17,7 @@ import com.pedro.library.multiple.MultiFromFile
 import com.pedro.library.multiple.MultiType
 import com.pedro.library.util.FpsListener
 import com.pedro.library.view.GlStreamInterface
+import com.vivid.core.data.CameraMode
 import com.vivid.core.data.EncoderCapabilities
 import com.vivid.core.data.EncoderPreset
 import com.vivid.core.data.ResolvedEncoderConfig
@@ -43,6 +44,10 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 
+private const val TEST_ENCODER_NAME = "test.encoder"
+private const val BRIDGE_ENCODER_NAME = "encoder"
+private const val BRIDGE_DECODER_NAME = "decoder"
+
 class StreamingEngineTest {
 
     private lateinit var camera: MultiCamera2
@@ -61,6 +66,7 @@ class StreamingEngineTest {
         camera = mockk(relaxed = true)
         glStreamInterface = mockk(relaxed = true)
         every { camera.glInterface } returns glStreamInterface
+        every { camera.zoomRange } returns null
         cameraFactory = object : CameraFactory {
             override fun create(connectCheckers: List<ConnectChecker>): MultiCamera2 {
                 capturedCheckers = connectCheckers
@@ -85,13 +91,185 @@ class StreamingEngineTest {
             playerFactory,
             VideoSourceRegistry(),
         )
+        streamingEngine.timeSource = { 1_000L }
         streamingEngine.readBitrateDiagnostics = {
-            EncoderBitrateDiagnostics("test.encoder", EncoderBitrateMode.CBR, true, 6_000)
+            EncoderBitrateDiagnostics(TEST_ENCODER_NAME, EncoderBitrateMode.CBR, true, 6_000)
         }
         streamingEngine.captureCapabilities = { CameraCaptureCapabilities { _, _, _ -> true } }
         streamingEngine.encoderCapabilities = object : EncoderCapabilities {
             override fun supports(mime: String, width: Int, height: Int, fps: Int) = true
         }
+        // Der Produktions-Default plant die Vorschau-Wiederherstellung per
+        // `Handler.postDelayed` (RootEncoder-Fehlerpfad, §5.12). In der JVM ist
+        // `android.os.Handler` ein Stub, der wirft — die Tests, die einen
+        // fehlgeschlagenen Start pruefen, ersetzen den Scheduler.
+        streamingEngine.scheduleRecoveryPreview = { _, _ -> }
+        // A1: Kamera-Open und Main-Rueckkehr laufen im Produktionspfad ueber
+        // Executor/Handler; die Tests fuehren beide inline aus, damit sie
+        // dieselbe Zustandsfolge sehen wie vor der Entkopplung.
+        streamingEngine.launchCameraOpen = { it() }
+        streamingEngine.runOnMain = { it() }
+    }
+
+    @Test
+    fun `front mirror applies to preview and encoded output and is cleared on rear camera`() {
+        streamingEngine.initializeCamera()
+        every { camera.cameraFacing } returns com.pedro.encoder.input.video.CameraHelper.Facing.FRONT
+        streamingEngine.configureCameraControls(com.vivid.core.data.CameraControlSettings(mirrorFrontCamera = true))
+        verify { glStreamInterface.setIsPreviewHorizontalFlip(true); glStreamInterface.setIsStreamHorizontalFlip(true) }
+        every { camera.cameraFacing } returns com.pedro.encoder.input.video.CameraHelper.Facing.BACK
+        streamingEngine.configureCameraControls(com.vivid.core.data.CameraControlSettings(mirrorFrontCamera = true))
+        verify { glStreamInterface.setIsPreviewHorizontalFlip(false); glStreamInterface.setIsStreamHorizontalFlip(false) }
+    }
+
+    @Test
+    fun `live session clock starts on first connection and survives target and bitrate updates`() {
+        var now = 10_000L
+        streamingEngine.timeSource = { now }
+        streamingEngine.initializeCamera()
+        streamingCameraReady()
+        streamingEngine.startStream(listOf(PRIMARY_URL, SECONDARY_URL))
+        assertNull(streamingEngine.streamStartedAtMs.value)
+        capturedCheckers[0].onConnectionSuccess()
+        assertEquals(10_000L, streamingEngine.streamStartedAtMs.value)
+        now = 17_000L
+        capturedCheckers[0].onNewBitrate(3_100_000)
+        capturedCheckers[1].onConnectionSuccess()
+        capturedCheckers[0].onConnectionFailed(CAMERA_ERROR)
+        assertEquals(10_000L, streamingEngine.streamStartedAtMs.value)
+        capturedCheckers[1].onConnectionFailed(CAMERA_ERROR)
+        assertNull(streamingEngine.streamStartedAtMs.value)
+        streamingEngine.startStream(PRIMARY_URL)
+        capturedCheckers[0].onConnectionSuccess()
+        assertEquals(17_000L, streamingEngine.streamStartedAtMs.value)
+    }
+
+    @Test
+    fun `stopping a live stream clears its session clock`() {
+        streamingEngine.timeSource = { 12_000L }
+        streamingEngine.initializeCamera()
+        streamingCameraReady()
+        streamingEngine.startStream(LIVE_URL)
+        capturedCheckers[0].onConnectionSuccess()
+        streamingEngine.stopStream()
+        assertNull(streamingEngine.streamStartedAtMs.value)
+        assertEquals(StreamingState.Idle, streamingEngine.streamingState.value)
+    }
+
+    @Test
+    fun `experimental capture uses existing GL and verified preparation before transport`() {
+        streamingCameraReady()
+        streamingEngine.initializeCamera()
+        streamingEngine.configureStreamVideo(com.vivid.core.data.AppSettings(appOrientation = com.vivid.core.data.AppOrientation.LANDSCAPE))
+        val adapter = mockk<RootEncoderExternalCapture>(relaxed = true)
+        every { adapter.prepare(any(), any(), any()) } returns glStreamInterface
+        val capture = mockk<ExperimentalCapture>(relaxed = true)
+        every { capture.prepare() } returns true
+        streamingEngine.launchCameraPreparation = { it() }
+        streamingEngine.externalCaptureFactory = { adapter }
+        streamingEngine.experimentalProfile = { _, _ -> ExperimentalCameraProfile(
+            ResolvedEncoderConfig(VideoCodecPreference.H264, EncoderPreset.FHD60, false), 120, BRIDGE_ENCODER_NAME, BRIDGE_DECODER_NAME) }
+        streamingEngine.experimentalCaptureFactory = { _, _, _, _ -> capture }
+        assertTrue(streamingEngine.configureCameraMode(CameraMode.EXPERIMENTAL_60_FPS))
+        streamingEngine.startStream(LIVE_URL)
+        io.mockk.verifyOrder {
+            adapter.prepare(1920, 1080, 0)
+            capture.prepare()
+            adapter.claimCamera()
+            camera.startStream(MultiType.RTMP, 0, LIVE_URL)
+            adapter.restoreInputOrientation()
+        }
+        assertEquals(CameraMode.EXPERIMENTAL_60_FPS, streamingEngine.cameraModeStatus.value.applied)
+        assertFalse(streamingEngine.configureCameraMode(CameraMode.STANDARD))
+        every { camera.isStreaming } returns true
+        every { glStreamInterface.isRunning } returns true
+        streamingEngine.attachPreview(mockk(relaxed = true), 1920, 1080, 270)
+        verify { adapter.setInputOrientation(180) }
+        verify { glStreamInterface.setPreviewRotation(0) }
+        streamingEngine.stopStream()
+        verify { capture.close(); adapter.close() }
+    }
+
+    @Test
+    fun `failed bridge releases resources and starts standard with an explicit notice`() {
+        streamingCameraReady()
+        streamingEngine.initializeCamera()
+        val adapter = mockk<RootEncoderExternalCapture>(relaxed = true)
+        every { adapter.prepare(any(), any(), any()) } returns glStreamInterface
+        val capture = mockk<ExperimentalCapture>(relaxed = true)
+        every { capture.prepare() } returns false
+        streamingEngine.launchCameraPreparation = { it() }
+        streamingEngine.externalCaptureFactory = { adapter }
+        streamingEngine.experimentalProfile = { _, _ -> ExperimentalCameraProfile(
+            ResolvedEncoderConfig(VideoCodecPreference.H264, EncoderPreset.FHD60, false), 120, BRIDGE_ENCODER_NAME, BRIDGE_DECODER_NAME) }
+        streamingEngine.experimentalCaptureFactory = { _, _, _, _ -> capture }
+        streamingEngine.configureCameraMode(CameraMode.EXPERIMENTAL_60_FPS)
+        io.mockk.clearMocks(glStreamInterface, answers = false, recordedCalls = true)
+        streamingEngine.startStream(LIVE_URL)
+        io.mockk.verifyOrder {
+            capture.prepare()
+            capture.close()
+            adapter.close()
+            camera.prepareVideo()
+            camera.startStream(MultiType.RTMP, 0, LIVE_URL)
+        }
+        assertEquals(CameraMode.STANDARD, streamingEngine.cameraModeStatus.value.applied)
+        assertEquals(CameraModeNotice.PREPARATION_FAILED, streamingEngine.cameraModeStatus.value.notice)
+        assertEquals(null, streamingEngine.measuredEncoderFps.value)
+        verify(exactly = 0) { glStreamInterface.clearFilters() }
+    }
+
+    @Test
+    fun `unsupported camera uses standard without constructing a bridge`() {
+        streamingCameraReady()
+        streamingEngine.initializeCamera()
+        streamingEngine.launchCameraPreparation = { it() }
+        streamingEngine.experimentalProfile = { _, _ -> null }
+        streamingEngine.experimentalCaptureFactory = { _, _, _, _ -> error("must not create unsupported capture") }
+        streamingEngine.configureCameraMode(CameraMode.EXPERIMENTAL_60_FPS)
+        streamingEngine.startStream(LIVE_URL)
+        verify { camera.prepareVideo() }
+        assertEquals(CameraModeNotice.UNSUPPORTED, streamingEngine.cameraModeStatus.value.notice)
+    }
+
+    @Test
+    fun `stop while queued preparation prevents a late stream and mode changes remain locked`() {
+        streamingCameraReady()
+        streamingEngine.initializeCamera()
+        var work: (() -> Unit)? = null
+        streamingEngine.launchCameraPreparation = { work = it }
+        streamingEngine.configureCameraMode(CameraMode.EXPERIMENTAL_60_FPS)
+        streamingEngine.startStream(LIVE_URL)
+        assertFalse(streamingEngine.configureCameraMode(CameraMode.STANDARD))
+        streamingEngine.stopStream()
+        work!!()
+        verify(exactly = 0) { camera.startStream(any(), any(), any()) }
+        assertEquals(StreamingState.Idle, streamingEngine.streamingState.value)
+        assertTrue(streamingEngine.canChangeCameraMode())
+    }
+
+    @Test
+    fun `saved profile applies fps bitrate and keyframe interval at encoder boundary`() = runTest {
+        streamingCameraReady()
+        streamingEngine.initializeCamera()
+        streamingEngine.configureStreamVideo(com.vivid.core.data.AppSettings(
+            videoBitrateKbps = 11_000, keyframeIntervalSeconds = 5))
+        streamingEngine.configureEncoder(
+            ResolvedEncoderConfig(VideoCodecPreference.H264, EncoderPreset.HD30, false, fps = 60), false)
+        streamingEngine.startStream(LIVE_URL)
+        verify { camera.prepareVideo(1280, 720, 60, 11_000_000, 5, 90) }
+        assertEquals(60, streamingEngine.activeEncoder.value?.fps)
+    }
+
+    @Test
+    fun `recording owns encoder so later profile does not change preparation`() = runTest {
+        streamingCameraReady()
+        streamingEngine.initializeCamera()
+        every { camera.isRecording } returns true
+        streamingEngine.configureStreamVideo(com.vivid.core.data.AppSettings(videoBitrateKbps = 15_000))
+        streamingEngine.configureEncoder(ResolvedEncoderConfig(VideoCodecPreference.H264, EncoderPreset.HD30, false), false)
+        streamingEngine.startStream(LIVE_URL)
+        verify(exactly = 0) { camera.prepareVideo(any(), any(), any(), any(), any(), any()) }
     }
 
     private fun streamingCameraReady() {
@@ -168,7 +346,7 @@ class StreamingEngineTest {
         streamingCameraReady()
         streamingEngine.initializeCamera()
         streamingEngine.readBitrateDiagnostics = {
-            EncoderBitrateDiagnostics("test.encoder", EncoderBitrateMode.CBR, true, 6_000)
+            EncoderBitrateDiagnostics(TEST_ENCODER_NAME, EncoderBitrateMode.CBR, true, 6_000)
         }
         streamingEngine.captureCapabilities = { CameraCaptureCapabilities { _, _, fps -> fps == 30 } }
         streamingEngine.configureEncoder(
@@ -193,7 +371,7 @@ class StreamingEngineTest {
         streamingCameraReady()
         streamingEngine.initializeCamera()
         streamingEngine.readBitrateDiagnostics = {
-            EncoderBitrateDiagnostics("test.encoder", EncoderBitrateMode.CBR, true, 6_000)
+            EncoderBitrateDiagnostics(TEST_ENCODER_NAME, EncoderBitrateMode.CBR, true, 6_000)
         }
         streamingEngine.captureCapabilities = { CameraCaptureCapabilities { _, _, _ -> false } }
         streamingEngine.configureEncoder(
@@ -247,7 +425,7 @@ class StreamingEngineTest {
         streamingEngine.idlePreviewFactory = { idle }
         streamingEngine.attachPreview(mockk(relaxed = true), 640, 480)
         streamingEngine.readBitrateDiagnostics = {
-            EncoderBitrateDiagnostics("test.encoder", EncoderBitrateMode.CBR, true, 6_000)
+            EncoderBitrateDiagnostics(TEST_ENCODER_NAME, EncoderBitrateMode.CBR, true, 6_000)
         }
         streamingEngine.captureCapabilities = { cam ->
             assertEquals("1", cam.currentCameraId)
@@ -275,12 +453,14 @@ class StreamingEngineTest {
     }
 
     @Test
-    fun `unverifiable encoder mode fails preparation before network start`() = runTest {
+    fun `an unreadable encoder mode never blocks the network start`() = runTest {
+        // A diagnostic is not a gate: the fail-loud path aborted every Go Live on
+        // CBR-advertising/VBR-running encoders (#429, VIVID-5Q/#446).
         streamingCameraReady()
         streamingEngine.readBitrateDiagnostics = { error("CBR supported but not configured") }
         streamingEngine.initializeCamera()
         streamingEngine.startStream(LIVE_URL)
-        verify(exactly = 0) { camera.startStream(any(), any(), any()) }
+        verify(exactly = 1) { camera.startStream(any(), any(), any()) }
         assertNull(streamingEngine.bitrateDiagnostics.value)
     }
 
@@ -299,6 +479,7 @@ class StreamingEngineTest {
         val repository = mockk<com.vivid.core.data.SettingsRepository> {
             every { appSettingsFlow } returns kotlinx.coroutines.flow.MutableStateFlow(
                 com.vivid.core.data.AppSettings(
+                    appOrientation = com.vivid.core.data.AppOrientation.LANDSCAPE,
                     streamUrl = "rtmp://live.example/app", streamKey = "key-1",
                     videoCodecPreference = VideoCodecPreference.H265, encoderPreset = EncoderPreset.S_4K60,
                     adaptiveBitrateEnabled = true,
@@ -545,7 +726,10 @@ class StreamingEngineTest {
 
         streamingEngine.startStream(TEST_URL)
 
-        assertEquals(StreamingState.Failed(PREPARATION_ERROR), streamingEngine.streamingState.value)
+        assertEquals(
+            StreamingState.Failed(reasonRes = R.string.streaming_error_encoder_preparation),
+            streamingEngine.streamingState.value,
+        )
         coVerify(exactly = 0) { camera.startStream(any(), any(), any()) }
     }
 
@@ -819,7 +1003,10 @@ class StreamingEngineTest {
 
         streamingEngine.startStream(TEST_URL)
 
-        assertEquals(StreamingState.Failed(PREPARATION_ERROR), streamingEngine.streamingState.value)
+        assertEquals(
+            StreamingState.Failed(reasonRes = R.string.streaming_error_encoder_preparation),
+            streamingEngine.streamingState.value,
+        )
         coVerify(exactly = 0) { player.startStream(any(), any(), any()) }
     }
 
@@ -890,13 +1077,75 @@ class StreamingEngineTest {
     fun `startStream on screen capture fails without consent`() = runTest {
         streamingEngine.initializeCamera()
         streamingEngine.switchSource(VideoSourceKind.SCREEN_CAPTURE)
-        // Kein Consent erteilt -> prepareAudio/Video werden nicht aufgerufen.
+        // Kein Consent erteilt -> weder Encoder noch Ziele werden angefasst;
+        // #326/#327 melden das als fehlenden Consent statt als Encoder-Fehler.
         every { display.isStreaming } returns false
 
         streamingEngine.startStream(TEST_URL)
 
-        assertEquals(StreamingState.Failed(PREPARATION_ERROR), streamingEngine.streamingState.value)
+        assertEquals(
+            // Eigene Ursache = String-Ressource (i18n), kein String-Literal.
+            StreamingState.Failed(reasonRes = R.string.streaming_error_screen_capture_consent),
+            streamingEngine.streamingState.value,
+        )
+        verify(exactly = 0) { display.prepareAudio() }
+        verify(exactly = 0) { display.prepareVideo() }
         coVerify(exactly = 0) { display.startStream(any(), any(), any()) }
+    }
+
+    @Test
+    fun `needsScreenCaptureConsent tracks the per-start consent of the active source`() = runTest {
+        streamingEngine.initializeCamera()
+
+        // Kamera: nie ein MediaProjection-Consent nötig.
+        assertFalse(streamingEngine.needsScreenCaptureConsent())
+
+        streamingEngine.switchSource(VideoSourceKind.SCREEN_CAPTURE)
+        // Quelle aktiv, aber der Dialog lief noch nicht.
+        assertTrue(streamingEngine.needsScreenCaptureConsent())
+
+        streamingEngine.onScreenCaptureConsentResult(Activity.RESULT_OK, mockk())
+        assertFalse(streamingEngine.needsScreenCaptureConsent())
+    }
+
+    @Test
+    fun `startStream on screen capture needs a fresh consent after a stop`() = runTest {
+        streamingEngine.initializeCamera()
+        streamingEngine.switchSource(VideoSourceKind.SCREEN_CAPTURE)
+        streamingEngine.onScreenCaptureConsentResult(Activity.RESULT_OK, mockk())
+        screenCaptureReady()
+
+        streamingEngine.startStream(TEST_URL)
+        streamingEngine.stopStream()
+
+        // Android 14+: das Token ist nach dem ersten Stream verbraucht (#326).
+        assertTrue(streamingEngine.needsScreenCaptureConsent())
+
+        streamingEngine.startStream(TEST_URL)
+
+        assertEquals(
+            StreamingState.Failed(reasonRes = R.string.streaming_error_screen_capture_consent),
+            streamingEngine.streamingState.value,
+        )
+        coVerify(exactly = 1) { display.startStream(any(), any(), any()) }
+    }
+
+    @Test
+    fun `reportStreamStartFailure publishes localized error and clears live session clock`() {
+        streamingEngine.initializeCamera()
+        streamingCameraReady()
+        streamingEngine.startStream(PRIMARY_URL)
+        capturedCheckers[0].onConnectionSuccess()
+        assertEquals(1_000L, streamingEngine.streamStartedAtMs.value)
+
+        streamingEngine.reportStreamStartFailure()
+
+        assertEquals(
+            StreamingState.Failed(reasonRes = R.string.streaming_error_service_start),
+            streamingEngine.streamingState.value,
+        )
+        assertNull(streamingEngine.streamStartedAtMs.value)
+        assertTrue(streamingEngine.targetStates.value.all { it.status == StreamTargetStatus.FAILED })
     }
 
     @Test
@@ -949,11 +1198,11 @@ class StreamingEngineTest {
 
         verify(exactly = 1) { glStreamInterface.attachPreview(surface) }
         verify(exactly = 1) { glStreamInterface.setPreviewResolution(1280, 720) }
-        verify(exactly = 1) { glStreamInterface.setPreviewIsPortrait(false) }
+        verify(exactly = 1) { glStreamInterface.setPreviewIsPortrait(true) }
     }
 
     @Test
-    fun `preview rotation updates GL orientation without stopping the stream`() = runTest {
+    fun `preview retains encoder frame axes when device rotates without stopping the stream`() = runTest {
         streamingEngine.initializeCamera()
         every { camera.isStreaming } returns true
         every { glStreamInterface.isRunning } returns true
@@ -962,13 +1211,13 @@ class StreamingEngineTest {
         streamingEngine.attachPreview(surface, 1080, 1920)
         streamingEngine.attachPreview(surface, 1920, 1080)
 
-        verify(exactly = 1) { glStreamInterface.setPreviewIsPortrait(true) }
-        verify(exactly = 1) { glStreamInterface.setPreviewIsPortrait(false) }
+        verify(exactly = 2) { glStreamInterface.setPreviewIsPortrait(true) }
+        verify(exactly = 0) { glStreamInterface.setPreviewIsPortrait(false) }
         verify(exactly = 0) { camera.stopStream(any(), any()) }
     }
 
     @Test
-    fun `recording preview uses display orientation and crops without letterboxing`() = runTest {
+    fun `recording preview fits the final frame without rotating scene text`() = runTest {
         streamingEngine.initializeCamera()
         every { camera.isRecording } returns true
         every { glStreamInterface.isRunning } returns true
@@ -976,13 +1225,14 @@ class StreamingEngineTest {
         streamingEngine.attachPreview(surface, 1088, 1088, rotationDegrees = 0)
         verify { glStreamInterface.setPreviewIsPortrait(true) }
         verify { glStreamInterface.setPreviewRotation(0) }
-        verify { glStreamInterface.setAspectRatioMode(com.pedro.encoder.utils.gl.AspectRatioMode.Fill) }
+        verify { glStreamInterface.setAspectRatioMode(com.pedro.encoder.utils.gl.AspectRatioMode.Adjust) }
 
         streamingEngine.attachPreview(surface, 1920, 1080, rotationDegrees = 90)
-        verify { glStreamInterface.setPreviewRotation(270) }
-        verify { glStreamInterface.setPreviewIsPortrait(false) }
+        verify { glStreamInterface.setPreviewRotation(0) }
+        verify { glStreamInterface.setPreviewIsPortrait(true) }
         streamingEngine.attachPreview(surface, 1920, 1080, rotationDegrees = 270)
-        verify { glStreamInterface.setPreviewRotation(90) }
+        verify { glStreamInterface.setPreviewRotation(0) }
+        verify { glStreamInterface.setCameraOrientation(180) }
         verify(exactly = 0) { camera.stopRecord() }
     }
 
@@ -1047,6 +1297,166 @@ class StreamingEngineTest {
     }
 
     @Test
+    fun `profile canvas matches encoder pixels while idle capture stays 720p30`() {
+        streamingEngine.initializeCamera()
+        every { context.checkSelfPermission(android.Manifest.permission.CAMERA) } returns PackageManager.PERMISSION_GRANTED
+        val idle = mockk<Camera2ApiManager>(relaxed = true)
+        every { idle.cameraCharacteristics } returns null
+        streamingEngine.idlePreviewFactory = { idle }
+        streamingEngine.configurePreviewVideo(PreviewVideoConfiguration(com.vivid.core.data.AppSettings(
+            encoderPreset = EncoderPreset.FHD60, videoFps = 60, cameraMode = CameraMode.EXPERIMENTAL_60_FPS,
+            appOrientation = com.vivid.core.data.AppOrientation.LANDSCAPE)))
+        streamingEngine.experimentalProfile = { requested, _ ->
+            ExperimentalCameraProfile(requested, 120, "capture", BRIDGE_DECODER_NAME)
+        }
+        streamingEngine.attachPreview(mockk(relaxed = true), 2712, 1220, 90)
+        verify { glStreamInterface.setEncoderSize(1920, 1080) }
+        verify { idle.prepareCamera(any<android.graphics.SurfaceTexture>(), 1280, 720, 30) }
+        verify(exactly = 0) { camera.prepareVideo(any(), any(), any(), any(), any(), any()) }
+        verify(exactly = 0) { camera.startStream(any(), any(), any()) }
+    }
+
+    @Test
+    fun `portrait phone composes a vertical canvas before starting encoders`() {
+        streamingEngine.initializeCamera()
+        every { context.checkSelfPermission(android.Manifest.permission.CAMERA) } returns PackageManager.PERMISSION_GRANTED
+        val idle = mockk<Camera2ApiManager>(relaxed = true)
+        streamingEngine.idlePreviewFactory = { idle }
+        every { glStreamInterface.isRunning } returns true
+        streamingEngine.configurePreviewVideo(PreviewVideoConfiguration(com.vivid.core.data.AppSettings(
+            encoderPreset = EncoderPreset.FHD30)))
+        streamingEngine.attachPreview(mockk(relaxed = true), 1080, 1920, 0)
+        verify { glStreamInterface.setEncoderSize(1080, 1920) }
+        verify { glStreamInterface.setPreviewIsPortrait(true) }
+        verify { glStreamInterface.setCameraOrientation(0) }
+    }
+
+    @ParameterizedTest
+    @EnumSource(com.vivid.core.data.AppOrientation::class)
+    fun `camera encoder rotation follows saved operating mode while capture dimensions stay native`(orientation: com.vivid.core.data.AppOrientation) {
+        streamingCameraReady()
+        streamingEngine.initializeCamera()
+        val settings = com.vivid.core.data.AppSettings(appOrientation = orientation)
+        streamingEngine.configureStreamVideo(settings)
+        streamingEngine.configureEncoder(ResolvedEncoderConfig(VideoCodecPreference.H264, EncoderPreset.HD30, false), false)
+        streamingEngine.startStream(TEST_URL)
+        verify { camera.prepareVideo(1280, 720, 30, any(), any(), if (orientation == com.vivid.core.data.AppOrientation.PORTRAIT) 90 else 0) }
+    }
+
+    @Test
+    fun `portrait encoder support is checked against encoded dimensions not camera buffer dimensions`() {
+        streamingCameraReady()
+        streamingEngine.initializeCamera()
+        streamingEngine.configureStreamVideo(com.vivid.core.data.AppSettings())
+        streamingEngine.encoderCapabilities = object : EncoderCapabilities {
+            override fun supports(mime: String, width: Int, height: Int, fps: Int) = width == 720 && height == 1280 && fps == 30
+        }
+        streamingEngine.configureEncoder(ResolvedEncoderConfig(VideoCodecPreference.H264, EncoderPreset.HD30, false), false)
+        streamingEngine.startStream(TEST_URL)
+        verify { camera.prepareVideo(1280, 720, 30, any(), any(), 90) }
+    }
+
+    @Test
+    fun `experimental portrait uses rotated shared GL and rotates decoded input before widgets`() {
+        streamingCameraReady()
+        streamingEngine.initializeCamera()
+        streamingEngine.configureStreamVideo(com.vivid.core.data.AppSettings())
+        val adapter = mockk<RootEncoderExternalCapture>(relaxed = true)
+        every { adapter.prepare(any(), any(), any()) } returns glStreamInterface
+        val capture = mockk<ExperimentalCapture>(relaxed = true)
+        every { capture.prepare() } returns true
+        streamingEngine.launchCameraPreparation = { it() }
+        streamingEngine.externalCaptureFactory = { adapter }
+        streamingEngine.experimentalProfile = { _, _ -> ExperimentalCameraProfile(
+            ResolvedEncoderConfig(VideoCodecPreference.H264, EncoderPreset.FHD60, false), 120, BRIDGE_ENCODER_NAME, BRIDGE_DECODER_NAME) }
+        streamingEngine.experimentalCaptureFactory = { _, _, _, _ -> capture }
+        streamingEngine.configureCameraMode(CameraMode.EXPERIMENTAL_60_FPS)
+        streamingEngine.startStream(TEST_URL)
+        verify { adapter.prepare(1920, 1080, 90) }
+        verify { camera.prepareVideo(1920, 1080, 60, any(), any(), 90) }
+        every { camera.isStreaming } returns true
+        every { glStreamInterface.isRunning } returns true
+        streamingEngine.attachPreview(mockk(relaxed = true), 1080, 1920, 180)
+        verify { adapter.setInputOrientation(270) }
+        verify { glStreamInterface.setPreviewIsPortrait(true) }
+        verify { glStreamInterface.setPreviewRotation(0) }
+    }
+
+    @Test
+    fun `profile change resizes idle canvas and preserves selected lens without starting encoders`() {
+        streamingEngine.initializeCamera()
+        every { context.checkSelfPermission(android.Manifest.permission.CAMERA) } returns PackageManager.PERMISSION_GRANTED
+        val idle = mockk<Camera2ApiManager>(relaxed = true)
+        every { idle.cameraCharacteristics } returns null
+        every { idle.getCurrentCameraId() } returns "wide-lens"
+        streamingEngine.idlePreviewFactory = { idle }
+        streamingEngine.configurePreviewVideo(PreviewVideoConfiguration(com.vivid.core.data.AppSettings(encoderPreset = EncoderPreset.HD30, appOrientation = com.vivid.core.data.AppOrientation.LANDSCAPE)))
+        streamingEngine.attachPreview(mockk(relaxed = true), 1920, 1080, 90)
+        streamingEngine.configurePreviewVideo(PreviewVideoConfiguration(com.vivid.core.data.AppSettings(encoderPreset = EncoderPreset.S_4K60, appOrientation = com.vivid.core.data.AppOrientation.LANDSCAPE)))
+        verify { glStreamInterface.setEncoderSize(3840, 2160) }
+        verify(exactly = 1) { idle.closeCamera() }
+        verify { idle.openCameraId("wide-lens") }
+        verify(exactly = 0) { camera.prepareVideo(any(), any(), any(), any(), any(), any()) }
+    }
+
+    @Test
+    fun `preview resolves the same smaller fallback canvas as the camera encoder`() {
+        streamingEngine.initializeCamera()
+        every { context.checkSelfPermission(android.Manifest.permission.CAMERA) } returns PackageManager.PERMISSION_GRANTED
+        streamingEngine.idlePreviewFactory = { mockk(relaxed = true) }
+        streamingEngine.captureCapabilities = { CameraCaptureCapabilities { width, _, _ -> width <= 1280 } }
+        streamingEngine.configurePreviewVideo(PreviewVideoConfiguration(com.vivid.core.data.AppSettings(encoderPreset = EncoderPreset.S_4K60, appOrientation = com.vivid.core.data.AppOrientation.LANDSCAPE)))
+        streamingEngine.attachPreview(mockk(relaxed = true), 1920, 1080, 90)
+        verify { glStreamInterface.setEncoderSize(1280, 720) }
+    }
+
+    @Test
+    fun `profile canvas change during recording waits until recording stops`(
+        @org.junit.jupiter.api.io.TempDir directory: java.io.File,
+    ) {
+        every { context.filesDir } returns directory
+        streamingEngine.initializeCamera()
+        every { context.checkSelfPermission(android.Manifest.permission.CAMERA) } returns PackageManager.PERMISSION_GRANTED
+        val idle = mockk<Camera2ApiManager>(relaxed = true)
+        every { idle.cameraCharacteristics } returns null
+        streamingEngine.idlePreviewFactory = { idle }
+        streamingCameraReady()
+        streamingEngine.attachPreview(mockk(relaxed = true), 1920, 1080, 90)
+        var recording = false
+        every { camera.isRecording } answers { recording }
+        every { camera.startRecord(any<String>()) } answers { recording = true }
+        every { camera.stopRecord() } answers { recording = false }
+        assertTrue(streamingEngine.startReplay())
+        io.mockk.clearMocks(glStreamInterface, answers = false)
+        streamingEngine.configurePreviewVideo(PreviewVideoConfiguration(com.vivid.core.data.AppSettings(encoderPreset = EncoderPreset.FHD30,
+            appOrientation = com.vivid.core.data.AppOrientation.LANDSCAPE)))
+        verify(exactly = 0) { glStreamInterface.setEncoderSize(any(), any()) }
+        streamingEngine.stopReplay()
+        verify { glStreamInterface.setEncoderSize(1920, 1080) }
+    }
+
+    @Test
+    fun `profile canvas change during a stream waits until stop`() {
+        streamingEngine.initializeCamera()
+        every { context.checkSelfPermission(android.Manifest.permission.CAMERA) } returns PackageManager.PERMISSION_GRANTED
+        val idle = mockk<Camera2ApiManager>(relaxed = true)
+        streamingEngine.idlePreviewFactory = { idle }
+        streamingCameraReady()
+        var streaming = false
+        every { camera.isStreaming } answers { streaming }
+        every { camera.startStream(any(), any(), any()) } answers { streaming = true }
+        every { camera.stopStream() } answers { streaming = false }
+        every { glStreamInterface.isRunning } returns true
+        streamingEngine.startStream(TEST_URL)
+        streamingEngine.attachPreview(mockk(relaxed = true), 1920, 1080, 90)
+        streamingEngine.configurePreviewVideo(PreviewVideoConfiguration(com.vivid.core.data.AppSettings(encoderPreset = EncoderPreset.FHD30,
+            appOrientation = com.vivid.core.data.AppOrientation.LANDSCAPE)))
+        verify(exactly = 0) { glStreamInterface.setEncoderSize(any(), any()) }
+        streamingEngine.stopStream()
+        verify { glStreamInterface.setEncoderSize(1920, 1080) }
+    }
+
+    @Test
     fun `idle camera preview opens on a surface and closes before streaming`() = runTest {
         streamingEngine.initializeCamera()
         every { context.checkSelfPermission(android.Manifest.permission.CAMERA) } returns PackageManager.PERMISSION_GRANTED
@@ -1085,6 +1495,67 @@ class StreamingEngineTest {
         verify(exactly = 1) { firstCamera.closeCamera() }
         verify(exactly = 0) { secondCamera.closeCamera() }
     }
+
+    /**
+     * #350 / VIVID-46: `Idle camera: Configuration failed` ist der Text, den
+     * RootEncoder bei `onConfigureFailed` an [com.pedro.encoder.input.video.CameraCallbacks]
+     * gibt. Auf 0.5.48 hing dieser Callback ohne Identitätsprüfung — der
+     * abgeschnittene Configure-Vorgang einer bereits ersetzten Preview meldete
+     * sich also weiter. Mit dem Szenen-Compositor (#330) setzt er zusätzlich
+     * `sceneCameraAvailable` auf false und friert damit die Kamera-Ebene ein.
+     */
+    @Test
+    fun `error from a retired idle preview cannot freeze the camera input`() = runTest {
+        streamingEngine.initializeCamera()
+        every { context.checkSelfPermission(android.Manifest.permission.CAMERA) } returns PackageManager.PERMISSION_GRANTED
+        every { camera.currentCameraId } returns ""
+        val firstPreview = mockk<Camera2ApiManager>(relaxed = true)
+        val secondPreview = mockk<Camera2ApiManager>(relaxed = true)
+        var nextPreview = firstPreview
+        streamingEngine.idlePreviewFactory = { nextPreview }
+        val firstCallbacks = slot<com.pedro.encoder.input.video.CameraCallbacks>()
+        every { firstPreview.setCameraCallbacks(capture(firstCallbacks)) } returns Unit
+
+        streamingEngine.attachPreview(mockk(relaxed = true), 640, 480)
+        nextPreview = secondPreview
+        streamingEngine.attachPreview(mockk(relaxed = true), 1088, 1088)
+        assertTrue(sceneCameraAvailable(streamingEngine))
+
+        // Genau der 0.5.48-Report: der Configure der ersetzten Preview wurde von
+        // stopIdlePreview() abgeschnitten, sein Callback feuert trotzdem.
+        firstCallbacks.captured.onCameraError("Configuration failed")
+
+        assertTrue(sceneCameraAvailable(streamingEngine))
+        verify(exactly = 0) { firstPreview.reOpenCamera(any()) }
+        verify(exactly = 0) { secondPreview.reOpenCamera(any()) }
+    }
+
+    @Test
+    fun `a configuration failure of the current idle preview is retried exactly once`() = runTest {
+        streamingEngine.initializeCamera()
+        every { context.checkSelfPermission(android.Manifest.permission.CAMERA) } returns PackageManager.PERMISSION_GRANTED
+        every { camera.currentCameraId } returns "0"
+        val idleCamera = mockk<Camera2ApiManager>(relaxed = true)
+        every { idleCamera.getCurrentCameraId() } returns "0"
+        streamingEngine.idlePreviewFactory = { idleCamera }
+        streamingEngine.dispatchSceneTask = { it() }
+        val callbacks = slot<com.pedro.encoder.input.video.CameraCallbacks>()
+        every { idleCamera.setCameraCallbacks(capture(callbacks)) } returns Unit
+
+        streamingEngine.attachPreview(mockk(relaxed = true), 640, 480)
+
+        // RootEncoder schließt bei onConfigureFailed nur die Session und versucht
+        // keinen Neuaufbau — genau ein Wiederaufbau pro erzeugter Preview.
+        callbacks.captured.onCameraError("Configuration failed")
+        verify(exactly = 1) { idleCamera.reOpenCamera("0") }
+
+        callbacks.captured.onCameraError("Configuration failed")
+        verify(exactly = 1) { idleCamera.reOpenCamera(any()) }
+    }
+
+    private fun sceneCameraAvailable(engine: StreamingEngine): Boolean =
+        (StreamingEngine::class.java.getDeclaredField("sceneCameraAvailable").apply { isAccessible = true }
+            .get(engine) as java.util.concurrent.atomic.AtomicBoolean).get()
 
     @Test
     fun `current surface teardown closes the idle camera preview`() = runTest {
@@ -1148,6 +1619,33 @@ class StreamingEngineTest {
     }
 
     @Test
+    fun `recording cleanup in idle does not retire the scene producer of a running preview`() {
+        streamingEngine.initializeCamera()
+        val host = mockk<com.vivid.feature.streaming.scene.SceneLayerHost>(relaxed = true)
+        streamingEngine.sceneLayerHost = host
+        streamingEngine.stopReplay()
+        verify(exactly = 0) { host.releaseOutputSurfaces() }
+    }
+
+    @Test
+    fun `idle resize retires hardware scene surfaces before EGL shutdown`() {
+        streamingEngine.initializeCamera()
+        val host = mockk<com.vivid.feature.streaming.scene.SceneLayerHost>(relaxed = true)
+        streamingEngine.sceneLayerHost = host
+        every { context.checkSelfPermission(android.Manifest.permission.CAMERA) } returns PackageManager.PERMISSION_GRANTED
+        val idle = mockk<Camera2ApiManager>(relaxed = true)
+        streamingEngine.idlePreviewFactory = { idle }
+        val surface = mockk<Surface>(relaxed = true)
+        streamingEngine.attachPreview(surface, 1080, 1920, 0)
+        io.mockk.clearMocks(host, glStreamInterface, answers = false)
+        streamingEngine.attachPreview(surface, 1920, 1080, 90)
+        io.mockk.verifyOrder {
+            host.releaseOutputSurfaces()
+            glStreamInterface.stop()
+        }
+    }
+
+    @Test
     fun `idle preview updates upside down rotation without reopening the camera`() = runTest {
         streamingEngine.initializeCamera()
         every { context.checkSelfPermission(android.Manifest.permission.CAMERA) } returns PackageManager.PERMISSION_GRANTED
@@ -1157,7 +1655,8 @@ class StreamingEngineTest {
         val surface = mockk<Surface>(relaxed = true)
         streamingEngine.attachPreview(surface, 1080, 1920, 0)
         streamingEngine.attachPreview(surface, 1080, 1920, 180)
-        verify { glStreamInterface.setPreviewRotation(180) }
+        verify { glStreamInterface.setCameraOrientation(180) }
+        verify { glStreamInterface.setPreviewRotation(0) }
         verify(exactly = 1) { idle.prepareCamera(any<android.graphics.SurfaceTexture>(), 1280, 720, 30) }
         verify(exactly = 0) { idle.closeCamera() }
     }
@@ -1278,6 +1777,92 @@ class StreamingEngineTest {
             every { it.lower } returns lower
             every { it.upper } returns upper
         }
+
+    private fun openZoomPreview(front: Boolean = false): Pair<Camera2ApiManager, com.pedro.encoder.input.video.CameraCallbacks> {
+        streamingEngine.initializeCamera()
+        every { context.checkSelfPermission(android.Manifest.permission.CAMERA) } returns PackageManager.PERMISSION_GRANTED
+        every { camera.currentCameraId } returns ""
+        val idle = mockk<Camera2ApiManager>(relaxed = true)
+        every { idle.cameraFacing } returns if (front) com.pedro.encoder.input.video.CameraHelper.Facing.FRONT
+            else com.pedro.encoder.input.video.CameraHelper.Facing.BACK
+        every { idle.isRunning } returns false
+        every { idle.zoomRange } returns zoomRange(1f, 8f)
+        var zoom = 0f
+        every { idle.zoom } answers { zoom }
+        every { idle.zoom = any<Float>() } answers { zoom = firstArg() }
+        val callbacks = slot<com.pedro.encoder.input.video.CameraCallbacks>()
+        every { idle.setCameraCallbacks(capture(callbacks)) } just runs
+        streamingEngine.idlePreviewFactory = { idle }
+        streamingEngine.attachPreview(mockk(relaxed = true), 1280, 720)
+        return idle to callbacks.captured
+    }
+
+    @Test
+    fun `startup uses first supported rear preset in saved order after camera opens`() {
+        streamingEngine.configureCameraControls(com.vivid.core.data.CameraControlSettings(
+            rearZoomPresets = listOf(0.5f, 3f, 1f, 2f)))
+        val (idle, callbacks) = openZoomPreview()
+        verify(exactly = 0) { idle.zoom = any<Float>() }
+        every { idle.isRunning } returns true
+        callbacks.onCameraOpened()
+        assertEquals(3f, streamingEngine.currentCameraZoom())
+        verify { idle.zoom = 3f }
+    }
+
+    @Test
+    fun `late settings initialize zoom after preview has opened`() {
+        val (idle, callbacks) = openZoomPreview()
+        every { idle.isRunning } returns true
+        callbacks.onCameraOpened()
+        verify(exactly = 0) { idle.zoom = any<Float>() }
+        streamingEngine.configureCameraControls(com.vivid.core.data.CameraControlSettings(rearZoomPresets = listOf(2f, 1f)))
+        assertEquals(2f, streamingEngine.currentCameraZoom())
+    }
+
+    @Test
+    fun `startup selects from front presets and skips unsupported values`() {
+        streamingEngine.configureCameraControls(com.vivid.core.data.CameraControlSettings(
+            rearZoomPresets = listOf(3f), frontZoomPresets = listOf(0.5f, 1.5f, 1f)))
+        val (idle, callbacks) = openZoomPreview(front = true)
+        every { idle.isRunning } returns true
+        callbacks.onCameraOpened()
+        assertEquals(1.5f, streamingEngine.currentCameraZoom())
+    }
+
+    @Test
+    fun `startup leaves camera zoom unchanged when no preset is supported`() {
+        streamingEngine.configureCameraControls(com.vivid.core.data.CameraControlSettings(rearZoomPresets = listOf(0.5f, 9f)))
+        val (idle, callbacks) = openZoomPreview()
+        every { idle.isRunning } returns true
+        callbacks.onCameraOpened()
+        verify(exactly = 0) { idle.zoom = any<Float>() }
+    }
+
+    @Test
+    fun `settings updates and preview reopen preserve manual zoom`() {
+        streamingEngine.configureCameraControls(com.vivid.core.data.CameraControlSettings(rearZoomPresets = listOf(2f, 1f)))
+        val (idle, callbacks) = openZoomPreview()
+        every { idle.isRunning } returns true
+        callbacks.onCameraOpened()
+        streamingEngine.zoomBy(1.5f)
+        streamingEngine.configureCameraControls(com.vivid.core.data.CameraControlSettings(rearZoomPresets = listOf(1f, 2f)))
+        assertEquals(3f, streamingEngine.currentCameraZoom())
+        every { idle.zoom } returns 1f
+        callbacks.onCameraOpened()
+        verify(atLeast = 2) { idle.zoom = 3f }
+    }
+
+    @Test
+    fun `ignored startup request is retried when camera request builder is ready`() {
+        streamingEngine.configureCameraControls(com.vivid.core.data.CameraControlSettings(rearZoomPresets = listOf(2f, 1f)))
+        val (idle, callbacks) = openZoomPreview()
+        every { idle.isRunning } returns true
+        every { idle.zoom = any<Float>() } just runs
+        callbacks.onCameraOpened()
+        assertEquals(0f, streamingEngine.currentCameraZoom())
+        streamingEngine.configureCameraControls(com.vivid.core.data.CameraControlSettings(rearZoomPresets = listOf(3f, 1f)))
+        verify { idle.zoom = 3f }
+    }
 
     @Test
     fun `zoomBy multiplies the current zoom and clamps to the range`() = runTest {
@@ -1519,10 +2104,27 @@ class StreamingEngineTest {
     private companion object {
         private const val LIVE_URL = "rtmp://live/app"
         private const val TEST_URL = "rtmp://test.com/app"
-        private const val PREPARATION_ERROR = "Failed to prepare audio/video"
         private const val CAMERA_ERROR = "boom"
         private const val PRIMARY_URL = "rtmp://a.example/app"
         private const val SECONDARY_URL = "rtmp://b.example/app"
     }
 
+
+    @Test
+    fun `non camera sources attach their own composed GL preview`() {
+        val displayGl = mockk<GlStreamInterface>(relaxed = true)
+        every { display.glInterface } returns displayGl
+        every { displayGl.isRunning } returns true
+        // Plain Android Point fields can be populated without invoking platform methods.
+        val size = mockk<android.graphics.Point>(relaxed = true).apply { x = 1280; y = 720 }
+        every { displayGl.encoderSize } returns size
+        streamingEngine.initializeCamera()
+        assertTrue(streamingEngine.switchSource(VideoSourceKind.SCREEN_CAPTURE))
+        val surface = mockk<Surface>(relaxed = true)
+        streamingEngine.attachPreview(surface, 1080, 1920)
+        verify { displayGl.attachPreview(surface); displayGl.setPreviewRotation(0) }
+        verify(exactly = 0) { glStreamInterface.attachPreview(any()) }
+        streamingEngine.detachPreview(surface)
+        verify { displayGl.deAttachPreview() }
+    }
 }

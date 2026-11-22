@@ -154,4 +154,12 @@ class EncoderPresetTest {
         assertEquals(EncoderPreset.FHD30, resolved.preset)
         assertTrue(resolved.fallbackApplied)
     }
+    @Test
+    fun `separate fps fallback is marked even when resolution preset stays the same`() {
+        val actual = resolveEncoderConfig(VideoCodecPreference.H264, EncoderPreset.HD30,
+            caps(avc(1280, 720, 30)), fps = 60)
+        assertEquals(EncoderPreset.HD30, actual.preset)
+        assertEquals(30, actual.fps)
+        assertTrue(actual.fallbackApplied)
+    }
 }

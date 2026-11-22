@@ -1,6 +1,7 @@
 package com.vivid.core.remote
 
 import com.vivid.core.log.LogStore
+import com.vivid.core.log.displayName
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
@@ -126,10 +127,10 @@ class RemoteControlServer @Inject constructor(
             probePort(candidate)
         }
         if (chosen == preferredPort) {
-            Timber.i("Web-Remote-Control: Port %d frei - Server startet wie bevorzugt.", preferredPort)
+            Timber.i("Web remote control: port %d free - server starting as preferred.", preferredPort)
         } else {
             Timber.w(
-                "Web-Remote-Control: Port %d belegt (EADDRINUSE) - Ausweichkette startet bei %d.",
+                "Web remote control: port %d busy (EADDRINUSE) - fallback chain starting at %d.",
                 preferredPort,
                 chosen,
             )
@@ -169,7 +170,7 @@ class RemoteControlServer @Inject constructor(
             }
             runCatching { newServer.stop(gracePeriodMillis = 100, timeoutMillis = 1_000) }
             Timber.w(
-                "Web-Remote-Control: Port %d wurde zwischen Probe und Bind belegt - naechster Versuch.",
+                "Web remote control: port %d was taken between probe and bind - retrying.",
                 chosen,
             )
             val next = PortFallbackPolicy.nextCandidate(preferredPort, chosen)
@@ -179,8 +180,8 @@ class RemoteControlServer @Inject constructor(
                 chosen = PortFallbackPolicy.EPHEMERAL_PORT
             } else {
                 Timber.w(
-                    "Web-Remote-Control: Alle Port-Kandidaten scheiterten zwischen Probe und Bind - " +
-                        "Server startet nicht (fehlertolerant, kein Crash).",
+                    "Web remote control: all port candidates failed between probe and bind - " +
+                        "server not starting (fault-tolerant, no crash).",
                 )
                 _activePort.value = DEFAULT_PORT
                 return
@@ -304,7 +305,12 @@ fun Application.remoteControlModule(
             val entries = logStore.load(clamped).map { entry ->
                 RemoteLogEntry(
                     timestampMillis = entry.timestampMillis,
-                    level = entry.level.name,
+                    // `displayName()` statt `level.name`: ein Eintrag kann zur
+                    // Laufzeit `null` tragen (Gson/Unsafe, VIVID-5H, #433) —
+                    // `level.name` riss dort die ganze `/logs`-Antwort mit einer
+                    // NPE ab. Der Platzhalter `?` haelt das Payload-Schema
+                    // (`level: String`) unveraendert.
+                    level = entry.level.displayName(),
                     tag = entry.tag,
                     message = entry.message,
                     isCrash = entry.isCrash,

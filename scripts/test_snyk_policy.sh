@@ -26,8 +26,13 @@ trap 'rm -rf "$TMP"' EXIT
 
 pass() { echo "PASS: $1"; }
 fail() { echo "FAIL: $1" >&2; exit 1; }
-expect_ok() { if ! env "$@" bash "$GUARD" >/dev/null 2>&1; then fail "$1: erwartete grün"; fi; }
-expect_fail() { if env "$@" bash "$GUARD" >/dev/null 2>&1; then fail "$1: erwartete rot"; fi; }
+# `env -u BASH_ENV`: eine Entwickler-BASH_ENV (z. B. ~/.bash_env) wird von
+# JEDEM nicht-interaktiven bash gesourct und kann PATH umstellen — dann wäre
+# der Stub in $STUB unsichtbar und T12–T14 würden den echten Interpreter
+# prüfen (T14 meldet dann fälschlich "läuft ja"). Die Tests sollen genau die
+# PATH-Reihenfolge prüfen, die hier gesetzt wird.
+expect_ok() { if ! env -u BASH_ENV "$@" bash "$GUARD" >/dev/null 2>&1; then fail "$1: erwartete grün"; fi; }
+expect_fail() { if env -u BASH_ENV "$@" bash "$GUARD" >/dev/null 2>&1; then fail "$1: erwartete rot"; fi; }
 
 policy_fixture() { # $1 = Zielpfad, $2 = reason-Text, $3 = expires (oder 'NONE')
   local dst="$1" reason="$2" expires="$3"
@@ -171,7 +176,7 @@ pass "T13 python3-only-Umgebung trägt den Guard"
 # (fail-loud: der Guard ist Voraussetzung des Pre-Push-Gates, kein Skip).
 write_stub python3 ''
 write_stub python ''
-out="$(env SNYK_GUARD_NO_NET=1 PATH="$STUB:$PATH" bash "$GUARD" 2>&1 || true)"
+out="$(env -u BASH_ENV SNYK_GUARD_NO_NET=1 PATH="$STUB:$PATH" bash "$GUARD" 2>&1 || true)"
 grep -q "kein lauffaehiges Python" <<<"$out" \
   || fail "T14: Guard bricht nicht fail-loud ab (Ausgabe: $out)"
 pass "T14 kein lauffaehiges Python → harter Abbruch mit Precondition-Meldung"

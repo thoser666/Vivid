@@ -48,4 +48,19 @@
         <item quantity="many">🔗 Общий чат — %1$d каналов</item>
         <item quantity="other">🔗 Общий чат — %1$d канала</item>
     </plurals>
+    <!-- Интеграция канала Twitch: локализованные ошибки (TwitchChannelViewModel/TwitchChannelClient),
+         отображаются в настройках и на экране стриминга -->
+    <string name="twitch_channel_error_not_configured">Канал Twitch настроен не полностью.</string>
+    <string name="twitch_channel_error_load_failed">Не удалось загрузить данные канала Twitch.</string>
+    <string name="twitch_channel_error_save_failed">Не удалось сохранить данные канала Twitch.</string>
+    <string name="twitch_channel_error_client_not_configured">Канал Twitch не настроен. Нужны канал, OAuth-токен и ID клиента.</string>
+    <string name="twitch_channel_error_viewer_count_failed">Не удалось загрузить число зрителей Twitch.</string>
+    <string name="twitch_channel_error_channel_resolve_failed">Не удалось определить канал Twitch %1$s.</string>
+    <string name="twitch_channel_error_empty_fields">Название и категория не могут быть пустыми одновременно.</string>
+    <string name="twitch_channel_error_category_not_found">Категория Twitch "%1$s" не найдена.</string>
+    <string name="twitch_channel_error_category_search_failed">Не удалось выполнить поиск категории Twitch.</string>
+    <string name="twitch_channel_error_http_401">Ошибка аутентификации Twitch (401). Проверьте OAuth-токен или ID клиента.</string>
+    <string name="twitch_channel_error_http_403">Twitch отклонил запрос (403). Для изменений нужен scope channel:manage:broadcast.</string>
+    <string name="twitch_channel_error_http_429">Достигнут лимит запросов Twitch (429).</string>
+    <string name="twitch_channel_error_http">Запрос к Twitch не удался (HTTP %1$s).</string>
 </resources>

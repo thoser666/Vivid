@@ -38,4 +38,19 @@
         <item quantity="one">🔗 Shared chat — %1$d channel</item>
         <item quantity="other">🔗 Shared chat — %1$d channels</item>
     </plurals>
+    <!-- Twitch channel integration: localized errors (TwitchChannelViewModel/TwitchChannelClient),
+         shown in the settings and streaming UI -->
+    <string name="twitch_channel_error_not_configured">The Twitch channel is not fully configured.</string>
+    <string name="twitch_channel_error_load_failed">Twitch channel information could not be loaded.</string>
+    <string name="twitch_channel_error_save_failed">Twitch channel information could not be saved.</string>
+    <string name="twitch_channel_error_client_not_configured">The Twitch channel is not configured. Channel, OAuth token and client ID are required.</string>
+    <string name="twitch_channel_error_viewer_count_failed">The Twitch viewer count could not be loaded.</string>
+    <string name="twitch_channel_error_channel_resolve_failed">Twitch channel %1$s could not be resolved.</string>
+    <string name="twitch_channel_error_empty_fields">Title and category must not both be empty.</string>
+    <string name="twitch_channel_error_category_not_found">Twitch category "%1$s" was not found.</string>
+    <string name="twitch_channel_error_category_search_failed">The Twitch category could not be searched.</string>
+    <string name="twitch_channel_error_http_401">Twitch authentication failed (401). Check the OAuth token or client ID.</string>
+    <string name="twitch_channel_error_http_403">Twitch denied the request (403). The channel:manage:broadcast scope is required for changes.</string>
+    <string name="twitch_channel_error_http_429">Twitch rate limit reached (429).</string>
+    <string name="twitch_channel_error_http">Twitch request failed (HTTP %1$s).</string>
 </resources>

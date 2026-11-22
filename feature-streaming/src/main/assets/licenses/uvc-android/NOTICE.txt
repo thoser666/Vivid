@@ -1,0 +1,22 @@
+Vivid USB camera capture dependency notices
+
+Dependency: com.herohan:UVCAndroid:1.0.13 (unmodified Maven Central AAR).
+Project: https://github.com/shiyinghan/UVCAndroid
+Release source: https://github.com/shiyinghan/UVCAndroid/tree/1.0.13
+Tag object: 6018c7f20238832929cf61427427bb7828056260
+Corresponding source archive:
+https://github.com/shiyinghan/UVCAndroid/archive/refs/tags/1.0.13.tar.gz
+Native build files: libuvccamera/src/main/jni/Android.mk and subdirectories.
+
+The Java capture library is distributed under Apache License 2.0.
+Bundled native components include libusb (LGPL 2.1 or later), libuvc
+(BSD), libjpeg-turbo (IJG/BSD/zlib), libyuv (BSD) and RapidJSON (MIT/BSD).
+License texts are included in this directory. The libyuv LICENSE,
+PATENTS and AUTHORS files are from the upstream libyuv mirror at
+https://github.com/lemenkov/libyuv; UVCAndroid's source snapshot omits them.
+
+This software is based in part on the work of the Independent JPEG Group.
+
+Vivid uses the AAR shared native libraries without modifications and does
+not use the SDK recording or storage helpers. No native library source
+is copied into Vivid. Vivid's capture adapter is separate Kotlin code.

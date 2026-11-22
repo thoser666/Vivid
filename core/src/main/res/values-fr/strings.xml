@@ -4,4 +4,11 @@
     <string name="update_error_unknown_version">Version inconnue : %1$s</string>
     <string name="update_error_check_failed">Échec de la vérification des mises à jour : %1$s</string>
     <string name="update_error_no_releases">Aucune version trouvée</string>
+
+    <!-- Erreurs d'authentification API (VividApiImpl / connexion + inscription) -->
+    <string name="api_error_unknown">Erreur inconnue</string>
+
+    <!-- Import QR OBS (ObsQrCodeParser / écran Paramètres) -->
+    <string name="qr_error_empty">Code QR vide</string>
+    <string name="qr_error_invalid">Code QR OBS WebSocket non valide. Attendu : obsws://host:port/mot de passe (ou obswebsocket://host:port).</string>
 </resources>

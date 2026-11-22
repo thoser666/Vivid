@@ -11,8 +11,11 @@ import com.vivid.core.data.EncoderPreset
 import com.vivid.core.data.ChatBotMode
 import com.vivid.core.data.ChatOverlayPosition
 import com.vivid.core.data.ReplayAudioMode
+import com.vivid.core.data.StreamProfile
+import com.vivid.core.data.StreamPlatformType
 import com.vivid.core.data.SettingsRepository
 import com.vivid.core.data.ThemeMode
+import com.vivid.core.data.AppOrientation
 import com.vivid.core.data.VideoCodecPreference
 import com.vivid.core.remote.RemoteControlServer
 import com.vivid.core.remote.RemoteControlTokenStore
@@ -24,6 +27,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import com.vivid.core.coroutines.rethrowCancellation
 
 /** Zustand des Update-Indikators auf dem Settings-Screen (für den Obtainium-Test). */
 data class SettingsUpdateState(
@@ -151,6 +155,95 @@ class SettingsViewModel @Inject constructor(
                 if (_remoteControl.value.port != active) {
                     _remoteControl.value = _remoteControl.value.copy(port = active)
                 }
+            }
+        }
+    }
+
+    private val _streamDraft = MutableStateFlow<StreamProfile?>(null)
+    val streamDraft = _streamDraft.asStateFlow()
+    private val _streamSaving = MutableStateFlow(false)
+    val streamSaving = _streamSaving.asStateFlow()
+    private val _streamSaveFailed = MutableStateFlow(false)
+    val streamSaveFailed = _streamSaveFailed.asStateFlow()
+    private val streamMutex = kotlinx.coroutines.sync.Mutex()
+
+    fun createStream(platform: StreamPlatform) {
+        _streamSaveFailed.value = false
+        _streamDraft.value = StreamProfile(
+            id = java.util.UUID.randomUUID().toString(), name = "",
+            platform = StreamPlatformType.valueOf(platform.name),
+            streamUrl = platform.ingestUrl, streamUseTls = platform != StreamPlatform.Custom,
+        )
+    }
+
+    fun editStream(id: String) {
+        _streamSaveFailed.value = false
+        _streamDraft.value = _uiState.value.streamProfiles.firstOrNull { it.id == id }
+    }
+
+    fun updateStreamDraft(transform: (StreamProfile) -> StreamProfile) {
+        if (!_streamSaving.value) _streamDraft.update { it?.let(transform) }
+    }
+
+    fun discardStreamDraft() { if (!_streamSaving.value) _streamDraft.value = null }
+
+    fun saveStreamDraft(onSaved: () -> Unit) {
+        val draft = _streamDraft.value ?: return
+        if (draft.name.isBlank() || streamDraftErrors(draft).isNotEmpty() || _streamSaving.value) return
+        _streamSaving.value = true
+        _streamSaveFailed.value = false
+        viewModelScope.launch {
+            streamMutex.lock()
+            try {
+                val settings = settingsRepository.appSettingsFlow.first()
+                val saved = draft.copy(name = draft.name.trim(), streamUrl = draft.streamUrl.trim())
+                val profiles = settings.streamProfiles.toMutableList()
+                val index = profiles.indexOfFirst { it.id == saved.id }
+                if (index < 0) profiles.add(saved) else profiles[index] = saved
+                settingsRepository.updateStreamProfiles(profiles, settings.activeStreamId)
+                _streamDraft.value = null
+                onSaved()
+            } catch (error: Exception) {
+                error.rethrowCancellation()
+                _streamSaveFailed.value = true
+            } finally {
+                streamMutex.unlock()
+                _streamSaving.value = false
+            }
+        }
+    }
+
+    fun setStreamEnabled(id: String, enabled: Boolean) {
+        viewModelScope.launch {
+            streamMutex.lock()
+            try {
+                val settings = settingsRepository.appSettingsFlow.first()
+                if (settings.streamProfiles.none { it.id == id }) return@launch
+                val active = if (enabled) id else settings.activeStreamId.takeUnless { it == id }
+                settingsRepository.updateStreamProfiles(settings.streamProfiles, active)
+            } catch (error: Exception) {
+                error.rethrowCancellation()
+                _streamSaveFailed.value = true
+            } finally {
+                streamMutex.unlock()
+            }
+        }
+    }
+
+    fun reorderStreams(ids: List<String>) {
+        viewModelScope.launch {
+            streamMutex.lock()
+            try {
+                val settings = settingsRepository.appSettingsFlow.first()
+                val profiles = settings.streamProfiles.associateBy { it.id }
+                if (ids.size != profiles.size || ids.toSet() != profiles.keys) return@launch
+                _streamSaveFailed.value = false
+                settingsRepository.updateStreamProfiles(ids.map { profiles.getValue(it) }, settings.activeStreamId)
+            } catch (error: Exception) {
+                error.rethrowCancellation()
+                _streamSaveFailed.value = true
+            } finally {
+                streamMutex.unlock()
             }
         }
     }
@@ -309,10 +402,6 @@ class SettingsViewModel @Inject constructor(
     fun onSlideshowWidgetSizeChange(newValue: Int) { _uiState.value = _uiState.value.copy(slideshowWidgetSizeDp = newValue.coerceIn(120, 600)) }
     fun onSlideshowWidgetOpacityChange(newValue: Float) { _uiState.value = _uiState.value.copy(slideshowWidgetOpacity = newValue.coerceIn(0f, 1f)) }
 
-    // Pomodoro-Timer (In-App, PARITY-Zeile 143): Enabled + Work/Break-Dauer.
-    fun onPomodoroEnabledChange(newValue: Boolean) { _uiState.value = _uiState.value.copy(pomodoroEnabled = newValue) }
-    fun onPomodoroWorkDurationChange(newValue: Int) { _uiState.value = _uiState.value.copy(pomodoroWorkDurationMinutes = newValue.coerceIn(1, 120)) }
-    fun onPomodoroBreakDurationChange(newValue: Int) { _uiState.value = _uiState.value.copy(pomodoroBreakDurationMinutes = newValue.coerceIn(1, 60)) }
 
     // Akku-Anzeige-Widget.
     fun onBatteryEnabledChange(newValue: Boolean) { _uiState.value = _uiState.value.copy(batteryEnabled = newValue) }
@@ -326,6 +415,10 @@ class SettingsViewModel @Inject constructor(
     fun onRemoteControlEnabledChange(newEnabled: Boolean) { _uiState.value = _uiState.value.copy(remoteControlEnabled = newEnabled) }
 
     // Darstellung (Theme): Design-Modus + Akzentfarbe.
+    fun onAppOrientationChange(orientation: AppOrientation) {
+        // Persist before Activity recreation; no separate Save action is required.
+        viewModelScope.launch { settingsRepository.updateAppOrientation(orientation) }
+    }
     fun onThemeModeChange(newMode: ThemeMode) { _uiState.value = _uiState.value.copy(themeMode = newMode) }
     fun onAccentColorChange(newAccent: AccentColor) { _uiState.value = _uiState.value.copy(themeAccent = newAccent) }
 
@@ -432,11 +525,7 @@ class SettingsViewModel @Inject constructor(
                 sizeDp = currentSettings.slideshowWidgetSizeDp,
                 opacity = currentSettings.slideshowWidgetOpacity,
             )
-            settingsRepository.updatePomodoroSettings(
-                enabled = currentSettings.pomodoroEnabled,
-                workDurationMinutes = currentSettings.pomodoroWorkDurationMinutes,
-                breakDurationMinutes = currentSettings.pomodoroBreakDurationMinutes,
-            )
+
             settingsRepository.updateSentryEnabled(currentSettings.sentryEnabled)
             settingsRepository.updateRemoteControlEnabled(currentSettings.remoteControlEnabled)
             settingsRepository.updateReplayAudioMode(currentSettings.replayAudioMode)

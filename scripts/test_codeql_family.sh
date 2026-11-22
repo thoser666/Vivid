@@ -37,7 +37,11 @@ NEW_SHA=24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3 (Tag-Commit)
 OLD_VER=4.38.2
 NEW_VER=4.38.3
 
-PY="$(wf_python)" || { echo "❌ [test_codeql_family] kein Python+PyYAML (wf_python) — Selbsttest nicht ausfuehrbar."; exit 1; }
+# Über das Array (nicht `PY="$(wf_python)"`): der Interpreter kann "py -3"
+# sein, also Kommando + Argument — ein gequoteter String scheitert mit
+# "py -3: command not found".
+wf_python >/dev/null || { echo "❌ [test_codeql_family] kein Python+PyYAML (wf_python) — Selbsttest nicht ausfuehrbar."; exit 1; }
+PY=("${WF_PY_CMD[@]}")
 
 FAILED=0
 pass() { echo "  ✅ $1"; }
@@ -59,7 +63,7 @@ fixture() { # $1=Name
 # Zähler IST der Mutations-Nachweis: 0 Treffer hiesse, die Mutation hat nicht
 # gegriffen und der nachfolgende „rot"-Erwartungswert wäre ein Scheinbefund.
 bump_pin() { # $1=Root $2=Aktionsname $3=SHA $4=Version
-  "$PY" - "$1" "$2" "$3" "$4" <<'PYEOF'
+  "${PY[@]}" - "$1" "$2" "$3" "$4" <<'PYEOF'
 import pathlib, re, sys
 root, action, sha, ver = sys.argv[1:5]
 pat = re.compile(
@@ -160,7 +164,7 @@ else
 fi
 
 NOGRP="$WORK/dependabot-ohne-gruppen.yml"
-"$PY" - .github/dependabot.yml "$NOGRP" <<'PYEOF'
+"${PY[@]}" - .github/dependabot.yml "$NOGRP" <<'PYEOF'
 import sys
 import yaml
 with open(sys.argv[1], encoding='utf-8') as fh:

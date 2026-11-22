@@ -1,5 +1,7 @@
 package com.vivid.feature.chat.twitch
 
+import androidx.annotation.StringRes
+import com.vivid.feature.chat.R
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.get
@@ -32,10 +34,21 @@ data class TwitchStreamInfo(
     val category: String,
 )
 
+/**
+ * Operationale Fehler der Helix-Kanaloperationen.
+ *
+ * @param message technisches Detail (Englisch, i18n-plan §4: Logs sind Englisch)
+ * @param messageRes Ressourcen-ID (`@StringRes`) der lokalisierten UI-Meldung
+ *   (i18n-plan §4: eigene Fehlerursachen sind Ressourcen) — vom Konsumenten
+ *   erst bei der Anzeige aufzulösen; `0`, wenn keine vorliegt.
+ * @param formatArgs Platzhalter-Argumente für [messageRes]
+ */
 class TwitchChannelException(
     override val message: String,
     cause: Throwable? = null,
     val statusCode: Int? = null,
+    @StringRes val messageRes: Int = 0,
+    val formatArgs: List<String> = emptyList(),
 ) : Exception(message, cause)
 
 /**
@@ -60,7 +73,8 @@ class TwitchChannelClient @Inject constructor(
         withTokenRefresh(config) { effective ->
             if (!effective.isConfigured) {
                 throw TwitchChannelException(
-                    "Twitch-Kanal ist nicht konfiguriert. Benötigt werden Kanal, OAuth-Token und Client-ID.",
+                    "twitch channel not configured",
+                    messageRes = R.string.twitch_channel_error_client_not_configured,
                 )
             }
             val broadcasterId = resolveBroadcasterId(effective) ?: return@withTokenRefresh null
@@ -70,13 +84,14 @@ class TwitchChannelClient @Inject constructor(
                     auth(effective)
                 }
             } catch (error: Exception) {
-                throw TwitchChannelException("Twitch-Viewerzahl konnte nicht geladen werden.", error)
+                throw TwitchChannelException(
+                    "viewer count request failed",
+                    error,
+                    messageRes = R.string.twitch_channel_error_viewer_count_failed,
+                )
             }
             if (!response.status.isSuccess()) {
-                throw TwitchChannelException(
-                    describeError(response.status.value, "Viewerzahl"),
-                    statusCode = response.status.value,
-                )
+                throw httpError(response.status.value, "viewer count")
             }
             val stream = response.body<TwitchStreamsResponse>().data.firstOrNull() ?: return@withTokenRefresh null
             TwitchStreamInfo(
@@ -93,21 +108,33 @@ class TwitchChannelClient @Inject constructor(
     ) = withTokenRefresh(config) { effective ->
         if (!effective.isConfigured) {
             throw TwitchChannelException(
-                "Twitch-Kanal ist nicht konfiguriert. Benötigt werden Kanal, OAuth-Token und Client-ID.",
+                "twitch channel not configured",
+                messageRes = R.string.twitch_channel_error_client_not_configured,
             )
         }
         val broadcasterId = resolveBroadcasterId(effective)
-            ?: throw TwitchChannelException("Twitch-Kanal ${effective.channel} konnte nicht aufgelöst werden.")
+            ?: throw TwitchChannelException(
+                "channel lookup failed for ${effective.channel}",
+                messageRes = R.string.twitch_channel_error_channel_resolve_failed,
+                formatArgs = listOf(effective.channel),
+            )
         val trimmedTitle = title.trim().take(MAX_TITLE_LENGTH)
         val trimmedCategory = category.trim().take(MAX_CATEGORY_LENGTH)
         if (trimmedTitle.isEmpty() && trimmedCategory.isEmpty()) {
-            throw TwitchChannelException("Titel und Kategorie dürfen nicht beide leer sein.")
+            throw TwitchChannelException(
+                "title and category both empty",
+                messageRes = R.string.twitch_channel_error_empty_fields,
+            )
         }
         val gameId = if (trimmedCategory.isEmpty()) {
             null
         } else {
             resolveCategoryId(effective, trimmedCategory)
-                ?: throw TwitchChannelException("Twitch-Kategorie \"$trimmedCategory\" wurde nicht gefunden.")
+                ?: throw TwitchChannelException(
+                    "category not found: $trimmedCategory",
+                    messageRes = R.string.twitch_channel_error_category_not_found,
+                    formatArgs = listOf(trimmedCategory),
+                )
         }
         val response = try {
             http.patch("$HELIX_API/channels") {
@@ -124,13 +151,14 @@ class TwitchChannelClient @Inject constructor(
         } catch (error: TwitchChannelException) {
             throw error
         } catch (error: Exception) {
-            throw TwitchChannelException("Twitch-Kanalinformationen konnten nicht gesetzt werden.", error)
+            throw TwitchChannelException(
+                "channel update failed",
+                error,
+                messageRes = R.string.twitch_channel_error_save_failed,
+            )
         }
         if (!response.status.isSuccess()) {
-            throw TwitchChannelException(
-                describeError(response.status.value, "Kanalinformationen"),
-                statusCode = response.status.value,
-            )
+            throw httpError(response.status.value, "channel info")
         }
     }
 
@@ -198,13 +226,14 @@ class TwitchChannelClient @Inject constructor(
                 auth(config)
             }
         } catch (error: Exception) {
-            throw TwitchChannelException("Twitch-Kategorie konnte nicht gesucht werden.", error)
+            throw TwitchChannelException(
+                "category search failed",
+                error,
+                messageRes = R.string.twitch_channel_error_category_search_failed,
+            )
         }
         if (!response.status.isSuccess()) {
-            throw TwitchChannelException(
-                describeError(response.status.value, "Kategoriesuche"),
-                statusCode = response.status.value,
-            )
+            throw httpError(response.status.value, "category search")
         }
         val categories = response.body<TwitchCategoriesResponse>().data
         return categories.firstOrNull { it.name.equals(category, ignoreCase = true) }?.id
@@ -215,11 +244,30 @@ class TwitchChannelClient @Inject constructor(
         header(CLIENT_ID_HEADER, config.clientId.trim())
     }
 
-    private fun describeError(code: Int, operation: String): String = when (code) {
-        401 -> "Twitch-Authentifizierung für $operation fehlgeschlagen (401). OAuth-Token oder Client-ID prüfen."
-        403 -> "Twitch verweigert $operation (403). Für Änderungen wird channel:manage:broadcast benötigt."
-        429 -> "Twitch-Rate-Limit für $operation erreicht (429)."
-        else -> "Twitch-$operation fehlgeschlagen (HTTP $code)."
+    /**
+     * Maps a failed Helix response onto the localized UI resource
+     * (i18n-plan §4: own cause = resource, resolved at display time).
+     * [operation] stays an English technical token for logs and stack traces.
+     */
+    private fun httpError(code: Int, operation: String): TwitchChannelException {
+        val messageRes = when (code) {
+            401 -> R.string.twitch_channel_error_http_401
+            403 -> R.string.twitch_channel_error_http_403
+            429 -> R.string.twitch_channel_error_http_429
+            else -> R.string.twitch_channel_error_http
+        }
+        // Nur der generische Fehlertext trägt den HTTP-Code als Platzhalter.
+        val formatArgs = if (code == 401 || code == 403 || code == 429) {
+            emptyList()
+        } else {
+            listOf(code.toString())
+        }
+        return TwitchChannelException(
+            "twitch http $code ($operation)",
+            statusCode = code,
+            messageRes = messageRes,
+            formatArgs = formatArgs,
+        )
     }
 
     companion object {

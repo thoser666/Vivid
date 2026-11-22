@@ -40,8 +40,9 @@ class EncoderBitrateInstrumentedTest {
             val diagnostic = RootEncoderBitrateDiagnostics.read(codec, encoder.type, encoder.bitRate / 1_000)
             Log.i("VividBitrateTest", "configured=$diagnostic format=${codec.outputFormat}")
             assertTrue("Actual mode unavailable: $diagnostic", diagnostic.mode != EncoderBitrateMode.UNKNOWN)
-            if (diagnostic.cbrSupported) assertEquals(EncoderBitrateMode.CBR, diagnostic.mode)
-            else assertEquals(EncoderBitrateMode.VBR, diagnostic.mode)
+            // A CBR-capable encoder may still run VBR (Exynos/Tensor, #429, VIVID-5Q/#446);
+            // assert the reading stays truthful instead of forcing one mode on the device.
+            if (!diagnostic.cbrSupported) assertEquals(EncoderBitrateMode.VBR, diagnostic.mode)
             encoder.start()
             val controller = AdaptiveBitrateController().apply { reset(6_000) }
             repeat(2) { assertNull(controller.onSample(2_000_000L / 1_000)) }

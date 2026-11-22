@@ -14,6 +14,23 @@ class Camera2PreviewControlsTest {
     private val controls = Camera2PreviewControls(camera)
 
     @Test
+    fun `cinematic selects EIS and standard selects OIS without combining request modes`() {
+        val info = mockk<android.hardware.camera2.CameraCharacteristics>()
+        every { camera.cameraCharacteristics } returns info
+        every { info.get(android.hardware.camera2.CameraCharacteristics.CONTROL_AVAILABLE_VIDEO_STABILIZATION_MODES) } returns intArrayOf(0, 1)
+        every { info.get(android.hardware.camera2.CameraCharacteristics.LENS_INFO_AVAILABLE_OPTICAL_STABILIZATION) } returns intArrayOf(0, 1)
+        every { camera.enableVideoStabilization() } returns true
+        every { camera.enableOpticalVideoStabilization() } returns true
+        assertTrue(controls.setStabilizationMode(com.vivid.core.data.StabilizationMode.CINEMATIC))
+        io.mockk.verifyOrder { camera.disableOpticalVideoStabilization(); camera.enableVideoStabilization() }
+        assertTrue(controls.setStabilizationMode(com.vivid.core.data.StabilizationMode.STANDARD))
+        io.mockk.verifyOrder { camera.disableVideoStabilization(); camera.enableOpticalVideoStabilization() }
+        every { info.get(android.hardware.camera2.CameraCharacteristics.CONTROL_AVAILABLE_VIDEO_STABILIZATION_MODES) } returns intArrayOf(0)
+        assertFalse(controls.setStabilizationMode(com.vivid.core.data.StabilizationMode.CINEMATIC))
+        verify(exactly = 1) { camera.enableVideoStabilization() }
+    }
+
+    @Test
     fun `torch success requires the camera state to change`() {
         every { camera.isLanternEnabled } returns false
         assertFalse(controls.enableTorch())

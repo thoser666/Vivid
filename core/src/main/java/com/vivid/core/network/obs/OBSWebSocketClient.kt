@@ -407,7 +407,7 @@ class OBSWebSocketClient @Inject constructor(
     private fun send(data: Any) {
         val sessionNow = session
         if (sessionNow == null) {
-            Timber.w("OBS send ohne aktive Session - Nachricht verworfen")
+            Timber.w("OBS send without active session - message dropped")
             return
         }
         // Bewusst ohne Payload loggen: Nachrichten wie die Identify-Antwort

@@ -26,21 +26,46 @@
 # Python-Interpreter robust bestimmen: `command -v` allein reicht nicht, die
 # Windows-Store-Alias-Stubs (python3.exe) melden sich als vorhanden und brechen
 # erst beim Aufruf mit Exit 49 ab. Deshalb wird der Kandidat ausgeführt.
-WF_PY=""
+#
+# `py -3` ist Kommando PLUS Argument, kein Kommandoname. Als String gequotet
+# ("$py") scheitert der Aufruf mit "py -3: command not found"; `_wf_query`
+# landet dann im `|| echo "-"` und JEDER wf_*-Helper meldet "nicht gefunden",
+# obwohl der Workflow in Ordnung ist (Gate-Blocker 20.11.2026: PyYAML lag nur
+# im `py -3`-Interpreter, der Gate brach bei test_snyk_workflow.sh ab). Der
+# Aufruf geht deshalb ausschließlich über das Array WF_PY_CMD.
+WF_PY=""      # Anzeigeform für Meldungen, z. B. "py -3"
+WF_PY_CMD=()  # aufrufbare Form, z. B. (py -3)
 wf_python() {
-  if [[ -n "$WF_PY" ]]; then printf '%s' "$WF_PY"; return 0; fi
+  if [[ ${#WF_PY_CMD[@]} -gt 0 ]]; then printf '%s' "$WF_PY"; return 0; fi
   local cand
   for cand in python3 python "py -3"; do
-    if $cand -c 'import yaml' >/dev/null 2>&1; then WF_PY="$cand"; printf '%s' "$cand"; return 0; fi
+    # Wortzerlegung ist hier Absicht: nur so wird "py -3" zu Kommando + Argument.
+    read -r -a WF_PY_CMD <<<"$cand"
+    # `</dev/null`: die Probe liest nie stdin. Ohne das erbt der Windows-
+    # Launcher (`py -3`) das stdin des Aufrufers und kann darauf warten
+    # (beobachtet: haengender `py.exe -3` im Pre-Push-Gate).
+    if "${WF_PY_CMD[@]}" -c 'import yaml' >/dev/null 2>&1 </dev/null; then
+      WF_PY="$cand"; printf '%s' "$cand"; return 0
+    fi
   done
+  WF_PY_CMD=()
+  WF_PY=""
   return 1
+}
+
+# Interpreter samt Argumenten ausführen. NICHT über `py="$(wf_python)"`
+# nachbauen: die Command-Substitution ist eine Subshell, WF_PY_CMD wäre dort
+# verloren und der Aufruf fiele auf einen gequoteten String zurück — genau der
+# Fehler oben.
+wf_python_run() {
+  wf_python >/dev/null || return 127
+  "${WF_PY_CMD[@]}" "$@"
 }
 
 _wf_query() { # $1=Datei, Rest = Python-Ausdruck ueber die Variable `d`
   local file="$1"; shift
-  local py; py="$(wf_python)" || { echo "-"; return 0; }
   [[ -f "$file" ]] || { echo "-"; return 0; }
-  "$py" - "$file" "$1" <<'PYEOF' 2>/dev/null || echo "-"
+  wf_python_run - "$file" "$1" <<'PYEOF' 2>/dev/null || echo "-"
 import sys, io, json
 # stdout auf UTF-8 festnageln: unter Windows ist die Standard-Encoding cp1252,
 # und ein extrahierter Wert mit ≠ (U+2260), — oder ü bringt print() sonst mit
@@ -102,6 +127,15 @@ wf_step_index() { _wf_query "$1" "[i for i,s in enumerate(d['jobs']['$2'].get('s
 # damit immer grün — dagegen schützt der Helper-Prüfer in
 # test_workflow_security.sh (alle in Tests benutzten wf_* existieren).
 wf_step_if() { _wf_query "$1" "next((s.get('if') for s in d['jobs']['$2'].get('steps', []) if '$3' in str(s.get('name','')) or '$3' in str(s.get('uses',''))), None)"; }
+
+# wf_step_env <datei> <job> <step-name-teilstück> <key> -> env[key] des ersten
+# passenden Steps oder "-".
+# Fuer Zusagen wie "dieser Job gibt dem Gradle-Plugin den Sentry-Token mit":
+# das ist eine Eigenschaft des YAML-Baums (env-Map des Steps), keine des
+# Zeilenabstands — als grep-Fenster waere die Aussage nach der naechsten
+# Kommentarzeile kaputt. Rueckgabe "-" bei unbekanntem Pfad/Job/Step/Key,
+# damit ein Tippfehler nicht wie ein bestandener Check aussieht.
+wf_step_env() { _wf_query "$1" "next((s.get('env',{}).get('$4') for s in d['jobs']['$2'].get('steps', []) if '$3' in str(s.get('name','')) or '$3' in str(s.get('uses',''))), None)"; }
 
 # wf_step_run <datei> <job> <step-name-teilstück> -> run-Snippet oder "-".
 # Für Verhaltenstests: nur so kommt der echte Shell-Code aus dem Workflow in

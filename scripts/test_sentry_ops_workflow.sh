@@ -15,6 +15,9 @@
 #   W9 Gate-Verdrahtung: Selbsttest im pre-push.sh, alte Namen entfernt
 set -u
 cd "$(dirname "$0")/.."
+# Interpreter über die Library: bar `python` ist auf Windows die MSYS-Version
+# ohne PyYAML, dann scheitert W3 an "No module named yaml" statt am Workflow.
+source scripts/lib_workflow_yaml.sh
 
 PASS=0
 FAIL=0
@@ -45,7 +48,7 @@ if [ -e "$OLD_WF" ]; then fail "W2 alter monatlicher Stats-Workflow entfernt"; e
 if [ -e "$OLD_TEST" ]; then fail "W2 alter Workflow-Selbsttest entfernt"; else ok "W2 alter Workflow-Selbsttest entfernt"; fi
 
 # W3 — YAML valide
-check "W3 YAML gültig" python -c "import yaml,sys; yaml.safe_load(open('$WF', encoding='utf-8'))"
+check "W3 YAML gültig" wf_python_run -c "import yaml,sys; yaml.safe_load(open('$WF', encoding='utf-8'))"
 
 # W4 — Trigger
 check "W4 wöchentlicher Cron (30 6 * * 1)" grep -q "cron: '30 6 \* \* 1'" "$WF"

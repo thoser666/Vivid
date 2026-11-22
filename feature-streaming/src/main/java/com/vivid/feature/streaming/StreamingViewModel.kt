@@ -9,6 +9,11 @@ import com.vivid.core.data.SceneRepository
 import com.vivid.core.data.SceneVideoSource
 import com.vivid.core.data.SettingsRepository
 import com.vivid.core.data.StreamScene
+import com.vivid.core.data.SceneComposition
+import com.vivid.core.data.SceneSourceType
+import com.vivid.core.data.effectiveComposition
+import com.vivid.feature.streaming.scene.editor.SceneEditorSession
+import com.vivid.feature.streaming.scene.editor.SceneEditorState
 import com.vivid.core.data.ZoneRepository
 import com.vivid.feature.streaming.ReplayState
 import com.vivid.feature.streaming.scene.AutoSceneSwitcher
@@ -21,6 +26,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.util.UUID
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.distinctUntilChanged
 import javax.inject.Inject
 
 @HiltViewModel
@@ -43,10 +50,115 @@ class StreamingViewModel @Inject constructor(
      */
     private val pendingPrivacyToggle = MutableStateFlow<Boolean?>(null)
 
+    private val _sceneEditor = MutableStateFlow<SceneEditorState?>(null)
+    val sceneEditor: StateFlow<SceneEditorState?> = _sceneEditor
+    private var editorSession: SceneEditorSession? = null
+    private var editorOriginalComposition: SceneComposition? = null
+    private var editorOriginalCamera: String? = null
+    private var editorOriginalAutoSwitch = false
+    private var editorOriginalEmpty = false
+
+    fun openSceneEditor(scene: StreamScene) {
+        if (editorSession != null || streamingEngine.streamingState.value is StreamingState.Preparing) return
+        editorOriginalComposition = streamingEngine.sceneComposition.value
+        editorOriginalEmpty = streamingEngine.isSceneEmpty()
+        editorOriginalCamera = streamingEngine.currentSceneCameraId
+        editorOriginalAutoSwitch = autoSceneSwitcher.enabled.value
+        autoSceneSwitcher.setEnabled(false)
+        val liveGraph = streamingEngine.sceneComposition.value
+        var graph = liveGraph ?: scene.effectiveComposition()
+        if (scene.composition == null && liveGraph == null) {
+            val size = streamingEngine.scenePreviewSize()
+            graph = graph.copy(canvasWidth = size.first, canvasHeight = size.second,
+                sources = graph.sources.map {
+                    if (it.type == SceneSourceType.CAMERA) it.copy(locator = editorOriginalCamera.orEmpty()) else it
+                })
+        }
+        editorSession = SceneEditorSession(scene, graph)
+        publishEditor()
+    }
+
+    /** All draft mutations pass through one preview path; dragging never writes DataStore. */
+    fun editScene(action: SceneEditorSession.() -> Unit) {
+        val session = editorSession ?: return
+        if (session.state.saving) return
+        session.action()
+        publishEditor()
+    }
+
+    private fun publishEditor() {
+        val state = editorSession?.state ?: return
+        _sceneEditor.value = state
+        streamingEngine.setSceneComposition(state.composition, animate = false)
+        streamingEngine.setSceneEmpty(false)
+    }
+
+    fun saveSceneEditor() {
+        val session = editorSession ?: return
+        if (session.state.saving) return
+        session.endGesture()
+        session.setSaving(true)
+        _sceneEditor.value = session.state
+        viewModelScope.launch {
+            runCatching {
+                sceneRepository.saveScene(session.state.scene)
+                sceneRepository.setActiveScene(session.state.scene.id)
+                finishEditor(restore = false)
+            }.onFailure { error ->
+                if (error is kotlinx.coroutines.CancellationException || error !is Exception) throw error
+                session.setSaving(false, failed = true)
+                _sceneEditor.value = session.state
+            }
+        }
+    }
+
+    fun grantSceneProjection(sourceId: String, resultCode: Int, data: android.content.Intent): Boolean =
+        streamingServiceLauncher.startSceneProjection(sourceId, resultCode, data)
+
+    fun cancelSceneEditor() {
+        if (editorSession?.state?.saving == true) return
+        finishEditor(restore = true)
+    }
+
+    private fun finishEditor(restore: Boolean) {
+        if (editorSession == null) return
+        if (restore) {
+            editorOriginalCamera?.let { streamingEngine.selectLens(it) }
+            streamingEngine.setSceneComposition(editorOriginalComposition, animate = false)
+            streamingEngine.setSceneEmpty(editorOriginalEmpty)
+        }
+        editorSession = null
+        _sceneEditor.value = null
+        autoSceneSwitcher.setEnabled(editorOriginalAutoSwitch)
+    }
+
+    override fun onCleared() {
+        finishEditor(restore = true)
+    }
+
     // --- Szenen (Basic Scenes) + Auto-Scene-Switcher ---
 
     /** Alle gespeicherten Szenen (Anlage-Reihenfolge). */
     val scenes: Flow<List<StreamScene>> = sceneRepository.scenesFlow
+    val appSettings get() = settingsRepository.appSettingsFlow
+
+    val savedWidgetLayout get() = sceneRepository.savedLayoutFlow
+    fun saveWidgetLayout(layout: com.vivid.core.data.SceneWidget) { viewModelScope.launch { sceneRepository.saveLayout(layout) } }
+    val widgets get() = sceneRepository.widgetsFlow
+    val libraryInitialized get() = sceneRepository.libraryInitializedFlow
+
+    fun initializeWidgets(defaultName: String, names: Map<com.vivid.core.data.WidgetType, String>) {
+        viewModelScope.launch { sceneRepository.initializeLibrary(settingsRepository.appSettingsFlow.first(), defaultName, names) }
+    }
+
+    fun updateScene(scene: StreamScene) { viewModelScope.launch { sceneRepository.saveScene(scene) } }
+    fun reorderScenes(ids: List<String>) { viewModelScope.launch { sceneRepository.reorderScenes(ids) } }
+    fun updateWidget(widget: com.vivid.core.data.StreamWidget) { viewModelScope.launch { sceneRepository.saveWidget(widget) } }
+    fun updateWidgetScenes(widget: com.vivid.core.data.StreamWidget, visibility: Map<String, Boolean>) {
+        viewModelScope.launch { sceneRepository.saveWidgetWithSceneVisibility(widget, visibility) }
+    }
+    fun deleteWidget(id: String) { viewModelScope.launch { sceneRepository.deleteWidget(id) } }
+    fun reorderWidgets(ids: List<String>) { viewModelScope.launch { sceneRepository.reorderWidgets(ids) } }
 
     /** ID der zuletzt angewendeten Szene (null = keine aktiv). */
     val activeSceneId: Flow<String?> = sceneRepository.activeSceneIdFlow
@@ -64,6 +176,16 @@ class StreamingViewModel @Inject constructor(
 
     init {
         runConfigCheck()
+        viewModelScope.launch {
+            settingsRepository.appSettingsFlow.map { it.cameraControls }.distinctUntilChanged().collect {
+                streamingEngine.configureCameraControls(it)
+            }
+        }
+        viewModelScope.launch {
+            settingsRepository.appSettingsFlow.map { PreviewVideoConfiguration(it) }.distinctUntilChanged().collect {
+                streamingEngine.configurePreviewVideo(it)
+            }
+        }
         // P1: Anonymisierung — persistierten Soll-Zustand (Zonen + Master-Toggle)
         // in die Engine übernehmen. Ohne Kamera/GL bleiben die Engine-Aufrufe
         // No-Ops; beim Stream-Start wendet die Engine den Soll-Zustand selbst an.
@@ -85,6 +207,12 @@ class StreamingViewModel @Inject constructor(
             // Kette hängt (Master-Toggle).
             if (zoneRepository.fullFrameBlurEnabledFlow.first()) {
                 streamingEngine.setFullFramePrivacy(true)
+            }
+            // P4.1: „Umgebung verpixeln“ — der Render erzeugt die
+            // Porträt-Maske beim Einschalten selbst; ohne Master-Toggle ist
+            // der Privacy-Render nicht in der Kette und der Zustand wartet.
+            if (zoneRepository.environmentBlurEnabledFlow.first()) {
+                streamingEngine.setEnvironmentBlur(true)
             }
         }
     }
@@ -123,13 +251,17 @@ class StreamingViewModel @Inject constructor(
      * Audio-Konfiguration (ReplayAudioMode) berücksichtigt: VIDEO_ONLY erzeugt
      * eine Aufnahme ohne Audiospur.
      */
-    fun toggleReplay() {
+    fun toggleReplay(onStartResult: (Boolean) -> Unit = {}) {
         viewModelScope.launch {
             if (streamingEngine.replayState.value is ReplayState.Recording) {
                 streamingEngine.stopReplay()
             } else {
                 val settings = settingsRepository.appSettingsFlow.first()
-                streamingEngine.startReplay(includeAudio = settings.replayAudioMode == ReplayAudioMode.ALL)
+                streamingEngine.configureCameraMode(if (settings.videoFps == 30) com.vivid.core.data.CameraMode.STANDARD else settings.cameraMode)
+                streamingEngine.configureStreamVideo(settings)
+                streamingEngine.configureEncoder(com.vivid.core.data.ResolvedEncoderConfig(
+                    settings.videoCodecPreference, settings.encoderPreset, false, settings.videoFps ?: settings.encoderPreset.fps), settings.encoderAutoFallback)
+                onStartResult(streamingEngine.startReplay(includeAudio = settings.replayAudioMode == ReplayAudioMode.ALL))
             }
         }
     }
@@ -149,6 +281,7 @@ class StreamingViewModel @Inject constructor(
             val scene = StreamScene(
                 id = UUID.randomUUID().toString(),
                 name = trimmed,
+                widgets = emptyList(),
                 videoSource = streamingEngine.activeSourceKind.value.toSceneVideoSource(),
                 replayPath = streamingEngine.activeReplayFile?.absolutePath,
                 widgetEnabled = settings.widgetEnabled,
@@ -160,6 +293,7 @@ class StreamingViewModel @Inject constructor(
                 streamUrl = settings.streamUrl,
                 streamKey = settings.streamKey,
                 streamUseTls = settings.streamUseTls,
+                composition = streamingEngine.sceneComposition.value,
             )
             sceneRepository.saveScene(scene)
         }
@@ -207,6 +341,13 @@ class StreamingViewModel @Inject constructor(
     val fullFrameBlurEnabled: Flow<Boolean> = zoneRepository.fullFrameBlurEnabledFlow
 
     /**
+     * Persistierter P4.1-Toggle „Umgebung verpixeln“ (Default aus). Wirkt nur
+     * zusammen mit [privacyEnabled]: alles außerhalb der Personen-Maske wird
+     * grob verpixelt, die Person bleibt scharf (Skizze §11.4).
+     */
+    val environmentBlurEnabled: Flow<Boolean> = zoneRepository.environmentBlurEnabledFlow
+
+    /**
      * Capability der Hardware-Gesichtserkennung: `null` = noch nie versucht,
      * `false` = Gerät ohne Face-Modus. Das UI zeigt diesen Fall später als
      * Hinweis an; die manuellen Zonen bleiben davon unberührt (Skizze §8).
@@ -252,6 +393,19 @@ class StreamingViewModel @Inject constructor(
     }
 
     /**
+     * Setzt den P4.1-Toggle „Umgebung verpixeln“: persistiert und sofort an
+     * die Engine. Die Engine erzeugt die Maske beim Einschalten und reicht sie
+     * framesynchron an den Render; beim Ausschalten bleibt die letzte Maske
+     * liegen, wirksam ist nur das Flag.
+     */
+    fun setEnvironmentBlurEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            zoneRepository.setEnvironmentBlurEnabled(enabled)
+            streamingEngine.setEnvironmentBlur(enabled)
+        }
+    }
+
+    /**
      * Ersetzt die manuellen Zonen (Zonen-Editor): persistiert und wendet sie
      * sofort an — die Engine mappt sie framesynchron auf die Ellipsen-Uniforms.
      */
@@ -270,6 +424,7 @@ private fun VideoSourceKind.toSceneVideoSource(): SceneVideoSource = when (this)
     VideoSourceKind.REPLAY -> SceneVideoSource.REPLAY
     // S3 (Video-Player) speichert keine Content-Uris in Szenen — Fallback auf Kamera.
     VideoSourceKind.VIDEO_PLAYER -> SceneVideoSource.CAMERA
+    VideoSourceKind.UVC -> SceneVideoSource.CAMERA
 }
 
 /**

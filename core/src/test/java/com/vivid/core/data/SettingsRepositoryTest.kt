@@ -13,10 +13,62 @@ import org.junit.jupiter.api.io.TempDir
 import java.io.File
 import java.nio.file.Path
 
+/**
+ * Persistenz der App-Einstellungen.
+ *
+ * Drei Tests (lokale Overlays, Kamera-Steuerung, Ausrichtung) schreiben
+ * mehrfach in denselben Store und laufen deshalb über den flüchtigen
+ * [InMemoryPreferencesDataStore]: DataStore 1.3.0 kann unter Windows nicht über
+ * eine vorhandene Zieldatei umbenennen (Begründung im Klassenkopf dort). Alle
+ * anderen Tests behalten den Datei-Store, weil sie nur einmal schreiben.
+ */
 class SettingsRepositoryTest {
 
     @TempDir
     lateinit var tempDir: Path
+
+    @Test
+    fun `local overlay toggles survive reload and stream profile changes independently`() = runTest {
+        val store = InMemoryPreferencesDataStore()
+        val repository = SettingsRepository(store)
+        assertEquals(LocalOverlaySettings(), repository.appSettingsFlow.first().localOverlays)
+        repository.updateLocalOverlays { it.copy(showZoom = false) }
+        repository.updateLocalOverlays { it.copy(showDuration = false) }
+        repository.updateLocalOverlays { it.copy(showScenes = false) }
+        repository.updateLocalOverlays { it.copy(showBitrate = false) }
+        val profiles = listOf(StreamProfile("one", "One"), StreamProfile("two", "Two"))
+        repository.updateStreamProfiles(profiles, "one")
+        repository.updateStreamProfiles(profiles, "two")
+        val restored = SettingsRepository(store).appSettingsFlow.first()
+        assertEquals(LocalOverlaySettings(showZoom = false, showDuration = false, showScenes = false, showBitrate = false), restored.localOverlays)
+        assertEquals("two", restored.activeStreamId)
+        repository.updateLocalOverlays { it.copy(showFps = false) }
+        assertEquals(LocalOverlaySettings(false, false, false, false, false), repository.appSettingsFlow.first().localOverlays)
+    }
+
+    @Test
+    fun `camera controls persist independently of profiles including empty lists and preset order`() = runTest {
+        val store = InMemoryPreferencesDataStore()
+        val repository = SettingsRepository(store)
+        assertEquals(CameraControlSettings(), repository.appSettingsFlow.first().cameraControls)
+        assertEquals(listOf(1f, 1.5f, 2f), repository.appSettingsFlow.first().cameraControls.rearZoomPresets)
+        repository.updateCameraControls { it.copy(zoomSpeed = 2.3f,
+            rearZoomPresets = listOf(2f, 0.5f, 1.5f), frontZoomPresets = emptyList(),
+            stabilization = StabilizationMode.CINEMATIC, mirrorFrontCamera = true) }
+        repository.updateStreamSettings("rtmp://test/live", "key")
+        val controls = SettingsRepository(store).appSettingsFlow.first().cameraControls
+        assertEquals(2.3f, controls.zoomSpeed)
+        assertEquals(listOf(2f, 0.5f, 1.5f), controls.rearZoomPresets)
+        assertEquals(emptyList<Float>(), controls.frontZoomPresets)
+        assertEquals(StabilizationMode.CINEMATIC, controls.stabilization)
+        assertTrue(controls.mirrorFrontCamera)
+        repository.updateCameraControls { it.copy(zoomSpeed = Float.NaN,
+            frontZoomPresets = listOf(1f, 1f, Float.POSITIVE_INFINITY, -1f)) }
+        val normalized = repository.appSettingsFlow.first().cameraControls
+        assertEquals(5.0f, normalized.zoomSpeed)
+        assertEquals(listOf(1f), normalized.frontZoomPresets)
+        assertEquals(controls.rearZoomPresets, normalized.rearZoomPresets)
+    }
 
     @Test
     fun `appSettingsFlow should return saved values`() = runTest {
@@ -37,6 +89,22 @@ class SettingsRepositoryTest {
         // Assert
         assertEquals(testUrl, settings.streamUrl)
         assertEquals(testKey, settings.streamKey)
+    }
+
+    @Test
+    fun `camera mode roundtrip survives a repository instance change`() = runTest {
+        val store = PreferenceDataStoreFactory.create(scope = this,
+            produceFile = { File(tempDir.toFile(), "camera_mode.preferences_pb") })
+        SettingsRepository(store).updateCameraMode(CameraMode.EXPERIMENTAL_60_FPS)
+        assertEquals(CameraMode.EXPERIMENTAL_60_FPS, SettingsRepository(store).appSettingsFlow.first().cameraMode)
+    }
+
+    @Test
+    fun `unknown camera mode is standard`() = runTest {
+        val store = PreferenceDataStoreFactory.create(scope = this,
+            produceFile = { File(tempDir.toFile(), "unknown_camera_mode.preferences_pb") })
+        store.edit { it[stringPreferencesKey("camera_mode")] = "future" }
+        assertEquals(CameraMode.STANDARD, SettingsRepository(store).appSettingsFlow.first().cameraMode)
     }
 
     // Drei kleine Tests statt einem mit drei Edits: Der DataStore-Actor hat
@@ -579,6 +647,23 @@ class SettingsRepositoryTest {
         assertEquals(false, settings.widgetShowTime)
         assertEquals(true, settings.widgetShowLocation)
         assertEquals(false, settings.widgetShowSpeed)
+    }
+
+    @Test
+    fun `app orientation defaults safely and survives repository recreation`() = runTest {
+        val store = InMemoryPreferencesDataStore()
+        val repository = SettingsRepository(store)
+        assertEquals(AppOrientation.PORTRAIT, repository.appSettingsFlow.first().appOrientation)
+        repository.updateThemeSettings(ThemeMode.AMOLED, AccentColor.ROSE_PINK)
+        for (orientation in listOf(AppOrientation.LANDSCAPE, AppOrientation.PORTRAIT)) {
+            repository.updateAppOrientation(orientation)
+            val restored = SettingsRepository(store).appSettingsFlow.first()
+            assertEquals(orientation, restored.appOrientation)
+            assertEquals(ThemeMode.AMOLED, restored.themeMode)
+            assertEquals(AccentColor.ROSE_PINK, restored.themeAccent)
+        }
+        store.edit { it[stringPreferencesKey("app_orientation")] = "SENSOR" }
+        assertEquals(AppOrientation.PORTRAIT, repository.appSettingsFlow.first().appOrientation)
     }
 
     @Test

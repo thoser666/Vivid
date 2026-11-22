@@ -43,6 +43,7 @@ grep -q "test_github_anchors.sh" <<< "$out" || fail "test_github_anchors.sh fehl
 grep -q "check_parity_log.sh" <<< "$out" || fail "check_parity_log.sh fehlt im Dry-Run"
 grep -q -- "--check-exists" <<< "$out" || fail "--check-exists fehlt im Dry-Run (PARITY-Log-Guard muss die Existenzprüfung aktivieren)"
 grep -q "test_parity_log.sh" <<< "$out" || fail "test_parity_log.sh fehlt im Dry-Run"
+grep -q "test_issue_320_proguard.sh" <<< "$out" || fail "test_issue_320_proguard.sh fehlt im Dry-Run (R8-Keep-Rules #320 ungeprüft)"
 grep -q "Alle Checks grün" <<< "$out" || fail "Abschlussmeldung fehlt im Dry-Run"
 
 # Der Release-Build ist optional: ohne PRE_PUSH_RELEASE darf er NICHT auftauchen,

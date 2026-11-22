@@ -135,7 +135,13 @@ class SettingsViewModelTest {
         val result = viewModel.importFromQrCode("kein gültiger qr code")
 
         assertTrue(result is QrImportResult.Error)
-        assertTrue((result as QrImportResult.Error).message.isNotBlank())
+        // Ressourcen-ID statt hartkodiertem Text (i18n-plan §4) — sowohl im
+        // Rückgabewert als auch im UI-State, den der Screen anzeigt.
+        assertEquals(
+            com.vivid.core.R.string.qr_error_invalid,
+            (result as QrImportResult.Error).messageRes,
+        )
+        assertEquals(com.vivid.core.R.string.qr_error_invalid, viewModel.uiState.value.qrMessageRes)
         // Bestehende Werte bleiben unverändert
         assertEquals("keep.me", viewModel.uiState.value.host)
     }

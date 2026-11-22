@@ -198,4 +198,26 @@ class ZoneRepositoryTest {
             repository.setFullFrameBlurEnabled(false)
             assertFalse(repository.fullFrameBlurEnabledFlow.first())
         }
+
+    @Test
+    fun `environmentBlurEnabledFlow defaults to false`() = runTest {
+        assertFalse(repository().environmentBlurEnabledFlow.first())
+    }
+
+    @Test
+    fun `setEnvironmentBlurEnabled persists the toggle independently of zones and master`() =
+        runTest {
+            val repository = repository()
+
+            repository.setEnvironmentBlurEnabled(true)
+            assertTrue(repository.environmentBlurEnabledFlow.first())
+            // P4.1 ist ein eigener Schutz: weder Master noch Zonen noch
+            // Ganzbild dürfen mitgezogen werden.
+            assertFalse(repository.privacyEnabledFlow.first())
+            assertFalse(repository.fullFrameBlurEnabledFlow.first())
+            assertTrue(repository.zonesFlow.first().isEmpty())
+
+            repository.setEnvironmentBlurEnabled(false)
+            assertFalse(repository.environmentBlurEnabledFlow.first())
+        }
 }

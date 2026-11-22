@@ -4,6 +4,8 @@ import android.app.Activity
 import android.app.Instrumentation
 import android.content.Intent
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -19,6 +21,7 @@ import com.vivid.feature.streaming.R as StreamingR
 import org.junit.After
 import org.junit.Before
 import org.junit.Rule
+import org.junit.rules.RuleChain
 import org.junit.Test
 
 /**
@@ -47,8 +50,13 @@ import org.junit.Test
  */
 class HelpNavigationTest {
 
+    // Grants first: the compose rule launches MainActivity when applied (#249).
+    private val composeRule = createAndroidComposeRule<MainActivity>()
+
     @get:Rule
-    val composeRule = createAndroidComposeRule<MainActivity>()
+    val rules: RuleChain = RuleChain
+        .outerRule(EmulatorTestPermissions.rule())
+        .around(composeRule)
 
     @Before
     fun setUp() {
@@ -110,7 +118,7 @@ class HelpNavigationTest {
         composeRule.waitForIdle()
 
         // 3. SettingsAbout → AboutScreen („About Vivid & Updates“-Button)
-        composeRule.onNodeWithText(str(SettingsR.string.about_open_button)).performClick()
+        composeRule.onNode(hasText(str(SettingsR.string.about_open_button)) and hasClickAction()).performClick()
         composeRule.waitForIdle()
 
         // Wir sind auf dem AboutScreen

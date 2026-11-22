@@ -66,6 +66,9 @@ class TwitchChatEventSubReader @Inject constructor(
     private val whisperClient: TwitchWhisperClient,
     private val http: HttpClient,
 ) : ChatReader {
+    /** Independent read session for one overlay; never controls the bot session. */
+    fun independent() = TwitchChatEventSubReader(scope, socketFactory, whisperClient, http)
+
     private val _state = MutableStateFlow<ChatConnectionState>(ChatConnectionState.Disconnected)
     override val state: StateFlow<ChatConnectionState> = _state
 

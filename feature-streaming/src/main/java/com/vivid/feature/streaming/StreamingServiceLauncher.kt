@@ -12,6 +12,9 @@ interface StreamingServiceLauncher {
     /** Startet den Foreground-Service, der die übergebenen [urls] streamt. */
     fun startStreaming(urls: List<String>)
 
+    /** Promote capture before consuming a scene's one-use MediaProjection consent. */
+    fun startSceneProjection(sourceId: String, resultCode: Int, data: android.content.Intent): Boolean = false
+
     /** Stoppt den Foreground-Service (und damit den Stream). */
     fun stopStreaming()
 }

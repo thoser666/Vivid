@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# I18n-Guard (Vivid): drei Checks, die eine Rückkehr zur String-Hartkodierung
+# I18n-Guard (Vivid): vier Checks, die eine Rückkehr zur String-Hartkodierung
 # verhindern (siehe docs/i18n-plan.md §5):
 #
 #   1. Externalisierungs-Gate: `Text("…")`, `contentDescription = "…"` und
@@ -19,6 +19,9 @@
 #   3. stream_url_hint-Inhalts-Guard: Der Hinweis unter dem Stream-URL-Feld
 #      muss in BEIDEN Sprachen die Kernaussagen nennen (RTMP, SRT, Owncast,
 #      Presets), damit die custom-Plattform-Fähigkeit sichtbar bleibt.
+#   4. Log-Guard: Timber-Log-Strings sind Englisch (i18n-plan §4: Logs sind
+#      nicht lokalisiert und damit technische Sprache) — deutsche
+#      Timber-Meldungen in src/main der UI-Module sind verboten.
 #
 # Aufruf:  bash scripts/check_i18n.sh
 set -euo pipefail
@@ -28,7 +31,7 @@ cd "$(dirname "$0")/.."
 FAILED=0
 fail() { echo "  ✗ $*"; FAILED=1; }
 
-echo "▶ [i18n] 1/3 Externalisierungs-Gate (keine hartkodierten UI-Strings in src/main)"
+echo "▶ [i18n] 1/4 Externalisierungs-Gate (keine hartkodierten UI-Strings in src/main)"
 # Zu prüfende Module (überschreibbar für den Selbsttest per I18N_MODULES).
 if [[ -n "${I18N_MODULES:-}" ]]; then
   read -r -a UI_MODULES <<< "$I18N_MODULES"
@@ -62,7 +65,7 @@ else
   echo "  ✓ keine hartkodierten UI-Strings"
 fi
 
-echo "▶ [i18n] 2/3 Vollständigkeits-Check values/ ↔ values-en/ ↔ values-fr/ ↔ values-ru/"
+echo "▶ [i18n] 2/4 Vollständigkeits-Check values/ ↔ values-en/ ↔ values-fr/ ↔ values-ru/"
 for mod in "${UI_MODULES[@]}"; do
   # Module können mit oder ohne "/src/main" angegeben werden — für die
   # res-Pfade wird der Suffix normalisiert (z. B. "feature-settings" →
@@ -98,7 +101,7 @@ for mod in "${UI_MODULES[@]}"; do
   fi
 done
 
-echo "▶ [i18n] 3/3 stream_url_hint-Inhalts-Guard (alle vier Sprachen)"
+echo "▶ [i18n] 3/4 stream_url_hint-Inhalts-Guard (alle vier Sprachen)"
 # Modul des Hinweistexts (überschreibbar für den Selbsttest per I18N_HINT_MODULE).
 hint_module="${I18N_HINT_MODULE:-feature-settings}"
 hint_de=$(grep -o '<string name="stream_url_hint">[^<]*' "$hint_module/src/main/res/values/strings.xml" | sed 's/.*>//' || true)
@@ -134,6 +137,29 @@ for lang in "de:$hint_de" "en:$hint_en" "fr:$hint_fr" "ru:$hint_ru"; do
 done
 if [[ -n "$hint_de" && -n "$hint_en" && -n "$hint_fr" && -n "$hint_ru" ]]; then
   echo "  ✓ stream_url_hint nennt RTMP/SRT/Owncast + Presets in allen vier Sprachen"
+fi
+
+echo "▶ [i18n] 4/4 Log-Guard (Timber-Log-Strings sind Englisch)"
+# Logs werden bewusst nicht lokalisiert (i18n-plan §4) — sie gehören damit zur
+# technischen Sprache Englisch. Erfasst werden alle Timber-*.Aufrufe in src/main
+# der UI-Module. Mehrzeilige Aufrufe (String in der Folgezeile) sind eingeschlossen:
+# perl liest im Slurp-Modus die ganze Datei, statt ein Zeilenfenster zu behaupten
+# (Regel aus AGENTS.md, siehe scripts/test_no_line_windows.sh).
+mapfile -t I18N_KT_FILES < <(find "${UI_MODULES[@]}" -name '*.kt' 2>/dev/null)
+LOG_HITS=$(perl -0777 -ne '
+    while (/Timber\.[a-z]\(\s*(?:[^,()"]*,\s*)?"([^"]*)"/g) {
+        my $m = $1;
+        next unless $m =~ /[äöüßÄÖÜ]/ ||
+            $m =~ /\b(und|oder|der|die|das|nicht|kein|keine|wird|werden|sind|bereits|fehlgeschlagen|verweigert|belegt|startet|gestartet|abgelehnt|verworfen|ohne|für|fuer|beim|zum|zur|von|noch|kann|darf|muss|fehlt|fehlen|Vorbereitung|nächster|naechster|scheiterten|ungültig|Ungültig)\b/;
+        print "$ARGV: $m\n";
+    }
+' "${I18N_KT_FILES[@]}")
+
+if [[ -n "$LOG_HITS" ]]; then
+  echo "$LOG_HITS"
+  fail "Deutsche Timber-Log-Strings gefunden — Logs sind Englisch (i18n-plan §4)."
+else
+  echo "  ✓ keine deutschen Timber-Log-Strings"
 fi
 
 if [[ "$FAILED" == "1" ]]; then

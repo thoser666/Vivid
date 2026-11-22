@@ -4,11 +4,19 @@ import com.vivid.R
 import com.vivid.feature.streaming.StreamingState
 import com.vivid.feature.streaming.source.VideoSourceKind
 import org.junit.Assert.assertEquals
+import org.junit.Assert.fail
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class StreamingServiceSupportTest {
+
+    @Test
+    fun `layered screen capture requires projection service regardless of primary source`() {
+        VideoSourceKind.entries.forEach { kind ->
+            assertTrue(StreamingServiceSupport.requiresMediaProjectionFgs(kind, sceneProjectionActive = true))
+        }
+    }
 
     @Test
     fun `notificationTitle shows live state while streaming`() {
@@ -54,9 +62,15 @@ class StreamingServiceSupportTest {
     }
 
     @Test
-    fun `showStopAction is false for idle and preparing states`() {
+    fun `showStopAction is true while preparing so the start can be aborted`() {
+        // Ein Start in Vorbereitung darf nicht ohne Ausweg bleiben: stopStream()
+        // behandelt den Zustand, die Notification zeigte bisher aber keine Aktion.
+        assertTrue(StreamingServiceSupport.showStopAction(StreamingState.Preparing))
+    }
+
+    @Test
+    fun `showStopAction is false for the idle state`() {
         assertFalse(StreamingServiceSupport.showStopAction(StreamingState.Idle))
-        assertFalse(StreamingServiceSupport.showStopAction(StreamingState.Preparing))
     }
 
     @Test
@@ -66,6 +80,85 @@ class StreamingServiceSupportTest {
         assertEquals("com.vivid.extra.STREAM_URLS", StreamingServiceSupport.EXTRA_STREAM_URLS)
     }
 
+    @Test
+    fun `failureText prefers the localized resource over the raw library reason`() {
+        val state = StreamingState.Failed(reason = "RTMP Auth Error", reasonRes = R.string.notif_text_failed)
+        var resolved: Int? = null
+
+        val text = StreamingServiceSupport.failureText(state) { resolved = it; "lokalisierter Grund" }
+
+        assertEquals(R.string.notif_text_failed, resolved)
+        assertEquals("lokalisierter Grund", text)
+    }
+
+    @Test
+    fun `failureText falls back to the raw reason of the library`() {
+        val text = StreamingServiceSupport.failureText(StreamingState.Failed("RTMP Auth Error")) {
+            error("Ressource darf hier nicht aufgelöst werden")
+        }
+
+        assertEquals("RTMP Auth Error", text)
+    }
+
+    @Test
+    fun `failureText is empty without failure state or cause`() {
+        assertEquals("", StreamingServiceSupport.failureText(StreamingState.Streaming) { "x" })
+        assertEquals("", StreamingServiceSupport.failureText(StreamingState.Failed()) { "x" })
+    }
+
+    @Test
+    fun `guardStreamStart reports a start failure without letting it escape`() {
+        // #327/VIVID-3Z: frueher entkam die Exception aus onStartCommand und AMS
+        // beendete den Prozess als "Unable to start service".
+        val logged = mutableListOf<Exception>()
+        var failures = 0
+        val boom = IllegalStateException("Unable to start service")
+
+        val started = StreamingServiceSupport.guardStreamStart(
+            log = { logged += it },
+            start = { throw boom },
+            onFailure = { failures++ },
+        )
+
+        assertFalse(started)
+        assertEquals(listOf(boom), logged)
+        assertEquals(1, failures)
+    }
+
+    @Test
+    fun `guardStreamStart stays silent when the start succeeds`() {
+        var failures = 0
+        var logged = 0
+
+        val started = StreamingServiceSupport.guardStreamStart(
+            log = { logged++ },
+            start = {},
+            onFailure = { failures++ },
+        )
+
+        assertTrue(started)
+        assertEquals(0, logged)
+        assertEquals(0, failures)
+    }
+
+    @Test
+    fun `guardStreamStart does not swallow fatal errors`() {
+        // Error ist kein Startfehler des Service: die Behandlung bleibt beim
+        // Prozess (Crash-Reporting), damit kein OOM als "Streamstart-Fehler" endet.
+        var reported = 0
+
+        try {
+            StreamingServiceSupport.guardStreamStart(
+                log = { reported++ },
+                start = { throw OutOfMemoryError("heap exhausted") },
+                onFailure = { reported++ },
+            )
+            fail("Error muss propagieren")
+        } catch (expected: OutOfMemoryError) {
+            assertEquals("heap exhausted", expected.message)
+        }
+        assertEquals(0, reported)
+    }
     @Test
     fun `requiresMediaProjectionFgs is true only for screen capture`() {
         assertTrue(StreamingServiceSupport.requiresMediaProjectionFgs(VideoSourceKind.SCREEN_CAPTURE))

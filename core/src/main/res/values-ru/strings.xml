@@ -4,4 +4,11 @@
     <string name="update_error_unknown_version">Неизвестная версия: %1$s</string>
     <string name="update_error_check_failed">Не удалось проверить обновления: %1$s</string>
     <string name="update_error_no_releases">Релизов не найдено</string>
+
+    <!-- Ошибки авторизации API (VividApiImpl / вход + регистрация) -->
+    <string name="api_error_unknown">Неизвестная ошибка</string>
+
+    <!-- Импорт QR-кода OBS (ObsQrCodeParser / экран настроек) -->
+    <string name="qr_error_empty">Пустой QR-код</string>
+    <string name="qr_error_invalid">Недопустимый QR-код OBS WebSocket. Ожидается: obsws://host:port/пароль (или obswebsocket://host:port).</string>
 </resources>

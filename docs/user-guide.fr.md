@@ -68,6 +68,15 @@ Au premier lancement, Vivid affiche l'**écran de streaming** (aperçu en direct
 
 Ouvre les **paramètres** (⚙️ en haut à droite de l'écran de streaming) → **« Streaming & OBS »**.
 
+La liste affiche les streams enregistrés. « Créer un stream » propose Twitch,
+YouTube, Kick ou Personnalisé, puis nom, URL, clé, connexion sécurisée et
+« Enregistrer ». Active un stream avec son interrupteur : le précédent se
+désactive. Tous peuvent être désactivés. « Start streaming » démarre le stream
+sélectionné. Un appui long puis un glissement sur la poignée réorganise la liste ; relâcher enregistre cet ordre. Toucher une ligne ouvre les pages Multi-streaming, Vidéo
+(résolution/codec, FPS, LLB, débit de 1 à 15 Mbit/s et intervalle des images clés),
+Enregistrement, contrôle Twitch (Twitch uniquement) et contrôle OBS avec son
+interrupteur. Enregistre les modifications sur la page du stream.
+
 ### 3.1 Choisir un modèle de plateforme
 
 Vivid propose des modèles pour les plateformes courantes :
@@ -84,7 +93,7 @@ Vivid propose des modèles pour les plateformes courantes :
 1. Toucher le **modèle de plateforme** → l'URL est préremplie
 2. Adapter si besoin l'**URL du stream** (p. ex. `rtmps://` pour TLS — le toggle **« TLS »** active le chiffrement)
 3. Saisir la **clé de stream**
-4. **Terminé** — les paramètres sont enregistrés
+4. Saisir un **nom**, toucher **Enregistrer**, puis activer ce stream dans la liste
 
 ### 3.3 Multi-streaming (deux cibles en parallèle)
 
@@ -111,7 +120,7 @@ Avant le démarrage, Vivid valide la configuration et affiche des messages clair
 3. Vivid se connecte — le statut passe à **« Préparation… »** → **« en direct »**
 4. L'affichage de statut montre chaque cible séparément (en multi-streaming)
 
-Le menu **Contrôles** regroupe les sources Caméra, Écran et Vidéo, puis **Enregistrer**, les contrôles caméra, les filtres, Boost, LUT et le traitement des couleurs. L'engrenage en haut à droite ouvre les paramètres. **Scènes** ouvre un panneau inférieur masqué par défaut ; le faire glisser vers le bas le ferme. **Enregistrer** sauvegarde la vidéo actuelle de la caméra en MP4 local, sans URL de stream ni stream actif. Une URL vide est signalée uniquement après un appui sur Démarrer. Les contrôles caméra et les effets fonctionnent aussi dans l'aperçu au repos si l'autorisation caméra est déjà accordée.
+Le menu **Contrôles** regroupe les sources Caméra, Écran et Vidéo, puis **Enregistrer**, les contrôles caméra, les filtres, Boost, LUT et le traitement des couleurs. L'engrenage en haut à droite ouvre les paramètres. Les scènes se gèrent dans **Paramètres → Scènes et widgets** : réorganiser, activer ou supprimer par balayage les scènes et les widgets partagés. Chaque scène choisit une caméra, la capture d’écran ou une source vide et possède ses propres positions de widgets. Le changement automatique et la confidentialité suivent les deux listes. **Enregistrer** sauvegarde la vidéo actuelle de la caméra en MP4 local, sans URL de stream ni stream actif. Une URL vide est signalée uniquement après un appui sur Démarrer. Les contrôles caméra et les effets fonctionnent aussi dans l'aperçu au repos si l'autorisation caméra est déjà accordée.
 
 ### Arrêter le stream
 
@@ -171,7 +180,26 @@ Si votre appareil possède plusieurs caméras (par ex. ultra-grand angle/grand a
 
 > La disponibilité dépend de l'appareil — toutes les caméras n'offrent pas tous les objectifs.
 
-### 6.3 Conseils
+### 6.3 Zoom, stabilisation et miroir
+
+**Contrôles caméra → Zoom** enregistre des préréglages distincts pour les
+caméras arrière (0,5×, 1×, 1,5×, 2×) et avant (0,5×, 1×). Touchez une valeur
+pour la modifier, créez un préréglage ou supprimez-le avec la corbeille.
+Maintenez la poignée à gauche pour déplacer un préréglage dans sa liste.
+L’ordre est enregistré au relâchement ; une annulation restaure l’ordre
+précédent. Les autres modifications sont enregistrées immédiatement. La vitesse
+(valeur par défaut 5,0 ; plage de 0,1 à 10 unités de zoom par seconde) règle les
+transitions entre les préréglages. Cette page permet de les configurer ; le futur
+widget de zoom utilisera ces mêmes paramètres. Les valeurs disponibles dépendent de la caméra.
+
+Stabilisation : Désactivée, Standard (OIS, sinon EIS), Cinématique (EIS).
+La disponibilité dépend de la caméra active ; aucun mode cinéma propre au
+fabricant n’est demandé. Le miroir avant affecte l’aperçu et la vidéo diffusée
+ou enregistrée, sans modifier la caméra arrière. Pour le football sur trépied
+avec panoramique, commencez sans stabilisation et essayez Standard si de
+petites vibrations persistent.
+
+### 6.4 Conseils
 
 - Le **tap-to-focus** sur l'aperçu rem temporairement le réglage manuel
 - Le **verrou de mise au point** (bouton en haut à droite) maintient la mise au point actuelle
@@ -187,12 +215,13 @@ phase P1) — les deux chats sont fusionnés dans le même overlay.
 
 ### 7.1 Activer
 
-1. **Paramètres** → **« Overlays & widgets »**
-2. Activer **l'overlay de chat**
+1. **Paramètres** → **« Scènes et widgets »**
+2. Ajouter un widget **Overlay de chat** (ou ouvrir le widget migré) et activer son interrupteur dans la bibliothèque.
 3. Saisir le **canal de chat** (ton nom de chaîne Twitch, p. ex. `thoser666`)
 4. Optionnel : activer **le chat YouTube** et saisir l'**ID de chaîne YouTube** (`UC…`)
    — le chat live est lu anonymement (pas d'OAuth) et fusionné dans le même overlay ;
    les messages YouTube portent un badge de plateforme rouge ▶.
+5. Enregistrer le widget, ouvrir une scène et utiliser **Ajouter depuis les widgets**. Activer le widget dans cette scène, puis activer la scène.
 
 ### 7.2 Ce qu'il te faut
 
@@ -288,7 +317,7 @@ Vivid peut piloter OBS Studio via **WebSocket** (changer de scène, démarrer/ar
 1. **Dans OBS :** Outils → **Paramètres du serveur WebSocket** → cocher *« Activer le serveur WebSocket »* (port `4455`)
 2. Optionnel : définir un **mot de passe**
 3. Déterminer l'**IP de l'ordinateur OBS** (Windows : `ipconfig`, Mac/Linux : `ip addr`) — téléphone et PC sur le **même Wi-Fi**
-4. **Dans Vivid :** Paramètres → **Streaming & OBS** → section OBS :
+4. **Dans Vivid :** Paramètres → **Streaming & OBS** → ouvrir un stream → **Contrôle OBS à distance** :
    - Hôte = IP du PC
    - Port = `4455`
    - Mot de passe (si défini)
@@ -333,9 +362,9 @@ L'écran des paramètres est organisé en six catégories (comme Moblin) :
 
 | Catégorie | Contenu |
 |---|---|
-| 🎬 **Streaming & OBS** | URL/clé de stream, modèles de plateforme (Twitch/YouTube/Kick/Custom), multi-streaming, connexion OBS (hôte/port/mot de passe/TLS/import QR) |
-| 🎨 **Apparence** | Mode de design (Système/Clair/Sombre/AMOLED) + couleur d'accent (6 couleurs choisies, vert Vivid par défaut) |
-| 🧩 **Overlays & widgets** | Overlay de chat Twitch (chaîne + toggle), widget texte/info (heure/GPS/vitesse/altitude — chacun avec toggle + autorisation d'exécution ; texte de modèle personnalisé avec variables comme `{time}`, `{speed}`, `{road}`, `{city}`, `{country}` — les noms de lieux sont résolus automatiquement par géocodage inverse et mis en cache) |
+| 🎬 **Streaming & OBS** | Streams enregistrés (Twitch/YouTube/Kick/Custom), un seul stream actif, paramètres vidéo/enregistrement/multi-streaming/OBS par stream |
+| 🎨 **Apparence** | En premier : mode Portrait (par défaut) / Paysage, mémorisé immédiatement ; tourner l’appareil ne change pas le mode. Mode de design (Système/Clair/Sombre/AMOLED) + couleur d'accent (6 couleurs choisies, vert Vivid par défaut) |
+| 🧩 **Scènes et widgets** | Overlay de chat Twitch (chaîne + toggle), widget texte/info (heure/GPS/vitesse/altitude — chacun avec toggle + autorisation d'exécution ; texte de modèle personnalisé avec variables comme `{time}`, `{speed}`, `{road}`, `{city}`, `{country}` — les noms de lieux sont résolus automatiquement par géocodage inverse et mis en cache) |
 | 💬 **Chat-bot & IA** | Mode de fonctionnement, compte du bot (login/jeton/ID client), endpoint/clé/modèle LLM, prompt, cooldown, mentions only, limite de débit, limites + presets, accès owner (liste d'autorisation + IA owner), commandes média, accès aux notifications |
 | 🔒 **Remote & confidentialité** | Télécommande web (jeton + accès LAN, toggle d\'autostart), rapports d'erreurs Sentry + error replay (toggle d'exclusion) |
 | ℹ️ **À propos & mises à jour** | Version, badge de mise à jour, recherche manuelle de mises à jour (releases GitHub), notes de version |

@@ -8,6 +8,9 @@
 #   F4  Negativ: stream_url_hint ohne Owncast → rot
 #   F5  Negativ: values-ru fehlt ein Key → rot
 #   F6  Real: der echte Repo-Stand ist grün (Regression)
+#   F7  Negativ: deutscher Timber-Log-String (einzeilig) → rot, davor ein
+#       Kontrolllauf, der beweist, dass nur dieser String die Rotfärbung trägt
+#   F8  Negativ: deutscher Timber-Log-String (mehrzeilig) → rot
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -95,6 +98,50 @@ else
   pass "F5 rot wie erwartet"
 fi
 
+echo "▶ [i18n-test] F7: deutscher Timber-Log-String (einzeilig) → rot"
+# F3/F4/F5 hinterlassen bewusste Risse im Fixture. Erst wieder ganz grün
+# machen — nur dann beweist die folgende Rotfärbung, dass allein der
+# deutsche Log-String sie trägt (Negativkontrolle, AGENTS.md „Mutationen prüfen“).
+perl -pi -e 's/e.g. a self-hosted server./e.g. Owncast./' "$TMP/fx/src/main/res/values-en/strings.xml"
+perl -pi -e 's|</resources>|    <string name="fx_title">Пример</string>\n</resources>|' "$TMP/fx/src/main/res/values-ru/strings.xml"
+if I18N_MODULES="$TMP/fx" I18N_HINT_MODULE="$TMP/fx" bash scripts/check_i18n.sh > /dev/null 2>&1; then
+  pass "Kontrolllauf grün (Fixture wieder hergestellt)"
+else
+  fail "Kontrolllauf sollte grün sein, bevor der Log-Guard getestet wird"
+fi
+cat > "$TMP/fx/src/main/java/x/Dummy.kt" <<'EOF'
+package x
+fun log() { timber.log.Timber.w("Verbindung fehlgeschlagen - wird erneut versucht") }
+EOF
+if I18N_MODULES="$TMP/fx" I18N_HINT_MODULE="$TMP/fx" bash scripts/check_i18n.sh > /dev/null 2>&1; then
+  fail "F7 sollte rot sein (deutscher Timber-String)"
+else
+  pass "F7 rot wie erwartet"
+fi
+
+echo "▶ [i18n-test] F8: deutscher Timber-Log-String (mehrzeilig) → rot"
+# Der String steht hier in der Zeile nach dem Aufruf — der Guard darf sich
+# nicht auf einzeilige Aufrufe beschränken (Slurp-Lesart, s. check_i18n.sh).
+cat > "$TMP/fx/src/main/java/x/Dummy.kt" <<'EOF'
+package x
+fun log(port: Int) {
+    timber.log.Timber.w(
+        "Port belegt - naechster Versuch",
+        port,
+    )
+}
+EOF
+if I18N_MODULES="$TMP/fx" I18N_HINT_MODULE="$TMP/fx" bash scripts/check_i18n.sh > /dev/null 2>&1; then
+  fail "F8 sollte rot sein (mehrzeiliger deutscher Timber-String)"
+else
+  pass "F8 rot wie erwartet"
+fi
+
+# Fixture aufräumen (F6 prüft den echten Repo-Stand, braucht das Fixture nicht).
+cat > "$TMP/fx/src/main/java/x/Dummy.kt" <<'EOF'
+package x
+EOF
+
 echo "▶ [i18n-test] F6: echter Repo-Stand → grün (Regression)"
 if bash scripts/check_i18n.sh > /dev/null 2>&1; then
   pass "F6 grün"
@@ -106,4 +153,4 @@ if [[ "$FAILED" == "1" ]]; then
   echo "❌ [i18n-test] Selbsttest fehlgeschlagen."
   exit 1
 fi
-echo "✅ [i18n-test] Alle 6 Fälle grün."
+echo "✅ [i18n-test] Alle 8 Fälle grün."

@@ -4,10 +4,13 @@ package com.vivid.feature.streaming
 internal class KeyframeIntervalController {
     companion object {
         const val INTERVAL_SECONDS = 2
-        private const val INTERVAL_MS = INTERVAL_SECONDS * 1_000L
         // Allow normal scheduling/encoder latency before overriding the hardware GOP.
         private const val GRACE_MS = 100L
     }
+
+    var intervalSeconds: Int = INTERVAL_SECONDS
+        set(value) { field = value.coerceIn(1, 10); reset() }
+    private val intervalMs: Long get() = intervalSeconds * 1_000L
 
     private var lastKeyframeMs: Long? = null
     private var lastKeyframePtsUs: Long? = null
@@ -36,8 +39,8 @@ internal class KeyframeIntervalController {
             return false
         }
         val previous = lastKeyframeMs ?: nowMs.also { lastKeyframeMs = it }
-        if (nowMs - previous < INTERVAL_MS + GRACE_MS) return false
-        if (lastRequestMs?.let { nowMs - it < INTERVAL_MS } == true) return false
+        if (nowMs - previous < intervalMs + GRACE_MS) return false
+        if (lastRequestMs?.let { nowMs - it < intervalMs } == true) return false
         lastRequestMs = nowMs
         return true
     }

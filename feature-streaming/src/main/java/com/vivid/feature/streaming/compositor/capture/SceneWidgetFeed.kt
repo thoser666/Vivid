@@ -1,0 +1,87 @@
+package com.vivid.feature.streaming.compositor.capture
+
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
+import android.text.Layout
+import android.text.StaticLayout
+import android.text.TextPaint
+import com.vivid.core.data.SceneSource
+import com.vivid.core.data.SceneSourceType
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
+import androidx.core.graphics.createBitmap
+import kotlinx.coroutines.*
+
+/** Text/clock content updates independently of camera frame rate and shares one bitmap per source. */
+class SceneWidgetFeed(private val publish: (String, Bitmap) -> Boolean) {
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private var sources = emptyList<SceneSource>()
+    private var generation = 0L
+    private var job: Job? = null
+
+    @Synchronized
+    fun update(next: List<SceneSource>) {
+        val automatic = next.filter { it.type == SceneSourceType.WIDGET &&
+            (it.locator == SCENE_CLOCK || it.locator.startsWith(SCENE_TEXT)) }
+            .map { it.copy(name = "") }
+        if (sources == automatic) return
+        sources = automatic
+        val current = ++generation
+        job?.cancel()
+        job = if (automatic.isEmpty()) null else scope.launch { updateContent(automatic, current) }
+    }
+
+    private suspend fun updateContent(automatic: List<SceneSource>, current: Long) {
+        val previous = mutableMapOf<String, String>()
+        do {
+            automatic.forEach { updateSource(it, previous, current) }
+            if (automatic.none { it.locator == SCENE_CLOCK }) break
+            delay(1_000L - System.currentTimeMillis().mod(1_000L))
+        } while (currentCoroutineContext().isActive)
+    }
+
+    private suspend fun updateSource(source: SceneSource, previous: MutableMap<String, String>, current: Long) {
+        val text = content(source, System.currentTimeMillis(), TimeZone.getDefault()) ?: return
+        if (previous[source.id] == text) return
+        val bitmap = render(text)
+        try {
+            currentCoroutineContext().ensureActive()
+            synchronized(this) {
+                if (generation == current && publish(source.id, bitmap)) previous[source.id] = text
+            }
+        } finally { bitmap.recycle() }
+    }
+
+    companion object {
+        fun content(source: SceneSource, timeMillis: Long, zone: TimeZone): String? = when {
+            source.type != SceneSourceType.WIDGET -> null
+            source.locator == SCENE_CLOCK -> SimpleDateFormat("HH:mm:ss", Locale.ROOT).apply { timeZone = zone }.format(Date(timeMillis))
+            source.locator.startsWith(SCENE_TEXT) -> source.locator.removePrefix(SCENE_TEXT).take(2048)
+            else -> null
+        }
+
+        internal fun render(text: String): Bitmap {
+            val paint = TextPaint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.WHITE
+                textSize = 48f
+                typeface = android.graphics.Typeface.DEFAULT_BOLD
+                setShadowLayer(3f, 1f, 1f, Color.BLACK)
+            }
+            val layout = StaticLayout.Builder.obtain(text, 0, text.length, paint, 608)
+                .setAlignment(Layout.Alignment.ALIGN_CENTER).setMaxLines(6)
+                .setEllipsize(android.text.TextUtils.TruncateAt.END).setIncludePad(true).build()
+            return createBitmap(640, (layout.height + 32).coerceIn(96, 512)).also {
+                val canvas = Canvas(it)
+                canvas.drawColor(Color.argb(160, 0, 0, 0))
+                canvas.translate(16f, 16f)
+                layout.draw(canvas)
+            }
+        }
+    }
+}
+
+private const val SCENE_CLOCK = "clock"
+private const val SCENE_TEXT = "text:"

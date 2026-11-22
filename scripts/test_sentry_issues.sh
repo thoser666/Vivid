@@ -30,8 +30,55 @@
 #       als Erstellungs-Credential — GITHUB_TOKEN-Events triggern keine
 #       Workflow-Runs, ohne PAT bliebe der Triage-Autolabel aus, SHA-Pin),
 #       pre-push.sh und android-ci.yml führen den Selbsttest aus
-#   I16 Windows-Coding-Sicherheitsnetz: beide Python-Heredocs nutzen
+#   I16 Windows-Coding-Sicherheitsnetz: alle Python-Heredocs nutzen
 #       `python -X utf8`
+#   I17 Event-Anreicherung: event_<sid>.json (Latest-Event) ergänzt die
+#       Release-Spur-Zeile im Body (app.version_code/release/dist/os/device,
+#       release-Objekt als Fallback) + Anreicherungs-Summary; ohne
+#       Event-Fixture entsteint keine Zeile
+#   I18 Event-Fallback: eventstatus_<sid> 403 → Fallback-Zeile mit
+#       Statuscode + §5.1-Hinweis im Body, Erstellung läuft weiter (kein
+#       Blocker), Summary meldet die Lesbarkeits-Lücke
+#   I19 Read-only Diagnosemodus --print-event-tags: EVENT_TAGS-Zeile mit
+#       Versions-/Umfeld-Tags aus event_<sid>.json (ohne GitHub-Token,
+#       ohne Token-Leak), 403-Fixture → "not readable", ungültige SID →
+#       SKIP-Zeile; Workflow verdrahtet den Input als EVENT_TAGS_INPUT
+#       (Env-Technik, kein ${{ }} im run:)
+#   I22 Kamera-Klasse (§5.10) bekommt EIN Sammel-Issue: Gruppen der Klasse
+#       kandidieren nicht als Einzel-Issue, landen im rollup_body.json (mit
+#       Rollup-Marker + Dedup-Markern) und melden "ROLLUP: … angelegt";
+#       normale Fehler laufen unverändert als Einzel-Issue
+#   I23 Existiert das Sammel-Issue (Rollup-Marker im Body), werden neue
+#       Varianten als Kommentar (rollup_comment.json) ergänzt — kein Issue
+#   I24 Gruppen, deren Marker im Sammel-Issue stehen, gelten als erfasst
+#       (kein erneuter Kommentar, kein Einzel-Issue)
+#   I25 --dry-run bleibt auch für die Kamera-Klasse folgenlos (Verdict-Zeile,
+#       kein ghstatus-Verbrauch)
+#   I26 Ausnahmen (§5.10) bleiben Einzel-Issues: CAMERA_DISCONNECTED und
+#       fehlgeschlagene Konfiguration dürfen nicht im Sammel-Issue verschwinden
+#   I27 Ereignisebene der bereits erfassten Gruppen: jede bekommt eine
+#       `RECORDED_GROUP:`-Zeile mit Letztgesehen/Events (neueste zuerst);
+#       neue Kandidaten erscheinen dort nicht (nur als CANDIDATE)
+#   I28 Release-Alter je erfasster Gruppe: `RELEASE_AGE: <short> | <release> |
+#       <Abstand> | <newest|behind|stale>` — Abstand gegen den neuesten
+#       versionCode im Satz, `stale` ab SENTRY_RELEASE_AGE_STALE (Default 50),
+#       Kandidaten ohne Zeile, Token bleibt aus der Ausgabe
+#   I20 Read-only Diagnosemodus --print-event-stack: Exception-/Thread-Kette
+#       des Latest-Events (Typ/Wert + Frames, neueste zuerst, in_app-Marker),
+#       403-/Fixture-Fallback, ungueltige SID, Threads-Form (ANR/nativ);
+#       Workflow verdrahtet den Input als EVENT_STACK_INPUT (Env-Technik)
+#   I29 Body-Stack (§3): pro neuem Issue trägt der Body Culprit + die drei
+#       neuesten Frames aus demselben Latest-Event (`- **Stack (Latest-Event):**
+#       culprit …`), neueste zuerst, in_app markiert, ältere Frames fallen weg;
+#       Threads-Form (ANR) nutzt den gecrashten Thread. 403 → Fallback-Zeile mit
+#       Statuscode + `event_stack`-Hinweis, 200 ohne Frames → eigene Zeile; ohne
+#       Event-Fixture entsteht keine Stack-Zeile (Erstellung unberührt)
+#   I30 Dauerhafter Event-Zugriff (--attach-event-stack): Stack wird an das
+#       Issue mit dem Dedup-Marker gehaengt (Payload: Marker vivid-event-stack,
+#       echte Frames, event:read-Hinweis), zweiter Lauf ergaenzt nichts,
+#       fehlendes Issue/unlesbarer Stack/fehlender Token → SKIP (exit 0),
+#       fehlende SID-Liste → FEHLER, Token erscheint nie; Workflow-Input
+#       event_stack_attach verdrahtet
 set -euo pipefail
 cd "$(dirname "$0")/.."
 fail() { echo "❌ [sentry-issues-test] $1"; exit 1; }
@@ -240,4 +287,451 @@ if grep -E "python - (2>/dev/null )?<<'PY'" "$guard" >/dev/null; then
   fail "I16: es existiert noch ein Heredoc ohne -X utf8 (cp1252-Crash-Risiko)"
 fi
 
-echo "✅ [sentry-issues-test] Sentry-Issues-Guard vertragstreu (I1–I16)."
+# I17 Event-Anreicherung (Latest-Event → Release-Spur im Body)
+mk_new2 "$tmp/i17"
+cat > "$tmp/i17/event_100.json" <<'JSON'
+{"id": "e1", "release": {"version": "com.vivid@0.5.30-beta+5304", "dist": "5304"},
+ "tags": [["app.version_code", "5304"], ["os", "Android 15"], ["device", "Pixel 8"]]}
+JSON
+echo 201 > "$tmp/i17/ghstatus"
+payloaddir17="$tmp/payloads17"
+mkdir -p "$payloaddir17"
+out_r17=$(SENTRY_ISSUES_FIXTURE="$tmp/i17" SENTRY_ISSUES_WORKDIR="$payloaddir17" \
+  SENTRY_ISSUES_KEEP=1 bash "$guard") || fail "I17: Anreicherungslauf darf nicht scheitern"
+grep -q "^OK: 2 Issue(s) neu als GitHub-Issue erstellt" <<<"$out_r17" || \
+  fail "I17: Erstellung trotz Anreicherung erwartet"
+grep -q "Event-Tags: 1 Issue(s) mit Release-Spur angereichert, 0 ohne Lesbarkeit" <<<"$out_r17" || \
+  fail "I17: Anreicherungs-Summary erwartet"
+p17=$(python -X utf8 -c "import json,sys;print(json.load(open(sys.argv[1],encoding='utf-8'))['body'])" "$payloaddir17/issue_1.json")
+grep -qF -- "- **Release-Spur (Latest-Event):** app.version_code=5304, release=com.vivid@0.5.30-beta+5304, dist=5304, os=Android 15, device=Pixel 8" <<<"$p17" || \
+  fail "I17: Release-Spur-Zeile mit versionCode/release/dist fehlt im Body"
+grep -q "Release-Spur" <<<"$(python -X utf8 -c "import json,sys;print(json.load(open(sys.argv[1],encoding='utf-8'))['body'])" "$payloaddir17/issue_2.json")" && \
+  fail "I17: ohne Event-Fixture darf keine Release-Spur-Zeile entstehen (issue_2)"
+grep -q "sntrys_FAKE_LEAK" <<<"$out_r17" && fail "I17: Token-Leak im Anreicherungslauf"
+
+# I18 Event-Fallback (403 → Fallback-Zeile, kein Blocker)
+mk_new2 "$tmp/i18"
+echo 403 > "$tmp/i18/eventstatus_100"
+echo 201 > "$tmp/i18/ghstatus"
+payloaddir18="$tmp/payloads18"
+mkdir -p "$payloaddir18"
+out_r18=$(SENTRY_ISSUES_FIXTURE="$tmp/i18" SENTRY_ISSUES_WORKDIR="$payloaddir18" \
+  SENTRY_ISSUES_KEEP=1 bash "$guard") || fail "I18: Fallback-Lauf darf nicht scheitern"
+grep -q "^OK: 2 Issue(s) neu als GitHub-Issue erstellt" <<<"$out_r18" || \
+  fail "I18: Erstellung trotz Event-403 erwartet (kein Blocker)"
+grep -q "Event-Tags: 0 Issue(s) mit Release-Spur angereichert, 1 ohne Lesbarkeit" <<<"$out_r18" || \
+  fail "I18: Lesbarkeits-Lücke in der Summary erwartet"
+p18=$(python -X utf8 -c "import json,sys;print(json.load(open(sys.argv[1],encoding='utf-8'))['body'])" "$payloaddir18/issue_1.json")
+grep -qF -- "- **Release-Spur (Latest-Event):** nicht lesbar (HTTP 403) — Versions-Spur manuell ziehen (docs/sentry-issues.md §5.1)" <<<"$p18" || \
+  fail "I18: Fallback-Zeile mit Statuscode + §5.1-Hinweis fehlt"
+
+# I19 Read-only Diagnosemodus --print-event-tags
+mk_new2 "$tmp/i19"
+cat > "$tmp/i19/event_100.json" <<'JSON'
+{"id": "e1", "release": {"version": "com.vivid@0.5.21-beta+5212", "dist": "5212"},
+ "tags": [["app.version_code", "5212"], ["environment", "production"], ["device", "Pixel 8"], ["os", "Android 15"]]}
+JSON
+echo 403 > "$tmp/i19/eventstatus_200"
+# Ohne GITHUB_ISSUES_TOKEN und ohne ghissues.json — der Lesepfad darf keinen
+# GitHub-Zugriff verlangen.
+out_r19=$(SENTRY_ISSUES_FIXTURE="$tmp/i19" SENTRY_ISSUES_TOKEN=sntrys_FAKE_LEAK \
+  GITHUB_ISSUES_TOKEN= bash "$guard" --print-event-tags "100,200,999") || \
+  fail "I19: Diagnosemodus darf nicht scheitern (exit 0 Vertrag)"
+grep -qF "EVENT_TAGS 100: app.version_code=5212, release=com.vivid@0.5.21-beta+5212, dist=5212, os=Android 15, device=Pixel 8, environment=production" <<<"$out_r19" || \
+  fail "I19: EVENT_TAGS-Zeile mit Versions-Spur + environment fehlt"
+grep -qF "EVENT_TAGS 200: not readable (HTTP 403)" <<<"$out_r19" || \
+  fail "I19: 403-Fallback-Zeile erwartet"
+grep -qF "EVENT_TAGS 999: SKIP (kein Event-Fixture für diese SID)" <<<"$out_r19" || \
+  fail "I19: fehlende Fixture → SKIP-Zeile erwartet"
+grep -q "sntrys_FAKE_LEAK" <<<"$out_r19" && fail "I19: Token-Leak im Diagnosemodus"
+out_r19b=$(SENTRY_ISSUES_FIXTURE="$tmp/i19" SENTRY_ISSUES_TOKEN=x \
+  bash "$guard" --print-event-tags "100x") || fail "I19b: ungültige SID darf nicht scheitern"
+grep -qF "EVENT_TAGS 100x: SKIP (ungültige SID" <<<"$out_r19b" || \
+  fail "I19b: ungültige SID → SKIP-Zeile erwartet"
+if SENTRY_ISSUES_FIXTURE="$tmp/i19" SENTRY_ISSUES_TOKEN=x \
+  bash "$guard" --print-event-tags >/dev/null 2>&1; then
+  fail "I19c: --print-event-tags ohne SID muss FEHLER (exit 1) sein"
+fi
+# Workflow-Verdrahtung des Inputs (Env-Technik, kein ${{ }} im run:)
+grep -q "event_tags" "$WF" || fail "I19: workflow_dispatch-Input event_tags fehlt"
+grep -q 'EVENT_TAGS_INPUT: \${{ inputs.event_tags }}' "$WF" || \
+  fail "I19: Input muss über Env (EVENT_TAGS_INPUT) laufen"
+grep -qF 'bash scripts/check_sentry_issues.sh --print-event-tags "$EVENT_TAGS_INPUT"' "$WF" || \
+  fail "I19: Guard-Aufruf mit --print-event-tags im Workflow fehlt"
+
+# I20 Read-only Diagnosemodus --print-event-stack (Attribution ohne Dashboard)
+mk_new2 "$tmp/i20"
+cat > "$tmp/i20/event_500.json" <<'JSON'
+{"id": "e5", "entries": [{"type": "exception", "data": {"values": [
+   {"type": "ApplicationNotResponding", "value": "ANR in com.vivid",
+    "stacktrace": {"frames": [
+      {"filename": "BaseMessageQueue.java", "function": "dispatchMessage", "lineno": 106, "in_app": false},
+      {"filename": "StreamingEngine.kt", "function": "startIdlePreviewIfReady", "lineno": 1758, "in_app": true}]}},
+   {"type": "java.lang.RuntimeException", "value": "caused by"}]}}]}
+JSON
+echo 403 > "$tmp/i20/eventstatus_501"
+out_r20=$(SENTRY_ISSUES_FIXTURE="$tmp/i20" SENTRY_ISSUES_TOKEN=sntrys_FAKE_LEAK   GITHUB_ISSUES_TOKEN= bash "$guard" --print-event-stack "500,501,999") ||   fail "I20: Stack-Modus darf nicht scheitern (exit 0 Vertrag)"
+grep -qF "EVENT_STACK 500: 2 exception(s)/thread(s)" <<<"$out_r20" ||   fail "I20: Kopfzeile mit Exception-Zahl fehlt"
+grep -qF "StreamingEngine.kt:1758 in startIdlePreviewIfReady [in_app]" <<<"$out_r20" ||   fail "I20: In-App-Frame fehlt"
+grep -qF "BaseMessageQueue.java:106 in dispatchMessage" <<<"$out_r20" ||   fail "I20: Framework-Frame fehlt"
+grep -qF "EVENT_STACK 501: not readable (HTTP 403)" <<<"$out_r20" ||   fail "I20: 403-Fallback-Zeile erwartet"
+grep -qF "EVENT_STACK 999: SKIP (kein Event-Fixture" <<<"$out_r20" ||   fail "I20: fehlende Fixture -> SKIP-Zeile erwartet"
+grep -q "sntrys_FAKE_LEAK" <<<"$out_r20" && fail "I20: Token-Leak im Stack-Modus"
+out_r20b=$(SENTRY_ISSUES_FIXTURE="$tmp/i20" SENTRY_ISSUES_TOKEN=x   bash "$guard" --print-event-stack "500x") || fail "I20b: ungueltige SID darf nicht scheitern"
+grep -qF "ungültige SID" <<<"$out_r20b" || fail "I20b: ungueltige SID -> SKIP-Zeile erwartet"
+if SENTRY_ISSUES_FIXTURE="$tmp/i20" SENTRY_ISSUES_TOKEN=x   bash "$guard" --print-event-stack >/dev/null 2>&1; then
+  fail "I20c: --print-event-stack ohne SID muss FEHLER (exit 1) sein"
+fi
+cat > "$tmp/i20/event_502.json" <<'JSON'
+{"id": "e6", "entries": [{"type": "threads", "data": {"values": [
+  {"id": 1, "name": "main", "crashed": true, "current": true,
+   "stacktrace": {"frames": [{"filename": "StreamingEngine.kt", "function": "poll", "lineno": 900, "in_app": true}]}}]}}]}
+JSON
+out_r20c=$(SENTRY_ISSUES_FIXTURE="$tmp/i20" SENTRY_ISSUES_TOKEN=x   bash "$guard" --print-event-stack "502") || fail "I20d: Threads-Form darf nicht scheitern"
+grep -qF "Thread: main" <<<"$out_r20c" || fail "I20d: gecrashter Thread fehlt"
+grep -qF "StreamingEngine.kt:900 in poll [in_app]" <<<"$out_r20c" ||   fail "I20d: Thread-Frame fehlt"
+grep -qF 'EVENT_STACK_INPUT: ${{ inputs.event_stack }}' "$WF" ||   fail "I20: Input muss ueber Env (EVENT_STACK_INPUT) laufen"
+grep -qF 'bash scripts/check_sentry_issues.sh --print-event-stack "$EVENT_STACK_INPUT"' "$WF" ||   fail "I20: Guard-Aufruf mit --print-event-stack im Workflow fehlt"
+
+# I21 Gegencheck "kann Sentry diese Frames aufloesen?" — die Klassifikation
+# laeuft ueber die Frames selbst (r8-map-id-Module vs. com.vivid-Klassen), damit
+# der Mapping-Upload (§5.9) nachpruefbar ist, ohne die Sentry-Weboberflaeche.
+mk_new2 "$tmp/i21"
+cat > "$tmp/i21/event_510.json" <<'JSON'
+{"id": "e10", "entries": [{"type": "exception", "data": {"values": [
+   {"type": "CameraOpenException", "value": "Camera no detected",
+    "stacktrace": {"frames": [
+      {"module": "r8-map-id-424869046b93a7bd056b11e7b2bff3b14a2013983", "function": "G"},
+      {"module": "r8-map-id-424869046b93a7bd056b11e7b2bff3b14a2013983", "function": "q0"}]}}]}}]}
+JSON
+cat > "$tmp/i21/event_511.json" <<'JSON'
+{"id": "e11", "entries": [{"type": "exception", "data": {"values": [
+   {"type": "CameraOpenException", "value": "Camera no detected",
+    "stacktrace": {"frames": [
+      {"module": "com.vivid.feature.streaming.StreamingEngine", "function": "startIdlePreviewIfReady"},
+      {"module": "r8-map-id-424869046b93a7bd056b11e7b2bff3b14a2013983", "function": "G"}]}}]}}]}
+JSON
+cat > "$tmp/i21/event_512.json" <<'JSON'
+{"id": "e12", "entries": [{"type": "exception", "data": {"values": [
+   {"type": "java.lang.RuntimeException", "value": "framework only",
+    "stacktrace": {"frames": [
+      {"module": "java.lang.Thread", "function": "run"}]}}]}}]}
+JSON
+cat > "$tmp/i21/event_513.json" <<'JSON'
+{"id": "e13", "entries": [{"type": "exception", "data": {"values": [
+   {"type": "CameraOpenException", "value": "r8 id in filename",
+    "stacktrace": {"frames": [
+      {"filename": "r8-map-id-424869046b93a7bd056b11e7b2bff3b14a2013983", "function": "G"}]}}]}}]}
+JSON
+cat > "$tmp/i21/event_514.json" <<'JSON'
+{"id": "e14", "entries": [{"type": "exception", "data": {"values": [
+   {"type": "CameraOpenException", "value": "package field",
+    "stacktrace": {"frames": [
+      {"package": "com.vivid.feature.streaming", "function": "startIdlePreviewIfReady"}]}}]}}]}
+JSON
+out_r21=$(SENTRY_ISSUES_FIXTURE="$tmp/i21" SENTRY_ISSUES_TOKEN=x   bash "$guard" --print-event-stack "510,511,512,513,514") || fail "I21: Deobfuskations-Klassifikation darf nicht scheitern"
+grep -qF "EVENT_DEOBFUSCATION 510: obfuscated (2 r8-map-id frame(s), 0 com.vivid frame(s), 2 frame(s) total)" <<<"$out_r21" ||   fail "I21: obfuskierter Build (nur r8-map-id-Frames) muss als obfuscated gelten"
+grep -qF "EVENT_DEOBFUSCATION 511: mapped (1 r8-map-id frame(s), 1 com.vivid frame(s), 2 frame(s) total)" <<<"$out_r21" ||   fail "I21: ein com.vivid-Frame muss mapped ergeben (Upload vorhanden)"
+grep -qF "EVENT_DEOBFUSCATION 513: obfuscated (1 r8-map-id frame(s), 0 com.vivid frame(s), 1 frame(s) total)" <<<"$out_r21" ||   fail "I21: r8-Id im filename-Feld muss ebenfalls als obfuscated gelten (Key-Unabhaengigkeit)"
+grep -qF "EVENT_DEOBFUSCATION 514: mapped (0 r8-map-id frame(s), 1 com.vivid frame(s), 1 frame(s) total)" <<<"$out_r21" ||   fail "I21: com.vivid im package-Feld muss mapped ergeben"
+grep -qF "EVENT_DEOBFUSCATION 512: no-app-frames (0 r8-map-id frame(s), 0 com.vivid frame(s), 1 frame(s) total)" <<<"$out_r21" ||   fail "I21: reine Framework-Stacks duerfen nicht als obfuscated gelten"
+
+# I22 Kamera-Klasse gebuendelt (Sammel-Issue statt Einzel-Issue)
+mkdir -p "$tmp/i22"
+cat > "$tmp/i22/issues.json" <<'JSON'
+[
+ {"id": "900", "shortId": "VIVID-48", "title": "Camera error (idlePreview=false): Open camera 1 failed",
+  "status": "unresolved", "level": "error", "count": 3, "userCount": 1,
+  "firstSeen": "2026-10-31T06:00:00Z", "lastSeen": "2026-10-31T07:00:00Z",
+  "permalink": "https://sentry.io/organizations/privat-jb/issues/900/",
+  "metadata": {"type": "CameraOpenException", "value": "Open camera 1 failed"}, "tags": []},
+ {"id": "901", "shortId": "VIVID-48", "title": "pa0: Camera no detected",
+  "status": "unresolved", "level": "error", "count": 1, "userCount": 1,
+  "firstSeen": "2026-10-31T08:00:00Z", "lastSeen": "2026-10-31T09:00:00Z",
+  "permalink": "https://sentry.io/organizations/privat-jb/issues/901/",
+  "metadata": {"type": "CameraOpenException", "value": "pa0: Camera no detected"}, "tags": []},
+ {"id": "100", "shortId": "VIVID-21", "title": "NullPointerException in StreamLayout",
+  "status": "unresolved", "level": "error", "count": 3, "userCount": 2,
+  "firstSeen": "2026-10-31T10:00:00Z", "lastSeen": "2026-10-31T10:00:00Z",
+  "metadata": {"type": "NullPointerException", "value": "boom"}, "tags": []}
+]
+JSON
+echo '[]' > "$tmp/i22/ghissues.json"
+echo 201 > "$tmp/i22/ghstatus"
+d22="$tmp/payloads22"; mkdir -p "$d22"
+out_r22=$(SENTRY_ISSUES_FIXTURE="$tmp/i22" SENTRY_ISSUES_WORKDIR="$d22" \
+  SENTRY_ISSUES_KEEP=1 bash "$guard") || fail "I22: Rollup-Lauf darf nicht scheitern"
+grep -q "^OK: 1 Issue(s) neu als GitHub-Issue erstellt" <<<"$out_r22" || \
+  fail "I22: nur der Nicht-Kamera-Fehler darf ein Einzel-Issue werden"
+grep -q "^CANDIDATE: 900" <<<"$out_r22" && fail "I22: Kamera-Gruppe 900 darf nicht als Einzel-Issue kandidieren"
+grep -q "^CANDIDATE: 901" <<<"$out_r22" && fail "I22: Kamera-Gruppe 901 darf nicht als Einzel-Issue kandidieren"
+grep -qE "^ROLLUP: 2 neue Kamera-Gruppe\(n\) → Sammel-Issue #[0-9?]+ angelegt" <<<"$out_r22" || \
+  fail "I22: Sammel-Issue-Anlage mit 2 Gruppen erwartet"
+grep -q "sntrys" <<<"$out_r22" && fail "I22: Token-Leak im Rollup-Lauf"
+[[ -s "$d22/rollup_body.json" ]] || fail "I22: rollup_body.json wurde nicht geschrieben"
+rb=$(python -X utf8 -c "import json,sys;print(json.load(open(sys.argv[1],encoding='utf-8'))['body'])" "$d22/rollup_body.json")
+grep -qF "<!-- vivid-sentry-camera-rollup -->" <<<"$rb" || fail "I22: Rollup-Marker fehlt im Body"
+grep -qF "<!-- vivid-sentry-issue: 900 -->" <<<"$rb" || fail "I22: Dedup-Marker fuer 900 fehlt (Dedup wuerde erneut anlegen)"
+grep -qF "<!-- vivid-sentry-issue: 901 -->" <<<"$rb" || fail "I22: Dedup-Marker fuer 901 fehlt"
+grep -qF "§5.10" <<<"$rb" || fail "I22: Sammel-Issue muss auf §5.10 verweisen"
+
+# I23 Sammel-Issue existiert -> Kommentar statt Neuanlage
+mkdir -p "$tmp/i23"
+cat > "$tmp/i23/issues.json" <<'JSON'
+[{"id": "902", "shortId": "VIVID-4C", "title": "Camera error (idlePreview=true): Open camera 0 failed",
+  "status": "unresolved", "level": "error", "count": 10, "userCount": 1,
+  "firstSeen": "2026-10-26T12:00:00Z", "lastSeen": "2026-10-26T12:41:00Z",
+  "metadata": {"type": "CameraOpenException", "value": "Open camera 0 failed"}, "tags": []}]
+JSON
+cat > "$tmp/i23/ghissues.json" <<'JSON'
+[{"number": 77, "pull_request": false, "title": "[Sentry] Kamera-Klasse: Sammel-Issue",
+  "body": "<!-- vivid-sentry-camera-rollup -->\n<!-- vivid-sentry-issue: 900 -->\n"}]
+JSON
+echo 201 > "$tmp/i23/ghstatus"
+echo 201 > "$tmp/i23/gh_commentstatus"
+d23="$tmp/payloads23"; mkdir -p "$d23"
+out_r23=$(SENTRY_ISSUES_FIXTURE="$tmp/i23" SENTRY_ISSUES_WORKDIR="$d23" \
+  SENTRY_ISSUES_KEEP=1 bash "$guard") || fail "I23: Kommentar-Lauf darf nicht scheitern"
+grep -q "^OK: 0 Issue(s) neu" <<<"$out_r23" || fail "I23: darf kein Einzel-Issue anlegen"
+grep -qE "^ROLLUP: 1 neue Kamera-Gruppe\(n\) → Sammel-Issue #77 ergänzt" <<<"$out_r23" || \
+  fail "I23: Kommentar am Sammel-Issue #77 erwartet"
+[[ -s "$d23/rollup_comment.json" ]] || fail "I23: rollup_comment.json wurde nicht geschrieben"
+rc23=$(python -X utf8 -c "import json,sys;print(json.load(open(sys.argv[1],encoding='utf-8'))['body'])" "$d23/rollup_comment.json")
+grep -qF "<!-- vivid-sentry-issue: 902 -->" <<<"$rc23" || fail "I23: Dedup-Marker der neuen Gruppe fehlt im Kommentar"
+
+# I24 bereits im Sammel-Issue erfasste Gruppe -> nichts zu tun
+mkdir -p "$tmp/i24"
+cat > "$tmp/i24/issues.json" <<'JSON'
+[{"id": "902", "title": "Camera error (idlePreview=true): Open camera 0 failed", "status": "unresolved",
+  "level": "error", "metadata": {}, "tags": []}]
+JSON
+cat > "$tmp/i24/ghissues.json" <<'JSON'
+[{"number": 77, "pull_request": false, "body": "<!-- vivid-sentry-camera-rollup -->\n<!-- vivid-sentry-issue: 902 -->\n"}]
+JSON
+echo 422 > "$tmp/i24/ghstatus"
+out_r24=$(SENTRY_ISSUES_FIXTURE="$tmp/i24" bash "$guard") || fail "I24: Nullfall darf nicht scheitern"
+grep -q "^OK: 0 neue Sentry-Issues" <<<"$out_r24" || fail "I24: OK 0 neue erwartet"
+grep -q "^ROLLUP:" <<<"$out_r24" && fail "I24: kein Rollup-Aufruf fuer bereits erfasste Gruppe"
+grep -q "422" <<<"$out_r24" && fail "I24: ghstatus darf im Nullfall nicht verbraucht werden"
+
+# I25 dry-run deckt auch die Kamera-Klasse ab (nichts anlegen, nichts kommentieren)
+mkdir -p "$tmp/i25"
+cp "$tmp/i23/issues.json" "$tmp/i25/issues.json"
+echo '[]' > "$tmp/i25/ghissues.json"
+echo 422 > "$tmp/i25/ghstatus"
+out_r25=$(SENTRY_ISSUES_FIXTURE="$tmp/i25" bash "$guard" --dry-run) || fail "I25: dry-run darf nicht scheitern"
+grep -q "^OK (dry-run): 1 Kamera-Gruppe(n) würden im Sammel-Issue erfasst" <<<"$out_r25" || \
+  fail "I25: Rollup-Vorschau im dry-run erwartet"
+grep -q "422" <<<"$out_r25" && fail "I25: dry-run darf ghstatus nicht auswerten"
+# I26 Ausnahmen der Kamera-Klasse bleiben Einzel-Issues (sonst verschwindet ein
+# echter Defekt im Sammel-Issue)
+mkdir -p "$tmp/i26"
+printf '%s' '[{"id":"903","shortId":"VIVID-43","title":"Idle camera: Create capture session failed: CAMERA_DISCONNECTED (2)","status":"unresolved","level":"error","count":20,"userCount":1,"lastSeen":"2026-10-25T16:12:00Z","metadata":{},"tags":[]},{"id":"904","shortId":"VIVID-46","title":"Idle camera: Configuration failed","status":"unresolved","level":"error","count":10,"userCount":1,"lastSeen":"2026-10-26T12:41:00Z","metadata":{},"tags":[]},{"id":"905","shortId":"VIVID-4D","title":"pa0: Camera no detected","status":"unresolved","level":"error","count":1,"userCount":1,"lastSeen":"2026-11-01T09:00:00Z","metadata":{},"tags":[]}]' > "$tmp/i26/issues.json"
+echo '[]' > "$tmp/i26/ghissues.json"
+echo 201 > "$tmp/i26/ghstatus"
+out_r26=$(SENTRY_ISSUES_FIXTURE="$tmp/i26" bash "$guard") || fail "I26: Lauf darf nicht scheitern"
+grep -q "^OK: 2 Issue(s) neu als GitHub-Issue erstellt" <<<"$out_r26" || \
+  fail "I26: CAMERA_DISCONNECTED + Configuration failed muessen Einzel-Issues bleiben"
+grep -q "^CANDIDATE: 903" <<<"$out_r26" || fail "I26: VIVID-43 (CAMERA_DISCONNECTED) muss kandidieren"
+grep -q "^CANDIDATE: 904" <<<"$out_r26" || fail "I26: VIVID-46 (Configuration failed) muss kandidieren"
+grep -q "^CANDIDATE: 905" <<<"$out_r26" && fail "I26: Geraetezustands-Variante darf nicht kandidieren"
+grep -qE "^ROLLUP: 1 neue Kamera-Gruppe\(n\)" <<<"$out_r26" || fail "I26: nur die Geraetezustands-Variante gehoert ins Sammel-Issue"
+# I27 bereits erfasste Gruppen tragen ihr Letztgesehen ins Lauf-Log
+mkdir -p "$tmp/i27"
+cat > "$tmp/i27/issues.json" <<'JSON'
+[
+  {"id": "300", "shortId": "VIVID-23", "title": "Schon erfasst, feuert weiter", "status": "unresolved",
+   "level": "warning", "count": 9, "userCount": 5, "firstSeen": "2026-09-20T00:00:00Z",
+   "lastSeen": "2026-09-26T09:00:00Z", "metadata": {}, "tags": []},
+  {"id": "301", "shortId": "VIVID-25", "title": "Schon erfasst, laenger ruhig", "status": "unresolved",
+   "level": "error", "count": 2, "userCount": 1, "firstSeen": "2026-08-01T00:00:00Z",
+   "lastSeen": "2026-08-02T05:00:00Z", "metadata": {}, "tags": []},
+  {"id": "100", "shortId": "VIVID-21", "title": "Neu und noch nicht erfasst", "status": "unresolved",
+   "level": "error", "count": 1, "userCount": 1, "lastSeen": "2026-09-27T11:00:00Z",
+   "metadata": {}, "tags": []}
+]
+JSON
+cat > "$tmp/i27/ghissues.json" <<'JSON'
+[{"number": 42, "pull_request": false, "body": "<!-- vivid-sentry-issue: 300 -->"},
+ {"number": 43, "pull_request": false, "body": "<!-- vivid-sentry-issue: 301 -->"}]
+JSON
+echo 201 > "$tmp/i27/ghstatus"
+out_r27=$(SENTRY_ISSUES_FIXTURE="$tmp/i27" bash "$guard") || fail "I27: Lauf darf nicht scheitern"
+grep -qF "RECORDED_GROUP: VIVID-23 | 2026-09-26T09:00:00 | 9 | Schon erfasst, feuert weiter" <<<"$out_r27" || \
+  fail "I27: Letztgesehen der bereits erfassten Gruppe fehlt"
+grep -qF "RECORDED_GROUP: VIVID-25 | 2026-08-02T05:00:00 | 2 |" <<<"$out_r27" || \
+  fail "I27: zweite erfasste Gruppe fehlt"
+grep -q "RECORDED_GROUP: VIVID-21" <<<"$out_r27" && \
+  fail "I27: ein neuer Kandidat gehoert nicht in die Letztgesehen-Liste"
+line_newer=$(grep -n "RECORDED_GROUP: VIVID-23" <<<"$out_r27" | cut -d: -f1)
+line_older=$(grep -n "RECORDED_GROUP: VIVID-25" <<<"$out_r27" | cut -d: -f1)
+[ "$line_newer" -lt "$line_older" ] || fail "I27: neuestes Letztgesehen muss zuerst stehen"
+grep -q "^CANDIDATE: 100" <<<"$out_r27" || fail "I27: der neue Report muss weiter kandidieren"
+# I28 Release-Alter: jede erfasste Gruppe traegt den Abstand zum neuesten Build
+mkdir -p "$tmp/i28"
+cp "$tmp/i27/issues.json" "$tmp/i28/issues.json"
+cp "$tmp/i27/ghissues.json" "$tmp/i28/ghissues.json"
+echo 201 > "$tmp/i28/ghstatus"
+cat > "$tmp/i28/event_300.json" <<'JSON'
+{"id": "e300", "release": {"version": "com.vivid@0.5.70-beta+5708", "dist": "5708"},
+ "tags": [["app.version_code", "5708"], ["release", "com.vivid@0.5.70-beta+5708"],
+          ["environment", "production"], ["device", "V2454A"], ["os", "Android 16"]]}
+JSON
+cat > "$tmp/i28/event_301.json" <<'JSON'
+{"id": "e301", "release": {"version": "com.vivid@0.5.89-beta+5789", "dist": "5789"},
+ "tags": [["app.version_code", "5789"], ["release", "com.vivid@0.5.89-beta+5789"],
+          ["environment", "production"], ["device", "V2454A"], ["os", "Android 16"]]}
+JSON
+out_r28=$(SENTRY_ISSUES_FIXTURE="$tmp/i28" SENTRY_ISSUES_TOKEN=sntrys_FAKE_AGE \
+  bash "$guard") || fail "I28: Lauf darf nicht scheitern"
+grep -qF "RELEASE_AGE: VIVID-25 | com.vivid@0.5.89-beta+5789 | 0 | newest" <<<"$out_r28" || \
+  fail "I28: neuester Build muss als newest mit Abstand 0 erscheinen"
+grep -qF "RELEASE_AGE: VIVID-23 | com.vivid@0.5.70-beta+5708 | 81 | stale" <<<"$out_r28" || \
+  fail "I28: veralteter Build muss als stale mit Abstand 81 erscheinen"
+grep -q "RELEASE_AGE: VIVID-21" <<<"$out_r28" && \
+  fail "I28: ein Kandidat gehoert nicht in die Release-Alter-Liste"
+age_new=$(grep -n "RELEASE_AGE: VIVID-25" <<<"$out_r28" | cut -d: -f1)
+age_old=$(grep -n "RELEASE_AGE: VIVID-23" <<<"$out_r28" | cut -d: -f1)
+[ "$age_new" -lt "$age_old" ] || fail "I28: neuester Build muss zuerst stehen"
+grep -q "sntrys_FAKE_AGE" <<<"$out_r28" && fail "I28: Token-Leak in der Release-Alter-Ausgabe"
+out_r28b=$(SENTRY_ISSUES_FIXTURE="$tmp/i28" SENTRY_ISSUES_TOKEN=sntrys_FAKE_AGE \
+  SENTRY_RELEASE_AGE_STALE=90 bash "$guard") || fail "I28b: Lauf darf nicht scheitern"
+grep -qF "RELEASE_AGE: VIVID-23 | com.vivid@0.5.70-beta+5708 | 81 | behind" <<<"$out_r28b" || \
+  fail "I28b: SENTRY_RELEASE_AGE_STALE=90 muss 81 zu behind machen"
+# I29 Body-Stack: Culprit + drei neueste Frames (#445: der Body trug bisher nur
+# den Top-Frame der Issue-Metadaten — die Zuordnung brauchte den Sentry-Zugriff,
+# der lokal mit HTTP 403 endet)
+mk_new2 "$tmp/i29"
+cat > "$tmp/i29/event_100.json" <<'JSON'
+{"id": "e100", "culprit": "com.vivid.feature.streaming.ScenesKt.release",
+ "entries": [{"type": "exception", "data": {"values": [
+   {"type": "java.util.concurrent.RejectedExecutionException", "value": "Task rejected",
+    "stacktrace": {"frames": [
+      {"filename": "BaseMessageQueue.java", "function": "dispatchMessage", "lineno": 106, "in_app": false},
+      {"filename": "AndroidSceneTextureProvider.kt", "function": "detach", "lineno": 513, "in_app": true},
+      {"filename": "AndroidSceneTextureProvider.kt", "function": "update", "lineno": 454, "in_app": true},
+      {"filename": "ThreadPoolExecutor.java", "function": "rejectedExecution", "lineno": 661, "in_app": false}]}}]}}]}
+JSON
+echo 201 > "$tmp/i29/ghstatus"
+d29="$tmp/payloads29"; mkdir -p "$d29"
+out_r29=$(SENTRY_ISSUES_FIXTURE="$tmp/i29" SENTRY_ISSUES_WORKDIR="$d29" \
+  SENTRY_ISSUES_KEEP=1 bash "$guard") || fail "I29: Stack-Anreicherung darf nicht scheitern"
+grep -q "^OK: 2 Issue(s) neu als GitHub-Issue erstellt" <<<"$out_r29" || \
+  fail "I29: Erstellung trotz Stack-Zeile erwartet (kein Blocker)"
+p29=$(python -X utf8 -c "import json,sys;print(json.load(open(sys.argv[1],encoding='utf-8'))['body'])" "$d29/issue_1.json")
+grep -qF -- '- **Stack (Latest-Event):** culprit `com.vivid.feature.streaming.ScenesKt.release` — ThreadPoolExecutor.java:661 in rejectedExecution ← AndroidSceneTextureProvider.kt:454 in update [in_app] ← AndroidSceneTextureProvider.kt:513 in detach [in_app]' <<<"$p29" || \
+  fail "I29: Culprit + drei neueste Frames (neueste zuerst, in_app) fehlen"
+grep -qF "dispatchMessage" <<<"$p29" && \
+  fail "I29: der Body darf hoechstens drei Frames tragen"
+[ "$(grep -cF 'Stack (Latest-Event)' <<<"$p29")" = "1" ] || \
+  fail "I29: genau eine Stack-Zeile je Issue erwartet"
+p29b2=$(python -X utf8 -c "import json,sys;print(json.load(open(sys.argv[1],encoding='utf-8'))['body'])" "$d29/issue_2.json")
+grep -q "Stack (Latest-Event)" <<<"$p29b2" && \
+  fail "I29: ohne Event-Fixture darf keine Stack-Zeile entstehen (issue_2)"
+
+# I29b 403 → Fallback-Zeile, Erstellung laeuft weiter
+mk_new2 "$tmp/i29b"
+echo 403 > "$tmp/i29b/eventstatus_100"
+echo 201 > "$tmp/i29b/ghstatus"
+d29b="$tmp/payloads29b"; mkdir -p "$d29b"
+out_r29b=$(SENTRY_ISSUES_FIXTURE="$tmp/i29b" SENTRY_ISSUES_WORKDIR="$d29b" \
+  SENTRY_ISSUES_KEEP=1 bash "$guard") || fail "I29b: Fallback-Lauf darf nicht scheitern"
+grep -q "^OK: 2 Issue(s) neu als GitHub-Issue erstellt" <<<"$out_r29b" || \
+  fail "I29b: Erstellung trotz Stack-403 erwartet (kein Blocker)"
+p29b=$(python -X utf8 -c "import json,sys;print(json.load(open(sys.argv[1],encoding='utf-8'))['body'])" "$d29b/issue_1.json")
+grep -qF -- '- **Stack (Latest-Event):** nicht lesbar (HTTP 403) — Stack per CI-Input `event_stack` ziehen (docs/sentry-issues.md §4)' <<<"$p29b" || \
+  fail "I29b: Fallback-Zeile mit Statuscode + event_stack-Hinweis fehlt"
+
+# I29c Threads-Form (ANR/nativ): gecrashter Thread statt Exception-Kette
+mkdir -p "$tmp/i29c"
+printf '%s' '[{"id":"600","shortId":"VIVID-60","title":"ANR im Render-Thread","status":"unresolved","level":"fatal","count":1,"userCount":1,"lastSeen":"2026-11-16T01:13:04Z","metadata":{},"tags":[]}]' > "$tmp/i29c/issues.json"
+echo '[]' > "$tmp/i29c/ghissues.json"
+echo 201 > "$tmp/i29c/ghstatus"
+cat > "$tmp/i29c/event_600.json" <<'JSON'
+{"id": "e600", "culprit": "com.vivid.feature.streaming.StreamingEngine.poll",
+ "entries": [{"type": "threads", "data": {"values": [
+   {"id": 1, "name": "main", "crashed": false, "current": true, "stacktrace": {"frames": []}},
+   {"id": 2, "name": "VividRender", "crashed": true,
+    "stacktrace": {"frames": [
+      {"filename": "StreamingEngine.kt", "function": "poll", "lineno": 900, "in_app": true},
+      {"filename": "NativeQueue.cpp", "function": "drain", "lineno": 42, "in_app": false}]}}]}}]}
+JSON
+d29c="$tmp/payloads29c"; mkdir -p "$d29c"
+out_r29c=$(SENTRY_ISSUES_FIXTURE="$tmp/i29c" SENTRY_ISSUES_WORKDIR="$d29c" \
+  SENTRY_ISSUES_KEEP=1 bash "$guard") || fail "I29c: Threads-Form darf nicht scheitern"
+p29c=$(python -X utf8 -c "import json,sys;print(json.load(open(sys.argv[1],encoding='utf-8'))['body'])" "$d29c/issue_1.json")
+grep -qF -- '- **Stack (Latest-Event):** culprit `com.vivid.feature.streaming.StreamingEngine.poll` — NativeQueue.cpp:42 in drain ← StreamingEngine.kt:900 in poll [in_app]' <<<"$p29c" || \
+  fail "I29c: gecrashter Thread muss die Stack-Zeile fuellen"
+
+# I29d 200 ohne Frames → eigene Zeile statt stummer Luecke
+mkdir -p "$tmp/i29d"
+cp "$tmp/i29c/issues.json" "$tmp/i29d/issues.json"
+cp "$tmp/i29c/ghissues.json" "$tmp/i29d/ghissues.json"
+echo 201 > "$tmp/i29d/ghstatus"
+printf '%s' '{"id": "e600", "entries": []}' > "$tmp/i29d/event_600.json"
+d29d="$tmp/payloads29d"; mkdir -p "$d29d"
+out_r29d=$(SENTRY_ISSUES_FIXTURE="$tmp/i29d" SENTRY_ISSUES_WORKDIR="$d29d" \
+  SENTRY_ISSUES_KEEP=1 bash "$guard") || fail "I29d: Lauf ohne Frames darf nicht scheitern"
+p29d=$(python -X utf8 -c "import json,sys;print(json.load(open(sys.argv[1],encoding='utf-8'))['body'])" "$d29d/issue_1.json")
+grep -qF -- '- **Stack (Latest-Event):** HTTP 200 ohne Exception-/Thread-Frames' <<<"$p29d" || \
+  fail "I29d: Zeile fuer Events ohne Frames fehlt"
+# I30 Dauerhafter Event-Zugriff: --attach-event-stack holt den Stack und
+# kommentiert ihn am zugeordneten Issue (Marker vivid-sentry-issue), idempotent
+# ueber vivid-event-stack; ohne Ziel/Scope neutrale SKIP-Zeilen statt Blocker.
+mkdir -p "$tmp/i30" "$tmp/i30w"
+cat > "$tmp/i30/event_700.json" <<'JSON'
+{"id": "e700", "entries": [{"type": "exception", "data": {"values": [
+   {"type": "java.lang.NullPointerException",
+    "value": "Attempt to invoke virtual method 'int java.lang.Enum.compareTo(java.lang.Enum)' on a null object reference",
+    "stacktrace": {"frames": [
+      {"filename": "SettingsLogsViewModel.kt", "function": "invokeSuspend", "in_app": true},
+      {"filename": "DispatchedTask.kt", "function": "run", "lineno": 232, "in_app": false}]}}]}}]}
+JSON
+printf '%s' '[{"number":999,"body":"<!-- vivid-sentry-issue: 700 -->"}]' > "$tmp/i30/ghissues.json"
+echo '[]' > "$tmp/i30/comments_999.json"
+echo 201 > "$tmp/i30/gh_commentstatus"
+out_r30=$(SENTRY_ISSUES_FIXTURE="$tmp/i30" SENTRY_ISSUES_WORKDIR="$tmp/i30w" \
+  SENTRY_ISSUES_KEEP=1 \
+  SENTRY_EVENTS_TOKEN=sntrys_FAKE_EV GITHUB_ISSUES_TOKEN=x \
+  bash "$guard" --attach-event-stack "700,701,abc") || \
+  fail "I30: Attach-Modus darf nicht scheitern (exit 0 Vertrag)"
+grep -qF "EVENT_STACK_ATTACH 700: kommentiert in #999" <<<"$out_r30" || \
+  fail "I30: Kommentar-Zeile fuer das zugeordnete Issue fehlt"
+grep -qF "EVENT_STACK_ATTACH 701: SKIP (Stack nicht lesbar" <<<"$out_r30" || \
+  fail "I30: fehlende Event-Fixture -> SKIP-Zeile erwartet"
+grep -qF "EVENT_STACK_ATTACH abc: SKIP (ungültige SID" <<<"$out_r30" || \
+  fail "I30: ungueltige SID -> SKIP-Zeile erwartet"
+grep -q "sntrys_FAKE_EV" <<<"$out_r30" && fail "I30: Event-Token-Leak im Attach-Modus"
+b30=$(python -X utf8 -c "import json,sys;print(json.load(open(sys.argv[1],encoding='utf-8'))['body'])" "$tmp/i30w/attach_700.json")
+grep -qF "<!-- vivid-event-stack: 700 -->" <<<"$b30" || fail "I30: Idempotenz-Marker im Kommentar fehlt"
+grep -qF "SettingsLogsViewModel.kt:? in invokeSuspend [in_app]" <<<"$b30" || \
+  fail "I30: echte Frames muessen im Kommentar stehen"
+grep -qF "event:read" <<<"$b30" || fail "I30: Scope-Hinweis im Kommentar fehlt"
+# Zweiter Lauf: Marker vorhanden -> nichts ergaenzt (kein Doppel-Kommentar)
+printf '%s' '[{"body":"<!-- vivid-event-stack: 700 -->"}]' > "$tmp/i30/comments_999.json"
+out_r30b=$(SENTRY_ISSUES_FIXTURE="$tmp/i30" SENTRY_EVENTS_TOKEN=x GITHUB_ISSUES_TOKEN=x \
+  bash "$guard" --attach-event-stack "700") || fail "I30b: Wiederholung darf nicht scheitern"
+grep -qF "EVENT_STACK_ATTACH 700: vorhanden (in #999) — nichts ergänzt" <<<"$out_r30b" || \
+  fail "I30b: vorhandener Marker muss den Nachtrag ueberspringen"
+# Kein Issue mit Marker -> SKIP, kein Schreibversuch
+printf '%s' '[]' > "$tmp/i30/ghissues.json"
+out_r30c=$(SENTRY_ISSUES_FIXTURE="$tmp/i30" SENTRY_EVENTS_TOKEN=x GITHUB_ISSUES_TOKEN=x \
+  bash "$guard" --attach-event-stack "700") || fail "I30c: fehlendes Issue ist SKIP, kein Fehler"
+grep -qF "EVENT_STACK_ATTACH 700: SKIP (kein GitHub-Issue mit Marker" <<<"$out_r30c" || \
+  fail "I30c: SKIP-Zeile ohne Ziel-Issue fehlt"
+# Ohne Event-Token und ohne GitHub-Token: SKIP statt 403-Abbruch
+out_r30d=$(SENTRY_ISSUES_FIXTURE="$tmp/i30" SENTRY_ISSUES_TOKEN= \
+  GITHUB_ISSUES_TOKEN= bash "$guard" --attach-event-stack "700") || \
+  fail "I30d: fehlender Token ist SKIP, kein Fehler"
+grep -qF "SKIP: kein Event-Lese-Token" <<<"$out_r30d" || fail "I30d: SKIP-Hinweis auf fehlenden Event-Token fehlt"
+if SENTRY_ISSUES_FIXTURE="$tmp/i30" SENTRY_EVENTS_TOKEN=x bash "$guard" --attach-event-stack >/dev/null 2>&1; then
+  fail "I30e: --attach-event-stack ohne SID muss FEHLER (exit 1) sein"
+fi
+# Verdrahtung: Workflow-Input + Aufruf
+grep -q "event_stack_attach" "$WF" || fail "I30: workflow_dispatch-Input event_stack_attach fehlt"
+grep -qF 'EVENT_STACK_ATTACH_INPUT: ${{ inputs.event_stack_attach }}' "$WF" || \
+  fail "I30: Input muss ueber Env (EVENT_STACK_ATTACH_INPUT) laufen"
+grep -qF 'bash scripts/check_sentry_issues.sh --attach-event-stack "$EVENT_STACK_ATTACH_INPUT"' "$WF" || \
+  fail "I30: Guard-Aufruf mit --attach-event-stack im Workflow fehlt"
+
+echo "✅ [sentry-issues-test] Sentry-Issues-Guard vertragstreu (I1–I30)."

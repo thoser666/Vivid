@@ -34,6 +34,10 @@ bringen. Quelle: `docs/sentry-issues.md` §5.
   nicht parallel daneben anlegen.
 - Ein Issue abschließen: Befund-Nachweis als Kommentar, dann
   `gh issue close <nr> --reason completed`.
+- **Beleg- und Befundkommentare an Issues und PRs werden auf Englisch verfasst**
+  (Stand 2026-10-25, Anstoß #320/#326/#327): Der Kontext dort ist englisch —
+  Sentry-Bots, externe Contributors, englische PR-Titel. Deutsch bleibt in
+  PARITY.md, CHANGELOG und der Projekt-Doku.
 - Die Behauptung eines Tickets vor der Umsetzung prüfen. Mehrfach kam es vor,
   dass die Diagnose im Ticket falsch war und ein Fix gegen eine nicht
   existierende Fehlfunktion gebaut worden wäre (#259) — die Aussage gegen die

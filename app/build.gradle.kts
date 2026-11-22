@@ -17,9 +17,28 @@ plugins {
 // Sentry configuration - only active for standard builds
 // FOSS builds will have Sentry disabled at runtime
 sentry {
-    // Skip ProGuard mapping upload when token is missing (e.g. nightly CI builds).
-    // Token is provided by android_fastlane.yml and android.yml workflows.
-    autoUploadProguardMapping.set(System.getenv("SENTRY_AUTH_TOKEN") != null)
+    // Skip the ProGuard mapping upload only when no token is available. An env var that
+    // is SET BUT EMPTY (`SENTRY_AUTH_TOKEN: ""`, what a missing CI secret produces)
+    // must not switch it on. The jobs that build a shipped artifact provide the token;
+    // scripts/check_sentry_mapping_upload.sh (M1–M5) enforces that wiring.
+    autoUploadProguardMapping.set(
+        !System.getenv("SENTRY_AUTH_TOKEN").isNullOrBlank() || localSentryUpload(),
+    )
+}
+
+/**
+ * Local opt-in for the mapping upload: `-PsentryUpload=true` **and** an `auth.token` in
+ * the gitignored `sentry.properties` (the same file the plugin reads for org/project).
+ * A debug-signed local build must not upload just because the file exists; CI never
+ * sets the property — there the env token above is the switch.
+ */
+private fun localSentryUpload(): Boolean {
+    if (project.findProperty("sentryUpload")?.toString()?.toBoolean() != true) return false
+    val properties = rootProject.file("sentry.properties").takeIf { it.isFile } ?: return false
+    return properties.readLines().any { line ->
+        line.substringBefore('=').trim() == "auth.token" &&
+            line.substringAfter('=', "").isNotBlank()
+    }
 }
 
 // Robolectric 4.14.1 bündelt ein älteres ASM, das JDK-25-Klassendateien
@@ -29,11 +48,11 @@ sentry {
 configurations.configureEach {
     if (name.contains("UnitTestRuntimeClasspath")) {
         resolutionStrategy {
-            force("org.ow2.asm:asm:9.11")
-            force("org.ow2.asm:asm-tree:9.11")
-            force("org.ow2.asm:asm-commons:9.11")
-            force("org.ow2.asm:asm-util:9.11")
-            force("org.ow2.asm:asm-analysis:9.11")
+            force("org.ow2.asm:asm:9.11.1")
+            force("org.ow2.asm:asm-tree:9.11.1")
+            force("org.ow2.asm:asm-commons:9.11.1")
+            force("org.ow2.asm:asm-util:9.11.1")
+            force("org.ow2.asm:asm-analysis:9.11.1")
         }
     }
 }
@@ -165,6 +184,13 @@ android {
         debug {
             applicationIdSuffix = ".debug"
             isDebuggable = true
+            // Sentry environment je Build-Typ (#324): Debug-Builds sind Dev- und
+            // CI-Bauten (PR-Validierung läuft auf Debug-APKs). Ohne diesen Tag
+            // defaultet Sentry ueberall auf "production" und der environment-Tag
+            // unterscheidet Store- von Test-Builds nicht (Beleg in #324).
+            // Fehlt ein kuenftiger Build-Type ohne Mapping, bricht die
+            // Manifest-Komposition am unersetzten ${SENTRY_ENVIRONMENT} ab.
+            manifestPlaceholders["SENTRY_ENVIRONMENT"] = "development"
         }
 
         release {
@@ -174,6 +200,10 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+            // Store-Bauten (GitHub/Obtainium/Play) — die ehrliche Build-Identitaet
+            // hinter dem bisherigen Sentry-Default. playRelease erbt den Wert via
+            // initWith unten; Absicht: beide Store-Kanaele tragen dasselbe Environment.
+            manifestPlaceholders["SENTRY_ENVIRONMENT"] = "production"
 
             val releaseConfig = signingConfigs.getByName("release")
             signingConfig = if (releaseConfig.storeFile != null) {
@@ -298,7 +328,12 @@ dependencies {
     // Nebeneffekte wie Sentry-Init und Ktor-Remote-Control-Server).
     testImplementation(libs.hilt.android.testing)
     kspTest(libs.hilt.compiler.ksp)
+    androidTestImplementation(libs.rootencoder.library)
+    androidTestImplementation(libs.rootencoder.encoder)
     androidTestImplementation(libs.androidx.junit)
+    // GrantPermissionRule: die Runtime-Grants der UI-Tests laufen im Testprozess
+    // statt per `adb shell pm grant` vor den connected-Tasks (Tag-Run 40849184669).
+    androidTestImplementation(libs.androidx.test.rules)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.espresso.intents)
     // fastlane screengrab: erzeugt die Play-Store-Screenshots per UI-Test

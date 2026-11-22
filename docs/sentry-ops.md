@@ -49,6 +49,13 @@ Details stehen in den am Ende verlinkten Repo-Dokus.
   separater Callback).
 - Der Toggle entscheidet nur, **was die App sendet** — nicht, was die
   Ops-Seite abfragt. Beide Welten teilen sich lediglich das Dashboard.
+- **Der `environment`-Tag trägt die Build-Identität**: `io.sentry.environment`
+  steht als Manifest-Meta-Data über ein `manifestPlaceholders`-Mapping in
+  `app/build.gradle.kts` — `debug` → `development`, `release`/`playRelease` →
+  `production`. Ohne den Eintrag defaultet Sentry überall auf `production` und
+  der Tag unterscheidet Store- nicht mehr von Test-Build (#324). Ein fehlendes
+  Mapping fällt beim Manifest-Merge hart auf (kein stummer Default); die drei
+  Varianten tragen den gesetzten Wert nachweislich.
 
 ### 🗺️ Mapping-Upload
 
@@ -59,6 +66,18 @@ Details stehen in den am Ende verlinkten Repo-Dokus.
   `sentry.properties`, Scope `org:ci`) — bewusst **ohne Lesescopes** und
   strikt getrennt vom Stats-Lese-Token: getrennte Tokens, getrennte Scopes,
   getrennte Lebensdauern.
+- **Lokal nur per Opt-in:** `./gradlew :app:assembleStandardRelease
+  -PsentryUpload=true`. Nötig sind der Opt-in **und** ein `auth.token` in der
+  gitignoreden `sentry.properties` (dieselbe Datei liefert
+  `defaults.org`/`defaults.project`); ohne `-P` lädt ein debug-signierter
+  lokaler Build **nicht** hoch.
+- Guard M1 prüft die drei Teile (CI-Env, Opt-in, Token-Datei) einzeln,
+  Selbsttest-Mutationen T3/T8/T9 decken sie ab.
+- **Ohne Token** bleibt das Flag aus und `assembleStandardRelease` läuft
+  durch — der Build ist dann obfuskiert und Sentry kann `r8-map-id-…`-Frames
+  nicht auflösen (genau das Bild aus #443). **Mit Token** hängt
+  `uploadSentryProguardMappings<Variante>` am Release-Build; die Datei liegt
+  als `app/build/outputs/mapping/<variante>/mapping.txt` bereit.
 
 ### 🔁 Watchdog (Crash → GitHub-Issue)
 

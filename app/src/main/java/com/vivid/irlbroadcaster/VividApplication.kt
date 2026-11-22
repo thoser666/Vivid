@@ -44,18 +44,18 @@ class VividApplication : Application(), ImageLoaderFactory {
     @Inject
     lateinit var crashLoopGuard: CrashLoopGuard
 
-    // Fehlertoleranter Hintergrund-Scope: Start-Jobs (Log-Retention, Sentry-
-    // Spiegel, Remote-Control-Server) dürfen den Prozess nie crashen. Der
-    // Handler ist die letzte Verteidigung gegen Residual-Rennen, die das
-    // runCatching beim Aufrufer umgehen (z. B. Ktor-Bind nach Port-Probe).
+    // Fault-tolerant background scope: startup jobs (log retention, Sentry
+    // mirror, remote-control server) must never crash the process. The handler
+    // is the last line of defense against residual races that bypass the
+    // caller's runCatching (e.g. Ktor bind after the port probe).
     private val applicationScope = CoroutineScope(
         SupervisorJob() + Dispatchers.Default +
             CoroutineExceptionHandler { _, throwable ->
-                Timber.e(throwable, "Unbehandelter Fehler im Application-Hintergrund-Scope")
+                Timber.e(throwable, "Unhandled error in application background scope")
             },
     )
 
-    /** Coil ImageLoader mit 25MB Disk-Cache für Twitch-Emotes. */
+    /** Coil ImageLoader with a 25 MB disk cache for Twitch emotes. */
     override fun newImageLoader(): ImageLoader = ImageLoader.Builder(this)
         .diskCache {
             DiskCache.Builder()
@@ -67,21 +67,21 @@ class VividApplication : Application(), ImageLoaderFactory {
         .build()
 
     /**
-     * Aktueller Sentry-Opt-out-Stand für den beforeSend-Callback
-     * (synchron lesbar, kein suspend im Callback möglich). Wird vom
-     * appSettingsFlow gespiegelt; Default: an.
+     * Current Sentry opt-out state for the beforeSend callback
+     * (readable synchronously; the callback cannot suspend).
+     * Mirrored from appSettingsFlow; default: enabled.
      */
     @Volatile
     private var sentryEnabled = true
 
     override fun onCreate() {
         super.onCreate()
-        // Startup-Safe-Mode (Crash-Schleifen-Erkennung): Vor allem anderen
-        // die Frage beantworten, ob dieser Start ueberhaupt die volle UI
-        // versuchen darf. Bei SAFE_MODE wird die Diagnose-Activity per
-        // CrashSafeModeState aktiviert und der schwergewichtige Rest
-        // (Sentry, Remote-Control-Server) uebersprungen - die Diagnose
-        // bleibt so unabhaengig von jeder moeglichen Crash-Ursache.
+        // Startup safe mode (crash-loop detection): before anything else,
+        // answer whether this launch may even attempt the full UI. In
+        // SAFE_MODE the diagnostics activity is activated via
+        // CrashSafeModeState and the heavyweight remainder (Sentry,
+        // remote-control server) is skipped - the diagnostics therefore
+        // stay independent of any possible crash cause.
         val attempts = crashLoopGuard.currentAttempts()
         val safeMode = CrashLoopPolicy.decide(attempts) ==
             CrashLoopPolicy.Decision.SAFE_MODE
@@ -89,51 +89,52 @@ class VividApplication : Application(), ImageLoaderFactory {
         if (!safeMode) {
             crashLoopGuard.recordAttempt()
         }
-        // In-App-Log: Timber-Trees pflanzen, damit die vorhandenen Timber.*-Aufrufe
-        // erstmals wirksam werden. DebugTree schreibt in Debug-Builds nach Logcat,
-        // LogBufferTree hält die letzten 500 Zeilen (geschwärzt) für den In-App-Viewer
-        // und persistiert sie zusätzlich in die täglichen Log-Dateien (Rotation + Vorhaltezeit).
+        // In-app log: plant the Timber trees so the existing Timber.* calls
+        // take effect for the first time. DebugTree writes to logcat in debug
+        // builds; LogBufferTree keeps the last 500 lines (redacted) for the
+        // in-app viewer and additionally persists them into the daily log
+        // files (rotation + retention).
         if (BuildConfig.DEBUG) {
             Timber.plant(Timber.DebugTree())
         }
         val logBufferTree = LogBufferTree(logBuffer, store = logStore)
         Timber.plant(logBufferTree)
-        // Crash-Advisory (versionsgebundene, bekannte Crash-Kandidaten):
-        // Beim Start gegen die installierte Version pruefen und bei Treffer
-        // deutlich (CRASH-markiert) ins In-App-Log melden - direkt nach dem
-        // Log-Aufbau, fehlertolerant (runCatching), damit die Diagnose selbst
-        // Diagnose selbst niemals zum Startabsturz wird.
+        // Crash advisory (version-bound known crash candidates): check
+        // against the installed version at startup and report hits clearly
+        // marked CRASH to the in-app log - right after the log is set up,
+        // fault-tolerantly (runCatching), so the diagnosis itself never
+        // becomes a startup crash.
         runCatching {
             CrashAdvisoryReporter(logBuffer).reportIfAny(BuildConfig.VERSION_CODE)
         }
-        // Abstürze deutlich markiert ins In-App-Log schreiben (isCrash), bevor der
-        // vorherige Handler (Sentry) den Crash übernimmt — so bleiben sie auswertbar.
+        // Write crashes clearly marked to the in-app log (isCrash) before the
+        // previous handler (Sentry) picks up the crash - that keeps them evaluable.
         val previousHandler = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
             runCatching { logBufferTree.crash("Vivid", throwable) }
             previousHandler?.uncaughtException(thread, throwable)
         }
-        // Alte Log-Dateien gemäß Vorhaltezeit aufräumen (beim App-Start).
+        // Clean up old log files according to the retention period (on app start).
         applicationScope.launch {
             val retention = settingsRepository.appSettingsFlow.first().logsRetentionDays
             logStore.prune(retention)
         }
-        // Sentry explizit initialisieren (Auto-Init im Manifest deaktiviert):
-        //  - sendDefaultPii=false → keine IP-/Gerätename-Erhebung
-        //  - beforeSend → verwirft alle Events, wenn der Nutzer das
-        //    Fehler-Reporting in den Settings deaktiviert hat (Opt-out) und
-        //    verwirft erwartete Netzwerk-Betriebszustände (#267)
-        //  - FOSS_BUILD → kein Sentry für F-Droid (kein Tracking, kein Telemetry)
-        //  - Session Replay als Error-Replay (Retro-Puffer ~30 s vor einem Fehler):
-        //    onErrorSampleRate 1.0, sessionSampleRate 0.0 — kein Dauer-Recording;
-        //    das Opt-out steuert es auf zwei Ebenen mit (Rates + Buffering), weil
-        //    beforeSend Replay-Envelopes nicht filtert (siehe SentryReplayPolicy).
+        // Explicit Sentry initialization (auto-init disabled in the manifest):
+        //  - sendDefaultPii=false → no IP / device name collection
+        //  - beforeSend → drops all events if the user has disabled error
+        //    reporting in settings (opt-out) and drops expected network
+        //    operating states (#267)
+        //  - FOSS_BUILD → no Sentry for F-Droid (no tracking, no telemetry)
+        //  - Session replay as error replay (retro buffer ~30 s before an error):
+        //    onErrorSampleRate 1.0, sessionSampleRate 0.0 - no continuous recording;
+        //    the opt-out steers it on two levels (rates + buffering), because
+        //    beforeSend does not filter replay envelopes (see SentryReplayPolicy).
         if (!BuildConfig.FOSS_BUILD && !safeMode) {
             SentryAndroid.init(this) { options ->
-                // JavaBean-Accessor: isSendDefaultPii (keine IP-/Gerätename-Erhebung)
+                // JavaBean accessor: isSendDefaultPii (no IP / device name collection)
                 options.isSendDefaultPii = false
-                // App-Kontext als Sentry-Tags (Flavor + exakte Version): jeder
-                // Report ist dem Build zuordenbar (Watchdog + Triage siehe
+                // App context as Sentry tags (flavor + exact version): every
+                // report is attributable to its build (watchdog + triage, see
                 // SentryAppTags). Keys app.flavor/app.version_code/app.version_name.
                 val appTags = SentryAppTags(
                     flavor = BuildConfig.FLAVOR,
@@ -141,23 +142,23 @@ class VividApplication : Application(), ImageLoaderFactory {
                     versionName = BuildConfig.VERSION_NAME,
                 ).toSentryTags()
                 appTags.forEach { (tag, value) -> options.setTag(tag, value) }
-                // beforeSend → zwei Filter in einer Kette: (1) Opt-out des Nutzers,
-                // (2) erwartete Netzwerk-Betriebszustände (SentryTransportFilter).
-                // Punkt (2) verhindert, dass der GitHub-Issue-Watchdog für jeden
-                // nicht erreichbaren OBS/WHIP-Host ein Issue anlegt (Sentry VIVID-3P
-                // #267 und seine Vorgänger #217/#219/#220/#224/#244/#248). Echte
-                // FATAL-Crashes laufen immer durch.
+                // beforeSend → two filters in one chain: (1) the user's opt-out,
+                // (2) expected network operating states (SentryTransportFilter).
+                // Point (2) prevents the GitHub issue watchdog from creating an
+                // issue for every unreachable OBS/WHIP host (Sentry VIVID-3P
+                // #267 and its predecessors #217/#219/#220/#224/#244/#248). Real
+                // FATAL crashes always get through.
                 options.beforeSend = sentryBeforeSendWithTransportFilter { sentryEnabled }
-                // Error-Replay-Konfiguration (Opt-out-fähig, siehe SentryReplayPolicy):
+                // Error replay configuration (opt-out capable, see SentryReplayPolicy):
                 val replayPlan = SentryReplayPolicy.plan(sentryEnabled)
                 options.sessionReplay.onErrorSampleRate = replayPlan.errorSampleRate
                 options.sessionReplay.sessionSampleRate = replayPlan.sessionSampleRate
-                // Replays sind eigene Envelopes — der Opt-out filtert sie separat:
+                // Replays are their own envelopes - the opt-out filters them separately:
                 options.beforeSendReplay = sentryBeforeSendReplayCallback { sentryEnabled }
             }
-            // Opt-out-Stand live verfolgen (für beforeSend/beforeSendReplay)
-            // und das Error-Replay-Buffering mitsteuern (Start/Stop nur bei
-            // echter Änderung — kein Flackern beim Settings-Recollect).
+            // Track the opt-out state live (for beforeSend/beforeSendReplay)
+            // and also steer error replay buffering (start/stop only on an
+            // actual change - no flicker on settings re-collection).
             applicationScope.launch {
                 var previousEnabled: Boolean? = null
                 settingsRepository.appSettingsFlow.collect { settings ->
@@ -165,34 +166,34 @@ class VividApplication : Application(), ImageLoaderFactory {
                     when (SentryReplayPolicy.runtimeAction(settings.sentryEnabled, previousEnabled)) {
                         SentryReplayPolicy.RuntimeAction.REPLAY_START ->
                             runCatching { io.sentry.Sentry.replay().startBuffering() }
-                                .onFailure { Timber.w(it, "Replay-Buffering konnte nicht gestartet werden") }
+                                .onFailure { Timber.w(it, "Replay buffering could not be started") }
                         SentryReplayPolicy.RuntimeAction.REPLAY_STOP ->
                             runCatching { io.sentry.Sentry.replay().stop() }
-                                .onFailure { Timber.w(it, "Replay-Buffering konnte nicht gestoppt werden") }
+                                .onFailure { Timber.w(it, "Replay buffering could not be stopped") }
                         SentryReplayPolicy.RuntimeAction.NONE -> Unit
                     }
                     previousEnabled = settings.sentryEnabled
                 }
             }
         } else {
-            // FOSS Build: Sentry deaktiviert für F-Droid-Konformität
+            // FOSS build: Sentry disabled for F-Droid compliance
             Timber.i("FOSS build - Sentry disabled for F-Droid compliance")
         }
-        // Web-Remote-Control über LAN starten — fehlertolerant und nur, wenn
-        // das Setting an ist (Kill-Switch gegen den EADDRINUSE-Startcrash,
-        // Kandidat REMOTE-EADDRINUSE-STARTUP). Im Safe-Mode uebersprungen
-        // (Diagnose braucht keinen Server).
+        // Start web remote control over LAN - fault-tolerant and only when
+        // the setting is on (kill switch against the EADDRINUSE startup crash,
+        // candidate REMOTE-EADDRINUSE-STARTUP). Skipped in safe mode
+        // (diagnostics do not need a server).
         if (!safeMode) {
             applicationScope.launch {
                 val remoteEnabled = runCatching {
                     settingsRepository.appSettingsFlow.first().remoteControlEnabled
                 }.getOrDefault(true)
                 if (!remoteEnabled) {
-                    Timber.i("Web-Remote-Control per Einstellung deaktiviert - kein Server-Bind")
+                    Timber.i("Web remote control disabled in settings - no server bind")
                     return@launch
                 }
                 runCatching { remoteControlServer.start() }
-                    .onFailure { Timber.e(it, "Web-Remote-Control-Server konnte nicht gestartet werden") }
+                    .onFailure { Timber.e(it, "Web remote control server could not be started") }
             }
         }
     }

@@ -51,35 +51,28 @@ class LogStore(
     }
 
     /**
-     * Parst eine JSON-Lines-Zeile und stellt die Kotlin-Invarianten von [LogEntry]
-     * wieder her: Gson instanziiert per Reflection/Unsafe OHNE den Kotlin-
-     * Konstruktor — die Non-null-Checks laufen nie, und fehlende/unbekannte Felder
+     * Parst eine JSON-Lines-Zeile über [LogLineDto] und stellt die Kotlin-
+     * Invarianten von [LogEntry] wieder her.
+     *
+     * Gson instanziiert per Reflection/Unsafe OHNE den Kotlin-Konstruktor — die
+     * Non-null-Checks von [LogEntry] laufen nie, und fehlende/unbekannte Felder
      * landen als null im Objekt (unbekannter Enum-Name, `"level": null`, fehlender
      * Key, Teil-Schreibvorgang). Ein solcher Eintrag crashte real in
      * `LogEntry.format()` (`level.name`) bzw. im errorsOnly-Levelvergleich —
-     * Sentry VIVID-3A/3B (Issues #225/#216, fatal). Invariantenverletzende Zeilen
-     * werden übersprungen statt weitergereicht; ein defekter Log darf die App nie
-     * blockieren.
+     * Sentry VIVID-3A/3B (Issues #225/#216) und erneut VIVID-5H (#433), obwohl
+     * dieser Guard existierte: er prüfte ein statisch non-null typisiertes Feld,
+     * also einen für den Optimierer unmöglichen Zustand.
+     *
+     * Deshalb läuft das Parsing über [LogLineDto], dessen Felder echt nullbar
+     * sind (Level als roher Name). Die Prüfungen dort sind nicht wegoptimierbar,
+     * und [LogLineDto.toEntry] baut den Eintrag über den Konstruktor.
+     * Invariantenverletzende Zeilen werden übersprungen statt weitergereicht;
+     * ein defekter Log darf die App nie blockieren.
      */
-    private fun parseLine(line: String): LogEntry? {
-        val raw = runCatching { gson.fromJson(line, LogEntry::class.java) }.getOrNull()
-            ?: return null
-        // Lokale nullable Kopien: Erst hier ist der echte Laufzeit-Zustand prüfbar
-        // (das Feld ist statisch non-null, kann durch die Gson-Unsafe-
-        // Instanziierung aber null tragen — deshalb kein Smart-Cast auf raw.level).
-        val level: LogLevel? = raw.level
-        val tag: String? = raw.tag
-        val message: String? = raw.message
-        if (level == null || tag == null || message == null) return null
-        // Reconstruction über den Konstruktor garantiert die Invarianten.
-        return LogEntry(
-            timestampMillis = raw.timestampMillis,
-            level = level,
-            tag = tag,
-            message = message,
-            isCrash = raw.isCrash,
-        )
-    }
+    private fun parseLine(line: String): LogEntry? =
+        runCatching { gson.fromJson(line, LogLineDto::class.java) }
+            .getOrNull()
+            ?.toEntry()
 
     /** Löscht alle Log-Dateien, deren Tag älter als [retentionDays] Tage ist. */
     @Synchronized

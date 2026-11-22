@@ -16,6 +16,8 @@ import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 
+private const val FRONT_CAMERA_ID = "front"
+
 class SceneControllerTest {
 
     private fun controller(
@@ -53,7 +55,7 @@ class SceneControllerTest {
                 any(), any(), any(), any(), any(), any(),
             ) } just Runs
         }
-        val streamingEngine = mockk<StreamingEngine> {
+        val streamingEngine = mockk<StreamingEngine>(relaxed = true) {
             every { switchSource(any()) } returns true
         }
         val controller = controller(
@@ -94,7 +96,7 @@ class SceneControllerTest {
                 any(), any(), any(), any(), any(), any(),
             ) } just Runs
         }
-        val streamingEngine = mockk<StreamingEngine> {
+        val streamingEngine = mockk<StreamingEngine>(relaxed = true) {
             every { switchSource(any()) } returns true
         }
         val controller = controller(
@@ -110,7 +112,7 @@ class SceneControllerTest {
 
     @Test
     fun `applyScene prepares the replay file for a replay scene`() = runTest {
-        val streamingEngine = mockk<StreamingEngine> {
+        val streamingEngine = mockk<StreamingEngine>(relaxed = true) {
             every { useReplayAsSource(any()) } returns true
         }
         val controller = controller(
@@ -129,7 +131,7 @@ class SceneControllerTest {
 
     @Test
     fun `applyScene without a replay path falls back to switching the replay source`() = runTest {
-        val streamingEngine = mockk<StreamingEngine> {
+        val streamingEngine = mockk<StreamingEngine>(relaxed = true) {
             every { switchSource(any()) } returns true
         }
         val controller = controller(
@@ -142,5 +144,87 @@ class SceneControllerTest {
 
         coVerify(exactly = 1) { streamingEngine.switchSource(VideoSourceKind.REPLAY) }
         coVerify(exactly = 0) { streamingEngine.useReplayAsSource(any()) }
+    }
+
+    @Test
+    fun `managed scene selects its camera without changing the active stream destination`() = runTest {
+        val repo = mockk<SceneRepository>(relaxed = true)
+        val settings = mockk<SettingsRepository>(relaxed = true)
+        val engine = mockk<StreamingEngine>(relaxed = true) {
+            every { switchSource(any()) } returns true
+            every { selectLens(FRONT_CAMERA_ID) } returns true
+        }
+        controller(repo, settings, engine).applyScene(scene().copy(cameraId = FRONT_CAMERA_ID, widgets = emptyList()))
+        coVerify { engine.selectLens(FRONT_CAMERA_ID); repo.setActiveScene("1") }
+        coVerify(exactly = 0) { settings.updateStreamSettings(any(), any(), any()) }
+    }
+
+    @Test
+    fun `failed camera selection does not mark a scene active`() = runTest {
+        val repo = mockk<SceneRepository>(relaxed = true)
+        val engine = mockk<StreamingEngine>(relaxed = true) {
+            every { switchSource(any()) } returns true
+            every { selectLens(any()) } returns false
+        }
+        controller(repo, mockk(relaxed = true), engine).applyScene(scene().copy(cameraId = "missing", widgets = emptyList()))
+        coVerify(exactly = 0) { repo.setActiveScene(any()) }
+    }
+
+    @Test
+    fun `disabled scene does not change the source or active scene`() = runTest {
+        val repo = mockk<SceneRepository>(relaxed = true)
+        val engine = mockk<StreamingEngine>(relaxed = true)
+        controller(repo, mockk(relaxed = true), engine).applyScene(scene().copy(enabled = false))
+        coVerify(exactly = 0) { engine.switchSource(any()); repo.setActiveScene(any()) }
+    }
+
+    @Test
+    fun `empty scene blanks video while keeping widget composition active`() = runTest {
+        val repo = mockk<SceneRepository>(relaxed = true)
+        val engine = mockk<StreamingEngine>(relaxed = true) { every { switchSource(any()) } returns true }
+        controller(repo, mockk(relaxed = true), engine).applyScene(scene(source = SceneVideoSource.EMPTY).copy(widgets = emptyList()))
+        coVerify { engine.setSceneEmpty(true); repo.setActiveScene("1") }
+    }
+
+    @Test
+    fun `empty source gate closes before switching and stays closed through activation`() = runTest {
+        val repo = mockk<SceneRepository>(relaxed = true)
+        val engine = mockk<StreamingEngine>(relaxed = true) { every { switchSource(any()) } returns true }
+        controller(repo, mockk(relaxed = true), engine).applyScene(scene(source = SceneVideoSource.EMPTY).copy(widgets = emptyList()))
+        io.mockk.coVerifyOrder {
+            engine.setSceneEmpty(true)
+            engine.switchSource(VideoSourceKind.CAMERA)
+            repo.setActiveScene("1")
+            engine.setSceneEmpty(true)
+        }
+        io.mockk.verify(exactly = 0) { engine.setSceneEmpty(false) }
+    }
+
+    @Test
+    fun `rejected switch restores the previous blackout without activating the scene`() = runTest {
+        val repo = mockk<SceneRepository>(relaxed = true)
+        val engine = mockk<StreamingEngine>(relaxed = true) {
+            every { isSceneEmpty() } returns true
+            every { switchSource(any()) } returns false
+        }
+        controller(repo, mockk(relaxed = true), engine).applyScene(scene(source = SceneVideoSource.SCREEN_CAPTURE))
+        io.mockk.verify(exactly = 2) { engine.setSceneEmpty(true) }
+        io.mockk.verify(exactly = 0) { engine.setSceneEmpty(false) }
+        coVerify(exactly = 0) { repo.setActiveScene(any()) }
+    }
+
+    @Test
+    fun `layered scenes reach the compositor and basic scenes clear the graph`() = runTest {
+        val engine = mockk<StreamingEngine>(relaxed = true) { every { switchSource(any()) } returns true }
+        val scenes = mockk<SceneRepository>(relaxed = true)
+        val controller = controller(scenes, mockk(relaxed = true), engine)
+        val graph = com.vivid.core.data.SceneLayoutPreset.PICTURE_IN_PICTURE.arrange(
+            com.vivid.core.data.SceneSource("camera", com.vivid.core.data.SceneSourceType.CAMERA),
+            com.vivid.core.data.SceneSource("logo", com.vivid.core.data.SceneSourceType.IMAGE, "content://logo"),
+        )
+        controller.applyScene(scene("layered").copy(composition = graph))
+        coVerify(exactly = 1) { engine.setSceneComposition(graph, true) }
+        controller.applyScene(scene("basic"))
+        coVerify(exactly = 1) { engine.setSceneComposition(null, true) }
     }
 }

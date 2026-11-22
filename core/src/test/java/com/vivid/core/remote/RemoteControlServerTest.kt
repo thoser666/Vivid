@@ -10,6 +10,8 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.testing.testApplication
+import io.mockk.every
+import io.mockk.mockk
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -26,6 +28,7 @@ private const val PATH_START = "/start"
 private const val PATH_LOGS = "/logs"
 private const val MSG_TODAY = "today-entry"
 private const val MSG_OLD = "old-entry"
+private const val MSG_NULL_LEVEL = "null-level-entry"
 
 /** Authorization-Header mit gültigem Token (KT-W1042: kein doppeltes Literal). */
 private fun io.ktor.client.request.HttpRequestBuilder.auth() {
@@ -60,6 +63,25 @@ class RemoteControlServerTest {
 
     private fun newLogStore(dirName: String = "logs"): LogStore =
         LogStore(File(tempDir, dirName))
+
+    /**
+     * Produktionsartefakt VIVID-5H (#433): Gson/Unsafe hinterlaesst `null` im
+     * statisch non-null typisierten `level`-Feld. Der typisierte Konstruktor
+     * laesst das nicht zu — deshalb Reflection.
+     */
+    private fun nullLevelEntry(message: String): LogEntry {
+        val broken = LogEntry(
+            timestampMillis = System.currentTimeMillis(),
+            level = LogLevel.INFO,
+            tag = "Test",
+            message = message,
+        )
+        LogEntry::class.java.getDeclaredField("level").apply {
+            isAccessible = true
+            set(broken, null)
+        }
+        return broken
+    }
 
     private fun seed(store: LogStore, daysAgo: Int, message: String) {
         store.add(
@@ -247,6 +269,25 @@ class RemoteControlServerTest {
                 "query=$query",
             )
         }
+    }
+
+    @Test
+    fun `logs maps a null level entry to the placeholder instead of failing`() = testApplication {
+        // Der echte Store-Pfad verwirft solche Zeilen schon beim Parsen
+        // (LogLineDto.toEntry), deshalb kommt der Eintrag hier direkt aus dem
+        // Store-Double — die Absicherung im Mapping bleibt damit testbar.
+        val store = mockk<LogStore>()
+        every { store.load(any()) } returns listOf(nullLevelEntry(MSG_NULL_LEVEL))
+        application {
+            remoteControlModule(FakeStreamControl(), TOKEN, store)
+        }
+        val response = client.get(PATH_LOGS) {
+            auth()
+        }
+        assertEquals(HttpStatusCode.OK, response.status)
+        val body = response.bodyAsText()
+        assertTrue(body.contains("\"level\":\"?\""), body)
+        assertTrue(body.contains(MSG_NULL_LEVEL), body)
     }
 
     @Test

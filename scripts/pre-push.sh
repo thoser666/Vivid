@@ -41,6 +41,14 @@ bash scripts/check_suppressions_register.sh
 echo "▶ [pre-push] Suppressions-Register-Workflow-Selbsttest (scripts/test_suppressions_register_workflow.sh)"
 bash scripts/test_suppressions_register_workflow.sh
 
+# R8-Keep-Rules für Gson/OBS (#320 / VIVID-3V): ohne die Keep-Rules entfernt R8
+# die Security-Datenklassen und das Request-Interface, und Gson scheitert erst
+# zur Laufzeit mit „Abstract classes can't be instantiated!“ (handleHello). Der
+# Guard ist offline und steht bewusst VOR dem Gradle-Block: ein verlorenes
+# -keep soll den Push sofort blocken, nicht erst nach dem Testlauf.
+echo "▶ [pre-push] ProGuard-Keep-Rules Gson/OBS (#320, scripts/test_issue_320_proguard.sh)"
+bash scripts/test_issue_320_proguard.sh
+
 echo "▶ [pre-push] Dependabot-Auto-Merge-Selbsttest (scripts/test_dependabot_auto_merge.sh)"
 bash scripts/test_dependabot_auto_merge.sh
 
@@ -74,6 +82,10 @@ echo "▶ [pre-push] Sentry-Resolve-Guard-Selbsttest (scripts/test_sentry_resolv
 bash scripts/test_sentry_resolve.sh
 echo "▶ [pre-push] Sentry-Issues-Guard-Selbsttest (scripts/test_sentry_issues.sh)"
 bash scripts/test_sentry_issues.sh
+echo "▶ [pre-push] Sentry-Mapping-Upload-Selbsttest (scripts/test_sentry_mapping_upload.sh)"
+bash scripts/test_sentry_mapping_upload.sh
+echo "▶ [pre-push] Sentry-Mapping-Upload-Guard (scripts/check_sentry_mapping_upload.sh)"
+bash scripts/check_sentry_mapping_upload.sh
 
 echo "▶ [pre-push] Stable-Distribution-Kadenz-Selbsttest (scripts/test_distribution_stable.sh)"
 bash scripts/test_distribution_stable.sh

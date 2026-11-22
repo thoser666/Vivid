@@ -24,17 +24,17 @@ class AppLanguageTest {
             AppLanguage.select(context, AppLanguage.ENGLISH)
             assertEquals(AppLanguage.ENGLISH, AppLanguage.current(context))
             assertEquals(
-                "Appearance",
+                "Interface",
                 AppLanguage.wrapBaseContext(context).getString(R.string.cat_appearance_title),
             )
 
             AppLanguage.select(context, AppLanguage.SYSTEM)
             assertEquals(AppLanguage.SYSTEM, AppLanguage.current(context))
-            assertEquals("Внешний вид", AppLanguage.wrapBaseContext(context).getString(R.string.cat_appearance_title))
+            assertEquals("Интерфейс", AppLanguage.wrapBaseContext(context).getString(R.string.cat_appearance_title))
 
             AppLanguage.select(context, AppLanguage.RUSSIAN)
             assertEquals(AppLanguage.RUSSIAN, AppLanguage.current(context))
-            assertEquals("Внешний вид", AppLanguage.wrapBaseContext(context).getString(R.string.cat_appearance_title))
+            assertEquals("Интерфейс", AppLanguage.wrapBaseContext(context).getString(R.string.cat_appearance_title))
         } finally {
             AppLanguage.select(context, AppLanguage.SYSTEM)
         }
@@ -81,14 +81,14 @@ class AppLanguageResolutionTest {
             AppLanguage.select(context, AppLanguage.GERMAN)
             assertEquals(AppLanguage.GERMAN, AppLanguage.current(context))
             assertEquals(
-                "Darstellung",
+                "Benutzeroberfläche",
                 AppLanguage.wrapBaseContext(context).getString(com.vivid.feature.settings.R.string.cat_appearance_title),
             )
 
             AppLanguage.select(context, AppLanguage.FRENCH)
             assertEquals(AppLanguage.FRENCH, AppLanguage.current(context))
             assertEquals(
-                "Apparence",
+                "Interface",
                 AppLanguage.wrapBaseContext(context).getString(com.vivid.feature.settings.R.string.cat_appearance_title),
             )
         } finally {

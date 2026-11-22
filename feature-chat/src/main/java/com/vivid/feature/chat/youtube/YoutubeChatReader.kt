@@ -77,6 +77,9 @@ class YoutubeChatReader @Inject constructor(
     @param:ChatScope private val scope: kotlinx.coroutines.CoroutineScope,
     private val http: HttpClient,
 ) : ChatReader {
+    /** Independent read session for one overlay; never controls the bot session. */
+    fun independent() = YoutubeChatReader(scope, http)
+
 
     private val json = Json { ignoreUnknownKeys = true }
 

@@ -13,6 +13,7 @@ import com.vivid.feature.streaming.source.DisplayFactory
 import com.vivid.feature.streaming.source.PlayerFactory
 import com.vivid.feature.streaming.source.RtmpDisplay2Factory
 import com.vivid.feature.streaming.source.RtmpPlayerFactory
+import com.vivid.feature.streaming.source.UvcVideoSource
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -44,6 +45,12 @@ abstract class StreamingFeatureBindingModule {
     abstract fun bindPlayerFactory(
         factoryImpl: RtmpPlayerFactory,
     ): PlayerFactory
+
+    @Binds
+    @Singleton
+    abstract fun bindUvcFactory(
+        factoryImpl: UvcVideoSource,
+    ): UvcVideoSource
 
     @Binds
     @Singleton

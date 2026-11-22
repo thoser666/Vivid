@@ -111,6 +111,62 @@ class ScreenCaptureVideoSourceTest {
     }
 
     @Test
+    fun `a start consumes the consent so a second start needs a fresh dialog`() {
+        // #326: Das MediaProjection-Token aus dem Consent ist ab Android 14
+        // einmalig verwendbar — der zweite Start darf nicht stillschweigend
+        // mit dem verbrauchten Token laufen.
+        source.onConsentResult(Activity.RESULT_OK, mockk())
+        every { display.prepareAudio() } returns true
+        every { display.prepareVideo() } returns true
+
+        assertTrue(source.start())
+        assertTrue(source.requiresFreshConsent())
+        assertFalse(source.start())
+        verify(exactly = 1) { display.prepareAudio() }
+        verify(exactly = 1) { display.prepareVideo() }
+    }
+
+    @Test
+    fun `a new onConsentResult makes the source startable again`() {
+        source.onConsentResult(Activity.RESULT_OK, mockk())
+        every { display.prepareAudio() } returns true
+        every { display.prepareVideo() } returns true
+        source.start()
+
+        assertTrue(source.onConsentResult(Activity.RESULT_OK, mockk()))
+
+        assertFalse(source.requiresFreshConsent())
+        assertTrue(source.start())
+        verify(exactly = 2) { display.prepareVideo() }
+    }
+
+    @Test
+    fun `a failed preparation still consumes the consent`() {
+        source.onConsentResult(Activity.RESULT_OK, mockk())
+        every { display.prepareAudio() } returns false
+
+        assertFalse(source.start())
+
+        assertTrue(source.requiresFreshConsent())
+    }
+
+    @Test
+    fun `stop consumes the consent`() {
+        source.onConsentResult(Activity.RESULT_OK, mockk())
+        assertFalse(source.requiresFreshConsent())
+
+        source.stop()
+
+        assertTrue(source.requiresFreshConsent())
+        assertFalse(source.start())
+    }
+
+    @Test
+    fun `requiresFreshConsent is true before any consent`() {
+        assertTrue(source.requiresFreshConsent())
+    }
+
+    @Test
     fun `stop stops the display stream`() {
         source.stop()
 

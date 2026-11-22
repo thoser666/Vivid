@@ -66,4 +66,14 @@ class CameraStreamProfileTest {
             resolveCameraStreamProfile(requested, true, camera, avcOnly),
         )
     }
+    @Test
+    fun `separate fps selection falls back at same resolution before reducing size`() {
+        val request = ResolvedEncoderConfig(VideoCodecPreference.H264, EncoderPreset.HD30, false, fps = 60)
+        val camera = CameraCaptureCapabilities { _, _, fps -> fps == 30 }
+        val actual = resolveCameraStreamProfile(request, true, camera, encoder)!!
+        assertEquals(EncoderPreset.HD30, actual.preset)
+        assertEquals(30, actual.fps)
+        assertTrue(actual.fallbackApplied)
+        assertNull(resolveCameraStreamProfile(request, false, camera, encoder))
+    }
 }

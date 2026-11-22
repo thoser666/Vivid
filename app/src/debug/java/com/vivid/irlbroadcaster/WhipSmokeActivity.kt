@@ -42,7 +42,7 @@ class WhipSmokeActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        Timber.i("WHIP-Geraetesmoke-Activity gestartet")
+        Timber.i("WHIP device smoke activity started")
         setContent {
             MaterialTheme {
                 WhipSmokeScreen(onRunSmoke = ::runSmoke)
@@ -53,9 +53,9 @@ class WhipSmokeActivity : ComponentActivity() {
     private fun runSmoke(): WhipSmokeResult {
         val result = WHIPSmokeRunner.run(applicationContext)
         if (result.ok) {
-            Timber.i("WHIP-Geraetesmoke OK: %s", result.detail)
+            Timber.i("WHIP device smoke OK: %s", result.detail)
         } else {
-            Timber.w("WHIP-Geraetesmoke FEHLGESCHLAGEN: %s", result.detail)
+            Timber.w("WHIP device smoke FAILED: %s", result.detail)
         }
         return result
     }

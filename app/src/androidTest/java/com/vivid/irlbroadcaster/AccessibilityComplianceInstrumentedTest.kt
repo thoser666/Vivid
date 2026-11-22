@@ -14,6 +14,7 @@ import com.vivid.R
 import com.vivid.feature.streaming.R as StreamingR
 import org.junit.Before
 import org.junit.Rule
+import org.junit.rules.RuleChain
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -31,8 +32,15 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class AccessibilityComplianceInstrumentedTest {
 
+    // The grants must run before the compose rule launches MainActivity (#249).
+    // Chained explicitly instead of relying on JUnit field order, which is not
+    // guaranteed — a grant after launch recreates the #249 system-dialog hang.
+    private val composeRule = createAndroidComposeRule<MainActivity>()
+
     @get:Rule
-    val composeRule = createAndroidComposeRule<MainActivity>()
+    val rules: RuleChain = RuleChain
+        .outerRule(EmulatorTestPermissions.rule())
+        .around(composeRule)
 
     private fun str(resId: Int): String =
         InstrumentationRegistry.getInstrumentation().targetContext.getString(resId)

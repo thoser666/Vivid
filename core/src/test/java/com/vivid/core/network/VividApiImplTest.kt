@@ -1,5 +1,6 @@
 package com.vivid.core.network
 
+import com.vivid.core.R
 import com.vivid.domain.model.LoginRequest
 import com.vivid.domain.model.LoginResult
 import com.vivid.domain.model.RegistrationRequest
@@ -58,6 +59,25 @@ class VividApiImplTest {
         val result = api.login(LoginRequest(username = "alice", email = "a@b.de", password = "pw"))
 
         assertTrue(result is LoginResult.Error)
+        // Rohdetail der Exception bleibt unübersetzt, aber erhalten — ohne
+        // lokalisierten Fallback (i18n-plan §4: App-Ursache = Ressource, hier
+        // liegt ein Detail vor).
+        assertEquals("network down", (result as LoginResult.Error).message)
+        assertEquals(null, result.messageRes)
+    }
+
+    @Test
+    fun `login without exception detail uses the localized unknown-error resource`() = runTest {
+        val engine = MockEngine { throw IOException() } // ohne Message
+        val api = VividApiImpl(clientWith(engine))
+
+        val result = api.login(LoginRequest(username = "alice", email = "a@b.de", password = "pw"))
+
+        assertTrue(result is LoginResult.Error)
+        // Ohne Rohdetail übernimmt die lokalisierte App-Ursache (die früher
+        // hartkodierte Literal "Unknown error").
+        assertEquals("", (result as LoginResult.Error).message)
+        assertEquals(R.string.api_error_unknown, result.messageRes)
     }
 
     @Test
@@ -85,6 +105,22 @@ class VividApiImplTest {
         )
 
         assertTrue(result is RegistrationResult.Error)
+        assertEquals("network down", (result as RegistrationResult.Error).message)
+        assertEquals(null, result.messageRes)
+    }
+
+    @Test
+    fun `register without exception detail uses the localized unknown-error resource`() = runTest {
+        val engine = MockEngine { throw IOException() } // ohne Message
+        val api = VividApiImpl(clientWith(engine))
+
+        val result = api.register(
+            RegistrationRequest(username = "bob", email = "bob@example.com", passwordHash = "hash"),
+        )
+
+        assertTrue(result is RegistrationResult.Error)
+        assertEquals("", (result as RegistrationResult.Error).message)
+        assertEquals(R.string.api_error_unknown, result.messageRes)
     }
 
     @Test

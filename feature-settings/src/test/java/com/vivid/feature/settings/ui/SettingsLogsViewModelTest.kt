@@ -56,6 +56,21 @@ class SettingsLogsViewModelTest {
         isCrash = isCrash,
     )
 
+    /**
+     * Baut den Produktions-Zustand nach, den Gson erzeugt: `LogEntry` ohne
+     * Kotlin-Konstruktor, `"level": null` aus einer beschädigten Altzeile.
+     * Der typisierte Konstruktor lässt das nicht zu, deshalb per Reflection —
+     * nur so ist der Filter gegen den echten Sentinel prüfbar (VIVID-5H, #433).
+     */
+    private fun nullLevelEntry(message: String): LogEntry {
+        val broken = entry(message)
+        LogEntry::class.java.getDeclaredField("level").apply {
+            isAccessible = true
+            set(broken, null)
+        }
+        return broken
+    }
+
     private fun createViewModel(
         buffer: LogBuffer,
         store: LogStore,
@@ -118,6 +133,23 @@ class SettingsLogsViewModelTest {
         val messages = viewModel.uiState.value.entries.map { it.message }
         assertEquals(setOf("error-level", "crash-markiert"), messages.toSet())
         assertTrue(viewModel.uiState.value.errorsOnly)
+    }
+
+    @Test
+    fun `Fehlerfilter ueberspringt null-level statt mit NPE zu crashen`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val buffer = LogBuffer()
+        buffer.add(entry("info"))
+        buffer.add(nullLevelEntry("geschaedigte-zeile"))
+        buffer.add(entry("echter-fehler", level = LogLevel.ERROR))
+
+        val viewModel = createViewModel(buffer, LogStore(File("unused")))
+        advanceUntilIdle()
+        viewModel.toggleErrorsOnly()
+        advanceUntilIdle()
+
+        // Kein Absturz, und der level-lose Eintrag ist kein Fehler.
+        assertEquals(listOf("echter-fehler"), viewModel.uiState.value.entries.map { it.message })
     }
 
     @Test

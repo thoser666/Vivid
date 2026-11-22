@@ -1,5 +1,6 @@
 package com.vivid.feature.obscontrol
 
+import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vivid.core.data.SettingsRepository // Importiert das korrigierte Repository
@@ -70,7 +71,8 @@ class SettingsViewModel @Inject constructor(
      *
      * Bei Erfolg werden Host/Port/Passwort direkt in den UI-State übernommen
      * (gespeichert wird weiterhin über [saveObsSettings]) und [QrImportResult.Success]
-     * geliefert — bei ungültigem Inhalt [QrImportResult.Error] mit Meldung.
+     * geliefert — bei ungültigem Inhalt [QrImportResult.Error] mit der Ressourcen-ID
+     * der lokalisierten Meldung.
      */
     fun importFromQrCode(qrText: String): QrImportResult {
         return when (val parsed = ObsQrCodeParser.parse(qrText)) {
@@ -80,21 +82,21 @@ class SettingsViewModel @Inject constructor(
                         host = parsed.data.host,
                         port = parsed.data.port.toString(),
                         password = parsed.data.password,
-                        qrMessage = null,
+                        qrMessageRes = null,
                     )
                 }
                 QrImportResult.Success(parsed.data)
             }
 
             is ObsQrCodeParseResult.Error -> {
-                _uiState.update { it.copy(qrMessage = parsed.message) }
-                QrImportResult.Error(parsed.message)
+                _uiState.update { it.copy(qrMessageRes = parsed.messageRes) }
+                QrImportResult.Error(parsed.messageRes)
             }
         }
     }
 
     fun clearQrMessage() {
-        _uiState.update { it.copy(qrMessage = null) }
+        _uiState.update { it.copy(qrMessageRes = null) }
     }
 
     fun saveObsSettings() {
@@ -127,11 +129,18 @@ data class SettingsUiState(
     val useTls: Boolean = false,
     val isSaving: Boolean = false,
     val qrInput: String = "",
-    val qrMessage: String? = null,
+
+    /**
+     * Ressourcen-ID (`@StringRes`) der lokalisierten QR-Fehlermeldung —
+     * erst im Composable per `stringResource` aufgelöst (i18n-plan §4).
+     */
+    val qrMessageRes: Int? = null,
 )
 
 /** Ergebnis des QR-Code-Imports in die OBS-Settings. */
 sealed interface QrImportResult {
     data class Success(val data: ObsQrCodeData) : QrImportResult
-    data class Error(val message: String) : QrImportResult
+
+    /** Fehler mit Ressourcen-ID der lokalisierten Meldung. */
+    data class Error(@StringRes val messageRes: Int) : QrImportResult
 }

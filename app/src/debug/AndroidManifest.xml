@@ -7,7 +7,8 @@
     <!-- Screenshots auf externem Speicher (nur für API ≤ 18 nötig) -->
     <uses-permission
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
-        android:maxSdkVersion="18" />
+        android:maxSdkVersion="18"
+        tools:node="merge" />
 
     <!-- LocaleTestRule wechselt die Gerätesprache -->
     <uses-permission

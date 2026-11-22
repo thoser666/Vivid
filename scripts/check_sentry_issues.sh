@@ -20,6 +20,17 @@
 #
 # Verdicts (bewusst KEIN Gate-Blocker — fehlender Token/Netz ist neutral):
 #   OK     — N Issue(s) neu als GitHub-Issue erstellt / alle bereits erfasst
+#            Vor der Summary steht je bereits erfasster Gruppe eine Zeile
+#            `RECORDED_GROUP: <shortId> | <lastSeen> | <Events> | <Titel>`
+#            (neueste zuerst) — sonst bliebe die Ereignisebene unsichtbar: ein
+#            Report, der weiter feuert, zaehlt in derselben Zahl wie ein ruhiger.
+#            Dazu je erfasster Gruppe eine Zeile
+#            `RELEASE_AGE: <shortId> | <release> | <Abstand> | <newest|behind|stale>`:
+#            der versionCode des Latest-Events gegen den neuesten Code im Satz.
+#            lastSeen sagt nur, DASS ein Report feuert; der Abstand sagt, ob er
+#            auf einem veralteten Build feuert (§5.19/§5.20). Schwelle fuer
+#            `stale` = SENTRY_RELEASE_AGE_STALE (Default 50 Codes); eine
+#            unlesbare Spur bleibt `unknown` und ist kein Blocker.
 #   SKIP   — kein Sentry-Token, kein GitHub-Token, HTTP 401/403/Netz
 #   FEHLER — unverständliche API-Antwort oder Aufruf-Fehler (exit 1)
 #
@@ -38,6 +49,50 @@
 #   getstatus      — simulierter Sentry-HTTP-Code (Default 200)
 #   gh_getstatus   — simulierter GitHub-Listen-HTTP-Code (Default 200)
 #   ghstatus       — simulierter GitHub-Erstell-HTTP-Code (Default 201)
+#   event_<sid>.json  — Latest-Event-Antwort (200 → Release-Spur im Body)
+#   eventstatus_<sid> — simulierter HTTP-Code für den Event-Call (z.B. 403)
+#   gh_commentstatus  — simulierter HTTP-Code für den Rollup-Kommentar (Default 201)
+#
+# Kamera-Klasse (docs/sentry-issues.md §5.10): die Varianten dieser Klasse
+# (idlePreview-Flag, Kamera-Id, obfuskierter Namens-Prefix, „recover exhausted“)
+# sind je eine eigene Sentry-Gruppe — als Einzel-Issues entsteht daraus
+# Beleg-Rauschen (36 offene Issues aus einer Gerätequelle). Diese Klasse bekommt
+# EIN Sammel-Issue: neue Varianten werden dort als Kommentar ergänzt, die
+# Dedup-Marker der enthaltenen Gruppen stehen im Body des Sammel-Issues. Die
+# Sentry-Gruppe bleibt unangetastet — die Sichtbarkeit aus §5.9/§5.10 gilt
+# weiter, nur eben gebündelt. Ausgenommen bleiben die in §5.10 benannten echten
+# Defekte (CAMERA_DISCONNECTED, fehlgeschlagene Konfiguration): sie werden
+# weiterhin als Einzel-Issue eröffnet.
+#
+# --print-event-tags SID[,SID…] — read-only Diagnosemodus: zieht pro SID das
+# Latest-Event und druckt eine `EVENT_TAGS <sid>: k=v, …`-Zeile (Release-Spur
+# für Befundkommentare, z.B. zum Auflösen der Build-Identität). Ohne
+# GitHub-Aufrufe, ohne Token-Ausgabe; nutzt dieselben Endpunkte/Fixtures wie
+# die Anreicherung oben. Neutraler SKIP (exit 0) bei fehlendem Token oder
+# unlesbarer Antwort — FEHLER (exit 1) nur bei fehlender/ungültiger SID-Liste.
+# Body-Anreicherung: pro neuem Issue zusätzlich die Stack-Spur aus demselben
+# Latest-Event — Culprit plus die drei neuesten Frames (in_app markiert), als
+# `- **Stack (Latest-Event):** …`-Zeile direkt unter der Release-Spur. Der
+# bisherige Body trug nur den Top-Frame aus den Issue-Metadaten; die
+# Zuordnung brauchte damit immer den Sentry-Zugriff, der beim lokalen Token
+# mit HTTP 403 endet (#445). Beide Event-Formen werden gelesen (Exception-
+# Kette und Thread-Dump), nicht lesbar ⇒ Fallback-Zeile ohne Blocker.
+#
+# --attach-event-stack SID[,SID…] — dauerhafter Event-Zugriff: zieht pro SID
+# denselben Stack wie --print-event-stack und hängt ihn als Kommentar an das
+# GitHub-Issue, das den Dedup-Marker `<!-- vivid-sentry-issue: <sid> -->`
+# trägt. Hintergrund: lokal endet der Event-Call am Issue-Token mit HTTP 403
+# (der Token hat keine event:read-Scope), das CI-Secret des Watchdogs kann es.
+# Damit die Frames nicht im Run-Log versanden, wird der Kommentar idempotent
+# über `<!-- vivid-event-stack: <sid> -->` gesetzt (zweiter Lauf ergänzt
+# nichts). Neutrale SKIP-Zeilen (exit 0) bei fehlendem Event-Token, unlesbarem
+# Stack, fehlendem Issue oder fehlender GitHub-Schreibscope; FEHLER (exit 1)
+# nur bei fehlender/ungültiger SID-Liste.
+#
+# Event-Token: SENTRY_EVENTS_TOKEN → `events.token` in sentry.properties →
+# bisherige Kette. Die Issues-Liste bleibt auf dem Issue-Token (project:read).
+#
+# Quelle des Tokens wie immer: SENTRY_ISSUES_TOKEN → issues.token → …
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -52,12 +107,36 @@ GH_API="https://api.github.com"
 
 dryrun=0
 print_src=0
+print_tags=0
+tags_sids=""
+print_stack=0
+stack_sids=""
+attach_stack=0
+attach_sids=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --dry-run) dryrun=1; shift ;;
     --print-token-source) print_src=1; shift ;;
+    --print-event-tags)
+      print_tags=1
+      shift
+      tags_sids="${1:-}"
+      if [ $# -gt 0 ]; then shift; fi
+      ;;
+    --print-event-stack)
+      print_stack=1
+      shift
+      stack_sids="${1:-}"
+      if [ $# -gt 0 ]; then shift; fi
+      ;;
+    --attach-event-stack)
+      attach_stack=1
+      shift
+      attach_sids="${1:-}"
+      if [ $# -gt 0 ]; then shift; fi
+      ;;
     *)
-      echo "FEHLER: unbekanntes Argument: $1 (Aufruf: scripts/check_sentry_issues.sh [--dry-run] [--print-token-source])"
+      echo "FEHLER: unbekanntes Argument: $1 (Aufruf: scripts/check_sentry_issues.sh [--dry-run] [--print-token-source] [--print-event-tags SID[,SID…]] [--print-event-stack SID[,SID…]] [--attach-event-stack SID[,SID…]])"
       exit 1 ;;
   esac
 done
@@ -99,6 +178,378 @@ elif [ -z "$FIXTURE" ] && [ -f "$PROPS" ]; then
 fi
 if [ "$print_src" = "1" ]; then
   echo "TOKEN_SOURCE=$source"
+  exit 0
+fi
+
+# ── Event-Token (eigene Scope) ────────────────────────────────────────────
+# Events brauchen `event:read`; der Issue-Token hat das oft nicht (HTTP 403
+# lokal, das CI-Secret schon). Vorrang: SENTRY_EVENTS_TOKEN → events.token in
+# sentry.properties → bisherige Kette. Die Issues-Liste bleibt bewusst auf dem
+# Issue-Token (project:read), ein reiner event:read-Token würde sie brechen.
+events_token="$token"
+if [ "${SENTRY_EVENTS_TOKEN+x}" = "x" ]; then
+  events_token="$SENTRY_EVENTS_TOKEN"
+elif [ -z "$FIXTURE" ] && [ -f "$PROPS" ]; then
+  et=$(grep -E '^events\.token=' "$PROPS" 2>/dev/null | tail -1 | cut -d= -f2- \
+    | tr -d '\r' | sed 's/^"\(.*\)"$/\1/' || true)
+  [ -n "$et" ] && events_token="$et"
+fi
+
+# ── Read-only Diagnosemodus: Event-Tags pro SID (kein GitHub-Zugriff) ──────
+if [ "$print_tags" = "1" ]; then
+  # Der Token unten wird für die Event-Calls auf die Event-Scope-Instanz
+  # umgestellt: dieser Modus liest nur Events, nie die Issues-Liste.
+  token="$events_token"
+  if [ -z "$token" ]; then
+    echo "SKIP: kein Sentry-Lese-Token — SENTRY_ISSUES_TOKEN setzen oder issues.token in sentry.properties ablegen (Token-Erstellung: $DOCS_HINT)"
+    exit 0
+  fi
+  if [ -z "$tags_sids" ]; then
+    echo "FEHLER: --print-event-tags benötigt eine kommagetrennte SID-Liste (Aufruf: scripts/check_sentry_issues.sh --print-event-tags 7806859006,7806863798)"
+    exit 1
+  fi
+  for sid in $(printf '%s' "$tags_sids" | tr ',' ' '); do
+    case "$sid" in
+      ''|*[!0-9]*)
+        echo "EVENT_TAGS $sid: SKIP (ungültige SID — nur Ziffern erlaubt)"
+        continue ;;
+    esac
+    evstatus=""
+    evfile="$tmp/event_print.json"
+    if [ -n "$FIXTURE" ]; then
+      if [ -f "$FIXTURE/event_${sid}.json" ]; then
+        evstatus=200
+        cp "$FIXTURE/event_${sid}.json" "$evfile"
+      elif [ -f "$FIXTURE/eventstatus_${sid}" ]; then
+        evstatus=$(tr -d '[:space:]' < "$FIXTURE/eventstatus_${sid}")
+      else
+        echo "EVENT_TAGS $sid: SKIP (kein Event-Fixture für diese SID)"
+        continue
+      fi
+    else
+      evstatus=$(curl -sS -o "$evfile" -w '%{http_code}' \
+        -H "Authorization: Bearer $token" \
+        "$API/issues/$sid/events/latest/" 2>/dev/null || true)
+      [ -n "$evstatus" ] || evstatus=000
+    fi
+    SID="$sid" EVSTATUS="$evstatus" EVENTFILE="$evfile" python -X utf8 - 2>/dev/null <<'PYTAGS' || true
+import json, os, sys
+
+# Gleiches Tag-Set wie die Anreicherung (§3): Versions-Spur + Umfeld-Tags;
+# das release-Objekt füllt release/dist, falls die Tags fehlen.
+ALLOWED = ["app.version_code", "app.version", "release", "dist", "os", "device", "environment"]
+
+def tag_pairs(t):
+    out = {}
+    if isinstance(t, dict):
+        out = {str(k): str(v) for k, v in t.items()}
+    elif isinstance(t, list):
+        for e in t:
+            if isinstance(e, dict) and "key" in e:
+                out[str(e.get("key"))] = str(e.get("value") or "")
+            elif isinstance(e, (list, tuple)) and len(e) == 2:
+                out[str(e[0])] = str(e[1])
+    return out
+
+sid = os.environ["SID"]
+status = os.environ["EVSTATUS"]
+if status != "200":
+    print("EVENT_TAGS %s: not readable (HTTP %s)" % (sid, status))
+    sys.exit(0)
+try:
+    ev = json.load(open(os.environ["EVENTFILE"], encoding="utf-8"))
+except Exception:
+    print("EVENT_TAGS %s: not readable (HTTP 200, invalid JSON)" % sid)
+    sys.exit(0)
+if not isinstance(ev, dict):
+    print("EVENT_TAGS %s: not readable (HTTP 200, non-object payload)" % sid)
+    sys.exit(0)
+tags = tag_pairs(ev.get("tags"))
+rel = ev.get("release")
+if isinstance(rel, dict):
+    tags.setdefault("release", str(rel.get("version") or ""))
+    tags.setdefault("dist", str(rel.get("dist") or ""))
+vals = []
+for k in ALLOWED:
+    v = (tags.get(k) or "").strip()
+    if v and v.lower() != "unknown":
+        vals.append("%s=%s" % (k, v))
+if vals:
+    print("EVENT_TAGS %s: %s" % (sid, ", ".join(vals[:12])[:500]))
+else:
+    print("EVENT_TAGS %s: HTTP 200 without claimed tags" % sid)
+PYTAGS
+  done
+  exit 0
+fi
+
+# ── Read-only Diagnosemodus: Exception-/Thread-Stack pro SID (kein GitHub) ──
+# Attribution nach §5.1 braucht den Stack, nicht nur die Versions-Spur. Der
+# lokale Token hat oft keine Event-Lesescope (403), das CI-Secret schon —
+# deshalb derselbe Weg wie --print-event-tags: gleiche Endpunkte, gleiche
+# Fixtures, Ausgabe ohne Token. Gedruckt wird die Kette des LATEST-Events
+# (neueste Frames zuerst), in_app-Frames markiert; bei ANR/nativen Events
+# ohne Exception-Entry stattdessen der gecrashte bzw. aktuelle Thread.
+if [ "$print_stack" = "1" ]; then
+  # Wie --print-event-tags: nur Event-Calls, deshalb Token auf Event-Scope.
+  token="$events_token"
+  if [ -z "$token" ]; then
+    echo "SKIP: kein Sentry-Lese-Token — SENTRY_ISSUES_TOKEN setzen oder issues.token in sentry.properties ablegen (Token-Erstellung: $DOCS_HINT)"
+    exit 0
+  fi
+  if [ -z "$stack_sids" ]; then
+    echo "FEHLER: --print-event-stack benötigt eine kommagetrennte SID-Liste (Aufruf: scripts/check_sentry_issues.sh --print-event-stack 7821630074,7821627754)"
+    exit 1
+  fi
+  for sid in $(printf '%s' "$stack_sids" | tr ',' ' '); do
+    case "$sid" in
+      ''|*[!0-9]*)
+        echo "EVENT_STACK $sid: SKIP (ungültige SID — nur Ziffern erlaubt)"
+        continue ;;
+    esac
+    evstatus=""
+    evfile="$tmp/event_stack_print.json"
+    if [ -n "$FIXTURE" ]; then
+      if [ -f "$FIXTURE/event_${sid}.json" ]; then
+        evstatus=200
+        cp "$FIXTURE/event_${sid}.json" "$evfile"
+      elif [ -f "$FIXTURE/eventstatus_${sid}" ]; then
+        evstatus=$(tr -d '[:space:]' < "$FIXTURE/eventstatus_${sid}")
+      else
+        echo "EVENT_STACK $sid: SKIP (kein Event-Fixture für diese SID)"
+        continue
+      fi
+    else
+      evstatus=$(curl -sS -o "$evfile" -w '%{http_code}'         -H "Authorization: Bearer $token"         "$API/issues/$sid/events/latest/" 2>/dev/null || true)
+      [ -n "$evstatus" ] || evstatus=000
+    fi
+    SID="$sid" EVSTATUS="$evstatus" EVENTFILE="$evfile" python -X utf8 - 2>/dev/null <<'PYSTACK' || true
+import json, os, sys
+
+# Stack-Spur für die Attributionspflicht (§5.1). Beide Event-Formen werden
+# gelesen: entries[type=exception] (Java/Kotlin-Crash, ANR-Report) und
+# entries[type=threads] (native Aborts, Thread-Dumps). Frames stehen in
+# Sentry-Reihenfolge (ältester zuerst) — gedruckt wird umgekehrt, damit der
+# Auslöser oben steht.
+sid = os.environ["SID"]
+status = os.environ["EVSTATUS"]
+if status != "200":
+    print("EVENT_STACK %s: not readable (HTTP %s)" % (sid, status))
+    sys.exit(0)
+try:
+    ev = json.load(open(os.environ["EVENTFILE"], encoding="utf-8"))
+except Exception:
+    print("EVENT_STACK %s: not readable (HTTP 200, invalid JSON)" % sid)
+    sys.exit(0)
+if not isinstance(ev, dict):
+    print("EVENT_STACK %s: not readable (HTTP 200, non-object payload)" % sid)
+    sys.exit(0)
+
+def frames_of(stacktrace):
+    out = []
+    for f in (stacktrace or {}).get("frames") or []:
+        if not isinstance(f, dict):
+            continue
+        loc = f.get("filename") or f.get("module") or "?"
+        fn = f.get("function") or "?"
+        ln = f.get("lineno")
+        mark = " [in_app]" if f.get("in_app") else ""
+        out.append("%s:%s in %s%s" % (loc, "?" if ln is None else ln, fn, mark))
+    return out
+
+values = []
+for entry in ev.get("entries") or []:
+    if not isinstance(entry, dict):
+        continue
+    if entry.get("type") == "exception":
+        data = entry.get("data") or {}
+        for v in data.get("values") or []:
+            if isinstance(v, dict):
+                values.append(v)
+    elif entry.get("type") == "threads":
+        data = entry.get("data") or {}
+        threads = [t for t in (data.get("values") or []) if isinstance(t, dict)]
+        picked = [t for t in threads if t.get("crashed")]
+        if not picked:
+            picked = [t for t in threads if t.get("current")]
+        if not picked:
+            picked = threads[:1]
+        for t in picked:
+            values.append({"type": "Thread",
+                           "value": t.get("name") or t.get("id") or "?",
+                           "stacktrace": t.get("stacktrace")})
+
+if not values:
+    print("EVENT_STACK %s: HTTP 200 without exception/thread stack" % sid)
+    sys.exit(0)
+
+print("EVENT_STACK %s: %d exception(s)/thread(s)" % (sid, len(values)))
+for v in values[:3]:
+    typ = str(v.get("type") or "Throwable")
+    val = str(v.get("value") or "")
+    print("  %s: %s" % (typ, val[:200]))
+    for i, line in enumerate(reversed(frames_of(v.get("stacktrace"))[-15:]), 1):
+        print("    #%-2d %s" % (i, line[:220]))
+def _classify_deobfuscation(values):
+    r8 = vivid = total = 0
+    for v in values:
+        for f in (v.get("stacktrace") or {}).get("frames") or []:
+            if not isinstance(f, dict):
+                continue
+            total += 1
+            # Alle String-Felder des Frames absuchen statt einen Key zu raten:
+            # die r8-Id steht je nach SDK-Version in module, filename oder
+            # abs_path. Der erste Anlauf las nur module/filename und meldete
+            # fuer alle fuenf Feld-SIDs "no-app-frames", obwohl deren Frames
+            # nachweislich r8-map-id-Traeger sind — ein still falsches Gruen.
+            blob = " ".join(v for v in f.values() if isinstance(v, str))
+            if "r8-map-id-" in blob:
+                r8 += 1
+            if "com.vivid" in blob:
+                vivid += 1
+    if vivid:
+        return "mapped", r8, vivid, total
+    if r8:
+        return "obfuscated", r8, vivid, total
+    if total:
+        return "no-app-frames", r8, vivid, total
+    return "no-frames", r8, vivid, total
+
+# Gegencheck zum Mapping-Upload (§5.9): ob Sentry die Frames dieses Events
+# aufloesen kann, ist an den Frames selbst ablesbar — ein Build ohne
+# hochgeladenes Mapping traegt `r8-map-id-…`-Module und Ein-Buchstaben-Namen,
+# ein Build mit Mapping `com.vivid.…`-Klassen.
+_state, _r8, _vivid, _total = _classify_deobfuscation(values)
+print("EVENT_DEOBFUSCATION %s: %s (%d r8-map-id frame(s), %d com.vivid frame(s), %d frame(s) total)"
+      % (sid, _state, _r8, _vivid, _total))
+PYSTACK
+  done
+  exit 0
+fi
+
+# ── Stack als Nachtrag ans zugeordnete GitHub-Issue ───────────────────────
+# Der lokale `issues.token` scheitert an der Event-API mit HTTP 403, das
+# CI-Secret nicht. Damit die Frames nicht im Run-Log versanden, holt dieser
+# Modus denselben Stack (`--print-event-stack`) und kommentiert ihn am Issue,
+# das den Dedup-Marker `<!-- vivid-sentry-issue: <sid> -->` trägt. Idempotent
+# über `<!-- vivid-event-stack: <sid> -->`: ein zweiter Lauf ergänzt nichts.
+# Vertrag wie die übrigen Modi: fehlender Token / unlesbarer Stack / fehlendes
+# Issue ⇒ SKIP-Zeile (exit 0); FEHLER (exit 1) nur bei fehlender SID-Liste.
+if [ "$attach_stack" = "1" ]; then
+  if [ -z "$events_token" ]; then
+    echo "SKIP: kein Event-Lese-Token — SENTRY_EVENTS_TOKEN (Scope event:read) oder events.token in sentry.properties setzen; das CI-Secret des Watchdogs hat die Scope ($DOCS_HINT)"
+    exit 0
+  fi
+  if [ -z "$attach_sids" ]; then
+    echo "FEHLER: --attach-event-stack benötigt eine kommagetrennte SID-Liste (Aufruf: scripts/check_sentry_issues.sh --attach-event-stack 7837272225,7849844885)"
+    exit 1
+  fi
+  if [ -z "${GITHUB_ISSUES_TOKEN:-}" ] && [ -z "$FIXTURE" ]; then
+    echo "SKIP: kein GitHub-Token (GITHUB_ISSUES_TOKEN) — der Nachtrag braucht issues:write ($DOCS_HINT)"
+    exit 0
+  fi
+  for sid in $(printf '%s' "$attach_sids" | tr ',' ' '); do
+    case "$sid" in
+      ''|*[!0-9]*)
+        echo "EVENT_STACK_ATTACH $sid: SKIP (ungültige SID — nur Ziffern erlaubt)"
+        continue ;;
+    esac
+    # Kind ohne Workdir starten: sonst raeumt dessen EXIT-Trap das Verzeichnis
+    # des aufrufenden Laufs weg (SENTRY_ISSUES_WORKDIR wird vererbt).
+    stack_text=$(SENTRY_ISSUES_WORKDIR= SENTRY_ISSUES_KEEP= \
+      bash "$0" --print-event-stack "$sid" 2>/dev/null || true)
+    case "$stack_text" in
+      ""|*"not readable"*|*"SKIP: kein Event-Lese-Token"*|*"SKIP (kein Event-Fixture"*)
+        echo "EVENT_STACK_ATTACH $sid: SKIP (Stack nicht lesbar — kein Kommentar angelegt)"
+        continue ;;
+    esac
+    # Issue-Nummer über den Dedup-Marker (state=all, Pull Requests ausgenommen).
+    ghfiles=""
+    if [ -n "$FIXTURE" ]; then
+      if [ -f "$FIXTURE/ghissues.json" ]; then ghfiles="$FIXTURE/ghissues.json"; fi
+      if [ -z "$ghfiles" ] && [ -f "$FIXTURE/issues.json" ]; then ghfiles="$FIXTURE/issues.json"; fi
+    else
+      for gp in 1 2 3; do
+        curl -sS -o "$tmp/attach_gh.$gp" -H "Authorization: Bearer ${GITHUB_ISSUES_TOKEN:-}" \
+          -H "Accept: application/vnd.github+json" \
+          "$GH_API/repos/$GH_REPO/issues?state=all&per_page=100&page=$gp" 2>/dev/null || true
+      done
+      ghfiles="$tmp/attach_gh.1 $tmp/attach_gh.2 $tmp/attach_gh.3"
+    fi
+    num=$(SID="$sid" python -X utf8 - $ghfiles 2>/dev/null <<'PYATTR' || true
+import json, os, re, sys
+
+sid = os.environ["SID"]
+pat = re.compile(r"vivid-sentry-issue:\s*%s(?!\d)" % re.escape(sid))
+for path in sys.argv[1:]:
+    try:
+        data = json.load(open(path, encoding="utf-8"))
+    except Exception:
+        continue
+    if not isinstance(data, list):
+        continue
+    for it in data:
+        if not isinstance(it, dict) or it.get("pull_request"):
+            continue
+        if it.get("number") and pat.search(str(it.get("body") or "")):
+            print(it["number"])
+            sys.exit(0)
+PYATTR
+)
+    if [ -z "$num" ]; then
+      echo "EVENT_STACK_ATTACH $sid: SKIP (kein GitHub-Issue mit Marker vivid-sentry-issue)"
+      continue
+    fi
+    # Idempotenz: derselbe Marker im Kommentar-Bestand? (state=all-Nachtrag)
+    if [ -n "$FIXTURE" ] && [ -f "$FIXTURE/comments_$num.json" ]; then
+      cfrag="$FIXTURE/comments_$num.json"
+    elif [ -n "$FIXTURE" ]; then
+      printf '[]' > "$tmp/comments_$num.json"
+      cfrag="$tmp/comments_$num.json"
+    else
+      cstatus=$(curl -sS -o "$tmp/comments_$num.json" -w '%{http_code}' \
+        -H "Authorization: Bearer ${GITHUB_ISSUES_TOKEN:-}" \
+        -H "Accept: application/vnd.github+json" \
+        "$GH_API/repos/$GH_REPO/issues/$num/comments?per_page=100" 2>/dev/null || true)
+      if [ "$cstatus" != "200" ]; then
+        echo "EVENT_STACK_ATTACH $sid: SKIP (Kommentarliste HTTP ${cstatus:-000})"
+        continue
+      fi
+      cfrag="$tmp/comments_$num.json"
+    fi
+    if grep -qF "<!-- vivid-event-stack: $sid -->" "$cfrag" 2>/dev/null; then
+      echo "EVENT_STACK_ATTACH $sid: vorhanden (in #$num) — nichts ergänzt"
+      continue
+    fi
+    SID="$sid" STACK_TEXT="$stack_text" python -X utf8 - > "$tmp/attach_$sid.json" <<'PYATTR2'
+import json, os
+
+sid = os.environ["SID"]
+text = os.environ.get("STACK_TEXT", "").rstrip()
+body = ("<!-- vivid-event-stack: %s -->\n"
+        "## Event stack (latest event, Sentry `%s`)\n\n"
+        "Gezogen mit einem Token mit `event:read` (docs/sentry-issues.md §1/§4): "
+        "der lokale `issues.token` scheitert an der Event-API mit HTTP 403, das "
+        "CI-Secret des Watchdogs nicht.\n\n"
+        "```\n%s\n```\n") % (sid, sid, text)
+print(json.dumps({"body": body}))
+PYATTR2
+    if [ -n "$FIXTURE" ]; then
+      poststatus=$(cat "$FIXTURE/gh_commentstatus" 2>/dev/null || echo 201)
+    else
+      poststatus=$(curl -sS -o "$tmp/attach_post_$sid.json" -w '%{http_code}' \
+        -X POST -H "Authorization: Bearer ${GITHUB_ISSUES_TOKEN:-}" \
+        -H "Accept: application/vnd.github+json" -H "Content-Type: application/json" \
+        -d @"$tmp/attach_$sid.json" \
+        "$GH_API/repos/$GH_REPO/issues/$num/comments" 2>/dev/null || true)
+      [ -n "$poststatus" ] || poststatus=000
+    fi
+    case "$poststatus" in
+      200|201) echo "EVENT_STACK_ATTACH $sid: kommentiert in #$num" ;;
+      401|403) echo "SKIP: GitHub-Token ohne issues:write — Nachtrag übersprungen ($DOCS_HINT)"; exit 0 ;;
+      *) echo "EVENT_STACK_ATTACH $sid: SKIP (Kommentar HTTP $poststatus)" ;;
+    esac
+  done
   exit 0
 fi
 
@@ -199,6 +650,18 @@ out_a=$(SENTRY_ISSUES_FRAG_FILES="$frag_files" \
   SENTRY_ISSUES_TMP="$tmp" python -X utf8 - 2>/dev/null <<'PY' || rc=$?
 import json, os, re, sys
 
+# Kamera-Klasse (§5.10): gebündelt statt ein Issue pro Variante. Die
+# Dedup-Marker der Mitglieder stehen im Body des Sammel-Issues, damit die
+# bestehende Dedup-Logik sie ohne Sonderfall als "bereits erfasst" liest.
+ROLLUP_MARKER = "<!-- vivid-sentry-camera-rollup -->"
+CAMERA_RE = re.compile(
+    r"(Camera no detected|Open camera [^\n]*failed|Camera error \(|"
+    r"Camera recover exhausted|Idle camera:|CAMERA_DISCONNECTED)")
+# Ausnahmen (§5.10): ein getrenntes Kameragerät und eine fehlgeschlagene
+# Konfiguration sind echte Defekte, keine Gerätezustands-Variante — sie bleiben
+# Einzel-Issues, damit der Fehler nicht im Sammel-Issue verschwindet.
+CAMERA_EXCEPTION_RE = re.compile(r"(CAMERA_DISCONNECTED|Configuration failed)")
+
 frag_files = [f for f in os.environ["SENTRY_ISSUES_FRAG_FILES"].split() if f]
 gh_files = [f for f in os.environ["SENTRY_ISSUES_GH_FILES"].split() if f]
 
@@ -218,6 +681,7 @@ for f in frag_files:
     issues.extend(load_json(f, "Sentry-Issues"))
 
 existing_markers = set()
+rollup_number = ""
 for f in gh_files:
     for it in load_json(f, "GitHub-Issues"):
         if not isinstance(it, dict):
@@ -227,14 +691,17 @@ for f in gh_files:
         body = str(it.get("body") or "")
         for m in re.finditer(r"vivid-sentry-issue:\s*(\d+)", body):
             existing_markers.add(m.group(1))
+        if ROLLUP_MARKER in body and it.get("number"):
+            rollup_number = it.get("number")
 
 MARKER_TEMPLATE = "<!-- vivid-sentry-issue: %s -->"
-
 def norm_head(s):
     return " ".join((s or "").split())
 
 candidates = []
+rollup_rows = []
 already_reported = 0
+recorded_rows = []
 for it in issues:
     if not isinstance(it, dict):
         continue
@@ -243,6 +710,17 @@ for it in issues:
     sid = str(it.get("id", "?"))
     if sid in existing_markers:
         already_reported += 1
+        # Ereignisebene (§5.17): fuer bereits erfasste Gruppen blieb lastSeen
+        # bisher unsichtbar — eine Gruppe, die weiter feuert, sah im Lauf wie
+        # Ruhe aus. Die Felder werden hier direkt gelesen, weil die ausfuehrliche
+        # Auswertung erst nach dem Dedup-Zweig folgt.
+        recorded_rows.append({
+            "sid": sid,
+            "short": str(it.get("shortId") or ("SID-" + sid)),
+            "last": str(it.get("lastSeen") or "-"),
+            "count": str(it.get("count") or "0"),
+            "title": norm_head(str(it.get("title") or "Unbekannter Fehler"))[:150],
+        })
         continue
     title = str(it.get("title") or "Unbekannter Fehler")
     if len(title) > 120:
@@ -262,6 +740,14 @@ for it in issues:
     users = str(it.get("userCount") or "0")
     first = str(it.get("firstSeen") or "-")
     last = str(it.get("lastSeen") or "-")
+
+    # Kamera-Klasse: nicht als Einzel-Issue kandidieren lassen.
+    if ((CAMERA_RE.search(title) or CAMERA_RE.search(mvalue))
+            and not CAMERA_EXCEPTION_RE.search(title + " " + mvalue)):
+        rollup_rows.append({"sid": sid, "short": short, "title": norm_head(title),
+                            "level": level, "count": count, "users": users,
+                            "last": last, "permalink": permalink})
+        continue
 
     tag_line = ""
     allowed = {"os", "device", "dist", "environment", "release"}
@@ -325,8 +811,69 @@ out = os.environ["SENTRY_ISSUES_TMP"]
 for i, (sid, title, _last, payload) in enumerate(candidates, 1):
     with open(os.path.join(out, "issue_%d.json" % i), "w", encoding="utf-8") as fh:
         json.dump(payload, fh, ensure_ascii=False)
+    # sid-Übergabe an Phase B (Event-Tags-Anreicherung pro neuem Issue).
+    with open(os.path.join(out, "sid_%d.txt" % i), "w", encoding="utf-8") as fh:
+        fh.write(sid + "\n")
     print("CANDIDATE: %s → %s" % (sid, title))
 
+def _md_row(r):
+    return "| %s | %s | %s | %s | %s |" % (
+        r["short"], r["level"], r["count"], r["last"][:19],
+        r["title"].replace("|", "\\|")[:150])
+
+def _markers(rows):
+    return ["<!-- vivid-sentry-issue: %s -->" % r["sid"] for r in rows]
+
+if rollup_rows:
+    rollup_rows.sort(key=lambda r: r["last"])
+    table = ["| Sentry | Level | Events | Zuletzt | Titel |", "|---|---|---|---|---|"]
+    table += [_md_row(r) for r in rollup_rows]
+    head = [
+        ROLLUP_MARKER,
+        "",
+        "## Kamera-Klasse: ein Sammel-Issue (docs/sentry-issues.md §5.10)",
+        "",
+        "Alle offenen Sentry-Gruppen der Kamera-Klasse landen hier — statt in einem",
+        "eigenen Issue pro Variante (idlePreview-Flag, Kamera-Id, obfuskierter",
+        "Namens-Prefix). Die Klasse ist laut §5.10 erwarteter Gerätezustand auf dem",
+        "Entwicklungsgerät (V2454A) und kein App-Defekt; die Sichtbarkeit bleibt, weil",
+        "jede neue Variante hier als Kommentar auftaucht und die Sentry-Gruppe selbst",
+        "unangetastet bleibt (keine Ignore-Regel, kein Filtern — §5.9).",
+        "",
+        "Der stündliche Watchdog hängt neue Varianten an dieses Issue an, statt ein",
+        "Einzel-Issue zu eröffnen.",
+        "",
+    ]
+    tail = ["", "## Erfasste Gruppen (Dedup-Marker)", "",
+            "<details><summary>Marker</summary>", ""] + _markers(rollup_rows) + ["", "</details>"]
+    with open(os.path.join(os.environ["SENTRY_ISSUES_TMP"], "rollup_body.json"),
+              "w", encoding="utf-8") as fh:
+        json.dump({"title": "[Sentry] Kamera-Klasse: Sammel-Issue (docs/sentry-issues.md §5.10)",
+                   "body": "\n".join(head + table + tail), "labels": ["sentry"]}, fh,
+                  ensure_ascii=False)
+    comment = (["Neue Kamera-Gruppen aus diesem Watchdog-Lauf:", ""] + table +
+               ["", "<details><summary>Dedup-Marker</summary>", ""] +
+               _markers(rollup_rows) + ["", "</details>"])
+    with open(os.path.join(os.environ["SENTRY_ISSUES_TMP"], "rollup_comment.json"),
+              "w", encoding="utf-8") as fh:
+        json.dump({"body": "\n".join(comment)}, fh, ensure_ascii=False)
+    for r in rollup_rows:
+        print("ROLLUP_ROW: %s → %s" % (r["sid"], r["title"]))
+
+print("CAMERA_ROLLUP=%d" % len(rollup_rows))
+print("ROLLUP_ISSUE=%s" % rollup_number)
+if recorded_rows:
+    recorded_rows.sort(key=lambda r: r["last"], reverse=True)
+    for r in recorded_rows:
+        print("RECORDED_GROUP: %s | %s | %s | %s" % (
+            r["short"], r["last"][:19], r["count"], r["title"]))
+    # SID-Zuordnung fuer die Release-Alter-Phase (Bash kann nicht zurueckfragen):
+    # eine Zeile `<shortId> <sid>` je erfasster Gruppe.
+    # newline="\n": Windows-Textmodus schriebe CRLF, und die SID-Liste der
+    # Alter-Phase wuerde am \r scheitern (nur die letzte SID bliebe gueltig).
+    with open(os.path.join(out, "recorded_refs.txt"), "w", encoding="utf-8", newline="\n") as fh:
+        for r in recorded_rows:
+            fh.write("%s %s\n" % (r["short"], r["sid"]))
 print("Sentry: %d unresolved geprüft | bereits erfasst: %d | neu: %d" % (
     len(issues), already_reported, len(candidates)))
 print("WOULD_ISSUE=%d" % len(candidates))
@@ -350,20 +897,266 @@ if [ -z "$count" ]; then
   exit 1
 fi
 
-if [ "$count" = "0" ]; then
+# Kamera-Klasse (§5.10): Anzahl der Gruppen für das Sammel-Issue + dessen Nummer,
+# falls es bereits existiert (dann Kommentar statt Neuanlage).
+rollup_count=$(printf '%s\n' "$out_a" | grep -o 'CAMERA_ROLLUP=[0-9]*' | cut -d= -f2)
+if [ -z "$rollup_count" ]; then
+  echo "FEHLER: Phase-A-Output ohne CAMERA_ROLLUP-Marker — Script-Formatbruch?"
+  exit 1
+fi
+rollup_issue=$(printf '%s\n' "$out_a" | grep -o 'ROLLUP_ISSUE=[0-9]*' | cut -d= -f2 || true)
+
+# ── Release-Alter je erfasster Gruppe (read-only, §5.19/§5.20) ────────────
+# lastSeen sagt nur, DASS ein Report feuert. Der versionCode des Latest-Events
+# gegen den neuesten Code im Satz sagt, ob er auf einem veralteten Build feuert —
+# genau der Fall, der bei VIVID-57 (§5.20) nur ueber einen manuellen Dispatch
+# auffiel. Gelesen wird derselbe Endpunkt wie --print-event-tags (Fixture-faehig,
+# kein GitHub-Zugriff); nicht lesbar ⇒ `unknown`, nie ein Blocker.
+if [ -s "$tmp/recorded_refs.txt" ] && [ -n "$token" ]; then
+  age_sids=$(cut -d' ' -f2 "$tmp/recorded_refs.txt" | tr -d '\r' | paste -sd, -)
+  if [ -n "$age_sids" ]; then
+    bash "$0" --print-event-tags "$age_sids" > "$tmp/recorded_tags.txt" 2>/dev/null || true
+    SHORTMAP="$tmp/recorded_refs.txt" AGEFILE="$tmp/recorded_tags.txt" \
+      STALE_CODES="${SENTRY_RELEASE_AGE_STALE:-50}" python -X utf8 - 2>/dev/null <<'PYAGE' || true
+import os, re
+
+def short_map(path):
+    out = {}
+    try:
+        for line in open(path, encoding="utf-8"):
+            parts = line.split()
+            if len(parts) >= 2:
+                out[parts[1]] = parts[0]
+    except OSError:
+        return out
+    return out
+
+short_of = short_map(os.environ["SHORTMAP"])
+rows = []
+try:
+    tag_lines = open(os.environ["AGEFILE"], encoding="utf-8").read().splitlines()
+except OSError:
+    tag_lines = []
+for line in tag_lines:
+    m = re.match(r"EVENT_TAGS (\d+): (.*)", line.strip())
+    if not m:
+        continue
+    sid, body = m.group(1), m.group(2)
+    short = short_of.get(sid, "SID-" + sid)
+    if body.startswith(("SKIP", "not readable", "HTTP 200")):
+        rows.append((short, "", None))
+        continue
+    kv = {}
+    for part in body.split(", "):
+        if "=" in part:
+            k, v = part.split("=", 1)
+            kv[k.strip()] = v.strip()
+    rel = kv.get("release") or ""
+    code = kv.get("app.version_code") or (rel.rsplit("+", 1)[-1] if "+" in rel else "")
+    try:
+        code_i = int(code)
+    except (TypeError, ValueError):
+        code_i = None
+    rows.append((short, rel, code_i))
+
+codes = [r[2] for r in rows if r[2] is not None]
+newest = max(codes) if codes else None
+try:
+    stale = int(os.environ.get("STALE_CODES") or 50)
+except ValueError:
+    stale = 50
+rows.sort(key=lambda r: (r[2] is None, -(r[2] or 0), r[0]))
+for short, rel, code in rows:
+    if code is None or newest is None:
+        print("RELEASE_AGE: %s | %s | - | unknown" % (short, rel or "-"))
+        continue
+    delta = newest - code
+    mark = "newest" if delta == 0 else ("stale" if delta >= stale else "behind")
+    print("RELEASE_AGE: %s | %s | %d | %s" % (short, rel or "-", delta, mark))
+PYAGE
+  fi
+fi
+
+if [ "$count" = "0" ] && [ "$rollup_count" = "0" ]; then
   echo "OK: 0 neue Sentry-Issues — alle unresolved Reports sind bereits als GitHub-Issue erfasst (Watchdog: nichts zu tun)"
   exit 0
 fi
 
 if [ "$dryrun" = "1" ]; then
   echo "OK (dry-run): $count Issue(s) würden neu als GitHub-Issue erstellt — keine Erstellung ausgeführt"
+  if [ "$rollup_count" != "0" ]; then
+    echo "OK (dry-run): $rollup_count Kamera-Gruppe(n) würden im Sammel-Issue erfasst — nichts angelegt/kommentiert"
+  fi
   exit 0
 fi
 
 # ── Phase B: GitHub-Issues erstellen (live) bzw. Status simulieren (Fixture) ──
 created=0
-for i in $(seq 1 "$count"); do
+enriched=0
+degraded=0
+for ((i = 1; i <= count; i++)); do
   payload="$tmp/issue_$i.json"
+  sid=$(cat "$tmp/sid_$i.txt" 2>/dev/null || true)
+
+  # ── Event-Tags (Release-Spur) nachziehen — CI-Workaround (docs/sentry-issues.md
+  # §3): derselbe SENTRY_ISSUES_TOKEN wie die Issues-Liste, ein Event-Call pro
+  # NEUEM Issue. Ein Token ohne Org-Mitgliedschaft/Event-Leserecht fällt weich
+  # aus (Fallback-Zeile im Body, kein Blocker — Watchdog-Verdicts bleiben
+  # OK/SKIP). Offline deterministisch: in Fixture-Modus nur bei
+  # event_<sid>.json (200) bzw. eventstatus_<sid> (simulierter Code).
+  evstatus=""
+  if [ -n "$FIXTURE" ]; then
+    if [ -f "$FIXTURE/event_${sid}.json" ]; then
+      evstatus=200
+      cp "$FIXTURE/event_${sid}.json" "$tmp/event_$i.json"
+    elif [ -f "$FIXTURE/eventstatus_${sid}" ]; then
+      evstatus=$(tr -d '[:space:]' < "$FIXTURE/eventstatus_${sid}")
+    fi
+  elif [ -n "$sid" ]; then
+          evstatus=$(curl -sS -o "$tmp/event_$i.json" -w '%{http_code}' \
+      -H "Authorization: Bearer $events_token" \
+      "$API/issues/$sid/events/latest/" 2>/dev/null || true)
+    [ -n "$evstatus" ] || evstatus=000
+  fi
+  if [ -n "$evstatus" ]; then
+    if EVSTATUS="$evstatus" EVENTFILE="$tmp/event_$i.json" \
+       PAYLOADFILE="$payload" python -X utf8 - 2>/dev/null <<'PYEVENT'
+import json, os, sys
+
+# Release-Spur aus dem Latest-Event: dieselbe Allowlist wie die Issue-Tags
+# (os/device/dist/environment/release) plus die Versions-Tags, die das SDK
+# seit 27.09.2026 (ea16fadc) setzt — app.version_code trägt den versionCode
+# der Crash-Sitzung, release/dist die versionName-Spur. Beide Event-Formen
+# werden gelesen: [[k, v], …] (Event-API) und [{key, value}, …] (Issue-API);
+# das release-Objekt füllt release/dist, falls die Tags fehlen.
+ALLOWED = ["app.version_code", "app.version", "release", "dist", "os", "device", "environment"]
+
+def tag_pairs(t):
+    out = {}
+    if isinstance(t, dict):
+        out = {str(k): str(v) for k, v in t.items()}
+    elif isinstance(t, list):
+        for e in t:
+            if isinstance(e, dict) and "key" in e:
+                out[str(e.get("key"))] = str(e.get("value") or "")
+            elif isinstance(e, (list, tuple)) and len(e) == 2:
+                out[str(e[0])] = str(e[1])
+    return out
+
+status = os.environ["EVSTATUS"]
+http = status  # unverfälscht: `status` wird unten für die Tag-Auswertung verfeinert
+line = None
+ev = None
+if status == "200":
+    try:
+        ev = json.load(open(os.environ["EVENTFILE"], encoding="utf-8"))
+    except Exception:
+        ev = None
+    if isinstance(ev, dict):
+        tags = tag_pairs(ev.get("tags"))
+        rel = ev.get("release")
+        if isinstance(rel, dict):
+            tags.setdefault("release", str(rel.get("version") or ""))
+            tags.setdefault("dist", str(rel.get("dist") or ""))
+        vals = []
+        for k in ALLOWED:
+            v = (tags.get(k) or "").strip()
+            if v and v.lower() != "unknown":
+                vals.append("%s=%s" % (k, v))
+        if vals:
+            line = "- **Release-Spur (Latest-Event):** %s" % (", ".join(vals[:8])[:300])
+        else:
+            line = "- **Release-Spur (Latest-Event):** HTTP 200 ohne belegte Tags"
+            status = "200-ohne-tags"
+    else:
+        line = "- **Release-Spur (Latest-Event):** nicht lesbar (HTTP 200, ungültiges JSON)"
+        status = "200-ungueltig"
+else:
+    line = ("- **Release-Spur (Latest-Event):** nicht lesbar (HTTP %s) — "
+            "Versions-Spur manuell ziehen (docs/sentry-issues.md §5.1)" % status)
+
+# Stack-Spur für den Body: dieselbe Kette wie --print-event-stack, gekürzt auf
+# Culprit + drei neueste Frames (Sentry liefert ältester zuerst). Ohne diese
+# Zeile bleibt der Body beim Top-Frame der Issue-Metadaten — für die
+# Attribution (§5.1) zu wenig, siehe #445.
+def stack_frames(stacktrace):
+    out = []
+    for f in (stacktrace or {}).get("frames") or []:
+        if not isinstance(f, dict):
+            continue
+        loc = f.get("filename") or f.get("module") or "?"
+        fn = f.get("function") or "?"
+        ln = f.get("lineno")
+        mark = " [in_app]" if f.get("in_app") else ""
+        out.append("%s:%s in %s%s" % (loc, "?" if ln is None else ln, fn, mark))
+    return out
+
+
+def headline_stack(event):
+    values = []
+    for entry in event.get("entries") or []:
+        if not isinstance(entry, dict):
+            continue
+        if entry.get("type") == "exception":
+            for v in (entry.get("data") or {}).get("values") or []:
+                if isinstance(v, dict):
+                    values.append(v)
+        elif entry.get("type") == "threads":
+            threads = [t for t in (entry.get("data") or {}).get("values") or []
+                       if isinstance(t, dict)]
+            picked = ([t for t in threads if t.get("crashed")]
+                      or [t for t in threads if t.get("current")] or threads[:1])
+            for t in picked:
+                values.append({"type": "Thread",
+                               "value": t.get("name") or t.get("id") or "?",
+                               "stacktrace": t.get("stacktrace")})
+    for v in values:
+        frames = stack_frames(v.get("stacktrace"))
+        if frames:
+            return v, frames
+    return (values[0] if values else {}), []
+
+
+stack_line = None
+if http == "200" and isinstance(ev, dict):
+    head, frames = headline_stack(ev)
+    if frames:
+        culprit = str(ev.get("culprit") or "").strip() or str(head.get("function") or "")
+        if not culprit:
+            culprit = "%s: %s" % (head.get("type") or "Throwable", head.get("value") or "")
+        stack_line = ("- **Stack (Latest-Event):** culprit `%s` — %s" % (
+            culprit.strip()[:160], " ← ".join(list(reversed(frames))[:3])))[:700]
+    else:
+        stack_line = ("- **Stack (Latest-Event):** HTTP 200 ohne Exception-/Thread-Frames "
+                      "(Zuordnung nur über den Permalink)")
+elif http == "200":
+    stack_line = "- **Stack (Latest-Event):** nicht lesbar (HTTP 200, ungültiges JSON)"
+else:
+    stack_line = ("- **Stack (Latest-Event):** nicht lesbar (HTTP %s) — Stack per CI-Input "
+                  "`event_stack` ziehen (docs/sentry-issues.md §4)" % http)
+
+with open(os.environ["PAYLOADFILE"], encoding="utf-8") as fh:
+    payload = json.load(fh)
+lines = str(payload.get("body") or "").split("\n")
+inserts = [x for x in (line, stack_line) if x]
+for idx, existing in enumerate(lines):
+    if existing.startswith("- **Zuletzt:**"):
+        lines[idx + 1:idx + 1] = inserts
+        break
+else:
+    lines.extend(inserts)
+payload["body"] = "\n".join(lines)
+with open(os.environ["PAYLOADFILE"], "w", encoding="utf-8") as fh:
+    json.dump(payload, fh, ensure_ascii=False)
+sys.exit(0 if status == "200" else 3)
+PYEVENT
+    then
+      enriched=$((enriched + 1))
+    else
+      degraded=$((degraded + 1))
+    fi
+  fi
+
   if [ -n "$FIXTURE" ]; then
     ghstatus=$(cat "$FIXTURE/ghstatus" 2>/dev/null || echo 201)
   else
@@ -386,5 +1179,42 @@ for i in $(seq 1 "$count"); do
   esac
 done
 
+# ── Kamera-Klasse: Sammel-Issue anlegen bzw. neue Varianten kommentieren ──
+if [ "$rollup_count" != "0" ]; then
+  if [ -n "$rollup_issue" ]; then
+    rp="$tmp/rollup_comment.json"
+    rurl="$GH_API/repos/$GH_REPO/issues/$rollup_issue/comments"
+    rfix="gh_commentstatus"
+    rkind="ergänzt"
+  else
+    rp="$tmp/rollup_body.json"
+    rurl="$GH_API/repos/$GH_REPO/issues"
+    rfix="ghstatus"
+    rkind="angelegt"
+  fi
+  if [ -n "$FIXTURE" ]; then
+    rstatus=$(cat "$FIXTURE/$rfix" 2>/dev/null || echo 201)
+    : > "$tmp/gh_rollup.json"
+  else
+    rstatus=$(curl -sS -o "$tmp/gh_rollup.json" -w '%{http_code}' \
+      -X POST -H "Authorization: Bearer ${GITHUB_ISSUES_TOKEN:-}" \
+      -H "Accept: application/vnd.github+json" -H "Content-Type: application/json" \
+      -d @"$rp" "$rurl" 2>/dev/null || echo 000)
+  fi
+  case "$rstatus" in
+    200|201)
+      rnum=$(grep -o '"number": *[0-9]*' "$tmp/gh_rollup.json" 2>/dev/null | head -1 | grep -o '[0-9]*' || true)
+      [ -n "$rnum" ] || rnum="${rollup_issue:-?}"
+      echo "ROLLUP: $rollup_count neue Kamera-Gruppe(n) → Sammel-Issue #$rnum $rkind"
+      ;;
+    401|403) skip_gh_status "$rstatus" ;;
+    422)
+      echo "FEHLER: GitHub lehnt Rollup-Payload ab (HTTP 422) — Sammel-Issue-Vertrag prüfen"
+      exit 1 ;;
+    *) skip_gh_status "$rstatus" ;;
+  esac
+fi
+
+echo "Event-Tags: $enriched Issue(s) mit Release-Spur angereichert, $degraded ohne Lesbarkeit (Fallback-Zeile im Body)."
 echo "OK: $created Issue(s) neu als GitHub-Issue erstellt (Watchdog) — Sentry-Triage labelt automatisch nach (severity/crash)."
 exit 0

@@ -43,4 +43,19 @@
         <item quantity="many">🔗 Chat partagé — %1$d chaînes</item>
         <item quantity="other">🔗 Chat partagé — %1$d chaînes</item>
     </plurals>
+    <!-- Intégration du canal Twitch : erreurs localisées (TwitchChannelViewModel/TwitchChannelClient),
+         visibles dans les réglages et l'écran de streaming -->
+    <string name="twitch_channel_error_not_configured">Le canal Twitch n\'est pas entièrement configuré.</string>
+    <string name="twitch_channel_error_load_failed">Les informations du canal Twitch n\'ont pas pu être chargées.</string>
+    <string name="twitch_channel_error_save_failed">Les informations du canal Twitch n\'ont pas pu être enregistrées.</string>
+    <string name="twitch_channel_error_client_not_configured">Le canal Twitch n\'est pas configuré. Le canal, le jeton OAuth et l\'ID client sont requis.</string>
+    <string name="twitch_channel_error_viewer_count_failed">Le nombre de téléspectateurs Twitch n\'a pas pu être chargé.</string>
+    <string name="twitch_channel_error_channel_resolve_failed">Le canal Twitch %1$s n\'a pas pu être résolu.</string>
+    <string name="twitch_channel_error_empty_fields">Le titre et la catégorie ne peuvent pas être tous les deux vides.</string>
+    <string name="twitch_channel_error_category_not_found">La catégorie Twitch "%1$s" est introuvable.</string>
+    <string name="twitch_channel_error_category_search_failed">La recherche de catégorie Twitch a échoué.</string>
+    <string name="twitch_channel_error_http_401">Authentification Twitch échouée (401). Vérifiez le jeton OAuth ou l\'ID client.</string>
+    <string name="twitch_channel_error_http_403">Twitch a refusé la requête (403). Le scope channel:manage:broadcast est requis pour les modifications.</string>
+    <string name="twitch_channel_error_http_429">Limite de débit Twitch atteinte (429).</string>
+    <string name="twitch_channel_error_http">Requête Twitch échouée (HTTP %1$s).</string>
 </resources>

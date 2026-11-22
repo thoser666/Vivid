@@ -41,6 +41,7 @@ class StreamingViewModelTest {
 
     private val engine = mockk<StreamingEngine>(relaxed = true) {
         every { streamingState } returns MutableStateFlow(StreamingState.Idle)
+        every { sceneComposition } returns MutableStateFlow(null)
     }
     private val launcher = mockk<StreamingServiceLauncher>(relaxed = true)
 
@@ -60,8 +61,10 @@ class StreamingViewModelTest {
     private val sceneRepository = mockk<SceneRepository> {
         every { scenesFlow } returns scenesState
         every { activeSceneIdFlow } returns activeSceneState
+        every { libraryInitializedFlow } returns MutableStateFlow(false)
         coEvery { saveScene(any()) } just Runs
         coEvery { deleteScene(any()) } just Runs
+        coEvery { setActiveScene(any()) } just Runs
     }
     private val sceneController = mockk<SceneController> {
         coEvery { applyScene(any()) } just Runs
@@ -77,14 +80,93 @@ class StreamingViewModelTest {
         every { privacyEnabledFlow } returns MutableStateFlow(false)
         every { faceBlurEnabledFlow } returns MutableStateFlow(false)
         every { fullFrameBlurEnabledFlow } returns MutableStateFlow(false)
+        every { environmentBlurEnabledFlow } returns MutableStateFlow(false)
         coEvery { setZones(any()) } just Runs
         coEvery { setPrivacyEnabled(any()) } just Runs
         coEvery { setFullFrameBlurEnabled(any()) } just Runs
+        coEvery { setEnvironmentBlurEnabled(any()) } just Runs
     }
 
     private fun viewModel(
         repository: SettingsRepository = repositoryWith(AppSettings()),
     ) = StreamingViewModel(engine, repository, launcher, sceneRepository, sceneController, autoSceneSwitcher, zoneRepository, StreamStartCoordinator(repository, engine, launcher, com.vivid.core.data.AndroidEncoderCapabilities()))
+
+    private fun prepareEditor() {
+        every { engine.sceneComposition } returns MutableStateFlow(null)
+        every { engine.scenePreviewSize() } returns (720 to 1280)
+        every { engine.currentSceneCameraId } returns "rear"
+    }
+
+    @Test
+    fun `editor previews without saving and cancel restores composition lens and automatic switching`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        prepareEditor()
+        every { autoSceneSwitcher.enabled } returns MutableStateFlow(true)
+        val vm = viewModel()
+        every { engine.isSceneEmpty() } returns true
+        vm.openSceneEditor(StreamScene(SCENE_DRAFT_ID, SCENE_DRAFT_NAME))
+        vm.editScene { rename(SCENE_CHANGED_NAME); duplicateSelected() }
+        assertEquals(2, vm.sceneEditor.value!!.composition.layers.size)
+        assertEquals(720, vm.sceneEditor.value!!.composition.canvasWidth)
+        coVerify(exactly = 0) { sceneRepository.saveScene(any()) }
+        vm.cancelSceneEditor()
+        assertNull(vm.sceneEditor.value)
+        verify { engine.setSceneComposition(null, animate = false); engine.selectLens("rear") }
+        io.mockk.verifyOrder { engine.setSceneEmpty(false); engine.setSceneEmpty(true) }
+        verify { autoSceneSwitcher.setEnabled(false); autoSceneSwitcher.setEnabled(true) }
+    }
+
+    @Test
+    fun `editor reuses live source identities and canvas rather than migrating the saved legacy scene again`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        prepareEditor()
+        val graph = com.vivid.core.data.SceneComposition(canvasWidth = 1920, canvasHeight = 1080,
+            sources = listOf(com.vivid.core.data.SceneSource("consented-screen", com.vivid.core.data.SceneSourceType.SCREEN_CAPTURE)),
+            layers = listOf(com.vivid.core.data.SceneLayer("screen-layer", "consented-screen")))
+        every { engine.sceneComposition } returns MutableStateFlow(graph)
+        val vm = viewModel()
+        vm.openSceneEditor(StreamScene(SCENE_DRAFT_ID, SCENE_DRAFT_NAME))
+        assertEquals(graph, vm.sceneEditor.value!!.composition)
+        vm.cancelSceneEditor()
+        verify { engine.setSceneComposition(graph, animate = false) }
+    }
+
+    @Test
+    fun `editor saves complete draft once and ignores further mutations while saving`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        prepareEditor()
+        val vm = viewModel()
+        vm.openSceneEditor(StreamScene(SCENE_DRAFT_ID, SCENE_DRAFT_NAME, streamKey = "keep"))
+        vm.editScene { rename(SCENE_CHANGED_NAME); duplicateSelected() }
+        val draft = vm.sceneEditor.value!!.scene
+        vm.saveSceneEditor()
+        vm.editScene { rename("Ignored") }
+        vm.cancelSceneEditor()
+        assertTrue(vm.sceneEditor.value!!.saving)
+        advanceUntilIdle()
+        coVerify(exactly = 1) { sceneRepository.saveScene(draft) }
+        coVerify { sceneRepository.setActiveScene(SCENE_DRAFT_ID) }
+        assertNull(vm.sceneEditor.value)
+        assertEquals("keep", draft.streamKey)
+    }
+
+    @Test
+    fun `failed editor save retains editable draft for retry`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        prepareEditor()
+        coEvery { sceneRepository.saveScene(any()) } throws java.io.IOException("Disk unavailable")
+        val vm = viewModel()
+        vm.openSceneEditor(StreamScene(SCENE_DRAFT_ID, SCENE_DRAFT_NAME))
+        vm.editScene { rename(SCENE_CHANGED_NAME) }
+        vm.saveSceneEditor()
+        advanceUntilIdle()
+        assertTrue(vm.sceneEditor.value!!.saveFailed)
+        assertEquals(SCENE_CHANGED_NAME, vm.sceneEditor.value!!.scene.name)
+        vm.editScene { rename("Retry") }
+        assertEquals("Retry", vm.sceneEditor.value!!.scene.name)
+        vm.cancelSceneEditor()
+        assertNull(vm.sceneEditor.value)
+    }
 
     @Test
     fun `startStream uses saved url with appended stream key`() = runTest {
@@ -523,6 +605,31 @@ class StreamingViewModelTest {
         }
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = [false, true])
+    fun `new scene starts without widgets before or after library initialization`(initialized: Boolean) = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        every { sceneRepository.libraryInitializedFlow } returns MutableStateFlow(initialized)
+        every { engine.activeSourceKind } returns MutableStateFlow(VideoSourceKind.CAMERA)
+        every { engine.activeReplayFile } returns null
+        val active = StreamScene("active", "Active", widgets = listOf(
+            com.vivid.core.data.SceneWidget("score", x = 30f, y = 40f),
+            com.vivid.core.data.SceneWidget("hidden", enabled = false),
+        ))
+        scenesState.value = listOf(active)
+        activeSceneState.value = active.id
+        val viewModel = viewModel(repositoryWith(AppSettings(widgetEnabled = true, widgetTemplate = "1:0")))
+
+        viewModel.saveScene("  New scene  ")
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { sceneRepository.saveScene(match {
+            it.id != active.id && it.name == "New scene" && it.widgets == emptyList<com.vivid.core.data.SceneWidget>()
+        }) }
+        assertEquals(listOf(active), scenesState.value)
+        assertEquals(active.id, activeSceneState.value)
+    }
+
     @Test
     fun `saveScene with a blank name is a no-op`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
@@ -641,6 +748,7 @@ class StreamingViewModelTest {
             every { privacyEnabledFlow } returns MutableStateFlow(true)
             every { faceBlurEnabledFlow } returns MutableStateFlow(false)
             every { fullFrameBlurEnabledFlow } returns MutableStateFlow(false)
+            every { environmentBlurEnabledFlow } returns MutableStateFlow(false)
             coEvery { setZones(any()) } just Runs
             coEvery { setPrivacyEnabled(any()) } just Runs
         }
@@ -697,6 +805,7 @@ class StreamingViewModelTest {
             every { privacyEnabledFlow } returns MutableStateFlow(false)
             every { faceBlurEnabledFlow } returns MutableStateFlow(false)
             every { fullFrameBlurEnabledFlow } returns MutableStateFlow(true)
+            every { environmentBlurEnabledFlow } returns MutableStateFlow(false)
             coEvery { setZones(any()) } just Runs
             coEvery { setPrivacyEnabled(any()) } just Runs
         }
@@ -717,4 +826,52 @@ class StreamingViewModelTest {
         // auch wenn der Master-Toggle noch aus ist.
         verify(exactly = 1) { engine.setFullFramePrivacy(true) }
     }
+
+    // --- Datenschutz-Anonymisierung P4.1: Umgebungs-Verpixelung --------------
+
+    @Test
+    fun `setEnvironmentBlurEnabled persists the toggle and forwards it to the engine`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val viewModel = viewModel()
+
+        viewModel.setEnvironmentBlurEnabled(true)
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { zoneRepository.setEnvironmentBlurEnabled(true) }
+        verify(exactly = 1) { engine.setEnvironmentBlur(true) }
+    }
+
+    @Test
+    fun `init restores a persisted environment toggle`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val zoneRepositoryWithEnvironment = mockk<ZoneRepository> {
+            every { zonesFlow } returns MutableStateFlow(emptyList())
+            every { privacyEnabledFlow } returns MutableStateFlow(false)
+            every { faceBlurEnabledFlow } returns MutableStateFlow(false)
+            every { fullFrameBlurEnabledFlow } returns MutableStateFlow(false)
+            every { environmentBlurEnabledFlow } returns MutableStateFlow(true)
+            coEvery { setZones(any()) } just Runs
+            coEvery { setPrivacyEnabled(any()) } just Runs
+        }
+
+        StreamingViewModel(
+            engine,
+            repositoryWith(AppSettings()),
+            launcher,
+            sceneRepository,
+            sceneController,
+            autoSceneSwitcher,
+            zoneRepositoryWithEnvironment,
+            StreamStartCoordinator(repositoryWith(AppSettings()), engine, launcher, com.vivid.core.data.AndroidEncoderCapabilities()),
+        )
+        advanceUntilIdle()
+
+        // Die Engine erzeugt die Maske beim Einschalten selbst; der Aufruf
+        // darf nicht am noch ausgeschalteten Master-Toggle scheitern.
+        verify(exactly = 1) { engine.setEnvironmentBlur(true) }
+    }
 }
+
+private const val SCENE_DRAFT_ID = "draft"
+private const val SCENE_DRAFT_NAME = "Draft"
+private const val SCENE_CHANGED_NAME = "Changed"

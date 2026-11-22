@@ -1,5 +1,7 @@
 package com.vivid.core.model
 
+import androidx.annotation.StringRes
+import com.vivid.core.R
 import java.net.URLDecoder
 
 /**
@@ -14,8 +16,9 @@ import java.net.URLDecoder
  *    `obswebsocket|[host]:[port]|[password]`
  *
  * Der Parser akzeptiert bewusst alle drei Varianten und liefert ein
- * [ObsQrCodeParseResult] mit entweder den extrahierten Daten oder einer
- * verständlichen Fehlermeldung (für die UI).
+ * [ObsQrCodeParseResult] mit entweder den extrahierten Daten oder der
+ * Ressourcen-ID einer lokalisierten Fehlermeldung (i18n-plan §4: eigene
+ * Fehlerursachen sind Ressourcen, erst bei der Anzeige aufgelöst).
  */
 object ObsQrCodeParser {
 
@@ -27,12 +30,13 @@ object ObsQrCodeParser {
      * Parst den QR-Code-Inhalt [qrText] in OBS-Verbindungsdaten.
      *
      * @return [ObsQrCodeParseResult.Success] mit [ObsQrCodeData] oder
-     *         [ObsQrCodeParseResult.Error] mit einer nutzerfreundlichen Meldung.
+     *         [ObsQrCodeParseResult.Error] mit der Ressourcen-ID der
+     *         nutzerfreundlichen Meldung.
      */
     fun parse(qrText: String): ObsQrCodeParseResult {
         val trimmed = qrText.trim()
         if (trimmed.isEmpty()) {
-            return ObsQrCodeParseResult.Error("QR-Code ist leer")
+            return ObsQrCodeParseResult.Error(R.string.qr_error_empty)
         }
 
         OBSWS_URI.matchEntire(trimmed)?.let { m ->
@@ -45,10 +49,7 @@ object ObsQrCodeParser {
             return success(m.groupValues[1], m.groupValues[2], m.groupValues[3])
         }
 
-        return ObsQrCodeParseResult.Error(
-            "Kein gültiger OBS-WebSocket-QR-Code. Erwartet: obsws://host:port/passwort " +
-                "(oder obswebsocket://host:port).",
-        )
+        return ObsQrCodeParseResult.Error(R.string.qr_error_invalid)
     }
 
     private fun success(host: String, port: String, passwordEncoded: String?): ObsQrCodeParseResult {
@@ -79,5 +80,17 @@ object ObsQrCodeParser {
 /** Ergebnis des QR-Code-Parsings: entweder Daten oder eine Fehlermeldung. */
 sealed interface ObsQrCodeParseResult {
     data class Success(val data: ObsQrCodeData) : ObsQrCodeParseResult
-    data class Error(val message: String) : ObsQrCodeParseResult
+
+    /**
+     * QR-Inhalt nicht auswertbar.
+     *
+     * @param messageRes Ressourcen-ID (`@StringRes`) der lokalisierten
+     *   Meldung — vom Konsumenten erst bei der Anzeige aufzulösen.
+     * @param message optionales Rohdetail (bleibt unübersetzt, i18n-plan §4);
+     *   die QR-Fehler liefern keines.
+     */
+    data class Error(
+        @StringRes val messageRes: Int,
+        val message: String = "",
+    ) : ObsQrCodeParseResult
 }

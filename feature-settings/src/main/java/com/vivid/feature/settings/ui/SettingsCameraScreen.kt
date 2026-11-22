@@ -1,5 +1,8 @@
 package com.vivid.feature.settings.ui
 
+import com.vivid.core.data.CameraMode
+import com.vivid.feature.streaming.CameraModeNotice
+import androidx.compose.ui.platform.testTag
 import com.vivid.feature.settings.R
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -16,11 +19,16 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import com.vivid.core.data.CameraControlSettings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 
@@ -50,7 +58,16 @@ fun SettingsCameraScreen(
     onBack: () -> Unit = {},
     onSave: () -> Unit = {},
     viewModel: SettingsCameraViewModel = hiltViewModel(),
+    cameraModeUi: CameraModeUiState = CameraModeUiState(),
+    onCameraModeChange: (CameraMode) -> Unit = {},
+    controlsUi: CameraControlsUiState = CameraControlsUiState(),
+    onControlsChange: ((CameraControlSettings) -> CameraControlSettings) -> Unit = {},
 ) {
+    var zoomOpen by rememberSaveable { mutableStateOf(false) }
+    if (zoomOpen) {
+        CameraZoomScreen(controlsUi, { zoomOpen = false }, onControlsChange)
+        return
+    }
     val focusDistance by viewModel.focusDistance.collectAsState()
     val hasManualFocus by viewModel.hasManualFocus.collectAsState()
     val availableLenses by viewModel.availableLenses.collectAsState()
@@ -81,6 +98,7 @@ fun SettingsCameraScreen(
                     Text(
                         text = stringResource(R.string.camera_focus_title),
                         style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Normal,
                     )
                     Text(
                         text = stringResource(R.string.camera_focus_desc),
@@ -136,6 +154,7 @@ fun SettingsCameraScreen(
                         Text(
                             text = stringResource(R.string.camera_lens_title),
                             style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Normal,
                         )
                         Text(
                             text = stringResource(R.string.camera_lens_desc),
@@ -153,12 +172,61 @@ fun SettingsCameraScreen(
                                 FilterChip(
                                     selected = lens.id == currentLensId,
                                     onClick = { viewModel.selectLens(lens.id) },
-                                    label = { Text(text = lens.displayName) },
+                                    label = { Text(text = lens.displayName, fontWeight = FontWeight.Normal) },
                                 )
                             }
                         }
                     }
                 }
+            }
+            CameraAdditionalControls(controlsUi, { zoomOpen = true }, onControlsChange)
+            CameraModeSection(cameraModeUi, onCameraModeChange)
+        }
+    }
+}
+
+@Composable
+fun SettingsCameraRoute(onBack: () -> Unit) {
+    val modeViewModel: SettingsCameraModeViewModel = hiltViewModel()
+    val state by modeViewModel.uiState.collectAsState()
+    val controlsViewModel: SettingsCameraControlsViewModel = hiltViewModel()
+    val controls by controlsViewModel.uiState.collectAsState()
+    SettingsCameraScreen(onBack = onBack, onSave = onBack, cameraModeUi = state,
+        onCameraModeChange = modeViewModel::selectMode, controlsUi = controls,
+        onControlsChange = controlsViewModel::update)
+}
+
+@Composable
+internal fun CameraModeSection(state: CameraModeUiState, onChange: (CameraMode) -> Unit) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(stringResource(R.string.camera_mode_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Normal)
+            Text(stringResource(R.string.camera_mode_description), style = MaterialTheme.typography.bodySmall)
+            CameraMode.entries.forEach { mode ->
+                FilterChip(
+                    selected = state.selected == mode,
+                    enabled = !state.locked && (mode == CameraMode.STANDARD || state.experimentalSupported),
+                    onClick = { onChange(mode) },
+                    label = { Text(stringResource(if (mode == CameraMode.STANDARD) R.string.camera_mode_standard else R.string.camera_mode_experimental), fontWeight = FontWeight.Normal) },
+                    modifier = Modifier.testTag("camera_mode_" + mode.name),
+                )
+            }
+            if (state.locked) Text(stringResource(R.string.camera_mode_locked), style = MaterialTheme.typography.bodySmall)
+            if (!state.experimentalSupported) Text(stringResource(R.string.camera_mode_unsupported), style = MaterialTheme.typography.bodySmall)
+            state.status.applied?.let { mode ->
+                Text(stringResource(R.string.camera_mode_applied, stringResource(
+                    if (mode == CameraMode.STANDARD) R.string.camera_mode_standard else R.string.camera_mode_experimental)),
+                    style = MaterialTheme.typography.bodySmall)
+            }
+            Text(if (state.measuredFps == null) stringResource(R.string.camera_mode_fps_pending)
+                else stringResource(R.string.camera_mode_measured_fps, state.measuredFps), style = MaterialTheme.typography.bodySmall)
+            state.status.notice?.let {
+                Text(stringResource(when (it) {
+                    CameraModeNotice.UNSUPPORTED -> R.string.camera_mode_fallback_unsupported
+                    CameraModeNotice.PREPARATION_FAILED -> R.string.camera_mode_fallback_preparation
+                    CameraModeNotice.CAPTURE_FAILED -> R.string.camera_mode_capture_failed
+                    CameraModeNotice.RECORDING_FAILED -> R.string.camera_mode_recording_failed
+                }), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
             }
         }
     }

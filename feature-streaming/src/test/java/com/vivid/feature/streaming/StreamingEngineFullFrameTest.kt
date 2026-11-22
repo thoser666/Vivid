@@ -70,6 +70,10 @@ class StreamingEngineFullFrameTest {
         streamingEngine.readBitrateDiagnostics = {
             EncoderBitrateDiagnostics("test.encoder", EncoderBitrateMode.CBR, true, 6_000)
         }
+        // A1: Kamera-Open und Main-Rueckkehr im Produktionspfad asynchron —
+        // hier inline, damit die Tests dieselbe Zustandsfolge sehen.
+        streamingEngine.launchCameraOpen = { it() }
+        streamingEngine.runOnMain = { it() }
     }
 
     @Test

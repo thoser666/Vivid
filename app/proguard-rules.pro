@@ -26,6 +26,15 @@
 -dontwarn java.lang.management.ManagementFactory
 -dontwarn java.lang.management.RuntimeMXBean
 
+# --- Gson / OBS WebSocket (Issue #320 / VIVID-3V) ---
+# R8 darf Gson-Datenklassen und das Request-Interface nicht obfuscen,
+# da Gson zur Laufzeit Klassen instanziiert und das Interface als Typ nutzt.
+-keep class com.vivid.core.network.obs.security.** { *; }
+-keepclassmembers class com.vivid.core.network.obs.requests.Request { *; }
+-keep class com.vivid.core.network.obs.requests.* { *; }
+-keepattributes Signature, Exceptions, InnerClasses, EnclosingMethod
+-dontwarn com.google.gson.**
+
 # --- WebRTC (io.github.webrtc-sdk, WHIP P0-Spike) ---
 # Die libjingle-JNI-Schicht ruft über RegisterNatives-Namen in die Java-Klassen
 # zurück; ohne Keep-Rules entfernt R8 die von der .so referenzierten Klassen/

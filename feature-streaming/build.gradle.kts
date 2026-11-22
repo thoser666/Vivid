@@ -16,11 +16,11 @@ android {
     configurations.configureEach {
         if (name.contains("UnitTestRuntimeClasspath")) {
             resolutionStrategy {
-                force("org.ow2.asm:asm:9.11")
-                force("org.ow2.asm:asm-tree:9.11")
-                force("org.ow2.asm:asm-commons:9.11")
-                force("org.ow2.asm:asm-util:9.11")
-                force("org.ow2.asm:asm-analysis:9.11")
+                force("org.ow2.asm:asm:9.11.1")
+                force("org.ow2.asm:asm-tree:9.11.1")
+                force("org.ow2.asm:asm-commons:9.11.1")
+                force("org.ow2.asm:asm-util:9.11.1")
+                force("org.ow2.asm:asm-analysis:9.11.1")
             }
         }
     }
@@ -49,6 +49,8 @@ android {
     testOptions {
         unitTests.all {
             it.useJUnitPlatform()
+            // Four Robolectric SDKs plus Compose/MockK exceed the default 512 MiB heap.
+            it.maxHeapSize = "1g"
         }
         // Robolectric: gemergtes Manifest + Ressourcen in die JVM-Tests laden
         // (nötig für FileProvider-Metadaten im shareIntent-Test)
@@ -87,6 +89,7 @@ dependencies {
     // HIER SIND DIE KORREKTEN, AUFGETEILTEN ABHÄNGIGKEITEN
     // WIE IM GITHUB-ISSUE BESCHRIEBEN.
     // 'ConnectCheckerRtmp' ist im ':rtmp'-Modul.
+    implementation(libs.uvc.android)
     implementation(libs.rootencoder.encoder)
     implementation(libs.rootencoder.library)
     implementation(libs.rootencoder.rtmp)
@@ -112,6 +115,7 @@ dependencies {
     testImplementation(libs.junit.jupiter.params)
     testImplementation(libs.mockk)
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.androidx.datastore.preferences)
     testImplementation(libs.turbine)
     testImplementation(libs.androidx.core.testing)
 

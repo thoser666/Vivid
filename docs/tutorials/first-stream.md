@@ -18,8 +18,10 @@
 ## Schritt 2: Stream-URL eintragen
 
 1. Öffne **Einstellungen** → **Streaming & OBS**
-2. Wähle **Twitch** als Plattform
-3. Trage deinen **Stream-Key** ein (findest du in der [Twitch Dashboard](https://dashboard.twitch.tv/settings/stream))
+2. Tippe auf **Stream erstellen** und wähle **Twitch** als Plattform
+3. Gib einen **Stream-Namen** ein und trage deinen **Stream-Key** ein (findest du in der [Twitch Dashboard](https://dashboard.twitch.tv/settings/stream))
+
+4. Tippe auf **Speichern** und aktiviere den Stream mit dem Switch in der Liste
 
 ## Schritt 3: Go Live
 
