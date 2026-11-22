@@ -77,7 +77,13 @@ else
 fi
 
 # --- NOSONAR-Hygiene (G5) ------------------------------------------------------
-NOSONAR_HITS="$(grep -rn "NOSONAR" --include="*.kt" --include="*.java" "$REPO_ROOT" 2>/dev/null | grep -v "/build/" || true)"
+# Nur getrackte Quellen statt `grep -r` ueber den Worktree: der Worktree-Lauf
+# wandert durch .git/build/.gradle und oeffnet auch Scratch-Verzeichnisse — liegen
+# dort Named Pipes (beobachtet: .tmp/fifo … .tmp/fifo4), blockiert grep beim
+# Oeffnen ohne Schreiber und der Gate steht still (kein CPU-Verbrauch, kein Ende).
+# `git grep` liest den Index, kann dort nicht haengen und trifft genau den Code,
+# der gepusht wird. Ausgabe bleibt `<pfad>:<zeile>:<inhalt>` wie bei grep -rn.
+NOSONAR_HITS="$(git -C "$REPO_ROOT" grep -n "NOSONAR" -- "*.kt" "*.java" 2>/dev/null || true)"
 # Prosa-Erwähnungen (Backticks) sind keine Suppressions:
 NOSONAR_SUPPRESSIONS="$(echo "$NOSONAR_HITS" | grep -vE '`[^`]*NOSONAR' || true)"
 UNDOCUMENTED="$(echo "$NOSONAR_SUPPRESSIONS" | grep -v "NOSONAR: " || true)"
