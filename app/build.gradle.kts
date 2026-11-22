@@ -62,6 +62,115 @@ configurations.configureEach {
 roborazzi {
     separateOutputDirs.set(true)
 }
+// ── Reproduzierbarkeit: Compose-Group-Mapping kanonisieren ─────────────────
+// AGP hängt den Inhalt von intermediates/compose_mapping/<variant>/
+// compose-mapping.txt an mapping.txt an. Die REIHENFOLGE dieses Blocks ist
+// nicht stabil: im Nightly vom 18.11.2026 waren gegenüber einem Rebuild
+// desselben Commits 79 von 3.322 Zeilen permutiert — die MENGE war identisch
+// (beide Dateien sind als sortierte Menge byte-gleich), der R8-Teil (818.998
+// Zeilen) ebenfalls byte-identisch. Weil AGP `# pg_map_hash` über den
+// Gesamtinhalt bildet und Sentry `io.sentry.ProguardUuids` aus dem Mapping
+// ableitet, kippte damit auch assets/sentry-debug-meta.properties: das APK war
+// nicht reproduzierbar, obwohl der obfuskierte Code identisch war.
+//
+// Deshalb wird der Anhang direkt nach dem Merge byteweise sortiert (der
+// Blockkopf `ComposeStackTrace -> $$compose:` bleibt vorn, die Einträge
+// darunter in aufsteigender UTF-8-Byte-Reihenfolge = `LC_ALL=C sort`). Ein
+// Mapping ist eine Nachschlagetabelle je Zeilenbereich — die Reihenfolge der
+// Einträge trägt keine Bedeutung, das Sortieren ist also semantisch neutral,
+// macht die Datei aber kanonisch.
+//
+// ⚠️ Die Sortierung sitzt als `doLast` IN der Merge-Task, nicht in einem
+// eigenen Nachlauf-Task: sie muss laufen, BEVOR AGP die Datei an mapping.txt
+// anhängt und den Hash bildet. `finalizedBy` allein wäre keine Garantie
+// gegenüber den Verbrauchern, und `dependsOn` + `finalizedBy` zusammen ergäbe
+// einen Abhängigkeitszyklus. Folge für den Up-to-date-Check: der Merge sieht
+// seine eigene, veränderte Ausgabe und läuft beim nächsten Build einmal erneut
+// (und sortiert dabei erneut) — danach ist die Ausgabe stabil und die Task
+// wieder UP-TO-DATE.
+
+/**
+ * Aufsteigende Byte-Reihenfolge der UTF-8-Darstellung — das Äquivalent zu
+ * `LC_ALL=C sort`. Bewusst nicht `String.compareTo`: das vergleicht
+ * UTF-16-Code-Einheiten und ordnet Zeichen oberhalb U+FFFF anders als ihre
+ * Byte-Darstellung. Die Kanonisierung muss auf jeder Maschine (und in jeder
+ * Zeichenkodierung des Build-JVM) dieselben Bytes ergeben.
+ */
+private val composeMappingByteOrder = Comparator<String> { left, right ->
+    val leftBytes = left.toByteArray(Charsets.UTF_8)
+    val rightBytes = right.toByteArray(Charsets.UTF_8)
+    val common = minOf(leftBytes.size, rightBytes.size)
+    var index = 0
+    while (index < common) {
+        val diff = (leftBytes[index].toInt() and 0xFF) - (rightBytes[index].toInt() and 0xFF)
+        if (diff != 0) return@Comparator diff
+        index++
+    }
+    leftBytes.size - rightBytes.size
+}
+
+/**
+ * Kanonische Form eines Compose-Group-Mapping-Files: Blockköpfe (nicht
+ * eingerückte Zeilen) und Leerzeilen bleiben an ihrer Position, jeder
+ * zusammenhängende Lauf eingerückter Einträge wird sortiert.
+ */
+private fun canonicalizeComposeMapping(text: String): String {
+    val lines = text.split("\n")
+    val result = ArrayList<String>(lines.size)
+    var index = 0
+    while (index < lines.size) {
+        val line = lines[index]
+        if (line.isEmpty() || line.first().isWhitespace()) {
+            var end = index
+            while (end < lines.size && lines[end].isNotEmpty() && lines[end].first().isWhitespace()) end++
+            if (end == index) {
+                result.add(line) // Leerzeile: kein Eintrag, Position behalten
+                index++
+            } else {
+                result.addAll(lines.subList(index, end).sortedWith(composeMappingByteOrder))
+                index = end
+            }
+        } else {
+            result.add(line) // Blockkopf: Reihenfolge der Blöcke bleibt
+            index++
+        }
+    }
+    return result.joinToString("\n")
+}
+
+private fun canonicalizeComposeMappingFile(file: File) {
+    if (!file.isFile) return
+    val original = file.readText()
+    val canonical = canonicalizeComposeMapping(original)
+    if (canonical == original) return
+    file.writeText(canonical)
+    println("Compose-Group-Mapping kanonisiert: ${file.path}")
+}
+
+// Die Datei wird über den aus dem Task-Namen abgeleiteten Variantenpfad UND
+// über die deklarierten Outputs gesucht: kein Raten, falls AGP die Datei in
+// einer künftigen Version anders ablegt. Sortieren ist idempotent, doppelte
+// Kandidaten sind deshalb unkritisch.
+tasks.matching { it.name.startsWith("merge") && it.name.endsWith("ComposeMapping") }.configureEach {
+    // `configureEach` liefert eine Action MIT Task-Receiver (kein Lambda-Parameter);
+    // `name`/`doLast`/`outputs` sind deshalb direkt die der Task.
+    val variantName = name.removePrefix("merge").removeSuffix("ComposeMapping")
+        .replaceFirstChar { it.lowercase() }
+    val derivedMapping = layout.buildDirectory.file(
+        "intermediates/compose_mapping/$variantName/compose-mapping.txt",
+    )
+    doLast {
+        val candidates = mutableListOf(derivedMapping.get().asFile)
+        outputs.files.files.forEach { path ->
+            when {
+                path.isFile && path.name == "compose-mapping.txt" -> candidates.add(path)
+                path.isDirectory -> path.resolve("compose-mapping.txt").takeIf { f -> f.isFile }
+                    ?.let(candidates::add)
+            }
+        }
+        candidates.distinct().forEach { canonicalizeComposeMappingFile(it) }
+    }
+}
 
 android {
     namespace = "com.vivid"

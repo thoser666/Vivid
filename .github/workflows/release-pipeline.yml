@@ -931,61 +931,83 @@ jobs:
           fi
           echo "✅ Signatur verifiziert: veröffentlichtes AAB trägt den Release-Key"
 
-      # ✅ Frischer Build mit exakt den veröffentlichten Parametern
-      - name: Rebuild APK with published version params
+      # ✅ Zwei frische Builds mit exakt den veröffentlichten Parametern.
+      # Warum zwei: Build A beantwortet die Gate-Frage ("weicht das
+      # veröffentlichte Artefakt ab?"), Build B die Ursachenfrage ("ist der
+      # Build selbst deterministisch?"). Ohne B ist bei einer Abweichung nicht
+      # entscheidbar, ob der Build oder die Runner-Umgebung die Ursache ist:
+      # am 18.11.2026 war der angehängte Compose-Mapping-Anhang permutiert
+      # (79 von 3.322 Zeilen, Menge identisch) und der R8-Teil byte-identisch —
+      # das sah ohne Gegenprobe wie ein Umgebungsproblem aus.
+      # Die Artefakte werden in eigene Verzeichnisse gestaged, weil Build B den
+      # :app-Baum leert; verglichen wird danach in
+      # scripts/compare_reproducibility.sh (Verhaltenstests:
+      # scripts/test_verify_reproducibility.sh, T21).
+      - name: Rebuild APK (build A) with published version params
         env:
           KEYSTORE_PATH: ${{ env.KEYSTORE_PATH }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
+          set -eu
           ./gradlew :app:assembleStandardRelease \
             -PversionName="${{ steps.nightly.outputs.version_name }}" \
             -PversionCode="${{ steps.nightly.outputs.version_code }}" \
             --stacktrace --no-daemon
+          if [ "${{ steps.nightly.outputs.aab_published }}" = "true" ]; then
+            ./gradlew :app:bundleStandardPlayRelease \
+              -PversionName="${{ steps.nightly.outputs.version_name }}" \
+              -PversionCode="${{ steps.nightly.outputs.version_code }}" \
+              --stacktrace --no-daemon
+          fi
+          bash scripts/stage_repro_artifacts.sh rebuild-a
 
-      # ✅ Frisches AAB (Bundle) mit denselben Parametern, falls publiziert
-      - name: Rebuild AAB with published version params
-        if: steps.nightly.outputs.aab_published == 'true'
+      # ✅ Build B: derselbe Commit, dieselben Parameter, aber mit geleertem
+      # :app-Build-Baum und ohne Build-Cache. Nur so laufen R8, die
+      # Compose-Mapping-Merge-Task und das Packaging WIRKLICH erneut; aus einem
+      # Task-Cache restaurierte Outputs wären derselbe Eintrag wie Build A und
+      # der Vergleich bewiese nichts.
+      - name: Rebuild APK (build B, fresh tree) with published version params
         env:
           KEYSTORE_PATH: ${{ env.KEYSTORE_PATH }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          ./gradlew :app:bundleStandardPlayRelease \
+          set -eu
+          ./gradlew :app:clean --console=plain --no-daemon
+          ./gradlew :app:assembleStandardRelease \
             -PversionName="${{ steps.nightly.outputs.version_name }}" \
             -PversionCode="${{ steps.nightly.outputs.version_code }}" \
-            --stacktrace --no-daemon
+            --stacktrace --no-daemon --no-build-cache
+          if [ "${{ steps.nightly.outputs.aab_published }}" = "true" ]; then
+            ./gradlew :app:bundleStandardPlayRelease \
+              -PversionName="${{ steps.nightly.outputs.version_name }}" \
+              -PversionCode="${{ steps.nightly.outputs.version_code }}" \
+              --stacktrace --no-daemon --no-build-cache
+          fi
+          bash scripts/stage_repro_artifacts.sh rebuild-b
 
-      # ✅ Hash-Vergleich: CI-Artefakte vs. frischer Build
-      - name: Compare hashes
+      # ✅ Hash-Vergleich: Release-Artefakte vs. Build A vs. Build B.
+      # - APK/Metadata/AAB: bit-identisch (jede Abweichung ist rot).
+      # - mapping.txt: R8-Teil bit-identisch, Compose-Anhang kanonisch
+      #   (sortierte Menge). Beide Builds sortieren den Anhang seit dem Fix
+      #   selbst (app/build.gradle.kts), deshalb ist der Normalfall die
+      #   bit-identische Datei; weicht nur die Reihenfolge ab, warnt der Job
+      #   sichtbar (::warning::) — dann hat die Build-Kanonisierung nicht
+      #   gewirkt.
+      - name: Compare hashes (release vs. build A vs. build B)
         run: |
-          fail=0
-          compare() {
-            local name="$1" local_published="$2" local_rebuilt="$3"
-            if cmp -s "$local_published" "$local_rebuilt"; then
-              echo "✅ $name: BIT-IDENTISCH"
-            else
-              echo "::error::$name unterscheidet sich — Reproduzierbarkeit verletzt!"
-              sha256sum "$local_published" "$local_rebuilt"
-              fail=1
-            fi
-          }
-          # Flavor-Pfade (standard/foss): Rebuild-Artefakte liegen unter
-          # apk/standard/release bzw. bundle/standardPlayRelease mit
-          # flavor-Dateinamen — identisch zu den Asset-Namen im Release.
-          compare "app-standard-release.apk" published.apk app/build/outputs/apk/standard/release/app-standard-release.apk
-          compare "mapping.txt" published-mapping.txt app/build/outputs/mapping/standardRelease/mapping.txt
-          compare "output-metadata.json" published-output-metadata.json app/build/outputs/apk/standard/release/output-metadata.json
-          # AAB nur vergleichen, wenn es im Release vorhanden ist
+          set -eu
+          mkdir -p published
+          cp published.apk published/app-standard-release.apk
+          cp published-mapping.txt published/mapping.txt
+          cp published-output-metadata.json published/output-metadata.json
           if [ -f published.aab ]; then
-            compare "app-standard-playRelease.aab" published.aab app/build/outputs/bundle/standardPlayRelease/app-standard-playRelease.aab
+            cp published.aab published/app-standard-playRelease.aab
           fi
-          if [ "$fail" -eq 1 ]; then
-            exit 1
-          fi
-          echo "🎉 Alle Artefakte reproduzierbar"
+          bash scripts/compare_reproducibility.sh published rebuild-a rebuild-b
 
       # ✅ R8-Nachweis APK-Kanal: die Rebuilds haben assembleRelease (und ggf.
       # bundleRelease) gebaut — das Mapping belegt, dass die Sentry-Opt-out-Logik

@@ -43,6 +43,15 @@
 #   T19 die Publish-/Merge-Snippets (Signierung, Auto-Merge) sind auf
 #       fail-loud verriegelt (set -eu bzw. set -euo pipefail) — ein still
 #       auf blosses `set -e` zurückgebauter Scope wird hier rot.
+#
+# Repro-Fix (Nightly 18.11.2026: Compose-Anhang permutiert, R8-Teil identisch):
+#   T20 der Verify-Job baut ZWEIMAL (A + B) und vergleicht über
+#       scripts/compare_reproducibility.sh; Build B leert den :app-Baum und
+#       nutzt keinen Build-Cache, und der Build kanonisiert den Anhang in der
+#       merge*ComposeMapping-Task (sonst bewiese der Vergleich nichts).
+#   T21 VERHALTENSTests des Vergleichsskripts an Fixtures: R8-Teil strikt,
+#       Compose-Anhang kanonisch — und die Attribution unterscheidet
+#       "Build nicht deterministisch" von "veröffentlichtes Artefakt weicht ab".
 
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -100,18 +109,23 @@ check "T3.3 Rebuild mit publizierten Version-Params" \
   grep -q -- '-PversionCode=' <<<"$VERIFY_SECTION"
 
 echo "== T4: Compare-Pfade flavor-korrekt, keine Pre-Flavor-Pfade =="
-check "T4.1 compare APK-Pfad" \
-  grep -q 'published.apk app/build/outputs/apk/standard/release/app-standard-release.apk' <<<"$VERIFY_SECTION"
-check "T4.2 compare Mapping-Pfad" \
-  grep -q 'published-mapping.txt app/build/outputs/mapping/standardRelease/mapping.txt' <<<"$VERIFY_SECTION"
-check "T4.3 compare Metadata-Pfad" \
-  grep -q 'published-output-metadata.json app/build/outputs/apk/standard/release/output-metadata.json' <<<"$VERIFY_SECTION"
-check "T4.4 compare AAB-Pfad (optionaler Zweig)" \
-  grep -q 'published.aab app/build/outputs/bundle/standardPlayRelease/app-standard-playRelease.aab' <<<"$VERIFY_SECTION"
+# Die Rebuild-Artefakte werden von scripts/stage_repro_artifacts.sh unter die
+# Release-Asset-Namen kopiert (der Job baut zweimal, Build B leert :app).
+STAGE=scripts/stage_repro_artifacts.sh
+check "T4.1 Staging kopiert das APK aus dem flavor-Pfad" \
+  grep -q 'app/build/outputs/apk/standard/release/app-standard-release.apk' "$STAGE"
+check "T4.2 Staging kopiert das Mapping aus dem flavor-Pfad" \
+  grep -q 'app/build/outputs/mapping/standardRelease/mapping.txt' "$STAGE"
+check "T4.3 Staging kopiert die Metadaten aus dem flavor-Pfad" \
+  grep -q 'app/build/outputs/apk/standard/release/output-metadata.json' "$STAGE"
+check "T4.4 Staging kopiert das AAB aus dem flavor-Pfad (optionaler Zweig)" \
+  grep -q 'app/build/outputs/bundle/standardPlayRelease/app-standard-playRelease.aab' "$STAGE"
 check_absent "T4.5 kein Pre-Flavor-Pfad apk/release" \
-  grep -q 'apk/release/' <<<"$VERIFY_SECTION"
+  grep -q 'apk/release/' "$STAGE"
 check_absent "T4.6 kein Pre-Flavor-Pfad mapping/release" \
-  grep -q 'mapping/release/' <<<"$VERIFY_SECTION"
+  grep -q 'mapping/release/' "$STAGE"
+check_absent "T4.7 kein Pre-Flavor-Pfad bundle/release" \
+  grep -q 'bundle/release/' "$STAGE"
 
 echo "== T5: Sentry-Mapping-Nachweis im verify-Job =="
 check "T5.1 check_sentry_optout_mapping.sh auf standardRelease-Mapping" \
@@ -635,6 +649,167 @@ check "T19.1 Sign-Snippet (SHA256SUMS) beginnt mit set -eu" \
   test "$rel_sign_first" = "set -eu"
 check "T19.2 Auto-Merge-Snippet beginnt mit set -euo pipefail (Pipes)" \
   test "$rel_merge_first" = "set -euo pipefail"
+
+echo "== T20: Verify-Job baut zweimal und vergleicht kanonisch (Repro-Fix 18.11.2026) =="
+BUILD_A_RUN="$(wf_step_run "$WORKFLOW" verify-reproducibility 'build A')"
+BUILD_B_RUN="$(wf_step_run "$WORKFLOW" verify-reproducibility 'build B')"
+COMPARE_RUN="$(wf_step_run "$WORKFLOW" verify-reproducibility 'Compare hashes')"
+check "T20.1 Build A ist als Step extrahierbar" \
+  bash -c '[ -n "$1" ] && [ "$1" != "-" ]' _ "$BUILD_A_RUN"
+check "T20.2 Build B ist als Step extrahierbar" \
+  bash -c '[ -n "$1" ] && [ "$1" != "-" ]' _ "$BUILD_B_RUN"
+check "T20.3 Build B leert den :app-Build-Baum" \
+  grep -q ':app:clean' <<<"$BUILD_B_RUN"
+check_absent "T20.4 Build A leert nichts (erster Build im frischen Job)" \
+  grep -q ':app:clean' <<<"$BUILD_A_RUN"
+check "T20.5 Build B baut ohne Build-Cache" \
+  grep -q -- '--no-build-cache' <<<"$BUILD_B_RUN"
+check_absent "T20.6 Build A nutzt keinen Cache-Bypass (Vergleichsbasis bleibt der Normalfall)" \
+  grep -q -- '--no-build-cache' <<<"$BUILD_A_RUN"
+check "T20.7 Build A staged nach rebuild-a" \
+  grep -q 'stage_repro_artifacts.sh rebuild-a' <<<"$BUILD_A_RUN"
+check "T20.8 Build B staged nach rebuild-b" \
+  grep -q 'stage_repro_artifacts.sh rebuild-b' <<<"$BUILD_B_RUN"
+check "T20.9 Compare ruft das Vergleichsskript mit published, A und B" \
+  grep -q 'compare_reproducibility.sh published rebuild-a rebuild-b' <<<"$COMPARE_RUN"
+check "T20.10 Compare staged die Release-Assets unter die Asset-Namen" \
+  grep -q 'cp published-mapping.txt published/mapping.txt' <<<"$COMPARE_RUN"
+# Der alte Inline-Vergleich konnte nur "rot" sagen, nicht WARUM. Er darf nicht
+# zurückkehren: die Attribution (Build vs. Umgebung) hängt an der Auswertung
+# beider Builds und gehört damit in ein getestetes Skript.
+check_absent "T20.11 kein Inline-cmp-Vergleich mehr im Workflow" \
+  grep -qF 'cmp -s "$local_published"' <<<"$COMPARE_RUN"
+check "T20.12 Vergleichsskript ist vorhanden" test -s scripts/compare_reproducibility.sh
+check "T20.13 Staging-Skript ist vorhanden" test -s scripts/stage_repro_artifacts.sh
+# Build-seitige Kanonisierung: sie muss IN der Merge-Task laufen (doLast), nicht
+# in einem Nachlauf-Task — sonst sind die Bytes erst nach dem Anhängen sortiert.
+check "T20.14 Kanonisierung hängt an der merge*ComposeMapping-Task" \
+  grep -q 'it.name.startsWith("merge") && it.name.endsWith("ComposeMapping")' app/build.gradle.kts
+check "T20.15 Kanonisierung läuft als doLast in der Merge-Task" \
+  grep -q 'candidates.distinct().forEach { canonicalizeComposeMappingFile(it) }' app/build.gradle.kts
+check "T20.16 Einträge werden sortiert (Comparator wird angewandt)" \
+  grep -q 'sortedWith(composeMappingByteOrder)' app/build.gradle.kts
+check "T20.17 Sortierung ist Byte-Reihenfolge (UTF-8), nicht UTF-16" \
+  grep -q 'toByteArray(Charsets.UTF_8)' app/build.gradle.kts
+check "T20.18 RELEASE.md nennt die Kanonisierung des Compose-Anhangs" \
+  grep -q 'Compose-Group-Mapping' RELEASE.md
+
+echo "== T21: Verhaltensprobe des Reproduzierbarkeits-Vergleichs (Fixtures) =="
+# Baut die drei Verzeichnisse mit den Release-Asset-Namen nach. Die Zahlen in
+# $3 sind die Anhang-Einträge (1 = alpha, 2 = beta, 3 = gamma, 9 = gamma mit
+# anderem Ziel); die Reihenfolge der Ziffern ist die Reihenfolge im File.
+# Aufruf: repro_mapping <datei> <obf-name im R8-Teil> <reihenfolge> [kein-anhang]
+repro_mapping() {
+  local target="$1" obf="$2" order="${3:-123}" mode="${4:-mit-anhang}"
+  {
+    printf '# compiler: R8\n'
+    printf '# pg_map_hash: SHA-256 deadbeef\n'
+    printf 'com.vivid.Foo -> a:\n'
+    printf '    void bar() -> %s\n' "$obf"
+    printf '    int baz() -> b\n'
+  } >"$target"
+  [[ "$mode" == "kein-anhang" ]] && return 0
+  # Einfache Quotes: `$$compose` wäre sonst die PID der Shell.
+  printf 'ComposeStackTrace -> $$compose:\n' >>"$target"
+  local i digit line
+  for ((i = 0; i < ${#order}; i++)); do
+    digit="${order:i:1}"
+    case "$digit" in
+      1) line='    1:1:void com.vivid.Foo.alpha(androidx.compose.runtime.Composer,int):10:10 -> m$1' ;;
+      2) line='    1:1:void com.vivid.Foo.beta(androidx.compose.runtime.Composer,int):11:11 -> m$2' ;;
+      3) line='    1:1:void com.vivid.Foo.gamma(androidx.compose.runtime.Composer,int):12:12 -> m$3' ;;
+      9) line='    1:1:void com.vivid.Foo.gamma(androidx.compose.runtime.Composer,int):12:12 -> m$9' ;;
+    esac
+    printf '%s\n' "$line" >>"$target"
+  done
+}
+repro_seed() { # $1 = Basisverzeichnis: drei identische Artefakt-Sätze
+  local base="$1" sub
+  for sub in published rebuild-a rebuild-b; do
+    mkdir -p "$base/$sub"
+    printf 'apk-payload' >"$base/$sub/app-standard-release.apk"
+    printf '{"elements":[{"versionName":"0.5.20-nightly.511","versionCode":5150}]}\n' \
+      >"$base/$sub/output-metadata.json"
+    repro_mapping "$base/$sub/mapping.txt" a 123
+  done
+}
+repro_run() { # $1 = Fallverzeichnis -> REPRO_RC/REPRO_OUT
+  REPRO_RC=0
+  REPRO_OUT="$(bash scripts/compare_reproducibility.sh "$1/published" "$1/rebuild-a" "$1/rebuild-b" 2>&1)" \
+    || REPRO_RC=$?
+}
+repro_expect() { # $1=Beschreibung $2=erwarteter RC, Rest: Muster im Output
+  local desc="$1" want="$2"; shift 2
+  local pattern missing=''
+  if [[ "$REPRO_RC" -ne "$want" ]]; then
+    echo "  ❌ $desc: RC=$REPRO_RC (erwartet $want). Output: $(tr '\n' ' ' <<<"$REPRO_OUT")"
+    FAIL=$((FAIL + 1))
+    return 0
+  fi
+  for pattern in "$@"; do
+    grep -qF -- "$pattern" <<<"$REPRO_OUT" || missing+=" '$pattern'"
+  done
+  if [[ -n "$missing" ]]; then
+    echo "  ❌ $desc: Muster fehlt:$missing. Output: $(tr '\n' ' ' <<<"$REPRO_OUT")"
+    FAIL=$((FAIL + 1))
+  else
+    echo "  ✅ $desc"
+  fi
+}
+
+R21="$(mktemp -d)"
+trap 'rm -rf "$R21"' EXIT
+
+D="$R21/t1"; repro_seed "$D"; repro_run "$D"
+repro_expect "T21.1 identische Sätze: published == A == B ist grün" 0 \
+  "Alle Artefakte reproduzierbar"
+
+# Vorfallsfall 18.11.2026: derselbe Anhang, nur andere Reihenfolge.
+D="$R21/t2"; repro_seed "$D"; repro_mapping "$D/published/mapping.txt" a 321
+repro_run "$D"
+repro_expect "T21.2 permutierter Anhang (Menge identisch) ist grün, aber warnt sichtbar" 0 \
+  "::warning::" "nur in der REIHENFOLGE verschieden"
+
+D="$R21/t3"; repro_seed "$D"; repro_mapping "$D/rebuild-a/mapping.txt" c 123
+repro_run "$D"
+repro_expect "T21.3 abweichender R8-Teil ist rot und wird als R8-Teil benannt" 1 \
+  "R8-Teil unterscheidet sich"
+
+D="$R21/t4"; repro_seed "$D"; repro_mapping "$D/rebuild-a/mapping.txt" a 129
+repro_run "$D"
+repro_expect "T21.4 abweichender Anhang ist auch als sortierte Menge rot" 1 \
+  "auch als sortierte Menge"
+check_absent "T21.4b Mengen-Differenz wird NICHT als reine Reihenfolge entschuldigt" \
+  grep -qF -- 'nur in der REIHENFOLGE verschieden' <<<"$REPRO_OUT"
+
+D="$R21/t5"; repro_seed "$D"; printf 'apk-payload-2' >"$D/published/app-standard-release.apk"
+repro_run "$D"
+repro_expect "T21.5 deterministischer Build + abweichendes Release wird der Umgebung zugeordnet" 1 \
+  "VERÖFFENTLICHTE Artefakt weicht aber ab" "im Build ist nichts zu reparieren"
+
+D="$R21/t6"; repro_seed "$D"; printf '{"elements":[]}\n' >"$D/rebuild-b/output-metadata.json"
+repro_run "$D"
+repro_expect "T21.6 zwei frische Builds mit Unterschied werden dem Build zugeordnet" 1 \
+  "BUILD ist NICHT deterministisch"
+
+D="$R21/t7"; repro_seed "$D"; repro_mapping "$D/published/mapping.txt" a 123 kein-anhang
+repro_run "$D"
+repro_expect "T21.7 fehlender Compose-Anhang auf einer Seite ist rot" 1 \
+  "Compose-Anhang vorhanden? published=nein"
+
+D="$R21/t8"; repro_seed "$D"; printf 'aab' >"$D/rebuild-a/app-standard-playRelease.aab"
+repro_run "$D"
+repro_expect "T21.8 AAB nur auf einer Seite ist rot (Staging unvollständig)" 1 \
+  "nur auf einer Seite vorhanden"
+
+# Positivkontrolle für den optionalen AAB-Zweig: identische AABs bleiben grün.
+D="$R21/t9"; repro_seed "$D"
+printf 'aab' >"$D/published/app-standard-playRelease.aab"
+cp "$D/published/app-standard-playRelease.aab" "$D/rebuild-a/app-standard-playRelease.aab"
+cp "$D/published/app-standard-playRelease.aab" "$D/rebuild-b/app-standard-playRelease.aab"
+repro_run "$D"
+repro_expect "T21.9 identisches AAB in allen drei Seiten bleibt grün" 0 \
+  "Alle Artefakte reproduzierbar"
 
 echo
 if [ "$FAIL" -eq 0 ]; then
