@@ -8,15 +8,20 @@ import java.util.concurrent.RejectedExecutionException
  *
  * RootEncoder 2.7.5 creates a single-thread executor in `start()` and calls
  * `shutdownNow()` in `stop()` before it clears the field. Only
- * `add/removeMediaCodecSurface` (and the record variants) submit to that pool.
- * When the encoder side tears down while we retire the pipeline, it can read
- * the old reference inside that window and submit into a stopped pool — the
- * `ThreadPoolExecutor` then reports `[Shutting down, …]` and throws
- * `RejectedExecutionException: Task … rejected` (Sentry VIVID-5S/#453,
- * VIVID-4Z/#445, fatal). The GL pipeline is stopping in that moment anyway and
- * the queued work has no surface left to touch, so dropping the call is the
- * correct reaction — the same contract `SceneRenderClock` uses for
- * `onFrameAvailable`.
+ * `add/removeMediaCodecSurface` (and the record variants) submit to that pool —
+ * `stop()` and `deAttachPreview()` themselves do not.
+ *
+ * Where the rejection actually surfaces (latest event of Sentry `7856326808`,
+ * pulled with the CI event token): `GlStreamInterface.start$lambda$0$1` →
+ * `ThreadPoolExecutor.execute` → `rejectedExecution`, resumed from
+ * `ForceRenderer.invokeSuspend` on `Dispatchers.Default`/`LimitedDispatcher`.
+ * The submit therefore runs on RootEncoder's own render coroutine, not inside
+ * our teardown call — a guard wrapped around `stop()`/`deAttachPreview()`
+ * cannot catch that instance. It only covers the synchronous window in which
+ * the guarded call itself submits. The deferred path stays with RootEncoder
+ * (or with stopping the render loop before `stop()` shuts the pool down);
+ * these helpers remain for the synchronous window and for `close()`, where
+ * the encoder release runs while the pipeline is still attached.
  *
  * Only `RejectedExecutionException` is swallowed; every other failure still
  * surfaces.

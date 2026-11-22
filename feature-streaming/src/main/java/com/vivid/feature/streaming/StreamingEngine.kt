@@ -23,7 +23,6 @@ import com.vivid.feature.streaming.compositor.gl.SceneCompositorFilterRender
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Rect
-import com.vivid.feature.streaming.compositor.deAttachPreviewQuietly
 import com.vivid.feature.streaming.compositor.matchesSceneIdentity
 import com.vivid.feature.streaming.compositor.stopQuietly
 import android.net.Uri
@@ -2371,7 +2370,7 @@ class StreamingEngine @Inject constructor(
         previewRequest = null
         stopIdlePreview()
         sceneSession?.stopPreview()
-        (glPreviewOwner ?: (camera?.glInterface as? GlStreamInterface))?.deAttachPreviewQuietly()
+        (glPreviewOwner ?: (camera?.glInterface as? GlStreamInterface))?.deAttachPreview()
         glPreviewOwner = null
         glPreviewSurface = null
         updateSceneRenderClock()
@@ -2380,7 +2379,7 @@ class StreamingEngine @Inject constructor(
     private fun detachGlPreview() {
         if (glPreviewSurface == null) return
         sceneSession?.stopPreview()
-        (glPreviewOwner ?: (camera?.glInterface as? GlStreamInterface))?.deAttachPreviewQuietly()
+        (glPreviewOwner ?: (camera?.glInterface as? GlStreamInterface))?.deAttachPreview()
         glPreviewOwner = null
         glPreviewSurface = null
     }
@@ -2864,7 +2863,7 @@ class StreamingEngine @Inject constructor(
         val gl = activeGlInterface()
         if (gl?.isRunning == true) {
             if (glPreviewSurface !== request.surface || glPreviewOwner !== gl) {
-                glPreviewOwner?.deAttachPreviewQuietly()
+                glPreviewOwner?.deAttachPreview()
                 if (sceneSession != null) sceneSession?.startPreview(request.surface, request.width, request.height)
                 else gl.attachPreview(request.surface)
                 glPreviewSurface = request.surface
