@@ -24,7 +24,6 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Rect
 import com.vivid.feature.streaming.compositor.matchesSceneIdentity
-import com.vivid.feature.streaming.compositor.stopQuietly
 import android.net.Uri
 import androidx.core.net.toUri
 import android.view.MotionEvent
@@ -618,10 +617,7 @@ class StreamingEngine @Inject constructor(
 
     private fun stopComposedGl(gl: GlStreamInterface?) {
         retireSceneSurfaces()
-        // Der Encoder-Teardown kann parallel add/removeMediaCodecSurface auf denselben
-        // Executor schicken; liegt er im Shutdown-Fenster, wirft RootEncoder
-        // RejectedExecutionException (#453/#445). Die Pipeline ist hier ohnehin am Ende.
-        gl?.stopQuietly()
+        gl?.stop()
     }
 
     private fun installSceneLayer() {

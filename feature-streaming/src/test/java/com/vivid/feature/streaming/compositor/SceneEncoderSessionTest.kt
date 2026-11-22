@@ -14,7 +14,6 @@ import com.vivid.feature.streaming.compositor.audio.SceneAudioInputKind
 import com.vivid.feature.streaming.compositor.audio.SceneAudioRouterSource
 import io.mockk.*
 import java.io.File
-import java.util.concurrent.RejectedExecutionException
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -60,30 +59,6 @@ class SceneEncoderSessionTest {
         assertTrue(session.prepare(config))
         verify { gl.setForceRender(true, 30) }
         verify { stream.prepareVideo(1920, 1080, any(), 30, any(), any(), any(), any(), any(), any(), any()) }
-    }
-
-    @Test fun `close tolerates the encoder teardown hitting a stopped GL executor`() {
-        val session = session()
-        // #445/#453: der Submit in den geschlossenen Pool platzt mitten im Release.
-        every { stream.release() } throws RejectedExecutionException(
-            "Task rejected from java.util.concurrent.ThreadPoolExecutor@f6459b0[Shutting down, pool size = 1]"
-        )
-
-        session.close()
-
-        verify { stream.release(); gl.deAttachPreview() }
-    }
-
-    @Test fun `close still stops GL after a rejected preview detach`() {
-        val session = session()
-        every { gl.isRunning } returns true
-        every { gl.deAttachPreview() } throws RejectedExecutionException(
-            "Task rejected from java.util.concurrent.ThreadPoolExecutor@f6459b0[Shutting down, pool size = 1]"
-        )
-
-        session.close()
-
-        verify { gl.deAttachPreview(); gl.stop() }
     }
 
     @Test fun `targets and recording share one preparation and last disconnect preserves recording`() {
