@@ -16,6 +16,9 @@ import com.vivid.core.data.ResolvedEncoderConfig
 import com.vivid.core.data.VideoCodecPreference
 import java.io.Closeable
 import java.io.File
+import com.vivid.feature.streaming.compositor.deAttachPreviewQuietly
+import com.vivid.feature.streaming.compositor.onRetiredGlPipeline
+import com.vivid.feature.streaming.compositor.stopQuietly
 import com.vivid.feature.streaming.compositor.audio.SceneAudioInput
 import com.vivid.feature.streaming.compositor.audio.SceneAudioInputKind
 import com.vivid.feature.streaming.compositor.audio.SceneAudioRouterSource
@@ -180,12 +183,15 @@ class SceneEncoderSession internal constructor(
             closed = true
             prepared = false
             beforeGlStop()
-            try { stream.release() }
+            // Encoder-Teardown und GL-Shutdown greifen auf denselben RootEncoder-Executor
+            // zu; im Shutdown-Fenster wirft der Submit RejectedExecutionException
+            // (#453/#445). Erst den Encoder loesen, dann die GL-Pipeline beenden.
+            try { onRetiredGlPipeline { stream.release() } }
             finally {
                 try { audio.release() }
                 finally {
-                    try { gl.deAttachPreview() }
-                    finally { if (gl.isRunning) gl.stop() }
+                    try { gl.deAttachPreviewQuietly() }
+                    finally { if (gl.isRunning) gl.stopQuietly() }
                 }
             }
         }

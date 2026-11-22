@@ -33,6 +33,7 @@ import io.mockk.mockk
 import io.mockk.runs
 import io.mockk.slot
 import io.mockk.verify
+import java.util.concurrent.RejectedExecutionException
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -1264,6 +1265,21 @@ class StreamingEngineTest {
             idleCamera.prepareCamera(any<android.graphics.SurfaceTexture>(), 1280, 720, 30)
             idleCamera.openCameraBack()
         }
+    }
+
+    @Test
+    fun `detaching a preview survives RootEncoder's stopped GL executor`() = runTest {
+        streamingEngine.initializeCamera()
+        val surface: Surface = mockk(relaxed = true)
+        streamingEngine.attachPreview(surface, 640, 480)
+        // #453: der Encoder-Teardown submitted in den bereits geschlossenen Pool.
+        every { glStreamInterface.deAttachPreview() } throws RejectedExecutionException(
+            "Task rejected from java.util.concurrent.ThreadPoolExecutor@bcef213[Shutting down, pool size = 1]"
+        )
+
+        streamingEngine.detachPreview()
+
+        verify(exactly = 1) { glStreamInterface.deAttachPreview() }
     }
 
     @Test

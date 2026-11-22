@@ -23,7 +23,9 @@ import com.vivid.feature.streaming.compositor.gl.SceneCompositorFilterRender
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Rect
+import com.vivid.feature.streaming.compositor.deAttachPreviewQuietly
 import com.vivid.feature.streaming.compositor.matchesSceneIdentity
+import com.vivid.feature.streaming.compositor.stopQuietly
 import android.net.Uri
 import androidx.core.net.toUri
 import android.view.MotionEvent
@@ -617,7 +619,10 @@ class StreamingEngine @Inject constructor(
 
     private fun stopComposedGl(gl: GlStreamInterface?) {
         retireSceneSurfaces()
-        gl?.stop()
+        // Der Encoder-Teardown kann parallel add/removeMediaCodecSurface auf denselben
+        // Executor schicken; liegt er im Shutdown-Fenster, wirft RootEncoder
+        // RejectedExecutionException (#453/#445). Die Pipeline ist hier ohnehin am Ende.
+        gl?.stopQuietly()
     }
 
     private fun installSceneLayer() {
@@ -2366,7 +2371,7 @@ class StreamingEngine @Inject constructor(
         previewRequest = null
         stopIdlePreview()
         sceneSession?.stopPreview()
-        (glPreviewOwner ?: (camera?.glInterface as? GlStreamInterface))?.deAttachPreview()
+        (glPreviewOwner ?: (camera?.glInterface as? GlStreamInterface))?.deAttachPreviewQuietly()
         glPreviewOwner = null
         glPreviewSurface = null
         updateSceneRenderClock()
@@ -2375,7 +2380,7 @@ class StreamingEngine @Inject constructor(
     private fun detachGlPreview() {
         if (glPreviewSurface == null) return
         sceneSession?.stopPreview()
-        (glPreviewOwner ?: (camera?.glInterface as? GlStreamInterface))?.deAttachPreview()
+        (glPreviewOwner ?: (camera?.glInterface as? GlStreamInterface))?.deAttachPreviewQuietly()
         glPreviewOwner = null
         glPreviewSurface = null
     }
@@ -2859,7 +2864,7 @@ class StreamingEngine @Inject constructor(
         val gl = activeGlInterface()
         if (gl?.isRunning == true) {
             if (glPreviewSurface !== request.surface || glPreviewOwner !== gl) {
-                glPreviewOwner?.deAttachPreview()
+                glPreviewOwner?.deAttachPreviewQuietly()
                 if (sceneSession != null) sceneSession?.startPreview(request.surface, request.width, request.height)
                 else gl.attachPreview(request.surface)
                 glPreviewSurface = request.surface
