@@ -4,7 +4,9 @@ import android.content.Context
 
 /**
  * JVM-testbare Hülle um den P0-Gerätesmoke (docs/whip-spike.md §11.8): ruft die
- * injizierte Smoke-Aktion (default: [WHIPIngestProbe.sdkSmoke]) und mappt das
+ * injizierte Smoke-Aktion (im Debug-Build `WHIPIngestProbe::sdkSmoke` aus
+ * `src/debug` — der Release-Build bringt die libwebrtc-Prebuilds bewusst nicht
+ * mit) und mappt das
  * Ergebnis auf ein diagnosefähiges [WhipSmokeResult]. Bewusst schmal — kein
  * HTTP-Zweitpfad (WHIP-Contract liegt in core), keine Ktor-Abhängigkeit
  * (feature-streaming sieht den Ktor-HttpClient-Typ von core nicht).
@@ -25,7 +27,7 @@ object WHIPSmokeRunner {
 
     fun run(
         appContext: Context,
-        smoke: (Context) -> Boolean = WHIPIngestProbe::sdkSmoke,
+        smoke: (Context) -> Boolean,
     ): WhipSmokeResult = try {
         if (smoke(appContext)) {
             WhipSmokeResult(

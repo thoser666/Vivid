@@ -95,11 +95,16 @@ dependencies {
     implementation(libs.rootencoder.rtmp)
     // =============================================================
 
-    // [WHIP P0-Spike] libwebrtc-Prebuild — NUR für den P0-Spike (feature-branch):
-    // Ermöglicht den Probe-Build (WHIPIngestProbe, MiniPeerConnection-Init) und
-    // die P0-Messwerte (APK-Delta, R8-Verhalten, docs/whip-spike.md §4/§11).
-    // KEIN produktives Import-Ziel: Die Media-Bridge (WHIPStreamRoute) ist P1.
-    implementation(libs.webrtc.sdk)
+    // [WHIP P0-Spike] libwebrtc-Prebuild — nur noch im DEBUG-Build.
+    // Das AAR bringt libjingle_peerconnection_so.so fuer vier ABIs mit (49 MB);
+    // in der Release-APK war das der einzige Grund fuer 57 MB statt ~9 MB und
+    // damit ein Blocker fuer F-Droid/IzzyOnDroid (Limit: 30 MB pro APK).
+    // Der einzige org.webrtc-Importpunkt (WHIPIngestProbe) liegt deshalb in
+    // src/debug — der Gerätesmoke bleibt moeglich, der Release-Build enthaelt
+    // weder die .so noch die Java-Bridge. Mit P1 (Media-Bridge) muss die
+    // Groesse bewusst geloest werden (ABI-Splits oder App-Bundle).
+    // Siehe docs/whip-spike.md §4.2 und docs/distribution.md.
+    debugImplementation(libs.webrtc.sdk)
 
     // Media3 / ExoPlayer für die Wiedergabe
     implementation(libs.androidx.media3.exoplayer)

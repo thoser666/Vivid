@@ -285,6 +285,7 @@ P0 (Abschnitt 7) wurde am 30.09.2026 auf dem Feature-Branch `feat/whip-p0-spike`
 - Vivid baut ohne ABI-Splits → **alle vier ABIs** der `libjingle_peerconnection_so.so` liegen in jeder APK: 48.081.716 B, unkomprimiert (stored, `extractNativeLibs=false`). Das erklärt das Delta fast vollständig; die Java-Seite schlägt mit ~268 KB (debug) bzw. ~170 KB (release, R8-gestrippt) zu Buche.
 - Release-APK wächst dadurch von 8,8 MB auf 57,1 MB (×6,5) — für F-Droid (Universal-APK) exakt die erwartete Größenordnung aus §4.2 („≈ +49 MB", gemessen +48,3 MB). Für Play (AAB, eine ABI je Gerät) bleibt die Prognose ≈ +13 MB stehen (P3-Messpunkt am echten Bundle).
 - Entscheidungspunkte aus §4.2 unverändert: (a) `abiFilters`/Splits für F-Droid (arm64+armv7 → ≈ +19 MB), (b) `prefixed-stripped`-Variante messen, (c) akzeptieren+dokumentieren.
+- **Entschieden am 2026-11-23 (IzzyOnDroid-Vorbereitung): Prebuilds sind `debugImplementation`.** Der einzige `org.webrtc`-Importpunkt (`WHIPIngestProbe`) ist nach `feature-streaming/src/debug` gewandert; `WHIPSmokeRunner` (main, ohne SDK-Import) bekommt die Smoke-Aktion explizit injiziert. Damit bleibt der Gerätesmoke lauffähig, während die Release-APK wieder bei ~9 MB liegt und das 30-MB-Limit von F-Droid/IzzyOnDroid einhält. Mit P1 (Media-Bridge im Release) ist die Größenfrage erneut zu lösen — dann ABI-Splits oder App-Bundle.
 
 ### 11.3 16-KB-Page-Alignment (Play-Anforderung, Android 15+)
 

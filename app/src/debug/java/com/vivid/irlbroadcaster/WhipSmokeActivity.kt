@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.vivid.R
+import com.vivid.feature.streaming.whip.WHIPIngestProbe
 import com.vivid.feature.streaming.whip.WHIPSmokeRunner
 import com.vivid.feature.streaming.whip.WHIPSmokeRunner.WhipSmokeResult
 import kotlinx.coroutines.Dispatchers
@@ -51,7 +52,7 @@ class WhipSmokeActivity : ComponentActivity() {
     }
 
     private fun runSmoke(): WhipSmokeResult {
-        val result = WHIPSmokeRunner.run(applicationContext)
+        val result = WHIPSmokeRunner.run(applicationContext, WHIPIngestProbe::sdkSmoke)
         if (result.ok) {
             Timber.i("WHIP device smoke OK: %s", result.detail)
         } else {
