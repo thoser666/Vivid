@@ -350,7 +350,7 @@ Damit ist der RFC-9725-**Signalisierungs**-Contract E2E an einer realen Gegenste
 | [app/proguard-rules.pro](../app/proguard-rules.pro) | WebRTC-Keep-Block (11.4) |
 | [WHIPClient.kt](../core/src/main/java/com/vivid/core/network/whip/WHIPClient.kt) | RFC-9725-Client nach OBS-Muster: `publish`/`patchCandidates`/`terminate`, `WHIPState`/`WHIPFailure`-Taxonomie, relative Location-Auflösung, Redirect-Delegation an das Ktor-HttpRedirect-Plugin, `internal shutdown()` |
 | [WHIPClientTest.kt](../core/src/test/java/com/vivid/core/network/whip/WHIPClientTest.kt) | 7 E2E-Tests (Ktor-Testserver, Muster #226): 201+Location+ETag+Offer-Echo, `text/plain`-Fallback, 401/403/429-Taxonomie, PATCH `If-Match`+412, DELETE-Lifecycle+404-Toleranz, toter Endpunkt→NETWORK, `resolveSessionUrl` (5 Fälle) |
-| [WHIPIngestProbe.kt](../feature-streaming/src/main/java/com/vivid/feature/streaming/whip/WHIPIngestProbe.kt) | `sdkSmoke()`: `PeerConnectionFactory.initialize` + `createPeerConnectionFactory` + `dispose` — beweist AAR-Link/Load; bewusst kein Produktivpfad und kein HTTP-Zweitpfad (Contract liegt in `core`) |
+| [WHIPIngestProbe.kt](../feature-streaming/src/debug/java/com/vivid/feature/streaming/whip/WHIPIngestProbe.kt) | `sdkSmoke()`: `PeerConnectionFactory.initialize` + `createPeerConnectionFactory` + `dispose` — beweist AAR-Link/Load; bewusst kein Produktivpfad und kein HTTP-Zweitpfad (Contract liegt in `core`) |
 
 Build-Zeit: Baseline-Assemble 7:36 min vs. WHIP-Assemble 10:06 min (kalt, erster R8-Lauf über 48 MB Native-Code); einmalig ~49 MB AAR-Download in den Gradle-Cache.
 
