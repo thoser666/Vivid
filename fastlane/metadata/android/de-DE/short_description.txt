@@ -1,1 +1,1 @@
-RTMP, SRT & OBS-Steuerung für mobiles Live-Streaming. Open-Source-Client mit Moblin-Parität.
+IRL-Streaming für Android: RTMP, SRT, Szenen, Chat-Overlay, OBS-Steuerung.

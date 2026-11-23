@@ -1,1 +1,1 @@
-RTMP, SRT & OBS control for mobile live streaming. Open-source Moblin-compatible client.
+IRL streaming for Android: RTMP, SRT, scenes, chat overlay, OBS control.

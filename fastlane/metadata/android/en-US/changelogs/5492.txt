@@ -1,0 +1,4 @@
+• Experimental 60 FPS capture and safer live controls
+• Scene compositor for multi-layer scenes
+• Fix: a stream session could be closed twice
+• More reliable F-Droid repository updates

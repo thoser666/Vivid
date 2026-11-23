@@ -1,0 +1,4 @@
+• Experimentelle 60-FPS-Aufnahme und sichere Live-Steuerung
+• Szenen-Compositor für mehrschichtige Szenen
+• Fix: Eine Stream-Session konnte doppelt geschlossen werden
+• Zuverlässigere Updates über das F-Droid-Repository

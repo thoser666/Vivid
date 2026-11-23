@@ -9,7 +9,10 @@
 #   ✅ Store-Listing: pro Locale (en-US Pflicht, alle weiteren konsistent)
 #                    title.txt, short_description.txt, full_description.txt —
 #                    vorhanden und nicht leer
-#   ✅ Changelog   : pro Locale changelogs/default.txt — vorhanden und nicht leer
+#   ✅ Längenlimits: title.txt ≤ 30 Zeichen, short_description.txt ≤ 80 Zeichen
+#                    (Play-Grenze; IzzyOnDroid prüft dieselben Werte im Fastlane-Check)
+#   ✅ Changelog   : pro Locale changelogs/default.txt — vorhanden, nicht leer und
+#                    kein Platzhaltertext (nur echte Release-Notizen)
 #   ✅ README-Guard: alle README-Bildreferenzen auf Play-Screenshots existieren,
 #                    und jeder Play-Screenshot ist in der README-Galerie
 #                    referenziert (README ↔ Play bleiben synchron)
@@ -163,11 +166,32 @@ for loc in "${locales[@]}"; do
       echo "✅ Locale $loc: $req ($(wc -c < "$file") Bytes)"
     fi
   done
+  # Play-/Izzy-Längenlimits — Titel 30, Kurzbeschreibung 80 Zeichen. Gezählt
+  # wird in Zeichen (nicht Bytes), damit Umlaute und Gedankenstriche nicht
+  # doppelt zählen; IzzyOnDroid prüft genau dieselben Grenzen.
+  for spec in "title.txt:30" "short_description.txt:80"; do
+    name="${spec%%:*}"; limit="${spec##*:}"; file="$META/$loc/$name"
+    if [ -s "$file" ]; then
+      # shellcheck disable=SC2086 (PY kann "py -3" mit Argument sein)
+      len="$($PY -c 'import sys;print(len(open(sys.argv[1],encoding="utf-8").read().strip()))' "$file")"
+      if [ "$len" -gt "$limit" ]; then
+        fail "Locale $loc: $name hat $len Zeichen — erlaubt sind max. $limit"
+      else
+        echo "✅ Locale $loc: $name ($len/$limit Zeichen)"
+      fi
+    fi
+  done
   changelog="$META/$loc/changelogs/default.txt"
   if [ ! -s "$changelog" ]; then
     fail "Locale $loc: changelogs/default.txt fehlt oder ist leer"
   else
     echo "✅ Locale $loc: changelogs/default.txt ($(wc -c < "$changelog") Bytes)"
+    # Die Anleitung „Changelogs are versioned by …" ist kein Changelog: sie
+    # würde im Store und im IzzyOnDroid-Listing wörtlich als Neuerungen-Text
+    # erscheinen. Deshalb hart rot statt still durchreichen.
+    if grep -q "Changelogs are versioned by" "$changelog"; then
+      fail "Locale $loc: changelogs/default.txt ist noch der Platzhaltertext"
+    fi
   fi
 done
 

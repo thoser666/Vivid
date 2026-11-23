@@ -389,6 +389,34 @@ kommen (keine Duplikate pro Repo). Bei Versionsbumps immer `release_safety.rb`/T
 > **Antifeature-Vorsorge:** `foss`-Flavor hat kein Sentry → kein „Tracking“-Label. Nach dem
 > F-Droid-Merge im Flatpak/`.yml` `AntiFeatures` nicht ergänzen lassen.
 
+### IzzyOnDroid — Stand der Einreichung (2026-11-23)
+
+Einreichung läuft über den **Codeberg**-Tracker (<https://codeberg.org/IzzyOnDroid/repodata/issues> —
+das GitLab-Repo ist archiviert, ein Codeberg-Konto ist nötig). Maßgeblich ist die
+[App Inclusion Policy](https://izzyondroid.org/docs/general/AppInclusionPolicy):
+
+| Vorgabe | Stand im Repo |
+|---|---|
+| APK ≤ **30 MB** pro Version | ✅ Release-APK ~9 MB — die libwebrtc-Prebuilds (48 MB über vier ABIs) sind `debugImplementation` ([whip-spike.md](whip-spike.md) §11.2) |
+| `short_description.txt` ≤ 80 Zeichen | ✅ en 72 / de 74 Zeichen — geprüft von `scripts/check_play_metadata.sh` |
+| `title.txt` ≤ 30 Zeichen | ✅ 21 Zeichen („Vivid – IRL Streaming“, deckt sich mit `AutoName`) |
+| `changelogs/<versionCode>.txt` | ✅ `changelogs/5492.txt` (0.5.49-beta); `default.txt` enthält echte Notizen, der Platzhaltertext ist rot |
+| Icon + Screenshots | ⚠️ Icon ✅ — Screenshots vorhanden, aber inhaltlich schwach (Fehlerzustand + deutscher Settings-Screen) |
+| kein Self-Updater | ✅ kein `PackageInstaller`, kein `REQUEST_INSTALL_PACKAGES` |
+| Release-Key, nicht `debuggable` | ✅ CI-Release-Key (lokale Builds ohne `KEYSTORE_PATH` sind debug-signiert) |
+| AI-Policy | ⚠️ optionaler Chat-Bot mit OpenAI-kompatiblem Client — **vor** der Einreichung offenzulegen |
+
+Größe lokal prüfbar:
+
+```bash
+bash scripts/check_apk_size.sh app/build/outputs/apk/foss/release/app-foss-release.apk
+# strenger:  APK_LIMIT_MB=25 bash scripts/check_apk_size.sh <apk>
+```
+
+Der Guard endet bei fehlender Datei mit Exit 2, nicht mit Grün — eine nicht geprüfte APK darf
+nie wie ein bestandener Check aussehen. `scripts/test_check_apk_size.sh` deckt 29/30/31 MiB plus
+Aufruffehler ab.
+
 ## Eigener F-Droid-Repo-Server (GitHub Pages)
 
 Wird wöchentlich aus den **Stable-Releases** gebaut (nur `app-standard-release.apk`; der foss-Build
@@ -452,6 +480,8 @@ und in der CI; gegen gemocktes `gh`/fastlane, ohne Netz):
 | `scripts/test_distribution_stable.sh` | Workflow: Tag-Auswahl inkl. Untergrenze, Dispatch-Validierung, Keystore-Guard, cosign-Signatur, CHANGELOG-Mirror, **kein Backslash in `script:`-Blöcken des Emulator-Runners** (D1–D20, davon D16.4–D16.8 Verhaltenstests der Tag-Auswahl und D20.1 Workflow-weiter Struktur-Guard) |
 | `scripts/test_verify_reproducibility.sh` | Verify-Job: flavor-korrekte Assets, Rebuild-Pfade, **Zielwahl des zu prüfenden Releases**, Versionsquelle und **Tag-zu-Commit-Auflösung** (T1–T18, davon T14.1–T14.5 und T18.1–T18.7 Verhaltenstests in einer gh/curl/unzip-Sandbox) |
 | `scripts/test_fdroid_metadata.sh` | Metadata-Dateien + versionCode-Konsistenz (M1–M10) |
+| `scripts/test_check_apk_size.sh` | APK-Größenlimit (30 MB, IzzyOnDroid): 29/30/31 MiB, `APK_LIMIT_MB`-Override, Aufruffehler |
+| `scripts/test_play_metadata.sh` | Play-/Izzy-Metadaten: u. a. Titel ≤ 30 und Kurzbeschreibung ≤ 80 Zeichen, kein Platzhalter-Changelog (1 Positiv, 10 Negativ) |
 | `scripts/test_bot_pr_credentials.sh` | Secrets/Credentials-Disziplin in allen Workflows (inkl. T4-/T7-*/T8-*/T9-*/T10-Loops) |
 
 ## Zusammenfassung
@@ -460,5 +490,5 @@ und in der CI; gegen gemocktes `gh`/fastlane, ohne Netz):
 - **Beta / Versions-Tag** = manuell; gleiche Artefakte und Signatur wie Stable, zusätzlich `mapping.txt` + `output-metadata.json` als Voraussetzung für das Reproduzierbarkeits-Gate.
 - **Nightly** = täglich, Standard-Flavor, prerelease, **ohne** cosign-Bundle (Tag erst zur Laufzeit bekannt).
 - **Eigenes F-Droid-Repo** = wöchentlich aus Stable-APKs, GitHub Pages, eigenes Archiv.
-- **F-Droid-Hauptrepo / IzzyOnDroid** = vorbereitet (`foss`-Flavor + Metadata), Einreichung bei Bedarf.
+- **F-Droid-Hauptrepo / IzzyOnDroid** = `foss`-Flavor + Metadata stehen, der Größen-Blocker ist beseitigt (APK ~9 MB statt 57 MB) und die Fastlane-Limits sind eingehalten; offen sind echte Screenshots und die Klärung der AI-Policy, dann Einreichung über Codeberg.
 - **Accrescent** = dokumentierte Option, kein Ziel.

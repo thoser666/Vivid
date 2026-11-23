@@ -1,9 +1,4 @@
-Changelogs sind nach Version-Code versioniert oder default.txt für alle Releases.
-
-Für Alpha/Beta/Stable-Releases eine Datei mit dem Version-Code anlegen:
-  <version-code>.txt  (z. B. 1.txt für versionCode 1)
-
-CI kann diese automatisch aus der Git-Historie generieren:
-  git log --oneline <vorheriger-tag>..HEAD > changelog.txt
-
-Siehe RELEASE.md für den Release-Prozess.
+• Experimentelle 60-FPS-Aufnahme und sichere Live-Steuerung
+• Szenen-Compositor für mehrschichtige Szenen
+• Fix: Eine Stream-Session konnte doppelt geschlossen werden
+• Zuverlässigere Updates über das F-Droid-Repository

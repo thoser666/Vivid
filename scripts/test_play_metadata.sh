@@ -144,4 +144,25 @@ build_fixture "$META/images" 2 ""
 build_readme 1   # referenziert nur 1_en-US.png, 2_en-US.png fehlt in der README
 expect_exit 1 "in der README vergessener Screenshot erkannt"
 
-echo "✅ check_play_metadata.sh: alle Fälle bestanden (1 Positiv, 7 Negativ)."
+# ── Negativ 8: Kurzbeschreibung über 80 Zeichen (Play-/Izzy-Limit) ────────
+rm -rf "$TMP"; META="$TMP/metadata/android"
+build_fixture "$META/images" 2 ""
+build_readme 2
+printf '%0.sx' $(seq 1 81) > "$META/en-US/short_description.txt"
+expect_exit 1 "zu lange Kurzbeschreibung (81 Zeichen) erkannt"
+
+# ── Negativ 9: Titel über 30 Zeichen ──────────────────────────────────────
+rm -rf "$TMP"; META="$TMP/metadata/android"
+build_fixture "$META/images" 2 ""
+build_readme 2
+printf '%0.sx' $(seq 1 31) > "$META/en-US/title.txt"
+expect_exit 1 "zu langer Titel (31 Zeichen) erkannt"
+
+# ── Negativ 10: Platzhalter-Changelog statt echter Release-Notizen ────────
+rm -rf "$TMP"; META="$TMP/metadata/android"
+build_fixture "$META/images" 2 ""
+build_readme 2
+printf 'Changelogs are versioned by version code or default.txt.\n' > "$META/en-US/changelogs/default.txt"
+expect_exit 1 "Platzhalter-Changelog erkannt"
+
+echo "✅ check_play_metadata.sh: alle Fälle bestanden (1 Positiv, 10 Negativ)."
