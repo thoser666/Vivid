@@ -370,6 +370,15 @@ Builds:
       - app/src/main/generated
 ```
 
+**Wichtig für F-Droid:** fdroidserver baut einen Tag mit `assembleFossRelease` **ohne** `-PversionCode` —
+die Ableitung im Build muss deshalb exakt den Code des Tags liefern. Bis 2026-11-23 addierte
+`derivedVersionCode` in `app/build.gradle.kts` pauschal `+4`; `v0.5.49-beta` wäre als **5494** gebaut
+worden, während die Metadata **5492** verlangt (fdroidserver hätte den Build mit
+versionCode-Mismatch verweigert). Seitdem ist die Ableitung stufenbewusst und identisch zu
+`release_safety.rb#version_code_for`; `scripts/test_version_fallback.rb` ruft dafür die Task
+`:app:versionCodesProbe` auf und vergleicht die **echte** Implementierung (vorher prüfte der Guard
+nur eine eigene Kopie der Formel und blieb deshalb grün).
+
 **versionCode-Schema** (fastlane/release_safety.rb): `major*1_000_000 + minor*1_000 + patch*10 + Stufe`
 (alpha=1, beta=2, rc=3, stable=4). `0.5.14-beta` → `5142`, `0.5.14` → `5144`. Der foss-Eintrag nutzt denselben
 versionCode wie Standard — F-Droid und der eigene Repo-Server können sich damit nicht in die Quere

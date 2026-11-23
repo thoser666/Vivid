@@ -28,7 +28,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR/.." || exit 1
 
-echo "▶ [test_fdroid_metadata] Szenarien M1–M10"
+echo "▶ [test_fdroid_metadata] Szenarien M1–M12"
 
 FAILED=0
 CHECK() {
@@ -82,7 +82,17 @@ if builds.is_a?(Array) && !builds.empty?
     derived = version_code_for(entry["versionName"].to_s.sub(/^v/, ""))
     ok.call("M7 versionCode konsistent zur versionName (release_safety.rb): #{entry['versionName']}",
       derived == entry["versionCode"])
+    # M11: fdroidserver checkt den Commit aus — ein nicht existierender Tag ist
+    # ein harter Build-Fehler, den die YAML selbst nicht zeigt.
+    tag = entry["commit"].to_s
+    ok.call("M11 Commit-Tag existiert im Repo: #{tag}",
+      system("git rev-parse -q --verify refs/tags/#{tag} >/dev/null 2>&1"))
   end
+  # M12: neuester Eintrag trägt den höchsten versionCode (Auto-Update nimmt den
+  # obersten Eintrag; ein absteigender Block würde eine ältere Version ausliefern).
+  codes = builds.filter_map { |b| b.is_a?(Hash) ? b["versionCode"] : nil }
+  ok.call("M12 versionCodes streng fallend (neuester zuerst)",
+    codes.each_cons(2).all? { |a, b| a > b })
 end
 
 # M8: kein nightly drin

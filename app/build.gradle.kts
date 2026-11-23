@@ -172,6 +172,54 @@ tasks.matching { it.name.startsWith("merge") && it.name.endsWith("ComposeMapping
     }
 }
 
+/**
+ * Deterministischer versionCode aus einem Versionsnamen:
+ * major*1_000_000 + minor*1_000 + patch*10 + Stufe (alpha=1, beta=2, rc=3, sonst 4).
+ *
+ * Muss identisch zu `fastlane/release_safety.rb#version_code_for` bleiben — F-Droid
+ * baut den Tag mit `assembleFossRelease` **ohne** `-PversionCode`; weicht die Ableitung
+ * vom Tag-code ab, verweigert fdroidserver den Build (versionCode-Mismatch). Deshalb
+ * steht die Formel hier einmal und wird von der Task `versionCodesProbe` ausgegeben,
+ * damit `scripts/test_version_fallback.rb` gegen die echte Implementierung prueft
+ * statt gegen eine Kopie.
+ */
+fun derivedVersionCode(versionName: String): Int {
+    val cleaned = versionName.trim().removePrefix("v")
+    // Dieselbe Erkennung wie release_safety.rb: die Stufe darf auch an ein
+    // Suffix wie "-beta.1" anschliessen ([-.]? Trenner) — sonst rechnet der
+    // Build fuer solche Tags +4 und F-Droid baut einen anderen Code als CI.
+    val m = Regex("^(\\d+)\\.(\\d+)(?:\\.(\\d+))?(?:[-.]?(alpha|beta|rc))?").find(cleaned)
+    if (m == null) return 0
+    val major = m.groupValues[1].toIntOrNull() ?: 0
+    val minor = m.groupValues[2].toIntOrNull() ?: 0
+    val patch = m.groupValues[3].ifEmpty { "0" }.toIntOrNull() ?: 0
+    val stage = when (m.groupValues[4]) {
+        "alpha" -> 1
+        "beta" -> 2
+        "rc" -> 3
+        else -> 4
+    }
+    return major * 1_000_000 + minor * 1_000 + patch * 10 + stage
+}
+
+// Bruecke fuer den Version-Code-Guard: gibt die Ableitung fuer feste Probenamen aus.
+// Ohne diese Task kann der Guard nur eine Kopie der Formel testen (das war der
+// Zustand vor 2026-11-23: Guard gruen, Build rechnete trotzdem anders).
+tasks.register("versionCodesProbe") {
+    group = "verification"
+    description = "Gibt abgeleitete versionCodes fuer eine feste Probenliste aus (Guard-Gegenprobe)."
+    doLast {
+        listOf(
+            "0.5.13-beta", "0.5.8-beta.1", "1.0", "0.5.13", "v0.5.14", "0.5.14-stable",
+            "0.5.49-beta", "0.5.16-rc", "0.5.13-alpha",
+        ).forEach { println("$it=${derivedVersionCode(it)}") }
+        // Zusatzzeile fuer den realen Arbeitsstand: der Guard vergleicht sie mit
+        // dem Tag-Code — sonst faellt nicht auf, wenn VERSION und Metadata
+        // auseinanderlaufen (F-Droid baut den Tag, nicht den Arbeitsstand).
+        println("VERSION=${derivedVersionCode(rootProject.file("VERSION").readText().trim())}")
+    }
+}
+
 android {
     namespace = "com.vivid"
 
@@ -202,15 +250,6 @@ android {
         // defaults keep local builds stable.
         val resolvedVersionName = (project.findProperty("versionName") as String?) ?: rootProject.file("VERSION").readText().trim()
         versionName = resolvedVersionName
-        fun derivedVersionCode(versionName: String): Int {
-            val cleaned = versionName.removePrefix("v")
-            val base: String = if (cleaned.contains('-')) cleaned.substringBefore('-') else cleaned
-            val parts = base.split('.')
-            val major = parts.getOrElse(0) { "0" }.toIntOrNull() ?: 0
-            val minor = parts.getOrElse(1) { "0" }.toIntOrNull() ?: 0
-            val patch = parts.getOrElse(2) { "0" }.toIntOrNull() ?: 0
-            return major * 1_000_000 + minor * 1_000 + patch * 10 + 4
-        }
         val resolvedVersionCode = (project.findProperty("versionCode") as String?)?.toIntOrNull() ?: derivedVersionCode(resolvedVersionName)
         versionCode = resolvedVersionCode
 
