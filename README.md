@@ -1,5 +1,5 @@
 # 📱 Vivid
-### Android version of the open-source Moblin IRL streaming app
+### Open-source IRL streaming for Android
 
 <div align="center">
 
@@ -12,15 +12,31 @@
 ![CI](https://img.shields.io/github/actions/workflow/status/thoser666/Vivid/android-ci.yml?branch=develop&style=for-the-badge&label=CI)
 ![OpenSSF Best Practices](https://bestpractices.dev/projects/14442/badge)
 
-**Professional IRL streaming for Android — aiming for full feature parity with Moblin**
+**Stream RTMP/RTMPS or SRT to Twitch, YouTube, Kick or your own server — multi-camera, scenes, chat overlay, OBS WebSocket control.**
+**Free and open source (MIT). No ads, no analytics — the FOSS build (`com.vivid.foss`) ships without any telemetry.**
+
+**Language:** 🇬🇧 **English** (this page) · 🇩🇪 [Deutsch](docs/user-guide.md) · 🇫🇷 [Français](docs/user-guide.fr.md)
 
 <p align="center">
   <a href="docs/hero.svg">
-    <img src="docs/hero.svg" alt="Vivid — IRL Streaming auf Android" width="260">
+    <img src="docs/hero.svg" alt="Vivid — IRL streaming for Android" width="260">
   </a>
 </p>
 
-[📲 Install](#-installation) • [📥 Download APK](../../releases/latest/download/app-standard-release.apk) • [📖 User Guide](docs/user-guide.md) ([🇬🇧 EN](docs/user-guide.en.md) · [🇫🇷 FR](docs/user-guide.fr.md)) • [🤖 AI Chat Bot](docs/ai-chat-bot.md) • [🤝 Contribute](CONTRIBUTING.md) • [📝 Changelog](CHANGELOG.md) • [📚 Documentation](docs/user-guide.md) (DE/EN/FR Handbuch + [docs/ai-chat-bot.md](docs/ai-chat-bot.md) + [GitHub-Wiki](../../wiki) per Doku-Sync synchron) • [🐛 Report Bug](../../issues) • [💬 Discussions](../../discussions)
+<!-- ═══ DEMO-GIF SLOT — above the fold ═══════════════════════════════════════
+     This is where the demo goes; nothing is shown here until the file exists.
+       1. record ~20-30 s: go live -> switch scene -> chat overlay -> stop
+       2. save it as docs/demo.gif (or docs/demo.webp; <= 8 MB, width 720-900)
+       3. remove the HTML comment wrapper around the <p> block below
+     The GIF is the first thing a visitor loads, so keep the payload small.
+     ═════════════════════════════════════════════════════════════════════════ -->
+<!--
+<p align="center">
+  <img src="docs/demo.gif" alt="Vivid demo: going live, switching scenes, chat overlay" width="720">
+</p>
+-->
+
+[📲 Install](#-installation) • [📥 Download APK](../../releases/latest/download/app-standard-release.apk) • [📖 User guide](docs/user-guide.en.md) (EN · [DE](docs/user-guide.md) · [FR](docs/user-guide.fr.md)) • [🤖 AI chat bot](docs/ai-chat-bot.md) • [🤝 Contribute](CONTRIBUTING.md) • [📝 Changelog](CHANGELOG.md) • [📚 Documentation](docs/user-guide.en.md) · [wiki](../../wiki) • [🐛 Report bug](../../issues) • [💬 Discussions](../../discussions)
 
 </div>
 
@@ -46,6 +62,19 @@
   <img src="fastlane/metadata/android/images/phoneScreenshots/1_en-US.png" alt="Vivid live streaming screen" width="250">
   <img src="fastlane/metadata/android/images/phoneScreenshots/2_en-US.png" alt="Vivid settings screen" width="250">
 </p>
+
+### Vivid vs Moblin
+
+Vivid is not a port: it is an independent Android codebase written from scratch, and parity with Moblin is tracked publicly in [PARITY.md](PARITY.md).
+
+|                         | **Vivid**                                                                       | **Moblin**                       |
+|-------------------------|---------------------------------------------------------------------------------|----------------------------------|
+| **Platform**            | Android 7.0+ (API 24)                                                           | iOS                              |
+| **Built with**          | Kotlin, Jetpack Compose, RootEncoder                                            | Swift, SwiftUI                   |
+| **License**             | MIT                                                                             | MIT                              |
+| **Install**             | GitHub Releases or the project's own F-Droid repo — no Play Store needed         | App Store                        |
+| **Streaming**           | RTMP/RTMPS and SRT, multi-camera, scenes, chat overlay, OBS WebSocket control     | RTMP/RTMPS and SRT               |
+| **Scope**               | Android implementation, feature parity tracked in [PARITY.md](PARITY.md)         | The reference IRL streaming app  |
 
 ---
 
