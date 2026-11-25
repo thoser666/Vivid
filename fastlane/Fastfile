@@ -35,7 +35,7 @@ end
 # in der yml nannte eine Lane `release_live`, die es nie gab. Jetzt schreibt die
 # Tag-erzeugende Lane den Eintrag selbst — VOR dem Tag-Push, damit der Commit im
 # Tag liegt und die Metadata genau den Baum beschreibt, den fdroidserver auscheckt.
-def record_fdroid_metadata!(tag, push: true)
+def record_fdroid_metadata!(tag)
   # cwd ist beim Lane-Lauf das Fastfile-Verzeichnis (`fastlane/`), nicht der
   # Projektstamm: ein relatives Pathspec loest dort zu `fastlane/fdroid/...` auf
   # und git bricht mit 128 ab (`fatal: pathspec ... did not match any files`) —
@@ -55,11 +55,38 @@ def record_fdroid_metadata!(tag, push: true)
   UI.message("F-Droid-Metadata: #{added['versionName']} (#{added['versionCode']}) eingetragen, #{result[:entries].size} Eintraege")
   sh("git", "-C", root, "add", FdroidMetadata::RELATIVE_PATH)
   sh("git", "-C", root, "commit", "-m", "chore(fdroid): record #{tag} in the Builds block")
-  if push
-    UI.message("F-Droid-Metadata: Push nach develop (Pre-Push-Gate kann ~15 min laufen)")
-    sh("git", "-C", root, "push", "origin", "develop")
-  end
+  # Bewusst KEIN Push hier — das uebernimmt `publish_release_tag!`: der Tag muss
+  # VOR dem develop-Push existieren, weil der Gate-Selbsttest M11 fuer jeden
+  # Builds-Eintrag eine existierende Tag-Ref verlangt.
   true
+end
+
+# Metadata-Commit -> Tag LOKAL anlegen -> develop pushen -> Tag pushen.
+#
+# Die Reihenfolge ist der Kern: der Metadata-Commit traegt den neuen Tag bereits
+# im Builds-Block, und `scripts/test_fdroid_metadata.sh` (M11, im Pre-Push-Gate)
+# verlangt dafuer eine existierende Tag-Ref. Im ersten echten Lane-Lauf
+# (v0.5.50-beta, 2026-11-25) pushte der Helfer develop zuerst — das Gate wurde
+# mit „M11 Commit-Tag existiert im Repo: v0.5.50-beta" rot, der Push wurde
+# abgelehnt und es entstand nie ein Tag. Deshalb erst taggen, dann pushen; und
+# weil ein Push scheitern kann, wird der lokale Tag im Fehlerfall entfernt,
+# sonst blockiert der Existenz-Check („Tag already exists") den naechsten
+# Versuch.
+def publish_release_tag!(tag, message, root = fastlane_repo_root)
+  record_fdroid_metadata!(tag)
+  sh("git", "-C", root, "tag", "-a", tag, "-m", message)
+  begin
+    UI.message("Push develop + #{tag} (Pre-Push-Gate kann ~15 min laufen)")
+    sh("git", "-C", root, "push", "origin", "develop")
+    sh("git", "-C", root, "push", "origin", tag)
+  rescue StandardError
+    begin
+      sh("git", "-C", root, "tag", "-d", tag)
+    rescue StandardError
+      UI.message("Rollback: lokaler Tag #{tag} konnte nicht entfernt werden")
+    end
+    raise
+  end
 end
 
 default_platform(:android)
@@ -189,9 +216,7 @@ platform :android do
     UI.header "Step 4/4: Creating and pushing tag"
     # Metadata-Commit vor dem Tag: der Tag enthaelt damit seinen eigenen
     # F-Droid-Builds-Eintrag — kein Handgriff mehr nach dem Release.
-    record_fdroid_metadata!(tag)
-    sh("git", "tag", "-a", tag, "-m", "Alpha release #{tag}")
-    sh("git", "push", "origin", tag)
+    publish_release_tag!(tag, "Alpha release #{tag}")
 
     UI.success("✅ Pushed #{tag} — CI will build and publish the alpha release")
     UI.message("Monitor: https://github.com/thoser666/Vivid/actions")
@@ -280,9 +305,7 @@ platform :android do
     UI.header "Step 4/5: Creating and pushing tag"
     # Metadata-Commit vor dem Tag: der Tag enthaelt damit seinen eigenen
     # F-Droid-Builds-Eintrag — kein Handgriff mehr nach dem Release.
-    record_fdroid_metadata!(tag)
-    sh("git", "tag", "-a", tag, "-m", "Beta release #{tag}")
-    sh("git", "push", "origin", tag)
+    publish_release_tag!(tag, "Beta release #{tag}")
 
     UI.header "Step 5/5: Done"
     UI.success("✅ Pushed #{tag} — CI will build and publish the beta release")
