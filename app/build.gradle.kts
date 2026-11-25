@@ -147,6 +147,65 @@ private fun canonicalizeComposeMappingFile(file: File) {
     println("Compose-Group-Mapping kanonisiert: ${file.path}")
 }
 
+/**
+ * Bruecke fuer den Kanonisierungs-Guard (`scripts/test_compose_mapping_canonical.rb`):
+ * laesst die ECHTE [canonicalizeComposeMapping] auf zwei Permutationen derselben
+ * Fixture laufen und schreibt die Ergebnisse als UTF-8-Dateien nach
+ * `app/build/compose-mapping-probe/` (Modul-Build-Verzeichnis).
+ *
+ * Warum eine Task und keine Kopie im Test: ein Guard, der den Sortierer
+ * nachbaut, beweist nur sich selbst — genau diese Fehlerklasse ist im Repo
+ * belegt (bis 2026-11-23 pruefte `test_version_fallback.rb` eine Kopie der
+ * Formel, waehrend der Build fuer jede Stufe +4 rechnete). Und warum Dateien
+ * statt stdout: die Fixture enthaelt Nicht-ASCII bis U+1F600; die
+ * stdout-Kodierung des Build-JVM (Windows: cp1252) wuerde sie ersetzen und der
+ * Byte-Ordnungs-Check waere wertlos.
+ *
+ * Die Fixture bildet die Form der realen Datei ab: zwei nicht eingerueckte
+ * Blockkoepfe, eine Leerzeile dazwischen, je Block eingerueckte Eintraege, ein
+ * doppelter Eintrag (Sortieren darf nichts zusammenfassen) und Zeichen aus vier
+ * Byte-Bereichen — inklusive U+FF21 und U+1F600, deren Reihenfolge in UTF-16
+ * anders ist als in UTF-8 (deshalb prueft der Guard die BYTE-Ordnung).
+ */
+tasks.register("composeMappingProbe") {
+    group = "verification"
+    description = "Schreibt kanonisierte Permutationen einer Compose-Mapping-Fixture (Guard-Gegenprobe)."
+    val probeDir = layout.buildDirectory.dir("compose-mapping-probe")
+    outputs.dir(probeDir)
+    doLast {
+        val blocks = listOf(
+            "ComposeStackTrace -> \$\$compose:" to listOf(
+                "    1:1:void com.vivid.foo.Zeta(androidx.compose.runtime.Composer,int):10:10 -> za",
+                "    1:1:void com.vivid.foo.Alpha(androidx.compose.runtime.Composer,int):11:11 -> aa",
+                "    1:1:void com.vivid.foo.Mittel(androidx.compose.runtime.Composer,int):12:12 -> mi",
+                "    1:1:void com.vivid.foo.\u00c4rger(androidx.compose.runtime.Composer,int):13:13 -> ae",
+                "    1:1:void com.vivid.foo.\u20acuro(androidx.compose.runtime.Composer,int):14:14 -> eu",
+                "    1:1:void com.vivid.foo.\uff21breit(androidx.compose.runtime.Composer,int):16:16 -> fw",
+                "    1:1:void com.vivid.foo.\ud83d\ude00Face(androidx.compose.runtime.Composer,int):15:15 -> fa",
+                "    1:1:void com.vivid.foo.Alpha(androidx.compose.runtime.Composer,int):11:11 -> aa",
+            ),
+            "ComposeZweiterBlock -> \$\$compose:" to listOf(
+                "    9:9:void com.vivid.bar.Beta(androidx.compose.runtime.Composer,int):20:20 -> be",
+                "    9:9:void com.vivid.bar.Aalpha(androidx.compose.runtime.Composer,int):21:21 -> ba",
+            ),
+        )
+        fun render(reverseEntries: Boolean): String = blocks.joinToString("\n\n") { (header, entries) ->
+            val ordered = if (reverseEntries) entries.reversed() else entries
+            (listOf(header) + ordered).joinToString("\n")
+        } + "\n"
+
+        val input = render(reverseEntries = false)
+        val canonical = canonicalizeComposeMapping(input)
+        val dir = probeDir.get().asFile
+        dir.mkdirs()
+        dir.resolve("input.txt").writeText(input)
+        dir.resolve("perm-a.txt").writeText(canonical)
+        dir.resolve("perm-b.txt").writeText(canonicalizeComposeMapping(render(reverseEntries = true)))
+        dir.resolve("perm-a-twice.txt").writeText(canonicalizeComposeMapping(canonical))
+        println("Compose-Mapping-Probe geschrieben: ${dir.path}")
+    }
+}
+
 // Die Datei wird über den aus dem Task-Namen abgeleiteten Variantenpfad UND
 // über die deklarierten Outputs gesucht: kein Raten, falls AGP die Datei in
 // einer künftigen Version anders ablegt. Sortieren ist idempotent, doppelte

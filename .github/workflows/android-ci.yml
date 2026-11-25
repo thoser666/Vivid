@@ -288,6 +288,15 @@ jobs:
       - name: Test version-code fallback
         run: ruby scripts/test_version_fallback.rb
 
+      # Compose-Mapping-Kanonisierung (Ruby + Gradle-Probe): der Anhang, den AGP
+      # an mapping.txt haengt, muss reihenfolge-UNABHAENGIG sortiert werden —
+      # sonst kippen pg_map_hash, Sentry-ProguardUuid und damit das ganze
+      # Nightly-APK (#458). Der Guard laesst die ECHTE Implementierung
+      # (:app:composeMappingProbe) auf zwei Permutationen laufen und prueft
+      # Permutationsinvarianz, Idempotenz, Verlustfreiheit und UTF-8-Byte-Ordnung.
+      - name: Test compose mapping canonicalisation
+        run: ruby scripts/test_compose_mapping_canonical.rb
+
       # Wiki-Sync (Bash) — Selbsttest: sync_wiki.sh generiert alle drei
       # Wiki-Seiten (Home + User-Guide-EN + User-Guide-FR) CRLF-normalisiert
       # und verlinkt die Sprach-Seiten; fehlende Handbücher werden erkannt.

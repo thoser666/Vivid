@@ -220,6 +220,14 @@ run bash scripts/test_emulator_gate_retry.sh
 echo "▶ [pre-push] Verify-Reproducibility-Selbsttest (scripts/test_verify_reproducibility.sh)"
 run bash scripts/test_verify_reproducibility.sh
 
+# Compose-Mapping-Kanonisierung (Ruby + Gradle-Probe): der Anhang, den AGP an
+# mapping.txt haengt, muss reihenfolge-UNABHAENGIG sortiert werden — sonst kippen
+# pg_map_hash, Sentry-ProguardUuid und damit das ganze Nightly-APK (#458). Der
+# Guard prueft die EIGENSCHAFT (Permutationsinvarianz, Idempotenz,
+# UTF-8-Byte-Ordnung) gegen die echte Implementierung, nicht gegen eine Kopie.
+echo "▶ [pre-push] Compose-Mapping-Kanonisierung (scripts/test_compose_mapping_canonical.rb)"
+run ruby scripts/test_compose_mapping_canonical.rb
+
 # Distributions-Quick-Wins (grep-basiert, offline): permanenter Latest-APK-
 # Permalink im README + Prüfsummen-Anhang in beiden Publikations-Zweigen.
 echo "▶ [pre-push] Distributions-Quick-Wins-Selbsttest (scripts/test_pinned_checksums.sh)"
