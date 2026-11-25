@@ -100,6 +100,24 @@ Dir.mktmpdir do |tmp|
           File.binread(SOURCE).delete("\r").bytes == original.delete("\r").bytes)
 end
 
+# T9: die Verdrahtung der Lane selbst. `record_fdroid_metadata!` laeuft mit
+# cwd = fastlane/ (Fastfile-Verzeichnis), ein relatives Pathspec landet daher in
+# fastlane/fdroid/... — im ersten echten Lane-Lauf (v0.5.50-beta, 2026-11-25)
+# brach `git add` mit 128 ab, nachdem der Updater die Datei korrekt geschrieben
+# hatte: die Aenderung lag uncommittet im Baum, ein Tag wurde nie gesetzt. Ein
+# Test des Updaters allein sieht das nicht, deshalb wird der Helfer-Rumpf aus
+# dem Fastfile gelesen und jeder git-Aufruf auf `-C` geprueft.
+fastfile = File.read(File.join(ROOT, "fastlane/Fastfile"))
+body = fastfile[/^def record_fdroid_metadata!.*?^end$/m].to_s
+ok.call("T9 Helfer record_fdroid_metadata! im Fastfile gefunden", !body.empty?)
+git_calls = body.lines.map(&:strip).select { |line| line.include?('sh("git"') }
+ok.call("T9 git-Aufrufe im Helfer vorhanden (add/commit/push)",
+        %w[add commit push].all? { |sub| git_calls.any? { |line| line.include?("\"#{sub}\"") } })
+ok.call("T9 jeder git-Aufruf nennt -C <root> (cwd ist fastlane/)",
+        !git_calls.empty? && git_calls.all? { |line| line.include?('sh("git", "-C", root') })
+ok.call("T9 kein relatives Pathspec mehr ohne -C",
+        git_calls.none? { |line| line.include?("RELATIVE_PATH") && !line.include?('"-C"') })
+
 puts "\n=== Ergebnis ==="
 if fails.empty?
   puts "Alle Builds-Block-Checks bestanden."

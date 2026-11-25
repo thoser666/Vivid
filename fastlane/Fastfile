@@ -36,18 +36,28 @@ end
 # Tag-erzeugende Lane den Eintrag selbst — VOR dem Tag-Push, damit der Commit im
 # Tag liegt und die Metadata genau den Baum beschreibt, den fdroidserver auscheckt.
 def record_fdroid_metadata!(tag, push: true)
-  result = FdroidMetadata.record!(fastlane_repo_root, tag)
+  # cwd ist beim Lane-Lauf das Fastfile-Verzeichnis (`fastlane/`), nicht der
+  # Projektstamm: ein relatives Pathspec loest dort zu `fastlane/fdroid/...` auf
+  # und git bricht mit 128 ab (`fatal: pathspec ... did not match any files`) —
+  # genau das passierte im ersten echten Lane-Lauf v0.5.50-beta am 2026-11-25,
+  # nachdem `record!` die Datei korrekt geschrieben hatte (Aenderung lag danach
+  # uncommittet im Baum, Tag wurde keiner gesetzt). Deshalb ALLE Git-Aufrufe mit
+  # `-C <root>`; der Selbsttest `scripts/test_fdroid_metadata_update.rb` (T9)
+  # haelt das fest, weil ein Test des Updaters allein diese Verdrahtung nicht
+  # abdeckt.
+  root = fastlane_repo_root
+  result = FdroidMetadata.record!(root, tag)
   unless result[:changed]
     UI.message("F-Droid-Metadata: #{tag} steht bereits im Builds-Block — nichts zu tun")
     return false
   end
   added = result[:entry]
   UI.message("F-Droid-Metadata: #{added['versionName']} (#{added['versionCode']}) eingetragen, #{result[:entries].size} Eintraege")
-  sh("git", "add", FdroidMetadata::RELATIVE_PATH)
-  sh("git", "commit", "-m", "chore(fdroid): record #{tag} in the Builds block")
+  sh("git", "-C", root, "add", FdroidMetadata::RELATIVE_PATH)
+  sh("git", "-C", root, "commit", "-m", "chore(fdroid): record #{tag} in the Builds block")
   if push
     UI.message("F-Droid-Metadata: Push nach develop (Pre-Push-Gate kann ~15 min laufen)")
-    sh("git", "push", "origin", "develop")
+    sh("git", "-C", root, "push", "origin", "develop")
   end
   true
 end
