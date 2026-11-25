@@ -716,7 +716,10 @@ platform :android do
     meta_dir = File.join(root, "fastlane/metadata/android/images/phoneScreenshots")
 
     UI.header "Step 1/3: Building debug + androidTest APKs"
-    gradle(task: "clean assembleDebug assembleDebugAndroidTest")
+    # Flavor-scharf: seit der Aufteilung standard/foss heisst die Debug-APK
+    # app-standard-debug.apk, und ein blosses "assembleDebugAndroidTest" gibt es
+    # nicht (nur assembleStandardDebugAndroidTest / assembleAndroidTest).
+    gradle(task: "clean assembleStandardDebug assembleStandardDebugAndroidTest")
 
     UI.header "Step 2/3: Capturing screenshots (fastlane screengrab)"
     # Library-only setup (tools.fastlane:screengrab, KEIN Screengrab-Gradle-Plugin —
@@ -724,9 +727,13 @@ platform :android do
     # APKs selbst, instrumentiert nur PlayScreenshotsTest (use_tests_in_classes)
     # und zieht die PNGs vom Geraet nach fastlane/screenshots/<locale>/images/phoneScreenshots/.
     # use_timestamp_suffix:false → stabile Dateinamen (1_live_stream.png, 2_settings.png).
+    # Absolute Pfade: fastlane laeuft mit cwd = fastlane/, deshalb loeste screengrab
+    # die relativen APK-Pfade gegen fastlane/app/... auf und brach ab ("Could not
+    # find APK file at path 'app/build/outputs/apk/debug/app-debug.apk'", Lauf
+    # 2026-11-23). root zeigt bereits auf den Projektstamm.
     screengrab(
-      app_apk_path: "app/build/outputs/apk/debug/app-debug.apk",
-      tests_apk_path: "app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk",
+      app_apk_path: File.join(root, "app/build/outputs/apk/standard/debug/app-standard-debug.apk"),
+      tests_apk_path: File.join(root, "app/build/outputs/apk/androidTest/standard/debug/app-standard-debug-androidTest.apk"),
       app_package_name: "com.vivid.debug",
       tests_package_name: "com.vivid.debug.test",
       locales: ["en-US"],

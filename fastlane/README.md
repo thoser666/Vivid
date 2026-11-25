@@ -111,6 +111,14 @@ Build a release AAB signed with the UPLOAD key and upload it to Google Play (req
 
 Report orphaned draft releases on v* tags (no auto-delete - a draft may be intentional)
 
+### android sync_fdroid_metadata
+
+```sh
+[bundle exec] fastlane android sync_fdroid_metadata
+```
+
+Record an existing release tag in fdroid/metadata/com.vivid.foss.yml (idempotent, schreibt die Datei, committet nichts)
+
 ### android capture_play_screenshots
 
 ```sh
