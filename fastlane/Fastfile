@@ -41,8 +41,8 @@ def record_fdroid_metadata!(tag, push: true)
     UI.message("F-Droid-Metadata: #{tag} steht bereits im Builds-Block — nichts zu tun")
     return false
   end
-  newest = result[:entries].first
-  UI.message("F-Droid-Metadata: #{newest['versionName']} (#{newest['versionCode']}) eingetragen, #{result[:entries].size} Eintraege")
+  added = result[:entry]
+  UI.message("F-Droid-Metadata: #{added['versionName']} (#{added['versionCode']}) eingetragen, #{result[:entries].size} Eintraege")
   sh("git", "add", FdroidMetadata::RELATIVE_PATH)
   sh("git", "commit", "-m", "chore(fdroid): record #{tag} in the Builds block")
   if push
@@ -698,7 +698,7 @@ platform :android do
     end
     result = FdroidMetadata.record!(fastlane_repo_root, tag)
     if result[:changed]
-      UI.success("✅ #{tag} eingetragen (#{result[:entries].first['versionCode']}) — Datei geaendert, NICHT committet")
+      UI.success("✅ #{tag} eingetragen (#{result[:entry]['versionCode']}) — Datei geaendert, NICHT committet")
       UI.message("Pruefen: git diff #{FdroidMetadata::RELATIVE_PATH}")
     else
       UI.success("✅ #{tag} stand bereits im Builds-Block — Datei unveraendert")

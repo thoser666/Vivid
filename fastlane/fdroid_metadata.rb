@@ -96,7 +96,11 @@ module FdroidMetadata
     # stillschweigend "reparieren", sonst meldet der Updater bei jedem Lauf eine
     # Aenderung und der Idempotenz-Check waere wertlos.
     out = out.sub(/\n\z/, "") unless text.end_with?("\n")
-    { text: out, changed: out != text, entries: entries }
+    # `entry` ist der EINTRAG DIESES TAGS, `entries.first` der neueste im Block.
+    # Beim Nachziehen eines aelteren Tags sind die beiden verschieden — die Lane
+    # meldete sonst den versionCode des obersten Eintrags (0.5.20-beta erschien
+    # als "5492", Lauf 2026-11-25).
+    { text: out, changed: out != text, entries: entries, entry: entry }
   end
 
   # Schreibt nur bei Aenderung (idempotent: derselbe Tag aendert nichts).

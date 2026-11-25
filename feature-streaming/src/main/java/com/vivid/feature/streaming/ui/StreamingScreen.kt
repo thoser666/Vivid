@@ -37,10 +37,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.Lock
@@ -726,6 +729,20 @@ private fun ControlsNavigationItems(navController: NavController, onDismiss: () 
 
 @Composable
 internal fun StreamingSourcePreview(streamingEngine: StreamingEngine, activeSourceKind: VideoSourceKind, previewSize: IntSize, displayRotationDegrees: Int) {
+    // Screenshot-/UI-Tests setzen ein Standbild (die Emulator-Kamera liefert nur
+    // ein farbiges Testmuster, siehe PreviewFrameOverride). Ist eines gesetzt,
+    // entfaellt die komplette Kamera-Anbindung — der Play-Screenshot zeigt dann
+    // eine Szene statt eines Testbilds. Produktion: null, unveraendert.
+    val stillFrame = PreviewFrameOverride.frame
+    if (stillFrame != null) {
+        Image(
+            bitmap = stillFrame.asImageBitmap(),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize(),
+        )
+        return
+    }
     // Every source previews the same composed GL output that reaches the encoder.
     AndroidView(
         factory = { context ->

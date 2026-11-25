@@ -48,6 +48,10 @@ Dir.mktmpdir do |tmp|
   ok.call("T2 CurrentVersion/CurrentVersionCode nachgezogen",
           parsed["CurrentVersion"] == "0.5.50-beta" && parsed["CurrentVersionCode"] == 5502)
   ok.call("T2 versionCode == release_safety.rb", first["versionCode"] == version_code_for("0.5.50-beta"))
+  # Die Lane meldet den Code des EINGEFUEGTEN Tags (result[:entry]), nicht den des
+  # obersten Eintrags — beim Nachziehen aelterer Tags sind die verschieden.
+  ok.call("T2 result[:entry] ist der eingefügte Eintrag",
+          upd[:entry]["versionName"] == "0.5.50-beta" && upd[:entry]["versionCode"] == 5502)
 
   # T3: Obergrenze greift (MAX_BUILDS), aeltester Eintrag faellt raus.
   many = original
@@ -88,9 +92,12 @@ Dir.mktmpdir do |tmp|
   end
 
   # T8: die echte Datei bleibt unberührt (Guard schreibt nie ins Repo).
-  # Byte-Vergleich: File.read liefert UTF-8, binread ASCII-8BIT — verschiedene
-  # Encodings mit Umlauten sind nach String#== nie gleich, auch bei gleichen Bytes.
-  ok.call("T8 echte Metadata unverändert", File.binread(SOURCE) == original.b)
+  # Zeilenenden ignorieren: der Worktree kann CRLF tragen (core.autocrlf), der
+  # Blob im Index LF — geprüft wird, dass der Guard nichts IN DIE DATEI schreibt.
+  # Byte-Arrays vergleichen: binread liefert ASCII-8BIT, File.read UTF-8 —
+  # String#== waere bei Umlauten allein wegen der Encoding-Labels false.
+  ok.call("T8 echte Metadata unverändert",
+          File.binread(SOURCE).delete("\r").bytes == original.delete("\r").bytes)
 end
 
 puts "\n=== Ergebnis ==="
