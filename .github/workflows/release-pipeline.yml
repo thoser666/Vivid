@@ -1190,6 +1190,8 @@ jobs:
           ruby-version: '3.3'
       - name: Run F-Droid-Metadata self-test
         run: bash scripts/test_fdroid_metadata.sh
+      - name: Run F-Droid build-block updater self-test
+        run: ruby scripts/test_fdroid_metadata_update.rb
 
   # ✅ Regressionstest: der nightly-Verify-Job (verify-reproducibility) muss
   # die flavor-korrekten Asset-Namen/Rebuild-Pfade nutzen (Vorfall 06.09.2026:

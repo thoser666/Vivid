@@ -10,10 +10,17 @@
 #
 # Pflege pro Release (deterministisch, siehe fastlane/release_safety.rb):
 #   versionCode = major*1_000_000 + minor*1_000 + patch*10 + Stufe
-#   0.5.14-beta → 5142, 0.5.14 (stable) → 5144. Nach jedem release_beta bzw.
-#   release_live den Builds-Block um den neuen Tag (versionName/versionCode/
-#   commit) ergänzen und den ältesten entfernen. Betas bleiben für IzzyOnDroid
-#   als erster Eintrag nützlich — stabile Versionen werden hinten angehängt.
+#   0.5.49-beta → 5492, 0.5.49 (stable) → 5494.
+#
+# Der Builds-Block wird AUTOMATISCH geschrieben (fastlane/fdroid_metadata.rb):
+#   release_alpha und release_beta tragen den neuen Tag unmittelbar VOR dem
+#   Tag-Push ein — der Tag enthält damit seinen eigenen Eintrag, den fdroidserver
+#   auscheckt. CurrentVersion/CurrentVersionCode wandern mit, bei mehr als drei
+#   Einträgen fällt der älteste heraus. Nachziehen eines älteren Tags (oder einer
+#   Version, die vor dieser Automatik entstand):
+#     fastlane sync_fdroid_metadata tag:v0.5.49-beta   # schreibt, committet nicht
+#   Betas bleiben für IzzyOnDroid als erster Eintrag nützlich — stabile Versionen
+#   werden hinten angehängt.
 #   Der foss-Flavor baut über `./gradlew assembleFossRelease` (Flavor foss +
 #   Release-Typ release, APK: app-foss-release.apk). Ohne KEYSTORE_PATH fällt
 #   die Signierung auf den Debug-Key zurück → fdroidserver signiert neu.

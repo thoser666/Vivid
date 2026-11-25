@@ -281,7 +281,7 @@ GitHub-Releases. Siehe [docs/distribution.md](docs/distribution.md) für den tec
 
 **Für das F-Droid-Hauptrepo einreichen:**
 1. **FOSS-Build testen:** `./gradlew assembleFossRelease`
-2. **Metadata prüfen:** `fdroid/config-fdroid-main.yml` + `fdroid/metadata/com.vivid.foss.yml` sind bereits gepflegt (versionCode/versionName konsistent, `UpdateCheckMode: Tags`, Builds-Block auf den letzten Tag zeigen)
+2. **Metadata prüfen:** `fdroid/config-fdroid-main.yml` + `fdroid/metadata/com.vivid.foss.yml` sind bereits gepflegt (versionCode/versionName konsistent, `UpdateCheckMode: Tags`). Den `Builds`-Block schreiben `release_alpha`/`release_beta` automatisch vor dem Tag-Push; einen bereits veröffentlichten Tag zieht `fastlane sync_fdroid_metadata tag:vX.Y.Z-beta` nach (`docs/distribution.md`).
 3. **MR an F-Droid erstellen:** https://gitlab.com/fdroid/fdroiddata/-/merge_requests
 4. **Review abwarten:** 2-8 Wochen
 5. **Veröffentlichung:** Sobald der MR gemergt ist

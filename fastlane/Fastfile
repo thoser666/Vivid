@@ -6,6 +6,7 @@ require_relative "stage_suffix"
 require_relative "release_safety"
 require_relative "build_retry"
 require_relative "sha256sums"
+require_relative "fdroid_metadata"
 
 # Projektstamm CWD-unabhaengig ableiten: fastlane setzt CWD auf fastlane/,
 # die FastlaneFolder-Ableitung liefert dann "./" - ein einstelliger
@@ -28,6 +29,29 @@ def release_artifact_path(path, root = fastlane_repo_root)
   return path if Pathname.new(path).absolute?
   File.expand_path(path, root)
 end
+# F-Droid-Metadata nachziehen (fdroid/metadata/com.vivid.foss.yml).
+# Der Builds-Block wurde bis 2026-11-23 von Hand gepflegt und stand deshalb noch
+# auf 0.5.20-beta, obwohl 0.5.49-beta laengst veroeffentlicht war; der Kommentar
+# in der yml nannte eine Lane `release_live`, die es nie gab. Jetzt schreibt die
+# Tag-erzeugende Lane den Eintrag selbst — VOR dem Tag-Push, damit der Commit im
+# Tag liegt und die Metadata genau den Baum beschreibt, den fdroidserver auscheckt.
+def record_fdroid_metadata!(tag, push: true)
+  result = FdroidMetadata.record!(fastlane_repo_root, tag)
+  unless result[:changed]
+    UI.message("F-Droid-Metadata: #{tag} steht bereits im Builds-Block — nichts zu tun")
+    return false
+  end
+  newest = result[:entries].first
+  UI.message("F-Droid-Metadata: #{newest['versionName']} (#{newest['versionCode']}) eingetragen, #{result[:entries].size} Eintraege")
+  sh("git", "add", FdroidMetadata::RELATIVE_PATH)
+  sh("git", "commit", "-m", "chore(fdroid): record #{tag} in the Builds block")
+  if push
+    UI.message("F-Droid-Metadata: Push nach develop (Pre-Push-Gate kann ~15 min laufen)")
+    sh("git", "push", "origin", "develop")
+  end
+  true
+end
+
 default_platform(:android)
 
 platform :android do
@@ -153,6 +177,9 @@ platform :android do
     end
 
     UI.header "Step 4/4: Creating and pushing tag"
+    # Metadata-Commit vor dem Tag: der Tag enthaelt damit seinen eigenen
+    # F-Droid-Builds-Eintrag — kein Handgriff mehr nach dem Release.
+    record_fdroid_metadata!(tag)
     sh("git", "tag", "-a", tag, "-m", "Alpha release #{tag}")
     sh("git", "push", "origin", tag)
 
@@ -241,6 +268,9 @@ platform :android do
     end
 
     UI.header "Step 4/5: Creating and pushing tag"
+    # Metadata-Commit vor dem Tag: der Tag enthaelt damit seinen eigenen
+    # F-Droid-Builds-Eintrag — kein Handgriff mehr nach dem Release.
+    record_fdroid_metadata!(tag)
     sh("git", "tag", "-a", tag, "-m", "Beta release #{tag}")
     sh("git", "push", "origin", tag)
 
@@ -652,6 +682,26 @@ platform :android do
         UI.error("Auflösung (manuell): veröffentlichen → gh release edit <tag> --draft=false; oder löschen → gh release delete <tag> --yes")
         UI.user_error!("Orphaned draft release(s) found on v* tags — resolve manually, see above")
       end
+    end
+  end
+
+  desc "Record an existing release tag in fdroid/metadata/com.vivid.foss.yml (idempotent, schreibt die Datei, committet nichts)"
+  lane :sync_fdroid_metadata do |options|
+    # Nachzieh-Werkzeug fuer Tages, die vor dieser Automatik entstanden sind
+    # (z. B. 0.5.49-beta) — bewusst ohne Commit/Push, damit die Aenderung im
+    # Diff pruefbar bleibt.
+    tag = options[:tag].to_s
+    tag = `git describe --tags --abbrev=0 --match "v*" 2>/dev/null`.strip if tag.empty?
+    UI.user_error!("Kein Release-Tag gefunden — Aufruf: fastlane sync_fdroid_metadata tag:v0.5.49-beta") if tag.empty?
+    unless system("git rev-parse -q --verify refs/tags/#{tag} >/dev/null 2>&1")
+      UI.user_error!("Tag #{tag} existiert nicht im Repo (refs/tags/#{tag})")
+    end
+    result = FdroidMetadata.record!(fastlane_repo_root, tag)
+    if result[:changed]
+      UI.success("✅ #{tag} eingetragen (#{result[:entries].first['versionCode']}) — Datei geaendert, NICHT committet")
+      UI.message("Pruefen: git diff #{FdroidMetadata::RELATIVE_PATH}")
+    else
+      UI.success("✅ #{tag} stand bereits im Builds-Block — Datei unveraendert")
     end
   end
 

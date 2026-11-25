@@ -127,6 +127,18 @@ CHECK "M10.1 deploy-fdroid rm -rf metadata (foss-Metadaten getrennt)" \
 CHECK "M10.2 deploy-fdroid lädt nur den Standard-Flavor" \
   grep -q -- '--pattern "app-standard-release.apk"' .github/workflows/deploy-fdroid.yml
 
+# M13: Automatik — die Tag-Lanes tragen den Builds-Block selbst ein. Bis
+# 2026-11-23 stand er auf 0.5.20-beta, weil der im yml-Kommentar genannte Pfad
+# (`release_live`) nie existierte und ihn niemand schrieb.
+CHECK "M13.1 release_alpha + release_beta rufen record_fdroid_metadata!" \
+  bash -c '[ "$(grep -c "record_fdroid_metadata!(tag)" fastlane/Fastfile)" -eq 2 ]'
+CHECK "M13.2 Fastfile lädt den Updater" \
+  grep -q 'require_relative "fdroid_metadata"' fastlane/Fastfile
+CHECK "M13.3 Nachzieh-Lane sync_fdroid_metadata vorhanden" \
+  grep -q 'lane :sync_fdroid_metadata' fastlane/Fastfile
+CHECK "M13.4 Updater-Selbsttest läuft im Pre-Push" \
+  grep -q 'ruby scripts/test_fdroid_metadata_update.rb' scripts/pre-push.sh
+
 echo ""
 if [ "$FAILED" -eq 0 ]; then
   echo "✅ Alle Checks grün — foss-Metadata ist einreichungsbereit."

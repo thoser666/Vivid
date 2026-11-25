@@ -379,6 +379,17 @@ versionCode-Mismatch verweigert). Seitdem ist die Ableitung stufenbewusst und id
 `:app:versionCodesProbe` auf und vergleicht die **echte** Implementierung (vorher prüfte der Guard
 nur eine eigene Kopie der Formel und blieb deshalb grün).
 
+**Pflege des `Builds`-Blocks:** Der Block wird **nicht mehr von Hand** geschrieben. Bis
+2026-11-23 stand er auf `0.5.20-beta`, weil der Kommentar in der yml eine Lane `release_live`
+nannte, die es nie gab — er wurde schlicht nie nachgezogen. Jetzt ruft `release_alpha`/`release_beta`
+`fastlane/fdroid_metadata.rb` unmittelbar **vor** dem Tag-Push auf und committet den Eintrag
+(`chore(fdroid): record <tag> …`); der Tag enthält damit seinen eigenen Eintrag. `CurrentVersion`
+wandert mit, bei mehr als drei Einträgen fällt der älteste heraus. Ältere Tags nachziehen:
+`fastlane sync_fdroid_metadata tag:v0.5.49-beta` (schreibt die Datei, committet nicht).
+`scripts/test_fdroid_metadata_update.rb` prüft Idempotenz, Obergrenze, Kommentar-Erhalt und
+fail-closed bei `nightly-*`; M13 in `scripts/test_fdroid_metadata.sh` prüft die Verdrahtung im
+Fastfile.
+
 **versionCode-Schema** (fastlane/release_safety.rb): `major*1_000_000 + minor*1_000 + patch*10 + Stufe`
 (alpha=1, beta=2, rc=3, stable=4). `0.5.14-beta` → `5142`, `0.5.14` → `5144`. Der foss-Eintrag nutzt denselben
 versionCode wie Standard — F-Droid und der eigene Repo-Server können sich damit nicht in die Quere

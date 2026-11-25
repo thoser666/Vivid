@@ -92,6 +92,8 @@ bash scripts/test_distribution_stable.sh
 
 echo "▶ [pre-push] F-Droid-/Izzy-Submissions-Metadata-Selbsttest (scripts/test_fdroid_metadata.sh)"
 bash scripts/test_fdroid_metadata.sh
+echo "▶ [pre-push] F-Droid-Builds-Block-Updater-Selbsttest (scripts/test_fdroid_metadata_update.rb)"
+ruby scripts/test_fdroid_metadata_update.rb
 
 echo "▶ [pre-push] SHA-256-Prüfsummen-Selbsttest (scripts/test_sha256sums.sh)"
 bash scripts/test_sha256sums.sh
