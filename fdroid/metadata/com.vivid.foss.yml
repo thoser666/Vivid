@@ -70,10 +70,16 @@ Description: |-
 # Releases (nightly-…, Prerelease) haben keine v*-Tags und bleiben außen vor.
 UpdateCheckMode: Tags
 
-CurrentVersion: '0.5.49-beta'
-CurrentVersionCode: 5492
+CurrentVersion: '0.5.50-beta'
+CurrentVersionCode: 5502
 
 Builds:
+  - versionName: 0.5.50-beta
+    versionCode: 5502
+    commit: v0.5.50-beta
+    gradle:
+      - assembleFossRelease
+    output: app-foss-release.apk
   - versionName: 0.5.49-beta
     versionCode: 5492
     commit: v0.5.49-beta
