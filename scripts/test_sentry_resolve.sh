@@ -33,6 +33,11 @@
 #   R17 --ids + --dry-run: meldet die IDs, ohne PUT (Fixture-status bleibt
 #       unbenutzt) und ohne inNextRelease-Wortlaut
 #   R18 Header-Haertung: Token ohne CR/LF vor der Header-Nutzung (415-Befund)
+#   R19 --ids + --in-next-release: der PUT-Body traegt statusDetails.inNextRelease
+#       und das Verdict nennt es (Fix 1b74d05 erstmals in v0.5.51-beta, #429)
+#   R20 Gegenprobe: --ids ohne Flag sendet weiter nur "resolved"
+#   R21 --in-next-release ohne --ids ist ein Aufruffehler (exit 1), kein Fallback
+#   R22 --ids + --in-next-release + --dry-run: Verdict nennt inNextRelease, kein PUT
 #   R13 VIVID_REPO_ROOT (#250): der Guard darf aus $RUNNER_TEMP aufgerufen
 #      werden (Stable-Publish staget die Gate-Skripte dorthin, damit der
 #      Arbeitsbaum nicht vom Ziel-Tag stammt). Ohne gesetzten Repo-Root muss
@@ -249,4 +254,40 @@ if [ "$(printf '%s' "$dirty" | tr -d '\r\n')" != "sntrys_TEST" ]; then
   fail "R18: Sanitisierungsmuster entfernt den Zeilenumbruch nicht"
 fi
 
-echo "✅ [sentry-resolve-test] Sentry-Resolve-Guard vertragstreu (R1–R18)."
+# R19 --ids + --in-next-release: die Zusage muss am gesendeten JSON haengen,
+# nicht nur am Meldungstext (#429/VIVID-5Q, Fix 1b74d05 erstmals in v0.5.51-beta).
+body_r19="$tmp/body-r19.json"
+out_r19=$(SENTRY_RESOLVE_FIXTURE="$tmp/match" SENTRY_RESOLVE_BODY_OUT="$body_r19" \
+  bash "$guard" --ids 100 --in-next-release) || fail "R19: --in-next-release darf nicht scheitern"
+grep -q "^OK: 1 Issue(s) als resolved (inNextRelease) markiert — IDs: 100" <<<"$out_r19" || \
+  fail "R19: inNextRelease-Verdict fuer --ids erwartet"
+grep -q '"inNextRelease": true' "$body_r19" || fail "R19: PUT-Body ohne statusDetails.inNextRelease"
+grep -q '"status": "resolved"' "$body_r19" || fail "R19: PUT-Body ohne status=resolved"
+
+# R20 Gegenprobe: ohne Flag bleibt es beim blossen resolved (der bisherige
+# Vertrag fuer "kein Defekt"-Entscheide darf nicht mitkippen).
+body_r20="$tmp/body-r20.json"
+out_r20=$(SENTRY_RESOLVE_FIXTURE="$tmp/match" SENTRY_RESOLVE_BODY_OUT="$body_r20" \
+  bash "$guard" --ids 100) || fail "R20: Gegenprobe darf nicht scheitern"
+grep -q '"inNextRelease"' "$body_r20" && fail "R20: ohne Flag darf der Body kein inNextRelease tragen"
+grep -q "^OK: 1 Issue(s) als resolved markiert (ohne inNextRelease) — IDs: 100" <<<"$out_r20" || \
+  fail "R20: Verdict ohne inNextRelease erwartet"
+
+# R21 --in-next-release ohne --ids ist ein Aufruffehler, kein stiller Fallback.
+# Geprueft wird der EIGENE Fehlertext: der generische "Auswahl fehlt"-Zweig
+# liefert ebenfalls exit 1 und wuerde das Flag sonst stillschweigend durchlassen
+# (Mutationsprobe B lief mit reiner Exit-Code-Pruefung gruen durch).
+if out_r21=$(bash "$guard" --in-next-release 2>&1); then
+  fail "R21: --in-next-release ohne --ids muss exit 1 sein"
+fi
+grep -q "in-next-release braucht --ids" <<<"$out_r21" || \
+  fail "R21: eigener Aufruffehl-Text erwartet (generischer 'Auswahl fehlt'-Fehler laesst das Flag durch)"
+
+# R22 dry-run mit Flag: Verdict nennt inNextRelease, Fixture-status bleibt unbenutzt.
+out_r22=$(SENTRY_RESOLVE_FIXTURE="$tmp/dryrun" bash "$guard" --ids 100 --in-next-release --dry-run) || \
+  fail "R22: dry-run mit --in-next-release darf nicht scheitern"
+grep -q "^OK (dry-run): 1 Issue(s) würden als resolved (inNextRelease) markiert — IDs: 100" <<<"$out_r22" || \
+  fail "R22: dry-run-Verdict mit inNextRelease erwartet"
+grep -q "project:write" <<<"$out_r22" && fail "R22: dry-run darf den Fixture-status 403 nicht auswerten"
+
+echo "✅ [sentry-resolve-test] Sentry-Resolve-Guard vertragstreu (R1–R22)."

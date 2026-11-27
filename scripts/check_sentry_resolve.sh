@@ -28,6 +28,14 @@
 # §5.10). Der Workflow automation-sentry-resolve.yml dispatcht genau diesen
 # Modus; der Tag-Vertrag (--version) bleibt unveraendert daneben bestehen.
 #
+# --ids kennt zusaetzlich --in-next-release (seit 27.11.2026): dann setzt der
+# Bulk-PUT dasselbe Status-Detail wie der Versions-Pfad (resolved/inNextRelease).
+# Gedacht fuer Befunde, deren Fix mit einem konkreten Release erstmals
+# ausgeliefert wurde, ohne dass ein fix-release-Event-Tag existiert (#429 /
+# VIVID-5Q: Fix 1b74d05 erstmals in v0.5.51-beta). Ohne das Flag bleibt --ids
+# beim blossen "resolved" — fuer "kein Defekt"-Entscheide weiterhin richtig.
+# Nur zusammen mit --ids; der --version-Pfad setzt inNextRelease immer.
+#
 # Verdicts (bewusst KEIN Gate-Blocker — der Workflow-Step läuft continue-on-error):
 #   OK    — N Issues als resolved (inNextRelease) markiert, oder 0 passend
 #   SKIP  — neutral (kein Token, HTTP 401/403/Netzwerk/unerwarteter Status)
@@ -51,6 +59,8 @@
 # issues.json (Liste echter API-Antwort-Datensätze), optional `status`
 # (simulierter HTTP-Code des Bulk-PUT, Default 200) und `getstatus`
 # (simulierter HTTP-Code der Lesen-Abfrage, Default 200) — kein Netz, kein Token.
+# SENTRY_RESOLVE_BODY_OUT=<datei> kopiert den erzeugten PUT-Body dorthin
+# (Selbsttest-Hook, damit die inNextRelease-Zusage am JSON haengt).
 set -euo pipefail
 # Repo-Root: normalerweise über $0. Aus $RUNNER_TEMP (Stable-Publish pflegt
 # die Gate-Skripte dort, damit der Arbeitsbaum nicht vom Ziel-Tag stammt —
@@ -68,15 +78,17 @@ API="https://sentry.io/api/0"
 version=""
 ids=""
 dryrun=0
+in_next=0
 print_src=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --version) version="${2:-}"; shift 2 ;;
     --ids) ids="${2:-}"; shift 2 ;;
+    --in-next-release) in_next=1; shift ;;
     --dry-run) dryrun=1; shift ;;
     --print-token-source) print_src=1; shift ;;
     *)
-      echo "FEHLER: unbekanntes Argument: $1 (Aufruf: scripts/check_sentry_resolve.sh (--version <vX.Y.Z[..]> | --ids <id[,id…]>) [--dry-run])"
+      echo "FEHLER: unbekanntes Argument: $1 (Aufruf: scripts/check_sentry_resolve.sh (--version <vX.Y.Z[..]> | --ids <id[,id…]> [--in-next-release]) [--dry-run])"
       exit 1 ;;
   esac
 done
@@ -85,6 +97,15 @@ done
 # Entscheid beim Release-Schnitt), nie beide.
 if [ -n "$version" ] && [ -n "$ids" ]; then
   echo "FEHLER: --version und --ids schliessen sich aus (genau ein Auswahl-Modus)"
+  exit 1
+fi
+# --in-next-release ist nur eine Verfeinerung von --ids: der Versions-Pfad
+# setzt inNextRelease ohnehin, ein alleinstehendes Flag waere ein Aufruffehler.
+# Bewusst VOR der Auswahl-Pruefung: sonst faengt der generische "--version oder
+# --ids fehlt"-Zweig das Flag ab und der Aufruffehler bleibt unspezifisch
+# (genau daran lief die Mutationsprobe B zunaechst gruen durch).
+if [ "$in_next" = "1" ] && [ -z "$ids" ]; then
+  echo "FEHLER: --in-next-release braucht --ids (der --version-Pfad setzt inNextRelease ohnehin)"
   exit 1
 fi
 if [ -z "$version" ] && [ -z "$ids" ] && [ "$print_src" != "1" ]; then
@@ -211,6 +232,7 @@ out_a=$(SENTRY_RESOLVE_FRAG_FILES="$frag_files" \
   SENTRY_RESOLVE_VERSION="$norm_version" \
   SENTRY_RESOLVE_VERSION_RAW="$version" \
   SENTRY_RESOLVE_IDS="$ids_norm" \
+  SENTRY_RESOLVE_IN_NEXT="$in_next" \
   SENTRY_RESOLVE_API="$API" \
   SENTRY_RESOLVE_ORG="$ORG" \
   SENTRY_RESOLVE_PROJECT="$PROJECT_SLUG" \
@@ -286,7 +308,10 @@ url = "%s/projects/%s/%s/issues/?id=%s" % (
     os.environ["SENTRY_RESOLVE_API"], os.environ["SENTRY_RESOLVE_ORG"],
     os.environ["SENTRY_RESOLVE_PROJECT"], "&id=".join(ids))
 if wanted_ids:
-    body = json.dumps({"status": "resolved"})
+    body_obj = {"status": "resolved"}
+    if os.environ.get("SENTRY_RESOLVE_IN_NEXT") == "1":
+        body_obj["statusDetails"] = {"inNextRelease": True}
+    body = json.dumps(body_obj)
 else:
     body = json.dumps({"status": "resolved", "statusDetails": {"inNextRelease": True}})
 tmp = os.environ["SENTRY_RESOLVE_TMP"]
@@ -313,8 +338,17 @@ if [ -z "$count" ]; then
 fi
 ids=$(cat "$tmp/put_ids")
 
+# Test-Hook (nur fuer den Offline-Selbsttest R19/R20): Body sichtbar machen,
+# damit die inNextRelease-Zusage am gesendeten JSON haengt und nicht nur am
+# Meldungstext. Ohne gesetzte Variable passiert nichts.
+if [ -n "${SENTRY_RESOLVE_BODY_OUT:-}" ]; then
+  cp "$tmp/put_body" "$SENTRY_RESOLVE_BODY_OUT"
+fi
+
 if [ "$dryrun" = "1" ]; then
-  if [ -n "$ids_norm" ]; then
+  if [ -n "$ids_norm" ] && [ "$in_next" = "1" ]; then
+    echo "OK (dry-run): $count Issue(s) würden als resolved (inNextRelease) markiert — IDs: $ids"
+  elif [ -n "$ids_norm" ]; then
     echo "OK (dry-run): $count Issue(s) würden als resolved markiert (ohne inNextRelease) — IDs: $ids"
   else
     echo "OK (dry-run): $count Issue(s) würden als resolved (inNextRelease) markiert — Version $norm_version (IDs: $ids)"
@@ -361,7 +395,9 @@ fi
 
 case "$putstatus" in
   200|204)
-    if [ -n "$ids_norm" ]; then
+    if [ -n "$ids_norm" ] && [ "$in_next" = "1" ]; then
+      echo "OK: $count Issue(s) als resolved (inNextRelease) markiert — IDs: $ids"
+    elif [ -n "$ids_norm" ]; then
       echo "OK: $count Issue(s) als resolved markiert (ohne inNextRelease) — IDs: $ids"
     else
       echo "OK: $count Issue(s) als resolved (inNextRelease) markiert — erledigt mit Version $norm_version (IDs: $ids)"
