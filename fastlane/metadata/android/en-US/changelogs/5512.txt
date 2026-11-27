@@ -1,0 +1,6 @@
+• Release APK is much smaller: 15.9 MiB instead of 57.2 MB
+• Store metadata and new screenshots within F-Droid/Izzy limits
+• Reproducible nightly: canonical compose-mapping order
+• F-Droid metadata records each tag before it is pushed
+• Fix: a corrupt settings file no longer blocks startup
+• Fix: log lines without a level no longer crash the log view
