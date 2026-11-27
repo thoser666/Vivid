@@ -414,6 +414,27 @@ if [ -z "$count" ]; then
 fi
 ids=$(cat "$tmp/put_ids")
 
+# Diagnose-Hook (SENTRY_RESOLVE_STATUS_OUT): schreibt je ID den von Sentry
+# gelieferten status/statusDetails als JSON — fuer Faelle, in denen Sentry einen
+# Status liefert, den der Guard noch nicht kennt (bekannter Fall: STILL_RESOLVED).
+if [ -n "${SENTRY_RESOLVE_STATUS_OUT:-}" ]; then
+  python -X utf8 - "$SENTRY_RESOLVE_STATUS_OUT" $frag_files >/dev/null 2>&1 <<'PY' || true
+import json, os, sys
+out, files = sys.argv[1], sys.argv[2:]
+rows = []
+for f in files:
+    try:
+        d = json.load(open(f, encoding="utf-8"))
+    except Exception:
+        continue
+    for it in (d if isinstance(d, list) else [d]):
+        if isinstance(it, dict) and "id" in it:
+            rows.append({"id": str(it.get("id")), "status": it.get("status"),
+                         "statusDetails": it.get("statusDetails")})
+open(out, "w", encoding="utf-8").write(json.dumps(rows, ensure_ascii=False, indent=1))
+PY
+fi
+
 # Test-Hook (nur fuer den Offline-Selbsttest R19/R20): Body sichtbar machen,
 # damit die inNextRelease-Zusage am gesendeten JSON haengt und nicht nur am
 # Meldungstext. Ohne gesetzte Variable passiert nichts.

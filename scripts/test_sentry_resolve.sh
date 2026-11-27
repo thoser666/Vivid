@@ -178,7 +178,9 @@ grep -q "project:write" <<<"$out_r11" && fail "R11: dry-run darf den Fixture-sta
 # R12 Windows-Coding-Sicherheitsnetz (strukturtreu, hostunabhängig): beide
 # Python-Heredocs müssen mit `python -X utf8` laufen.
 utf8_calls=$(grep -c "python -X utf8 - " "$guard" || true)
-[ "$utf8_calls" -eq 3 ] || fail "R12: alle drei Python-Heredocs müssen 'python -X utf8' nutzen (gefunden: $utf8_calls)"
+heredocs=$(grep -c "<<'PY'" "$guard" || true)
+[ "$utf8_calls" -eq "$heredocs" ] || \
+  fail "R12: jeder der $heredocs Python-Heredocs muss 'python -X utf8' nutzen (gefunden: $utf8_calls)"
 if grep -E "python - (2>/dev/null )?<<'PY'" "$guard" >/dev/null; then
   fail "R12: es existiert noch ein Heredoc ohne -X utf8 (cp1252-Crash-Risiko)"
 fi
