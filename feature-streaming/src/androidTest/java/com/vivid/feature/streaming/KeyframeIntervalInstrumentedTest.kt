@@ -30,6 +30,8 @@ class KeyframeIntervalInstrumentedTest {
         verifyIdrCadence(inputFps = 14, enableFallback = true)
 
     private fun verifyIdrCadence(inputFps: Int, enableFallback: Boolean) {
+        // Skips on emulator images (software-only encoders) instead of failing the job.
+        HardwareVideoEncoder.assumeHardwareH264Encoder()
         val preset = EncoderPreset.FHD30
         val idrTimesUs = Collections.synchronizedList(mutableListOf<Long>())
         val requests = AtomicInteger()
@@ -53,7 +55,7 @@ class KeyframeIntervalInstrumentedTest {
         })
         encoder.forceCodecType(CodecUtil.CodecType.HARDWARE)
         try {
-            assertTrue("Hardware encoder preparation failed", encoder.prepareVideoEncoder(
+            assertTrue("Hardware encoder preparation failed (H.264 encoders: ${HardwareVideoEncoder.h264EncoderNames()})", encoder.prepareVideoEncoder(
                 preset.width, preset.height, preset.fps, preset.videoBitrateKbps * 1_000, 0,
                 KeyframeIntervalController.INTERVAL_SECONDS, FormatVideoEncoder.YUV420Dynamical,
             ))
