@@ -1396,30 +1396,41 @@ class StreamingEngine @Inject constructor(
     }
 
     fun switchSource(kind: VideoSourceKind): Boolean {
-        if (_cameraModeStatus.value.preparing) return false
-        if (kind != activeSourceKind.value && legacyEncoding() && camera?.isStreaming == true) return false
-        if (kind == VideoSourceKind.UVC && sceneSourceLocator(kind).isBlank()) return false
-        if (useSceneBackedIdlePreview && _sceneComposition.value == null && !legacyEncoding() &&
-            (kind != VideoSourceKind.CAMERA || cameraInputPermissionGranted())) {
-            setSceneComposition(fallbackSceneGraph(kind), animate = false)
-        }
+        if (sourceSwitchBlocked(kind)) return false
+        installFallbackSceneForIdlePreview(kind)
         if (sceneSession != null || (_sceneComposition.value != null && !legacyEncoding())) {
             return switchSceneBaseSource(kind)
         }
         val switched = switchLegacySource(kind)
-        if (switched && kind != VideoSourceKind.CAMERA) {
+        if (switched) applyLegacySourceSwitchEffects(kind)
+        applyPrivacyZones()
+        return switched
+    }
+
+    private fun sourceSwitchBlocked(kind: VideoSourceKind): Boolean {
+        if (_cameraModeStatus.value.preparing) return true
+        if (kind != activeSourceKind.value && legacyEncoding() && camera?.isStreaming == true) return true
+        return kind == VideoSourceKind.UVC && sceneSourceLocator(kind).isBlank()
+    }
+
+    private fun installFallbackSceneForIdlePreview(kind: VideoSourceKind) {
+        if (!useSceneBackedIdlePreview || _sceneComposition.value != null || legacyEncoding()) return
+        if (kind == VideoSourceKind.CAMERA && !cameraInputPermissionGranted()) return
+        setSceneComposition(fallbackSceneGraph(kind), animate = false)
+    }
+
+    private fun applyLegacySourceSwitchEffects(kind: VideoSourceKind) {
+        if (kind != VideoSourceKind.CAMERA) {
             if (_replayState.value is ReplayState.Recording) stopReplay()
             stopIdlePreview()
         }
         // P1: Quellwechsel — die Zonen sind quellrelativ; der Soll-Zustand
         // wird auf die neue Quelle angewendet (relative Bildmitte bleibt
         // erhalten; Persistenz je Quelle prüft P3, Skizze §9).
-        if (switched && _sceneComposition.value != null) {
+        if (_sceneComposition.value != null) {
             updateSceneBaseSource(kind)
             setSceneComposition(_sceneComposition.value, animate = false)
         }
-        applyPrivacyZones()
-        return switched
     }
 
     private fun switchLegacySource(kind: VideoSourceKind): Boolean {
@@ -2094,12 +2105,22 @@ class StreamingEngine @Inject constructor(
         val capture = if (idlePreviewCamera?.cameraCharacteristics != null) {
             AndroidCameraCaptureCapabilities(characteristics)
         } else captureCapabilities(cam)
-        val resolved = experimental ?: resolveCameraStreamProfile(
+        val resolved = experimental ?: resolveCameraStreamProfileOrRequested(
             requested, configuration.autoFallback || configuration.usesExperimentalCapture, capture,
             orientedEncoderCapabilities(encoderCapabilities, portrait),
-        ) ?: requested
+        )
         return if (portrait) resolved.preset.height to resolved.preset.width
             else resolved.preset.width to resolved.preset.height
+    }
+
+    private fun resolveCameraStreamProfileOrRequested(
+        requested: ResolvedEncoderConfig,
+        autoFallback: Boolean,
+        capture: CameraCaptureCapabilities,
+        encoder: EncoderCapabilities,
+    ): ResolvedEncoderConfig {
+        val resolved = resolveCameraStreamProfile(requested, autoFallback, capture, encoder)
+        return if (resolved == null) requested else resolved
     }
 
     private fun cameraInputPermissionGranted() =
