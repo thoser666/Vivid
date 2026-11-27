@@ -3,8 +3,8 @@ package com.vivid.irlbroadcaster
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.printToLog
@@ -52,8 +52,14 @@ class AccessibilityComplianceInstrumentedTest {
 
     @Test
     fun streamingScreen_semanticsTreeNotEmpty() {
-        // Der Semantics-Tree des Streaming-Screens darf nicht leer sein
-        composeRule.onRoot().printToLog("VIVID_ACCESSIBILITY")
+        // Der Semantics-Tree des Streaming-Screens darf nicht leer sein.
+        // Seit dem Szenen-Compositor existieren zwei Compose-Roots (Hauptfenster
+        // + Presentation auf dem virtuellen Display); `onRoot()` verlangt genau
+        // einen. Daher alle Roots protokollieren — die Assertion unten traegt
+        // die Aussage.
+        composeRule.onAllNodes(isRoot()).fetchSemanticsNodes().indices.forEach { index ->
+            composeRule.onAllNodes(isRoot())[index].printToLog("VIVID_ACCESSIBILITY[$index]")
+        }
         // Prüfe, dass mindestens ein Element mit Text existiert
         composeRule
             .onNodeWithText(str(StreamingR.string.streaming_start))

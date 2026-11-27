@@ -2,10 +2,10 @@ package com.vivid.irlbroadcaster
 
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.isDisplayed
+import androidx.compose.ui.test.isRoot
+import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.printToLog
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -69,7 +69,13 @@ class StartupSmokeTest {
             isDisplayed(composeRule.onNodeWithText(str(StreamingR.string.streaming_start)))
         }
         // Protokolliert den kompletten Baum bei Diagnose in CI-Logs.
-        composeRule.onRoot().printToLog("VIVID_STARTUP_SMOKE")
+        // Seit dem Szenen-Compositor gibt es ZWEI Compose-Roots (Hauptfenster +
+        // Presentation auf dem virtuellen Display) — `onRoot()` erwartet genau
+        // einen und wuerde hier scheitern. Beide protokollieren, statt einen zu
+        // unterstellen; die Assertion oben bleibt die eigentliche Aussage.
+        composeRule.onAllNodes(isRoot()).fetchSemanticsNodes().indices.forEach { index ->
+            composeRule.onAllNodes(isRoot())[index].printToLog("VIVID_STARTUP_SMOKE[$index]")
+        }
     }
 
     /**
