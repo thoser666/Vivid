@@ -1,0 +1,6 @@
+• Release-APK deutlich kleiner: 15,9 MiB statt 57,2 MB
+• Store-Metadaten und neue Screenshots innerhalb der F-Droid-/Izzy-Limits
+• Reproduzierbares Nightly: kanonische Compose-Mapping-Reihenfolge
+• F-Droid-Metadata trägt jeden Tag vor dem Tag-Push ein
+• Fix: Eine korrupte Settings-Datei blockiert den Start nicht mehr
+• Fix: Log-Zeilen ohne Level crashen die Log-Ansicht nicht mehr

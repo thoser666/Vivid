@@ -24,6 +24,8 @@ import org.junit.runner.RunWith
 class EncoderBitrateInstrumentedTest {
     @Test
     fun selectedHardwareEncoderReportsModeAndAcceptsAdaptiveTargetsInBitsPerSecond() {
+        // Skips on emulator images (software-only encoders) instead of failing the job.
+        HardwareVideoEncoder.assumeHardwareH264Encoder()
         val frames = AtomicInteger()
         val encoder = VideoEncoder(object : GetVideoData {
             override fun onVideoInfo(sps: ByteBuffer, pps: ByteBuffer?, vps: ByteBuffer?) = Unit
@@ -34,7 +36,10 @@ class EncoderBitrateInstrumentedTest {
         })
         encoder.forceCodecType(CodecUtil.CodecType.HARDWARE)
         try {
-            assertTrue(encoder.prepareVideoEncoder(1280, 720, 30, 6_000_000, 0, 2, FormatVideoEncoder.YUV420Dynamical))
+            assertTrue(
+                "Hardware encoder preparation failed (H.264 encoders: ${HardwareVideoEncoder.h264EncoderNames()})",
+                encoder.prepareVideoEncoder(1280, 720, 30, 6_000_000, 0, 2, FormatVideoEncoder.YUV420Dynamical),
+            )
             val codec = BaseEncoder::class.java.getDeclaredField("codec").apply { isAccessible = true }.get(encoder) as MediaCodec
             Log.i("VividBitrateTest", "input=${codec.inputFormat} output=${codec.outputFormat}")
             val diagnostic = RootEncoderBitrateDiagnostics.read(codec, encoder.type, encoder.bitRate / 1_000)

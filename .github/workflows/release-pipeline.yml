@@ -67,7 +67,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up JDK 25 (LTS)
-        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
         with:
           java-version: '25'
           distribution: 'temurin'
@@ -208,7 +208,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up JDK 25 (LTS)
-        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
         with:
           java-version: '25'
           distribution: 'temurin'
@@ -295,6 +295,11 @@ jobs:
             # zwei Installationspfade auf denselben applicationId kollidieren,
             # sobald ihre Signer abweichen (v0.5.49-beta, Run 40849184669).
             # Include the library GPU pixel/lifecycle suite; app tests alone do not run it.
+            # Emulator-Images liefern nur Software-Encoder (OMX.google.h264.encoder,
+            # c2.android.avc.encoder). Die beiden Hardware-Encoder-Tests in
+            # feature-streaming ueberspringen sich deshalb per JUnit-Assumption mit
+            # sichtbarer Begruendung im Report (HardwareVideoEncoder.kt) — der Job
+            # bleibt gruen, ohne eine Hardware-Aussage vorzutaeuschen.
             # Flavor-explicit (connectedDebugAndroidTest ist in diesem Projekt
             # wegen der Varianten foss/standard mehrdeutig — Ambiguous matches).
             ./gradlew :app:connectedStandardDebugAndroidTest :app:connectedFossDebugAndroidTest :feature-streaming:connectedDebugAndroidTest
@@ -316,7 +321,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up JDK 25 (LTS)
-        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
         with:
           java-version: '25'
           distribution: 'temurin'
@@ -353,7 +358,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up JDK 25 (LTS)
-        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
         with:
           java-version: '25'
           distribution: 'temurin'
@@ -451,7 +456,7 @@ jobs:
           fetch-depth: 0
 
       - name: Set up JDK 25 (LTS)
-        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
         with:
           java-version: '25'
           distribution: 'temurin'
@@ -697,7 +702,7 @@ jobs:
           fetch-depth: 0
 
       - name: Set up JDK 25 (LTS)
-        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
         with:
           java-version: '25'
           distribution: 'temurin'
@@ -1042,7 +1047,7 @@ jobs:
           fetch-depth: 0
 
       - name: Set up JDK 25 (LTS)
-        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
         with:
           java-version: '25'
           distribution: 'temurin'
@@ -1253,7 +1258,7 @@ jobs:
           fetch-depth: 0
 
       - name: Set up JDK 25 (LTS)
-        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
         with:
           java-version: '25'
           distribution: 'temurin'

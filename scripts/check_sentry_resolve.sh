@@ -28,6 +28,14 @@
 # §5.10). Der Workflow automation-sentry-resolve.yml dispatcht genau diesen
 # Modus; der Tag-Vertrag (--version) bleibt unveraendert daneben bestehen.
 #
+# --ids kennt zusaetzlich --in-next-release (seit 27.11.2026): dann setzt der
+# Bulk-PUT dasselbe Status-Detail wie der Versions-Pfad (resolved/inNextRelease).
+# Gedacht fuer Befunde, deren Fix mit einem konkreten Release erstmals
+# ausgeliefert wurde, ohne dass ein fix-release-Event-Tag existiert (#429 /
+# VIVID-5Q: Fix 1b74d05 erstmals in v0.5.51-beta). Ohne das Flag bleibt --ids
+# beim blossen "resolved" — fuer "kein Defekt"-Entscheide weiterhin richtig.
+# Nur zusammen mit --ids; der --version-Pfad setzt inNextRelease immer.
+#
 # Verdicts (bewusst KEIN Gate-Blocker — der Workflow-Step läuft continue-on-error):
 #   OK    — N Issues als resolved (inNextRelease) markiert, oder 0 passend
 #   SKIP  — neutral (kein Token, HTTP 401/403/Netzwerk/unerwarteter Status)
@@ -51,6 +59,8 @@
 # issues.json (Liste echter API-Antwort-Datensätze), optional `status`
 # (simulierter HTTP-Code des Bulk-PUT, Default 200) und `getstatus`
 # (simulierter HTTP-Code der Lesen-Abfrage, Default 200) — kein Netz, kein Token.
+# SENTRY_RESOLVE_BODY_OUT=<datei> kopiert den erzeugten PUT-Body dorthin
+# (Selbsttest-Hook, damit die inNextRelease-Zusage am JSON haengt).
 set -euo pipefail
 # Repo-Root: normalerweise über $0. Aus $RUNNER_TEMP (Stable-Publish pflegt
 # die Gate-Skripte dort, damit der Arbeitsbaum nicht vom Ziel-Tag stammt —
@@ -65,18 +75,29 @@ FIXTURE="${SENTRY_RESOLVE_FIXTURE:-}"
 PROPS="${SENTRY_PROPERTIES_FILE:-sentry.properties}"
 API="https://sentry.io/api/0"
 
+# Pfadform fuer native Python-Aufrufe: MSYS/Git-Bash wandelt in einer
+# MEHRTEILIGEN Env-Liste nur den ersten Eintrag nach C:/… um — die restlichen
+# bleiben /tmp/… und sind fuer python.exe unlesbar ("No such file or directory"
+# auf eine existierende Datei, Selbsttest R23). Darum jeden Pfad selbst
+# umformen; auf Linux (kein cygpath) bleibt der Pfad unveraendert.
+py_path() {
+  if command -v cygpath >/dev/null 2>&1; then cygpath -m "$1"; else printf '%s' "$1"; fi
+}
+
 version=""
 ids=""
 dryrun=0
+in_next=0
 print_src=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --version) version="${2:-}"; shift 2 ;;
     --ids) ids="${2:-}"; shift 2 ;;
+    --in-next-release) in_next=1; shift ;;
     --dry-run) dryrun=1; shift ;;
     --print-token-source) print_src=1; shift ;;
     *)
-      echo "FEHLER: unbekanntes Argument: $1 (Aufruf: scripts/check_sentry_resolve.sh (--version <vX.Y.Z[..]> | --ids <id[,id…]>) [--dry-run])"
+      echo "FEHLER: unbekanntes Argument: $1 (Aufruf: scripts/check_sentry_resolve.sh (--version <vX.Y.Z[..]> | --ids <id[,id…]> [--in-next-release]) [--dry-run])"
       exit 1 ;;
   esac
 done
@@ -85,6 +106,15 @@ done
 # Entscheid beim Release-Schnitt), nie beide.
 if [ -n "$version" ] && [ -n "$ids" ]; then
   echo "FEHLER: --version und --ids schliessen sich aus (genau ein Auswahl-Modus)"
+  exit 1
+fi
+# --in-next-release ist nur eine Verfeinerung von --ids: der Versions-Pfad
+# setzt inNextRelease ohnehin, ein alleinstehendes Flag waere ein Aufruffehler.
+# Bewusst VOR der Auswahl-Pruefung: sonst faengt der generische "--version oder
+# --ids fehlt"-Zweig das Flag ab und der Aufruffehler bleibt unspezifisch
+# (genau daran lief die Mutationsprobe B zunaechst gruen durch).
+if [ "$in_next" = "1" ] && [ -z "$ids" ]; then
+  echo "FEHLER: --in-next-release braucht --ids (der --version-Pfad setzt inNextRelease ohnehin)"
   exit 1
 fi
 if [ -z "$version" ] && [ -z "$ids" ] && [ "$print_src" != "1" ]; then
@@ -178,6 +208,15 @@ if [ -n "$FIXTURE" ]; then
   getstatus=$(cat "$FIXTURE/getstatus" 2>/dev/null || echo 200)
   [ "$getstatus" = "200" ] || skip_getstatus "$getstatus"
   frag_files="$FIXTURE/issues.json"
+  # --ids: Einzelantworten der genannten IDs (issue-<id>.json) mitlesen — so
+  # erreicht der Modus auch Issues, die die is:unresolved-Abfrage ausblendet.
+  if [ -n "$ids_norm" ]; then
+    for id in $(printf '%s' "$ids_norm" | tr ',' ' '); do
+      if [ -f "$FIXTURE/issue-$id.json" ]; then
+        frag_files="$frag_files $FIXTURE/issue-$id.json"
+      fi
+    done
+  fi
 else
   if [ -z "$token" ]; then
     echo "SKIP: kein Sentry-Resolve-Token — SENTRY_RESOLVE_TOKEN setzen oder resolve.token in sentry.properties ablegen (Token-Erstellung: $DOCS_HINT)"
@@ -202,7 +241,29 @@ PY
 )
     [ -z "$cursor" ] && break
   done
+  # --ids: die genannten IDs einzeln nachladen. Die is:unresolved-Abfrage
+  # blendet bereits resolved Issues aus — genau die sollen aber auf
+  # inNextRelease hochgezogen werden koennen (#429/VIVID-5Q war schon resolved).
+  # 404 = unbekannte ID; die meldet Phase A als fehlend, kein Abbruch.
+  if [ -n "$ids_norm" ]; then
+    : > "$tmp/idfrags"
+    for id in $(printf '%s' "$ids_norm" | tr ',' ' '); do
+      code=$(curl -sS -o "$tmp/id.$id.json" -w '%{http_code}' \
+        -H "Authorization: Bearer $token" "$API/issues/$id/" 2>/dev/null || echo 000)
+      case "$code" in
+        200) echo "$tmp/id.$id.json" >> "$tmp/idfrags" ;;
+        404) : ;;
+        *) skip_getstatus "$code" ;;
+      esac
+    done
+    frag_files="$frag_files $(cat "$tmp/idfrags")"
+  fi
 fi
+
+# Jeden Fragment-Pfad einzeln in die Python-Pfadform bringen (siehe py_path).
+norm_frags=""
+for f in $frag_files; do norm_frags="$norm_frags $(py_path "$f")"; done
+frag_files="$norm_frags"
 
 # ── Phase A: Matches offline berechnen (kein Netz). Liefert bei Treffern die
 # PUT-Url/-Body als Dateien + Marker WOULD_RESOLVE=N; bei 0 Treffern ein OK.
@@ -211,6 +272,7 @@ out_a=$(SENTRY_RESOLVE_FRAG_FILES="$frag_files" \
   SENTRY_RESOLVE_VERSION="$norm_version" \
   SENTRY_RESOLVE_VERSION_RAW="$version" \
   SENTRY_RESOLVE_IDS="$ids_norm" \
+  SENTRY_RESOLVE_IN_NEXT="$in_next" \
   SENTRY_RESOLVE_API="$API" \
   SENTRY_RESOLVE_ORG="$ORG" \
   SENTRY_RESOLVE_PROJECT="$PROJECT_SLUG" \
@@ -232,21 +294,54 @@ for f in files:
     except Exception as e:
         print("FEHLER: Issues-Antwort (%s) ist kein gültiges JSON (%s)" % (f, e))
         sys.exit(1)
+    if isinstance(data, dict):
+        # Einzelabruf GET /issues/{id}/ liefert EIN Objekt statt einer Liste;
+        # eine Antwort ohne id/status bleibt dagegen ein Formatbruch (R5).
+        if "id" in data and "status" in data:
+            data = [data]
+        else:
+            print("FEHLER: Issues-Antwort (%s) ist weder Liste noch Issue-Objekt — Sentry-API-Feldformat geändert?" % f)
+            sys.exit(1)
     if not isinstance(data, list):
         print("FEHLER: Issues-Antwort (%s) ist keine Liste — Sentry-API-Feldformat geändert?" % f)
         sys.exit(1)
     issues.extend(data)
 
 matches = []
+already_next = []
+seen = set()
+in_next = os.environ.get("SENTRY_RESOLVE_IN_NEXT") == "1"
 for it in issues:
     if not isinstance(it, dict):
         continue
-    if it.get("status") == "resolved":
-        continue
     if wanted_ids:
+        # Explizit genannte IDs duerfen auch schon resolved sein: nur so laesst
+        # sich ein blosses "resolved" auf resolved/inNextRelease hochziehen
+        # (#429). "ignored" bleibt aussen vor, und ohne --in-next-release wird
+        # ein resolved Issue nicht angefasst — der Plain-Vertrag bleibt.
         issue_id = str(it.get("id", ""))
-        if issue_id in wanted_ids:
-            matches.append((issue_id, str(it.get("title", "?"))))
+        if issue_id not in wanted_ids or issue_id in seen:
+            continue
+        status = it.get("status") or ""
+        if status == "ignored":
+            continue
+        if status in ("resolved", "resolvedInNextRelease"):
+            # Sentry fuehrt "resolved in next release" als EIGENEN Status
+            # (API: "resolvedInNextRelease") und setzt zusaetzlich
+            # statusDetails.inNextRelease. Beides gilt als erledigt — sonst
+            # meldet ein Dry-Run nach erfolgreichem PUT die ID weiter als
+            # offenen Treffer (Dispatch 45986689320).
+            details = it.get("statusDetails") or {}
+            if status == "resolvedInNextRelease" or details.get("inNextRelease") is True:
+                already_next.append((issue_id, status))
+                seen.add(issue_id)
+                continue
+            if not in_next:
+                continue
+        seen.add(issue_id)
+        matches.append((issue_id, str(it.get("title", "?"))))
+        continue
+    if it.get("status") == "resolved":
         continue
     tags = it.get("tags") or []
     for t in tags:
@@ -268,9 +363,12 @@ else:
     print("Projekt: %s (Org %s) | Version: %s (normalisiert: %s)" % (
         os.environ["SENTRY_RESOLVE_PROJECT"], os.environ["SENTRY_RESOLVE_ORG"], version_raw, version))
 print("Geprüft: %d unresolved Issues (query=is:unresolved)" % len(issues))
-if wanted_ids and matches:
-    hit = set(i for i, _ in matches)
+if wanted_ids:
+    hit = set(i for i, _ in matches) | set(i for i, _ in already_next)
     missing = [i for i in wanted_ids if i not in hit]
+    if already_next:
+        print("HINWEIS: %d ID(s) sind bereits resolved/inNextRelease — kein PUT noetig: %s"
+              % (len(already_next), ", ".join("%s [%s]" % (i, s) for i, s in already_next)))
     if missing:
         print("HINWEIS: %d ID(s) nicht unter den unresolved Issues (schon resolved/ignored oder falsche ID): %s"
               % (len(missing), ",".join(missing)))
@@ -286,7 +384,10 @@ url = "%s/projects/%s/%s/issues/?id=%s" % (
     os.environ["SENTRY_RESOLVE_API"], os.environ["SENTRY_RESOLVE_ORG"],
     os.environ["SENTRY_RESOLVE_PROJECT"], "&id=".join(ids))
 if wanted_ids:
-    body = json.dumps({"status": "resolved"})
+    body_obj = {"status": "resolved"}
+    if os.environ.get("SENTRY_RESOLVE_IN_NEXT") == "1":
+        body_obj["statusDetails"] = {"inNextRelease": True}
+    body = json.dumps(body_obj)
 else:
     body = json.dumps({"status": "resolved", "statusDetails": {"inNextRelease": True}})
 tmp = os.environ["SENTRY_RESOLVE_TMP"]
@@ -313,8 +414,17 @@ if [ -z "$count" ]; then
 fi
 ids=$(cat "$tmp/put_ids")
 
+# Test-Hook (nur fuer den Offline-Selbsttest R19/R20): Body sichtbar machen,
+# damit die inNextRelease-Zusage am gesendeten JSON haengt und nicht nur am
+# Meldungstext. Ohne gesetzte Variable passiert nichts.
+if [ -n "${SENTRY_RESOLVE_BODY_OUT:-}" ]; then
+  cp "$tmp/put_body" "$SENTRY_RESOLVE_BODY_OUT"
+fi
+
 if [ "$dryrun" = "1" ]; then
-  if [ -n "$ids_norm" ]; then
+  if [ -n "$ids_norm" ] && [ "$in_next" = "1" ]; then
+    echo "OK (dry-run): $count Issue(s) würden als resolved (inNextRelease) markiert — IDs: $ids"
+  elif [ -n "$ids_norm" ]; then
     echo "OK (dry-run): $count Issue(s) würden als resolved markiert (ohne inNextRelease) — IDs: $ids"
   else
     echo "OK (dry-run): $count Issue(s) würden als resolved (inNextRelease) markiert — Version $norm_version (IDs: $ids)"
@@ -361,7 +471,9 @@ fi
 
 case "$putstatus" in
   200|204)
-    if [ -n "$ids_norm" ]; then
+    if [ -n "$ids_norm" ] && [ "$in_next" = "1" ]; then
+      echo "OK: $count Issue(s) als resolved (inNextRelease) markiert — IDs: $ids"
+    elif [ -n "$ids_norm" ]; then
       echo "OK: $count Issue(s) als resolved markiert (ohne inNextRelease) — IDs: $ids"
     else
       echo "OK: $count Issue(s) als resolved (inNextRelease) markiert — erledigt mit Version $norm_version (IDs: $ids)"
