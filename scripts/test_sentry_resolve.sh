@@ -42,6 +42,8 @@
 #       wird es nachgeladen und auf inNextRelease hochgezogen (#429)
 #   R24 Gegenprobe: bereits resolved/inNextRelease -> HINWEIS, kein PUT
 #   R25 Plain-Vertrag: resolved Issue ohne Flag wird nicht angefasst
+#   R26 Sentry-Status "resolvedInNextRelease" gilt als erledigt (kein PUT); sonst
+#       meldet ein Dry-Run die ID nach erfolgreichem PUT weiter als offen
 #   R13 VIVID_REPO_ROOT (#250): der Guard darf aus $RUNNER_TEMP aufgerufen
 #      werden (Stable-Publish staget die Gate-Skripte dorthin, damit der
 #      Arbeitsbaum nicht vom Ziel-Tag stammt). Ohne gesetzten Repo-Root muss
@@ -334,4 +336,25 @@ out_r25=$(SENTRY_RESOLVE_FIXTURE="$tmp/upgrade" SENTRY_RESOLVE_BODY_OUT="$tmp/bo
 grep -q "^OK: 0 Issues aus --ids" <<<"$out_r25" || fail "R25: ohne Flag darf ein resolved Issue nicht resolvt werden"
 [ -f "$tmp/body-r25.json" ] && fail "R25: ohne Flag darf kein PUT-Body entstehen"
 
-echo "✅ [sentry-resolve-test] Sentry-Resolve-Guard vertragstreu (R1–R25)."
+# R26 Sentry fuehrt "resolved in next release" als eigenen Status
+# ("resolvedInNextRelease", Dispatch 45986689320 zeigte das nach dem PUT).
+# Der Guard muss ihn als erledigt lesen — sonst bleibt die ID fuer immer
+# "offen" und jeder Dry-Run wuerde erneut resolven wollen. Die Fixture laesst
+# statusDetails absichtlich leer: nur der Status selbst darf entscheiden.
+mkdir -p "$tmp/nextrel"
+echo 200 > "$tmp/nextrel/status"
+echo '[]' > "$tmp/nextrel/issues.json"
+cat > "$tmp/nextrel/issue-100.json" <<'JSON'
+{"id": "100", "shortId": "VIVID-5Q", "title": "Schon geschlossen", "status": "resolvedInNextRelease",
+ "statusDetails": {}, "tags": []}
+JSON
+out_r26=$(SENTRY_RESOLVE_FIXTURE="$tmp/nextrel" SENTRY_RESOLVE_BODY_OUT="$tmp/body-r26.json" \
+  bash "$guard" --ids 100 --in-next-release) || fail "R26: resolvedInNextRelease darf nicht scheitern"
+grep -q "^OK: 0 Issues aus --ids" <<<"$out_r26" || fail "R26: kein PUT fuer resolvedInNextRelease erwartet"
+grep -q "HINWEIS: 1 ID(s) sind bereits resolved/inNextRelease" <<<"$out_r26" || \
+  fail "R26: HINWEIS auf resolvedInNextRelease erwartet"
+grep -q "[resolvedInNextRelease]" <<<"$out_r26" || \
+  fail "R26: HINWEIS muss den beobachteten Sentry-Status nennen"
+[ -f "$tmp/body-r26.json" ] && fail "R26: es darf kein PUT-Body entstehen"
+
+echo "✅ [sentry-resolve-test] Sentry-Resolve-Guard vertragstreu (R1–R26)."

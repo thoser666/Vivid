@@ -322,13 +322,18 @@ for it in issues:
         issue_id = str(it.get("id", ""))
         if issue_id not in wanted_ids or issue_id in seen:
             continue
-        status = it.get("status")
+        status = it.get("status") or ""
         if status == "ignored":
             continue
-        if status == "resolved":
+        if status in ("resolved", "resolvedInNextRelease"):
+            # Sentry fuehrt "resolved in next release" als EIGENEN Status
+            # (API: "resolvedInNextRelease") und setzt zusaetzlich
+            # statusDetails.inNextRelease. Beides gilt als erledigt — sonst
+            # meldet ein Dry-Run nach erfolgreichem PUT die ID weiter als
+            # offenen Treffer (Dispatch 45986689320).
             details = it.get("statusDetails") or {}
-            if details.get("inNextRelease") is True:
-                already_next.append((issue_id, str(it.get("title", "?"))))
+            if status == "resolvedInNextRelease" or details.get("inNextRelease") is True:
+                already_next.append((issue_id, status))
                 seen.add(issue_id)
                 continue
             if not in_next:
@@ -363,7 +368,7 @@ if wanted_ids:
     missing = [i for i in wanted_ids if i not in hit]
     if already_next:
         print("HINWEIS: %d ID(s) sind bereits resolved/inNextRelease — kein PUT noetig: %s"
-              % (len(already_next), ",".join(i for i, _ in already_next)))
+              % (len(already_next), ", ".join("%s [%s]" % (i, s) for i, s in already_next)))
     if missing:
         print("HINWEIS: %d ID(s) nicht unter den unresolved Issues (schon resolved/ignored oder falsche ID): %s"
               % (len(missing), ",".join(missing)))
