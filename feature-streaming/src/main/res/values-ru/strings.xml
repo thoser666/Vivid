@@ -33,6 +33,7 @@
     <string name="streaming_source_camera">Камера</string>
     <string name="streaming_source_screen">Экран</string>
     <string name="streaming_source_video">Видео</string>
+    <string name="streaming_source_uvc">UVC-камера</string>
     <string name="streaming_source_screen_active_hint">Снимок экрана активен — ведется потоковая передача экрана вашего устройства.</string>
     <string name="streaming_source_video_active_hint">Видеопроигрыватель активен — ведется потоковая передача выбранного файла.</string>
     <string name="streaming_source_video_pick">Выбрать видео</string>

@@ -1,6 +1,8 @@
 package com.vivid.feature.streaming.ui
 
+import android.app.Activity
 import android.content.Context
+import android.content.Intent
 import android.Manifest
 import android.content.pm.PackageManager
 import android.hardware.display.DisplayManager
@@ -96,6 +98,7 @@ import com.vivid.feature.streaming.StreamTargetState
 import com.vivid.feature.streaming.StreamTargetStatus
 import com.vivid.feature.streaming.StreamingState
 import com.vivid.feature.streaming.StreamingViewModel
+import com.vivid.feature.streaming.compositor.capture.SceneUsbPermissionActivity
 import com.vivid.feature.streaming.source.VideoSourceKind
 import com.vivid.feature.streaming.R
 import kotlin.math.abs
@@ -562,6 +565,21 @@ private fun BoxScope.StreamingControlsMenu(
 @Composable
 private fun SourceSelectionItems(streamingEngine: StreamingEngine, onDismiss: () -> Unit, onScreenCapture: () -> Unit, onVideoPicker: () -> Unit) {
     val activeSourceKind by streamingEngine.activeSourceKind.collectAsStateWithLifecycle()
+    val uvcDevices by streamingEngine.uvcVideoDevices.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    var pendingUvcDeviceName by rememberSaveable { mutableStateOf<String?>(null) }
+    val uvcPermission = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val requestedName = pendingUvcDeviceName
+        pendingUvcDeviceName = null
+        val grantedName = result.data?.getStringExtra(SceneUsbPermissionActivity.EXTRA_DEVICE_NAME)
+        if (result.resultCode == Activity.RESULT_OK && requestedName != null && grantedName == requestedName) {
+            streamingEngine.refreshUvcVideoDevices()
+            val granted = streamingEngine.uvcVideoDevices.value
+                .firstOrNull { it.deviceName == requestedName }?.permissionGranted == true
+            if (granted) streamingEngine.switchSource(VideoSourceKind.UVC)
+        }
+    }
+    LaunchedEffect(Unit) { streamingEngine.refreshUvcVideoDevices() }
     DropdownMenuItem(
         onClick = {
             onDismiss()
@@ -592,6 +610,26 @@ private fun SourceSelectionItems(streamingEngine: StreamingEngine, onDismiss: ()
             Text(stringResource(R.string.streaming_source_video))
         },
     )
+    uvcDevices.firstOrNull()?.let { device ->
+        DropdownMenuItem(
+            onClick = {
+                onDismiss()
+                if (device.permissionGranted) {
+                    streamingEngine.switchSource(VideoSourceKind.UVC)
+                } else if (pendingUvcDeviceName == null) {
+                    pendingUvcDeviceName = device.deviceName
+                    uvcPermission.launch(
+                        Intent(context, SceneUsbPermissionActivity::class.java)
+                            .putExtra(SceneUsbPermissionActivity.EXTRA_DEVICE_NAME, device.deviceName),
+                    )
+                }
+            },
+            enabled = activeSourceKind != VideoSourceKind.UVC,
+            text = {
+                Text(stringResource(R.string.streaming_source_uvc))
+            },
+        )
+    }
 }
 
 @Composable

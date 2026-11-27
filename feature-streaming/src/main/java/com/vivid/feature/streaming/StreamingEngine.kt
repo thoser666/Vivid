@@ -11,13 +11,17 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicInteger
 import android.Manifest
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.IntentFilter
+import android.hardware.usb.UsbManager
 import com.vivid.core.data.SceneComposition
 import com.vivid.core.data.SceneSourceType
 import com.vivid.feature.streaming.compositor.SceneProducerState
 import com.vivid.feature.streaming.compositor.SceneRenderState
 import com.vivid.feature.streaming.compositor.capture.SceneBitmapRegistry
 import com.vivid.feature.streaming.compositor.capture.SceneProjectionRegistry
+import com.vivid.feature.streaming.compositor.capture.SceneUsbDevices
 import com.vivid.feature.streaming.compositor.gl.AndroidSceneTextureProvider
 import com.vivid.feature.streaming.compositor.gl.SceneCompositorFilterRender
 import android.content.Intent
@@ -26,6 +30,7 @@ import android.graphics.Rect
 import com.vivid.feature.streaming.compositor.matchesSceneIdentity
 import android.net.Uri
 import androidx.core.net.toUri
+import androidx.core.content.ContextCompat
 import android.view.MotionEvent
 import android.view.Surface
 import android.view.View
@@ -93,6 +98,12 @@ enum class StreamTargetStatus {
     STREAMING,
     FAILED,
 }
+
+/** USB video device currently visible to Android, independent of whether consent exists yet. */
+data class UvcDeviceSnapshot(
+    val deviceName: String,
+    val permissionGranted: Boolean,
+)
 
 /** Zustand eines einzelnen Stream-Ziels inkl. URL und ggf. Fehlerursache. */
 data class StreamTargetState(
@@ -329,6 +340,20 @@ class StreamingEngine @Inject constructor(
 
     /** S3: Video-Datei-Quelle (MultiFromFile), lazy erzeugt (wie die Kamera). */
     private var videoPlayerSource: VideoPlayerVideoSource? = null
+
+    /** The Compose preview opts into scene-backed idle previews; direct engine clients keep the legacy path. */
+    internal var useSceneBackedIdlePreview = false
+
+    private val sceneUsbDevices by lazy { SceneUsbDevices(context) }
+    private val _uvcVideoDevices = MutableStateFlow<List<UvcDeviceSnapshot>>(emptyList())
+    val uvcVideoDevices: StateFlow<List<UvcDeviceSnapshot>> = _uvcVideoDevices.asStateFlow()
+    @Volatile private var uvcReceiverRegistered = false
+    private val uvcReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            if (intent.action == UsbManager.ACTION_USB_DEVICE_ATTACHED ||
+                intent.action == UsbManager.ACTION_USB_DEVICE_DETACHED) updateUvcVideoDevices()
+        }
+    }
 
     /** Replay-als-Quelle (MultiFromFile, Loop-Modus), lazy erzeugt (wie die Kamera). */
     private var replaySource: ReplayVideoSource? = null
@@ -665,6 +690,32 @@ class StreamingEngine @Inject constructor(
 
     // --- Manuelle Kamera-Steuerung ---
     private var manualCameraController: ManualCameraController? = null
+
+    /** Refreshes the connected USB-video list and installs the hotplug listener on first use. */
+    fun refreshUvcVideoDevices() {
+        updateUvcVideoDevices()
+        registerUvcDeviceListener()
+    }
+
+    private fun updateUvcVideoDevices() {
+        _uvcVideoDevices.value = sceneUsbDevices.videoDevices().map { device ->
+            UvcDeviceSnapshot(
+                deviceName = device.deviceName,
+                permissionGranted = sceneUsbDevices.hasPermission(device),
+            )
+        }
+    }
+
+    private fun registerUvcDeviceListener() {
+        if (uvcReceiverRegistered) return
+        val filter = IntentFilter().apply {
+            addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED)
+            addAction(UsbManager.ACTION_USB_DEVICE_DETACHED)
+        }
+        runCatching {
+            ContextCompat.registerReceiver(context, uvcReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
+        }.onSuccess { uvcReceiverRegistered = true }
+    }
 
     private fun activeGlInterface(): GlStreamInterface? = sceneSession?.gl ?: when (activeSourceKind.value) {
         VideoSourceKind.CAMERA -> camera?.glInterface as? GlStreamInterface
@@ -1347,7 +1398,8 @@ class StreamingEngine @Inject constructor(
     fun switchSource(kind: VideoSourceKind): Boolean {
         if (_cameraModeStatus.value.preparing) return false
         if (kind != activeSourceKind.value && legacyEncoding() && camera?.isStreaming == true) return false
-        if (_sceneComposition.value == null && !legacyEncoding() &&
+        if (kind == VideoSourceKind.UVC && sceneSourceLocator(kind).isBlank()) return false
+        if (useSceneBackedIdlePreview && _sceneComposition.value == null && !legacyEncoding() &&
             (kind != VideoSourceKind.CAMERA || cameraInputPermissionGranted())) {
             setSceneComposition(fallbackSceneGraph(kind), animate = false)
         }
@@ -2238,7 +2290,7 @@ class StreamingEngine @Inject constructor(
         updateSceneRenderClock()
         val request = previewRequest ?: return
         if (_cameraModeStatus.value.preparing || request.width <= 0 || request.height <= 0) return
-        if (_sceneComposition.value == null && !legacyEncoding() &&
+        if (useSceneBackedIdlePreview && _sceneComposition.value == null && !legacyEncoding() &&
             (activeSourceKind.value != VideoSourceKind.CAMERA || cameraInputPermissionGranted())) {
             setSceneComposition(fallbackSceneGraph(activeSourceKind.value), animate = false)
         }
@@ -3326,6 +3378,7 @@ class StreamingEngine @Inject constructor(
         val sources = graph?.sources?.filter { it.type == SceneSourceType.UVC }.orEmpty()
         val source = sources.firstOrNull { it.id == primaryId } ?: sources.firstOrNull { it.id in visible } ?: sources.firstOrNull()
         return source?.let(::sceneCameraIdentity)?.takeIf { it.isNotBlank() }
+            ?: sceneUsbDevices.videoDevices().firstOrNull()?.let { device -> sceneUsbDevices.identity(device).encode() }
             ?: sceneCameraOptions().firstOrNull { it.second == android.hardware.camera2.CameraCharacteristics.LENS_FACING_EXTERNAL }?.first.orEmpty()
     }
 
@@ -3355,7 +3408,8 @@ class StreamingEngine @Inject constructor(
 
     private fun switchSceneBaseSource(kind: VideoSourceKind): Boolean {
         val oldKind = activeSourceKind.value
-        if (kind in listOf(VideoSourceKind.VIDEO_PLAYER, VideoSourceKind.REPLAY) && sceneSourceLocator(kind).isBlank()) return false
+        if ((kind in listOf(VideoSourceKind.VIDEO_PLAYER, VideoSourceKind.REPLAY) || kind == VideoSourceKind.UVC) &&
+            sceneSourceLocator(kind).isBlank()) return false
         val graph = _sceneComposition.value ?: return false
         val replacement = com.vivid.feature.streaming.compositor.replaceScenePrimarySource(graph, scenePrimarySourceId ?: desiredSceneRender?.inputSourceId,
             sceneSourceType(oldKind), sceneSourceType(kind), sceneSourceLocator(kind), ::sceneCameraIdentity,

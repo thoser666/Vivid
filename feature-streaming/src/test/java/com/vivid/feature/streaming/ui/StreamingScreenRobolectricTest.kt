@@ -114,6 +114,7 @@ class StreamingScreenRobolectricTest {
         every { engine.stabilizationEnabled } returns MutableStateFlow(false)
         every { engine.torchEnabled } returns MutableStateFlow(false)
         every { engine.activeSourceKind } returns MutableStateFlow(VideoSourceKind.CAMERA)
+        every { engine.uvcVideoDevices } returns MutableStateFlow<List<com.vivid.feature.streaming.UvcDeviceSnapshot>>(emptyList())
         every { engine.sceneNeedsCameraPermission() } returns true
         every { engine.canRecordReplay() } returns true
         every { engine.sceneComposition } returns MutableStateFlow(null)
@@ -340,7 +341,7 @@ class StreamingScreenRobolectricTest {
 
 
     @Test
-    fun `easy mode hides studio controls and switching back restores them`() {
+    fun `easy mode keeps source controls but hides studio controls until switching back`() {
         every { viewModel.scenes } returns MutableStateFlow(listOf(com.vivid.core.data.StreamScene(FIRST_SCENE_ID, MAIN_SCENE_NAME)))
         every { viewModel.activeSceneId } returns MutableStateFlow<String?>(FIRST_SCENE_ID)
         every { engine.cameraZoomRange() } returns com.vivid.feature.streaming.ZoomRange(1f, 4f)
@@ -355,7 +356,7 @@ class StreamingScreenRobolectricTest {
         composeRule.runOnIdle {
             appSettings.value = appSettings.value.copy(uiMode = com.vivid.core.data.UiMode.EASY)
         }
-        composeRule.onNodeWithTag(CONTROLS_BUTTON_TAG).assertDoesNotExist()
+        composeRule.onNodeWithTag(CONTROLS_BUTTON_TAG).assertIsDisplayed()
         composeRule.onNodeWithTag(ZOOM_PICKER_TAG).assertDoesNotExist()
         composeRule.onNodeWithTag(SCENE_PICKER_TAG).assertDoesNotExist()
         composeRule.onNodeWithTag(STATUS_OVERLAY_TAG).assertDoesNotExist()
@@ -690,6 +691,26 @@ class StreamingScreenRobolectricTest {
         // onClick startet den SAF-Picker (Activity-Result) — verifizierbar ist hier
         // der aktive Zustand; der Picker-Flow selbst braucht einen instrumentierten Test.
         composeRule.onNodeWithText("Video").assertIsEnabled()
+    }
+
+    @Test
+    fun `uvc source is hidden without a connected usb video device`() {
+        setContent()
+        openControls()
+
+        composeRule.onNodeWithText("UVC camera").assertDoesNotExist()
+    }
+
+    @Test
+    fun `permitted uvc source is shown and invokes engine switchSource`() {
+        every { engine.uvcVideoDevices } returns MutableStateFlow(
+            listOf(com.vivid.feature.streaming.UvcDeviceSnapshot("/dev/bus/usb/001/002", true)),
+        )
+        setContent()
+        openControls()
+
+        composeRule.onNodeWithText("UVC camera").performClick()
+        verify(exactly = 1) { engine.switchSource(VideoSourceKind.UVC) }
     }
 
     @Test

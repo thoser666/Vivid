@@ -46,6 +46,7 @@ internal fun CameraPreviewHost(
         factory = { context ->
             @SuppressLint("ClickableViewAccessibility")
             SurfaceView(context).also { view ->
+                streamingEngine.useSceneBackedIdlePreview = true
                 if (activeSourceKind == VideoSourceKind.CAMERA) streamingEngine.initializeCamera()
                 view.holder.addCallback(
                     object : SurfaceHolder.Callback {
