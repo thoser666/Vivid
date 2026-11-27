@@ -1,6 +1,7 @@
 package com.vivid.feature.settings.ui
 
 import com.vivid.feature.settings.R
+import com.vivid.core.data.UiMode
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -62,5 +63,18 @@ class SettingsCategoriesTest {
         assertTrue(routes.contains("settings_remote"))
         assertTrue(routes.contains("settings_about"))
         assertTrue(routes.contains("settings_logs"))
+    }
+
+    @Test
+    fun `easy mode keeps only basic categories`() {
+        assertEquals(
+            listOf("settings_streaming", "settings_appearance", "settings_about", "settings_logs"),
+            SettingsCategories.visibleFor(UiMode.EASY).map { it.route },
+        )
+    }
+
+    @Test
+    fun `studio mode keeps every category`() {
+        assertEquals(SettingsCategories.all, SettingsCategories.visibleFor(UiMode.STUDIO))
     }
 }

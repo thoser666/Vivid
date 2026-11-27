@@ -86,6 +86,7 @@ class StreamingScreenPermissionContractTest {
         every { engine.stabilizationEnabled } returns MutableStateFlow(false)
         every { engine.torchEnabled } returns MutableStateFlow(false)
         every { engine.activeSourceKind } returns MutableStateFlow(VideoSourceKind.CAMERA)
+        every { engine.uvcVideoDevices } returns MutableStateFlow<List<com.vivid.feature.streaming.UvcDeviceSnapshot>>(emptyList())
         every { engine.sceneNeedsCameraPermission() } returns true
         every { engine.canRecordReplay() } returns true
         every { engine.sceneComposition } returns MutableStateFlow(null)
@@ -106,7 +107,7 @@ class StreamingScreenPermissionContractTest {
         every { viewModel.sceneEditor } returns MutableStateFlow(null)
         every { viewModel.configIssues } returns MutableStateFlow(emptyList())
         every { viewModel.scenes } returns MutableStateFlow(emptyList())
-        every { viewModel.appSettings } returns MutableStateFlow(com.vivid.core.data.AppSettings())
+        every { viewModel.appSettings } returns MutableStateFlow(com.vivid.core.data.AppSettings(uiMode = com.vivid.core.data.UiMode.STUDIO))
         every { viewModel.activeSceneId } returns MutableStateFlow<String?>(null)
         every { viewModel.autoSwitchEnabled } returns MutableStateFlow(false)
         every { viewModel.autoSwitchIntervalSeconds } returns MutableStateFlow(30L)

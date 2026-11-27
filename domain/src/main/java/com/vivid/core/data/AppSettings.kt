@@ -2,6 +2,8 @@ package com.vivid.core.data
 
 // Diese Datenklasse MUSS alle Felder enthalten, die die UI braucht.
 data class AppSettings(
+    // Bedienmodus der App-Oberfläche (EASY = reduziert, STUDIO = vollständig).
+    val uiMode: UiMode = UiMode.EASY,
     val streamProfiles: List<StreamProfile> = emptyList(),
     val activeStreamId: String? = null,
     val obsRemoteEnabled: Boolean = true,

@@ -50,6 +50,7 @@ class SettingsAdaptiveLayoutRobolectricTest {
     /** Mock-VM: nur die beiden gelesenen Member (Hausmuster TwitchChannelViewModel). */
     private fun fakeViewModel() = mockk<SettingsViewModel>(relaxed = true) {
         every { updateState } returns MutableStateFlow(SettingsUpdateState())
+        every { uiState } returns MutableStateFlow(com.vivid.core.data.AppSettings(uiMode = com.vivid.core.data.UiMode.STUDIO))
         every { saveEvent } returns MutableSharedFlow()
     }
 

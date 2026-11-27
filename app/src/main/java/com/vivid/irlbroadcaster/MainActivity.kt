@@ -23,7 +23,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.State
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -44,6 +47,7 @@ import com.vivid.core.data.AppSettings
 import com.vivid.core.data.AppOrientation
 import com.vivid.core.data.SettingsRepository
 import com.vivid.core.data.ThemeMode
+import com.vivid.core.data.UiMode
 import com.vivid.core.data.resolveDark
 import com.vivid.core.i18n.AppLanguage
 import com.vivid.core.ui.LocalWindowWidthClass
@@ -117,7 +121,11 @@ class MainActivity : ComponentActivity() {
             // Darstellung (Settings-Kategorie „Darstellung“): Design-Modus
             // (System/Hell/Dunkel/AMOLED) + Akzentfarbe live anwenden — das
             // Theme reagiert sofort, ohne App-Neustart.
-            val savedSettings by settingsRepository.appSettingsFlow.collectAsState(initial = null)
+            val savedSettingsState = settingsRepository.appSettingsFlow.collectAsState(initial = null)
+            val savedSettings by savedSettingsState
+            val uiModeState = remember {
+                derivedStateOf { (savedSettingsState.value ?: AppSettings()).uiMode }
+            }
             val settings = savedSettings ?: AppSettings()
             val systemDark = isSystemInDarkTheme()
             val dark = settings.themeMode.resolveDark(systemDark)
@@ -151,6 +159,7 @@ class MainActivity : ComponentActivity() {
                     color = MaterialTheme.colorScheme.background,
                 ) {
                     VividAppNavigation(
+                        uiMode = uiModeState,
                         onPreviewFullscreenChange = ::setPreviewFullscreen,
                         onStreamingScreenChange = { streamingScreen ->
                             applyAppOrientation(savedSettings?.appOrientation, streamingScreen)
@@ -248,10 +257,12 @@ private fun resolveSafeWindowWidthSizeClass(activity: Activity): WindowWidthSize
 
 @Composable
 fun VividAppNavigation(
+    uiMode: State<UiMode>? = null,
     onPreviewFullscreenChange: (Boolean) -> Unit = {},
     onStreamingScreenChange: (Boolean) -> Unit = {},
 ) {
     val navController = rememberNavController()
+    val effectiveUiMode = uiMode ?: remember { mutableStateOf(UiMode.EASY) }
     val currentEntry by navController.currentBackStackEntryAsState()
     var previewRequestsFullscreen by remember { mutableStateOf(true) }
     val previewFullscreen = currentEntry?.destination?.route == STREAMING_ROUTE && previewRequestsFullscreen
@@ -364,7 +375,11 @@ fun VividAppNavigation(
             )
         }
         composable("obs_control") {
-            ObsControlScreen()
+            if (effectiveUiMode.value == UiMode.STUDIO) {
+                ObsControlScreen()
+            } else {
+                LaunchedEffect(Unit) { navController.popBackStack() }
+            }
         }
         composable("about_route") {
             AboutScreen(navController = navController)

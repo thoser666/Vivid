@@ -455,4 +455,12 @@
     <string name="local_overlays_bitrate">Битрейт</string>
     <string name="local_overlays_duration">Длительность трансляции</string>
     <string name="local_overlays_scenes">Выбор сцены</string>
+    <string name="settings_ui_mode_title">Режим интерфейса</string>
+    <string name="settings_ui_mode_easy">Простой</string>
+    <string name="settings_ui_mode_studio">Студия</string>
+    <string name="settings_ui_mode_easy_desc">Только предпросмотр камеры, кнопка Go Live и назначение трансляции. Сцены, источники и управление OBS скрыты.</string>
+    <string name="settings_ui_mode_studio_desc">Полный контроль: сцены, источники, оверлеи и удалённое управление OBS.</string>
+    <string name="cat_streaming_easy_title">Трансляция</string>
+    <string name="obs_qr_label">Импорт из QR-кода (вставьте содержимое)</string>
+    <string name="obs_qr_import_button">Импорт</string>
 </resources>

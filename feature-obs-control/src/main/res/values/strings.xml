@@ -17,15 +17,6 @@
     <string name="obs_connect_failed_message">Verbindung fehlgeschlagen</string>
 
     <!-- OBS Settings Screen -->
-    <string name="obs_settings_host_label">OBS Host</string>
-    <string name="obs_settings_port_label">OBS Port</string>
-    <string name="obs_settings_password_label">OBS Passwort</string>
-    <string name="obs_settings_tls_label">Sichere Verbindung (wss://)</string>
-    <string name="obs_settings_save_button">Speichern</string>
-    <string name="obs_settings_qr_label">Aus QR-Code importieren (Inhalt einfügen)</string>
-    <string name="obs_settings_qr_import_button">Importieren</string>
-    <string name="obs_settings_qr_import_error">Ungültiger QR-Code: %1$s</string>
-    <string name="obs_settings_qr_import_success">OBS-Verbindung importiert — Werte prüfen, dann speichern.</string>
 
     <!-- OBS-Steuerung (PARITY Row 71: Snapshot / Audio-Levels / Audio-Sync / Mute / Screen-black) -->
     <string name="obs_current_scene">Aktuelle Szene: %1$s</string>

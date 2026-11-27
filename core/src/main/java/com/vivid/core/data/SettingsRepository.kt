@@ -113,6 +113,7 @@ class SettingsRepository @Inject constructor(
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val APP_ORIENTATION = stringPreferencesKey("app_orientation")
         val THEME_ACCENT = stringPreferencesKey("theme_accent")
+        val UI_MODE = stringPreferencesKey("ui_mode")
         val LOGS_RETENTION_DAYS = intPreferencesKey("logs_retention_days")
         val EMOTES_BTTV_ENABLED = booleanPreferencesKey("emotes_bttv_enabled")
         val EMOTES_FFZ_ENABLED = booleanPreferencesKey("emotes_ffz_enabled")
@@ -338,6 +339,7 @@ class SettingsRepository @Inject constructor(
                 orientation = AppOrientation.fromName(prefs[PrefKeys.APP_ORIENTATION]),
                 mode = ThemeMode.fromName(prefs[PrefKeys.THEME_MODE]),
                 accent = AccentColor.fromName(prefs[PrefKeys.THEME_ACCENT]),
+                uiMode = UiMode.fromName(prefs[PrefKeys.UI_MODE]),
             )
         },
         // 7. Flow: Datenschutz (Sentry-Opt-out + Remote-Control-Kill-Switch) — Default: beide an
@@ -376,6 +378,7 @@ class SettingsRepository @Inject constructor(
             themeMode = themeData.mode,
             appOrientation = themeData.orientation,
             themeAccent = themeData.accent,
+            uiMode = themeData.uiMode,
             logsRetentionDays = logsRetentionDays,
             emotesBttvEnabled = emotePrefs.bttvEnabled,
             emotesFfzEnabled = emotePrefs.ffzEnabled,
@@ -725,6 +728,7 @@ class SettingsRepository @Inject constructor(
         val orientation: AppOrientation,
         val mode: ThemeMode,
         val accent: AccentColor,
+        val uiMode: UiMode,
     )
 
     /** Datenschutz-Flow: Sentry-Opt-out + Remote-Control-Autostart (Kill-Switch). */
@@ -826,6 +830,13 @@ class SettingsRepository @Inject constructor(
         dataStore.edit { prefs ->
             prefs[PrefKeys.THEME_MODE] = themeMode.name
             prefs[PrefKeys.THEME_ACCENT] = accentColor.name
+        }
+    }
+
+    /** Bedienmodus der App-Oberfläche speichern. */
+    suspend fun updateUiMode(mode: UiMode) {
+        dataStore.edit { prefs ->
+            prefs[PrefKeys.UI_MODE] = mode.name
         }
     }
 

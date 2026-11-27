@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.vivid.core.data.UiMode
 
 /**
  * Eine Kategorie der Einstellungen (Übersichts-Screen). Die Routen müssen mit
@@ -83,4 +84,15 @@ object SettingsCategories {
             route = "settings_logs",
         ),
     )
+
+    private val easyRoutes = setOf(
+        "settings_streaming",
+        "settings_appearance",
+        "settings_about",
+        "settings_logs",
+    )
+
+    /** Easy zeigt nur die Grundlagen; Studio blendet alle Produktionsbereiche ein. */
+    fun visibleFor(mode: UiMode): List<SettingsCategory> =
+        if (mode == UiMode.EASY) all.filter { it.route in easyRoutes } else all
 }

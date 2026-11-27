@@ -33,6 +33,7 @@
     <string name="streaming_source_camera">Kamera</string>
     <string name="streaming_source_screen">Bildschirm</string>
     <string name="streaming_source_video">Video</string>
+    <string name="streaming_source_uvc">UVC-Kamera</string>
     <string name="streaming_source_screen_active_hint">Screen-Capture aktiv — der Gerätebildschirm wird übertragen.</string>
     <string name="streaming_source_video_active_hint">Video-Player aktiv — die gewählte Datei wird übertragen.</string>
     <string name="streaming_source_video_pick">Video wählen</string>

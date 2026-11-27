@@ -98,6 +98,7 @@ class StreamingScreenRobolectricTest {
     private val streamingState = MutableStateFlow<StreamingState>(StreamingState.Idle)
     private val configIssues = MutableStateFlow<List<com.vivid.feature.streaming.StreamConfigIssue>>(emptyList())
     private val targetStates = MutableStateFlow<List<StreamTargetState>>(emptyList())
+    private val appSettings = MutableStateFlow(com.vivid.core.data.AppSettings(uiMode = com.vivid.core.data.UiMode.STUDIO))
 
     @Before
     fun setUp() {
@@ -113,6 +114,7 @@ class StreamingScreenRobolectricTest {
         every { engine.stabilizationEnabled } returns MutableStateFlow(false)
         every { engine.torchEnabled } returns MutableStateFlow(false)
         every { engine.activeSourceKind } returns MutableStateFlow(VideoSourceKind.CAMERA)
+        every { engine.uvcVideoDevices } returns MutableStateFlow<List<com.vivid.feature.streaming.UvcDeviceSnapshot>>(emptyList())
         every { engine.sceneNeedsCameraPermission() } returns true
         every { engine.canRecordReplay() } returns true
         every { engine.sceneComposition } returns MutableStateFlow(null)
@@ -134,7 +136,8 @@ class StreamingScreenRobolectricTest {
         every { viewModel.toggleReplay(any()) } answers { firstArg<(Boolean) -> Unit>()(engine.startReplay()) }
         every { viewModel.configIssues } returns configIssues
         every { viewModel.scenes } returns MutableStateFlow(emptyList())
-        every { viewModel.appSettings } returns MutableStateFlow(com.vivid.core.data.AppSettings())
+        appSettings.value = com.vivid.core.data.AppSettings(uiMode = com.vivid.core.data.UiMode.STUDIO)
+        every { viewModel.appSettings } returns appSettings
         every { viewModel.activeSceneId } returns MutableStateFlow<String?>(null)
         every { viewModel.autoSwitchEnabled } returns MutableStateFlow(false)
         every { viewModel.autoSwitchIntervalSeconds } returns MutableStateFlow(30L)
@@ -207,7 +210,7 @@ class StreamingScreenRobolectricTest {
     fun `selection controls portrait preview`() = selectionPreview("portrait-v1")
 
     @Test fun `saved visibility toggles independently update selectors and all HUD indicators`() {
-        val settings = MutableStateFlow(com.vivid.core.data.AppSettings())
+        val settings = MutableStateFlow(com.vivid.core.data.AppSettings(uiMode = com.vivid.core.data.UiMode.STUDIO))
         every { viewModel.appSettings } returns settings
         every { viewModel.scenes } returns MutableStateFlow(listOf(com.vivid.core.data.StreamScene(FIRST_SCENE_ID, MAIN_SCENE_NAME)))
         every { engine.cameraZoomRange() } returns com.vivid.feature.streaming.ZoomRange(1f, 4f)
@@ -241,7 +244,7 @@ class StreamingScreenRobolectricTest {
 
     @Test fun `front camera uses saved front presets and updates after settings change`() {
         var front = true
-        val settings = MutableStateFlow(com.vivid.core.data.AppSettings(cameraControls =
+        val settings = MutableStateFlow(com.vivid.core.data.AppSettings(uiMode = com.vivid.core.data.UiMode.STUDIO, cameraControls =
             com.vivid.core.data.CameraControlSettings(frontZoomPresets = listOf(3f, 1f))))
         every { viewModel.appSettings } returns settings
         every { engine.isFrontCamera() } answers { front }
@@ -270,7 +273,7 @@ class StreamingScreenRobolectricTest {
         every { viewModel.activeSceneId } returns MutableStateFlow<String?>(FIRST_SCENE_ID)
         every { engine.cameraZoomRange() } returns com.vivid.feature.streaming.ZoomRange(1f, 4f)
         every { engine.currentCameraZoom() } returns 1f
-        every { viewModel.appSettings } returns MutableStateFlow(com.vivid.core.data.AppSettings(cameraControls =
+        every { viewModel.appSettings } returns MutableStateFlow(com.vivid.core.data.AppSettings(uiMode = com.vivid.core.data.UiMode.STUDIO, cameraControls =
             com.vivid.core.data.CameraControlSettings(rearZoomPresets = listOf(0.5f, 1f, 2f))))
         setContent()
         composeRule.onNodeWithTag("preview_zoom_0.5").assertIsNotEnabled().performClick()
@@ -334,6 +337,39 @@ class StreamingScreenRobolectricTest {
         assertEquals(2, launched.size)
         composeRule.runOnIdle { registry.dispatchResult(launched.last(), android.app.Activity.RESULT_OK, android.content.Intent()) }
         verify(exactly = 1) { viewModel.applyScene(scene) }
+    }
+
+
+    @Test
+    fun `easy mode keeps source controls but hides studio controls until switching back`() {
+        every { viewModel.scenes } returns MutableStateFlow(listOf(com.vivid.core.data.StreamScene(FIRST_SCENE_ID, MAIN_SCENE_NAME)))
+        every { viewModel.activeSceneId } returns MutableStateFlow<String?>(FIRST_SCENE_ID)
+        every { engine.cameraZoomRange() } returns com.vivid.feature.streaming.ZoomRange(1f, 4f)
+        every { engine.currentCameraZoom() } returns 1f
+        streamingState.value = StreamingState.Streaming
+        setContent()
+        composeRule.onNodeWithTag(CONTROLS_BUTTON_TAG).assertIsDisplayed()
+        composeRule.onNodeWithTag(ZOOM_PICKER_TAG).assertIsDisplayed()
+        composeRule.onNodeWithTag(SCENE_PICKER_TAG).assertIsDisplayed()
+        composeRule.onNodeWithTag(STATUS_OVERLAY_TAG).assertIsDisplayed()
+
+        composeRule.runOnIdle {
+            appSettings.value = appSettings.value.copy(uiMode = com.vivid.core.data.UiMode.EASY)
+        }
+        composeRule.onNodeWithTag(CONTROLS_BUTTON_TAG).assertIsDisplayed()
+        composeRule.onNodeWithTag(ZOOM_PICKER_TAG).assertDoesNotExist()
+        composeRule.onNodeWithTag(SCENE_PICKER_TAG).assertDoesNotExist()
+        composeRule.onNodeWithTag(STATUS_OVERLAY_TAG).assertDoesNotExist()
+        composeRule.onNodeWithTag(SETTINGS_BUTTON_TAG).assertIsDisplayed()
+        composeRule.onNodeWithText(STOP_STREAM_LABEL).assertIsDisplayed()
+
+        composeRule.runOnIdle {
+            appSettings.value = appSettings.value.copy(uiMode = com.vivid.core.data.UiMode.STUDIO)
+        }
+        composeRule.onNodeWithTag(CONTROLS_BUTTON_TAG).assertIsDisplayed()
+        composeRule.onNodeWithTag(ZOOM_PICKER_TAG).assertIsDisplayed()
+        composeRule.onNodeWithTag(SCENE_PICKER_TAG).assertIsDisplayed()
+        composeRule.onNodeWithTag(STATUS_OVERLAY_TAG).assertIsDisplayed()
     }
 
     @Test
@@ -655,6 +691,26 @@ class StreamingScreenRobolectricTest {
         // onClick startet den SAF-Picker (Activity-Result) — verifizierbar ist hier
         // der aktive Zustand; der Picker-Flow selbst braucht einen instrumentierten Test.
         composeRule.onNodeWithText("Video").assertIsEnabled()
+    }
+
+    @Test
+    fun `uvc source is hidden without a connected usb video device`() {
+        setContent()
+        openControls()
+
+        composeRule.onNodeWithText("UVC camera").assertDoesNotExist()
+    }
+
+    @Test
+    fun `permitted uvc source is shown and invokes engine switchSource`() {
+        every { engine.uvcVideoDevices } returns MutableStateFlow(
+            listOf(com.vivid.feature.streaming.UvcDeviceSnapshot("/dev/bus/usb/001/002", true)),
+        )
+        setContent()
+        openControls()
+
+        composeRule.onNodeWithText("UVC camera").performClick()
+        verify(exactly = 1) { engine.switchSource(VideoSourceKind.UVC) }
     }
 
     @Test

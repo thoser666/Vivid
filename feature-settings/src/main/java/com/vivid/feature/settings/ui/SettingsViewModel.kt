@@ -15,6 +15,7 @@ import com.vivid.core.data.StreamProfile
 import com.vivid.core.data.StreamPlatformType
 import com.vivid.core.data.SettingsRepository
 import com.vivid.core.data.ThemeMode
+import com.vivid.core.data.UiMode
 import com.vivid.core.data.AppOrientation
 import com.vivid.core.data.VideoCodecPreference
 import com.vivid.core.remote.RemoteControlServer
@@ -413,6 +414,12 @@ class SettingsViewModel @Inject constructor(
     fun onSentryEnabledChange(newEnabled: Boolean) { _uiState.value = _uiState.value.copy(sentryEnabled = newEnabled) }
 
     fun onRemoteControlEnabledChange(newEnabled: Boolean) { _uiState.value = _uiState.value.copy(remoteControlEnabled = newEnabled) }
+
+    /** Bedienmodus sofort speichern — der Hauptbildschirm reagiert ohne eigenen Speichern-Button. */
+    fun onUiModeChange(mode: UiMode) {
+        _uiState.value = _uiState.value.copy(uiMode = mode)
+        viewModelScope.launch { settingsRepository.updateUiMode(mode) }
+    }
 
     // Darstellung (Theme): Design-Modus + Akzentfarbe.
     fun onAppOrientationChange(orientation: AppOrientation) {

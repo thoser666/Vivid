@@ -20,6 +20,9 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -36,6 +39,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
+import com.vivid.core.data.UiMode
 import com.vivid.core.update.UpdateCheckResult
 import com.vivid.core.ui.LocalWindowWidthClass
 import com.vivid.core.ui.adaptiveContentMaxWidth
@@ -44,8 +48,9 @@ import kotlinx.coroutines.launch
 
 /**
  * Einstellungen — Kategorie-Übersicht (wie die Settings-Struktur von Moblin):
- * sechs Kacheln führen in die jeweiligen Sub-Screens, in denen die Felder
- * bearbeitet und gespeichert werden.
+ * Kacheln führen in die jeweiligen Sub-Screens, in denen die Felder
+ * bearbeitet und gespeichert werden. Der Easy-Modus reduziert die Auswahl
+ * auf die Grundlagen; der Studio-Modus zeigt alle Produktionsbereiche.
  *
  * Routen der Sub-Screens (siehe MainActivity):
  *  - settings_streaming  → Streaming & OBS
@@ -62,6 +67,7 @@ fun SettingsScreen(
     installedVersionName: String = "",
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
+    val uiState by viewModel.uiState.collectAsState()
     val updateState by viewModel.updateState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -114,9 +120,15 @@ fun SettingsScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
-            SettingsCategories.all.forEach { category ->
+            UiModeSelector(uiState.uiMode, viewModel::onUiModeChange)
+
+            SettingsCategories.visibleFor(uiState.uiMode).forEach { category ->
                 CategoryCard(
-                    title = stringResource(category.titleRes),
+                    title = stringResource(
+                        if (uiState.uiMode == UiMode.EASY && category.route == "settings_streaming") {
+                            R.string.cat_streaming_easy_title
+                        } else category.titleRes,
+                    ),
                     subtitle = stringResource(category.subtitleRes),
                     icon = category.icon,
                     onClick = { navController.navigate(category.route) },
@@ -157,6 +169,46 @@ fun SettingsScreen(
 
         }
         }
+    }
+}
+
+
+@Composable
+private fun UiModeSelector(
+    uiMode: UiMode,
+    onModeChange: (UiMode) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = stringResource(R.string.settings_ui_mode_title),
+            style = MaterialTheme.typography.titleMedium,
+        )
+        SingleChoiceSegmentedButtonRow(
+            modifier = Modifier.fillMaxWidth().testTag("ui_mode_selector"),
+        ) {
+            UiMode.entries.forEachIndexed { index, mode ->
+                SegmentedButton(
+                    selected = uiMode == mode,
+                    onClick = { onModeChange(mode) },
+                    shape = SegmentedButtonDefaults.itemShape(index = index, count = UiMode.entries.size),
+                    modifier = Modifier.testTag(if (mode == UiMode.EASY) "ui_mode_easy" else "ui_mode_studio"),
+                    label = {
+                        Text(
+                            stringResource(
+                                if (mode == UiMode.EASY) R.string.settings_ui_mode_easy else R.string.settings_ui_mode_studio,
+                            ),
+                        )
+                    },
+                )
+            }
+        }
+        Text(
+            text = stringResource(
+                if (uiMode == UiMode.EASY) R.string.settings_ui_mode_easy_desc else R.string.settings_ui_mode_studio_desc,
+            ),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

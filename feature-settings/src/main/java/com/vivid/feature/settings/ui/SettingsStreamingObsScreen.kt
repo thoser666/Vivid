@@ -44,6 +44,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -57,8 +58,11 @@ import com.vivid.feature.streaming.StreamConfigIssue
 import com.vivid.feature.streaming.StreamConfigValidator
 import androidx.compose.ui.semantics.contentDescription
 import com.vivid.core.data.StreamProfile
+import com.vivid.core.data.UiMode
 import com.vivid.core.data.StreamPlatformType
 import com.vivid.core.data.applyTo
+import com.vivid.core.model.ObsQrCodeParseResult
+import com.vivid.core.model.ObsQrCodeParser
 import kotlin.math.roundToInt
 
 private const val STREAM_PAGE_LIST = "list"
@@ -92,6 +96,18 @@ fun SettingsStreamingObsScreen(
     BackHandler(enabled = page != STREAM_PAGE_LIST, onBack = back)
     LaunchedEffect(page, draft) {
         if (page != STREAM_PAGE_LIST && page != STREAM_PAGE_PLATFORM && draft == null) page = STREAM_PAGE_LIST
+    }
+    LaunchedEffect(uiState.uiMode, page, draft) {
+        val advancedPage = page in setOf(
+            STREAM_PAGE_VIDEO,
+            STREAM_PAGE_MULTI,
+            STREAM_PAGE_RECORDING,
+            STREAM_PAGE_TWITCH,
+            STREAM_PAGE_OBS,
+        )
+        if (uiState.uiMode == UiMode.EASY && advancedPage) {
+            page = if (draft != null) STREAM_PAGE_DETAILS else STREAM_PAGE_LIST
+        }
     }
     val title = streamPageTitle(page, draft)
     SettingsSectionScaffold(
@@ -246,7 +262,7 @@ private fun StreamProfilePage(
                 Checkbox(checked = profile.streamUseTls,
                     onCheckedChange = { value -> viewModel.updateStreamDraft { it.copy(streamUseTls = value) } })
             }
-            if (page == STREAM_PAGE_DETAILS) StreamMenuGroup {
+            if (page == STREAM_PAGE_DETAILS && settings.uiMode == UiMode.STUDIO) StreamMenuGroup {
                 StreamSettingLink(stringResource(R.string.stream_video), { navigate(STREAM_PAGE_VIDEO) })
                 StreamSettingLink(stringResource(R.string.replay_audio_title), { navigate(STREAM_PAGE_RECORDING) })
                 if (profile.platform == StreamPlatformType.Twitch) {
@@ -518,7 +534,49 @@ private fun StreamMultiSettings(uiState: AppSettings, viewModel: SettingsViewMod
 @Composable
 private fun StreamObsSettings(uiState: AppSettings, viewModel: SettingsViewModel) {
     // OBS-Einstellungen
+    var qrInput by rememberSaveable { mutableStateOf("") }
+    val qrErrorRes = remember { mutableStateOf<Int?>(null) }
     Text(stringResource(R.string.obs_section_title), style = MaterialTheme.typography.titleLarge)
+    OutlinedTextField(
+        value = qrInput,
+        onValueChange = {
+            qrInput = it
+            qrErrorRes.value = null
+        },
+        label = { Text(stringResource(R.string.obs_qr_label)) },
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+        modifier = Modifier.fillMaxWidth().testTag("obs_qr_input"),
+    )
+    Button(
+        onClick = {
+            when (val parsed = ObsQrCodeParser.parse(qrInput)) {
+                is ObsQrCodeParseResult.Success -> {
+                    viewModel.updateStreamDraft {
+                        it.copy(
+                            obsHost = parsed.data.host,
+                            obsPort = parsed.data.port.toString(),
+                            obsPassword = parsed.data.password,
+                        )
+                    }
+                    qrInput = ""
+                    qrErrorRes.value = null
+                }
+                is ObsQrCodeParseResult.Error -> qrErrorRes.value = parsed.messageRes
+            }
+        },
+        enabled = qrInput.isNotBlank(),
+        modifier = Modifier.fillMaxWidth().testTag("obs_qr_import"),
+    ) {
+        Text(stringResource(R.string.obs_qr_import_button))
+    }
+    qrErrorRes.value?.let { messageRes ->
+        Text(
+            text = stringResource(messageRes),
+            color = MaterialTheme.colorScheme.error,
+            style = MaterialTheme.typography.bodySmall,
+        )
+    }
     OutlinedTextField(
         value = uiState.obsHost,
         onValueChange = { value -> viewModel.updateStreamDraft { it.copy(obsHost = value) } },

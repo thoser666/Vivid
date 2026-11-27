@@ -1,8 +1,9 @@
 package com.vivid.feature.streaming.ui
 
+import android.app.Activity
 import android.content.Context
+import android.content.Intent
 import android.Manifest
-import android.annotation.SuppressLint
 import android.content.pm.PackageManager
 import android.hardware.display.DisplayManager
 import android.os.Handler
@@ -10,8 +11,6 @@ import android.os.Looper
 import android.net.Uri
 import android.os.Build
 import android.view.Surface
-import android.view.SurfaceHolder
-import android.view.SurfaceView
 import android.view.ViewTreeObserver
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -24,6 +23,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -37,13 +37,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.Lock
@@ -73,10 +70,12 @@ import androidx.compose.ui.unit.Dp
 import com.vivid.feature.streaming.ui.scene.SceneEditorScreen
 import com.vivid.feature.streaming.CameraModeStatus
 import com.vivid.feature.streaming.CameraModeNotice
+import com.vivid.core.data.AppSettings
 import com.vivid.core.data.CameraMode
+import com.vivid.core.data.StreamScene
+import com.vivid.core.data.UiMode
 import com.vivid.feature.streaming.StreamingEngine
 import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -90,6 +89,7 @@ import androidx.navigation.NavController
 import com.vivid.core.ui.LocalWindowWidthClass
 import com.vivid.core.ui.adaptiveControlsMaxWidth
 import com.vivid.feature.chat.twitch.TwitchChannelViewModel
+import com.vivid.feature.chat.twitch.TwitchStreamInfo
 import com.vivid.feature.streaming.ConfigIssueSeverity
 import com.vivid.feature.streaming.FocusMode
 import com.vivid.feature.streaming.ReplayState
@@ -98,6 +98,7 @@ import com.vivid.feature.streaming.StreamTargetState
 import com.vivid.feature.streaming.StreamTargetStatus
 import com.vivid.feature.streaming.StreamingState
 import com.vivid.feature.streaming.StreamingViewModel
+import com.vivid.feature.streaming.compositor.capture.SceneUsbPermissionActivity
 import com.vivid.feature.streaming.source.VideoSourceKind
 import com.vivid.feature.streaming.R
 import kotlin.math.abs
@@ -143,7 +144,7 @@ fun StreamingScreen(
     val streamStartedAtMs by streamingEngine.streamStartedAtMs.collectAsStateWithLifecycle()
     val cameraModeStatus by streamingEngine.cameraModeStatus.collectAsStateWithLifecycle()
     val activeSourceKind by streamingEngine.activeSourceKind.collectAsStateWithLifecycle()
-    val appSettings by viewModel.appSettings.collectAsStateWithLifecycle(com.vivid.core.data.AppSettings())
+    val appSettings by viewModel.appSettings.collectAsStateWithLifecycle(AppSettings())
     val scenes by viewModel.scenes.collectAsStateWithLifecycle(emptyList())
     val activeSceneId by viewModel.activeSceneId.collectAsStateWithLifecycle(null)
     val configIssues by viewModel.configIssues.collectAsStateWithLifecycle()
@@ -166,12 +167,14 @@ fun StreamingScreen(
     val sceneEditor by viewModel.sceneEditor.collectAsStateWithLifecycle()
     val sceneSourceStates by streamingEngine.sceneProducerStates.collectAsStateWithLifecycle()
     val privacyEnabled by viewModel.privacyEnabled.collectAsStateWithLifecycle(false)
-    sceneEditor?.let { editor ->
-        SceneEditorScreen(editor, streamingEngine, activeSourceKind, sceneSourceStates,
-            scenes.flatMap { it.composition?.sources.orEmpty() }, privacyEnabled,
-            viewModel::editScene, viewModel::saveSceneEditor, viewModel::cancelSceneEditor,
-            viewModel::grantSceneProjection)
-        return
+    if (appSettings.uiMode == UiMode.STUDIO) {
+        sceneEditor?.let { editor ->
+            SceneEditorScreen(editor, streamingEngine, activeSourceKind, sceneSourceStates,
+                scenes.flatMap { it.composition?.sources.orEmpty() }, privacyEnabled,
+                viewModel::editScene, viewModel::saveSceneEditor, viewModel::cancelSceneEditor,
+                viewModel::grantSceneProjection)
+            return
+        }
     }
 
     RefreshTwitchStatus(streamingState, twitchViewModel)
@@ -198,7 +201,7 @@ fun StreamingScreen(
 
     StartGrantedIdlePreview(streamingEngine, context)
 
-    val requestScreenCapture = rememberScreenCaptureAction(streamingEngine)
+    val requestScreenCapture = rememberScreenCaptureAction(viewModel)
 
     val requestVideoPicker = rememberVideoPickerAction(streamingEngine)
     val selectScene = rememberSceneSelectionAction(viewModel, scenes)
@@ -208,6 +211,12 @@ fun StreamingScreen(
     var controlsExpanded by remember { mutableStateOf(false) }
     val previewFullscreen = !controlsExpanded
     SideEffect { onPreviewFullscreenChange(previewFullscreen) }
+
+    val startStreamClick = {
+        startAttempted = true
+        startAttempt++
+        if (configIssues.none { it.messageRes == R.string.stream_error_no_url }) requestPermissionsAndStart()
+    }
 
     Scaffold(
         // The preview uses the cutout area; only controls avoid the camera hole.
@@ -221,68 +230,38 @@ fun StreamingScreen(
         ) {
             val density = LocalDensity.current
             val previewSize = with(density) { IntSize(maxWidth.roundToPx(), maxHeight.roundToPx()) }
-            StreamingSourcePreview(streamingEngine, activeSourceKind, previewSize, displayRotationDegrees)
+            CameraPreviewHost(streamingEngine, activeSourceKind, previewSize, displayRotationDegrees)
 
-            BoxWithConstraints(
-                modifier = Modifier.fillMaxSize().zIndex(1f).windowInsetsPadding(WindowInsets.displayCutout),
-            ) {
-                val topButtonMaxWidth = maxWidth / 2 - 20.dp
-                var bottomControlsHeight by remember { mutableIntStateOf(0) }
-                Box(
-                    Modifier.fillMaxSize().padding(top = 72.dp,
-                        bottom = with(density) { bottomControlsHeight.toDp() }),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    notice?.let { message ->
-                        TransientPreviewMessage(message, onDismiss = { if (notice == message) notice = null })
-                    }
-                }
-                Column(
-                    Modifier.align(Alignment.BottomCenter).fillMaxWidth()
-                        .onSizeChanged { bottomControlsHeight = it.height }
-                        .padding(start = 16.dp, end = 16.dp, bottom = if (maxWidth > maxHeight) 16.dp else 48.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    PreviewSelectionControls(scenes, activeSceneId, appSettings.cameraControls,
-                        streamingEngine, activeSourceKind, selectScene,
-                        showZoom = appSettings.localOverlays.showZoom,
-                        showScenes = appSettings.localOverlays.showScenes,
-                        modifier = Modifier.align(Alignment.End).widthIn(max = 720.dp))
-                    StreamStartButton(streamingState, onStop = viewModel::stopStream) {
-                        startAttempted = true
-                        startAttempt++
-                        if (configIssues.none { it.messageRes == R.string.stream_error_no_url }) requestPermissionsAndStart()
-                    }
-                }
-
-                // Twitch-Status: Viewerzahl und Stream-Metadaten als kompakte Anzeige.
-                twitchState.streamInfo?.let { info ->
-                    Surface(
-                        modifier = Modifier
-                            .align(Alignment.TopCenter)
-                            .padding(top = 12.dp),
-                        shape = MaterialTheme.shapes.medium,
-                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        contentColor = MaterialTheme.colorScheme.onSurface,
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(pluralStringResource(R.plurals.twitch_viewers_count, info.viewerCount, info.viewerCount))
-                            Text(
-                                text = info.category.ifBlank { info.title },
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                }
-
-                StreamingControlsMenu(
-                    streamingEngine, navController, topButtonMaxWidth,
+            when (appSettings.uiMode) {
+                UiMode.EASY -> EasyModeContent(
+                    notice = notice,
+                    onDismissNotice = { dismissed -> if (notice == dismissed) notice = null },
+                    streamingState = streamingState,
+                    onStop = viewModel::stopStream,
+                    onStart = startStreamClick,
+                    onSettings = { navController.navigate("settings_route") },
+                    streamingEngine = streamingEngine,
+                    navController = navController,
+                    controlsExpanded = controlsExpanded,
+                    onControlsExpandedChange = { controlsExpanded = it },
+                    onScreenCapture = requestScreenCapture,
+                    onVideoPicker = { requestVideoPicker() },
+                )
+                UiMode.STUDIO -> StudioModeContent(
+                    notice = notice,
+                    onDismissNotice = { dismissed -> if (notice == dismissed) notice = null },
+                    streamingState = streamingState,
+                    onStop = viewModel::stopStream,
+                    onStart = startStreamClick,
+                    onSettings = { navController.navigate("settings_route") },
+                    scenes = scenes,
+                    activeSceneId = activeSceneId,
+                    appSettings = appSettings,
+                    streamingEngine = streamingEngine,
+                    activeSourceKind = activeSourceKind,
+                    onSelectScene = selectScene,
+                    streamInfo = twitchState.streamInfo,
+                    navController = navController,
                     controlsExpanded = controlsExpanded,
                     onControlsExpandedChange = { controlsExpanded = it },
                     onRecord = requestPermissionsAndRecord,
@@ -290,19 +269,12 @@ fun StreamingScreen(
                     onVideoPicker = { requestVideoPicker() },
                     onEditScene = { scenes.firstOrNull { it.id == activeSceneId }?.let(viewModel::openSceneEditor) },
                 )
-                FilledIconButton(
-                    onClick = { navController.navigate("settings_route") },
-                    modifier = Modifier.align(Alignment.TopEnd).padding(top = 12.dp, end = 16.dp).testTag("open_settings"),
-                ) {
-                    Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.streaming_settings_content_desc))
-                }
-
             }
 
             // Chat-Overlay + Widgets: als Slot ausgelagert (siehe Parameter-Doku).
             overlayContent()
 
-            if (streamingState is StreamingState.Streaming) {
+            if (appSettings.uiMode == UiMode.STUDIO && streamingState is StreamingState.Streaming) {
                 StreamStatusOverlay(
                     fps = measuredFps,
                     bitrateKbps = currentStreamBitrateKbps(targetStates),
@@ -319,6 +291,172 @@ fun StreamingScreen(
 
         }
     }
+}
+
+@Composable
+private fun PreviewOverlayFrame(
+    notice: PreviewNotice?,
+    onDismissNotice: (PreviewNotice) -> Unit,
+    onSettings: () -> Unit,
+    bottomContent: @Composable ColumnScope.() -> Unit,
+    topContent: @Composable BoxScope.(Dp) -> Unit,
+) {
+    BoxWithConstraints(
+        modifier = Modifier.fillMaxSize().zIndex(1f).windowInsetsPadding(WindowInsets.displayCutout),
+    ) {
+        val density = LocalDensity.current
+        val topButtonMaxWidth = maxWidth / 2 - 20.dp
+        var bottomControlsHeight by remember { mutableIntStateOf(0) }
+        Box(
+            Modifier.fillMaxSize().padding(
+                top = 72.dp,
+                bottom = with(density) { bottomControlsHeight.toDp() },
+            ),
+            contentAlignment = Alignment.Center,
+        ) {
+            notice?.let { message ->
+                TransientPreviewMessage(message, onDismiss = { onDismissNotice(message) })
+            }
+        }
+        Column(
+            Modifier.align(Alignment.BottomCenter).fillMaxWidth()
+                .onSizeChanged { bottomControlsHeight = it.height }
+                .padding(start = 16.dp, end = 16.dp, bottom = if (maxWidth > maxHeight) 16.dp else 48.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            bottomContent()
+        }
+        topContent(topButtonMaxWidth)
+        FilledIconButton(
+            onClick = onSettings,
+            modifier = Modifier.align(Alignment.TopEnd).padding(top = 12.dp, end = 16.dp).testTag("open_settings"),
+        ) {
+            Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.streaming_settings_content_desc))
+        }
+    }
+}
+
+@Composable
+private fun EasyModeContent(
+    notice: PreviewNotice?,
+    onDismissNotice: (PreviewNotice) -> Unit,
+    streamingState: StreamingState,
+    onStop: () -> Unit,
+    onStart: () -> Unit,
+    onSettings: () -> Unit,
+    streamingEngine: StreamingEngine,
+    navController: NavController,
+    controlsExpanded: Boolean,
+    onControlsExpandedChange: (Boolean) -> Unit,
+    onScreenCapture: () -> Unit,
+    onVideoPicker: () -> Unit,
+) {
+    PreviewOverlayFrame(
+        notice = notice,
+        onDismissNotice = onDismissNotice,
+        onSettings = onSettings,
+        bottomContent = {
+            StreamStartButton(streamingState, onStop = onStop, onStart = onStart)
+        },
+        topContent = { topButtonMaxWidth ->
+            StreamingControlsMenu(
+                streamingEngine,
+                navController,
+                topButtonMaxWidth,
+                controlsExpanded = controlsExpanded,
+                onControlsExpandedChange = onControlsExpandedChange,
+                studioMode = false,
+                onRecord = {},
+                onScreenCapture = onScreenCapture,
+                onVideoPicker = onVideoPicker,
+                onEditScene = {},
+            )
+        },
+    )
+}
+
+@Composable
+private fun StudioModeContent(
+    notice: PreviewNotice?,
+    onDismissNotice: (PreviewNotice) -> Unit,
+    streamingState: StreamingState,
+    onStop: () -> Unit,
+    onStart: () -> Unit,
+    onSettings: () -> Unit,
+    scenes: List<StreamScene>,
+    activeSceneId: String?,
+    appSettings: AppSettings,
+    streamingEngine: StreamingEngine,
+    activeSourceKind: VideoSourceKind,
+    onSelectScene: (StreamScene) -> Unit,
+    streamInfo: TwitchStreamInfo?,
+    navController: NavController,
+    controlsExpanded: Boolean,
+    onControlsExpandedChange: (Boolean) -> Unit,
+    onRecord: () -> Unit,
+    onScreenCapture: () -> Unit,
+    onVideoPicker: () -> Unit,
+    onEditScene: () -> Unit,
+) {
+    PreviewOverlayFrame(
+        notice = notice,
+        onDismissNotice = onDismissNotice,
+        onSettings = onSettings,
+        bottomContent = {
+            PreviewSelectionControls(
+                scenes,
+                activeSceneId,
+                appSettings.cameraControls,
+                streamingEngine,
+                activeSourceKind,
+                onSelectScene,
+                showZoom = appSettings.localOverlays.showZoom,
+                showScenes = appSettings.localOverlays.showScenes,
+                modifier = Modifier.align(Alignment.End).widthIn(max = 720.dp),
+            )
+            StreamStartButton(streamingState, onStop = onStop, onStart = onStart)
+        },
+        topContent = { topButtonMaxWidth ->
+            // Twitch-Status: Viewerzahl und Stream-Metadaten als kompakte Anzeige.
+            streamInfo?.let { info ->
+                Surface(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = 12.dp),
+                    shape = MaterialTheme.shapes.medium,
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(pluralStringResource(R.plurals.twitch_viewers_count, info.viewerCount, info.viewerCount))
+                        Text(
+                            text = info.category.ifBlank { info.title },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+
+            StreamingControlsMenu(
+                streamingEngine,
+                navController,
+                topButtonMaxWidth,
+                controlsExpanded = controlsExpanded,
+                onControlsExpandedChange = onControlsExpandedChange,
+                studioMode = true,
+                onRecord = onRecord,
+                onScreenCapture = onScreenCapture,
+                onVideoPicker = onVideoPicker,
+                onEditScene = onEditScene,
+            )
+        },
+    )
 }
 
 @Composable
@@ -380,6 +518,7 @@ private fun BoxScope.StreamingControlsMenu(
     topButtonMaxWidth: Dp,
     controlsExpanded: Boolean,
     onControlsExpandedChange: (Boolean) -> Unit,
+    studioMode: Boolean,
     onRecord: () -> Unit,
     onScreenCapture: () -> Unit,
     onVideoPicker: () -> Unit,
@@ -407,16 +546,18 @@ private fun BoxScope.StreamingControlsMenu(
         ) {
             MenuSystemBarsEffect()
             SourceSelectionItems(streamingEngine, ::dismissControls, onScreenCapture, onVideoPicker)
-            HorizontalDivider()
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.scene_editor_open)) },
-                onClick = { dismissControls(); onEditScene() },
-            )
-            RecordingMenuItem(streamingEngine, onRecord)
-            CameraToggleItems(streamingEngine, navController, ::dismissControls)
-            VideoEffectItems(streamingEngine)
-            ExposureMenuItems(streamingEngine)
-            ControlsNavigationItems(navController, ::dismissControls)
+            if (studioMode) {
+                HorizontalDivider()
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.scene_editor_open)) },
+                    onClick = { dismissControls(); onEditScene() },
+                )
+                RecordingMenuItem(streamingEngine, onRecord)
+                CameraToggleItems(streamingEngine, navController, ::dismissControls)
+                VideoEffectItems(streamingEngine)
+                ExposureMenuItems(streamingEngine)
+                ControlsNavigationItems(navController, ::dismissControls)
+            }
         }
     }
 }
@@ -424,6 +565,21 @@ private fun BoxScope.StreamingControlsMenu(
 @Composable
 private fun SourceSelectionItems(streamingEngine: StreamingEngine, onDismiss: () -> Unit, onScreenCapture: () -> Unit, onVideoPicker: () -> Unit) {
     val activeSourceKind by streamingEngine.activeSourceKind.collectAsStateWithLifecycle()
+    val uvcDevices by streamingEngine.uvcVideoDevices.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    var pendingUvcDeviceName by rememberSaveable { mutableStateOf<String?>(null) }
+    val uvcPermission = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val requestedName = pendingUvcDeviceName
+        pendingUvcDeviceName = null
+        val grantedName = result.data?.getStringExtra(SceneUsbPermissionActivity.EXTRA_DEVICE_NAME)
+        if (result.resultCode == Activity.RESULT_OK && requestedName != null && grantedName == requestedName) {
+            streamingEngine.refreshUvcVideoDevices()
+            val granted = streamingEngine.uvcVideoDevices.value
+                .firstOrNull { it.deviceName == requestedName }?.permissionGranted == true
+            if (granted) streamingEngine.switchSource(VideoSourceKind.UVC)
+        }
+    }
+    LaunchedEffect(Unit) { streamingEngine.refreshUvcVideoDevices() }
     DropdownMenuItem(
         onClick = {
             onDismiss()
@@ -454,6 +610,26 @@ private fun SourceSelectionItems(streamingEngine: StreamingEngine, onDismiss: ()
             Text(stringResource(R.string.streaming_source_video))
         },
     )
+    uvcDevices.firstOrNull()?.let { device ->
+        DropdownMenuItem(
+            onClick = {
+                onDismiss()
+                if (device.permissionGranted) {
+                    streamingEngine.switchSource(VideoSourceKind.UVC)
+                } else if (pendingUvcDeviceName == null) {
+                    pendingUvcDeviceName = device.deviceName
+                    uvcPermission.launch(
+                        Intent(context, SceneUsbPermissionActivity::class.java)
+                            .putExtra(SceneUsbPermissionActivity.EXTRA_DEVICE_NAME, device.deviceName),
+                    )
+                }
+            },
+            enabled = activeSourceKind != VideoSourceKind.UVC,
+            text = {
+                Text(stringResource(R.string.streaming_source_uvc))
+            },
+        )
+    }
 }
 
 @Composable
@@ -725,88 +901,6 @@ private fun ControlsNavigationItems(navController: NavController, onDismiss: () 
             navController.navigate("help_route")
         },
     )
-}
-
-@Composable
-internal fun StreamingSourcePreview(streamingEngine: StreamingEngine, activeSourceKind: VideoSourceKind, previewSize: IntSize, displayRotationDegrees: Int) {
-    // Screenshot-/UI-Tests setzen ein Standbild (die Emulator-Kamera liefert nur
-    // ein farbiges Testmuster, siehe PreviewFrameOverride). Ist eines gesetzt,
-    // entfaellt die komplette Kamera-Anbindung — der Play-Screenshot zeigt dann
-    // eine Szene statt eines Testbilds. Produktion: null, unveraendert.
-    val stillFrame = PreviewFrameOverride.frame
-    if (stillFrame != null) {
-        Image(
-            bitmap = stillFrame.asImageBitmap(),
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize(),
-        )
-        return
-    }
-    // Every source previews the same composed GL output that reaches the encoder.
-    AndroidView(
-        factory = { context ->
-            @SuppressLint("ClickableViewAccessibility")
-            SurfaceView(context).also { view ->
-                if (activeSourceKind == VideoSourceKind.CAMERA) streamingEngine.initializeCamera()
-                view.holder.addCallback(
-                    object : SurfaceHolder.Callback {
-                        override fun surfaceCreated(holder: SurfaceHolder) {
-                            streamingEngine.attachPreview(
-                                holder.surface,
-                                view.width,
-                                view.height,
-                                (view.display?.rotation ?: Surface.ROTATION_0) * 90,
-                            )
-                        }
-
-                        override fun surfaceChanged(
-                            holder: SurfaceHolder,
-                            format: Int,
-                            width: Int,
-                            height: Int,
-                        ) {
-                            streamingEngine.attachPreview(
-                                holder.surface, width, height,
-                                (view.display?.rotation ?: Surface.ROTATION_0) * 90,
-                            )
-                        }
-
-                        override fun surfaceDestroyed(holder: SurfaceHolder) {
-                            streamingEngine.detachPreview(holder.surface)
-                        }
-                    },
-                )
-                // Tap-to-Focus (Tipp), Pinch-Zoom und Zoom-Reset (Doppeltipp)
-                // auf der Kamera-Vorschau (RootEncoder-Kamera, nicht CameraX).
-                val gestures = StreamingPreviewGestures(
-                    context = context,
-                    onTapToFocus = { v, e -> streamingEngine.tapToFocus(v, e) },
-                    onZoomScale = { scale -> streamingEngine.zoomBy(scale) },
-                    onDoubleTap = { streamingEngine.resetZoom() },
-                )
-                view.setOnTouchListener { target, event ->
-                    streamingEngine.dispatchSceneTouch(target.width, target.height, event) ||
-                        gestures.onTouch.onTouch(target, event)
-                }
-            }
-        },
-        update = { view ->
-            // GL crops the native camera buffer to this viewport without stretching.
-            view.holder.setFixedSize(previewSize.width, previewSize.height)
-            view.scaleX = 1f
-            view.scaleY = 1f
-            val surface = view.holder.surface
-            if (surface?.isValid == true) {
-                streamingEngine.attachPreview(
-                    surface, previewSize.width, previewSize.height,
-                    displayRotationDegrees,
-                )
-            }
-        },
-        modifier = Modifier.fillMaxSize(),
-    )
-
 }
 
 @Composable
@@ -1099,14 +1193,22 @@ private fun rememberSceneSelectionAction(
 }
 
 @Composable
-private fun rememberScreenCaptureAction(streamingEngine: StreamingEngine): () -> Unit {
+private fun rememberScreenCaptureAction(viewModel: StreamingViewModel): () -> Unit {
     // S2: Screen-Capture (MediaProjection) — Consent-Dialog und Quellen-Wechsel.
-    // Der System-Dialog „Bildschirm übertragen" wird per Activity-Result gestartet;
-    // das Ergebnis (RESULT_OK + Daten) geht an die Screen-Capture-Quelle der Engine.
+    // Scene-Projektionen laufen ueber den FGS; die Legacy-Quelle behandelt das
+    // Ergebnis weiterhin direkt in der Engine.
+    val streamingEngine = viewModel.streamingEngine
+    var pendingSceneSourceId by rememberSaveable { mutableStateOf<String?>(null) }
     val screenCaptureLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult(),
     ) { result ->
-        val granted = streamingEngine.onScreenCaptureConsentResult(result.resultCode, result.data)
+        val sceneSourceId = pendingSceneSourceId
+        pendingSceneSourceId = null
+        val granted = if (sceneSourceId != null) {
+            result.data?.let { viewModel.grantSceneProjection(sceneSourceId, result.resultCode, it) } == true
+        } else {
+            streamingEngine.onScreenCaptureConsentResult(result.resultCode, result.data)
+        }
         if (!granted) {
             // Consent verweigert → zurück zur Kamera; die Quelle bleibt für einen
             // erneuten Versuch erzeugt (Consent wird beim nächsten Toggle neu angefragt).
@@ -1117,6 +1219,7 @@ private fun rememberScreenCaptureAction(streamingEngine: StreamingEngine): () ->
     fun requestScreenCapture() {
         if (streamingEngine.switchSource(VideoSourceKind.SCREEN_CAPTURE)) {
             streamingEngine.createScreenCaptureConsentIntent()?.let {
+                pendingSceneSourceId = streamingEngine.takeSceneProjectionConsentSourceId()
                 screenCaptureLauncher.launch(it)
             }
         }
