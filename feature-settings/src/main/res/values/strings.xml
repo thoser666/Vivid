@@ -454,4 +454,12 @@
     <string name="local_overlays_bitrate">Bitrate</string>
     <string name="local_overlays_duration">Stream-Dauer</string>
     <string name="local_overlays_scenes">Szenenauswahl</string>
+    <string name="settings_ui_mode_title">Bedienmodus</string>
+    <string name="settings_ui_mode_easy">Einfach</string>
+    <string name="settings_ui_mode_studio">Studio</string>
+    <string name="settings_ui_mode_easy_desc">Nur Kameravorschau, Go Live und Stream-Ziel. Szenen, Quellen und OBS bleiben ausgeblendet.</string>
+    <string name="settings_ui_mode_studio_desc">Volle Kontrolle mit Szenen, Quellen, Overlays und OBS-Fernsteuerung.</string>
+    <string name="cat_streaming_easy_title">Streaming</string>
+    <string name="obs_qr_label">Aus QR-Code importieren (Inhalt einfügen)</string>
+    <string name="obs_qr_import_button">Importieren</string>
 </resources>

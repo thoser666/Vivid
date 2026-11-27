@@ -46,7 +46,7 @@ import com.vivid.feature.streaming.compositor.capture.SceneUsbSources
 import com.vivid.feature.streaming.compositor.matchesSceneIdentity
 import com.vivid.feature.streaming.scene.editor.*
 import com.vivid.feature.streaming.source.VideoSourceKind
-import com.vivid.feature.streaming.ui.StreamingSourcePreview
+import com.vivid.feature.streaming.ui.CameraPreviewHost
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.UUID
@@ -422,7 +422,7 @@ private fun SceneEditorDialogs.SceneEditorBody(
                 BoxWithConstraints(Modifier.heightIn(max = 320.dp).aspectRatio(output.first.toFloat() / output.second)) {
                     val density = androidx.compose.ui.platform.LocalDensity.current
                     val previewSize = with(density) { IntSize(maxWidth.roundToPx(), maxHeight.roundToPx()) }
-                    StreamingSourcePreview(engine, sourceKind, previewSize, 0)
+                    CameraPreviewHost(engine, sourceKind, previewSize, 0)
                     SceneEditorCanvas(state, hint, MaterialTheme.colorScheme.primary, onEdit, Modifier.fillMaxSize())
                     LaunchedEffect(previewSize, state.composition) { output = engine.scenePreviewSize() }
                 }

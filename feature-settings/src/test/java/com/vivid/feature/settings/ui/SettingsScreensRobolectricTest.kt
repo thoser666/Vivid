@@ -14,6 +14,7 @@ import androidx.compose.ui.test.performScrollToNode
 import androidx.navigation.NavHostController
 import com.vivid.core.data.AppSettings
 import com.vivid.core.data.ThemeMode
+import com.vivid.core.data.UiMode
 import com.vivid.feature.chat.bot.ChatBotUsage
 import io.mockk.every
 import io.mockk.mockk
@@ -50,9 +51,11 @@ class SettingsScreensRobolectricTest {
     private fun settingsViewModel(
         updateState: SettingsUpdateState = SettingsUpdateState(),
         llmSource: OwnerLlmSource = OwnerLlmSource.DETERMINISTIC,
+        settings: AppSettings = AppSettings(uiMode = UiMode.STUDIO),
     ): SettingsViewModel =
         mockk(relaxed = true) {
             every { this@mockk.updateState } returns MutableStateFlow(updateState)
+            every { uiState } returns MutableStateFlow(settings)
             every { saveEvent } returns MutableSharedFlow()
             // Robolectric-Compose: der Screen leitet daraus stringResource(...)-IDs
             // ab — ein ungestubbter relaxed-Mock-Wert liefert sonst Ressourcen-ID 0.
@@ -79,6 +82,29 @@ class SettingsScreensRobolectricTest {
         composeRule.onAllNodesWithText("Logs & Diagnostics")[0].assertExists()
     }
 
+
+    @Test
+    fun `easy hub hides advanced categories and forwards studio selection`() {
+        val viewModel = settingsViewModel(settings = AppSettings(uiMode = UiMode.EASY))
+        composeRule.setContent {
+            SettingsScreen(
+                navController = mockk(relaxed = true),
+                installedVersionName = TEST_VERSION,
+                viewModel = viewModel,
+            )
+        }
+        composeRule.onNodeWithText("Interface mode").assertIsDisplayed()
+        composeRule.onAllNodesWithText("Streaming")[0].assertExists()
+        org.junit.Assert.assertTrue(composeRule.onAllNodesWithText("Camera Controls").fetchSemanticsNodes().isEmpty())
+        org.junit.Assert.assertTrue(composeRule.onAllNodesWithText("Scenes & widgets").fetchSemanticsNodes().isEmpty())
+        org.junit.Assert.assertTrue(composeRule.onAllNodesWithText("Chat Bot & AI").fetchSemanticsNodes().isEmpty())
+        org.junit.Assert.assertTrue(composeRule.onAllNodesWithText("Remote & Privacy").fetchSemanticsNodes().isEmpty())
+        composeRule.onAllNodesWithText(INTERFACE_LABEL)[0].assertExists()
+        composeRule.onAllNodesWithText("Logs & Diagnostics")[0].assertExists()
+        composeRule.onNodeWithTag("ui_mode_studio").performClick()
+        verify { viewModel.onUiModeChange(UiMode.STUDIO) }
+    }
+
     @Test
     fun `hub category card navigates to its route`() {
         val navController = mockk<NavHostController>(relaxed = true)
@@ -89,7 +115,7 @@ class SettingsScreensRobolectricTest {
                 viewModel = settingsViewModel(),
             )
         }
-        composeRule.onNodeWithText(INTERFACE_LABEL).performClick()
+        composeRule.onNodeWithText(INTERFACE_LABEL).performScrollTo().performClick()
         verify { navController.navigate(any<String>()) }
     }
 

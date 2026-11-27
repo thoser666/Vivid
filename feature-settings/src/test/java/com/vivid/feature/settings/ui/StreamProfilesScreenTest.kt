@@ -45,8 +45,8 @@ class StreamProfilesScreenTest {
     }
     private val twitch = mockk<TwitchChannelViewModel>(relaxed = true)
 
-    private fun show(profiles: List<StreamProfile> = emptyList(), active: String? = null) {
-        settings.value = AppSettings(streamProfiles = profiles, activeStreamId = active)
+    private fun show(profiles: List<StreamProfile> = emptyList(), active: String? = null, uiMode: UiMode = UiMode.STUDIO) {
+        settings.value = AppSettings(uiMode = uiMode, streamProfiles = profiles, activeStreamId = active)
         every { vm.editStream(any()) } answers { draft.value = settings.value.streamProfiles.first { it.id == firstArg<String>() } }
         every { vm.createStream(any()) } answers {
             val platform = firstArg<StreamPlatform>()
@@ -213,6 +213,28 @@ class StreamProfilesScreenTest {
         verify { vm.reorderStreams(listOf("b", "c", "a")) }
     }
 
+
+    @Test fun `easy mode keeps only destination fields and hides advanced stream links`() {
+        show(listOf(first), uiMode = UiMode.EASY)
+        details()
+        compose.onNodeWithText(STREAM_URL_LABEL).assertExists()
+        compose.onNodeWithTag("stream_settings_menu").assertDoesNotExist()
+        compose.onNodeWithText(VIDEO_LABEL).assertDoesNotExist()
+        compose.onNodeWithText(MULTI_STREAM_LABEL).assertDoesNotExist()
+        compose.onNodeWithText(OBS_CONTROL_LABEL).assertDoesNotExist()
+    }
+
+    @Test fun `switching to easy leaves the open OBS subpage`() {
+        show(listOf(first), uiMode = UiMode.STUDIO)
+        details()
+        scrollClick(OBS_CONTROL_LABEL)
+        compose.onNodeWithText(OBS_HOST_LABEL).assertExists()
+        compose.runOnIdle { settings.value = settings.value.copy(uiMode = UiMode.EASY) }
+        compose.waitForIdle()
+        compose.onNodeWithText(OBS_HOST_LABEL).assertDoesNotExist()
+        compose.onNodeWithText(STREAM_URL_LABEL).assertExists()
+    }
+
     @Test fun `menu has separators and OBS switch is independent of navigation`() {
         show(listOf(first), "a")
         compose.onNodeWithTag("stream_switch_divider_a", useUnmergedTree = true).assertExists()
@@ -225,6 +247,22 @@ class StreamProfilesScreenTest {
         compose.onNodeWithText(OBS_HOST_LABEL).assertDoesNotExist()
         scrollClick(OBS_CONTROL_LABEL)
         compose.onNodeWithText(OBS_HOST_LABEL).assertExists()
+    }
+
+
+    @Test fun `OBS QR import fills draft connection and invalid input shows an error`() {
+        show(listOf(first), uiMode = UiMode.STUDIO)
+        details()
+        scrollClick(OBS_CONTROL_LABEL)
+        compose.onNodeWithTag("obs_qr_input").performTextReplacement("obsws://obs.example:4456/secret%20pw")
+        compose.onNodeWithTag("obs_qr_import").performClick()
+        org.junit.Assert.assertEquals("obs.example", draft.value!!.obsHost)
+        org.junit.Assert.assertEquals("4456", draft.value!!.obsPort)
+        org.junit.Assert.assertEquals("secret pw", draft.value!!.obsPassword)
+
+        compose.onNodeWithTag("obs_qr_input").performTextReplacement("not-a-qr-code")
+        compose.onNodeWithTag("obs_qr_import").performClick()
+        compose.onNodeWithText("Not a valid OBS WebSocket QR code", substring = true).assertExists()
     }
 
     @Test fun `each source subpage saves the edited profile without another parent save`() {

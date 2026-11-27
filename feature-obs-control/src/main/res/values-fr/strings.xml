@@ -17,15 +17,6 @@
     <string name="obs_connect_failed_message">Échec de la connexion</string>
 
     <!-- Écran des paramètres OBS -->
-    <string name="obs_settings_host_label">Hôte OBS</string>
-    <string name="obs_settings_port_label">Port OBS</string>
-    <string name="obs_settings_password_label">Mot de passe OBS</string>
-    <string name="obs_settings_tls_label">Connexion sécurisée (wss://)</string>
-    <string name="obs_settings_save_button">Enregistrer</string>
-    <string name="obs_settings_qr_label">Importer depuis le code QR (coller le contenu)</string>
-    <string name="obs_settings_qr_import_button">Importer</string>
-    <string name="obs_settings_qr_import_error">Code QR invalide : %1$s</string>
-    <string name="obs_settings_qr_import_success">Connexion OBS importée — vérifiez les valeurs, puis enregistrez.</string>
 
     <!-- Contrôle OBS (PARITY Row 71 : snapshot / niveaux audio / synchro audio / muet / écran noir) -->
     <string name="obs_current_scene">Scène actuelle : %1$s</string>

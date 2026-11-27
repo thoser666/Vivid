@@ -1347,6 +1347,10 @@ class StreamingEngine @Inject constructor(
     fun switchSource(kind: VideoSourceKind): Boolean {
         if (_cameraModeStatus.value.preparing) return false
         if (kind != activeSourceKind.value && legacyEncoding() && camera?.isStreaming == true) return false
+        if (_sceneComposition.value == null && !legacyEncoding() &&
+            (kind != VideoSourceKind.CAMERA || cameraInputPermissionGranted())) {
+            setSceneComposition(fallbackSceneGraph(kind), animate = false)
+        }
         if (sceneSession != null || (_sceneComposition.value != null && !legacyEncoding())) {
             return switchSceneBaseSource(kind)
         }
@@ -1495,6 +1499,13 @@ class StreamingEngine @Inject constructor(
      *
      * @return true, wenn der Nutzer zugestimmt hat (RESULT_OK + Daten vorhanden).
      */
+    /** Source awaiting a scene-projection consent result; consumed by the UI service handoff. */
+    fun takeSceneProjectionConsentSourceId(): String? {
+        val sourceId = requestedSceneProjectionId
+        requestedSceneProjectionId = null
+        return sourceId
+    }
+
     fun onScreenCaptureConsentResult(resultCode: Int, data: Intent?): Boolean {
         val sourceId = requestedSceneProjectionId
         requestedSceneProjectionId = null
@@ -2039,6 +2050,9 @@ class StreamingEngine @Inject constructor(
             else resolved.preset.width to resolved.preset.height
     }
 
+    private fun cameraInputPermissionGranted() =
+        context.checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+
     /** Open Camera2 into the same GL pipeline used by recording, without starting encoders. */
     private fun legacyIdlePreviewAllowed() = activeSourceKind.value == VideoSourceKind.CAMERA &&
         camera?.isStreaming != true && camera?.isRecording != true &&
@@ -2048,7 +2062,7 @@ class StreamingEngine @Inject constructor(
         // dieselbe Kamera anfordern (Doppel-Open).
         _streamingState.value !is StreamingState.Preparing &&
         _streamingState.value !is StreamingState.Streaming &&
-        context.checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+        cameraInputPermissionGranted()
 
     /**
      * Ist der Fehler ein gescheiterter Session-Aufbau?
@@ -2224,6 +2238,10 @@ class StreamingEngine @Inject constructor(
         updateSceneRenderClock()
         val request = previewRequest ?: return
         if (_cameraModeStatus.value.preparing || request.width <= 0 || request.height <= 0) return
+        if (_sceneComposition.value == null && !legacyEncoding() &&
+            (activeSourceKind.value != VideoSourceKind.CAMERA || cameraInputPermissionGranted())) {
+            setSceneComposition(fallbackSceneGraph(activeSourceKind.value), animate = false)
+        }
         if (sceneRouteRequested()) { startScenePreview(request); return }
         if (!legacyIdlePreviewAllowed()) return
         // Layout-Maße dienen der Reattach-Erkennung; der Camera2-Buffer kann
@@ -3191,6 +3209,7 @@ class StreamingEngine @Inject constructor(
         session.gl.setIsPortrait(false)
         session.gl.setRotation(0)
         session.gl.setForceRender(true, 30)
+        consumeSceneProjectionConsent()
         session.startPreview(request.surface, request.width, request.height)
         glPreviewOwner = session.gl
         glPreviewSurface = request.surface
@@ -3268,15 +3287,15 @@ class StreamingEngine @Inject constructor(
         }
     }
 
-    private fun fallbackSceneGraph(): SceneComposition {
+    private fun fallbackSceneGraph(kind: VideoSourceKind = activeSourceKind.value): SceneComposition {
         val old = _sceneComposition.value
-        val type = sceneSourceType(activeSourceKind.value)
-        val locator = sceneSourceLocator(activeSourceKind.value)
+        val type = sceneSourceType(kind)
+        val locator = sceneSourceLocator(kind)
         val inputId = scenePrimarySourceId ?: sceneFileAudioKey?.sourceId
         val source = old?.sources?.firstOrNull { it.id == inputId && it.matchesSceneIdentity(type, locator, ::sceneCameraIdentity) }
             ?: old?.sources?.firstOrNull { it.matchesSceneIdentity(type, locator, ::sceneCameraIdentity,
                 videoLoop = if (type == SceneSourceType.VIDEO) activeSourceKind.value == VideoSourceKind.REPLAY else null) }
-            ?: com.vivid.core.data.SceneSource("scene-default:${activeSourceKind.value}", type, locator)
+            ?: com.vivid.core.data.SceneSource("scene-default:$kind", type, locator)
         return SceneComposition(canvasWidth = old?.canvasWidth ?: 1280, canvasHeight = old?.canvasHeight ?: 720,
             sources = listOf(source), layers = listOf(com.vivid.core.data.SceneLayer("scene-default-layer", source.id, followsPrimaryInput = true)),
             primaryInputConfigured = true)

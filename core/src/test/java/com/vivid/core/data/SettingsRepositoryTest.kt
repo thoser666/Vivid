@@ -107,6 +107,26 @@ class SettingsRepositoryTest {
         assertEquals(CameraMode.STANDARD, SettingsRepository(store).appSettingsFlow.first().cameraMode)
     }
 
+    @Test
+    fun `ui mode defaults to easy`() = runTest {
+        val repository = SettingsRepository(InMemoryPreferencesDataStore())
+        assertEquals(UiMode.EASY, repository.appSettingsFlow.first().uiMode)
+    }
+
+    @Test
+    fun `ui mode roundtrip survives a repository instance change`() = runTest {
+        val store = InMemoryPreferencesDataStore()
+        SettingsRepository(store).updateUiMode(UiMode.STUDIO)
+        assertEquals(UiMode.STUDIO, SettingsRepository(store).appSettingsFlow.first().uiMode)
+    }
+
+    @Test
+    fun `unknown ui mode is easy`() = runTest {
+        val store = InMemoryPreferencesDataStore()
+        store.edit { it[stringPreferencesKey("ui_mode")] = "future" }
+        assertEquals(UiMode.EASY, SettingsRepository(store).appSettingsFlow.first().uiMode)
+    }
+
     // Drei kleine Tests statt einem mit drei Edits: Der DataStore-Actor hat
     // unter Windows bei mehreren aufeinanderfolgenden Edits auf derselben
     // Instanz eine Rename-Race (tmp → final), das Hausmuster ist ein Edit

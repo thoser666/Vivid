@@ -454,4 +454,12 @@
     <string name="local_overlays_bitrate">Débit</string>
     <string name="local_overlays_duration">Durée de diffusion</string>
     <string name="local_overlays_scenes">Sélection de scène</string>
+    <string name="settings_ui_mode_title">Mode d’interface</string>
+    <string name="settings_ui_mode_easy">Simple</string>
+    <string name="settings_ui_mode_studio">Studio</string>
+    <string name="settings_ui_mode_easy_desc">Uniquement l’aperçu caméra, Go Live et la destination du stream. Les scènes, sources et contrôles OBS restent masqués.</string>
+    <string name="settings_ui_mode_studio_desc">Contrôle complet avec scènes, sources, superpositions et pilotage OBS à distance.</string>
+    <string name="cat_streaming_easy_title">Diffusion</string>
+    <string name="obs_qr_label">Importer depuis le code QR (coller le contenu)</string>
+    <string name="obs_qr_import_button">Importer</string>
 </resources>

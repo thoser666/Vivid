@@ -7,6 +7,7 @@ import com.vivid.core.data.EncoderPreset
 import com.vivid.core.data.ChatBotMode
 import com.vivid.core.data.SettingsRepository
 import com.vivid.core.data.ThemeMode
+import com.vivid.core.data.UiMode
 import com.vivid.core.data.VideoCodecPreference
 import com.vivid.core.remote.RemoteControlServer
 import com.vivid.core.remote.RemoteControlTokenStore
@@ -90,6 +91,21 @@ class SettingsViewModelTest {
         coVerify { repository.updateEncoderAutoFallback(false) }
         coVerify { repository.updateAdaptiveBitrateEnabled(true) }
     }
+
+    @Test
+    fun `ui mode change updates state and persists immediately`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repository = repository()
+        val viewModel = createViewModel(repository)
+        advanceUntilIdle()
+
+        viewModel.onUiModeChange(UiMode.STUDIO)
+        assertEquals(UiMode.STUDIO, viewModel.uiState.value.uiMode)
+        advanceUntilIdle()
+
+        coVerify { repository.updateUiMode(UiMode.STUDIO) }
+    }
+
     @Test
     fun `loads settings from repository`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
