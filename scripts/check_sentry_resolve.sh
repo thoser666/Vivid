@@ -75,6 +75,15 @@ FIXTURE="${SENTRY_RESOLVE_FIXTURE:-}"
 PROPS="${SENTRY_PROPERTIES_FILE:-sentry.properties}"
 API="https://sentry.io/api/0"
 
+# Pfadform fuer native Python-Aufrufe: MSYS/Git-Bash wandelt in einer
+# MEHRTEILIGEN Env-Liste nur den ersten Eintrag nach C:/… um — die restlichen
+# bleiben /tmp/… und sind fuer python.exe unlesbar ("No such file or directory"
+# auf eine existierende Datei, Selbsttest R23). Darum jeden Pfad selbst
+# umformen; auf Linux (kein cygpath) bleibt der Pfad unveraendert.
+py_path() {
+  if command -v cygpath >/dev/null 2>&1; then cygpath -m "$1"; else printf '%s' "$1"; fi
+}
+
 version=""
 ids=""
 dryrun=0
@@ -199,6 +208,15 @@ if [ -n "$FIXTURE" ]; then
   getstatus=$(cat "$FIXTURE/getstatus" 2>/dev/null || echo 200)
   [ "$getstatus" = "200" ] || skip_getstatus "$getstatus"
   frag_files="$FIXTURE/issues.json"
+  # --ids: Einzelantworten der genannten IDs (issue-<id>.json) mitlesen — so
+  # erreicht der Modus auch Issues, die die is:unresolved-Abfrage ausblendet.
+  if [ -n "$ids_norm" ]; then
+    for id in $(printf '%s' "$ids_norm" | tr ',' ' '); do
+      if [ -f "$FIXTURE/issue-$id.json" ]; then
+        frag_files="$frag_files $FIXTURE/issue-$id.json"
+      fi
+    done
+  fi
 else
   if [ -z "$token" ]; then
     echo "SKIP: kein Sentry-Resolve-Token — SENTRY_RESOLVE_TOKEN setzen oder resolve.token in sentry.properties ablegen (Token-Erstellung: $DOCS_HINT)"
@@ -223,7 +241,29 @@ PY
 )
     [ -z "$cursor" ] && break
   done
+  # --ids: die genannten IDs einzeln nachladen. Die is:unresolved-Abfrage
+  # blendet bereits resolved Issues aus — genau die sollen aber auf
+  # inNextRelease hochgezogen werden koennen (#429/VIVID-5Q war schon resolved).
+  # 404 = unbekannte ID; die meldet Phase A als fehlend, kein Abbruch.
+  if [ -n "$ids_norm" ]; then
+    : > "$tmp/idfrags"
+    for id in $(printf '%s' "$ids_norm" | tr ',' ' '); do
+      code=$(curl -sS -o "$tmp/id.$id.json" -w '%{http_code}' \
+        -H "Authorization: Bearer $token" "$API/issues/$id/" 2>/dev/null || echo 000)
+      case "$code" in
+        200) echo "$tmp/id.$id.json" >> "$tmp/idfrags" ;;
+        404) : ;;
+        *) skip_getstatus "$code" ;;
+      esac
+    done
+    frag_files="$frag_files $(cat "$tmp/idfrags")"
+  fi
 fi
+
+# Jeden Fragment-Pfad einzeln in die Python-Pfadform bringen (siehe py_path).
+norm_frags=""
+for f in $frag_files; do norm_frags="$norm_frags $(py_path "$f")"; done
+frag_files="$norm_frags"
 
 # ── Phase A: Matches offline berechnen (kein Netz). Liefert bei Treffern die
 # PUT-Url/-Body als Dateien + Marker WOULD_RESOLVE=N; bei 0 Treffern ein OK.
@@ -254,21 +294,49 @@ for f in files:
     except Exception as e:
         print("FEHLER: Issues-Antwort (%s) ist kein gültiges JSON (%s)" % (f, e))
         sys.exit(1)
+    if isinstance(data, dict):
+        # Einzelabruf GET /issues/{id}/ liefert EIN Objekt statt einer Liste;
+        # eine Antwort ohne id/status bleibt dagegen ein Formatbruch (R5).
+        if "id" in data and "status" in data:
+            data = [data]
+        else:
+            print("FEHLER: Issues-Antwort (%s) ist weder Liste noch Issue-Objekt — Sentry-API-Feldformat geändert?" % f)
+            sys.exit(1)
     if not isinstance(data, list):
         print("FEHLER: Issues-Antwort (%s) ist keine Liste — Sentry-API-Feldformat geändert?" % f)
         sys.exit(1)
     issues.extend(data)
 
 matches = []
+already_next = []
+seen = set()
+in_next = os.environ.get("SENTRY_RESOLVE_IN_NEXT") == "1"
 for it in issues:
     if not isinstance(it, dict):
         continue
-    if it.get("status") == "resolved":
-        continue
     if wanted_ids:
+        # Explizit genannte IDs duerfen auch schon resolved sein: nur so laesst
+        # sich ein blosses "resolved" auf resolved/inNextRelease hochziehen
+        # (#429). "ignored" bleibt aussen vor, und ohne --in-next-release wird
+        # ein resolved Issue nicht angefasst — der Plain-Vertrag bleibt.
         issue_id = str(it.get("id", ""))
-        if issue_id in wanted_ids:
-            matches.append((issue_id, str(it.get("title", "?"))))
+        if issue_id not in wanted_ids or issue_id in seen:
+            continue
+        status = it.get("status")
+        if status == "ignored":
+            continue
+        if status == "resolved":
+            details = it.get("statusDetails") or {}
+            if details.get("inNextRelease") is True:
+                already_next.append((issue_id, str(it.get("title", "?"))))
+                seen.add(issue_id)
+                continue
+            if not in_next:
+                continue
+        seen.add(issue_id)
+        matches.append((issue_id, str(it.get("title", "?"))))
+        continue
+    if it.get("status") == "resolved":
         continue
     tags = it.get("tags") or []
     for t in tags:
@@ -290,9 +358,12 @@ else:
     print("Projekt: %s (Org %s) | Version: %s (normalisiert: %s)" % (
         os.environ["SENTRY_RESOLVE_PROJECT"], os.environ["SENTRY_RESOLVE_ORG"], version_raw, version))
 print("Geprüft: %d unresolved Issues (query=is:unresolved)" % len(issues))
-if wanted_ids and matches:
-    hit = set(i for i, _ in matches)
+if wanted_ids:
+    hit = set(i for i, _ in matches) | set(i for i, _ in already_next)
     missing = [i for i in wanted_ids if i not in hit]
+    if already_next:
+        print("HINWEIS: %d ID(s) sind bereits resolved/inNextRelease — kein PUT noetig: %s"
+              % (len(already_next), ",".join(i for i, _ in already_next)))
     if missing:
         print("HINWEIS: %d ID(s) nicht unter den unresolved Issues (schon resolved/ignored oder falsche ID): %s"
               % (len(missing), ",".join(missing)))

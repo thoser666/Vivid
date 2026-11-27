@@ -38,6 +38,10 @@
 #   R20 Gegenprobe: --ids ohne Flag sendet weiter nur "resolved"
 #   R21 --in-next-release ohne --ids ist ein Aufruffehler (exit 1), kein Fallback
 #   R22 --ids + --in-next-release + --dry-run: Verdict nennt inNextRelease, kein PUT
+#   R23 --ids auf ein SCHON resolved Issue (nicht in is:unresolved): mit Flag
+#       wird es nachgeladen und auf inNextRelease hochgezogen (#429)
+#   R24 Gegenprobe: bereits resolved/inNextRelease -> HINWEIS, kein PUT
+#   R25 Plain-Vertrag: resolved Issue ohne Flag wird nicht angefasst
 #   R13 VIVID_REPO_ROOT (#250): der Guard darf aus $RUNNER_TEMP aufgerufen
 #      werden (Stable-Publish staget die Gate-Skripte dorthin, damit der
 #      Arbeitsbaum nicht vom Ziel-Tag stammt). Ohne gesetzten Repo-Root muss
@@ -290,4 +294,44 @@ grep -q "^OK (dry-run): 1 Issue(s) würden als resolved (inNextRelease) markiert
   fail "R22: dry-run-Verdict mit inNextRelease erwartet"
 grep -q "project:write" <<<"$out_r22" && fail "R22: dry-run darf den Fixture-status 403 nicht auswerten"
 
-echo "✅ [sentry-resolve-test] Sentry-Resolve-Guard vertragstreu (R1–R22)."
+# R23 --ids erreicht auch ein schon resolved Issue: die is:unresolved-Abfrage
+# blendet es aus, deshalb laedt der Guard genannte IDs einzeln nach (#429/
+# VIVID-5Q war bereits plain resolved und soll inNextRelease tragen).
+mkdir -p "$tmp/upgrade"
+echo 200 > "$tmp/upgrade/status"
+echo '[]' > "$tmp/upgrade/issues.json"
+cat > "$tmp/upgrade/issue-100.json" <<'JSON'
+{"id": "100", "shortId": "VIVID-5Q", "title": "Schon geschlossen", "status": "resolved",
+ "statusDetails": {"inNextRelease": false}, "tags": []}
+JSON
+body_r23="$tmp/body-r23.json"
+out_r23=$(SENTRY_RESOLVE_FIXTURE="$tmp/upgrade" SENTRY_RESOLVE_BODY_OUT="$body_r23" \
+  bash "$guard" --ids 100 --in-next-release) || fail "R23: Upgrade eines resolved Issues darf nicht scheitern"
+grep -q "^OK: 1 Issue(s) als resolved (inNextRelease) markiert — IDs: 100" <<<"$out_r23" || \
+  fail "R23: resolved Issue muss mit --in-next-release nachgezogen werden"
+grep -q '"inNextRelease": true' "$body_r23" || fail "R23: PUT-Body ohne statusDetails.inNextRelease"
+grep -q "nicht unter den unresolved Issues" <<<"$out_r23" && fail "R23: nachgeladene ID darf nicht als fehlend gemeldet werden"
+
+# R24 Gegenprobe: schon inNextRelease -> nichts zu tun, kein PUT.
+mkdir -p "$tmp/already"
+echo 200 > "$tmp/already/status"
+echo '[]' > "$tmp/already/issues.json"
+cat > "$tmp/already/issue-100.json" <<'JSON'
+{"id": "100", "shortId": "VIVID-5Q", "title": "Schon geschlossen", "status": "resolved",
+ "statusDetails": {"inNextRelease": true}, "tags": []}
+JSON
+body_r24="$tmp/body-r24.json"
+out_r24=$(SENTRY_RESOLVE_FIXTURE="$tmp/already" SENTRY_RESOLVE_BODY_OUT="$body_r24" \
+  bash "$guard" --ids 100 --in-next-release) || fail "R24: bereits inNextRelease darf nicht scheitern"
+grep -q "^OK: 0 Issues aus --ids" <<<"$out_r24" || fail "R24: kein PUT erwartet"
+grep -q "HINWEIS: 1 ID(s) sind bereits resolved/inNextRelease" <<<"$out_r24" || \
+  fail "R24: HINWEIS auf bereits vorhandenes inNextRelease erwartet"
+[ -f "$body_r24" ] && fail "R24: es darf kein PUT-Body entstehen"
+
+# R25 Plain-Vertrag: ein resolved Issue ohne Flag bleibt unangetastet.
+out_r25=$(SENTRY_RESOLVE_FIXTURE="$tmp/upgrade" SENTRY_RESOLVE_BODY_OUT="$tmp/body-r25.json" \
+  bash "$guard" --ids 100) || fail "R25: Gegenprobe darf nicht scheitern"
+grep -q "^OK: 0 Issues aus --ids" <<<"$out_r25" || fail "R25: ohne Flag darf ein resolved Issue nicht resolvt werden"
+[ -f "$tmp/body-r25.json" ] && fail "R25: ohne Flag darf kein PUT-Body entstehen"
+
+echo "✅ [sentry-resolve-test] Sentry-Resolve-Guard vertragstreu (R1–R25)."
