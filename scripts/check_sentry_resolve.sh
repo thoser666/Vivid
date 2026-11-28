@@ -460,20 +460,18 @@ if [ "$dryrun" = "1" ]; then
   exit 0
 fi
 
-# ── Phase B: Bulk-PUT ausführen (live) bzw. Status simulieren (Fixture).
-if [ -n "$FIXTURE" ]; then
-  putstatus=$(cat "$FIXTURE/status" 2>/dev/null || echo 200)
-else
-  # PUT bewusst ueber Python statt curl: der Dispatch-Lauf 41303884737 bekam
-  # fuer denselben Aufruf ein `415 Unsupported media type ""` von Sentry,
-  # obwohl curl die Header korrekt setzt (lokal gegen einen Echo-Server
-  # verifiziert). urllib setzt Header und Body deterministisch und legt im
-  # Fehlerfall genau das ab, was gesendet wurde.
-  putstatus=$(SENTRY_PUT_URL="$(cat "$tmp/put_url")" \
-    SENTRY_PUT_BODY_FILE="$tmp/put_body" \
-    SENTRY_PUT_TOKEN="$token" \
-    SENTRY_PUT_OUT="/tmp/sentry_resolve_put.$$.json" \
-    python -X utf8 - 2>/dev/null <<'PY' || echo 000
+# ── Phase B: PUT ausführen (live) bzw. Status simulieren (Fixture).
+# PUT bewusst ueber Python statt curl: der Dispatch-Lauf 41303884737 bekam fuer
+# denselben Aufruf ein `415 Unsupported media type ""` von Sentry, obwohl curl
+# die Header korrekt setzt (lokal gegen einen Echo-Server verifiziert). urllib
+# setzt Header und Body deterministisch und legt im Fehlerfall genau das ab,
+# was gesendet wurde.
+put_once() {  # $1=URL, $2=Antwortdatei -> HTTP-Code
+  SENTRY_PUT_URL="$1" \
+  SENTRY_PUT_BODY_FILE="$tmp/put_body" \
+  SENTRY_PUT_TOKEN="$token" \
+  SENTRY_PUT_OUT="$2" \
+  python -X utf8 - 2>/dev/null <<'PY' || echo 000
 import os, urllib.error, urllib.request
 
 url = os.environ["SENTRY_PUT_URL"]
@@ -494,14 +492,102 @@ except Exception as exc:  # Netz/DNS/Timeout -> wie curl 000
     open(os.environ["SENTRY_PUT_OUT"], "wb").write(
         ("client-error: %s" % exc).encode("utf-8", "replace"))
 PY
-)
+}
+
+# Der zurueckgemeldete Issue-Status entscheidet, nicht der HTTP-Code: der
+# Projekt-Bulk-Endpunkt quittiert `resolvedInNextRelease` mit 200, ohne den
+# Status zu setzen (Run 46116859157: PUT 200, GET weiter "resolved"), und laut
+# API-Doku werden IDs ausserhalb des Scopes ohne jede Mutation erfolgreich
+# beantwortet. Rueckgabe: 0 uebernommen, 1 nicht uebernommen, 2 nicht pruefbar.
+verify_put_status() {  # $1=Antwortdatei, $2=ID, $3=inNextRelease|resolved
+  SENTRY_VERIFY_FILE="$(py_path "$1")" \
+  SENTRY_VERIFY_ID="$2" \
+  SENTRY_VERIFY_WANT="$3" \
+  python -X utf8 - <<'PY'
+import json, os, sys
+
+path = os.environ["SENTRY_VERIFY_FILE"]
+want = os.environ["SENTRY_VERIFY_WANT"]
+issue_id = os.environ["SENTRY_VERIFY_ID"]
+try:
+    data = json.load(open(path, encoding="utf-8"))
+except Exception as exc:
+    print("HINWEIS: PUT-Antwort fuer %s ist kein JSON (%s)" % (issue_id, exc))
+    sys.exit(2)
+if isinstance(data, list):
+    data = data[0] if data else {}
+if not isinstance(data, dict) or "status" not in data:
+    print("HINWEIS: PUT-Antwort fuer %s nennt keinen Issue-Status" % issue_id)
+    sys.exit(2)
+status = data.get("status") or ""
+details = data.get("statusDetails") or {}
+print("SENTRY-STATUS: %s → %s" % (issue_id, status))
+if want == "inNextRelease":
+    ok = status == "resolvedInNextRelease" or details.get("inNextRelease") is True
+else:
+    ok = status in ("resolved", "resolvedInNextRelease")
+sys.exit(0 if ok else 1)
+PY
+}
+
+if [ -n "$ids_norm" ] && [ "$in_next" = "1" ]; then
+  # --ids + --in-next-release: ein PUT je ID an den Einzel-Endpunkt
+  # /organizations/{org}/issues/{id}/. Der Projekt-Bulk-Endpunkt nimmt
+  # `resolvedInNextRelease` zwar mit 200 an, setzt den Status aber nicht
+  # (#429/VIVID-5Q blieb nach dem Bulk-PUT "resolved" mit leerem
+  # statusDetails).
+  untaken=""
+  for id in $(printf '%s' "$ids" | tr ',' ' '); do
+    if [ -n "$FIXTURE" ]; then
+      code=$(cat "$FIXTURE/status" 2>/dev/null || echo 200)
+      resp="$FIXTURE/put-response-$id.json"
+    else
+      resp="/tmp/sentry_resolve_put.$id.$$.json"
+      code=$(put_once "$API/organizations/$ORG/issues/$id/" "$resp")
+    fi
+    echo "PUT $id → HTTP $code"
+    if [ -n "${SENTRY_RESOLVE_PUT_OUT:-}" ] && [ -s "$resp" ]; then
+      cp "$resp" "$SENTRY_RESOLVE_PUT_OUT"
+    fi
+    case "$code" in
+      200|204)
+        if [ -s "$resp" ]; then
+          vrc=0
+          verify_put_status "$resp" "$id" "inNextRelease" || vrc=$?
+          if [ "$vrc" = "1" ]; then
+            untaken="$untaken $id"
+            cp "$resp" "$tmp/untaken.$id.json" 2>/dev/null || true
+          fi
+        fi ;;
+      *)
+        if [ -s "$resp" ]; then
+          echo "API-ANTWORT: $(tr '\n' ' ' < "$resp" | cut -c1-300)"
+        fi
+        skip_putstatus "$code" ;;
+    esac
+  done
+  if [ -n "$untaken" ]; then
+    first=$(printf '%s' "${untaken# }" | cut -d' ' -f1)
+    echo "FEHLER: Sentry hat resolvedInNextRelease nicht uebernommen — IDs:$untaken"
+    if [ -s "$tmp/untaken.$first.json" ]; then
+      echo "API-ANTWORT: $(tr '\n' ' ' < "$tmp/untaken.$first.json" | cut -c1-300)"
+    fi
+    echo "HINWEIS: die Antwort war HTTP 200, der Status kam aber nicht an — Issue in Sentry pruefen ($DOCS_HINT)."
+    exit 1
+  fi
+  echo "OK: $count Issue(s) als resolved (inNextRelease) markiert — IDs: $ids"
+  exit 0
+fi
+
+if [ -n "$FIXTURE" ]; then
+  putstatus=$(cat "$FIXTURE/status" 2>/dev/null || echo 200)
+else
+  putstatus=$(put_once "$(cat "$tmp/put_url")" "/tmp/sentry_resolve_put.$$.json")
 fi
 
 case "$putstatus" in
   200|204)
-    if [ -n "$ids_norm" ] && [ "$in_next" = "1" ]; then
-      echo "OK: $count Issue(s) als resolved (inNextRelease) markiert — IDs: $ids"
-    elif [ -n "$ids_norm" ]; then
+    if [ -n "$ids_norm" ]; then
       echo "OK: $count Issue(s) als resolved markiert (ohne inNextRelease) — IDs: $ids"
     else
       echo "OK: $count Issue(s) als resolved (inNextRelease) markiert — erledigt mit Version $norm_version (IDs: $ids)"
@@ -513,8 +599,7 @@ case "$putstatus" in
     # endete mit 415 ohne jede Begruendung. Body gekuerzt/einzeilig, damit er
     # im CI-Log lesbar bleibt; Fixture-Laeufe haben keine Antwortdatei.
     if [ -z "$FIXTURE" ] && [ -s "/tmp/sentry_resolve_put.$$.json" ]; then
-      echo "API-ANTWORT: $(tr '
-' ' ' < "/tmp/sentry_resolve_put.$$.json" | cut -c1-300)"
+      echo "API-ANTWORT: $(tr '\n' ' ' < "/tmp/sentry_resolve_put.$$.json" | cut -c1-300)"
     fi
     skip_putstatus "$putstatus" ;;
 esac

@@ -33,7 +33,7 @@
 #   R17 --ids + --dry-run: meldet die IDs, ohne PUT (Fixture-status bleibt
 #       unbenutzt) und ohne inNextRelease-Wortlaut
 #   R18 Header-Haertung: Token ohne CR/LF vor der Header-Nutzung (415-Befund)
-#   R19 --ids + --in-next-release: der PUT-Body traegt statusDetails.inNextRelease
+#   R19 --ids + --in-next-release: der PUT-Body traegt status=resolvedInNextRelease
 #       und das Verdict nennt es (Fix 1b74d05 erstmals in v0.5.51-beta, #429)
 #   R20 Gegenprobe: --ids ohne Flag sendet weiter nur "resolved"
 #   R21 --in-next-release ohne --ids ist ein Aufruffehler (exit 1), kein Fallback
@@ -42,6 +42,8 @@
 #       wird es nachgeladen und auf inNextRelease hochgezogen (#429)
 #   R24 Gegenprobe: bereits resolved/inNextRelease -> HINWEIS, kein PUT
 #   R25 Plain-Vertrag: resolved Issue ohne Flag wird nicht angefasst
+#   R27 HTTP 200 ohne Statuswechsel -> FEHLER (Sentry nahm den PUT an, setzte nichts)
+#   R28 vom PUT zurueckgemeldeter Status resolvedInNextRelease -> OK
 #   R26 Sentry-Status "resolvedInNextRelease" gilt als erledigt (kein PUT); sonst
 #       meldet ein Dry-Run die ID nach erfolgreichem PUT weiter als offen
 #   R13 VIVID_REPO_ROOT (#250): der Guard darf aus $RUNNER_TEMP aufgerufen
@@ -362,4 +364,43 @@ grep -q "[resolvedInNextRelease]" <<<"$out_r26" || \
   fail "R26: HINWEIS muss den beobachteten Sentry-Status nennen"
 [ -f "$tmp/body-r26.json" ] && fail "R26: es darf kein PUT-Body entstehen"
 
-echo "✅ [sentry-resolve-test] Sentry-Resolve-Guard vertragstreu (R1–R26)."
+# R27 Der HTTP-Code belegt nichts: Run 46116859157 quittierte den PUT mit 200,
+# waehrend Sentry den Status nicht setzte (#429/VIVID-5Q blieb "resolved").
+# Meldet die PUT-Antwort den gewuenschten Status nicht, ist das ein FEHLER und
+# kein "OK" — sonst behauptet der Guard eine Schliessung, die es nicht gibt.
+mkdir -p "$tmp/ignored"
+echo 200 > "$tmp/ignored/status"
+echo '[]' > "$tmp/ignored/issues.json"
+cat > "$tmp/ignored/issue-100.json" <<'JSON'
+{"id": "100", "shortId": "VIVID-5Q", "title": "Schon geschlossen", "status": "resolved",
+ "statusDetails": {}, "tags": []}
+JSON
+cat > "$tmp/ignored/put-response-100.json" <<'JSON'
+{"id": "100", "status": "resolved", "statusDetails": {}}
+JSON
+if out_r27=$(SENTRY_RESOLVE_FIXTURE="$tmp/ignored" bash "$guard" --ids 100 --in-next-release 2>&1); then
+  fail "R27: HTTP 200 ohne Statuswechsel muss exit 1 sein"
+fi
+grep -q "Sentry hat resolvedInNextRelease nicht uebernommen" <<<"$out_r27" || \
+  fail "R27: FEHLER auf nicht uebernommenen Status erwartet"
+grep -q "SENTRY-STATUS: 100 → resolved" <<<"$out_r27" || \
+  fail "R27: der beobachtete Status muss im Log stehen"
+
+# R28 Gegenprobe: meldet die PUT-Antwort den inNextRelease-Status, ist der Lauf
+# erledigt und meldet OK.
+mkdir -p "$tmp/taken"
+echo 200 > "$tmp/taken/status"
+echo '[]' > "$tmp/taken/issues.json"
+cat > "$tmp/taken/issue-100.json" <<'JSON'
+{"id": "100", "shortId": "VIVID-5Q", "title": "Schon geschlossen", "status": "resolved",
+ "statusDetails": {}, "tags": []}
+JSON
+cat > "$tmp/taken/put-response-100.json" <<'JSON'
+{"id": "100", "status": "resolvedInNextRelease", "statusDetails": {"inNextRelease": true}}
+JSON
+out_r28=$(SENTRY_RESOLVE_FIXTURE="$tmp/taken" bash "$guard" --ids 100 --in-next-release) || \
+  fail "R28: vom PUT bestaetigter inNextRelease-Status darf nicht scheitern"
+grep -q "^OK: 1 Issue(s) als resolved (inNextRelease) markiert — IDs: 100" <<<"$out_r28" || \
+  fail "R28: OK-Verdict fuer den uebernommenen Status erwartet"
+
+echo "✅ [sentry-resolve-test] Sentry-Resolve-Guard vertragstreu (R1–R28)."

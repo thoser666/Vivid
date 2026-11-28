@@ -10,7 +10,7 @@
 #
 # Seit 27.11.2026 kennt der ID-Pfad den Input `in_next_release`: dann setzt der
 # Guard den Status `resolvedInNextRelease` (Befund in einem konkreten Release behoben,
-# ohne fix-release-Event-Tag — #429/VIVID-5Q, Fix erstmals in v0.5.51-beta).
+# ohne fix-release-Event-Tag — #429/VIVID-5Q, Fix erstmals in v0.5.51-beta).
 #
 # Verdicts des Guards sind bewusst keine Gate-Blocker: fehlender/abgelaufener
 # Token ergibt SKIP (exit 0), nur Aufruffehler sind FEHLER (exit 1).
@@ -74,9 +74,15 @@ jobs:
             args+=(--dry-run)
           fi
           SENTRY_RESOLVE_STATUS_OUT="$RUNNER_TEMP/sentry-status.json" \
+          SENTRY_RESOLVE_PUT_OUT="$RUNNER_TEMP/sentry-put.json" \
             bash scripts/check_sentry_resolve.sh "${args[@]}"
           # Beobachteten Status protokollieren (Diagnose, keine Secrets):
           # zeigt, welchen Status Sentry fuer die IDs tatsaechlich liefert.
           if [ -f "$RUNNER_TEMP/sentry-status.json" ]; then
             cat "$RUNNER_TEMP/sentry-status.json"
+          fi
+          # Antwort des Resolve-PUT: ein 200 heisst nur, dass die Anfrage ankam.
+          if [ -f "$RUNNER_TEMP/sentry-put.json" ]; then
+            echo "PUT-Antwort (Sentry):"
+            cat "$RUNNER_TEMP/sentry-put.json"
           fi
