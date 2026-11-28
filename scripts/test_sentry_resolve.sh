@@ -44,9 +44,12 @@
 #   R25 Plain-Vertrag: resolved Issue ohne Flag wird nicht angefasst
 #   R27 HTTP 200 ohne Statuswechsel -> FEHLER (Sentry nahm den PUT an, setzte nichts)
 #   R28 vom PUT zurueckgemeldeter Status resolvedInNextRelease -> OK
-#   R29 Ablauf am geschlossenen Issue: PUT wirkungslos, oeffnen, erneut resolven
+#   R29 geschlossenes Issue: oeffnen, resolve ignoriert, eigener Status greift
 #   R30 der Pfad laeuft ueber den Projekt-Bulk-Endpunkt (nur er nimmt die Details)
 #   R31 Release-Anker (resolved + statusDetails.inRelease) gilt als erledigt
+#   R32 Zustand zuerst: ein OFFENES Issue wird nicht geoeffnet (ein PUT, kein reopen)
+#   R33 Fehlerfall: vorheriger Zustand (resolved + alter Anker) wird wiederhergestellt
+#   R34 Wiederherstellen scheitert -> WARNUNG "jetzt OFFEN", exit 1 (kein stiller Rest)
 #   R26 Sentry-Status "resolvedInNextRelease" gilt als erledigt (kein PUT); sonst
 #       meldet ein Dry-Run die ID nach erfolgreichem PUT weiter als offen
 #   R13 VIVID_REPO_ROOT (#250): der Guard darf aus $RUNNER_TEMP aufgerufen
@@ -316,6 +319,12 @@ cat > "$tmp/upgrade/issue-100.json" <<'JSON'
 {"id": "100", "shortId": "VIVID-5Q", "title": "Schon geschlossen", "status": "resolved",
  "statusDetails": {"inNextRelease": false}, "tags": []}
 JSON
+cat > "$tmp/upgrade/put-response-100-1.json" <<'JSON'
+{"id": "100", "status": "unresolved", "statusDetails": {}}
+JSON
+cat > "$tmp/upgrade/put-response-100-2.json" <<'JSON'
+{"id": "100", "status": "resolved", "statusDetails": {"inNextRelease": true}}
+JSON
 body_r23="$tmp/body-r23.json"
 out_r23=$(SENTRY_RESOLVE_FIXTURE="$tmp/upgrade" SENTRY_RESOLVE_BODY_OUT="$body_r23" \
   bash "$guard" --ids 100 --in-next-release) || fail "R23: Upgrade eines resolved Issues darf nicht scheitern"
@@ -323,6 +332,8 @@ grep -q "^OK: 1 Issue(s) als resolved (inNextRelease) markiert — IDs: 100" <<<
   fail "R23: resolved Issue muss mit --in-next-release nachgezogen werden"
 grep -q '"inNextRelease":true' "$body_r23" || \
   fail "R23: PUT-Body ohne statusDetails.inNextRelease"
+grep -q "PUT 100 (Versuch 1, reopen)" <<<"$out_r23" || \
+  fail "R23: ein geschlossenes Issue muss zuerst geoeffnet werden"
 grep -q "nicht unter den unresolved Issues" <<<"$out_r23" && fail "R23: nachgeladene ID darf nicht als fehlend gemeldet werden"
 
 # R24 Gegenprobe: schon inNextRelease -> nichts zu tun, kein PUT.
@@ -379,11 +390,14 @@ cat > "$tmp/ignored/issue-100.json" <<'JSON'
 {"id": "100", "shortId": "VIVID-5Q", "title": "Schon geschlossen", "status": "resolved",
  "statusDetails": {}, "tags": []}
 JSON
-for attempt in 1 2 3 4; do
-  cat > "$tmp/ignored/put-response-100-$attempt.json" <<'JSON'
+cat > "$tmp/ignored/put-response-100-1.json" <<'JSON'
+{"id": "100", "status": "unresolved", "statusDetails": {}}
+JSON
+cat > "$tmp/ignored/put-response-100-2.json" <<'JSON'
 {"id": "100", "status": "resolved", "statusDetails": {}}
 JSON
-done
+cp "$tmp/ignored/put-response-100-2.json" "$tmp/ignored/put-response-100-3.json"
+cp "$tmp/ignored/put-response-100-2.json" "$tmp/ignored/put-response-100-4.json"
 if out_r27=$(SENTRY_RESOLVE_FIXTURE="$tmp/ignored" bash "$guard" --ids 100 --in-next-release 2>&1); then
   fail "R27: HTTP 200 ohne Statuswechsel muss exit 1 sein"
 fi
@@ -391,6 +405,10 @@ grep -q "Sentry hat resolvedInNextRelease nicht uebernommen" <<<"$out_r27" || \
   fail "R27: FEHLER auf nicht uebernommenen Status erwartet"
 grep -q "SENTRY-STATUS: 100 → resolved" <<<"$out_r27" || \
   fail "R27: der beobachtete Status muss im Log stehen"
+grep -q "WIEDERHERGESTELLT: 100 → resolved$" <<<"$out_r27" || \
+  fail "R27: der vorherige Zustand (resolved) muss wiederhergestellt werden"
+grep -q "kein Issue bleibt offen" <<<"$out_r27" || \
+  fail "R27: das Wiederherstellen muss im Urteil stehen"
 
 # R28 Gegenprobe: meldet die PUT-Antwort den inNextRelease-Status, ist der Lauf
 # erledigt und meldet OK.
@@ -402,16 +420,21 @@ cat > "$tmp/taken/issue-100.json" <<'JSON'
  "statusDetails": {}, "tags": []}
 JSON
 cat > "$tmp/taken/put-response-100-1.json" <<'JSON'
+{"id": "100", "status": "unresolved", "statusDetails": {}}
+JSON
+cat > "$tmp/taken/put-response-100-2.json" <<'JSON'
 {"id": "100", "status": "resolvedInNextRelease", "statusDetails": {"inNextRelease": true}}
 JSON
 out_r28=$(SENTRY_RESOLVE_FIXTURE="$tmp/taken" bash "$guard" --ids 100 --in-next-release) || \
   fail "R28: vom PUT bestaetigter inNextRelease-Status darf nicht scheitern"
 grep -q "^OK: 1 Issue(s) als resolved (inNextRelease) markiert — IDs: 100" <<<"$out_r28" || \
   fail "R28: OK-Verdict fuer den uebernommenen Status erwartet"
+grep -q "PUT 100 (Versuch 3" <<<"$out_r28" && \
+  fail "R28: nach dem Treffer darf kein weiterer PUT folgen"
 
-# R29 Rueckfall: Sentry ignoriert den eigenen Status-Wert am geschlossenen Issue,
-# nimmt aber statusDetails.inNextRelease auf "resolved" — der zweite Versuch
-# muss greifen, ohne dass der Guard einen dritten braucht.
+# R29 Rueckfall am geschlossenen Issue: oeffnen greift (Versuch 1), die
+# inNextRelease-Nutzlast wird ignoriert (Versuch 2), erst der eigene Status-Wert
+# setzt das Ziel (Versuch 3) — danach kein weiterer PUT.
 mkdir -p "$tmp/fallback"
 echo 200 > "$tmp/fallback/status"
 echo '[]' > "$tmp/fallback/issues.json"
@@ -420,23 +443,23 @@ cat > "$tmp/fallback/issue-100.json" <<'JSON'
  "statusDetails": {}, "tags": []}
 JSON
 cat > "$tmp/fallback/put-response-100-1.json" <<'JSON'
-{"id": "100", "status": "resolved", "statusDetails": {}}
-JSON
-cat > "$tmp/fallback/put-response-100-2.json" <<'JSON'
 {"id": "100", "status": "unresolved", "statusDetails": {}}
 JSON
+cat > "$tmp/fallback/put-response-100-2.json" <<'JSON'
+{"id": "100", "status": "resolved", "statusDetails": {}}
+JSON
 cat > "$tmp/fallback/put-response-100-3.json" <<'JSON'
-{"id": "100", "status": "resolved", "statusDetails": {"inNextRelease": true}}
+{"id": "100", "status": "resolvedInNextRelease", "statusDetails": {"inNextRelease": true}}
 JSON
 out_r29=$(SENTRY_RESOLVE_FIXTURE="$tmp/fallback" bash "$guard" --ids 100 --in-next-release) || \
   fail "R29: Oeffnen und erneut resolven darf nicht scheitern"
 grep -q "^OK: 1 Issue(s) als resolved (inNextRelease) markiert — IDs: 100" <<<"$out_r29" || \
   fail "R29: OK-Verdict nach Oeffnen und erneutem Resolve erwartet"
-grep -q "PUT 100 (Versuch 2)" <<<"$out_r29" || \
-  fail "R29: das Oeffnen muss im Log stehen"
-grep -q "PUT 100 (Versuch 3)" <<<"$out_r29" || \
+grep -q "PUT 100 (Versuch 1, reopen)" <<<"$out_r29" || \
+  fail "R29: das Oeffnen muss der erste Schritt sein"
+grep -q "PUT 100 (Versuch 3, own-status)" <<<"$out_r29" || \
   fail "R29: der dritte Versuch muss das Ziel setzen"
-grep -q "PUT 100 (Versuch 4)" <<<"$out_r29" && \
+grep -q "PUT 100 (Versuch 4" <<<"$out_r29" && \
   fail "R29: nach dem Treffer darf kein weiterer PUT folgen"
 
 # R30 Der Endpunkt entscheidet: nur der Projekt-Bulk-Endpunkt uebernimmt
@@ -468,4 +491,90 @@ grep -qF "[resolved, inRelease 0.5.52-beta]" <<<"$out_r31" || \
   fail "R31: HINWEIS muss den Release-Anker nennen"
 [ -f "$tmp/body-r31.json" ] && fail "R31: es darf kein PUT-Body entstehen"
 
-echo "✅ [sentry-resolve-test] Sentry-Resolve-Guard vertragstreu (R1–R31)."
+# R32 Zustand zuerst: ein bereits OFFENES Issue wird nicht geoeffnet — genau ein
+# PUT (resolve), kein reopen davor. Die fruehere Blind-Kette begann immer mit
+# "resolve" und oeffnete ein geschlossenes Issue erst danach.
+mkdir -p "$tmp/openfirst"
+echo 200 > "$tmp/openfirst/status"
+echo '[]' > "$tmp/openfirst/issues.json"
+cat > "$tmp/openfirst/issue-100.json" <<'JSON'
+{"id": "100", "shortId": "VIVID-5Q", "title": "Offen", "status": "unresolved",
+ "statusDetails": {}, "tags": []}
+JSON
+cat > "$tmp/openfirst/put-response-100-1.json" <<'JSON'
+{"id": "100", "status": "resolved", "statusDetails": {"inNextRelease": true}}
+JSON
+body_r32="$tmp/body-r32.json"
+out_r32=$(SENTRY_RESOLVE_FIXTURE="$tmp/openfirst" SENTRY_RESOLVE_BODY_OUT="$body_r32" \
+  bash "$guard" --ids 100 --in-next-release) || fail "R32: offenes Issue darf nicht scheitern"
+grep -q "^OK: 1 Issue(s) als resolved (inNextRelease) markiert — IDs: 100" <<<"$out_r32" || \
+  fail "R32: OK fuer das offene Issue erwartet"
+grep -q "PUT 100 (Versuch 1, resolve)" <<<"$out_r32" || \
+  fail "R32: der einzige PUT muss der resolve-Schritt sein"
+grep -q "Versuch 2" <<<"$out_r32" && fail "R32: ein offenes Issue braucht keinen zweiten PUT"
+grep -q "reopen\|unresolved" "$body_r32" && \
+  fail "R32: ein offenes Issue darf nicht geoeffnet/auf unresolved gesetzt werden"
+grep -q '"inNextRelease":true' "$body_r32" || fail "R32: resolve-Body ohne statusDetails.inNextRelease"
+
+# R33 Fehlerfall: nach dem Oeffnen setzt keine der dokumentierten Formen den
+# Status. Der Guard darf das Issue nicht offen zuruecklassen und muss den
+# vorherigen Zustand (resolved) wiederherstellen (dann FEHLER).
+mkdir -p "$tmp/restoreok"
+echo 200 > "$tmp/restoreok/status"
+echo '[]' > "$tmp/restoreok/issues.json"
+cat > "$tmp/restoreok/issue-100.json" <<'JSON'
+{"id": "100", "shortId": "VIVID-5Q", "title": "Schon geschlossen", "status": "resolved",
+ "statusDetails": {"actor": {"id": "1", "name": "m"}}, "tags": []}
+JSON
+cat > "$tmp/restoreok/put-response-100-1.json" <<'JSON'
+{"id": "100", "status": "unresolved", "statusDetails": {}}
+JSON
+cat > "$tmp/restoreok/put-response-100-2.json" <<'JSON'
+{"id": "100", "status": "resolved", "statusDetails": {}}
+JSON
+cp "$tmp/restoreok/put-response-100-2.json" "$tmp/restoreok/put-response-100-3.json"
+cat > "$tmp/restoreok/put-response-100-4.json" <<'JSON'
+{"id": "100", "status": "resolved", "statusDetails": {}}
+JSON
+body_r33="$tmp/body-r33.json"
+if out_r33=$(SENTRY_RESOLVE_FIXTURE="$tmp/restoreok" SENTRY_RESOLVE_BODY_OUT="$body_r33" \
+  bash "$guard" --ids 100 --in-next-release 2>&1); then
+  fail "R33: nicht uebernommener Status muss exit 1 sein"
+fi
+grep -q "FEHLER: Sentry hat resolvedInNextRelease nicht uebernommen" <<<"$out_r33" || \
+  fail "R33: FEHLER-Urtell erwartet"
+grep -qF "WIEDERHERGESTELLT: 100 → resolved" <<<"$out_r33" || \
+  fail "R33: der vorherige Zustand (resolved) muss wiederhergestellt werden"
+grep -q '"inNextRelease"' "$body_r33" && \
+  fail "R33: der Wiederherstellungs-PUT darf kein inNextRelease senden"
+grep -Eq '"status"[[:space:]]*:[[:space:]]*"resolved"' "$body_r33" || \
+  fail "R33: der Wiederherstellungs-PUT muss status=resolved senden"
+grep -q "kein Issue bleibt offen" <<<"$out_r33" || \
+  fail "R33: das Urteil muss das Wiederherstellen nennen"
+
+# R34 Auch das Wiederherstellen kann scheitern: dann bleibt das Issue offen und
+# der Guard muss das ausdruecklich sagen (WARNUNG + exit 1) — kein stiller Rest.
+mkdir -p "$tmp/restorefail"
+echo 200 > "$tmp/restorefail/status"
+echo '[]' > "$tmp/restorefail/issues.json"
+cat > "$tmp/restorefail/issue-100.json" <<'JSON'
+{"id": "100", "shortId": "VIVID-5Q", "title": "Schon geschlossen", "status": "resolved",
+ "statusDetails": {}, "tags": []}
+JSON
+cat > "$tmp/restorefail/put-response-100-1.json" <<'JSON'
+{"id": "100", "status": "unresolved", "statusDetails": {}}
+JSON
+cat > "$tmp/restorefail/put-response-100-2.json" <<'JSON'
+{"id": "100", "status": "resolved", "statusDetails": {}}
+JSON
+cp "$tmp/restorefail/put-response-100-2.json" "$tmp/restorefail/put-response-100-3.json"
+cp "$tmp/restorefail/put-response-100-1.json" "$tmp/restorefail/put-response-100-4.json"
+if out_r34=$(SENTRY_RESOLVE_FIXTURE="$tmp/restorefail" bash "$guard" --ids 100 --in-next-release 2>&1); then
+  fail "R34: gescheitertes Wiederherstellen muss exit 1 sein"
+fi
+grep -q "WARNUNG: Wiederherstellen von 100 nicht bestaetigt" <<<"$out_r34" || \
+  fail "R34: WARNUNG auf das misslungene Wiederherstellen erwartet"
+grep -q "sind jetzt OFFEN (unresolved)" <<<"$out_r34" || \
+  fail "R34: der offene Zustand muss ausdruecklich gemeldet werden"
+
+echo "✅ [sentry-resolve-test] Sentry-Resolve-Guard vertragstreu (R1–R34)."

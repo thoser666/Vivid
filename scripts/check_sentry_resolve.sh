@@ -35,10 +35,29 @@
 # Nutzlast, getsentry/sentry#66422); der Org-Einzel-Endpunkt /organizations/
 # {org}/issues/{id}/ verwirft die Details und resolvt "im aktuellen Release"
 # (Antwort trug statusDetails.inRelease). Und ein bereits geschlossenes Issue
-# nimmt Sentry nicht an (PUT 200, Status blieb "resolved") — deshalb oeffnet
-# die Kette das Issue und setzt den Status erneut. Ein 200 allein gilt nie als
-# Erfolg: bleibt der Status aus, meldet der Guard FEHLER (exit 1), statt eine
-# Schliessung zu behaupten. Den Ergebniszustand legt Sentry als RELEASE-ANKER
+# nimmt Sentry nicht an (PUT 200, Status blieb "resolved"). Der Guard liest
+# deshalb den Zustand ZUERST (Phase A holt jede genannte ID per GET
+# /issues/{id}/), oeffnet nur ein geschlossenes Issue und stellt im Fehlerfall
+# den vorherigen Zustand wieder her: geschlossen -> wieder "resolved", offen
+# -> "unresolved". (Ein geschlossenes Issue MIT Anker erreicht den Schreibpfad
+# nie — es gilt schon als erledigt; deshalb stellt die Wiederherstellung nur
+# den Zustand her, nicht den Anker.) Ein 200 allein gilt nie als Erfolg:
+# bleibt der Status aus, meldet der Guard FEHLER (exit 1), statt eine
+# Schliessung zu behaupten — und ein Lauf endet nie mit einem Issue, das er
+# selbst geoeffnet hat.
+#
+# Expliziter Anker (statusDetails.inRelease, z. B. 0.5.52-beta) geprueft und
+# VERWORFEN (28.11.2026): Sentry loest den Wert als Release des Projekts auf,
+# und 0.5.52-beta existiert nicht (Releases heissen
+# com.vivid@0.5.51-beta+5512, Release-Liste 28.11.2026); verglichen wird ohne
+# Paketnamen, com.vivid.debug@1.0+1 zaehlt also als 1.0+1 und ist NEUER als
+# jeder 0.5.x-Anker — das Event des alten Builds oeffnete die Gruppe wieder.
+# Die inNextRelease-Aufloesung ist staerker: Sentry setzt dort selbst
+# current_release_version (semver: groesste Release des Projekts, sonst die
+# zuletzt beobachtete des Issues) und haelt die Gruppe fuer alle Releases
+# <= dieser Version geschlossen (GroupResolution.has_resolution).
+# Details: docs/sentry-stats.md Abschnitt 6.
+# Den Ergebniszustand legt Sentry als RELEASE-ANKER
 # ab: status "resolved" + statusDetails.inRelease = zuletzt gesehene Version
 # (der Anker wandert mit jedem neuen Release mit); GET liefert dort kein
 # statusDetails.inNextRelease. Der Guard liest den Anker als erledigt — sonst
@@ -322,6 +341,7 @@ for f in files:
 
 matches = []
 already_next = []
+prior = {}
 seen = set()
 in_next = os.environ.get("SENTRY_RESOLVE_IN_NEXT") == "1"
 for it in issues:
@@ -336,6 +356,9 @@ for it in issues:
         if issue_id not in wanted_ids or issue_id in seen:
             continue
         status = it.get("status") or ""
+        # Vorzustand je ID merken: Phase B oeffnet nur geschlossene Issues und
+        # stellt genau diesen Zustand im Fehlerfall wieder her.
+        prior[issue_id] = status
         if status == "ignored":
             continue
         if status in ("resolved", "resolvedInNextRelease"):
@@ -419,6 +442,14 @@ tmp = os.environ["SENTRY_RESOLVE_TMP"]
 open(os.path.join(tmp, "put_url"), "w", encoding="utf-8").write(url)
 open(os.path.join(tmp, "put_body"), "w", encoding="utf-8").write(body)
 open(os.path.join(tmp, "put_ids"), "w", encoding="utf-8").write(",".join(ids))
+# Vorzustand + fertiger Wiederherstellungs-Body je ID (Phase B liest beides).
+with open(os.path.join(tmp, "put_prior"), "w", encoding="utf-8") as fh:
+    for i in ids:
+        st = prior.get(i, "")
+        fh.write("%s\t%s\n" % (i, st))
+        restore = {"status": "resolved"} if st in ("resolved", "resolvedInNextRelease") else {"status": "unresolved"}
+        open(os.path.join(tmp, "restore_body." + i), "w", encoding="utf-8").write(
+            json.dumps(restore))
 for i, t in matches:
     print("RESOLVE: %s → %s" % (i, t))
 print("WOULD_RESOLVE=%d" % len(matches))
@@ -558,43 +589,65 @@ if [ -n "$ids_norm" ] && [ "$in_next" = "1" ]; then
   # getsentry/sentry#66422); der Org-Einzel-Endpunkt verwirft die Details und
   # resolvt "im aktuellen Release" — real beobachtet an #429/VIVID-5Q: die
   # Antwort trug statusDetails.inRelease statt inNextRelease.
-  # Ein bereits geschlossenes Issue nimmt Sentry nicht an (Run 46121135449:
-  # PUT 200, Status blieb "resolved"), darum oeffnen und erneut setzen.
+  # Zustand ZUERST lesen (Phase A hat jede ID per GET /issues/{id}/ geholt):
+  # ein offenes Issue wird direkt resolvt, ein geschlossenes erst geoeffnet.
+  # Scheitert das Setzen, stellt der Guard den vorherigen Zustand wieder her —
+  # ein Lauf endet nie mit einem Issue, das er selbst geoeffnet hat.
   bulk_url="$API/projects/$ORG/$PROJECT_SLUG/issues/?id="
   untaken=""
+  left_open=""
+
+  # Ein PUT mit eigenem Body; setzt PUT_CODE/PUT_RESP (Fixture oder live).
+  send_put() {  # $1=ID, $2=Versuch, $3=Body, $4=Schrittname
+    printf '%s' "$3" > "$tmp/put_body_attempt"
+    # Selbsttest-Hook: der zuletzt gesendete Body, nicht der Phase-A-Entwurf.
+    if [ -n "${SENTRY_RESOLVE_BODY_OUT:-}" ]; then
+      cp "$tmp/put_body_attempt" "$SENTRY_RESOLVE_BODY_OUT"
+    fi
+    if [ -n "$FIXTURE" ]; then
+      code=$(cat "$FIXTURE/status" 2>/dev/null || echo 200)
+      resp="$FIXTURE/put-response-$1-$2.json"
+    else
+      resp="$tmp/put.$1.$2.json"
+      code=$(put_once "$bulk_url$1" "$tmp/put_body_attempt" "$(py_path "$resp")")
+    fi
+    echo "PUT $1 (Versuch $2, $4) → HTTP $code"
+    if [ -n "${SENTRY_RESOLVE_PUT_OUT:-}" ] && [ -s "$resp" ]; then
+      cp "$resp" "$SENTRY_RESOLVE_PUT_OUT"
+    fi
+    PUT_CODE="$code"
+    PUT_RESP="$resp"
+  }
+
   for id in $(printf '%s' "$ids" | tr ',' ' '); do
+    prior_status=$(awk -F'\t' -v k="$id" '$1==k{print $2; exit}' "$tmp/put_prior")
+    case "$prior_status" in
+      resolved|resolvedInNextRelease)
+        prior_closed=1
+        steps="reopen resolve own-status" ;;
+      *)
+        prior_closed=0
+        steps="resolve own-status" ;;
+    esac
     taken=0
     attempt=0
     resp=""
-    for step in resolve reopen resolve-again own-status; do
+    for step in $steps; do
       attempt=$((attempt + 1))
       case "$step" in
-        resolve|resolve-again)
-          body='{"status":"resolved","statusDetails":{"inNextRelease":true},"substatus":null}'
-          want="inNextRelease" ;;
         reopen)
           body='{"status":"unresolved"}'
           want="unresolved" ;;
+        resolve)
+          body='{"status":"resolved","statusDetails":{"inNextRelease":true},"substatus":null}'
+          want="inNextRelease" ;;
         own-status)
           body='{"status":"resolvedInNextRelease"}'
           want="inNextRelease" ;;
       esac
-      printf '%s' "$body" > "$tmp/put_body_attempt"
-      # Selbsttest-Hook: der zuletzt gesendete Body, nicht der Phase-A-Entwurf.
-      if [ -n "${SENTRY_RESOLVE_BODY_OUT:-}" ]; then
-        cp "$tmp/put_body_attempt" "$SENTRY_RESOLVE_BODY_OUT"
-      fi
-      if [ -n "$FIXTURE" ]; then
-        code=$(cat "$FIXTURE/status" 2>/dev/null || echo 200)
-        resp="$FIXTURE/put-response-$id-$attempt.json"
-      else
-        resp="/tmp/sentry_resolve_put.$id.$attempt.$$.json"
-        code=$(put_once "$bulk_url$id" "$tmp/put_body_attempt" "$resp")
-      fi
-      echo "PUT $id (Versuch $attempt) → HTTP $code"
-      if [ -n "${SENTRY_RESOLVE_PUT_OUT:-}" ] && [ -s "$resp" ]; then
-        cp "$resp" "$SENTRY_RESOLVE_PUT_OUT"
-      fi
+      send_put "$id" "$attempt" "$body" "$step"
+      resp="$PUT_RESP"
+      code="$PUT_CODE"
       case "$code" in
         200|204)
           if [ ! -s "$resp" ]; then
@@ -619,11 +672,40 @@ if [ -n "$ids_norm" ] && [ "$in_next" = "1" ]; then
           skip_putstatus "$code" ;;
       esac
     done
-    if [ "$taken" = "0" ]; then
-      untaken="$untaken $id"
-      if [ -n "$resp" ] && [ -s "$resp" ]; then
-        cp "$resp" "$tmp/untaken.$id.json" 2>/dev/null || true
+    [ "$taken" = "1" ] && continue
+    untaken="$untaken $id"
+    if [ -n "$resp" ] && [ -s "$resp" ]; then
+      cp "$resp" "$tmp/untaken.$id.json" 2>/dev/null || true
+    fi
+    # Fehlerfall: vorherigen Zustand wiederherstellen. Geschlossen -> wieder
+    # schliessen, offen -> ausdruecklich auf unresolved zuruecksetzen. Bewusst
+    # KEIN skip_putstatus: ein misslungenes Wiederherstellen ist ein Befund,
+    # kein SKIP.
+    attempt=$((attempt + 1))
+    if [ "$prior_closed" = "1" ] && [ -s "$tmp/restore_body.$id" ]; then
+      body=$(cat "$tmp/restore_body.$id")
+      want="resolved"
+    else
+      body='{"status":"unresolved"}'
+      want="unresolved"
+    fi
+    send_put "$id" "$attempt" "$body" "restore"
+    resp="$PUT_RESP"
+    rrc=0
+    if [ -s "$resp" ]; then
+      verify_put_status "$resp" "$id" "$want" || rrc=$?
+    else
+      rrc=2    # keine Antwort zum Pruefen -> nicht bestaetigt
+    fi
+    if [ "$rrc" = "0" ]; then
+      if [ "$prior_closed" = "1" ]; then
+        echo "WIEDERHERGESTELLT: $id → resolved"
+      else
+        echo "WIEDERHERGESTELLT: $id → unresolved (war vorher offen)"
       fi
+    else
+      left_open="$left_open $id"
+      echo "WARNUNG: Wiederherstellen von $id nicht bestaetigt (HTTP $PUT_CODE, Schritt restore)"
     fi
   done
   if [ -n "$untaken" ]; then
@@ -632,7 +714,11 @@ if [ -n "$ids_norm" ] && [ "$in_next" = "1" ]; then
     if [ -s "$tmp/untaken.$first.json" ]; then
       echo "API-ANTWORT: $(tr '\n' ' ' < "$tmp/untaken.$first.json" | cut -c1-600)"
     fi
-    echo "HINWEIS: jede dokumentierte Form kam mit HTTP 200 zurueck, ohne den Status zu setzen — Issue in Sentry pruefen ($DOCS_HINT)."
+    if [ -n "$left_open" ]; then
+      echo "WARNUNG: Zustand NICHT wiederhergestellt — IDs:$left_open sind jetzt OFFEN (unresolved); in Sentry pruefen ($DOCS_HINT)."
+    else
+      echo "HINWEIS: vorheriger Zustand wiederhergestellt — kein Issue bleibt offen ($DOCS_HINT)."
+    fi
     exit 1
   fi
   echo "OK: $count Issue(s) als resolved (inNextRelease) markiert — IDs: $ids"

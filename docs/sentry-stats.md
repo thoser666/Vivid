@@ -211,15 +211,33 @@ Mechanik:
    verwirft sie und resolvt „im aktuellen Release“ (Antwort trägt dann
    `statusDetails.inRelease`, am 28.11.2026 an #429/VIVID-5Q beobachtet,
    getsentry/sentry#66422). Ein bereits geschlossenes Issue nimmt Sentry
-   ebenfalls nicht an — deshalb öffnet `check_sentry_resolve.sh` es vorher
-   einmal und prüft nach jedem PUT den zurückgemeldeten Status. Den
-   Ergebniszustand zeigt `GET /issues/{id}/` als `status: resolved` mit
-   `statusDetails.inRelease` (zuletzt gesehene Version — Sentry zieht den
-   Anker mit jedem neuen Release nach); `inNextRelease` steht nur in der
-   PUT-Antwort, nicht im GET. Genau diesen Anker liest der Guard als erledigt;
-   **Sentry schließt die Gruppe automatisch**, sobald Events aus genau dieser
-   Release eintreffen — semantisch „Resolved in next release". Events aus
-   älteren Builds öffnen sie wieder.
+   ebenfalls nicht an. Der Guard liest den Zustand deshalb **zuerst** (GET je
+   ID), öffnet nur ein geschlossenes Issue und prüft nach jedem PUT den
+   zurückgemeldeten Status; scheitert der Versuch, stellt er den vorherigen
+   Zustand wieder her (geschlossen: `resolved`, offen: `unresolved`) und
+   meldet FEHLER — ein Lauf endet nie mit einem Issue, das er selbst geöffnet
+   hat. Ein geschlossenes Issue mit Anker erreicht diesen Pfad nie: es gilt
+   schon als erledigt. Den Ergebniszustand zeigt
+   `GET /issues/{id}/` als `status: resolved` mit `statusDetails.inRelease`
+   (zuletzt gesehene Version); `inNextRelease` steht nur in der PUT-Antwort,
+   nicht im GET. Genau diesen Anker liest der Guard als erledigt.
+
+   **Schutzwirkung (Sentry-Quelle `GroupResolution.has_resolution`,
+   28.11.2026):** Ein Event öffnet die Gruppe nur, wenn es aus einer
+   *neueren* Release kommt als der aufgelösten; ältere bleiben still.
+   „Resolved in next release" hält dafür `current_release_version` fest
+   (semver: die größte Release des Projekts, sonst die zuletzt beobachtete
+   Release des Issues) und vergleicht `current >= event`; der gespeicherte
+   Wert ist damit immer eine echte Projekt-Release.
+
+   **Expliziter Anker — geprüft und verworfen:** `statusDetails.inRelease`
+   (z. B. `0.5.52-beta`) nimmt die API an, hilft hier aber nicht: Sentry löst
+   den Wert als Release des Projekts auf, und `0.5.52-beta` existiert nicht
+   (Releases heißen `com.vivid@0.5.51-beta+5512`, Release-Liste 28.11.2026).
+   Zudem vergleicht Sentry ohne Paketnamen — `com.vivid.debug@1.0+1` zählt als
+   `1.0+1` und ist damit *neuer* als jeder `0.5.x`-Anker, ein Event aus dem
+   alten Debug-Build würde die Gruppe wieder öffnen. Die inNextRelease-
+   Auflösung setzt den Anker dagegen selbst auf eine reale Release.
 
    **In der CI (der Weg mit Schreib-Token):**
    `gh workflow run automation-sentry-resolve.yml -f ids=7822620409,7822620394`
@@ -244,7 +262,7 @@ Mechanik:
 Lokal testen (Offline-Fixtures):
 
 ```bash
-bash scripts/test_sentry_resolve.sh      # R1–R11, kein Netz
+bash scripts/test_sentry_resolve.sh      # R1–R34, kein Netz
 bash scripts/test_distribution_stable.sh # D14-Verträge des Workflow-Steps
 bash scripts/check_sentry_resolve.sh --version v0.6.0-beta --dry-run   # nur anzeigen
 bash scripts/check_sentry_resolve.sh --version v0.6.0-beta             # echt resolven
