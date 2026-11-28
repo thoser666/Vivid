@@ -212,7 +212,11 @@ Mechanik:
    `statusDetails.inRelease`, am 28.11.2026 an #429/VIVID-5Q beobachtet,
    getsentry/sentry#66422). Ein bereits geschlossenes Issue nimmt Sentry
    ebenfalls nicht an — deshalb öffnet `check_sentry_resolve.sh` es vorher
-   einmal und prüft nach jedem PUT den zurückgemeldeten Status;
+   einmal und prüft nach jedem PUT den zurückgemeldeten Status. Den
+   Ergebniszustand zeigt `GET /issues/{id}/` als `status: resolved` mit
+   `statusDetails.inRelease` (zuletzt gesehene Version — Sentry zieht den
+   Anker mit jedem neuen Release nach); `inNextRelease` steht nur in der
+   PUT-Antwort, nicht im GET. Genau diesen Anker liest der Guard als erledigt;
    **Sentry schließt die Gruppe automatisch**, sobald Events aus genau dieser
    Release eintreffen — semantisch „Resolved in next release". Events aus
    älteren Builds öffnen sie wieder.

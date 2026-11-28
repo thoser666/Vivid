@@ -46,6 +46,7 @@
 #   R28 vom PUT zurueckgemeldeter Status resolvedInNextRelease -> OK
 #   R29 Ablauf am geschlossenen Issue: PUT wirkungslos, oeffnen, erneut resolven
 #   R30 der Pfad laeuft ueber den Projekt-Bulk-Endpunkt (nur er nimmt die Details)
+#   R31 Release-Anker (resolved + statusDetails.inRelease) gilt als erledigt
 #   R26 Sentry-Status "resolvedInNextRelease" gilt als erledigt (kein PUT); sonst
 #       meldet ein Dry-Run die ID nach erfolgreichem PUT weiter als offen
 #   R13 VIVID_REPO_ROOT (#250): der Guard darf aus $RUNNER_TEMP aufgerufen
@@ -447,4 +448,24 @@ grep -qF 'bulk_url="$API/projects/$ORG/$PROJECT_SLUG/issues/?id="' "$guard" || \
 grep -qF '"$API/organizations/$ORG/issues/$id/"' "$guard" && \
   fail "R30: der Org-Einzel-Endpunkt verwirft statusDetails.inNextRelease"
 
-echo "✅ [sentry-resolve-test] Sentry-Resolve-Guard vertragstreu (R1–R30)."
+# R31 Sentry legt "in der naechsten Version erledigt" als Release-Anker ab:
+# status "resolved" mit statusDetails.inRelease. Ohne diesen Zweig meldet der
+# Guard die ID bei jedem Lauf erneut als offen und PUTtet endlos (Run
+# 46123378210: der PUT wirkte, der naechste Dry-Run wollte ihn wiederholen).
+mkdir -p "$tmp/anchor"
+echo 200 > "$tmp/anchor/status"
+echo '[]' > "$tmp/anchor/issues.json"
+cat > "$tmp/anchor/issue-100.json" <<'JSON'
+{"id": "100", "shortId": "VIVID-5Q", "title": "Schon geschlossen", "status": "resolved",
+ "statusDetails": {"inRelease": "0.5.52-beta", "actor": {"id": "1", "name": "maintainer"}}, "tags": []}
+JSON
+out_r31=$(SENTRY_RESOLVE_FIXTURE="$tmp/anchor" SENTRY_RESOLVE_BODY_OUT="$tmp/body-r31.json" \
+  bash "$guard" --ids 100 --in-next-release) || fail "R31: Release-Anker darf nicht scheitern"
+grep -q "^OK: 0 Issues aus --ids" <<<"$out_r31" || fail "R31: kein PUT fuer einen Release-Anker erwartet"
+grep -q "HINWEIS: 1 ID(s) sind bereits resolved/inNextRelease" <<<"$out_r31" || \
+  fail "R31: HINWEIS auf den Release-Anker erwartet"
+grep -qF "[resolved, inRelease 0.5.52-beta]" <<<"$out_r31" || \
+  fail "R31: HINWEIS muss den Release-Anker nennen"
+[ -f "$tmp/body-r31.json" ] && fail "R31: es darf kein PUT-Body entstehen"
+
+echo "✅ [sentry-resolve-test] Sentry-Resolve-Guard vertragstreu (R1–R31)."

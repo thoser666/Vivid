@@ -38,7 +38,11 @@
 # nimmt Sentry nicht an (PUT 200, Status blieb "resolved") — deshalb oeffnet
 # die Kette das Issue und setzt den Status erneut. Ein 200 allein gilt nie als
 # Erfolg: bleibt der Status aus, meldet der Guard FEHLER (exit 1), statt eine
-# Schliessung zu behaupten.
+# Schliessung zu behaupten. Den Ergebniszustand legt Sentry als RELEASE-ANKER
+# ab: status "resolved" + statusDetails.inRelease = zuletzt gesehene Version
+# (der Anker wandert mit jedem neuen Release mit); GET liefert dort kein
+# statusDetails.inNextRelease. Der Guard liest den Anker als erledigt — sonst
+# haelt jeder Folge-Lauf die ID fuer offen und PUTtet endlos.
 # Gedacht fuer Befunde, deren Fix mit einem konkreten Release erstmals
 # ausgeliefert wurde, ohne dass ein fix-release-Event-Tag existiert (#429 /
 # VIVID-5Q: Fix 1b74d05 erstmals in v0.5.51-beta). Ohne das Flag bleibt --ids
@@ -341,8 +345,17 @@ for it in issues:
             # meldet ein Dry-Run nach erfolgreichem PUT die ID weiter als
             # offenen Treffer (Dispatch 45986689320).
             details = it.get("statusDetails") or {}
-            if status == "resolvedInNextRelease" or details.get("inNextRelease") is True:
-                already_next.append((issue_id, status))
+            # Sentry legt "in der naechsten Version erledigt" als Anker ab:
+            # status "resolved" mit statusDetails.inRelease = zuletzt gesehene
+            # Version (der Anker wandert mit jedem neuen Release mit). Ohne
+            # diesen Zweig meldet jeder Dry-Run die ID erneut als offen und
+            # wuerde sie endlos neu resolven (Run 46123378210).
+            anchored = details.get("inRelease")
+            if (status == "resolvedInNextRelease"
+                    or details.get("inNextRelease") is True
+                    or (status == "resolved" and anchored)):
+                label = "%s, inRelease %s" % (status, anchored) if anchored else status
+                already_next.append((issue_id, label))
                 seen.add(issue_id)
                 continue
             if not in_next:
