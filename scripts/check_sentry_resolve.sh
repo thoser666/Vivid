@@ -28,8 +28,12 @@
 # §5.10). Der Workflow automation-sentry-resolve.yml dispatcht genau diesen
 # Modus; der Tag-Vertrag (--version) bleibt unveraendert daneben bestehen.
 #
-# --ids kennt zusaetzlich --in-next-release (seit 27.11.2026): dann setzt der
-# Bulk-PUT dasselbe Status-Detail wie der Versions-Pfad (resolved/inNextRelease).
+# --ids kennt zusaetzlich --in-next-release (seit 27.11.2026): dann sendet der
+# Bulk-PUT den EIGENEN Sentry-Status "resolvedInNextRelease" (dokumentierter
+# status-Wert der API). Ein blosses status=resolved + statusDetails.inNextRelease
+# wird serverseitig still ignoriert — real beobachtet an #429/VIVID-5Q am
+# 28.11.2026: der PUT antwortete 200, das Issue blieb "resolved" mit leerem
+# statusDetails, also weiter offen fuer Events aus alten Builds.
 # Gedacht fuer Befunde, deren Fix mit einem konkreten Release erstmals
 # ausgeliefert wurde, ohne dass ein fix-release-Event-Tag existiert (#429 /
 # VIVID-5Q: Fix 1b74d05 erstmals in v0.5.51-beta). Ohne das Flag bleibt --ids
@@ -384,12 +388,15 @@ url = "%s/projects/%s/%s/issues/?id=%s" % (
     os.environ["SENTRY_RESOLVE_API"], os.environ["SENTRY_RESOLVE_ORG"],
     os.environ["SENTRY_RESOLVE_PROJECT"], "&id=".join(ids))
 if wanted_ids:
-    body_obj = {"status": "resolved"}
+    # Sentry kennt "resolved in next release" als eigenen status-Wert; die
+    # Kombination status=resolved + statusDetails.inNextRelease nimmt der
+    # Bulk-PUT zwar an (200), uebernimmt sie aber nicht in den Issue-Status.
     if os.environ.get("SENTRY_RESOLVE_IN_NEXT") == "1":
-        body_obj["statusDetails"] = {"inNextRelease": True}
-    body = json.dumps(body_obj)
+        body = json.dumps({"status": "resolvedInNextRelease"})
+    else:
+        body = json.dumps({"status": "resolved"})
 else:
-    body = json.dumps({"status": "resolved", "statusDetails": {"inNextRelease": True}})
+    body = json.dumps({"status": "resolvedInNextRelease"})
 tmp = os.environ["SENTRY_RESOLVE_TMP"]
 open(os.path.join(tmp, "put_url"), "w", encoding="utf-8").write(url)
 open(os.path.join(tmp, "put_body"), "w", encoding="utf-8").write(body)

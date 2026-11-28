@@ -200,11 +200,14 @@ Mechanik:
    ```bash
    curl -sS -X PUT -H "Authorization: Bearer $SENTRY_RESOLVE_TOKEN" \
      -H "Content-Type: application/json" \
-     -d '{"status":"resolved","statusDetails":{"inNextRelease":true}}' \
+     -d '{"status":"resolvedInNextRelease"}' \
      "https://sentry.io/api/0/projects/privat-jb/vivid/issues/?id=7821630074&id=7821627754"
    ```
 
-   Beide Wege setzen `{"status":"resolved","statusDetails":{"inNextRelease":true}}`;
+   Beide Wege setzen den Sentry-Status `{"status":"resolvedInNextRelease"}` (die
+   Kombination `status=resolved` + `statusDetails.inNextRelease` quittiert die
+   API mit 200, übernimmt sie aber nicht — am 28.11.2026 an #429/VIVID-5Q
+   beobachtet: Status blieb `resolved`);
    **Sentry schließt die Gruppe automatisch**, sobald Events aus genau dieser
    Release eintreffen — semantisch „Resolved in next release". Events aus
    älteren Builds öffnen sie wieder.

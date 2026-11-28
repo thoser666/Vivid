@@ -9,7 +9,7 @@
 # §5.10, docs/sentry-stats.md §6 Punkt 4).
 #
 # Seit 27.11.2026 kennt der ID-Pfad den Input `in_next_release`: dann setzt der
-# Guard statusDetails.inNextRelease (Befund in einem konkreten Release behoben,
+# Guard den Status `resolvedInNextRelease` (Befund in einem konkreten Release behoben,
 # ohne fix-release-Event-Tag — #429/VIVID-5Q, Fix erstmals in v0.5.51-beta).
 #
 # Verdicts des Guards sind bewusst keine Gate-Blocker: fehlender/abgelaufener

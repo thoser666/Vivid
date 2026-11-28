@@ -269,8 +269,10 @@ out_r19=$(SENTRY_RESOLVE_FIXTURE="$tmp/match" SENTRY_RESOLVE_BODY_OUT="$body_r19
   bash "$guard" --ids 100 --in-next-release) || fail "R19: --in-next-release darf nicht scheitern"
 grep -q "^OK: 1 Issue(s) als resolved (inNextRelease) markiert — IDs: 100" <<<"$out_r19" || \
   fail "R19: inNextRelease-Verdict fuer --ids erwartet"
-grep -q '"inNextRelease": true' "$body_r19" || fail "R19: PUT-Body ohne statusDetails.inNextRelease"
-grep -q '"status": "resolved"' "$body_r19" || fail "R19: PUT-Body ohne status=resolved"
+grep -q '"status": "resolvedInNextRelease"' "$body_r19" || \
+  fail "R19: PUT-Body ohne status=resolvedInNextRelease (statusDetails.inNextRelease wird von Sentry ignoriert)"
+grep -q '"status": "resolved"' "$body_r19" && \
+  fail "R19: blosser resolved-Status laesst die Gruppe bei alten Events wieder aufgehen"
 
 # R20 Gegenprobe: ohne Flag bleibt es beim blossen resolved (der bisherige
 # Vertrag fuer "kein Defekt"-Entscheide darf nicht mitkippen).
@@ -313,7 +315,8 @@ out_r23=$(SENTRY_RESOLVE_FIXTURE="$tmp/upgrade" SENTRY_RESOLVE_BODY_OUT="$body_r
   bash "$guard" --ids 100 --in-next-release) || fail "R23: Upgrade eines resolved Issues darf nicht scheitern"
 grep -q "^OK: 1 Issue(s) als resolved (inNextRelease) markiert — IDs: 100" <<<"$out_r23" || \
   fail "R23: resolved Issue muss mit --in-next-release nachgezogen werden"
-grep -q '"inNextRelease": true' "$body_r23" || fail "R23: PUT-Body ohne statusDetails.inNextRelease"
+grep -q '"status": "resolvedInNextRelease"' "$body_r23" || \
+  fail "R23: PUT-Body ohne status=resolvedInNextRelease"
 grep -q "nicht unter den unresolved Issues" <<<"$out_r23" && fail "R23: nachgeladene ID darf nicht als fehlend gemeldet werden"
 
 # R24 Gegenprobe: schon inNextRelease -> nichts zu tun, kein PUT.
