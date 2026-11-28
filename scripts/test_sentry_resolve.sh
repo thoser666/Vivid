@@ -44,6 +44,7 @@
 #   R25 Plain-Vertrag: resolved Issue ohne Flag wird nicht angefasst
 #   R27 HTTP 200 ohne Statuswechsel -> FEHLER (Sentry nahm den PUT an, setzte nichts)
 #   R28 vom PUT zurueckgemeldeter Status resolvedInNextRelease -> OK
+#   R29 Rueckfall: erster PUT wirkungslos, statusDetails.inNextRelease greift
 #   R26 Sentry-Status "resolvedInNextRelease" gilt als erledigt (kein PUT); sonst
 #       meldet ein Dry-Run die ID nach erfolgreichem PUT weiter als offen
 #   R13 VIVID_REPO_ROOT (#250): der Guard darf aus $RUNNER_TEMP aufgerufen
@@ -375,9 +376,11 @@ cat > "$tmp/ignored/issue-100.json" <<'JSON'
 {"id": "100", "shortId": "VIVID-5Q", "title": "Schon geschlossen", "status": "resolved",
  "statusDetails": {}, "tags": []}
 JSON
-cat > "$tmp/ignored/put-response-100.json" <<'JSON'
+for attempt in 1 2 3 4; do
+  cat > "$tmp/ignored/put-response-100-$attempt.json" <<'JSON'
 {"id": "100", "status": "resolved", "statusDetails": {}}
 JSON
+done
 if out_r27=$(SENTRY_RESOLVE_FIXTURE="$tmp/ignored" bash "$guard" --ids 100 --in-next-release 2>&1); then
   fail "R27: HTTP 200 ohne Statuswechsel muss exit 1 sein"
 fi
@@ -395,7 +398,7 @@ cat > "$tmp/taken/issue-100.json" <<'JSON'
 {"id": "100", "shortId": "VIVID-5Q", "title": "Schon geschlossen", "status": "resolved",
  "statusDetails": {}, "tags": []}
 JSON
-cat > "$tmp/taken/put-response-100.json" <<'JSON'
+cat > "$tmp/taken/put-response-100-1.json" <<'JSON'
 {"id": "100", "status": "resolvedInNextRelease", "statusDetails": {"inNextRelease": true}}
 JSON
 out_r28=$(SENTRY_RESOLVE_FIXTURE="$tmp/taken" bash "$guard" --ids 100 --in-next-release) || \
@@ -403,4 +406,29 @@ out_r28=$(SENTRY_RESOLVE_FIXTURE="$tmp/taken" bash "$guard" --ids 100 --in-next-
 grep -q "^OK: 1 Issue(s) als resolved (inNextRelease) markiert — IDs: 100" <<<"$out_r28" || \
   fail "R28: OK-Verdict fuer den uebernommenen Status erwartet"
 
-echo "✅ [sentry-resolve-test] Sentry-Resolve-Guard vertragstreu (R1–R28)."
+# R29 Rueckfall: Sentry ignoriert den eigenen Status-Wert am geschlossenen Issue,
+# nimmt aber statusDetails.inNextRelease auf "resolved" — der zweite Versuch
+# muss greifen, ohne dass der Guard einen dritten braucht.
+mkdir -p "$tmp/fallback"
+echo 200 > "$tmp/fallback/status"
+echo '[]' > "$tmp/fallback/issues.json"
+cat > "$tmp/fallback/issue-100.json" <<'JSON'
+{"id": "100", "shortId": "VIVID-5Q", "title": "Schon geschlossen", "status": "resolved",
+ "statusDetails": {}, "tags": []}
+JSON
+cat > "$tmp/fallback/put-response-100-1.json" <<'JSON'
+{"id": "100", "status": "resolved", "statusDetails": {}}
+JSON
+cat > "$tmp/fallback/put-response-100-2.json" <<'JSON'
+{"id": "100", "status": "resolved", "statusDetails": {"inNextRelease": true}}
+JSON
+out_r29=$(SENTRY_RESOLVE_FIXTURE="$tmp/fallback" bash "$guard" --ids 100 --in-next-release) || \
+  fail "R29: Rueckfall ueber statusDetails.inNextRelease darf nicht scheitern"
+grep -q "^OK: 1 Issue(s) als resolved (inNextRelease) markiert — IDs: 100" <<<"$out_r29" || \
+  fail "R29: OK-Verdict nach dem Rueckfall erwartet"
+grep -q "PUT 100 (Versuch 2)" <<<"$out_r29" || \
+  fail "R29: der zweite Versuch muss im Log stehen"
+grep -q "PUT 100 (Versuch 3)" <<<"$out_r29" && \
+  fail "R29: nach dem Treffer darf kein weiterer PUT folgen"
+
+echo "✅ [sentry-resolve-test] Sentry-Resolve-Guard vertragstreu (R1–R29)."

@@ -28,12 +28,15 @@
 # §5.10). Der Workflow automation-sentry-resolve.yml dispatcht genau diesen
 # Modus; der Tag-Vertrag (--version) bleibt unveraendert daneben bestehen.
 #
-# --ids kennt zusaetzlich --in-next-release (seit 27.11.2026): dann sendet der
-# Bulk-PUT den EIGENEN Sentry-Status "resolvedInNextRelease" (dokumentierter
-# status-Wert der API). Ein blosses status=resolved + statusDetails.inNextRelease
-# wird serverseitig still ignoriert — real beobachtet an #429/VIVID-5Q am
-# 28.11.2026: der PUT antwortete 200, das Issue blieb "resolved" mit leerem
-# statusDetails, also weiter offen fuer Events aus alten Builds.
+# --ids kennt zusaetzlich --in-next-release (seit 27.11.2026): dann setzt der
+# Guard je ID den EIGENEN Sentry-Status "resolvedInNextRelease" (dokumentierter
+# status-Wert der API) ueber den Einzel-Endpunkt /organizations/{org}/issues/{id}/
+# und prueft das Ergebnis an der Antwort. Beobachtet an #429/VIVID-5Q am
+# 28.11.2026: der Projekt-Bulk-PUT antwortete 200, ohne den Status zu setzen,
+# und auch der Einzel-PUT aenderte ein bereits geschlossenes Issue nicht.
+# Darum die dokumentierten Formen nacheinander (Status, statusDetails,
+# oeffnen+dann setzen); ein 200 allein gilt nie als Erfolg — bleibt der Status
+# aus, meldet der Guard FEHLER (exit 1), statt eine Schliessung zu behaupten.
 # Gedacht fuer Befunde, deren Fix mit einem konkreten Release erstmals
 # ausgeliefert wurde, ohne dass ein fix-release-Event-Tag existiert (#429 /
 # VIVID-5Q: Fix 1b74d05 erstmals in v0.5.51-beta). Ohne das Flag bleibt --ids
@@ -466,11 +469,11 @@ fi
 # die Header korrekt setzt (lokal gegen einen Echo-Server verifiziert). urllib
 # setzt Header und Body deterministisch und legt im Fehlerfall genau das ab,
 # was gesendet wurde.
-put_once() {  # $1=URL, $2=Antwortdatei -> HTTP-Code
+put_once() {  # $1=URL, $2=Body-Datei, $3=Antwortdatei -> HTTP-Code
   SENTRY_PUT_URL="$1" \
-  SENTRY_PUT_BODY_FILE="$tmp/put_body" \
+  SENTRY_PUT_BODY_FILE="$2" \
   SENTRY_PUT_TOKEN="$token" \
-  SENTRY_PUT_OUT="$2" \
+  SENTRY_PUT_OUT="$3" \
   python -X utf8 - 2>/dev/null <<'PY' || echo 000
 import os, urllib.error, urllib.request
 
@@ -524,6 +527,8 @@ details = data.get("statusDetails") or {}
 print("SENTRY-STATUS: %s → %s" % (issue_id, status))
 if want == "inNextRelease":
     ok = status == "resolvedInNextRelease" or details.get("inNextRelease") is True
+elif want == "unresolved":
+    ok = status == "unresolved"
 else:
     ok = status in ("resolved", "resolvedInNextRelease")
 sys.exit(0 if ok else 1)
@@ -534,55 +539,85 @@ if [ -n "$ids_norm" ] && [ "$in_next" = "1" ]; then
   # --ids + --in-next-release: ein PUT je ID an den Einzel-Endpunkt
   # /organizations/{org}/issues/{id}/. Der Projekt-Bulk-Endpunkt nimmt
   # `resolvedInNextRelease` zwar mit 200 an, setzt den Status aber nicht
-  # (#429/VIVID-5Q blieb nach dem Bulk-PUT "resolved" mit leerem
-  # statusDetails).
+  # (#429/VIVID-5Q blieb "resolved" mit leerem statusDetails), und auch der
+  # Einzel-PUT aendert ein bereits geschlossenes Issue nicht (Run 46119127974:
+  # PUT 200, Antwortstatus "resolved"). Darum die dokumentierten Formen
+  # nacheinander, jede mit Pruefung der Antwort:
+  #   1. eigener Status "resolvedInNextRelease"
+  #   2. "resolved" + statusDetails.inNextRelease
+  #   3. oeffnen ("unresolved"), danach 4. erneut "resolvedInNextRelease"
   untaken=""
   for id in $(printf '%s' "$ids" | tr ',' ' '); do
-    if [ -n "$FIXTURE" ]; then
-      code=$(cat "$FIXTURE/status" 2>/dev/null || echo 200)
-      resp="$FIXTURE/put-response-$id.json"
-    else
-      resp="/tmp/sentry_resolve_put.$id.$$.json"
-      code=$(put_once "$API/organizations/$ORG/issues/$id/" "$resp")
-    fi
-    echo "PUT $id → HTTP $code"
-    if [ -n "${SENTRY_RESOLVE_PUT_OUT:-}" ] && [ -s "$resp" ]; then
-      cp "$resp" "$SENTRY_RESOLVE_PUT_OUT"
-    fi
-    case "$code" in
-      200|204)
-        if [ -s "$resp" ]; then
-          vrc=0
-          verify_put_status "$resp" "$id" "inNextRelease" || vrc=$?
-          if [ "$vrc" = "1" ]; then
-            untaken="$untaken $id"
-            cp "$resp" "$tmp/untaken.$id.json" 2>/dev/null || true
+    taken=0
+    attempt=0
+    resp=""
+    for step in status details reopen after-reopen; do
+      attempt=$((attempt + 1))
+      case "$step" in
+        status)       body='{"status":"resolvedInNextRelease"}'; want="inNextRelease" ;;
+        details)      body='{"status":"resolved","statusDetails":{"inNextRelease":true}}'; want="inNextRelease" ;;
+        reopen)       body='{"status":"unresolved"}'; want="unresolved" ;;
+        after-reopen) body='{"status":"resolvedInNextRelease"}'; want="inNextRelease" ;;
+      esac
+      printf '%s' "$body" > "$tmp/put_body_attempt"
+      if [ -n "$FIXTURE" ]; then
+        code=$(cat "$FIXTURE/status" 2>/dev/null || echo 200)
+        resp="$FIXTURE/put-response-$id-$attempt.json"
+      else
+        resp="/tmp/sentry_resolve_put.$id.$attempt.$$.json"
+        code=$(put_once "$API/organizations/$ORG/issues/$id/" "$tmp/put_body_attempt" "$resp")
+      fi
+      echo "PUT $id (Versuch $attempt) → HTTP $code"
+      if [ -n "${SENTRY_RESOLVE_PUT_OUT:-}" ] && [ -s "$resp" ]; then
+        cp "$resp" "$SENTRY_RESOLVE_PUT_OUT"
+      fi
+      case "$code" in
+        200|204)
+          if [ ! -s "$resp" ]; then
+            # Fixture ohne put-response-<id>-<n>.json: keine Antwort zum
+            # Pruefen — dann gilt der Aufruf wie vor der Pruefung als erledigt.
+            taken=1
+            break
           fi
-        fi ;;
-      *)
-        if [ -s "$resp" ]; then
-          echo "API-ANTWORT: $(tr '\n' ' ' < "$resp" | cut -c1-300)"
-        fi
-        skip_putstatus "$code" ;;
-    esac
+          vrc=0
+          verify_put_status "$resp" "$id" "$want" || vrc=$?
+          if [ "$vrc" = "0" ]; then
+            if [ "$step" = "reopen" ]; then
+              continue    # Zwischenschritt: erst der naechste PUT setzt das Ziel.
+            fi
+            taken=1
+            break
+          fi ;;
+        *)
+          if [ -s "$resp" ]; then
+            echo "API-ANTWORT: $(tr '\n' ' ' < "$resp" | cut -c1-300)"
+          fi
+          skip_putstatus "$code" ;;
+      esac
+    done
+    if [ "$taken" = "0" ]; then
+      untaken="$untaken $id"
+      if [ -n "$resp" ] && [ -s "$resp" ]; then
+        cp "$resp" "$tmp/untaken.$id.json" 2>/dev/null || true
+      fi
+    fi
   done
   if [ -n "$untaken" ]; then
     first=$(printf '%s' "${untaken# }" | cut -d' ' -f1)
     echo "FEHLER: Sentry hat resolvedInNextRelease nicht uebernommen — IDs:$untaken"
     if [ -s "$tmp/untaken.$first.json" ]; then
-      echo "API-ANTWORT: $(tr '\n' ' ' < "$tmp/untaken.$first.json" | cut -c1-300)"
+      echo "API-ANTWORT: $(tr '\n' ' ' < "$tmp/untaken.$first.json" | cut -c1-600)"
     fi
-    echo "HINWEIS: die Antwort war HTTP 200, der Status kam aber nicht an — Issue in Sentry pruefen ($DOCS_HINT)."
+    echo "HINWEIS: jede dokumentierte Form kam mit HTTP 200 zurueck, ohne den Status zu setzen — Issue in Sentry pruefen ($DOCS_HINT)."
     exit 1
   fi
   echo "OK: $count Issue(s) als resolved (inNextRelease) markiert — IDs: $ids"
   exit 0
 fi
-
 if [ -n "$FIXTURE" ]; then
   putstatus=$(cat "$FIXTURE/status" 2>/dev/null || echo 200)
 else
-  putstatus=$(put_once "$(cat "$tmp/put_url")" "/tmp/sentry_resolve_put.$$.json")
+  putstatus=$(put_once "$(cat "$tmp/put_url")" "$tmp/put_body" "/tmp/sentry_resolve_put.$$.json")
 fi
 
 case "$putstatus" in
