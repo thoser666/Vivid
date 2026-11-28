@@ -28,15 +28,17 @@
 # §5.10). Der Workflow automation-sentry-resolve.yml dispatcht genau diesen
 # Modus; der Tag-Vertrag (--version) bleibt unveraendert daneben bestehen.
 #
-# --ids kennt zusaetzlich --in-next-release (seit 27.11.2026): dann setzt der
-# Guard je ID den EIGENEN Sentry-Status "resolvedInNextRelease" (dokumentierter
-# status-Wert der API) ueber den Einzel-Endpunkt /organizations/{org}/issues/{id}/
-# und prueft das Ergebnis an der Antwort. Beobachtet an #429/VIVID-5Q am
-# 28.11.2026: der Projekt-Bulk-PUT antwortete 200, ohne den Status zu setzen,
-# und auch der Einzel-PUT aenderte ein bereits geschlossenes Issue nicht.
-# Darum die dokumentierten Formen nacheinander (Status, statusDetails,
-# oeffnen+dann setzen); ein 200 allein gilt nie als Erfolg — bleibt der Status
-# aus, meldet der Guard FEHLER (exit 1), statt eine Schliessung zu behaupten.
+# --ids kennt zusaetzlich --in-next-release (seit 27.11.2026): dann resolvt der
+# Guard die IDs "in der naechsten Version" und prueft das Ergebnis an der
+# Antwort. Zwei Befunde vom 28.11.2026 an #429/VIVID-5Q: nur der PROJEKT-Bulk-
+# Endpunkt uebernimmt statusDetails.inNextRelease (die UI sendet dieselbe
+# Nutzlast, getsentry/sentry#66422); der Org-Einzel-Endpunkt /organizations/
+# {org}/issues/{id}/ verwirft die Details und resolvt "im aktuellen Release"
+# (Antwort trug statusDetails.inRelease). Und ein bereits geschlossenes Issue
+# nimmt Sentry nicht an (PUT 200, Status blieb "resolved") — deshalb oeffnet
+# die Kette das Issue und setzt den Status erneut. Ein 200 allein gilt nie als
+# Erfolg: bleibt der Status aus, meldet der Guard FEHLER (exit 1), statt eine
+# Schliessung zu behaupten.
 # Gedacht fuer Befunde, deren Fix mit einem konkreten Release erstmals
 # ausgeliefert wurde, ohne dass ein fix-release-Event-Tag existiert (#429 /
 # VIVID-5Q: Fix 1b74d05 erstmals in v0.5.51-beta). Ohne das Flag bleibt --ids
@@ -524,7 +526,8 @@ if not isinstance(data, dict) or "status" not in data:
     sys.exit(2)
 status = data.get("status") or ""
 details = data.get("statusDetails") or {}
-print("SENTRY-STATUS: %s → %s" % (issue_id, status))
+detail_txt = json.dumps(details, ensure_ascii=False)
+print("SENTRY-STATUS: %s → %s %s" % (issue_id, status, detail_txt[:200]))
 if want == "inNextRelease":
     ok = status == "resolvedInNextRelease" or details.get("inNextRelease") is True
 elif want == "unresolved":
@@ -536,36 +539,44 @@ PY
 }
 
 if [ -n "$ids_norm" ] && [ "$in_next" = "1" ]; then
-  # --ids + --in-next-release: ein PUT je ID an den Einzel-Endpunkt
-  # /organizations/{org}/issues/{id}/. Der Projekt-Bulk-Endpunkt nimmt
-  # `resolvedInNextRelease` zwar mit 200 an, setzt den Status aber nicht
-  # (#429/VIVID-5Q blieb "resolved" mit leerem statusDetails), und auch der
-  # Einzel-PUT aendert ein bereits geschlossenes Issue nicht (Run 46119127974:
-  # PUT 200, Antwortstatus "resolved"). Darum die dokumentierten Formen
-  # nacheinander, jede mit Pruefung der Antwort:
-  #   1. eigener Status "resolvedInNextRelease"
-  #   2. "resolved" + statusDetails.inNextRelease
-  #   3. oeffnen ("unresolved"), danach 4. erneut "resolvedInNextRelease"
+  # --ids + --in-next-release: Projekt-Bulk-Endpunkt je ID. Nur er uebernimmt
+  # statusDetails.inNextRelease (die Sentry-UI sendet genau diese Nutzlast:
+  # {"status":"resolved","statusDetails":{"inNextRelease":true},"substatus":null},
+  # getsentry/sentry#66422); der Org-Einzel-Endpunkt verwirft die Details und
+  # resolvt "im aktuellen Release" — real beobachtet an #429/VIVID-5Q: die
+  # Antwort trug statusDetails.inRelease statt inNextRelease.
+  # Ein bereits geschlossenes Issue nimmt Sentry nicht an (Run 46121135449:
+  # PUT 200, Status blieb "resolved"), darum oeffnen und erneut setzen.
+  bulk_url="$API/projects/$ORG/$PROJECT_SLUG/issues/?id="
   untaken=""
   for id in $(printf '%s' "$ids" | tr ',' ' '); do
     taken=0
     attempt=0
     resp=""
-    for step in status details reopen after-reopen; do
+    for step in resolve reopen resolve-again own-status; do
       attempt=$((attempt + 1))
       case "$step" in
-        status)       body='{"status":"resolvedInNextRelease"}'; want="inNextRelease" ;;
-        details)      body='{"status":"resolved","statusDetails":{"inNextRelease":true}}'; want="inNextRelease" ;;
-        reopen)       body='{"status":"unresolved"}'; want="unresolved" ;;
-        after-reopen) body='{"status":"resolvedInNextRelease"}'; want="inNextRelease" ;;
+        resolve|resolve-again)
+          body='{"status":"resolved","statusDetails":{"inNextRelease":true},"substatus":null}'
+          want="inNextRelease" ;;
+        reopen)
+          body='{"status":"unresolved"}'
+          want="unresolved" ;;
+        own-status)
+          body='{"status":"resolvedInNextRelease"}'
+          want="inNextRelease" ;;
       esac
       printf '%s' "$body" > "$tmp/put_body_attempt"
+      # Selbsttest-Hook: der zuletzt gesendete Body, nicht der Phase-A-Entwurf.
+      if [ -n "${SENTRY_RESOLVE_BODY_OUT:-}" ]; then
+        cp "$tmp/put_body_attempt" "$SENTRY_RESOLVE_BODY_OUT"
+      fi
       if [ -n "$FIXTURE" ]; then
         code=$(cat "$FIXTURE/status" 2>/dev/null || echo 200)
         resp="$FIXTURE/put-response-$id-$attempt.json"
       else
         resp="/tmp/sentry_resolve_put.$id.$attempt.$$.json"
-        code=$(put_once "$API/organizations/$ORG/issues/$id/" "$tmp/put_body_attempt" "$resp")
+        code=$(put_once "$bulk_url$id" "$tmp/put_body_attempt" "$resp")
       fi
       echo "PUT $id (Versuch $attempt) → HTTP $code"
       if [ -n "${SENTRY_RESOLVE_PUT_OUT:-}" ] && [ -s "$resp" ]; then

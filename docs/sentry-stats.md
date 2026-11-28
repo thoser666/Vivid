@@ -200,14 +200,19 @@ Mechanik:
    ```bash
    curl -sS -X PUT -H "Authorization: Bearer $SENTRY_RESOLVE_TOKEN" \
      -H "Content-Type: application/json" \
-     -d '{"status":"resolvedInNextRelease"}' \
+     -d '{"status":"resolved","statusDetails":{"inNextRelease":true},"substatus":null}' \
      "https://sentry.io/api/0/projects/privat-jb/vivid/issues/?id=7821630074&id=7821627754"
    ```
 
-   Beide Wege setzen den Sentry-Status `{"status":"resolvedInNextRelease"}` (die
-   Kombination `status=resolved` + `statusDetails.inNextRelease` quittiert die
-   API mit 200, übernimmt sie aber nicht — am 28.11.2026 an #429/VIVID-5Q
-   beobachtet: Status blieb `resolved`);
+   Beide Wege schicken `{"status":"resolved","statusDetails":{"inNextRelease":true},"substatus":null}`
+   — genau die Nutzlast der Sentry-UI. Wichtig ist der **Endpunkt**: nur der
+   Projekt-Bulk-Endpunkt `/projects/{org}/{project}/issues/` übernimmt
+   `statusDetails`; der Org-Einzel-Endpunkt `/organizations/{org}/issues/{id}/`
+   verwirft sie und resolvt „im aktuellen Release“ (Antwort trägt dann
+   `statusDetails.inRelease`, am 28.11.2026 an #429/VIVID-5Q beobachtet,
+   getsentry/sentry#66422). Ein bereits geschlossenes Issue nimmt Sentry
+   ebenfalls nicht an — deshalb öffnet `check_sentry_resolve.sh` es vorher
+   einmal und prüft nach jedem PUT den zurückgemeldeten Status;
    **Sentry schließt die Gruppe automatisch**, sobald Events aus genau dieser
    Release eintreffen — semantisch „Resolved in next release". Events aus
    älteren Builds öffnen sie wieder.

@@ -44,7 +44,8 @@
 #   R25 Plain-Vertrag: resolved Issue ohne Flag wird nicht angefasst
 #   R27 HTTP 200 ohne Statuswechsel -> FEHLER (Sentry nahm den PUT an, setzte nichts)
 #   R28 vom PUT zurueckgemeldeter Status resolvedInNextRelease -> OK
-#   R29 Rueckfall: erster PUT wirkungslos, statusDetails.inNextRelease greift
+#   R29 Ablauf am geschlossenen Issue: PUT wirkungslos, oeffnen, erneut resolven
+#   R30 der Pfad laeuft ueber den Projekt-Bulk-Endpunkt (nur er nimmt die Details)
 #   R26 Sentry-Status "resolvedInNextRelease" gilt als erledigt (kein PUT); sonst
 #       meldet ein Dry-Run die ID nach erfolgreichem PUT weiter als offen
 #   R13 VIVID_REPO_ROOT (#250): der Guard darf aus $RUNNER_TEMP aufgerufen
@@ -272,10 +273,11 @@ out_r19=$(SENTRY_RESOLVE_FIXTURE="$tmp/match" SENTRY_RESOLVE_BODY_OUT="$body_r19
   bash "$guard" --ids 100 --in-next-release) || fail "R19: --in-next-release darf nicht scheitern"
 grep -q "^OK: 1 Issue(s) als resolved (inNextRelease) markiert — IDs: 100" <<<"$out_r19" || \
   fail "R19: inNextRelease-Verdict fuer --ids erwartet"
-grep -q '"status": "resolvedInNextRelease"' "$body_r19" || \
-  fail "R19: PUT-Body ohne status=resolvedInNextRelease (statusDetails.inNextRelease wird von Sentry ignoriert)"
-grep -q '"status": "resolved"' "$body_r19" && \
-  fail "R19: blosser resolved-Status laesst die Gruppe bei alten Events wieder aufgehen"
+grep -q '"status":"resolved"' "$body_r19" || fail "R19: PUT-Body ohne status=resolved"
+grep -q '"inNextRelease":true' "$body_r19" || \
+  fail "R19: PUT-Body ohne statusDetails.inNextRelease (nur der Projekt-Bulk-Endpunkt uebernimmt das)"
+grep -q '"substatus":null' "$body_r19" || \
+  fail "R19: PUT-Body ohne substatus=null (die Sentry-UI sendet das Feld mit)"
 
 # R20 Gegenprobe: ohne Flag bleibt es beim blossen resolved (der bisherige
 # Vertrag fuer "kein Defekt"-Entscheide darf nicht mitkippen).
@@ -318,8 +320,8 @@ out_r23=$(SENTRY_RESOLVE_FIXTURE="$tmp/upgrade" SENTRY_RESOLVE_BODY_OUT="$body_r
   bash "$guard" --ids 100 --in-next-release) || fail "R23: Upgrade eines resolved Issues darf nicht scheitern"
 grep -q "^OK: 1 Issue(s) als resolved (inNextRelease) markiert — IDs: 100" <<<"$out_r23" || \
   fail "R23: resolved Issue muss mit --in-next-release nachgezogen werden"
-grep -q '"status": "resolvedInNextRelease"' "$body_r23" || \
-  fail "R23: PUT-Body ohne status=resolvedInNextRelease"
+grep -q '"inNextRelease":true' "$body_r23" || \
+  fail "R23: PUT-Body ohne statusDetails.inNextRelease"
 grep -q "nicht unter den unresolved Issues" <<<"$out_r23" && fail "R23: nachgeladene ID darf nicht als fehlend gemeldet werden"
 
 # R24 Gegenprobe: schon inNextRelease -> nichts zu tun, kein PUT.
@@ -420,15 +422,29 @@ cat > "$tmp/fallback/put-response-100-1.json" <<'JSON'
 {"id": "100", "status": "resolved", "statusDetails": {}}
 JSON
 cat > "$tmp/fallback/put-response-100-2.json" <<'JSON'
+{"id": "100", "status": "unresolved", "statusDetails": {}}
+JSON
+cat > "$tmp/fallback/put-response-100-3.json" <<'JSON'
 {"id": "100", "status": "resolved", "statusDetails": {"inNextRelease": true}}
 JSON
 out_r29=$(SENTRY_RESOLVE_FIXTURE="$tmp/fallback" bash "$guard" --ids 100 --in-next-release) || \
-  fail "R29: Rueckfall ueber statusDetails.inNextRelease darf nicht scheitern"
+  fail "R29: Oeffnen und erneut resolven darf nicht scheitern"
 grep -q "^OK: 1 Issue(s) als resolved (inNextRelease) markiert — IDs: 100" <<<"$out_r29" || \
-  fail "R29: OK-Verdict nach dem Rueckfall erwartet"
+  fail "R29: OK-Verdict nach Oeffnen und erneutem Resolve erwartet"
 grep -q "PUT 100 (Versuch 2)" <<<"$out_r29" || \
-  fail "R29: der zweite Versuch muss im Log stehen"
-grep -q "PUT 100 (Versuch 3)" <<<"$out_r29" && \
+  fail "R29: das Oeffnen muss im Log stehen"
+grep -q "PUT 100 (Versuch 3)" <<<"$out_r29" || \
+  fail "R29: der dritte Versuch muss das Ziel setzen"
+grep -q "PUT 100 (Versuch 4)" <<<"$out_r29" && \
   fail "R29: nach dem Treffer darf kein weiterer PUT folgen"
 
-echo "✅ [sentry-resolve-test] Sentry-Resolve-Guard vertragstreu (R1–R29)."
+# R30 Der Endpunkt entscheidet: nur der Projekt-Bulk-Endpunkt uebernimmt
+# statusDetails.inNextRelease, der Org-Einzel-Endpunkt verwirft es (#66422).
+# Ohne diese Zeile waere ein Rueckfall auf /organizations/{org}/issues/{id}/
+# still moeglich, ohne dass ein Test rot wird.
+grep -qF 'bulk_url="$API/projects/$ORG/$PROJECT_SLUG/issues/?id="' "$guard" || \
+  fail "R30: inNextRelease muss ueber den Projekt-Bulk-Endpunkt laufen"
+grep -qF '"$API/organizations/$ORG/issues/$id/"' "$guard" && \
+  fail "R30: der Org-Einzel-Endpunkt verwirft statusDetails.inNextRelease"
+
+echo "✅ [sentry-resolve-test] Sentry-Resolve-Guard vertragstreu (R1–R30)."
